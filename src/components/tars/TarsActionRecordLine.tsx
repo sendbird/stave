@@ -1,3 +1,4 @@
+import { TarsWorkspaceRecord } from "./TarsWorkspaceReceipt";
 import { useTarsSnapshotStore } from "@/store/tars-snapshot-store";
 import { hasEndedTarsExecution } from "@/lib/tars/continuation";
 import { describeTarsQueueWait } from "@/lib/tars/detail";
@@ -40,7 +41,7 @@ function TarsDeliveryWithdrawal({ record }: { record: TarsActionRecord }) {
   const { t } = useTranslation(["shell"]);
   const undo = useTarsActionUndo(record);
   const current = undo.record;
-  const row = useTarsSnapshotStore(state => state.snapshot?.responsibilities.find(item => item.id === record.action.responsibilityId));
+  const row = useTarsSnapshotStore(state => state.snapshot?.responsibilities.find(item => item.id === ("responsibilityId" in record.action ? record.action.responsibilityId : null)));
   const wait = current.delivery?.status === "queued" && row && hasEndedTarsExecution(row) && row.queueWait ? describeTarsQueueWait(row) : null;
   const checking = Boolean(current.delivery?.withdrawRequestedAt);
   return <DeliveryLine delivery={current.delivery!} wait={wait}>
@@ -83,6 +84,7 @@ export function TarsActionRecordLine({ record, title }: { record: TarsActionReco
   const actorOf = useTarsDirectActor();
   const undo = useTarsActionUndo(record);
   const { action, source } = record;
+  if (action.kind === "workspace") return <TarsWorkspaceRecord record={record} />;
   const status = lineStatus(record);
   const lead = action.kind === "move"
     ? t(`shell:tars.record.move.${source === "drag" ? "drag" : "click"}.${action.move.direction}`)

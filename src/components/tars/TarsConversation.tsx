@@ -1,3 +1,4 @@
+import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Clock, FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
@@ -15,7 +16,7 @@ import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import { transcriptWidthStyles, useTranscriptWidthTheme } from "@/components/ai-elements/transcript-width";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
-import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsDismissInput, TarsMessageView } from "@/lib/tars/conversation";
+import type { TarsActionRecord, TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsDismissInput, TarsMessageView } from "@/lib/tars/conversation";
 import {
   bindTarsShortAnswer, projectTarsDecisions, selectAnswerableTarsDecisions, tarsUnverifiedDecisionId, type TarsDecisionView,
 } from "@/lib/tars/decisions";
@@ -111,7 +112,8 @@ function TarsPublishProposal({ view, publish, titleOf, matchedRules }: { view: T
     onPublish={view.checked ? (words, source) => publish.onPublish({ id: view.requestId, responsibilityId: row.id, expectedRevision: view.expectedRevision }, words, source) : undefined} />;
 }
 
-export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, schedule, onOpenWaiting }: {
+export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, schedule, onOpenWaiting, records }: {
+  records?: readonly TarsActionRecord[];
   message: TarsMessageView; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   /** Puts a failed message's words back in the message box; absent, its failure offers no action. */
   onResend?: () => void;
@@ -140,7 +142,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   const publishViews = new Map((publish?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const clearViews = new Map((clear?.available ? clear.proposals : []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   // An applied delegation reads as its flow block, and a decision as its card, so their receipt lines would only repeat them.
-  const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: cards.get(receipt.actionIndex) ?? null }));
+  const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: receipt.action.kind === "workspace" && receipt.status === "applied" ? null : cards.get(receipt.actionIndex) ?? null }));
   const scheduleViews = new Map((schedule?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex) && !clearViews.has(entry.receipt.actionIndex) && !scheduleViews.has(entry.receipt.actionIndex))
     .map((entry) => entry.receipt);
@@ -172,7 +174,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
     message.decision?.dropped?.length ? <TarsRecordList key="dropped"><TarsRecordRow state="skipped"
       subject={t("shell:tars.conversation.droppedActions", { count: message.decision.dropped.length })} data-tars-dropped-actions={message.decision.dropped.length} /></TarsRecordList> : null,
     lines.length ? <TarsRecordList key="lines" aria-label={t("shell:tars.conversation.actions")}>
-      {lines.map((receipt) => <TarsReceiptRow key={receipt.actionIndex} receipt={receipt} titleOf={titleOf} agentNameOf={agentNameOf} />)}
+      {lines.map((receipt) => <TarsReceiptRow key={receipt.actionIndex} receipt={receipt} titleOf={titleOf} agentNameOf={agentNameOf} record={records?.find(record => record.requestId === tarsWorkspaceRecordId(receipt.messageId, receipt.actionIndex))} workspaceNameOf={context?.workspaceNameOf} />)}
     </TarsRecordList> : null,
     ...flowed.map(({ receipt, card }) => card
       ? card.state === "waiting" && onOpenWaiting ? <TarsWaitingRecord key={`decision:${receipt.actionIndex}`} id={card.id} subject={describeTarsDecisionSubject(card, titleOf)} onOpen={() => onOpenWaiting(card.id)} />
@@ -293,7 +295,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     ...selectTarsActivityNotices(state.conversation?.activity ?? [], state.conversation?.records ?? [])
       .map((value) => ({ kind: "activity" as const, id: `activity:${value.activity.id}`, at: value.activity.createdAt, value })),
     // A decision's own record shows on its card, never twice.
-    ...(state.conversation?.records ?? []).filter((value) => !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
+    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
       .map((value) => ({ kind: "record" as const, id: `record:${value.requestId}`, at: value.createdAt, value })),
     // A card the user opened leaves its confirmation's outcome where it was confirmed.
     ...(publish?.records ?? []).map((value) => ({ kind: "publish" as const, id: `publish:${value.requestId}`, at: value.createdAt, value })),
@@ -402,7 +404,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     decisions.find((view) => view.id === tarsUnverifiedDecisionId(activity.responsibilityId, activity.revision));
   /** One timeline entry: a message's exchange or a card in the flow, or a record that joins its neighbours' list. */
   const nodeOf = (item: (typeof timeline)[number]): TarsTranscriptEntry["node"] => {
-    if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
+    if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} records={state.conversation?.records} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
       onResend={() => resend(item.value)}
       titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} schedule={schedule} onOpenWaiting={openWaiting} />;
     if (item.kind === "schedule") return { record: <TarsScheduleRecordLine key={item.id} record={item.value} /> };
@@ -411,7 +413,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       onUndo={clear ? () => void clear.undo(item.value.requestId) : undefined} /> };
     if (item.kind === "publish") return { record: <TarsPublishRecordLine key={item.id} record={item.value} row={publish?.rowOf(item.value.responsibilityId)}
       title={titleOf?.(item.value.responsibilityId)} onRetry={publish?.retryFor(item.value) ?? undefined} /> };
-    if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.(item.value.action.responsibilityId)} /> };
+    if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.("responsibilityId" in item.value.action ? item.value.action.responsibilityId : "")} /> };
     if (item.kind === "event") return { record: <TarsRecordRow key={item.id} state="halted" data-tars-follow-up-exhausted={item.value.responsibilityId} at={item.at}
       subject={t("shell:tars.followUp.exhausted", { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })} /> };
     // Stave's unverified-completion choice is a decision card where its blocked notice would be.

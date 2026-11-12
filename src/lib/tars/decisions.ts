@@ -73,12 +73,12 @@ export function describeTarsControlInput(control: ControlRequest, row: Pick<Tars
     truncated: request?.truncated === true, source: request ? { taskId: request.taskId, workspaceId: request.workspaceId } : null };
 }
 
-/** The work actions the host can hold as a proposal: new work, or a priority change. */
-export type TarsWorkProposalAction = Extract<TarsDecisionAction, { kind: "delegate" | "reprioritize" }>;
+/** Actions held by the shared proposal path: new work, priority changes and workspace information edits. */
+export type TarsWorkProposalAction = Extract<TarsDecisionAction, { kind: "delegate" | "reprioritize" | "workspace" }>;
 
 /** Whether a receipt is a work proposal the host held (or had held) for the user's confirmation. */
 export function isTarsWorkProposal<R extends Pick<TarsActionReceipt, "action">>(receipt: R): receipt is R & { action: TarsWorkProposalAction } {
-  return receipt.action.kind === "delegate" || receipt.action.kind === "reprioritize";
+  return receipt.action.kind === "delegate" || receipt.action.kind === "reprioritize" || receipt.action.kind === "workspace";
 }
 
 /**
@@ -398,7 +398,7 @@ export function describeTarsDecisionForModel(view: TarsDecisionView): string {
     `${index + 1}. ${option.kind === "verify" || option.kind === "proposal" ? option.kind : option.label ?? option.kind}`).join("; ")}`;
   const first = view.options[0];
   // i18n-ignore: model-facing context
-  if (first?.kind === "proposal") return first.action.kind === "delegate" ? `Proposed new work "${first.action.title}", waiting for the user's confirmation.`
+  if (first?.kind === "proposal") return first.action.kind === "workspace" ? `Proposed workspace edit ${first.action.operation} in ${first.action.workspaceId}.` : first.action.kind === "delegate" ? `Proposed new work "${first.action.title}", waiting for the user's confirmation.`
     : `Proposed priority ${first.action.priority} for responsibility ${first.action.responsibilityId} at revision ${first.action.expectedRevision}.`;
   const control = first?.kind === "control" ? first.control : null;
   // i18n-ignore: model-facing context

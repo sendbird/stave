@@ -104,6 +104,29 @@ does not execute while Stave is closed or the computer is asleep; it catches up
 when Stave starts again. The browser-only development runtime has no Tars
 service.
 
+## Edit workspace information
+
+Ask Tars to add notes, track or update a todo, set an existing custom field,
+or link a resource in a registered workspace. For example, “Add a release-check
+todo to the API workspace” or “Link this pull request in the release workspace.”
+These requests edit the Information panel directly without starting a coding task.
+Tars can append or replace notes, add/update/remove todos, set/remove existing
+fields, and add/remove supported resources. It cannot create a field through
+this action. If an existing item's ID is unavailable, Tars asks for the target
+rather than guessing. Workspace creation and reading/inspection are separate
+from these information edits; scheduled work keeps its existing confirmation flow.
+
+Edits apply at once at every autonomy level. **Careful** asks for confirmation
+before replacing notes or removing a todo, field or resource; other levels apply
+those edits immediately. A matching **Never do** rule still asks first.
+Every applied edit leaves a translated receipt and an activity record with
+**Undo**. Undo restores the saved prior Information panel, including deleted
+item IDs and metadata. It refuses if any information changed afterward or the
+workspace no longer belongs to the same registered repository, preserving newer
+user edits. Retrying a saved action or its confirmation never repeats the edit.
+Only known, uniquely registered workspaces can be changed. Automatic follow-ups
+cannot edit workspace information.
+
 ## Attach files
 
 Use **Attach files** beside **Send**, or drop or paste files onto the input.

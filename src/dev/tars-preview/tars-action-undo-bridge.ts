@@ -17,18 +17,20 @@ export function previewTarsActionUndo(ports: { conversation: Pick<TarsConversati
       record.revision++; record.updatedAt = at; ports.changed();
       return { record: structuredClone(record), refusal: ports.deliveryOutcome ?? null };
     }
+    if (record.action.kind === "workspace") return { record, refusal: "unsupported" };
+    const responsibilityId = record.action.responsibilityId;
     const snapshot = ports.getSnapshot(), undo = record.undo!;
     if (undo.kind === "queue") {
       const queue = snapshot.responsibilities.filter((row) => row.state === "queued");
       if (queue.length !== undo.queue.length || queue.some((row) => !undo.queue.some((saved) => saved.id === row.id && saved.revision === row.revision))) return { record, refusal: "stale" };
     } else if (undo.kind === "unstarted") {
-      const row = snapshot.responsibilities.find((row) => row.id === record.action.responsibilityId);
+      const row = snapshot.responsibilities.find((row) => row.id === responsibilityId);
       if (row?.revision !== undo.afterRevision) return { record, refusal: "stale" };
     }
     ports.setSnapshot({ ...snapshot, responsibilities: snapshot.responsibilities.map((row) => {
       const prior = undo.kind === "queue" ? undo.priorities.find((prior) => prior.id === row.id) : undefined;
       return prior ? { ...row, priority: prior.before, revision: row.revision + 1 }
-        : undo.kind === "unstarted" && row.id === record.action.responsibilityId
+        : undo.kind === "unstarted" && row.id === responsibilityId
           ? { ...row, state: "queued", detail: undo.detail, detailCode: undo.detailCode, detailParams: undo.detailParams, revision: row.revision + 1 } : row;
     }) });
     record.undo!.undoneAt = new Date().toISOString(); record.revision++;

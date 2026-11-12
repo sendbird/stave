@@ -176,6 +176,7 @@ export function tarsActionLedger(conversations: TarsConversationStore, requestId
     } } : {}),
     apply: (effect) => conversations.applyAction(requestId, () => {
       const record = conversations.getAction(requestId)!;
+      if (record.action.kind !== "control") throw new Error("The record is not a control.");
       const before = responsibilities?.get(record.action.responsibilityId) ?? null;
       effect();
       return captureTarsControlUndo(record.action, before, responsibilities?.get(record.action.responsibilityId) ?? null);

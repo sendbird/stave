@@ -22,6 +22,7 @@ const OUT_OF_REACH = new Set(["paused", "takenOver", "cancelled", "completed"]);
  * paused or took over, or work that ended.
  */
 export function tarsFollowUpRefusal(action: TarsDecisionAction, _origin: FollowUpOrigin, responsibilities: Pick<TarsStore, "get">): string | null {
+  if (action.kind === "workspace") return "An automatic follow-up cannot edit workspace information; only the user can request it.";
   if (action.kind === "delegate") return "An automatic follow-up cannot start work; it can ask whether the user wants it.";
   if (action.kind === "reprioritize") return "An automatic follow-up cannot change a priority; it can ask whether the user wants it.";
   // Publishing needs the user's own words; a follow-up may only ask whether they want it.

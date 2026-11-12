@@ -1,7 +1,8 @@
+import { TarsWorkspaceReceipt } from "./TarsWorkspaceReceipt";
 import { Bot } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatList } from "@/i18n/format";
-import type { TarsActionReceipt } from "@/lib/tars/conversation";
+import type { TarsActionReceipt, TarsActionRecord } from "@/lib/tars/conversation";
 import { tarsControlReasonKey, tarsDelegateReasonKey } from "@/lib/tars/control-reasons";
 import { TarsPublishReasonSchema } from "@/lib/tars/publication";
 import { tarsScheduleReasonKey } from "@/lib/tars/schedule-view";
@@ -23,6 +24,7 @@ const RECEIPT_STATE: Record<TarsActionReceipt["status"], TarsRecordState> = { ap
 export function tarsReceiptStatusKey(receipt: Pick<TarsActionReceipt, "status" | "action">) {
   if (receipt.status !== "applied") return `shell:tars.conversation.receipts.${receipt.status}` as const;
   const { action } = receipt;
+  if (action.kind === "workspace") return "shell:tars.conversation.receipts.appliedAction.workspace" as const;
   if (action.kind === "schedule") return `shell:tars.conversation.receipts.appliedAction.${action.operation === "list" ? "scheduleList" : "schedule"}` as const;
   return `shell:tars.conversation.receipts.appliedAction.${action.kind === "control" ? action.operation : action.kind}` as const;
 }
@@ -33,13 +35,16 @@ export function tarsReceiptStatusKey(receipt: Pick<TarsActionReceipt, "status" |
  * the agent it named, how the host took it, and on its own line why it was
  * not applied.
  */
-export function TarsReceiptRow({ receipt, titleOf, agentNameOf }: {
+export function TarsReceiptRow({ receipt, titleOf, agentNameOf, record, workspaceNameOf }: {
   receipt: TarsActionReceipt;
+  record?: TarsActionRecord;
+  workspaceNameOf?: (id: string) => string | undefined;
   titleOf?: (responsibilityId: string) => string | undefined;
   agentNameOf?: (agentId: string) => string | undefined;
 }) {
   const { t } = useTranslation(["shell"]);
   const { action } = receipt;
+  if (action.kind === "workspace") return <TarsWorkspaceReceipt receipt={receipt} record={record} workspaceName={workspaceNameOf?.(action.workspaceId)} />;
   const work = (id: string) => <TarsWorkChip key="work" title={titleOf?.(id) ?? id} responsibilityId={id} />;
   // A delegation names work that exists once it is applied; until then its title is only words.
   const [lead, subject, chip] = action.kind === "delegate"

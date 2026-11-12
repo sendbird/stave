@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TarsWorkspaceActionSchema } from "./workspace-action";
 import { TarsCompletionGoalSchema } from "./completion";
 import { AttachmentContextsSchema, type AttachmentContext } from "../providers/attachment-context";
 import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
@@ -294,6 +295,7 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [
   TarsPublishActionSchema,
   TarsClearActionSchema,
   TarsScheduleActionSchema,
+  TarsWorkspaceActionSchema,
 ]);
 export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
 
@@ -471,7 +473,7 @@ export function tarsMessageView(message: TarsMessage): TarsMessageView {
  * user: every act except a view and the controls that only reduce what Tars
  * does (pause, takeover, deny), which always apply at once.
  */
-export function isTarsHoldableAction(action: { kind: string; operation?: TarsControlOperation }): boolean {
+export function isTarsHoldableAction(action: { kind: string; operation?: string }): boolean {
   const key = tarsActionKey(action);
   return key !== null && key !== "show" && key !== "pause" && key !== "takeover" && key !== "deny";
 }
@@ -498,7 +500,7 @@ export const TarsActionReceiptSchema = z.object({
   const proposable = receipt.action.kind === "ask"
     || (receipt.action.kind === "schedule" ? receipt.action.operation !== "list" : isTarsHoldableAction(receipt.action));
   // A clear or a schedule belongs to no responsibility, so its applied receipt names none.
-  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw";
+  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw" || receipt.action.kind === "workspace";
   // An automatic follow-up's refusal carries its one code on any kind of action.
   const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "reprioritize" || receipt.action.kind === "withdraw"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
@@ -624,15 +626,15 @@ export const TarsActionRecordSourceSchema = z.enum([...TarsActSourceSchema.optio
 export type TarsActionRecordSource = z.infer<typeof TarsActionRecordSourceSchema>;
 
 /**
- * Timeline record of a direct control or queue move. It is never a user
- * message or a model proposal. Records saved before queue moves existed are
+ * Timeline record of a direct control, queue move or applied workspace edit.
+ * It is never a user message or an unapplied model proposal. Records saved before queue moves existed are
  * all controls.
  */
 export const TarsActionRecordSchema = z.object({
   requestId: IdSchema,
   source: TarsActionRecordSourceSchema,
   requestHash: z.string().regex(/^[a-f0-9]{64}$/),
-  action: z.discriminatedUnion("kind", [TarsControlActionSchema, TarsQueueMoveActionSchema]),
+  action: z.discriminatedUnion("kind", [TarsControlActionSchema, TarsQueueMoveActionSchema, TarsWorkspaceActionSchema]),
   status: z.enum(["pending", "applied", "rejected"]),
   /** English diagnostic for logs and support; the interface shows the translated `reason`. */
   error: ErrorSchema.nullable(),
@@ -650,7 +652,7 @@ export const TarsActionRecordSchema = z.object({
   const rejected = record.status === "rejected";
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (rejected !== (record.error !== null) || rejected !== (record.reason !== null)) context.addIssue({ code: "custom", message: "Record status and outcome fields disagree." });
-  if (record.undo && (record.status !== "applied" || (record.undo.kind === "queue" ? record.action.kind !== "move"
+  if (record.undo && (record.status !== "applied" || (record.undo.kind === "workspace" ? record.action.kind !== "workspace" : record.undo.kind === "queue" ? record.action.kind !== "move"
     : record.undo.kind === "delivery" ? record.action.kind !== "control" || record.action.operation !== "message" || !record.delivery
       : record.action.kind !== "control" || (record.action.operation !== "pause" && record.action.operation !== "takeover"))))
     // i18n-ignore: persisted-state integrity diagnostic
@@ -784,8 +786,8 @@ export const ApplyTarsDecisionInputSchema = CancelTarsMessageInputSchema;
 export type ApplyTarsDecisionInput = z.infer<typeof ApplyTarsDecisionInputSchema>;
 
 /**
- * The user's confirmation of a held work proposal (a delegation or a priority
- * change). It names the saved receipt only; the host applies that saved
+ * The user's confirmation of a held proposal (delegation, priority change or
+ * workspace information edit). It names the saved receipt only; the host applies that saved
  * action through the same admission as an unheld one.
  */
 export const ConfirmTarsProposalInputSchema = z.object({

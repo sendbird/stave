@@ -1198,6 +1198,10 @@
         "clearDone": {
           "label": "끝난 일 정리",
           "prompt": "끝남 목록의 끝난 일을 정리해 줘."
+        },
+        "workspace": {
+          "label": "할 일 기록하기",
+          "prompt": "이 워크스페이스에 릴리스 검사 결과를 확인하는 할 일을 추가해줘."
         }
       },
       "repositories": {
@@ -1336,7 +1340,8 @@
           "clear": "정리됨",
           "schedule": "적용됨",
           "scheduleList": "목록 열림",
-          "withdraw": "거둬들임"
+          "withdraw": "거둬들임",
+          "workspace": "정보 수정됨"
         }
       },
       "delegateAgent": "에이전트: {{name}}",
@@ -2438,7 +2443,9 @@
         "skipStage": "단계 건너뛰기",
         "acceptCompletion": "Stave가 확인하지 못한 완료 수락",
         "approve": "도구 요청 승인",
-        "publish": "커밋, 푸시, 초안 풀 리퀘스트 열기"
+        "publish": "커밋, 푸시, 초안 풀 리퀘스트 열기",
+        "workspaceEdit": "워크스페이스 정보 수정",
+        "workspaceReplace": "메모 교체 및 정보 삭제"
       },
       "unavailable": {
         "merge": "병합",
@@ -2473,19 +2480,23 @@
       "proposal": {
         "title": {
           "delegate": "이 작업을 시작할까요?",
-          "reprioritize": "이 작업의 우선순위를 바꿀까요?"
+          "reprioritize": "이 작업의 우선순위를 바꿀까요?",
+          "workspace": "워크스페이스 정보를 수정할까요?"
         },
         "effect": {
           "delegate": "Tars가 이 작업을 대기열에 넣고 자리가 나면 시작합니다.",
-          "reprioritize": "작업이 대기열에서 우선순위 {{priority}}(으)로 이동합니다."
+          "reprioritize": "작업이 대기열에서 우선순위 {{priority}}(으)로 이동합니다.",
+          "workspace": "로컬 정보 패널을 수정하고 되돌리기 기록을 남깁니다. 이후 정보가 변경되면 되돌릴 수 없습니다."
         },
         "subject": {
           "delegate": "{{title}} 시작",
-          "reprioritize": "{{title}} 우선순위 변경"
+          "reprioritize": "{{title}} 우선순위 변경",
+          "workspace": "{{title}}의 정보 수정"
         },
         "action": {
           "delegate": "작업 시작",
-          "reprioritize": "우선순위 변경"
+          "reprioritize": "우선순위 변경",
+          "workspace": "수정 확인"
         }
       },
       "detailsTitle": "동작별 실행·확인 기준"
@@ -2753,6 +2764,33 @@
         "mergeUnknown": "PR은 기록됐습니다. CI와 머지는 확인하지 않았습니다",
         "publishing": "Draft PR 게시 중입니다. 실제 결과를 기다리고 있습니다"
       }
+    },
+    "workspaceAction": {
+      "applied": {
+        "appendNotes": "{{workspace}}에 메모 추가: {{text}}",
+        "replaceNotes": "{{workspace}}의 메모 교체: {{text}}",
+        "addTodo": "{{workspace}}에 할 일 추가: {{text}}",
+        "updateTodo": "{{workspace}}의 할 일 수정: {{text}}",
+        "removeTodo": "{{workspace}}에서 할 일 삭제: {{text}}",
+        "setField": "{{workspace}}의 필드 수정: {{text}}",
+        "removeField": "{{workspace}}에서 필드 삭제: {{text}}",
+        "addResource": "{{workspace}}에 자료 연결: {{text}}",
+        "removeResource": "{{workspace}}에서 자료 삭제: {{text}}"
+      },
+      "propose": {
+        "appendNotes": "{{workspace}}에 메모 추가 예정: {{text}}",
+        "replaceNotes": "{{workspace}}의 메모 교체 예정: {{text}}",
+        "addTodo": "{{workspace}}에 할 일 추가 예정: {{text}}",
+        "updateTodo": "{{workspace}}의 할 일 수정 예정: {{text}}",
+        "removeTodo": "{{workspace}}에서 할 일 삭제 예정: {{text}}",
+        "setField": "{{workspace}}의 필드 수정 예정: {{text}}",
+        "removeField": "{{workspace}}에서 필드 삭제 예정: {{text}}",
+        "addResource": "{{workspace}}에 자료 연결 예정: {{text}}",
+        "removeResource": "{{workspace}}에서 자료 삭제 예정: {{text}}"
+      },
+      "refused": "워크스페이스 정보를 수정하지 못했습니다. 워크스페이스와 대상 항목이 있는지 확인한 뒤 다시 요청해 주세요.",
+      "change": "적용할 변경",
+      "empty": "빈 메모 또는 값"
     }
   }
 }

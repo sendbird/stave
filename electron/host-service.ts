@@ -2220,6 +2220,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
         requestTick: () => tarsRuntime.requestTick(),
         control: (action, ledger) => tarsRuntime.act(action, ledger),
+        workspace: { read: id => persistence.workspaceInformation.read(id), write: (id, info, now) => persistence.workspaceInformation.write(id, info, now), changed: (workspaceId, workspaceInformation) => localMcpRuntime.emitWorkspaceInformationUpdate({ workspaceId, workspaceInformation }) },
         scheduleRefusal: (action, requestId) => tarsScheduler.proposalRefusal(action, requestId),
         snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({
           workspacePath: tarsWorkspacePath(workspaceId, persistence.loadRepositoryRegistry()),
@@ -2264,6 +2265,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       const persistence = ensureHostServicePersistenceReady();
       await respond(request.id, await undoTarsAction(request.params, {
         conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+        workspace: { read: id => persistence.workspaceInformation.read(id), write: (id, info, now) => persistence.workspaceInformation.write(id, info, now), changed: (workspaceId, workspaceInformation) => localMcpRuntime.emitWorkspaceInformationUpdate({ workspaceId, workspaceInformation }) },
         readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo, withdrawDelivery: tarsRuntime.withdrawDelivery,
       }));
       return;

@@ -35,8 +35,8 @@ afterEach(async () => { applyAppLocale("en"); await i18n.changeLanguage("en"); }
 
 describe("start screen examples", () => {
   test("name only action kinds the planner's schema and prompt support, and every kind has an example", () => {
-    const schemaKinds = TarsDecisionActionSchema.options.map((option) => (option as unknown as { shape: { kind: { value: string } } }).shape.kind.value);
-    expect(schemaKinds.sort()).toEqual(["ask", "clear", "control", "delegate", "publish", "reprioritize", "schedule", "show", "withdraw"]);
+    const schemaKinds = [...new Set(TarsDecisionActionSchema.options.flatMap(option => "options" in option ? option.options : [option]).map((option) => (option as unknown as { shape: { kind: { value: string } } }).shape.kind.value))];
+    expect(schemaKinds.sort()).toEqual(["ask", "clear", "control", "delegate", "publish", "reprioritize", "schedule", "show", "withdraw", "workspace"].sort());
     const offered = new Set(TARS_START_EXAMPLES.map((example) => example.action));
     for (const kind of offered) if (kind !== "reply") expect(schemaKinds).toContain(kind);
     // Withdrawing closes Tars's own waiting card; it is never something the user starts, so it has no example.
@@ -68,7 +68,7 @@ describe("start screen examples", () => {
     expect(suggestions.map((entry) => entry.kind)).toEqual(["needsYou", "blocked", "report", "progress"]);
     const shown = examplesIn(render(info(), suggestions));
     for (const id of ["status", "options", "report"]) expect(shown).not.toContain(id);
-    expect(shown).toEqual(["delegate", "schedule", "pause", "queue", "answerWaiting", "changes", "publish", "clearConversation", "clearDone"]);
+    expect(shown).toEqual(["delegate", "schedule", "pause", "workspace", "queue", "answerWaiting", "changes", "publish", "clearConversation", "clearDone"]);
     // Without chips every example is back.
     expect(examplesIn(render(info()))).toEqual(TARS_START_EXAMPLES.map((example) => example.id));
     // No start example and chip put the same words in the message box.

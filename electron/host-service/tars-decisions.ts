@@ -1,3 +1,4 @@
+import { applyTarsWorkspace, type TarsWorkspacePorts } from "./tars-workspace";
 import { resolveTarsWorkspace } from "../main/tars-scope";
 import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { ApplyTarsDecisionInputSchema, ConfirmTarsProposalInputSchema } from "../../src/lib/tars/conversation";
@@ -68,6 +69,7 @@ export interface TarsDecisionPorts {
    * schedules and every schedule change is refused.
    */
   scheduleRefusal?: (action: TarsScheduleAction, requestId: string) => Promise<{ reason: TarsScheduleReason; error: string } | null>;
+  workspace?: TarsWorkspacePorts;
   now?: () => string;
 }
 
@@ -126,11 +128,11 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
   // A follow-up Tars started by itself has no user mandate: no level gives it more than it has today.
   const origin: TarsActionOrigin = message.origin?.kind === "followUp" || message.origin?.kind === "reask" ? "automatic" : "user";
   const subject = (action: TarsDecisionAction) => {
-    if (action.kind === "delegate") {
+    if (action.kind === "delegate" || action.kind === "workspace") {
       const registry = ports.readRegistry();
       const repository = registry.find((entry) => entry.workspaces.some((workspace) => workspace.id === action.workspaceId));
       return { repository: repository?.repositoryName || tarsRepositoryName(repository?.repositoryPath),
-        branches: [action.branchName, repository?.workspaceBranchById?.[action.workspaceId]] };
+        branches: [action.kind === "delegate" ? action.branchName : null, repository?.workspaceBranchById?.[action.workspaceId]] };
     }
     const row = "responsibilityId" in action ? ports.responsibilities.get(action.responsibilityId) : null;
     return { repository: tarsRepositoryName(row?.repositoryPath), branches: [row?.branchName] };
@@ -179,7 +181,7 @@ interface TarsWorkLedger {
  * registered target, the agent allowlist and the working-changes snapshot are
  * all checked here, at the moment it takes effect.
  */
-async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, index: number, action: TarsWorkProposalAction,
+async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, index: number, action: Exclude<TarsWorkProposalAction, { kind: "workspace" }>,
   workingChangesFor: (workspaceId: string) => Promise<TarsWorkingChanges>, ledger: TarsWorkLedger, now: () => string): Promise<TarsActionReceipt> {
   try {
     // Attachment contents are context, never a substitute for the user's written mandate.
@@ -269,6 +271,7 @@ export async function confirmTarsProposal(rawInput: unknown, ports: TarsDecision
   await ports.refreshContext?.();
   let settled: TarsActionReceipt | null = null;
   try {
+    if (receipt.action.kind === "workspace") return await applyTarsWorkspace(ports, message, ref.actionIndex, receipt.action, { confirm: false, matches: [] }, true);
     settled = await admitTarsWork(ports, message, ref.actionIndex, receipt.action, tarsWorkingChangesReader(ports, message), {
       apply: (effect) => ports.conversations.applyProposal(ref, effect, now()),
       reject: (outcome) => ports.conversations.rejectProposal(ref, outcome, now()),
@@ -368,6 +371,10 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       const held = guard(action);
+      if (action.kind === "workspace") {
+        receipts.push(await applyTarsWorkspace(ports, message, index, action, held));
+        continue;
+      }
       if (action.kind === "control" && held.confirm) {
         // Model text is untrusted: returning authority or ending work waits for the
         // user's confirming click, which takes the click path. An inadmissible
@@ -426,6 +433,6 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
   } finally {
     // Retried applied receipts also wake the queue after a lost acknowledgement.
     // An opened view or list changes no work, so it never wakes the queue.
-    if (receipts.some((receipt) => receipt.status === "applied" && receipt.action.kind !== "show" && receipt.action.kind !== "schedule")) ports.requestTick();
+    if (receipts.some((receipt) => receipt.status === "applied" && receipt.action.kind !== "show" && receipt.action.kind !== "schedule" && receipt.action.kind !== "workspace")) ports.requestTick();
   }
 }

@@ -305,6 +305,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       try { heads = queue.listDeliveryHeads(DELIVERY_PAGE, deliveryCursor); }
       catch (error) { if (!isTarsStorageBusy(error)) ports.onError?.(error); return; }
       for (const head of heads) {
+        if (head.action.kind !== "control") continue;
         const id = head.action.responsibilityId;
         if (deliveringWorks.has(id)) continue;
         deliveringWorks.add(id);

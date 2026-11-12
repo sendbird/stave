@@ -1207,6 +1207,10 @@
         "clearDone": {
           "label": "Clear finished work",
           "prompt": "Clear finished work from the Done list."
+        },
+        "workspace": {
+          "label": "Track a todo",
+          "prompt": "Add a todo to this workspace to verify the release checks."
         }
       },
       "repositories": {
@@ -1346,7 +1350,8 @@
           "clear": "Cleared",
           "schedule": "Applied",
           "scheduleList": "List opened",
-          "withdraw": "Withdrawn"
+          "withdraw": "Withdrawn",
+          "workspace": "Information updated"
         }
       },
       "delegateAgent": "Agent: {{name}}",
@@ -2486,7 +2491,9 @@
         "skipStage": "skip a stage",
         "acceptCompletion": "accept a completion Stave could not verify",
         "approve": "approve a tool request",
-        "publish": "commit, push and open a draft pull request"
+        "publish": "commit, push and open a draft pull request",
+        "workspaceEdit": "edit workspace information",
+        "workspaceReplace": "replace notes or remove information"
       },
       "unavailable": {
         "merge": "merge",
@@ -2523,19 +2530,23 @@
       "proposal": {
         "title": {
           "delegate": "Start this work?",
-          "reprioritize": "Change this work's priority?"
+          "reprioritize": "Change this work's priority?",
+          "workspace": "Edit workspace information?"
         },
         "effect": {
           "delegate": "Tars adds this work to its queue and starts it when there is room.",
-          "reprioritize": "The work moves in the queue to priority {{priority}}."
+          "reprioritize": "The work moves in the queue to priority {{priority}}.",
+          "workspace": "This edits the local Information panel and records Undo. Undo is refused if the information changes afterward."
         },
         "subject": {
           "delegate": "Start {{title}}",
-          "reprioritize": "Change the priority of {{title}}"
+          "reprioritize": "Change the priority of {{title}}",
+          "workspace": "Edit information in {{title}}"
         },
         "action": {
           "delegate": "Start work",
-          "reprioritize": "Change priority"
+          "reprioritize": "Change priority",
+          "workspace": "Confirm edit"
         }
       },
       "detailsTitle": "Actions and confirmations"
@@ -2813,6 +2824,33 @@
         "mergeUnknown": "PR recorded; CI and merge are not confirmed",
         "publishing": "Creating the draft PR; waiting for the recorded result"
       }
+    },
+    "workspaceAction": {
+      "applied": {
+        "appendNotes": "Added notes to {{workspace}}: {{text}}",
+        "replaceNotes": "Replaced notes in {{workspace}}: {{text}}",
+        "addTodo": "Added a todo to {{workspace}}: {{text}}",
+        "updateTodo": "Updated a todo in {{workspace}}: {{text}}",
+        "removeTodo": "Removed a todo from {{workspace}}: {{text}}",
+        "setField": "Updated a field in {{workspace}}: {{text}}",
+        "removeField": "Removed a field from {{workspace}}: {{text}}",
+        "addResource": "Linked a resource in {{workspace}}: {{text}}",
+        "removeResource": "Removed a resource from {{workspace}}: {{text}}"
+      },
+      "propose": {
+        "appendNotes": "Add notes to {{workspace}}: {{text}}",
+        "replaceNotes": "Replace notes in {{workspace}}: {{text}}",
+        "addTodo": "Add a todo to {{workspace}}: {{text}}",
+        "updateTodo": "Update a todo in {{workspace}}: {{text}}",
+        "removeTodo": "Remove a todo from {{workspace}}: {{text}}",
+        "setField": "Update a field in {{workspace}}: {{text}}",
+        "removeField": "Remove a field from {{workspace}}: {{text}}",
+        "addResource": "Link a resource in {{workspace}}: {{text}}",
+        "removeResource": "Remove a resource from {{workspace}}: {{text}}"
+      },
+      "refused": "Workspace information could not be edited. Check that the workspace and target item still exist, then try again.",
+      "change": "Change to apply",
+      "empty": "Empty notes or value"
     }
   }
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { TarsWorkspaceUndoSchema } from "./workspace-action";
 import type { TarsActionRecord } from "./conversation";
 import { TarsDetailCodeSchema, TarsDetailParamsSchema, type TarsResponsibility } from "./types";
 
@@ -8,6 +9,7 @@ const Priority = z.number().int().min(0).max(100);
 
 /** Prior values only for effects that never reached a run. Guards describe the saved state after the effect. */
 export const TarsActionUndoSchema = z.discriminatedUnion("kind", [
+  TarsWorkspaceUndoSchema,
   z.object({ kind: z.literal("delivery"), undoneAt: z.iso.datetime().optional() }).strict(),
   z.object({ kind: z.literal("queue"),
     priorities: z.array(z.object({ id: Id, before: Priority, afterRevision: Revision }).strict()).min(1).max(10_000),
@@ -65,6 +67,7 @@ export function canUndoTarsAction(record: TarsActionRecord): boolean {
     (record.delivery?.status === "queued" || record.delivery?.status === "delivering");
   if (record.status !== "applied" || !record.undo || record.undo.undoneAt) return false;
   if (record.undo.kind === "delivery") return false;
+  if (record.undo.kind === "workspace") return record.action.kind === "workspace";
   return record.undo.kind === "queue" ? record.action.kind === "move"
     : record.action.kind === "control" && (record.action.operation === "pause" || record.action.operation === "takeover");
 }

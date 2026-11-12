@@ -48,7 +48,7 @@ export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = n
 
 /** Every act Tars can propose, by the name the policy table and Settings use. A question (`ask`) is never an act. */
 export const TARS_ACTION_KEYS = [
-  "show",
+  "show", "workspaceEdit", "workspaceReplace",
   "delegate", "reprioritize", "startNow", "pause", "takeover", "deny",
   "resume", "extend", "retryStage", "handBack", "signOff", "answer", "message", "requestChanges", "clear",
   "cancel", "skipStage", "acceptCompletion", "approve", "publish",
@@ -63,7 +63,7 @@ export type TarsActionOrigin = "user" | "automatic";
 /** Wait for the user at every level: they cannot be undone, or they leave the machine. */
 export const TARS_ALWAYS_CONFIRMED: ReadonlySet<TarsActionKey> = new Set([...TARS_IRREVERSIBLE_OPERATIONS, "publish"]);
 /** `careful` adds a confirmation to these, which the default applies at once. */
-const CAREFUL_CONFIRMED: ReadonlySet<TarsActionKey> = new Set(["delegate", "reprioritize", "startNow"]);
+const CAREFUL_CONFIRMED: ReadonlySet<TarsActionKey> = new Set(["delegate", "reprioritize", "startNow", "workspaceReplace"]);
 /** `handsOff` applies these at once: each only lets a run Tars already holds continue, and pause stops it again. */
 const HANDS_OFF_APPLIED: ReadonlySet<TarsActionKey> = new Set(["resume", "extend", "retryStage"]);
 /** Only reduce what Tars does (or refuse a tool request): never delayed, at any level or for any rule. */
@@ -71,6 +71,7 @@ const TARS_REDUCING: ReadonlySet<TarsActionKey> = new Set(["pause", "takeover", 
 
 function defaultMode(key: TarsActionKey): TarsActionMode {
   if (key === "publish" || key === "clear") return "confirm";
+  if (key === "workspaceEdit" || key === "workspaceReplace") return "auto";
   if (key === "show" || key === "delegate" || key === "reprioritize") return "auto";
   return TARS_CONFIRMED_OPERATIONS.has(key) ? "confirm" : "auto";
 }
@@ -89,8 +90,9 @@ export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | nu
 }
 
 /** The policy key of a decision action; null for a question, which is never applied by itself. */
-export function tarsActionKey(action: { kind: string; operation?: TarsControlOperation }): TarsActionKey | null {
-  if (action.kind === "control") return action.operation ?? null;
+export function tarsActionKey(action: { kind: string; operation?: string }): TarsActionKey | null {
+  if (action.kind === "workspace") return ["replaceNotes", "removeTodo", "removeField", "removeResource"].includes(action.operation ?? "") ? "workspaceReplace" : "workspaceEdit";
+  if (action.kind === "control") return (action.operation ?? null) as TarsControlOperation | null;
   return action.kind === "ask" ? null : (TARS_ACTION_KEYS as readonly string[]).includes(action.kind) ? action.kind as TarsActionKey : null;
 }
 
@@ -123,6 +125,8 @@ export function tarsAutonomySummary(level: TarsAutonomyLevel): { auto: TarsActio
 /** Words a rule may use for an action, in the two interface languages. Matched as whole words. */
 // i18n-ignore: matching vocabulary for the user's own rules, never rendered
 const ACTION_WORDS: Readonly<Partial<Record<TarsActionKey, readonly string[]>>> = {
+  workspaceEdit: ["notes", "todo", "field", "resource", "메모", "할 일", "필드", "자료"],
+  workspaceReplace: ["replace", "remove", "notes", "todo", "field", "resource", "삭제", "메모", "할 일", "필드", "자료"],
   delegate: ["delegate", "new work", "start work", "위임", "새 작업"],
   reprioritize: ["priority", "reprioritize", "reorder", "우선순위"],
   startNow: ["start now", "바로 시작", "바로 실행"],

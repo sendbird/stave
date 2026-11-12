@@ -102,7 +102,7 @@ function fixture(settings: Partial<TarsConversationSettings> = {}, replies: Tars
 }
 
 /** What the host did with every action kind before autonomy levels existed, written out by hand. */
-const BEFORE_LEVELS: Readonly<Record<TarsActionKey, "auto" | "confirm">> = {
+const BEFORE_LEVELS: Readonly<Partial<Record<TarsActionKey, "auto" | "confirm">>> = {
   show: "auto", delegate: "auto", reprioritize: "auto", startNow: "auto", pause: "auto", takeover: "auto", deny: "auto",
   resume: "confirm", extend: "confirm", retryStage: "confirm", handBack: "confirm", signOff: "confirm", answer: "confirm", message: "confirm",
   requestChanges: "confirm", clear: "confirm", cancel: "confirm", skipStage: "confirm", acceptCompletion: "confirm", approve: "confirm", publish: "confirm",
@@ -110,10 +110,10 @@ const BEFORE_LEVELS: Readonly<Record<TarsActionKey, "auto" | "confirm">> = {
 
 describe("the autonomy policy table", () => {
   test("covers every action the planner can propose", () => {
-    expect([...TARS_ACTION_KEYS].sort()).toEqual([...TarsControlOperationSchema.options, "show", "delegate", "reprioritize", "publish", "clear"].sort());
+    expect([...TARS_ACTION_KEYS].sort()).toEqual([...TarsControlOperationSchema.options, "show", "delegate", "reprioritize", "publish", "clear", "workspaceEdit", "workspaceReplace"].sort());
   });
 
-  test.each(TARS_ACTION_KEYS.map((key) => [key] as const))("the default level treats %s exactly as before levels existed", (key) => {
+  test.each((Object.keys(BEFORE_LEVELS) as TarsActionKey[]).map((key) => [key] as const))("the default level treats %s exactly as before levels existed", (key) => {
     expect(TARS_DEFAULT_AUTONOMY).toBe("balanced");
     expect(tarsActionMode(key, "balanced")).toBe(BEFORE_LEVELS[key]);
     // An absent or unknown level is the default, never something looser.
@@ -129,7 +129,7 @@ describe("the autonomy policy table", () => {
 
   test("careful adds a confirmation to starting and reordering work, and to nothing that stops Tars", () => {
     const added = TARS_ACTION_KEYS.filter((key) => tarsActionMode(key, "careful") !== tarsActionMode(key, "balanced"));
-    expect(added).toEqual(["delegate", "reprioritize", "startNow"]);
+    expect(added).toEqual(["workspaceReplace", "delegate", "reprioritize", "startNow"]);
     for (const key of added) expect(tarsActionMode(key, "careful")).toBe("confirm");
     for (const key of ["show", "pause", "takeover", "deny"] as const) expect(tarsActionMode(key, "careful")).toBe("auto");
   });
@@ -476,7 +476,7 @@ describe("the user's never-do rules", () => {
     const plain = buildTarsPlannerPrompt(message, context, []);
     expect(buildTarsPlannerPrompt(message, { ...context, guard: tarsPlannerGuard(message, f.conversations.getSettings()) }, [])).toBe(plain);
     expect(plain).not.toContain("hardConstraints");
-    expect(plain).not.toContain("autonomy level");
+    expect(plain).not.toContain("The user set your autonomy level");
   });
 
   test("the level and the rules reach the planner as the host's own lists and as hard constraints", async () => {
