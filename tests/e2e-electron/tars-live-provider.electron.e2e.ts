@@ -110,7 +110,8 @@ async function configure(page: Page, settings: Partial<TarsConversationSettings>
 }
 
 async function openTars(page: Page) {
-  await page.getByRole("button", { name: /^Tars$/ }).first().click();
+  // The nav button's name adds what needs the user ("Tars, 1 needs you"); its marker does not change.
+  await page.locator("[data-tars-nav]").first().click();
   const view = page.getByTestId("tars-view");
   await expect(view).toBeVisible();
   return view;
@@ -421,8 +422,9 @@ test("B: clicks — pause, resume, take over and hand back a live run", async ({
     const resume = await control("resume", "b-resume");
     const resumed = await watch(live, id, timeline, (_row, run) => run?.agentRun.state === "running", 60_000);
     check(expectations, "resume by click continues it", resume.record.status === "applied" && resumed.row.state === "running", results["b-resume"]);
-    // Take over in the final verification when the run gets there, else as late as it lets us.
-    const late = await watch(live, id, timeline, (row, run) => (run?.agentRun.currentStageIndex ?? 0) >= 2 || SETTLED.has(row.state), DEADLINE_MS / 2);
+    // Take over while the run still works: a small task can finish its one work stage and review within minutes.
+    const late = await watch(live, id, timeline, (row, run) => run?.agentRun.state === "running" || SETTLED.has(row.state), 60_000);
+    if (SETTLED.has(late.row.state)) throw new Error(`The run ended before the takeover: ${late.row.state}`);
     entry.takeoverAtStage = late.detail?.agentRun.currentStageIndex ?? null;
     const takeover = await control("takeover", "b-takeover");
     const taken = await watch(live, id, timeline, (_row, run) => run?.agentRun.pauseReason === "taken-over" || run?.agentRun.state !== "running", 60_000);
