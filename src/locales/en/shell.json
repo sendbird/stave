@@ -1196,6 +1196,10 @@
           "label": "Show what changed",
           "prompt": "Show me what changed in the date-picker work."
         },
+        "openScreen": {
+          "label": "Open the work's task",
+          "prompt": "Open the task for the date-picker work."
+        },
         "publish": {
           "label": "Open a draft PR for finished work",
           "prompt": "Open a draft PR for the date-picker work."
