@@ -441,6 +441,8 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
+Tars can read a responsibility’s report, changes, recent execution conversation, recorded checks and pull request state before answering about it. A status line names what it is reading. It can make up to two additional reading rounds per message; large results are excerpts, and missing evidence stays unknown. Opening a view for you remains separate from reading it. If Stave closes before an answer is saved, the message is marked interrupted and does not automatically run again.
+
 When you check earlier work and ask for a correction or addition, Tars proposes
 **Send to task** for that work instead of another workspace. Confirm the words
 on its card. Messages wait in order for the same execution task. Completed

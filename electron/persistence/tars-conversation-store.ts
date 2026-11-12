@@ -357,7 +357,7 @@ export class TarsConversationStore {
   }
 
   private transition(id: string, expectedRevision: number, allowed: TarsMessage["state"][],
-    patch: Pick<TarsMessage, "state" | "reply" | "error" | "decision" | "errorCode">, now: string): TarsMessage {
+    patch: Partial<Pick<TarsMessage, "state" | "reply" | "error" | "decision" | "errorCode" | "inspection">>, now: string): TarsMessage {
     return this.write(() => {
       const current = this.requireRevision(id, expectedRevision);
       if (!allowed.includes(current.state)) throw new Error("The message cannot make this state transition.");
@@ -379,6 +379,7 @@ export class TarsConversationStore {
   /** Persist the complete proposal before the host admits any action. */
   answer(id: string, expectedRevision: number, rawDecision: TarsDecision, now: string): TarsMessage {
     const decision = TarsDecisionSchema.parse(rawDecision);
+    if (decision.actions.some((action) => action.kind === "inspect")) throw new Error("An inspection is not a final work decision.");
     return this.transition(id, expectedRevision, ["reasoning"], { state: "answered", reply: decision.reply, error: null, decision }, now);
   }
 
@@ -397,6 +398,11 @@ export class TarsConversationStore {
       this.changes.emit("conversation");
       return next;
     });
+  }
+
+  /** Reading is a reasoning status, not a decision or an action receipt. */
+  markInspecting(id: string, expectedRevision: number, inspection: NonNullable<TarsMessage["inspection"]>, now: string): TarsMessage {
+    return this.transition(id, expectedRevision, ["reasoning"], { inspection }, now);
   }
 
   /**

@@ -36,11 +36,11 @@ afterEach(async () => { applyAppLocale("en"); await i18n.changeLanguage("en"); }
 describe("start screen examples", () => {
   test("name only action kinds the planner's schema and prompt support, and every kind has an example", () => {
     const schemaKinds = TarsDecisionActionSchema.options.map((option) => (option as unknown as { shape: { kind: { value: string } } }).shape.kind.value);
-    expect(schemaKinds.sort()).toEqual(["ask", "clear", "control", "delegate", "publish", "reprioritize", "schedule", "show", "withdraw"]);
+    expect(schemaKinds.sort()).toEqual(["ask", "clear", "control", "delegate", "inspect", "publish", "reprioritize", "schedule", "show", "withdraw"]);
     const offered = new Set(TARS_START_EXAMPLES.map((example) => example.action));
     for (const kind of offered) if (kind !== "reply") expect(schemaKinds).toContain(kind);
-    // Withdrawing closes Tars's own waiting card; it is never something the user starts, so it has no example.
-    for (const kind of schemaKinds) if (kind !== "withdraw") expect(offered.has(kind as never)).toBe(true);
+    // Withdrawal and host inspection are internal planner actions, not user-started examples.
+    for (const kind of schemaKinds) if (kind !== "withdraw" && kind !== "inspect") expect(offered.has(kind as never)).toBe(true);
     // The planner is told the same kinds in its instructions; a status question needs no action.
     const planner = readFileSync(new URL("../electron/main/tars-planner.ts", import.meta.url), "utf8");
     for (const kind of schemaKinds) expect(planner).toContain(`{kind:'${kind}'`);

@@ -1,3 +1,4 @@
+import { TARS_INSPECTION_ROUNDS, type TarsInspectionReader } from "./tars-inspections";
 import {
   CancelTarsMessageInputSchema, GetTarsConversationInputSchema, TarsMessageInputSchema, TarsAnswerInputSchema,
   TarsConversationSchema, TarsConversationSettingsSchema, TarsControlReasonSchema, isTarsHoldableAction, tarsConfirmationRequestId, isTarsAnswerRetryable,
@@ -26,6 +27,7 @@ interface ConversationPorts {
   coordinator: Coordinator;
   responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "events" | "view"> & Partial<Pick<TarsStore, "schedules">>;
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
+  inspect?: TarsInspectionReader;
   applyDecision: (input: ApplyTarsDecisionInput) => Promise<unknown>;
   /**
    * The host's admitted control path (`tars.act`). A decision answer that
@@ -135,10 +137,12 @@ export function createTarsConversationService(ports: ConversationPorts) {
   }
 
   async function abort(messageId: string) {
-    const identity = tarsMessageRunIdentity(messageId);
-    const aggregate = await ports.coordinator.get(identity);
-    if (aggregate?.step.executionId) await ports.coordinator.cancel({ ...identity,
-      expectedExecutionId: aggregate.step.executionId, idempotencyKey: `${identity.runId}:cancel` });
+    for (let round = 0; round <= TARS_INSPECTION_ROUNDS; round++) {
+      const identity = tarsMessageRunIdentity(messageId, round);
+      const aggregate = await ports.coordinator.get(identity);
+      if (aggregate?.step.executionId && aggregate.step.status !== "completed") await ports.coordinator.cancel({ ...identity,
+        expectedExecutionId: aggregate.step.executionId, idempotencyKey: `${identity.runId}:cancel` });
+    }
   }
 
   async function apply(message: TarsMessage) {

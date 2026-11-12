@@ -296,6 +296,8 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
   const proposed = (matches: readonly TarsNeverRuleMatch[]) => ({ status: "proposed" as const, ...(matches.length ? { matchedRules: [...matches] } : {}) });
   try {
     for (const [index, action] of actions.entries()) {
+      // Inspections are planner observations only; never enter work admission.
+      if (action.kind === "inspect") continue;
       const intent = ports.conversations.recordReceipt(message.id, message.revision, index, action, now());
       if (intent.status !== "pending") { receipts.push(intent); continue; }
       // A follow-up Tars started by itself carries no user mandate: it may only ask.

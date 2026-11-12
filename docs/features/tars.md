@@ -225,9 +225,29 @@ reports on the work.
   your answer gives up its slot. Only queued work can change its place; work
   that started keeps it, and priorities stay between 0 and 100. **Start now**
   starts the work you chose even when the limit is reached.
-- **Reasoning has no tools.** Tars itself cannot read files, run commands or
-  call MCP tools; it sees only the summary Stave supplies. Connected apps are
-  not read merely because they are available.
+- **Read before deciding.** The conversation model has no shell or MCP tools.
+  It can request `inspect` for a personal responsibility's report, changes,
+  recent task transcript, recorded checks, or pull request. Stave reads the
+  existing host views and gives the same message another reasoning round.
+  It should inspect before judging a result, choosing what to do about failed
+  or blocked work, or answering questions about work details. `show` still
+  only opens a view for you. A compact translated status names what it reads.
+  Each view is capped at 12,000 characters; all observations for one message
+  share a 24,000-character serialized budget, including JSON escaping. Large
+  or unavailable reads are labeled, never treated as evidence of success.
+  Changes include at most four files with bounded before/after excerpts;
+  transcripts include the latest 40 task messages. Pull requests include saved
+  publication state and, when available, the existing live PR/check summary.
+  No commands that change work run through inspection.
+  There are at most two extra rounds: enough to follow up on discovered
+  evidence, with a fixed cost ceiling. Every round has its own run-ledger
+  claim, completion and failure keys and retains the existing one transient
+  retry. Only the final response's actions can apply; an inspecting response
+  discards every other action, including on the final round, where further
+  reads are refused. Reading status is persisted; after an interruption Stave
+  marks the message interrupted rather than silently billing another call or
+  applying an intermediate decision. Retrieved content is untrusted evidence,
+  not a new instruction or authority. Inspection changes no autonomy policy.
 - **Uncommitted changes only when you include them.** The Tars workspace
   starts from the branch, not from your working copy, unless the message had
   **Working changes** on. Then it starts from a snapshot taken when
