@@ -232,6 +232,7 @@ function endedWithoutOutput(row: AgentRunTurnRow): boolean {
 export interface AgentRunAdmission { tarsResponsibilityId: string }
 
 export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies {
+  dailyUsageLimit?: (providerId: AgentRun["fingerprint"]["providerId"]) => string | null;
   hasPendingControl?: (taskId: string) => boolean;
   store: AgentRunStorePort;
   prepareGatewayCredentials?: (args: { accounts: ProviderAccountSelection; signal: AbortSignal }) => Promise<import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined>;
@@ -1461,6 +1462,17 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       ...(read.imageContexts?.length ? { imageContexts: [...(rest.imageContexts ?? []), ...read.imageContexts] } : {}) };
   }
 
+  function pauseForDailyLimit(aggregate: AgentRunAggregate, providerId: AgentRun["fingerprint"]["providerId"]): boolean {
+    const detail = deps.dailyUsageLimit?.(providerId);
+    if (!detail) return false;
+    const change = applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "usage-limit", detail } });
+    // A daily stop needs an explicit resume; discard any prior subscription reset reservation.
+    change.agentRun.usageLimit = undefined;
+    change.agentRun.dailyUsageLimit = true;
+    applyChange(change);
+    return true;
+  }
+
   async function startAgentRunTurn(
     aggregate: AgentRunAggregate,
     decision: Extract<
@@ -1558,6 +1570,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         currentStageRecord(latest).attempt !== before.attempt || currentStageRecord(latest).stageId !== before.stageId) return;
     // The root runs on its own queue, so it may pause or end while its helper prepares: the helper then starts nothing now.
     if (resources?.link && store.getAggregate(resources.link.rootRunId)?.agentRun.state !== "running") return;
+    if (pauseForDailyLimit(aggregate, routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId)) return;
     const change = applyAgentRunDecision({ aggregate, decision, now: now() });
     if (delegation && !deps.delegatedExecutionCurrent?.(agentRun.id, agentRun.leadTaskId, delegation)) {
       applyChange(cancelAgentRun({ aggregate, now: now() }));
@@ -1882,6 +1895,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           return;
         }
       }
+      if (["start-stage-turn", "nudge", "start-action-turn", "execute-action", "request-sign-off"].includes(decision.action) &&
+          pauseForDailyLimit(aggregate, aggregate.agentRun.fingerprint.providerId)) return;
       switch (decision.action) {
         case "idle":
         case "wait":
@@ -2426,6 +2441,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           if (root?.agentRun.state !== "running" || !reservation || reservation.released || reservation.executionId !== authority.executionId || reservation.childRunId !== agentRunId)
             refuse("The exact parent reservation ended during child preparation.");
         }
+        const dailyRefusal = deps.dailyUsageLimit?.(snapshot.providerId);
+        if (dailyRefusal) throw new AgentRunCommandError("daily-usage-limit", dailyRefusal);
         const change = createAgentRun({ id: agentRunId, input, repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: authority.permissionPolicy.providerId, model }, now: now() });
         change.agentRun = { ...change.agentRun, state: "paused", pauseReason: "paused-by-user" };
@@ -2481,6 +2498,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         if (input.routingIntent?.modelProviderId && input.routingIntent.modelProviderId !== snapshot.providerId)
           refuse("The captured provider changed before Run admission. Restore it or submit a new assignment.");
+        const dailyRefusal = deps.dailyUsageLimit?.(snapshot.providerId);
+        if (dailyRefusal) throw new AgentRunCommandError("daily-usage-limit", dailyRefusal);
         if (!(await deps.isReportingAvailable({ fresh: true }))) {
           refuse(
             "Stave's local tools are off, so the agent could not report its stages. Turn on Local MCP in Settings, or send the assignment as a single turn.",
@@ -2490,6 +2509,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const { accountPool: requestedPool, ...rest } = input;
         const accountPool = normalizeAgentRunAccountPool({ pool: requestedPool,
           currentAccountId: selectedProviderAccount(snapshot.providerId, input.accounts), subscriptionAccountIds: subscriptionAccountIds(snapshot.providerId) });
+        const finalDailyRefusal = deps.dailyUsageLimit?.(snapshot.providerId);
+        if (finalDailyRefusal) throw new AgentRunCommandError("daily-usage-limit", finalDailyRefusal);
         const change = createAgentRun({
           id: agentRunId,
           input: { ...rest, ...(accountPool ? { accountPool } : {}) },

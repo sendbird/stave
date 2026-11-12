@@ -9,6 +9,7 @@ import type { TarsResponsibility } from "../src/lib/tars/types";
 import { tarsWorkflow, tarsObservation } from "../electron/host-service/tars-execution";
 import { assertTarsRun } from "../electron/host-service/tars-ownership";
 import { WorkflowSchema } from "../src/lib/workflows/schema";
+import { AgentRunCommandError } from "../src/lib/agent-runs/domain";
 import { agentRunFixture } from "./fixtures/agent-run-fixtures";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 
@@ -43,6 +44,29 @@ function fixture(overrides: Partial<TarsRuntimePorts> = {}) {
 }
 
 describe("Tars responsibility execution", () => {
+  test("a limit reached during preparation retains its translated reason and settings recovery", async () => {
+    const f = fixture({ startRun: async () => { throw new AgentRunCommandError("daily-usage-limit", "Daily limit reached."); } });
+    const row = f.store.create(input(), NOW);
+    await f.tick();
+    expect(f.store.get(row.id)).toMatchObject({ state: "blocked", detailCode: "dailyUsageLimit", agentRunId: null });
+    f.database.close();
+  });
+  test("a daily limit refuses Tars before workspace or task preparation and can be resumed", async () => {
+    let limited = true;
+    const f = fixture({ dailyUsageLimit: () => limited ? "Daily limit reached." : null });
+    const row = f.store.create(input(), NOW);
+    await f.tick();
+    expect(f.calls).toEqual([]);
+    const blocked = f.store.get(row.id)!;
+    expect(blocked).toMatchObject({ state: "blocked", detailCode: "dailyUsageLimit", agentRunId: null });
+    limited = false;
+    const resumed = await f.act(blocked, "resume");
+    expect(resumed.status).toBe("applied");
+    await f.tick();
+    expect(f.store.get(row.id)?.state).toBe("running");
+    expect(f.calls.filter((call) => call.startsWith("run:"))).toHaveLength(1);
+    f.database.close();
+  });
   test("creates one execution, preserves ownership and does no work on unchanged ticks", async () => {
     const f = fixture();
     const row = f.store.create(input(), NOW);

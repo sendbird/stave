@@ -777,6 +777,7 @@ export function applyAgentRunDecision(args: {
           {
             state: "paused",
             pauseReason: decision.reason,
+            dailyUsageLimit: undefined,
             ...(decision.usageLimit ? { usageLimit: decision.usageLimit } : {}),
             ...(ended ? { eventWait: ended } : {}),
             stopReason: null,
@@ -795,7 +796,7 @@ export function applyAgentRunDecision(args: {
       return {
         agentRun: withAgentRun(
           agentRun,
-          { state: "running", pauseReason: null, reasonDetail: null },
+          { state: "running", pauseReason: null, reasonDetail: null, dailyUsageLimit: undefined },
           now,
         ),
         upserts: [],

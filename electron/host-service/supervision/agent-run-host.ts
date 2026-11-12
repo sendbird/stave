@@ -145,6 +145,7 @@ export function createHostAgentRunRuntime(args: {
     readTurnEnding,
   });
   return createAgentRunRuntime({
+    dailyUsageLimit: (providerId) => persistence.dailyUsage.refusal(providerId),
     hasPendingControl: (taskId) => persistence.tarsConversations.hasPendingControlForTask(taskId),
     archiveReportArtifacts: async (request) => archiveReportArtifacts({ ...request, workspacePath: await resolveWorkspacePath(request.workspaceId), store: createInlineRenderStore({ rootDir: () => path.join(resolveHostServiceUserDataPath(), "inline-renders") }) }),
     taskAgent: args.taskAgent,

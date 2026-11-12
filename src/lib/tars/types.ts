@@ -204,7 +204,7 @@ export const TarsDetailCodeSchema = z.enum([
   "scopeUnregistered", "taskIdentityChanged", "taskInUse", "executionAgentUnavailable", "assignmentUnavailable",
   "executionExists", "ownershipUnverified", "ownershipChanged", "taskUnavailable", "takenOverInTask",
   "admissionWithdrawn", "observationFailed", "unverifiedCompletion", "acceptedWithoutVerification", "workingChangesUnavailable",
-  "runCancelled", "turnStartFailed",
+  "runCancelled", "turnStartFailed", "dailyUsageLimit",
 ]);
 export type TarsDetailCode = z.infer<typeof TarsDetailCodeSchema>;
 

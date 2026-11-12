@@ -1,3 +1,4 @@
+import { DailyLimitSettingsLink } from "@/components/usage/DailyLimits";
 import { ReportArtifactLink } from "@/components/agent-runs/ReportArtifactLink";
 import { isLocalPreviewUrl, savedHtmlReference } from "@/lib/agent-runs/artifacts";
 import { TarsGoalSummary } from "./TarsGoalSummary";
@@ -278,6 +279,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button> : null;
   // Status first, then what needs the user right above the actions that answer it; identity (owner, branch) is the header's.
   const body = [
+    row.detailCode === "dailyUsageLimit" || row.detailCode === "runPaused" && row.detailParams?.reason === "usage-limit" ? <DailyLimitSettingsLink key="daily-limit" /> : null,
     <TarsGoalSummary key="goal" row={row} />,
     queueWait ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{queueWait}</p> : null,
     !staged && !terminal && row.agentRunId && !live.running ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,

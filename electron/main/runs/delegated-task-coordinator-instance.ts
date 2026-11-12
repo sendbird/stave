@@ -109,6 +109,7 @@ let coordinator: ReturnType<typeof createDelegatedTaskCoordinator> | null = null
 export function getDelegatedTaskCoordinator() {
   if (!coordinator) {
     coordinator = createDelegatedTaskCoordinator({
+      dailyUsageLimit: async (providerId) => (await ensurePersistenceReady()).dailyUsage.refusal(providerId),
       getLedger: ensurePersistenceReady,
       readResourceRoot: async (parentTaskId) => {
         const result = await invokeHostService("agent-run.invoke", { action: "resources-for-task", args: { taskId: parentTaskId } }) as AgentRunInvokeResult<{ rootRunId: string | null }>;
