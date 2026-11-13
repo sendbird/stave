@@ -1,6 +1,6 @@
 ## [0.35.0](https://github.com/sendbird/stave/compare/v0.34.0...v0.35.0) (2026-11-13)
 
-This minor release includes the three merged changes since 0.34.0.
+This minor release includes the four merged changes since 0.34.0.
 
 ### Changes
 
@@ -10,10 +10,11 @@ This minor release includes the three merged changes since 0.34.0.
 - Tars can inspect current work, create a draft pull request from the exact verified commit, follow CI and review feedback in bounded rounds, and keep merge and other confirmed actions under user control.
 - Tars adds an activity view, fact-based notifications, visible queue wait reasons, workspace and issue/document entry points, daily usage limits, and dependency reuse for new worktrees.
 - English and Korean feature and user-guide sources, plus focused and rendered regressions, were updated for the new Tars workflows.
+- Question option previews reserve a stable area, so hovering between options with and without previews keeps the card and choices in place; keyboard browsing and preview accessibility remain available.
 
 ### References
 
-- [PR #955](https://github.com/sendbird/stave/pull/955), [PR #956](https://github.com/sendbird/stave/pull/956), [PR #961](https://github.com/sendbird/stave/pull/961)
+- [PR #955](https://github.com/sendbird/stave/pull/955), [PR #956](https://github.com/sendbird/stave/pull/956), [PR #961](https://github.com/sendbird/stave/pull/961), [PR #963](https://github.com/sendbird/stave/pull/963)
 
 ## [0.34.0](https://github.com/sendbird/stave/compare/v0.33.1...v0.34.0) (2026-11-11)
 
