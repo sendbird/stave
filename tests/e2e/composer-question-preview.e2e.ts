@@ -38,6 +38,20 @@ for (const locale of ["en", "ko"] as const) {
           }, narrow);
           await page.evaluate(() => document.fonts.ready);
           const form = page.locator('form[data-user-input-state="input-requested"]');
+          // Measure after the bottom-anchored composer has finished mounting.
+          await form.evaluate((element) => new Promise<void>((resolve) => {
+            let previous = "";
+            let stableFrames = 0;
+            const sample = () => {
+              const box = element.getBoundingClientRect();
+              const current = [box.x, box.y, box.width, box.height].join(",");
+              stableFrames = current === previous ? stableFrames + 1 : 0;
+              previous = current;
+              if (stableFrames >= 12) resolve();
+              else requestAnimationFrame(sample);
+            };
+            requestAnimationFrame(sample);
+          }));
           const geometryBefore = await form.boundingBox();
           const optionsBefore = await page.locator("label[data-option-value]").evaluateAll(
             (elements) => elements.map((element) => element.getBoundingClientRect().top),
@@ -118,7 +132,14 @@ for (const locale of ["en", "ko"] as const) {
           // A region, not a live log: swapping previews is not announced.
           expect(geometry.role).toBe("region");
           expect(geometry.liveRole).toBeNull();
+          // Start the keyboard phase outside the option rows. Focusing the
+          // viewport can scroll the narrow card under a resting pointer and
+          // switch the hovered preview before Tab is dispatched.
+          await page.mouse.move(0, 0);
+          await row(page, "Scroll container").locator("input").focus();
+          await expect(preview(page)).toHaveAttribute("data-option-preview", "Scroll container");
           await preview(page).getByRole("region").focus();
+          await expect(preview(page).getByRole("region")).toBeFocused();
           await page.keyboard.press("Tab");
           await expect(form.getByRole("button").first()).toBeFocused();
         });
