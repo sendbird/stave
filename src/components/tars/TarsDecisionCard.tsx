@@ -1,5 +1,8 @@
+import { TarsAlwaysAllowButton } from "./TarsAllowRules";
+import { tarsActionKey } from "@/lib/tars/autonomy";
+import { describeTarsWorkspaceAction } from "./TarsWorkspaceReceipt";
 import { useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, Info, MessageCircleQuestion, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, type LucideIcon } from "lucide-react";
+import { Ban, CircleCheck, CirclePause, CirclePlay, CircleStop, FastForward, Hand, Info, MessageCircleQuestion, MessageSquareReply, MessageSquareText, PencilLine, Plus, RotateCcw, ShieldAlert, ShieldCheck, SkipForward, Stamp, Undo2, X, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
 import { Alert } from "@/components/aui/components/Alert";
@@ -16,7 +19,7 @@ import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
 import { agentSurface } from "@/components/aui/recipes/agent-surface";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { cx, sx } from "@/components/aui/utils/stylex";
-import type { TarsAnswerSource, TarsDecisionAnswer } from "@/lib/tars/conversation";
+import type { TarsAnswerSource, TarsDecisionAnswer, TarsDismissInput } from "@/lib/tars/conversation";
 import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { describeTarsControlInput, isIrreversibleOption, tarsDecisionKeyChoice, tarsQuestionKeyAction, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
@@ -39,6 +42,7 @@ function proposalOf(decision: TarsDecisionView) {
 function titleFor(decision: TarsDecisionView, titleOf?: TitleOf) {
   // New work has no responsibility yet: its title is the one Tars proposed.
   const proposal = proposalOf(decision);
+  if (proposal?.kind === "workspace") return proposal.workspaceId;
   if (proposal?.kind === "delegate") return proposal.title;
   const id = decision.targets[0]?.responsibilityId ?? "";
   return titleOf?.(id) ?? id;
@@ -50,6 +54,7 @@ export function describeTarsDecisionSubject(decision: TarsDecisionView, titleOf?
   const title = titleFor(decision, titleOf);
   if (decision.kind === "unverifiedCompletion") return i18n.t("shell:tars.decision.unverified.question", { title });
   const proposal = proposalOf(decision);
+  if (proposal?.kind === "workspace") return describeTarsWorkspaceAction(proposal, proposal.workspaceId);
   if (proposal) return i18n.t(`shell:tars.autonomy.proposal.subject.${proposal.kind}`, { title });
   const option = decision.options[0];
   return option?.kind === "control" ? i18n.t(`shell:tars.conversation.control.${option.control.operation}`, { title }) : "";
@@ -58,7 +63,7 @@ export function describeTarsDecisionSubject(decision: TarsDecisionView, titleOf?
 /** A button's words: the model's label for an ask, Confirm for a proposal, Stave's own words otherwise. */
 export function describeTarsDecisionOption(decision: TarsDecisionView, option: TarsDecisionOption): string {
   if (option.kind === "verify") return i18n.t("shell:tars.decision.option.verify");
-  if (option.kind === "reply" || option.label) return option.label ?? "";
+  if (option.kind === "reply" || option.kind === "prReview" || option.label) return option.label ?? "";
   if (option.kind === "proposal") return i18n.t("shell:tars.conversation.confirm");
   return decision.kind === "confirm" ? i18n.t("shell:tars.conversation.confirm") : i18n.t(`shell:tars.decision.option.${option.control.operation}`);
 }
@@ -76,7 +81,7 @@ function confirmLabel(decision: TarsDecisionView, option: TarsDecisionOption): s
 
 function optionRationale(option: TarsDecisionOption): string | null {
   if (option.kind === "verify") return i18n.t("shell:tars.decision.option.verifyRationale");
-  if (option.kind === "reply" || option.rationale) return option.rationale;
+  if (option.kind === "reply" || option.kind === "prReview" || option.rationale) return option.rationale;
   if (option.kind === "proposal") return null;
   return option.control.operation === "acceptCompletion" ? i18n.t("shell:tars.decision.option.acceptRationale")
     : option.control.operation === "cancel" ? i18n.t("shell:tars.decision.option.cancelRationale") : null;
@@ -129,7 +134,7 @@ export function describeTarsDecisionTarget(decision: TarsDecisionView, context: 
   const repository = row?.repositoryPath ? row.repositoryPath.split(/[\\/]/).filter(Boolean).at(-1) ?? row.repositoryPath : null;
   const proposal = proposalOf(decision);
   // New work names the workspace it would start from; it has no row yet.
-  const workspaceId = proposal?.kind === "delegate" ? proposal.workspaceId : row ? row.executionWorkspaceId ?? row.workspaceId : null;
+  const workspaceId = proposal?.kind === "delegate" || proposal?.kind === "workspace" ? proposal.workspaceId : row ? row.executionWorkspaceId ?? row.workspaceId : null;
   return {
     repository, repositoryPath: row?.repositoryPath ?? null,
     workspace: workspaceId ? context.workspaceNameOf?.(workspaceId) ?? null : null,
@@ -143,6 +148,8 @@ export interface TarsDecisionCardContext {
   workspaceNameOf?: (workspaceId: string) => string | undefined;
   /** "Not now" and Esc: the decision keeps waiting and focus goes here. Absent: no dismiss, Esc reaches what is around the card. */
   onDismiss?: () => void;
+  /** Dismiss: closes the card for good without an option (`dismissed`); nothing applies. Absent: the card offers no Dismiss. */
+  onDismissDecision?: (decision: TarsDecisionView, source: TarsDismissInput["source"]) => void;
   /** Opens the task a request waits in, where a request cut to fit shows whole. Absent: the card only says it was cut. */
   onOpenTask?: (target: { responsibilityId: string; taskId: string; workspaceId: string }) => void;
 }
@@ -188,7 +195,7 @@ export function handleTarsQuestionKey(event: Pick<KeyboardEvent<HTMLElement>, "k
  * number key, and answers the chosen one with Answer or Enter. Answered,
  * invalid or retired, it folds to its record row.
  */
-export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, error, rowOf, workspaceNameOf, onDismiss, onOpenTask }: TarsDecisionCardProps) {
+export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, error, rowOf, workspaceNameOf, onDismiss, onDismissDecision, onOpenTask }: TarsDecisionCardProps) {
   const { t } = useTranslation(["shell"]);
   const actorOf = useTarsDirectActor();
   const questionId = useId();
@@ -209,6 +216,16 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   const errorLine = error ? <p className={sx(styles.error)} role="alert">{error}</p> : null;
   const common = { "data-tars-decision": decision.id, "data-tars-decision-kind": decision.kind, "data-tars-decision-state": decision.state };
   if (!waiting) {
+    if (decision.state === "dismissed" || decision.state === "withdrawn") {
+      const closure = decision.closure;
+      const dismissedBy = closure && closure.source !== "tars" ? closure.source : null;
+      // One line: what waited, who closed it and how. Dismissing Stave's own choice leaves the work blocked, with its controls in the tray.
+      return <div {...common}><TarsRecordList><TarsRecordRow ref={lineRef} focusable state="skipped" lead={subject} at={closure?.createdAt}
+        actor={dismissedBy ? actorOf(dismissedBy) : { by: "tars", hint: t("shell:tars.record.by.tars") }} data-tars-decision-closure={decision.state}
+        data-tars-record-source={closure?.source} status={t(`shell:tars.decision.closed.${decision.state}`)}
+        detail={decision.kind === "unverifiedCompletion" && decision.state === "dismissed"
+          ? <TarsRecordDetail>{t("shell:tars.decision.closed.stillBlocked")}</TarsRecordDetail> : null} /></TarsRecordList>{errorLine}</div>;
+    }
     if (decision.state === "answered" && !decision.answer && decision.record) {
       return <div {...common}><TarsRecordList><TarsActionRecordLine record={decision.record} title={titleFor(decision, titleOf)} /></TarsRecordList>{errorLine}</div>;
     }
@@ -217,10 +234,10 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
       : decision.reasked ? t("shell:tars.decision.reask.done") : decision.reask ? t("shell:tars.decision.reask.pending") : null;
     const row = answer
       ? <TarsRecordRow ref={lineRef} focusable state={TARS_RECORD_STATE[answer.status]} lead={answeredOption(decision, titleOf, answer)}
-        subject={decision.kind === "confirm" ? undefined : subject} actor={actorOf(answer.source)} data-tars-record-source={answer.source} status={t(outcomeKey(decision, answer.status))}
+        subject={decision.kind === "confirm" ? undefined : subject} actor={answer.source === "tars" ? { by: "tars", hint: t("shell:tars.record.by.tars") } : actorOf(answer.source)} data-tars-record-source={answer.source} status={t(outcomeKey(decision, answer.status))}
         detail={<>
           {answer.status === "rejected" ? <TarsRecordDetail data-tars-reason={answer.reason ?? undefined}>{t(tarsControlReasonKey(answer.reason))}</TarsRecordDetail> : null}
-          {decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} /> : null}
+          {decision.delivery ? <TarsMessageDeliveryLine delivery={decision.delivery} record={decision.deliveryRecord ?? decision.record} /> : null}
         </>} />
       // No longer open: what was asked leads, and why it stopped waiting (and whether Tars asks again) is the line under it.
       : <TarsRecordRow ref={lineRef} focusable state="skipped" lead={subject} detail={<TarsRecordDetail>
@@ -267,6 +284,10 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
         <span className={sx(styles.optionLabel)}>{confirmLabel(decision, option)}</span>
         <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{index + 1}</Kbd>{recommended ? <Kbd size="sm">{t("shell:tars.decision.enterKey")}</Kbd> : null}</span>
       </AuiButton>
+      <TarsAlwaysAllowButton actionKey={option.kind === "control" ? option.control.operation : option.kind === "proposal" ? tarsActionKey(option.action) : null}
+        repositoryPath={describeTarsDecisionTarget(decision, { rowOf, workspaceNameOf }).repositoryPath}
+        workspaceId={option.kind === "proposal" && (option.action.kind === "delegate" || option.action.kind === "workspace") ? option.action.workspaceId : undefined}
+        disabled={!answerable} onApply={() => choose(index, "click")} />
     </li>;
   };
   // A question's options: one radio row each (label, why on its own line, its number key), like every other question in Stave.
@@ -287,6 +308,10 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     title={t("shell:tars.decision.card.attemptRefused", { option: answeredOption(decision, titleOf, decision.failure) })}>
     {t(tarsControlReasonKey(decision.failure.reason))}
   </Alert> : null;
+  // Closes the card for good, unlike "Not now"; it chooses nothing, so it is never the card's main action.
+  const closeButton = onDismissDecision ? <Button type="button" size="xs" variant="ghost" title={t("shell:tars.decision.card.dismissHint")}
+    disabled={busy} data-tars-decision-close="" onClick={() => onDismissDecision(decision, "click")}>
+    <X aria-hidden="true" />{t("shell:tars.decision.card.dismiss")}</Button> : null;
   const dismissButton = onDismiss ? <Button type="button" size="xs" variant="ghost" aria-keyshortcuts="Escape" title={t("shell:tars.decision.card.notNowHint")}
     data-tars-decision-dismiss="" onClick={onDismiss}>{t("shell:tars.decision.card.notNow")}
     <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.decision.card.escKey")}</Kbd></span></Button> : null;
@@ -301,6 +326,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
     {/* The key choices are on the keycaps; the sentence stays the card's accessible description. */}
     <VisuallyHidden id={hintId}>{hint}</VisuallyHidden>
     <div className={sx(styles.footerActions)}>
+      {closeButton}
       {dismissButton}
       {question ? answerButton : <ul className={sx(styles.footerOptions)}>{decision.options.map((value, index) => confirmButton(value, index))}</ul>}
     </div>
@@ -335,11 +361,14 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   const irreversible = decision.options.some(isIrreversibleOption);
   const target = describeTarsDecisionTarget(decision, { rowOf, workspaceNameOf });
   const effect = operation ? t(`shell:tars.decision.card.effect.${operation}`)
-    : proposal ? t(`shell:tars.autonomy.proposal.effect.${proposal.kind}`, { priority: proposal.priority }) : t("shell:tars.decision.card.unverifiedEffect");
+    : proposal ? t(`shell:tars.autonomy.proposal.effect.${proposal.kind}`, { priority: proposal.kind === "reprioritize" ? proposal.priority : undefined }) : t("shell:tars.decision.card.unverifiedEffect");
   const workId = decision.targets[0]?.responsibilityId;
   // A task operation shows exactly what it answers or sends before anyone confirms it.
   const row = option?.kind === "control" ? rowOf?.(option.control.responsibilityId) : undefined;
-  const payload = option?.kind === "control" ? describeTarsControlInput(option.control, row) : null;
+  const workspaceValue = proposal?.kind === "workspace" ? ("notes" in proposal ? proposal.notes : "text" in proposal ? proposal.text
+    : "value" in proposal ? String(proposal.value ?? "") : "url" in proposal ? proposal.url : describeTarsWorkspaceAction(proposal, workspaceNameOf?.(proposal.workspaceId) ?? proposal.workspaceId)) : null;
+  const payload = option?.kind === "control" ? describeTarsControlInput(option.control, row)
+    : workspaceValue !== null ? { key: "words" as const, value: workspaceValue || t("shell:tars.workspaceAction.empty") } : null;
   const request = option?.kind === "control" && option.control.input?.requestRef ? row?.pendingRequests?.find((entry) => entry.ref === option.control.input?.requestRef) : undefined;
   // A request cut to fit says so under its text and opens the task that shows it whole: part of a command never reads as all of it.
   const source = payload?.key === "request" && payload.truncated ? payload.source : null;
@@ -351,7 +380,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   </span> : null;
   const carried = payload ? <div className={sx(styles.payload)} data-tars-decision-row={payload.key}>
     <p className={sx(styles.payloadLabel)}>{payload.key === "request" && request?.toolName
-      ? t("shell:tars.decision.card.requestFrom", { tool: request.toolName }) : t(`shell:tars.decision.card.rows.${payload.key}`)}</p>
+      ? t("shell:tars.decision.card.requestFrom", { tool: request.toolName }) : proposal?.kind === "workspace" ? t("shell:tars.workspaceAction.change") : t(`shell:tars.decision.card.rows.${payload.key}`)}</p>
     {/* The request as the tool wrote it, in the code register; the answers and words as the user said them. */}
     {payload.key === "request"
       ? <pre className={sx(agentSurface.well, styles.command)} data-tars-decision-command=""><code className={sx(styles.commandCode)}>{request ? request.summary : payload.value}</code></pre>

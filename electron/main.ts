@@ -1,3 +1,4 @@
+import { startWorkPowerSaveBlocker, stopWorkPowerSaveBlocker } from "./main/work-power-save-instance";
 import { app, Menu } from "electron";
 import { registerHandlers } from "./main/ipc";
 import { startHostService, stopHostService } from "./main/host-service-client";
@@ -123,6 +124,7 @@ function runBeforeQuitCleanup() {
       }
     }
 
+    stopWorkPowerSaveBlocker();
     await resetMainProcessState({ compactPersistence: true });
     return true;
   })();
@@ -150,6 +152,7 @@ if (hasSingleInstanceLock) {
       Menu.setApplicationMenu(buildApplicationMenu());
     });
     registerHandlers();
+    startWorkPowerSaveBlocker();
     void startTarsConversationService().catch(() => {
       console.error("[tars] failed to start conversation service");
     });

@@ -38,6 +38,7 @@ export function resolveTrackerIssueScopeKey(task: TrackerIssue): string | null {
   if (task.source === "crane") {
     return getCraneTeamKey(task.key);
   }
+  if (task.source === "github") return task.project?.id ?? null;
   const match = ISSUE_KEY_PATTERN.exec(task.key.trim());
   return match?.[1] ? match[1].toUpperCase() : null;
 }
@@ -51,6 +52,7 @@ export function describeTrackerIssueScope(task: TrackerIssue): string | null {
 export interface TrackerIssueMappingSettings {
   craneMappings: readonly CraneRepositoryMapping[];
   jiraMappings: readonly JiraProjectMapping[];
+  githubMappings?: readonly { repository: string; staveProjectPath: string }[];
 }
 
 function findJiraMapping(
@@ -87,6 +89,10 @@ export function findTrackerIssueMappedRepositoryPath(args: {
       registeredRepositoryPaths: args.registeredRepositoryPaths,
     });
   }
+  if (args.task.source === "github") {
+    const path = args.settings.githubMappings?.find((entry) => entry.repository.toLowerCase() === args.task.project?.id.toLowerCase())?.staveProjectPath;
+    return path && args.registeredRepositoryPaths.includes(path) ? path : null;
+  }
   const mapping = findJiraMapping(args.task, args.settings.jiraMappings);
   if (!mapping) {
     return null;
@@ -107,6 +113,7 @@ export function findTrackerIssueRuntimeMemory(args: {
       mappings: args.settings.craneMappings,
     });
   }
+  if (args.task.source === "github") return null;
   return (
     findJiraMapping(args.task, args.settings.jiraMappings)?.runtime ?? null
   );

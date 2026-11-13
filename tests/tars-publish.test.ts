@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { createTarsPublisher, tarsPublishCommands, type TarsCommandResult, type TarsPublishPorts } from "../electron/host-service/tars-publish";
+import { createTarsPublisher, type TarsCommandResult, type TarsPublishPorts } from "../electron/host-service/tars-publish";
 import { applyTarsDecision, type TarsDecisionPorts } from "../electron/host-service/tars-decisions";
 import { tarsFollowUpRefusal } from "../electron/host-service/tars-follow-up-admission";
 import { parseTarsDecisionOutput } from "../electron/main/tars-planner";
-import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
+import { TarsConversationStore, TarsStorageBusyError } from "../electron/persistence/tars-conversation-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import type { TarsDecisionAction, TarsMessageOrigin } from "../src/lib/tars/conversation";
 import { CreateTarsResponsibilityInputSchema, type TarsResponsibility } from "../src/lib/tars/types";
@@ -25,10 +25,10 @@ afterEach(() => { for (const database of databases.splice(0)) database.close(); 
 /** A scripted stand-in for git and gh in the execution workspace; it records every argument array. */
 function fakeRepository() {
   const state = {
-    branch: HEAD, dirty: [" M src/checkout/cards.ts", "?? src/checkout/cards.test.ts"], ahead: 0, remote: true as boolean,
+    branch: HEAD, dirty: [] as string[], ahead: 1, remote: true as boolean,
     gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number } | null,
-    fail: { commit: 0, push: 0, create: 0 }, sha: "1111111111111111111111111111111111111111",
-    commits: new Set<string>(["1111111111111111111111111111111111111111"]),
+    fail: { commit: 0, push: 0, create: 0 }, sha: SHA,
+    commits: new Set<string>([SHA]),
   };
   const calls: Array<[string, string[]]> = [];
   const ok = (stdout = ""): TarsCommandResult => ({ ok: true, code: 0, stdout, stderr: "" });
@@ -41,6 +41,7 @@ function fakeRepository() {
       if (state.gh === "signedOut") return no("You are not logged into any GitHub hosts. Run gh auth login to authenticate.");
       if (args[0] === "repo") return state.gh === "notGitHub" ? no("none of the git remotes configured for this repository point to a known GitHub host")
         : ok(JSON.stringify({ nameWithOwner: "example/web", url: "https://github.com/example/web" }));
+      if (args[0] === "pr" && args[1] === "view") return ok(JSON.stringify({ state: state.existing ? "OPEN" : "CLOSED", headRefName: state.branch, url: state.existing?.url }));
       if (args[0] === "pr" && args[1] === "list") return ok(JSON.stringify(state.existing ? [state.existing] : []));
       if (args[0] === "pr" && args[1] === "create") {
         if (state.fail.create > 0) { state.fail.create--; return no("GraphQL: was submitted too quickly"); }
@@ -84,8 +85,9 @@ function fixture(options: { workspace?: boolean; base?: string } = {}) {
   const now = () => new Date(Date.parse(NOW) + (clock++) * 1_000).toISOString();
   const ports: TarsPublishPorts = {
     conversations, responsibilities, run: repo.run, now,
+    readRevision: async () => ({ status: "known", revision: repo.state.sha }),
     resolveWorkspace: async () => options.workspace === false ? null : { path: "/tmp/exec-checkout", base: options.base ?? "main", repositoryName: "web" },
-    readReport: async () => ({ state: "frozen", frozenAt: NOW, finalRevision: "f00ba12", outcome: "completed",
+    readReport: async () => ({ state: "frozen", publicationRevision: { status: "known", revision: SHA }, frozenAt: NOW, finalRevision: "f00ba12", outcome: "completed",
       criteria: [{ text: "Checkout shows the saved card first.", required: true, status: "met", source: { kind: "check", stageTitle: "Verify", name: "test", exitCode: 0, revision: "f00ba12", freshness: "current" } },
         { text: "The checkout tests pass.", required: true, status: "unmet", source: { kind: "none" } }],
       evidenceGroups: [{ stageId: "verify", stageTitle: "Verify", evidence: [{ evidence: { label: "bun test passed", kind: "check", command: "bun test", source: "stave", outcome: "succeeded", freshness: "current" },
@@ -93,11 +95,12 @@ function fixture(options: { workspace?: boolean; base?: string } = {}) {
   };
   const publisher = createTarsPublisher(ports);
   /** Completed, verified work with an execution workspace, unless the patch says otherwise. */
-  const completed = (patch: Partial<Pick<TarsResponsibility, "state" | "detail" | "detailCode" | "executionWorkspaceId">> = {}) => {
-    const created = responsibilities.create({ requestId: `work-${clock++}`, title: "Show the saved card first at checkout", instruction: "Do the work.",
+  const completed = (patch: Partial<Pick<TarsResponsibility, "state" | "detail" | "detailCode" | "executionWorkspaceId" | "completionGoal" | "resultVerifiedRunId">> = {}) => {
+    const created = responsibilities.create({ completionGoal: patch.completionGoal ?? "implementation", requestId: `work-${clock++}`, title: "Show the saved card first at checkout", instruction: "Do the work.",
       acceptanceCriteria: ["Checkout shows the saved card first."], workspaceId: "source", repositoryPath: "/tmp/web", providerId: "codex", branchName: HEAD }, NOW);
+    const { completionGoal: _goal, ...change } = patch;
     return responsibilities.patch(created.id, created.revision, { state: "completed", detail: null, taskId: `tars-${created.id}`,
-      executionWorkspaceId: "exec-checkout", agentRunId: `run-${created.id}`, ...patch }, NOW);
+      executionWorkspaceId: "exec-checkout", agentRunId: `run-${created.id}`, ...change }, NOW);
   };
   const confirm = (row: TarsResponsibility, patch: Partial<{ requestId: string; expectedRevision: number; commitMessage: string; title: string }> = {}) =>
     publisher.publish({ requestId: patch.requestId ?? `publish-click:${clock++}`, responsibilityId: row.id, expectedRevision: patch.expectedRevision ?? row.revision,
@@ -105,8 +108,43 @@ function fixture(options: { workspace?: boolean; base?: string } = {}) {
   return { database, responsibilities, conversations, repo, publisher, completed, confirm, ports, now };
 }
 
+describe("Tars goal publication boundary", () => {
+  test("a PR goal stays open through failed publishing and completes only after the observed PR result", async () => {
+    const f = fixture();
+    let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.publisher.preview({ responsibilityId: row.id })).reason).toBeNull();
+    expect(f.repo.commands("commit")).toHaveLength(0);
+    f.repo.state.fail.create = 1;
+    expect((await f.confirm(row)).record.status).toBe("rejected");
+    row = f.responsibilities.get(row.id)!;
+    expect(row.state).toBe("resultReady");
+    expect(row.publication?.state).toBe("failed");
+    expect((await f.confirm(row)).record.status).toBe("applied");
+    const done = f.responsibilities.get(row.id)!;
+    expect(done).toMatchObject({ state: "completed", publication: { state: "opened", agentRunId: row.agentRunId, url: URL } });
+    expect(done.taskId).toBe(row.taskId);
+    expect(done.executionWorkspaceId).toBe(row.executionWorkspaceId);
+    expect(f.repo.commands("commit")).toHaveLength(0);
+  });
+
+  test("publishing a merge goal records a PR without claiming CI or merge", async () => {
+    const f = fixture();
+    let row = f.completed({ state: "resultReady", completionGoal: "merge" });
+    row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.confirm(row)).record.status).toBe("applied");
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "resultReady", publication: { state: "opened", url: URL } });
+  });
+
+  test("a restored execution without current verification cannot publish", async () => {
+    const f = fixture(); const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+    expect(f.repo.commands("commit")).toHaveLength(0);
+  });
+});
+
 describe("Tars publish pins what it confirmed", () => {
-  test("a retried push sends the commit the first attempt made, even when the branch moved since", async () => {
+  test("a retried push refuses when the branch moved after verification", async () => {
     const f = fixture(); const row = f.completed();
     f.repo.state.fail.push = 1;
     expect((await f.confirm(row)).record).toMatchObject({ status: "rejected" });
@@ -115,7 +153,7 @@ describe("Tars publish pins what it confirmed", () => {
     const moved = "2222222222222222222222222222222222222222";
     f.repo.state.sha = moved; f.repo.state.commits.add(moved);
     const retried = f.responsibilities.get(row.id)!;
-    expect((await f.confirm(retried)).record).toMatchObject({ status: "applied" });
+    expect((await f.confirm(retried)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
     const pushes = f.repo.commands("push").map(([, args]) => args);
     expect(pushes.at(-1)).toEqual(["push", "origin", `${SHA}:refs/heads/${HEAD}`]);
     expect(pushes.flat().join(" ")).not.toContain(moved);
@@ -155,7 +193,7 @@ describe("Tars publish admission", () => {
     const gone = fixture({ workspace: false });
     expect((await gone.confirm(gone.completed())).record).toMatchObject({ status: "rejected", reason: "noWorkspace" });
     const clean = fixture();
-    clean.repo.state.dirty = [];
+    clean.repo.state.dirty = []; clean.repo.state.ahead = 0;
     expect((await clean.confirm(clean.completed())).record).toMatchObject({ status: "rejected", reason: "noChanges" });
     expect(clean.repo.commands("commit")).toEqual([]);
     const elsewhere = fixture();
@@ -191,12 +229,12 @@ describe("Tars publish admission", () => {
 });
 
 describe("Tars publish steps", () => {
-  test("commits, pushes the work's own branch without force and opens a draft pull request against the base", async () => {
+  test("pushes the verified work's own branch without force and opens a draft pull request against the base", async () => {
     const f = fixture();
     const row = f.completed();
     const result = await f.confirm(row);
     expect(result.record).toMatchObject({ status: "applied", url: URL, number: 12, reason: null });
-    expect(f.repo.commands("commit").map(([, args]) => args)).toEqual([tarsPublishCommands.commit("feat: show the saved card first at checkout")]);
+    expect(f.repo.commands("commit").map(([, args]) => args)).toEqual([]);
     const push = f.repo.commands("push").map(([, args]) => args);
     expect(push).toEqual([["push", "origin", `${SHA}:refs/heads/${HEAD}`]]);
     expect(push.flat().some((arg) => /^(--force|-f|--force-with-lease|\+)/.test(arg) || arg.includes(":refs/heads/main"))).toBe(false);
@@ -228,7 +266,7 @@ describe("Tars publish steps", () => {
     expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ state: "opened", existing: true, number: 7 });
   });
 
-  test.each([["commit", { commit: 1 }, 2, 1, 1], ["push", { push: 1 }, 1, 2, 1], ["pr", { create: 1 }, 1, 1, 2]] as const)(
+  test.each([["push", { push: 1 }, 0, 2, 1], ["pr", { create: 1 }, 0, 1, 2]] as const)(
     "a failed %s step is saved and a retry resumes there without repeating finished steps", async (step, fail, commits, pushes, creates) => {
       const f = fixture();
       Object.assign(f.repo.state.fail, fail);
@@ -298,15 +336,54 @@ describe("Tars publish steps", () => {
 
 describe("Tars publish from words", () => {
   let sequence = 0;
-  function words(f: ReturnType<typeof fixture>, actions: TarsDecisionAction[], origin?: TarsMessageOrigin) {
-    f.conversations.configure({ providerId: "codex", model: "m", maxTurns: 5 });
+  function words(f: ReturnType<typeof fixture>, actions: TarsDecisionAction[], origin?: TarsMessageOrigin, autonomy: "careful" | "balanced" | "handsOff" = "balanced") {
+    f.conversations.configure({ providerId: "codex", model: "m", maxTurns: 5, autonomy });
     const queued = f.conversations.create({ requestId: `${origin ? "followup" : "message"}-${sequence++}`, text: "Open a draft PR for the checkout work." }, NOW, 32, origin);
     const claimed = f.conversations.claim(queued.id, queued.revision, NOW);
     const message = f.conversations.answer(claimed.id, claimed.revision, { reply: "Confirm the card to publish.", actions }, NOW);
     const ports: TarsDecisionPorts = { conversations: f.conversations, responsibilities: f.responsibilities, readRegistry: () => [], requestTick: () => {},
-      control: () => { throw new Error("no control"); }, now: () => NOW };
+      control: () => { throw new Error("no control"); }, publish: (input) => f.publisher.publish(input), now: () => NOW };
     return { message, apply: () => applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, ports) };
   }
+
+  test("verified PR goals publish through the guarded draft path at both automatic levels and origins", async () => {
+    for (const level of ["careful", "balanced", "handsOff"] as const) for (const automatic of [false, true]) for (const completionGoal of ["pullRequest", "merge"] as const) {
+      const f = fixture();
+      const initial = f.completed({ completionGoal });
+      const row = f.responsibilities.patch(initial.id, initial.revision, { state: "resultReady", resultVerifiedRunId: initial.agentRunId }, NOW);
+      const origin: TarsMessageOrigin | undefined = automatic ? { kind: "followUp", reason: "resultReady", eventKey: `ready:${row.id}`,
+        responsibilityId: row.id, observedRevision: row.revision, summary: "Execution verified." } : undefined;
+      const request = words(f, [{ kind: "publish", responsibilityId: row.id, expectedRevision: row.revision }], origin, level);
+      expect((await request.apply())[0]?.status).toBe(level === "careful" ? "proposed" : "applied");
+      expect(f.repo.commands("pr create")).toHaveLength(level === "careful" ? 0 : 1);
+      if (level === "careful") continue;
+      expect(f.repo.commands("pr create")[0]![1]).toContain("--draft");
+      expect(f.conversations.listPublishes()[0]).toMatchObject({ status: "applied", source: "automatic", url: URL });
+      await request.apply();
+      expect(f.repo.commands("push")).toHaveLength(1);
+    }
+  });
+
+  test("automatic publication retries its own progressed revision after a lost acknowledgement", async () => {
+    const f = fixture(), initial = f.completed({ completionGoal: "pullRequest" });
+    const row = f.responsibilities.patch(initial.id, initial.revision, { state: "resultReady", resultVerifiedRunId: initial.agentRunId }, NOW);
+    const request = words(f, [{ kind: "publish", responsibilityId: row.id, expectedRevision: row.revision }]);
+    const run = f.ports.run;
+    let interrupted = false;
+    f.ports.run = async (command, args, cwd) => {
+      if (!interrupted && command === "gh" && args[0] === "pr" && args[1] === "create") {
+        interrupted = true;
+        throw new TarsStorageBusyError();
+      }
+      return run(command, args, cwd);
+    };
+    await expect(request.apply()).rejects.toThrow();
+    expect(f.responsibilities.get(row.id)!.revision).toBeGreaterThan(row.revision);
+    expect((await request.apply())[0]?.status).toBe("applied");
+    expect(f.repo.commands("commit")).toHaveLength(0);
+    expect(f.repo.commands("push")).toHaveLength(1);
+    expect(f.repo.commands("pr create")).toHaveLength(1);
+  });
 
   test("a publish proposal waits as proposed; only its card's confirmation publishes, and it settles the proposal", async () => {
     const f = fixture();
@@ -360,22 +437,24 @@ describe("Tars publish from words", () => {
     expect(tarsFollowUpRefusal(ask, origin, f.responsibilities)).toContain("cannot offer");
   });
 
-  test("an automatic follow-up cannot propose publishing", async () => {
+  test("an automatic follow-up offers publishing with confirmation for other goals", async () => {
     const f = fixture();
     const row = f.completed();
     const origin: TarsMessageOrigin = { kind: "followUp", eventKey: `${row.id}:completed:2`, responsibilityId: row.id, reason: "blocked", observedRevision: row.revision, summary: "x" };
     const action: TarsDecisionAction = { kind: "publish", responsibilityId: row.id, expectedRevision: row.revision };
-    expect(tarsFollowUpRefusal(action, origin, f.responsibilities)).toContain("cannot propose publishing");
+    expect(tarsFollowUpRefusal(action, origin, f.responsibilities)).toBeNull();
     const { apply } = words(f, [action], origin);
     const [receipt] = await apply();
-    expect(receipt).toMatchObject({ status: "rejected", reason: "notByFollowUp" });
+    expect(receipt).toMatchObject({ status: "proposed", reason: null });
   });
 
-  test("the planner may return one publish action, never two", () => {
+  test("the planner may return one publish action, never two: a second or malformed one is dropped, the reply kept", () => {
     const action = { kind: "publish", responsibilityId: "r", expectedRevision: 3 };
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm the card.", actions: [action] })).actions).toEqual([action]);
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [action, action] }))).toThrow();
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ ...action, base: "main" }] }))).toThrow();
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [action, action] })))
+      .toMatchObject({ reply: "x", actions: [action], dropped: [{ index: 1, kind: "publish", reason: "overLimit" }] });
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ ...action, base: "main" }] })))
+      .toMatchObject({ reply: "x", actions: [], dropped: [{ index: 0, kind: "publish", reason: "invalid" }] });
   });
 });
 
@@ -402,4 +481,97 @@ describe("Tars publish words and results", () => {
     const row = { id: "r", title: "Checkout", updatedAt: NOW, agentRunId: null, publication: { state: "opened", url: URL, number: 12 } } as unknown as TarsResponsibility;
     expect(buildTarsOutputs({ responsibilities: [row], runs: {} })).toEqual([{ kind: "pullRequest", responsibilityId: "r", title: "Checkout", url: URL, number: 12 }]);
   });
+});
+
+test("publishing refuses an uncertain continuation before any Git operation", async () => {
+  const f = fixture(); let row = f.completed();
+  row = f.responsibilities.patch(row.id, row.revision, { executionPending: true }, NOW);
+  expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "inProgress" });
+  expect(f.repo.calls).toEqual([]);
+});
+
+test("a queued message blocks publication both before and after asynchronous inspection", async () => {
+  const { createTarsRuntime } = await import("../electron/host-service/tars-runtime");
+  const { actTars } = await import("../electron/host-service/tars-control");
+  for (const duringInspect of [false, true]) {
+    const f = fixture(); const row = f.completed();
+    const blocker = f.completed({ state: "running" });
+    const runtime = createTarsRuntime({ store: f.responsibilities, messages: f.conversations, now: () => NOW, concurrencyLimit: () => 1,
+      validateScope: async () => {}, prepareWorkspace: async () => "unused", prepareTask: async () => {}, findRun: async () => null,
+      startRun: async () => "unused", observe: async () => ({ state: "running", detail: null }), controlRun: async () => {},
+      respondTask: async () => { throw new Error("Must queue"); }, hasUserTurn: () => false, deliverMessage: async () => "busy",
+      continueWork: async () => { throw new Error("No slot"); } });
+    const send = () => actTars({ requestId: `queued-${duringInspect}`, responsibilityId: row.id, expectedRevision: row.revision,
+      operation: "message", input: { text: "Correct this result" }, source: "click" }, { conversations: f.conversations, runtime, now: () => NOW });
+    let release!: () => void; const gate = new Promise<void>(resolve => { release = resolve; });
+    if (duringInspect) f.ports.resolveWorkspace = async () => { await gate; return { path: "/tmp/exec-checkout", base: "main", repositoryName: "web" }; };
+    let publication: ReturnType<typeof f.confirm>;
+    if (duringInspect) { publication = f.confirm(row); await send(); release(); }
+    else { await send(); publication = f.confirm(row); }
+    expect((await publication).record).toMatchObject({ status: "rejected", reason: "inProgress" });
+    expect(f.repo.commands("commit")).toHaveLength(0);
+    expect(f.repo.commands("push")).toHaveLength(0);
+    expect(f.repo.commands("pr create")).toHaveLength(0);
+    expect(f.responsibilities.get(blocker.id)?.state).toBe("running");
+    runtime.stop(); await runtime.drain();
+  }
+});
+
+
+test("a verified continuation updates the same open PR, with no second create or ready command", async () => {
+  const f = fixture();
+  let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+  row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+  expect((await f.confirm(row)).record.status).toBe("applied");
+  row = f.responsibilities.get(row.id)!;
+  row = f.responsibilities.patch(row.id, row.revision, { publication: { ...row.publication!, watch: {
+    startedAt: NOW, nextAt: NOW, polls: 1, stopped: null, fixRounds: 1 } } }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "running", agentRunId: "continued-run" }, NOW);
+  expect(row.publication?.number).toBe(12);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "resultReady" }, NOW);
+  expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+  expect(f.repo.commands("push")).toHaveLength(1);
+  row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: "continued-run" }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { publication: { ...row.publication!, watch: { ...row.publication!.watch!, stopped: "expired" } } }, NOW);
+  const second = await f.confirm(row);
+  expect(second.record).toMatchObject({ status: "applied", number: 12, url: URL, existing: true });
+  expect(f.repo.commands("push")).toHaveLength(2);
+  expect(f.repo.commands("push").every(([, args]) => args.at(-1) === `${SHA}:refs/heads/${HEAD}`)).toBe(true);
+  expect(f.repo.commands("pr create")).toHaveLength(1);
+  expect(f.repo.commands("pr ready")).toHaveLength(0);
+  expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ agentRunId: "continued-run", number: 12, branch: HEAD, watch: { fixRounds: 1 } });
+  expect((await f.confirm(f.responsibilities.get(row.id)!)).record.reason).toBe("alreadyPublished");
+});
+
+test("an update refuses a closed original PR before pushing", async () => {
+  const f = fixture(); let row = f.completed();
+  expect((await f.confirm(row)).record.status).toBe("applied"); row = f.responsibilities.get(row.id)!;
+  row = f.responsibilities.patch(row.id, row.revision, { publication: { ...row.publication!, agentRunId: "old", watch: {
+    startedAt: NOW, nextAt: NOW, polls: 0, stopped: null, fixRounds: 1 } } }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "resultReady", resultVerifiedRunId: row.agentRunId }, NOW);
+  f.repo.state.existing = null;
+  expect((await f.confirm(row)).record.reason).toBe("alreadyPublished");
+  expect(f.repo.commands("push")).toHaveLength(1);
+  expect(f.repo.commands("pr create")).toHaveLength(1);
+});
+
+
+test("publication refuses dirty files, changed commits, missing and mismatched verification before any external write", async () => {
+  for (const mode of ["dirty", "commit", "unknown", "missing"] as const) {
+    const f = fixture(); const row = f.completed();
+    if (mode === "dirty") f.repo.state.dirty = ["?? unverified.txt"];
+    if (mode === "commit") f.repo.state.sha = "2".repeat(40);
+    if (mode === "unknown") f.ports.readRevision = async () => ({ status: "unknown", reason: "changing" });
+    if (mode === "missing") f.ports.readReport = async () => null;
+    expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+    for (const command of ["add", "commit", "push", "pr create"]) expect(f.repo.commands(command)).toHaveLength(0);
+  }
+});
+
+test("automatic publication describes its actual origin in the PR body", async () => {
+  const f = fixture(); const row = f.completed();
+  const report = await f.ports.readReport(row);
+  const body = buildTarsPublicationBody({ title: row.title, report, source: "automatic" });
+  expect(body).toContain("automatically"); expect(body).not.toContain("after the user confirmed");
+  expect(buildTarsPublicationBody({ title: row.title, report, source: "click" })).toContain("after the user confirmed");
 });

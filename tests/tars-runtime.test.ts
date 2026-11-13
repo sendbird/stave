@@ -9,12 +9,13 @@ import type { TarsResponsibility } from "../src/lib/tars/types";
 import { tarsWorkflow, tarsObservation } from "../electron/host-service/tars-execution";
 import { assertTarsRun } from "../electron/host-service/tars-ownership";
 import { WorkflowSchema } from "../src/lib/workflows/schema";
+import { AgentRunCommandError } from "../src/lib/agent-runs/domain";
 import { agentRunFixture } from "./fixtures/agent-run-fixtures";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 
 const NOW = "2026-11-05T00:00:00.000Z";
 const input = (requestId = "one", priority = 50) => ({
-  requestId, title: "Verify the search fix", instruction: "Fix and verify search within this repository.",
+  completionGoal: "implementation" as const, requestId, title: "Verify the search fix", instruction: "Fix and verify search within this repository.",
   acceptanceCriteria: ["Search returns the expected result."], workspaceId: "source", repositoryPath: "/tmp/tars-repository",
   providerId: "codex" as const, model: null, priority, maxTurns: 30,
 });
@@ -43,6 +44,29 @@ function fixture(overrides: Partial<TarsRuntimePorts> = {}) {
 }
 
 describe("Tars responsibility execution", () => {
+  test("a limit reached during preparation retains its translated reason and settings recovery", async () => {
+    const f = fixture({ startRun: async () => { throw new AgentRunCommandError("daily-usage-limit", "Daily limit reached."); } });
+    const row = f.store.create(input(), NOW);
+    await f.tick();
+    expect(f.store.get(row.id)).toMatchObject({ state: "blocked", detailCode: "dailyUsageLimit", agentRunId: null });
+    f.database.close();
+  });
+  test("a daily limit refuses Tars before workspace or task preparation and can be resumed", async () => {
+    let limited = true;
+    const f = fixture({ dailyUsageLimit: () => limited ? "Daily limit reached." : null });
+    const row = f.store.create(input(), NOW);
+    await f.tick();
+    expect(f.calls).toEqual([]);
+    const blocked = f.store.get(row.id)!;
+    expect(blocked).toMatchObject({ state: "blocked", detailCode: "dailyUsageLimit", agentRunId: null });
+    limited = false;
+    const resumed = await f.act(blocked, "resume");
+    expect(resumed.status).toBe("applied");
+    await f.tick();
+    expect(f.store.get(row.id)?.state).toBe("running");
+    expect(f.calls.filter((call) => call.startsWith("run:"))).toHaveLength(1);
+    f.database.close();
+  });
   test("creates one execution, preserves ownership and does no work on unchanged ticks", async () => {
     const f = fixture();
     const row = f.store.create(input(), NOW);
@@ -211,10 +235,10 @@ describe("Tars responsibility execution", () => {
 });
 
 describe("Tars acceptance boundary", () => {
-  test("workflow is valid, always reviews, carries exact required criteria and grants no publication stage", () => {
+  test("workflow is valid, reviews changed work, carries exact required criteria and grants no publication stage", () => {
     const f = fixture(); const row = f.store.create(input(), NOW);
     const workflow = WorkflowSchema.parse(tarsWorkflow(row, NOW));
-    expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "verify"]);
+    expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
     expect(workflow.stages[0]?.acceptanceCriteria?.[0]?.text).toBe(row.acceptanceCriteria[0]);
     expect(workflow.stages.every((stage) => stage.kind === "ai")).toBe(true);
     f.database.close();
@@ -250,7 +274,32 @@ describe("Tars acceptance boundary", () => {
 
   test("a check Stave saw pass on the current revision in the final stage completes the work", () => {
     const base = reported([]);
-    expect(tarsObservation(reported([checkedStage(base, { exitCode: 0, revision: "revision-1" })])).state).toBe("completed");
+    expect(tarsObservation(reported([checkedStage(base, { exitCode: 0, revision: "revision-1" })]), undefined, undefined, { completionGoal: "implementation" }).state).toBe("completed");
+  });
+
+  test("verified results finish only an explicitly requested, observed endpoint", () => {
+    const base = reported([]);
+    const detail = reported([checkedStage(base, { exitCode: 0, revision: "revision-1" })]);
+    for (const completionGoal of [undefined, "confirmation", "pullRequest", "merge"] as const)
+      expect(tarsObservation(detail, ["Required result"], null, { completionGoal })).toMatchObject({
+        state: "resultReady", resultVerifiedRunId: detail.agentRun.id,
+      });
+    for (const completionGoal of ["design", "implementation"] as const)
+      expect(tarsObservation(detail, ["Required result"], null, { completionGoal }).state).toBe("completed");
+    // Neither an ended provider turn nor missing runtime activity ends a running Run.
+    expect(tarsObservation({ ...detail, agentRun: { ...detail.agentRun, state: "running" } }).state).toBe("running");
+    expect(tarsObservation(detail, ["Missing required result"], null, { completionGoal: "implementation" }))
+      .toMatchObject({ state: "blocked", detailCode: "incompleteReport" });
+  });
+
+  test("a previous execution's PR cannot complete a revised goal", () => {
+    const base = reported([]);
+    const detail = reported([checkedStage(base, { exitCode: 0, revision: "revision-1" })]);
+    const publication = { state: "opened", agentRunId: "previous-run" } as NonNullable<TarsResponsibility["publication"]>;
+    expect(tarsObservation(detail, undefined, null, { completionGoal: "pullRequest", publication }).state).toBe("resultReady");
+    publication.agentRunId = detail.agentRun.id;
+    expect(tarsObservation(detail, undefined, null, { completionGoal: "pullRequest", publication }).state).toBe("completed");
+    expect(tarsObservation(detail, undefined, null, { completionGoal: "merge", publication }).state).toBe("resultReady");
   });
 
   test("a failed or out-of-date check is not verification", () => {
@@ -271,7 +320,7 @@ describe("Tars acceptance boundary", () => {
       stageRecord("review", { reviewVerdict: "passed", workspaceRevision: { status: "known", revision: "revision-2" }, ...review }, null, reviewStartedAt),
       stageRecord(finalStage.id, {}, { currentTurnId: null, workspaceRevision: { status: "known", revision: verifyRevision }, diff: null, commands: [], toolCalls: [], action: null }),
     ]), agentRun: { ...aggregate.agentRun, state: "completed", workflow } }) as AgentRunDetail;
-    expect(tarsObservation(verified({})).state).toBe("completed");
+    expect(tarsObservation(verified({}), undefined, undefined, { completionGoal: "implementation" }).state).toBe("completed");
     const unverified = { state: "blocked", detailCode: "unverifiedCompletion" };
     expect(tarsObservation(verified({ reviewVerdict: "changes-requested" }))).toMatchObject(unverified);
     // The final stage changed the files after the review: that revision was never reviewed.
@@ -282,7 +331,7 @@ describe("Tars acceptance boundary", () => {
     expect(tarsObservation({ ...selfReported, agentRun: { ...selfReported.agentRun, workflow } } as AgentRunDetail)).toMatchObject(unverified);
     // A review from before a hand-back does not cover the user's changes.
     const reverifyAfter = "2026-11-06T00:00:00.000Z";
-    expect(tarsObservation(verified({}, NOW), undefined, NOW)).toMatchObject({ state: "completed" });
+    expect(tarsObservation(verified({}, NOW), undefined, NOW, { completionGoal: "implementation" })).toMatchObject({ state: "completed" });
     expect(tarsObservation(verified({}, NOW), undefined, reverifyAfter).state).toBe("blocked");
   });
 

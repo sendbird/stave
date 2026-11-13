@@ -237,7 +237,7 @@ test("every entry between messages pads like an exchange, so the transcript has 
 test("card text follows the chat font size: the title and effect at the messages' size, secondary lines one step under", async ({ page }) => {
   for (const size of [12, 16, 20]) {
     await openGallery(page, `messageFontSize=${size}`);
-    await page.locator('[data-tars-message="g-f1"] [data-tars-waiting-record] button').click();
+    await page.locator('[data-tars-waiting-record="confirm:g-m:1"] button').click();
     const card = page.locator('[data-tars-decision-dock] [data-tars-dock-item]:not([hidden]) [data-tars-decision]');
     await card.scrollIntoViewIfNeeded();
     const sizes = await card.evaluate((node) => {
@@ -253,7 +253,7 @@ test("card text follows the chat font size: the title and effect at the messages
 
 test("Enter on a card's Details opens it and confirms nothing, even on a card whose action takes Enter", async ({ page }) => {
   await openGallery(page, "");
-  await page.locator('[data-tars-message="g-f1"] [data-tars-waiting-record] button').click();
+  await page.locator('[data-tars-waiting-record="confirm:g-m:1"] button').click();
   const card = page.locator('[data-tars-decision-dock] [data-tars-dock-item]:not([hidden]) [data-tars-decision]');
   await card.scrollIntoViewIfNeeded();
   await expect(card.locator("[data-tars-decision-option='0']")).toHaveAttribute("aria-keyshortcuts", "1 Enter");

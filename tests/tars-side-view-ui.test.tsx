@@ -136,7 +136,7 @@ describe("tray outputs", () => {
     await applyAppLocale("en");
   });
 
-  test("each output opens its side-view kind; a recorded link opens where it points", async () => {
+  test("each output opens its execution and side-view kind; a recorded link opens where it points", async () => {
     await applyAppLocale("en");
     const f = fixtures();
     const outputs = buildTarsOutputs({ responsibilities: f.responsibilities, runs: f.runs });
@@ -145,8 +145,9 @@ describe("tray outputs", () => {
     expect(view.html).toContain('href="https://example.com/acme/shop/pull/42"');
     // A row reads as what it is, then whose work it came from.
     view.press(view.labels.find((label) => label.startsWith("Changes · 2 files"))!);
-    view.press(view.labels.find((label) => label.startsWith("Review · passed"))!);
-    expect(opened).toEqual([{ responsibilityId: "checkout", kind: "changes" }, { responsibilityId: "checkout", kind: "review" }]);
+    view.press(view.labels.find((label) => label.startsWith("Review · changes requested"))!);
+    expect(opened).toEqual([{ responsibilityId: "checkout", agentRunId: "run-checkout", kind: "changes" },
+      { responsibilityId: "checkout", agentRunId: "run-checkout", kind: "review" }]);
     expect(renderToStaticMarkup(createElement(TarsOutputList, { outputs: [] }))).toContain("Nothing has been produced yet.");
   });
 });
@@ -160,7 +161,7 @@ describe("side-view panels", () => {
     expect(html).toContain("실행이 끝난");
     expect(html).toContain("최종 리비전 9e2b7c11");
     expect(html).toContain("완료 기준 2개 중 2개 충족");
-    expect(html).toContain("Verify 단계에서 에이전트가 보고 · 9e2b7c11에서 확인 · 최종 리비전");
+    expect(html).toContain("Fix review findings 단계에서 에이전트가 보고 · 9e2b7c11에서 확인 · 최종 리비전");
     expect(html).toContain("Stave에서 검증함");
     expect(html).toContain("Work 단계에서 보고한 근거");
     await applyAppLocale("en");
@@ -171,10 +172,10 @@ describe("side-view panels", () => {
     const f = fixtures();
     const checkout = f.responsibilities[0]!;
     const html = renderToStaticMarkup(createElement(TarsReportPanel, { model: projectTarsReport(checkout, f.runs["run-checkout"]), row: checkout }));
-    // Two criteria, three stage groups: the Verify check appears once.
+    // Two criteria, three stage groups: the fix check appears once.
     expect(html.split("data-tars-criterion=").length - 1).toBe(2);
     expect(html.split("data-tars-evidence-group=").length - 1).toBe(3);
-    expect(html.split("Evidence reported in Verify").length - 1).toBe(2); // heading text and its aria-label
+    expect(html.split("Evidence reported in Fix review findings").length - 1).toBe(2); // heading text and its aria-label
     expect(html).not.toContain("No evidence was cited");
   });
 
@@ -205,12 +206,12 @@ describe("side-view panels", () => {
 
   test("a criterion's source line names a Stave check's result; a known check on an unknown final revision says so", async () => {
     await applyAppLocale("en");
-    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Verify", name: "test", exitCode: 0, revision: "9e2b7c11", freshness: "current" }))
-      .toBe("Stave check test passed in Verify · Checked on 9e2b7c11 · the final revision");
-    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Verify", name: "test", exitCode: 2, revision: "9e2b7c11", freshness: "superseded" }))
-      .toBe("Stave check test failed with exit code 2 in Verify · Checked on 9e2b7c11 · not the final revision");
-    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Verify", name: "test", exitCode: null, revision: null, freshness: "unknown" }))
-      .toBe("Stave check test has not run in Verify");
+    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Fix review findings", name: "test", exitCode: 0, revision: "9e2b7c11", freshness: "current" }))
+      .toBe("Stave check test passed in Fix review findings · Checked on 9e2b7c11 · the final revision");
+    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Fix review findings", name: "test", exitCode: 2, revision: "9e2b7c11", freshness: "superseded" }))
+      .toBe("Stave check test failed with exit code 2 in Fix review findings · Checked on 9e2b7c11 · not the final revision");
+    expect(describeTarsCriterionSource({ kind: "check", stageTitle: "Fix review findings", name: "test", exitCode: null, revision: null, freshness: "unknown" }))
+      .toBe("Stave check test has not run in Fix review findings");
     expect(describeTarsEvidenceRevision("4f1c9a20", "finalUnknown")).toBe("Checked on 4f1c9a20 · final revision unknown");
   });
 
@@ -234,7 +235,7 @@ describe("side-view panels", () => {
     await applyAppLocale("en");
     const f = fixtures();
     const html = renderToStaticMarkup(createElement(TarsReviewPanel, { review: projectTarsReview(f.runs["run-checkout"]) }));
-    expect(html).toContain("Review passed");
+    expect(html).toContain("Changes requested");
     expect(html).toContain("2 findings");
     expect(html).toContain("Rename savedId to preferredCardId");
     expect(renderToStaticMarkup(createElement(TarsReviewPanel, { review: null }))).toContain("No independent review has reported yet.");

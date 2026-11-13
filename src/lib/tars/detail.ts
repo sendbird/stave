@@ -3,11 +3,14 @@ import type { AgentRunPauseReason, AgentRunStopReason } from "@/lib/agent-runs/d
 import { parseAgentRunTurnStartFailure } from "@/lib/agent-runs/turn-start-failure";
 import { TARS_MESSAGE_FAILURE_TEXT, TarsMessageFailureCodeSchema, type TarsMessage, type TarsMessageFailureCode } from "./conversation";
 import { TarsDetailCodeSchema, type TarsDetailCode, type TarsResponsibility } from "./types";
+import { hasEndedTarsExecution } from "./continuation";
 
 /** The fields a detail line reads; a responsibility and an activity entry both carry them. */
 export type TarsDetailFields = Pick<TarsResponsibility, "detail" | "detailCode" | "detailParams">;
 
 const DETAIL_KEYS = {
+  dailyUsageLimit: "shell:tars.detail.dailyUsageLimit",
+  preparationFailed: "shell:tars.detail.preparationFailed",
   waitingForUser: "shell:tars.detail.waitingForUser",
   runPaused: "shell:tars.detail.runPaused",
   runStopped: "shell:tars.detail.runStopped",
@@ -70,7 +73,7 @@ export function describeTarsResponsibilityDetail(row: TarsDetailFields): string 
 }
 
 /** Codes whose `detail` holds the run's or provider's own words rather than Tars's fixed sentence. */
-const DIAGNOSTIC_CODES: ReadonlySet<TarsDetailCode> = new Set(["runStopped", "runCancelled", "turnStartFailed"]);
+const DIAGNOSTIC_CODES: ReadonlySet<TarsDetailCode> = new Set(["runStopped", "runCancelled", "turnStartFailed", "preparationFailed"]);
 // i18n-ignore: the fixed diagnostic Tars saves for a stop with no reason; it adds nothing to the translated line
 const BARE_STOP_DETAIL = "The run stopped.";
 
@@ -89,6 +92,7 @@ export function describeTarsResponsibilityDiagnostic(row: TarsDetailFields): str
 const FAILURE_KEYS = {
   interrupted: "shell:tars.messageFailure.interrupted",
   reasoningFailed: "shell:tars.messageFailure.reasoningFailed",
+  agentsUnavailable: "shell:tars.messageFailure.agentsUnavailable",
 } as const satisfies Record<TarsMessageFailureCode, I18nKey>;
 
 /** A message saved before failure codes existed is recognized by its fixed English diagnostic. */
@@ -121,10 +125,12 @@ export function describeTarsWorkingChanges(row: Pick<TarsResponsibility, "workin
     : i18n.t("shell:tars.workingChanges.clean");
 }
 
-/** Only scheduler evidence explains a queued row; another running row alone proves nothing. */
+/** Only scheduler evidence explains queued work or an ended execution's queued follow-up. */
 export function describeTarsQueueWait(row: Pick<TarsResponsibility, "state" | "queueWait">): string | null {
-  if (row.state !== "queued") return null;
+  const ended = hasEndedTarsExecution(row);
+  if (row.state !== "queued" && !(ended && row.queueWait)) return null;
   const wait = row.queueWait;
+  if (ended && wait?.code === "unknown") return null;
   if (wait?.code === "capacity") return i18n.t("shell:tars.queueWait.capacity", { active: wait.active, limit: wait.limit });
   return i18n.t(wait?.code === "storageBusy" ? "shell:tars.queueWait.storageBusy" : "shell:tars.queueWait.unknown");
 }

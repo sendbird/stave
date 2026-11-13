@@ -121,7 +121,7 @@ function fixture() {
   let messages = 0;
   /** The user asks Tars to tell a work's run something and confirms the card. */
   async function tell(row: TarsResponsibility, text: string) {
-    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6 });
+    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy: "careful" });
     const queued = conversations.create({ requestId: `message-${messages++}`, text: `Tell it: ${text}` }, NOW);
     const claimed = conversations.claim(queued.id, queued.revision, NOW);
     const revision = store.get(row.id)!.revision;

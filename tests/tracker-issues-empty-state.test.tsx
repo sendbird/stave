@@ -33,7 +33,8 @@ function renderEmpty(
 ) {
   return renderToStaticMarkup(
     createElement(TrackerIssuesEmptyListState, {
-      summaries: describeTrackerSources(syncBySource),
+      // GitHub is opt-in: unless a case names it, it reports itself turned off, as the host does.
+      summaries: describeTrackerSources({ github: status({ source: "github", availability: "disabled", taskCount: 0, lastSyncedAt: null }), ...syncBySource }),
       hasFilters,
       refreshing: false,
       onReset: () => {},

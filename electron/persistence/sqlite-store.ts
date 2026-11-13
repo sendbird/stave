@@ -1,4 +1,5 @@
 import { DelegationPolicyStore } from "./delegation-policy-store";
+import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
 import { TarsStore } from "./tars-store";
 import { TarsConversationStore } from "./tars-conversation-store";
@@ -14,6 +15,7 @@ import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdirSync, rmSync, statfsSync } from "node:fs";
 import Database from "better-sqlite3";
+import { WorkspaceInformationStore } from "./workspace-information-store";
 import {
   hydratePersistedWorkspaceEditorTabs,
   prepareWorkspaceShellEditorTabsPersistence,
@@ -99,11 +101,9 @@ interface WorkspaceMetaRow {
   shell_lite_json?: string | null;
   shell_summary_json?: string | null;
 }
-
 interface WorkspaceSnapshotRow {
   snapshot_json: string;
 }
-
 interface WorkspaceMessageRow {
   id: string;
   task_id: string;
@@ -115,7 +115,6 @@ interface WorkspaceMessageRow {
   parts_json: string;
   message_json: string | null;
 }
-
 interface WorkspaceTaskRow {
   id: string;
   workspace_id: string;
@@ -178,6 +177,7 @@ function normalizePersistedProviderId(
 }
 
 export class SqliteStore {
+  readonly workspaceInformation: WorkspaceInformationStore;
   private db: Database.Database;
   private readonly dbPath: string;
   private artifactRootDir: string;
@@ -197,6 +197,7 @@ export class SqliteStore {
   readonly turnDigests: TurnDigestStore;
   readonly taskHandoffs: TaskHandoffStore;
   readonly usageStatistics: UsageStatisticsStore;
+  readonly dailyUsage: DailyUsageStore;
   readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
   readonly agentAssignments: AgentAssignmentStore;
@@ -249,6 +250,7 @@ export class SqliteStore {
     this.turnDigests = new TurnDigestStore(this.db);
     this.taskHandoffs = new TaskHandoffStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);
+    this.dailyUsage = new DailyUsageStore(this.db, this.usageStatistics);
     this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
@@ -262,6 +264,7 @@ export class SqliteStore {
     this.agentAssignments = new AgentAssignmentStore(this.db);
     this.tars = new TarsStore(this.db);
     this.tarsConversations = new TarsConversationStore(this.db);
+    this.workspaceInformation = new WorkspaceInformationStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {

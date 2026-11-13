@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import type { TarsResponsibility } from "@/lib/tars/types";
+import { readWorkspaceRevision } from "../../electron/host-service/supervision/workspace-revision";
 import { launchStave, seedRepository, E2E_WORKSPACE_ID } from "./harness/stave-app";
 
 // Real Electron IPC, host, Git worktrees and SQLite; only the provider CLI is a stand-in.
@@ -261,11 +262,12 @@ test("a confirmed publish card commits, pushes the work's branch and opens a dra
       ?.events.some((event) => event.kind === "turn-interrupted"), { timeout: 30_000 }).toBe(true);
     await stave.close(); stave = null;
 
-    // Completing a supervised run needs a real provider (the live e2e covers it), so the saved row is moved to completed here.
+    // Seed the verified implementation endpoint, not a legacy unscoped completion (which restores as resultReady).
+    // Real supervised completion is exercised by the live-provider e2e; this test owns publication.
     const database = new DatabaseSync(path.join(profileDir, "stave.sqlite"));
     const stored = database.prepare("SELECT body_json, revision FROM tars_responsibilities WHERE id = ?").get(id) as { body_json: string; revision: number };
     const { detailCode: _code, detailParams: _params, ...body } = JSON.parse(stored.body_json) as TarsResponsibility;
-    const completed = { ...body, state: "completed", detail: null, revision: stored.revision + 1, updatedAt: new Date().toISOString() };
+    const completed = { ...body, state: "completed", completionGoal: "implementation", resultVerifiedRunId: body.agentRunId, detail: null, revision: stored.revision + 1, updatedAt: new Date().toISOString() };
     database.prepare("UPDATE tars_responsibilities SET revision = ?, body_json = ? WHERE id = ?").run(completed.revision, JSON.stringify(completed), id);
     database.close();
     const head = `tars/${id}`;
@@ -276,19 +278,72 @@ test("a confirmed publish card commits, pushes the work's branch and opens a dra
     stave = await launchStave({ userDataDir: profileDir, env });
     await expect.poll(async () => (await stave!.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)?.state).toBe("completed");
     row = (await stave.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)!;
+    // A completed label cannot authorize edits made after completion.
+    const unverified = await stave.page.evaluate((responsibilityId) => window.api!.tars!.previewPublish!({ responsibilityId }), id);
+    expect(unverified).toMatchObject({ reason: "notVerified", changedFiles: 1 });
+    expect(git(["status", "--porcelain"], worktree)).toContain("greeting.txt");
+    await stave.close(); stave = null;
+
+    // Fixture-only commit: publication must use the revision a completed run verified.
+    git(["add", "greeting.txt"], worktree);
+    git(["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "feat: add a greeting file"], worktree);
+    const verifiedHead = git(["rev-parse", "HEAD"], worktree);
+    expect(git(["status", "--porcelain"], worktree)).toBe("");
+    const verifiedRevision = await readWorkspaceRevision(worktree);
+    expect(verifiedRevision.status).toBe("known");
+    const verifiedDatabase = new DatabaseSync(path.join(profileDir, "stave.sqlite"));
+    try {
+      // Keep persistence fixtures independent of runtime schemas, which load locale JSON.
+      verifiedDatabase.exec("BEGIN");
+      const runId = body.agentRunId!;
+      const run = verifiedDatabase.prepare("SELECT workflow_json FROM agent_runs WHERE id = ?").get(runId) as { workflow_json: string };
+      const workflow = JSON.parse(run.workflow_json) as { stages: { id: string }[] };
+      const at = new Date().toISOString();
+      verifiedDatabase.prepare(`UPDATE agent_runs SET state = 'completed', pause_reason = NULL, stop_reason = NULL,
+        reason_detail = NULL, current_stage_index = ?, updated_at = ? WHERE id = ?`).run(workflow.stages.length - 1, at, runId);
+      const report = JSON.stringify({ outcome: "complete", summary: "The greeting file is committed and verified.", decisions: [], evidence: [], artifacts: [],
+        acceptanceCriteria: body.acceptanceCriteria.map((text) => ({ text, required: true, status: "met" })),
+        workspaceRevision: verifiedRevision, reportedAt: at, turnId: null });
+      const facts = JSON.stringify({ diff: null, commands: [], toolCalls: [], action: null, workspaceRevision: verifiedRevision });
+      for (const stage of workflow.stages) {
+        const latest = verifiedDatabase.prepare(`SELECT attempt FROM agent_run_stages
+          WHERE agent_run_id = ? AND stage_id = ? ORDER BY attempt DESC LIMIT 1`).get(runId, stage.id) as { attempt: number } | undefined;
+        verifiedDatabase.prepare(`INSERT INTO agent_run_stages (
+          agent_run_id, stage_id, attempt, status, nudged, block_reason, detail, feedback,
+          started_at, ended_at, start_head_sha, report_json, report_revision, facts_json
+        ) VALUES (?, ?, ?, 'completed', 0, NULL, NULL, NULL, ?, ?, ?, ?, 1, ?)
+        ON CONFLICT (agent_run_id, stage_id, attempt) DO UPDATE SET
+          status = excluded.status, block_reason = NULL, detail = NULL,
+          started_at = excluded.started_at, ended_at = excluded.ended_at, start_head_sha = excluded.start_head_sha,
+          report_json = excluded.report_json, report_revision = excluded.report_revision, facts_json = excluded.facts_json
+        `).run(runId, stage.id, latest?.attempt ?? 1, at, at, verifiedHead, report, facts);
+      }
+      // Bind the result to this run; its final stage supplies report.publicationRevision.
+      const saved = verifiedDatabase.prepare("SELECT body_json, revision FROM tars_responsibilities WHERE id = ?").get(id) as { body_json: string; revision: number };
+      const responsibility = JSON.parse(saved.body_json) as TarsResponsibility;
+      const verified = { ...responsibility, resultVerifiedRunId: runId, revision: saved.revision + 1, updatedAt: at };
+      verifiedDatabase.prepare("UPDATE tars_responsibilities SET revision = ?, body_json = ? WHERE id = ?").run(verified.revision, JSON.stringify(verified), id);
+      verifiedDatabase.exec("COMMIT");
+    } finally { verifiedDatabase.close(); }
+
+    stave = await launchStave({ userDataDir: profileDir, env });
+    await expect.poll(async () => (await stave!.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)?.state).toBe("completed");
+    row = (await stave.page.evaluate(() => window.api!.tars!.get())).responsibilities.find((entry) => entry.id === id)!;
     const preview = await stave.page.evaluate((responsibilityId) => window.api!.tars!.previewPublish!({ responsibilityId }), id);
     expect(preview).toMatchObject({ reason: null, repository: "example/tars-e2e", base: "main", head, changedFiles: 1, revision: row.revision });
     // A confirmation that names an outdated revision is refused before any command runs.
     const stale = await stave.page.evaluate((entry) => window.api!.tars!.publish!({ requestId: "publish-click:stale", responsibilityId: entry.id,
       expectedRevision: entry.revision - 1, commitMessage: "feat: add a greeting file", title: "feat: add a greeting file", source: "click" }), row);
     expect(stale.record).toMatchObject({ status: "rejected", reason: "stale" });
-    expect(git(["status", "--porcelain"], worktree)).toContain("greeting.txt");
+    expect(git(["rev-parse", "HEAD"], worktree)).toBe(verifiedHead);
+    expect(git(["status", "--porcelain"], worktree)).toBe("");
 
     const published = await stave.page.evaluate((entry) => window.api!.tars!.publish!({ requestId: "publish-click:e2e", responsibilityId: entry.id,
       expectedRevision: entry.revision, commitMessage: "feat: add a greeting file", title: "feat: add a greeting file", source: "key" }), row);
     expect(published.record, published.record.error ?? undefined).toMatchObject({ status: "applied", url: "https://github.com/example/tars-e2e/pull/12", number: 12 });
     // The work's branch reached the remote with one commit holding the change; the base branch did not move.
     expect(git(["log", "-1", "--format=%s", head], remotePath)).toBe("feat: add a greeting file");
+    expect(git(["rev-parse", head], remotePath)).toBe(verifiedHead);
     expect(git(["ls-tree", "-r", "--name-only", head], remotePath).split("\n")).toContain("greeting.txt");
     expect(git(["rev-parse", "main"], remotePath)).toBe(remoteMain);
     expect(git(["status", "--porcelain"], worktree)).toBe("");

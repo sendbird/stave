@@ -1,3 +1,4 @@
+import { askTarsAboutDocument } from "@/components/tars/ask-tars";
 import { i18n, useTranslation } from "@/i18n";
 import {
   AlignJustify,
@@ -263,6 +264,12 @@ export function EditorSurfaceToolbar(args: {
               <MoreHorizontal size={16} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {/\.(?:md|mdx|markdown)$/i.test(args.tab.filePath) ? (
+                <DropdownMenuItem disabled={args.tab.content == null || (args.tab.contentState != null && args.tab.contentState !== "ready")}
+                  onSelect={() => void askTarsAboutDocument(args.tab.filePath, args.tab.content ?? "")}>
+                  {i18n.t("shell:tars.intake.ask")}
+                </DropdownMenuItem>
+              ) : null}
               {args.fileReviewCommentCount > 0 &&
               args.fileReviewCommentCount < args.reviewCommentCount ? (
                 <>

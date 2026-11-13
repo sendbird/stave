@@ -34,3 +34,55 @@ test("historical records, irreversible controls and hosts without the capability
   expect(render({ ...historical, source: "click", action: { kind: "control", responsibilityId: "work", expectedRevision: 1, operation: "startNow" } })).not.toContain("data-tars-record-undo");
   expect(render(record, false)).not.toContain("data-tars-record-undo");
 });
+
+test("pending message records reuse Undo as request-local withdrawal in both languages", () => {
+  const delivery: TarsActionRecord = { ...record, requestId: "follow-up", source: "click", undo: { kind: "delivery" },
+    action: { kind: "control", responsibilityId: "work", expectedRevision: 1, operation: "message", input: { text: "Correct the result" } },
+    delivery: { status: "queued", agentRunId: "completed-run", reason: null, error: null, queuedAt: at, updatedAt: at } };
+  try {
+    for (const [lang, action, done, checking] of [["en", "Withdraw request", "Request withdrawn", "Checking withdrawal"],
+      ["ko", "요청 철회", "요청 철회됨", "철회 여부를 확인"]] as const) {
+      applyAppLocale(lang);
+      expect(render(delivery)).toContain(action);
+      const held = render({ ...delivery, delivery: { ...delivery.delivery!, withdrawRequestedAt: at } });
+      expect(held).toContain(checking); expect(held).not.toContain(done);
+      const withdrawn = render({ ...delivery, undo: { kind: "delivery", undoneAt: at }, delivery: { ...delivery.delivery!, status: "withdrawn" } });
+      expect(withdrawn).toContain(done); expect(withdrawn).not.toContain("data-tars-record-undo");
+      expect(render({ ...delivery, delivery: { ...delivery.delivery!, status: "delivered" } })).not.toContain("data-tars-record-undo");
+    }
+  } finally { applyAppLocale("en"); }
+});
+
+test("an answered decision keeps withdrawal on the same delivery record", async () => {
+  const { TarsDecisionCard } = await import("../src/components/tars/TarsDecisionCard");
+  const saved: TarsActionRecord = { ...record, requestId: "decision-request", source: "click", undo: { kind: "delivery" },
+    action: { kind: "control", responsibilityId: "work", expectedRevision: 1, operation: "message", input: { text: "Correct the result" } },
+    delivery: { status: "queued", agentRunId: "completed-run", reason: null, error: null, queuedAt: at, updatedAt: at } };
+  const decision: import("../src/lib/tars/decisions").TarsDecisionView = { id: "confirm:message:0", kind: "confirm", messageId: "message", actionIndex: 0,
+    question: null, targets: [{ responsibilityId: "work", expectedRevision: 1 }], options: [{ kind: "control", label: "Send to task", rationale: null,
+      control: { responsibilityId: "work", expectedRevision: 1, operation: "message", input: { text: "Correct the result" } } }], recommended: 0,
+    state: "answered", why: null, checked: true, answer: { decisionId: "confirm:message:0", optionIndex: 0, source: "click",
+      effect: { kind: "control", responsibilityId: "work", expectedRevision: 1, operation: "message", input: { text: "Correct the result" } },
+      label: "Send to task", status: "applied", reason: null, error: null, actRequestId: saved.requestId, messageId: null, revision: 2, createdAt: at, updatedAt: at },
+    failure: null, latest: true, record: null, delivery: saved.delivery!, deliveryRecord: saved, since: at, reask: false, reasked: false };
+  const html = renderToStaticMarkup(createElement(TarsActionUndoContext.Provider, { value: { undoAction: async () => ({ record: saved, refusal: null }) } },
+    createElement(TarsDecisionCard, { decision, onAnswer: () => {}, titleOf: () => "Existing work" })));
+  expect(html).toContain('data-tars-record-undo="delivery"'); expect(html).toContain("Withdraw request");
+});
+
+
+test("automatic continuation shows Tars as the actor and offers a pause Undo in both locales", () => {
+  const resumed: TarsActionRecord = { ...record, requestId: "auto:message:0", source: "automatic",
+    action: { kind: "control", responsibilityId: "work", expectedRevision: 1, operation: "resume" },
+    undo: { kind: "run", agentRunId: "run", afterRevision: 2 } };
+  try {
+    for (const locale of ["en", "ko"] as const) {
+      applyAppLocale(locale);
+      const html = render(resumed);
+      expect(html).toContain('data-tars-record-actor="tars"');
+      expect(html).toContain('data-tars-record-source="automatic"');
+      expect(html).toContain("data-tars-record-undo");
+      expect(html).toContain(locale === "en" ? "Tars applied this automatically" : "Tars가 자동으로 실행했습니다");
+    }
+  } finally { applyAppLocale("en"); }
+});

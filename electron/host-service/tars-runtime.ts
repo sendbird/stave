@@ -1,24 +1,29 @@
+import { isTarsPublicationUnfinished } from "../../src/lib/tars/publication";
+import { WorkspacePreparationError } from "./workspace-preparation";
+import { createTarsWithdrawal, tarsContinuationRunPatch } from "./tars-withdrawal";
+import { canContinueTarsControl, hasEndedTarsExecution, tarsExecutionScope } from "../../src/lib/tars/continuation";
 import { randomUUID } from "node:crypto";
 import {
   CreateTarsResponsibilityInputSchema, isTarsRunCommandOperation, isTarsTaskOperation,
   UpdateTarsIdentityInputSchema, tarsSnapshotForWindow,
   type TarsDetailCode, type TarsDetailParams, type TarsPendingRequest, type TarsQueueWait, type TarsResponsibility, type TarsResponsibilityPatch, type TarsRunControlOperation,
-  type TarsStageWait, type TarsWorkRequest,
+  type TarsStageWait, type TarsWorkRequest, type TarsContinuation,
 } from "../../src/lib/tars/types";
 import { buildTarsBrief, resolveTarsWorkRequest, TarsBriefInputSchema } from "../../src/lib/tars/brief";
-import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError, TarsRunEndedError } from "./tars-ownership";
+import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError, TarsRunEndedError, TarsRunRefusedError } from "./tars-ownership";
 import type { TarsStore } from "../persistence/tars-store";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import { TARS_WAIT_FOLLOW_UP_MS } from "../../src/lib/tars/events";
-import type { TarsActionRecord, TarsControlReason, TarsMessageDelivery } from "../../src/lib/tars/conversation";
+import { parseTarsConfirmationRequestId, type TarsActionRecord, type TarsControlReason, type TarsMessageDelivery } from "../../src/lib/tars/conversation";
 import {
-  admitTarsControl, tarsControlRejection, TarsControlRejection, TARS_CONTROL_STALE, TARS_GRANTING_OPERATIONS, TARS_STOPPING_OPERATIONS,
+  admitTarsControl, tarsActionLedger, tarsControlRejection, TarsControlRejection, TARS_CONTROL_STALE, TARS_GRANTING_OPERATIONS, TARS_STOPPING_OPERATIONS,
   type TarsControlLedger, type TarsControlRequest,
 } from "./tars-control";
 
 export interface TarsExecutionObservation {
-  state: "running" | "waiting" | "completed" | "blocked" | "cancelled" | "takenOver";
+  state: "running" | "waiting" | "resultReady" | "completed" | "blocked" | "cancelled" | "takenOver";
   detail: string | null;
+  resultVerifiedRunId?: string | null;
   /** Set when `detail` is a sentence Tars wrote; absent, `detail` is the run's own words. */
   detailCode?: TarsDetailCode | null;
   detailParams?: TarsDetailParams | null;
@@ -39,15 +44,19 @@ export interface TarsExecutionObservation {
 }
 
 export interface TarsRuntimePorts {
+  dailyUsageLimit?: (providerId: TarsResponsibility["providerId"]) => string | null;
   store: Pick<TarsStore, "snapshot" | "create" | "patch" | "get" | "updateIdentity" | "recordEvent">;
   validateScope: (row: Pick<TarsResponsibility, "workspaceId" | "repositoryPath">) => Promise<void>;
-  prepareWorkspace: (row: TarsResponsibility) => Promise<string>;
+  prepareWorkspace: (row: TarsResponsibility, signal?: AbortSignal) => Promise<string>;
+  preparationTimeoutMs?: number;
   prepareTask: (row: TarsResponsibility) => Promise<void>;
   /** Reconciles ALL prior runs for this task, including terminal ones. */
   findRun: (row: TarsResponsibility) => Promise<string | null>;
   startRun: (row: TarsResponsibility, assertAdmitted: () => void) => Promise<string>;
   observe: (row: TarsResponsibility) => Promise<TarsExecutionObservation>;
-  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation) => Promise<void>;
+  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation, autoExtendMaxTurns?: number, commandId?: string) => Promise<void>;
+  hasControlEffect?: (row: TarsResponsibility, commandId: string) => boolean;
+  controls?: TarsConversationStore;
   /** Live persisted setting: 0 or absent admits all independent responsibilities. */
   concurrencyLimit?: () => number;
   onQueueChanged?: () => void;
@@ -60,15 +69,19 @@ export interface TarsRuntimePorts {
    * wait behind them even when the task is free ("queued", or refused as busy
    * without `canQueue`), so they are never said before older words.
    */
-  respondTask: (row: TarsResponsibility, request: TarsControlRequest, options?: { canQueue?: boolean; queueBehind?: boolean }) => Promise<void | "queued">;
+  respondTask: (row: TarsResponsibility, request: TarsControlRequest, options?: { canQueue?: boolean; queueBehind?: boolean; commandId?: string }) => Promise<void | "queued">;
   /** The delivery queue: messages kept for a busy task, on their records. Absent, a busy task refuses a message. */
-  messages?: Pick<TarsConversationStore, "getAction" | "listDeliveryHeads" | "hasOpenDelivery" | "transitionDelivery" | "cancelOpenDeliveries">;
+  messages?: Pick<TarsConversationStore, "getAction" | "listDeliveryHeads" | "listOpenDeliveryResponsibilityIds" | "hasOpenDelivery" | "transitionDelivery" | "cancelOpenDeliveries" | "withdrawDelivery" | "requestDeliveryWithdrawal">;
   /**
    * Says one queued message in the work's task as the user's reply, started as
    * the user turn `turnId`, after rechecking ownership, once no turn runs and
    * nothing waits there: "busy" when it must wait (it says nothing then).
    */
   deliverMessage?: (row: TarsResponsibility, text: string, turnId: string) => Promise<"sent" | "busy">;
+  /** Reconcile or start one confirmed follow-up after completion, in the existing task only. */
+  continueWork?: (row: TarsResponsibility, continuation: TarsContinuation, assertAdmitted?: () => void) => Promise<string | "busy">;
+  /** Read-only exact continuation lookup. Null proves no matching new run was committed. */
+  reconcileContinuation?: (row: TarsResponsibility, continuation: TarsContinuation) => Promise<string | null>;
   /**
    * Whether the run recorded the user turn `turnId`. A message under way
    * reached its task only if its own turn is there; the run's other user turns
@@ -110,6 +123,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   let stopped = false;
   // Invalidate pending dispatch synchronously, even while preparation awaits I/O.
   const held = new Set<string>();
+  const preparations = new Map<string, AbortController>();
   // One control per responsibility at a time; a duplicate request joins its attempt.
   const inflight = new Map<string, { key: string; promise: Promise<unknown> }>();
   // Retain already-sent task effects until their ledger outcome is saved, so retries never send twice.
@@ -127,12 +141,14 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     void next.finally(() => { if (operations.get(key) === next) operations.delete(key); }).catch(() => {});
     return next;
   }
+  const withdrawal = createTarsWithdrawal({ ports, enqueue, patch, reachedTask, now, requestTick });
   function snapshot() {
     const value = tarsSnapshotForWindow(ports.store.snapshot());
+    const open = new Set(ports.messages?.listOpenDeliveryResponsibilityIds() ?? []);
     const limit = ports.concurrencyLimit?.() ?? 0;
     const active = value.responsibilities.filter((row) => occupiesSlot(row) || row.state === "queued" && operations.has(row.id)).length;
-    return { ...value, responsibilities: value.responsibilities.map((row) => row.state === "queued"
-      ? { ...row, queueWait: limit > 0 && active >= limit && !operations.has(row.id) ? { code: "capacity" as const, active, limit }
+    return { ...value, responsibilities: value.responsibilities.map((row) => row.state === "queued" || hasEndedTarsExecution(row) && open.has(row.id)
+      ? { ...row, queueWait: limit > 0 && active >= limit && !occupiesSlot(row) && !operations.has(row.id) ? { code: "capacity" as const, active, limit }
         : queueWaits.get(row.id)?.code === "storageBusy" ? { code: "storageBusy" as const } : { code: "unknown" as const } } : row) };
   }
   function patch(row: TarsResponsibility, raw: TarsResponsibilityPatch, options: { recovered?: boolean } = {}) {
@@ -166,6 +182,10 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   }
   async function prepare(initial: TarsResponsibility) {
     let row = initial;
+    const controller = new AbortController();
+    preparations.set(row.id, controller);
+    const deadline = setTimeout(() => controller.abort(new WorkspacePreparationError("Workspace preparation timed out. Check the post-create command, then resume this work to retry.")), ports.preparationTimeoutMs ?? 5 * 60_000);
+    deadline.unref?.();
     try {
       if (row.state === "preparing" && row.taskId && row.executionWorkspaceId) {
         const existing = await ports.findRun(row);
@@ -177,9 +197,11 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       }
       await ports.validateScope({ ...row, workspaceId: row.executionWorkspaceId ?? row.workspaceId });
       if (stopped || held.has(row.id)) return;
+      const limitReason = ports.dailyUsageLimit?.(row.providerId);
+      if (limitReason) throw new TarsDetailError("dailyUsageLimit", limitReason);
       row = patch(row, { state: "preparing", taskId: row.taskId ?? `tars-${row.id}`, detail: null });
       if (!row.executionWorkspaceId) {
-        const executionWorkspaceId = await ports.prepareWorkspace(row);
+        const executionWorkspaceId = await abortable(ports.prepareWorkspace(row, controller.signal), controller.signal);
         row = patch(row, { executionWorkspaceId });
       }
       if (stopped || held.has(row.id)) return;
@@ -198,11 +220,17 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     } catch (error) {
       // A lock wait is not a verdict on the work: leave the row for the next tick,
       // whose reconciliation finds any run created before the wait.
+      if (held.has(row.id) || stopped) return;
       if (isTarsStorageBusy(error)) { queueWaits.set(row.id, { code: "storageBusy" }); return; }
       blocked(row, error);
+    } finally {
+      clearTimeout(deadline);
+      if (preparations.get(row.id) === controller) preparations.delete(row.id);
     }
   }
   async function reconcile(initial: TarsResponsibility) {
+    // The delivery ledger reconciles an uncertain continuation before observing its old Run.
+    if (initial.executionPending && initial.continuation?.previousRunId === initial.agentRunId) return;
     try {
       if ((initial.state === "blocked" || initial.state === "preparing") && !initial.agentRunId && initial.taskId && initial.executionWorkspaceId) {
         // A lost start acknowledgement is reconciled only for its own task.
@@ -219,7 +247,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       const going = waiting || observed.state === "running";
       const asks = waiting && observed.stageAsksUser === true;
       // An unchanged observation must not reset an existing wait just to add scheduler metadata.
-      noteExpiredWait(patch(initial, { ...change, executionPending: initial.executionPending === true || initial.state === "blocked" ? false : initial.executionPending,
+      noteExpiredWait(patch(initial, { ...change, ...(going ? { resultVerifiedRunId: null } : {}), executionPending: initial.executionPending === true || initial.state === "blocked" ? false : initial.executionPending,
+        continuationFromRevision: hasEndedTarsExecution(observed) && (initial.state === "running" || initial.state === "waiting") ? initial.revision : initial.continuationFromRevision,
         stageAsksUser: asks || undefined, stageWait: asks ? stageWait : undefined,
         activeStage: going ? activeStage : undefined,
         pendingRequests: waiting && pendingRequests?.length ? pendingRequests : undefined,
@@ -234,12 +263,31 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   }
   // Unknown outcomes retain one reservation (also after restart), never the whole portfolio.
   const occupiesSlot = (row: TarsResponsibility) => row.state === "running" || row.state === "preparing" ||
+    (hasEndedTarsExecution(row) && row.executionPending === true && Boolean(row.continuation)) ||
     (row.state === "blocked" && row.executionPending !== false && Boolean(row.agentRunId || row.taskId && row.executionWorkspaceId));
   function tick() {
     if (stopped) return;
+    // Saved clicks precede observation, delivery and new execution, including after a crash.
+    if (ports.controls) {
+      let pending: TarsActionRecord[];
+      try { pending = ports.controls.listPendingControls(); } catch (error) { ports.onError?.(error); return; }
+      if (pending.length) {
+        if (!operations.has("recover-controls")) void enqueue("recover-controls", async () => {
+          let retry = true;
+          for (const record of pending) {
+            if (record.action.kind !== "control") continue;
+            try { await runtime.act(record.action, tarsActionLedger(ports.controls!, record.requestId, now, parseTarsConfirmationRequestId(record.requestId) ?? undefined, ports.store)); }
+            catch (error) { retry = false; ports.onError?.(error); }
+          }
+          if (retry) requestTick();
+        });
+        return;
+      }
+    }
     const rows = ports.store.snapshot().responsibilities;
     const previousWaits = JSON.stringify([...queueWaits]);
-    const queuedIds = new Set(rows.filter((row) => row.state === "queued").map((row) => row.id));
+    const open = new Set(ports.messages?.listOpenDeliveryResponsibilityIds() ?? []);
+    const queuedIds = new Set(rows.filter((row) => row.state === "queued" || hasEndedTarsExecution(row) && open.has(row.id)).map((row) => row.id));
     for (const id of queueWaits.keys()) if (!queuedIds.has(id)) queueWaits.delete(id);
     const limit = ports.concurrencyLimit?.() ?? 0;
     let active = rows.filter((row) => occupiesSlot(row) || row.state === "queued" && operations.has(row.id)).length;
@@ -249,6 +297,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       if (!OWNED.has(row.state)) continue;
       const before = JSON.stringify([row.state, row.agentRunId, row.executionPending]);
       void enqueue(row.id, () => reconcile(row)).catch((error) => ports.onError?.(error)).finally(() => {
+        if (stopped) return;
         const current = ports.store.get(row.id);
         if (current && before !== JSON.stringify([current.state, current.agentRunId, current.executionPending])) requestTick();
       });
@@ -267,6 +316,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       if (!reserved) active++;
       queueWaits.delete(row.id);
       void enqueue(row.id, () => prepare(ports.store.get(row.id)!)).catch((error) => ports.onError?.(error)).finally(() => {
+        if (stopped) return;
         const current = ports.store.get(row.id);
         if (current && current.state !== "running" && current.state !== "preparing" && current.state !== "queued") requestTick();
         ports.onQueueChanged?.();
@@ -291,6 +341,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       try { heads = queue.listDeliveryHeads(DELIVERY_PAGE, deliveryCursor); }
       catch (error) { if (!isTarsStorageBusy(error)) ports.onError?.(error); return; }
       for (const head of heads) {
+        if (head.action.kind !== "control") continue;
         const id = head.action.responsibilityId;
         if (deliveringWorks.has(id)) continue;
         deliveringWorks.add(id);
@@ -312,8 +363,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   /** Why words for this run can never be said: the work ended or left Tars, or its run is not the one they were for. */
   function deliveryEnded(row: TarsResponsibility | null, delivery: TarsMessageDelivery): TarsControlReason | null {
     if (row?.state === "takenOver") return "takenOver";
-    if (!row || !row.agentRunId || row.agentRunId !== delivery.agentRunId) return "ownershipLost";
-    return row.state === "completed" || row.state === "cancelled" ? "ended" : null;
+    if (!row || !row.agentRunId || (row.agentRunId !== delivery.agentRunId && !row.previousRunIds?.includes(delivery.agentRunId))) return "ownershipLost";
+    return row.state === "cancelled" || hasEndedTarsExecution(row) && !ports.continueWork ? "ended" : null;
   }
   /** Cancels every open message of a work at once; one under way is recorded as said only if its own turn is there. */
   function cancelOpenDeliveries(responsibilityId: string, reason: TarsControlReason) {
@@ -333,12 +384,79 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       const record = queue.getAction(requestId);
       const action = record?.action;
       const delivery = record?.delivery;
-      if (action?.kind !== "control" || !delivery || !action.input?.text) return;
+      if (action?.kind !== "control" || !delivery ||
+          !["queued", "delivering"].includes(delivery.status) || withdrawal.requested(requestId)) return;
+      // i18n-ignore: model-facing repair instruction for an explicit retry of failed verification
+      const text = action.input?.text ?? (action.operation === "retryStage" ? "Repair and verify the existing result in this task. Preserve the branch, artifacts and previous reports." : "");
+      if (!text) return;
+      if (delivery.withdrawRequestedAt) {
+        await withdrawal.withdraw({ requestId, expectedRevision: record!.revision }, true); return;
+      }
       const id = action.responsibilityId;
-      const row = ports.store.get(id);
-      const move = (from: Parameters<typeof queue.transitionDelivery>[1], next: Parameters<typeof queue.transitionDelivery>[2]) =>
-        queue.transitionDelivery(requestId, from, next, now());
+      let row = ports.store.get(id);
+      const move = (from: Parameters<typeof queue.transitionDelivery>[1], next: Parameters<typeof queue.transitionDelivery>[2], effect?: () => void) =>
+        queue.transitionDelivery(requestId, from, next, now(), effect);
+      // Settle a reply already recorded by its old run before considering a completed-work continuation.
+      if (delivery.status === "delivering") {
+        const reached = reachedTask(requestId, delivery);
+        if (reached === null) return;
+        if (reached) { move(["delivering"], { status: "delivered" }); saidDeliveries.delete(requestId); return; }
+      }
       const ended = deliveryEnded(row, delivery);
+      // Starting the same scope is recoverable by its saved identity, including a lost run-start acknowledgement.
+      if (!ended && ports.continueWork && row && (hasEndedTarsExecution(row) ||
+          row.continuation?.requestId === requestId && row.agentRunId === row.continuation.previousRunId)) {
+        if (isTarsPublicationUnfinished(row.publication) || held.has(id) || inflight.has(id) || row.state === "paused" || row.state === "takenOver") return;
+        const limit = ports.concurrencyLimit?.() ?? 0;
+        const active = ports.store.snapshot().responsibilities.filter((item) => occupiesSlot(item) || item.state === "queued" && operations.has(item.id)).length;
+        if (!occupiesSlot(row) && limit > 0 && active >= limit) {
+          queueWaits.set(id, { code: "capacity", active, limit });
+          ports.onQueueChanged?.(); return;
+        }
+        queueWaits.delete(id);
+        if (!row.taskId || !row.executionWorkspaceId || !row.agentRunId) throw new TarsOwnershipLostError("The execution location is unavailable.");
+        const continuation = row.continuation?.requestId === requestId ? row.continuation
+          : { requestId, previousRunId: row.agentRunId, previousInstruction: tarsExecutionScope(row).instruction, previousCriteria: tarsExecutionScope(row).acceptanceCriteria, text, requestedAt: now() };
+        let uncertainStart = row.executionPending === true;
+        // Reserve synchronously before host I/O. An uncertain start keeps this slot after restart.
+        row = patch(row, { continuation, executionPending: true });
+        let runId: string;
+        try {
+          const result = await ports.continueWork(row, continuation, () => withdrawal.assertAdmitted(requestId));
+          if (result === "busy") { patch(row, { executionPending: false }); return; }
+          runId = result;
+        } catch (error) {
+          if (withdrawal.requested(requestId) || isTarsStorageBusy(error)) return;
+          const rejection = tarsControlRejection(error);
+          // A prior failed receipt may have rolled back with its reservation release. Reconcile before retaining that slot.
+          if (uncertainStart && rejection.reason === "runRefused" && ports.reconcileContinuation) {
+            let existing: string | null;
+            try { existing = await ports.reconcileContinuation(row, continuation); }
+            catch { ports.onError?.(error); return; }
+            if (withdrawal.requested(requestId)) return;
+            if (existing) {
+              row = patch(row, tarsContinuationRunPatch(row, continuation, existing));
+              move(["queued", "delivering"], { status: "delivered", agentRunId: existing }); return;
+            }
+            uncertainStart = false;
+          }
+          // An unknown acknowledgement failure may follow a committed run start. Keep the saved scope retryable.
+          if (rejection.reason === "unknown" && !(error instanceof TarsDetailError) || uncertainStart && rejection.reason === "runRefused") {
+            // The request's uncertain outcome cannot rewrite the completed result's verification or detail.
+            ports.onError?.(error); return;
+          }
+          move(["queued", "delivering"], { status: "failed", ...rejection }, () => patch(row!, { executionPending: false }));
+          return;
+        }
+        // A persisted scope and the run's own identity reconcile a crash before this acknowledgement.
+        row = patch(row, tarsContinuationRunPatch(row, continuation, runId));
+        move(["queued", "delivering"], { status: "delivered", agentRunId: runId });
+        return;
+      }
+      // The new run was saved but the delivery acknowledgement was lost.
+      if (!ended && row?.continuation?.requestId === requestId && row.agentRunId !== row.continuation.previousRunId) {
+        move(["queued", "delivering"], { status: "delivered", agentRunId: row.agentRunId! }); return;
+      }
       if (delivery.status === "delivering") {
         const reached = reachedTask(requestId, delivery);
         // An unreadable turn leaves it under way: never said twice, never dropped on a guess.
@@ -354,13 +472,20 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       if (row!.state === "paused" || held.has(id) || inflight.has(id)) return;
       // The turn is named before it starts, so after a restart its own record says whether these words reached the task.
       const turnId = randomUUID();
-      const started = move(["queued"], { status: "delivering", turnId });
+      const started = move(["queued"], { status: "delivering", turnId, agentRunId: row!.agentRunId! });
       if (!started?.delivery) return;
       let result: "sent" | "busy";
-      try { result = await ports.deliverMessage!(row!, action.input.text, turnId); }
+      try { result = await ports.deliverMessage!(row!, text, turnId); }
       catch (error) {
         // A lock wait after the effect leaves it under way; the next pass settles it from its own turn.
         if (isTarsStorageBusy(error)) return;
+        if (error instanceof TarsRunEndedError && ports.continueWork) {
+          // Re-read the actual outcome: an ended run may be blocked rather than eligible for continuation.
+          await reconcile(row!);
+          const observed = ports.store.get(id);
+          if (observed?.executionPending) return;
+          if (observed && hasEndedTarsExecution(observed)) { move(["delivering"], { status: "queued" }); return; }
+        }
         if (reachedTask(requestId, started.delivery) === true) { move(["delivering"], { status: "delivered" }); return; }
         const { reason, error: text } = tarsControlRejection(error);
         // A run that ended or changed owner cannot take it any more; anything else the run refused.
@@ -379,10 +504,11 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     if (scheduled || stopped) return;
     scheduled = Promise.resolve().then(() => { scheduled = null; tick(); }).catch((error) => ports.onError?.(error));
   }
-  return {
+  const runtime = {
     start() { if (timer) return; stopped = false; requestTick(); timer = setInterval(requestTick, 5_000); timer.unref?.(); },
-    stop() { stopped = true; if (timer) clearInterval(timer); timer = null; },
+    stop() { stopped = true; for (const controller of preparations.values()) controller.abort(); if (timer) clearInterval(timer); timer = null; },
     requestTick,
+    withdrawDelivery: withdrawal.withdraw,
     /** Tests and orderly shutdown await all work admitted before they become idle. */
     drain: async () => {
       while (scheduled || operations.size) {
@@ -426,10 +552,16 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
      * deterministic and rechecked at dispatch; the run is controlled before the
      * effect and the request's outcome commit together, so a replay applies once.
      */
-    act<R>(request: TarsControlRequest, ledger: TarsControlLedger<R>): Promise<R> {
+    act: function act<R>(request: TarsControlRequest, ledger: TarsControlLedger<R>): Promise<R> {
       const id = request.responsibilityId;
+      const target = ports.store.get(id);
+      // Only the observer's single completion transition can refresh a correction's revision.
+      if (target && canContinueTarsControl(target, request.expectedRevision, request.operation))
+        request = { ...request, expectedRevision: target.revision };
       const running = inflight.get(id);
       if (running?.key === ledger.key) return running.promise as Promise<R>;
+      if (running && request.operation === "message")
+        return running.promise.catch(() => {}).then(() => act(request, ledger));
       const settle = (error: unknown): R => {
         const settled = ledger.settled();
         if (settled) return settled;
@@ -438,7 +570,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         return ledger.reject(tarsControlRejection(error));
       };
       // The effect already ran for this very request: only its outcome is left to save.
-      const sent = sentEffects.has(ledger.key);
+      const sent = sentEffects.has(ledger.key) || Boolean(target && ports.hasControlEffect?.(target, ledger.key));
       try {
         const settled = ledger.settled();
         if (settled) return Promise.resolve(settled);
@@ -448,7 +580,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       } catch (error) {
         try { return Promise.resolve(settle(error)); } catch (busy) { return Promise.reject(busy); }
       }
-      if (TARS_STOPPING_OPERATIONS.has(request.operation)) held.add(id);
+      if (TARS_STOPPING_OPERATIONS.has(request.operation)) { held.add(id); preparations.get(id)?.abort(); }
       const promise = enqueue(id, async () => {
         const replay = ledger.settled();
         if (replay) return replay;
@@ -461,7 +593,18 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         const handedBackAt = now();
         let ownershipLoss: TarsOwnershipLostError | null = null;
         let queued = false;
+        const repair = hasEndedTarsExecution(row) && ["message", "requestChanges", "retryStage"].includes(request.operation);
         try {
+          // A stop must find a run committed before a lost start acknowledgement, never leave it running invisibly.
+          if (row.executionPending && row.continuation?.previousRunId === row.agentRunId && request.operation === "cancel") {
+            if (!ports.reconcileContinuation) throw new TarsRunRefusedError("The continuation outcome cannot be verified yet.");
+            const runId = await ports.reconcileContinuation(row, row.continuation);
+            if (runId) row = patch(row, tarsContinuationRunPatch(row, row.continuation, runId));
+          }
+          // A reconciled continuation already received its assignment, even when this control stops its Run.
+          if (request.operation === "cancel" && row.agentRunId && row.continuation && row.agentRunId !== row.continuation.previousRunId)
+            ports.messages?.transitionDelivery(row.continuation.requestId, ["queued", "delivering"],
+              { status: "delivered", agentRunId: row.agentRunId }, now());
           // Preparation may have recorded an execution identity while this control waited.
           if (!row.agentRunId && row.taskId && row.executionWorkspaceId) {
             const agentRunId = await ports.findRun(row);
@@ -478,16 +621,22 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           // A task operation answers in the task once; a retry of the same request only records it.
           // Words for a task whose turn is running are kept with the request and said once the turn ends.
           // New words wait behind words already kept for the work, so they are never said before them.
-          if (row.agentRunId && isTarsTaskOperation(request.operation)) {
+          if (repair) {
+            if (!ledger.queue || !ports.messages || !ports.continueWork) throw new TarsRunRefusedError("Repair continuation is unavailable. Open the existing task to continue verification.");
+            queued = true;
+          } else if (row.agentRunId && isTarsTaskOperation(request.operation)) {
             if (!sent) {
               const message = request.operation === "message";
-              queued = await ports.respondTask(row, request, { canQueue: message && Boolean(ledger.queue && ports.messages),
+              // Persist every message before dispatch, even when the task looks idle. Crash recovery uses its own turn identity.
+              queued = message && Boolean(ledger.queue && ports.messages);
+              if (!queued) queued = await ports.respondTask(row, request, { canQueue: false, commandId: ledger.key,
                 queueBehind: message && ports.messages?.hasOpenDelivery(id) === true }) === "queued";
               if (!queued) sentEffects.add(ledger.key);
             }
           }
-          else if (row.agentRunId && request.operation !== "acceptCompletion" && request.operation !== "startNow")
-            await ports.controlRun(row, request.operation as TarsRunControlOperation);
+          else if (row.agentRunId && request.operation !== "acceptCompletion" && request.operation !== "startNow" &&
+              (!sent || TARS_STOPPING_OPERATIONS.has(request.operation)))
+            await ports.controlRun(row, request.operation as TarsRunControlOperation, request.autoExtendMaxTurns, ledger.key);
         } catch (error) {
           if (!(error instanceof TarsOwnershipLostError) || TARS_GRANTING_OPERATIONS.has(request.operation)) throw error;
           // Confirmed transfer relinquishes only this responsibility. Never send
@@ -497,7 +646,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         const detail = ownershipLoss ? tarsDetailFromError(ownershipLoss) : { detail: null };
         const value: TarsResponsibilityPatch = request.operation === "pause" ? { state: "paused", ...detail }
           : request.operation === "acceptCompletion"
-            ? { state: "completed", detail: "You accepted this work as done without a Stave-verified check.", detailCode: "acceptedWithoutVerification" }
+            ? row.state === "resultReady" && row.resultVerifiedRunId === row.agentRunId
+              ? { state: "completed", detail: null, completionConfirmedAt: now() }
+              : { state: "completed", detail: "You accepted this work as done without a Stave-verified check.", detailCode: "acceptedWithoutVerification" }
           : request.operation === "cancel" ? { state: "cancelled", ...detail }
             : request.operation === "takeover" ? { state: "takenOver", ...detail }
               // Preparation interrupted by a restart or lock wait resumes like any other preparation.
@@ -515,9 +666,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           const latest = ports.store.get(id);
           if (!latest || latest.revision !== row.revision) throw new TarsControlRejection("stale", TARS_CONTROL_STALE);
           // An answer already given in the task is recorded as given, whatever was observed since.
-          if (!sentEffects.has(ledger.key)) admitTarsControl(latest, request, "dispatch");
+          if (!sent && !sentEffects.has(ledger.key)) admitTarsControl(latest, request, "dispatch");
           // A queued message changes nothing about the work until it is said, so other decisions on it stay current.
-          if (!queued) ports.store.patch(id, row.revision, value, now());
+          if (!queued && !(sent && row.revision !== request.expectedRevision)) ports.store.patch(id, row.revision, value, now());
           const ends = ENDS_QUEUED_MESSAGES.get(request.operation);
           if (ends) cancelOpenDeliveries(id, ends);
         };
@@ -543,4 +694,14 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       return promise;
     },
   };
+  return runtime;
+}
+
+function abortable<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const abort = () => reject(signal.reason ?? new Error("Workspace preparation was interrupted. Resume this work to retry."));
+    if (signal.aborted) { void work.catch(() => {}); abort(); return; }
+    signal.addEventListener("abort", abort, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort)).catch(() => {});
+  });
 }

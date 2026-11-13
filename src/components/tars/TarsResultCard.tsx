@@ -13,7 +13,7 @@ import { projectTarsResult, tarsResultOutcome, type TarsResultModel, type TarsRe
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { TarsActivity, TarsResponsibility } from "@/lib/tars/types";
 import { TarsResultCriteria } from "./TarsResultCriteria";
-import { TarsCompletionOverview } from "./TarsCompletionOverview";
+import { TarsCompletionOverview, TarsCompletionDetail } from "./TarsCompletionOverview";
 import { TarsReportEvidenceGroups } from "./TarsReportPanel";
 import { TarsResultDetails } from "./TarsResultDetails";
 import { tarsCompletionStyles as completionStyles } from "./tars-completion.styles";
@@ -133,8 +133,7 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
       {meta ? <span className={sx(styles.meta)} data-tars-result-meta="">{meta}</span> : null}
     </>}
     fullWidthDetail detail={body ? <div role="group" aria-label={t("shell:tars.result.label", { title: row.title })} className={sx(styles.card)} data-tars-result-card={row.id}>
-      {reason ? <p className={sx(styles.reason)} data-tars-result-reason="">{reason}</p> : null}
-      {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
+      {reason ? <p className={sx(styles.reason, completionStyles.headline)} title={reason} data-tars-result-reason="">{reason}</p> : null}
       <TarsCompletionOverview textScale="conversation" model={model.completion} row={row} />
       {facts ? <div className={sx(styles.facts)} data-tars-result-facts="">
         {model.changes ? <span className={sx(styles.fact)} data-tars-result-changes="">
@@ -148,7 +147,9 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
       {/* What the state admits next, through the tray's own handlers; then the views that explain it. */}
       {stopped ? <TarsBlockedNextSteps row={row} decision={undefined} actions={actions} /> : null}
       {views.length ? <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.result.views", { title: row.title })}>{views}</div> : null}
-      {model.report === "frozen" ? <TarsResultDetails textScale="conversation" key={row.id} label={t("shell:tars.completion.details")}>
+      {model.report === "frozen" || diagnostic ? <TarsResultDetails textScale="conversation" key={row.id} label={t("shell:tars.completion.details")}>
+        {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
+        <TarsCompletionDetail textScale="conversation" model={model.completion} row={row} />
         {model.completion.summaries.map((summary) => <div key={summary.stageId} className={sx(styles.group)}>
           <p className={sx(styles.groupLabel)}>{summary.title}</p>
           <p className={sx(completionStyles.lead, completionStyles.chatText)} data-tars-full-summary={summary.stageId}>{summary.text}</p>

@@ -1,10 +1,12 @@
 import {
-  TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
+  TarsMessageSchema, TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsDecisionClosure, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
 } from "./conversation";
+import { z } from "zod";
 import type {
   TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
 } from "./conversation";
 import type { TarsNeverRuleMatch } from "./autonomy";
+import { canContinueTarsControl } from "./continuation";
 import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibility } from "./types";
 
 /**
@@ -73,12 +75,12 @@ export function describeTarsControlInput(control: ControlRequest, row: Pick<Tars
     truncated: request?.truncated === true, source: request ? { taskId: request.taskId, workspaceId: request.workspaceId } : null };
 }
 
-/** The work actions the host can hold as a proposal: new work, or a priority change. */
-export type TarsWorkProposalAction = Extract<TarsDecisionAction, { kind: "delegate" | "reprioritize" }>;
+/** Actions held by the shared proposal path: new work, priority changes and workspace information edits. */
+export type TarsWorkProposalAction = Extract<TarsDecisionAction, { kind: "delegate" | "reprioritize" | "workspace" }>;
 
 /** Whether a receipt is a work proposal the host held (or had held) for the user's confirmation. */
 export function isTarsWorkProposal<R extends Pick<TarsActionReceipt, "action">>(receipt: R): receipt is R & { action: TarsWorkProposalAction } {
-  return receipt.action.kind === "delegate" || receipt.action.kind === "reprioritize";
+  return receipt.action.kind === "delegate" || receipt.action.kind === "reprioritize" || receipt.action.kind === "workspace";
 }
 
 /**
@@ -89,6 +91,7 @@ export type TarsDecisionOption =
   | { kind: "control"; control: ControlRequest; label: string | null; rationale: string | null }
   /** A held work proposal (a delegation or a priority change): Confirm applies the saved action through the host. */
   | { kind: "proposal"; action: TarsWorkProposalAction; label: null; rationale: null }
+  | { kind: "prReview"; effect: import("./conversation").TarsAskEffect & { kind: "prReview" }; label: string; rationale: string }
   | { kind: "reply"; label: string; rationale: string }
   | { kind: "verify"; responsibilityId: string };
 
@@ -97,9 +100,11 @@ export type TarsDecisionOption =
  * control, a confirmation from Fleet or the tray) settled it. `invalid`: a
  * target moved past its revision or ended. `retired`: it stopped waiting for
  * a reason that needs nothing from anyone (a newer proposal, the conversation
- * moving on, a sibling answered, or the work settled elsewhere).
+ * moving on, a sibling answered, or the work settled elsewhere). `dismissed`:
+ * the user closed it without choosing. `withdrawn`: Tars took it back with a
+ * later `withdraw` action. Neither applies anything.
  */
-export type TarsDecisionState = "waiting" | "answered" | "invalid" | "retired";
+export type TarsDecisionState = "waiting" | "answered" | "invalid" | "retired" | "dismissed" | "withdrawn";
 export type TarsDecisionWhy = "targetMoved" | "targetEnded" | "superseded" | "movedOn" | "settled";
 
 export interface TarsDecisionView {
@@ -120,12 +125,16 @@ export interface TarsDecisionView {
   answer: TarsDecisionAnswer | null;
   /** The last attempt the host refused for a reason that leaves the decision open. */
   failure: TarsDecisionAnswer | null;
+  /** A dismissal or a withdrawal that closed it without an option (`dismissed`, `withdrawn`); absent or null otherwise. */
+  closure?: TarsDecisionAnswer | null;
   /** It belongs to the newest message and nothing was said after it: only then may a short answer bind to it. */
   latest: boolean;
   /** A confirmation made outside the card (Fleet, the tray): its record. */
   record: TarsActionRecord | null;
   /** Words it sent to a busy task: where their delivery stands (`TarsMessageDelivery`); null otherwise. */
   delivery: TarsMessageDelivery | null;
+  /** The same saved record owns delivery withdrawal from every history surface. */
+  deliveryRecord?: TarsActionRecord | null;
   since: string;
   /** Invalid, asked by Tars and still the newest message: Tars asks once more by itself. */
   reask: boolean;
@@ -154,9 +163,10 @@ function isUnverified(row: Pick<TarsResponsibility, "state" | "detailCode">) {
 }
 
 /** Stave's options for a completion it could not verify, at the revision that waits. */
-export function tarsUnverifiedOptions(responsibilityId: string, revision: number): TarsDecisionOption[] {
+export function tarsUnverifiedOptions(responsibilityId: string, revision: number, goal?: TarsResponsibility["completionGoal"]): TarsDecisionOption[] {
+  const accept: TarsDecisionOption = { kind: "control", control: { responsibilityId, expectedRevision: revision, operation: "acceptCompletion" }, label: null, rationale: null };
   return [
-    { kind: "control", control: { responsibilityId, expectedRevision: revision, operation: "acceptCompletion" }, label: null, rationale: null },
+    ...(goal === "pullRequest" || goal === "merge" ? [] : [accept]),
     { kind: "control", control: { responsibilityId, expectedRevision: revision, operation: "cancel" }, label: null, rationale: null },
     { kind: "verify", responsibilityId },
   ];
@@ -175,6 +185,25 @@ export function tarsDecisionTargets(receipt: Pick<TarsActionReceipt, "action">):
   return [...new Set(action.options.flatMap((option) => option.effect.kind === "control" ? [option.effect.responsibilityId] : []))];
 }
 
+/** Exact work identities in a saved message; prose recency alone never resolves another work's obligation. */
+export const TarsMessageTargetSchema = z.object({ id: TarsMessageSchema.shape.id,
+  origin: TarsMessageSchema.shape.origin, decision: TarsMessageSchema.shape.decision });
+
+export function tarsMessageTargets(message: Pick<TarsMessage, "origin" | "decision">): string[] {
+  return [...new Set([
+    ...(message.origin?.kind === "followUp" ? [message.origin.responsibilityId] : []),
+    ...(message.decision?.actions ?? []).flatMap((action) => "responsibilityId" in action ? [action.responsibilityId]
+      : action.kind === "ask" ? action.options.flatMap((option) => "responsibilityId" in option.effect ? [option.effect.responsibilityId] : []) : []),
+  ])];
+}
+
+/** The user addressed these exact targets in later saved messages. Automatic messages grant no user intent. */
+export function tarsTargetsMovedOn(targets: readonly string[], later: readonly Pick<TarsMessage, "origin" | "decision">[]): boolean {
+  if (!targets.length) return false;
+  const addressed = new Set(later.filter((message) => !message.origin || message.origin.kind === "answer").flatMap(tarsMessageTargets));
+  return targets.every((id) => addressed.has(id));
+}
+
 /** A decision's id from its receipt, for the kinds that are decisions. */
 export function tarsReceiptDecisionId(receipt: Pick<TarsActionReceipt, "action" | "messageId" | "actionIndex">): string | null {
   return receipt.action.kind === "ask" ? tarsAskDecisionId(receipt.messageId, receipt.actionIndex)
@@ -184,12 +213,12 @@ export function tarsReceiptDecisionId(receipt: Pick<TarsActionReceipt, "action" 
 export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecisionView[] {
   const rows = sources.responsibilities ? new Map(sources.responsibilities.map((row) => [row.id, row])) : null;
   const settling = new Map(sources.answers.filter(isTarsAnswerSettling).map((answer) => [answer.decisionId, answer]));
+  // A dismissal or a withdrawal closes only its own card: it chose nothing, so it retires no sibling.
+  const chosen = (id: string) => { const answer = settling.get(id); return answer && !isTarsDecisionClosure(answer) ? answer : undefined; };
   const failures = new Map(sources.answers.filter(isTarsAnswerRetryable).map((answer) => [answer.decisionId, answer]));
   const records = new Map(sources.records.map((record) => [record.requestId, record]));
   const order = new Map(sources.messages.map((message, index) => [message.id, index]));
   const lastMessage = sources.messages.at(-1);
-  // Tars's own follow-up about other work is not the conversation moving on: a waiting question stays open.
-  const lastSpoken = sources.messages.findLastIndex((message) => message.origin?.kind !== "followUp");
   const reasked = new Set(sources.messages.flatMap((message) => message.origin?.kind === "reask" ? [message.origin.decisionId] : []));
   // At most one automatic follow-up per message, whichever of its decisions caused it.
   const reaskedMessages = new Set([...reasked].flatMap((id) => { const parsed = parseTarsDecisionId(id); return parsed && parsed.kind !== "unverifiedCompletion" ? [parsed.messageId] : []; }));
@@ -203,7 +232,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
   for (const receipt of receipts) {
     const id = tarsReceiptDecisionId(receipt);
     // A refused answer or confirmation changed nothing, so it retires nothing (`readSettledTarsTargets`).
-    if (!id || !((settling.get(id)?.status ?? "rejected") !== "rejected" || (records.get(id)?.status ?? "rejected") !== "rejected")) continue;
+    if (!id || !((chosen(id)?.status ?? "rejected") !== "rejected" || (records.get(id)?.status ?? "rejected") !== "rejected")) continue;
     for (const target of tarsDecisionTargets(receipt)) {
       const key = `${receipt.messageId}:${target}`;
       settledBy.set(key, new Set([...(settledBy.get(key) ?? []), id]));
@@ -211,11 +240,12 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
   }
   const retiredBySibling = (receipt: TarsActionReceipt, id: string) => tarsDecisionTargets(receipt)
     .some((target) => [...(settledBy.get(`${receipt.messageId}:${target}`) ?? [])].some((other) => other !== id));
-  function targetsOf(targets: TarsDecisionView["targets"]): "live" | "unknown" | "targetMoved" | "targetEnded" {
+  function targetsOf(targets: TarsDecisionView["targets"], options: TarsDecisionView["options"]): "live" | "unknown" | "targetMoved" | "targetEnded" {
     if (!targets.length) return "live";
     if (!rows) return "unknown";
-    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state); })) return "targetEnded";
-    return targets.some((target) => rows.get(target.responsibilityId)!.revision !== target.expectedRevision) ? "targetMoved" : "live";
+    const continuation = (target: TarsDecisionView["targets"][number]) => { const row = rows.get(target.responsibilityId); return row && options.some((option) => option.kind === "control" && option.control.responsibilityId === target.responsibilityId && canContinueTarsControl(row, target.expectedRevision, option.control.operation)); };
+    if (targets.some((target) => { const row = rows.get(target.responsibilityId); return !row || ENDED.has(row.state) && !continuation(target); })) return "targetEnded";
+    return targets.some((target) => rows.get(target.responsibilityId)!.revision !== target.expectedRevision && !continuation(target)) ? "targetMoved" : "live";
   }
   /**
    * Answered first, then a retirement that settles it, then its targets: a
@@ -227,15 +257,19 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     origin: TarsMessageOrigin | undefined, movedOn = false): TarsDecisionView {
     const latest = view.messageId !== null ? lastMessage?.id === view.messageId : !lastMessage || lastMessage.createdAt <= view.since;
     // The control an answer applied keeps its record under the answer's request id (the proposal's own id for a confirmation).
-    const delivery = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record)?.delivery ?? null;
-    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery };
+    const deliveryRecord = (view.answer?.actRequestId ? records.get(view.answer.actRequestId) : view.record) ?? null;
+    const delivery = deliveryRecord?.delivery ?? null;
+    const base = { ...view, reasked: reasked.has(view.id), failure: view.answer ? null : failures.get(view.id) ?? null, latest, delivery, deliveryRecord };
+    // Closed without an option: before any other rule, so it never reads as invalid, retired or asked again.
+    if (view.answer && isTarsDecisionClosure(view.answer)) return { ...base, answer: null, closure: view.answer,
+      state: view.answer.effect.kind === "withdraw" ? "withdrawn" : "dismissed", why: null, checked: true, reask: false };
     if (view.answer || view.record) return { ...base, state: "answered", why: null, checked: true, reask: false };
     if (retiredBy) return { ...base, state: "retired", why: retiredBy, checked: true, reask: false };
-    const targets = targetsOf(view.targets);
+    const targets = targetsOf(view.targets, view.options);
     if ((targets === "live" || targets === "unknown") && movedOn) return { ...base, state: "retired", why: "movedOn", checked: true, reask: false };
     if (targets === "live" || targets === "unknown") return { ...base, state: "waiting", why: null, checked: targets === "live", reask: false };
-    // Only Tars's own questions are asked again, once per message, and only while nothing newer was said.
-    const reask = view.kind !== "unverifiedCompletion" && view.messageId !== null && latest && origin?.kind !== "reask" && !reaskedMessages.has(view.messageId);
+    // Only Tars's own questions are asked again, once per message, while their own work has not been addressed.
+    const reask = view.kind !== "unverifiedCompletion" && view.messageId !== null && !movedOn && origin?.kind !== "reask" && !reaskedMessages.has(view.messageId);
     return { ...base, state: "invalid", why: targets, checked: true, reask };
   }
   const views: TarsDecisionView[] = [];
@@ -243,7 +277,9 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const { action } = receipt;
     const message = sources.messages[order.get(receipt.messageId) ?? -1];
     if (!message) continue;
-    const later = (order.get(receipt.messageId) ?? 0) < lastSpoken;
+    const targets = tarsDecisionTargets(receipt);
+    const later = tarsTargetsMovedOn(targets.length ? targets : message.origin?.kind === "followUp" ? [message.origin.responsibilityId] : [],
+      sources.messages.slice((order.get(receipt.messageId) ?? 0) + 1));
     if (isTarsWorkProposal(receipt)) {
       // Held by the autonomy level or one of the user's rules; an unheld one was applied or refused and stays a receipt line.
       const id = tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex);
@@ -273,7 +309,8 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
         // Confirming a cancel or an acceptance is always an explicit choice.
         recommended: TARS_IRREVERSIBLE_OPERATIONS.has(action.operation) || receipt.matchedRules?.length ? null : 0, answer, record, since: receipt.updatedAt,
         ...(receipt.matchedRules ? { matchedRules: receipt.matchedRules } : {}) },
-      retiredBy, message.origin));
+      // A proposal waits only until the user says something newer, like a question (`readMovedOnTarsMessages`).
+      retiredBy, message.origin, later));
     } else if (action.kind === "ask" && receipt.status === "proposed") {
       const id = tarsAskDecisionId(receipt.messageId, receipt.actionIndex);
       const answer = settling.get(id) ?? null;
@@ -287,6 +324,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
         options: action.options.map((option): TarsDecisionOption => option.effect.kind === "control"
           ? { kind: "control", control: { responsibilityId: option.effect.responsibilityId, expectedRevision: option.effect.expectedRevision,
             operation: option.effect.operation, ...(option.effect.input ? { input: option.effect.input } : {}) }, label: option.label, rationale: option.rationale }
+          : option.effect.kind === "prReview" ? { kind: "prReview", effect: option.effect, label: option.label, rationale: option.rationale }
           : { kind: "reply", label: option.label, rationale: option.rationale }),
         recommended: safe.recommended ?? null, answer, record: null, since: receipt.updatedAt }, retiredBy, message.origin, later));
     }
@@ -304,7 +342,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     const current = !rows || (row !== undefined && row.revision === entry.revision && isUnverified(row));
     views.push(settle({ id, kind: "unverifiedCompletion", messageId: null, actionIndex: null, question: null,
       targets: [{ responsibilityId: entry.responsibilityId, expectedRevision: entry.revision }],
-      options: tarsUnverifiedOptions(entry.responsibilityId, entry.revision), recommended: null, answer, record: null, since: entry.since },
+      options: tarsUnverifiedOptions(entry.responsibilityId, entry.revision, row?.completionGoal), recommended: null, answer, record: null, since: entry.since },
     current ? null : "settled", undefined));
   }
   return views;
@@ -343,7 +381,7 @@ export function bindTarsShortAnswer(text: string, answerable: readonly TarsDecis
 
 /** Whether choosing an option cannot be undone. */
 export function isIrreversibleOption(option: TarsDecisionOption) {
-  return option.kind === "control" && TARS_IRREVERSIBLE_OPERATIONS.has(option.control.operation);
+  return option.kind === "prReview" && option.effect.choice === "ready" || option.kind === "control" && TARS_IRREVERSIBLE_OPERATIONS.has(option.control.operation);
 }
 
 /**
@@ -384,7 +422,7 @@ export function describeTarsDecisionForModel(view: TarsDecisionView): string {
     `${index + 1}. ${option.kind === "verify" || option.kind === "proposal" ? option.kind : option.label ?? option.kind}`).join("; ")}`;
   const first = view.options[0];
   // i18n-ignore: model-facing context
-  if (first?.kind === "proposal") return first.action.kind === "delegate" ? `Proposed new work "${first.action.title}", waiting for the user's confirmation.`
+  if (first?.kind === "proposal") return first.action.kind === "workspace" ? `Proposed workspace edit ${first.action.operation} in ${first.action.workspaceId}.` : first.action.kind === "delegate" ? `Proposed new work "${first.action.title}", waiting for the user's confirmation.`
     : `Proposed priority ${first.action.priority} for responsibility ${first.action.responsibilityId} at revision ${first.action.expectedRevision}.`;
   const control = first?.kind === "control" ? first.control : null;
   // i18n-ignore: model-facing context

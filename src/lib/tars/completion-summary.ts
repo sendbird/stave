@@ -6,13 +6,27 @@ function heading(line: string): string | null {
   return match?.[1]?.replace(/:$/, "") ?? null;
 }
 
-/** A bounded content excerpt; the original Markdown remains in the full stage summary. */
+/** A plain first sentence only; the unchanged source stays in the disclosure. */
 export function tarsSummaryExcerpt(text: string) {
-  const content = text.trim().split("\n");
-  while (content.length && (!content[0]!.trim() || heading(content[0]!) !== null)) content.shift();
-  const first = content.join("\n").trim().split(/\n\s*\n/)[0] ?? "";
-  const excerpt = first.length > 320 ? first.slice(0, 320).replace(/\s+\S*$/, "") : first;
-  return excerpt.length < content.join("\n").trim().length ? `${excerpt}…` : excerpt;
+  let fenced = false;
+  const lines = text.split("\n").filter((line) => {
+    if (/^\s*(```|~~~)/.test(line)) { fenced = !fenced; return false; }
+    if (fenced || heading(line) !== null) return false;
+    // Skip shell lines and standalone revision records, never reinterpret their outcome.
+    return !/^\s*(?:[-*]\s+)?(?:[$>]\s|(?:bunx?|npm|npx|git|yarn|pnpm|node|tsc)\s|(?:commit|revision|sha)\s*[: ]\s*[a-f0-9]{7,40}\b|[a-f0-9]{7,40}(?:\.\.[a-f0-9]{7,40})?\s*$)/i.test(line);
+  });
+  const plain = lines.join(" ")
+    .replace(/\([^)]*`(?:bunx?|npm|npx|git|yarn|pnpm|node|tsc)\s[^`]*`[^)]*\)/gi, "")
+    .replace(/\(\s*(?:(?:commit|revision|sha)\s*[: ]\s*)?[a-f0-9]{7,40}(?:\.\.[a-f0-9]{7,40})?\s*\)/gi, "")
+    // Require a digit and a hex letter for bare short hashes so prose and counts survive.
+    .replace(/\b(?=[a-f0-9]{7,40}\b)(?=[a-f0-9]*[0-9])(?=[a-f0-9]*[a-f])[a-f0-9]{7,40}(?:\.\.[a-f0-9]{7,40})?\b|\b[a-f0-9]{40}\b/gi, "")
+    .replace(/!?(?:\[([^\]]+)\])\([^)]+\)/g, "$1")
+    .replace(/[*`_]/g, "").replace(/^\s*[-+]\s+/, "")
+    .replace(/\(\s*\)/g, "").replace(/\s+/g, " ").replace(/\s+([.!?。])/g, "$1").trim();
+  const first = (plain.match(/.*?[.!?。](?=\s|$)|.+$/g) ?? [])
+    .map((sentence) => sentence.trim())
+    .find((sentence) => !/\b(?:bunx?|npm|npx|git|yarn|pnpm|node|tsc)\s/i.test(sentence)) ?? "";
+  return first.length > 320 ? `${first.slice(0, 320).trimEnd()}…` : first;
 }
 
 const CAVEAT_SECTION = /^(?:limitations?|remaining(?: work)?|caveats?|not (?:verified|tested|checked)|unverified|제약(?: 사항)?|한계|미검증|미확인|남은(?: 작업| 일)?)(?:\s|$)/i;
@@ -48,12 +62,14 @@ function explicitCaveats(text: string | null): string[] {
 
 /** Structured remaining work stays verbatim, regardless of prose extraction. */
 export function tarsSummaryCaveats(model: TarsReportModel) {
-  return [...new Set([...explicitCaveats(model.summary), ...model.leftBehind])];
+  // A passed review that ended the run is its last word, so its caveats still stand beside the work's headline.
+  const last = model.summaries.at(-1)?.text;
+  return [...new Set([...explicitCaveats(model.summary), ...(last && last !== model.summary ? explicitCaveats(last) : []), ...model.leftBehind])];
 }
 
 /** Earlier notes are historical context, never claims that a limitation remains unresolved. */
 export function tarsEarlierSummaryCaveats(model: TarsReportModel) {
-  return model.summaries.slice(0, -1).flatMap((stage) => {
+  return model.summaries.slice(0, -1).filter((stage) => stage.text !== model.summary).flatMap((stage) => {
     const caveats = explicitCaveats(stage.text);
     return caveats.length ? [{ ...stage, caveats }] : [];
   });

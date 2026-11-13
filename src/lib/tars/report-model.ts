@@ -1,3 +1,5 @@
+import { REVIEW_AGENT_ID } from "../agents/review-before-done";
+import { tarsExecutionCriteria } from "./continuation";
 import type { AgentRunUsage } from "@/lib/agent-runs/usage";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { latestStageRecord, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
@@ -78,6 +80,7 @@ export interface TarsReportModel {
   evidenceGroups: TarsReportEvidenceGroup[];
   /** The revision the run ended on, shortened. */
   finalRevision: string | null;
+  publicationRevision?: WorkspaceRevision;
   /** What the run spent: the frozen report's usage, else the live run's; null when the host read none. */
   usage: AgentRunUsage | null;
 }
@@ -156,14 +159,29 @@ function criterionSource(detail: AgentRunDetail, text: string, final: WorkspaceR
 }
 
 /**
+ * The result's headline: the last summary of a stage that did the work. A
+ * review that passed is often the last stage that ran (its fix stage is
+ * skipped), but its words describe the review, which the report shows as its
+ * own verdict; only a run with nothing else falls back to it.
+ */
+function resultSummary(detail: AgentRunDetail, stages: readonly { stageId: string; summary?: string | null }[]): string | null {
+  const reviewer = new Set(detail.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" && stage.agentConfigId === REVIEW_AGENT_ID ? [stage.id] : []));
+  const written = [...stages].reverse().filter((stage) => stage.summary?.trim());
+  return (written.find((stage) => !reviewer.has(stage.stageId)) ?? written[0])?.summary ?? null;
+}
+
+/**
  * Projects the run's frozen report for the result report screen. Each
  * criterion carries its status and what decided it (the agent's report in a
  * stage, or a Stave check with its result and revision); the stages' evidence
  * stays grouped by the stage that reported it. The report never mixes in live
  * data: an unended run has no report, only its delegated criteria.
  */
-export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCriteria" | "agentRunId">, detail: AgentRunDetail | undefined): TarsReportModel {
-  const delegated = row.acceptanceCriteria.map((text): TarsReportCriterion => ({ text, required: true, status: "notReported", source: { kind: "none" } }));
+export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCriteria" | "agentRunId" | "continuation">, detail: AgentRunDetail | undefined): TarsReportModel {
+  const executionCriteria = detail && row.agentRunId !== detail.agentRun.id
+    ? [...new Set(detail.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).map((item) => item.text) : []))]
+    : tarsExecutionCriteria(row);
+  const delegated = executionCriteria.map((text): TarsReportCriterion => ({ text, required: true, status: "notReported", source: { kind: "none" } }));
   const report = detail?.report ?? null;
   if (!detail || !report) {
     return { state: detail ? "pending" : "unavailable", frozenAt: null, outcome: null, reason: null, summary: null, summaries: [], criteria: delegated,
@@ -188,10 +206,10 @@ export function projectTarsReport(row: Pick<TarsResponsibility, "acceptanceCrite
   });
   return {
     state: "frozen", frozenAt: report.endedAt, outcome: report.outcome, reason: report.reason,
-    summary: [...report.stages].reverse().find((stage) => stage.summary?.trim())?.summary ?? null,
+    summary: resultSummary(detail, report.stages),
     summaries: report.stages.flatMap((stage) => stage.summary?.trim() ? [{ stageId: stage.stageId, title: stage.title, text: stage.summary }] : []),
     criteria, unmet: criteria.filter((criterion) => criterion.status !== "met"),
-    leftBehind: report.leftBehind, links: report.links, evidenceGroups, finalRevision: shortRevision(final),
+    leftBehind: report.leftBehind, links: report.links, evidenceGroups, finalRevision: shortRevision(final), publicationRevision: final,
     usage: report.usage ?? detail.usage ?? null,
   };
 }

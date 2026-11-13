@@ -1,4 +1,5 @@
 {
+  "dependencyCopyFallback": "Dependency copy skipped. Continuing normal setup.",
   "sidebarRows": {
     "shortcutChip": {
       "ariaLabel": "Keyboard shortcut {{modifier}}+{{key}}"

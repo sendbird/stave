@@ -1,19 +1,17 @@
+import { tarsCanUpdatePublication } from "./publication";
+import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
 import { z } from "zod";
-import type { TarsControlOperation } from "./types";
+import type { TarsControlOperation, TarsResponsibility } from "./types";
 
 /**
  * How independently Tars acts, as one choice. The host reads this table when
  * it admits a decision, the planner is told its result, and Settings shows it,
  * so the three cannot drift.
  *
- * - `careful`: every action that starts or reorders work waits for Confirm.
- * - `balanced`: the default; exactly what Tars did before levels existed.
- * - `handsOff`: reversible run controls the user asked for in their own words
- *   apply at once and leave their record.
- *
- * No level loosens a guard: effects that cannot be undone and publishing wait
- * for the user at every level, and an automatic follow-up never gains anything
- * from a level (`tarsActionMode`).
+ * - `careful`: starting, reordering and continuing work wait for Confirm.
+ * - `balanced` and `handsOff`: reversible controls of admitted work apply for
+ *   user messages and automatic follow-ups. Budgets and publication need
+ *   host-owned evidence; no level bypasses ownership or publication guards.
  */
 export const TARS_AUTONOMY_LEVELS = ["careful", "balanced", "handsOff"] as const;
 export const TarsAutonomyLevelSchema = z.enum(TARS_AUTONOMY_LEVELS);
@@ -30,10 +28,10 @@ export const TarsNeverRulesSchema = z.array(z.string().trim().min(1).max(TARS_NE
 
 /**
  * Controls that return authority to Tars, give its run more room or end work.
- * At the default level a model-proposed one waits for the user's confirming
+ * At the careful level a model-proposed one waits for the user's confirming
  * click; pause and takeover, which only reduce Tars's authority, apply at
- * once, and so does `startNow`, which only changes when work the user already
- * admitted starts.
+ * once. `startNow` only changes when already admitted work starts, but careful
+ * still asks before it.
  */
 export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set([
   "resume", "handBack", "cancel", "acceptCompletion", "extend", "retryStage", "skipStage", "signOff",
@@ -48,49 +46,97 @@ export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = n
 
 /** Every act Tars can propose, by the name the policy table and Settings use. A question (`ask`) is never an act. */
 export const TARS_ACTION_KEYS = [
-  "show",
+  "show", "workspaceEdit", "workspaceReplace",
   "delegate", "reprioritize", "startNow", "pause", "takeover", "deny",
   "resume", "extend", "retryStage", "handBack", "signOff", "answer", "message", "requestChanges", "clear",
   "cancel", "skipStage", "acceptCompletion", "approve", "publish",
 ] as const;
 export type TarsActionKey = (typeof TARS_ACTION_KEYS)[number];
 
+/** Saved standing permission; null scopes it to every repository. */
+export const TARS_ALLOW_RULES_MAX = 24;
+export const TarsAllowRuleSchema = z.object({
+  key: z.enum(TARS_ACTION_KEYS),
+  repositoryPath: z.string().trim().min(1).max(4_096).nullable(),
+}).strict();
+export type TarsAllowRule = z.infer<typeof TarsAllowRuleSchema>;
+export const TarsAllowRulesSchema = z.array(TarsAllowRuleSchema).max(TARS_ALLOW_RULES_MAX);
+export function sameTarsAllowRule(left: TarsAllowRule, right: TarsAllowRule): boolean {
+  return left.key === right.key && left.repositoryPath === right.repositoryPath;
+}
+
 /** `auto`: the host applies it when Tars proposes it. `confirm`: it waits for the user on a card. */
 export type TarsActionMode = "auto" | "confirm";
 /** Whose message proposed the action: the user's own words (or their chosen answer), or a follow-up Tars started by itself. */
 export type TarsActionOrigin = "user" | "automatic";
 
-/** Wait for the user at every level: they cannot be undone, or they leave the machine. */
-export const TARS_ALWAYS_CONFIRMED: ReadonlySet<TarsActionKey> = new Set([...TARS_IRREVERSIBLE_OPERATIONS, "publish"]);
+/** User decisions at every level: irreversible effects, answers and transfers of authority. */
+export const TARS_ALWAYS_CONFIRMED: ReadonlySet<TarsActionKey> = new Set([...TARS_IRREVERSIBLE_OPERATIONS, "handBack", "signOff", "answer", "clear"]);
 /** `careful` adds a confirmation to these, which the default applies at once. */
-const CAREFUL_CONFIRMED: ReadonlySet<TarsActionKey> = new Set(["delegate", "reprioritize", "startNow"]);
-/** `handsOff` applies these at once: each only lets a run Tars already holds continue, and pause stops it again. */
-const HANDS_OFF_APPLIED: ReadonlySet<TarsActionKey> = new Set(["resume", "extend", "retryStage"]);
+const CAREFUL_CONFIRMED: ReadonlySet<TarsActionKey> = new Set(["delegate", "reprioritize", "startNow", "workspaceReplace"]);
+/** Both automatic levels instruct or continue only work Tars already owns. */
+const REVERSIBLE_APPLIED: ReadonlySet<TarsActionKey> = new Set(["resume", "retryStage", "message", "requestChanges"]);
 /** Only reduce what Tars does (or refuse a tool request): never delayed, at any level or for any rule. */
 const TARS_REDUCING: ReadonlySet<TarsActionKey> = new Set(["pause", "takeover", "deny"]);
 
 function defaultMode(key: TarsActionKey): TarsActionMode {
   if (key === "publish" || key === "clear") return "confirm";
+  if (key === "workspaceEdit" || key === "workspaceReplace") return "auto";
   if (key === "show" || key === "delegate" || key === "reprioritize") return "auto";
   return TARS_CONFIRMED_OPERATIONS.has(key) ? "confirm" : "auto";
 }
 
-/**
- * Whether the host applies a proposed action at once or holds it for the
- * user. The guards are checked here, not left to the table: an always-confirmed
- * action is `confirm` whatever the level says, an unknown level is the default,
- * and an automatic follow-up never gets `auto` for anything the default confirms.
- */
-export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | null | undefined, origin: TarsActionOrigin = "user"): TarsActionMode {
+/** Evidence read by the host at admission, never supplied by the model. */
+export interface TarsActionContext {
+  allowRules?: readonly TarsAllowRule[];
+  repositoryPath?: string | null;
+  responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> | null;
+  extend?: { admittedMaxTurns: number; currentMaxTurns: number; additionalTurns?: number } | null;
+}
+
+export function tarsHasAllowRule(key: TarsActionKey, context: TarsActionContext): boolean {
+  return Boolean(context.allowRules?.some((rule) => rule.key === key && (rule.repositoryPath === null || rule.repositoryPath === context.repositoryPath)));
+}
+
+/** One recovery allowance, bounded by twice the original budget, prevents repeated extensions from growing without limit. */
+export const TARS_AUTO_EXTEND_MULTIPLIER = 2;
+/** The run command adds ten turns, capped by its existing absolute ceiling. */
+export const TARS_EXTEND_TURNS = 10;
+
+export function tarsCanAutoExtend(budget: TarsActionContext["extend"]): boolean {
+  if (!budget) return false;
+  const { admittedMaxTurns, currentMaxTurns, additionalTurns = TARS_EXTEND_TURNS } = budget;
+  return [admittedMaxTurns, currentMaxTurns, additionalTurns].every((value) => Number.isSafeInteger(value) && value > 0)
+    && currentMaxTurns < AGENT_RUN_LIMITS.maxTurnsCeiling
+    && Math.min(currentMaxTurns + additionalTurns, AGENT_RUN_LIMITS.maxTurnsCeiling) <= admittedMaxTurns * TARS_AUTO_EXTEND_MULTIPLIER;
+}
+
+/** The original PR endpoint authorizes a draft PR only after host verification of this exact execution. */
+export function tarsCanAutoPublish(row: TarsActionContext["responsibility"]): boolean {
+  return Boolean(row && (row.completionGoal === "pullRequest" || row.completionGoal === "merge")
+    && row.state === "resultReady" && row.agentRunId && row.resultVerifiedRunId === row.agentRunId
+    && row.executionWorkspaceId && !row.executionPending && row.detailCode !== "acceptedWithoutVerification"
+    && (row.publication?.state !== "opened" || tarsCanUpdatePublication(row)));
+}
+
+/** Both origins use the same policy; follow-up scope is separately enforced by host admission. Missing evidence asks first. */
+export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | null | undefined,
+  _origin: TarsActionOrigin = "user", context: TarsActionContext = {}): TarsActionMode {
   const chosen = TarsAutonomyLevelSchema.safeParse(level).success ? level! : TARS_DEFAULT_AUTONOMY;
   if (TARS_ALWAYS_CONFIRMED.has(key)) return "confirm";
-  if (defaultMode(key) === "confirm") return chosen === "handsOff" && origin === "user" && HANDS_OFF_APPLIED.has(key) ? "auto" : "confirm";
-  return chosen === "careful" && CAREFUL_CONFIRMED.has(key) ? "confirm" : "auto";
+  if (chosen !== "careful") {
+    if (tarsHasAllowRule(key, context)) return "auto";
+    if (REVERSIBLE_APPLIED.has(key)) return "auto";
+    if (key === "extend") return tarsCanAutoExtend(context.extend) ? "auto" : "confirm";
+    if (key === "publish") return tarsCanAutoPublish(context.responsibility) ? "auto" : "confirm";
+  }
+  return chosen === "careful" && CAREFUL_CONFIRMED.has(key) ? "confirm" : defaultMode(key);
 }
 
 /** The policy key of a decision action; null for a question, which is never applied by itself. */
-export function tarsActionKey(action: { kind: string; operation?: TarsControlOperation }): TarsActionKey | null {
-  if (action.kind === "control") return action.operation ?? null;
+export function tarsActionKey(action: { kind: string; operation?: string }): TarsActionKey | null {
+  if (action.kind === "workspace") return ["replaceNotes", "removeTodo", "removeField", "removeResource"].includes(action.operation ?? "") ? "workspaceReplace" : "workspaceEdit";
+  if (action.kind === "control") return (action.operation ?? null) as TarsControlOperation | null;
   return action.kind === "ask" ? null : (TARS_ACTION_KEYS as readonly string[]).includes(action.kind) ? action.kind as TarsActionKey : null;
 }
 
@@ -108,7 +154,7 @@ export function tarsEffectiveAutonomy(saved: TarsAutonomyLevel | null | undefine
 }
 
 /** What Stave offers no action for, so Tars cannot do it at any level. */
-export const TARS_UNAVAILABLE_ACTIONS = ["merge", "deploy", "forcePush", "deleteBranches", "alwaysAllow", "spendMoney", "contactOthers"] as const;
+export const TARS_UNAVAILABLE_ACTIONS = ["merge", "deploy", "forcePush", "deleteBranches", "spendMoney", "contactOthers"] as const;
 export type TarsUnavailableAction = (typeof TARS_UNAVAILABLE_ACTIONS)[number];
 
 /** What Settings shows for a level: read from `tarsActionMode`, the same function the host admits with. */
@@ -123,6 +169,8 @@ export function tarsAutonomySummary(level: TarsAutonomyLevel): { auto: TarsActio
 /** Words a rule may use for an action, in the two interface languages. Matched as whole words. */
 // i18n-ignore: matching vocabulary for the user's own rules, never rendered
 const ACTION_WORDS: Readonly<Partial<Record<TarsActionKey, readonly string[]>>> = {
+  workspaceEdit: ["notes", "todo", "field", "resource", "메모", "할 일", "필드", "자료"],
+  workspaceReplace: ["replace", "remove", "notes", "todo", "field", "resource", "삭제", "메모", "할 일", "필드", "자료"],
   delegate: ["delegate", "new work", "start work", "위임", "새 작업"],
   reprioritize: ["priority", "reprioritize", "reorder", "우선순위"],
   startNow: ["start now", "바로 시작", "바로 실행"],
@@ -194,8 +242,8 @@ export function matchTarsNeverRules(rules: readonly string[] | null | undefined,
  * `confirm` when one of the user's rules matches. A rule only ever adds a
  * confirmation; it never delays an action that reduces what Tars does.
  */
-export function tarsActionDisposition(args: { key: TarsActionKey; level: TarsAutonomyLevel | null | undefined; origin?: TarsActionOrigin; matches?: readonly TarsNeverRuleMatch[] }): TarsActionMode {
-  const mode = tarsActionMode(args.key, args.level, args.origin);
+export function tarsActionDisposition(args: { key: TarsActionKey; level: TarsAutonomyLevel | null | undefined; origin?: TarsActionOrigin; context?: TarsActionContext; matches?: readonly TarsNeverRuleMatch[] }): TarsActionMode {
+  const mode = tarsActionMode(args.key, args.level, args.origin, args.context);
   return mode === "auto" && args.matches?.length && !TARS_REDUCING.has(args.key) && args.key !== "show" ? "confirm" : mode;
 }
 

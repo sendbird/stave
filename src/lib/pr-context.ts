@@ -171,6 +171,8 @@ export type PrContextRef = z.infer<typeof PrContextRefSchema>;
 
 export const PrReviewCommentSchema = z
   .object({
+    reviewId: boundedText(PR_CONTEXT_LIMITS.maxNameChars).optional(),
+    commitSha: boundedText(64).optional(),
     id: boundedText(PR_CONTEXT_LIMITS.maxNameChars),
     author: boundedText(PR_CONTEXT_LIMITS.maxLoginChars),
     body: boundedText(PR_CONTEXT_LIMITS.maxCommentChars + 128),

@@ -15,6 +15,7 @@ import type { TrackerSourceId, TrackerIssue, TrackerIssueDetail } from "./types"
 export const TRACKER_SOURCE_LABELS: Record<TrackerSourceId, string> = {
   crane: "Crane",
   jira: "Jira",
+  github: "GitHub",
 };
 
 const JIRA_LINK_REL = "jira";

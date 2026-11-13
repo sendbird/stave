@@ -270,10 +270,40 @@ test("Tars body, supporting copy, report and settings remain readable across lay
       await expect(report).toBeVisible();
       await page.evaluate(async () => { await Promise.all(document.getAnimations().filter(a => a.effect?.getTiming().iterations !== Infinity).map(a => a.finished.catch(() => {}))); });
       const typography = await page.locator('[data-testid="tars-view"]').evaluate(root => {
-        return [...root.querySelectorAll('[data-tars-message] article, [data-tars-side-view] p')].filter(e => e.getBoundingClientRect().width > 0).map(e => ({ font: parseFloat(getComputedStyle(e).fontSize), horizontal: e.scrollWidth - e.clientWidth, vertical: getComputedStyle(e).overflowY === 'hidden' ? e.scrollHeight - e.clientHeight : 0 }));
+        return [...root.querySelectorAll('[data-tars-message] article, [data-tars-side-view] p')].filter(e => e.getBoundingClientRect().width > 0).map(e => {
+          const style = getComputedStyle(e);
+          const box = e.getBoundingClientRect();
+          const owner = (e.closest('[data-tars-side-view]') ?? root).getBoundingClientRect();
+          return { font: parseFloat(style.fontSize), horizontal: e.scrollWidth - e.clientWidth,
+            vertical: style.overflowY === 'hidden' ? e.scrollHeight - e.clientHeight : 0,
+            contained: box.left >= owner.left - 1 && box.right <= owner.right + 1,
+            headline: e.matches('[data-tars-completion-summary], [data-tars-report-reason]'),
+            title: e.getAttribute('title'), text: e.textContent, overflow: style.overflowX,
+            whiteSpace: style.whiteSpace, ellipsis: style.textOverflow, height: box.height, lineHeight: parseFloat(style.lineHeight) };
+        });
       });
       expect(typography.length).toBeGreaterThan(4);
-      for (const item of typography) { expect(item.font).toBeGreaterThanOrEqual(13); expect(item.horizontal).toBeLessThanOrEqual(1); expect(item.vertical).toBeLessThanOrEqual(1); }
+      for (const item of typography) {
+        expect(item.font).toBeGreaterThanOrEqual(13);
+        expect(item.contained, item.text ?? '').toBe(true);
+        expect(item.vertical).toBeLessThanOrEqual(1);
+        if (item.headline) {
+          expect(item.title).toBeTruthy();
+          expect(item.overflow).toBe('hidden');
+          expect(item.whiteSpace).toBe('nowrap');
+          expect(item.ellipsis).toBe('ellipsis');
+          expect(item.height).toBeLessThanOrEqual(item.lineHeight + 1);
+          if (item.text) expect(item.title).toContain(item.text);
+        } else expect(item.horizontal, item.text ?? '').toBeLessThanOrEqual(1);
+      }
+      await report.locator('[data-tars-result-details] > button').click();
+      const complete = await report.locator('[data-tars-full-summary]').allTextContents();
+      const title = await report.locator('[data-tars-completion-summary]').getAttribute('title');
+      expect(complete).toContain(title);
+      for (const summary of await report.locator('[data-tars-full-summary]').all()) {
+        await expect(summary).toBeVisible();
+        expect(await summary.evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+      }
       await page.screenshot({ path: testInfo.outputPath(`report-${lang}-${theme}-${width}.png`) });
       await page.keyboard.press('Escape');
     }

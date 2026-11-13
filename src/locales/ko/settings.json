@@ -1111,7 +1111,7 @@
     "fields": {
       "autoRoutingEnabled": {
         "title": "Auto 라우팅 사용",
-        "description": "입력창의 Auto 옵션 뒤에서 동작하는 모델 라우터를 전역으로 끄고 켭니다."
+        "description": "입력창과 일반 에이전트 실행의 Auto 라우팅을 끄고 켭니다. Tars 실행 모델이 자동이면 이 설정과 관계없이 공유 Auto 정책을 사용합니다."
       },
       "autoRoutingProfile": {
         "title": "Auto 라우팅 프로필",

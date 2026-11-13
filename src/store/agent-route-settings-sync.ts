@@ -14,13 +14,12 @@ const CLASSIFIED_PROVIDERS = ["claude-code", "codex"] as const;
  * for an agent run (`src/lib/routing/agent-run-route.ts`). Synced with the
  * agents by `useAgentSync`. The classifier context is what the composer's
  * classifier would use on each provider, minus the workspace folder, and is
- * null whenever the composer would not classify either. The helper limits are
+ * null when the profile disables classification. Explicit execution Auto can
+ * use it even when the app-wide Auto toggle is off. The helper limits are
  * what a starting Agent run freezes as its team limits.
  */
 export function buildAgentRouteSettings(settings: AppSettings): AgentRouteSettingsInput {
-  const classifies =
-    settings.autoRoutingEnabled &&
-    settings.autoRoutingProfile.signals.classifier;
+  const classifies = settings.autoRoutingProfile.signals.classifier;
   const contextFor = (providerId: (typeof CLASSIFIED_PROVIDERS)[number]): AgentRouteClassifierContext => {
     const context = buildUtilityInferenceContext({
       provider: providerId,

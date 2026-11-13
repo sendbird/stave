@@ -1,3 +1,4 @@
+import { MAX_RETAINED_REPORT_ARTIFACTS, retainSavedReportArtifacts } from "./artifacts";
 import { i18n } from "@/i18n/runtime";
 /**
  * User commands on an agent run, as pure transitions. Each one either returns an
@@ -326,7 +327,7 @@ function resumeTransition(aggregate: AgentRunAggregate, now: Date): AgentRunChan
   return {
     agentRun: touch(
       agentRun,
-      { state: "running", pauseReason: null, reasonDetail: null, ...(lapsed ? { eventWait: lapsed } : {}) },
+      { state: "running", pauseReason: null, reasonDetail: null, dailyUsageLimit: undefined, ...(lapsed ? { eventWait: lapsed } : {}) },
       now,
     ),
     upserts: [],
@@ -466,12 +467,16 @@ export function recordStageReport(args: {
           ...(args.workspaceRevision ? { workspaceRevision: args.workspaceRevision } : {}),
           decisions: args.report.decisions ?? [],
           evidence: args.report.evidence ?? [],
-          artifacts: args.report.artifacts ?? [],
+          artifacts: retainSavedReportArtifacts(args.aggregate.stages.filter((stage) => stage.stageId === record.stageId).flatMap((stage) => stage.report?.outcome === "complete" ? stage.report.artifacts : []), args.report.artifacts ?? []),
           reportedAt: args.now.toISOString(),
           turnRevision: turnRevision + 1,
           turnId: args.turnId,
         } satisfies CompleteStageReport)
       : { ...args.report, reportedAt: args.now.toISOString(), turnId: args.turnId, turnRevision: turnRevision + 1 };
+  if (report.outcome === "complete") {
+    const urls = new Set([...args.aggregate.stages.flatMap((stage) => stage.report?.outcome === "complete" ? stage.report.artifacts.map((artifact) => artifact.url) : []), ...report.artifacts.map((artifact) => artifact.url)]);
+    if (urls.size > MAX_RETAINED_REPORT_ARTIFACTS) throw new Error("This run already holds 100 report artifacts. Start a new run for additional comparisons.");
+  }
   return {
     agentRun: touch(args.aggregate.agentRun, {}, args.now),
     upserts: [{ ...record, report, reportRevision: record.reportRevision + 1 }],

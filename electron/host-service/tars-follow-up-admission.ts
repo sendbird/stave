@@ -1,35 +1,44 @@
 import { TARS_CONFIRMED_OPERATIONS, type TarsControlOperation, type TarsDecisionAction, type TarsMessageOrigin } from "../../src/lib/tars/conversation";
-import { isTarsTaskOperation } from "../../src/lib/tars/types";
 import type { TarsStore } from "../persistence/tars-store";
 
 type FollowUpOrigin = Extract<TarsMessageOrigin, { kind: "followUp" }>;
 /** The user holds or ended this work: an automatic follow-up proposes nothing about it. */
 const OUT_OF_REACH = new Set(["paused", "takenOver", "cancelled", "completed"]);
 
-/**
- * Why an automatic follow-up may not propose this action, or null. It has no
- * user mandate of its own and its context quotes untrusted run output, so it
- * never starts work: new work is suggested as an ask with a reply option, and
- * only the user's answer can lead to a delegation. It may ask, show and
- * propose resume or cancel, which wait for the user's Confirm. It never
- * reprioritizes: a priority change applies at once, so it needs the user's words.
- * It never proposes publishing or clearing, which need the user's own words,
- * and nothing about a schedule (creating, changing, pausing, resuming,
- * removing or listing one).
- * It never pauses, takes over, hands back or starts queued work now (those apply
- * at once or return authority), never proposes acceptCompletion or cancel where Stave's own
- * unverified-completion card already asks it, and never touches work the user
- * paused or took over, or work that ended.
+/** Automatic follow-ups may continue their own admitted work and offer a verified draft PR.
+ * They never delegate, reorder, speak for the user or reclaim user-held work.
  */
-export function tarsFollowUpRefusal(action: TarsDecisionAction, _origin: FollowUpOrigin, responsibilities: Pick<TarsStore, "get">): string | null {
+export function tarsFollowUpRefusal(action: TarsDecisionAction, origin: FollowUpOrigin, responsibilities: Pick<TarsStore, "get">): string | null {
+  if (action.kind === "open") return "Only the user can request navigation to another screen.";
+  if (action.kind === "workspace") return "An automatic follow-up cannot edit workspace information; only the user can request it.";
   if (action.kind === "delegate") return "An automatic follow-up cannot start work; it can ask whether the user wants it.";
   if (action.kind === "reprioritize") return "An automatic follow-up cannot change a priority; it can ask whether the user wants it.";
-  // Publishing needs the user's own words; a follow-up may only ask whether they want it.
-  if (action.kind === "publish") return "An automatic follow-up cannot propose publishing; only the user's own request can.";
+  if ("responsibilityId" in action && action.responsibilityId !== origin.responsibilityId)
+    return "An automatic follow-up can only act on its own responsibility.";
+  // Host publication admission checks verification, revision and branch; autonomy decides auto versus confirmation.
+  if (action.kind === "publish") return null;
   // Clearing hides what the user may want to read; only their own words propose it.
   if (action.kind === "clear") return "An automatic follow-up cannot propose clearing; only the user's own request can.";
   // A schedule makes work start by itself later; only the user's own words set one up, change one or list them.
   if (action.kind === "schedule") return "An automatic follow-up cannot propose or change a schedule; only the user's own request can.";
+  const ci = origin.reason === "ciFailed" && responsibilities.get(origin.responsibilityId)?.publication?.checks?.state === "failed";
+  const review = origin.reason === "prChangesRequested";
+  if (review && action.kind === "control") {
+    const target = responsibilities.get(action.responsibilityId);
+    const publication = target?.publication;
+    return action.operation === "message" && (target?.state === "completed" || target?.state === "resultReady")
+      && !target.executionPending && publication?.state === "opened" && publication.agentRunId === target.agentRunId
+      && !publication.watch?.stopped?.match(/closed|merged/)
+      && publication.checks?.headSha === publication.commit && publication.watch?.feedback?.headSha === publication.commit && publication.watch.feedback.requestedChanges
+      && origin.eventKey === `prChangesRequested:${target.id}:${publication.watch.feedback.episode}`
+      && (publication.watch.reviewRounds ?? 0) >= 1 && (publication.watch.reviewRounds ?? 0) <= 2
+      ? null : "A review follow-up can only continue its published work once, on the same branch and PR.";
+  }
+  if (ci && action.kind === "control") {
+    const target = responsibilities.get(action.responsibilityId);
+    return origin.responsibilityId === target?.id && action.operation === "message" && (target?.state === "completed" || target?.state === "resultReady")
+      && (target.publication?.watch?.fixRounds ?? 0) >= 1 && (target.publication?.watch?.fixRounds ?? 0) <= 2 ? null : "A CI follow-up can only continue the published work once, on its existing branch.";
+  }
   const row = (id: string) => responsibilities.get(id);
   const outOfReach = (id: string) => OUT_OF_REACH.has(row(id)?.state ?? "cancelled");
   // Stave's unverified-completion card already offers accept and cancel for this work.
@@ -39,8 +48,8 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, _origin: FollowU
     || !TARS_CONFIRMED_OPERATIONS.has(operation) || operation === "handBack" || operation === "acceptCompletion"
     // Skipping a stage cannot be undone and drops work the run planned: only the user's own words propose it.
     || operation === "skipStage"
-    // Answering in the task for the user, or speaking for them, needs their own words; a follow-up may only ask.
-    || isTarsTaskOperation(operation);
+    // Approval and answers speak for the user. Instructions to the owned run do not.
+    || operation === "approve" || operation === "deny" || operation === "answer";
   if (action.kind === "control" && refused(action.responsibilityId, action.operation))
     return "An automatic follow-up cannot propose this control: only the user starts it, or the work is held by the user or ended.";
   if (action.kind === "show" && outOfReach(action.responsibilityId))

@@ -82,7 +82,7 @@ function fixture(options: { queue?: boolean } = {}) {
   /** The user asks Tars to tell a work's run something; Tars proposes it and the user confirms the card. */
   const tell = async (text: string, work: TarsResponsibility = row) => {
     const { conversations, store, runtime } = current;
-    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6 });
+    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy: "careful" });
     const queued = conversations.create({ requestId: `message-${messages++}`, text: `그렇게 전해줘: ${text}` }, NOW);
     const claimed = conversations.claim(queued.id, queued.revision, NOW);
     const revision = store.get(work.id)!.revision;
@@ -264,7 +264,7 @@ describe("words for a work whose task is busy", () => {
     expect(f.record(record.requestId).delivery).toMatchObject({ status: "failed", reason: "runRefused", error: "Resume the run before sending it a reply." });
     await f.tick();
     // The words are only ever the user's reply: no approval, answer or other task operation was sent for them.
-    expect(f.task.respondCalls.map((request) => request.operation)).toEqual(["message"]);
+    expect(f.task.respondCalls).toEqual([]);
     expect(f.current().pendingRequests).toBeUndefined();
   });
 

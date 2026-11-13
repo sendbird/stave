@@ -1,3 +1,4 @@
+import { tarsPrWatchEpisode } from "./pr-checks";
 import { z } from "zod";
 import { TarsEventKindSchema, TarsStateSchema, type TarsEventKind, type TarsResponsibility } from "./types";
 
@@ -12,23 +13,25 @@ export { TarsEventKindSchema, TarsFollowUpStateSchema, type TarsEventKind, type 
 
 /** At most this many automatic follow-ups start in any rolling window, across all responsibilities. */
 export const TARS_FOLLOW_UP_WINDOW_CAP = 6;
+/** Automatic judgments between real user actions, independent of any execution run's turn limit. */
+export const TARS_FOLLOW_UP_CAP = 20;
 export const TARS_FOLLOW_UP_WINDOW_MS = 60 * 60_000;
 /** Processed events older than this are removed at startup; pending ones always stay. */
 export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Work that has waited this long without any change gets one follow-up for that wait. */
 export const TARS_WAIT_FOLLOW_UP_MS = 60 * 60_000;
 
-export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired", "decisionInvalidated"]);
+export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "decisionInvalidated", "ciFailed", "ciPassed", "ciUnavailable", "prChangesRequested", "prReviewNotice"]);
 /** The kinds an automatic follow-up message can carry; an invalidated decision keeps its own re-ask message. */
-export const TarsFollowUpReasonSchema = z.enum(["blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "waitExpired"]);
+export const TarsFollowUpReasonSchema = z.enum(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "ciFailed", "ciPassed", "ciUnavailable", "prChangesRequested", "prReviewNotice"]);
 export type TarsFollowUpReason = z.infer<typeof TarsFollowUpReasonSchema>;
 
 /**
  * `pending`: waits for main. `settled`: the host applied it without judgment.
  * `followedUp`: it started its follow-up (`messageId`). `coalesced`: a newer
  * event of the same responsibility covered it. `superseded`: the work moved on,
- * ended, was paused or taken over, or the user spoke since. `exhausted`: the
- * saved turn limit was reached by automatic turns, so no follow-up started.
+ * ended, was paused or taken over, or the user addressed this work. `exhausted`:
+ * the separate automatic follow-up cap was reached; the event is a visible notice.
  */
 export const TarsEventStatusSchema = z.enum(["pending", "settled", "followedUp", "coalesced", "superseded", "exhausted"]);
 export type TarsEventStatus = z.infer<typeof TarsEventStatusSchema>;
@@ -87,6 +90,12 @@ export function isTarsStageAskingUser(row: Pick<TarsResponsibility, "state" | "s
 }
 
 type AskEpisodeFields = "state" | "stageAsksUser" | "observedTurns" | "observedStage";
+type TransitionFields = "detailCode" | AskEpisodeFields;
+
+/** The execution turn limit needs an immediate judgment, even when its stage has explanatory words. */
+export function isTarsLimitReached(row: Pick<TarsResponsibility, "state" | "detailCode" | "detailParams">) {
+  return row.state === "waiting" && row.detailCode === "runPaused" && row.detailParams?.reason === "limit-reached";
+}
 
 /**
  * Whether two observations of an asking stage are the same ask: same run
@@ -103,9 +112,12 @@ function sameAsk(previous: Pick<TarsResponsibility, AskEpisodeFields>, next: Pic
  * same state observed again (or a new sentence in it) is the same episode, so
  * an unchanged or flapping observation never produces another model call.
  */
-export function classifyTarsTransition(previous: Pick<TarsResponsibility, "detailCode" | AskEpisodeFields> | null,
-  next: Pick<TarsResponsibility, "detailCode" | AskEpisodeFields>): TarsEventKind | null {
+export function classifyTarsTransition(previous: Pick<TarsResponsibility, TransitionFields> & Partial<Pick<TarsResponsibility, "detailParams">> | null,
+  next: Pick<TarsResponsibility, TransitionFields> & Partial<Pick<TarsResponsibility, "detailParams">>): TarsEventKind | null {
+  if (next.state === "resultReady") return previous?.state === "resultReady" ? null : "resultReady";
   if (next.state === "completed") return previous?.state === "completed" ? null : "completed";
+  if (isTarsLimitReached(next)) return previous && isTarsLimitReached(previous) && previous.observedTurns === next.observedTurns
+    && previous.observedStage === next.observedStage ? null : "limitReached";
   // A stage that asks starts its episode when the ask is new; the run continuing ends it.
   if (isTarsStageAskingUser(next)) return previous && sameAsk(previous, next) ? null : "stageAsksUser";
   if (next.state !== "blocked") return null;
@@ -114,12 +126,28 @@ export function classifyTarsTransition(previous: Pick<TarsResponsibility, "detai
 }
 
 /** Whether the responsibility still stands where the event saw it; anything else supersedes the event. */
-export function isTarsEventCurrent(event: Pick<TarsEvent, "kind" | "observedState" | "observedRevision">,
-  row: Pick<TarsResponsibility, "state" | "detailCode" | "revision" | "stageAsksUser"> | null) {
+export function isTarsEventCurrent(event: Pick<TarsEvent, "kind" | "observedState" | "observedRevision"> & { episode?: string; attempt?: string | null },
+  row: Pick<TarsResponsibility, "state" | "detailCode" | "revision" | "stageAsksUser"> & Partial<Pick<TarsResponsibility, "detailParams">> & { publication?: TarsResponsibility["publication"]; agentRunId?: string | null } | null) {
   if (!row || row.revision < event.observedRevision || row.state !== event.observedState) return false;
+  if (event.kind === "prChangesRequested" || event.kind === "prReviewNotice") {
+    const publication = row.publication;
+    const feedback = publication?.watch?.feedback;
+    return (row.state === "completed" || row.state === "resultReady") && publication?.state === "opened"
+      && !publication.watch?.stopped?.match(/closed|merged/) && row.agentRunId === event.attempt
+      && publication.agentRunId === row.agentRunId && feedback?.headSha === publication.commit
+      && publication.checks?.headSha === publication.commit && feedback?.episode === event.episode;
+  }
+  if (event.kind.startsWith("ci")) {
+    const checks = row.publication?.checks;
+    return (row.state === "completed" || row.state === "resultReady") && row.publication?.state === "opened" && !row.publication.watch?.stopped?.match(/closed|merged/)
+      && row.agentRunId === event.attempt && row.publication.agentRunId === row.agentRunId
+      && (event.kind === "ciUnavailable" ? tarsPrWatchEpisode(row.publication.commit ?? "", row.publication.watch?.startedAt) === event.episode : row.publication.commit === event.episode) && checks?.headSha === row.publication.commit
+      && checks?.state === ({ ciFailed: "failed", ciPassed: "passed", ciUnavailable: "unavailable" } as Record<string, string>)[event.kind];
+  }
   if (event.kind === "waitExpired") return row.state === "waiting" && row.revision === event.observedRevision;
   // New words from the same asking stage keep its episode; a plain wait since does not.
   if (event.kind === "stageAsksUser") return isTarsStageAskingUser(row);
+  if (event.kind === "limitReached") return isTarsLimitReached(row);
   return row.state !== "blocked" || blockedKind(row) === event.kind;
 }
 

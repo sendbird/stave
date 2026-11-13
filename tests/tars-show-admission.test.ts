@@ -54,7 +54,7 @@ describe("show admission", () => {
   test("model output naming a show is validated strictly like any action", () => {
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Opened.", actions: [{ kind: "show", responsibilityId: "r1", view: "timeline" }] })).actions)
       .toEqual([{ kind: "show", responsibilityId: "r1", view: "timeline" }]);
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "Opened.", actions: [{ kind: "show", responsibilityId: "r1", view: "timeline", operation: "resume" }] }))).toThrow();
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "Opened.", actions: [{ kind: "show", responsibilityId: "r1", view: "files" }] }))).toThrow();
+    for (const bad of [{ kind: "show", responsibilityId: "r1", view: "timeline", operation: "resume" }, { kind: "show", responsibilityId: "r1", view: "files" }])
+      expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Opened.", actions: [bad] }))).toMatchObject({ reply: "Opened.", actions: [], dropped: [{ index: 0, kind: "show", reason: "invalid" }] });
   });
 });

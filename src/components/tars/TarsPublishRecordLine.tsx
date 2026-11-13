@@ -56,7 +56,7 @@ export function TarsPublishRecordLine({ record, row, title, onRetry }: {
     detail={record.status === "rejected" ? <TarsRecordDetail data-tars-reason={record.reason ?? undefined}>
       {t(`shell:tars.publish.reason.${record.reason ?? "unknown"}`)}
       {failedStep ? <> {t("shell:tars.publish.record.failedStep", { step: t(`shell:tars.publish.card.resumeStep.${failedStep}`) })}</> : null}
-      {diagnostic ? <TarsRecordDiagnostic title={diagnostic}>{diagnostic.split("\n")[0]!.slice(0, 200)}</TarsRecordDiagnostic> : null}
+      {diagnostic ? <TarsRecordDiagnostic title={diagnostic}>{diagnostic}</TarsRecordDiagnostic> : null}
     </TarsRecordDetail> : null}
     actions={retry} />;
 }

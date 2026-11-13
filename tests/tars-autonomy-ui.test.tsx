@@ -45,7 +45,7 @@ describe("the autonomy settings table", () => {
     expect(rows.auto).toEqual(auto);
     // "Asks first" and "always asks" together are everything the host holds at this level.
     expect([...rows.confirm!, ...rows.always!].sort()).toEqual([...confirm].sort());
-    expect(rows.always).toEqual(["cancel", "skipStage", "acceptCompletion", "approve", "publish"]);
+    expect(rows.always).toEqual(["handBack", "signOff", "answer", "clear", "cancel", "skipStage", "acceptCompletion", "approve"]);
     expect(rows.never).toEqual([...TARS_UNAVAILABLE_ACTIONS]);
     expect(tarsAutonomyTable(level).auto).toEqual(auto);
   });
@@ -54,10 +54,10 @@ describe("the autonomy settings table", () => {
     const careful = rowsOf(settings("careful").html);
     const balanced = rowsOf(settings("balanced").html);
     const handsOff = rowsOf(settings("handsOff").html);
-    expect(balanced.auto).toEqual(["show", "delegate", "reprioritize", "startNow", "pause", "takeover", "deny"]);
-    expect(careful.auto).toEqual(["show", "pause", "takeover", "deny"]);
-    expect(careful.confirm).toEqual(expect.arrayContaining(["delegate", "reprioritize", "startNow"]));
-    expect(handsOff.auto).toEqual(["show", "delegate", "reprioritize", "startNow", "pause", "takeover", "deny", "resume", "extend", "retryStage"]);
+    expect(balanced.auto).toEqual(["show", "workspaceEdit", "workspaceReplace", "delegate", "reprioritize", "startNow", "pause", "takeover", "deny", "resume", "retryStage", "message", "requestChanges"]);
+    expect(careful.auto).toEqual(["show", "workspaceEdit", "pause", "takeover", "deny"]);
+    expect(careful.confirm).toEqual(expect.arrayContaining(["workspaceReplace", "delegate", "reprioritize", "startNow"]));
+    expect(handsOff.auto).toEqual(balanced.auto);
     expect(handsOff.confirm).not.toEqual(expect.arrayContaining(["resume"]));
   });
 

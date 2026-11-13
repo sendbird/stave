@@ -1,3 +1,4 @@
+import { MAX_RETAINED_REPORT_ARTIFACTS, ReportArtifactInputSchema, ReportArtifactSchema } from "./artifacts";
 import { AgentRunInitialContextSchema } from "./initial-context";
 import { i18n } from "@/i18n/runtime";
 /**
@@ -254,17 +255,7 @@ export const StageCompleteReportInputSchema = z
       .max(limits.decisions)
       .default([]),
     evidence: z.array(StageEvidenceSchema).max(limits.evidence).default([]),
-    artifacts: z
-      .array(
-        z
-          .object({
-            label: z.string().trim().min(1).max(limits.artifactLabel),
-            url: UrlSchema,
-          })
-          .strict(),
-      )
-      .max(limits.artifacts)
-      .default([]),
+    artifacts: z.array(ReportArtifactInputSchema).max(limits.artifacts).default([]),
     acceptanceCriteria: z
       .array(AcceptanceCriterionSchema)
       .max(limits.criteria)
@@ -301,6 +292,7 @@ const reportStamp = {
 
 export const StageReportSchema = z.discriminatedUnion("outcome", [
   StageCompleteReportInputSchema.extend({
+    artifacts: z.array(ReportArtifactSchema).max(MAX_RETAINED_REPORT_ARTIFACTS).default([]),
     outcome: z.literal("complete"),
     /** Host-captured at report receipt; never accepted from the agent input. */
     workspaceRevision: WorkspaceRevisionSchema.optional(),
@@ -656,6 +648,8 @@ export const AgentRunSchema = z
     pauseReason: z.enum(AGENT_RUN_PAUSE_REASONS).nullable(),
     stopReason: z.enum(AGENT_RUN_STOP_REASONS).nullable(),
     reasonDetail: ReasonSchema.nullable(),
+    /** A local daily budget pause, distinct from a provider subscription reset. */
+    dailyUsageLimit: z.literal(true).optional(),
     /** Persisted reservation and the interrupted turn's exact runtime. Old rows omit it. */
     usageLimit: z.object({
       turnId: IdSchema,
@@ -707,6 +701,7 @@ export type AgentRun = z.infer<typeof AgentRunSchema>;
 /* -------------------------------------------------------------------------- */
 
 export const AGENT_RUN_EVENT_KINDS = [
+  "control-applied",
   "agent-run-started",
   "resource-budget",
   "resource-request",
@@ -932,6 +927,7 @@ export function replaceStageRecord(
 }
 
 export type AgentRunCommandErrorCode =
+  | "daily-usage-limit"
   /** An agent run cannot start or change runtime on this task right now. */
   | "refused"
   | "not-active"

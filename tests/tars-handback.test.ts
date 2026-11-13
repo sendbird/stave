@@ -18,13 +18,13 @@ afterEach(() => { for (const database of databases.splice(0)) database.close(); 
  * The real Tars runtime, run control and completion rule over an in-memory run
  * driven by the actual agent-run domain commands; only provider turns are simulated.
  */
-function fixture() {
+function fixture(at: 0 | 1 | 2 = 2) {
   const database = new Database(":memory:"); databases.push(database);
   const store = new TarsStore(database); const conversations = new TarsConversationStore(database);
   let clock = Date.parse("2026-11-05T00:00:00.000Z");
   const now = () => new Date(clock += 1_000);
   const iso = () => now().toISOString();
-  const created = store.create({ requestId: "owned", title: "Fix search", instruction: "Fix and verify search.",
+  const created = store.create({ completionGoal: "implementation", requestId: "owned", title: "Fix search", instruction: "Fix and verify search.",
     acceptanceCriteria: ["Search works"], workspaceId: "source", repositoryPath: "/tmp/repository", providerId: "codex" }, iso());
   const row = store.patch(created.id, created.revision, { state: "running", taskId: `tars-${created.id}`,
     executionWorkspaceId: "execution", agentRunId: "owned-run" }, iso());
@@ -32,11 +32,12 @@ function fixture() {
     workflow: tarsWorkflow(row, iso()), assignment: row.instruction,
     consent: { checkIns: "when-stuck", permissionMode: "auto", authorizedEffectStageIds: [] } },
   repositoryPath: row.repositoryPath, fingerprint: { providerId: "codex", model: "test-model" }, now: now() });
-  // The run reached its final verification stage, which started before any takeover.
-  const [work, review, verify] = change.agentRun.workflow.stages;
+  // The run reached the stage `at` (by default its final fix stage), which started before any takeover.
+  const stageIds = change.agentRun.workflow.stages.map((stage) => stage.id);
+  const verify = { id: stageIds[at]! };
   const done = (stageId: string) => ({ ...createStageRecord({ agentRunId: "owned-run", stageId, attempt: 1 }), status: "completed" as const, startedAt: iso(), endedAt: iso() });
-  const run: AgentRunAggregate = { agentRun: { ...change.agentRun, currentStageIndex: 2 },
-    stages: [done(work!.id), done(review!.id), { ...createStageRecord({ agentRunId: "owned-run", stageId: verify!.id, attempt: 1 }), status: "running", startedAt: iso() }] };
+  const run: AgentRunAggregate = { agentRun: { ...change.agentRun, currentStageIndex: at },
+    stages: [...stageIds.slice(0, at).map(done), { ...createStageRecord({ agentRunId: "owned-run", stageId: verify.id, attempt: 1 }), status: "running", startedAt: iso() }] };
   let report: AgentRunDetail["report"] = null;
   const apply = (next: AgentRunChange) => {
     run.agentRun = next.agentRun;
@@ -57,7 +58,7 @@ function fixture() {
     cancel: command((aggregate) => cancelAgentRun({ aggregate, now: now() })) };
   const runtime = createTarsRuntime({ store, now: iso, validateScope: async () => {}, prepareWorkspace: async () => "execution",
     prepareTask: async () => {}, findRun: async () => "owned-run", startRun: async () => "owned-run",
-    observe: async (current) => tarsObservation(detail(), current.acceptanceCriteria, current.reverifyAfter),
+    observe: async (current) => tarsObservation(detail(), current.acceptanceCriteria, current.reverifyAfter, current),
     controlRun: (current, operation) => controlTarsRun(current, operation, { agentRuns, hasAssignment: () => true,
       readTask: async () => ({ activeTurnId: null }), readRun: () => run.agentRun, linkedTurns: () => [], userTurnIds: () => [], abortTurn: () => {} }) });
   let clicks = 0;
@@ -82,11 +83,11 @@ function fixture() {
     report = { outcome: "completed", acceptanceCriteria: [{ text: "Search works", required: true, status: "met" }] } as AgentRunDetail["report"];
   };
   const tick = async () => { runtime.requestTick(); await runtime.drain(); await runtime.drain(); };
-  return { store, row, run, act, finishCurrentStage, tick, runtime, verifyStageId: verify!.id, iso, apply, now,
+  return { store, row, run, act, finishCurrentStage, tick, runtime, verifyStageId: verify.id, iso, apply, now, setReport: (next: AgentRunDetail["report"]) => { report = next; },
     cancelRun: () => apply(cancelAgentRun({ aggregate: run, now: now() })),
     /** The old attempt files its completing report late, then the run completes on it. */
     reportOldAttempt: () => {
-      const index = run.stages.findIndex((stage) => stage.stageId === verify!.id && stage.attempt === 1);
+      const index = run.stages.findIndex((stage) => stage.stageId === verify.id && stage.attempt === 1);
       run.stages[index] = { ...run.stages[index]!, status: "completed", endedAt: iso(),
         report: { outcome: "complete", summary: "Checked.", reportedAt: iso() } as never };
       run.agentRun = { ...run.agentRun, state: "completed" };
@@ -157,5 +158,45 @@ test("a hand-back whose resume is not allowed changes nothing in the run", async
   expect(await f.act("handBack")).toMatchObject({ status: "rejected", reason: "runHeld" });
   expect(f.run).toEqual(before);
   expect(f.store.get(f.row.id)?.state).toBe("takenOver");
+  f.runtime.stop();
+});
+
+test("a hand-back during a review that may end the run restarts it; a fresh pass completes the work with the fix stage skipped", async () => {
+  const f = fixture(1);
+  await f.act("takeover");
+  expect((await f.act("handBack")).status).toBe("applied");
+  const attempts = f.run.stages.filter((stage) => stage.stageId === f.verifyStageId);
+  expect(attempts.map((stage) => [stage.attempt, stage.status])).toEqual([[1, "cancelled"], [2, "pending"]]);
+  const index = f.run.stages.length - 1;
+  const fresh = f.run.stages[index]!;
+  f.run.stages[index] = { ...fresh, status: "completed", startedAt: f.iso(), endedAt: f.iso(),
+    report: { outcome: "complete", summary: "Reviewed.", decisions: [], evidence: [], artifacts: [], reportedAt: f.iso(), turnId: null,
+      reviewVerdict: "passed", workspaceRevision: { status: "known", revision: "r1" } } as never,
+    facts: { currentTurnId: null, workspaceRevision: { status: "known", revision: "r1" }, diff: null, commands: [], toolCalls: [], action: null } as never };
+  f.run.stages.push({ ...createStageRecord({ agentRunId: "owned-run", stageId: "fix-review", attempt: 1 }), status: "skipped", endedAt: f.iso() });
+  f.run.agentRun = { ...f.run.agentRun, state: "completed" };
+  f.setReport({ outcome: "completed", acceptanceCriteria: [{ text: "Search works", required: true, status: "met" }] } as AgentRunDetail["report"]);
+  await f.tick();
+  expect(f.store.get(f.row.id)?.state).toBe("completed");
+  f.runtime.stop();
+});
+
+test("a hand-back during work resumes it in place; unchanged work Stave read afterwards completes it", async () => {
+  const f = fixture(0);
+  await f.act("takeover");
+  expect((await f.act("handBack")).status).toBe("applied");
+  // Restarting the whole work would repeat it; the review and checks after it run after the hand-back anyway.
+  expect(f.run.stages.filter((stage) => stage.stageId === f.verifyStageId).map((stage) => [stage.attempt, stage.status])).toEqual([[1, "running"]]);
+  expect(f.run.agentRun.state).toBe("running");
+  f.run.stages[0] = { ...f.run.stages[0]!, status: "completed", endedAt: f.iso(), startHeadSha: "a".repeat(40),
+    report: { outcome: "complete", summary: "Answered.", decisions: [], evidence: [], artifacts: [], reportedAt: f.iso(), turnId: null,
+      workspaceRevision: { status: "known", revision: "r1" } } as never,
+    facts: { currentTurnId: null, workspaceRevision: { status: "known", revision: "r1" }, diff: null, commands: [], toolCalls: [], action: null, changedPaths: [] } as never };
+  for (const stageId of ["review", "fix-review"])
+    f.run.stages.push({ ...createStageRecord({ agentRunId: "owned-run", stageId, attempt: 1 }), status: "skipped", endedAt: f.iso() });
+  f.run.agentRun = { ...f.run.agentRun, state: "completed" };
+  f.setReport({ outcome: "completed", acceptanceCriteria: [{ text: "Search works", required: true, status: "met" }] } as AgentRunDetail["report"]);
+  await f.tick();
+  expect(f.store.get(f.row.id)?.state).toBe("completed");
   f.runtime.stop();
 });

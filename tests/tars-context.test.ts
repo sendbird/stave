@@ -98,7 +98,7 @@ describe("planner work selection keeps new and live work ahead of old ended work
   const ports = (tars: TarsStore) => ({ tars, loadRepositoryRegistry: () => REGISTRY, loadWorkspaceShellSummary: () => null,
     agentRuns: { getLatestAgentRunForTask: () => null } });
   function add(tars: TarsStore, key: string, state: TarsResponsibility["state"], options: { priority?: number; createdAt?: string; updatedAt?: string } = {}) {
-    const created = tars.create({ requestId: key, title: `Work ${key}`, instruction: `Do ${key}`, acceptanceCriteria: ["Verified"],
+    const created = tars.create({ requestId: key, title: `Work ${key}`, instruction: `Do ${key}`, acceptanceCriteria: ["Verified"], completionGoal: "implementation",
       workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex", priority: options.priority ?? 50 }, options.createdAt ?? NOW);
     return state === "queued" ? created : tars.patch(created.id, created.revision, { state }, options.updatedAt ?? options.createdAt ?? NOW);
   }

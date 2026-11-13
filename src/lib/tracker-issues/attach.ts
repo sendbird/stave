@@ -102,6 +102,8 @@ export function buildTrackerIssueWorkspaceInformationUpdate(args: {
   current: WorkspaceInformationState;
   task: TrackerIssue;
 }): TrackerIssueWorkspaceInformationUpdate {
+  // GitHub issues have no dedicated Information section. Never file one as Jira.
+  if (args.task.source === "github") return { information: args.current, changed: false, entries: [] };
   let information = args.current;
   const entries: TrackerIssueWorkspaceInformationEntry[] = [];
 

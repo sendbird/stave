@@ -704,7 +704,8 @@ same connection:
 - `unverifiedCompletion`: a responsibility blocked with `unverifiedCompletion`
   until its decision `unverified:<responsibility>:<revision>` is answered or
   the row changes (`messageId`, `actionIndex` and `operation` are null).
-- `ask`: an unanswered `ask` receipt of the newest message whose control
+- `ask`: an unanswered `ask` receipt not retired by a later message addressing
+  the same responsibilities, whose control
   options all target current revisions (`operation` null, `question` and
   `optionCount` for display). A question about no work stays in the
   conversation only.
@@ -722,8 +723,10 @@ snapshot's responsibilities; the conversation card, the short-answer binding,
 the answer path and the re-ask scan all read it. A decision binds to its
 targets (responsibility id and revision for every control option). It is
 `waiting`, `answered`, `invalid` (a target moved past its revision or ended)
-or `retired` (a newer proposal, a later message, a sibling answered, or work
-settled elsewhere). Without a snapshot a target-bound decision is not offered.
+or `retired` (a newer proposal, a later user message addressing the same
+responsibilities, a sibling answered, or work settled elsewhere). Unrelated
+messages keep the decision waiting; only the latest message accepts short
+answers. Without a snapshot a target-bound decision is not offered.
 
 The model's `ask` action (`TarsAskActionSchema`) has a question, 2–4 options
 (unique `label` up to 60 characters, one-line `rationale`, `effect`) and an
@@ -759,6 +762,22 @@ of the newest message with nothing said after it. Answering a decision retires
 the other decisions of its message on the same responsibility only, and
 `isCurrentProposal` applies that rule to every confirmation. Typed messages may
 not use `answer:` or `reask:` request ids.
+
+`window.api.tars.dismissDecision` (`tars:dismiss-decision`,
+`TarsDismissInputSchema`: a decision id and `source` `click` or `key`) closes
+one waiting decision without an option. Main checks that it waits and records
+an applied answer with `effect: { kind: "dismiss" }` (`closeDecision`); the same
+dismissal again returns it, an answered decision returns `alreadyAnswered` and
+anything else `notWaiting`. It never reaches the host. The model's `withdraw`
+action (`TarsWithdrawActionSchema`: a `confirm:` or `ask:` decision id only)
+records `effect: { kind: "withdraw", messageId, actionIndex }` with source
+`tars` in the host's admission, settling its receipt `applied` with no
+responsibility, or `rejected` (`stale`, `notOwned`) when the decision no longer
+waits or is not Tars's own. A closure chooses no option, applies nothing and
+retires no sibling. A control proposal and a question also stop waiting once a
+later message exists that is not an automatic follow-up
+(`readMovedOnTarsMessages`); the projection, `pendingDecisions` and
+`isCurrentProposal` read that one rule.
 
 The model's `show` action (`TarsShowActionSchema`: `responsibilityId` and
 `view`, one of `report`, `changes`, `timeline` or `review`; no other field
@@ -878,19 +897,20 @@ Main processes pending events only when no user message is queued
 (`admitTarsFollowUps`). It reads the decisions projection once, outside the
 write lock; if a message arrived since, invalidated decisions wait for the
 next pass. Per responsibility, the newest event that still stands
-(`isTarsEventCurrent`, and the user has not spoken since) is chosen, the rest
+(`isTarsEventCurrent`, and the user has not addressed that responsibility since) is chosen, the rest
 are `coalesced` or `superseded`; paused, taken-over and ended work never stands.
 One IMMEDIATE transaction then creates the message
 `followup:<event key>` with `origin: { kind: "followUp", eventKey,
 responsibilityId, reason, observedRevision, summary }` and settles the event
 `followedUp`, so a crash never creates two. Budget: once the automatic
-messages (`followUp` and `reask`) since the last user-typed message or chosen
-reply reach the saved `maxTurns`, the event is saved `exhausted` and no model
+messages (`followUp` and `reask`) since the last user action reach
+`TARS_FOLLOW_UP_CAP` (20), independently of execution `maxTurns`, the event is saved `exhausted` and no model
 call starts; past `TARS_FOLLOW_UP_WINDOW_CAP` automatic messages in
 `TARS_FOLLOW_UP_WINDOW_MS`, events stay `pending` and the service sets one
 timer for when the window opens. The count restarts at the user's last action:
-a user-typed message or chosen reply, or any row in `tars_action_records`
-(clicks, Confirm) or `tars_decision_answers`. Right before the planner call
+a user-typed message or chosen reply, or a user-sourced row in `tars_action_records`
+(clicks, Confirm) or `tars_decision_answers`. Automatic controls and Tars-authored
+withdrawals never restart it. Right before the planner call
 (`supersedeStale` → `supersedeStaleTarsFollowUp`), a follow-up whose event no
 longer stands is cancelled and its event set `superseded`, with no model call.
 `applyTarsDecision` refuses, with reason `notByFollowUp` (allowed on every
@@ -990,11 +1010,13 @@ A model-proposed `resume`, `handBack` or `cancel` is checked and saved as a
 `proposed` receipt; only the user's confirming click (`confirm:<message>:<index>`
 request ID, same `act` path, repeating the proposal exactly) applies it, and
 that click's outcome settles the proposal in the same transaction. Pause and
-takeover apply at once. A hand-back during the final stage always replaces its
+takeover apply at once. A hand-back during a stage that may end the run (the
+last stage, or a review whose pass skips the fix stage) always replaces its
 started attempt: a running or user-paused run is held first, then the run's
 `restartStageAndResume` restarts and resumes it in one transition, so a refused
-resume changes nothing. Completion needs a final attempt that started after the
-hand-back. Decisions, controls and
+resume changes nothing. Completion needs an attempt of the last stage that ran
+(`tarsFinalStageRecord`) that started after the hand-back, or unchanged work
+Stave read after it. Decisions, controls and
 responsibility requests have no host request deadline, and main never fences a
 control receipt after a failed delivery: it stays pending until the host's
 idempotent retry settles the run effect and the receipt together. Such an
@@ -1032,6 +1054,23 @@ do not replace provider safety controls, and a completion report must not be
 presented as a host check or external-service outcome. The service is desktop
 hosted; there is no corresponding execution service in the browser dev bridge
 or ordinary task Local MCP tool catalog.
+
+`completionGoal` is an optional endpoint admitted with the responsibility and
+delegate action. `tarsObservation` checks the Run's evidence first; a verified
+result stays nonterminal `resultReady` until that endpoint is established.
+`resultVerifiedRunId` and publication's `agentRunId` bind evidence to an execution.
+Only the host's recorded PR fulfills `pullRequest`; a link never proves CI or
+merge. Unknown scope waits for explicit acceptance (`completionConfirmedAt`).
+Restart reads old unscoped completions conservatively without rewriting their
+history or admission hash. A confirmed message to `completed` or `resultReady`
+work enters the persisted delivery ledger, reserves a continuation scope and
+starts or reconciles a Run in the same task and execution workspace.
+`previousRunIds` retains prior executions; report loading and output targets
+include those IDs. `publicationHistory` retains earlier publications while the
+new execution clears active publication, acceptance and verification evidence.
+Completion observation and report projection use execution-specific criteria.
+An uncertain start retains one concurrency slot until reconciled; cancellation
+reconciles without starting work, then stops the actual Run.
 
 Focused coverage: `tests/tars-store.test.ts`,
 `tests/tars-runtime.test.ts`, `tests/tars-control.test.ts`,

@@ -1,5 +1,6 @@
+import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
-import { FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
+import { Clock, FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
 import { useTranslation } from "@/i18n";
 import { Toggle } from "@/components/aui/components/Toggle";
@@ -15,7 +16,7 @@ import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import { transcriptWidthStyles, useTranscriptWidthTheme } from "@/components/ai-elements/transcript-width";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildModelSelectorValue } from "@/components/ai-elements/model-selector";
-import type { TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsMessageView } from "@/lib/tars/conversation";
+import type { TarsActionRecord, TarsActionReceipt, TarsAnswerInput, TarsAnswerResult, TarsAnswerSource, TarsConversationSettings, TarsDismissInput, TarsMessageView } from "@/lib/tars/conversation";
 import {
   bindTarsShortAnswer, projectTarsDecisions, selectAnswerableTarsDecisions, tarsUnverifiedDecisionId, type TarsDecisionView,
 } from "@/lib/tars/decisions";
@@ -30,6 +31,7 @@ import { TarsActivityNoticeLine, TarsFlowBlock } from "./TarsFlowBlock";
 import { TarsActionRecordLine } from "./TarsActionRecordLine";
 import { describeTarsDecisionSubject, TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
 import { tarsDockStyles as dockStyles } from "./tars-decision-dock.styles";
+import { TarsAllowRuleRecords } from "./TarsAllowRules";
 import { TarsDecisionDock, TarsWaitingRecord, type TarsDecisionDockController, type TarsDockItem } from "./TarsDecisionDock";
 import { TarsPublishCard } from "./TarsPublishCard";
 import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
@@ -53,6 +55,7 @@ import type { TarsClearContext } from "./use-tars-clear";
 import { TarsScheduleProposal, TarsScheduleRecordLine, TarsScheduleRunLine } from "./TarsSchedule";
 import type { TarsScheduleContext } from "./use-tars-schedules";
 import type { TarsSuggestion } from "@/lib/tars/suggestions";
+import { useTarsNotificationFocus } from "./use-tars-notification-focus";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
 
@@ -111,7 +114,8 @@ function TarsPublishProposal({ view, publish, titleOf, matchedRules }: { view: T
     onPublish={view.checked ? (words, source) => publish.onPublish({ id: view.requestId, responsibilityId: row.id, expectedRevision: view.expectedRevision }, words, source) : undefined} />;
 }
 
-export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, schedule, onOpenWaiting }: {
+export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, schedule, onOpenWaiting, records }: {
+  records?: readonly TarsActionRecord[];
   message: TarsMessageView; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   /** Puts a failed message's words back in the message box; absent, its failure offers no action. */
   onResend?: () => void;
@@ -140,7 +144,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   const publishViews = new Map((publish?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const clearViews = new Map((clear?.available ? clear.proposals : []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   // An applied delegation reads as its flow block, and a decision as its card, so their receipt lines would only repeat them.
-  const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: cards.get(receipt.actionIndex) ?? null }));
+  const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: receipt.action.kind === "workspace" && receipt.status === "applied" ? null : cards.get(receipt.actionIndex) ?? null }));
   const scheduleViews = new Map((schedule?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex) && !clearViews.has(entry.receipt.actionIndex) && !scheduleViews.has(entry.receipt.actionIndex))
     .map((entry) => entry.receipt);
@@ -162,9 +166,17 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       {/* A wide table may claim the transcript's wide measure; prose, code and cards keep the reading column. */}
       <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
       : message.state === "failed" ? <TarsMessageFailure key="failure" message={message} onResend={userWords && onResend ? onResend : undefined} />
-        : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} /> : null,
+        : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} inspection={message.inspection} /> : null,
+    // Why it has not started yet, or that its first attempt failed and Tars is trying once more: never a silent wait.
+    message.state === "queued" && message.waiting ? <TarsRecordList key="waiting"><TarsRecordRow state="info" icon={Clock} at={message.waiting.since}
+      subject={t(`shell:tars.conversation.waiting.${message.waiting.reason}`)} data-tars-message-waiting={message.waiting.reason} /></TarsRecordList>
+      : message.state === "reasoning" && message.retry ? <TarsRecordList key="retry"><TarsRecordRow state="info" icon={RefreshCw} at={message.retry.at}
+        subject={t(`shell:tars.conversation.retrying.${message.retry.cause}`)} data-tars-message-retry={message.retry.cause} /></TarsRecordList> : null,
+    // Actions the model returned malformed were left out; the reply and the valid ones stay.
+    message.decision?.dropped?.length ? <TarsRecordList key="dropped"><TarsRecordRow state="skipped"
+      subject={t("shell:tars.conversation.droppedActions", { count: message.decision.dropped.length })} data-tars-dropped-actions={message.decision.dropped.length} /></TarsRecordList> : null,
     lines.length ? <TarsRecordList key="lines" aria-label={t("shell:tars.conversation.actions")}>
-      {lines.map((receipt) => <TarsReceiptRow key={receipt.actionIndex} receipt={receipt} titleOf={titleOf} agentNameOf={agentNameOf} />)}
+      {lines.map((receipt) => <TarsReceiptRow key={receipt.actionIndex} receipt={receipt} titleOf={titleOf} agentNameOf={agentNameOf} record={records?.find(record => record.requestId === tarsWorkspaceRecordId(receipt.messageId, receipt.actionIndex))} workspaceNameOf={context?.workspaceNameOf} />)}
     </TarsRecordList> : null,
     ...flowed.map(({ receipt, card }) => card
       ? card.state === "waiting" && onOpenWaiting ? <TarsWaitingRecord key={`decision:${receipt.actionIndex}`} id={card.id} subject={describeTarsDecisionSubject(card, titleOf)} onOpen={() => onOpenWaiting(card.id)} />
@@ -220,7 +232,7 @@ function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pres
   </>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, sidePanel, controller, publish, composerStatus, draftBridge, clear, suggestions, schedule, onOpenScheduleRun }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, onDismissDecision, sidePanel, controller, publish, composerStatus, draftBridge, clear, suggestions, schedule, onOpenScheduleRun }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -233,6 +245,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   responsibilities?: readonly TarsResponsibility[] | null;
   /** Sends one answer through the host; null when it could not be sent. */
   onAnswer?: (input: TarsAnswerInput) => Promise<TarsAnswerResult | null>;
+  /** Dismisses one waiting decision card; null when it could not be sent. Absent: cards offer no Dismiss. */
+  onDismissDecision?: (input: TarsDismissInput) => Promise<TarsAnswerResult | null>;
   /** The narrow side view: between the transcript and the composer, so both stay in view. */
   sidePanel?: ReactNode;
   controller?: Ref<TarsConversationController>;
@@ -283,7 +297,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     ...selectTarsActivityNotices(state.conversation?.activity ?? [], state.conversation?.records ?? [])
       .map((value) => ({ kind: "activity" as const, id: `activity:${value.activity.id}`, at: value.activity.createdAt, value })),
     // A decision's own record shows on its card, never twice.
-    ...(state.conversation?.records ?? []).filter((value) => !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
+    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
       .map((value) => ({ kind: "record" as const, id: `record:${value.requestId}`, at: value.createdAt, value })),
     // A card the user opened leaves its confirmation's outcome where it was confirmed.
     ...(publish?.records ?? []).map((value) => ({ kind: "publish" as const, id: `publish:${value.requestId}`, at: value.createdAt, value })),
@@ -331,8 +345,22 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     }).finally(() => setAnswering(false));
   };
   const cardHandler = onAnswer ? answer : undefined;
-  // Esc on a waiting card leaves it waiting and hands focus back to the message box.
-  const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer, onOpenTask };
+  /** Dismiss closes the card for good without an option; a refusal or a failure stays with the card, like an answer's. */
+  const dismissDecision = onDismissDecision ? (decision: TarsDecisionView, source: TarsDismissInput["source"]) => {
+    if (answering) return;
+    setAnswering(true);
+    void onDismissDecision({ decisionId: decision.id, source }).catch(() => null).then((result) => {
+      const message = !result ? t("shell:tars.decision.refusal.dismissFailed") : result.refusal ? t(`shell:tars.decision.refusal.${result.refusal}`) : null;
+      setAnswerErrors((current) => {
+        const next = new Map(current);
+        if (message) next.set(decision.id, message); else next.delete(decision.id);
+        return next;
+      });
+      if (!message) focusComposer();
+    }).finally(() => setAnswering(false));
+  } : undefined;
+  // Esc on a waiting card leaves it waiting and hands focus back to the message box; Dismiss closes it.
+  const cardContext: TarsDecisionCardContext = { rowOf, workspaceNameOf, onDismiss: focusComposer, onDismissDecision: dismissDecision, onOpenTask };
   // A record's work chip opens the work's brief in the side view; without a side view it stays a plain value.
   const openSide = flows?.onOpenSide;
   const openWork = useMemo(() => openSide ? (responsibilityId: string) => openSide({ responsibilityId, kind: "brief" }) : null, [openSide]);
@@ -378,7 +406,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     decisions.find((view) => view.id === tarsUnverifiedDecisionId(activity.responsibilityId, activity.revision));
   /** One timeline entry: a message's exchange or a card in the flow, or a record that joins its neighbours' list. */
   const nodeOf = (item: (typeof timeline)[number]): TarsTranscriptEntry["node"] => {
-    if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
+    if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} records={state.conversation?.records} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
       onResend={() => resend(item.value)}
       titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} schedule={schedule} onOpenWaiting={openWaiting} />;
     if (item.kind === "schedule") return { record: <TarsScheduleRecordLine key={item.id} record={item.value} /> };
@@ -387,7 +415,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       onUndo={clear ? () => void clear.undo(item.value.requestId) : undefined} /> };
     if (item.kind === "publish") return { record: <TarsPublishRecordLine key={item.id} record={item.value} row={publish?.rowOf(item.value.responsibilityId)}
       title={titleOf?.(item.value.responsibilityId)} onRetry={publish?.retryFor(item.value) ?? undefined} /> };
-    if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.(item.value.action.responsibilityId)} /> };
+    if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.("responsibilityId" in item.value.action ? item.value.action.responsibilityId : "")} /> };
     if (item.kind === "event") return { record: <TarsRecordRow key={item.id} state="halted" data-tars-follow-up-exhausted={item.value.responsibilityId} at={item.at}
       subject={t("shell:tars.followUp.exhausted", { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })} /> };
     // Stave's unverified-completion choice is a decision card where its blocked notice would be.
@@ -420,6 +448,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     const record = composerRef.current?.closest("[data-tars-chat]")?.querySelector<HTMLElement>(`[data-tars-decision="${CSS.escape(id)}"] [tabindex="-1"]`);
     if (record) record.focus({ preventScroll: true }); else focusComposer();
   };
+  useTarsNotificationFocus({ ready: Boolean(state.conversation && responsibilities), busy: state.busy || answering || Boolean(publish?.busyId),
+    items: dockItems, responsibilities, dock: dockRef, openSide: flows?.onOpenSide, focusComposer });
   // The transcript and the composer take the same width step, measured on this column.
   return <div className={sx(styles.chat, transcriptWidthStyles.surface, floor && trayStyles.conversationFloor)} style={textScale} data-tars-chat="">
     <Conversation className={sx(widthTheme)}>
@@ -435,7 +465,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         <TarsRecordOpenWorkContext value={openWork}>
         {/* The transcript, with the "while you were away" summary where the user left. */}
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
-          decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} />
+          decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} onOpenWaiting={openWaiting} />
+        <TarsAllowRuleRecords />
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}

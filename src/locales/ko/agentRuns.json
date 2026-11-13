@@ -1153,5 +1153,26 @@
     "wallClockTook": "{{explain}} 시작부터 끝까지 {{duration}} 걸렸습니다.",
     "soFar": "현재까지 활성 {{value1}}",
     "reportLabel": "활성 시간"
+  },
+  "artifacts": {
+    "saved": "저장된 비교안",
+    "description": "저장된 HTML입니다. 원본 워크스페이스나 실행 중인 서버 없이 열 수 있습니다.",
+    "presentation": {
+      "componentRender": "에이전트 보고: 실제 컴포넌트를 렌더링했습니다. 이 표시는 결과를 검증하지 않습니다.",
+      "example": "예시 데이터 또는 설명용 시안입니다. 실제 앱이 아닙니다.",
+      "capture": "캡처 이미지입니다. 동작하는 앱이 아닙니다.",
+      "unspecified": "렌더링 출처가 보고되지 않았습니다. 실제 앱 실행의 증거로 볼 수 없습니다."
+    },
+    "liveRequirements": "실제 앱에는 워크스페이스, 설정된 프로세스, 필요한 로그인과 백엔드가 있어야 합니다. 실행하지 못해도 저장된 비교안은 볼 수 있습니다.",
+    "startApp": "실제 앱 실행",
+    "starting": "실행 중…",
+    "openApp": "실제 앱 열기",
+    "launchFailed": "앱을 실행하지 못했습니다. Workspace Tools와 로그인·백엔드 상태를 확인해 주세요. 아래에서 저장된 비교안은 계속 볼 수 있습니다.",
+    "missing": "저장된 HTML을 찾을 수 없습니다.",
+    "loading": "저장된 HTML 불러오는 중…",
+    "liveLink": "실행 중인 서버가 필요한 링크",
+    "version": "{{label}} · 버전 {{version}} · {{time}}",
+    "unknownTime": "시간 정보 없음",
+    "localOnly": "Stave에 로컬로 보관됨. 앱에서 열 수 있습니다"
   }
 }

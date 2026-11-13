@@ -72,11 +72,22 @@ test("cancellation prevents a late model response from becoming an executable pr
 });
 
 test("invalid output fails once and does not retry or invent work", async () => {
-  const f = fixture(async () => '{"reply":"done","actions":[{"kind":"publish"}]}');
+  const f = fixture(async () => '{"reply":42,"actions":[]}');
   const message = f.create(); await processTarsMessage(message.id, f.ports);
   await processTarsMessage(message.id, f.ports);
+  // A format error is not transient: one model call, no automatic retry.
   expect(f.requests).toHaveLength(1);
   expect(f.conversations.get(message.id)).toMatchObject({ state: "failed", decision: null });
+  expect(f.conversations.get(message.id)!.retry).toBeUndefined();
+  f.database.close();
+});
+
+test("one malformed action is dropped with its reason while the reply is kept, and it is not retried", async () => {
+  const f = fixture(async () => '{"reply":"done","actions":[{"kind":"publish"}]}');
+  const message = f.create(); await processTarsMessage(message.id, f.ports);
+  expect(f.requests).toHaveLength(1);
+  expect(f.conversations.get(message.id)).toMatchObject({ state: "answered", reply: "done",
+    decision: { actions: [], dropped: [{ index: 0, kind: "publish", reason: "invalid" }] } });
   f.database.close();
 });
 
@@ -112,6 +123,12 @@ test("a paid reply survives a Markdown fence, an over-long reply and an extra to
   expect(truncated?.reply?.endsWith("\n\n[…]")).toBe(true);
   expect(extra?.decision).toEqual({ reply: "Extra key.", actions: [action] });
   expect(f.requests[0]?.input.prompt).toContain("reply (string, at most 8000 characters)");
+  const prompt = f.requests[0]!.input.prompt;
+  expect(prompt).toContain("user's language and at most 4 short lines");
+  expect(prompt).toContain("done / not working / needs you / next");
+  expect(prompt).toContain("localized in the reply language; omit empty items");
+  expect(prompt).toContain("one plain sentence per item");
+  expect(prompt).toContain("No commands, commit hashes, ids, file paths or stack traces unless the user asks for details");
   f.database.close();
 });
 
@@ -139,7 +156,7 @@ test("the prompt offers start now for queued work, applied at once, and never fo
   const prompt = f.requests[0]?.input.prompt ?? "";
   expect(prompt).toContain("'acceptCompletion'|'startNow'");
   expect(prompt).toContain("propose startNow for each queued responsibility they named");
-  expect(prompt).toContain("pause, takeover and startNow apply at once");
+  expect(prompt).toContain("Pause and takeover always apply at once; startNow and resume follow the autonomy policy");
   expect(prompt).toContain("Never claim you cannot start queued work.");
   // The decision schema holds 8 actions; more queued work than that is started in turns, and the reply says so.
   expect(prompt).toContain("propose startNow for the first ones in queue order up to that limit");
@@ -156,14 +173,18 @@ test("the prompt asks for a branch name under each repository's rule, with the s
   f.database.close();
 });
 
-test("an unexpected action field still rejects the whole decision", async () => {
+test("an unexpected action field drops only that action: the reply and the valid actions stay, with the reason", async () => {
   for (const extra of [{ repositoryPath: "/tmp/unrelated" }, { providerId: "codex" }]) {
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "ok", actions: [{ ...action, ...extra }] }))).toThrow();
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "ok", actions: [{ ...action, ...extra }] })))
+      .toMatchObject({ reply: "ok", actions: [], dropped: [{ index: 0, kind: "delegate", reason: "invalid" }] });
   }
   expect(() => parseTarsDecisionOutput("I could not decide.")).toThrow("JSON decision");
-  const f = fixture(async () => `\`\`\`json\n${JSON.stringify({ reply: "Use this path.", actions: [{ ...action, repositoryPath: "/tmp/unrelated" }] })}\n\`\`\``);
+  const f = fixture(async () => `\`\`\`json\n${JSON.stringify({ reply: "Use this path.", actions: [{ ...action, repositoryPath: "/tmp/unrelated" }, action] })}\n\`\`\``);
   const message = f.create(); await processTarsMessage(message.id, f.ports);
-  expect(f.conversations.get(message.id)).toMatchObject({ state: "failed", decision: null, reply: null });
+  const saved = f.conversations.get(message.id)!;
+  expect(saved).toMatchObject({ state: "answered", reply: "Use this path.", decision: { actions: [action], dropped: [{ index: 0, kind: "delegate", reason: "invalid" }] } });
+  // The diagnostic names where the action went wrong, never the model's own words.
+  expect(saved.decision!.dropped![0]!.detail).not.toContain("/tmp/unrelated");
   f.database.close();
 });
 
@@ -236,11 +257,11 @@ test("a failure keeps its phase and cause on the message, before the model call 
     expect(refused.conversations.get(second.id)?.error).toContain("Failed at model: The provider ended the reasoning turn failed (runtime_failure): Claude usage limit reached.");
     refused.database.close();
     // An invalid decision says where it went wrong without quoting the model's output.
-    const invalid = fixture(async () => '{"reply":"Secret plan","actions":[{"kind":"publish"}]}');
+    const invalid = fixture(async () => '{"reply":{"text":"Secret plan"},"actions":[]}');
     const third = invalid.create("invalid");
     await processTarsMessage(third.id, invalid.ports);
     const saved = invalid.conversations.get(third.id)?.error ?? "";
-    expect(saved).toContain("Failed at decision: The decision did not match its schema at actions.0");
+    expect(saved).toContain("Failed at decision: The decision did not match its schema at reply");
     expect(saved).not.toContain("Secret plan");
     invalid.database.close();
     expect(errors.map(([line, detail]) => [line, (detail as { phase: string }).phase])).toEqual([["[tars] reasoning failed", "context"],
@@ -298,3 +319,25 @@ for (const providerId of ["claude-code", "codex"] as const) {
     f.database.close();
   });
 }
+
+test.each(["correction", "independent", "ambiguous"] as const)("representative request classification retains execution identity: %s", async (kind) => {
+  let target = "";
+  const f = fixture(async () => JSON.stringify(kind === "correction"
+    ? { reply: "Confirm the follow-up for the existing work.", actions: [{ kind: "control", responsibilityId: target, expectedRevision: 2, operation: "message", input: { text: "그 작업의 오류 표시도 보완해줘" } }] }
+    : kind === "independent" ? { reply: "A separate request starts separate work.", actions: [action] }
+    : { reply: "어느 작업을 이어서 할까요?", actions: [] }));
+  const created = f.responsibilities.create({ requestId: "existing", title: "Split shared components", instruction: "Split components and verify behavior",
+    acceptanceCriteria: ["Existing behavior remains"], workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex",
+    request: { messageId: "original-message", text: "공통 컴포넌트 분리 작업을 맡길게", sentAt: NOW }, delegatedInstruction: "Split components and verify behavior" }, NOW);
+  target = created.id;
+  f.responsibilities.patch(target, created.revision, { state: "completed", taskId: "actual-task", executionWorkspaceId: "actual-worktree", agentRunId: "previous-run" }, NOW);
+  const current = f.conversations.create({ requestId: kind, text: kind === "correction" ? "그 작업의 오류 표시도 보완해줘" : kind === "independent" ? "별도로 검색 기능을 고쳐줘" : "그거 이어서 해줘" }, NOW);
+  await processTarsMessage(current.id, f.ports);
+  const prompt = f.requests[0]!.input.prompt;
+  expect(prompt).toContain("actual-task"); expect(prompt).toContain("actual-worktree");
+  expect(prompt).toContain("original-message"); expect(prompt).toContain("공통 컴포넌트 분리 작업을 맡길게");
+  expect(f.conversations.get(current.id)?.decision?.actions[0]?.kind).toBe(kind === "correction" ? "control" : kind === "independent" ? "delegate" : undefined);
+  // Scripted provider outputs exercise contract and persistence, not live model judgment.
+  expect(f.responsibilities.snapshot().responsibilities).toHaveLength(1);
+  f.database.close();
+});

@@ -1,3 +1,4 @@
+import { tarsWorkspaceRecordId } from "../../src/lib/tars/workspace-action";
 import { TarsUndoActionRefused, type TarsActionUndo, type TarsUndoActionInput } from "../../src/lib/tars/action-undo";
 import { createHash, randomUUID } from "node:crypto";
 import {
@@ -5,6 +6,7 @@ import {
   TarsActionReceiptSchema, TarsActionRecordSchema, TarsActInputSchema, TarsDecisionActionSchema, TarsDecisionSchema,
   TarsConversationSettingsSchema, type TarsConversationSettings,
   TarsMessageInputSchema, TarsMessageSchema, TarsReceiptOutcomeSchema, TarsDecisionAnswerSchema, TarsMessageOriginSchema, isTarsAnswerRetryable,
+  isTarsDecisionClosure, type TarsQueueWaitReason, type TarsRetryCause, type TarsAnswerSource,
   TarsReprioritizeInputSchema, type TarsReprioritizeInput,
   type TarsActionReceipt, type TarsActionRecord, type TarsActInput, type TarsDecision, type TarsDecisionAction,
   type TarsMessage, type TarsMessageInput, type TarsReceiptOutcome, type TarsDecisionAnswer, type TarsAnswerRefusal, type TarsMessageOrigin,
@@ -18,7 +20,7 @@ import { AttachmentContextsSchema, type AttachmentContext } from "../../src/lib/
 import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
 import { TarsComposerDraftSchema, type TarsComposerDraft } from "../../src/lib/tars/composer-draft";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
-import { readLatestTarsControls, readSettledTarsTargets } from "./tars-proposals";
+import { readLatestTarsControls, readMovedOnTarsMessages, readSettledTarsTargets } from "./tars-proposals";
 
 interface ConversationDatabase {
   exec(sql: string): unknown;
@@ -356,11 +358,13 @@ export class TarsConversationStore {
   }
 
   private transition(id: string, expectedRevision: number, allowed: TarsMessage["state"][],
-    patch: Pick<TarsMessage, "state" | "reply" | "error" | "decision" | "errorCode">, now: string): TarsMessage {
+    patch: Partial<Pick<TarsMessage, "state" | "reply" | "error" | "decision" | "errorCode" | "inspection" | "inspections">>, now: string): TarsMessage {
     return this.write(() => {
       const current = this.requireRevision(id, expectedRevision);
       if (!allowed.includes(current.state)) throw new Error("The message cannot make this state transition.");
-      const next = TarsMessageSchema.parse({ ...current, ...patch, revision: current.revision + 1, updatedAt: now });
+      // Why a queued message waited ends with its wait.
+      const { waiting: _waited, ...rest } = current;
+      const next = TarsMessageSchema.parse({ ...(patch.state === "queued" ? current : rest), ...patch, revision: current.revision + 1, updatedAt: now });
       const result = this.db.prepare("UPDATE tars_messages SET revision = ?, state = ?, body_json = ? WHERE id = ? AND revision = ?")
         .run(next.revision, next.state, JSON.stringify(next), id, expectedRevision);
       if (Number(result.changes ?? 0) !== 1) throw new Error("The message changed. Refresh before trying again.");
@@ -376,7 +380,54 @@ export class TarsConversationStore {
   /** Persist the complete proposal before the host admits any action. */
   answer(id: string, expectedRevision: number, rawDecision: TarsDecision, now: string): TarsMessage {
     const decision = TarsDecisionSchema.parse(rawDecision);
+    if (decision.actions.some((action) => action.kind === "inspect")) throw new Error("An inspection is not a final work decision.");
     return this.transition(id, expectedRevision, ["reasoning"], { state: "answered", reply: decision.reply, error: null, decision }, now);
+  }
+
+  /**
+   * The one automatic retry of a reasoning turn starts: the message stays
+   * `reasoning` and says so, so the conversation shows it is retrying, not stuck.
+   */
+  markRetrying(id: string, expectedRevision: number, cause: TarsRetryCause, now: string): TarsMessage {
+    return this.write(() => {
+      const current = this.requireRevision(id, expectedRevision);
+      if (current.state !== "reasoning") throw new Error("The message cannot make this state transition.");
+      const next = TarsMessageSchema.parse({ ...current, retry: { attempt: 2, cause, at: now }, revision: current.revision + 1, updatedAt: now });
+      const result = this.db.prepare("UPDATE tars_messages SET revision = ?, body_json = ? WHERE id = ? AND revision = ?")
+        .run(next.revision, JSON.stringify(next), id, expectedRevision);
+      if (Number(result.changes ?? 0) !== 1) throw new Error("The message changed. Refresh before trying again.");
+      this.changes.emit("conversation");
+      return next;
+    });
+  }
+
+  /** Reading is a reasoning status, not a decision or an action receipt. */
+  markInspecting(id: string, expectedRevision: number, inspection: NonNullable<TarsMessage["inspection"]>, now: string): TarsMessage {
+    const history = this.get(id)?.inspections ?? [];
+    return this.transition(id, expectedRevision, ["reasoning"], { inspection,
+      ...(!inspection.reading ? { inspections: [...history, inspection].slice(-16) } : {}) }, now);
+  }
+
+  /**
+   * Says why queued messages have not started (`TarsQueueWaitReason`), or with
+   * null that they no longer wait for it. Only queued messages change, only
+   * when their reason changes, and a wait keeps the time it began.
+   */
+  noteQueueWait(ids: readonly string[], reason: TarsQueueWaitReason | null, now: string): void {
+    if (!ids.length) return;
+    this.write(() => {
+      let changed = false;
+      for (const id of new Set(ids)) {
+        const current = this.get(id);
+        if (current?.state !== "queued" || current.waiting?.reason === (reason ?? undefined)) continue;
+        const { waiting: _previous, ...rest } = current;
+        const next = TarsMessageSchema.parse({ ...rest, ...(reason ? { waiting: { reason, since: now } } : {}), revision: current.revision + 1, updatedAt: now });
+        this.db.prepare("UPDATE tars_messages SET revision = ?, body_json = ? WHERE id = ? AND revision = ?")
+          .run(next.revision, JSON.stringify(next), id, current.revision);
+        changed = true;
+      }
+      if (changed) this.changes.emit("conversation");
+    });
   }
 
   /** `errorCode` names a failure the interface translates; without one `error` is shown as written. */
@@ -530,6 +581,14 @@ export class TarsConversationStore {
       .all(limit).map((row) => this.readRecord(row)!).reverse();
   }
 
+  /** Automatic controls recover through their message receipt, which rechecks the current autonomy fence. */
+  listPendingControls(): TarsActionRecord[] {
+    return this.db.prepare("SELECT body_json FROM tars_action_records WHERE json_extract(body_json, '$.status') = 'pending' AND json_extract(body_json, '$.action.kind') = 'control' AND json_extract(body_json, '$.source') != 'automatic' ORDER BY created_at, rowid LIMIT 32").all().map((row) => this.readRecord(row)!);
+  }
+  hasPendingControlForTask(taskId: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM tars_action_records a JOIN tars_responsibilities r ON r.id = json_extract(a.body_json, '$.action.responsibilityId') WHERE json_extract(a.body_json, '$.status') = 'pending' AND json_extract(a.body_json, '$.action.kind') = 'control' AND json_extract(r.body_json, '$.taskId') = ? LIMIT 1").get(taskId));
+  }
+
   /**
    * A pending record is intent only. Its request ID is the retry identity of one click.
    * A confirmation (`confirm:<message>:<index>`) is one user decision whichever
@@ -612,6 +671,24 @@ export class TarsConversationStore {
     return next;
   }
 
+  /** Information edit, activity record and receipt settle atomically on this connection. */
+  applyWorkspaceReceipt(ref: TarsProposalRef, apply: () => TarsActionUndo, now: string): TarsActionReceipt {
+    return this.write(() => {
+      const current = this.getReceipt(ref.messageId, ref.actionIndex);
+      if (!current || current.action.kind !== "workspace") throw new Error("The workspace receipt was not found.");
+      if (current.status === "applied" || current.status === "rejected") return current;
+      if (this.get(ref.messageId)?.state !== "answered") throw new Error("The message no longer authorizes this edit.");
+      const undo = apply();
+      const record = TarsActionRecordSchema.parse({ requestId: tarsWorkspaceRecordId(ref.messageId, ref.actionIndex),
+        requestHash: current.requestHash, source: "words", action: current.action, status: "applied", error: null, reason: null,
+        undo, revision: 1, createdAt: now, updatedAt: now });
+      this.db.prepare("INSERT INTO tars_action_records (request_id, request_hash, revision, created_at, body_json) VALUES (?, ?, ?, ?, ?)")
+        .run(record.requestId, record.requestHash, record.revision, now, JSON.stringify(record));
+      return current.status === "proposed" ? this.settleProposal(ref, { status: "applied", responsibilityId: null }, now)
+        : this.settleReceipt(ref.messageId, ref.actionIndex, current.revision, { status: "applied", responsibilityId: null }, now);
+    });
+  }
+
   /** The restoration and its durable receipt commit together; an acknowledged replay has no effect. */
   undoAction(input: TarsUndoActionInput, restore: (record: TarsActionRecord) => void, now: string): TarsActionRecord {
     return this.write(() => {
@@ -661,6 +738,13 @@ export class TarsConversationStore {
       AND json_extract(body_json, '$.action.responsibilityId') = ? LIMIT 1`).get(responsibilityId) != null;
   }
 
+  /** One queue scan for a scheduler pass or snapshot, independent of the number of completed works. */
+  listOpenDeliveryResponsibilityIds(): string[] {
+    return this.db.prepare(`SELECT DISTINCT json_extract(body_json, '$.action.responsibilityId') AS id
+      FROM tars_action_records WHERE json_extract(body_json, '$.delivery.status') IN ('queued', 'delivering')`)
+      .all().map(row => (row as { id: string }).id);
+  }
+
   /**
    * Moves one message's delivery on, only from the given statuses, in one
    * immediate transaction: the delivery queue's compare-and-set. Returns the
@@ -668,20 +752,50 @@ export class TarsConversationStore {
    * a control settled it first).
    */
   transitionDelivery(requestId: string, from: readonly TarsMessageDeliveryStatus[],
-    next: { status: TarsMessageDeliveryStatus; turnId?: string; reason?: TarsControlReason; error?: string }, now: string): TarsActionRecord | null {
+    next: { status: TarsMessageDeliveryStatus; agentRunId?: string; turnId?: string; reason?: TarsControlReason; error?: string; withdrawRequestedAt?: string }, now: string,
+    effect?: () => void): TarsActionRecord | null {
     return this.write(() => {
       const current = this.getAction(requestId);
       if (!current?.delivery || !from.includes(current.delivery.status)) return null;
       const settledOtherwise = next.status === "failed" || next.status === "cancelled";
       const delivery: TarsMessageDelivery = { ...current.delivery, status: next.status,
         ...(next.turnId !== undefined ? { turnId: next.turnId } : {}),
+        ...(next.agentRunId !== undefined ? { agentRunId: next.agentRunId } : {}),
+        ...(next.withdrawRequestedAt !== undefined ? { withdrawRequestedAt: next.withdrawRequestedAt } : {}),
         reason: settledOtherwise ? next.reason ?? "unknown" : null, error: settledOtherwise ? (next.error ?? "The message was not delivered.").slice(0, 2_000) : null, updatedAt: now };
       const record = TarsActionRecordSchema.parse({ ...current, delivery, revision: current.revision + 1, updatedAt: now });
       const result = this.db.prepare("UPDATE tars_action_records SET revision = ?, body_json = ? WHERE request_id = ? AND revision = ?")
         .run(record.revision, JSON.stringify(record), requestId, current.revision);
       if (Number(result.changes ?? 0) !== 1) throw new Error("The action record changed. Refresh before trying again.");
+      effect?.();
       this.changes.emit("conversation");
       return record;
+    });
+  }
+
+  /** Save the user's intent before reconciliation; unreadable execution must not admit this request later. */
+  requestDeliveryWithdrawal(requestId: string, expectedRevision: number, now: string): TarsActionRecord {
+    return this.write(() => {
+      const record = this.getAction(requestId);
+      if (record?.delivery?.withdrawRequestedAt) return record;
+      if (!record?.delivery || record.revision !== expectedRevision ||
+          !["queued", "delivering"].includes(record.delivery.status)) throw new TarsUndoActionRefused("stale");
+      return this.transitionDelivery(requestId, [record.delivery.status], { status: record.delivery.status, withdrawRequestedAt: now }, now)!;
+    });
+  }
+
+  /** Commit the local withdrawal and reservation release on the shared SQLite connection. */
+  withdrawDelivery(requestId: string, expectedRevision: number, effect: () => void, now: string): TarsActionRecord {
+    return this.write(() => {
+      const record = this.getAction(requestId);
+      if (!record?.delivery || record.revision !== expectedRevision ||
+          !["queued", "delivering"].includes(record.delivery.status)) throw new Error("The delivery changed before withdrawal.");
+      effect();
+      const withdrawn = this.transitionDelivery(requestId, [record.delivery.status], { status: "withdrawn" }, now)!;
+      const next = TarsActionRecordSchema.parse({ ...withdrawn, undo: { kind: "delivery", undoneAt: now } });
+      this.db.prepare("UPDATE tars_action_records SET body_json = ? WHERE request_id = ? AND revision = ?")
+        .run(JSON.stringify(next), requestId, next.revision);
+      return next;
     });
   }
 
@@ -710,13 +824,17 @@ export class TarsConversationStore {
   /**
    * Whether this proposal still speaks for its responsibility, by the
    * snapshot's rule: it belongs to the newest message that proposed a control
-   * for it, and no other decision of that message on the same work was answered.
+   * for it, no other decision of that message on the same work was answered,
+   * nobody closed it and the conversation has not moved on.
    */
   isCurrentProposal(ref: TarsProposalRef): boolean {
     const receipt = this.getReceipt(ref.messageId, ref.actionIndex);
     if (receipt?.action.kind !== "control") return false;
     const latest = readLatestTarsControls(this.db, receipt.action.responsibilityId).get(receipt.action.responsibilityId) ?? [];
     if (!latest.some((entry) => entry.messageId === ref.messageId && entry.actionIndex === ref.actionIndex)) return false;
+    // Dismissed by the user, withdrawn by Tars, or the user said something newer: it no longer waits (`projectTarsDecisions`).
+    const answer = this.getAnswer(tarsConfirmationRequestId(ref.messageId, ref.actionIndex));
+    if ((answer && isTarsDecisionClosure(answer)) || readMovedOnTarsMessages(this.db, [ref.messageId]).has(`${ref.messageId}:${receipt.action.responsibilityId}`)) return false;
     // Its own confirmation record exists while it is checked, so it is left out.
     return !readSettledTarsTargets(this.db, [ref.messageId], tarsConfirmationRequestId(ref.messageId, ref.actionIndex)).has(`${ref.messageId}:${receipt.action.responsibilityId}`);
   }
@@ -741,9 +859,9 @@ export class TarsConversationStore {
       const current = this.getAction(requestId);
       if (current?.status === "applied") return current;
       const undo = apply();
-      const record = this.settleRecord(requestId, { status: "applied", ...(undo ? { undo } : {}), ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
+      const record = this.settleRecord(requestId, { status: "applied", ...(queue ? { undo: { kind: "delivery" as const } } : undo ? { undo } : {}), ...(queue ? { delivery: { status: "queued", agentRunId: queue.agentRunId,
         reason: null, error: null, queuedAt: now, updatedAt: now } } : {}) }, now);
-      if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.responsibilityId }, now);
+      if (proposal) this.settleProposal(proposal, { status: "applied", responsibilityId: record.action.kind === "workspace" ? null : record.action.responsibilityId }, now);
       return record;
     });
   }
@@ -812,7 +930,7 @@ export class TarsConversationStore {
   }
 
   /** Only the confirming click moves a proposal on; it is never applied by the conversation itself. */
-  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string } | { status: "rejected"; error: string; reason: TarsActionReason | null },
+  private settleProposal(ref: TarsProposalRef, outcome: { status: "applied"; responsibilityId: string | null } | { status: "rejected"; error: string; reason: TarsActionReason | null },
     now: string): TarsActionReceipt {
     const current = this.getReceipt(ref.messageId, ref.actionIndex);
     if (current?.status !== "proposed") throw new Error("The proposal is not awaiting confirmation.");
@@ -954,6 +1072,66 @@ export class TarsConversationStore {
       // An answer ends the decision's wait, so the snapshot's pending decisions change too.
       this.changes.emit("conversation", "snapshot");
       return { answer, refusal: null };
+    });
+  }
+
+  /**
+   * Closes a decision without choosing an option: the user's Dismiss, or
+   * Tars's withdrawal (`withdraw`, naming the action that withdrew it). The
+   * caller checked that it waits. Idempotent: the same closure again returns
+   * the saved one; a decision already answered is refused, and a refused
+   * attempt that left it open is replaced. Nothing applies.
+   */
+  closeDecision(decisionId: string, closure: { kind: "dismiss"; source: Extract<TarsAnswerSource, "click" | "key"> }
+    | { kind: "withdraw"; messageId: string; actionIndex: number }, now: string): { answer: TarsDecisionAnswer; refusal: TarsAnswerRefusal | null } {
+    return this.write(() => {
+      const existing = this.getAnswer(decisionId);
+      if (existing && !isTarsAnswerRetryable(existing))
+        return { answer: existing, refusal: existing.effect.kind === closure.kind ? null : "alreadyAnswered" };
+      const answer = TarsDecisionAnswerSchema.parse({ decisionId, optionIndex: 0, source: closure.kind === "withdraw" ? "tars" : closure.source,
+        effect: closure.kind === "withdraw" ? { kind: "withdraw", messageId: closure.messageId, actionIndex: closure.actionIndex } : { kind: "dismiss" },
+        label: null, status: "applied", reason: null, error: null, actRequestId: null, messageId: null,
+        revision: existing ? existing.revision + 1 : 1, createdAt: now, updatedAt: now });
+      if (existing) this.db.prepare("UPDATE tars_decision_answers SET revision = ?, status = ?, body_json = ? WHERE decision_id = ? AND revision = ?")
+        .run(answer.revision, answer.status, JSON.stringify(answer), decisionId, existing.revision);
+      else this.db.prepare("INSERT INTO tars_decision_answers (decision_id, revision, status, created_at, body_json) VALUES (?, ?, ?, ?, ?)")
+        .run(decisionId, answer.revision, answer.status, now, JSON.stringify(answer));
+      // A closed decision leaves Fleet's rows and the tray with the snapshot's pending decisions.
+      this.changes.emit("conversation", "snapshot");
+      return { answer, refusal: null };
+    });
+  }
+
+  /**
+   * Admits a `withdraw` action: it closes one of Tars's own decisions from an
+   * earlier message that still waits, and its receipt settles in the same
+   * transaction. It needs no authority and grants none: anything else is
+   * refused with a reason, and nothing about the work changes.
+   */
+  withdrawDecision(messageId: string, actionIndex: number, expectedRevision: number, now: string): TarsActionReceipt {
+    return this.write(() => {
+      const receipt = this.getReceipt(messageId, actionIndex);
+      if (receipt?.action.kind !== "withdraw") throw new Error("This receipt does not name a withdrawal.");
+      if (receipt.status !== "pending") return receipt;
+      const { decisionId } = receipt.action;
+      const match = /^(confirm|ask):(.+):([0-7])$/.exec(decisionId)!;
+      const target = this.getReceipt(match[2]!, Number(match[3]));
+      const order = (id: string) => (this.db.prepare("SELECT rowid AS position FROM tars_messages WHERE id = ?").get(id) as { position: number } | undefined)?.position;
+      const earlier = target && (order(target.messageId) ?? Infinity) < (order(messageId) ?? -Infinity);
+      const kindMatches = target && (match[1] === "ask" ? target.action.kind === "ask"
+        : target.action.kind === "control" || target.action.kind === "delegate" || target.action.kind === "reprioritize" || target.action.kind === "workspace");
+      const refuse = (reason: TarsControlReason, error: string) => this.settleReceipt(messageId, actionIndex, expectedRevision, { status: "rejected", reason, error }, now);
+      // i18n-ignore: diagnostic only; the interface translates the reason
+      if (!target || !earlier || !kindMatches) return refuse("notOwned", "Tars can withdraw only a decision it proposed in an earlier message.");
+      const answer = this.getAnswer(decisionId);
+      const record = this.getAction(decisionId);
+      // A newer message from the user already retired it; only Tars's own follow-up leaves it waiting.
+      const open = target.status === "proposed" && (!answer || isTarsAnswerRetryable(answer)) && (!record || record.status === "rejected")
+        && !readMovedOnTarsMessages(this.db, [target.messageId]).has(target.messageId);
+      // i18n-ignore: diagnostic only; the interface translates the reason
+      if (!open) return refuse("stale", "That decision no longer waits for the user.");
+      this.closeDecision(decisionId, { kind: "withdraw", messageId, actionIndex }, now);
+      return this.settleReceipt(messageId, actionIndex, expectedRevision, { status: "applied", responsibilityId: null }, now);
     });
   }
 

@@ -1,3 +1,4 @@
+import { DailyLimitSettingsLink } from "@/components/usage/DailyLimits";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { formatDuration } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
@@ -199,6 +200,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
       meta={<span title={i18n.t("agentRuns:agentRunBar.title")}>{elapsed}</span>}
       actions={
         <>
+          {agentRun.pauseReason === "usage-limit" && agentRun.dailyUsageLimit ? <DailyLimitSettingsLink /> : null}
           {agentRun.state === "running" && actions.onTakeOver ? (
             <Tooltip content={i18n.t(TAKE_OVER_HINT)}>
               <Button

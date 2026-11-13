@@ -139,3 +139,37 @@ describe("automatic follow-up", () => {
     expect(html.match(/data-tars-record-state=/g)).toHaveLength(1);
   });
 });
+
+test("a queued message says why it waits, a retried one says it is trying once more, and dropped actions are named", async () => {
+  await applyAppLocale("en");
+  const waiting = render({ ...message, waiting: { reason: "earlierAction", since: message.createdAt } });
+  expect(waiting).toContain('data-tars-message-waiting="earlierAction"');
+  expect(waiting).toContain("Waiting for the result of an earlier action.");
+  expect(render({ ...message, waiting: { reason: "agentCatalog", since: message.createdAt } })).toContain("Waiting for your saved agents to load.");
+  const retrying = render({ ...message, state: "reasoning", revision: 3, retry: { attempt: 2, cause: "timeout", at: message.createdAt } });
+  expect(retrying).toContain('data-tars-message-retry="timeout"');
+  expect(retrying).toContain("The first attempt took too long. Tars is trying once more.");
+  const reply = "Done.";
+  const dropped = render({ ...message, state: "answered", reply, decision: { reply, actions: [],
+    dropped: [{ index: 0, kind: "publish", reason: "invalid", detail: "Did not match its schema at responsibilityId." }] } });
+  expect(dropped).toContain('data-tars-dropped-actions="1"');
+  expect(dropped).toContain("1 proposed action was not valid and was left out.");
+  await applyAppLocale("ko");
+  expect(render({ ...message, state: "reasoning", revision: 3, retry: { attempt: 2, cause: "provider", at: message.createdAt } })).toContain("한 번 더 시도합니다");
+  await applyAppLocale("en");
+});
+
+test("a persisted inspection status names the view and work in English and Korean", async () => {
+  try {
+    for (const locale of ["en", "ko"] as const) {
+      applyAppLocale(locale); await i18n.changeLanguage(locale);
+      const html = render({ ...message, state: "reasoning", inspection: { responsibilityId: "work", title: "Search",
+        view: "report", round: 1, reading: true, at: message.createdAt } });
+      expect(tarsRecordText(html)).toContain(locale === "en" ? "Reading the report of Search" : "Search 보고서를 읽고 있어요");
+      expect(html).toContain('role="status"');
+      const settled = render({ ...message, state: "reasoning", inspection: { responsibilityId: "work", title: "Search",
+        view: "report", round: 1, reading: false, at: message.createdAt } });
+      expect(tarsRecordText(settled)).not.toContain(locale === "en" ? "Reading the report" : "보고서를 읽고");
+    }
+  } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
+});

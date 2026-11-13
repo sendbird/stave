@@ -79,12 +79,12 @@ describe("Tars result model", () => {
 
   test("a criterion its Stave check decides is not lifted by the review when the check did not pass on the final revision", () => {
     const { row, run } = fixture("verified");
-    const failedCheck = withStage(run, "verify", (record) => {
+    const failedCheck = withStage(run, "work", (record) => {
       record.facts!.workspaceScripts![0]!.exitCode = 1;
       return record;
     });
     expect(kinds(project(row, failedCheck))).toEqual(["verifiedReview", "unverified"]);
-    const earlierCheck = withStage(run, "verify", (record) => {
+    const earlierCheck = withStage(run, "work", (record) => {
       record.facts!.workspaceScripts![0]!.verification.completedRevision = { status: "known", revision: "0000000000000000" };
       return record;
     });
@@ -124,8 +124,8 @@ describe("Tars result model", () => {
     const side = buildTarsSideViewFixtures(START);
     const row = side.responsibilities.find((entry) => entry.id === side.ids.checkout)!;
     const model = project(row, side.runs[row.agentRunId!]);
-    expect(kinds(model)).toEqual(["verifiedReview", "verifiedReview"]);
-    expect(model.review).toEqual({ verdict: "passed", findings: 2, blocked: false });
+    expect(kinds(model)).toEqual(["reported", "reported"]);
+    expect(model.review).toEqual({ verdict: "changes-requested", findings: 2, blocked: false });
     expect(model.staveChecks).toEqual(["bun test checkout"]);
   });
 });

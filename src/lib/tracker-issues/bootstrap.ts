@@ -26,7 +26,8 @@ function sameSettings(
     a.defaultView === b.defaultView &&
     a.refreshIntervalSeconds === b.refreshIntervalSeconds &&
     a.defaultKickoffStartMode === b.defaultKickoffStartMode &&
-    a.sourceEnabled.crane === b.sourceEnabled.crane
+    a.sourceEnabled.crane === b.sourceEnabled.crane &&
+    a.sourceEnabled.github === b.sourceEnabled.github
   );
 }
 

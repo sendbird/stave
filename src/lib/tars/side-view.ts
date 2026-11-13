@@ -17,6 +17,8 @@ export const TARS_SIDE_VIEW_KINDS: readonly TarsSideViewKind[] = ["brief", ...Ta
  */
 export interface TarsSideViewTarget {
   responsibilityId: string;
+  /** An artifact stays bound to its execution when the work continues. */
+  agentRunId?: string;
   kind: TarsSideViewKind;
   focus?: { unmet: true } | { stageId: string };
 }

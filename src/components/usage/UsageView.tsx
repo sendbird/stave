@@ -1,4 +1,5 @@
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
+import { DailyLimits } from "./DailyLimits";
 import { formatDateTime } from "@/i18n/format";
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -162,6 +163,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   return <div className={sx(styles.scroll)}><main className={sx(styles.page)} aria-label={t("usage:usageView.aiUsageStatistics")}><Tabs.Root value={view} onValueChange={(value) => { if (typeof value === "string") setView(value); }} xstyle={styles.section}>
     <GlobalPageHeader title={t("usage:usageView.aiUsage")} description={t("usage:usageView.accountLimitsTokenUsageAndWhen")} actions={      <div className={sx(styles.row)}><Tooltip content={t("usage:usageView.refreshUsageHistory")}><Button variant="quiet" size="sm" aria-label={t("usage:usageView.refreshUsageHistory")} disabled={pending} onClick={() => setAttempt((value) => value + 1)}><RefreshCw /></Button></Tooltip>
         <Tooltip content={t("usage:usageView.closeUsage")}><Button variant="quiet" size="sm" aria-label={t("usage:usageView.closeUsage")} onClick={close}><X /></Button></Tooltip></div>} />
+    <DailyLimits refreshKey={attempt} />
     <Tabs.List aria-label={t("usage:usageView.usageViews")} xstyle={styles.viewTabs}>
       <Tabs.Tab value="quota">{t("usage:usageView.quota")}</Tabs.Tab><Tabs.Tab value="tokens">{t("usage:usageView.tokensCost")}</Tabs.Tab><Tabs.Tab value="history">{t("usage:usageView.history")}</Tabs.Tab><Tabs.Indicator />
     </Tabs.List>

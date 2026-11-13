@@ -1,3 +1,6 @@
+import { tarsPrWatchEpisode } from "../../src/lib/tars/pr-checks";
+import { tarsGoalReached } from "../../src/lib/tars/completion";
+import { canContinueTarsControl } from "../../src/lib/tars/continuation";
 import { createHash, randomUUID } from "node:crypto";
 import {
   TarsActivitySchema, type TarsActivity,
@@ -14,7 +17,7 @@ import {
   type TarsSnapshot,
   type UpdateTarsIdentityInput,
 } from "../../src/lib/tars/types";
-import { hasTarsDecisionTables, readLatestTarsControls, readOpenTarsAsks, readSettledTarsTargets, readTarsAnswers } from "./tars-proposals";
+import { hasTarsDecisionTables, readLatestTarsControls, readMovedOnTarsMessages, readOpenTarsAsks, readSettledTarsTargets, readTarsAnswers, readTarsPrAskTarget } from "./tars-proposals";
 import { isTarsAnswerSettling, tarsAskDecisionId, tarsUnverifiedDecisionId } from "../../src/lib/tars/decisions";
 import { tarsConfirmationRequestId } from "../../src/lib/tars/conversation";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
@@ -114,9 +117,9 @@ export class TarsStore {
       .map((row) => TarsActivitySchema.parse(JSON.parse((row as StoredRow).body_json))).reverse();
   }
 
-  private journal(row: TarsResponsibility, now: string) {
+  private journal(row: TarsResponsibility, now: string, prChecks?: import("../../src/lib/tars/pr-checks").TarsPrChecks) {
     const event = TarsActivitySchema.parse({ id: randomUUID(), responsibilityId: row.id, revision: row.revision,
-      title: row.title, state: row.state, detail: row.detail, ...detailCodeOf(row), createdAt: now });
+      title: row.title, state: row.state, detail: row.detail, ...detailCodeOf(row), ...(prChecks ? { prChecks } : {}), createdAt: now });
     this.db.prepare("INSERT INTO tars_activity (id, responsibility_id, revision, body_json) VALUES (?, ?, ?, ?)")
       .run(event.id, event.responsibilityId, event.revision, JSON.stringify(event));
     // The conversation timeline shows activity.
@@ -125,7 +128,15 @@ export class TarsStore {
 
   private readResponsibility(row: unknown): TarsResponsibility | null {
     if (!row) return null;
-    return TarsResponsibilitySchema.parse(JSON.parse((row as StoredRow).body_json));
+    return this.restoreCompletion(TarsResponsibilitySchema.parse(JSON.parse((row as StoredRow).body_json)));
+  }
+
+  private restoreCompletion(saved: TarsResponsibility): TarsResponsibility {
+    // Older completion records establish an execution result, not a requested goal.
+    // Read conservatively without rewriting history or its idempotency hash.
+    const external = saved.completionGoal === "pullRequest" || saved.completionGoal === "merge";
+    const accepted = !external && (saved.completionConfirmedAt || saved.detailCode === "acceptedWithoutVerification");
+    return saved.state === "completed" && !tarsGoalReached(saved) && !accepted ? { ...saved, state: "resultReady" } : saved;
   }
 
   get(id: string): TarsResponsibility | null {
@@ -157,13 +168,17 @@ export class TarsStore {
    *   controls from the newest message that proposed one for the
    *   responsibility can wait (`readLatestTarsControls`), only while still
    *   proposed, no other decision of their message was answered, the
-   *   responsibility has not ended and its revision is current. The host
-   *   refuses to confirm any other.
+   *   responsibility has not ended, its revision is current, no answer,
+   *   dismissal or withdrawal closed it and the user has not sent a newer
+   *   message since (the conversation moved on). The host refuses to confirm
+   *   any other.
    * - `unverifiedCompletion`: work blocked because Stave could not verify its
-   *   completion, until answered or changed.
+   *   completion, until answered, dismissed or changed. A dismissed one leaves
+   *   the work blocked, so it shows as blocked work with its own controls.
    * - `ask`: an unanswered question of the newest message whose control
    *   options all still target current revisions. A question about no work
-   *   stays in the conversation only.
+   *   stays in the conversation only. Host PR review and CI-limit questions
+   *   stay bound to the current published head even after execution completes.
    */
   private pendingDecisions(responsibilities: readonly TarsResponsibility[]): TarsPendingDecision[] {
     if (!this.hasReceipts) {
@@ -172,16 +187,17 @@ export class TarsStore {
     }
     this.hasDecisionTables ||= hasTarsDecisionTables(this.db);
     const rows = new Map(responsibilities.map((entry) => [entry.id, entry]));
-    const live = (id: string, revision: number) => { const owner = rows.get(id); return Boolean(owner) && !isTarsResponsibilityTerminal(owner!) && owner!.revision === revision; };
+    const live = (id: string, revision: number, operation?: string) => { const owner = rows.get(id); return Boolean(owner) && (canContinueTarsControl(owner!, revision, operation) || !isTarsResponsibilityTerminal(owner!) && owner!.revision === revision); };
     const proposals = [...readLatestTarsControls(this.db).values()].flat()
       .filter((receipt) => receipt.status === "proposed" && receipt.action.kind === "control");
     const settled = this.hasDecisionTables ? readSettledTarsTargets(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();
     const answered = this.hasDecisionTables ? readTarsAnswers(this.db, proposals.map((receipt) => tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)))
       : new Map();
+    const movedOn = this.hasDecisionTables ? readMovedOnTarsMessages(this.db, proposals.map((receipt) => receipt.messageId)) : new Set<string>();
     const confirms = proposals.flatMap((receipt): TarsPendingDecision[] => {
       const { action } = receipt;
-      if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) ||
-        answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision)) return [];
+      if (action.kind !== "control" || settled.has(`${receipt.messageId}:${action.responsibilityId}`) || movedOn.has(`${receipt.messageId}:${action.responsibilityId}`) ||
+        answered.has(tarsConfirmationRequestId(receipt.messageId, receipt.actionIndex)) || !live(action.responsibilityId, action.expectedRevision, action.operation)) return [];
       return [{ responsibilityId: action.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: action.operation, expectedRevision: action.expectedRevision, proposedAt: receipt.updatedAt }];
     });
@@ -194,17 +210,18 @@ export class TarsStore {
     const unverifiedAnswers = readTarsAnswers(this.db, blocked.map((row) => tarsUnverifiedDecisionId(row.id, row.revision)));
     const unverified = blocked.flatMap((row): TarsPendingDecision[] => settlingAnswer(unverifiedAnswers, tarsUnverifiedDecisionId(row.id, row.revision)) ? []
       : [{ kind: "unverifiedCompletion", responsibilityId: row.id, messageId: null, actionIndex: null, operation: null,
-        expectedRevision: row.revision, proposedAt: row.updatedAt, optionCount: 3 }]);
+        expectedRevision: row.revision, proposedAt: row.updatedAt, optionCount: row.completionGoal === "pullRequest" || row.completionGoal === "merge" ? 2 : 3 }]);
     const open = readOpenTarsAsks(this.db);
     const askAnswers = readTarsAnswers(this.db, open.map((receipt) => tarsAskDecisionId(receipt.messageId, receipt.actionIndex)));
     const askSettled = readSettledTarsTargets(this.db, open.map((receipt) => receipt.messageId));
     const asks = open.flatMap((receipt): TarsPendingDecision[] => {
       if (receipt.action.kind !== "ask" || settlingAnswer(askAnswers, tarsAskDecisionId(receipt.messageId, receipt.actionIndex))) return [];
       const targets = receipt.action.options.flatMap((option) => option.effect.kind === "control" ? [option.effect] : []);
-      if (!targets.length || targets.some((target) => askSettled.has(`${receipt.messageId}:${target.responsibilityId}`))) return [];
-      if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision))) return [];
-      return [{ kind: "ask", responsibilityId: targets[0]!.responsibilityId, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
-        operation: null, expectedRevision: targets[0]!.expectedRevision, proposedAt: receipt.updatedAt,
+      const prTarget = targets.length ? null : readTarsPrAskTarget(this.db, receipt, rows);
+      if ((!targets.length && !prTarget) || targets.some((target) => askSettled.has(`${receipt.messageId}:${target.responsibilityId}`))) return [];
+      if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision, target.operation))) return [];
+      return [{ kind: "ask", responsibilityId: targets[0]?.responsibilityId ?? prTarget!.id, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
+        operation: null, expectedRevision: targets[0]?.expectedRevision ?? prTarget!.revision, proposedAt: receipt.updatedAt,
         question: receipt.action.question, optionCount: receipt.action.options.length }];
     });
     return [...confirms, ...unverified, ...asks];
@@ -252,12 +269,22 @@ export class TarsStore {
       if (!previous) throw new Error("The responsibility was not found.");
       if (previous.revision !== expectedRevision) throw new Error("The responsibility changed. Refresh it before trying again.");
       const merged: Record<string, unknown> = { ...previous, ...patch, revision: previous.revision + 1, updatedAt: now };
+      if (("agentRunId" in patch && patch.agentRunId !== previous.agentRunId) ||
+        (patch.state === "running" && previous.state !== "running")) {
+        delete merged.completionConfirmedAt;
+        merged.resultVerifiedRunId = null;
+      }
+      if ("agentRunId" in patch && patch.agentRunId !== previous.agentRunId && previous.publication) {
+        merged.publicationHistory = [...(previous.publicationHistory ?? []),
+          { ...previous.publication, agentRunId: previous.publication.agentRunId ?? previous.agentRunId ?? undefined }];
+        if (previous.publication.state !== "opened" || !previous.publication.watch) delete merged.publication;
+      }
       // A detail written without a code is free text, so it never keeps an earlier sentence's code.
       if ("detail" in patch) {
         delete merged.detailCode; delete merged.detailParams;
         Object.assign(merged, detailCodeOf(patch));
       }
-      const next = TarsResponsibilitySchema.parse(merged);
+      const next = this.restoreCompletion(TarsResponsibilitySchema.parse(merged));
       const result = this.db.prepare(`UPDATE tars_responsibilities
         SET revision = ?, priority = ?, body_json = ? WHERE id = ? AND revision = ?`)
         .run(next.revision, next.priority, JSON.stringify(next), id, expectedRevision);
@@ -268,6 +295,23 @@ export class TarsStore {
       const observed = { responsibilityId: next.id, episode: String(next.revision), observedRevision: next.revision,
         observedState: next.state, attempt: next.agentRunId };
       if (options.recovered) this.events.record({ ...observed, kind: "hostRecovery" }, now);
+      const checks = next.publication?.checks;
+      const oldChecks = previous.publication?.checks;
+      const ciKind = checks && next.publication?.state === "opened" && checks.headSha === next.publication.commit
+        && !next.publication.watch?.stopped?.match(/closed|merged/)
+        && (checks.state !== "unavailable" || Boolean(next.publication.watch?.stopped))
+        && (checks.state !== oldChecks?.state || checks.headSha !== oldChecks?.headSha || next.publication.watch?.stopped !== previous.publication?.watch?.stopped || next.publication.watch?.noticeAt !== previous.publication?.watch?.noticeAt)
+        ? ({ failed: "ciFailed", passed: "ciPassed", unavailable: "ciUnavailable" } as const)[checks.state as "failed" | "passed" | "unavailable"] : undefined;
+      const ciEpisode = ciKind === "ciUnavailable" ? tarsPrWatchEpisode(checks!.headSha!, next.publication?.watch?.startedAt) : checks?.headSha;
+      if (ciKind && !this.events.get(`${ciKind}:${next.id}:${ciEpisode}`)) {
+        this.events.record({ ...observed, kind: ciKind, episode: ciEpisode! }, now);
+        this.journal(next, now, checks);
+      }
+      const feedback = next.publication?.watch?.feedback;
+      if (feedback && feedback.headSha === next.publication?.commit && feedback.episode !== previous.publication?.watch?.feedback?.episode
+        && !next.publication.watch?.stopped?.match(/closed|merged/)) {
+        this.events.record({ ...observed, kind: feedback.requestedChanges ? "prChangesRequested" : "prReviewNotice", episode: feedback.episode }, now);
+      }
       const kind = classifyTarsTransition(previous, next);
       if (kind) this.events.record({ ...observed, kind }, now);
       return next;

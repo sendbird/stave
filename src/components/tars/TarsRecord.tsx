@@ -147,8 +147,8 @@ export function TarsRecordRow({ state, icon, actor, lead, subject, values, statu
         <span className={sx(styles.main)}>
           <span className={sx(styles.text)}>
             {/* The actor's glyph opens the first text, inside it, so a long sentence wraps after the glyph instead of leaving it alone on a line. */}
-            {lead ? <span className={sx(styles.lead)} data-tars-record-lead="">{actor ? <TarsRecordActorMark actor={actor} /> : null}{lead}</span> : null}
-            {subject ? <span className={sx(styles.subject)} data-tars-record-subject="">{!lead && actor ? <TarsRecordActorMark actor={actor} /> : null}{subject}</span> : null}
+            {lead ? <span className={sx(styles.lead)} title={recordText(lead)} data-tars-record-lead="">{actor ? <TarsRecordActorMark actor={actor} /> : null}{lead}</span> : null}
+            {subject ? <span className={sx(styles.subject)} title={recordText(subject)} data-tars-record-subject="">{!lead && actor ? <TarsRecordActorMark actor={actor} /> : null}{subject}</span> : null}
             {!lead && !subject && actor ? <TarsRecordActorMark actor={actor} /> : null}
           </span>
           {values ? <span className={sx(styles.values)}>{values}</span> : null}
@@ -181,16 +181,22 @@ export function TarsRecordThread({ head, children, ...rest }: { head: ReactNode;
   </div>;
 }
 
-/** A reason or note under a record, in readable ink. */
+function recordText(node: ReactNode): string {
+  return Children.toArray(node).map((child): string =>
+    typeof child === "string" || typeof child === "number" ? String(child)
+      : isValidElement<{ children?: ReactNode; title?: string }>(child) ? child.props.title ?? recordText(child.props.children) : "").join("");
+}
+
+/** A reason or note under a record, with its full text on hover. */
 export function TarsRecordDetail({ children, ...rest }: HTMLAttributes<HTMLParagraphElement>) {
-  return <p {...rest} className={sx(styles.detail)}>{children}</p>;
+  return <p title={recordText(children)} {...rest} className={sx(styles.detail)}>{children}</p>;
 }
 
 /** A follow-on step under a record with its own small mark, such as where words for a busy run stand. */
 export function TarsRecordSub({ state, children, ...rest }: { state: TarsRecordState; children: ReactNode } & Omit<HTMLAttributes<HTMLParagraphElement>, "children">) {
   return <p {...rest} className={sx(styles.detail, styles.sub)}>
     <span className={sx(styles.subMark)}><TarsRecordMark state={state} size="xs" /></span>
-    <span className={sx(styles.subText)}>{children}</span>
+    <span className={sx(styles.subText)} title={recordText(children)}>{children}</span>
   </p>;
 }
 

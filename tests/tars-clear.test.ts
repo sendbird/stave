@@ -38,7 +38,7 @@ function persisted() {
   return path.join(directory, "store.sqlite");
 }
 const unit = (id: string): CreateTarsResponsibilityInput => ({ requestId: `request-${id}`, title: `Work ${id}`, instruction: "Do the work.",
-  acceptanceCriteria: ["It works."], workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" });
+  acceptanceCriteria: ["It works."], completionGoal: "implementation", workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" });
 /** A responsibility moved to `state` (and anything else in `patch`) at `when`. */
 function row(store: TarsStore, id: string, patch: TarsResponsibilityPatch, when: string) {
   const created = store.create(unit(id), when);
@@ -57,6 +57,7 @@ describe("tray clears", () => {
     const running = row(store, "running", { state: "running" }, at(1));
     const waiting = row(store, "waiting", { state: "waiting" }, at(1));
     const blocked = row(store, "blocked", { state: "blocked" }, at(1));
+    const ready = row(store, "ready", { state: "resultReady" }, at(1));
     const done = row(store, "done", { state: "completed" }, at(1));
     const cancelled = row(store, "cancelled", { state: "cancelled" }, at(1));
     const publishing = row(store, "publishing", { state: "completed", publication: publication("committing") }, at(1));
@@ -78,12 +79,12 @@ describe("tray clears", () => {
     expect(record.hiddenMessages).toBeUndefined();
     const cleared = store.snapshot().cleared!;
     expect([...cleared.done].sort()).toEqual(ended);
-    for (const kept of [running, waiting, blocked, publishing, retry, proposed]) {
+    for (const kept of [running, waiting, blocked, ready, publishing, retry, proposed]) {
       expect(cleared.done).not.toContain(kept.id);
       expect(cleared.outputs).not.toContain(kept.id);
     }
     // The work itself is untouched: same revisions, nothing deleted.
-    expect(store.snapshot().responsibilities).toHaveLength(9);
+    expect(store.snapshot().responsibilities).toHaveLength(10);
     expect(store.get(done.id)?.revision).toBe(done.revision);
   });
 
@@ -177,8 +178,10 @@ describe("clear contracts", () => {
     expect(buildTarsPlannerPrompt(message, testContext(store), [])).toContain("{kind:'clear',scopes:['conversation'|'done'|'outputs']}");
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "clear", scopes: ["conversation", "done"] }] })).actions)
       .toEqual([{ kind: "clear", scopes: ["conversation", "done"] }]);
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"], responsibilityId: "r" }] }))).toThrow();
-    expect(() => parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"] }, { kind: "clear", scopes: ["outputs"] }] }))).toThrow();
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"], responsibilityId: "r" }] })))
+      .toMatchObject({ actions: [], dropped: [{ index: 0, kind: "clear", reason: "invalid" }] });
+    expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"] }, { kind: "clear", scopes: ["outputs"] }] })))
+      .toMatchObject({ actions: [{ kind: "clear", scopes: ["done"] }], dropped: [{ index: 1, kind: "clear", reason: "overLimit" }] });
   });
 });
 
@@ -245,8 +248,9 @@ describe("conversation clears", () => {
     const prompt = f.requests.at(-1)!.input.prompt;
     expect(prompt).toContain("What is next?");
     expect(prompt).not.toContain("An older remark about the weather.");
-    // Saying something new moved on from the question, so it no longer holds its place.
-    expect(f.service.getConversation().messages.map((message) => message.requestId)).toEqual(["after"]);
+    // An unrelated message does not retire the waiting question or hide it behind the clear.
+    expect(f.service.getConversation().messages.map((message) => message.requestId)).toEqual(["ask", "after"]);
+    expect(f.responsibilities.snapshot().pendingDecisions).toContainEqual(expect.objectContaining({ kind: "ask", messageId: ask.id }));
     // Nothing was deleted.
     expect(f.conversations.list(100).map((message) => message.requestId)).toEqual(["older", "ask", "after"]);
 

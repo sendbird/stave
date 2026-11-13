@@ -1196,6 +1196,10 @@
           "label": "Show what changed",
           "prompt": "Show me what changed in the date-picker work."
         },
+        "openScreen": {
+          "label": "Open the work's task",
+          "prompt": "Open the task for the date-picker work."
+        },
         "publish": {
           "label": "Open a draft PR for finished work",
           "prompt": "Open a draft PR for the date-picker work."
@@ -1207,6 +1211,10 @@
         "clearDone": {
           "label": "Clear finished work",
           "prompt": "Clear finished work from the Done list."
+        },
+        "workspace": {
+          "label": "Track a todo",
+          "prompt": "Add a todo to this workspace to verify the release checks."
         }
       },
       "repositories": {
@@ -1265,7 +1273,8 @@
       "completed": "Completed",
       "blocked": "Blocked",
       "cancelled": "Cancelled",
-      "takenOver": "Taken over"
+      "takenOver": "Taken over",
+      "resultReady": "Result ready"
     },
     "conversation": {
       "workUpdate": "Work update",
@@ -1344,7 +1353,10 @@
           "requestChanges": "Changes requested",
           "clear": "Cleared",
           "schedule": "Applied",
-          "scheduleList": "List opened"
+          "scheduleList": "List opened",
+          "withdraw": "Withdrawn",
+          "workspace": "Information updated",
+          "open": "Screen opened"
         }
       },
       "delegateAgent": "Agent: {{name}}",
@@ -1373,6 +1385,26 @@
       "sendFailed": {
         "title": "Message not sent",
         "kept": "Your words are still in the message box."
+      },
+      "retrying": {
+        "timeout": "The first attempt took too long. Tars is trying once more.",
+        "truncated": "The first answer was cut short. Tars is trying once more.",
+        "provider": "The model had a temporary problem. Tars is trying once more."
+      },
+      "waiting": {
+        "earlierAction": "Waiting for the result of an earlier action. It starts within a minute either way.",
+        "earlierAnswer": "Waiting for delivery of an earlier answer. This message starts within a minute either way.",
+        "storageBusy": "Waiting for storage to become available. Tars retries automatically; your message is saved.",
+        "agentCatalog": "Waiting for your saved agents to load. If they do not load within a minute, this message stops and says so."
+      },
+      "droppedActions_one": "{{count}} proposed action was not valid and was left out. Nothing was done for it.",
+      "droppedActions_other": "{{count}} proposed actions were not valid and were left out. Nothing was done for them.",
+      "inspecting": {
+        "report": "Reading the report of {{title}}…",
+        "changes": "Reading the changes of {{title}}…",
+        "transcript": "Reading the transcript of {{title}}…",
+        "checks": "Reading the checks of {{title}}…",
+        "pullRequest": "Reading the pull request of {{title}}…"
       }
     },
     "record": {
@@ -1382,6 +1414,7 @@
         "rejected": "Not applied"
       },
       "by": {
+        "automatic": "Tars applied this automatically",
         "you": {
           "click": "You did this in Tars",
           "key": "You did this in Tars with the keyboard",
@@ -1441,7 +1474,14 @@
         "unsupported": "This record cannot be undone.",
         "stale": "The work or queue changed. Undo would overwrite newer work.",
         "outOfScope": "The workspace is no longer available to Tars.",
-        "failed": "Undo could not be confirmed. Try again."
+        "failed": "Undo could not be confirmed. Try again.",
+        "withdrawAction": "Withdraw request",
+        "withdrawPending": "Withdrawing…",
+        "withdrawRetry": "Check withdrawal",
+        "withdrawChecking": "Checking withdrawal; this request stays on hold.",
+        "withdrawDone": "Request withdrawn",
+        "started": "This request already started. Use the current run's controls.",
+        "withdrawUncertain": "Start status is unavailable. This request stays on hold until withdrawal can be checked."
       }
     },
     "execution": {
@@ -1491,6 +1531,8 @@
       "agentLockedHint": "Take the work over first: changing the agent would end Tars's run."
     },
     "tray": {
+      "modelSelection": "Selected model and effort",
+      "modelPending": "Checking model",
       "title": "Work",
       "indicator": {
         "running_one": "{{count}} running",
@@ -1752,6 +1794,7 @@
       "takenOverInTask": "This task was taken over. Continue it in its task.",
       "admissionWithdrawn": "The work was paused or cancelled before its run started.",
       "observationFailed": "Tars could not check this work’s progress.",
+      "preparationFailed": "Workspace preparation failed or timed out. Check its post-create command, then resume this work to retry.",
       "pauseReason": {
         "pausedByUser": "This work is paused. Resume it to continue.",
         "takenOver": "You took over this work. Hand it back to let Tars continue.",
@@ -1772,11 +1815,13 @@
       "workingChangesUnavailable": "The saved copy of your working changes is no longer in the repository, so Tars could not set up this work. Cancel it and ask again.",
       "runCancelled": "This work was cancelled. Changes already made stay.",
       "turnStartFailed": "The current stage could not start. Ask Tars to retry it, or open its task to check.",
-      "diagnostic": "Technical details"
+      "diagnostic": "Technical details",
+      "dailyUsageLimit": "Daily limit reached. Change it in Settings > Providers, then resume."
     },
     "messageFailure": {
       "interrupted": "Tars stopped before its reply was saved. Send the message again.",
-      "reasoningFailed": "Check the state of your work before sending it again."
+      "reasoningFailed": "Check the state of your work before sending it again.",
+      "agentsUnavailable": "Your saved agents did not load in time, so this message was not sent to Tars. Send it again."
     },
     "acceptCompletion": "Accept as done",
     "decision": {
@@ -1836,7 +1881,8 @@
         "alreadyAnswered": "This decision was already answered with a different option.",
         "notWaiting": "This decision no longer waits for an answer.",
         "invalidOption": "That option is not available.",
-        "failed": "Your answer could not be sent. Try again."
+        "failed": "Your answer could not be sent. Try again.",
+        "dismissFailed": "This card could not be dismissed. Try again."
       },
       "card": {
         "title": {
@@ -1886,7 +1932,7 @@
           "approve": "The tool runs once with this request. This cannot be undone.",
           "deny": "The tool call is refused; the run continues without it.",
           "answer": "The question in the task gets this answer.",
-          "message": "Your words go to the task. They are delivered when the task can receive them.",
+          "message": "Continues work in this task; completed work starts a fresh run for verification.",
           "requestChanges": "The previous stage runs again with this feedback, then the stages after it."
         },
         "unverifiedEffect": "Accepting or cancelling can't be undone. Asking for verification only drafts a message.",
@@ -1917,13 +1963,27 @@
         "showDetails": "Details",
         "requestFrom": "Request from {{tool}}",
         "checking": "Checking the work",
-        "attemptRefused": "Not applied: {{option}}"
+        "attemptRefused": "Not applied: {{option}}",
+        "dismiss": "Dismiss",
+        "dismissHint": "Close this card without choosing. Nothing is applied, and it stops waiting."
       },
       "outcome": {
         "pending": "Applying",
         "answered": "Answered",
         "confirmed": "Confirmed",
         "rejected": "Not applied"
+      },
+      "closed": {
+        "dismissed": "Dismissed",
+        "withdrawn": "Withdrawn by Tars",
+        "stillBlocked": "The work stays blocked. Its controls are in the tray."
+      },
+      "withdraw": {
+        "lead": "Withdraw",
+        "subject": {
+          "confirm": "An earlier proposal that was waiting for you",
+          "ask": "An earlier question that was waiting for you"
+        }
       }
     },
     "side": {
@@ -2100,16 +2160,24 @@
       "delivering": "Saying it in the task now.",
       "delivered": "Said in the task after its turn ended.",
       "failed": "Not said in the task.",
-      "cancelled": "Not said: the work was taken over, cancelled or ended first."
+      "cancelled": "Not said: the work was taken over, cancelled or ended first.",
+      "withdrawn": "Request withdrawn before it started."
     },
     "followUp": {
       "line": {
+        "resultReady": "Tars follow-up · Result verified; next step: {{title}}",
         "blocked": "Tars follow-up · Work cannot continue: {{title}}",
         "unverifiedCompletion": "Tars follow-up · Reported done, not yet confirmed: {{title}}",
         "verificationFailed": "Tars follow-up · Completion checks incomplete: {{title}}",
         "stageAsksUser": "Tars follow-up · Needs your answer or approval: {{title}}",
+        "limitReached": "Tars follow-up · Execution turn limit reached: {{title}}",
         "stageGate": "Tars follow-up · A Stave check stopped progress: {{title}}",
-        "waitExpired": "Tars follow-up · No update while waiting: {{title}}"
+        "waitExpired": "Tars follow-up · No update while waiting: {{title}}",
+        "ciFailed": "CI failed for {{title}}",
+        "ciPassed": "PR checks finished for {{title}}",
+        "ciUnavailable": "PR checks unavailable for {{title}}",
+        "prChangesRequested": "Review changes requested for {{title}}",
+        "prReviewNotice": "Review received for {{title}}"
       },
       "exhausted": "Tars stopped checking on {{title}} automatically because it reached its limit for automatic follow-ups. Send a message to continue.",
       "superseded": "Tars skipped this follow-up because the work changed first."
@@ -2162,7 +2230,7 @@
       "step3Text": "Read the report and changes beside the conversation.",
       "detailsTitle": "More about running tasks",
       "examplesTitle": "Try a request",
-      "limit1": "Each commit, push or draft PR needs your confirmation. Tars never merges or deploys.",
+      "limit1": "Requested draft PRs open automatically after verification at Balanced or Hands-off. Other publication asks first unless you saved an allow rule. Tars never merges or deploys.",
       "limit2": "Keep Stave open and this computer awake.",
       "limit3": "Tasks can run at the same time. Set a limit in Settings; 0 adds no task limit.",
       "limit4": "Work starts from the workspace branch. Turn on Include my working changes to include edits you haven't committed. Files ignored by Git are not copied.",
@@ -2222,8 +2290,8 @@
       },
       "reason": {
         "notOwned": "Tars does not hold this work.",
-        "notCompleted": "Only completed work can be published.",
-        "notVerified": "Stave did not verify this work: it was accepted as done without a check. Publish it yourself if you want it.",
+        "notCompleted": "Only verified execution results can be published.",
+        "notVerified": "The workspace must be clean and match the verified revision. Commit and verify the current work before publishing.",
         "stale": "The work changed since this card was shown. Open it again.",
         "noWorkspace": "The work's workspace is no longer available.",
         "noChanges": "There is nothing to publish: no uncommitted change and no commit ahead of the base branch.",
@@ -2231,7 +2299,7 @@
         "ghUnavailable": "Stave could not use the GitHub CLI. Install it, run gh auth login in a terminal, then try again.",
         "wrongBranch": "The workspace is not on the work's own branch, or that branch is the base branch.",
         "alreadyPublished": "Its draft pull request is already open.",
-        "inProgress": "This work is already being published.",
+        "inProgress": "Publication or follow-up work is pending. Wait for it to finish.",
         "publishFailed": "A publish step failed.",
         "notByFollowUp": "An automatic follow-up cannot propose publishing; only your own request can.",
         "unknown": "The work could not be published."
@@ -2409,11 +2477,11 @@
         },
         "balanced": {
           "label": "Balanced",
-          "description": "Default. Start tasks you request; ask before resuming, replying for you or ending work."
+          "description": "Default. Continue admitted work automatically within its budget; open requested draft PRs after verification."
         },
         "handsOff": {
           "label": "Hands-off",
-          "description": "Also resume, retry and add turns when you ask. Each action is recorded."
+          "description": "Continue admitted work automatically, including follow-ups. Each action is recorded."
         }
       },
       "table": {
@@ -2425,6 +2493,10 @@
           "never": "Never does"
         },
         "none": "Nothing"
+      },
+      "conditional": {
+        "extend": "add turns beyond the automatic cap or with an unknown budget",
+        "publish": "publish without a verified PR or merge goal"
       },
       "action": {
         "show": "open a report, changes, timeline or review",
@@ -2440,25 +2512,26 @@
         "handBack": "take back work you took over",
         "signOff": "approve a waiting stage",
         "answer": "answer a question in a task",
-        "message": "send your words to a task",
-        "requestChanges": "ask for changes to a stage",
+        "message": "instruct Tars’s own task",
+        "requestChanges": "request changes from Tars’s own run",
         "clear": "clear the conversation or lists",
         "cancel": "cancel work",
         "skipStage": "skip a stage",
         "acceptCompletion": "accept a completion Stave could not verify",
         "approve": "approve a tool request",
-        "publish": "commit, push and open a draft pull request"
+        "publish": "commit, push and open a draft pull request",
+        "workspaceEdit": "edit workspace information",
+        "workspaceReplace": "replace notes or remove information"
       },
       "unavailable": {
         "merge": "merge",
         "deploy": "deploy",
         "forcePush": "force-push",
         "deleteBranches": "delete branches, worktrees or tasks",
-        "alwaysAllow": "create an “always allow” rule",
         "spendMoney": "spend money",
         "contactOthers": "message other people"
       },
-      "footnote": "When Tars checks on work without a message from you, it can only ask questions, open views or request your confirmation.",
+      "footnote": "Balanced and Hands-off also apply to automatic follow-ups. Without a saved allow rule, extra turns beyond twice the original budget and publication without a verified PR goal ask first. Saved allow rules never bypass Never-do rules or actions that always need confirmation. Resume and retry offer Undo to pause the same run; instructions already sent cannot be undone.",
       "never": {
         "title": "Never do",
         "hint": "Add rules for what Tars must avoid. Matching proposals require confirmation; rules do not automatically block actions.",
@@ -2484,22 +2557,37 @@
       "proposal": {
         "title": {
           "delegate": "Start this work?",
-          "reprioritize": "Change this work's priority?"
+          "reprioritize": "Change this work's priority?",
+          "workspace": "Edit workspace information?"
         },
         "effect": {
           "delegate": "Tars adds this work to its queue and starts it when there is room.",
-          "reprioritize": "The work moves in the queue to priority {{priority}}."
+          "reprioritize": "The work moves in the queue to priority {{priority}}.",
+          "workspace": "This edits the local Information panel and records Undo. Undo is refused if the information changes afterward."
         },
         "subject": {
           "delegate": "Start {{title}}",
-          "reprioritize": "Change the priority of {{title}}"
+          "reprioritize": "Change the priority of {{title}}",
+          "workspace": "Edit information in {{title}}"
         },
         "action": {
           "delegate": "Start work",
-          "reprioritize": "Change priority"
+          "reprioritize": "Change priority",
+          "workspace": "Confirm edit"
         }
       },
-      "detailsTitle": "Actions and confirmations"
+      "detailsTitle": "Actions and confirmations",
+      "allow": {
+        "button": "Always allow",
+        "title": "Always allowed",
+        "hint": "At Balanced and Hands-off, saved rules skip confirmations for that action and repository. Never-do rules and actions that always need confirmation take precedence. Keep up to 24 rules.",
+        "rule": "{{action}} in {{repo}}",
+        "record": "Always allowed: {{action}} in {{repo}}",
+        "anyRepository": "any repository",
+        "undo": "Undo",
+        "failed": "The allow rule could not be saved. Try again.",
+        "empty": "No saved allow rules."
+      }
     },
     "knows": {
       "menu": "Knowledge and usage",
@@ -2754,6 +2842,152 @@
       "stale": "Some checks do not verify the final revision. Read their source and revision in details.",
       "acceptedWithoutVerification": "Completion was accepted without a Stave-verified check.",
       "details": "Full summary, criteria and evidence"
+    },
+    "goal": {
+      "target": "Goal: {{goal}}",
+      "kind": {
+        "unspecified": "Endpoint not specified",
+        "design": "Design delivery",
+        "implementation": "Implementation and validation",
+        "pullRequest": "Pull request creation",
+        "merge": "Merge confirmation",
+        "confirmation": "Your confirmation"
+      },
+      "next": {
+        "execution": "Execution status shown separately",
+        "complete": "Requested goal completed",
+        "confirm": "Execution result ready; confirm the endpoint before closing",
+        "publish": "Result ready; confirm publication to create a draft PR",
+        "publishFailed": "Publication failed; retry from its confirmation card",
+        "mergeUnknown": "PR recorded; CI and merge are not confirmed",
+        "publishing": "Creating the draft PR; waiting for the recorded result"
+      }
+    },
+    "workspaceAction": {
+      "applied": {
+        "appendNotes": "Added notes to {{workspace}}: {{text}}",
+        "replaceNotes": "Replaced notes in {{workspace}}: {{text}}",
+        "addTodo": "Added a todo to {{workspace}}: {{text}}",
+        "updateTodo": "Updated a todo in {{workspace}}: {{text}}",
+        "removeTodo": "Removed a todo from {{workspace}}: {{text}}",
+        "setField": "Updated a field in {{workspace}}: {{text}}",
+        "removeField": "Removed a field from {{workspace}}: {{text}}",
+        "addResource": "Linked a resource in {{workspace}}: {{text}}",
+        "removeResource": "Removed a resource from {{workspace}}: {{text}}"
+      },
+      "propose": {
+        "appendNotes": "Add notes to {{workspace}}: {{text}}",
+        "replaceNotes": "Replace notes in {{workspace}}: {{text}}",
+        "addTodo": "Add a todo to {{workspace}}: {{text}}",
+        "updateTodo": "Update a todo in {{workspace}}: {{text}}",
+        "removeTodo": "Remove a todo from {{workspace}}: {{text}}",
+        "setField": "Update a field in {{workspace}}: {{text}}",
+        "removeField": "Remove a field from {{workspace}}: {{text}}",
+        "addResource": "Link a resource in {{workspace}}: {{text}}",
+        "removeResource": "Remove a resource from {{workspace}}: {{text}}"
+      },
+      "refused": "Workspace information could not be edited. Check that the workspace and target item still exist, then try again.",
+      "change": "Change to apply",
+      "empty": "Empty notes or value"
+    },
+    "prReviews": {
+      "limit": "PR #{{number}} needs another review round after two automatic attempts.",
+      "limitQuestion": "Continue addressing review feedback on PR #{{number}} for “{{title}}”?",
+      "notice": "PR #{{number}} received a review. No new changes requested."
+    },
+    "prChecks": {
+      "stoppedUnavailable": "PR monitoring stopped: access unavailable",
+      "leaveStopped": "Leave monitoring stopped",
+      "leaveStoppedHint": "Keep the PR available for manual review.",
+      "expired": "PR monitoring expired",
+      "closed": "PR closed",
+      "merged": "PR merged",
+      "expiredNotice": "PR #{{number}}: monitoring stopped after three hours. You can keep watching.",
+      "retryNotice": "PR #{{number}}: checks are temporarily unavailable. Tars will retry automatically.",
+      "watchQuestion": "Keep watching PR #{{number}}?",
+      "watch": "Keep watching",
+      "watchHint": "Watch for another three hours without resetting automatic fix limits.",
+      "pending": "PR checks pending",
+      "passed": "PR checks passed",
+      "failed_one": "PR checks: {{count}} failure",
+      "failed_other": "PR checks: {{count}} failures",
+      "none": "No PR checks reported",
+      "unavailable": "PR checks unavailable",
+      "passedNotice": "PR #{{number}}: all checks passed",
+      "unavailableNotice": "PR #{{number}}: checks are unavailable. Check that GitHub CLI is installed and signed in. Monitoring has stopped.",
+      "question": "PR #{{number}} passed its checks. Mark it ready for review?",
+      "ready": "Mark ready for review",
+      "readyHint": "Remove draft status so reviewers can review this PR.",
+      "keepDraft": "Keep as draft",
+      "keepHint": "Keep the PR in draft status.",
+      "limit": "PR #{{number}} has used its two automatic CI-fix attempts. Failing checks remain.",
+      "limitQuestion": "How should Tars continue PR #{{number}} ({{title}})?",
+      "continue": "Continue fixing CI on the same branch",
+      "continueHint": "Ask Tars to continue this work with your direction.",
+      "stop": "Keep the draft and stop fixing CI",
+      "stopHint": "Leave the current changes for your review."
+    },
+    "activityView": {
+      "title": "Activity",
+      "shortcut": "Open Activity (Ctrl/⌘+Shift+A)",
+      "description": "What Tars did and what happened to its work, newest first.",
+      "filtersLabel": "Filter activity",
+      "filters": {
+        "all": "All",
+        "tars": "Done by Tars",
+        "needsYou": "Needs you"
+      },
+      "retention": "History retained in this conversation. Cleared or expired history is not included.",
+      "loading": "Loading activity…",
+      "empty": "No activity to show.",
+      "origin": {
+        "you": "You",
+        "tars": "Tars automatically"
+      },
+      "workUnavailable": "Work outside the current list",
+      "confirmation": "Confirmation",
+      "decision": "{{question}} · {{state}}",
+      "action": "{{action}} · {{status}}",
+      "decisions": {
+        "waiting": "Waiting for you",
+        "answered": "Answered",
+        "invalid": "No longer valid",
+        "retired": "No longer waiting",
+        "dismissed": "Dismissed",
+        "withdrawn": "Withdrawn"
+      },
+      "publication": "PR publication · {{status}}",
+      "inspecting": "Inspecting {{view}}",
+      "inspected": "Inspected {{view}}",
+      "views": {
+        "report": "report",
+        "changes": "changes",
+        "transcript": "transcript",
+        "checks": "checks",
+        "pullRequest": "pull request"
+      },
+      "open": {
+        "task": "Open task",
+        "workspace": "Open workspace",
+        "fleet": "Open Fleet",
+        "activity": "Open Activity"
+      },
+      "checks": {
+        "pending": "PR checks pending",
+        "passed": "PR checks passed",
+        "failed": "PR checks failed",
+        "none": "No PR checks",
+        "unavailable": "PR checks unavailable"
+      },
+      "inspectionUnavailable": "Could not inspect {{view}}",
+      "failed": "Activity could not be refreshed."
+    },
+    "intake": {
+      "ask": "Ask Tars",
+      "issueRequest": "Work on this issue. Use the source as context and verify the result.",
+      "documentRequest": "Use the attached document as context. Help me turn it into a plan; ask before starting implementation.",
+      "failed": "Could not add this source. Use an HTTPS link or a Markdown file up to 32 KB; keep room in your draft and attachments.",
+      "issueBodyUnavailable": "The issue body could not be read. The draft includes its title and link."
     }
   }
 }

@@ -9,6 +9,7 @@ import type { AppNotificationCreateInput } from "@/lib/notifications/notificatio
 import {
   isAgentRunAttentionNotificationKind,
   isNotificationAttentionKind,
+  isTarsNotificationKind,
 } from "@/lib/notifications/notification.types";
 import { showNotificationToast } from "@/store/app-notification-builders";
 import type { AppState } from "@/store/app-store.types";
@@ -57,9 +58,8 @@ export function createAppStoreNotificationRuntime(args: {
           notification: result.notification!,
         }),
       }));
-      // An agent run notification is raised again whenever the watcher looks;
-      // only its first store is announced.
-      if (!result.inserted && result.notification.kind.startsWith("agent_run.")) {
+      // Watchers can raise the same run or Tars fact again; announce only its first insert.
+      if (!result.inserted && (result.notification.kind.startsWith("agent_run.") || isTarsNotificationKind(result.notification.kind))) {
         return result.notification;
       }
       const unreadCount = get().notifications.filter(

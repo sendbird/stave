@@ -84,7 +84,8 @@ export const tarsMessageStyles = stylex.create({
   notice: { paddingBlock: vars["--aui-space-12"], paddingInline: vars["--aui-space-16"], gap: vars["--aui-space-8"] },
   noticeTitle: { fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
   noticeBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING, color: vars["--aui-color-text-muted"] },
-  noticeText: { margin: 0 },
+  // A failure explains what to do next: it wraps inside the column instead of hiding words.
+  noticeText: { margin: 0, minWidth: 0, overflowWrap: "anywhere" },
   actionIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
   /**
    * The composer's working-changes toggle as a borderless icon button, like

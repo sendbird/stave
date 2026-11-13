@@ -117,6 +117,15 @@ describe("the shared notification sound", () => {
     expect(showToast).toHaveBeenCalledTimes(1);
   });
 
+  test("a repeated Tars notification stays quiet across hydration and refresh", async () => {
+    const subject = runtime();
+    await subject.persistNotifications([notification("tars.decision_requested")]);
+    inserted = false;
+    await subject.persistNotifications([notification("tars.decision_requested")]);
+    expect(playPreset).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledTimes(1);
+  });
+
   test("an unsuccessful persistence write stays quiet", async () => {
     persistenceFails = true;
     await runtime().persistNotifications([notification("task.turn_completed")]);
@@ -131,14 +140,14 @@ describe("OS notifications", () => {
     globalThis.document = originalDocument;
   });
 
-  async function nativeCall(focused: boolean, workspaceId: string | null) {
+  async function nativeCall(focused: boolean, workspaceId: string | null, kind: AppNotificationCreateInput["kind"] = "task.approval_requested") {
     const calls: Array<{ notificationId: string; suppress?: boolean }> = [];
     globalThis.window = { api: { notifications: {
       showNative: async (args: { notificationId: string; suppress?: boolean }) => { calls.push(args); return { ok: true }; },
     } } } as unknown as Window & typeof globalThis;
     globalThis.document = { hasFocus: () => focused } as unknown as Document;
     await runtime({ nativeNotificationsEnabled: true }).persistNotifications([
-      { ...notification("task.approval_requested"), workspaceId },
+      { ...notification(kind), workspaceId },
     ]);
     return calls;
   }
@@ -156,5 +165,14 @@ describe("OS notifications", () => {
     await nativeCall(true, "ws-elsewhere");
     expect(playPreset).toHaveBeenCalled();
     expect(showToast).toHaveBeenCalled();
+  });
+
+  test("Tars follows the same window focus policy and desktop toggle", async () => {
+    expect((await nativeCall(true, "ws-1", "tars.decision_requested"))[0]?.suppress).toBe(true);
+    expect((await nativeCall(false, "ws-1", "tars.result_ready"))[0]?.suppress).toBe(false);
+    const native = mock(async () => ({ ok: true }));
+    globalThis.window = { api: { notifications: { showNative: native } } } as unknown as Window & typeof globalThis;
+    await runtime({ nativeNotificationsEnabled: false }).persistNotifications([notification("tars.blocked")]);
+    expect(native).not.toHaveBeenCalled();
   });
 });

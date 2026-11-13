@@ -18,7 +18,7 @@ export type TarsStartRequirement = "repository" | "publish" | "clear" | "schedul
 
 export interface TarsStartExample {
   /** The copy key: `tars.start.examples.<id>.label` and `.prompt`. */
-  id: "delegate" | "schedule" | "status" | "pause" | "queue" | "answerWaiting" | "options" | "report" | "changes" | "publish" | "clearConversation" | "clearDone";
+  id: "workspace" | "delegate" | "schedule" | "status" | "pause" | "queue" | "answerWaiting" | "options" | "report" | "changes" | "openScreen" | "publish" | "clearConversation" | "clearDone";
   group: TarsStartGroupId;
   action: TarsStartActionKind;
   requires?: TarsStartRequirement;
@@ -38,11 +38,13 @@ export const TARS_START_EXAMPLES: readonly TarsStartExample[] = [
   { id: "schedule", group: "schedule", action: "schedule", requires: "schedule" },
   { id: "status", group: "steer", action: "reply", covers: ["needsYou"] },
   { id: "pause", group: "steer", action: "control" },
+  { id: "workspace", group: "steer", action: "workspace", requires: "repository" },
   { id: "queue", group: "steer", action: "reprioritize" },
   { id: "answerWaiting", group: "answer", action: "control" },
   { id: "options", group: "answer", action: "ask", covers: ["blocked"] },
   { id: "report", group: "show", action: "show", covers: ["report"] },
   { id: "changes", group: "show", action: "show" },
+  { id: "openScreen", group: "show", action: "open" },
   { id: "publish", group: "publish", action: "publish", requires: "publish", covers: ["publish"] },
   { id: "clearConversation", group: "clear", action: "clear", requires: "clear" },
   { id: "clearDone", group: "clear", action: "clear", requires: "clear" },

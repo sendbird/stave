@@ -1,3 +1,7 @@
+import { DailyLimitSettingsLink } from "@/components/usage/DailyLimits";
+import { ReportArtifactLink } from "@/components/agent-runs/ReportArtifactLink";
+import { isLocalPreviewUrl, savedHtmlReference } from "@/lib/agent-runs/artifacts";
+import { TarsGoalSummary } from "./TarsGoalSummary";
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, FolderTree, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -25,6 +29,8 @@ import { SortableDropIndicator, useSortableListMonitor, useSortableRow } from "@
 import { formatDateTime } from "@/i18n/format";
 import { tarsCardActions, tarsQueueMoves, type TarsCardAction, type TarsTrayAttentionInput, type TarsTrayAttentionRow, type TarsTrayCard as TarsTrayCardModel, type TarsTrayDecision, type TarsTrayModel, type TarsTrayStatus } from "@/lib/tars/tray-model";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
+import { describeTarsModelSelection } from "@/lib/tars/model-selection";
+import { isTarsWorkRunning } from "@/lib/tars/live-progress";
 import type { TarsOutput } from "@/lib/tars/outputs-model";
 import type { TarsSideViewKind, TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
@@ -175,6 +181,7 @@ export function TarsTrayToggle({ pinned, counts, status = "ready", outputs = 0, 
 /** The kind badge and short text of one attention row; Tars's kinds get Tars's words. */
 function describeAttention(row: TarsResponsibility, entry: TarsTrayAttentionRow<TarsTrayAttentionInput>) {
   const { item, decision } = entry;
+  if (row.state === "resultReady") return { label: i18n.t("shell:tars.states.resultReady"), text: i18n.t("shell:tars.states.resultReady") };
   if (item.kind === "tars-decision") {
     // A decision with several options is answered in the conversation; its row says what it asks.
     return { label: i18n.t("shell:tars.tray.attention.decision"), text: decision ? i18n.t(`shell:tars.tray.decision.${decision.operation}`)
@@ -245,9 +252,11 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const { t } = useTranslation(["shell"]);
   const { row, progress } = card;
   const terminal = card.lane === "done";
+  const modelSelection = describeTarsModelSelection(row, card.run);
   // What Stave observed: the turn's activity, how current it is, and the run's last few changes.
   const { live, now } = useTarsLiveProgress(row, card.run, { recentLimit: CARD_RECENT_LIMIT });
   const detail = describeTarsResponsibilityDetail(row);
+  const queueWait = describeTarsQueueWait(row);
   // The run's own words behind a translated line, folded; the report keeps them for blocked work too.
   const diagnostic = describeTarsResponsibilityDiagnostic(row);
   const workingChanges = describeTarsWorkingChanges(row);
@@ -265,12 +274,14 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const blockedEntry = card.attention.find((entry) => entry.item.kind === "tars-blocked");
   const detailInAttention = Boolean(blockedEntry);
   // A blocked card leads to what is unmet: from the end of the well's Blocked line when there is one, else under the card's lines.
-  const report = row.state === "blocked" && actions.onOpenSide ? <Button variant="ghost" size="xs" data-tars-open-report={row.id}
+  const report = (row.state === "blocked" || row.state === "resultReady") && actions.onOpenSide ? <Button variant="ghost" size="xs" data-tars-open-report={row.id}
     onClick={() => actions.onOpenSide!({ responsibilityId: row.id, kind: "report", focus: { unmet: true } })}>
     <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button> : null;
   // Status first, then what needs the user right above the actions that answer it; identity (owner, branch) is the header's.
   const body = [
-    row.state === "queued" ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{describeTarsQueueWait(row)}</p> : null,
+    row.detailCode === "dailyUsageLimit" || row.detailCode === "runPaused" && row.detailParams?.reason === "usage-limit" ? <DailyLimitSettingsLink key="daily-limit" /> : null,
+    <TarsGoalSummary key="goal" row={row} />,
+    queueWait ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{queueWait}</p> : null,
     !staged && !terminal && row.agentRunId && !live.running ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
     tarsLiveLineShows(row, live) ? <TarsLiveLine key="live" row={row} live={live} now={now} /> : null,
     !terminal && live.recent.length ? <TarsRecentProgress key="recent" entries={live.recent} now={now} title compact /> : null,
@@ -309,7 +320,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
     </ul> : null,
     report && !blockedEntry ? <div key="report" className={sx(styles.actions)}>{report}</div> : null,
     // Completed work leads to its draft pull request: the link once open, else the button that opens its confirmation card.
-    row.state === "completed" && (row.publication || (actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
+    (row.publication || ((row.state === "completed" || row.state === "resultReady") && actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
       <TarsPublishEntry row={row} onPublish={actions.onPublish} />
     </div> : null,
   ].filter(Boolean);
@@ -322,6 +333,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
       {card.branch ? <span className={sx(styles.branch)} data-tars-branch={card.branch} title={card.branch}>
         <GitBranch aria-hidden className={sx(styles.branchIcon)} /><span className={sx(agentRunStyles.visuallyHidden)}>{t("shell:tars.tray.branch")}</span>
         <span className={sx(styles.branchName)}>{card.branch}</span></span> : null}
+      {isTarsWorkRunning(row) ? <span data-tars-model-selection="" title={t("shell:tars.tray.modelSelection")}>{modelSelection ?? t("shell:tars.tray.modelPending")}</span> : null}
     </>} actions={hasActions ? <TarsCardActions card={card} actions={actions} grip={grip} /> : undefined}>
     {body.length ? body : null}
   </TarsRunMonitor>;
@@ -389,13 +401,14 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
     {outputs.map((output, index) => {
       const label = outputLabel(output);
       const KindIcon = OUTPUT_ICON[output.kind];
-      const external = output.kind === "link" || output.kind === "pullRequest";
-      const opens = t(external ? "shell:tars.tray.outputs.opensExternal" : "shell:tars.tray.outputs.opensSide");
+      const saved = output.kind === "link" && savedHtmlReference(output.url);
+      const external = !saved && (output.kind === "link" || output.kind === "pullRequest");
+      const opens = saved ? i18n.t("agentRuns:artifacts.saved") : t(external ? "shell:tars.tray.outputs.opensExternal" : "shell:tars.tray.outputs.opensSide");
       const content = <>
         <span className={sx(styles.outputGlyph)}><KindIcon aria-hidden className={sx(styles.outputIcon)} /></span>
         <span className={sx(styles.outputText)}>
           <span className={sx(styles.outputLabel)}>{label}</span>
-          <span className={sx(styles.outputMeta)}>{output.title}</span>
+          <span className={sx(styles.outputMeta)}>{output.title}{saved ? ` · ${i18n.t("agentRuns:artifacts.saved")}` : output.kind === "link" && isLocalPreviewUrl(output.url) ? ` · ${i18n.t("agentRuns:artifacts.liveLink")}` : ""}</span>
         </span>
         <span className={sx(styles.outputGlyph)} title={opens}>
           {external ? <ArrowUpRight aria-hidden className={sx(styles.outputIcon)} /> : <PanelRight aria-hidden className={sx(styles.outputIcon)} />}
@@ -404,12 +417,12 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
         {external ? <VisuallyHidden>{opens}</VisuallyHidden> : null}
       </>;
       return <li key={`${output.responsibilityId}:${output.kind}:${index}`} className={sx(styles.cardItem, styles.outputItem, styles.output)} data-tars-output={output.kind}
-        data-tars-output-opens={external ? "external" : "side"}>
-        {external
+        data-tars-output-opens={saved ? "saved" : external ? "external" : "side"}>
+        {output.kind === "link" ? <ReportArtifactLink link={output} xstyle={[focusRing.ring, transition.colors, styles.outputRow]}>{content}</ReportArtifactLink> : output.kind === "pullRequest"
           ? <ExternalAnchor href={output.url} xstyle={[focusRing.ring, transition.colors, styles.outputRow]}>{content}</ExternalAnchor>
           : <Button variant="ghost" size="sm" layout="host" xstyle={styles.outputRow} disabled={!onOpenSide}
             aria-label={t("shell:tars.tray.outputs.open", { label, title: output.title })}
-            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, kind: OUTPUT_KIND[output.kind] })}>{content}</Button>}
+            onClick={() => onOpenSide?.({ responsibilityId: output.responsibilityId, agentRunId: output.agentRunId, kind: OUTPUT_KIND[output.kind] })}>{content}</Button>}
       </li>;
     })}
   </ul>;

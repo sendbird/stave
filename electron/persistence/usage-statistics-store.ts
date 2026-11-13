@@ -125,6 +125,17 @@ export class UsageStatisticsStore {
     return this.db.transaction(() => this.readReport(args))();
   }
 
+  /** Global provider totals use the exact same measured-token and reported-cost contract as AI usage. */
+  readPeriodTotals(args: { from: string; to: string }): Array<UsageMetrics & { providerId: ProviderId }> {
+    return this.db.prepare(`${USAGE_CTE} SELECT provider_id AS providerId, ${METRIC_SUMS}
+      FROM usage GROUP BY provider_id`).all(args.from, args.to, null, null, null, null, 0, null) as Array<UsageMetrics & { providerId: ProviderId }>;
+  }
+
+  hasReportedCost(providerId: ProviderId): boolean {
+    return Boolean(this.db.prepare(`${USAGE_CTE} SELECT 1 FROM usage WHERE cost IS NOT NULL LIMIT 1`)
+      .get("0000", "9999", providerId, providerId, null, null, 0, null));
+  }
+
   private readReport(args: UsageStatisticsArgs): UsageStatisticsReport {
     const params = [args.from, args.to, args.providerId ?? null, args.providerId ?? null,
       args.accountProfileId ?? null, args.accountProfileId ?? null];

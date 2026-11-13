@@ -246,16 +246,27 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
     await done.click();
     await expect(done).toHaveAttribute("aria-expanded", "false");
 
-    // The empty lane is one muted header row with a zero count; its sentence is there once opened.
+    // Retired proposals no longer move their work into Needs you. Lane counts follow Fleet's live attention.
     const lanes = await readHeads();
-    const running = lanes.find((head) => head.lane === "running")!;
-    expect(running.count).toBe(0);
-    expect(running.expanded).toBe("false");
-    expect(Math.abs(running.itemHeight - running.height)).toBeLessThanOrEqual(0.5);
-    expect(running.titleColor).not.toBe(lanes.find((head) => head.lane === "needsYou")!.titleColor);
-    await page.locator('[data-tars-lane-head="running"] button[aria-expanded]').click();
-    await expect(page.locator('[data-tars-tray-lane="running"] p').first()).toBeVisible();
-    await page.locator('[data-tars-lane-head="running"] button[aria-expanded]').click();
+    const expected = await page.evaluate(async () => {
+      const { useTarsSnapshotStore } = await import("/src/store/tars-snapshot-store.ts");
+      const { useFleetAttentionStore } = await import("/src/store/fleet-attention-store.ts");
+      const rows = useTarsSnapshotStore.getState().snapshot!.responsibilities;
+      const live = rows.filter((row) => row.state !== "completed" && row.state !== "cancelled");
+      const byTask = new Map([
+        ...live.flatMap((row) => row.state === "waiting" && row.waitingTaskId ? [[row.waitingTaskId, row.id] as const] : []),
+        ...live.flatMap((row) => row.taskId ? [[row.taskId, row.id] as const] : []),
+      ]);
+      const attention = useFleetAttentionStore.getState().snapshot.items.flatMap((item) => {
+        const id = item.tarsResponsibilityId ?? (item.taskId ? byTask.get(item.taskId) : undefined);
+        return id ? [id] : [];
+      });
+      return { needsYou: attention.length, running: live.filter((row) => !attention.includes(row.id)).length };
+    });
+    expect(lanes.find((head) => head.lane === "needsYou")!.count).toBe(expected.needsYou);
+    expect(lanes.find((head) => head.lane === "running")!.count).toBe(expected.running);
+    expect(expected.running).toBeGreaterThan(0);
+    await expect(page.locator('[data-tars-tray-lane="running"] [data-tars-card]')).toHaveCount(expected.running);
 
     // The indicator says each lane's header number under the lane's own name, and nothing the lanes do not show.
     const chip = (await view.locator("[data-tars-tray-indicator]").textContent())!;
@@ -288,6 +299,23 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
     expect(sticky.background).toBe(sticky.surface);
     // Clear stays in the Outputs header row.
     await expect(page.locator('[data-tars-lane-head="outputs"] [data-tars-lane-clear="outputs"]')).toHaveCount(1);
+
+    // A profile with no waiting work supplies a genuinely empty lane, independently of the gallery's cases.
+    await page.goto(`/?stavePreview=tars&lang=${lang}&theme=${theme}`);
+    await expect(view.locator("[data-tars-tray-indicator]")).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    if (width < POPOVER_BELOW) await view.locator("[data-tars-tray-indicator]").click();
+    const empty = (await readHeads()).find((head) => head.lane === "needsYou")!;
+    expect(empty.count).toBe(0);
+    expect(empty.expanded).toBe("false");
+    expect(Math.abs(empty.itemHeight - empty.height)).toBeLessThanOrEqual(0.5);
+    expect(empty.titleColor).not.toBe((await readHeads()).find((head) => head.lane === "running")!.titleColor);
+    const emptyTrigger = page.locator('[data-tars-lane-head="needsYou"] button[aria-expanded]');
+    await emptyTrigger.click();
+    await expect(emptyTrigger).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator('[data-tars-tray-lane="needsYou"] p').first()).toBeVisible();
+    await emptyTrigger.click();
+    await expect(emptyTrigger).toHaveAttribute("aria-expanded", "false");
   });
 }
 
@@ -531,3 +559,34 @@ test("project grouping keeps global queue moves, output ownership and clearing t
   await page.getByRole('button', { name: 'Apply fixture filter' }).click();
   await expect(running.locator('[data-tars-card]')).toHaveCount(4);
 });
+
+
+for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) {
+  test(`Tars model selection stays below its branch and inside the card (${theme}/${lang}/${density})`, async ({ page }) => {
+    for (const width of [560, 1600]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto(`/?stavePreview=tars&tray=true&theme=${theme}&lang=${lang}&density=${density}`);
+      await page.evaluate(() => document.fonts.ready);
+      if (width < 1088) await page.locator("[data-tars-tray-indicator]").click();
+      const card = page.locator('[data-tars-card="billing"]');
+      const model = card.locator("[data-tars-model-selection]");
+      await expect(model).toContainText("GPT-6.1 Sol");
+      await expect(model).toContainText(" · ");
+      await model.scrollIntoViewIfNeeded();
+      const boxes = await card.evaluate((node) => {
+        const line = node.querySelector("[data-tars-model-selection]")!;
+        const branch = node.querySelector("[data-tars-branch]")!;
+        const model = line.getBoundingClientRect(), source = branch.getBoundingClientRect(), card = node.getBoundingClientRect();
+        return { left: model.left, right: model.right, top: model.top, branchLeft: source.left, branchBottom: source.bottom,
+          cardLeft: card.left, cardRight: card.right, overflow: line.scrollWidth - line.clientWidth };
+      });
+      // Subpixel font/layout rounding is allowed; the line belongs to the same metadata column.
+      expect(Math.abs(boxes.left - boxes.branchLeft)).toBeLessThanOrEqual(1);
+      expect(boxes.top).toBeGreaterThanOrEqual(boxes.branchBottom - 1);
+      expect(boxes.left).toBeGreaterThanOrEqual(boxes.cardLeft);
+      expect(boxes.right).toBeLessThanOrEqual(boxes.cardRight + 1);
+      expect(boxes.overflow).toBeLessThanOrEqual(1);
+      await expect(page.locator('[data-tars-card="release"] [data-tars-model-selection]')).toHaveCount(0);
+    }
+  });
+}

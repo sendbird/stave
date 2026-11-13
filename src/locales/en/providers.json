@@ -484,6 +484,7 @@
     "codexRateLimit": "Codex rate limit hit. Retry shortly.",
     "codexBilling": "Codex billing/subscription issue detected. Check account payment status.",
     "codexNetwork": "Codex network/model endpoint is unreachable. Check internet/proxy/firewall and retry.",
+    "codexStartup": "Codex could not start. Try again shortly.",
     "codexAppServer": "Codex App Server error.",
     "claudeAuthentication": "Claude authentication failed. Run `claude auth login` and retry.",
     "claudeBilling": "Claude billing/subscription issue detected. Check plan/payment status and retry.",

@@ -1,3 +1,5 @@
+import { installTarsArtifactFixtures } from "./tars-artifact-fixtures";
+import { addTarsWithdrawalFixture } from "./tars-withdrawal-fixture";
 import { captureTarsControlUndo, captureTarsQueueUndo } from "@/lib/tars/action-undo";
 import { previewTarsActionUndo } from "./tars-action-undo-bridge";
 import { useLayoutEffect, useState } from "react";
@@ -107,6 +109,31 @@ export function TarsPreview() {
     // `publish=true|failed` builds on the same ended work: the completed checkout work is what Tars publishes.
     const publishMode = params.get("publish");
     const side = params.get("outputs") === "true" || publishMode === "true" || publishMode === "failed" || galleryMode ? buildTarsSideViewFixtures(new Date(now)) : null;
+    if (side && params.has("artifacts")) installTarsArtifactFixtures(side.runs["run-checkout"]!, params.get("artifacts") === "before");
+    // Endpoint fixture uses the actual tray/report components without executing publication.
+    const completionGoal = params.get("goal");
+    if (side && ["pullRequest", "merge", "confirmation"].includes(completionGoal ?? "")) {
+      const checkout = side.responsibilities.find((row) => row.id === "checkout")!;
+      checkout.state = "resultReady";
+      checkout.completionGoal = completionGoal as "pullRequest" | "merge" | "confirmation";
+      checkout.resultVerifiedRunId = checkout.agentRunId;
+    }
+    if (side && params.get("history") === "true") {
+      const checkout = side.responsibilities.find((row) => row.id === "checkout")!;
+      const previousRunId = checkout.agentRunId!;
+      const next = structuredClone(side.runs[previousRunId]!);
+      next.agentRun.id = `continued-${previousRunId}`;
+      next.agentRun.assignment = "Verify the follow-up correction";
+      if (next.report) {
+        next.report.agentRunId = next.agentRun.id;
+        next.report.acceptanceCriteria = [{ text: "The follow-up correction is verified.", required: true, status: "met" }];
+      }
+      checkout.previousRunIds = [previousRunId];
+      checkout.agentRunId = next.agentRun.id;
+      checkout.continuation = { requestId: "preview-correction", previousRunId, previousInstruction: checkout.instruction,
+        previousCriteria: checkout.acceptanceCriteria, text: next.agentRun.assignment, requestedAt: now };
+      side.runs[next.agentRun.id] = next;
+    }
     // `followUp=true`: blocked work Tars followed up by itself, waiting work with its next check, and one change past the turn limit.
     const followUp = params.get("followUp") === "true" ? buildTarsFollowUpFixtures(new Date(now), params.get("lang") === "ko") : null;
     // `days=true`: the gallery's cases spread over the last week up to now, so the transcript's day rules show.
@@ -154,7 +181,7 @@ export function TarsPreview() {
     const insights = params.get("insights") === "true" ? buildTarsInsightsFixtures({ now: new Date(), korean: params.get("lang") === "ko", responsibilities: snapshot.responsibilities }) : null;
     if (insights && !sessionStorage.getItem(identityKey)) snapshot = { ...snapshot, identity: { ...snapshot.identity, instructions: insights.instructions } };
     let sendFailed = false;
-    const conversationKey = gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
+    const conversationKey = params.has("withdrawal") ? `stave-preview-withdrawal-${params.get("withdrawal")}-${params.get("lang")}` : gallery ? `${galleryKey}-conversation` : "stave-preview-conversation";
     const draftKey = "stave-preview-draft";
     // The preview's host record keeps full attachment snapshots, as the desktop host does; a window reads summaries (`tarsMessageView`).
     type PreviewConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
@@ -166,6 +193,7 @@ export function TarsPreview() {
       ? { settings: null, messages: side.messages, receipts: side.receipts, activity: side.activity, records: [] }
       : fixtures ? { settings: null, messages: [fixtures.message], receipts: [fixtures.receipt], activity: fixtures.activity, records: [] }
         : { settings: null, messages: [], receipts: [], activity: [], records: [] });
+    if (params.has("withdrawal")) addTarsWithdrawalFixture(snapshot, conversation, now, params.get("lang") === "ko", params.get("capacity") === "true");
     // Fleet's projection is not mounted here: publish its rows as the producer would. Tars rows come from the snapshot
     // through Fleet's own projection, so the tray's "needs you" follows every decision kind; other fixture rows are copied.
     const publishAttention = () => useFleetAttentionStore.setState({ snapshot: { ...EMPTY_FLEET_ATTENTION, queueStatus: "next",
@@ -267,7 +295,7 @@ export function TarsPreview() {
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
     const bridge: TarsBridgeApi = {
-      undoAction: previewTarsActionUndo({ conversation, getSnapshot: () => snapshot,
+      undoAction: previewTarsActionUndo({ conversation, deliveryOutcome: params.get("withdrawal") === "pending" ? "pending" : params.get("withdrawal") === "started" ? "started" : undefined, getSnapshot: () => snapshot,
         setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(next)); },
         changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }),
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
@@ -429,7 +457,7 @@ export function TarsPreview() {
           const key = proposed && proposed.kind !== "schedule" ? tarsActionKey(proposed) : null;
           const matches = key ? matchTarsNeverRules(conversation.settings.neverDo, { key, repository: "preview", branches: [] }) : [];
           const held = proposed?.kind === "ask" || (key !== null && tarsActionDisposition({ key, level: conversation.settings.autonomy, matches }) === "confirm");
-          if (proposed) conversation.receipts.push(scheduling && proposed.kind === "schedule" ? scheduling.receiptFor(proposed, message.id, 0, createdAt) : held
+          if (proposed && proposed.kind !== "inspect") conversation.receipts.push(scheduling && proposed.kind === "schedule" ? scheduling.receiptFor(proposed, message.id, 0, createdAt) : held
             // Held actions wait for a confirming click; a question waits for its answer.
             ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null,
               ...(matches.length ? { matchedRules: matches } : {}), revision: 1, createdAt, updatedAt: createdAt }

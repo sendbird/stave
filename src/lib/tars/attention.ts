@@ -29,7 +29,7 @@ export interface TarsAttentionSignal {
   /** Set on a single-action decision (a proposed control): what Confirm applies. */
   decision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
   /** Set on a decision with several options; it is answered in the Tars conversation. */
-  prompt?: { kind: "unverifiedCompletion" } | { kind: "ask"; question: string };
+  prompt?: { kind: "unverifiedCompletion" } | { kind: "ask"; question: string } | { kind: "resultReady" };
 }
 
 /** Fleet's row id for a pending decision; a proposal keeps the id it had before decision kinds existed. */
@@ -57,7 +57,9 @@ function place(row: TarsResponsibility) {
 
 /** Proposals for a responsibility that ended or moved past their revision no longer wait. */
 function isLiveDecision(decision: TarsPendingDecision, row: TarsResponsibility | undefined): row is TarsResponsibility {
-  return Boolean(row) && !isTarsResponsibilityTerminal(row!) && row!.revision === decision.expectedRevision;
+  return Boolean(row) && row!.state !== "cancelled" &&
+    (row!.state !== "completed" || decision.kind === "ask" || (decision.kind ?? "confirm") === "confirm" && decision.operation === "message") &&
+    row!.revision === decision.expectedRevision;
 }
 
 export function collectTarsAttention(
@@ -83,9 +85,10 @@ export function collectTarsAttention(
   });
   // Work blocked on an unverified completion is said by its decision row: one fact, one row.
   const decided = new Set(decisions.filter((signal) => signal.prompt?.kind === "unverifiedCompletion").map((signal) => signal.responsibilityId));
-  const blocked = snapshot.responsibilities.filter((row) => row.state === "blocked" && !decided.has(row.id)).map((row): TarsAttentionSignal => ({
+  const blocked = snapshot.responsibilities.filter((row) => (row.state === "blocked" || row.state === "resultReady") && !decided.has(row.id)).map((row): TarsAttentionSignal => ({
     id: `tars:blocked:${row.id}:${row.revision}`,
-    kind: "tars-blocked",
+    kind: row.state === "resultReady" ? "tars-decision" : "tars-blocked",
+    ...(row.state === "resultReady" ? { prompt: { kind: "resultReady" as const } } : {}),
     ...place(row),
     since: row.updatedAt,
   }));
@@ -101,8 +104,8 @@ export type TarsLane = "needsYou" | "running" | "done";
  * rest, including paused and user-held work, is running.
  */
 export function tarsLaneOf(row: TarsResponsibility, attentionResponsibilityIds: ReadonlySet<string>): TarsLane {
-  if (isTarsResponsibilityTerminal(row)) return "done";
-  return attentionResponsibilityIds.has(row.id) ? "needsYou" : "running";
+  if (attentionResponsibilityIds.has(row.id)) return "needsYou";
+  return isTarsResponsibilityTerminal(row) ? "done" : "running";
 }
 
 /** The fields of a Fleet attention row this rule reads. */

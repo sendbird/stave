@@ -783,7 +783,8 @@ export function collectFleetTarsAttentionItems(
       taskTitle: signal.title,
       createdAt: normalizeTimestamp(signal.since),
       waitingSince: normalizeOptionalTimestamp(signal.since),
-      detail: signal.decision
+      detail: signal.prompt?.kind === "resultReady" ? i18n.t("shell:tars.states.resultReady")
+        : signal.decision
         ? i18n.t(TARS_DECISION_DETAIL_KEY[signal.decision.operation])
         : signal.prompt?.kind === "ask"
           // The question is Tars's own words, shown as written inside Fleet's sentence.

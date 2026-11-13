@@ -7,6 +7,7 @@ import { i18n } from "../src/i18n/runtime";
 import { buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
 import { admitWorkspaceCheck } from "../electron/host-service/supervision/workspace-check-admission";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
+import { mayFinishUnchangedWork } from "../src/lib/agent-runs/review-finalization";
 import { currentStageRecord, EMPTY_STAGE_FACTS, AgentRunStageRecordSchema } from "../src/lib/agent-runs/domain";
 import { agentRunFixture, COMPLETE_REPORT, patchCurrent, AGENT_RUN_NOW } from "./fixtures/agent-run-fixtures";
 
@@ -98,16 +99,20 @@ test("only primary write work gets a default check; built-in workflows check the
     const checks = checked.stages.flatMap(stage => stage.acceptanceCriteria ?? []);
     if (["implementer", "supervisor", "debugger", "ui-polisher"].includes(id)) {
       expect(checks).toEqual([{ ...criterion, scriptIds: ["test"], scriptDefinitions: [frozen("test")] }]);
-      expect(checked.stages.at(-1)!.acceptanceCriteria).toHaveLength(1);
+      // Under review before done the work stage holds the check, so the review and fix stages can still be skipped;
+      // a built-in workflow of its own checks its last AI stage.
+      const gated = checked.stages.at(-1)!.id === "fix-review" ? "work" : checked.stages.at(-1)!.id;
+      expect(checked.stages.filter((stage) => stage.acceptanceCriteria?.length).map((stage) => stage.id)).toEqual([gated]);
     } else expect(checks).toEqual([]);
     expect(withWorkspaceCheck(workflow, { ...agent, permission: "read-only" }, [frozen("test")])).toBe(workflow);
     expect(withWorkspaceCheck(workflow, agent, [])).toBe(workflow);
   }
   const agent = getBuiltinAgent("implementer")!;
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
-  // With review before done the check gates the stage that fixes the findings, the last AI stage.
-  expect(workflow.stages.at(-1)!.id).toBe("fix-review");
-  expect(withWorkspaceCheck(workflow, agent, [frozen("z"), frozen("a")]).stages.at(-1)!.acceptanceCriteria).toEqual([{ ...criterion, text: "Workspace checks pass (a, z)", scriptIds: ["a", "z"], scriptDefinitions: [frozen("a"), frozen("z")] }]);
+  // With review before done the check gates the work stage the review and fix stages follow.
+  expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
+  expect(mayFinishUnchangedWork({ workflow: withWorkspaceCheck(workflow, agent, [frozen("a")]), currentStageIndex: 0 })).toBe(true);
+  expect(withWorkspaceCheck(workflow, agent, [frozen("z"), frozen("a")]).stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, text: "Workspace checks pass (a, z)", scriptIds: ["a", "z"], scriptDefinitions: [frozen("a"), frozen("z")] }]);
 });
 
 test("every explicit AI check is bound without adding a default to a custom workflow", () => {

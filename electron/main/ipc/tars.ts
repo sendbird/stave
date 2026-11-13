@@ -9,7 +9,7 @@ import { invokeHostService } from "../host-service-client";
 import { getTarsConversationService } from "../tars-conversation-instance";
 import { ensureTarsEventBridge } from "../tars-events";
 import {
-  TarsActInputSchema, TarsAnswerInputSchema, TarsConversationSettingsSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema,
+  TarsActInputSchema, TarsAnswerInputSchema, TarsDismissInputSchema, TarsConversationSettingsSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema,
   TarsMessageInputSchema, TarsReprioritizeInputSchema, tarsMessageView,
 } from "../../../src/lib/tars/conversation";
 import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../src/lib/tars/publication";
@@ -67,6 +67,9 @@ export function registerTarsHandlers() {
     const input = TarsAnswerInputSchema.parse(rawInput);
     return (await getTarsConversationService()).answerDecision(input);
   });
+  // A dismissal names a saved decision only; main checks that it waits and records it. Nothing reaches the host.
+  ipcMain.handle(TARS_IPC.dismissDecision, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).dismissDecision(TarsDismissInputSchema.parse(rawInput)));
   ipcMain.handle(TARS_IPC.get, (_event, input: unknown) => {
     z.undefined().parse(input);
     return invokeHostService("tars.invoke", { action: "get", args: undefined });

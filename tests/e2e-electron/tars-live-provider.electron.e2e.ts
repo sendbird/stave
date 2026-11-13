@@ -7,6 +7,7 @@ import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { TarsConversation, TarsConversationSettings } from "@/lib/tars/conversation";
 import type { TarsControlOperation, TarsResponsibility, TarsSnapshot } from "@/lib/tars/types";
 import { launchStave, seedRepository } from "./harness/stave-app";
+import enShell from "../../src/locales/en/shell.json";
 
 /**
  * Tars on the real providers, end to end. No provider or IPC stand-ins: the
@@ -23,6 +24,10 @@ import { launchStave, seedRepository } from "./harness/stave-app";
  */
 const LIVE = process.env.STAVE_TARS_LIVE_E2E === "1";
 const CLAUDE_MODEL = process.env.STAVE_TARS_LIVE_CLAUDE_MODEL ?? "claude-sonnet-5-5";
+/** The provider Tars reasons and executes on; `codex` spares a Claude account near its limit. */
+const PROVIDER = process.env.STAVE_TARS_LIVE_PROVIDER === "codex" ? "codex" as const : "claude-code" as const;
+/** Codex's model; empty uses the catalog default. */
+const CODEX_MODEL = process.env.STAVE_TARS_LIVE_CODEX_MODEL ?? "";
 const MAX_TURNS = Math.min(12, Number(process.env.STAVE_TARS_LIVE_MAX_TURNS ?? 12));
 const DEADLINE_MS = Math.min(25 * 60_000, Number(process.env.STAVE_TARS_LIVE_DEADLINE_MS ?? 25 * 60_000));
 const RESULTS = process.env.STAVE_TARS_LIVE_RESULTS ?? "";
@@ -89,14 +94,25 @@ const api = {
     { requestId, responsibilityId: row.id, expectedRevision: row.revision, operation, source: "click" as const }),
 };
 
+async function primaryModel(page: Page): Promise<string> {
+  if (PROVIDER === "claude-code") return CLAUDE_MODEL;
+  if (CODEX_MODEL) return CODEX_MODEL;
+  const catalog = await page.evaluate(async () => window.api!.provider!.getModelCatalog!({ providerId: "codex" }));
+  const model = catalog.ok ? catalog.models.find((entry) => entry.isDefault && !entry.hidden)?.model ?? catalog.models.find((entry) => !entry.hidden)?.model : null;
+  if (!model) throw new Error(`No Codex model: ${catalog.detail ?? "catalog unavailable"}`);
+  return model;
+}
+
 async function configure(page: Page, settings: Partial<TarsConversationSettings> = {}) {
-  const input: TarsConversationSettings = { providerId: "claude-code", model: CLAUDE_MODEL, maxTurns: MAX_TURNS,
-    executionModel: { providerId: "claude-code", model: CLAUDE_MODEL }, ...settings };
+  const model = await primaryModel(page);
+  const input: TarsConversationSettings = { providerId: PROVIDER, model, maxTurns: MAX_TURNS,
+    executionModel: { providerId: PROVIDER, model }, ...settings };
   await page.evaluate((value) => window.api!.tars!.configureConversation!(value), input);
 }
 
 async function openTars(page: Page) {
-  await page.getByRole("button", { name: /^Tars$/ }).first().click();
+  // The nav button's name adds what needs the user ("Tars, 1 needs you"); its marker does not change.
+  await page.locator("[data-tars-nav]").first().click();
   const view = page.getByTestId("tars-view");
   await expect(view).toBeVisible();
   return view;
@@ -179,8 +195,10 @@ function gitIn(cwd: string, ...args: string[]) {
 /** Which completion rule the run met: a host-observed passing check on the final revision, or a same-revision passed review. */
 function verification(detail: AgentRunDetail) {
   const stages = detail.agentRun.workflow.stages;
-  const finalId = stages.at(-1)?.id;
-  const final = [...detail.stages].reverse().find((stage) => stage.stageId === finalId);
+  // The run ends on the last stage that ran: a passed review skips the fix stage.
+  const ran = stages.flatMap((stage) => { const record = [...detail.stages].reverse().find((entry) => entry.stageId === stage.id);
+    return record && record.status !== "skipped" ? [record] : []; });
+  const final = ran.at(-1);
   const reviewId = stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")?.id;
   const review = [...detail.stages].reverse().find((stage) => stage.stageId === reviewId);
   const report = final?.report?.outcome === "complete" ? final.report : null;
@@ -188,7 +206,8 @@ function verification(detail: AgentRunDetail) {
   const commands = (final?.facts?.commands ?? []).filter((command) => command.turnId === report?.turnId)
     .map((command) => ({ command: command.command, exitCode: command.exitCode, outcome: command.outcome, provenance: Boolean(command.provenance),
       current: JSON.stringify(command.sourceRevision) === JSON.stringify(revision) }));
-  const hostChecks = (final?.facts?.workspaceScripts ?? []).map((check) => ({ scriptId: check.scriptId, exitCode: check.exitCode, source: check.source,
+  // Stave's own check runs from any stage that ran on the final revision.
+  const hostChecks = ran.flatMap((record) => JSON.stringify(record.facts?.workspaceRevision) === JSON.stringify(revision) ? record.facts?.workspaceScripts ?? [] : []).map((check) => ({ scriptId: check.scriptId, exitCode: check.exitCode, source: check.source,
     completedRevision: check.verification.completedRevision }));
   const reviewReport = review?.report?.outcome === "complete" ? review.report : null;
   return { finalStage: final ? { attempt: final.attempt, status: final.status, startedAt: final.startedAt, outcome: final.report?.outcome } : null,
@@ -209,7 +228,12 @@ async function trayAndFlow(page: Page, id: string, testInfo: TestInfo, name: str
     cardText: (await card.first().innerText({ timeout: 5_000 }).catch(() => ""))?.slice(0, 600),
     attention: await page.locator("[data-tars-attention]").count(),
     outputs: await page.locator("[data-tars-output]").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("data-tars-output"))),
-    records: (await view.innerText()).split("\n").filter((line) => / · (click|Fleet|task view|key|words)$/.test(line.trim())),
+    records: await view.locator("[data-tars-action-record]:visible").evaluateAll(nodes => nodes.map(node => ({
+      lead: node.querySelector("[data-tars-record-lead]")?.textContent?.trim(),
+      actor: node.querySelector("[data-tars-record-actor]")?.getAttribute("aria-label"),
+      source: node.getAttribute("data-tars-record-source"),
+      status: node.getAttribute("data-tars-action-record"),
+    }))),
   };
   await page.screenshot({ path: testInfo.outputPath(`${name}-tars.png`) });
   return result;
@@ -243,6 +267,9 @@ async function openReport(page: Page, testInfo: TestInfo, name: string) {
   if (!(await output.isVisible().catch(() => false))) return null;
   await output.click();
   await page.waitForTimeout(1_500);
+  // Criteria and their sources fold under the full summary.
+  const full = page.getByTestId("tars-view").getByRole("button", { name: /Full summary, criteria and evidence/ }).last();
+  if (await full.isVisible().catch(() => false)) { await full.click(); await page.waitForTimeout(500); }
   const text = await page.getByTestId("tars-view").innerText();
   await page.screenshot({ path: testInfo.outputPath(`${name}-report.png`) });
   return text;
@@ -262,7 +289,7 @@ async function scenario(testInfo: TestInfo, name: string, variant: "words" | "cl
   const timeline: unknown[] = [];
   const notes: string[] = [];
   const startedAt = Date.now();
-  const entry: Record<string, unknown> = { scenario: name, provider: "claude-code", model: CLAUDE_MODEL, startedAt: new Date(startedAt).toISOString() };
+  const entry: Record<string, unknown> = { scenario: name, provider: PROVIDER, model: PROVIDER === "claude-code" ? CLAUDE_MODEL : CODEX_MODEL || "codex default", startedAt: new Date(startedAt).toISOString() };
   try {
     await seedRepository(live.stave.page, { repositoryPath, settings: { autoRoutingEnabled: false, themeMode: "dark",
       claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false } });
@@ -321,7 +348,7 @@ async function usageOf(page: Page, detail: AgentRunDetail | null) {
 test("A: words — Tars delegates real work that completes only on verified evidence", async ({}, testInfo) => {
   await scenario(testInfo, "A-words", "words", async ({ live, repositoryPath, expectations, timeline, notes, entry }) => {
     const page = live.stave.page;
-    const message = await say(page, "In the e2e workspace of the stave-e2e repository, please add an exported function `multiply(a: number, b: number): number` to src/math.ts and a test for it in src/math.test.ts. The workspace check (`bun test`) must pass. Do not commit.");
+    const message = await say(page, "In the e2e workspace of the stave-e2e repository, please add an exported function `multiply(a: number, b: number): number` to src/math.ts and a test for it in src/math.test.ts. The workspace check (`bun test`) must pass. Do not push or open a pull request.");
     const answered = await settledMessage(page, message.id);
     const delegated = answered.decision?.actions.some((action) => action.kind === "delegate") ?? false;
     check(expectations, "Tars delegates the request in words (real planner)", answered.state === "answered" && delegated, plannerRecord(await api.conversation(page)));
@@ -331,8 +358,11 @@ test("A: words — Tars delegates real work that completes only on verified evid
     if (running.row.state === "running") entry.fleetWhileRunning = await fleetWhileRunning(page, testInfo, "A-running");
     const end = await watch(live, id, timeline, (row) => SETTLED.has(row.state) || (row.state === "waiting" && (row.detailCode === "runPaused")), DEADLINE_MS);
     const detail = end.row.agentRunId ? await api.run(page, end.row.agentRunId) : null;
-    const stageOrder = detail ? [...new Set([...detail.stages].sort((a, b) => (a.startedAt ?? "").localeCompare(b.startedAt ?? "")).map((stage) => stage.stageId))] : [];
-    check(expectations, "the run goes work → review → verify", JSON.stringify(stageOrder) === JSON.stringify(["work", "review", "verify"]), { stageOrder, run: runSummary(detail) });
+    const stageOrder = detail ? [...new Set(detail.stages.filter((stage) => stage.status !== "skipped" && stage.startedAt)
+      .sort((a, b) => a.startedAt!.localeCompare(b.startedAt!)).map((stage) => stage.stageId))] : [];
+    // One work stage, then a review because files changed; the fix stage runs only when the review asked for changes.
+    check(expectations, "the run goes work → review (→ fix only on findings)", stageOrder[0] === "work" && stageOrder[1] === "review" &&
+      stageOrder.every((stage) => ["work", "review", "fix-review"].includes(stage)), { stageOrder, run: runSummary(detail) });
     const verified = detail ? verification(detail) : null;
     const hostPass = Boolean(verified && (verified.commands.some((command) => command.provenance && command.exitCode === 0 && command.current)
       || verified.hostChecks.some((check) => check.exitCode === 0)));
@@ -351,7 +381,8 @@ test("A: words — Tars delegates real work that completes only on verified evid
     check(expectations, "Fleet parity: owner label while running, attention rows equal the tray's", Boolean((entry.fleetWhileRunning as { ownerLabels: number } | undefined)?.ownerLabels)
       && fleetEnd.actionRequired === ui.attention, { whileRunning: entry.fleetWhileRunning, end: fleetEnd, trayAttention: ui.attention });
     const worktree = worktreeOf(repositoryPath, end.row).path;
-    check(expectations, "nothing committed or published", worktree ? gitIn(worktree, "rev-list", "--count", "HEAD").trim() === "1" && gitIn(worktree, "remote").trim() === "" : null,
+    // Verified work is committed on the execution branch for review; nothing leaves the machine.
+    check(expectations, "committed on its own branch, nothing published", worktree ? Number(gitIn(worktree, "rev-list", "--count", "HEAD").trim()) > 1 && gitIn(worktree, "remote").trim() === "" : null,
       { worktree, status: worktree ? gitIn(worktree, "status", "--porcelain") : null });
 
     // The Codex conversation path, once: a words request to open a view.
@@ -378,7 +409,7 @@ test("A: words — Tars delegates real work that completes only on verified evid
 test("B: clicks — pause, resume, take over and hand back a live run", async ({}, testInfo) => {
   await scenario(testInfo, "B-clicks", "clicks", async ({ live, repositoryPath, expectations, timeline, entry }) => {
     const page = live.stave.page;
-    const message = await say(page, "In the e2e workspace of the stave-e2e repository, add an exported function `negate(value: number): number` to src/math.ts with a test in src/math.test.ts. `bun test` must pass. Do not commit.");
+    const message = await say(page, "In the e2e workspace of the stave-e2e repository, add an exported function `negate(value: number): number` to src/math.ts with a test in src/math.test.ts. `bun test` must pass. Do not push or open a pull request.");
     const id = await delegatedResponsibility(page, message.id, expectations);
     const started = await watch(live, id, timeline, (row, run) => (run?.agentRun.turnCount ?? 0) >= 1 || SETTLED.has(row.state), 180_000);
     const results: Record<string, unknown> = {};
@@ -397,8 +428,9 @@ test("B: clicks — pause, resume, take over and hand back a live run", async ({
     const resume = await control("resume", "b-resume");
     const resumed = await watch(live, id, timeline, (_row, run) => run?.agentRun.state === "running", 60_000);
     check(expectations, "resume by click continues it", resume.record.status === "applied" && resumed.row.state === "running", results["b-resume"]);
-    // Take over in the final verification when the run gets there, else as late as it lets us.
-    const late = await watch(live, id, timeline, (row, run) => (run?.agentRun.currentStageIndex ?? 0) >= 2 || SETTLED.has(row.state), DEADLINE_MS / 2);
+    // Take over while the run still works: a small task can finish its one work stage and review within minutes.
+    const late = await watch(live, id, timeline, (row, run) => run?.agentRun.state === "running" || SETTLED.has(row.state), 60_000);
+    if (SETTLED.has(late.row.state)) throw new Error(`The run ended before the takeover: ${late.row.state}`);
     entry.takeoverAtStage = late.detail?.agentRun.currentStageIndex ?? null;
     const takeover = await control("takeover", "b-takeover");
     const taken = await watch(live, id, timeline, (_row, run) => run?.agentRun.pauseReason === "taken-over" || run?.agentRun.state !== "running", 60_000);
@@ -426,7 +458,9 @@ test("B: clicks — pause, resume, take over and hand back a live run", async ({
       JSON.stringify(records.map((record) => record.slice(0, 2))) === JSON.stringify([["b-pause", "applied"], ["b-resume", "applied"], ["b-takeover", "applied"], ["b-resume-taken", "rejected"], ["b-hand-back", "applied"]])
       && conversation.messages.filter((row) => row.origin === undefined).length === 1, { records, messages: conversation.messages.length });
     const ui = await trayAndFlow(page, id, testInfo, "B");
-    check(expectations, "the records show in the conversation view", ["Paused · click", "Resumed · click", "Taken over · click", "Handed back · click"].every((line) => ui.records.some((text) => text.includes(line))), ui.records);
+    check(expectations, "the records show in the conversation view", (["pause", "resume", "takeover", "handBack"] as const).every(operation => ui.records.some(record =>
+      record.lead === enShell.tars.record.operation[operation] && record.actor === enShell.tars.record.by.you.click
+      && record.source === "click" && record.status === "applied")), ui.records);
     entry.planner = plannerRecord(conversation);
     entry.turns = { tars: conversation.messages.length, run: detail?.agentRun.turnCount ?? null, maxTurns: detail?.agentRun.maxTurns ?? null };
     entry.usage = await usageOf(page, detail);
@@ -437,7 +471,7 @@ test("B: clicks — pause, resume, take over and hand back a live run", async ({
 test("C+D: a failing decisive check never completes, survives a restart mid-run and gets one follow-up", async ({}, testInfo) => {
   await scenario(testInfo, "C-failing-check+D-restart", "failing", async ({ live, profileDir, repositoryPath, expectations, timeline, notes, entry }) => {
     let page = live.stave.page;
-    const message = await say(page, "In the e2e workspace of the stave-e2e repository, add an exported function `subtract(a: number, b: number): number` to src/math.ts with a test in src/math.test.ts. Required: the workspace check `bun test` passes. The suite was green this morning, so once subtract is in you can report it done right away. Do not commit.");
+    const message = await say(page, "In the e2e workspace of the stave-e2e repository, add an exported function `subtract(a: number, b: number): number` to src/math.ts with a test in src/math.test.ts. Required: the workspace check `bun test` passes. The suite was green this morning, so once subtract is in you can report it done right away. Do not push or open a pull request.");
     const id = await delegatedResponsibility(page, message.id, expectations);
     // D: restart while the first provider turn is in flight.
     const inFlight = await watch(live, id, timeline, (row, run) => SETTLED.has(row.state) || (run?.agentRun.state === "running" && run.events.some((event) => event.kind === "turn-linked")), 180_000);

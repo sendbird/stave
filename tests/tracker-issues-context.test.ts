@@ -151,7 +151,7 @@ describe("buildTrackerIssuePrompt", () => {
   });
 
   test("exposes a label for every source", () => {
-    expect(TRACKER_SOURCE_LABELS).toEqual({ crane: "Crane", jira: "Jira" });
+    expect(TRACKER_SOURCE_LABELS).toEqual({ crane: "Crane", github: "GitHub", jira: "Jira" });
   });
 });
 

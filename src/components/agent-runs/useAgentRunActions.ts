@@ -117,7 +117,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
               now: new Date(),
             }),
           );
-          if (!started.ok) toast.error(i18n.t("agentRuns:useAgentRunActions.copy3"), { description: started.message });
+          if (!started.ok && started.code !== "daily-usage-limit") toast.error(i18n.t("agentRuns:useAgentRunActions.copy3"), { description: started.message });
         })();
       },
       onOpenPullRequest: (url) => void openExternalUrl({ url }),

@@ -70,7 +70,7 @@ export function TarsInsights({ identity, settings, bridge, onEditSettings, onOpe
     <Sheet open={view === "usage"} onOpenChange={(open) => { if (!open) close(); }}>
       <SheetContent xstyle={styles.sheet} style={textScale} data-tars-insights-sheet="usage">
         <SheetHeader><SheetTitle>{t("shell:tars.usage.title")}</SheetTitle><SheetDescription>{t("shell:tars.usage.description")}</SheetDescription></SheetHeader>
-        {view === "usage" ? <TarsUsageView state={usage.state} onReload={() => void usage.reload()} onOpenWork={(responsibilityId) => { close(); onOpenWork(responsibilityId); }} /> : null}
+        {view === "usage" ? <TarsUsageView state={usage.state} onReload={() => void usage.reload()} onOpenSettings={close} onOpenWork={(responsibilityId) => { close(); onOpenWork(responsibilityId); }} /> : null}
       </SheetContent>
     </Sheet>
   </>;

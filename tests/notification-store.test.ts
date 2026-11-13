@@ -3,6 +3,7 @@ import { describeAgentRunNotification } from "../src/lib/agent-runs/notification
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import type NativeDatabase from "better-sqlite3";
+import type { AppNotificationKind } from "../src/lib/notifications/notification.types";
 import { NotificationStore } from "../electron/persistence/notification-store";
 import type { PersistenceRepositoryRegistryEntry } from "../electron/persistence/types";
 
@@ -34,7 +35,7 @@ afterEach(() => database.close());
 
 function createNotification(args: {
   id: string;
-  kind?: "task.turn_completed" | "task.approval_requested";
+  kind?: AppNotificationKind;
   workspaceId?: string;
   providerId?: "stave" | "codex";
   dedupeKey?: string;
@@ -55,6 +56,19 @@ function createNotification(args: {
 }
 
 describe("NotificationStore SQL boundary", () => {
+  test("unresolved Tars needs survive history trimming, reading and expiry pruning until resolved", () => {
+    for (const kind of ["tars.decision_requested", "tars.result_ready", "tars.blocked"] as const) {
+      createNotification({ id: kind, kind, createdAt: "2026-01-01T00:00:00.000Z" });
+    }
+    store.markAllNotificationsRead({ readAt: "2026-01-01T00:01:00.000Z" });
+    for (let index = 0; index < 55; index++) createNotification({ id: `later-${index}`, createdAt: "2026-01-02T00:00:00.000Z" });
+    store.pruneNotifications({ now: "2026-02-01T00:00:00.000Z" });
+    expect(store.listNotifications().filter((row) => row.kind.startsWith("tars.")).map((row) => row.expiresAt)).toEqual([null, null, null]);
+    store.markNotificationRead({ id: "tars.result_ready", resolvedAt: "2026-01-02T00:00:00.000Z" });
+    store.pruneNotifications({ now: "2026-02-01T00:00:00.000Z" });
+    expect(store.listNotifications().filter((row) => row.kind.startsWith("tars.")).map((row) => row.id).sort())
+      .toEqual(["tars.blocked", "tars.decision_requested"]);
+  });
   test("deduplicates inserts and reads legacy provider ids through the same row mapper", () => {
     const first = createNotification({
       id: "first",

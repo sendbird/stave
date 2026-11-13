@@ -1,3 +1,4 @@
+import { TarsWorkActionSchema } from "@/lib/tars/conversation";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -50,7 +51,14 @@ export function buildTarsTrayFixtures(start: Date) {
       record("cause", { status: "running", attempt: 1, startedAt: at(4), endedAt: at(5) }),
       record("cause", { status: "running", attempt: 2, startedAt: at(6) }),
     ],
-    events: [],
+    events: [
+      { id: "billing-route", agentRunId: created.agentRun.id, sequence: 1, kind: "turn-started", idempotencyKey: "billing-dispatch",
+        detail: { stageId: "cause", attempt: 2, routeSelection: { version: 1, source: "adaptive",
+          previous: { providerId: "codex", model: "gpt-5.5" }, selected: { providerId: "codex", model: "gpt-6.1-sol" },
+          requestedEffort: "high", effortSource: "auto", inputs: { quota: "not-provided", catalog: "not-provided", availability: "not-provided" } } }, createdAt: at(9) },
+      { id: "billing-linked", agentRunId: created.agentRun.id, sequence: 2, kind: "turn-linked", idempotencyKey: "billing-dispatch:linked",
+        detail: { stageId: "cause", attempt: 2, turnId: "billing-turn" }, createdAt: at(9) },
+    ],
     report: null,
     resources: { rootRunId: created.agentRun.id, teamTurns: 30,
       policy: { version: 2, profile: "balanced", providerId: "codex", allowedModels: ["gpt-5.5"], modelLocked: false, effortLocked: false,
@@ -67,7 +75,7 @@ export function buildTarsTrayFixtures(start: Date) {
         acceptanceCriteria: billing.acceptanceCriteria, priority: billing.priority, agentId: "debugger",
         reason: "The failure only shows on empty lists, so the Debugger reproduces it before changing code." }] },
     error: null, createdAt: at(1), updatedAt: at(1) };
-  const receipt: TarsActionReceipt = { messageId: message.id, actionIndex: 0, requestHash: "c".repeat(64), action: message.decision!.actions[0]!,
+  const receipt: TarsActionReceipt = { messageId: message.id, actionIndex: 0, requestHash: "c".repeat(64), action: TarsWorkActionSchema.parse(message.decision!.actions[0]),
     status: "applied", responsibilityId: billing.id, error: null, reason: null, revision: 2, createdAt: at(1), updatedAt: at(1) };
   const activity: TarsActivity[] = [
     { id: "activity-billing-running", responsibilityId: billing.id, revision: 2, title: billing.title, state: "running", detail: null, createdAt: at(2) },

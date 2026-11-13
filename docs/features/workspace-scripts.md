@@ -141,6 +141,9 @@ Minimal shared config example:
 
 ## Limitations And Advanced Options
 
+- Before post-create commands or lifecycle scripts, new worktrees reuse Git-ignored dependencies from the source checkout on macOS and Linux (copy-on-write when supported). Setup still runs to reconcile lockfiles and native modules.
+- A repository-root `.worktreeinclude` uses gitignore-style allowlist rules, including comments and `!` exclusions, and replaces the defaults. Without it, only root `node_modules`, `node_modules` in `package.json` workspaces, and root `.venv` are eligible; environment and credential files are excluded. Explicit allowlists may include them.
+- Copying has a 30-second budget; failures show a short notice and continue normal setup. Other platforms skip copying. Tracked files, existing destinations and links outside the checkout are excluded. The shared-root `node_modules` option takes precedence for that directory.
 - The editor changes only shared `.stave/scripts.json` files.
 - The editor does not change `.stave/scripts.local.json`; edit that file by hand.
 - Orbit processes require the `Workspace` environment.

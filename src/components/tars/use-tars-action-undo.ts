@@ -15,6 +15,7 @@ export function useTarsActionUndo(record: TarsActionRecord) {
   const local = outcome?.requestId === record.requestId ? outcome : undefined;
   const current = local?.record && local.record.revision >= record.revision ? local.record : record;
   return {
+    record: current,
     available: Boolean(api?.undoAction && canUndoTarsAction(current)),
     undone: Boolean(current.undo?.undoneAt), pending, refusal: current.undo?.undoneAt ? undefined : local?.refusal,
     undo: async () => {

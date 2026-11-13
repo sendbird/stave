@@ -5,6 +5,7 @@ import { resolveTarsWorkRequest, type TarsWorkRequestSource } from "../../src/li
 import type { TarsResponsibility, TarsWorkRequest } from "../../src/lib/tars/types";
 import type { TarsMessage } from "../../src/lib/tars/conversation";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
+import { tarsExecutionScope } from "../../src/lib/tars/continuation";
 
 const MAX_REPOSITORIES = TARS_PLANNER_MAX_REPOSITORIES;
 const MAX_WORKSPACES = 24;
@@ -25,7 +26,21 @@ interface ObservationPorts extends Pick<SqliteStore, "loadRepositoryRegistry" | 
   tars: Pick<SqliteStore["tars"], "snapshot">;
   agentRuns: Pick<SqliteStore["agentRuns"], "getLatestAgentRunForTask">;
   /** Reads older work's admitting message back (`resolveTarsWorkRequest`); absent, such work shows `request: "notStored"`. */
-  tarsConversations?: Pick<SqliteStore["tarsConversations"], "workRequestOf" | "listOpenDeliveries">;
+  tarsConversations?: Pick<SqliteStore["tarsConversations"], "workRequestOf" | "listOpenDeliveries"> &
+    Partial<Pick<SqliteStore["tarsConversations"], "getAction">>;
+}
+
+/** Failed or withdrawn attempts remain history, while the previous continued run still owns its scope. */
+function observedFollowUpScope(row: TarsResponsibility, store: ObservationPorts) {
+  const scope = row.continuation;
+  if (!scope) return undefined;
+  if (row.agentRunId && row.agentRunId !== scope.previousRunId) return scope.text;
+  try {
+    const delivery = store.tarsConversations?.getAction?.(scope.requestId)?.delivery;
+    if (delivery?.status === "delivered" || delivery && (delivery.status === "queued" || delivery.status === "delivering") && !delivery.withdrawRequestedAt)
+      return scope.text;
+  } catch { /* An unreadable attempted scope is not current execution authority. */ }
+  return row.previousRunIds?.length ? tarsExecutionScope(row).instruction : undefined;
 }
 
 /** A bounded excerpt that says whether it was cut; never half of a surrogate pair. */
@@ -114,7 +129,7 @@ export function observeTarsContext(store: ObservationPorts,
   const waitingWords = new Map<string, Array<{ textExcerpt: string; status: string; queuedAt: string }>>();
   try {
     for (const record of store.tarsConversations?.listOpenDeliveries(32) ?? []) {
-      if (record.action.kind !== "control" || !record.delivery || !record.action.input?.text) continue;
+      if (record.action.kind !== "control" || !record.delivery || record.delivery.withdrawRequestedAt || !record.action.input?.text) continue;
       const list = waitingWords.get(record.action.responsibilityId) ?? [];
       if (list.length < 3) list.push({ textExcerpt: excerpt(record.action.input.text, 200).text, status: record.delivery.status, queuedAt: record.delivery.queuedAt });
       waitingWords.set(record.action.responsibilityId, list);
@@ -148,8 +163,11 @@ export function observeTarsContext(store: ObservationPorts,
     const owned = run && run.id === row.agentRunId && run.workspaceId === row.executionWorkspaceId &&
       run.repositoryPath === row.repositoryPath ? run : null;
     const instruction = row.delegatedInstruction ? excerpt(row.delegatedInstruction, TARS_INSTRUCTION_EXCERPT_CHARS) : null;
+    const followUpScope = observedFollowUpScope(row, store);
     return { id: row.id, revision: row.revision, title: row.title, workspaceId: row.workspaceId, repositoryPath: row.repositoryPath,
-      state: row.state, detail: row.detail, priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
+      state: row.state, completionGoal: row.completionGoal ?? "unspecified", detail: row.detail, taskId: row.taskId, executionWorkspaceId: row.executionWorkspaceId, agentRunId: row.agentRunId, resultVerifiedRunId: row.resultVerifiedRunId ?? null,
+      previousRunIds: row.previousRunIds ?? [],
+      ...(followUpScope ? { followUpScope: excerpt(followUpScope, 500).text } : {}), priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
       // The user's message that admitted it, in `requests`; "notStored" when Stave has no copy of it.
       request: asked.resolved.has(row.id) ? { messageId: asked.resolved.get(row.id)! } : "notStored" as const,
       // Tars's own instruction for the unit, as it proposed it; absent on work admitted before it was kept.
@@ -158,8 +176,9 @@ export function observeTarsContext(store: ObservationPorts,
       ...(row.attachments ? { attachments: row.attachments.items.map((item) => excerpt(item.name, 200).text) } : {}),
       requiresReverification: row.reverifyAfter !== null,
       // Whether its draft pull request is open, failed or underway; a URL only once opened.
-      ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url } } : {}),
-      source: "persisted-personal-responsibility", acceptanceCriteria: row.acceptanceCriteria.slice(0, 3),
+      ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url, agentRunId: row.publication.agentRunId,
+        branch: row.publication.branch, checks: row.publication.checks, fixRounds: row.publication.watch?.fixRounds ?? 0 } } : {}),
+      source: "persisted-personal-responsibility", acceptanceCriteria: tarsExecutionScope(row).acceptanceCriteria.slice(0, 3),
       // What the user's run commands need: why it paused, how many turns are left and which stage it is on.
       // stageAsksUser only when the stage really asks; stageWait says what it waits for (a gate asks nothing).
       ...(row.stageAsksUser && row.stageWait?.kind !== "gate" ? { stageAsksUser: true } : {}),

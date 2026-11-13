@@ -17,6 +17,8 @@ export function freezeAdaptivePolicy(args: {
   providerId: AdaptiveRunPolicy["providerId"]; model: string; agent: AgentConfig | null;
   draft?: PromptDraftRuntimeOverrides | null; settings: AgentRouteSettings | null; maxTurns: number;
   delegated?: boolean; effort?: string; modelPinned?: boolean; effortPinned?: boolean;
+  /** Explicit Run admission intent, separate from the task's saved draft. */
+  autoRouting?: boolean;
   /** The accounts selected when the Run was asked for; they win over the draft and the request scope. */
   accounts?: ProviderAccountSelection;
   exclusiveModels?: readonly string[];
@@ -50,6 +52,7 @@ export function freezeAdaptivePolicy(args: {
     ? args.settings ? listEligibleRouteModels({ profile: resolveAutoRoutingProfile(args.settings.routing), providerId, exclusiveModels: args.exclusiveModels }) : args.exclusiveModels
     : eligible?.length ? eligible : getSdkModelOptions({ providerId });
   return AdaptiveRunPolicySchema.parse({ version: 2, profile: "balanced", providerId,
+    ...(args.autoRouting !== undefined ? { autoRouting: args.autoRouting } : {}),
     accountProfileId: (providerId === "codex" ? args.accounts?.codexAccountProfileId ?? draft?.codexAccountProfileId : args.accounts?.claudeAccountProfileId ?? draft?.claudeAccountProfileId) ?? currentProviderAccountId(providerId),
     allowedModels: modelLocked ? [model] : [...new Set([model, ...candidates.filter((id) => args.exclusiveModels !== undefined || getModelCapability({ model: id })?.providerId === providerId)])],
     modelLocked, effortLocked, initialEffort,

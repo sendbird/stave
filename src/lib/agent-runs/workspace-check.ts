@@ -1,6 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import { formatList } from "@/i18n/format";
 import type { AgentConfig } from "../agents/schema";
+import { REVIEW_AGENT_ID } from "../agents/review-before-done";
 import type { Workflow, AiStage, WorkspaceCheckMode } from "../workflows/schema";
 import { AgentRunCommandError, latestStageRecord, type AgentRunAggregate, type AgentRunStageRecord } from "./domain";
 import { revisionsMatch, type FrozenWorkspaceScript, type WorkspaceRevision, type ScriptVerification } from "./verification-contract";
@@ -68,10 +69,26 @@ export function defaultWorkspaceCheckApplies(agent: Pick<AgentConfig, "id" | "pe
   return !(agent.workflow?.length && !["implementer", "debugger", "ui-polisher"].includes(agent.id));
 }
 
+/**
+ * The stage the default check belongs to: the last AI stage, or, when the
+ * workflow ends in "Review before done" (a review that may be skipped on
+ * unchanged work and a fix stage skipped when it passes), the work stage
+ * before them. The skipped stages then inherit the check
+ * (`unmetInheritedWorkspaceChecks`) instead of a required criterion on the
+ * fix stage blocking both skips.
+ */
+function defaultWorkspaceCheckStage(workflow: Workflow): Workflow["stages"][number] | undefined {
+  const stages = workflow.stages;
+  const [work, review, fix] = stages.slice(-3);
+  if (stages.length >= 3 && work?.kind === "ai" && review?.kind === "ai" && review.agentConfigId === REVIEW_AGENT_ID && review.pinCommit &&
+    fix?.kind === "ai" && fix.skipIfReviewPassed && !fix.agentConfigId) return work;
+  return [...stages].reverse().find((entry) => entry.kind === "ai");
+}
+
 /** Add or upgrade the primary write run's default after rebinding explicit checks. */
 export function withDefaultWorkspaceCheck(bound: Workflow, agent: Pick<AgentConfig, "id" | "permission" | "workflow"> | null, scripts: readonly FrozenWorkspaceScript[]): Workflow {
   if (!agent || !defaultWorkspaceCheckApplies(agent) || !scripts.length) return bound;
-  const stage = [...bound.stages].reverse().find((entry) => entry.kind === "ai");
+  const stage = defaultWorkspaceCheckStage(bound);
   if (!stage || stage.kind !== "ai") return bound;
   const definitions = [...scripts].sort((left, right) => left.scriptId < right.scriptId ? -1 : left.scriptId > right.scriptId ? 1 : 0);
   const ids = definitions.map((script) => script.scriptId);

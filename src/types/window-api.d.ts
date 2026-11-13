@@ -1431,6 +1431,7 @@ interface SourceControlCommandResult {
 }
 
 interface WindowSourceControlApi {
+  seedWorktreeDependencies?: (args: import("@/lib/worktree-dependencies").WorktreeDependenciesArgs) => Promise<import("@/lib/worktree-dependencies").WorktreeDependenciesResult>;
   getStatus?: (args: { cwd?: string }) => Promise<SourceControlStatusResult>;
   stageAll?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
   unstageAll?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
@@ -2193,6 +2194,7 @@ interface WindowPersistenceApi {
   usageStatistics?: (
     args: import("@/lib/providers/usage-statistics").UsageStatisticsArgs,
   ) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsResponse>;
+  dailyUsage?: import("@/lib/usage/daily-limit").DailyUsageApi;
   /** Activity's turn picker: a task's turns, newest first. */
   listTaskTurnHistory?: (
     args: import("@/lib/providers/turn-history").ListTaskTurnHistoryArgs,
@@ -3025,7 +3027,8 @@ interface WindowApi {
   /**
    * Desktop-owned durable conversation and local responsibility admission.
    * `answer` (`tars:answer`) answers a decision card option; controls it
-   * applies take `act`'s host path. `publish` (`tars:publish`) confirms a
+   * applies take `act`'s host path. `dismissDecision` (`tars:dismiss-decision`)
+   * closes a waiting decision card without an option; nothing applies. `publish` (`tars:publish`) confirms a
    * publish card and `previewPublish` (`tars:publish-preview`) reads what it
    * shows; the host commits, pushes and opens a draft pull request only on
    * that confirmation. `reprioritize` (`tars:reprioritize`) moves queued work

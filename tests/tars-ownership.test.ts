@@ -5,7 +5,7 @@ import { AgentRunStore } from "../electron/persistence/agent-run-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import { createAssignRuntime } from "../electron/host-service/supervision/assign-runtime";
 import { assertTarsAssignment, assertTarsRun, controlTarsRun, TarsOwnershipLostError } from "../electron/host-service/tars-ownership";
-import { tarsWorkflow } from "../electron/host-service/tars-execution";
+import { tarsExecutionAgentInstructions, tarsWorkflow } from "../electron/host-service/tars-execution";
 import { compileStagePrompt } from "../src/lib/workflows/stage-prompt";
 import { createAgentRun } from "../src/lib/agent-runs/domain";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
@@ -85,13 +85,18 @@ describe("Tars persisted ownership", () => {
     expect(() => assertTarsRun({ ...f.row, agentRunId: null }, latest)).toThrow("identity changed");
     f.database.close();
   });
-  test("review prompt never asks for a commit and explicitly reviews the same workspace diff", () => {
+  test("review prompt reviews the committed work in the same workspace at a pinned commit", () => {
     const f = fixture();
     const prompt = compileStagePrompt({ workflow: tarsWorkflow(f.row, NOW), stageIndex: 1, assignment: f.row.instruction,
       priorStages: [], acceptanceCriteria: [], attempt: 1 });
-    expect(prompt).not.toContain("commit only that work first");
-    expect(prompt).toContain("Do not create a commit for review");
-    expect(prompt).toContain("same workspace");
+    // The work is committed on the execution branch so the review has a commit range; nothing is published.
+    expect(prompt).toContain("commit only that work first");
+    expect(prompt).toContain("Do not create an empty commit");
+    expect(prompt).toContain("same-workspace");
+    expect(prompt).toContain("expectedHead");
+    // Authority is in the frozen lead instructions, not repeated in each workflow prompt.
+    const leadInput = `${tarsExecutionAgentInstructions(getBuiltinAgent("supervisor")!.instructions, f.row)}\n\n${prompt}`;
+    expect(leadInput).toContain("Do not push, open or update pull requests");
     f.database.close();
   });
 });
@@ -200,4 +205,26 @@ describe("Tars takeover and hand-back use the run's own takeover semantics", () 
     expect(lost.calls).toEqual([]);
     f.database.close(); reassigned.database.close();
   });
+});
+
+test("automatic extension rechecks its budget inside the run command queue", async () => {
+  const f = fixture();
+  try {
+    const run = { ...f.change.agentRun, state: "paused" as const, pauseReason: "limit-reached" as const, maxTurns: 50 };
+    const detail: AgentRunDetail = { agentRun: run, stages: f.change.upserts, events: [], report: null };
+    let extended = false;
+    const ports = { autoExtendMaxTurns: 60, hasAssignment: f.hasAssignment,
+      readTask: async () => ({ activeTurnId: null }), readRun: () => run, linkedTurns: () => [], userTurnIds: () => [], abortTurn: () => {},
+      agentRuns: { get: async () => detail, extend: async (_input: unknown, guard: (current: typeof run) => void) => {
+        // Another command used the last automatic allowance while this one waited.
+        guard({ ...run, maxTurns: 60 });
+        extended = true;
+        return detail;
+      } } };
+    await expect(controlTarsRun(f.row, "extend", ports as never)).rejects.toThrow("needs your confirmation");
+    expect(extended).toBe(false);
+    // An explicit confirmation has no automatic allowance fence; the normal run ceiling still owns its budget.
+    await controlTarsRun(f.row, "extend", { ...ports, autoExtendMaxTurns: undefined } as never);
+    expect(extended).toBe(true);
+  } finally { f.database.close(); }
 });

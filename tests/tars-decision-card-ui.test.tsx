@@ -314,3 +314,39 @@ describe("confirmation card", () => {
     expect(html).not.toContain("리비전");
   });
 });
+
+describe("dismissing a decision card", () => {
+  const closure = (patch: Partial<TarsDecisionAnswer> = {}): TarsDecisionAnswer => ({ decisionId: "ask:message:0", optionIndex: 0, source: "click", effect: { kind: "dismiss" },
+    label: null, status: "applied", reason: null, error: null, actRequestId: null, messageId: null, revision: 1, createdAt: NOW, updatedAt: NOW, ...patch });
+
+  test("every waiting card offers Dismiss beside Not now; pressing it closes that decision by click and answers nothing", () => {
+    const closed: Array<[string, string]> = [];
+    const answers: number[] = [];
+    for (const decision of [ask(), unverified()]) {
+      const { html, tree } = rendered(decision, (index) => answers.push(index), { onDismiss: () => {}, onDismissDecision: (view, source) => closed.push([view.id, source]) });
+      expect(buttonTag(html, "data-tars-decision-close")).toContain(">");
+      expect(html).toContain("Dismiss");
+      (findProp(tree, "data-tars-decision-close")!.onClick as () => void)();
+    }
+    expect(closed).toEqual([["ask:message:0", "click"], ["unverified:goal:4", "click"]]);
+    expect(answers).toEqual([]);
+    // Without the handler, the card offers no Dismiss.
+    expect(rendered(ask()).html).not.toContain("data-tars-decision-close");
+  });
+
+  test("a dismissed card folds to one record line: what waited, Dismissed and how; Stave's own choice says the work stays blocked", async () => {
+    const dismissed = rendered(ask({ state: "dismissed", closure: closure() })).html;
+    expect(dismissed).toContain('data-tars-decision-closure="dismissed"');
+    expect(dismissed).toContain('data-tars-record-source="click"');
+    expect(tarsRecordText(dismissed)).toContain("Dismissed");
+    expect(dismissed).not.toContain("data-tars-decision-option");
+    const blocked = rendered(unverified({ state: "dismissed", closure: closure({ decisionId: "unverified:goal:4", source: "key" }) })).html;
+    expect(blocked).toContain("The work stays blocked. Its controls are in the tray.");
+    const withdrawn = rendered(ask({ state: "withdrawn", closure: closure({ source: "tars", effect: { kind: "withdraw", messageId: "later", actionIndex: 0 } }) })).html;
+    expect(withdrawn).toContain('data-tars-record-actor="tars"');
+    expect(tarsRecordText(withdrawn)).toContain("Withdrawn by Tars");
+    applyAppLocale("ko"); await i18n.changeLanguage("ko");
+    expect(tarsRecordText(rendered(ask({ state: "dismissed", closure: closure() })).html)).toContain("닫음");
+    expect(rendered(ask(), () => {}, { onDismissDecision: () => {} }).html).toContain("닫기");
+  });
+});

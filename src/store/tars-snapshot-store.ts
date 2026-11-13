@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { create } from "zustand";
 import type { TarsBridgeApi, TarsResponsibility, TarsSnapshot } from "@/lib/tars/types";
 import { findTarsResponsibility, toTarsOwner, type TarsOwner, type TarsOwnershipTarget } from "@/lib/tars/ownership";
+import { subscribeTarsNotifications } from "./tars-notification-sync";
 
 /**
  * The last Tars snapshot any surface read: the app-wide subscription's reads
@@ -84,7 +85,10 @@ export function subscribeTarsSnapshot(bridge: TarsBridgeApi): () => void {
 export function useTarsChangeSubscription() {
   useEffect(() => {
     const bridge = tarsBridge();
-    return bridge ? subscribeTarsSnapshot(bridge) : undefined;
+    if (!bridge) return;
+    const offNotifications = subscribeTarsNotifications();
+    const offSnapshot = subscribeTarsSnapshot(bridge);
+    return () => { offNotifications(); offSnapshot(); };
   }, []);
 }
 

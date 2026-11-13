@@ -1,3 +1,6 @@
+import { TarsAllowRulesProvider, TarsAlwaysAllowButton } from "../src/components/tars/TarsAllowRules";
+import { SETTINGS } from "./tars-test-context";
+import type { TarsConversationSettings } from "../src/lib/tars/conversation";
 import { afterEach, describe, expect, test } from "bun:test";
 import { tarsRecordText } from "./tars-record-text";
 import { createElement, isValidElement, type ReactElement, type ReactNode } from "react";
@@ -69,7 +72,7 @@ describe("publish card", () => {
     expect(html.match(/value="feat: show the saved card first at checkout"/g)).toHaveLength(2);
     expect(html).not.toContain("readonly");
     expect(html).toContain('data-tars-publish-rows="repository,base,head,changedFiles"');
-    // No standing permission exists, and nothing offers it.
+    // Without conversation settings, this isolated card offers no standing permission.
     expect(html.toLowerCase()).not.toContain("always");
   });
 
@@ -167,4 +170,56 @@ describe("publish record and entry", () => {
     expect(renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ state: "running" }), onPublish: () => {} }))).toBe("");
     expect(renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ detailCode: "acceptedWithoutVerification" }), onPublish: () => {} }))).toBe("");
   });
+});
+
+test("Always allow on the draft PR card saves its repository and publishes the words already reviewed", async () => {
+  const { tree, calls } = rendered({ initial: { commitMessage: "fix: reviewed commit", title: "fix: reviewed title" } });
+  const allow = elements(tree).find((element) => element.type === TarsAlwaysAllowButton)!;
+  const saved: TarsConversationSettings[] = [];
+  let button: ReactNode = null;
+  function Capture() { button = TarsAlwaysAllowButton(allow.props as Parameters<typeof TarsAlwaysAllowButton>[0]); return button; }
+  const html = renderToStaticMarkup(createElement(TarsAllowRulesProvider, { settings: SETTINGS, busy: false,
+    configure: async (settings) => { saved.push(settings); return settings; }, children: createElement(Capture) }));
+  expect(html).toContain("Always allow");
+  await ((button as ReactElement<{ onClick: () => Promise<void> }>).props.onClick)();
+  expect(saved[0]?.allowRules).toEqual([{ key: "publish", repositoryPath: "/tmp/web" }]);
+  expect(calls.publish).toEqual([[{ commitMessage: "fix: reviewed commit", title: "fix: reviewed title" }, "click"]]);
+});
+
+for (const locale of ["en", "ko"] as const) test(`PR entry translates check states and uses pending for a different head (${locale})`, async () => {
+  await applyAppLocale(locale);
+  const publication = { state: "opened" as const, failedStep: null, commit: "a".repeat(40), branch: "work", base: "main",
+    commitMessage: "fix: checks", title: "fix: checks", url: "https://github.com/example/web/pull/12", number: 12,
+    error: null, reason: null, updatedAt: NOW };
+  const copy = locale === "en" ? { pending: "PR checks pending", passed: "PR checks passed", failed: "PR checks: 2 failures", none: "No PR checks reported", unavailable: "PR checks unavailable" }
+    : { pending: "PR 검사 대기 중", passed: "PR 검사 통과", failed: "PR 검사 2개 실패", none: "보고된 PR 검사 없음", unavailable: "PR 검사 확인 불가" };
+  for (const state of ["pending", "passed", "failed", "none", "unavailable"] as const) {
+    const html = renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ publication: { ...publication,
+      checks: { state, failing: state === "failed" ? ["lint", "unit"] : [], checkedAt: NOW, headSha: publication.commit } } }) }));
+    expect(html).toContain(`data-tars-pr-checks="${state}"`);
+    expect(html).toContain(copy[state]);
+    expect(html).toContain(publication.url);
+  }
+  const html = renderToStaticMarkup(createElement(TarsPublishEntry, { row: row({ publication: { ...publication,
+    checks: { state: "passed", failing: [], checkedAt: NOW, headSha: "b".repeat(40) } } }) }));
+  expect(html).toContain('data-tars-pr-checks="pending"');
+  expect(html).not.toContain(copy.passed);
+});
+
+
+test("a stopped PR watch renders its actual state in English and Korean", async () => {
+  const sha = "a".repeat(40);
+  for (const locale of ["en", "ko"]) {
+    applyAppLocale(locale); await i18n.changeLanguage(locale);
+    for (const stopped of ["expired", "unavailable", "closed", "merged"] as const) {
+      const work = row({ publication: { state: "opened", failedStep: null, commit: sha, branch: "work", base: "main", commitMessage: "fix: work", title: "fix: work",
+        url: "https://github.com/example/web/pull/7", number: 7, error: null, reason: null, updatedAt: NOW,
+        checks: { state: "pending", failing: [], checkedAt: NOW, headSha: sha },
+        watch: { startedAt: NOW, nextAt: NOW, polls: 1, stopped, fixRounds: 0 } } });
+      const html = renderToStaticMarkup(createElement(TarsPublishEntry, { row: work }));
+      expect(html).toContain(`data-tars-pr-checks="${stopped}"`);
+      expect(html).not.toContain('data-tars-pr-checks="pending"');
+      expect(html).toContain(i18n.t(`shell:tars.prChecks.${stopped === "unavailable" ? "stoppedUnavailable" : stopped}`));
+    }
+  }
 });

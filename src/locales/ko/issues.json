@@ -277,7 +277,9 @@
     "thisCraneInstallationDoesNotServeThe": "이 Crane 설치는 아직 작업 목록을 제공하지 않아 전송된 작업만 사용할 수 있습니다. 연결에는 문제가 없습니다.",
     "thisCraneInstallationHasTheTaskList": "이 Crane 설치에서 작업 목록이 비활성화돼 있습니다. 전송된 작업은 계속 사용할 수 있습니다.",
     "didNotSync": "동기화하지 못함",
-    "unavailable": "사용할 수 없음"
+    "unavailable": "사용할 수 없음",
+    "githubSetup": "GitHub CLI를 설치하고 github.com에 gh auth login으로 로그인한 뒤 이슈를 새로고침하세요.",
+    "githubUnavailable": "GitHub를 읽지 못했습니다. gh auth status와 연결 상태를 확인한 뒤 다시 시도하세요."
   },
   "group": {
     "inProgress": "진행 중",

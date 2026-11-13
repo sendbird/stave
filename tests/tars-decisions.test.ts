@@ -105,6 +105,55 @@ describe("Tars decision admission", () => {
     expect(f.responsibilities.snapshot().responsibilities.map((row) => row.maxTurns)).toEqual([7, 7, 7]);
   });
 
+  test.each([
+    ["Never delegate", "proposed"],
+    ["Never touch production", "proposed"],
+    ["Never cancel", "applied"],
+  ] as const)("shares one admission registry read with the rule %s", async (rule, status) => {
+    const f = fixture();
+    f.setRegistry([{ repositoryPath: "/tmp/source-repository", workspaces: [{ id: "source-workspace" }],
+      workspaceBranchById: { "source-workspace": "production" } }] as PersistenceRepositoryRegistryEntry[]);
+    const message = f.message([delegate()], { neverDo: [rule], allowRules: [{ key: "delegate", repositoryPath: "/tmp/source-repository" }] });
+    const input = { messageId: message.id, expectedRevision: message.revision };
+    const receipts = await applyTarsDecision(input, f.ports);
+    expect(receipts).toMatchObject([{ status }]);
+    expect(f.scopes).toHaveLength(1);
+    expect(f.responsibilities.snapshot().responsibilities).toHaveLength(status === "applied" ? 1 : 0);
+    if (status === "proposed") expect(receipts[0]!.matchedRules).toMatchObject([{ rule }]);
+    expect(await applyTarsDecision(input, f.ports)).toEqual(receipts);
+    expect(f.scopes).toHaveLength(1);
+  });
+
+  test("a rule cannot cause registry access for an attachment-only delegation", async () => {
+    const f = fixture();
+    const message = f.message([delegate()], { text: "", neverDo: ["Never delegate"], attachments: [
+      { type: "file_context", filePath: "requirements.txt", content: "Repair search.", language: "text" },
+    ] });
+    expect(await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports))
+      .toMatchObject([{ status: "rejected", reason: "missingMandate" }]);
+    expect(f.scopes).toHaveLength(0);
+  });
+
+  test("a held working-changes proposal never snapshots, even when the snapshot port is unavailable", async () => {
+    const f = fixture();
+    const message = f.message([delegate()], { includeWorkingChanges: true, neverDo: ["Never delegate"] });
+    expect(await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports))
+      .toMatchObject([{ status: "proposed", matchedRules: [{ rule: "Never delegate" }] }]);
+    expect(f.scopes).toHaveLength(1);
+    expect(f.responsibilities.snapshot().responsibilities).toHaveLength(0);
+  });
+
+  test("asynchronous snapshots require a fresh transaction read before admitting work", async () => {
+    const f = fixture();
+    f.ports.snapshotWorkingChanges = async () => { f.setRegistry([]); return { kind: "clean" }; };
+    const message = f.message([delegate()], { includeWorkingChanges: true, neverDo: ["Never cancel"] });
+    expect(await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports))
+      .toMatchObject([{ status: "rejected" }]);
+    // Snapshot scope and post-I/O mutation authority are separate admission moments.
+    expect(f.scopes).toHaveLength(2);
+    expect(f.responsibilities.snapshot().responsibilities).toHaveLength(0);
+  });
+
   test("concurrent and repeated requests cannot create another responsibility", async () => {
     const f = fixture(); const message = f.message();
     const input = { messageId: message.id, expectedRevision: message.revision };

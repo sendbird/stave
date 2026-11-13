@@ -31,6 +31,14 @@ export type TarsAwayLink =
   | { kind: "publishCard"; requestId: string }
   | { kind: "publishRecord"; requestId: string };
 
+/** Waiting forms live in the composer dock; settled cards and records stay in the transcript. */
+export function tarsAwayDockId(link: TarsAwayLink, decisions: readonly Pick<TarsDecisionView, "id" | "state">[],
+  publications: readonly Pick<TarsPublishProposalView, "requestId" | "state">[] = []): string | null {
+  if (link.kind === "decision") return decisions.some((decision) => decision.id === link.decisionId && decision.state === "waiting") ? link.decisionId : null;
+  if (link.kind === "publishCard") return publications.some((proposal) => proposal.requestId === link.requestId && proposal.state === "waiting") ? link.requestId : null;
+  return null;
+}
+
 export interface TarsAwayItem {
   /** Unique in its group. */
   key: string;

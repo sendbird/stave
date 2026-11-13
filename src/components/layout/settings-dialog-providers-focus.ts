@@ -22,6 +22,7 @@ const PERMISSIONS_TAB_BY_FIELD_ID = new Map<string, ProviderId>(
   ]),
 );
 const PROVIDERS_FIELD_IDS: ReadonlySet<string> = new Set([
+  "daily-limits",
   ...PERMISSIONS_TAB_BY_FIELD_ID.keys(),
   ACCOUNT_USAGE_LIMIT_FIELD_ID,
   DELEGATION_FIELD_ID,

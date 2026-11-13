@@ -9,10 +9,11 @@ import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate"
 import { createCodexApprovalReviewTracker } from "./codex-approval-review";
 import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
-import { summarizeCodexAppServerDebugMessage, extractCodexAppServerErrorMessage } from "./codex-app-server-errors";
+import { summarizeCodexAppServerDebugMessage, extractCodexAppServerErrorMessage, isCodexRoutingDiscoveryFailure } from "./codex-app-server-errors";
 import { codexChildRequestOwner } from "./codex-request-owner";
 export { summarizeCodexAppServerDebugMessage } from "./codex-app-server-errors";
 import { CodexClientLifetime } from "./codex-thread-lifetime";
+import { initializeCodexAppServer, retryCodexStartup } from "./codex-startup-retry";
 import {
   buildCodexCompactionCompletedEvent,
   compactCodexThreadWithClient,
@@ -79,7 +80,7 @@ import {
   type CodexMcpServerStatus,
 } from "./codex-app-server-mcp-status";
 import { readStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
-import { buildCodexMcpAppInitializeCapabilities, createCodexMcpAppViewCapture, noteCodexMcpAppViewsSetting } from "./codex-mcp-app-views";
+import { createCodexMcpAppViewCapture, noteCodexMcpAppViewsSetting } from "./codex-mcp-app-views";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import {
   getCodexMcpConfigPathGroups,
@@ -475,6 +476,7 @@ class CodexAppServerClient {
   private process: ChildProcessWithoutNullStreams | null = null;
   private processStartedAt: number | null = null;
   private startupPromise: Promise<void> | null = null;
+  private startupAbort = new AbortController();
   private nextRequestId = 1;
   private pendingResponses = new Map<
     JsonRpcId,
@@ -522,7 +524,13 @@ class CodexAppServerClient {
     if (this.startupPromise) {
       return this.startupPromise;
     }
-    this.startupPromise = withProviderAccountScope({ codexAccountProfileId: this.accountProfileId }, () => this.start());
+    this.startupAbort = new AbortController();
+    this.startupPromise = withProviderAccountScope({ codexAccountProfileId: this.accountProfileId }, () => retryCodexStartup(async () => {
+      try { await this.start(); } catch (error) {
+        this.teardownProcess(toErrorMessage(error));
+        throw error;
+      }
+    }, { initialize: true, signal: this.startupAbort.signal }));
     try {
       await this.startupPromise;
     } finally {
@@ -554,7 +562,10 @@ class CodexAppServerClient {
       await this.ensureStarted();
       if (options?.signal?.aborted) throw new Error(`Codex App Server ${method} was canceled.`);
       // JSON-RPC carries unknown data; the caller owns the response contract.
-      return (await this.sendRequest(method, params, options)) as T;
+      const startupRequest = ["account/read", "thread/start", "thread/resume"].includes(method);
+      const send = () => this.sendRequest(method, params, { ...options, timeoutMs: options?.timeoutMs ?? (startupRequest ? 30_000 : undefined) });
+      return (await (startupRequest
+        ? retryCodexStartup(send, { signal: options?.signal }) : send())) as T;
     } finally {
       this.lifetime.schedule();
     }
@@ -602,6 +613,7 @@ class CodexAppServerClient {
   }
 
   dispose(message = "Codex App Server closed.") {
+    this.startupAbort.abort();
     if (!this.process) {
       this.lastErrorMessage = message;
       return;
@@ -615,14 +627,13 @@ class CodexAppServerClient {
     }
 
     const processStartedAt = Date.now();
+    this.lastErrorMessage = null;
     const child = spawn(
       this.executablePath,
       ["app-server", "--listen", "stdio://"],
       {
         stdio: ["pipe", "pipe", "pipe"],
-        // Runtime-owned env is spread last, and reserved names are stripped
-        // from the bound secrets first, so an injected secret can never claim a
-        // Stave runtime variable. Mirrors `buildClaudeQueryOptions`.
+        // Runtime-owned env wins over reserved bound-secret names, as in Claude.
         env: {
           ...stripReservedSecretEnvNames(this.secretEnv),
           ...noteCodexApiConnectionSpawn(this, noteLoginShellEnvSpawn(this, (loginShellValues) => buildCodexCliEnv({ executablePath: this.executablePath, accountProfileId: this.accountProfileId, loginShellValues }))),
@@ -695,6 +706,7 @@ class CodexAppServerClient {
     });
 
     child.stderr.on("data", (chunk) => {
+      if (child !== this.process) return;
       const text = String(chunk);
       if (text.trim().length > 0) {
         this.lastErrorMessage = text.trim();
@@ -707,16 +719,14 @@ class CodexAppServerClient {
         return;
       }
       this.teardownProcess(
-        signal
+        this.lastErrorMessage && isCodexRoutingDiscoveryFailure(this.lastErrorMessage)
+          ? this.lastErrorMessage : signal
           ? `Codex App Server exited with signal ${signal}.`
           : "Codex App Server exited.",
       );
     });
 
-    // A spawn failure (ENOENT/EACCES/EMFILE) or an async stdin write failure
-    // (EPIPE against a dying process) surfaces as an 'error' event; without a
-    // listener it becomes an uncaught exception that takes down the entire
-    // shared host service instead of failing just this client.
+    // Handle spawn/stdin failures locally so they cannot crash the shared host.
     child.on("error", (error) => {
       if (child !== this.process) {
         return;
@@ -734,18 +744,7 @@ class CodexAppServerClient {
       );
     });
 
-    const mcpAppCapabilities = buildCodexMcpAppInitializeCapabilities();
-    this.mcpAppExtensionAdvertised = Boolean(mcpAppCapabilities.extensions);
-    await this.sendRequest("initialize", {
-      clientInfo: {
-        name: "stave",
-        version: "0.1.0",
-      },
-      capabilities: {
-        experimentalApi: true,
-        ...mcpAppCapabilities,
-      },
-    });
+    this.mcpAppExtensionAdvertised = await initializeCodexAppServer(this.sendRequest.bind(this));
     this.writeToProcessStdin(child, {
       jsonrpc: "2.0",
       method: "initialized",
@@ -754,11 +753,7 @@ class CodexAppServerClient {
     this.initialized = true;
   }
 
-  /**
-   * Best-effort framed write that never throws: a destroyed or unwritable
-   * stdin reports failure instead of crashing the caller, and async write
-   * errors are handled by the stdin 'error' listener installed in start().
-   */
+  /** Best-effort framed write; start() handles async stdin errors. */
   private writeToProcessStdin(
     child: ChildProcessWithoutNullStreams,
     payload: unknown,
@@ -1786,6 +1781,11 @@ export async function streamCodexWithAppServer(
   let client = getCodexAppServerClient({
     executablePath: codexExecutablePath,
   });
+  try { await client.ensureStarted(); } catch (error) {
+    const events = buildCodexTerminalFailureEvents({ message: toErrorMessage(error) });
+    events.forEach((event) => args.onEvent?.(event));
+    return events;
+  }
   const codexMcpConfigPaths = await resolveCodexMcpConfigPathGroups({
     client,
     cwd: runtimeCwd,
@@ -1827,10 +1827,10 @@ export async function streamCodexWithAppServer(
   );
   let releaseResourceOwner = () => {};
   try {
-    await client.ensureStarted();
-    const resourcePid = client.getProcessId();
-    if (resourcePid) releaseResourceOwner = retainResourceProcessOwner(resourcePid, args);
     try {
+      await client.ensureStarted();
+      const resourcePid = client.getProcessId();
+      if (resourcePid) releaseResourceOwner = retainResourceProcessOwner(resourcePid, args);
       // An API connection checks its saved key here instead of a Codex sign-in.
       const account = await readCodexTurnAccount(client.request.bind(client));
       if (!account.account && account.requiresOpenaiAuth) {
