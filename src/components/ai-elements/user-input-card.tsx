@@ -18,7 +18,7 @@ import {
   readUserInputAnswer,
 } from "@/lib/user-input-answers";
 import { Button as AuiButton } from "@/components/aui/components/Button";
-import { CappedViewport } from "@/components/aui/components/CappedViewport";
+import { UserInputOptionPreview } from "./user-input-option-preview";
 import { sx } from "@/components/aui/utils/stylex";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { userInputCardStyles as styles } from "./user-input-card.styles";
@@ -71,9 +71,6 @@ interface PreviewTarget {
   questionKey: string;
   value: string;
 }
-
-/** A preview is a snippet to compare, so it stays short and scrolls. */
-const OPTION_PREVIEW_MAX_BLOCK_SIZE = 200;
 
 /**
  * A single-choice pick moves to the next question after this pause, so the
@@ -639,11 +636,6 @@ export function UserInputCard(args: UserInputCardProps) {
                 : focusedOption?.questionKey === questionKey
                   ? focusedOption
                   : null;
-            const previewRow = hasPreviews
-              ? optionRows.find(
-                  (row) => row.value === previewTarget?.value && row.preview,
-                )
-              : undefined;
             const previewLabelId = `${previewIdPrefix}-preview-${questionIndex}`;
             const customLabel = i18n.t("composer:userInputCard.ariaLabel", {
               value1: question.question,
@@ -813,34 +805,12 @@ export function UserInputCard(args: UserInputCardProps) {
                     </div>
                   ) : null}
 
-                  {previewRow?.preview ? (
-                    <div
-                      className={sx(styles.optionPreview)}
-                      data-option-preview={previewRow.value}
-                    >
-                      <span
-                        className={sx(styles.optionPreviewLabel)}
-                        id={previewLabelId}
-                      >
-                        {i18n.t("composer:userInputCard.optionPreview", {
-                          label: previewRow.label,
-                        })}
-                      </span>
-                      {/* A region, not a log: the text swaps as focus moves
-                          between options and must not be announced. It takes
-                          focus so a long preview scrolls from the keyboard. */}
-                      <CappedViewport
-                        aria-labelledby={previewLabelId}
-                        maxBlockSize={OPTION_PREVIEW_MAX_BLOCK_SIZE}
-                        role="region"
-                        tabIndex={0}
-                        xstyle={[styles.optionPreviewViewport, focusRing.ring]}
-                      >
-                        <pre className={sx(styles.optionPreviewText)}>
-                          {previewRow.preview}
-                        </pre>
-                      </CappedViewport>
-                    </div>
+                  {hasPreviews ? (
+                    <UserInputOptionPreview
+                      rows={optionRows}
+                      activeValue={previewTarget?.value}
+                      idPrefix={previewLabelId}
+                    />
                   ) : null}
 
                   {inputType === "url_notice" && question.linkUrl ? (

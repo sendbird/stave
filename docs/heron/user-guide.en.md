@@ -249,7 +249,7 @@ Thinking bodies render Markdown, including bold text, lists and code, both while
 
 Tool output, reasoning, and folded tool groups load their bodies on first open and keep them after closing. Open a body before using browser find or printing its contents.
 
-**Questions**: when the AI asks a question with choices, the number keys pick an option. A Claude option can carry a preview, such as a code snippet; it shows under the options while that option has focus or the pointer.
+**Questions**: when the AI asks a question with choices, the number keys pick an option. A Claude option can carry a preview, such as a code snippet; it shows under the options while that option has focus or the pointer. Its space stays reserved while you browse, including choices without a preview, so the question and choices stay in place.
 
 **Queue**: messages sent while a turn runs wait on the shelf above the composer. Each has **Steer** (fold it into the running turn), **Send**, **Edit** and **Delete**; **Clear all** empties the shelf. A queue restored after a restart waits until you select **Resume**. Select **Stop** to stop the turn.
 
