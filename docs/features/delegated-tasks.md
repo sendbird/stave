@@ -330,6 +330,11 @@ since the previous turn, so an agent that delegated work never asks for it.
 
 ### Answer A Child's Question
 
+When a question includes option previews, the preview space stays reserved as
+focus or the pointer moves between choices, including choices without a preview.
+Only the current preview is visible and keyboard-accessible. The question and
+its choices stay in place in both the task composer and the delegated request slot.
+
 A child that needs an approval or an answer raises an interaction request that
 stays the child's: it is answered against the child's own task, turn and
 request. Stave publishes it once, attributed to the root of the delegation
