@@ -578,6 +578,17 @@ export function ComposerFramePreviewApp() {
                   />
                 ) : null}
                 <PromptInput
+                  pendingUserInput={
+                    previewParams.get("questionPreview") === "1" &&
+                    PREVIEW_CHILD_QUESTION_WITH_PREVIEW.part.type === "user_input"
+                      ? {
+                          messageId: PREVIEW_CHILD_QUESTION_WITH_PREVIEW.messageId,
+                          part: PREVIEW_CHILD_QUESTION_WITH_PREVIEW.part,
+                        }
+                      : undefined
+                  }
+                  onUserInputSubmit={() => {}}
+                  onUserInputDeny={() => {}}
                   runAccountPool={runAccountPool}
                   framed={framed}
                   isTurnActive={turnActive}
