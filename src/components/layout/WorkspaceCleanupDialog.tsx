@@ -98,7 +98,8 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     });
     anchor.current = key;
   };
-  const act = async (action: WorkspaceCleanupActArgs["action"], targets: WorkspaceCleanupActArgs[] = selectedRows.filter((row) => action === "restore" ? row.archived : action === "deleteBranch" ? row.branchOnly && row.branchDeletable : action === "archive" ? !row.archived && !row.branchOnly : !row.branchOnly).map((row) => ({ action, workspaceId: row.id, repositoryPath: row.repositoryPath, deleteBranch, forceDeleteBranch }))) => {
+  const actionRows = (action: WorkspaceCleanupActArgs["action"]) => selectedRows.filter((row) => action === "restore" ? row.archived : action === "deleteBranch" ? row.branchOnly && row.branchDeletable : action === "archive" ? !row.archived && !row.branchOnly : !row.branchOnly);
+  const act = async (action: WorkspaceCleanupActArgs["action"], targets: WorkspaceCleanupActArgs[] = actionRows(action).map((row) => ({ action, workspaceId: row.id, repositoryPath: row.repositoryPath, deleteBranch, forceDeleteBranch }))) => {
     setBusy(true); setConfirming(null); setResults([]);
     const finished: WorkspaceCleanupResult[] = [];
     const archived: WorkspaceCleanupActArgs[] = [];
@@ -126,7 +127,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     </Button>
     <span className={sx(styles.size)}>{row.bytes === null ? t("cleanupDialog.row.notScanned") : formatResourceBytes(row.bytes)}</span>
   </div>;
-  const actionCount = (action: WorkspaceCleanupActArgs["action"]) => selectedRows.filter((row) => action === "restore" ? row.archived : action === "deleteBranch" ? row.branchOnly && row.branchDeletable : action === "archive" ? !row.archived && !row.branchOnly : !row.branchOnly).length;
+  const actionCount = (action: WorkspaceCleanupActArgs["action"]) => actionRows(action).length;
   return <><Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
     <DialogContent xstyle={styles.dialog}>
       <DialogHeader><DialogTitle>{t("cleanupCenter.title")}</DialogTitle><DialogDescription>{t("cleanupCenter.description")}</DialogDescription></DialogHeader>
@@ -140,15 +141,15 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         {!busy && !rows.length && <p>{t("cleanupDialog.empty")}</p>}
       </div>
       {confirming && <div role="alert" className={sx(styles.identity)}><p>{t(confirming === "archive" ? "cleanupCenter.archiveConfirm" : confirming === "delete" ? "cleanupCenter.deleteConfirm" : "cleanupCenter.branchConfirm")}</p>
-        <ul>{selectedRows.map((row) => <li key={rowKey(row)}>{row.name} · {row.path} · {row.branch}</li>)}</ul>
-        {confirming === "delete" && selectedRows.every((row) => row.branchDeletable) && <Checkbox label={t("cleanupCenter.alsoDeleteBranch")} checked={deleteBranch} onCheckedChange={(value) => setDeleteBranch(Boolean(value))} />}
+        <ul>{actionRows(confirming).map((row) => <li key={rowKey(row)}>{row.name} · {row.path} · {row.branch}</li>)}</ul>
+        {confirming === "delete" && actionRows("delete").every((row) => row.branchDeletable) && <Checkbox label={t("cleanupCenter.alsoDeleteBranch")} checked={deleteBranch} onCheckedChange={(value) => setDeleteBranch(Boolean(value))} />}
         {confirming === "delete" && <Checkbox label={t("cleanupCenter.forceDeleteBranch")} checked={forceDeleteBranch} onCheckedChange={(value) => { setForceDeleteBranch(Boolean(value)); if (value) setDeleteBranch(true); }} />}
         <div className={sx(styles.actions)}><Button variant="secondary" onClick={() => setConfirming(null)}>{t("common:actions.cancel")}</Button><Button variant="destructive" onClick={() => void act(confirming)}>{t("cleanupCenter.confirm")}</Button></div>
       </div>}
       <div className={sx(styles.toolbar)}>{(["archive", "delete", "deleteBranch", "restore"] as const).map((action) => <Button key={action} size="sm" variant={action === "delete" || action === "deleteBranch" ? "destructive" : "secondary"} disabled={busy || !actionCount(action)} onClick={() => { setDeleteBranch(false); setForceDeleteBranch(false); if (action === "restore") void act(action); else setConfirming(action); }}>{t(`cleanupCenter.actions.${action}`, { count: actionCount(action) })}</Button>)}</div>
       {message && <p role="status" className={sx(styles.status)}>{message}{undo.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act("restore", undo)}>{t("cleanupCenter.undo")}</Button>}</p>}
       {results.some((result) => !result.ok) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok).map((result, index) => <p className={sx(styles.status)} key={index}>{result.workspaceId} · {reasonText(result.reason ?? "unavailable")}</p>)}</div>}
-      <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>{data?.recent.map((item, index) => <div key={index} className={sx(styles.toolbar)}><span className={sx(styles.muted)}>{formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {item.workspaceId} · {item.ok ? t("cleanupCenter.completed") : reasonText(item.reason ?? "unavailable")}</span>{item.ok && item.action === "archive" && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}</div>)}</div></details>
+      <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>{data?.recent.map((item, index) => <div key={index} className={sx(styles.toolbar)}><span className={sx(styles.muted)}>{formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {item.workspaceId} · {item.ok ? t("cleanupCenter.completed") : reasonText(item.reason ?? "unavailable")}</span>{item.ok && (item.action === "archive" || item.action === "removeWorktree") && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}</div>)}</div></details>
     </DialogContent>
   </Dialog>{history && <WorkspaceArchivedHistory {...history} onClose={() => setHistory(null)} />}</>;
 }

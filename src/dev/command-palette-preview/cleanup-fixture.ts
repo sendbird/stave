@@ -7,7 +7,7 @@ export function installCleanupFixture() {
   const base: WorkspaceCleanupRow = { id: "cleanup-one", repositoryPath: "/tmp/cleanup-preview", repositoryName: "tools", name: "Finished work", path: "/tmp/cleanup-preview/finished", branch: "feat/finished", archived: false, branchOnly: false, readOnly: false, archivedAt: null, lastActive: "2026-10-01T00:00:00.000Z", blockers: [], reasons: ["prMerged", "inactive:30"], bytes: 48 * 1024 * 1024, branchDeletable: true };
   let rows: WorkspaceCleanupRow[] = [base, { ...base, id: "cleanup-dirty", name: "Uncommitted work", path: "/tmp/cleanup-preview/dirty", blockers: ["changedFiles"] }, { ...base, id: "cleanup-archived", name: "Earlier work", archived: true, archivedAt: "2026-11-01T00:00:00.000Z", bytes: 0 }];
   if (params.has("many")) rows = [...rows, ...Array.from({ length: 150 }, (_, index) => ({ ...base, id: `cleanup-extra-${index}`, name: `Finished ${index}` }))];
-  const recent: Awaited<ReturnType<WorkspaceCleanupApi["list"]>>["recent"] = [];
+  const recent: Awaited<ReturnType<WorkspaceCleanupApi["list"]>>["recent"] = [{ ok: true, action: "removeWorktree", workspaceId: "cleanup-archived", repositoryPath: base.repositoryPath, reason: null, automatic: true, at: "2026-11-01T00:00:00.000Z" }];
   let policy = DEFAULT_WORKSPACE_CLEANUP_POLICY;
   const api: WorkspaceCleanupApi = {
     onChanged: () => () => {},

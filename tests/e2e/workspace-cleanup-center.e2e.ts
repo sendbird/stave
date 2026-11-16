@@ -63,3 +63,20 @@ test("mixed selection reports a blocked item and long lists virtualize", async (
   await expect(page.getByRole("status")).toContainText("Completed 1; skipped 1.");
   await expect(page.getByTestId("cleanup-row-cleanup-dirty")).toContainText("Changed files");
 });
+
+// Automatic checkout removal retains archive identity and the same Restore path.
+test("recent automatic worktree removal offers restore", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+  await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+  await page.getByText("Clean up workspaces", { exact: true }).click();
+  const row = page.getByTestId("cleanup-row-cleanup-archived");
+  await expect(row).toContainText("Archived");
+  await page.getByRole("button", { name: "Select all ready" }).click();
+  await page.getByRole("button", { name: "Archive (1)", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Finished work");
+  await expect(page.getByRole("alert")).not.toContainText("Earlier work");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByText("Recent cleanup", { exact: true }).click();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  await expect(row).not.toContainText("Archived");
+});
