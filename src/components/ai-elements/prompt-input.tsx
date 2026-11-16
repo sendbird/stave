@@ -473,7 +473,7 @@ export function PromptInput(args: PromptInputProps) {
         data-pending-interaction-request-id={pendingUserInput.part.requestId}
         tabIndex={-1}
       >
-        <UserInputCard
+        <UserInputCard key={pendingUserInput.part.requestId}
           toolName={pendingUserInput.part.toolName}
           questions={pendingUserInput.part.questions}
           state={pendingUserInput.part.state}

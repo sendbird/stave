@@ -197,7 +197,7 @@ export function buildAssistantTrace(args: {
         }
         return;
       case "user_input":
-        entries.push({ kind: "user_input", id: `user-input-${index}`, part });
+        entries.push({ kind: "user_input", id: `user-input-${part.requestId}`, part });
         return;
       case "code_diff": {
         const previous = entries.at(-1);

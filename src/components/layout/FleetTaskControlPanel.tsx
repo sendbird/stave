@@ -732,7 +732,7 @@ export function FleetTaskControlPanel(args: {
 
       {pendingPart?.type === "user_input" ? (
         <div className={sx(styles.section)}>
-          <UserInputCard
+          <UserInputCard key={pendingPart.requestId}
             toolName={pendingPart.toolName}
             questions={pendingPart.questions}
             state={pendingPart.state}
