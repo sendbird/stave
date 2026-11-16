@@ -109,7 +109,8 @@ async function seed(page: Page) {
   // Two turns have gone quiet: one in the open workspace, one in a workspace
   // another surface already loaded.
   await page.evaluate(async () => {
-    const { useAppStore } = await import("/src/store/app.store.ts");
+    // Reuse the app graph revision; a bare import can create a separate store after HMR.
+    const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
     const { createEmptyWorkspaceState } = await import(
       "/src/store/workspace-session-state.ts"
     );
@@ -197,7 +198,7 @@ test("Fleet bulk keyboard, mouse, stop confirmation and rendered selection state
     useFleetSelectionStore.getState().selectAll();
   });
   await page.evaluate(async () => {
-    const {useAppStore} = await import('/src/store/app.store.ts');
+    const {useAppStore} = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
     useAppStore.getState().updateSettings({patch:{themeMode:'light'}});
   });
   await expect(page.locator('html')).not.toHaveClass(/dark/);
@@ -236,7 +237,7 @@ test("Fleet bulk keyboard, mouse, stop confirmation and rendered selection state
   await expect(confirmation).toBeVisible();
   await expect(confirmation).toContainText('Stop 1 task?');
   await confirmation.getByRole('button',{name:'Confirm',exact:true}).click();
-  await expect.poll(() => page.evaluate(async () => { const {useAppStore}=await import('/src/store/app.store.ts'); return useAppStore.getState().activeTurnIdsByTask['task-0-0'] ?? null; })).toBeNull();
+  await expect.poll(() => page.evaluate(async () => { const {useAppStore}=await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name); return useAppStore.getState().activeTurnIdsByTask['task-0-0'] ?? null; })).toBeNull();
 });
 
 
@@ -244,7 +245,7 @@ test("S1 bulk Stop targets exactly the applicable running selection", async ({pa
   test.setTimeout(120_000);
   await seed(page);
   await page.evaluate(async () => {
-    const {useAppStore} = await import('/src/store/app.store.ts');
+    const {useAppStore} = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
     const {useFleetSelectionStore} = await import('/src/store/fleet-selection-store.ts');
     const selected = useFleetSelectionStore.getState(); selected.clear();
     for (const target of selected.visibleTargets) if (['task-0-0','task-2-1','task-3-0'].includes(target.taskId)) selected.toggle(target.key);

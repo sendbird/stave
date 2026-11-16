@@ -14,7 +14,8 @@ async function mountHistory(page: Page, options: { locale: "en" | "ko"; dark: bo
     const { createRoot } = (await import(moduleUrl("react-dom_client"))).default;
     const { TaskHistoryDrawer } = await import("/src/components/panes/TaskHistoryDrawer.tsx");
     const { StaveDesignProvider } = await import("/src/components/system/StaveDesignProvider.tsx");
-    const { useAppStore } = await import("/src/store/app.store.ts");
+    // Reuse the app graph revision; a bare import can create a separate store after HMR.
+    const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
     const { applyAppLocale } = await import("/src/i18n/index.ts");
     const { applyThemeClass } = await import("/src/lib/themes/apply.ts");
     applyAppLocale(locale);
@@ -66,7 +67,7 @@ for (const options of [{ locale: "en", dark: false, width: 1440 }, { locale: "ko
     await restore.click();
     await expect(rows).toHaveCount(0);
     expect(await page.evaluate(async () => {
-      const { useAppStore } = await import("/src/store/app.store.ts");
+      const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
       return useAppStore.getState().openTaskTabIds;
     })).toEqual(["Alpha", "Beta", "Gamma"]);
   });
