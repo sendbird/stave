@@ -16,7 +16,7 @@ const messages = (page: Page, workspaceId: string) => page.evaluate(async id =>
 
 // DOMContentLoaded precedes workspace hydration. Wait on the same usable shell
 // control as the shared harness, then inspect Git-backed cleanup once. Polling
-// the whole disk/Git scan puts its execution time inside the polling deadline.
+// the whole Git scan puts its execution time inside the polling deadline.
 async function workspaceShellReady(page: Page) {
   await expect(page.getByRole("button", { name: "Lens", exact: true })).toBeEnabled();
 }
@@ -26,7 +26,7 @@ async function expectArchivedExecutionDenied(page: Page, workspaceId: string, wo
     const result = await window.api.terminal!.createSession!({ ...input, taskId: null, taskTitle: null, terminalTabId: "archived-admission" });
     if (result.ok && result.sessionId) await window.api.terminal!.closeSession!({ sessionId: result.sessionId });
     return result;
-  }, { workspaceId, workspacePath, cwd });
+  }, { workspaceId, workspacePath, cwd, shell: process.platform === "win32" ? "cmd.exe" : "/bin/sh" });
   expect(result.ok).toBe(false);
   expect(JSON.stringify(result)).toContain("Workspace history is archived");
 }
