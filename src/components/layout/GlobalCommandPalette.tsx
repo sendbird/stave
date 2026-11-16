@@ -50,6 +50,7 @@ import {
   usePaletteTaskSearch,
   type PaletteTaskScope,
 } from "./command-palette-task-search";
+import { useContentSearch, renderContentSearchGroup, openContentSearchResult } from "./content-search-results";
 import { commandPaletteStyles } from "./global-command-palette.styles";
 
 const NO_LEAVES: readonly CommandPaletteLeaf[] = [];
@@ -77,6 +78,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
   const scopeLabelId = useId();
   const [pinAnnouncement, setPinAnnouncement] = useState("");
   const [taskScope, setTaskScope] = useState<PaletteTaskScope>("workspace");
+  const contentSearch = useContentSearch({ query, enabled: args.open });
   const taskSearch = usePaletteTaskSearch({ query, enabled: args.open && taskScope === "all" });
   const sections = useMemo(
     () => buildCommandPaletteGroups(args.runtimeContext),
@@ -161,8 +163,8 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       visibleSections.reduce(
         (count, section) => count + section.items.length,
         0,
-      ) + searchResultCount + leafSuggestions.length,
-    [leafSuggestions.length, searchResultCount, visibleSections],
+      ) + searchResultCount + leafSuggestions.length + contentSearch.results.reduce((sum, result) => sum + (result.parentTaskId ? 2 : 1), 0),
+    [contentSearch.results.length, leafSuggestions.length, searchResultCount, visibleSections],
   );
 
   useEffect(() => {
@@ -351,7 +353,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           */}
           {visibleSections.length === 0 &&
           leafSuggestions.length === 0 &&
-          taskScope === "workspace" ? (
+          contentSearch.status === "idle" && taskScope === "workspace" ? (
             <CommandEmpty className={sx(commandPaletteStyles.empty)}>
               <p className={sx(commandPaletteStyles.emptyTitle)}>
                 {query.trim()
@@ -396,6 +398,10 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               )}
             </CommandGroup>
           ))}
+          {renderContentSearchGroup({ search: contentSearch, query, onOpen: (result) => {
+            args.onOpenChange(false);
+            openContentSearchResult(result, query);
+          } })}
         </CommandList>
         <div className={sx(commandPaletteStyles.footer)}>
           <span className={sx(commandPaletteStyles.footerGroup)}>

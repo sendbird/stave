@@ -104,7 +104,8 @@
     "appliedStatus": "상태",
     "appliedIs": "일치",
     "appliedSearch": "검색어",
-    "appliedContains": "포함"
+    "appliedContains": "포함",
+    "includeMessageText": "메시지 내용 포함"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "기본 · {{branchLabel}}",

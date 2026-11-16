@@ -2928,5 +2928,18 @@
       "failed": "출처를 추가하지 못했습니다. HTTPS 링크나 32 KB 이하 Markdown 파일을 사용하고 초안과 첨부 용량을 확인해 주세요.",
       "issueBodyUnavailable": "이슈 본문을 읽지 못했습니다. 초안에는 제목과 링크가 포함됩니다."
     }
+  },
+  "contentSearch": {
+    "heading": "메시지 내용",
+    "searching": "메시지를 검색하는 중…",
+    "failed": "메시지를 검색하지 못했습니다. 검색어를 더 구체적으로 입력해 보세요.",
+    "noMatch": "일치하는 메시지가 없습니다.",
+    "indexing": "메시지 색인 중: {{indexed}} / {{total}}. 일부 결과가 아직 표시되지 않을 수 있습니다.",
+    "delegated": "위임된 작업",
+    "openParent": "상위 작업 열기",
+    "firstPage": "처음 결과",
+    "nextPage": "다음 결과",
+    "matches_other": "{{count}}개 일치",
+    "openResult_other": "{{title}} 열기, 일치하는 메시지 {{count}}개"
   }
 }

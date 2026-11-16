@@ -1,3 +1,7 @@
+import { useState } from "react";
+import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
+import type { CommandPaletteRuntimeContext } from "@/components/layout/command-palette-registry";
+import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { createRoot } from "react-dom/client";
 import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
@@ -65,9 +69,97 @@ const messages: ChatMessage[] = [
     completedAt: "2026-01-03T00:00:09.000Z",
   },
 ];
+const allMessages: ChatMessage[] = params.has("offWindow")
+  ? [
+      {
+        id: "old-export-retry",
+        role: "user",
+        providerId: "user",
+        model: "user",
+        content: "Discuss export retry after a connection failure.",
+        parts: [],
+      },
+      ...Array.from({ length: 2399 }, (_, index): ChatMessage => ({
+        id: `history-${index}`,
+        role: "user",
+        providerId: "user",
+        model: "user",
+        content: `History message ${index}`,
+        parts: [],
+      })),
+    ]
+  : messages;
+window.api = {
+  ...window.api,
+  persistence: {
+    ...window.api?.persistence,
+    listWorkspaces: async () => ({ ok: true, rows: [] }),
+    loadWorkspace: async () => ({ ok: true, snapshot: null }),
+    upsertWorkspace: async () => ({ ok: true }),
+    searchTaskContent: async (args) => {
+      const matches = allMessages.filter((message) =>
+        message.content.toLowerCase().includes(args.query.toLowerCase()),
+      );
+      const offset = args.offset ?? 0;
+      const limit = args.limit ?? 50;
+      return {
+        ok: true,
+        results: matches.slice(offset, offset + limit).map((message) => ({
+          repositoryPath: "/fixture",
+          repositoryName: "Fixture",
+          workspaceId: "conversation-time-ws",
+          workspaceName: "Main",
+          workspaceBranch: null,
+          workspacePath: "/fixture",
+          isDefaultWorkspace: true,
+          taskId,
+          title: "Settings review",
+          provider: "codex",
+          updatedAt: "2026-01-03T00:00:09.000Z",
+          state: "completed",
+          messageId: message.id,
+          snippet: message.content,
+          matchCount: 1,
+          parentTaskId: null,
+        })),
+        nextOffset: offset + limit < matches.length ? offset + limit : null,
+        indexing: {
+          indexed: allMessages.length,
+          total: allMessages.length,
+          complete: true,
+        },
+      };
+    },
+    loadTaskMessages: async (args) => {
+      const limit = args.limit ?? 120;
+      const anchor = args.messageId
+        ? allMessages.findIndex((message) => message.id === args.messageId)
+        : -1;
+      const offset =
+        anchor >= 0
+          ? Math.max(0, allMessages.length - anchor - Math.ceil(limit / 2))
+          : (args.offset ?? 0);
+      const start = Math.max(0, allMessages.length - offset - limit);
+      const end = Math.max(0, allMessages.length - offset);
+      return {
+        ok: true,
+        page: {
+          messages: allMessages.slice(start, end),
+          offset,
+          limit,
+          totalCount: allMessages.length,
+          hasMoreOlder: start > 0,
+        },
+      };
+    },
+  },
+} as typeof window.api;
 useAppStore.setState({
+  repositoryPath: "/fixture",
+  repositoryName: "Fixture",
   activeTaskId: taskId,
   activeWorkspaceId: "conversation-time-ws",
+  workspaces: [{ id: "conversation-time-ws", name: "Main" }],
   tasks: [
     {
       id: taskId,
@@ -78,8 +170,51 @@ useAppStore.setState({
       archivedAt: null,
     },
   ],
-  messagesByTask: { [taskId]: messages },
+  messagesByTask: {
+    [taskId]: params.has("offWindow") ? allMessages.slice(-120) : messages,
+  },
+  messageCountByTask: { [taskId]: allMessages.length },
 });
+
+function SearchPalette() {
+  const [open, setOpen] = useState(true);
+  const runtimeContext: CommandPaletteRuntimeContext = {
+    activeEditorTabId: null,
+    activeTaskId: taskId,
+    activeWorkspaceIsDefault: true,
+    activeWorkspacePrStatus: "no_pr",
+    appShortcutKeys: normalizeAppShortcutKeys(),
+    hasActiveTurn: false,
+    layout: {
+      sidebarOverlayTab: "explorer",
+      sidebarOverlayVisible: false,
+      workspaceSidebarCollapsed: false,
+    },
+    modifierLabel: "Ctrl",
+    preferences: {
+      hiddenIds: [],
+      pinnedIds: [],
+      recentIds: [],
+      showRecent: false,
+    },
+    repositoryPath: "/fixture",
+    repositories: [],
+    tasks: [],
+    workspacePath: "/fixture",
+    workspaces: [],
+    commands: new Proxy(
+      {},
+      { get: () => () => undefined },
+    ) as CommandPaletteRuntimeContext["commands"],
+  };
+  return (
+    <GlobalCommandPalette
+      open={open}
+      onOpenChange={setOpen}
+      runtimeContext={runtimeContext}
+    />
+  );
+}
 
 const styles = stylex.create({
   frame: {
@@ -97,6 +232,26 @@ const styles = stylex.create({
 createRoot(document.getElementById("root")!).render(
   <StaveDesignProvider>
     <main className={sx(styles.frame)}>
+      {params.has("focusHit") ? (
+        <button
+          type="button"
+          onClick={() =>
+            void useAppStore
+              .getState()
+              .focusTaskAttention({
+                taskId,
+                workspaceId: "conversation-time-ws",
+                messageId: "old-export-retry",
+                searchQuery: "export retry",
+                searchSnippet:
+                  "Discuss export retry after a connection failure.",
+              })
+          }
+        >
+          Open matched message
+        </button>
+      ) : null}
+      {params.has("palette") ? <SearchPalette /> : null}
       <TooltipProvider>
         <TaskScopeProvider taskId={taskId}>
           {params.has("composer") ? (

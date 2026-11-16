@@ -25,6 +25,7 @@ const SEARCH_DELAY_MS = Number(params.get("searchDelay")) || 0;
 
 interface PalettePreviewProbe {
   openedTasks: string[];
+  openedMessages: string[];
   settings: () => { customThemeId: string | null; themeMode: string };
 }
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
@@ -59,6 +60,14 @@ function installSearchStub() {
         words.every((word) => `${result.title} ${result.workspaceName} ${result.workspaceBranch} ${result.repositoryName}`.toLowerCase().includes(word)),
       ),
     };
+  };
+  persistence.searchTaskContent = async (args: { query: string }) => {
+    if (SEARCH_DELAY_MS > 0) await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS));
+    const snippet = "We discussed the export retry. 내보내기 재시도는 잠시 후 진행합니다.";
+    return { ok: true, results: snippet.toLowerCase().includes(args.query.toLowerCase()) ? [{
+      ...RESULTS[0], taskId: "t-content", title: "Investigate delivery", state: "archived",
+      messageId: "m-export-retry", snippet, matchCount: 3, parentTaskId: "t-parent",
+    }] : [], nextOffset: null, indexing: { indexed: 200, total: 200, complete: true } };
   };
   api.persistence = persistence;
 }
@@ -99,6 +108,7 @@ export function CommandPalettePreview() {
     installSearchStub();
     const probe: PalettePreviewProbe = {
       openedTasks: [],
+      openedMessages: [],
       settings: () => {
         const { customThemeId, themeMode } = useAppStore.getState().settings;
         return { customThemeId, themeMode };
@@ -107,8 +117,9 @@ export function CommandPalettePreview() {
     (window as unknown as { __stavePalettePreview?: PalettePreviewProbe }).__stavePalettePreview = probe;
     // Opening a result records it instead of switching repositories.
     useAppStore.setState({
-      focusTaskAttention: async ({ taskId }) => {
+      focusTaskAttention: async ({ taskId, messageId }) => {
         probe.openedTasks.push(taskId);
+        if (messageId) probe.openedMessages.push(messageId);
       },
     } as Partial<ReturnType<typeof useAppStore.getState>>);
     setReady(true);

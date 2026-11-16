@@ -99,104 +99,140 @@ export function createTaskCoreActions(args: {
   return {
     // One back/forward step however many repository and workspace switches
     // it takes to show the task.
-    focusTaskAttention: withSurfaceTransition(async ({
-      taskId,
-      workspaceId,
-      repositoryPath,
-      refreshFromPersistence = false,
-    }) => {
-      const stateBefore = get();
-      if (repositoryPath && repositoryPath !== stateBefore.repositoryPath) {
-        await stateBefore.openRepository({ repositoryPath });
-      }
+    focusTaskAttention: withSurfaceTransition(
+      async ({
+        taskId,
+        workspaceId,
+        repositoryPath,
+        refreshFromPersistence = false,
+        messageId,
+        searchQuery,
+        searchSnippet,
+      }) => {
+        const stateBefore = get();
+        if (repositoryPath && repositoryPath !== stateBefore.repositoryPath) {
+          await stateBefore.openRepository({ repositoryPath });
+        }
 
-      let stateAfterRepositoryOpen = get();
-      const resolvedWorkspaceId =
-        workspaceId ??
-        stateAfterRepositoryOpen.taskWorkspaceIdById[taskId] ??
-        stateAfterRepositoryOpen.activeWorkspaceId;
+        let stateAfterRepositoryOpen = get();
+        const resolvedWorkspaceId =
+          workspaceId ??
+          stateAfterRepositoryOpen.taskWorkspaceIdById[taskId] ??
+          stateAfterRepositoryOpen.activeWorkspaceId;
 
-      if (
-        resolvedWorkspaceId &&
-        !stateAfterRepositoryOpen.workspaces.some(
-          (workspace) => workspace.id === resolvedWorkspaceId,
-        )
-      ) {
-        // Host-created worktrees appear in git before this renderer list.
-        await stateAfterRepositoryOpen.refreshWorkspaces();
-        stateAfterRepositoryOpen = get();
-      }
+        if (
+          resolvedWorkspaceId &&
+          !stateAfterRepositoryOpen.workspaces.some(
+            (workspace) => workspace.id === resolvedWorkspaceId,
+          )
+        ) {
+          // Host-created worktrees appear in git before this renderer list.
+          await stateAfterRepositoryOpen.refreshWorkspaces();
+          stateAfterRepositoryOpen = get();
+        }
 
-      if (
-        resolvedWorkspaceId &&
-        resolvedWorkspaceId !== stateAfterRepositoryOpen.activeWorkspaceId
-      ) {
-        await stateAfterRepositoryOpen.switchWorkspace({
-          workspaceId: resolvedWorkspaceId,
-        });
-      }
-
-      if (refreshFromPersistence && resolvedWorkspaceId) {
-        const shell = await loadWorkspaceShellForRestore({
-          workspaceId: resolvedWorkspaceId,
-        });
-        const persistedTask =
-          shell?.tasks.find((task) => task.id === taskId) ?? null;
-        if (persistedTask) {
-          set((state) => {
-            if (state.activeWorkspaceId !== resolvedWorkspaceId) {
-              return {};
-            }
-            const nextTasks = state.tasks.some((task) => task.id === taskId)
-              ? state.tasks.map((task) =>
-                  task.id === taskId
-                    ? { ...persistedTask, title: task.title, titleManuallySet: task.titleManuallySet }
-                    : task,
-                )
-              : [persistedTask, ...state.tasks];
-            const persistedDraft = shell?.promptDraftByTask[taskId];
-            const persistedProviderSession =
-              shell?.providerSessionByTask[taskId];
-            return {
-              tasks: nextTasks,
-              messagesByTask: {
-                ...state.messagesByTask,
-                [taskId]: [],
-              },
-              messageCountByTask: {
-                ...state.messageCountByTask,
-                [taskId]: shell?.messageCountByTask[taskId] ?? 0,
-              },
-              promptDraftByTask: persistedDraft
-                ? {
-                    ...state.promptDraftByTask,
-                    [taskId]: persistedDraft,
-                  }
-                : state.promptDraftByTask,
-              providerSessionByTask: persistedProviderSession
-                ? {
-                    ...state.providerSessionByTask,
-                    [taskId]: persistedProviderSession,
-                  }
-                : state.providerSessionByTask,
-              taskWorkspaceIdById: {
-                ...state.taskWorkspaceIdById,
-                [taskId]: resolvedWorkspaceId,
-              },
-            };
+        if (
+          resolvedWorkspaceId &&
+          resolvedWorkspaceId !== stateAfterRepositoryOpen.activeWorkspaceId
+        ) {
+          await stateAfterRepositoryOpen.switchWorkspace({
+            workspaceId: resolvedWorkspaceId,
           });
         }
-      }
 
-      const stateAfterWorkspaceOpen = get();
-      stateAfterWorkspaceOpen.selectTask({ taskId });
-      set((state) => ({
-        focusPendingInteractionRequest: {
-          taskId,
-          nonce: (state.focusPendingInteractionRequest?.nonce ?? 0) + 1,
-        },
-      }));
-    }),
+        if (refreshFromPersistence && resolvedWorkspaceId) {
+          const shell = await loadWorkspaceShellForRestore({
+            workspaceId: resolvedWorkspaceId,
+          });
+          const persistedTask =
+            shell?.tasks.find((task) => task.id === taskId) ?? null;
+          if (persistedTask) {
+            set((state) => {
+              if (state.activeWorkspaceId !== resolvedWorkspaceId) {
+                return {};
+              }
+              const nextTasks = state.tasks.some((task) => task.id === taskId)
+                ? state.tasks.map((task) =>
+                    task.id === taskId
+                      ? {
+                          ...persistedTask,
+                          title: task.title,
+                          titleManuallySet: task.titleManuallySet,
+                        }
+                      : task,
+                  )
+                : [persistedTask, ...state.tasks];
+              const persistedDraft = shell?.promptDraftByTask[taskId];
+              const persistedProviderSession =
+                shell?.providerSessionByTask[taskId];
+              return {
+                tasks: nextTasks,
+                messagesByTask: {
+                  ...state.messagesByTask,
+                  [taskId]: [],
+                },
+                messageCountByTask: {
+                  ...state.messageCountByTask,
+                  [taskId]: shell?.messageCountByTask[taskId] ?? 0,
+                },
+                promptDraftByTask: persistedDraft
+                  ? {
+                      ...state.promptDraftByTask,
+                      [taskId]: persistedDraft,
+                    }
+                  : state.promptDraftByTask,
+                providerSessionByTask: persistedProviderSession
+                  ? {
+                      ...state.providerSessionByTask,
+                      [taskId]: persistedProviderSession,
+                    }
+                  : state.providerSessionByTask,
+                taskWorkspaceIdById: {
+                  ...state.taskWorkspaceIdById,
+                  [taskId]: resolvedWorkspaceId,
+                },
+              };
+            });
+          }
+        }
+
+        const stateAfterWorkspaceOpen = get();
+        // Search can reveal archived conversations without changing their archive state.
+        if (
+          messageId &&
+          stateAfterWorkspaceOpen.tasks.some((task) => task.id === taskId)
+        ) {
+          set((state) => ({
+            activeTaskId: taskId,
+            activeAppSurface: WORKSPACE_APP_SURFACE,
+            activeSurface: { kind: "task", taskId },
+            openTaskTabIds: state.openTaskTabIds.includes(taskId)
+              ? state.openTaskTabIds
+              : [...state.openTaskTabIds, taskId],
+          }));
+        } else {
+          stateAfterWorkspaceOpen.selectTask({ taskId });
+        }
+        if (messageId) {
+          set((state) => ({
+            focusTranscriptToolRequest: {
+              taskId,
+              messageId,
+              searchQuery,
+              searchSnippet,
+              nonce: (state.focusTranscriptToolRequest?.nonce ?? 0) + 1,
+            },
+          }));
+          return;
+        }
+        set((state) => ({
+          focusPendingInteractionRequest: {
+            taskId,
+            nonce: (state.focusPendingInteractionRequest?.nonce ?? 0) + 1,
+          },
+        }));
+      },
+    ),
     requestTaskScrollToLatest: ({ taskId }) =>
       set((state) => reduceTaskScrollToLatestRequest({ state, taskId })),
     focusTranscriptTool: ({ taskId, toolUseId }) => {
@@ -251,7 +287,7 @@ export function createTaskCoreActions(args: {
         stateBefore.activeSurface.kind === "task" &&
         stateBefore.activeSurface.taskId === taskId
       ) {
-        if (workspaceId && shouldLoadMessages) {
+        if (workspaceId && (shouldLoadMessages || (stateBefore.taskMessageWindowOffsetByTask?.[taskId] ?? 0) > 0)) {
           void loadTaskMessagesIntoSession({
             workspaceId,
             taskId,
@@ -270,7 +306,7 @@ export function createTaskCoreActions(args: {
           : [...state.openTaskTabIds, taskId],
         workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
       }));
-      if (workspaceId && shouldLoadMessages) {
+      if (workspaceId && (shouldLoadMessages || (stateBefore.taskMessageWindowOffsetByTask?.[taskId] ?? 0) > 0)) {
         void loadTaskMessagesIntoSession({
           workspaceId,
           taskId,
@@ -278,7 +314,7 @@ export function createTaskCoreActions(args: {
         });
       }
     },
-    loadTaskMessages: async ({ taskId, mode = "latest" }) => {
+    loadTaskMessages: async ({ taskId, mode = "latest", messageId }) => {
       const state = get();
       const workspaceId =
         state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId;
@@ -289,6 +325,7 @@ export function createTaskCoreActions(args: {
         workspaceId,
         taskId,
         mode,
+        messageId,
       });
     },
     clearTaskSelection: () =>
@@ -714,7 +751,7 @@ export function createTaskCoreActions(args: {
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
-      if (workspaceId && shouldLoadMessages) {
+      if (workspaceId && (shouldLoadMessages || (stateBefore.taskMessageWindowOffsetByTask?.[taskId] ?? 0) > 0)) {
         void loadTaskMessagesIntoSession({
           workspaceId,
           taskId,

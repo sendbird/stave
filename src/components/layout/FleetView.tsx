@@ -1,3 +1,5 @@
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { FleetContentSearchResults, useContentSearch } from "./content-search-results";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
@@ -291,6 +293,8 @@ export function FleetView() {
   // Each visit reads unopened workspaces' task lists afresh.
   useEffect(() => () => resetFleetWorkspaceShells(), []);
   const [searchQuery, setSearchQuery] = useState("");
+  const [includeMessageText, setIncludeMessageText] = useState(false);
+  const contentSearch = useContentSearch({ query: searchQuery, enabled: includeMessageText });
   const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
   const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(
     null,
@@ -873,6 +877,8 @@ export function FleetView() {
                 </Tooltip>
               ) : null}
             </div>
+            <Checkbox checked={includeMessageText} onCheckedChange={(checked) => setIncludeMessageText(Boolean(checked))}
+              label={tI18n("fleet:fleetView.includeMessageText")} data-testid="fleet-include-message-text" />
             {/* Last, so it stays put while the applied filters come and go. */}
             <SegmentedControl
               aria-label={tI18n("fleet:fleetView.layoutLabel")}
@@ -919,6 +925,7 @@ export function FleetView() {
             data-fleet-board-scroll="true"
             className={sx(styles.scroller)}
           >
+            {includeMessageText ? <FleetContentSearchResults search={contentSearch} query={searchQuery} /> : null}
             {repositories.length === 0 ? (
               <Empty>
                 <EmptyHeader>
@@ -932,6 +939,7 @@ export function FleetView() {
               </Empty>
             ) : boardLayout === "tree" ? (
               <FleetAgentTree
+                suppressEmptyMessage={includeMessageText && contentSearch.results.length > 0}
                 repositories={repositories}
                 filter={boardFilter}
                 owner={ownerFilter}
@@ -942,6 +950,7 @@ export function FleetView() {
               />
             ) : boardLayout === "table" ? (
               <FleetTaskTable
+                suppressEmptyMessage={includeMessageText && contentSearch.results.length > 0}
                 repositories={repositories}
                 filter={boardFilter}
                 owner={ownerFilter}
@@ -954,7 +963,7 @@ export function FleetView() {
               />
             ) : (
               <>
-                {isBoardEmpty ? (
+                {isBoardEmpty && !(includeMessageText && contentSearch.results.length > 0) ? (
                   <div className={sx(styles.boardEmpty)}>
                     <p className={sx(styles.boardEmptyTitle)}>{tI18n("fleet:fleetView.nothingActive")}</p>
                     <p className={sx(styles.boardEmptyHint)}>

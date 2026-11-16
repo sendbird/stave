@@ -326,6 +326,7 @@ export function useFleetTaskRowsSummary(
  * expanding a card. The task name opens the task (Enter on the focused name).
  */
 export function FleetTaskTable(props: {
+  suppressEmptyMessage?: boolean;
   repositories: readonly FleetTaskTableRepository[];
   filter: FleetTaskTableFilter;
   owner?: FleetOwnerFilter;
@@ -343,6 +344,7 @@ export function FleetTaskTable(props: {
   return (
     <FleetTaskTableView
       rows={shownRows}
+      suppressEmptyMessage={props.suppressEmptyMessage}
       hasRows={rows.length > 0}
       load={load}
       onRetry={retry}
@@ -362,6 +364,7 @@ export function FleetTaskTable(props: {
  * is incomplete.
  */
 export function FleetTaskTableView(props: {
+  suppressEmptyMessage?: boolean;
   rows: readonly FleetTaskRow[];
   /** Whether any row exists before the filter and search (default: `rows`). */
   hasRows?: boolean;
@@ -414,7 +417,7 @@ export function FleetTaskTableView(props: {
       </p>
     ) : null;
   const body =
-    props.rows.length === 0 ? (
+    props.rows.length === 0 && props.suppressEmptyMessage ? null : props.rows.length === 0 ? (
       <p className={sx(styles.empty)} role="status">
         {t("fleet:taskTable.noTasks")}
       </p>

@@ -36,7 +36,10 @@ export interface ProviderSessionCursor {
 export type TaskProviderSessionEntry = string | ProviderSessionCursor;
 
 export interface TaskProviderSessionState {
-  accounts?: Record<string, Partial<Record<"claude-code" | "codex", TaskProviderSessionEntry>>>;
+  accounts?: Record<
+    string,
+    Partial<Record<"claude-code" | "codex", TaskProviderSessionEntry>>
+  >;
   "claude-code"?: TaskProviderSessionEntry;
   codex?: TaskProviderSessionEntry;
   cursor?: TaskProviderSessionEntry;
@@ -160,6 +163,7 @@ interface RequiredPersistenceApi {
     taskId: string;
     limit?: number;
     offset?: number;
+    messageId?: string;
   }) => Promise<{
     ok: boolean;
     page: TaskMessagesPage | null;
@@ -578,6 +582,7 @@ export async function loadTaskMessagesPage(args: {
   taskId: string;
   limit?: number;
   offset?: number;
+  messageId?: string;
   /**
    * Keep persisted streaming flags. Host-owned turns reload this page while the
    * turn is still running; snapshot sealing would render finished interim
@@ -598,14 +603,21 @@ export async function loadTaskMessagesPage(args: {
         messagesByTask: snapshot?.messagesByTask ?? {},
         preserveStreaming: args.preserveStreaming,
       })[args.taskId] ?? [];
-    const start = Math.max(messages.length - offset - limit, 0);
-    const end = Math.max(messages.length - offset, 0);
+    const anchorIndex = args.messageId
+      ? messages.findIndex((message) => message.id === args.messageId)
+      : -1;
+    const resolvedOffset =
+      anchorIndex >= 0
+        ? Math.max(0, messages.length - anchorIndex - Math.ceil(limit / 2))
+        : offset;
+    const start = Math.max(messages.length - resolvedOffset - limit, 0);
+    const end = Math.max(messages.length - resolvedOffset, 0);
     const pageMessages = messages.slice(start, end);
     return {
       messages: pageMessages,
       totalCount: messages.length,
       limit,
-      offset,
+      offset: resolvedOffset,
       hasMoreOlder: start > 0,
     };
   }
@@ -621,14 +633,21 @@ export async function loadTaskMessagesPage(args: {
           : {},
         preserveStreaming: args.preserveStreaming,
       })[args.taskId] ?? [];
-    const start = Math.max(messages.length - offset - limit, 0);
-    const end = Math.max(messages.length - offset, 0);
+    const anchorIndex = args.messageId
+      ? messages.findIndex((message) => message.id === args.messageId)
+      : -1;
+    const resolvedOffset =
+      anchorIndex >= 0
+        ? Math.max(0, messages.length - anchorIndex - Math.ceil(limit / 2))
+        : offset;
+    const start = Math.max(messages.length - resolvedOffset - limit, 0);
+    const end = Math.max(messages.length - resolvedOffset, 0);
     const pageMessages = messages.slice(start, end);
     return {
       messages: pageMessages,
       totalCount: messages.length,
       limit,
-      offset,
+      offset: resolvedOffset,
       hasMoreOlder: start > 0,
     };
   }
@@ -638,6 +657,7 @@ export async function loadTaskMessagesPage(args: {
     taskId: args.taskId,
     limit,
     offset,
+    messageId: args.messageId,
   });
   if (!response.ok || !response.page) {
     throw new Error(
@@ -802,16 +822,26 @@ export async function closeWorkspacePersistence(args: {
   });
 }
 
-export async function loadRepositoryRegistryState(): Promise<{ repositories: unknown[]; activeRepositoryPath?: string | null }> {
+export async function loadRepositoryRegistryState(): Promise<{
+  repositories: unknown[];
+  activeRepositoryPath?: string | null;
+}> {
   const persistence = getPersistenceApi();
   if (!persistence?.loadRepositoryRegistry) {
     return { repositories: [] };
   }
   const response = await persistence.loadRepositoryRegistry();
   if (!response.ok) {
-    throw new Error("Failed to load repository registry from persistence bridge.");
+    throw new Error(
+      "Failed to load repository registry from persistence bridge.",
+    );
   }
-  return { repositories: Array.isArray(response.repositories) ? response.repositories : [], activeRepositoryPath: response.activeRepositoryPath };
+  return {
+    repositories: Array.isArray(response.repositories)
+      ? response.repositories
+      : [],
+    activeRepositoryPath: response.activeRepositoryPath,
+  };
 }
 
 export async function saveRepositoryRegistrySnapshot(args: {
@@ -827,7 +857,9 @@ export async function saveRepositoryRegistrySnapshot(args: {
     activeRepositoryPath: args.activeRepositoryPath,
   });
   if (!response.ok) {
-    throw new Error("Failed to save repository registry via persistence bridge.");
+    throw new Error(
+      "Failed to save repository registry via persistence bridge.",
+    );
   }
 }
 

@@ -43,6 +43,7 @@ type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: str
  * load only while it is open.
  */
 export function FleetAgentTree(props: {
+  suppressEmptyMessage?: boolean;
   repositories: readonly FleetTaskTableRepository[];
   filter: FleetTaskTableFilter;
   owner?: FleetOwnerFilter;
@@ -56,6 +57,7 @@ export function FleetAgentTree(props: {
   return (
     <FleetTaskTableView
       rows={shownRows}
+      suppressEmptyMessage={props.suppressEmptyMessage}
       hasRows={rows.length > 0}
       load={load}
       onRetry={retry}
