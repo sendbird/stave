@@ -47,7 +47,13 @@ export async function restoreArchivedSearchView(taskId:string, set:StoreApi<AppS
   if (!result.ok || result.readOnly) throw new Error();
   const {refreshWorkspaceCleanupRegistry}=await import("./workspace-cleanup-sync");
   const {notifyWorkspaceCleanupChanged}=await import("@/components/layout/workspace-cleanup-events");
-  await refreshWorkspaceCleanupRegistry({getState:get,setState:set});
+  await refreshWorkspaceCleanupRegistry({getState:get,setState:set},{preserveActiveWorkspace:true});
+  // Navigation can cache the read-only projection while restore is in flight.
+  // Evict it even when the user has since selected another workspace or view.
+  set(state=>{
+    const cache={...state.workspaceRuntimeCacheById};delete cache[view.workspaceId];
+    return {workspaceRuntimeCacheById:cache};
+  });
   if (useArchivedSearchView.getState().view !== view) return;
   useArchivedSearchView.setState({view:null});
   const state=get();
@@ -56,8 +62,7 @@ export async function restoreArchivedSearchView(taskId:string, set:StoreApi<AppS
   const cache={...state.workspaceRuntimeCacheById};delete cache[view.workspaceId];
   set({activeWorkspaceId:"",workspaceRuntimeCacheById:cache});
   await get().switchWorkspace({workspaceId:view.workspaceId});
-  get().restoreTask({taskId});
-  get().selectTask({taskId});
+  get().selectTask({taskId,allowArchived:true});
   notifyWorkspaceCleanupChanged();
   } catch {
     if (useArchivedSearchView.getState().view === view) useArchivedSearchView.setState({failed:true});
