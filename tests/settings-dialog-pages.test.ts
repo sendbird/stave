@@ -52,7 +52,7 @@ describe("settings pages", () => {
           ["Browser", ["lens", "mentions"]],
         ],
       ],
-      ["Projects", [["Projects", ["projects", "scripts", "memory"]]]],
+      ["Projects", [["Projects", ["projects", "scripts", "memory"]], ["Workspaces", ["workspaces"]]]],
       [
         "Agents",
         [
