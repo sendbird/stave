@@ -10,7 +10,7 @@ export interface ArchivedWorkspaceRecord {
   name: string;
   archivedAt: string;
   readOnly: boolean;
-  creationOptions?: { useRootNodeModulesSymlink: boolean; initCommand?: string; linkedWorktree?: boolean };
+  creationOptions?: { useRootNodeModulesSymlink: boolean; initCommand?: string; linkedWorktree?: boolean; linkedSymlinkNames?: string[] };
 }
 
 /** Archive identity is separate from history; an absent marker means active. */

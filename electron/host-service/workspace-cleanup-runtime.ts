@@ -3,6 +3,7 @@ import { lstat, readdir, symlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { SqliteStore } from "../persistence/sqlite-store";
 import { runWorkspaceLifecycleGit, removeWorkspaceLifecycleWorktree, fetchGitHubPrStatus } from "./scm-runtime";
+import { listWorkspaceShelfLinks, removeWorkspaceShelfLinks, restoreWorkspaceShelfLinks } from "./workspace-linked-shelf";
 import { runWorkspacePreparation } from "./workspace-preparation";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { getScriptStatuses } from "../main/workspace-scripts";
@@ -212,6 +213,7 @@ export function createWorkspaceCleanupRuntime(ports: {
         if (branchExists) {
           const archive = ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id);
           const options = archive?.creationOptions;
+          if (options?.linkedWorktree) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, options.linkedSymlinkNames ?? []);
           if (!options?.linkedWorktree && options?.useRootNodeModulesSymlink) {
             try { await lstat(join(row.path, "node_modules")); }
             catch { try { await symlink(join(row.repositoryPath, "node_modules"), join(row.path, "node_modules")); } catch { throw new Error("dependencyLinkFailed"); } }
@@ -244,6 +246,7 @@ export function createWorkspaceCleanupRuntime(ports: {
           if (freshBlockers.length) throw new Error(freshBlockers.join(","));
           const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath)!;
           const linked = repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)) || ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree;
+          const linkedSymlinkNames = linked ? await listWorkspaceShelfLinks(row.repositoryPath, row.path) : [];
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
@@ -252,11 +255,12 @@ export function createWorkspaceCleanupRuntime(ports: {
             let dependencyLink = false;
             try { dependencyLink = (await lstat(join(row.path, "node_modules"))).isSymbolicLink(); } catch { /* No dependency link. */ }
             ports.store().archiveWorkspacePersistence({ workspaceId: row.id, repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, name: row.name,
-              creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked) } });
+              creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked), ...(linked ? { linkedSymlinkNames } : {}) } });
             workspaceExecutionGate.invalidateArchives();
             registryChanged = true;
           }
           try {
+            if (linked && args.action === "archive") await removeWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
             if (!linked && !row.branchOnly && existsSync(row.path)) {
               const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
               if (!removed.ok) throw new Error("worktreeRemoveFailed");
@@ -265,7 +269,10 @@ export function createWorkspaceCleanupRuntime(ports: {
             // Git kept the checkout; return the workspace to its active registry.
             // If rollback also fails, the durable archive still protects history.
             if (createArchive && existsSync(row.path)) {
-              try { ports.store().restoreWorkspacePersistence({ workspaceId: row.id }); } catch { /* Keep the archive recoverable. */ }
+              try {
+                if (linked) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
+                ports.store().restoreWorkspacePersistence({ workspaceId: row.id });
+              } catch { /* Keep the archive recoverable. */ }
             }
             throw error;
           }
