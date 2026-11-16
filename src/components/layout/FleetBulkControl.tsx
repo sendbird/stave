@@ -29,8 +29,10 @@ import { routeTarsOwnedIntent, tarsHoldsTask } from "@/store/tars-owned-control"
 import { FLEET_BULK_COMMAND, takeFleetBulkCommand } from "@/lib/fleet/bulk-command";
 type Operation = "stop" | "archive" | "delete";
 const targetOf = (row: FleetTaskRow): FleetSelectionTarget => ({ ...row, taskId: row.task.id });
-export function FleetBulkControl({ rows, onOpenTask }: { rows: readonly FleetTaskRow[]; onOpenTask: (target: FleetSelectionTarget) => void }) {
+export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loading?: boolean; rows: readonly FleetTaskRow[]; onOpenTask: (target: FleetSelectionTarget) => void }) {
   const { t } = useTranslation(["fleet"]);
+  const runsLoaded = useFleetAgentRunsStore((state) => state.loaded);
+  const waiting = loading || Boolean(window.api?.agentRuns && !runsLoaded);
   const runDetails = useFleetAgentRunsStore((state) => state.details);
   const hasEndedRun = (target: {workspaceId: string; taskId: string}) => Object.values(runDetails).some(({agentRun: run}) => run.workspaceId === target.workspaceId && run.leadTaskId === target.taskId && !isActiveAgentRunState(run.state));
   const selectedKeys = useFleetSelectionStore((state) => state.selectedKeys);
@@ -66,22 +68,29 @@ export function FleetBulkControl({ rows, onOpenTask }: { rows: readonly FleetTas
         const runs = useFleetAgentRunsStore.getState();
         if (!runs.loaded && window.api?.taskControl) return t("fleet:bulk.loading");
         const run = findActiveTaskRun(runs.details, target.workspaceId, target.taskId);
+        let stopReason: string | null = null;
         const outcome = await stopFleetItem({
           routeOwnership: async () => (await routeTarsOwnedIntent({ target: tarsTaskTarget(target.taskId, target.workspaceId, run), intent: "pause", source: "fleet" })).kind,
           stop: async (keepAgentRun) => {
+            const cascade = await window.api?.taskControl?.stopChildren?.({workspaceId:target.workspaceId,taskId:target.taskId});
+            if (cascade && (!cascade.ok || cascade.skipped.length)) stopReason = cascade.message || cascade.skipped.map((item) => `${item.taskId}: ${item.reason}`).join("; ") || t("fleet:bulk.changed");
+            const stopParent = async () => {
             const state = useAppStore.getState();
             const session = target.workspaceId === state.activeWorkspaceId ? state : state.workspaceRuntimeCacheById[target.workspaceId];
             if (!session?.tasks.some((item) => item.id === target.taskId)) {
-              return inFleetWorkspace(target, () => useAppStore.getState().abortTaskTurn({ taskId: target.taskId, keepAgentRun }));
+              return inFleetWorkspace(target, () => useAppStore.getState().abortTaskTurn({ taskId: target.taskId, keepAgentRun, parentOnly: Boolean(cascade) }));
             }
             if (!session.activeTurnIdsByTask[target.taskId] && !run) {
               const children = await window.api?.runs?.listDelegatedTasks?.({ parentTaskId:target.taskId,includeFinished:false });
-              if (!children?.length) return false;
+              if (!children?.length && !cascade?.stopped) return false;
             }
-            return state.abortTaskTurn({ taskId: target.taskId, keepAgentRun });
+            return state.abortTaskTurn({ taskId: target.taskId, keepAgentRun, parentOnly: Boolean(cascade) });
+            };
+            const parentStopped = await stopParent();
+            return stopReason ? false : parentStopped;
           },
         });
-        return outcome === "stopped" ? null : outcome === "managed" ? t("fleet:bulk.managedByTars") : t("fleet:bulk.changed");
+        return outcome === "stopped" ? null : outcome === "managed" ? t("fleet:bulk.managedByTars") : stopReason || t("fleet:bulk.changed");
       }, operation === "archive" ? 1 : 4);
       const title = t(`fleet:bulk.${operation}Result`, { count: result.changed.length, skipped: result.skipped.length });
       const description = result.skipped.map(({ item, reason }) => `${item.task?.title ?? item.taskId}: ${reason}`).join("; ");
@@ -108,6 +117,7 @@ export function FleetBulkControl({ rows, onOpenTask }: { rows: readonly FleetTas
   };
   useEffect(() => {
     const handle = () => {
+      if (waiting) return;
       const detail = takeFleetBulkCommand();
       if (!detail) return;
       if (detail.operation === "stop") void stopAll(detail.repositoryPath);
@@ -124,7 +134,7 @@ export function FleetBulkControl({ rows, onOpenTask }: { rows: readonly FleetTas
   const applicable = (operation: Operation) => selected.filter((item) => operation === "stop" ? item.activeTurnId || childParents.has(item.taskId) || findActiveTaskRun(useFleetAgentRunsStore.getState().details, item.workspaceId, item.taskId) : !isTaskManaged(item.task ?? null) && (operation !== "delete" || (!item.activeTurnId && !findActiveTaskRun(runDetails,item.workspaceId,item.taskId) && (Boolean(item.task?.archivedAt) || hasEndedRun(item))))).length;
   return <>
     <div className={sx(styles.bar)} data-fleet-bulk-control="true">
-      <Button size="sm" variant="outline" disabled={busy || !rows.length} onClick={() => void stopAll()}>{t("fleet:bulk.stopAll")}</Button>
+      <Button size="sm" variant="outline" disabled={busy || waiting || !rows.length} onClick={() => void stopAll()}>{t("fleet:bulk.stopAll")}</Button>
       <FleetSelectionStatus />
       {selected.length ? <>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => onOpenTask(selected[0]!)}>{t("fleet:bulk.open")}</Button>

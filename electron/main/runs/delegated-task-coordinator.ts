@@ -1761,6 +1761,7 @@ export function createDelegatedTaskCoordinator(
           }))
           .catch((error) => {
             reportError(error, { scope: "stop-child", runId });
+            skippedDescendants.push(`${target.taskId}: ${String(error)}`);
           });
       }
       notifyChanged(args.parentTaskId);

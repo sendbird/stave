@@ -1850,6 +1850,17 @@ describe("cascading delegated task stop", () => {
     expect(result.message).toContain("managed by Tars");
     expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([sibling.child!.delegatedTaskId, parent.child!.delegatedTaskId]);
   });
+  test("a failed host stop is reported after the durable cancellation", async () => {
+    const harness = createHarness();
+    const child = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    harness.host.stopTask = async () => { throw new Error("host stop unavailable"); };
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(result.message).toContain(`${child.child!.delegatedTaskId}: Error: host stop unavailable`);
+    expect(result.child?.phase).toBe("cancelled");
+    expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("cancelled");
+  });
   test("a Tars-owned child refuses direct stop before changing its ledger", async () => {
     const harness = createHarness({ canStopTask: async () => false });
     const child = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));

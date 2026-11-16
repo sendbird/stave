@@ -720,7 +720,7 @@ export function FleetView() {
   }, []);
 
   const selectionHandlers = useFleetSelectionKeyboard();
-  const bulkRows = useFleetTaskRows({ repositories, filter: "all", searchQuery: "", nowMs }).rows;
+  const bulkRows = useFleetTaskRows({ repositories, filter: "all", searchQuery: "", nowMs });
   return (
     <div {...selectionHandlers} className={sx(styles.root)}>
       <GlobalPageHeader title={tI18n("fleet:fleetView.fleetView")} description={tI18n("fleet:fleetView.fullWorkQueue")} titleIcon={<LayoutGrid />} meta={headerLiveCount > 0 ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount }) : tI18n("fleet:fleetView.noAgentTurnsInFlight")} actions={
@@ -790,7 +790,7 @@ export function FleetView() {
       } />
 
       <OpenPathDialog open={openPath} onOpenChange={setOpenPath} onSubmitPath={(inputPath) => openRepositoryFromPath({ inputPath })} onBrowse={async () => { await useAppStore.getState().createRepository({}); setOpenPath(false); }} />
-      <FleetBulkControl rows={bulkRows} onOpenTask={handleOpenTask} />
+      <FleetBulkControl rows={bulkRows.rows} loading={bulkRows.load.pending.length > 0} onOpenTask={handleOpenTask} />
       {repositories.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><FolderTree /></EmptyMedia><EmptyTitle>{tI18n("fleet:fleetView.noWorkspaces")}</EmptyTitle><EmptyDescription>{tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription></EmptyHeader><Button onClick={() => setOpenPath(true)}>{i18n.t("workspace:welcome.openRepository")}</Button></Empty> : <>
       {resultReviewError ? (
         <div
