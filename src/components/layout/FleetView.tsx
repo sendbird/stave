@@ -1,6 +1,7 @@
 import { FleetBulkControl } from "./FleetBulkControl";
+import { useFleetSelectionStore } from "@/store/fleet-selection-store";
 import { useFleetSelectionKeyboard } from "./FleetSelection";
-import { FleetGroupingControl } from "./FleetGrouping";
+import { FleetGroupingControl, FleetGroupHeader } from "./FleetGrouping";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
@@ -720,6 +721,7 @@ export function FleetView() {
   }, []);
 
   const selectionHandlers = useFleetSelectionKeyboard();
+  const selectionTargets = useFleetSelectionStore((state) => state.visibleTargets);
   const bulkRows = useFleetTaskRows({ repositories, filter: "all", searchQuery: "", nowMs });
   return (
     <div {...selectionHandlers} className={sx(styles.root)}>
@@ -1006,6 +1008,8 @@ export function FleetView() {
                       className={sx(styles.repositorySection)}
                       hidden={hideRepository}
                     >
+                      <div className={sx(styles.repositoryHeading)}>
+                      <FleetGroupHeader controlOnly title={repository.repositoryName} keys={selectionTargets.filter((target) => target.repositoryPath === repository.repositoryPath).map((target) => target.key)} />
                       <AuiButton
                         layout="host"
                         type="button"
@@ -1046,6 +1050,7 @@ export function FleetView() {
                             {tI18n("fleet:fleetView.current")}</Badge>
                         ) : null}
                       </AuiButton>
+                      </div>
                       <div
                         hidden={isCollapsed}
                         // Width-driven rather than breakpoint-driven: the board

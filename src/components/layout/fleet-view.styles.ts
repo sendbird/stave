@@ -258,6 +258,7 @@ export const fleetStyles = stylex.create({
       ":last-child": 0,
     },
   },
+  repositoryHeading: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], paddingInlineStart: vars["--aui-space-16"] },
   repositoryHeader: {
     alignItems: "center",
     backdropFilter: "blur(8px)",

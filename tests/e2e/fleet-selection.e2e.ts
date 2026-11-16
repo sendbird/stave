@@ -55,6 +55,13 @@ test("Fleet selection follows keyboard, mouse, filters, sorting and layout chang
   await expect(page.locator("[data-fleet-task-row]")).not.toHaveCount(0);
   await page.locator("[data-fleet-task-row]").first().focus();
   await page.keyboard.press("Escape"); await check(0);
+  const repositoryGroup = page.getByRole("checkbox", { name: "Fleet selection (3)" });
+  await repositoryGroup.click(); await check(3);
+  const groupBox = await repositoryGroup.boundingBox();
+  expect(groupBox!.height).toBeGreaterThanOrEqual(24);
+  expect(groupBox!.width).toBeGreaterThanOrEqual(24);
+  await repositoryGroup.click(); await check(0);
+  await page.locator("[data-fleet-task-row]").first().focus();
   await page.keyboard.press("x"); await check(1);
 });
 
