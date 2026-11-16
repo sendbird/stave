@@ -1,3 +1,5 @@
+import { readTarsOpenPublish } from "./tars-view-store";
+import { WorkspaceArchiveStore } from "./workspace-archive-store";
 import { DelegationPolicyStore } from "./delegation-policy-store";
 import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
@@ -188,6 +190,7 @@ export class SqliteStore {
   private automationState: AutomationStateStore;
   private repositoryMemories: RepositoryMemoryStore;
   private notifications: NotificationStore;
+  private workspaceArchives!: WorkspaceArchiveStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly lensReviewRecords: LensReviewRecordStore;
@@ -493,6 +496,7 @@ export class SqliteStore {
     `,
       )
       .run();
+    this.workspaceArchives = new WorkspaceArchiveStore(this.db);
     if (this.runMaintenance) {
       this.purgeLegacyTurnJournal();
     }
@@ -1274,7 +1278,7 @@ export class SqliteStore {
   listWorkspaceSummaries(): PersistenceWorkspaceSummary[] {
     const rows = this.db
       .prepare(
-        "SELECT id, name, updated_at FROM workspace_meta ORDER BY updated_at DESC",
+        "SELECT id, name, updated_at FROM workspace_meta WHERE id NOT IN (SELECT workspace_id FROM workspace_archives) ORDER BY updated_at DESC",
       )
       .all() as WorkspaceMetaRow[];
     return rows.map((row) => ({
@@ -1678,11 +1682,11 @@ export class SqliteStore {
       `INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
     );
-    const exists = this.db.prepare("SELECT 1 FROM workspaces WHERE id = ?");
+    const exists = this.db.prepare("SELECT 1 FROM workspaces WHERE id = ? AND id NOT IN (SELECT workspace_id FROM workspace_archives)");
     this.db.transaction(() => {
       const repositories = !args.keepUnseenWorkspaces ? args.repositories : keepUnseenWorkspaces({ incoming: args.repositories,
         persisted: (() => { try { return this.loadRepositoryRegistry(); } catch { return []; } })(), workspaceExists: (id) => Boolean(exists.get(id)) });
-      write.run("project_registry", JSON.stringify(repositories), now);
+      write.run("project_registry", JSON.stringify(this.workspaceArchives.protectRegistry(repositories)), now);
       if (args.activeRepositoryPath !== undefined) {
         write.run("active_project_path", JSON.stringify(args.activeRepositoryPath), now);
       }
@@ -1694,7 +1698,7 @@ export class SqliteStore {
     return this.db.transaction(() => {
       const { repositories, result } = update(this.loadRepositoryRegistry());
       this.db.prepare(`INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
-        ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`).run("project_registry", JSON.stringify(repositories), new Date().toISOString());
+        ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`).run("project_registry", JSON.stringify(this.workspaceArchives.protectRegistry(repositories)), new Date().toISOString());
       return result;
     }).immediate();
   }
@@ -1813,6 +1817,7 @@ export class SqliteStore {
     name: string;
     snapshot: PersistenceWorkspaceSnapshot;
   }) {
+    if (this.workspaceArchives.isWriteProtected(args.id)) return;
     const now = new Date().toISOString();
     const nextWorkspaceShellArtifactId = `workspace-shell-${randomUUID()}`;
     const previousPayloadEntry = this.readWorkspacePayload({
@@ -1830,6 +1835,7 @@ export class SqliteStore {
         })
       : new Map();
     const tx = this.db.transaction(() => {
+      if (this.workspaceArchives.isWriteProtected(args.id)) return false;
       const existingPayloadEntry = previousPayloadEntry;
       const existingWorkspaceShellArtifact = previousWorkspaceShellArtifact;
       const nextTaskIds = new Set(args.snapshot.tasks.map((task) => task.id));
@@ -1995,7 +2001,7 @@ export class SqliteStore {
 
     // IMMEDIATE: main and the host-service each hold a connection to this
     // file. See `persistTaskTurnDelta` for why a deferred write can be lost.
-    tx.immediate();
+    if (tx.immediate() === false) return;
     if (previousWorkspaceShellArtifact) {
       this.removeArtifactFiles({
         relativePaths: [previousWorkspaceShellArtifact.relativePath],
@@ -2040,6 +2046,7 @@ export class SqliteStore {
     const now = new Date().toISOString();
 
     const tx = this.db.transaction((): number | null => {
+      if (this.workspaceArchives.isWriteProtected(args.workspaceId)) return null;
       // Read under the write lock: a payload read before it could be an older
       // shell than one main has saved since, and writing it back below would
       // revert that save (a draft, a tab).
@@ -2309,6 +2316,33 @@ export class SqliteStore {
     void this.lensReviewRecords.deleteTask(args.taskId);
   }
 
+  archiveWorkspacePersistence(args: Parameters<WorkspaceArchiveStore["archive"]>[0]) {
+    return this.workspaceArchives.archive(args);
+  }
+
+  restoreWorkspacePersistence(args: Parameters<WorkspaceArchiveStore["restore"]>[0]) {
+    return this.workspaceArchives.restore(args);
+  }
+
+  listArchivedWorkspacesPersistence(args: { repositoryPath?: string } = {}) {
+    return this.workspaceArchives.list(args);
+  }
+
+  listWorkspaceCleanupPendingPublications(): string[] {
+    return [...readTarsOpenPublish(this.db)];
+  }
+
+  readWorkspaceCleanupState(): unknown | null {
+    const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = 'workspace_cleanup_state'").get() as JsonValueRow | undefined;
+    return row ? JSON.parse(row.value_json) : null;
+  }
+
+  writeWorkspaceCleanupState(state: unknown): void {
+    this.db.prepare(`INSERT INTO app_state(key,value_json,updated_at) VALUES('workspace_cleanup_state',?,?)
+      ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at`)
+      .run(JSON.stringify(state), new Date().toISOString());
+  }
+
   closeWorkspace(args: { workspaceId: string }) {
     const payloadEntry = this.readWorkspacePayload({
       workspaceId: args.workspaceId,
@@ -2317,34 +2351,10 @@ export class SqliteStore {
       ? this.getWorkspaceShellArtifactPointer({ payload: payloadEntry.payload })
       : null;
     const tx = this.db.transaction(() => {
-      this.db
-        .prepare(
-          `
-        DELETE FROM turn_events
-        WHERE turn_id IN (SELECT id FROM turns WHERE workspace_id = ?)
-      `,
-        )
-        .run(args.workspaceId);
+      this.workspaceArchives.deleteHistoryRows(args.workspaceId);
       if (workspaceShellArtifact) {
-        this.deleteArtifactRows({
-          artifactIds: [workspaceShellArtifact.id],
-        });
+        this.deleteArtifactRows({ artifactIds: [workspaceShellArtifact.id] });
       }
-      this.db
-        .prepare("DELETE FROM turns WHERE workspace_id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM messages WHERE workspace_id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM tasks WHERE workspace_id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM workspaces WHERE id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM workspace_meta WHERE id = ?")
-        .run(args.workspaceId);
     });
     tx();
     this.removeArtifactFiles({
