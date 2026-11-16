@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { ContentSearchStore, type ContentSearchIndexMode } from "../electron/persistence/content-search-store";
 import { extractContentSearchText } from "../electron/persistence/content-search-text";
+import { SearchTaskContentArgsSchema, SearchTaskContentResponseSchema } from "../src/lib/task-search/content-search";
 import { SqliteStore } from "../electron/persistence/sqlite-store";
 
 async function main() {
@@ -84,6 +85,10 @@ try {
   const reopened=new Database(file);const restored=new ContentSearchStore(reopened,source,{schedule:false});
   while(restored.buildBatch()) { /* Explicit draining in tests only. */ }
   assert(restored.status.complete);assert.equal((reopened.prepare("SELECT count(*) n FROM content_search_documents").get() as {n:number}).n,451);
+  assert(SearchTaskContentArgsSchema.safeParse({query:"export",offset:10000}).success);
+  assert(!SearchTaskContentArgsSchema.safeParse({query:"export",offset:10001}).success);
+  const boundary=results(restored,"export",{offset:10000});assert.equal(boundary.nextOffset,null);
+  assert(!SearchTaskContentResponseSchema.safeParse({...boundary,nextOffset:10001}).success);
   const first=results(restored,"export",{limit:1});assert(first.nextOffset===1);assert.equal(first.results[0]?.taskId,"b");
   const second=results(restored,"export",{limit:1,offset:1});assert.notEqual(first.results[0]?.taskId,second.results[0]?.taskId);
   assert.equal(results(restored,"export",{taskId:"t",limit:50}).results.length,50);
@@ -103,6 +108,33 @@ try {
   while(!background.status.complete) {await new Promise<void>(resolve=>setImmediate(resolve));beats++;sawProgress ||= background.status.indexed>0 && !background.status.complete;}
   assert(beats>1 && sawProgress);background.close();scheduled.db.close();
   console.log("PASS background migration yields to event-loop heartbeat before completion (real SQLite)");
+  const locked=setup(path.join(root,"locked.sqlite"));
+  locked.db.pragma("journal_mode=WAL");locked.db.pragma("busy_timeout=10");
+  locked.task.run("w:t","Contended migration","2026-11-16",null);
+  for(let n=0;n<200;n++) locked.message.run(`w:t:locked${n}`,"t","lock recovery migration",null);
+  const recovering=new ContentSearchStore(locked.db,locked.source);
+  const competing=new Database(path.join(root,"locked.sqlite"));
+  competing.exec("BEGIN IMMEDIATE");
+  let observedBusy=false;
+  let release:ReturnType<typeof setTimeout>|undefined;
+  const attempt=recovering.buildBatch.bind(recovering);
+  recovering.buildBatch=()=>{
+    try {return attempt();}
+    catch(error) {
+      if(!observedBusy && error && typeof error==="object" && "code" in error && error.code==="SQLITE_BUSY") {
+        observedBusy=true;
+        release=setTimeout(()=>competing.exec("COMMIT"),20);
+      }
+      throw error;
+    }
+  };
+  const recoveryDeadline=performance.now()+2000;
+  while(!recovering.status.complete && performance.now()<recoveryDeadline) await new Promise<void>(resolve=>setTimeout(resolve,10));
+  if(release) clearTimeout(release);
+  assert(observedBusy,"The fixture must actually encounter the competing writer lock");
+  assert(recovering.status.complete,"Background indexing must recover after a competing writer releases its lock without a new message write");
+  recovering.close();competing.close();locked.db.close();
+  console.log("PASS background migration resumes after a competing SQLite writer releases its lock (real SQLite)");
   const appFile=path.join(root,"app.sqlite");let app=new SqliteStore({dbPath:appFile,runMaintenance:false});
   app.saveRepositoryRegistry({repositories:[{repositoryPath:"/tmp/project",repositoryName:"project",workspaces:[{id:"w",name:"workspace"}],workspacePathById:{w:"/tmp/project"},workspaceBranchById:{w:"main"},workspaceDefaultById:{w:true}}]});
   app.upsertWorkspace({id:"w",name:"workspace",snapshot:{activeTaskId:"t",tasks:[{id:"t",title:"Task",provider:"codex",updatedAt:"2026-11-16",unread:false}],messagesByTask:{t:Array.from({length:300},(_,n)=>({id:`m${n}`,role:"user",model:"user",providerId:"codex",content:`stored export ${n}`,parts:[{type:"text",text:`stored export ${n}`}]}))}}});

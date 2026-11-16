@@ -19,7 +19,8 @@ Existing messages are backfilled in resumable batches of at most 50 rows with
 an 8 ms extraction budget, yielding between batches. A SQLite commit or index
 merge can extend a batch beyond that extraction budget. Search shows progress
 and refreshes while migration is incomplete. Newly written messages are indexed
-immediately. The migration cursor is stored in the database.
+immediately. The migration cursor advances only after its batch commits. Transient database
+locks retry with a bounded delay; closing the store cancels pending retries.
 
 Requests are limited to 50 results and an offset of 10,000. Cross-task results
 use a compact task-level vocabulary index to select candidates by relevance and

@@ -1,7 +1,7 @@
 import { ContentSearchTaskIndex } from "./content-search-task-index";
 import type Database from "better-sqlite3";
 import { resolveCurrentRepositoryDefaultWorkspaceId } from "../../src/store/repository.utils";
-import { SearchTaskContentArgsSchema, type SearchTaskContentArgs, type SearchTaskContentResponse, type ContentSearchResult } from "../../src/lib/task-search/content-search";
+import { CONTENT_SEARCH_MAX_OFFSET, SearchTaskContentArgsSchema, type SearchTaskContentArgs, type SearchTaskContentResponse, type ContentSearchResult } from "../../src/lib/task-search/content-search";
 import type { PersistenceRepositoryRegistryEntry, PersistenceWorkspaceShell, PersistenceTurnSummary } from "./types";
 import { extractContentSearchText, registerContentSearchTextFunction } from "./content-search-text";
 
@@ -19,6 +19,8 @@ const BATCH_SIZE = 50;
 export class ContentSearchStore {
   readonly mode: ContentSearchIndexMode;
   private pending: NodeJS.Immediate | null = null;
+  private retryTimer: NodeJS.Timeout | null = null;
+  private retryAttempt = 0;
   private closed = false;
   private cursor: number;
   private upper: number;
@@ -86,32 +88,54 @@ export class ContentSearchStore {
     return "like";
   }
   private schedule() {
-    if (this.closed || this.pending) return;
+    if (this.closed || this.pending || this.retryTimer) return;
     this.pending = setImmediate(() => {
       this.pending = null;
       if (this.closed) return;
-      try { if(this.buildBatch()) this.schedule(); }
-      catch { console.warn("[persistence] content search indexing paused"); }
+      try {
+        const more=this.buildBatch();
+        this.retryAttempt=0;
+        if(more) this.schedule();
+      } catch(error) {
+        const code=error && typeof error==="object" && "code" in error ? error.code : undefined;
+        if(typeof code==="string" && /^SQLITE_(BUSY|LOCKED)(?:_|$)/.test(code)) this.retryLater();
+        else {
+          if(this.pending) {clearImmediate(this.pending);this.pending=null;}
+          console.warn("[persistence] content search indexing paused");
+        }
+      }
     });
     this.pending.unref?.();
+  }
+  private retryLater() {
+    if(this.closed || this.retryTimer) return;
+    if(this.pending) {clearImmediate(this.pending);this.pending=null;}
+    const delay=Math.min(1000,25 * 2 ** Math.min(this.retryAttempt++,6));
+    this.retryTimer=setTimeout(()=>{
+      this.retryTimer=null;
+      this.schedule();
+    },delay);
+    this.retryTimer.unref?.();
   }
   /** One bounded transaction; startup schedules these between event-loop turns. */
   buildBatch(): boolean {
     const rows = this.db.prepare("SELECT rowid,id,workspace_id,task_id,content,message_json,role FROM messages WHERE rowid>? AND rowid<=? ORDER BY rowid LIMIT ?").all(this.cursor,this.upper,BATCH_SIZE) as Array<{rowid: number; id: string; workspace_id: string; task_id: string; content: string; message_json: string | null; role: string}>;
+    let nextCursor=this.cursor;
+    let processed=0;
     this.db.transaction(() => {
       const write = this.db.prepare("INSERT OR IGNORE INTO content_search_documents(id,workspace_id,task_id,message_id,task_key,text) SELECT ?,?,?,?,(SELECT rowid FROM tasks WHERE id=?),? WHERE EXISTS(SELECT 1 FROM tasks WHERE id=? AND workspace_id=?) AND EXISTS(SELECT 1 FROM messages WHERE id=?)");
       const deadline=performance.now()+8;
-      let processed=0;
       for (const row of rows) {
         write.run(row.id,row.workspace_id,row.task_id,row.id.slice(row.workspace_id.length+row.task_id.length+2),`${row.workspace_id}:${row.task_id}`,extractContentSearchText(row.content,row.message_json,row.role),`${row.workspace_id}:${row.task_id}`,row.workspace_id,row.id);
-        this.cursor=row.rowid;
+        nextCursor=row.rowid;
         processed++;
         if(performance.now()>=deadline) break;
       }
-      if(rows.length===0) this.cursor=this.upper;
-      this.indexed += processed;
-      this.db.prepare("UPDATE content_search_migration SET cursor=? WHERE id=1").run(this.cursor);
+      if(rows.length===0) nextCursor=this.upper;
+      this.db.prepare("UPDATE content_search_migration SET cursor=? WHERE id=1").run(nextCursor);
     })();
+    this.cursor=nextCursor;
+    this.indexed+=processed;
     this.taskIndex.refreshBatch();
     return !this.status.complete;
   }
@@ -185,7 +209,7 @@ export class ContentSearchStore {
       return {...places.get(row.workspace_id)!, taskId:row.task_id,title:row.title,provider:row.provider,updatedAt:row.updated_at,state,
         messageId:row.message_id,snippet:(start?"…":"")+row.text.slice(start,end)+(end<row.text.length?"…":""),matchCount:row.matches,parentTaskId:task?.parentTaskId ?? null,parentWorkspaceId,parentRepositoryPath} satisfies ContentSearchResult;
     });
-    return {ok:true,results,nextOffset:hits.length>limit ? offset+limit : null,indexing:this.status};
+    return {ok:true,results,nextOffset:hits.length>limit && offset+limit<=CONTENT_SEARCH_MAX_OFFSET ? offset+limit : null,indexing:this.status};
   }
-  close() {this.closed=true;if(this.pending) clearImmediate(this.pending);}
+  close() {this.closed=true;if(this.pending) clearImmediate(this.pending);if(this.retryTimer) clearTimeout(this.retryTimer);}
 }

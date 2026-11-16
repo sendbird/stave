@@ -1,10 +1,11 @@
 import { z } from "zod";
 
+export const CONTENT_SEARCH_MAX_OFFSET = 10_000;
 export const SEARCH_TASK_CONTENT_IPC = "persistence:search-task-content";
 export const SearchTaskContentArgsSchema = z.object({
   query: z.string().trim().min(2).max(200),
   limit: z.number().int().min(1).max(50).optional(),
-  offset: z.number().int().min(0).max(10_000).optional(),
+  offset: z.number().int().min(0).max(CONTENT_SEARCH_MAX_OFFSET).optional(),
   workspaceId: z.string().min(1).max(200).optional(),
   taskId: z.string().min(1).max(200).optional(),
 }).strict();
@@ -27,7 +28,7 @@ export const ContentSearchIndexingSchema = z.object({
 }).strict();
 export const SearchTaskContentResponseSchema = z.discriminatedUnion("ok", [
   z.object({ok: z.literal(true), results: z.array(ContentSearchResultSchema).max(50),
-    nextOffset: z.number().int().nonnegative().nullable(), indexing: ContentSearchIndexingSchema,
+    nextOffset: z.number().int().nonnegative().max(CONTENT_SEARCH_MAX_OFFSET).nullable(), indexing: ContentSearchIndexingSchema,
   }).strict(),
   z.object({ok: z.literal(false), message: z.string()}).strict(),
 ]);
