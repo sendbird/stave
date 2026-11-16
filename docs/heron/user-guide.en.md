@@ -1060,7 +1060,8 @@ this workspace** and **Mark all read**.
 **Delete permanently** is available for archived or ended tasks with no running
 turn, child or run. Protected tasks are skipped. The confirmation names the
 number of tasks and warns that this cannot be undone. Cancel receives focus;
-Enter does not confirm by default. In **Task History**, select multiple tasks
+Enter does not confirm by default. Ended children retain their content and become
+independent tasks in History when their parent is deleted. In **Task History**, select multiple tasks
 to **Restore (n)** or **Delete permanently (n)** together.
 
 Tree and Table optionally **Group by status**: **Needs you**, **Working**,

@@ -1,4 +1,4 @@
-import { assertTaskCanBeDeleted, deleteTaskRelatedRows, withoutDeletedSnapshotTasks } from "./task-permanent-delete";
+import { assertTaskCanBeDeleted, deleteTaskRelatedRows, withoutDeletedSnapshotTasks, releaseDeletedTaskChildren, preserveReleasedTaskParents } from "./task-permanent-delete";
 import { DelegationPolicyStore } from "./delegation-policy-store";
 import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
@@ -1836,6 +1836,7 @@ export class SqliteStore {
     const tx = this.db.transaction(() => {
       const deleted = new Set((this.db.prepare("SELECT task_id FROM deleted_tasks WHERE workspace_id = ?").all(args.id) as { task_id: string }[]).map((row) => row.task_id));
       if (deleted.size) args = { ...args, snapshot: withoutDeletedSnapshotTasks(args.snapshot, deleted) };
+      args = { ...args, snapshot: { ...args.snapshot, tasks: preserveReleasedTaskParents(this.db, args.snapshot.tasks) } };
       const existingPayloadEntry = previousPayloadEntry;
       const existingWorkspaceShellArtifact = previousWorkspaceShellArtifact;
       const nextTaskIds = new Set(args.snapshot.tasks.map((task) => task.id));
@@ -2061,6 +2062,7 @@ export class SqliteStore {
       }
       const payload = payloadEntry.payload as PersistedWorkspaceShellPayload;
       if (args.task) {
+        args.task = preserveReleasedTaskParents(this.db, [args.task])[0]!;
         const persistedTaskRowId = `${args.workspaceId}:${args.task.id}`;
         // Archival is renderer-owned: never let a host write revive a task the
         // user just archived. Read the authoritative value for this one task
@@ -2198,6 +2200,7 @@ export class SqliteStore {
       if (args.permanently) {
         const task = this.loadWorkspaceShell({ workspaceId: args.workspaceId })?.tasks.find((candidate) => candidate.id === args.taskId);
         assertTaskCanBeDeleted(this.db, args, task);
+        releaseDeletedTaskChildren(this.db, args.taskId);
         deleteTaskRelatedRows(this.db, args);
         this.db.prepare("INSERT OR IGNORE INTO deleted_tasks (workspace_id, task_id) VALUES (?, ?)").run(args.workspaceId, args.taskId);
       }
@@ -2236,7 +2239,7 @@ export class SqliteStore {
         return;
       }
       const shell = this.toWorkspaceShell({ payload: payloadEntry.payload });
-      const nextTasks = shell.tasks.filter((task) => task.id !== args.taskId);
+      const nextTasks = preserveReleasedTaskParents(this.db, shell.tasks.filter((task) => task.id !== args.taskId));
       const nextActiveTaskId =
         shell.activeTaskId === args.taskId
           ? (nextTasks[0]?.id ?? "")

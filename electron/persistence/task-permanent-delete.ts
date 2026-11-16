@@ -65,3 +65,24 @@ export function withoutDeletedSnapshotTasks(snapshot: PersistenceWorkspaceSnapsh
     activeSurface: snapshot.activeSurface?.kind === "task" && deleted.has(snapshot.activeSurface.taskId) ? { kind: "task", taskId: activeTaskId } : snapshot.activeSurface,
   };
 }
+
+
+/** Detach surviving children in every shell projection in the parent's deletion transaction. */
+export function releaseDeletedTaskChildren(db: Database.Database, parentTaskId: string) {
+  const tasks = `(SELECT json_group_array(json(CASE WHEN json_extract(item.value, '$.parentTaskId') = ?
+    THEN json_set(item.value, '$.parentTaskId', NULL) ELSE item.value END)) FROM json_each(%s, '$.tasks') item)`;
+  db.prepare(`UPDATE workspaces SET snapshot_json = json_set(snapshot_json, '$.tasks', ${tasks.replace("%s", "snapshot_json")})
+    WHERE EXISTS (SELECT 1 FROM json_each(snapshot_json, '$.tasks') WHERE json_extract(value, '$.parentTaskId') = ?)`)
+    .run(parentTaskId, parentTaskId);
+  for (const column of ["shell_lite_json", "shell_summary_json"]) {
+    db.prepare(`UPDATE workspace_meta SET ${column} = json_set(${column}, '$.tasks', ${tasks.replace("%s", column)})
+      WHERE ${column} IS NOT NULL AND EXISTS (SELECT 1 FROM json_each(${column}, '$.tasks') WHERE json_extract(value, '$.parentTaskId') = ?)`)
+      .run(parentTaskId, parentTaskId);
+  }
+}
+
+/** A stale renderer or host snapshot cannot reattach a child to a permanently deleted parent. */
+export function preserveReleasedTaskParents(db: Database.Database, tasks: PersistenceTaskRow[]): PersistenceTaskRow[] {
+  return tasks.map((task) => task.parentTaskId && db.prepare("SELECT 1 FROM deleted_tasks WHERE task_id = ? LIMIT 1").get(task.parentTaskId)
+    ? { ...task, parentTaskId: null } : task);
+}

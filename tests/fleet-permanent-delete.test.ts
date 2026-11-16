@@ -1,3 +1,5 @@
+import { selectTaskHistoryEntries } from "../src/lib/tasks";
+import type { Task } from "../src/types/chat";
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { SqliteStore } from "../electron/persistence/sqlite-store";
@@ -65,6 +67,34 @@ describe("permanent task deletion with the real SQLite store", () => {
     db.prepare("INSERT INTO tars_responsibilities VALUES (?)").run(JSON.stringify({ taskId: "task", state: "running" }));
     expect(() => store.removeTaskFromWorkspace(args)).toThrow("managed by Tars");
     expect(db.prepare("SELECT COUNT(*) AS n FROM deleted_tasks").get()).toEqual({ n: 0 });
+  });
+  test("preserves an ended child in another workspace and releases it into History", () => {
+    const { db, store, snapshot } = setup();
+    const childSnapshot: PersistenceWorkspaceSnapshot = { ...snapshot, activeTaskId: "child", openTaskTabIds: [],
+      tasks: [{ ...snapshot.tasks[0]!, id: "child", parentTaskId: "task" }],
+      messagesByTask: { child: [{ id: "child-message", role: "assistant", providerId: "codex", model: "model", content: "Child result", parts: [{ type: "text", text: "Child result" }], isStreaming: false }] } };
+    store.upsertWorkspace({ id: "child-workspace", name: "Child workspace", snapshot: childSnapshot });
+    db.exec("INSERT INTO runs VALUES ('child-run','delegated-task','task','task','/tmp/project','child-workspace','child','completed','{}','{}','now','now','now',NULL)");
+    store.removeTaskFromWorkspace(args);
+    let childShell = store.loadWorkspaceShell({ workspaceId: "child-workspace" })!;
+    expect(childShell.tasks).toHaveLength(1);
+    expect(childShell.tasks[0]!.parentTaskId).toBeNull();
+    expect(selectTaskHistoryEntries({ tasks: childShell.tasks as Task[], openTaskTabIds: [] }).map((task) => task.id)).toEqual(["child"]);
+    expect(store.loadAllTaskMessages({ workspaceId: "child-workspace", taskId: "child" })[0]?.content).toBe("Child result");
+    expect(store.loadWorkspaceShellSummary({ workspaceId: "child-workspace" })?.tasks[0]?.parentTaskId).toBeNull();
+    store.upsertWorkspace({ id: "child-workspace", name: "Child workspace", snapshot: childSnapshot });
+    store.persistTaskTurnDelta({ workspaceId: "child-workspace", taskId: "child", task: childSnapshot.tasks[0] });
+    childShell = store.loadWorkspaceShell({ workspaceId: "child-workspace" })!;
+    expect(childShell.tasks[0]!.parentTaskId).toBeNull();
+  });
+  test("a failed parent deletion rolls the surviving child's parent stamp back", () => {
+    const { db, store, snapshot } = setup();
+    store.upsertWorkspace({ id: "child-workspace", name: "Child workspace", snapshot: { ...snapshot, tasks: [{ ...snapshot.tasks[0]!, id: "child", parentTaskId: "task" }], messagesByTask: {} } });
+    db.exec("CREATE TRIGGER reject_parent_delete BEFORE DELETE ON tasks WHEN OLD.id = 'workspace:task' BEGIN SELECT RAISE(ABORT, 'blocked parent write'); END");
+    expect(() => store.removeTaskFromWorkspace(args)).toThrow("blocked parent write");
+    expect(store.loadWorkspaceShell({ workspaceId: "child-workspace" })?.tasks[0]?.parentTaskId).toBe("task");
+    expect(store.loadWorkspaceShellSummary({ workspaceId: "child-workspace" })?.tasks[0]?.parentTaskId).toBe("task");
+    expect(store.loadWorkspaceShell({ workspaceId: "workspace" })?.tasks).toHaveLength(1);
   });
   test("rolls related deletions back when the task delete fails", () => {
     const { db, store } = setup();

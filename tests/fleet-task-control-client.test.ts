@@ -42,6 +42,21 @@ describe("Fleet deletion renderer reconciliation", () => {
     expect(useAppStore.getState().workspaceRuntimeCacheById.ws).toBe(before);
   });
 
+  test("deleting a parent releases retained children in current, cached and cold workspaces", async () => {
+    const parent = session();
+    const child = { ...task("child"), parentTaskId: "deleted" };
+    const childSession = { ...session(), tasks: [child] };
+    useAppStore.setState({ ...childSession, activeWorkspaceId:"child-workspace", workspaceRuntimeCacheById:{parent,child:childSession} });
+    useFleetWorkspaceShellsStore.setState({byWorkspaceId:{cold:{status:"loaded",shell:childSession}}});
+    globalThis.window = {api:{taskControl:{deletePermanently:async()=>({ok:true})}}} as unknown as Window & typeof globalThis;
+    await deleteFleetTask({workspaceId:"parent",taskId:"deleted"});
+    expect(useAppStore.getState().tasks[0]?.parentTaskId).toBeNull();
+    expect(useAppStore.getState().workspaceRuntimeCacheById.child?.tasks[0]?.parentTaskId).toBeNull();
+    const cold = useFleetWorkspaceShellsStore.getState().byWorkspaceId.cold;
+    expect(cold?.status === "loaded" && cold.shell?.tasks[0]?.parentTaskId).toBeNull();
+    expect(useAppStore.getState().tasks[0]?.title).toBe("child");
+  });
+
   test("a successful host deletion purges current, inactive and cold snapshots", async () => {
     const before = session();
     useAppStore.setState({ ...before, activeWorkspaceId: "ws", workspaceRuntimeCacheById: { ws: before }, taskWorkspaceIdById: { deleted: "ws", kept: "ws" } });

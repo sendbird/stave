@@ -334,6 +334,7 @@ Enter does not confirm deletion unless the destructive button is explicitly
 focused. The host refuses tasks that are still active, have running descendants
 or agent runs, or remain protected. Only archived or ended tasks are eligible.
 Deletion removes task records and their related execution and attention history.
+Ended delegated tasks keep their content and become independent entries in Task History.
 
 Task History supports selecting several visible entries, **Restore (n)** and
 **Delete permanently (n)**. Restore opens the selected archived tasks or closed
