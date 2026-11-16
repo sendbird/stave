@@ -84,8 +84,8 @@ describe("Tars execution workflow", () => {
     expect(composed).not.toContain("open or update a draft pull request through Shipper");
     expect(composed).toContain("Do small or tightly coupled work yourself");
     expect(composed).not.toContain("these Tars rules win");
-    expect(composed).toContain("do not push, open or update a pull request, or call Shipper");
-    expect(composed).toContain("Commit verified work on this workspace's branch");
+    expect(composed).toContain("a publication goal grants no publishing authority, including through another agent");
+    expect(composed).toContain("Commit verified work here for review");
     expect(composed.length).toBeLessThanOrEqual(AGENT_CONFIG_LIMITS.instructions);
   });
 });

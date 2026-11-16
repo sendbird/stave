@@ -3065,6 +3065,9 @@ interface WindowApi {
    * (`tars:schedule-toggle`) is the pause switch of a schedule Tars created
    * and `listSchedules` (`tars:schedules`) lists those schedules; they are
    * records of Stave's Schedules service, which stores and runs them.
+   * `batch` (`tars:batch`) previews, confirms, declines or restores one bulk
+   * control or cleanup, and `batches` (`tars:batches`) reads the saved
+   * records with their per-item outcomes.
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */

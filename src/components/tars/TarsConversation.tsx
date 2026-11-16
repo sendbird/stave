@@ -1,3 +1,5 @@
+import { isTarsBatchAction } from "@/lib/tars/batch";
+import { TarsBatchProposal, TarsBatchRecordEntry, useTarsBatchRecords } from "./TarsBatchCard";
 import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Clock, FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
@@ -147,7 +149,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: receipt.action.kind === "workspace" && receipt.status === "applied" ? null : cards.get(receipt.actionIndex) ?? null }));
   const scheduleViews = new Map((schedule?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex) && !clearViews.has(entry.receipt.actionIndex) && !scheduleViews.has(entry.receipt.actionIndex))
-    .map((entry) => entry.receipt);
+    .map((entry) => entry.receipt).filter(receipt => !isTarsBatchAction(receipt.action) || receipt.status === "rejected");
   const origin = message.origin;
   const userWords = !origin;
   const bubble = message.text ? <div className={sx(chrome.userBubble)} data-tars-user-bubble=""><MessageContent><p className={sx(chrome.messageText)}>{message.text}</p></MessageContent></div> : null;
@@ -186,6 +188,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       ? <TarsWaitingRecord key={`publish:${view.actionIndex}`} id={view.requestId} subject={t("shell:tars.publish.card.title")} onOpen={() => onOpenWaiting(view.requestId)} />
       : <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf}
       matchedRules={receipts.find((receipt) => receipt.actionIndex === view.actionIndex)?.matchedRules} />) : []),
+    ...receipts.filter(receipt => isTarsBatchAction(receipt.action) && receipt.status !== "rejected").map(receipt => isTarsBatchAction(receipt.action) ? <TarsBatchProposal key={`batch:${receipt.actionIndex}`} action={receipt.action} receipt={receipt} /> : null),
     ...(clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : []),
     ...(schedule ? [...scheduleViews.values()].map((view) => <TarsScheduleProposal key={`schedule:${view.actionIndex}`} view={view} schedule={schedule} />) : []),
     ...flowed.map(({ receipt, flow }) => flow
@@ -291,13 +294,14 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     records: state.conversation.records, answers: state.conversation.answers ?? [], activity: state.conversation.activity,
     responsibilities: responsibilities ?? null }) : [], [responsibilities, state.conversation]);
   const decisionIds = useMemo(() => new Set(decisions.map((view) => view.id)), [decisions]);
+  const batches = useTarsBatchRecords();
   const timeline = useMemo(() => [
     ...(state.conversation?.messages ?? []).map((value) => ({ kind: "message" as const, id: `message:${value.id}`, at: value.createdAt, value })),
     // Only completion, a block and an unasked end reach the transcript; live progress stays in the tray and flow blocks.
     ...selectTarsActivityNotices(state.conversation?.activity ?? [], state.conversation?.records ?? [])
       .map((value) => ({ kind: "activity" as const, id: `activity:${value.activity.id}`, at: value.activity.createdAt, value })),
     // A decision's own record shows on its card, never twice.
-    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
+    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("batch:") && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
       .map((value) => ({ kind: "record" as const, id: `record:${value.requestId}`, at: value.createdAt, value })),
     // A card the user opened leaves its confirmation's outcome where it was confirmed.
     ...(publish?.records ?? []).map((value) => ({ kind: "publish" as const, id: `publish:${value.requestId}`, at: value.createdAt, value })),
@@ -309,7 +313,10 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     // A switch pressed in the schedules list, and each run a schedule started, where it happened.
     ...(schedule?.records ?? []).map((value) => ({ kind: "schedule" as const, id: `schedule:${value.requestId}`, at: value.createdAt, value })),
     ...(schedule?.runs ?? []).map((run) => ({ kind: "scheduleRun" as const, id: `schedule-run:${run.runId}`, at: run.startedAt, value: { run, revision: `${run.status}:${run.taskId ?? ""}` } })),
-  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [clear?.records, decisionIds, publish?.records, schedule?.records, schedule?.runs, state.conversation]);
+    // A cleanup confirmed from the Done lane stays where it happened, with its Restore.
+    ...batches.records.map((record) => ({ kind: "batch" as const, id: `batch:${record.id}`, at: record.createdAt,
+      value: { record, revision: `${record.state}:${record.items.map((item) => item.status).join(",")}` } })),
+  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [batches.records, clear?.records, decisionIds, publish?.records, schedule?.records, schedule?.runs, state.conversation]);
   const scrollKey = timeline.map((item) => `${item.id}:${item.kind === "activity" ? item.value.activity.revision : item.kind === "event" ? item.value.status : item.value.revision}`).join("|")
     + (clear?.active ? `|cleared:${clear.active.requestId}` : "")
     + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
@@ -409,6 +416,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} records={state.conversation?.records} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
       onResend={() => resend(item.value)}
       titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} schedule={schedule} onOpenWaiting={openWaiting} />;
+    if (item.kind === "batch") return { record: <TarsBatchRecordEntry key={item.id} record={item.value.record} /> };
     if (item.kind === "schedule") return { record: <TarsScheduleRecordLine key={item.id} record={item.value} /> };
     if (item.kind === "scheduleRun") return { record: <TarsScheduleRunLine key={item.id} run={item.value.run} onOpenTask={onOpenScheduleRun} /> };
     if (item.kind === "clear") return { record: <TarsClearRecordLine key={item.id} record={item.value} busy={clear?.busy} error={clear?.errors.get(item.value.requestId)}
@@ -467,6 +475,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
           decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} onOpenWaiting={openWaiting} />
         <TarsAllowRuleRecords />
+        {batches.error ? <p role="alert">{t("shell:tars.batch.failed")}</p> : null}
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}

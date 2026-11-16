@@ -57,6 +57,7 @@ export function TarsReceiptRow({ receipt, titleOf, agentNameOf, record, workspac
           : action.kind === "publish" ? [t("shell:tars.record.publish"), null, work(action.responsibilityId)]
             : action.kind === "clear" ? [t("shell:tars.record.clear"), formatList(action.scopes.map((scope) => t(`shell:tars.clear.scope.${scope}`))), null]
             : action.kind === "schedule" ? [t(`shell:tars.schedule.operation.${action.operation}`), action.title ?? null, null]
+            : action.kind === "cleanup" || action.kind === "bulkControl" ? [t("shell:tars.batch.entry"), null, null]
             : action.kind === "withdraw" ? [t("shell:tars.decision.withdraw.lead"), t(`shell:tars.decision.withdraw.subject.${action.decisionId.startsWith("ask:") ? "ask" : "confirm"}`), null]
               : [t("shell:tars.record.reprioritize", { priority: action.priority }), null, work(action.responsibilityId)];
   const agent = action.kind === "delegate" && action.agentId ? action.agentId : null;

@@ -1064,6 +1064,10 @@ export interface HostServiceRequestMap {
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreviewInput;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsReprioritizeInput;
   "tars.brief": import("../../src/lib/tars/brief").TarsBriefInput;
+  /** One bulk control or cleanup batch: preview, confirm (or Continue), decline or restore. */
+  "tars.batch": import("../../src/lib/tars/batch").TarsBatchInput;
+  /** The saved batch records; read only. */
+  "tars.batches": undefined;
   /** One schedule card's confirmation; the host reads the saved proposal and applies it through the Schedules service. */
   "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleConfirmInput;
   /** What a schedule card shows; read only. */
@@ -1294,6 +1298,8 @@ export interface HostServiceResponseMap {
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsActResult;
   "tars.brief": import("../../src/lib/tars/brief").TarsBrief;
+  "tars.batch": import("../../src/lib/tars/batch").TarsBatchRecord;
+  "tars.batches": import("../../src/lib/tars/batch").TarsBatchRecord[];
   "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleResult;
   "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreview;
   "tars.schedule-toggle": import("../../src/lib/tars/schedules").TarsScheduleResult;

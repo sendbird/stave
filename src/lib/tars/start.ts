@@ -18,7 +18,7 @@ export type TarsStartRequirement = "repository" | "publish" | "clear" | "schedul
 
 export interface TarsStartExample {
   /** The copy key: `tars.start.examples.<id>.label` and `.prompt`. */
-  id: "workspace" | "delegate" | "schedule" | "status" | "pause" | "queue" | "answerWaiting" | "options" | "report" | "changes" | "openScreen" | "publish" | "clearConversation" | "clearDone";
+  id: "bulkControl" | "cleanup" | "workspace" | "delegate" | "schedule" | "status" | "pause" | "queue" | "answerWaiting" | "options" | "report" | "changes" | "openScreen" | "publish" | "clearConversation" | "clearDone";
   group: TarsStartGroupId;
   action: TarsStartActionKind;
   requires?: TarsStartRequirement;
@@ -37,6 +37,7 @@ export const TARS_START_EXAMPLES: readonly TarsStartExample[] = [
   { id: "delegate", group: "delegate", action: "delegate", requires: "repository" },
   { id: "schedule", group: "schedule", action: "schedule", requires: "schedule" },
   { id: "status", group: "steer", action: "reply", covers: ["needsYou"] },
+  { id: "bulkControl", group: "steer", action: "bulkControl", requires: "repository" },
   { id: "pause", group: "steer", action: "control" },
   { id: "workspace", group: "steer", action: "workspace", requires: "repository" },
   { id: "queue", group: "steer", action: "reprioritize" },
@@ -48,6 +49,7 @@ export const TARS_START_EXAMPLES: readonly TarsStartExample[] = [
   { id: "publish", group: "publish", action: "publish", requires: "publish", covers: ["publish"] },
   { id: "clearConversation", group: "clear", action: "clear", requires: "clear" },
   { id: "clearDone", group: "clear", action: "clear", requires: "clear" },
+  { id: "cleanup", group: "clear", action: "cleanup", requires: "repository" },
 ];
 
 export interface TarsStartGroup { id: TarsStartGroupId; examples: TarsStartExample[] }

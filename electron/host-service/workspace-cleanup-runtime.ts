@@ -210,6 +210,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     try {
       const row = (await list(false, false, { id: args.workspaceId, repositoryPath: args.repositoryPath })).rows.find(row => row.id === args.workspaceId && row.repositoryPath === args.repositoryPath);
       if (!row) throw new Error("ownershipChanged");
+      if (args.archivedOnly && !row.archived) throw new Error("notArchived");
       result.workspaceName = row.name;
       if (args.action === "restore") {
         if (!row.archived) throw new Error("notArchived");

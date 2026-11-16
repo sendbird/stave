@@ -1231,6 +1231,14 @@
         "workspace": {
           "label": "Track a todo",
           "prompt": "Add a todo to this workspace to verify the release checks."
+        },
+        "bulkControl": {
+          "label": "Pause all",
+          "prompt": "Pause all running work"
+        },
+        "cleanup": {
+          "label": "Clean up finished",
+          "prompt": "Clean up the finished work"
         }
       },
       "repositories": {
@@ -1372,7 +1380,9 @@
           "scheduleList": "List opened",
           "withdraw": "Withdrawn",
           "workspace": "Information updated",
-          "open": "Screen opened"
+          "open": "Screen opened",
+          "bulkControl": "Bulk control applied",
+          "cleanup": "Cleanup applied"
         }
       },
       "delegateAgent": "Agent: {{name}}",
@@ -3004,6 +3014,80 @@
       "documentRequest": "Use the attached document as context. Help me turn it into a plan; ask before starting implementation.",
       "failed": "Could not add this source. Use an HTTPS link or a Markdown file up to 32 KB; keep room in your draft and attachments.",
       "issueBodyUnavailable": "The issue body could not be read. The draft includes its title and link."
+    },
+    "batch": {
+      "verb": {
+        "pause": "Pause",
+        "resume": "Resume",
+        "cancel": "Cancel",
+        "archive": "Archive",
+        "delete": "Permanently delete"
+      },
+      "entry": "Clean up finished work",
+      "effect": "Apply only to the items listed below. The host checks each item again before acting.",
+      "count_one": "{{count}} included, {{skipped}} skipped",
+      "count_other": "{{count}} included, {{skipped}} skipped",
+      "reversible": "Archived workspaces keep their history and have Restore. Paused work can be resumed.",
+      "irreversible": "Cancellation, branch deletion and permanent deletion cannot be undone. Archived history can be restored; deleted branches cannot.",
+      "changed": "The work changed or is not eligible",
+      "failed": "The operation could not finish. Refresh and inspect the result before trying again.",
+      "loading": "Checking each item...",
+      "skippedReason": "Skipped: {{reason}}",
+      "status": {
+        "included": "Included",
+        "skipped": "Skipped",
+        "applying": "Outcome needs inspection",
+        "applied": "Applied",
+        "restored": "Restored",
+        "restoredReadOnly": "Restored read-only"
+      },
+      "partialReason": "Applied with a limitation: {{reason}}",
+      "eligibleEnded": "Ended work; safety checks passed",
+      "resultVerb": {
+        "pause": "Paused",
+        "resume": "Resumed",
+        "cancel": "Cancelled",
+        "archive": "Archived",
+        "delete": "Permanently deleted"
+      },
+      "reasons": {
+        "alreadyArchived": "Already archived",
+        "duplicateWorkspace": "Workspace already included",
+        "stale": "The work changed"
+      },
+      "cleanupResultLead": "Cleanup",
+      "outcomeWithReasons": "{{summary}} ({{reasons}})",
+      "nothingChanged": "Nothing changed",
+      "outcome": {
+        "applied_one": "Applied {{count}}",
+        "applied_other": "Applied {{count}}",
+        "archived_one": "Archived {{count}}",
+        "archived_other": "Archived {{count}}",
+        "deleted_one": "Permanently deleted {{count}}",
+        "deleted_other": "Permanently deleted {{count}}",
+        "restored_one": "Restored {{count}}",
+        "restored_other": "Restored {{count}}",
+        "undone_one": "Undone {{count}}",
+        "undone_other": "Undone {{count}}",
+        "skipped_one": "Skipped {{count}}",
+        "skipped_other": "Skipped {{count}}",
+        "uncertain_one": "Inspect outcome {{count}}",
+        "uncertain_other": "Inspect outcome {{count}}"
+      },
+      "omitted": {
+        "ended_one": "{{count}} ended item left out",
+        "ended_other": "{{count}} ended items left out",
+        "unfinished_one": "{{count}} unfinished item left out",
+        "unfinished_other": "{{count}} unfinished items left out"
+      },
+      "prStatusUnavailable": "Pull request status unavailable — sign in to GitHub CLI or use the cleanup center",
+      "executing_one": "Working on {{count}} item…",
+      "executing_other": "Working on {{count}} items…",
+      "interruptedLead": "Interrupted",
+      "interrupted_one": "{{summary}}; {{count}} item not processed yet",
+      "interrupted_other": "{{summary}}; {{count}} items not processed yet",
+      "continue": "Continue",
+      "declined": "Declined"
     }
   },
   "contentSearch": {

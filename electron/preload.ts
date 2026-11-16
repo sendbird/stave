@@ -2,6 +2,7 @@ import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
 import { contentSearchPreload } from "./persistence/content-search-preload";
+import { TarsBatchInputSchema, TarsBatchRecordSchema, TarsBatchRecordsSchema } from "../src/lib/tars/batch";
 import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema } from "../src/lib/workspace-cleanup-contract";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
@@ -844,6 +845,8 @@ const tarsApi: TarsBridgeApi = {
   getUsage: async (input) => TarsUsageReportSchema.parse(await ipcRenderer.invoke(TARS_IPC.getUsage, TarsUsageInputSchema.parse(input))),
   getDraft: async () => TarsComposerDraftSchema.nullable().parse(await ipcRenderer.invoke(TARS_IPC.getDraft)),
   saveDraft: async (input) => { await ipcRenderer.invoke(TARS_IPC.saveDraft, SaveTarsComposerDraftInputSchema.parse(input)); },
+  batch: async input => TarsBatchRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.batch, TarsBatchInputSchema.parse(input))),
+  batches: async () => TarsBatchRecordsSchema.parse(await ipcRenderer.invoke(TARS_IPC.batches)),
   clear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.clear, TarsClearInputSchema.parse(input))),
   undoClear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoClear, TarsUndoClearInputSchema.parse(input))),
   configureView: async (input) => TarsViewSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureView, TarsViewSettingsSchema.parse(input))),

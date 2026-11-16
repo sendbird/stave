@@ -7,7 +7,7 @@ versionLabel: v1
 status: Current · Stave 0.35.0
 statusTone: current
 captured: 2026-11-09
-updated: 2026-11-13
+updated: 2026-11-17
 recorder: jacob.kim
 footer: Stave User Guide v1 · Stave 0.35.0 · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
@@ -982,6 +982,14 @@ report. Your existing sound and desktop notification settings apply; desktop
 notifications stay quiet while Stave's window has focus.
 
 Full details: https://github.com/sendbird/stave/blob/main/docs/features/tars.md
+
+
+## Tars bulk control and cleanup
+
+Ask Tars to "stop everything", "pause all running work", resume all, or explicitly cancel many responsibilities. Limit the request to one repository or a list of responsibilities when needed. One card lists only the work the action can apply to, with each skipped item's reason; ended work is counted on one line instead of being listed. Confirmation is always required, regardless of autonomy. Pause and resume apply to the work's current state when you confirm; cancel skips work that changed since the card appeared, and never cancels work you took over. Cancellation cannot be undone and has no default Enter shortcut.
+
+Ask to "clean up the finished work" or choose **Clean up finished work** in Done. Only completed or cancelled work with no running activity, pending/open PR, dirty files or unpushed commits can be archived; unfinished work is counted on one line. The host checks each workspace again when confirmed. When pull request status is unavailable, every item is skipped and one line says to sign in to GitHub CLI or use the cleanup center. The result record offers **Restore** for archives; an archive whose branch was deleted comes back read-only. If Stave stops while a cleanup or bulk control runs, its record shows what ran and offers **Continue** for the rest. Branch deletion and permanent deletion of already archived workspaces require an explicit request and cannot be undone; force deletion is never used.
+
 
 @page review | Hand off | Review and delegation | guide
 @lead Check changes yourself in Review mode, hand them to another model as an AI review, or let an agent create delegated tasks. Results gather in the Task panel's Outputs.

@@ -1,3 +1,4 @@
+import { TarsBatchInputSchema } from "../../../src/lib/tars/batch";
 import { TarsUndoActionInputSchema } from "../../../src/lib/tars/action-undo";
 import { ipcMain } from "electron";
 import { z } from "zod";
@@ -23,6 +24,8 @@ import { TarsScheduleConfirmInputSchema, TarsSchedulePreviewInputSchema, TarsSch
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
   ensureTarsEventBridge();
+  ipcMain.handle(TARS_IPC.batch, (_event, input: unknown) => invokeHostService("tars.batch", TarsBatchInputSchema.parse(input)));
+  ipcMain.handle(TARS_IPC.batches, () => invokeHostService("tars.batches", undefined));
   ipcMain.handle(TARS_IPC.configureConversation, async (_event, rawInput: unknown) => {
     const input = TarsConversationSettingsSchema.parse(rawInput);
     return (await getTarsConversationService()).configureConversation(input);
