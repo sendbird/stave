@@ -1,7 +1,7 @@
 import type { GitHubPrPayload } from "../../src/lib/pr-status";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, symlinkSync, existsSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, symlinkSync, existsSync, writeFileSync, rmSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteStore } from "../../electron/persistence/sqlite-store";
@@ -277,6 +277,38 @@ try {
   const scheduledResult = await restarted.runScheduled();
   assert.ok(scheduledResult.results.some(result => result.workspaceId === "automatic-two" && result.ok), JSON.stringify(scheduledResult));
   assert.equal(existsSync(secondPath), false);
+  const foreignPath = join(root, "foreign-repository");
+  git(root, "init", "-b", "foreign-only", foreignPath);
+  writeFileSync(join(foreignPath, "retained.txt"), "external content");
+  git(foreignPath, "add", "retained.txt");
+  git(foreignPath, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-m", "test: external history");
+  const foreignLink = join(linkedShelfRoot, "foreign-link");
+  symlinkSync(foreignPath, foreignLink);
+  store.upsertWorkspace({ id: "foreign-linked", name: "Foreign", snapshot: { activeTaskId: null, tasks: [], messagesByTask: {} } });
+  store.updateRepositoryRegistry(repositories => {
+    const repository = repositories[0]!;
+    repository.workspaces.push({ id: "foreign-linked", name: "Foreign", updatedAt: "2026-01-01" });
+    repository.workspacePathById["foreign-linked"] = foreignPath;
+    repository.workspaceBranchById["foreign-linked"] = "foreign-only";
+    repository.workspaceDefaultById["foreign-linked"] = false;
+    repository.linkedWorkspacePaths!.push(foreignPath);
+    return { repositories, result: undefined };
+  });
+  const foreignAct = (action: "archive" | "restore" | "delete") => runtime.act({ action, workspaceId: "foreign-linked", repositoryPath: repo });
+  assert.equal((await foreignAct("archive")).ok, true, "A linked foreign repository can archive without primary ownership");
+  assert.equal(existsSync(foreignLink), false);
+  assert.equal(existsSync(join(foreignPath, "retained.txt")), true);
+  assert.equal(git(foreignPath, "symbolic-ref", "--short", "HEAD").trim(), "foreign-only");
+  assert.equal((await foreignAct("restore")).ok, true, "Foreign archive restores its existing checkout without a primary branch");
+  assert.equal(existsSync(foreignLink), true);
+  assert.equal((await foreignAct("delete")).ok, false, "Foreign checkout stays protected from destructive cleanup");
+  assert.equal((await foreignAct("archive")).ok, true);
+  renameSync(foreignPath, join(root, "moved-foreign"));
+  const unavailableForeign = await foreignAct("restore");
+  assert.equal(unavailableForeign.ok, true);
+  assert.equal(unavailableForeign.readOnly, true, "Unavailable external checkouts retain read-only history");
+  assert.equal(existsSync(foreignPath), false, "A missing external checkout is never recreated from the primary repository");
+  assert.equal(existsSync(foreignLink), false);
   store.close();
 } finally {
   workspaceExecutionGate.setArchiveReader(() => []);

@@ -69,8 +69,10 @@ Restore recreates the worktree when the branch exists. Otherwise it opens
 read-only history and offers to create a new workspace with a draft based on
 that history. Archiving a linked workspace removes only its saved link and
 registry entry, preserving the external worktree and branch. Restore reapplies
-the original dependency link and initialization command; progress and failures
-are shown in the center. The Archived shelf reads saved records without running
+the saved dependency link and initialization command; progress and failures
+are shown in the center. For older workspaces without saved creation options,
+it uses the observed dependency link and the current repository initialization
+command. The Archived shelf reads saved records without running
 repository inspections.
 
 Permanent deletion confirms removal of history and the clean worktree in a

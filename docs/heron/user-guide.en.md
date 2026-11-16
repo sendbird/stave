@@ -1217,6 +1217,8 @@ clean worktree. Confirmation opens with Cancel focused; Escape closes only the
 confirmation, and Enter never confirms permanent deletion. Linked workspaces
 keep the external worktree and branch when archived. Restore re-applies dependency
 links and the configured initialization command, with progress and failure shown.
+Older workspaces without saved creation options use the observed dependency link
+and the current repository initialization command.
 Branch deletion is optional, safe by default; forcing an
 unmerged branch requires an unchecked-by-default confirmation.
 
