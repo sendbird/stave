@@ -1,4 +1,5 @@
 import { existsSync, realpathSync } from "node:fs";
+import { workspaceRunningCleanupBlockers } from "./workspace-cleanup-running";
 import { lstat, readdir, symlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { SqliteStore } from "../persistence/sqlite-store";
@@ -100,6 +101,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     }
     if ((row.archived || action === "delete" || action === "removeWorktree" || action === "deleteBranch") && (store.listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree || repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)))) reasons.push("externalWorktree");
     if (!row.branchOnly && workspaceExecutionGate.isBusy({ workspaceId: row.id, workspacePath: row.path })) reasons.push("runningTurn");
+    if (!row.branchOnly) reasons.push(...workspaceRunningCleanupBlockers(store, row.id));
     if (ports.hasTerminals(row.id)) reasons.push("terminalOpen");
     if (getScriptStatuses({ workspaceId: row.id }).some(script => script.running)) reasons.push("scriptRunning");
     if (store.agentRuns.listActiveAgentRuns().some(run => run.workspaceId === row.id)) reasons.push("runningRun");
