@@ -173,6 +173,9 @@ export function createWorkspaceCleanupRuntime(ports: {
   async function perform(input: WorkspaceCleanupActArgs, automatic = false): Promise<WorkspaceCleanupResult> {
     const args = WorkspaceCleanupActArgsSchema.parse(input);
     let result: WorkspaceCleanupResult = { ok: false, workspaceId: args.workspaceId, action: args.action, reason: null };
+    let registryChanged = false;
+    let enteredGate = false;
+    let wasSuspended = false;
     try {
       const row = (await list(false, false, { id: args.workspaceId, repositoryPath: args.repositoryPath })).rows.find(row => row.id === args.workspaceId && row.repositoryPath === args.repositoryPath);
       if (!row) throw new Error("ownershipChanged");
@@ -208,13 +211,28 @@ export function createWorkspaceCleanupRuntime(ports: {
           const fresh = await inspect(row);
           const freshBlockers = fresh.blockers.filter(blocker => !(blocker === "unpushedCommits" && args.forceDeleteBranch && args.action === "delete"));
           if (freshBlockers.length) throw new Error(freshBlockers.join(","));
-          if (!row.branchOnly && existsSync(row.path)) {
-            const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath)!;
-            if (repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path))) throw new Error("externalWorktree");
-            const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
-            if (!removed.ok) throw new Error("worktreeRemoveFailed");
+          const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath)!;
+          if (!row.branchOnly && existsSync(row.path) && repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path))) throw new Error("externalWorktree");
+          const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
+          // Persist recoverable ownership before removing its checkout. A failed
+          // write must never leave active history pointing at a missing path.
+          if (createArchive) {
+            ports.store().archiveWorkspacePersistence({ workspaceId: row.id, repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, name: row.name });
+            registryChanged = true;
           }
-          if ((args.action === "archive" || args.action === "delete") && !row.archived) ports.store().archiveWorkspacePersistence({ workspaceId: row.id, repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, name: row.name });
+          try {
+            if (!row.branchOnly && existsSync(row.path)) {
+              const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
+              if (!removed.ok) throw new Error("worktreeRemoveFailed");
+            }
+          } catch (error) {
+            // Git kept the checkout; return the workspace to its active registry.
+            // If rollback also fails, the durable archive still protects history.
+            if (createArchive && existsSync(row.path)) {
+              try { ports.store().restoreWorkspacePersistence({ workspaceId: row.id }); } catch { /* Keep the archive recoverable. */ }
+            }
+            throw error;
+          }
           if (args.action === "deleteBranch" || args.deleteBranch) {
             const deleted = await git(row.repositoryPath, ["branch", args.forceDeleteBranch ? "-D" : "-d", "--", row.branch]);
             if (!deleted.ok) throw new Error("branchDeleteFailed");
@@ -222,12 +240,23 @@ export function createWorkspaceCleanupRuntime(ports: {
           if (args.action === "delete") ports.store().closeWorkspace({ workspaceId: row.id });
         };
         if (row.branchOnly) await apply();
-        else await workspaceExecutionGate.stop({ workspaceId: row.id, workspacePath: row.path }, apply);
+        else {
+          wasSuspended = workspaceExecutionGate.snapshot().some(state => state.workspaceId === row.id);
+          enteredGate = true;
+          await workspaceExecutionGate.stop({ workspaceId: row.id, workspacePath: row.path }, apply);
+        }
         result = { ...result, ok: true };
       }
     } catch (error) { result.reason = error instanceof Error ? error.message : "cleanupFailed"; }
-    remember(result, args.repositoryPath, automatic);
-    if (result.ok) ports.changed?.({ workspaceId: args.workspaceId, repositoryPath: args.repositoryPath });
+    let archiveRemains = false;
+    try {
+      archiveRemains = ports.store().listArchivedWorkspacesPersistence().some(record => record.workspaceId === args.workspaceId);
+      if (!result.ok && enteredGate && !wasSuspended && !archiveRemains) workspaceExecutionGate.resume(args.workspaceId);
+    } catch { /* Unknown durable ownership keeps execution stopped. */ }
+    try { remember(result, args.repositoryPath, automatic); }
+    finally {
+      if (result.ok || registryChanged || archiveRemains) ports.changed?.({ workspaceId: args.workspaceId, repositoryPath: args.repositoryPath });
+    }
     return result;
   }
   function act(args: WorkspaceCleanupActArgs, automatic = false) {

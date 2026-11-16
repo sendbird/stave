@@ -57,7 +57,9 @@ refusal and reports that item's reason. Worktree removal never forces Git.
 
 Archive preserves tasks, messages, turns and events in SQLite. The additive
 `workspace_archives` table stores repository/path/branch identity and archive
-time. `workspace_deletions` retains deleted IDs so delayed snapshots cannot
+time. Archive commits this recoverable identity before removing a checkout.
+A refused Git removal rolls the registry back; failed rollback retains an
+archive that can be restored. `workspace_deletions` retains deleted IDs so delayed snapshots cannot
 resurrect permanently deleted history. Both tables are additive. An absent
 archive marker means active, so existing database files keep their
 data. Active summaries omit archived identities. Registry writes retain

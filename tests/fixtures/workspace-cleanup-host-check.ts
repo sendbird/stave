@@ -32,7 +32,8 @@ try {
   // Only the PTY observation, PR service and clock are faked; Git, registry, history and policy persistence are real.
   const prTimes = new Map<string, string | null>();
   const prStates = new Map<string, "OPEN" | "MERGED">();
-  const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => terminals, now: () => now,
+  const changed: Array<{ workspaceId: string; repositoryPath: string }> = [];
+  const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => terminals, now: () => now, changed: event => changed.push(event),
     pr: async ({ target }) => {
       const pr: GitHubPrPayload | null = prTimes.has(target ?? "") ? { number: 1, title: "Completed work", state: prStates.get(target ?? "") ?? "MERGED", isDraft: prStates.get(target ?? "") === "OPEN",
         url: "https://example.test/pull/1", reviewDecision: null, mergeable: "UNKNOWN", mergeStateStatus: "UNKNOWN", checksRollup: null,
@@ -45,6 +46,43 @@ try {
   assert.equal(existsSync(path), true);
   git(path, "checkout", "feature");
   git(repo, "branch", "-d", "other-head");
+  // Inject only the archive write failure; the real checkout and SQLite history must survive.
+  const archiveWorkspace = store.archiveWorkspacePersistence.bind(store);
+  store.archiveWorkspacePersistence = () => { throw new Error("fixtureArchiveWriteFailed"); };
+  const refusedArchive = await act("archive");
+  store.archiveWorkspacePersistence = archiveWorkspace;
+  assert.equal(refusedArchive.ok, false);
+  assert.equal(refusedArchive.reason, "fixtureArchiveWriteFailed");
+  assert.equal(existsSync(path), true, "Archive persistence failure must leave the checkout intact");
+  assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" })!.messagesByTask.task![0]!.content, "Keep history");
+  assert.ok(store.loadRepositoryRegistry()[0]!.workspaces.some(workspace => workspace.id === "feature"));
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+  const releaseAfterWriteFailure = workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path });
+  releaseAfterWriteFailure();
+  // A real Git refusal rolls the archive metadata back and releases admission.
+  git(repo, "worktree", "lock", path);
+  const refusedRemoval = await act("archive");
+  assert.equal(refusedRemoval.ok, false);
+  assert.equal(refusedRemoval.reason, "worktreeRemoveFailed");
+  assert.equal(existsSync(path), true);
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+  const releaseAfterRollback = workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path });
+  releaseAfterRollback();
+  // If the rollback write also fails, keep the durable archive and notify the UI.
+  const restoreWorkspace = store.restoreWorkspacePersistence.bind(store);
+  store.restoreWorkspacePersistence = () => { throw new Error("fixtureRestoreWriteFailed"); };
+  const previousChanges = changed.length;
+  const partialArchive = await act("archive");
+  store.restoreWorkspacePersistence = restoreWorkspace;
+  assert.equal(partialArchive.ok, false);
+  assert.equal(existsSync(path), true);
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 1);
+  assert.ok(changed.length > previousChanges);
+  assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path }), /archived/);
+  git(repo, "worktree", "unlock", path);
+  assert.equal((await act("restore")).ok, true);
+  assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+  assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" })!.messagesByTask.task![0]!.content, "Keep history");
   mkdirSync(join(repo, "node_modules"));
   symlinkSync(join(repo, "node_modules"), join(path, "node_modules"));
   assert.equal((await act("archive")).ok, true);
