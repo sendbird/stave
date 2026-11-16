@@ -154,7 +154,7 @@ export function createProviderInteractionActions(args: {
       set({ providerTurnActivityByTask });
     },
     abortTaskTurn: ({ taskId, keepAgentRun, cascade = false, expectedTurnId }) => {
-      if (cancelPendingAutoRouting(taskId)) return;
+      if (cancelPendingAutoRouting(taskId) && !cascade) return;
       const stateBefore = get();
       // Stop ends the task's agent run too, before the turn, so the run never picks up after it.
       // A run Tars holds is paused through Tars instead (`cancelAgentRunBeforeStop`).
