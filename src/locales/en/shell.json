@@ -1217,11 +1217,11 @@
           "prompt": "Add a todo to this workspace to verify the release checks."
         },
         "bulkControl": {
-          "label": "Pause all running work",
+          "label": "Pause all",
           "prompt": "Pause all running work"
         },
         "cleanup": {
-          "label": "Clean up finished work",
+          "label": "Clean up finished",
           "prompt": "Clean up the finished work"
         }
       },
@@ -3011,8 +3011,6 @@
       "effect": "Apply only to the items listed below. The host checks each item again before acting.",
       "count_one": "{{count}} included, {{skipped}} skipped",
       "count_other": "{{count}} included, {{skipped}} skipped",
-      "result_one": "{{count}} applied, {{skipped}} skipped",
-      "result_other": "{{count}} applied, {{skipped}} skipped",
       "reversible": "Archived workspaces keep their history and have Restore. Paused work can be resumed.",
       "irreversible": "Cancellation, branch deletion and permanent deletion cannot be undone. Archived history can be restored; deleted branches cannot.",
       "changed": "The work changed or is not eligible",
@@ -3040,8 +3038,25 @@
         "duplicateWorkspace": "Workspace already included",
         "stale": "The work changed"
       },
-      "resultWithReasons_one": "{{count}} applied, {{skipped}} skipped ({{reasons}})",
-      "resultWithReasons_other": "{{count}} applied, {{skipped}} skipped ({{reasons}})"
+      "cleanupResultLead": "Cleanup",
+      "outcomeWithReasons": "{{summary}} ({{reasons}})",
+      "nothingChanged": "Nothing changed",
+      "outcome": {
+        "applied_one": "Applied {{count}}",
+        "applied_other": "Applied {{count}}",
+        "archived_one": "Archived {{count}}",
+        "archived_other": "Archived {{count}}",
+        "deleted_one": "Permanently deleted {{count}}",
+        "deleted_other": "Permanently deleted {{count}}",
+        "restored_one": "Restored {{count}}",
+        "restored_other": "Restored {{count}}",
+        "undone_one": "Undone {{count}}",
+        "undone_other": "Undone {{count}}",
+        "skipped_one": "Skipped {{count}}",
+        "skipped_other": "Skipped {{count}}",
+        "uncertain_one": "Inspect outcome {{count}}",
+        "uncertain_other": "Inspect outcome {{count}}"
+      }
     }
   }
 }

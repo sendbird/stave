@@ -1,10 +1,11 @@
+import { tarsBatchOutcomeCounts } from "@/lib/tars/batch-outcome";
 import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { tarsBatchStyles as batchStyles } from "./tars-batch.styles";
 import { useEffect, useState } from "react";
 import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
 import { Archive } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import { formatNumber } from "@/i18n/format";
+import { formatList, formatNumber } from "@/i18n/format";
 import { Button } from "@/components/aui/components/Button";
 import { sx } from "@/components/aui/utils/stylex";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
@@ -21,7 +22,14 @@ export function TarsBatchCard({ record, busy, error, onConfirm, onRestore, onDec
   const settled = record.state === "applied" || record.state === "restored";
   const included = record.items.filter(item => item.status === "included").length;
   const skipped = record.items.filter(item => item.status === "skipped").length;
-  const applied = record.items.filter(item => item.status === "applied" || item.status === "restored").length;
+  const counts = tarsBatchOutcomeCounts(record);
+  const parts: Array<{ key: "applied" | "archived" | "deleted" | "restored" | "undone" | "skipped" | "uncertain"; count: number }> = [
+    ...(record.action.kind === "cleanup" ? [{ key: "archived" as const, count: counts.archived }, { key: "deleted" as const, count: counts.deleted }]
+      : [{ key: "applied" as const, count: counts.applied }]),
+    { key: record.action.kind === "cleanup" ? "restored" : "undone", count: counts.restored },
+    { key: "skipped", count: counts.skipped }, { key: "uncertain", count: counts.uncertain },
+  ];
+  const summary = formatList(parts.filter(part => part.count > 0).map(part => t(`shell:tars.batch.outcome.${part.key}`, { count: part.count }))) || t("shell:tars.batch.nothingChanged");
   const reasonText = (reason: string) => {
     const controlKey = record.action.kind === "bulkControl" ? tarsControlReasonKey(reason) : null;
     return controlKey ? t(controlKey) : t(`workspace:cleanupCenter.reasons.${reason}`, { defaultValue: t(`shell:tars.batch.reasons.${reason}`, { defaultValue: t("shell:tars.batch.changed") }) });
@@ -31,8 +39,8 @@ export function TarsBatchCard({ record, busy, error, onConfirm, onRestore, onDec
     <span className={sx(styles.payloadText)}>{item.name}</span><span className={sx(styles.detail)}>{item.repositoryPath}</span>
     <span className={sx(styles.detail)}>{t(`shell:tars.batch.verb.${item.action}`)} · {item.reason ? t(item.status === "applied" ? "shell:tars.batch.partialReason" : "shell:tars.batch.skippedReason", { reason: item.reason.split(",").map(reasonText).join(", ") }) : item.status === "included" && record.action.kind === "cleanup" ? t("shell:tars.batch.eligibleEnded") : t(`shell:tars.batch.status.${item.status}`)}{item.bytes !== null ? ` · ${formatNumber(item.bytes)} B` : ""}</span>
   </li>)}</ul>;
-  if (settled) return <TarsRecordList><TarsRecordRow icon={Archive} state="applied" data-tars-batch-record={record.id}
-    lead={t(record.state === "restored" ? "shell:tars.clear.record.undone" : `shell:tars.batch.resultVerb.${verb}`)} subject={t(skippedReasons ? "shell:tars.batch.resultWithReasons" : "shell:tars.batch.result", { count: applied, skipped, reasons: skippedReasons })}
+  if (settled) return <TarsRecordList><TarsRecordRow icon={Archive} state={counts.uncertain ? "skipped" : "applied"} data-tars-batch-record={record.id}
+    lead={t(record.action.kind === "cleanup" ? "shell:tars.batch.cleanupResultLead" : record.state === "restored" ? "shell:tars.clear.record.undone" : `shell:tars.batch.resultVerb.${verb}`)} subject={skippedReasons ? t("shell:tars.batch.outcomeWithReasons", { summary, reasons: skippedReasons }) : summary}
     detail={<>{details}{error ? <p role="alert">{error}</p> : null}</>}
     actions={record.items.some(item => (item.action === "archive" || item.undoable) && item.status === "applied") ? <Button size="xs" variant="quiet" disabled={busy} onClick={onRestore} data-tars-batch-restore="">{t(record.action.kind === "cleanup" ? "shell:tars.clear.restore" : "shell:tars.clear.undo")}</Button> : null} /></TarsRecordList>;
   return <section className={sx(styles.card)} tabIndex={0} data-tars-batch-card={record.id} aria-busy={busy} onKeyDown={event => {
