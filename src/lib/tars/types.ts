@@ -52,9 +52,11 @@ export const TARS_IPC = Object.freeze({
   getDraft: "tars:get-draft",
   /** Saves or (with `null`) deletes the composer draft. Never announced through `changed`. */
   saveDraft: "tars:save-draft",
-  /** Clears the conversation view, the tray's Done cards or its outputs (`TarsClearInput`); hides, never deletes. */
+  /** Previews, confirms, declines or restores one bulk control or cleanup (`TarsBatchInput`). */
   batch: "tars:batch",
+  /** Reads the saved batch records with their per-item outcomes. */
   batches: "tars:batches",
+  /** Clears the conversation view, the tray's Done cards or its outputs (`TarsClearInput`); hides, never deletes. */
   clear: "tars:clear",
   /** Restores what one clear hid. */
   undoClear: "tars:undo-clear",
@@ -620,9 +622,10 @@ export interface TarsBridgeApi {
   /** The saved composer draft; absent on bridges that predate saved drafts, which keep it in memory only. */
   getDraft?(): Promise<TarsComposerDraft | null>;
   saveDraft?(input: SaveTarsComposerDraftInput): Promise<void>;
-  /** Clears and restores; absent on bridges that predate clearing, which offer no Clear. */
+  /** Bulk control and cleanup batches; absent on bridges without them, which offer no batch card or Done-lane cleanup. */
   batch?(input: import("./batch").TarsBatchInput): Promise<import("./batch").TarsBatchRecord>;
   batches?(): Promise<import("./batch").TarsBatchRecord[]>;
+  /** Clears and restores; absent on bridges that predate clearing, which offer no Clear. */
   clear?(input: TarsClearInput): Promise<TarsClearRecord>;
   undoClear?(input: TarsUndoClearInput): Promise<TarsClearRecord>;
   configureView?(input: TarsViewSettings): Promise<TarsViewSettings>;

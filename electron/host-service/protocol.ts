@@ -1064,9 +1064,11 @@ export interface HostServiceRequestMap {
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreviewInput;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsReprioritizeInput;
   "tars.brief": import("../../src/lib/tars/brief").TarsBriefInput;
-  /** One schedule card's confirmation; the host reads the saved proposal and applies it through the Schedules service. */
+  /** One bulk control or cleanup batch: preview, confirm (or Continue), decline or restore. */
   "tars.batch": import("../../src/lib/tars/batch").TarsBatchInput;
+  /** The saved batch records; read only. */
   "tars.batches": undefined;
+  /** One schedule card's confirmation; the host reads the saved proposal and applies it through the Schedules service. */
   "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleConfirmInput;
   /** What a schedule card shows; read only. */
   "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreviewInput;
