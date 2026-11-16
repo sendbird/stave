@@ -3,7 +3,7 @@ import type Database from "better-sqlite3";
 import { resolveCurrentRepositoryDefaultWorkspaceId } from "../../src/store/repository.utils";
 import { CONTENT_SEARCH_MAX_OFFSET, SearchTaskContentArgsSchema, type SearchTaskContentArgs, type SearchTaskContentResponse, type ContentSearchResult } from "../../src/lib/task-search/content-search";
 import type { PersistenceRepositoryRegistryEntry, PersistenceWorkspaceShell, PersistenceTurnSummary } from "./types";
-import { extractContentSearchText, registerContentSearchTextFunction } from "./content-search-text";
+import { extractContentSearchText } from "./content-search-text";
 
 export type ContentSearchIndexMode = "fts5-trigram" | "fts5" | "like";
 interface Source {
@@ -12,7 +12,8 @@ interface Source {
   listTurns(args: {workspaceId: string; taskId: string; limit?: number}): PersistenceTurnSummary[];
 }
 interface Hit { workspace_id: string; task_id: string; message_id: string; text: string; score: number; matches: number; title: string; provider: string; updated_at: string; archived_at: string | null }
-const BATCH_SIZE = 50;
+const BATCH_SIZE = 25;
+export const CONTENT_SEARCH_EXTRACTOR_VERSION = 2;
 
 
 /** Local-only, derived display-text index. Never reads vaults, attachments, or event payloads. */
@@ -28,6 +29,16 @@ export class ContentSearchStore {
   private total = 0;
   private queryDeadline=Infinity;
   private readonly queryBudgetMs: number;
+  private metadataCache=new Map<string,{expires:number;value:unknown}>();
+  private cached<T>(key:string,read:()=>T):T {
+    this.checkBudget();
+    const cached=this.metadataCache.get(key);
+    if(cached && cached.expires>performance.now()) return cached.value as T;
+    const value=read(); this.checkBudget();
+    this.metadataCache.set(key,{expires:performance.now()+500,value});return value;
+  }
+  private checkBudget() {if(performance.now()>this.queryDeadline) throw new Error("Content search time budget exceeded");}
+  private idleTimer: NodeJS.Timeout | null = null;
   private taskIndex: ContentSearchTaskIndex;
   constructor(private db: Database.Database, private source: Source, options?: { mode?: ContentSearchIndexMode; schedule?: boolean; queryBudgetMs?: number }) {
     this.queryBudgetMs=options?.queryBudgetMs ?? 150;
@@ -35,58 +46,68 @@ export class ContentSearchStore {
       if(performance.now()>this.queryDeadline) throw new Error("Content search time budget exceeded");
       return 1;
     });
-    registerContentSearchTextFunction(db);
+
     db.exec(`CREATE TABLE IF NOT EXISTS content_search_documents (
       id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, task_id TEXT NOT NULL,
       message_id TEXT NOT NULL, task_key INTEGER NOT NULL, text TEXT NOT NULL, char_count INTEGER GENERATED ALWAYS AS(length(text)) STORED);
       CREATE INDEX IF NOT EXISTS content_search_task ON content_search_documents(workspace_id, task_id);
-      CREATE INDEX IF NOT EXISTS content_search_scan ON content_search_documents(workspace_id,task_key,char_count,text);
+
       CREATE TABLE IF NOT EXISTS content_search_migration (id INTEGER PRIMARY KEY CHECK(id=1), cursor INTEGER NOT NULL);
-      INSERT OR IGNORE INTO content_search_migration VALUES(1,0);`);
-    this.mode = this.createIndex(options?.mode);
+      INSERT OR IGNORE INTO content_search_migration(id,cursor) VALUES(1,0);`);
+    const columns=db.prepare("PRAGMA table_info(content_search_migration)").all() as {name:string}[];
+    if(!columns.some(column=>column.name==="extractor_version")) db.exec("ALTER TABLE content_search_migration ADD COLUMN extractor_version INTEGER NOT NULL DEFAULT 1");
+    // Stored triggers must work on every connection, including older builds.
+    const triggers=db.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'content_search_%'").all() as {name:string}[];
+    for(const {name} of triggers) db.exec(`DROP TRIGGER "${name.replaceAll('"','""')}"`);
+    // temporary-migration: retire-message-search-index
+    db.exec("DROP TABLE IF EXISTS content_search_fts; DROP INDEX IF EXISTS content_search_scan");
+    // end temporary-migration: retire-message-search-index
+    const version=(db.prepare("SELECT extractor_version FROM content_search_migration WHERE id=1").get() as {extractor_version:number}).extractor_version;
+    if(version!==CONTENT_SEARCH_EXTRACTOR_VERSION) db.transaction(()=>{
+      db.exec("DELETE FROM content_search_documents; DROP TABLE IF EXISTS content_search_tasks_fts; DROP TABLE IF EXISTS content_search_tasks; DROP TABLE IF EXISTS content_search_dirty_tasks");
+      db.prepare("UPDATE content_search_migration SET cursor=0,extractor_version=? WHERE id=1").run(CONTENT_SEARCH_EXTRACTOR_VERSION);
+    })();
+    db.exec("CREATE INDEX IF NOT EXISTS content_search_parent_lookup ON tasks(substr(id,length(workspace_id)+2),workspace_id)");
+    this.mode = options?.mode ?? "fts5-trigram";
+    db.exec(`CREATE TABLE IF NOT EXISTS content_search_queue (id TEXT PRIMARY KEY,workspace_id TEXT NOT NULL,task_id TEXT NOT NULL,changed_at INTEGER NOT NULL,ready INTEGER NOT NULL DEFAULT 0)`);
     this.taskIndex=new ContentSearchTaskIndex(db,this.mode);
-    db.function("content_search_schedule",{deterministic:false},()=>{if(options?.schedule!==false) this.schedule();return 1;});
-    const expression = "content_search_text(new.content, new.message_json, new.role)";
-    db.exec(`DROP TRIGGER IF EXISTS content_search_message_update;
-      CREATE TRIGGER IF NOT EXISTS content_search_message_insert AFTER INSERT ON messages BEGIN
-      INSERT OR REPLACE INTO content_search_documents(id,workspace_id,task_id,message_id,task_key,text)
-      VALUES(new.id,new.workspace_id,new.task_id,substr(new.id,length(new.workspace_id)+length(new.task_id)+3),(SELECT rowid FROM tasks WHERE id=new.workspace_id||':'||new.task_id),${expression}); END;
-      CREATE TRIGGER IF NOT EXISTS content_search_message_update AFTER UPDATE OF content,message_json,role ON messages
+    this.mode=this.taskIndex.mode;
+    db.exec(`CREATE TABLE IF NOT EXISTS content_search_queue (
+      id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, task_id TEXT NOT NULL,
+      changed_at INTEGER NOT NULL, ready INTEGER NOT NULL DEFAULT 0);
+      CREATE INDEX IF NOT EXISTS content_search_queue_task ON content_search_queue(workspace_id,task_id);
+      CREATE TRIGGER content_search_message_insert AFTER INSERT ON messages BEGIN
+        INSERT INTO content_search_queue VALUES(new.id,new.workspace_id,new.task_id,unixepoch(),0) ON CONFLICT(id) DO UPDATE SET changed_at=excluded.changed_at,ready=0; END;
+      CREATE TRIGGER content_search_message_update AFTER UPDATE OF content,message_json,role ON messages
       WHEN new.content IS NOT old.content OR new.message_json IS NOT old.message_json OR new.role IS NOT old.role BEGIN
-      UPDATE content_search_documents SET text=${expression} WHERE id=new.id;
-      INSERT INTO content_search_documents(id,workspace_id,task_id,message_id,task_key,text)
-      SELECT new.id,new.workspace_id,new.task_id,substr(new.id,length(new.workspace_id)+length(new.task_id)+3),(SELECT rowid FROM tasks WHERE id=new.workspace_id||':'||new.task_id),${expression}
-      WHERE NOT EXISTS(SELECT 1 FROM content_search_documents WHERE id=new.id); END;
-      CREATE TRIGGER IF NOT EXISTS content_search_message_delete AFTER DELETE ON messages BEGIN
-      DELETE FROM content_search_documents WHERE id=old.id; END;
-      CREATE TRIGGER IF NOT EXISTS content_search_task_delete AFTER DELETE ON tasks BEGIN
-      DELETE FROM content_search_documents WHERE workspace_id=old.workspace_id AND task_id=substr(old.id,length(old.workspace_id)+2); END;
-      CREATE TRIGGER IF NOT EXISTS content_search_workspace_delete AFTER DELETE ON workspaces BEGIN
-      DELETE FROM content_search_documents WHERE workspace_id=old.id; END;`);
+        INSERT INTO content_search_queue VALUES(new.id,new.workspace_id,new.task_id,unixepoch(),0) ON CONFLICT(id) DO UPDATE SET changed_at=excluded.changed_at,ready=0; END;
+      CREATE TRIGGER content_search_message_delete AFTER DELETE ON messages BEGIN
+        DELETE FROM content_search_documents WHERE id=old.id;
+        INSERT INTO content_search_queue VALUES(old.id,old.workspace_id,old.task_id,unixepoch(),1) ON CONFLICT(id) DO UPDATE SET changed_at=excluded.changed_at,ready=1; END;
+      CREATE TRIGGER content_search_task_delete AFTER DELETE ON tasks BEGIN
+        DELETE FROM content_search_documents WHERE workspace_id=old.workspace_id AND task_id=substr(old.id,length(old.workspace_id)+2);
+        DELETE FROM content_search_tasks WHERE task_key=old.rowid;
+        DELETE FROM content_search_dirty_tasks WHERE task_key=old.rowid;
+        DELETE FROM content_search_queue WHERE workspace_id=old.workspace_id AND task_id=substr(old.id,length(old.workspace_id)+2); END;
+      CREATE TRIGGER content_search_workspace_delete AFTER DELETE ON workspaces BEGIN
+        DELETE FROM content_search_documents WHERE workspace_id=old.id;
+        DELETE FROM content_search_tasks WHERE workspace_id=old.id;
+        DELETE FROM content_search_dirty_tasks WHERE workspace_id=old.id;
+        DELETE FROM content_search_queue WHERE workspace_id=old.id; END;`);
+    if(db.prepare("SELECT 1 FROM sqlite_master WHERE name='turns'").get()) db.exec(`
+      CREATE TRIGGER content_search_turn_complete AFTER UPDATE OF completed_at ON turns
+      WHEN new.completed_at IS NOT NULL BEGIN
+        UPDATE content_search_queue SET ready=1 WHERE workspace_id=new.workspace_id AND task_id=new.task_id; END;`);
     this.cursor = (db.prepare("SELECT cursor FROM content_search_migration WHERE id=1").get() as {cursor: number}).cursor;
     this.upper = (db.prepare("SELECT coalesce(max(rowid),0) AS n FROM messages").get() as {n: number}).n;
     this.total = (db.prepare("SELECT count(*) AS n FROM messages WHERE rowid>? AND rowid<=?").get(this.cursor, this.upper) as {n: number}).n;
-    if (options?.schedule !== false) this.schedule();
-  }
-  private createIndex(force?: ContentSearchIndexMode): ContentSearchIndexMode {
-    const existing = this.db.prepare("SELECT sql FROM sqlite_master WHERE name='content_search_fts'").get() as {sql: string} | undefined;
-    if (existing) return existing.sql.includes("trigram") ? "fts5-trigram" : "fts5";
-    for (const mode of ["fts5-trigram", "fts5"] as const) {
-      if (force === "like" || (force === "fts5" && mode === "fts5-trigram")) continue;
-      try {
-        this.db.exec(`CREATE VIRTUAL TABLE content_search_fts USING fts5(text, content='content_search_documents', content_rowid='rowid'${mode === "fts5-trigram" ? ", tokenize='trigram'" : ""})`);
-        this.db.exec(`CREATE TRIGGER content_search_doc_insert AFTER INSERT ON content_search_documents BEGIN
-          INSERT INTO content_search_fts(rowid,text) VALUES(new.rowid,new.text); END;
-          CREATE TRIGGER content_search_doc_delete AFTER DELETE ON content_search_documents BEGIN
-          INSERT INTO content_search_fts(content_search_fts,rowid,text) VALUES('delete',old.rowid,old.text); END;
-          CREATE TRIGGER content_search_doc_update AFTER UPDATE ON content_search_documents BEGIN
-          INSERT INTO content_search_fts(content_search_fts,rowid,text) VALUES('delete',old.rowid,old.text);
-          INSERT INTO content_search_fts(rowid,text) VALUES(new.rowid,new.text); END;`);
-        return mode;
-      } catch { /* FTS support differs between installed runtimes. */ }
+    if (options?.schedule !== false) {
+      this.schedule();
+      this.idleTimer=setInterval(()=>this.schedule(),1000);
+      this.idleTimer.unref?.();
     }
-    return "like";
   }
+  requestDrain() { this.schedule(); }
   private schedule() {
     if (this.closed || this.pending || this.retryTimer) return;
     this.pending = setImmediate(() => {
@@ -119,32 +140,43 @@ export class ContentSearchStore {
   }
   /** One bounded transaction; startup schedules these between event-loop turns. */
   buildBatch(): boolean {
-    const rows = this.db.prepare("SELECT rowid,id,workspace_id,task_id,content,message_json,role FROM messages WHERE rowid>? AND rowid<=? ORDER BY rowid LIMIT ?").all(this.cursor,this.upper,BATCH_SIZE) as Array<{rowid: number; id: string; workspace_id: string; task_id: string; content: string; message_json: string | null; role: string}>;
+    this.cursor=Math.max(this.cursor,(this.db.prepare("SELECT cursor FROM content_search_migration WHERE id=1").get() as {cursor:number}).cursor);
+    const rows = this.db.prepare("SELECT rowid,id,workspace_id,task_id,content,message_json,role FROM messages WHERE rowid>? AND rowid<=? ORDER BY rowid LIMIT ?").all(this.cursor,this.upper,BATCH_SIZE) as Array<{rowid:number;id:string;workspace_id:string;task_id:string;content:string;message_json:string|null;role:string}>;
     let nextCursor=this.cursor;
-    let processed=0;
-    this.db.transaction(() => {
-      const write = this.db.prepare("INSERT OR IGNORE INTO content_search_documents(id,workspace_id,task_id,message_id,task_key,text) SELECT ?,?,?,?,(SELECT rowid FROM tasks WHERE id=?),? WHERE EXISTS(SELECT 1 FROM tasks WHERE id=? AND workspace_id=?) AND EXISTS(SELECT 1 FROM messages WHERE id=?)");
-      const deadline=performance.now()+8;
-      for (const row of rows) {
-        write.run(row.id,row.workspace_id,row.task_id,row.id.slice(row.workspace_id.length+row.task_id.length+2),`${row.workspace_id}:${row.task_id}`,extractContentSearchText(row.content,row.message_json,row.role),`${row.workspace_id}:${row.task_id}`,row.workspace_id,row.id);
-        nextCursor=row.rowid;
-        processed++;
+    this.db.transaction(()=>{
+      const write=this.db.prepare(`INSERT INTO content_search_documents(id,workspace_id,task_id,message_id,task_key,text)
+        SELECT ?,?,?,?,rowid,? FROM tasks WHERE id=? AND workspace_id=?
+        ON CONFLICT(id) DO UPDATE SET text=excluded.text`);
+      const indexRow=(row:typeof rows[number])=>write.run(row.id,row.workspace_id,row.task_id,row.id.slice(row.workspace_id.length+row.task_id.length+2),extractContentSearchText(row.content,row.message_json,row.role),row.workspace_id+':'+row.task_id,row.workspace_id);
+      const deadline=performance.now()+4;
+      for(const row of rows) {indexRow(row);nextCursor=row.rowid;this.indexed++;if(performance.now()>=deadline) break;}
+      if(rows.length===0) nextCursor=this.upper;
+      this.db.prepare("UPDATE content_search_migration SET cursor=max(cursor,?) WHERE id=1").run(nextCursor);
+      const queued=this.db.prepare("SELECT * FROM content_search_queue WHERE ready=1 OR changed_at<=unixepoch()-3 LIMIT ?").all(BATCH_SIZE) as {id:string}[];
+      for(const item of queued) {
+        const row=this.db.prepare("SELECT rowid,* FROM messages WHERE id=?").get(item.id) as typeof rows[number]|undefined;
+        if(row) indexRow(row); else this.db.prepare("DELETE FROM content_search_documents WHERE id=?").run(item.id);
+        this.db.prepare("DELETE FROM content_search_queue WHERE id=?").run(item.id);
         if(performance.now()>=deadline) break;
       }
-      if(rows.length===0) nextCursor=this.upper;
-      this.db.prepare("UPDATE content_search_migration SET cursor=? WHERE id=1").run(nextCursor);
     })();
     this.cursor=nextCursor;
-    this.indexed+=processed;
     this.taskIndex.refreshBatch();
-    return !this.status.complete;
+    return this.cursor<this.upper || this.taskIndex.pending>0 || !!this.db.prepare("SELECT 1 FROM content_search_queue WHERE ready=1 OR changed_at<=unixepoch()-3 LIMIT 1").get();
   }
-  get status() { return { indexed: this.indexed, total: this.total, complete: this.cursor >= this.upper && this.taskIndex.pending===0 }; }
+  get status() { return { indexed: this.indexed, total: this.total, complete: this.cursor >= this.upper }; }
   search(input: SearchTaskContentArgs): SearchTaskContentResponse {
+    this.queryDeadline=performance.now()+this.queryBudgetMs;
+    try {const response=this.searchInternal(input);this.checkBudget();return response;}
+    catch(error) {if(error instanceof Error && error.message==="Content search time budget exceeded") return {ok:false,message:"Search took too long. Try a more specific phrase."};throw error;}
+    finally {this.queryDeadline=Infinity;}
+  }
+  private searchInternal(input: SearchTaskContentArgs): SearchTaskContentResponse {
     const args = SearchTaskContentArgsSchema.parse(input);
+    if(args.statusOnly) return {ok:true,results:[],nextOffset:null,indexing:this.status};
     const limit = args.limit ?? 20, offset = args.offset ?? 0;
     const places = new Map<string, Omit<ContentSearchResult,"taskId"|"title"|"provider"|"updatedAt"|"state"|"messageId"|"snippet"|"matchCount"|"parentTaskId"|"parentWorkspaceId"|"parentRepositoryPath">>();
-    for (const repository of this.source.loadRepositoryRegistry()) {
+    for (const repository of this.cached("registry",()=>this.source.loadRepositoryRegistry())) {
       const defaultId = resolveCurrentRepositoryDefaultWorkspaceId({repositoryPath: repository.repositoryPath,workspaces: repository.workspaces,workspaceDefaultById: repository.workspaceDefaultById ?? {},workspacePathById: repository.workspacePathById ?? {}});
       for (const workspace of repository.workspaces) places.set(workspace.id, {
         repositoryPath:repository.repositoryPath,repositoryName:repository.repositoryName,
@@ -154,20 +186,15 @@ export class ContentSearchStore {
       });
     }
     const words = args.query.toLowerCase().split(/\s+/).filter(Boolean);
-    const useFts = !args.taskId && this.mode === "fts5-trigram" && words.every(word=>Array.from(word).length>=3);
     const params: unknown[] = [JSON.stringify([...places.keys()])];
     const predicates = ["d.workspace_id IN (SELECT value FROM json_each(?))", "CASE WHEN (d.rowid & 63)=0 THEN content_search_budget(d.rowid) ELSE 1 END=1"];
     if (args.workspaceId) { predicates.push("d.workspace_id=?"); params.push(args.workspaceId); }
     if (args.taskId) { predicates.push("d.task_id=?"); params.push(args.taskId); }
-    if (useFts) {predicates.push("content_search_fts MATCH ?");params.push(words.map(word=>'"'+word.replaceAll('"','""')+'"').join(" AND "));}
-    else for (const word of words) {predicates.push("d.text LIKE ? ESCAPE '\\'");params.push('%'+word.replace(/[\\%_]/g,"\\$&")+'%');}
-    const candidates = `SELECT d.id,d.workspace_id,d.task_id,d.message_id,d.task_key,d.char_count AS score FROM content_search_documents d ${useFts ? "JOIN content_search_fts ON content_search_fts.rowid=d.rowid" : ""} WHERE ${predicates.join(" AND ")}`;
-    const group = args.taskId ? "id" : "task_key";
-    const sql = `WITH candidates AS (${candidates}), ranked AS (
-      SELECT id,workspace_id,task_id,message_id,min(score) AS score,count(*) AS matches FROM candidates GROUP BY ${group})
-      SELECT r.*,d.text,t.title,t.provider,t.updated_at,t.archived_at FROM ranked r JOIN content_search_documents d ON d.id=r.id ${args.taskId ? "JOIN messages m ON m.id=r.id" : ""} JOIN tasks t ON t.id=r.workspace_id||':'||r.task_id AND t.workspace_id=r.workspace_id
-      ORDER BY ${args.taskId ? "m.rowid ASC" : "matches DESC,score ASC,t.updated_at DESC,r.message_id DESC,t.id DESC"} LIMIT ? OFFSET ?`;
-    this.queryDeadline=performance.now()+this.queryBudgetMs;
+    for (const word of words) {predicates.push("d.text LIKE ? ESCAPE '\\'");params.push('%'+word.replace(/[\\%_]/g,"\\$&")+'%');}
+    const sql = `SELECT d.*,d.char_count AS score,1 AS matches,t.title,t.provider,t.updated_at,t.archived_at
+      FROM content_search_documents d JOIN messages m ON m.id=d.id
+      JOIN tasks t ON t.id=d.workspace_id||':'||d.task_id AND t.workspace_id=d.workspace_id
+      WHERE ${predicates.join(" AND ")} ORDER BY m.rowid ASC LIMIT ? OFFSET ?`;
     let hits: Hit[];
     try {
       if(args.taskId) hits=this.db.prepare(sql).all(...params,limit+1,offset) as Hit[];
@@ -192,16 +219,16 @@ export class ContentSearchStore {
     catch(error) {
       if(error instanceof Error && error.message==="Content search time budget exceeded") return {ok:false,message:"Search took too long. Try a more specific phrase."};
       throw error;
-    } finally {this.queryDeadline=Infinity;}
+    }
     const shells = new Map<string,PersistenceWorkspaceShell|null>();
     const results = hits.slice(0,limit).map(row => {
       let shell = shells.get(row.workspace_id);
-      if (shell === undefined) {shell=this.source.loadWorkspaceShell({workspaceId:row.workspace_id});shells.set(row.workspace_id,shell);}
+      if (shell === undefined) {shell=this.cached("shell:"+row.workspace_id,()=>this.source.loadWorkspaceShell({workspaceId:row.workspace_id}));shells.set(row.workspace_id,shell);}
       const task = shell?.tasks.find(task=>task.id===row.task_id);
-      const turn = this.source.listTurns({workspaceId:row.workspace_id,taskId:row.task_id,limit:1})[0];
+      const turn = this.cached("turn:"+row.workspace_id+":"+row.task_id,()=>this.source.listTurns({workspaceId:row.workspace_id,taskId:row.task_id,limit:1}))[0];
       const outcome = turn?.terminalReceipt?.outcome;
       const state = row.archived_at ? "archived" : !turn ? "new" : !turn.completedAt ? "running" : outcome === "failed" ? "failed" : outcome === "cancelled" ? "cancelled" : "completed";
-      const parentOwners=task?.parentTaskId ? this.db.prepare("SELECT workspace_id FROM tasks WHERE id=workspace_id||':'||? ORDER BY workspace_id=? DESC LIMIT 2").all(task.parentTaskId,row.workspace_id) as Array<{workspace_id:string}> : [];
+      const parentOwners=task?.parentTaskId ? this.db.prepare("SELECT workspace_id FROM tasks WHERE substr(id,length(workspace_id)+2)=? ORDER BY workspace_id=? DESC LIMIT 2").all(task.parentTaskId,row.workspace_id) as Array<{workspace_id:string}> : [];
       const parentWorkspaceId=parentOwners[0]?.workspace_id ?? null;
       const parentRepositoryPath=parentWorkspaceId ? places.get(parentWorkspaceId)?.repositoryPath ?? null : null;
       const at = row.text.toLowerCase().indexOf(words[0] ?? "");
@@ -211,5 +238,5 @@ export class ContentSearchStore {
     });
     return {ok:true,results,nextOffset:hits.length>limit && offset+limit<=CONTENT_SEARCH_MAX_OFFSET ? offset+limit : null,indexing:this.status};
   }
-  close() {this.closed=true;if(this.pending) clearImmediate(this.pending);if(this.retryTimer) clearTimeout(this.retryTimer);}
+  close() {this.closed=true;if(this.pending) clearImmediate(this.pending);if(this.retryTimer) clearTimeout(this.retryTimer);if(this.idleTimer) clearInterval(this.idleTimer);}
 }

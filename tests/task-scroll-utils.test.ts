@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   createTaskScrollAnchorCache,
   retainTaskScrollToLatestNonce,
+  reduceTaskScrollToLatestRequest,
 } from "../src/store/task-scroll.utils";
 
 describe("task scroll state", () => {
@@ -40,4 +41,11 @@ describe("task scroll state", () => {
       }),
     ).toBe(3);
   });
+});
+
+test("latest request exits a historical window before incoming messages render", () => {
+  const state={scrollToLatestMessageRequest:null,taskHistoryMessagesByTask:{task:[{id:"old"}]},taskMessageWindowOffsetByTask:{task:300}};
+  const update=reduceTaskScrollToLatestRequest({state,taskId:"task"});
+  expect({...state,...update}.taskHistoryMessagesByTask.task).toBeUndefined();
+  expect({...state,...update}.taskMessageWindowOffsetByTask.task).toBe(0);
 });

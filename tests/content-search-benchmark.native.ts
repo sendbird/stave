@@ -26,6 +26,7 @@ if(!reuse) db.transaction(()=>{
   }
 })();
 const source={loadRepositoryRegistry:()=>[{repositoryPath:"/tmp/project",repositoryName:"project",workspaces:[{id:"w",name:"Workspace"}],workspacePathById:{w:"/tmp/project"},workspaceDefaultById:{w:true}}],loadWorkspaceShell:()=>({activeTaskId:"t0",tasks}),listTurns:()=>[]};
+const baseBytes=(db.prepare("SELECT page_count * page_size AS n FROM pragma_page_count(),pragma_page_size()").get() as {n:number}).n;
 const started=performance.now();const index=new ContentSearchStore(db,source,{schedule:false,queryBudgetMs:10_000});const startup=performance.now()-started;
 let batches=0,maxBatch=0;while(!index.status.complete){const at=performance.now();index.buildBatch();maxBatch=Math.max(maxBatch,performance.now()-at);batches++;}
 const buildMs=performance.now()-started;console.error("Index ready", {buildMs,maxBatch});
@@ -37,5 +38,6 @@ for(const query of queries) {
   console.error("Measured",query);
   times.sort((a,b)=>a-b);outcomes.push({query,p50Ms:+times[10]!.toFixed(2),p95Ms:+times[18]!.toFixed(2),maxMs:+times[19]!.toFixed(2)});
 }
-console.log(JSON.stringify({tasks:2000,messages:200000,mode:index.mode,queryBudgetMs:10000,successfulQueries:queries.length*20,startupMs:+startup.toFixed(2),indexBuildMs:+buildMs.toFixed(2),batches,maxBatchMs:+maxBatch.toFixed(2),queries:outcomes},null,2));
+const indexBytes=(db.prepare("SELECT page_count * page_size AS n FROM pragma_page_count(),pragma_page_size()").get() as {n:number}).n-baseBytes;
+console.log(JSON.stringify({indexBytes,tasks:2000,messages:200000,mode:index.mode,queryBudgetMs:10000,successfulQueries:queries.length*20,startupMs:+startup.toFixed(2),indexBuildMs:+buildMs.toFixed(2),batches,maxBatchMs:+maxBatch.toFixed(2),queries:outcomes},null,2));
 index.close();db.close();rmSync(dir,{recursive:true,force:true});

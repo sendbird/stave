@@ -197,26 +197,7 @@ export function createTaskCoreActions(args: {
         }
 
         const stateAfterWorkspaceOpen = get();
-        // Search can reveal archived conversations without changing their archive state.
-        if (
-          (messageId || searchQuery) &&
-          stateAfterWorkspaceOpen.tasks.some((task) => task.id === taskId)
-        ) {
-          set((state) => ({
-            activeTaskId: taskId,
-            activeAppSurface: WORKSPACE_APP_SURFACE,
-            activeSurface: { kind: "task", taskId },
-            openTaskTabIds: state.openTaskTabIds.includes(taskId)
-              ? state.openTaskTabIds
-              : [...state.openTaskTabIds, taskId],
-            workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
-          }));
-          if (!messageId && resolvedWorkspaceId) {
-            await loadTaskMessagesIntoSession({ taskId, workspaceId: resolvedWorkspaceId, mode: "latest" });
-          }
-        } else {
-          stateAfterWorkspaceOpen.selectTask({ taskId });
-        }
+        stateAfterWorkspaceOpen.selectTask({ taskId, allowArchived: Boolean(messageId || searchQuery) });
         if (messageId) {
           set((state) => ({
             focusTranscriptToolRequest: {
@@ -263,11 +244,11 @@ export function createTaskCoreActions(args: {
         },
       }));
     },
-    selectTask: ({ taskId }) => {
+    selectTask: ({ taskId, allowArchived }) => {
       const stateBefore = get();
       const targetTask =
         stateBefore.tasks.find((task) => task.id === taskId) ?? null;
-      if (!targetTask || isTaskArchived(targetTask)) {
+      if (!targetTask || (isTaskArchived(targetTask) && !allowArchived)) {
         return;
       }
       const workspaceId =

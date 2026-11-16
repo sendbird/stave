@@ -164,7 +164,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
         (count, section) => count + section.items.length,
         0,
       ) + searchResultCount + leafSuggestions.length + contentSearch.results.reduce((sum, result) => sum + (result.parentTaskId ? 2 : 1), 0),
-    [contentSearch.results.length, leafSuggestions.length, searchResultCount, visibleSections],
+    [contentSearch.results, leafSuggestions.length, searchResultCount, visibleSections],
   );
 
   useEffect(() => {

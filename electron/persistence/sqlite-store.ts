@@ -182,7 +182,9 @@ function normalizePersistedProviderId(
 export class SqliteStore {
   readonly workspaceInformation: WorkspaceInformationStore;
   private db: Database.Database;
-  readonly contentSearch: ContentSearchStore;
+  private searchIndex: ContentSearchStore | null = null;
+  private searchRetry: ReturnType<typeof setTimeout> | null = null;
+  get contentSearch() { return this.searchIndex; }
   private readonly dbPath: string;
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
@@ -216,6 +218,7 @@ export class SqliteStore {
     dbPath: string;
     onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
     runMaintenance?: boolean;
+    contentSearchOwner?: boolean;
   }) {
     const dbPath = path.resolve(args.dbPath);
     this.dbPath = dbPath;
@@ -240,7 +243,18 @@ export class SqliteStore {
     this.db.pragma("wal_autocheckpoint = 1000");
     registerContentSearchTextFunction(this.db);
     this.bootstrap();
-    this.contentSearch = new ContentSearchStore(this.db, this);
+    if(args.contentSearchOwner!==false) {
+      const initializeSearch=()=>{
+        if(this._closed) return;
+        try {this.searchIndex=new ContentSearchStore(this.db,this);}
+        catch(error) {
+          if(!error || typeof error!=="object" || !("code" in error) || !/^SQLITE_(BUSY|LOCKED)/.test(String(error.code))) throw error;
+          this.searchRetry=setTimeout(initializeSearch,100);
+          this.searchRetry.unref?.();
+        }
+      };
+      initializeSearch();
+    }
     // temporary-migration: drop-retired-sync-outbox
     dropRetiredSyncOutbox(this.db);
     this.notifications = new NotificationStore(
@@ -1546,7 +1560,7 @@ export class SqliteStore {
     });
   }
 
-  searchTaskContent(args: SearchTaskContentArgs) { return this.contentSearch.search(args); }
+  searchTaskContent(args: SearchTaskContentArgs) { return this.contentSearch?.search(args) ?? {ok:true as const,results:[],nextOffset:null,indexing:{indexed:0,total:0,complete:false}}; }
 
   loadTaskMessagesPage(args: {
     messageId?: string;
@@ -2415,6 +2429,7 @@ export class SqliteStore {
       this.compactCompletedTurnEvents(args.id);
     });
     tx();
+    this.contentSearch?.requestDrain();
   }
 
   /**
@@ -2973,7 +2988,8 @@ export class SqliteStore {
     if (options?.compactStorage) {
       this.compactStorageForShutdown();
     }
-    this.contentSearch.close();
+    if(this.searchRetry) clearTimeout(this.searchRetry);
+    this.contentSearch?.close();
     this._closed = true;
     this.db.close();
   }

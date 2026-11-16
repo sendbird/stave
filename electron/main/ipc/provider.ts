@@ -1,3 +1,4 @@
+import { ensurePersistenceReady } from "../state";
 import { ipcMain, webContents } from "electron";
 import {
   invokeHostService,
@@ -154,6 +155,9 @@ function registerProviderEventBridge() {
       payload.streamId,
     );
     if (payload.done) {
+      void ensurePersistenceReady().then(store=>store.contentSearch?.requestDrain()).catch(()=>{
+        console.warn("[persistence] content search drain unavailable");
+      });
       forgetProviderStreamOwner(payload.streamId);
     }
     if (ownerWebContentsId == null) {

@@ -3,6 +3,7 @@ import { z } from "zod";
 export const CONTENT_SEARCH_MAX_OFFSET = 10_000;
 export const SEARCH_TASK_CONTENT_IPC = "persistence:search-task-content";
 export const SearchTaskContentArgsSchema = z.object({
+  statusOnly: z.boolean().optional(),
   query: z.string().trim().min(2).max(200),
   limit: z.number().int().min(1).max(50).optional(),
   offset: z.number().int().min(0).max(CONTENT_SEARCH_MAX_OFFSET).optional(),

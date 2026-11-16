@@ -486,7 +486,7 @@ export interface AppState
     messageId: string;
     requestId: string;
   }) => void;
-  selectTask: (args: { taskId: string }) => void;
+  selectTask: (args: { taskId: string; allowArchived?: boolean }) => void;
   loadTaskMessages: (args: {
     taskId: string;
     mode?: "latest" | "older" | "newer";

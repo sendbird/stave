@@ -66,7 +66,8 @@ export function createTaskMessagePageLoader(deps: {
       !args.messageId &&
       args.mode === "latest" &&
       currentMessages.length > 0 &&
-      windowOffset === 0
+      windowOffset === 0 &&
+      !stateBefore.taskHistoryMessagesByTask?.[args.taskId]
     ) {
       return "unchanged";
     }
@@ -102,6 +103,7 @@ export function createTaskMessagePageLoader(deps: {
         messageId: args.messageId,
       });
       set((state) => {
+        if(args.mode!=="latest" && state.scrollToLatestMessageRequest?.nonce!==stateBefore.scrollToLatestMessageRequest?.nonce && state.scrollToLatestMessageRequest?.taskId===args.taskId) return {taskMessagesLoadingByTask:{...state.taskMessagesLoadingByTask,[args.taskId]:false}};
         const targetSession = getWorkspaceSessionForState({
           state,
           workspaceId: args.workspaceId,
@@ -141,7 +143,7 @@ export function createTaskMessagePageLoader(deps: {
                     : page.messages,
                 mode: args.mode,
                 supersedeDisjointWindow:
-                  args.mode === "latest" && windowOffset > 0,
+                  args.mode === "latest" && windowOffset > 0 && !historyMessages,
               });
         const nextWindowOffset =
           args.messageId || args.mode !== "older" ? page.offset : windowOffset;

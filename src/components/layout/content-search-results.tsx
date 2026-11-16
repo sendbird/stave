@@ -37,14 +37,19 @@ export function useContentSearch(args: { query: string; enabled: boolean; worksp
     }
     setState({ status: "searching", results: [], nextOffset: null });
     let refresh: number | undefined;
+    let waiting=false;
     const read = () => {
-      void searchTaskContent({ query, limit: 20, offset, ...(args.workspaceId ? { workspaceId: args.workspaceId } : {}) })
+      void searchTaskContent({ query, limit: 20, offset, ...(waiting ? {statusOnly:true} : {}), ...(args.workspaceId ? { workspaceId: args.workspaceId } : {}) })
         .then((response) => {
           if (generation.current !== request) return;
+          if(waiting && response.ok) {
+            if(!response.indexing.complete) {refresh=window.setTimeout(read,1000);return;}
+            waiting=false;read();return;
+          }
           setState(response.ok
             ? { status: "ready", results: response.results, indexing: response.indexing, nextOffset: response.nextOffset }
             : { status: "error", results: [], nextOffset: null });
-          if (response.ok && !response.indexing.complete) refresh = window.setTimeout(read, 500);
+          if (response.ok && !response.indexing.complete) {waiting=true;refresh = window.setTimeout(read,1000);}
         })
         .catch(() => {
           if (generation.current === request) setState({ status: "error", results: [], nextOffset: null });

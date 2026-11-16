@@ -25,6 +25,8 @@ function setup(file=":memory:") {
   return {db,source,task,message};
 }
 function results(index:ContentSearchStore,query:string,rest={}) {
+  (index as unknown as {db:Database.Database}).db.exec("UPDATE content_search_queue SET ready=1");
+  while(index.buildBatch()) {}
   const response=index.search({query,...rest});assert(response.ok);return response;
 }
 try {
@@ -44,7 +46,7 @@ try {
     assert(index.status.complete);
     db.prepare("UPDATE messages SET content='changed phrase' WHERE id='w:t:m'").run();
     assert.equal(results(index,"export").results.length,0);assert.equal(results(index,"changed").results.length,1);
-    assert(!index.status.complete);
+    assert(index.status.complete);
     while(index.buildBatch()) { /* Dirty tasks refresh between reads. */ }
     assert.equal(results(index,"changed").results.length,1);
     db.prepare("DELETE FROM messages").run();assert.equal(results(index,"changed").results.length,0);
@@ -65,6 +67,28 @@ try {
     db.exec=(sql:string)=>{if(sql.includes("CREATE VIRTUAL TABLE") && (missing==="fts5" || sql.includes("trigram"))) throw new Error("Tokenizer unavailable");return execute(sql);};
     const fallback=new ContentSearchStore(db,source,{schedule:false});assert.equal(fallback.mode,missing==="trigram"?"fts5":"like");fallback.close();db.close();
   }
+  const budgetFixture=setup();
+  const budgetIndex=new ContentSearchStore(budgetFixture.db,{...budgetFixture.source,loadRepositoryRegistry:()=>{
+    const end=performance.now()+15;while(performance.now()<end) {}return [];
+  }},{schedule:false,queryBudgetMs:1});
+  assert.equal(budgetIndex.search({query:"anything"}).ok,false,"Metadata reads count inside the query deadline");
+  budgetIndex.close();budgetFixture.db.close();
+  const execute=Database.prototype.exec;
+  let creationFailed=false;
+  Database.prototype.exec=function(sql:string) {
+    if(!creationFailed && sql.includes("CREATE TABLE IF NOT EXISTS content_search_documents")) {
+      creationFailed=true;throw Object.assign(new Error("Writer lock during initialization"),{code:"SQLITE_BUSY"});
+    }
+    return execute.call(this,sql);
+  };
+  let initializing:SqliteStore;
+  try {initializing=new SqliteStore({dbPath:path.join(root,"initialization.sqlite"),runMaintenance:false});}
+  finally {Database.prototype.exec=execute;}
+  assert.equal(initializing.contentSearch,null);
+  const until=performance.now()+2000;
+  while(!initializing.contentSearch && performance.now()<until) await new Promise(resolve=>setTimeout(resolve,10));
+  assert(initializing.contentSearch,"Transient schema creation locks must retry instead of disabling search");initializing.close();
+  console.log("PASS metadata budget and retry after an index initialization lock (real SQLite)");
   const split=setup();split.task.run("w:t","Split phrases","2026-11-16",null);split.task.run("w:b","Whole phrase","2026-11-15",null);
   split.message.run("w:t:export","t","export",null);split.message.run("w:t:retry","t","retry",null);
   split.message.run("w:b:both","b","export retry complete phrase with enough additional vocabulary to rank below the short split task candidate",null);
@@ -95,10 +119,10 @@ try {
   assert.equal(results(restored,"export").results.find(hit=>hit.taskId==="t")?.state,"archived");
   assert.equal((reopened.prepare("SELECT count(*) n FROM content_search_tasks").get() as {n:number}).n,2);
   reopened.prepare("UPDATE messages SET content='phase resume' WHERE id='w:t:m0'").run();
-  assert(!restored.status.complete);
+  assert(restored.status.complete);
   restored.close();reopened.close();
   const phaseDb=new Database(file);const phaseIndex=new ContentSearchStore(phaseDb,source,{schedule:false});
-  assert(!phaseIndex.status.complete);while(phaseIndex.buildBatch()) {}
+  assert(phaseIndex.status.complete);while(phaseIndex.buildBatch()) {}
   assert.equal(results(phaseIndex,"phase resume").results[0]?.messageId,"m0");phaseIndex.close();phaseDb.close();
   console.log("PASS durable bounded migration/resume, ranking/pagination, whole-task matches, archived label, privacy extraction (real SQLite)");
   const scheduled=setup();scheduled.task.run("w:t","Scheduled","2026-11-16",null);
@@ -141,9 +165,21 @@ try {
   assert(app.searchTaskContent({query:"export"}).ok);
   const change={workspaceId:"w",taskId:"t",messages:[{id:"m10",role:"user" as const,model:"user",providerId:"codex",content:"anchorchanged",parts:[{type:"text",text:"anchorchanged"}]}]};
   app.persistTaskTurnDelta(change);
+  new Database(appFile).exec("UPDATE content_search_queue SET ready=1");
   while(app.contentSearch.buildBatch()) {}
   app.persistTaskTurnDelta(change);assert(app.contentSearch.status.complete);
   const changed=app.searchTaskContent({query:"anchorchanged"});assert(changed.ok && changed.results[0]?.messageId==="m10");
+  const hostWriter=new SqliteStore({dbPath:appFile,runMaintenance:false,contentSearchOwner:false});
+  hostWriter.persistTaskTurnDelta({workspaceId:"w",taskId:"t",messages:[{id:"idle-host",role:"user",model:"user",providerId:"user",content:"idlehostneedle",parts:[]}]});
+  assert.equal(hostWriter.contentSearch,null);
+  const idleDeadline=performance.now()+6000;
+  let idleIndexed=false;
+  while(!idleIndexed && performance.now()<idleDeadline) {
+    await new Promise(resolve=>setTimeout(resolve,100));
+    const response=app.searchTaskContent({query:"idlehostneedle"});idleIndexed=response.ok && response.results.length===1;
+  }
+  assert(idleIndexed,"Main drains host writes while idle without another user action");hostWriter.close();
+  console.log("PASS idle main-only drain of host-service writes (real SQLite)");
   app.close();app=new SqliteStore({dbPath:appFile,runMaintenance:false});
   const afterRestart=app.searchTaskContent({query:"anchorchanged"});assert(afterRestart.ok && afterRestart.results[0]?.messageId==="m10");
   const anchored=app.loadTaskMessagesPage({workspaceId:"w",taskId:"t",messageId:"m10",limit:20});assert(anchored?.messages.some(message=>message.id==="m10"));

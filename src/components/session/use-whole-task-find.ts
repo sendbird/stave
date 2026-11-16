@@ -1,3 +1,5 @@
+import { mergeWholeTaskFindResults, retainFindSelection } from "@/lib/task-search/whole-task-find-results";
+import type { ChatMessage } from "@/types/chat";
 import { useEffect, useRef, useState } from "react";
 import { searchTaskContent } from "@/lib/db/content-search.db";
 import type { ContentSearchResult } from "@/lib/task-search/content-search";
@@ -24,10 +26,13 @@ export function useWholeTaskFind(args: {
   workspaceId: string | null;
   query: string;
   enabled: boolean;
+  messages: ChatMessage[];
 }) {
   const [page, setPage] = useState<FindPage>(EMPTY);
   const pageRef = useRef(page);
   pageRef.current = page;
+  const messagesRef=useRef(args.messages);
+  messagesRef.current=args.messages;
   const generation = useRef(0);
   useEffect(() => {
     const request = ++generation.current;
@@ -37,27 +42,36 @@ export function useWholeTaskFind(args: {
     }
     setPage({ ...EMPTY, status: "searching" });
     let timer = window.setTimeout(run, 120);
+    let waiting=false;
     async function run() {
+      const requestedOffset=pageRef.current.offset;
       try {
         const response = await searchTaskContent({
           query: args.query.trim(),
           workspaceId: args.workspaceId!,
           taskId: args.taskId,
           limit: PAGE_SIZE,
+          offset: requestedOffset,
+          ...(waiting ? {statusOnly:true}:{}),
         });
         if (request !== generation.current) return;
         if (!response.ok) {
           setPage({ ...EMPTY, status: "error" });
           return;
         }
+        if(waiting && !response.indexing.complete) {timer=window.setTimeout(run,1000);return;}
+        if(waiting) {waiting=false;void run();return;}
+        if(requestedOffset!==pageRef.current.offset) {void run();return;}
+        const previous=pageRef.current;
+        const results=mergeWholeTaskFindResults(response.results,messagesRef.current,args.query,args.taskId,args.workspaceId ?? "");
         setPage({
           status: "ready",
-          results: response.results,
+          results,
           nextOffset: response.nextOffset,
-          offset: 0,
-          selected: -1,
+          offset: previous.offset,
+          selected: retainFindSelection(previous,results),
         });
-        if (!response.indexing.complete) timer = window.setTimeout(run, 500);
+        if (!response.indexing.complete) {waiting=true;timer=window.setTimeout(run,1000);}
       } catch {
         if (request === generation.current)
           setPage({ ...EMPTY, status: "error" });
@@ -69,6 +83,8 @@ export function useWholeTaskFind(args: {
     };
   }, [args.enabled, args.query, args.taskId, args.workspaceId]);
 
+  const merged=mergeWholeTaskFindResults(page.results,args.messages,args.query,args.taskId,args.workspaceId ?? "");
+  pageRef.current={...page,results:merged,selected:retainFindSelection(pageRef.current,merged)};
   async function step(backward: boolean): Promise<ContentSearchResult | null> {
     const current = pageRef.current;
     if (!current.results.length || current.status === "searching") return null;
@@ -114,7 +130,8 @@ export function useWholeTaskFind(args: {
   }
   return {
     ...page,
-    position: page.selected < 0 ? 0 : page.offset + page.selected + 1,
+    results: merged,
+    position: pageRef.current.selected < 0 ? 0 : page.offset + pageRef.current.selected + 1,
     step,
   };
 }

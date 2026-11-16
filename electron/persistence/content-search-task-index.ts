@@ -24,7 +24,7 @@ export class ContentSearchTaskIndex {
         SELECT ${row}.task_key,${row}.workspace_id,${row}.task_id
         WHERE EXISTS(SELECT 1 FROM tasks WHERE rowid=${row}.task_key)
         AND NOT EXISTS(SELECT 1 FROM content_search_dirty_tasks WHERE task_key=${row}.task_key);
-        SELECT content_search_schedule(); END;`);
+        END;`);
     }
     db.exec(`CREATE TRIGGER IF NOT EXISTS content_search_task_index_delete AFTER DELETE ON tasks BEGIN
       DELETE FROM content_search_tasks WHERE task_key=old.rowid;
@@ -39,27 +39,28 @@ export class ContentSearchTaskIndex {
   }
   private createIndex(mode: ContentSearchIndexMode): ContentSearchIndexMode {
     const existing=this.db.prepare("SELECT sql FROM sqlite_master WHERE name='content_search_tasks_fts'").get() as {sql:string}|undefined;
-    if(existing) return existing.sql.includes("trigram") ? "fts5-trigram":"fts5";
     if(mode==="like") return mode;
-    for(const attempt of mode==="fts5-trigram" ? ["fts5-trigram","fts5"] as const : ["fts5"] as const) {
+    for(const attempt of existing ? [existing.sql.includes("trigram") ? "fts5-trigram" : "fts5"] as const : mode==="fts5-trigram" ? ["fts5-trigram","fts5"] as const : ["fts5"] as const) {
       try {
-        this.db.exec(`CREATE VIRTUAL TABLE content_search_tasks_fts USING fts5(text,content='content_search_tasks',content_rowid='task_key'${attempt==="fts5-trigram"?",tokenize='trigram'":""});
-          CREATE TRIGGER content_search_tasks_insert AFTER INSERT ON content_search_tasks BEGIN
+        this.db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS content_search_tasks_fts USING fts5(text,content='content_search_tasks',content_rowid='task_key'${attempt==="fts5-trigram"?",tokenize='trigram'":""});
+          CREATE TRIGGER IF NOT EXISTS content_search_tasks_insert AFTER INSERT ON content_search_tasks BEGIN
           INSERT INTO content_search_tasks_fts(rowid,text) VALUES(new.task_key,new.text); END;
-          CREATE TRIGGER content_search_tasks_delete AFTER DELETE ON content_search_tasks BEGIN
+          CREATE TRIGGER IF NOT EXISTS content_search_tasks_delete AFTER DELETE ON content_search_tasks BEGIN
           INSERT INTO content_search_tasks_fts(content_search_tasks_fts,rowid,text) VALUES('delete',old.task_key,old.text); END;
-          CREATE TRIGGER content_search_tasks_update AFTER UPDATE ON content_search_tasks BEGIN
+          CREATE TRIGGER IF NOT EXISTS content_search_tasks_update AFTER UPDATE ON content_search_tasks BEGIN
           INSERT INTO content_search_tasks_fts(content_search_tasks_fts,rowid,text) VALUES('delete',old.task_key,old.text);
           INSERT INTO content_search_tasks_fts(rowid,text) VALUES(new.task_key,new.text); END;`);
         return attempt;
-      } catch { /* Installed tokenizers differ; literal substring matching remains available. */ }
+      } catch(error) {
+        if(error && typeof error==="object" && "code" in error && /^SQLITE_(BUSY|LOCKED)/.test(String(error.code))) throw error;
+      }
     }
     return "like";
   }
-  get pending() {return (this.db.prepare("SELECT count(*) AS n FROM content_search_dirty_tasks").get() as {n:number}).n;}
+  get pending() {return (this.db.prepare("SELECT count(*) AS n FROM content_search_dirty_tasks d WHERE NOT EXISTS(SELECT 1 FROM content_search_queue q WHERE q.workspace_id=d.workspace_id AND q.task_id=d.task_id)").get() as {n:number}).n;}
   refreshBatch() {
     this.db.transaction(()=>{
-      const dirty=this.db.prepare("SELECT * FROM content_search_dirty_tasks ORDER BY task_key LIMIT 1").get() as {task_key:number;workspace_id:string;task_id:string}|undefined;
+      const dirty=this.db.prepare("SELECT * FROM content_search_dirty_tasks d WHERE NOT EXISTS(SELECT 1 FROM content_search_queue q WHERE q.workspace_id=d.workspace_id AND q.task_id=d.task_id) ORDER BY task_key LIMIT 1").get() as {task_key:number;workspace_id:string;task_id:string}|undefined;
       if(!dirty) return;
       const rows=this.db.prepare("SELECT text FROM content_search_documents WHERE workspace_id=? AND task_id=? ORDER BY rowid").all(dirty.workspace_id,dirty.task_id) as {text:string}[];
       // A word is kept whole, preserving every partial-word match. Repeated vocabulary is stored once.

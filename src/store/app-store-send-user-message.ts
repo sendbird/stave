@@ -62,6 +62,7 @@ import {
 } from "@/store/provider-runtime-options";
 import { maybeSuggestUtilityTaskName } from "@/store/utility-inference-runtime";
 import {
+  prepareTaskSendView,
   buildPendingProviderTurnState,
   buildRecentTimestamp,
   resolveMidTurnSteeringContext,
@@ -301,9 +302,8 @@ export function createSendUserMessageAction(args: {
         })
       : null;
     let task = runtimeTarget?.task ?? null;
-    const hasActiveTurn = Boolean(
-      task && runtimeTarget?.session.activeTurnIdsByTask[task.id],
-    );
+    const {archived,hasActiveTurn}=prepareTaskSendView(task,runtimeTarget?.session.activeTurnIdsByTask,state.requestTaskScrollToLatest);
+    if(archived) return {status:"blocked"} satisfies SendUserMessageResult;
 
     if (!task) {
       const seededTaskId = crypto.randomUUID();

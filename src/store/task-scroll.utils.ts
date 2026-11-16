@@ -1,3 +1,5 @@
+import type { ChatMessage } from "@/types/chat";
+
 export interface TaskScrollToLatestRequest {
   taskId: string;
   nonce: number;
@@ -9,6 +11,8 @@ export interface TaskScrollAnchor {
 }
 
 interface TaskScrollToLatestState {
+  taskHistoryMessagesByTask?: Record<string, ChatMessage[]>;
+  taskMessageWindowOffsetByTask?: Record<string, number>;
   scrollToLatestMessageRequest: TaskScrollToLatestRequest | null;
 }
 
@@ -53,12 +57,16 @@ export function retainTaskScrollToLatestNonce(args: {
 export function reduceTaskScrollToLatestRequest(args: {
   state: TaskScrollToLatestState;
   taskId: string;
-}): TaskScrollToLatestState {
+}) {
   const taskId = args.taskId.trim();
   if (!taskId) {
     return args.state;
   }
+  const history={...args.state.taskHistoryMessagesByTask};
+  delete history[taskId];
   return {
+    taskHistoryMessagesByTask: history,
+    taskMessageWindowOffsetByTask: {...args.state.taskMessageWindowOffsetByTask,[taskId]:0},
     scrollToLatestMessageRequest: {
       taskId,
       nonce: (args.state.scrollToLatestMessageRequest?.nonce ?? 0) + 1,

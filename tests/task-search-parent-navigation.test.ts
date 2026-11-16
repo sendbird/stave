@@ -13,9 +13,10 @@ test("search opens an archived parent without restoring it or changing ordinary 
     tasks: [parent], taskWorkspaceIdById: { [parent.id]: "workspace" },
   }));
   const loads: unknown[] = [];
+  const attention: string[] = [];
   const actions = createTaskCoreActions({ set: store.setState, get: store.getState,
     persistWorkspaceSessionInBackground: () => {}, runScriptHookInBackground: () => {},
-    attentionSync: { markTaskNotificationsRead: () => {}, syncTaskInteractions: () => {} } as never,
+    attentionSync: { markTaskNotificationsRead: () => {attention.push("read");}, syncTaskInteractions: () => {attention.push("sync");} } as never,
     loadTaskMessagesIntoSession: async (args) => { loads.push(args); return "loaded"; },
     emptyPromptDraft: { text: "", attachedFilePaths: [], attachments: [] },
     incrementWorkspaceSnapshotVersion: (state) => state.workspaceSnapshotVersion + 1,
@@ -27,6 +28,7 @@ test("search opens an archived parent without restoring it or changing ordinary 
   expect(store.getState().activeTaskId).toBe("child");
   await actions.focusTaskAttention({ taskId: parent.id, workspaceId: "workspace", searchQuery: "retry" });
   expect(store.getState().activeTaskId).toBe(parent.id);
+  expect(attention).toEqual(["read", "sync"]);
   expect(store.getState().activeSurface).toEqual({ kind: "task", taskId: parent.id });
   expect(store.getState().tasks[0]?.archivedAt).toBe(archivedAt);
   expect(loads).toEqual([{ taskId: parent.id, workspaceId: "workspace", mode: "latest" }]);

@@ -17,3 +17,13 @@ describe("local content search bridge", () => {
     expect(SearchTaskContentResponseSchema.safeParse({ ok: false, message: "unavailable", extra: true }).success).toBe(false);
   });
 });
+
+test("status-only polling passes strict IPC validation without searching metadata",async()=>{
+ let received:unknown;
+ const bridge=contentSearchPreload(async(_channel,args)=>{
+   received=args;return {ok:true,results:[],nextOffset:null,indexing:{indexed:1,total:2,complete:false}};
+ });
+ const response=await bridge.searchTaskContent({query:"retry",statusOnly:true});
+ expect(received).toEqual({query:"retry",statusOnly:true});
+ expect(response.ok && response.indexing.complete).toBe(false);
+});

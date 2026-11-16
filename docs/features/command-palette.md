@@ -145,7 +145,7 @@ summaries across registered repositories. Korean and partial words match.
 Results show a highlighted snippet, match count, last activity and task state.
 Archived and delegated tasks are included and labelled; delegated results link
 to their parent. Enter opens the task at the matching message, loading an older
-history window when needed. Search does not contact a provider.
+history window when needed. Opening a result marks its notifications read. Archived results remain read-only with an **Archived · Restore** banner until restored. Search does not contact a provider.
 
 Existing history is indexed in short background batches. While indexing, a
 progress notice explains that results are still being built. Raw tool payloads,
@@ -153,7 +153,7 @@ attachment bytes and secret metadata are excluded.
 
 In Fleet, turn on **Include message text** beside search to find the same
 content and open its matching message. In a conversation, **Cmd/Ctrl+F** searches
-the whole task, including history outside the loaded window. Use **Load newer
+loaded live text and local index hits for history outside the loaded window, with each message shown once. Use **Load newer
 messages** to return through newer history after jumping to an old match.
 
 ### Stave Slash Commands

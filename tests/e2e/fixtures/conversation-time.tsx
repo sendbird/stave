@@ -1,3 +1,5 @@
+import {WorkspacePaneHost} from "@/components/panes/WorkspacePaneHost";
+import {ChatArea} from "@/components/session/ChatArea";
 import { useState } from "react";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import type { CommandPaletteRuntimeContext } from "@/components/layout/command-palette-registry";
@@ -89,6 +91,8 @@ const allMessages: ChatMessage[] = params.has("offWindow")
       })),
     ]
   : messages;
+Object.assign(window,{__contentSearchFixtureStore:useAppStore});
+let contentSearchReads=0;
 window.api = {
   ...window.api,
   persistence: {
@@ -97,6 +101,7 @@ window.api = {
     loadWorkspace: async () => ({ ok: true, snapshot: null }),
     upsertWorkspace: async () => ({ ok: true }),
     searchTaskContent: async (args) => {
+      contentSearchReads++;
       const matches = allMessages.filter((message) =>
         message.content.toLowerCase().includes(args.query.toLowerCase()),
       );
@@ -126,7 +131,7 @@ window.api = {
         indexing: {
           indexed: allMessages.length,
           total: allMessages.length,
-          complete: true,
+          complete: !params.has("backfill") || contentSearchReads>1,
         },
       };
     },
@@ -155,9 +160,12 @@ window.api = {
   },
 } as typeof window.api;
 useAppStore.setState({
+  hasHydratedWorkspaces: true,
   repositoryPath: "/fixture",
   repositoryName: "Fixture",
   activeTaskId: taskId,
+  openTaskTabIds: [taskId],
+  activeSurface: {kind:"task",taskId},
   activeWorkspaceId: "conversation-time-ws",
   workspaces: [{ id: "conversation-time-ws", name: "Main" }],
   tasks: [
@@ -167,7 +175,7 @@ useAppStore.setState({
       provider: "codex",
       updatedAt: "2026-01-03T00:00:09.000Z",
       unread: false,
-      archivedAt: null,
+      archivedAt: params.has("archived") ? "2026-11-16" : null,
     },
   ],
   messagesByTask: {
@@ -254,7 +262,7 @@ createRoot(document.getElementById("root")!).render(
       {params.has("palette") ? <SearchPalette /> : null}
       <TooltipProvider>
         <TaskScopeProvider taskId={taskId}>
-          {params.has("composer") ? (
+          {params.has("pane") ? <WorkspacePaneHost /> : params.has("archived") ? <ChatArea taskId={taskId} /> : params.has("composer") ? (
             // Stands in for ChatArea: its root tags the area Cmd/Ctrl+F finds in.
             <div data-conversation-find-scope="" className={sx(styles.area)}>
               <ChatPanel />

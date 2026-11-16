@@ -1006,6 +1006,7 @@ function ChatPanelMessageList(props: {
     taskId,
     workspaceId,
     query: findQuery,
+    messages: useAppStore((state)=>state.messagesByTask[taskId] ?? EMPTY_MESSAGES),
     enabled: finding,
   });
   const hasOlderMessages =
