@@ -3,13 +3,16 @@ import { deleteTaskRelatedRows } from "./task-permanent-delete";
 
 /** Workspace row cleanup; the caller owns the IMMEDIATE transaction. */
 export function deleteWorkspaceRelatedRows(db: Database.Database, workspaceId: string): string[] {
+  const taskArtifactPaths: string[] = [];
   const tasks = db.prepare("SELECT id FROM tasks WHERE workspace_id = ?").all(workspaceId) as {id:string}[];
   for (const task of tasks) {
-    deleteTaskRelatedRows(db, { workspaceId, taskId: task.id.slice(workspaceId.length + 1) });
+    taskArtifactPaths.push(...deleteTaskRelatedRows(db, { workspaceId, taskId: task.id.slice(workspaceId.length + 1) }));
   }
   const scope = "workspace_id = ?";
   const params = [workspaceId];
-  const artifacts = db.prepare(`SELECT DISTINCT artifacts.id, artifacts.relative_path FROM artifacts JOIN turn_events ON turn_events.payload_artifact_id = artifacts.id WHERE turn_events.turn_id IN (SELECT id FROM turns WHERE ${scope})`).all(...params) as {id:string;relative_path:string}[];
+  const artifacts = db.prepare(`SELECT DISTINCT artifacts.id, artifacts.relative_path FROM artifacts JOIN turn_events ON turn_events.payload_artifact_id = artifacts.id WHERE turn_events.turn_id IN (SELECT id FROM turns WHERE ${scope})
+    AND NOT EXISTS (SELECT 1 FROM turn_events other JOIN turns owner ON owner.id = other.turn_id
+      WHERE other.payload_artifact_id = artifacts.id AND owner.workspace_id != ?)`).all(...params, workspaceId) as {id:string;relative_path:string}[];
   const agentScope = scope;
   db.prepare(`DELETE FROM run_receipts WHERE run_id IN (SELECT id FROM runs WHERE ${scope})`).run(...params);
   db.prepare(`DELETE FROM run_steps WHERE run_id IN (SELECT id FROM runs WHERE ${scope})`).run(...params);
@@ -26,5 +29,5 @@ export function deleteWorkspaceRelatedRows(db: Database.Database, workspaceId: s
   }
   db.prepare("DELETE FROM tasks WHERE workspace_id = ?").run(workspaceId);
   for (const artifact of artifacts) db.prepare("DELETE FROM artifacts WHERE id = ?").run(artifact.id);
-  return artifacts.map(artifact => artifact.relative_path);
+  return [...taskArtifactPaths, ...artifacts.map(artifact => artifact.relative_path)];
 }

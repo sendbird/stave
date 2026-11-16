@@ -21,7 +21,7 @@ function setup() {
   const db = new Database(":memory:");
   connections.push(db);
   const store = Object.create(SqliteStore.prototype) as SqliteStore;
-  Object.assign(store, { db, _closed: false, lensReviewRecords: { deleteTask: async () => {} }, tars: { snapshot: () => ({ responsibilities: [] }) } });
+  Object.assign(store, { db, _closed: false, lensReviewRecords: { deleteTaskRows: () => async () => {} }, tars: { snapshot: () => ({ responsibilities: [] }) } });
   (store as unknown as { bootstrap(): void }).bootstrap();
   const native = db as unknown as NativeDatabase.Database;
   new RunLedgerStore(db);

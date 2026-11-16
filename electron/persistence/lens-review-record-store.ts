@@ -232,6 +232,13 @@ export class LensReviewRecordStore {
     });
   }
 
+  /** Remove task rows inside the caller's transaction; dispose files after commit. */
+  deleteTaskRows(taskId: string): () => Promise<void> {
+    const paths = this.pathsWhere("task_id = ?", taskId);
+    this.db.prepare("DELETE FROM lens_review_records WHERE task_id = ?").run(taskId);
+    return () => this.removeFiles(paths);
+  }
+
   /** Remove rows inside the caller's transaction; dispose files only after commit. */
   deleteWorkspaceRows(workspaceId: string): () => Promise<void> {
     const paths = this.pathsWhere("workspace_id = ?", workspaceId);

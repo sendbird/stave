@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import Database from "better-sqlite3";
 import { SqliteStore } from "../../electron/persistence/sqlite-store";
 import type { PersistenceWorkspaceSnapshot } from "../../electron/persistence/types";
@@ -28,6 +30,18 @@ db.exec(`INSERT INTO runs VALUES ('child-run','delegated-task','task','task','/t
   INSERT INTO result_reviews (id,project_path,project_name,workspace_id,workspace_name,task_id,task_title,turn_id,outcome,summary,created_at) VALUES ('result','/tmp/project','Project','workspace','Workspace','task','Task','turn','completed','Done','now');
   INSERT INTO fleet_attention_snoozes VALUES ('turn:result-ready:workspace:task:turn','workspace','tomorrow','now');`);
 db.prepare("INSERT INTO result_review_evidence VALUES (?,?)").run(JSON.stringify(["/tmp/project", "workspace", "task", "turn"]), "{}");
+const artifactPath = path.join(path.dirname(dbPath), "artifacts", "turn-event.json");
+mkdirSync(path.dirname(artifactPath), {recursive:true});
+writeFileSync(artifactPath, "private event bytes");
+db.exec(`INSERT INTO artifacts(id,kind,relative_path,byte_size,created_at) VALUES ('payload','event','turn-event.json',19,'now');
+  INSERT INTO turn_events(id,turn_id,sequence,event_type,payload_json,payload_artifact_id,created_at) VALUES ('event','turn',1,'test','{}','payload','now');
+  INSERT INTO lens_review_records(id,task_id,workspace_id,annotation_id,captured_at,record_json) VALUES ('review','task','workspace','annotation','now','{}');`);
+const sharedArtifactPath = path.join(path.dirname(artifactPath), "shared-event.json");
+writeFileSync(sharedArtifactPath, "shared event bytes");
+db.exec(`INSERT INTO artifacts(id,kind,relative_path,byte_size,created_at) VALUES ('shared-payload','event','shared-event.json',18,'now');
+  INSERT INTO turns(id,workspace_id,task_id,provider_id,created_at,completed_at) VALUES ('other-turn','other','other-task','codex','now','now');
+  INSERT INTO turn_events(id,turn_id,sequence,event_type,payload_json,payload_artifact_id,created_at) VALUES ('shared-source','turn',2,'test','{}','shared-payload','now');
+  INSERT INTO turn_events(id,turn_id,sequence,event_type,payload_json,payload_artifact_id,created_at) VALUES ('shared-survivor','other-turn',1,'test','{}','shared-payload','now');`);
 const remove = () => scope === "workspace"
   ? store.permanentDeleteWorkspace({ workspaceId: "workspace" })
   : store.removeTaskFromWorkspace({ workspaceId: "workspace", taskId: "task", permanently: true });
@@ -36,10 +50,13 @@ const original = before();
 db.exec(`CREATE TRIGGER refuse_delete BEFORE DELETE ON ${scope === "workspace" ? "workspaces" : "tasks"} BEGIN SELECT RAISE(ABORT, 'injected deletion failure'); END`);
 assert.throws(remove, /injected deletion failure/);
 assert.deepEqual(before(), original, "all related cleanup must roll back together");
+assert.ok(existsSync(artifactPath), "rollback keeps artifact file");
+assert.equal((db.prepare("SELECT count(*) AS n FROM artifacts WHERE id='payload'").get() as {n:number}).n, 1);
+assert.equal((db.prepare("SELECT count(*) AS n FROM lens_review_records WHERE id='review'").get() as {n:number}).n, 1);
 db.exec("DROP TRIGGER refuse_delete");
 remove();
 for (const table of ["runs", "run_steps", "run_receipts", "tasks", "messages", "turns", "turn_events", "wake_ups", "wake_up_occurrences", "task_handoff_records", "notifications", "result_reviews", "result_review_evidence", "fleet_attention_snoozes"]) {
-  assert.equal((db.prepare(`SELECT count(*) AS n FROM ${table}`).get() as {n:number}).n, 0, `${scope} deletion left rows in ${table}`);
+  assert.equal((db.prepare(`SELECT count(*) AS n FROM ${table}`).get() as {n:number}).n, ["turns", "turn_events"].includes(table) ? 1 : 0, `${scope} deletion left rows in ${table}`);
 }
 assert.equal((db.prepare("SELECT task_id FROM agent_assignments WHERE id='assignment'").get() as {task_id:null}).task_id, null);
 assert.equal((db.prepare("SELECT json_extract(body_json,'$.taskId') AS task FROM agent_assignments WHERE id='assignment'").get() as {task:null}).task, null);
@@ -47,6 +64,11 @@ assert.equal((db.prepare("SELECT json_extract(body_json,'$.taskId') AS task FROM
 for (const [table, column] of [["workspace_document_revisions", "task_id"], ["tracker_issue_kickoffs", "stave_task_id"]]) {
   assert.equal((db.prepare(`SELECT count(*) AS n FROM ${table} WHERE ${column}='task'`).get() as {n:number}).n, 0, table);
 }
+assert.equal((db.prepare("SELECT count(*) AS n FROM artifacts WHERE id='payload'").get() as {n:number}).n, 0, "event artifact row must be deleted");
+assert.equal(existsSync(artifactPath), false, "event artifact file must be deleted after commit");
+assert.equal((db.prepare("SELECT count(*) AS n FROM artifacts WHERE id='shared-payload'").get() as {n:number}).n, 1, "shared artifact survives another task's deletion");
+assert.ok(existsSync(sharedArtifactPath), "shared artifact file survives");
+assert.equal((db.prepare("SELECT count(*) AS n FROM lens_review_records WHERE id='review'").get() as {n:number}).n, 0, "review rows must be deleted in the transaction");
 assert.ok(store.loadWorkspaceShell({workspaceId:"other"}), "unrelated workspace survives");
 store.close();
 db.close();

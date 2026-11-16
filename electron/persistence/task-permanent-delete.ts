@@ -21,7 +21,13 @@ export function assertTaskCanBeDeleted(db: Database.Database, args: { workspaceI
 }
 
 /** Related task records share the deletion transaction with the workspace shell. */
-export function deleteTaskRelatedRows(db: Database.Database, args: { workspaceId: string; taskId: string }) {
+export function deleteTaskRelatedRows(db: Database.Database, args: { workspaceId: string; taskId: string }): string[] {
+  const artifacts = db.prepare(`SELECT DISTINCT artifact.id, artifact.relative_path FROM artifacts artifact
+    JOIN turn_events event ON event.payload_artifact_id = artifact.id
+    JOIN turns turn ON turn.id = event.turn_id WHERE turn.workspace_id = ? AND turn.task_id = ?
+    AND NOT EXISTS (SELECT 1 FROM turn_events other JOIN turns owner ON owner.id = other.turn_id
+      WHERE other.payload_artifact_id = artifact.id AND (owner.workspace_id != ? OR owner.task_id != ?))`)
+    .all(args.workspaceId, args.taskId, args.workspaceId, args.taskId) as {id:string;relative_path:string}[];
   const runs = db.prepare("SELECT id FROM runs WHERE (workspace_id = ? AND task_id = ? AND origin_kind != 'task') OR (origin_kind = 'task' AND origin_id = ?)").all(args.workspaceId, args.taskId, args.taskId) as { id: string }[];
   for (const run of runs) {
     db.prepare("DELETE FROM run_receipts WHERE run_id = ?").run(run.id);
@@ -61,6 +67,8 @@ export function deleteTaskRelatedRows(db: Database.Database, args: { workspaceId
   db.prepare("DELETE FROM result_review_evidence WHERE scope_key IN (SELECT json_array(project_path, workspace_id, task_id, turn_id) FROM result_reviews WHERE workspace_id = ? AND task_id = ?)").run(args.workspaceId, args.taskId);
   db.prepare("DELETE FROM result_reviews WHERE workspace_id = ? AND task_id = ?").run(args.workspaceId, args.taskId);
   db.prepare("DELETE FROM notifications WHERE workspace_id = ? AND task_id = ?").run(args.workspaceId, args.taskId);
+  for (const artifact of artifacts) db.prepare("DELETE FROM artifacts WHERE id = ?").run(artifact.id);
+  return artifacts.map(artifact => artifact.relative_path);
 }
 
 

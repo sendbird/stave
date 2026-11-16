@@ -2254,12 +2254,15 @@ export class SqliteStore {
           payload: existingPayloadEntry.payload,
         })
       : null;
+    let disposeReviewFiles: (() => Promise<void>) | undefined;
+    let taskArtifactPaths: string[] = [];
     const tx = this.db.transaction(() => {
       if (args.permanently) {
         const task = this.loadWorkspaceShell({ workspaceId: args.workspaceId })?.tasks.find((candidate) => candidate.id === args.taskId);
         assertTaskCanBeDeleted(this.db, args, task);
         releaseDeletedTaskChildren(this.db, args.taskId);
-        deleteTaskRelatedRows(this.db, args);
+        taskArtifactPaths = deleteTaskRelatedRows(this.db, args);
+        disposeReviewFiles = this.lensReviewRecords.deleteTaskRows(args.taskId);
         this.db.prepare("INSERT OR IGNORE INTO deleted_tasks (workspace_id, task_id) VALUES (?, ?)").run(args.workspaceId, args.taskId);
       }
       deleteTaskSourceRows(this.db, args);
@@ -2326,12 +2329,14 @@ export class SqliteStore {
     tx.immediate();
     this.removeArtifactFiles({
       relativePaths: [
+        ...taskArtifactPaths,
         ...(existingWorkspaceShellArtifact
           ? [existingWorkspaceShellArtifact.relativePath]
           : []),
       ],
     });
-    void this.lensReviewRecords.deleteTask(args.taskId);
+    if (args.permanently) void disposeReviewFiles?.();
+    else void this.lensReviewRecords.deleteTask(args.taskId);
   }
 
   archiveWorkspacePersistence(args: Parameters<WorkspaceArchiveStore["archive"]>[0]) {
