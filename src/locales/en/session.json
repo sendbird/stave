@@ -85,7 +85,8 @@
     "chatAreaImpl3": "Select Folder",
     "chatAreaImpl4": "Pick a Workspace",
     "chatAreaImpl5": "Select a workspace from the left sidebar to continue.",
-    "archived": "Archived ·",
+    "archivedOn": "Archived on {{date}} · Restore to continue.",
+    "archivedUndated": "Archived. Restore to continue.",
     "restore": "Restore"
   },
   "chatInput": {

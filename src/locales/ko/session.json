@@ -82,7 +82,8 @@
     "chatAreaImpl3": "폴더 선택",
     "chatAreaImpl4": "워크스페이스 선택",
     "chatAreaImpl5": "계속하려면 왼쪽 사이드바에서 워크스페이스를 선택하세요.",
-    "archived": "보관된 작업 ·",
+    "archivedOn": "{{date}}에 보관됨 · 계속하려면 복원하세요.",
+    "archivedUndated": "보관된 작업입니다. 계속하려면 복원하세요.",
     "restore": "복원"
   },
   "chatInput": {

@@ -7,7 +7,10 @@ import { saveActiveWorkspaceRuntimeCacheWithLensCleanup } from "./workspace-runt
 import { WORKSPACE_APP_SURFACE } from "./app-surface";
 
 interface ArchivedSearchView { workspaceId: string; repositoryPath: string }
-export const useArchivedSearchView = create<{ view: ArchivedSearchView | null; busy: boolean; failed: boolean }>(() => ({view:null,busy:false,failed:false}));
+/** `archivedAt` is the workspace archive record's time, when the host has one. */
+export const useArchivedSearchView = create<{ view: ArchivedSearchView | null; busy: boolean; failed: boolean; archivedAt: string | null }>(() => ({view:null,busy:false,failed:false,archivedAt:null}));
+/** Marks tasks read-only in the projection; it is not a real archive time. */
+export const ARCHIVED_SEARCH_VIEW_MARKER = "1970-01-01T00:00:00.000Z";
 
 /** Mount retained history without adding the archived identity to the registry. */
 export async function openArchivedSearchView(args: ArchivedSearchView & {taskId:string}, set:StoreApi<AppState>["setState"], get:StoreApi<AppState>["getState"]) {
@@ -20,12 +23,18 @@ export async function openArchivedSearchView(args: ArchivedSearchView & {taskId:
   const session=buildWorkspaceSessionStateFromShell({shell});
   // The archive is immutable. This read-only projection prevents every task's
   // composer and send action while preserving the original persisted flags.
-  session.tasks=session.tasks.map(task=>({...task,archivedAt:task.archivedAt ?? "1970-01-01T00:00:00.000Z"}));
+  session.tasks=session.tasks.map(task=>({...task,archivedAt:task.archivedAt ?? ARCHIVED_SEARCH_VIEW_MARKER}));
   session.activeTaskId=args.taskId;
   session.activeSurface={kind:"task",taskId:args.taskId};
   session.openTaskTabIds=[args.taskId];
   session.dockLayout=null;
-  useArchivedSearchView.setState({view:{workspaceId:args.workspaceId,repositoryPath:args.repositoryPath},busy:false,failed:false});
+  const view={workspaceId:args.workspaceId,repositoryPath:args.repositoryPath};
+  useArchivedSearchView.setState({view,busy:false,failed:false,archivedAt:null});
+  // The archive time only completes the banner copy; the view opens without it.
+  void window.api?.workspaceCleanup?.listArchived?.().then(rows=>{
+    const archivedAt=rows.find(row=>row.id===args.workspaceId && row.repositoryPath===args.repositoryPath)?.archivedAt ?? null;
+    if (archivedAt && useArchivedSearchView.getState().view===view) useArchivedSearchView.setState({archivedAt});
+  }).catch(()=>{});
   set({
     ...session, activeWorkspaceId:args.workspaceId, activeAppSurface:WORKSPACE_APP_SURFACE,
     workspaceSnapshotVersion:0, promptDraftPersistenceVersion:0,
@@ -55,7 +64,7 @@ export async function restoreArchivedSearchView(taskId:string, set:StoreApi<AppS
     return {workspaceRuntimeCacheById:cache};
   });
   if (useArchivedSearchView.getState().view !== view) return;
-  useArchivedSearchView.setState({view:null});
+  useArchivedSearchView.setState({view:null,archivedAt:null});
   const state=get();
   if (state.activeWorkspaceId !== view.workspaceId) { notifyWorkspaceCleanupChanged(); return; }
   // Discard the synthetic read-only session before normal hydration/root setup.
