@@ -398,6 +398,7 @@ export function cancelAgentRunBeforeStop(args: {
   /** The in-flight turn, to tell the user's own turn from the run's automatic one. */
   turnId?: string | null;
   stopTurn: () => void;
+  onSettled?: (endTurn: boolean) => void;
 }): boolean {
   const activeBridge = bridge;
   if (!activeBridge || !args.workspaceId || stoppingTaskIds.has(args.taskId)) return false;
@@ -410,6 +411,7 @@ export function cancelAgentRunBeforeStop(args: {
     .then((endTurn) => {
       try {
         if (endTurn) args.stopTurn();
+        args.onSettled?.(endTurn);
       } finally {
         stoppingTaskIds.delete(args.taskId);
       }

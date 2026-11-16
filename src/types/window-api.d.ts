@@ -1,3 +1,4 @@
+import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
 import type { McpAppBridgeApi } from "@/lib/mcp-app/mcp-app-bridge";
 import type { AppLocale } from "@/i18n/locale";
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
@@ -1023,6 +1024,8 @@ interface WindowJiraConnectorApi {
 }
 
 interface WindowTaskControlApi {
+  deletePermanently?: (args: FleetTaskControlArgs) => Promise<FleetTaskControlResult>;
+  stopChildren?: (args: FleetTaskControlArgs) => Promise<FleetStopChildrenResult>;
   takeOver?: (args: { workspaceId: string; taskId: string }) => Promise<{
     ok: boolean;
     workspaceId?: string;

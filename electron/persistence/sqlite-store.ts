@@ -1,3 +1,4 @@
+import { assertTaskCanBeDeleted, deleteTaskRelatedRows, withoutDeletedSnapshotTasks } from "./task-permanent-delete";
 import { DelegationPolicyStore } from "./delegation-policy-store";
 import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
@@ -300,6 +301,8 @@ export class SqliteStore {
         shell_lite_json TEXT,
         shell_summary_json TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS deleted_tasks (workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, PRIMARY KEY (workspace_id, task_id));
 
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
@@ -1223,6 +1226,7 @@ export class SqliteStore {
     taskId: string;
     messages: PersistenceWorkspaceSnapshot["messagesByTask"][string];
   }) {
+    if (this.db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) return;
     upsertTaskMessages({ db: this.db, ...args });
   }
 
@@ -1830,6 +1834,8 @@ export class SqliteStore {
         })
       : new Map();
     const tx = this.db.transaction(() => {
+      const deleted = new Set((this.db.prepare("SELECT task_id FROM deleted_tasks WHERE workspace_id = ?").all(args.id) as { task_id: string }[]).map((row) => row.task_id));
+      if (deleted.size) args = { ...args, snapshot: withoutDeletedSnapshotTasks(args.snapshot, deleted) };
       const existingPayloadEntry = previousPayloadEntry;
       const existingWorkspaceShellArtifact = previousWorkspaceShellArtifact;
       const nextTaskIds = new Set(args.snapshot.tasks.map((task) => task.id));
@@ -2040,6 +2046,7 @@ export class SqliteStore {
     const now = new Date().toISOString();
 
     const tx = this.db.transaction((): number | null => {
+      if (this.db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) return 0;
       // Read under the write lock: a payload read before it could be an older
       // shell than one main has saved since, and writing it back below would
       // revert that save (a draft, a tab).
@@ -2178,7 +2185,7 @@ export class SqliteStore {
     return messageCount === null ? { ok: false, messageCount: 0 } : { ok: true, messageCount };
   }
 
-  removeTaskFromWorkspace(args: { workspaceId: string; taskId: string }) {
+  removeTaskFromWorkspace(args: { workspaceId: string; taskId: string; permanently?: boolean }) {
     const existingPayloadEntry = this.readWorkspacePayload({
       workspaceId: args.workspaceId,
     });
@@ -2188,6 +2195,12 @@ export class SqliteStore {
         })
       : null;
     const tx = this.db.transaction(() => {
+      if (args.permanently) {
+        const task = this.loadWorkspaceShell({ workspaceId: args.workspaceId })?.tasks.find((candidate) => candidate.id === args.taskId);
+        assertTaskCanBeDeleted(this.db, args, task);
+        deleteTaskRelatedRows(this.db, args);
+        this.db.prepare("INSERT OR IGNORE INTO deleted_tasks (workspace_id, task_id) VALUES (?, ?)").run(args.workspaceId, args.taskId);
+      }
       const persistedTaskRowId = `${args.workspaceId}:${args.taskId}`;
       this.db
         .prepare(
@@ -2298,7 +2311,7 @@ export class SqliteStore {
       }
     });
 
-    tx();
+    tx.immediate();
     this.removeArtifactFiles({
       relativePaths: [
         ...(existingWorkspaceShellArtifact
@@ -2357,7 +2370,10 @@ export class SqliteStore {
   }
 
   beginTurn(args: UsageTrackedTurnArgs) {
-    beginUsageTrackedTurn(this.db, this.usageStatistics, args);
+    this.db.transaction(() => {
+      if (this.db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) throw new Error("Task was permanently deleted.");
+      beginUsageTrackedTurn(this.db, this.usageStatistics, args);
+    }).immediate();
   }
 
   completeTurn(args: {

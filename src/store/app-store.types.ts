@@ -785,7 +785,7 @@ export interface AppState
    * through Tars when Tars holds it. `keepAgentRun` stops only the turn, for a
    * caller that already settled the run (a Fleet control Tars answered).
    */
-  abortTaskTurn: (args: { taskId: string; keepAgentRun?: boolean }) => void;
+  abortTaskTurn: (args: { taskId: string; keepAgentRun?: boolean; parentOnly?: boolean }) => void | Promise<boolean | void>;
   /**
    * Publish a parent's delegated-task listing into its active turn's work graph.
    *

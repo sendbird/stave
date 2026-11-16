@@ -251,6 +251,7 @@ export interface DelegateCaller {
 }
 
 interface DelegatedTaskCoordinatorDependencies {
+  canStopTask?: (args: { workspaceId: string; taskId: string }) => Promise<boolean>;
   dailyUsageLimit?: (providerId: "claude-code" | "codex") => Promise<string | null>;
   cancelTurnRoute?: (requestId: string) => Promise<unknown>;
   resolveTurnRoute?: (input: import("../../../src/lib/routing/constrained-route").ConstrainedRouteInput) => Promise<import("../../../src/lib/routing/constrained-route").ConstrainedRouteResult>;
@@ -1701,6 +1702,75 @@ export function createDelegatedTaskCoordinator(
     });
   };
 
+  const stopChild = async (rawArgs: unknown): Promise<DelegatedTaskActionResponse> => {
+      const parsed = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return rejected("invalid-request");
+      }
+      const args = parsed.data;
+      const resolved = await resolveForAction(args);
+      if (!resolved.ok) {
+        return resolved.rejection;
+      }
+      const { ledger, runId, stepId } = resolved;
+      if (!isActiveDelegatedTaskPhase(resolved.child.phase)) return rejected("invalid-state", resolved.child);
+      if (dependencies.canStopTask && !await dependencies.canStopTask({ workspaceId: resolved.child.delegatedWorkspaceId, taskId: resolved.child.delegatedTaskId })) {
+        return { ...rejected("invalid-ownership", resolved.child), message: "managed by Tars" };
+      }
+      // Children settle before their parent; terminal delegations are untouched.
+      const skippedDescendants: string[] = [];
+      const descendants = ledger.listRunAggregatesByOrigin({ originKind: "task", originId: resolved.child.delegatedTaskId, limit: DELEGATED_TASK_LIST_LIMIT });
+      for (const aggregate of descendants) {
+        const child = summaryFromAggregate(ledger, aggregate);
+        if (!child || !isActiveDelegatedTaskPhase(child.phase)) continue;
+        try {
+          const result = await stopChild({ parentTaskId: resolved.child.delegatedTaskId, delegationKey: child.delegationKey, reason: args.reason });
+          if (!result.accepted || result.message) skippedDescendants.push(`${child.delegatedTaskId}: ${result.message ?? result.reason ?? "refused"}`);
+        } catch (error) { skippedDescendants.push(`${child.delegatedTaskId}: ${String(error)}`); }
+      }
+      const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
+      const target = resolved.step.target;
+      const transition = ledger.cancelRunStep({
+        runId,
+        stepId,
+        idempotencyKey: `stop:${args.delegationKey}`,
+        detail: {
+          code: "delegated-task-stopped",
+          message: args.reason,
+          providerId: target?.providerId,
+        },
+        error: args.reason ?? DELEGATED_TASK_STOPPED_REASON,
+        now: now(),
+      });
+      if (!transition.accepted) {
+        return rejected(
+          toRejectionReason(transition.reason),
+          summaryFromTransition(resolved.ledger, transition),
+        );
+      }
+      if (!transition.duplicate && target) {
+        if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
+        // Cancelling the ledger row is the durable half; asking the delegated task
+        // to stop is best effort, because a child that already ended is a
+        // successful stop.
+        await (resolved.child.agentRunId && dependencies.host.stopAgentRun
+          ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
+          : dependencies.host.stopTask({
+            workspaceId: target.workspaceId,
+            taskId: target.taskId,
+          }))
+          .catch((error) => {
+            reportError(error, { scope: "stop-child", runId });
+          });
+      }
+      notifyChanged(args.parentTaskId);
+      return { ...accepted({
+        duplicate: transition.duplicate,
+        child: summaryFromTransition(resolved.ledger, transition),
+      }), message: skippedDescendants.length ? skippedDescendants.join("; ").slice(0, 500) : null };
+
+  };
+
   return {
     delegate: delegateChild,
     delegateFromTool,
@@ -1942,58 +2012,7 @@ export function createDelegatedTaskCoordinator(
       return DelegatedTaskListSchema.parse(summaries);
     },
 
-    async stop(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
-      const parsed = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
-      if (!parsed.success) {
-        return rejected("invalid-request");
-      }
-      const args = parsed.data;
-      const resolved = await resolveForAction(args);
-      if (!resolved.ok) {
-        return resolved.rejection;
-      }
-      const { ledger, runId, stepId } = resolved;
-      const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
-      const target = resolved.step.target;
-      const transition = ledger.cancelRunStep({
-        runId,
-        stepId,
-        idempotencyKey: `stop:${args.delegationKey}`,
-        detail: {
-          code: "delegated-task-stopped",
-          message: args.reason,
-          providerId: target?.providerId,
-        },
-        error: args.reason ?? DELEGATED_TASK_STOPPED_REASON,
-        now: now(),
-      });
-      if (!transition.accepted) {
-        return rejected(
-          toRejectionReason(transition.reason),
-          summaryFromTransition(resolved.ledger, transition),
-        );
-      }
-      if (!transition.duplicate && target) {
-        if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
-        // Cancelling the ledger row is the durable half; asking the delegated task
-        // to stop is best effort, because a child that already ended is a
-        // successful stop.
-        await (resolved.child.agentRunId && dependencies.host.stopAgentRun
-          ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
-          : dependencies.host.stopTask({
-            workspaceId: target.workspaceId,
-            taskId: target.taskId,
-          }))
-          .catch((error) => {
-            reportError(error, { scope: "stop-child", runId });
-          });
-      }
-      notifyChanged(args.parentTaskId);
-      return accepted({
-        duplicate: transition.duplicate,
-        child: summaryFromTransition(resolved.ledger, transition),
-      });
-    },
+    stop: stopChild,
 
     reconcile,
 

@@ -1,3 +1,4 @@
+import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
@@ -2223,6 +2224,8 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   taskControl: {
+    deletePermanently: async (args: FleetTaskControlArgs) => FleetTaskControlResultSchema.parse(await ipcRenderer.invoke("task-control:delete-permanently", FleetTaskControlArgsSchema.parse(args))),
+    stopChildren: async (args: FleetTaskControlArgs) => FleetStopChildrenResultSchema.parse(await ipcRenderer.invoke("task-control:stop-children", FleetTaskControlArgsSchema.parse(args))),
     takeOver: (args: { workspaceId: string; taskId: string }) =>
       ipcRenderer.invoke("task-control:take-over", args) as Promise<{
         ok: boolean;

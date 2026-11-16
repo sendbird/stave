@@ -150,6 +150,7 @@ function createHarness(
     isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
     readProviderUsage?: Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"];
     dailyUsageLimit?: Parameters<typeof createDelegatedTaskCoordinator>[0]["dailyUsageLimit"];
+    canStopTask?: Parameters<typeof createDelegatedTaskCoordinator>[0]["canStopTask"];
     resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
     cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
   } = {},
@@ -174,6 +175,7 @@ function createHarness(
       ...(options.isProviderAvailable ? { isProviderAvailable: options.isProviderAvailable } : {}),
       ...(options.readProviderUsage ? { readProviderUsage: options.readProviderUsage } : {}),
       dailyUsageLimit: options.dailyUsageLimit,
+      canStopTask: options.canStopTask,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -1814,5 +1816,49 @@ describe("restart reconciliation never makes independent delegations wait on eac
       expect(refused.reason).toBe("workspace-writer-busy");
     }
     expect(step()).toBe("running");
+  });
+});
+
+
+describe("cascading delegated task stop", () => {
+  test("stops descendants depth first and leaves ended children untouched", async () => {
+    const harness = createHarness();
+    const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const child = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "nested", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const ended = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "ended-child" }));
+    await harness.coordinator.waitForInFlight();
+    expect(ended.child).not.toBeNull();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([child.child!.delegatedTaskId, parent.child!.delegatedTaskId]);
+    expect((await harness.coordinator.get({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "ended-child" }))?.phase).toBe("completed");
+  });
+  test("a refused descendant is reported while its sibling and parent still stop", async () => {
+    let refused = "";
+    const harness = createHarness({ canStopTask: async ({ taskId }) => taskId !== refused });
+    const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const first = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "first-child", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    refused = first.child!.delegatedTaskId;
+    const sibling = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "second-child", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(result.message).toContain("managed by Tars");
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([sibling.child!.delegatedTaskId, parent.child!.delegatedTaskId]);
+  });
+  test("a Tars-owned child refuses direct stop before changing its ledger", async () => {
+    const harness = createHarness({ canStopTask: async () => false });
+    const child = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(false);
+    expect(result.message).toBe("managed by Tars");
+    expect(harness.stopTaskCalls).toEqual([]);
+    expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("waiting");
+    expect(child.child).not.toBeNull();
   });
 });

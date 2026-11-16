@@ -153,7 +153,15 @@ export function createProviderInteractionActions(args: {
       }
       set({ providerTurnActivityByTask });
     },
-    abortTaskTurn: ({ taskId, keepAgentRun }) => {
+    abortTaskTurn: ({ taskId, keepAgentRun, parentOnly }) => {
+      const cascade = typeof window === "undefined" ? undefined : window.api?.taskControl?.stopChildren;
+      const cascadeWorkspace = get().taskWorkspaceIdById[taskId] ?? get().activeWorkspaceId;
+      if (!parentOnly && cascade && cascadeWorkspace) {
+        return cascade({ workspaceId: cascadeWorkspace, taskId }).then(async (result) => {
+          const parentStopped = await get().abortTaskTurn({ taskId, keepAgentRun, parentOnly: true });
+          return result.ok && result.skipped.length === 0 && parentStopped !== false;
+        }, async () => { await get().abortTaskTurn({ taskId, keepAgentRun, parentOnly: true }); return false; });
+      }
       if (cancelPendingAutoRouting(taskId)) return;
       const stateBefore = get();
       // Stop ends the task's agent run too, before the turn, so the run never picks up after it.
@@ -163,8 +171,17 @@ export function createProviderInteractionActions(args: {
         state: stateBefore,
         taskId,
       });
-      if (!keepAgentRun && cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId,
-        turnId: runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null, stopTurn: () => get().abortTaskTurn({ taskId }) })) return;
+      if (!keepAgentRun) {
+        let hasRun = false;
+        const settled = new Promise<boolean>((resolve) => {
+          hasRun = cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId,
+            turnId: runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null,
+            stopTurn: () => { Promise.resolve(get().abortTaskTurn({ taskId, keepAgentRun: true, parentOnly: true })).then((value) => resolve(value !== false), () => resolve(false)); },
+            onSettled: (endTurn) => { if (!endTurn) resolve(false); },
+          });
+        });
+        if (hasRun) return settled;
+      }
       const activeTurnId =
         runtimeTarget?.session.activeTurnIdsByTask[taskId];
       const workspaceId =
@@ -176,11 +193,9 @@ export function createProviderInteractionActions(args: {
           runtimeTarget?.task ?? findTaskById(stateBefore, taskId),
         )
       ) {
-        void requestManagedTaskStop({ taskId, state: stateBefore }).then(
+        return requestManagedTaskStop({ taskId, state: stateBefore }).then(
           (stopped) => {
-            if (!stopped) {
-              return;
-            }
+            if (!stopped) return false;
             clearProviderTurnStallTimer(taskId);
             set((state) =>
               buildManagedTaskTurnInterruptionPatch(state, taskId),
@@ -194,23 +209,24 @@ export function createProviderInteractionActions(args: {
                       ?.messagesByTask)?.[taskId] ?? [],
               endedTurnId: activeTurnId,
             });
+            return true;
           },
         );
-        return;
       }
+      const pendingStops: Promise<unknown>[] = [];
       clearProviderTurnStallTimer(taskId);
       const stopRequestedAt = buildRecentTimestamp();
       if (activeTurnId) {
         const abortTurn = window.api?.provider?.abortTurn;
         if (abortTurn) {
-          void abortTurn({ turnId: activeTurnId });
+          pendingStops.push(abortTurn({ turnId: activeTurnId }));
         }
       }
       // Clean up provider runtime state (thread caches, session maps) so a
       // subsequent turn does not try to resume a stale / aborted thread.
       const cleanupTask = window.api?.provider?.cleanupTask;
       if (cleanupTask) {
-        void cleanupTask({ taskId });
+        pendingStops.push(cleanupTask({ taskId }));
       }
 
       set((state) => {
@@ -326,6 +342,7 @@ export function createProviderInteractionActions(args: {
           ] ?? [],
         endedTurnId: activeTurnId,
       });
+      return pendingStops.length ? Promise.all(pendingStops).then(() => true, () => false) : undefined;
     },
     resolveApproval: async ({ taskId, messageId, requestId, approved, scope, decidedBy, onUnanswerable = "report" }) => {
       const stateBefore = get();
