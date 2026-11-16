@@ -1215,6 +1215,14 @@
         "workspace": {
           "label": "Track a todo",
           "prompt": "Add a todo to this workspace to verify the release checks."
+        },
+        "bulkControl": {
+          "label": "Pause all running work",
+          "prompt": "Pause all running work"
+        },
+        "cleanup": {
+          "label": "Clean up finished work",
+          "prompt": "Clean up the finished work"
         }
       },
       "repositories": {
@@ -1356,7 +1364,9 @@
           "scheduleList": "List opened",
           "withdraw": "Withdrawn",
           "workspace": "Information updated",
-          "open": "Screen opened"
+          "open": "Screen opened",
+          "bulkControl": "Bulk control applied",
+          "cleanup": "Cleanup applied"
         }
       },
       "delegateAgent": "Agent: {{name}}",
@@ -2988,6 +2998,50 @@
       "documentRequest": "Use the attached document as context. Help me turn it into a plan; ask before starting implementation.",
       "failed": "Could not add this source. Use an HTTPS link or a Markdown file up to 32 KB; keep room in your draft and attachments.",
       "issueBodyUnavailable": "The issue body could not be read. The draft includes its title and link."
+    },
+    "batch": {
+      "verb": {
+        "pause": "Pause",
+        "resume": "Resume",
+        "cancel": "Cancel",
+        "archive": "Archive",
+        "delete": "Permanently delete"
+      },
+      "entry": "Clean up finished work",
+      "effect": "Apply only to the items listed below. The host checks each item again before acting.",
+      "count_one": "{{count}} included, {{skipped}} skipped",
+      "count_other": "{{count}} included, {{skipped}} skipped",
+      "result_one": "{{count}} applied, {{skipped}} skipped",
+      "result_other": "{{count}} applied, {{skipped}} skipped",
+      "reversible": "Archived workspaces keep their history and have Restore. Paused work can be resumed.",
+      "irreversible": "Cancellation, branch deletion and permanent deletion cannot be undone. Archived history can be restored; deleted branches cannot.",
+      "changed": "The work changed or is not eligible",
+      "failed": "The operation could not finish. Refresh and inspect the result before trying again.",
+      "loading": "Checking each item...",
+      "skippedReason": "Skipped: {{reason}}",
+      "status": {
+        "included": "Included",
+        "skipped": "Skipped",
+        "applying": "Outcome needs inspection",
+        "applied": "Applied",
+        "restored": "Restored"
+      },
+      "partialReason": "Applied with a limitation: {{reason}}",
+      "eligibleEnded": "Ended work; safety checks passed",
+      "resultVerb": {
+        "pause": "Paused",
+        "resume": "Resumed",
+        "cancel": "Cancelled",
+        "archive": "Archived",
+        "delete": "Permanently deleted"
+      },
+      "reasons": {
+        "alreadyArchived": "Already archived",
+        "duplicateWorkspace": "Workspace already included",
+        "stale": "The work changed"
+      },
+      "resultWithReasons_one": "{{count}} applied, {{skipped}} skipped ({{reasons}})",
+      "resultWithReasons_other": "{{count}} applied, {{skipped}} skipped ({{reasons}})"
     }
   }
 }

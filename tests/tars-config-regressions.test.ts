@@ -78,7 +78,7 @@ test("6: reviewer with no allowed check scripts gets conditional verification an
 });
 
 test("7: all Tars delegation entry points include the helper no-publish brief rule", () => {
-  expect(lead()).toContain("In every helper brief, including in-turn subagents and the reviewer, include: do not push or open pull requests");
+  expect(lead()).toContain("Tell every helper and reviewer: do not push or open pull requests");
   expect(instruction(0)).toContain("Helper briefs: do not push or open pull requests");
   expect(instruction(1)).toContain("Do not push or open pull requests");
 });

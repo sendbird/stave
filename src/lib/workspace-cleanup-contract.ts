@@ -16,6 +16,8 @@ export const DEFAULT_WORKSPACE_CLEANUP_POLICY: WorkspaceCleanupPolicy = {
 export const WorkspaceCleanupListArgsSchema = z.object({ scanDisk: z.boolean().optional() }).strict();
 export const WorkspaceCleanupActArgsSchema = z.object({
   action: z.enum(["archive", "delete", "restore", "deleteBranch", "removeWorktree"]),
+  /** Refuse if a concurrent Restore made the workspace active before execution. */
+  archivedOnly: z.boolean().optional(),
   workspaceId: Id, repositoryPath: Id, deleteBranch: z.boolean().optional(), forceDeleteBranch: z.boolean().optional(),
 }).strict();
 export type WorkspaceCleanupActArgs = z.infer<typeof WorkspaceCleanupActArgsSchema>;

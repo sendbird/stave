@@ -506,6 +506,30 @@ export class TarsConversationStore {
     });
   }
 
+  settleBatchProposal(messageId: string, actionIndex: number, now: string): void {
+    this.write(() => {
+      const current = this.getReceipt(messageId, actionIndex);
+      if (!current || !["cleanup", "bulkControl"].includes(current.action.kind)) throw new Error("Unknown batch proposal.");
+      if (current.status === "applied") return;
+      if (current.status !== "proposed") throw new Error("The batch proposal is not awaiting confirmation.");
+      const next = TarsActionReceiptSchema.parse({ ...current, status: "applied", responsibilityId: null, revision: current.revision + 1, updatedAt: now });
+      this.db.prepare("UPDATE tars_action_receipts SET revision = ?, body_json = ? WHERE message_id = ? AND action_index = ? AND revision = ?")
+        .run(next.revision, JSON.stringify(next), messageId, actionIndex, current.revision);
+      this.changes.emit("conversation", "snapshot");
+    });
+  }
+
+  readBatchRecords(): unknown {
+    const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = 'tars_batch_records'").get() as { value_json: string } | undefined;
+    return row ? JSON.parse(row.value_json) : [];
+  }
+
+  writeBatchRecords(records: unknown): void {
+    this.db.prepare("INSERT INTO app_state(key,value_json,updated_at) VALUES('tars_batch_records',?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at")
+      .run(JSON.stringify(records), new Date().toISOString());
+    this.changes.emit("conversation", "snapshot");
+  }
+
   settleReceipt(messageId: string, actionIndex: number, expectedRevision: number,
     rawOutcome: TarsReceiptOutcome, now: string): TarsActionReceipt {
     const outcome = TarsReceiptOutcomeSchema.parse(rawOutcome);

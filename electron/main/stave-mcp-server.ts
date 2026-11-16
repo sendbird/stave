@@ -699,7 +699,7 @@ function createToolServer(options?: {
     "stave_delegate_task",
     {
       description:
-        "Start a subagent: a durable Stave task that does part of this task's work, optionally on the other provider. Only `prompt` is required inside a Stave turn; this task, its workspace, provider and effort are filled in, and an id naming another task is refused. For a second opinion, a review or research pass `access: \"read-only\"`: the subagent cannot change files, runs in parallel in this workspace, needs no approvals, and its answer is returned as `child.result`. A writing subagent runs in its own worktree. An answer that arrives later is in your next turn under Subagent results; there is no need to read the subagent's task. The same call returns the same subagent instead of starting a second one.",
+        "Start a durable cross-provider child; identical calls reuse it. In-turn only prompt is required: infer task/workspace/provider/effort; refuse other task ids. Read-only: parallel here, no edits/approvals; writers: own worktree. Return child.result or late answers next turn (Subagent results); no child task reads. Children do the work themselves and do not delegate further unless their task asks for it. Never poll running delegations or wait in loops (sleep or repeated status calls); use the provided wait/wake mechanism. Mention tasks and workspaces by links, never bare titles or ids. Request user-only secrets, tokens or logins through the existing user-input or secret path, never in chat text.",
       inputSchema: DelegateTaskToolInputSchema.shape,
     },
     async (input) => {

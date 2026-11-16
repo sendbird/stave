@@ -3056,6 +3056,7 @@ interface WindowApi {
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */
+  /** Confirmed bulk control/cleanup use batch; batches reads their durable per-item records. */
   tars?: TarsBridgeApi;
   agents?: AgentsBridgeApi;
   lsp?: WindowLspApi;

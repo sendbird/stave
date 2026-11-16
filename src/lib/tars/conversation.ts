@@ -1,3 +1,4 @@
+import { TarsBulkControlActionSchema, TarsCleanupActionSchema, isTarsBatchAction } from "./batch";
 import { TarsPrReviewEffectSchema } from "./pr-checks";
 import { z } from "zod";
 import { TarsOpenActionSchema } from "./open";
@@ -318,6 +319,8 @@ export const TarsWorkActionSchema = z.discriminatedUnion("kind", [
   TarsWithdrawActionSchema,
   TarsPublishActionSchema,
   TarsClearActionSchema,
+  TarsBulkControlActionSchema,
+  TarsCleanupActionSchema,
   TarsScheduleActionSchema,
   TarsWorkspaceActionSchema,
 ]);
@@ -506,6 +509,7 @@ export function tarsMessageView(message: TarsMessage): TarsMessageView {
  * does (pause, takeover, deny), which always apply at once.
  */
 export function isTarsHoldableAction(action: { kind: string; operation?: string }): boolean {
+  if (isTarsBatchAction(action)) return true;
   const key = tarsActionKey(action);
   return key !== null && key !== "show" && key !== "pause" && key !== "takeover" && key !== "deny";
 }
@@ -532,7 +536,7 @@ export const TarsActionReceiptSchema = z.object({
   const proposable = receipt.action.kind === "ask"
     || (receipt.action.kind === "schedule" ? receipt.action.operation !== "list" : isTarsHoldableAction(receipt.action));
   // A clear or a schedule belongs to no responsibility, so its applied receipt names none.
-  const unbound = receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw" || receipt.action.kind === "workspace" || receipt.action.kind === "open";
+  const unbound = isTarsBatchAction(receipt.action) || receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw" || receipt.action.kind === "workspace" || receipt.action.kind === "open";
   // An automatic follow-up's refusal carries its one code on any kind of action.
   const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "open" || receipt.action.kind === "reprioritize" || receipt.action.kind === "withdraw"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success

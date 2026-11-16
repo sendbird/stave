@@ -53,6 +53,8 @@ export const TARS_IPC = Object.freeze({
   /** Saves or (with `null`) deletes the composer draft. Never announced through `changed`. */
   saveDraft: "tars:save-draft",
   /** Clears the conversation view, the tray's Done cards or its outputs (`TarsClearInput`); hides, never deletes. */
+  batch: "tars:batch",
+  batches: "tars:batches",
   clear: "tars:clear",
   /** Restores what one clear hid. */
   undoClear: "tars:undo-clear",
@@ -619,6 +621,8 @@ export interface TarsBridgeApi {
   getDraft?(): Promise<TarsComposerDraft | null>;
   saveDraft?(input: SaveTarsComposerDraftInput): Promise<void>;
   /** Clears and restores; absent on bridges that predate clearing, which offer no Clear. */
+  batch?(input: import("./batch").TarsBatchInput): Promise<import("./batch").TarsBatchRecord>;
+  batches?(): Promise<import("./batch").TarsBatchRecord[]>;
   clear?(input: TarsClearInput): Promise<TarsClearRecord>;
   undoClear?(input: TarsUndoClearInput): Promise<TarsClearRecord>;
   configureView?(input: TarsViewSettings): Promise<TarsViewSettings>;

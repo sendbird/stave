@@ -1,3 +1,4 @@
+import { DELEGATED_TASK_INSTRUCTIONS } from "../../src/lib/runs/delegated-task";
 import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
 import { parseGitWorktrees } from "../../src/lib/source-control-worktrees";
 import { runWorkspacePreparation, WorkspacePreparationError } from "./workspace-preparation";
@@ -1955,6 +1956,7 @@ async function runTaskImpl(args: {
       }),
       ...(repositoryMemoryPart ? [repositoryMemoryPart] : []),
       ...(handoffRecordPart ? [handoffRecordPart] : []),
+      ...(task.parentTaskId ? [{ type: "retrieved_context" as const, sourceId: "stave:delegation-rules", title: "Delegation rules", content: DELEGATED_TASK_INSTRUCTIONS }] : []), // i18n-ignore: model-facing rules
       ...(delegatedTaskReceiptsPart ? [delegatedTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),

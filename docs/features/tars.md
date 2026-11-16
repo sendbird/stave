@@ -336,8 +336,7 @@ reports on the work.
   approval waits for your confirmation (**Approve**) and is never a recommended or default
   choice. Your words reach the run only while no turn runs in its task;
   otherwise say them in the task or ask again after the turn.
-- **Never through Tars.** Merging, deploying, force-pushing, deleting
-  branches, worktrees or tasks, permanent tool approvals, spending money and
+- **Never through Tars.** Merging, deploying, force-pushing, arbitrary task deletion, permanent tool approvals, spending money and
   messaging other people are not available through Tars at all.
 - **Message limits.** A message holds up to 32,000 characters and at most 32
   messages can be outstanding. A message too long to sit in the run's
@@ -1890,3 +1889,12 @@ Ask Tars to open a task, a registered workspace, Fleet or Activity. Navigation
 applies immediately and is recorded without granting authority or changing work.
 Task navigation requires the exact task ID of Tars work; workspace navigation
 requires a registered workspace ID. Unknown or ambiguous targets are refused.
+
+
+## Bulk control and cleanup
+
+Say "stop everything" or "pause all running work" to propose pausing many responsibilities. Ask to resume all or explicitly cancel many, scoped to all work, a repository, or selected responsibility IDs. Every bulk action requires one confirmation card, at every autonomy level. Automatic follow-ups cannot propose these actions. Cancellation has no default Enter confirmation and cannot be undone.
+
+Say "clean up the finished work" or use **Clean up finished work** in Done. The card lists included and skipped work, repository, reasons and known disk sizes. Only completed or cancelled responsibilities qualify. The host rechecks ownership, running work, pending/open draft PRs, dirty files and unpushed commits for every workspace. It archives eligible workspaces using the same guarded cleanup operations as the cleanup center. The record retains per-item results and **Restore** for archived workspaces.
+
+Explicitly requested branch deletion uses safe deletion only; it never forces a branch deletion. Permanent deletion applies only to workspaces already archived when the card was prepared. Branch deletion and permanent deletion cannot be undone. An interrupted destructive item is not automatically replayed; inspect its state in the cleanup center. A changed revision is skipped rather than expanding the confirmed scope.

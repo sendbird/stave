@@ -1,3 +1,4 @@
+import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
 import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
 import { z as cleanupZ } from "zod";
@@ -1587,6 +1588,18 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
 
 const workspaceCleanupRuntime = createWorkspaceCleanupRuntime({ store: ensureHostServicePersistenceReady, hasTerminals: workspaceId => terminalRuntime.hasWorkspaceSessions(workspaceId), changed: event => emitEvent("workspace.cleanup-changed", event) });
 workspaceCleanupRuntime.start();
+const tarsBatchRuntime = createTarsBatchRuntime({
+  conversations: () => ensureHostServicePersistenceReady().tarsConversations,
+  responsibilities: () => ensureHostServicePersistenceReady().tars,
+  cleanup: workspaceCleanupRuntime,
+  undo: (requestId, expectedRevision) => {
+    const persistence = ensureHostServicePersistenceReady();
+    return undoTarsAction({ requestId, expectedRevision }, { conversations: persistence.tarsConversations, responsibilities: persistence.tars,
+      readRegistry: () => persistence.loadRepositoryRegistry(), serialize: tarsRuntime.serializeUndo,
+      control: (action, ledger) => tarsRuntime.act(action, ledger) });
+  },
+  control: input => actTars(input, { conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime, responsibilities: ensureHostServicePersistenceReady().tars }),
+});
 
 async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
   if (requestNeedsCliDiscovery(request.method)) {
@@ -2271,6 +2284,10 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "tars.brief":
       await respond(request.id, await tarsRuntime.brief(request.params));
       return;
+    case "tars.batch":
+      await respond(request.id, await tarsBatchRuntime.invoke(request.params)); return;
+    case "tars.batches":
+      await respond(request.id, tarsBatchRuntime.list()); return;
     case "tars.schedule":
       await respond(request.id, await tarsScheduler.confirm(request.params));
       return;

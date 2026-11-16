@@ -1,3 +1,5 @@
+import { isTarsBatchAction } from "@/lib/tars/batch";
+import { TarsBatchProposal, TarsBatchHistory } from "./TarsBatchCard";
 import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Clock, FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
@@ -147,7 +149,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   const flowed = receipts.map((receipt) => ({ receipt, flow: flows?.flowFor(receipt) ?? null, card: receipt.action.kind === "workspace" && receipt.status === "applied" ? null : cards.get(receipt.actionIndex) ?? null }));
   const scheduleViews = new Map((schedule?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const lines = flowed.filter((entry) => !entry.flow && !entry.card && !publishViews.has(entry.receipt.actionIndex) && !clearViews.has(entry.receipt.actionIndex) && !scheduleViews.has(entry.receipt.actionIndex))
-    .map((entry) => entry.receipt);
+    .map((entry) => entry.receipt).filter(receipt => !isTarsBatchAction(receipt.action) || receipt.status === "rejected");
   const origin = message.origin;
   const userWords = !origin;
   const bubble = message.text ? <div className={sx(chrome.userBubble)} data-tars-user-bubble=""><MessageContent><p className={sx(chrome.messageText)}>{message.text}</p></MessageContent></div> : null;
@@ -186,6 +188,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
       ? <TarsWaitingRecord key={`publish:${view.actionIndex}`} id={view.requestId} subject={t("shell:tars.publish.card.title")} onOpen={() => onOpenWaiting(view.requestId)} />
       : <TarsPublishProposal key={`publish:${view.actionIndex}`} view={view} publish={publish} titleOf={titleOf}
       matchedRules={receipts.find((receipt) => receipt.actionIndex === view.actionIndex)?.matchedRules} />) : []),
+    ...receipts.filter(receipt => isTarsBatchAction(receipt.action) && receipt.status !== "rejected").map(receipt => isTarsBatchAction(receipt.action) ? <TarsBatchProposal key={`batch:${receipt.actionIndex}`} action={receipt.action} receipt={receipt} /> : null),
     ...(clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : []),
     ...(schedule ? [...scheduleViews.values()].map((view) => <TarsScheduleProposal key={`schedule:${view.actionIndex}`} view={view} schedule={schedule} />) : []),
     ...flowed.map(({ receipt, flow }) => flow
@@ -297,7 +300,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     ...selectTarsActivityNotices(state.conversation?.activity ?? [], state.conversation?.records ?? [])
       .map((value) => ({ kind: "activity" as const, id: `activity:${value.activity.id}`, at: value.activity.createdAt, value })),
     // A decision's own record shows on its card, never twice.
-    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
+    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("batch:") && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
       .map((value) => ({ kind: "record" as const, id: `record:${value.requestId}`, at: value.createdAt, value })),
     // A card the user opened leaves its confirmation's outcome where it was confirmed.
     ...(publish?.records ?? []).map((value) => ({ kind: "publish" as const, id: `publish:${value.requestId}`, at: value.createdAt, value })),
@@ -467,6 +470,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
           decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} onOpenWaiting={openWaiting} />
         <TarsAllowRuleRecords />
+        <TarsBatchHistory />
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}

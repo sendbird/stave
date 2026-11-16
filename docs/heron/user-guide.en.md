@@ -7,7 +7,7 @@ versionLabel: v1
 status: Current · Stave 0.35.0
 statusTone: current
 captured: 2026-11-09
-updated: 2026-11-13
+updated: 2026-11-17
 recorder: jacob.kim
 footer: Stave User Guide v1 · Stave 0.35.0 · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
@@ -982,6 +982,14 @@ report. Your existing sound and desktop notification settings apply; desktop
 notifications stay quiet while Stave's window has focus.
 
 Full details: https://github.com/sendbird/stave/blob/main/docs/features/tars.md
+
+
+## Tars bulk control and cleanup
+
+Ask Tars to "stop everything", "pause all running work", resume all, or explicitly cancel many responsibilities. Limit the request to one repository or a list of responsibilities when needed. One card shows each included or skipped item and its reason; confirmation is always required, regardless of autonomy. Cancellation cannot be undone and has no default Enter shortcut.
+
+Ask to "clean up the finished work" or choose **Clean up finished work** in Done. Only completed or cancelled work with no running activity, pending/open PR, dirty files or unpushed commits can be archived. The host checks each workspace again when confirmed. The result record offers **Restore** for archives. Branch deletion and permanent deletion of already archived workspaces require an explicit request and cannot be undone; force deletion is never used.
+
 
 @page review | Hand off | Review and delegation | guide
 @lead Check changes yourself in Review mode, hand them to another model as an AI review, or let an agent create delegated tasks. Results gather in the Task panel's Outputs.
