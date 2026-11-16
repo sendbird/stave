@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 for (const [locale, theme] of [["en", "light"], ["ko", "dark"]] as const) {
   test(`palette message results support keyboard opening and highlighted text in ${locale}/${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/?stavePreview=command-palette&lang=${locale}&theme=${theme}`, { waitUntil: "domcontentloaded" });
     const input = page.getByRole("combobox");
     await input.fill("export retry");
@@ -23,7 +24,13 @@ for (const [locale, theme] of [["en", "light"], ["ko", "dark"]] as const) {
     expect(geometry.padding).toBe("8px");
     expect(geometry.overflow).toBe(false);
     expect(geometry.contained).toBe(true);
-    await page.screenshot({ path: `/tmp/content-search/after/palette-${locale}-${theme}.png` });
+    await expect.poll(() => page.evaluate(() =>
+      (window as unknown as { __stavePalettePreview: { settings: () => unknown } }).__stavePalettePreview.settings(),
+    )).toEqual({ customThemeId: null, themeMode: theme, language: locale });
+    await expect(page.locator("html")).toHaveAttribute("lang", locale === "en" ? "en-US" : "ko-KR");
+    if (theme === "dark") await expect(page.locator("html")).toHaveClass(/dark/);
+    else await expect(page.locator("html")).not.toHaveClass(/dark/);
+    await page.screenshot({ path: `/tmp/orchestration-workbench/palette/palette-${locale}-${theme}.png` });
     await page.setViewportSize({ width: 480, height: 800 });
     await page.evaluate(() => document.fonts.ready);
     expect(await result.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);

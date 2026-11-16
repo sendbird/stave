@@ -1,6 +1,6 @@
 import { WorkspaceCleanupHost } from "@/components/layout/WorkspaceCleanupDialog";
 import { installCleanupFixture } from "./cleanup-fixture";
-import { applyAppLocale } from "@/i18n";
+import { normalizeAppLocale } from "@/i18n";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import type {
@@ -9,7 +9,6 @@ import type {
 } from "@/components/layout/command-palette-registry";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { useAppStore } from "@/store/app.store";
-import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import type { SearchTasksArgs, SearchTasksResponse, TaskSearchResult } from "@/lib/task-search/task-search-ipc";
 
@@ -28,7 +27,7 @@ const SEARCH_DELAY_MS = Number(params.get("searchDelay")) || 0;
 interface PalettePreviewProbe {
   openedTasks: string[];
   openedMessages: string[];
-  settings: () => { customThemeId: string | null; themeMode: string };
+  settings: () => { customThemeId: string | null; themeMode: string; language: string };
 }
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
@@ -105,17 +104,20 @@ export function CommandPalettePreview() {
   const [paletteOpen, setPaletteOpen] = useState(true);
   const context = useMemo(previewContext, []);
   useLayoutEffect(() => {
-    applyAppLocale(params.get("lang") ?? "en");
-    applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
-    applyCustomTheme({ theme: builtinTheme });
+    // Shared overlays also read settings; keep their locale and theme consistent.
+    useAppStore.getState().updateSettings({ patch: {
+      language: normalizeAppLocale(params.get("lang")),
+      themeMode: theme === "dark" || builtinTheme?.baseMode === "dark" ? "dark" : "light",
+      customThemeId: builtinTheme?.id ?? null,
+    } });
     installSearchStub();
     installCleanupFixture();
     const probe: PalettePreviewProbe = {
       openedTasks: [],
       openedMessages: [],
       settings: () => {
-        const { customThemeId, themeMode } = useAppStore.getState().settings;
-        return { customThemeId, themeMode };
+        const { customThemeId, themeMode, language } = useAppStore.getState().settings;
+        return { customThemeId, themeMode, language };
       },
     };
     (window as unknown as { __stavePalettePreview?: PalettePreviewProbe }).__stavePalettePreview = probe;
