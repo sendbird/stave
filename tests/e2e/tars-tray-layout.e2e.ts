@@ -486,11 +486,12 @@ test("project grouping keeps global queue moves, output ownership and clearing t
   await openTray(page, { fixture: "tray", lang: "en", theme: "light", width: 1440 });
   // Mount the real tray with controlled snapshots to exercise ownership and refresh boundaries without a provider.
   await page.evaluate(async () => {
-    // @ts-expect-error browser imports use Vite optimized dependencies
-    const reactModule = await import("/node_modules/.vite/deps/react.js");
+    // Use the app's loaded runtime when the dependency cache is outside the workspace.
+    const resources = performance.getEntriesByType("resource");
+    const moduleUrl = (name: string) => resources.find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+    const reactModule = await import(moduleUrl("react"));
     const { createElement, Fragment } = reactModule.default ?? reactModule;
-    // @ts-expect-error browser imports use Vite optimized dependencies
-    const clientModule = await import("/node_modules/.vite/deps/react-dom_client.js");
+    const clientModule = await import(moduleUrl("react-dom_client"));
     const { createRoot } = clientModule.default ?? clientModule;
     // @ts-expect-error browser imports use Vite's served source URLs
     const { TarsTray, TarsTrayGroupingButton } = await import("/src/components/tars/TarsTray.tsx");
