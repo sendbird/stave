@@ -681,10 +681,7 @@ const SHOTS = [
     async capture({ page, locale, file }) {
       await openApp(page, locale, { approval: true, notifications: true });
       await quietChrome(page);
-      await page.evaluate(async () => {
-        const { useAppStore } = await import("/src/store/app.store.ts");
-        useAppStore.getState().openFleetView();
-      });
+      await page.getByRole("button", { name: locale === "ko" ? "Fleet 보기 열기" : "Open Fleet View", exact: true }).first().click();
       await page.locator("[data-fleet-view-root='true']").waitFor();
       await settle(page);
       await save(page, null, file);

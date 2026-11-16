@@ -134,9 +134,27 @@ reaches it once, the arrow keys change it, and clicking it keeps you typing):
 Each result shows its repository, workspace, branch and folder, so tasks with
 the same title are told apart, plus its state (Running, Done, Failed, Stopped,
 New) and its last activity. Opening one goes to its repository, then its
-workspace, then the task. Archived tasks, tasks another task delegated (open
-them from their parent), and repositories you removed are not searched. The other commands, Fleet View included, stay in the list in both
+workspace, then the task. The title group excludes archived and delegated tasks. Repositories you removed are not searched. The other commands, Fleet View included, stay in the list in both
 scopes.
+
+### Find Words In Messages
+
+Type at least two characters to see **In messages** below the task-title
+results. It searches local user messages, assistant replies and readable tool
+summaries across registered repositories. Korean and partial words match.
+Results show a highlighted snippet, match count, last activity and task state.
+Archived and delegated tasks are included and labelled; delegated results link
+to their parent. Enter opens the task at the matching message, loading an older
+history window when needed. Search does not contact a provider.
+
+Existing history is indexed in short background batches. While indexing, a
+progress notice explains that results are still being built. Raw tool payloads,
+attachment bytes and secret metadata are excluded.
+
+In Fleet, turn on **Include message text** beside search to find the same
+content and open its matching message. In a conversation, **Cmd/Ctrl+F** searches
+the whole task, including history outside the loaded window. Use **Load newer
+messages** to return through newer history after jumping to an old match.
 
 ### Stave Slash Commands
 
