@@ -3005,5 +3005,20 @@
       "failed": "Could not add this source. Use an HTTPS link or a Markdown file up to 32 KB; keep room in your draft and attachments.",
       "issueBodyUnavailable": "The issue body could not be read. The draft includes its title and link."
     }
+  },
+  "contentSearch": {
+    "heading": "In messages",
+    "searching": "Searching messages…",
+    "failed": "Messages could not be searched. Try a more specific phrase.",
+    "noMatch": "No matching messages.",
+    "indexing": "Indexing messages: {{indexed}} / {{total}}. Results may be incomplete.",
+    "delegated": "Delegated",
+    "openParent": "Open parent task",
+    "firstPage": "First results",
+    "nextPage": "Next results",
+    "matches_one": "{{count}} match",
+    "matches_other": "{{count}} matches",
+    "openResult_one": "Open {{title}}, {{count}} matching message",
+    "openResult_other": "Open {{title}}, {{count}} matching messages"
   }
 }

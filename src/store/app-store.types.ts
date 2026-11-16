@@ -6,7 +6,10 @@ import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import type { ApprovalRuleDecider } from "@/lib/approvals/approval-resolution";
 import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
 import type { TaskMessagesLoadResult } from "@/store/app-store-workspace-action-types";
-import type { AppNotification, NotificationsLoad } from "@/lib/notifications/notification.types";
+import type {
+  AppNotification,
+  NotificationsLoad,
+} from "@/lib/notifications/notification.types";
 import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-status";
 import type {
   ProviderGoalSnapshot,
@@ -144,7 +147,12 @@ export type SendUserMessageResult =
     }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string }
   /** An Agent-mode prompt started an agent run; the host starts its turns. */
-  | { status: "run-started"; taskId: string; workspaceId: string; agentRunId: string }
+  | {
+      status: "run-started";
+      taskId: string;
+      workspaceId: string;
+      agentRunId: string;
+    }
   | {
       /**
        * The message never reached the provider. Its payload is parked as a
@@ -237,6 +245,11 @@ export interface AppState
   restoredQueueReleasedByTask: Record<string, true | undefined>;
   messageCountByTask: Record<string, number>;
   taskMessagesLoadingByTask: Record<string, boolean>;
+  /** Newer messages omitted by a bounded history window. */
+  taskMessageWindowOffsetByTask: Record<string, number>;
+  /** Read-only history windows; live replay and persistence keep their own tail. */
+  taskHistoryMessagesByTask: Record<string, ChatMessage[]>;
+  taskHistoryMessageCountByTask: Record<string, number>;
   layout: LayoutState;
   settings: AppSettings;
   editorTabs: EditorTab[];
@@ -259,6 +272,9 @@ export interface AppState
   focusTranscriptToolRequest: {
     taskId: string;
     toolUseId?: string;
+    messageId?: string;
+    searchQuery?: string;
+    searchSnippet?: string;
     decision?: { messageId: string; requestId: string };
     nonce: number;
   } | null;
@@ -458,15 +474,23 @@ export interface AppState
     workspaceId?: string;
     repositoryPath?: string;
     refreshFromPersistence?: boolean;
+    messageId?: string;
+    searchQuery?: string;
+    searchSnippet?: string;
   }) => Promise<void>;
   requestTaskScrollToLatest: (args: { taskId: string }) => void;
   focusTranscriptTool: (args: { taskId: string; toolUseId: string }) => void;
   /** Reveal an approval or answer you gave, in its message, in the transcript. */
-  focusTranscriptDecision: (args: { taskId: string; messageId: string; requestId: string }) => void;
-  selectTask: (args: { taskId: string }) => void;
+  focusTranscriptDecision: (args: {
+    taskId: string;
+    messageId: string;
+    requestId: string;
+  }) => void;
+  selectTask: (args: { taskId: string; allowArchived?: boolean }) => void;
   loadTaskMessages: (args: {
     taskId: string;
-    mode?: "latest" | "older";
+    mode?: "latest" | "older" | "newer";
+    messageId?: string;
   }) => Promise<TaskMessagesLoadResult>;
   clearTaskSelection: () => void;
   updatePromptDraft: (args: {
@@ -568,9 +592,17 @@ export interface AppState
   settleWorkspaces: (args: {
     settlements: Array<{ workspaceId: string; reason: WorkspaceSettledReason }>;
   }) => Record<string, WorkspaceSettlementRecord | undefined>;
-  unsettleWorkspace: (args: { workspaceId: string }) => WorkspaceSettlementRecord | undefined;
-  snoozeWorkspace: (args: { workspaceId: string; until: string }) => WorkspaceSettlementRecord | undefined;
-  setWorkspaceAutoSettle: (args: { workspaceId: string; enabled: boolean }) => void;
+  unsettleWorkspace: (args: {
+    workspaceId: string;
+  }) => WorkspaceSettlementRecord | undefined;
+  snoozeWorkspace: (args: {
+    workspaceId: string;
+    until: string;
+  }) => WorkspaceSettlementRecord | undefined;
+  setWorkspaceAutoSettle: (args: {
+    workspaceId: string;
+    enabled: boolean;
+  }) => void;
   restoreWorkspaceSettlements: (args: {
     records: Record<string, WorkspaceSettlementRecord | undefined>;
   }) => void;
@@ -760,7 +792,10 @@ export interface AppState
    * Keep a queued message out of automatic sending while the user edits it,
    * so a turn that completes mid-edit cannot send the pre-edit text.
    */
-  holdQueuedTurnForEdit: (args: { taskId: string; queuedTurnId: string }) => void;
+  holdQueuedTurnForEdit: (args: {
+    taskId: string;
+    queuedTurnId: string;
+  }) => void;
   /** End an edit hold and drain the queue if the task is idle. */
   releaseQueuedTurnEditHold: (args: {
     taskId: string;

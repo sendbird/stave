@@ -5,6 +5,9 @@ import type { FleetArchiveArgs, FleetArchiveResult } from "../../src/lib/fleet/h
 import { readFleetStopPreview } from "./fleet-stop-preview";
 import type { FleetStopPreviewArgs } from "../../src/lib/fleet/host-control";
 import { assertTaskCanBeDeleted, deleteTaskRelatedRows, withoutDeletedSnapshotTasks, releaseDeletedTaskChildren, preserveReleasedTaskParents } from "./task-permanent-delete";
+import { registerContentSearchTextFunction } from "./content-search-text";
+import { ContentSearchStore } from "./content-search-store";
+import type { SearchTaskContentArgs } from "../../src/lib/task-search/content-search";
 import { DelegationPolicyStore } from "./delegation-policy-store";
 import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
@@ -186,6 +189,9 @@ function normalizePersistedProviderId(
 export class SqliteStore {
   readonly workspaceInformation: WorkspaceInformationStore;
   private db: Database.Database;
+  private searchIndex: ContentSearchStore | null = null;
+  private searchRetry: ReturnType<typeof setTimeout> | null = null;
+  get contentSearch() { return this.searchIndex; }
   private readonly dbPath: string;
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
@@ -219,6 +225,7 @@ export class SqliteStore {
     dbPath: string;
     onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
     runMaintenance?: boolean;
+    contentSearchOwner?: boolean;
   }) {
     const dbPath = path.resolve(args.dbPath);
     this.dbPath = dbPath;
@@ -241,7 +248,20 @@ export class SqliteStore {
     this.db.pragma("synchronous = NORMAL");
     this.db.pragma("busy_timeout = 5000");
     this.db.pragma("wal_autocheckpoint = 1000");
+    registerContentSearchTextFunction(this.db);
     this.bootstrap();
+    if(args.contentSearchOwner!==false) {
+      const initializeSearch=()=>{
+        if(this._closed) return;
+        try {this.searchIndex=new ContentSearchStore(this.db,this);}
+        catch(error) {
+          if(!error || typeof error!=="object" || !("code" in error) || !/^SQLITE_(BUSY|LOCKED)/.test(String(error.code))) throw error;
+          this.searchRetry=setTimeout(initializeSearch,100);
+          this.searchRetry.unref?.();
+        }
+      };
+      initializeSearch();
+    }
     // temporary-migration: drop-retired-sync-outbox
     dropRetiredSyncOutbox(this.db);
     this.notifications = new NotificationStore(
@@ -1550,7 +1570,10 @@ export class SqliteStore {
     });
   }
 
+  searchTaskContent(args: SearchTaskContentArgs) { return this.contentSearch?.search(args) ?? {ok:true as const,results:[],nextOffset:null,indexing:{indexed:0,total:0,complete:false}}; }
+
   loadTaskMessagesPage(args: {
+    messageId?: string;
     workspaceId: string;
     taskId: string;
     limit?: number;
@@ -1564,13 +1587,21 @@ export class SqliteStore {
     }
 
     const limit = Math.max(1, Math.min(500, args.limit ?? 120));
-    const offset = Math.max(0, args.offset ?? 0);
+    let offset = Math.max(0, args.offset ?? 0);
+    if (args.messageId && !("messagesByTask" in payloadEntry.payload)) {
+      const row = this.db.prepare(`SELECT count(*) AS count FROM messages WHERE workspace_id=? AND task_id=? AND rowid>(SELECT rowid FROM messages WHERE id=?)`).get(args.workspaceId,args.taskId,`${args.workspaceId}:${args.taskId}:${args.messageId}`) as {count:number};
+      offset = Math.max(0,row.count-Math.floor(limit/2));
+    }
 
     if ("messagesByTask" in payloadEntry.payload) {
       const allMessages =
         (payloadEntry.payload as PersistenceWorkspaceSnapshot).messagesByTask[
           args.taskId
         ] ?? [];
+      if (args.messageId) {
+        const target = allMessages.findIndex(message=>message.id===args.messageId);
+        if (target >= 0) offset=Math.max(0,allMessages.length-target-1-Math.floor(limit/2));
+      }
       const start = Math.max(allMessages.length - offset - limit, 0);
       const end = Math.max(allMessages.length - offset, 0);
       return {
@@ -2453,6 +2484,7 @@ export class SqliteStore {
       this.compactCompletedTurnEvents(args.id);
     });
     tx();
+    this.contentSearch?.requestDrain();
   }
 
   /**
@@ -3011,6 +3043,8 @@ export class SqliteStore {
     if (options?.compactStorage) {
       this.compactStorageForShutdown();
     }
+    if(this.searchRetry) clearTimeout(this.searchRetry);
+    this.contentSearch?.close();
     this._closed = true;
     this.db.close();
   }

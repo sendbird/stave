@@ -1206,7 +1206,16 @@ Screenshot links point at the `main` branch on GitHub. Once re-captured screensh
 
 ## Finding text and navigating views
 
-Press Cmd+F / Ctrl+F while focused in the conversation or its composer, or hover the transcript and choose the search button in its top-right corner. The find bar floats over the transcript and does not move messages. It searches loaded message text, including messages outside the viewport, and excludes thinking and tool parts. Load older messages to search earlier history. Enter and Shift+Enter move between matching messages.
+Press Cmd+F / Ctrl+F while focused in the conversation or its composer, or hover the transcript and choose the search button in its top-right corner. The find bar floats over the transcript and does not move messages. Enter at least two characters. It combines loaded messages, including unsaved streaming text and older inline snapshots, with local index hits for unloaded history and readable tool summaries. Each message appears once. Thinking and raw tool payloads are excluded. Selecting a match loads its history window automatically; **Load newer messages** moves forward again. Enter and Shift+Enter move between matching messages. The selected message stays selected after backfill completes. Sending a message or choosing **Back to latest** returns to the live transcript.
+
+The command palette shows **In messages** after you type two characters, below
+title results. It searches user messages, assistant replies and readable tool
+summaries across registered repositories, with Korean and partial-word matching.
+Results include highlighted snippets, match counts, last activity and labels for
+archived and delegated tasks. Enter opens the matching message, even in older
+history. Archived tasks remain read-only with an **Archived · Restore** banner until you restore them. In Fleet, enable **Include message text** to search the same content.
+An indexing progress notice appears while existing history is being prepared.
+Content stays local and is never sent to a provider by search.
 
 In a terminal, Cmd+F / Ctrl+F searches the retained terminal buffer. Enter and Shift+Enter move between matches; Escape closes the search. The terminal header shows Running or the completed command's exit code.
 

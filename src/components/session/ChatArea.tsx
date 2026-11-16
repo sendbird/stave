@@ -1,3 +1,4 @@
+import { Banner } from "@/components/aui/components/Banner";
 import { setWorkspaceSidebarCollapsed } from "@/store/workspace-sidebar-fold-store";
 import { i18n, useTranslation } from "@/i18n";
 import {
@@ -131,8 +132,12 @@ export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
  * shared `RenderProfiler` id keeps both paths on one profile rather than two
  * halves of the same measurement.
  */
-function ChatAreaComposerDock() {
+function ChatAreaComposerDock({archivedTaskId}: {archivedTaskId?: string}) {
   useTranslation();
+  if(archivedTaskId) return <div className={sx(chatAreaStyles.dock)}>
+    <Banner title={i18n.t("session:chatArea.archived")} role="status" data-testid="archived-task-banner"
+      action={<Button variant="secondary" onClick={()=>useAppStore.getState().restoreTask({taskId:archivedTaskId})}>{i18n.t("session:chatArea.restore")}</Button>} />
+  </div>;
   return (
     <div className={sx(chatAreaStyles.dock)}>
       <RenderProfiler id="ChatInput" thresholdMs={8}>
@@ -176,7 +181,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
           (workspace) => workspace.id === state.activeWorkspaceId,
         ),
         state.tasks.some(
-          (task) => task.id === scopedTaskId && !isTaskArchived(task),
+          (task) => task.id === scopedTaskId,
         ),
         scopedTaskId,
         Math.max(
@@ -185,7 +190,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
         ),
         (state.messagesByTask[scopedTaskId] ?? EMPTY_MESSAGES).length,
         state.tasks.find(
-          (task) => task.id === scopedTaskId && !isTaskArchived(task),
+          (task) => task.id === scopedTaskId,
         ) ?? null,
         state.activeTurnIdsByTask[scopedTaskId],
         state.activeTaskId === scopedTaskId,
@@ -389,7 +394,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
           >
             <TaskStartPanel onSelect={handleTaskStartOption} />
           </div>
-          <ChatAreaComposerDock />
+          <ChatAreaComposerDock archivedTaskId={activeTask && isTaskArchived(activeTask) ? activeTaskId : undefined} />
         </div>
       </div>
     );
@@ -422,7 +427,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
               activity shelf is keyed per turn, so a dialog owned by either
               would disappear while it was being read. */}
         </div>
-        <ChatAreaComposerDock />
+        <ChatAreaComposerDock archivedTaskId={activeTask && isTaskArchived(activeTask) ? activeTaskId : undefined} />
       </div>
     </div>
   );

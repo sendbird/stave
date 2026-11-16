@@ -108,7 +108,8 @@
     "appliedStatus": "Status",
     "appliedIs": "is",
     "appliedSearch": "Search",
-    "appliedContains": "contains"
+    "appliedContains": "contains",
+    "includeMessageText": "Include message text"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "Default · {{branchLabel}}",

@@ -217,3 +217,10 @@ describe("archive task regression", () => {
     expect(session.activeSurface).toEqual({ kind: "task", taskId: "" });
   });
 });
+
+test("explicit archived search tabs survive workspace session restoration",()=>{
+ const restored=buildWorkspaceSessionState({snapshot:{activeTaskId:"archived",openTaskTabIds:["archived"],activeSurface:{kind:"task",taskId:"archived"},tasks:[{id:"archived",title:"History",provider:"codex",updatedAt:"2026-11-16",unread:false,archivedAt:"2026-11-16"}],messagesByTask:{archived:[]}} as never});
+ expect(restored.openTaskTabIds).toEqual(["archived"]);
+ expect(restored.activeTaskId).toBe("archived");
+ expect(restored.activeSurface).toEqual({kind:"task",taskId:"archived"});
+});

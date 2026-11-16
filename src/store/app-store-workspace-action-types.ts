@@ -21,7 +21,8 @@ export type TaskMessagesLoadResult = "loaded" | "unchanged" | "failed";
 export type LoadTaskMessagesIntoSession = (args: {
   workspaceId: string;
   taskId: string;
-  mode: "latest" | "older";
+  mode: "latest" | "older" | "newer";
+  messageId?: string;
 }) => Promise<TaskMessagesLoadResult>;
 
 export type HydrateWorkspaceMessagesInBackground = (args: {

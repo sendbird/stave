@@ -430,3 +430,14 @@ export function buildSteeredUserMessageState(args: {
     },
   };
 }
+
+/** A send returns to the live transcript before creating or steering a turn. */
+export function prepareTaskSendView(
+  task: Task | null,
+  activeTurns: Record<string, string | undefined> | undefined,
+  requestLatest: (args: {taskId:string}) => void,
+) {
+  const archived=Boolean(task?.archivedAt);
+  if(task && !archived) requestLatest({taskId:task.id});
+  return {archived,hasActiveTurn:Boolean(task && activeTurns?.[task.id])};
+}

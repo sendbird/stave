@@ -41,12 +41,12 @@ jobs:
     # Keep browser dependencies and font geometry on a stable OS baseline.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # The layout suite runs one worker for stable geometry; five shards keep
+    # The layout suite runs one worker for stable geometry; six shards keep
     # each job within the timeout as layout regressions are added.
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,7 +59,7 @@ jobs:
       # The hosted image supplies Chromium libraries; product fonts are bundled.
       # Browser launch still validates native dependencies during the tests.
       - run: bunx --bun playwright install chromium
-      - run: bun run test:ui-layout --shard=${{ matrix.shard }}/5
+      - run: bun run test:ui-layout --shard=${{ matrix.shard }}/6
       - uses: actions/upload-artifact@v4
         if: failure()
         with:

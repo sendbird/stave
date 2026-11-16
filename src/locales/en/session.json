@@ -84,7 +84,9 @@
     "chatAreaImpl2": "Select a local repository folder to get started.",
     "chatAreaImpl3": "Select Folder",
     "chatAreaImpl4": "Pick a Workspace",
-    "chatAreaImpl5": "Select a workspace from the left sidebar to continue."
+    "chatAreaImpl5": "Select a workspace from the left sidebar to continue.",
+    "archived": "Archived ·",
+    "restore": "Restore"
   },
   "chatInput": {
     "detail": "Provider command catalog API is unavailable in this build.",
