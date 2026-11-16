@@ -17,6 +17,7 @@ export const cleanupStyles = stylex.create({
   size: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: vars["--aui-font-size-caption"] },
   history: { whiteSpace: "pre-wrap", overflowWrap: "anywhere", padding: vars["--aui-space-8"], borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border"] },
   recent: { maxHeight: "14vh", overflowY: "auto" },
+  disclosure: { minHeight: vars["--aui-control-height-2xs"], lineHeight: vars["--aui-control-height-2xs"], cursor: "pointer" },
   shelf: { display: "grid", gap: vars["--aui-space-4"], paddingInline: vars["--aui-space-8"], paddingBlock: vars["--aui-space-4"] },
   rule: { display: "flex", alignItems: "center", gap: vars["--aui-space-12"], flexWrap: "wrap" },
   number: { width: "6rem" },

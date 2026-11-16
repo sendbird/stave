@@ -24,7 +24,7 @@ export function ArchivedWorkspaceShelf() {
     return () => { live = false; window.removeEventListener(WORKSPACE_CLEANUP_CHANGED_EVENT, refresh); };
   }, [repositoryPath, workspaces]);
   if (!rows.length) return null;
-  return <><details className={sx(styles.shelf)}><summary>{t("cleanupCenter.archived")} ({rows.length})</summary>{rows.map((row) => <div key={`${row.repositoryPath}:${row.id}`} className={sx(styles.toolbar)}><span className={sx(styles.muted, styles.truncate)} title={row.name}>{row.repositoryName} · {row.name}</span><Button size="2xs" variant="ghost" disabled={busy} onClick={async () => {
+  return <><details className={sx(styles.shelf)}><summary className={sx(styles.disclosure)}>{t("cleanupCenter.archived")} ({rows.length})</summary>{rows.map((row) => <div key={`${row.repositoryPath}:${row.id}`} className={sx(styles.toolbar)}><span className={sx(styles.muted, styles.truncate)} title={row.name}>{row.repositoryName} · {row.name}</span><Button size="2xs" variant="ghost" disabled={busy} onClick={async () => {
     setBusy(true); setError("");
     try { const api = window.api?.workspaceCleanup; if (!api) throw new Error(); const result = await api.act({ action: "restore", workspaceId: row.id, repositoryPath: row.repositoryPath }); if (!result.ok) throw new Error(); if (result.readOnly) setHistory(row); await refreshWorkspaceCleanupRegistry(); notifyWorkspaceCleanupChanged(); }
     catch { setError(t("cleanupCenter.unavailable")); } finally { setBusy(false); }

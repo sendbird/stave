@@ -38,10 +38,11 @@ for (const width of [1440, 1024]) for (const [lang, theme] of [["en", "light"], 
       const row = element.querySelector('[data-testid="cleanup-row-cleanup-one"]')!;
       const checkbox = row.querySelector('[role="checkbox"]')!.getBoundingClientRect();
       const text = row.querySelector('button[aria-pressed]')!.getBoundingClientRect();
-      return { right: box.right, width: box.width, overflow: element.scrollWidth > element.clientWidth, checkboxHeight: checkbox.height, centerDifference: Math.abs((checkbox.top + checkbox.bottom) / 2 - (text.top + text.bottom) / 2) };
+      return { right: box.right, width: box.width, overflow: element.scrollWidth > element.clientWidth, summaryHeight: element.querySelector("summary")!.getBoundingClientRect().height, checkboxHeight: checkbox.height, centerDifference: Math.abs((checkbox.top + checkbox.bottom) / 2 - (text.top + text.bottom) / 2) };
     });
     expect(geometry.right).toBeLessThanOrEqual(width);
     expect(geometry.overflow).toBe(false);
+    expect(geometry.summaryHeight).toBeGreaterThanOrEqual(24);
     expect(geometry.checkboxHeight).toBeGreaterThanOrEqual(24);
     expect(geometry.centerDifference).toBeLessThan(1);
   });
