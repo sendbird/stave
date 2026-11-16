@@ -100,12 +100,13 @@ test("browse uses array values and reaches start and resume without native plugi
   const { buildCodexDeveloperInstructions } = await import("../electron/providers/codex-runtime-config");
   const args = { requested: true, backend: "browse", cwd: "/tmp/workspace", request: async () => ({ config: { mcp_servers: {} } }), resolveExecutable: () => "/tmp/bin/browse" };
   const overrides = await resolveBrowseCodexOverrides(args);
-  expect(overrides).toEqual({ "mcp_servers.browse.command": "/tmp/bin/browse", "mcp_servers.browse.args": ["mcp"] });
+  expect(overrides).toEqual({ "mcp_servers.browse.command": "/tmp/bin/browse", "mcp_servers.browse.args": ["mcp"], "mcp_servers.browse.env.OPENCODE_BROWSER_AUTO_UPDATE": "notify" });
   const configOverrides = { ...overrides, ...buildCodexNativeBrowserTurnConfigOverrides({ requested: false, userEnabled: true }) };
   const common = { cwd: args.cwd, runtimeOptions: { providerBrowserBackend: "browse" as const }, configOverrides };
   for (const params of [buildCodexThreadStartParams(common), buildCodexThreadResumeParams({ ...common, threadId: "thread" })]) {
     const config = params.config as Record<string, unknown>;
     expect(config["mcp_servers.browse.args"]).toEqual(["mcp"]);
+    expect(config["mcp_servers.browse.env.OPENCODE_BROWSER_AUTO_UPDATE"]).toBe("notify");
     expect(config["plugins.chrome@openai-bundled.enabled"]).toBe(false);
     expect(config["plugins.unified-computer-use@openai-bundled.enabled"]).toBe(false);
   }

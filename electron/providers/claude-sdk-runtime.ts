@@ -3290,7 +3290,7 @@ export async function streamClaudeWithSdk(
       requested: providerBrowserRequested,
       backend: args.runtimeOptions?.providerBrowserBackend,
       servers: resolvedMcpServers.mcpServers,
-      createServer: (command): McpServerConfig => ({ type: "stdio", command, args: ["mcp"] }),
+      createServer: (command, env): McpServerConfig => ({ type: "stdio", command, args: ["mcp"], env }),
     });
     // Observe effective modes without changing the requested permission policy.
     const claudeAutoModeNotice = createClaudeAutoModeNotice();

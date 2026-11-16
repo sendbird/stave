@@ -6,6 +6,14 @@ import { parseBrowseStatus, type BrowseConnectionStatus } from "../../src/lib/br
 import { isRecord } from "./codex-app-server-json";
 import type { CodexConfigOverrides } from "./codex-app-server-params";
 
+// Security review (CP-983) asks for notify-only updates: browse otherwise
+// installs new versions hourly. The relay inherits OPENCODE_BROWSER_* from the
+// `browse mcp` process that starts it, so a relay already running keeps its
+// own setting; `browse update --mode notify` covers that case.
+export const BROWSE_MCP_ENV: Readonly<Record<string, string>> = Object.freeze({
+  OPENCODE_BROWSER_AUTO_UPDATE: "notify",
+});
+
 export function resolveBrowseExecutable() {
   return resolveExecutablePath({
     absolutePathEnvVar: "STAVE_BROWSE_PATH",
@@ -26,12 +34,12 @@ export function attachBrowseClaudeServer<T>(args: {
   requested: boolean;
   backend?: string;
   servers: Record<string, T> | undefined;
-  createServer: (executable: string) => T;
+  createServer: (executable: string, env: Record<string, string>) => T;
   resolveExecutable?: () => string | null;
 }): Record<string, T> | undefined {
   if (!args.requested || args.backend !== "browse" || hasBrowseServer(args.servers ?? {})) return args.servers;
   const executable = (args.resolveExecutable ?? resolveBrowseExecutable)();
-  return executable ? { ...args.servers, browse: args.createServer(executable) } : args.servers;
+  return executable ? { ...args.servers, browse: args.createServer(executable, { ...BROWSE_MCP_ENV }) } : args.servers;
 }
 
 export async function resolveBrowseCodexOverrides(args: {
@@ -49,7 +57,10 @@ export async function resolveBrowseCodexOverrides(args: {
     const servers = response.config.mcp_servers ?? response.config.mcpServers ?? {};
     if (!isRecord(servers) || hasBrowseServer(servers)) return {};
     const executable = (args.resolveExecutable ?? resolveBrowseExecutable)();
-    return executable ? { "mcp_servers.browse.command": executable, "mcp_servers.browse.args": ["mcp"] } : {};
+    if (!executable) return {};
+    const overrides: CodexConfigOverrides = { "mcp_servers.browse.command": executable, "mcp_servers.browse.args": ["mcp"] };
+    for (const [key, value] of Object.entries(BROWSE_MCP_ENV)) overrides[`mcp_servers.browse.env.${key}`] = value;
+    return overrides;
   } catch {
     return {};
   }

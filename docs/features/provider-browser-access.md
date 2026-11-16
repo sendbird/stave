@@ -69,6 +69,11 @@ keeps `--no-chrome`; Codex keeps the Chrome and CUA plugins disabled. Stave adds
 already resolved from the user's configuration. Non-browser turns, secondary
 read-only runs, and unattended automations receive no Stave-added browse server.
 
+The Stave-added server runs with `OPENCODE_BROWSER_AUTO_UPDATE=notify`, so a
+relay it starts only reports new versions instead of installing them hourly.
+A relay that was already running keeps its own setting; run
+`browse update --mode notify` once to make notify-only updates the default.
+
 The agent starts with `status`, creates its own session with `session_new` when
 `sharedSession` is true, and passes that session on subsequent calls. Prefer
 `session_adopt` for a tab lent through the extension toolbar. For login, 2FA, or

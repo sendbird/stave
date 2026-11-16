@@ -3036,8 +3036,8 @@ test("browse replaces browser guidance and keeps native Chrome off", () => {
 
 test("adds browse only on requested turns with an executable, preserving user servers", async () => {
   const { attachBrowseClaudeServer } = await import("../electron/providers/browse-browser");
-  const args = { requested: true, backend: "browse", servers: {}, createServer: (command: string) => ({ type: "stdio", command, args: ["mcp"] }), resolveExecutable: () => "/tmp/bin/browse" };
-  expect(attachBrowseClaudeServer(args)).toEqual({ browse: { type: "stdio", command: "/tmp/bin/browse", args: ["mcp"] } });
+  const args = { requested: true, backend: "browse", servers: {}, createServer: (command: string, env: Record<string, string>) => ({ type: "stdio", command, args: ["mcp"], env }), resolveExecutable: () => "/tmp/bin/browse" };
+  expect(attachBrowseClaudeServer(args)).toEqual({ browse: { type: "stdio", command: "/tmp/bin/browse", args: ["mcp"], env: { OPENCODE_BROWSER_AUTO_UPDATE: "notify" } } });
   expect(attachBrowseClaudeServer({ ...args, requested: false })).toEqual({});
   expect(attachBrowseClaudeServer({ ...args, backend: "native" })).toEqual({});
   expect(attachBrowseClaudeServer({ ...args, resolveExecutable: () => null })).toEqual({});
