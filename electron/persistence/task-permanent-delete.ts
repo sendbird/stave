@@ -102,3 +102,200 @@ export function preserveReleasedTaskParents(db: Database.Database, tasks: Persis
   return tasks.map((task) => task.parentTaskId && db.prepare("SELECT 1 FROM deleted_tasks WHERE task_id = ? LIMIT 1").get(task.parentTaskId)
     ? { ...task, parentTaskId: null } : task);
 }
+
+/** Remove source rows in the caller transaction after related-row cleanup. */
+export function deleteTaskSourceRows(db: Database.Database, args: { workspaceId: string; taskId: string }) {
+      const persistedTaskRowId = `${args.id}:${task.id}`;
+        db
+          .prepare(
+            `
+          INSERT INTO tasks (id, workspace_id, title, provider, updated_at, unread, archived_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            title = excluded.title,
+            provider = excluded.provider,
+            updated_at = excluded.updated_at,
+            unread = excluded.unread,
+            archived_at = excluded.archived_at
+        `,
+          )
+          .run(
+            persistedTaskRowId,
+            args.id,
+            task.title,
+            task.provider,
+            task.updatedAt,
+            task.unread ? 1 : 0,
+            task.archivedAt ?? null,
+          );
+      }
+
+      if (
+        existingPayloadEntry &&
+        "messagesByTask" in existingPayloadEntry.payload
+      ) {
+        const legacySnapshot =
+          existingPayloadEntry.payload as PersistenceWorkspaceSnapshot;
+        for (const taskId of preservedLegacyTaskIds) {
+          this.insertTaskMessages({
+            workspaceId: args.id,
+            taskId,
+            messages: legacySnapshot.messagesByTask[taskId] ?? [],
+          });
+        }
+      }
+
+      for (const [taskId, messages] of Object.entries(
+        args.snapshot.messagesByTask,
+      )) {
+        if (!nextTaskIds.has(taskId)) {
+          continue;
+        }
+        // Message persistence is additive: upsert the in-memory window without
+        // deleting rows it omits. messagesByTask is only a tail window over the
+        // durable `messages` table, so a destructive rewrite here would drop
+        // unloaded older history (and would make in-memory eviction lossy).
+        // Genuine deletions go through removeTaskFromWorkspace/deleteWorkspace.
+        this.insertTaskMessages({
+          workspaceId: args.id,
+          taskId,
+          messages,
+        });
+      }
+
+      const countRows = db
+        .prepare(
+          `
+        SELECT task_id, COUNT(*) AS count
+        FROM messages
+        WHERE workspace_id = ?
+        GROUP BY task_id
+      `,
+        )
+        .all(args.id) as TaskMessageCountRow[];
+      const countByTask = new Map(
+        countRows.map((row) => [row.task_id, row.count] as const),
+      );
+      const shell = this.createWorkspaceShell({
+        snapshot: args.snapshot,
+        messageCountByTask: Object.fromEntries(
+          args.snapshot.tasks.map(
+            (task) => [task.id, countByTask.get(task.id) ?? 0] as const,
+          ),
+        ),
+      });
+      const preparedShell = this.preparePersistedWorkspaceShell({
+        shell,
+        updatedAt: now,
+        artifactId: nextWorkspaceShellArtifactId,
+        previousBodyByTabId: previousWorkspaceShellBodies,
+      });
+      if (preparedShell.artifact) {
+        writePreparedWorkspaceShellArtifact({
+          rootDir: this.artifactRootDir,
+          artifact: preparedShell.artifact,
+        });
+        this.insertArtifactRow({
+          artifact: preparedShell.artifact,
+        });
+      }
+      const snapshotJson = JSON.stringify(preparedShell.persistedShellPayload);
+      const persistedShellLiteJson = preparedShell.shellLiteJson;
+      const persistedShellSummaryJson = preparedShell.shellSummaryJson;
+
+      db
+        .prepare(
+          `
+        INSERT INTO workspaces (id, name, updated_at, snapshot_json)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          updated_at = excluded.updated_at,
+          snapshot_json = excluded.snapshot_json
+      `,
+        )
+        .run(args.id, args.name, now, snapshotJson);
+      db
+        .prepare(
+          `
+        INSERT INTO workspace_meta (id, name, updated_at, shell_lite_json, shell_summary_json)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(id) DO UPDATE SET
+          name = excluded.name,
+          updated_at = excluded.updated_at,
+          shell_lite_json = excluded.shell_lite_json,
+          shell_summary_json = excluded.shell_summary_json
+      `,
+        )
+        .run(
+          args.id,
+          args.name,
+          now,
+          persistedShellLiteJson,
+          persistedShellSummaryJson,
+        );
+
+      if (
+        existingWorkspaceShellArtifact &&
+        existingWorkspaceShellArtifact.id !== preparedShell.artifact?.id
+      ) {
+        this.deleteArtifactRows({
+          artifactIds: [existingWorkspaceShellArtifact.id],
+        });
+      }
+    });
+
+    // IMMEDIATE: main and the host-service each hold a connection to this
+    // file. See `persistTaskTurnDelta` for why a deferred write can be lost.
+    if (tx.immediate() === false) return;
+    if (previousWorkspaceShellArtifact) {
+      this.removeArtifactFiles({
+        relativePaths: [previousWorkspaceShellArtifact.relativePath],
+      });
+    }
+  }
+
+  /**
+   * Write one task's turn progress without touching renderer-owned state.
+   *
+   * `upsertWorkspace` takes a whole-workspace snapshot, so host-service used it
+   * to save a streamed turn and in doing so rewrote fields it does not own —
+   * prompt drafts, editor and terminal tabs, layout, workspace information —
+   * from its own cached session copy. That copy can be minutes stale (the host
+   * caches up to 32 workspace sessions), so a streamed event could resurrect a
+   * draft the user had already cleared. The existing
+   * `reconcileTasksWithPersistedArchival` guard in the host is evidence of the
+   * same class of bug for task archival.
+   *
+   * This path instead starts from the *persisted* payload and replaces only
+   * host-owned fields, which also avoids two costs `upsertWorkspace` pays on
+   * every call: rewriting the editor-tab artifact, and a workspace-wide
+   * `COUNT(*) GROUP BY task_id`.
+   *
+   * Message writes stay additive, exactly as in `upsertWorkspace`.
+   */
+  persistTaskTurnDelta(args: {
+    workspaceId: string;
+    workspaceName?: string;
+    taskId: string;
+    /** Turn progress; existing names and `archivedAt` are taken from disk. */
+    task?: PersistenceWorkspaceSnapshot["tasks"][number];
+    /** Only the messages that changed. */
+    messages?: PersistenceWorkspaceSnapshot["messagesByTask"][string];
+    /** Set when the host turn makes this the workspace's active task. */
+    activeTaskId?: string;
+    /** Host-owned provider session cursor for this task. */
+    providerSession?: NonNullable<
+      PersistenceWorkspaceSnapshot["providerSessionByTask"]
+    >[string];
+  }): { ok: boolean; messageCount: number } {
+    const now = new Date().toISOString();
+
+    const tx = db.transaction((): number | null => {
+      this.workspaceArchives.assertNotDeleted(args.workspaceId);
+      if (this.workspaceArchives.isWriteProtected(args.workspaceId)) return null;
+      if (db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) return 0;
+      // Read under the write lock: a payload read before it could be an older
+      // shell than one main has saved since, and writing it back below would
+      // revert that save (a draft, a tab).
+}
