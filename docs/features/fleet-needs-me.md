@@ -301,6 +301,51 @@ Fleet item, and the task records the answer the same way.
 3. Stave opens the matching repository, workspace, and task before showing the
    request or result.
 
+## Select And Control Multiple Tasks
+
+Tree, Table and Cards share a selection. Use the row checkbox, Cmd/Ctrl-click
+for individual tasks, or Shift-click for a range in the visible order. With a
+row focused, X toggles it, Shift+Arrow extends the range, Cmd/Ctrl+A selects all
+visible tasks, and Esc clears the selection. Filters apply to Select all;
+hidden tasks leave the selection. Re-sorting keeps the same selected tasks.
+Selecting a group selects its visible tasks. The selected count is announced.
+
+The bulk bar shows the selected count and how many tasks each action applies
+to. Open opens the first selected task. Stop, Snooze (1 hour, 4 hours, 1 day or
+1 week), Mark read, Mark reviewed, Archive and Delete permanently act on each
+eligible task and report one result, including skipped tasks and their reasons.
+An item failing does not stop the remaining items. Archive and Snooze offer
+Undo in the result toast and with Cmd/Ctrl+Z while that toast is available.
+
+Stop also stops running delegated descendants, deepest first, and stops the
+associated agent run through its existing controls. Finished descendants remain
+untouched. Work managed by Tars goes through its Pause control or is skipped
+with a managed-by-Tars reason; it is never stopped directly.
+
+**Stop all** in the Fleet header and **Stop all running work** in the command
+palette show the turns, delegated children, agent runs and Tars work affected
+before asking for confirmation. A repository-scoped command limits that action
+to one repository. The palette also offers **Archive ended tasks in this
+workspace** and **Mark all read**.
+
+**Delete permanently** requires a separate confirmation that names the number
+of tasks and warns that deletion cannot be undone. Cancel has the initial focus;
+Enter does not confirm deletion unless the destructive button is explicitly
+focused. The host refuses tasks that are still active, have running descendants
+or agent runs, or remain protected. Only archived or ended tasks are eligible.
+Deletion removes task records and their related execution and attention history.
+
+Task History supports selecting several visible entries, **Restore (n)** and
+**Delete permanently (n)**. Restore opens the selected archived tasks or closed
+tabs. A task that cannot be restored or deleted is counted as skipped, and the
+remaining tasks continue.
+
+Tree and Table offer an optional, saved **Group by status** choice. It orders
+tasks as Needs you, Working, Ready for review, Idle and Ended. Ready for review
+includes finished work with unread results or open pull-request states. Each
+group shows its task count and can select its visible tasks. The existing
+layout and grouping remain the default.
+
 ## Files And Data
 
 - Fleet does not create a separate task ledger or execution database.

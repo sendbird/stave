@@ -131,7 +131,7 @@ choice.
 | Save file | `Cmd/Ctrl+S` | Editor |
 | Send review comments | `Cmd/Ctrl+Alt+Enter` | Editor diff view |
 | Undo settle or snooze | `Cmd/Ctrl+Z` | While a Work queue Undo toast shows, not while typing |
-| Dialog primary action | `Enter` or `Cmd/Ctrl+Enter` | Dialogs; use `Cmd/Ctrl+Enter` in multi-line fields |
+| Dialog primary action | `Enter` or `Cmd/Ctrl+Enter` | Dialogs; use `Cmd/Ctrl+Enter` in multi-line fields. Permanent deletion requires explicitly focusing its confirmation button |
 
 ## Surfaces
 
@@ -139,6 +139,11 @@ These keys work only while their surface is open or focused.
 
 | Action | Keys | Where |
 | --- | --- | --- |
+| Toggle focused task selection | `X` | Fleet or Task History, with a task row focused |
+| Extend task selection | `Shift+ArrowUp/ArrowDown` | Fleet or Task History task rows |
+| Select all visible tasks | `Cmd/Ctrl+A` | Fleet or Task History rows; respects filters |
+| Clear task selection | `Esc` | Fleet or Task History, before closing the surface |
+| Undo bulk archive or snooze | `Cmd/Ctrl+Z` | While the action's Undo toast is available, not while typing |
 | Next item that needs you | `N` | Fleet View, not while typing |
 | Close Fleet View | `Esc` | Fleet View; steps back first: an open panel, then the focused row, then the search |
 | Next inbox row | `J` or `ArrowDown` | Fleet's inbox or the notification list, with a row focused |

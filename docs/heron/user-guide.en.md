@@ -1041,6 +1041,35 @@ Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshot
 
 ## Fleet View
 
+Select tasks with their checkboxes, Cmd/Ctrl-click or Shift-click. With a row
+focused, **X** toggles selection, **Shift+Arrow** extends it, **Cmd/Ctrl+A**
+selects the visible tasks and **Esc** clears it. The selected count is announced.
+The bulk bar offers **Stop**, **Snooze**, **Mark read**, **Mark reviewed**,
+**Archive**, **Delete permanently** and **Open**. Each action reports how many
+changed and which tasks were skipped. Archive and Snooze offer **Undo** in the
+toast and with Cmd/Ctrl+Z while that toast is available.
+
+**Stop** also stops running delegated children before their parent and uses the
+agent run's own stop control. Finished children stay as they are. Work owned by
+Tars is paused through Tars or skipped. **Stop all** in the Fleet header, or
+**Stop all running work** in the command palette, lists the affected turns,
+children, runs and Tars work and asks for confirmation first. A repository
+command narrows the scope. The palette also offers **Archive ended tasks in
+this workspace** and **Mark all read**.
+
+**Delete permanently** is available for archived or ended tasks with no running
+turn, child or run. Protected tasks are skipped. The confirmation names the
+number of tasks and warns that this cannot be undone. Cancel receives focus;
+Enter does not confirm by default. In **Task History**, select multiple tasks
+to **Restore (n)** or **Delete permanently (n)** together.
+
+Tree and Table optionally **Group by status**: **Needs you**, **Working**,
+**Ready for review**, **Idle**, then **Ended**. Finished work with unread results
+or open pull-request states is ready for review. Group headers show counts and
+select their visible tasks. The grouping choice is saved; repository grouping
+stays the default.
+
+
 Fleet View collects tasks from every workspace in the order you should act on them. The sidebar's **Work queue** view uses the same order.
 
 ```pipeline "What to look at first"
