@@ -775,3 +775,12 @@ export function resolveDelegatedTaskControls(child: DelegatedTaskSummary) {
 
 // i18n-ignore: model-facing delegation rules
 export const DELEGATED_TASK_INSTRUCTIONS = "Do the work yourself; do not delegate further unless this task explicitly asks for delegation. Never poll a running delegation or wait in loops (sleep or repeated status calls); use the provided wait/wake mechanism. Mention tasks and workspaces by their links, never bare titles or ids. Request user-only secrets, tokens or logins through the existing user-input or secret path, never in chat text.";
+
+/**
+ * The child-only delegation rules for a turn, or `null`. A turn the agent run
+ * supervisor drives (`agentRunStage`) belongs to a run whose lead delegates its
+ * stages, even when the run itself was delegated, so it never receives them.
+ */
+export function delegatedTaskRulesFor(turn: { parentTaskId?: string | null; agentRunStage?: unknown }): string | null {
+  return turn.parentTaskId && !turn.agentRunStage ? DELEGATED_TASK_INSTRUCTIONS : null;
+}
