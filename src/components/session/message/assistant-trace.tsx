@@ -31,6 +31,11 @@ import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { parseInlineRenderToolOutput } from "@/lib/inline-render/inline-render";
 import { MessageSubagents } from "./message-subagents";
 import { InlineHtmlRenderList } from "./inline-html-render";
+import { ReplyImageNumbersContext, ReplyToolImages } from "./tool-output-images";
+import {
+  collectReplyToolImages,
+  firstReplyImageNumberByToolUseId,
+} from "@/lib/tool-images/tool-images";
 import {
   isProviderFailureRecoveryEligible,
   parseProviderErrorNotice,
@@ -651,6 +656,13 @@ export function AssistantMessageBody(args: {
       }),
     [trace.entries],
   );
+  /*
+   * Screenshots the assistant took, attached under the reply in the order
+   * taken. The reply calls them "Image 1", "Image 2", and the tool steps in
+   * the trace use the same numbers.
+   */
+  const replyImages = useMemo(() => collectReplyToolImages(message.parts), [message.parts]);
+  const replyImageNumbers = useMemo(() => firstReplyImageNumberByToolUseId(replyImages), [replyImages]);
   const showDiffResults = allDiffParts.length > 0 && !isStreaming;
   const showFileChangeSummary =
     unresolvedFileChangeRows.length > 0 && !isStreaming;
@@ -716,7 +728,7 @@ export function AssistantMessageBody(args: {
     ) : null;
 
   return (
-    <>
+    <ReplyImageNumbersContext.Provider value={replyImageNumbers}>
       {trace.showStreamingPlaceholder || historyEntries.length > 0 ? (
         <ChainOfThought
           isStreaming={isStreaming}
@@ -804,6 +816,12 @@ export function AssistantMessageBody(args: {
 
       {responseFollowsPinned ? responseBlock : null}
 
+      {!isStreaming && replyImages.length > 0 ? (
+        <div className={sx(styles.spacedTop)}>
+          <ReplyToolImages images={replyImages} />
+        </div>
+      ) : null}
+
       {turnSources.length > 0 ? <TurnSources urls={turnSources} /> : null}
 
       {showDiffResults ? (
@@ -835,6 +853,6 @@ export function AssistantMessageBody(args: {
           <ImageAttachmentBlock parts={trace.imageContextParts} />
         </div>
       ) : null}
-    </>
+    </ReplyImageNumbersContext.Provider>
   );
 }

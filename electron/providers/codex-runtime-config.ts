@@ -1,4 +1,5 @@
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
+import { REPLY_SCREENSHOT_INSTRUCTION } from "../../src/lib/tool-images/tool-images";
 import { createHash } from "node:crypto";
 import {
   buildNativeSubagentBriefing,
@@ -49,6 +50,7 @@ export const CODEX_STAVE_LENS_INSTRUCTIONS = [
   "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",
   "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
   "- Keep rendered project UI verification in Lens. If page access is blocked by login, missing saved credentials, or a browser connection failure and external Chrome is already available for this interactive turn, retry only that page read there using the signed-in session. Otherwise report the blocker and finish the turn; Automatic browser fallback can attach external Chrome for one `@web` retry. Never bypass a denied approval or a user pause, replay writes, or inspect or copy credentials.",
+  REPLY_SCREENSHOT_INSTRUCTION,
 ].join("\n");
 
 /**

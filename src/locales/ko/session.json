@@ -849,8 +849,9 @@
     "messageFailed": "뷰의 메시지를 보내지 못했습니다."
   },
   "toolOutputImages": {
-    "label": "이미지 {{index}}",
-    "open": "{{label}} 크게 보기",
+    "label": "사진 {{index}}",
+    "open": "{{label}} 원본 크기로 보기",
+    "attached_other": "답변에 첨부된 사진 {{count}}장",
     "loading": "이미지를 불러오는 중…",
     "missing": "이 이미지는 더 이상 볼 수 없습니다."
   },
