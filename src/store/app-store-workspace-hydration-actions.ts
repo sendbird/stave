@@ -1,3 +1,4 @@
+import { isWorkspaceArchiveInProgress } from "@/lib/workspace-cleanup-activity";
 import type { StoreApi } from "zustand";
 import { listActiveWorkspaceTurns } from "@/lib/db/turns.db";
 import {
@@ -991,6 +992,9 @@ export function createWorkspaceHydrationActions(args: {
         return;
       }
 
+      // Read archive ownership after Git, since archive can remove a checkout
+      // while this pass is holding an earlier renderer snapshot.
+      const archivedIds = new Set((await window.api?.workspaceCleanup?.listArchived?.() ?? []).map(row => row.id));
       const defaultWorkspaceId = resolveCurrentRepositoryDefaultWorkspaceId({
         repositoryPath,
         workspaces: state.workspaces,
@@ -1053,6 +1057,7 @@ export function createWorkspaceHydrationActions(args: {
           repositoryPath,
           worktreePath: worktree.path,
         });
+        if (archivedIds.has(workspaceId) || isWorkspaceArchiveInProgress(workspaceId)) continue;
         const persistedWorkspace = persistedRowsById.get(workspaceId);
 
         // Only create a fresh empty snapshot for true first-time workspaces.
@@ -1090,7 +1095,9 @@ export function createWorkspaceHydrationActions(args: {
       // Detect stale workspaces whose git worktrees no longer exist.
       const staleIds: string[] = [];
       for (const workspace of state.workspaces) {
-        if (workspace.id === defaultWorkspaceId) continue;
+        if (workspace.id === defaultWorkspaceId || archivedIds.has(workspace.id) ||
+          isWorkspaceArchiveInProgress(workspace.id) ||
+          !get().workspaces.some(current => current.id === workspace.id)) continue;
         const wsPath = normalizeComparablePath(
           state.workspacePathById[workspace.id] ??
             `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: workspace.name })}`,
@@ -1104,6 +1111,7 @@ export function createWorkspaceHydrationActions(args: {
         }
       }
       for (const id of staleIds) {
+        if (isWorkspaceArchiveInProgress(id)) continue;
         await closeWorkspacePersistence({ workspaceId: id });
       }
 

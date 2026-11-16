@@ -1468,10 +1468,17 @@
       "cleanupFailed": "Cleanup failed",
       "responsibilityRunning": "Assigned work is active",
       "inactive_other": "Inactive for {{count}} days",
-      "inactive_one": "Inactive for {{count}} day"
+      "inactive_one": "Inactive for {{count}} day",
+      "dependencyLinkFailed": "Dependency link could not be restored",
+      "pendingAttention": "Waiting for your attention",
+      "openTerminal": "An open terminal must be closed",
+      "workspacePreparationFailed": "Workspace initialization failed. Restore again to retry."
     },
     "historyTitle": "Read-only workspace history",
     "historyDescription": "The branch is no longer available. Your history is preserved. Create a new workspace to continue.",
-    "createFromHistory": "Create a workspace from this history"
+    "createFromHistory": "Create a workspace from this history",
+    "workspaceUnavailable": "Former workspace",
+    "preparing": "Preparing workspace: {{command}}",
+    "archiveRefusedWithReason": "Could not archive the workspace: {{reason}}."
   }
 }

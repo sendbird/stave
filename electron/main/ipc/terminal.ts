@@ -1,5 +1,6 @@
+import { ensurePersistenceReady } from "../state";
 import { z } from "zod";
-import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema } from "../../../src/lib/workspace-cleanup-contract";
+import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema } from "../../../src/lib/workspace-cleanup-contract";
 import { WorkspaceExecutionArgsSchema } from "./schemas";
 import { ipcMain, webContents } from "electron";
 import {
@@ -116,6 +117,17 @@ function syncTerminalSessionOwner(args: {
 
 export function registerTerminalHandlers() {
   registerTerminalEventBridge();
+  ipcMain.handle("workspace:cleanup-archives", async () => {
+    const store = await ensurePersistenceReady();
+    const repositories = store.loadRepositoryRegistry();
+    return z.array(WorkspaceCleanupRowSchema).parse(store.listArchivedWorkspacesPersistence().map(record => ({
+      id: record.workspaceId, repositoryPath: record.repositoryPath,
+      repositoryName: repositories.find(repository => repository.repositoryPath === record.repositoryPath)?.repositoryName ?? "",
+      name: record.name, path: record.path, branch: record.branch, archived: true,
+      readOnly: record.readOnly, branchOnly: false, archivedAt: record.archivedAt, lastActive: record.archivedAt,
+      blockers: [], reasons: [], bytes: null, branchDeletable: false,
+    })));
+  });
   ipcMain.handle("workspace:cleanup-list", async (_event, input: unknown) => WorkspaceCleanupListResultSchema.parse(await invokeHostService("workspace.cleanup-list", WorkspaceCleanupListArgsSchema.parse(input ?? {}))));
   ipcMain.handle("workspace:cleanup-act", async (_event, input: unknown) => WorkspaceCleanupResultSchema.parse(await invokeHostService("workspace.cleanup-act", WorkspaceCleanupActArgsSchema.parse(input))));
   ipcMain.handle("workspace:cleanup-configure", async (_event, input: unknown) => WorkspaceCleanupPolicySchema.parse(await invokeHostService("workspace.cleanup-configure", WorkspaceCleanupPolicySchema.parse(input))));

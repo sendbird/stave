@@ -11,6 +11,7 @@ export function installCleanupFixture() {
   let policy = DEFAULT_WORKSPACE_CLEANUP_POLICY;
   const api: WorkspaceCleanupApi = {
     onChanged: () => () => {},
+    listArchived: async () => structuredClone(rows.filter(row => row.archived)),
     list: async () => structuredClone({ rows, policy, recent }),
     configure: async (next) => { policy = next; return next; },
     runNow: async () => ({ results: [] }),

@@ -32,7 +32,7 @@ try {
   // Only the PTY observation, PR service and clock are faked; Git, registry, history and policy persistence are real.
   const prTimes = new Map<string, string | null>();
   const prStates = new Map<string, "OPEN" | "MERGED">();
-  const changed: Array<{ workspaceId: string; repositoryPath: string }> = [];
+  const changed: Array<{ workspaceId: string; repositoryPath: string; stage?: string; command?: string }> = [];
   const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => terminals, now: () => now, changed: event => changed.push(event),
     pr: async ({ target }) => {
       const pr: GitHubPrPayload | null = prTimes.has(target ?? "") ? { number: 1, title: "Completed work", state: prStates.get(target ?? "") ?? "MERGED", isDraft: prStates.get(target ?? "") === "OPEN",
@@ -83,6 +83,15 @@ try {
   assert.equal((await act("restore")).ok, true);
   assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
   assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" })!.messagesByTask.task![0]!.content, "Keep history");
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.linkedWorkspacePaths!.push(path); return { repositories, result: undefined }; });
+  assert.equal((await act("archive")).ok, true, "Linked workspaces must be archivable");
+  assert.equal(existsSync(path), true, "Linked archive keeps external checkout");
+  assert.equal(git(repo, "show-ref", "--verify", "refs/heads/feature").includes("refs/heads/feature"), true);
+  assert.equal((await act("restore")).ok, true, "Linked archives are restorable");
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.linkedWorkspacePaths = [join(root, "external-linked")]; return { repositories, result: undefined }; });
+  const initMarker = join(root, "init-ran");
+  const failureMarker = join(root, "init-fail");
+  store.upsertWorkspace({ id: workspaceId, name: "Feature", snapshot: store.loadWorkspaceSnapshot({ workspaceId })!, creationOptions: { useRootNodeModulesSymlink: true, initCommand: `if test -f ${JSON.stringify(failureMarker)}; then printf generated > setup-output; exit 23; fi; rm -f setup-output; printf restored > ${JSON.stringify(initMarker)}` } });
   mkdirSync(join(repo, "node_modules"));
   symlinkSync(join(repo, "node_modules"), join(path, "node_modules"));
   assert.equal((await act("archive")).ok, true);
@@ -96,7 +105,19 @@ try {
   rmSync(path, { recursive: true });
   assert.equal((await act("restore")).ok, true);
   assert.equal(existsSync(path), true);
+  assert.equal(existsSync(join(path, "node_modules")), true, "Restore must recreate dependency links");
+  assert.equal(existsSync(initMarker), true, "Restore must rerun original initialization");
+  assert.ok(changed.some(event => event.stage === "preparing" && event.command?.includes("printf restored")), "Initialization publishes progress");
   assert.equal(store.loadRepositoryRegistry()[0]!.archivedWorkspacePaths!.length, 0);
+  assert.equal((await act("archive")).ok, true);
+  writeFileSync(failureMarker, "fail preparation");
+  const preparationFailure = await act("restore");
+  assert.equal(preparationFailure.ok, false);
+  assert.equal(preparationFailure.reason, "workspacePreparationFailed");
+  assert.ok(changed.some(event => event.stage === "preparationFailed"));
+  assert.ok(store.listArchivedWorkspacesPersistence().some(record => record.workspaceId === workspaceId), "Failed setup remains archived and retryable");
+  rmSync(failureMarker);
+  assert.equal((await act("restore")).ok, true, "Restore retries initialization after a clear failure");
   // Every automatic rule sees the same authoritative guards.
   const policy = { ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } };
   for (const guard of ["dirty", "unpushed", "current", "default", "running", "terminal"] as const) {
@@ -183,6 +204,25 @@ try {
     await runtime.runNow();
     assert.equal(existsSync(candidatePath), !eligible, id);
   }
+  const tolerantPolicy = { ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 99 } };
+  store.writeWorkspaceCleanupState({ policy: { ...tolerantPolicy, futureRule: {} }, recent: [], lastRun: now, futureField: "keep" });
+  assert.equal((await runtime.list()).policy.inactive.value, 99, "Unknown persisted fields must be stripped without resetting rules");
+  store.writeWorkspaceCleanupState({ policy: "invalid", recent: [], lastRun: now });
+  assert.equal((await runtime.list()).policy.inactive.value, 99, "Invalid persisted state keeps the last good rules");
+  await runtime.runNow();
+  assert.equal((store.readWorkspaceCleanupState() as { policy: unknown }).policy, "invalid", "A parse failure must not overwrite user rules");
+  store.writeWorkspaceCleanupState({ policy: DEFAULT_WORKSPACE_CLEANUP_POLICY, recent: [], lastRun: 0 });
+  const retryPath = registerAutomatic("retry-failure");
+  git(repo, "worktree", "lock", retryPath);
+  runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } });
+  const firstFailure = await runtime.runNow();
+  assert.equal(firstFailure.results.filter(result => result.workspaceId === "retry-failure").length, 1);
+  const sameDay = await runtime.runNow();
+  assert.equal(sameDay.results.filter(result => result.workspaceId === "retry-failure").length, 0, "Automatic failures must not repeat on the same day");
+  now += 3 * 86400_000;
+  const nextDay = await runtime.runNow();
+  assert.equal(nextDay.results.filter(result => result.workspaceId === "retry-failure").length, 1, "Automatic failures may retry after one day");
+  git(repo, "worktree", "unlock", retryPath);
   const automaticPath = registerAutomatic("automatic-one");
   runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } });
   const automatic = await runtime.runNow();
@@ -202,6 +242,14 @@ try {
   assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "restorable", cwd: path }), /archived/);
   assert.throws(() => workspaceExecutionGate.acquire({ cwd: path }), /archived/);
   assert.ok((await restarted.list()).recent.some(result => result.workspaceId === "automatic-one" && result.automatic && result.ok));
+  const crossPath = registerAutomatic("cross-connection");
+  const connection = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
+  const crossLease = workspaceExecutionGate.acquire({ workspaceId: "cross-connection" }); crossLease();
+  connection.archiveWorkspacePersistence({ workspaceId: "cross-connection", repositoryPath: repo, path: crossPath, branch: "cross-connection", name: "Cross connection" });
+  assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "cross-connection" }), /archived/, "Other connections invalidate the cached archived set");
+  connection.restoreWorkspacePersistence({ workspaceId: "cross-connection" });
+  const restoredLease = workspaceExecutionGate.acquire({ workspaceId: "cross-connection" }); restoredLease();
+  connection.close();
   const secondPath = registerAutomatic("automatic-two");
   now += 30 * 60_000;
   assert.equal((await restarted.runScheduled()).results.length, 0);

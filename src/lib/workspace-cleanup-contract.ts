@@ -30,22 +30,23 @@ export const WorkspaceCleanupRowSchema = z.object({
 export type WorkspaceCleanupRow = z.infer<typeof WorkspaceCleanupRowSchema>;
 export const WorkspaceCleanupResultSchema = z.object({
   ok: z.boolean(), workspaceId: Id, action: WorkspaceCleanupActArgsSchema.shape.action,
-  reason: z.string().nullable(), readOnly: z.boolean().optional(),
+  workspaceName: z.string().optional(), reason: z.string().nullable(), readOnly: z.boolean().optional(),
 }).strict();
 export type WorkspaceCleanupResult = z.infer<typeof WorkspaceCleanupResultSchema>;
 export const WorkspaceCleanupRecentSchema = WorkspaceCleanupResultSchema.extend({ at: z.string(), repositoryPath: Id, automatic: z.boolean() }).strict();
 export const WorkspaceCleanupStateSchema = z.object({
-  policy: WorkspaceCleanupPolicySchema, recent: z.array(WorkspaceCleanupRecentSchema).max(200), lastRun: z.number(),
-}).strict();
+  policy: WorkspaceCleanupPolicySchema.strip().extend({ merged: CleanupRuleSchema.strip(), inactive: CleanupRuleSchema.strip(), archived: CleanupRuleSchema.strip(), maximum: CleanupRuleSchema.strip() }), recent: z.array(WorkspaceCleanupRecentSchema.strip()).max(200), lastRun: z.number(),
+}).strip();
 export const WorkspaceCleanupListResultSchema = z.object({
   rows: z.array(WorkspaceCleanupRowSchema), policy: WorkspaceCleanupPolicySchema,
   recent: z.array(WorkspaceCleanupRecentSchema),
 }).strict();
 export const WorkspaceCleanupRunResultSchema = z.object({ results: z.array(WorkspaceCleanupResultSchema) }).strict();
-export const WorkspaceCleanupChangedSchema = z.object({ workspaceId: Id, repositoryPath: Id }).strict();
+export const WorkspaceCleanupChangedSchema = z.object({ workspaceId: Id, repositoryPath: Id, stage: z.enum(["preparing", "prepared", "preparationFailed"]).optional(), command: z.string().optional() }).strict();
 export interface WorkspaceCleanupApi {
   onChanged(listener: (event: z.infer<typeof WorkspaceCleanupChangedSchema>) => void): () => void;
   list(args?: z.infer<typeof WorkspaceCleanupListArgsSchema>): Promise<z.infer<typeof WorkspaceCleanupListResultSchema>>;
+  listArchived(): Promise<WorkspaceCleanupRow[]>;
   act(args: WorkspaceCleanupActArgs): Promise<WorkspaceCleanupResult>;
   configure(policy: WorkspaceCleanupPolicy): Promise<WorkspaceCleanupPolicy>;
   runNow(): Promise<z.infer<typeof WorkspaceCleanupRunResultSchema>>;

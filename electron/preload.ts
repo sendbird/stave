@@ -1,5 +1,5 @@
 import { TarsBatchInputSchema, TarsBatchRecordSchema, TarsBatchRecordsSchema } from "../src/lib/tars/batch";
-import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema } from "../src/lib/workspace-cleanup-contract";
+import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema } from "../src/lib/workspace-cleanup-contract";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
@@ -1688,7 +1688,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:load-workspace-editor-tab-bodies", args),
     loadRepositoryRegistry: () =>
       ipcRenderer.invoke("persistence:load-repository-registry"),
-    upsertWorkspace: (args: { id: string; name: string; snapshot: unknown }) =>
+    upsertWorkspace: (args: { id: string; name: string; snapshot: unknown; creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean }; }) =>
       ipcRenderer.invoke("persistence:upsert-workspace", args),
     saveRepositoryRegistry: (args: {
       repositories: unknown[];
@@ -2817,6 +2817,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.on("workspace:cleanup-changed", handler);
       return () => { ipcRenderer.removeListener("workspace:cleanup-changed", handler); };
     },
+    listArchived: async () => WorkspaceCleanupRowSchema.array().parse(await ipcRenderer.invoke("workspace:cleanup-archives")),
     list: async (args = {}) => WorkspaceCleanupListResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-list", WorkspaceCleanupListArgsSchema.parse(args))),
     act: async (args: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupActArgs) => WorkspaceCleanupResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-act", WorkspaceCleanupActArgsSchema.parse(args))),
     configure: async (policy: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupPolicy) => WorkspaceCleanupPolicySchema.parse(await ipcRenderer.invoke("workspace:cleanup-configure", WorkspaceCleanupPolicySchema.parse(policy))),

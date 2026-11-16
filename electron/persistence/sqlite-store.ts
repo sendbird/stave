@@ -1,3 +1,6 @@
+import { deleteWorkspaceRelatedRows } from "./workspace-permanent-delete";
+import { inlineRenderWorkspaceKey } from "../main/inline-render/inline-render-store";
+import { toolImageWorkspaceKey } from "../main/tool-images/tool-image-store";
 import { readTarsOpenPublish } from "./tars-view-store";
 import { WorkspaceArchiveStore } from "./workspace-archive-store";
 import { DelegationPolicyStore } from "./delegation-policy-store";
@@ -1816,7 +1819,9 @@ export class SqliteStore {
     id: string;
     name: string;
     snapshot: PersistenceWorkspaceSnapshot;
+    creationOptions?: {useRootNodeModulesSymlink:boolean;initCommand?:string;linkedWorktree?:boolean};
   }) {
+    this.workspaceArchives.assertNotDeleted(args.id);
     if (this.workspaceArchives.isWriteProtected(args.id)) return;
     const now = new Date().toISOString();
     const nextWorkspaceShellArtifactId = `workspace-shell-${randomUUID()}`;
@@ -1835,7 +1840,9 @@ export class SqliteStore {
         })
       : new Map();
     const tx = this.db.transaction(() => {
+      this.workspaceArchives.assertNotDeleted(args.id);
       if (this.workspaceArchives.isWriteProtected(args.id)) return false;
+      if (args.creationOptions) this.db.prepare("INSERT INTO app_state(key,value_json,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at").run(`workspace_creation:${args.id}`,JSON.stringify(args.creationOptions),now);
       const existingPayloadEntry = previousPayloadEntry;
       const existingWorkspaceShellArtifact = previousWorkspaceShellArtifact;
       const nextTaskIds = new Set(args.snapshot.tasks.map((task) => task.id));
@@ -2046,6 +2053,7 @@ export class SqliteStore {
     const now = new Date().toISOString();
 
     const tx = this.db.transaction((): number | null => {
+      this.workspaceArchives.assertNotDeleted(args.workspaceId);
       if (this.workspaceArchives.isWriteProtected(args.workspaceId)) return null;
       // Read under the write lock: a payload read before it could be an older
       // shell than one main has saved since, and writing it back below would
@@ -2328,6 +2336,23 @@ export class SqliteStore {
     return this.workspaceArchives.list(args);
   }
 
+  listArchivedWorkspaceIdentities() {
+    return this.workspaceArchives.listIdentities();
+  }
+
+  workspaceArchiveDataVersion(): number {
+    return this.db.pragma("data_version", { simple: true }) as number;
+  }
+
+  listDeletedWorkspaceIds() {
+    return this.workspaceArchives.listDeletedIds();
+  }
+
+  readWorkspaceCreationOptions(args: {workspaceId:string}): {useRootNodeModulesSymlink:boolean;initCommand?:string;linkedWorktree?:boolean} | undefined {
+    const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = ?").get(`workspace_creation:${args.workspaceId}`) as JsonValueRow | undefined;
+    return row ? JSON.parse(row.value_json) : undefined;
+  }
+
   listWorkspaceCleanupPendingPublications(): string[] {
     return [...readTarsOpenPublish(this.db)];
   }
@@ -2344,26 +2369,39 @@ export class SqliteStore {
   }
 
   closeWorkspace(args: { workspaceId: string }) {
-    const payloadEntry = this.readWorkspacePayload({
-      workspaceId: args.workspaceId,
-    });
-    const workspaceShellArtifact = payloadEntry
-      ? this.getWorkspaceShellArtifactPointer({ payload: payloadEntry.payload })
-      : null;
-    const tx = this.db.transaction(() => {
+    return this.deleteWorkspaceHistory(args, false);
+  }
+
+  /** Only explicit host permanent deletion may remove an archived identity. */
+  permanentDeleteWorkspace(args: {workspaceId:string}) {
+    return this.deleteWorkspaceHistory(args, true);
+  }
+
+  private deleteWorkspaceHistory(args: {workspaceId:string}, allowArchived: boolean) {
+    let disposeReviewFiles: (() => Promise<void>) | undefined;
+    let artifactPaths: string[] = [];
+    const deleted = this.db.transaction(() => {
+      if (!allowArchived && this.workspaceArchives.listIdentities().some(record => record.workspaceId === args.workspaceId)) return false;
+      const payloadEntry = this.readWorkspacePayload({workspaceId:args.workspaceId});
+      const artifact = payloadEntry ? this.getWorkspaceShellArtifactPointer({payload:payloadEntry.payload}) : null;
+      disposeReviewFiles = this.lensReviewRecords.deleteWorkspaceRows(args.workspaceId);
+      artifactPaths = deleteWorkspaceRelatedRows(this.db, args.workspaceId);
       this.workspaceArchives.deleteHistoryRows(args.workspaceId);
-      if (workspaceShellArtifact) {
-        this.deleteArtifactRows({ artifactIds: [workspaceShellArtifact.id] });
+      this.db.prepare("DELETE FROM app_state WHERE key = ?").run(`workspace_creation:${args.workspaceId}`);
+      if (artifact) {
+        this.deleteArtifactRows({artifactIds:[artifact.id]});
+        artifactPaths.push(artifact.relativePath);
       }
-    });
-    tx();
-    this.removeArtifactFiles({
-      relativePaths: [
-        ...(workspaceShellArtifact
-          ? [workspaceShellArtifact.relativePath]
-          : []),
-      ],
-    });
+      return true;
+    }).immediate();
+    if (!deleted) return {ok:false};
+    this.removeArtifactFiles({relativePaths:artifactPaths});
+    void disposeReviewFiles?.();
+    const root = path.dirname(this.artifactRootDir);
+    for (const [directory, key] of [["inline-renders",inlineRenderWorkspaceKey(args.workspaceId)], ["mcp-app-views",inlineRenderWorkspaceKey(args.workspaceId)], ["tool-images",toolImageWorkspaceKey(args.workspaceId)]]) {
+      rmSync(path.join(root,directory!,key!),{recursive:true,force:true});
+    }
+    return {ok:true};
   }
 
   beginTurn(args: UsageTrackedTurnArgs) {

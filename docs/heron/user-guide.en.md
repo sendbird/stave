@@ -1221,7 +1221,11 @@ Undo or the Repositories view's Archived shelf to restore it. When a branch no
 longer exists, history opens read-only and can seed a new workspace draft.
 
 **Delete permanently** is separate and confirms removal of history and the
-clean worktree. Branch deletion is optional, safe by default; forcing an
+clean worktree. Confirmation opens with Cancel focused; Escape closes only the
+confirmation, and Enter never confirms permanent deletion. Linked workspaces
+keep the external worktree and branch when archived. Restore re-applies dependency
+links and the configured initialization command, with progress and failure shown.
+Branch deletion is optional, safe by default; forcing an
 unmerged branch requires an unchecked-by-default confirmation.
 
 **Settings > Workspaces** provides independent, disabled-by-default cleanup

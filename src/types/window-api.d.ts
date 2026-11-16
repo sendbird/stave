@@ -1956,6 +1956,7 @@ interface WindowPersistenceApi {
     activeRepositoryPath?: string | null;
   }>;
   upsertWorkspace?: (args: {
+    creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
     id: string;
     name: string;
     snapshot: {

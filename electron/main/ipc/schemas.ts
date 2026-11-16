@@ -1376,6 +1376,7 @@ export const PersistenceUpsertArgsSchema = z
     id: z.string().min(1).max(200),
     name: z.string().min(1).max(200),
     snapshot: WorkspaceSnapshotSchema,
+    creationOptions: z.object({ initCommand: z.string().optional(), useRootNodeModulesSymlink: z.boolean() }).strict().optional(),
   })
   .strict();
 
