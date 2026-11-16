@@ -131,7 +131,9 @@
       "activityUnknown": "활동 정보 없음",
       "suggested": "권장: {{recommendation}}",
       "prStatus": "PR #{{number}} · {{state}} (마지막 확인 기준)",
-      "notScanned": "스캔 안 함"
+      "notScanned": "스캔 안 함",
+      "noWorktree": "워크트리 없음",
+      "blocked": "선택할 수 없음: {{reasons}}"
     },
     "prState": {
       "open": "열림",
@@ -1387,6 +1389,8 @@
     "recent": "최근 정리",
     "completed": "완료",
     "restore": "복원",
+    "reversibleActions": "되돌릴 수 있는 작업",
+    "destructiveActions": "되돌릴 수 없는 작업",
     "policyTitle": "워크스페이스",
     "policyDescription": "자동 정리는 기본적으로 꺼져 있습니다. 안전 검사는 항상 적용하며 규칙은 최대 한 시간에 한 번 실행합니다.",
     "runNow": "지금 정리 실행",

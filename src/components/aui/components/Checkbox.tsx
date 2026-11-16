@@ -67,8 +67,9 @@ export function Checkbox({
        * as nothing at all, which is worse than the attribute being absent.
        * `aria-invalid` is kept either way: it is a property of the control, not
        * of the row of copy the caller chose not to let this component render.
+       * A host that renders its own description passes its id through.
        */
-      aria-describedby={controlOnly ? undefined : anatomy.describedBy}
+      aria-describedby={controlOnly ? props["aria-describedby"] : anatomy.describedBy}
       aria-invalid={anatomy.invalid}
       indeterminate={indeterminate}
       className={(state) =>

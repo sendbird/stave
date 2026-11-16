@@ -132,7 +132,9 @@
       "activityUnknown": "Activity unknown",
       "suggested": "Suggested: {{recommendation}}",
       "prStatus": "PR #{{number}} · {{state}} (last checked)",
-      "notScanned": "Not scanned"
+      "notScanned": "Not scanned",
+      "noWorktree": "No worktree",
+      "blocked": "Can't be selected: {{reasons}}"
     },
     "prState": {
       "open": "open",
@@ -1413,6 +1415,8 @@
     "recent": "Recent cleanup",
     "completed": "Completed",
     "restore": "Restore",
+    "reversibleActions": "Reversible actions",
+    "destructiveActions": "Destructive actions",
     "policyTitle": "Workspaces",
     "policyDescription": "Automatic cleanup is off by default. Safety checks always apply. Rules run at most hourly.",
     "runNow": "Run cleanup now",

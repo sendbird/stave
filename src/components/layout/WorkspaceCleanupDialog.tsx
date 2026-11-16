@@ -18,6 +18,10 @@ import { notifyWorkspaceCleanupChanged, OPEN_WORKSPACE_CLEANUP_EVENT } from "./w
 type Snapshot = Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
 const rowKey = (row: Pick<WorkspaceCleanupRow, "repositoryPath" | "id">) => `${row.repositoryPath}\n${row.id}`;
 const ready = (row: WorkspaceCleanupRow) => row.blockers.length === 0;
+/** Archived rows whose checkout was removed have no disk usage to report. */
+const withoutWorktree = (row: WorkspaceCleanupRow) => row.archived && !row.bytes;
+const REVERSIBLE_ACTIONS = ["archive", "restore"] as const;
+const DESTRUCTIVE_ACTIONS = ["delete", "deleteBranch"] as const;
 
 export function WorkspaceCleanupHost() {
   const [open, setOpen] = useState(false);
@@ -77,6 +81,11 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     finally { if (token === generation.current) setBusy(false); }
   }, [t]);
   useEffect(() => { if (open) void refresh(); return () => { generation.current++; }; }, [open, refresh]);
+  // A row that became blocked since it was selected leaves the selection.
+  useEffect(() => {
+    const blocked = new Set((data?.rows ?? []).filter((row) => !ready(row)).map(rowKey));
+    setSelected((previous) => [...previous].some((key) => blocked.has(key)) ? new Set([...previous].filter((key) => !blocked.has(key))) : previous);
+  }, [data]);
   const groups = useMemo(() => {
     const map = new Map<string, { name: string; rows: WorkspaceCleanupRow[] }>();
     for (const row of data?.rows ?? []) {
@@ -89,6 +98,8 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   const rows = groups.flatMap((group) => group.rows);
   const selectedRows = (data?.rows ?? []).filter((row) => selected.has(rowKey(row)));
   const choose = (row: WorkspaceCleanupRow, event?: MouseEvent) => {
+    // A blocked row is never selectable; the host re-checks the rest at run time.
+    if (!ready(row)) return;
     const key = rowKey(row);
     setConfirming(null);
     setSelected((previous) => {
@@ -96,7 +107,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       if (event?.shiftKey && anchor.current) {
         const a = rows.findIndex((item) => rowKey(item) === anchor.current);
         const b = rows.findIndex((item) => rowKey(item) === key);
-        for (const item of rows.slice(Math.max(0, Math.min(a, b)), Math.max(a, b) + 1)) next.add(rowKey(item));
+        for (const item of rows.slice(Math.max(0, Math.min(a, b)), Math.max(a, b) + 1)) if (ready(item)) next.add(rowKey(item));
       } else if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
@@ -127,15 +138,24 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     if (event.stage === "preparing") setMessage(t("cleanupCenter.preparing", { command: event.command ?? "" }));
     if (event.stage === "preparationFailed") setMessage(t("cleanupCenter.reasons.workspacePreparationFailed"));
   }), [t]);
-  const renderRow = (row: WorkspaceCleanupRow) => <div className={sx(styles.row, selected.has(rowKey(row)) && styles.selected)} data-testid={`cleanup-row-${row.id}`}>
-    <Checkbox controlOnly xstyle={styles.checkbox} aria-label={t("cleanupDialog.row.select", { name: row.name })} checked={selected.has(rowKey(row))} disabled={busy} onCheckedChange={() => choose(row)} />
-    <Button variant="ghost" layout="host" xstyle={styles.identity} onClick={(event) => choose(row, event)} aria-pressed={selected.has(rowKey(row))}>
+  const renderRow = (row: WorkspaceCleanupRow) => {
+    const key = rowKey(row);
+    const blocked = !ready(row);
+    const reasonId = `cleanup-reason-${encodeURIComponent(key)}`;
+    const reasonLine = blocked ? row.blockers.map(reasonText).join(" · ") : row.reasons.length ? row.reasons.map(reasonText).join(" · ") : t("cleanupDialog.row.ready");
+    const identity = <>
       <span className={sx(styles.truncate)}>{row.name}{row.archived ? ` · ${t("cleanupCenter.archived")}` : ""}</span>
       <span className={sx(styles.muted, styles.truncate)}>{row.branch} · {row.path}</span>
-      <span className={sx(styles.muted)}>{row.blockers.length ? row.blockers.map(reasonText).join(" · ") : row.reasons.length ? row.reasons.map(reasonText).join(" · ") : t("cleanupDialog.row.ready")}</span>
-    </Button>
-    <span className={sx(styles.size)}>{row.bytes === null ? t("cleanupDialog.row.notScanned") : formatResourceBytes(row.bytes)}</span>
-  </div>;
+      <span className={sx(styles.muted)}>{reasonLine}</span>
+    </>;
+    return <div className={sx(styles.row, selected.has(key) && styles.selected)} data-testid={`cleanup-row-${row.id}`}>
+      <Checkbox controlOnly xstyle={styles.checkbox} aria-label={t("cleanupDialog.row.select", { name: row.name })} aria-describedby={blocked ? reasonId : undefined} checked={selected.has(key)} disabled={busy || blocked} onCheckedChange={() => choose(row)} />
+      {blocked
+        ? <div className={sx(styles.identity, styles.identityStatic)}>{identity}<span id={reasonId} className={sx(styles.srOnly)}>{t("cleanupDialog.row.blocked", { reasons: reasonLine })}</span></div>
+        : <Button variant="ghost" layout="host" xstyle={styles.identity} onClick={(event) => choose(row, event)} aria-pressed={selected.has(key)}>{identity}</Button>}
+      <span className={sx(withoutWorktree(row) && styles.muted, styles.size)}>{withoutWorktree(row) ? t("cleanupDialog.row.noWorktree") : row.bytes === null ? t("cleanupDialog.row.notScanned") : formatResourceBytes(row.bytes)}</span>
+    </div>;
+  };
   const actionCount = (action: WorkspaceCleanupActArgs["action"]) => actionRows(action).length;
   return <><Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
     <DialogContent xstyle={styles.dialog}>
@@ -149,7 +169,12 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         {rows.length > 80 ? <GroupedVirtuoso groupCounts={groups.map((group) => group.rows.length)} groupContent={(index) => <div className={sx(styles.heading)}>{groups[index]?.name}</div>} itemContent={(index) => rows[index] ? renderRow(rows[index]) : null} /> : groups.map((group) => <section key={group.path}><div className={sx(styles.heading)}>{group.name}</div>{group.rows.map((row) => <div key={rowKey(row)}>{renderRow(row)}</div>)}</section>)}
         {!busy && !rows.length && <p>{t("cleanupDialog.empty")}</p>}
       </div>
-      <div className={sx(styles.toolbar)}>{(["archive", "delete", "deleteBranch", "restore"] as const).map((action) => <Button key={action} size="sm" variant={action === "delete" || action === "deleteBranch" ? "destructive" : "secondary"} disabled={busy || !actionCount(action)} onClick={() => { setDeleteBranch(false); setForceDeleteBranch(false); if (action === "restore") void act(action); else setConfirming(action); }}>{t(`cleanupCenter.actions.${action}`, { count: actionCount(action) })}</Button>)}</div>
+      {/* Hide actions with nothing to act on, as the Fleet selection bar does. */}
+      <div className={sx(styles.footer)} data-cleanup-footer="">
+        {([["reversible", REVERSIBLE_ACTIONS], ["destructive", DESTRUCTIVE_ACTIONS]] as const).map(([kind, actions]) => actions.some((action) => actionCount(action) > 0) ? <div key={kind} role="group" aria-label={t(kind === "reversible" ? "cleanupCenter.reversibleActions" : "cleanupCenter.destructiveActions")} className={sx(styles.actions)}>
+          {actions.filter((action) => actionCount(action) > 0).map((action) => <Button key={action} size="sm" variant={kind === "destructive" ? "destructive" : "secondary"} disabled={busy} onClick={() => { setDeleteBranch(false); setForceDeleteBranch(false); if (action === "restore") void act(action); else setConfirming(action); }}>{t(`cleanupCenter.actions.${action}`, { count: actionCount(action) })}</Button>)}
+        </div> : null)}
+      </div>
       {message && <p role="status" className={sx(styles.status)}>{message}{undo.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act("restore", undo)}>{t("cleanupCenter.undo")}</Button>}</p>}
       {results.some((result) => !result.ok) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok).map((result, index) => <p className={sx(styles.status)} key={index}>{workspaceName(result)} · {reasonText(result.reason ?? "unavailable")}</p>)}</div>}
       <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>{data?.recent.map((item, index) => <div key={index} className={sx(styles.toolbar)}><span className={sx(styles.muted)}>{formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {workspaceName(item)} · {item.ok ? t("cleanupCenter.completed") : reasonText(item.reason ?? "unavailable")}</span>{item.ok && (item.action === "archive" || item.action === "removeWorktree") && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}</div>)}</div></details>

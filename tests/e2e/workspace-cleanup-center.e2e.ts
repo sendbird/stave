@@ -22,6 +22,31 @@ test("palette opens cleanup, archive can be undone and archived work restored", 
   await expect(page.getByTestId("cleanup-row-cleanup-dirty").getByRole("checkbox")).not.toBeChecked();
 });
 
+test("blocked rows cannot be selected, zero-count actions are hidden and archived rows have no size", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+  await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+  await page.getByText("Clean up workspaces", { exact: true }).click();
+  const footer = page.locator("[data-cleanup-footer]");
+  await expect(page.getByTestId("cleanup-row-cleanup-one")).toBeVisible();
+  await expect(footer.getByRole("button")).toHaveCount(0);
+  const blocked = page.getByTestId("cleanup-row-cleanup-dirty");
+  const checkbox = blocked.getByRole("checkbox");
+  await expect(checkbox).toBeDisabled();
+  await expect(checkbox).toHaveAccessibleDescription("Can't be selected: Changed files");
+  await expect(blocked).toContainText("Changed files");
+  await expect(blocked.getByRole("button")).toHaveCount(0);
+  await expect(page.getByTestId("cleanup-row-cleanup-archived")).toContainText("No worktree");
+  await expect(page.getByTestId("cleanup-row-cleanup-archived")).not.toContainText("0.0 MB");
+  await page.getByTestId("cleanup-row-cleanup-one").getByRole("button").click();
+  await page.getByTestId("cleanup-row-cleanup-archived").getByRole("button").click({ modifiers: ["Shift"] });
+  await expect(checkbox).not.toBeChecked();
+  const reversible = footer.getByRole("group", { name: "Reversible actions" });
+  const destructive = footer.getByRole("group", { name: "Destructive actions" });
+  await expect(reversible.getByRole("button")).toHaveText(["Archive (1)", "Restore (1)"]);
+  await expect(destructive.getByRole("button")).toHaveText(["Delete permanently (2)"]);
+  await expect(footer.getByRole("button", { name: /^Delete branches/ })).toHaveCount(0);
+});
+
 for (const width of [1440, 1024]) for (const [lang, theme] of [["en", "light"], ["ko", "dark"]]) {
   test(`cleanup contains wrapping labels at ${width} ${lang} ${theme}`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
@@ -45,6 +70,19 @@ for (const width of [1440, 1024]) for (const [lang, theme] of [["en", "light"], 
     expect(geometry.summaryHeight).toBeGreaterThanOrEqual(24);
     expect(geometry.checkboxHeight).toBeGreaterThanOrEqual(24);
     expect(geometry.centerDifference).toBeLessThan(1);
+    await page.getByTestId("cleanup-row-cleanup-one").getByRole("checkbox").click();
+    await page.getByTestId("cleanup-row-cleanup-archived").getByRole("checkbox").click();
+    // Footer actions sit at the content's trailing edge: 8px inside a group, 16px between groups.
+    const footer = await dialog.evaluate((element) => {
+      const row = element.querySelector("[data-cleanup-footer]")!;
+      const buttons = [...row.querySelectorAll("button")].map((button) => button.getBoundingClientRect());
+      return { contentRight: element.querySelector('[aria-busy]')!.getBoundingClientRect().right, right: buttons.at(-1)!.right, gaps: buttons.slice(1).map((box, index) => Math.round(box.left - buttons[index]!.right)), centers: new Set(buttons.map((box) => box.top + box.height / 2)).size };
+    });
+    expect(footer.gaps).toEqual([8, 16]);
+    expect(Math.abs(footer.right - footer.contentRight)).toBeLessThan(0.5);
+    expect(footer.centers).toBe(1);
+    await page.getByTestId("cleanup-row-cleanup-one").getByRole("checkbox").click();
+    await page.getByTestId("cleanup-row-cleanup-archived").getByRole("checkbox").click();
     if (process.env.CLEANUP_SCREENSHOT_DIR) {
       const { mkdir } = await import("node:fs/promises");
       await mkdir(process.env.CLEANUP_SCREENSHOT_DIR, { recursive: true });
@@ -69,8 +107,16 @@ test("mixed selection reports a blocked item and long lists virtualize", async (
   await page.getByText("Clean up workspaces", { exact: true }).click();
   const first = page.getByTestId("cleanup-row-cleanup-one");
   await expect(first).toBeVisible();
+  // The host re-checks at run time: a blocker that appears after the list was read is reported, not hidden.
+  await page.evaluate(() => {
+    const api = window.api!.workspaceCleanup;
+    const act = api.act.bind(api);
+    api.act = async (args) => args.workspaceId === "cleanup-extra-0" ? { ok: false, action: args.action, workspaceId: args.workspaceId, reason: "changedFiles" } : act(args);
+  });
   await first.getByRole("button").click();
-  await page.getByTestId("cleanup-row-cleanup-dirty").getByRole("button").click({ modifiers: ["Shift"] });
+  // A range selection passes over the blocked row without selecting it.
+  await page.getByTestId("cleanup-row-cleanup-extra-0").getByRole("button").click({ modifiers: ["Shift"] });
+  await expect(page.getByTestId("cleanup-row-cleanup-dirty").getByRole("checkbox")).not.toBeChecked();
   await expect(page.getByRole("button", { name: "Archive (2)", exact: true })).toBeEnabled();
   expect(await page.locator('[data-testid^="cleanup-row-"]').count()).toBeLessThan(80);
   await page.getByRole("button", { name: "Archive (2)", exact: true }).click();
