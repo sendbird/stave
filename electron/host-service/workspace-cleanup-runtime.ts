@@ -51,6 +51,7 @@ export function createWorkspaceCleanupRuntime(ports: {
   let actionChain = Promise.resolve();
   let lastGoodState = { policy: DEFAULT_WORKSPACE_CLEANUP_POLICY, recent: [], lastRun: 0 } as import("zod").infer<typeof WorkspaceCleanupStateSchema>;
   let stateReadable = true;
+  const failureKey = (repositoryPath: string, workspaceId: string) => JSON.stringify([repositoryPath, workspaceId]);
   function saved() {
     try {
       const raw = ports.store().readWorkspaceCleanupState();
@@ -58,10 +59,21 @@ export function createWorkspaceCleanupRuntime(ports: {
       stateReadable = raw === null || parsed.success;
       if (parsed.success) lastGoodState = parsed.data;
     } catch { stateReadable = false; }
-    return structuredClone(lastGoodState);
+    const state = structuredClone(lastGoodState);
+    const failures = { ...state.automaticFailureAt };
+    // Seed earlier persisted failures before their display rows can be evicted.
+    for (const result of state.recent) {
+      if (result.automatic && !result.ok) {
+        const key = failureKey(result.repositoryPath, result.workspaceId);
+        failures[key] = Math.max(failures[key] ?? 0, Date.parse(result.at));
+      }
+    }
+    state.automaticFailureAt = Object.fromEntries(Object.entries(failures).filter(([, at]) => Number.isFinite(at) && now() - at < DAY));
+    return state;
   }
   function remember(result: WorkspaceCleanupResult, repositoryPath: string, automatic: boolean) {
     const state = saved();
+    if (automatic && !result.ok) state.automaticFailureAt![failureKey(repositoryPath, result.workspaceId)] = now();
     state.recent = [{ ...result, repositoryPath, at: new Date(now()).toISOString(), automatic }, ...state.recent].slice(0, 200);
     if (stateReadable) ports.store().writeWorkspaceCleanupState(state);
   }
@@ -322,7 +334,7 @@ export function createWorkspaceCleanupRuntime(ports: {
       rows.sort((a, b) => (Date.parse(a.lastActive ?? "") || now()) - (Date.parse(b.lastActive ?? "") || now()));
       for (const row of rows) {
         if (row.blockers.length || row.branchOnly) continue;
-        if (state.recent.some(result => result.automatic && !result.ok && result.workspaceId === row.id && result.repositoryPath === row.repositoryPath && now() - Date.parse(result.at) < DAY)) continue;
+        if (state.automaticFailureAt?.[failureKey(row.repositoryPath, row.id)] !== undefined) continue;
         const age = row.lastActive ? (now() - Date.parse(row.lastActive)) / DAY : 0;
         const policy = state.policy;
         const mergedAt = mergedAtByWorkspace.get(row.id);

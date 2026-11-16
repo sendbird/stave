@@ -228,10 +228,14 @@ try {
   assert.equal((store.readWorkspaceCleanupState() as { policy: unknown }).policy, "invalid", "A parse failure must not overwrite user rules");
   store.writeWorkspaceCleanupState({ policy: DEFAULT_WORKSPACE_CLEANUP_POLICY, recent: [], lastRun: 0 });
   const retryPath = registerAutomatic("retry-failure");
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.workspaceLastActiveAtById = { ...repositories[0]!.workspaceLastActiveAtById, "retry-failure": "2026-01-01T00:00:00Z" }; return { repositories, result: undefined }; });
   git(repo, "worktree", "lock", retryPath);
   runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } });
   const firstFailure = await runtime.runNow();
   assert.equal(firstFailure.results.filter(result => result.workspaceId === "retry-failure").length, 1);
+  const auditEvictedState = store.readWorkspaceCleanupState() as { recent: unknown[] };
+  auditEvictedState.recent = [];
+  store.writeWorkspaceCleanupState(auditEvictedState);
   const sameDay = await runtime.runNow();
   assert.equal(sameDay.results.filter(result => result.workspaceId === "retry-failure").length, 0, "Automatic failures must not repeat on the same day");
   now += 3 * 86400_000;
