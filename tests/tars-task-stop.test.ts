@@ -72,6 +72,8 @@ describe("Stop on a task whose run Tars holds", () => {
     const host = tarsHostBridge();
     try {
       installWindow(host.bridge);
+      const childStops: string[] = [];
+      window.api.taskControl = {stopChildren:async()=>{childStops.push("children");return {ok:false,stopped:0,skipped:[],reason:"owner-managed"};}};
       stop();
       await settle(turnStopped);
       await host.runtime.drain();
@@ -79,6 +81,7 @@ describe("Stop on a task whose run Tars holds", () => {
       expect(host.runControls).toEqual(["pause"]);
       expect(host.store.get(host.row.id)?.state).toBe("paused");
       expect(cancels).toEqual([]);
+      expect(childStops).toEqual([]);
       expect(abortedTurns).toEqual(["turn-1"]);
       const records = TarsConversationSchema.parse({ settings: null, activity: [], messages: [], receipts: [], records: host.conversations.listActions() }).records;
       expect(records.map((record) => [record.source, record.status, record.action.operation])).toEqual([["task", "applied", "pause"]]);

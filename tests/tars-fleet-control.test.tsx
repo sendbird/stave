@@ -77,7 +77,7 @@ const APP_FIELDS = ["repositoryPath", "activeWorkspaceId", "workspaces", "recent
   "activeTurnIdsByTask", "abortTaskTurn"] as const;
 const originalApp = Object.fromEntries(APP_FIELDS.map((key) => [key, appInitial[key]]));
 const originalRunCommand = useAgentRunsStore.getState().runCommand;
-let aborts: Array<{ taskId: string; keepAgentRun?: boolean }> = [];
+let aborts: Array<{ taskId: string; keepAgentRun?: boolean; cascade?: boolean }> = [];
 let runCommands: string[] = [];
 
 /** Make the last published snapshot what the next render reads. */
@@ -95,7 +95,7 @@ beforeEach(() => {
     repositoryPath: TARGET.repositoryPath, activeWorkspaceId: TARGET.workspaceId,
     workspaces: [{ id: TARGET.workspaceId, name: "ws-1" }] as never, recentRepositories: [], taskWorkspaceIdById: {},
     tasks: [task("task-1")], messagesByTask: { "task-1": [] }, activeTurnIdsByTask: { "task-1": "turn-1" },
-    abortTaskTurn: ((args: { taskId: string; keepAgentRun?: boolean }) => { aborts.push(args); }) as never,
+    abortTaskTurn: ((args: { taskId: string; keepAgentRun?: boolean; cascade?: boolean }) => { aborts.push(args); }) as never,
   };
   Object.assign(appInitial, scene);
   useAppStore.setState(scene);
@@ -188,7 +188,7 @@ describe("Fleet controls on Tars-owned work", () => {
       expect(host.acts.map((input) => [input.operation, input.source])).toEqual([["pause", "fleet"], ["takeover", "fleet"]]);
       expect(host.runControls).toEqual(["pause", "takeover"]);
       // The pause settled the run, so only the in-flight turn stops; the run is kept, never cancelled.
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true, cascade: false }]);
       expect(runCommands).toEqual([]);
 
       // Taken over: the work is yours, so Fleet stops your own turn directly and shows no Tars owner.
@@ -220,7 +220,7 @@ describe("Fleet controls on Tars-owned work", () => {
       expect(panel.labels).not.toContain("Pause");
       panel.press("Stop");
       await settle(() => aborts.length === 1);
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true, cascade: false }]);
       expect(host.acts).toEqual([]);
       expect(runCommands).toEqual([]);
     } finally { host.close(); }
@@ -239,7 +239,7 @@ describe("Fleet controls on Tars-owned work", () => {
       panel.press("Stop");
       await settle(() => aborts.length === 1);
       // The store's Stop then cancels your run, exactly as the task view's Stop does.
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false, cascade: true }]);
       expect(host.acts).toEqual([]);
       const sink: { actions: AgentRunActions } = { actions: {} };
       function Capture() { sink.actions = useAgentRunActions(userRun()); return null; }
@@ -272,7 +272,7 @@ describe("Fleet controls on Tars-owned work", () => {
     seedFleetRuns([tarsRun([userTurn])]);
     renderPanel().press("Pause");
     await settle(() => aborts.length === 1);
-    expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true }]);
+    expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: true, cascade: false }]);
   });
 
   test("a row Tars does not own keeps the direct stop and never calls tars:act", async () => {
@@ -286,7 +286,7 @@ describe("Fleet controls on Tars-owned work", () => {
       expect(panel.labels).not.toContain("Take over");
       panel.press("Stop");
       await settle(() => aborts.length === 1);
-      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false }]);
+      expect(aborts).toEqual([{ taskId: "task-1", keepAgentRun: false, cascade: true }]);
       expect(host.acts).toEqual([]);
     } finally { host.close(); }
   });

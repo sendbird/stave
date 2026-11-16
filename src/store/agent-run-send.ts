@@ -383,7 +383,7 @@ async function settleAgentRunBeforeStop(activeBridge: AgentRunBridge, args: {
     source: "task",
   });
   if (!reportTarsOwnedOutcome(outcome)) await activeBridge.cancel(args.agentRunId);
-  return tarsStopEndsTurn(outcome, Boolean(args.turnId && activeBridge.isUserTurn?.(args.agentRunId, args.turnId)));
+  return { endTurn: tarsStopEndsTurn(outcome, Boolean(args.turnId && activeBridge.isUserTurn?.(args.agentRunId, args.turnId))), cascadeAllowed: outcome.kind === "direct" };
 }
 
 /**
@@ -397,7 +397,7 @@ export function cancelAgentRunBeforeStop(args: {
   taskId: string;
   /** The in-flight turn, to tell the user's own turn from the run's automatic one. */
   turnId?: string | null;
-  stopTurn: () => void;
+  stopTurn: (cascadeAllowed: boolean) => void;
   onSettled?: (endTurn: boolean) => void;
 }): boolean {
   const activeBridge = bridge;
@@ -407,10 +407,10 @@ export function cancelAgentRunBeforeStop(args: {
   stoppingTaskIds.add(args.taskId);
   void settleAgentRunBeforeStop(activeBridge, { workspaceId: args.workspaceId, taskId: args.taskId, agentRunId: active.id,
     workflowId: active.workflowId, turnId: args.turnId ?? null })
-    .catch(() => true)
-    .then((endTurn) => {
+    .catch(() => ({endTurn:true,cascadeAllowed:false}))
+    .then(({endTurn,cascadeAllowed}) => {
       try {
-        if (endTurn) args.stopTurn();
+        if (endTurn) args.stopTurn(cascadeAllowed);
         args.onSettled?.(endTurn);
       } finally {
         stoppingTaskIds.delete(args.taskId);

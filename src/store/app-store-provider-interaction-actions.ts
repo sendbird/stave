@@ -171,7 +171,7 @@ export function createProviderInteractionActions(args: {
         const settled = new Promise<boolean>((resolve) => {
           hasRun = cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId,
             turnId: runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null,
-            stopTurn: () => { Promise.resolve(get().abortTaskTurn({ taskId, keepAgentRun: true, cascade, expectedTurnId: capturedTurnId })).then((value) => resolve(value !== false), () => resolve(false)); },
+            stopTurn: (cascadeAllowed) => { Promise.resolve(get().abortTaskTurn({ taskId, keepAgentRun: true, cascade: cascade && cascadeAllowed, expectedTurnId: capturedTurnId })).then((value) => resolve(value !== false), () => resolve(false)); },
             onSettled: (endTurn) => { if (!endTurn) resolve(false); },
           });
         });
