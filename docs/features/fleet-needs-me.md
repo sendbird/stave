@@ -310,31 +310,34 @@ visible tasks, and Esc clears the selection. Filters apply to Select all;
 hidden tasks leave the selection. Re-sorting keeps the same selected tasks.
 Selecting a group selects its visible tasks. The selected count is announced.
 
-The bulk bar shows the selected count and how many tasks each action applies
-to. Open opens the first selected task. Stop, Snooze (1 hour, 4 hours, 1 day or
-1 week), Mark read, Mark reviewed, Archive and Delete permanently act on each
-eligible task and report one result, including skipped tasks and their reasons.
-An item failing does not stop the remaining items. Archive and Snooze offer
-Undo in the result toast and with Cmd/Ctrl+Z while that toast is available.
+The selection toolbar appears only while tasks are selected and stays on one
+line. It shows the count, a clear button (Esc), Stop and Archive. Snooze opens a
+menu for 1 hour, 4 hours, 1 day or 1 week. More contains Mark read, Mark reviewed,
+Open for a single task, and Delete permanently. On narrow widths, primary actions
+move into More. Actions without eligible items are hidden; each action's count
+and confirmation use only eligible tasks. The header's standalone Stop all
+button appears while work is running.
 
-Stop also stops running delegated descendants, deepest first, and stops the
-associated agent run through its existing controls. Finished descendants remain
-untouched. Work managed by Tars goes through its Pause control or is skipped
-with a managed-by-Tars reason; it is never stopped directly.
+Stop applies only to running work. It stops the parent turn before its running
+descendants, preventing further delegation during the stop. Finished descendants
+remain untouched. Owner-managed work goes through its owner or is skipped; a
+refused pause never directly cancels its children. The stop preview is read only
+when Stop or Stop all is opened, and lists turns, children, runs and owned work.
 
-**Stop all** in the Fleet header and **Stop all running work** in the command
-palette show the turns, delegated children, agent runs and Tars work affected
-before asking for confirmation. A repository-scoped command limits that action
-to one repository. The palette also offers **Archive ended tasks in this
-workspace** and **Mark all read**.
+Archive skips live turns, pending approvals or questions, running children,
+running agent runs and protected tasks, with a reason for each skipped item.
+Archive and Snooze offer Undo in the result toast and with Cmd/Ctrl+Z while that
+toast is available. Mark all read in the command palette asks for confirmation
+because read marks cannot be undone. A repository-scoped stop command limits
+its action to one repository. Archive and Undo keep the current workspace open.
 
-**Delete permanently** requires a separate confirmation that names the number
-of tasks and warns that deletion cannot be undone. Cancel has the initial focus;
-Enter does not confirm deletion unless the destructive button is explicitly
-focused. The host refuses tasks that are still active, have running descendants
-or agent runs, or remain protected. Only archived or ended tasks are eligible.
-Deletion removes task records and their related execution and attention history.
-Ended delegated tasks keep their content and become independent entries in Task History.
+**Delete permanently** requires archiving first and a separate confirmation
+that counts eligible tasks and warns that deletion cannot be undone. Cancel has
+the initial focus; Enter does not confirm unless the destructive button is
+explicitly focused. Live work, pending requests or protection prevents deletion.
+Deletion removes task records and related execution and attention history.
+Ended children keep their content and become independent Task History entries.
+Deleting a child keeps its parent's history and detaches only the child link.
 
 Task History supports selecting several visible entries, **Restore (n)** and
 **Delete permanently (n)**. Restore opens the selected archived tasks or closed

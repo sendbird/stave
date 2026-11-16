@@ -15,20 +15,36 @@ export function assertTaskCanBeDeleted(db: Database.Database, args: { workspaceI
     ON run.origin_kind = 'task' AND run.origin_id = parent.task_id WHERE run.task_id IS NOT NULL
   ) SELECT 1 FROM runs WHERE ((workspace_id = ? AND task_id = ?) OR (origin_kind = 'task' AND origin_id IN (SELECT task_id FROM descendants))) AND status NOT IN ${TERMINAL_RUNS} LIMIT 1`).get(args.taskId, args.workspaceId, args.taskId);
   if (liveTurn || liveRun || liveChild) throw new Error("Task has running work.");
-  const endedRun = db.prepare("SELECT 1 FROM agent_runs WHERE workspace_id = ? AND lead_task_id = ? AND state NOT IN ('running','paused') LIMIT 1").get(args.workspaceId, args.taskId);
-  if (!task.archivedAt && !endedRun) throw new Error("Archive or end the task before deleting it.");
+  if (!task.archivedAt) throw new Error("Archive the task before deleting it.");
   const tars = db.prepare("SELECT 1 FROM tars_responsibilities WHERE json_extract(body_json, '$.taskId') = ? AND json_extract(body_json, '$.state') NOT IN ('completed','cancelled','takenOver') LIMIT 1").get(args.taskId);
   if (tars) throw new Error("managed by Tars");
 }
 
 /** Related task records share the deletion transaction with the workspace shell. */
 export function deleteTaskRelatedRows(db: Database.Database, args: { workspaceId: string; taskId: string }) {
-  const runs = db.prepare("SELECT id FROM runs WHERE (workspace_id = ? AND task_id = ?) OR (origin_kind = 'task' AND origin_id = ?)").all(args.workspaceId, args.taskId, args.taskId) as { id: string }[];
+  const runs = db.prepare("SELECT id FROM runs WHERE (workspace_id = ? AND task_id = ? AND origin_kind != 'task') OR (origin_kind = 'task' AND origin_id = ?)").all(args.workspaceId, args.taskId, args.taskId) as { id: string }[];
   for (const run of runs) {
     db.prepare("DELETE FROM run_receipts WHERE run_id = ?").run(run.id);
     db.prepare("DELETE FROM run_steps WHERE run_id = ?").run(run.id);
     db.prepare("DELETE FROM runs WHERE id = ?").run(run.id);
   }
+  // The parent owns a delegation ledger even after its child is removed.
+  const parentRuns = db.prepare("SELECT id FROM runs WHERE workspace_id = ? AND task_id = ? AND origin_kind = 'task' AND origin_id != ?").all(args.workspaceId, args.taskId, args.taskId) as { id: string }[];
+  for (const run of parentRuns) {
+    db.prepare("UPDATE runs SET task_id = NULL WHERE id = ?").run(run.id);
+    db.prepare("UPDATE run_steps SET target_json = NULL WHERE run_id = ?").run(run.id);
+  }
+  const hasTable = (table: string) => Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(table));
+  if (hasTable("wake_up_occurrences")) {
+    db.prepare("DELETE FROM wake_up_occurrences WHERE (workspace_id = ? AND task_id = ?) OR wake_up_id IN (SELECT id FROM wake_ups WHERE workspace_id = ? AND task_id = ?)").run(args.workspaceId, args.taskId, args.workspaceId, args.taskId);
+  }
+  for (const table of ["wake_ups", "task_handoff_records"]) {
+    if (hasTable(table)) db.prepare(`DELETE FROM ${table} WHERE workspace_id = ? AND task_id = ?`).run(args.workspaceId, args.taskId);
+  }
+  if (hasTable("agent_assignments")) db.prepare("UPDATE agent_assignments SET task_id = NULL, body_json = json_set(body_json, '$.taskId', NULL) WHERE task_id = ?").run(args.taskId);
+  if (hasTable("tracker_issue_kickoffs")) db.prepare("UPDATE tracker_issue_kickoffs SET stave_task_id = NULL WHERE workspace_id = ? AND stave_task_id = ?").run(args.workspaceId, args.taskId);
+  // Revision content belongs to the workspace document and remains readable.
+  if (hasTable("workspace_document_revisions")) db.prepare("UPDATE workspace_document_revisions SET task_id = NULL, turn_id = NULL WHERE workspace_id = ? AND task_id = ?").run(args.workspaceId, args.taskId);
   const agentRuns = db.prepare("SELECT id FROM agent_runs WHERE workspace_id = ? AND lead_task_id = ?").all(args.workspaceId, args.taskId) as { id: string }[];
   for (const run of agentRuns) {
     db.prepare("DELETE FROM fleet_attention_snoozes WHERE workspace_id = ? AND attention_id LIKE ? ESCAPE '!' ")

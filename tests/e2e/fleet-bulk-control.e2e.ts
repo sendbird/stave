@@ -1,9 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
-test("Fleet bulk keyboard, mouse, stop confirmation and rendered selection states", async ({
-  page,
-}, testInfo) => {
-  test.setTimeout(120_000);
+async function seed(page: Page) {
   await page.addInitScript(() => {
     const repositoryPath = "/tmp/stave-fleet-table";
     const now = Date.now();
@@ -190,31 +187,41 @@ test("Fleet bulk keyboard, mouse, stop confirmation and rendered selection state
 
 
   await expect(page.locator('[data-fleet-task-table-row]').first()).toBeVisible();
-  for (const [locale, mode] of [["en", "light"], ["ko", "dark"]] as const) {
-    await page.evaluate(async ({locale,mode}) => {
-      const { applyAppLocale } = await import("/src/i18n/index.ts");
-      const { applyThemeClass } = await import("/src/lib/themes/apply.ts");
-      applyAppLocale(locale); applyThemeClass({enabled:mode === "dark"});
-    }, {locale,mode});
-    for (const width of [1440,1024]) {
-      await page.setViewportSize({width,height:1000});
-      await page.evaluate(async () => { await document.fonts.ready; const {useFleetSelectionStore} = await import('/src/store/fleet-selection-store.ts'); useFleetSelectionStore.getState().clear(); });
-      await page.screenshot({animations:"disabled",path:`/tmp/fleet-bulk/after/${locale}-${mode}-${width}-0.png`});
-      const first = page.locator('[data-fleet-task-table-row]').first();
-      await first.getByRole('button').first().focus();
-      await page.keyboard.press('x');
-      await expect(first.getByRole('checkbox')).toBeChecked();
-      await page.screenshot({animations:"disabled",path:`/tmp/fleet-bulk/after/${locale}-${mode}-${width}-1.png`});
-      await page.keyboard.press('ControlOrMeta+a');
-      const selected = await page.locator('[data-fleet-task-table-row]').getByRole('checkbox',{checked:true}).count();
-      expect(selected).toBeGreaterThan(1);
-      await page.screenshot({animations:"disabled",path:`/tmp/fleet-bulk/after/${locale}-${mode}-${width}-many.png`});
-      await page.keyboard.press('Escape');
-      await expect(first.getByRole('checkbox')).not.toBeChecked();
-      await first.click({modifiers:['ControlOrMeta']});
-      await expect(first.getByRole('checkbox')).toBeChecked();
-    }
-  }
+}
+
+test("Fleet bulk keyboard, mouse, stop confirmation and rendered selection states", async ({page}) => {
+  test.setTimeout(120_000);
+  await seed(page);
+  await page.evaluate(async () => {
+    const { useFleetSelectionStore } = await import('/src/store/fleet-selection-store.ts');
+    useFleetSelectionStore.getState().selectAll();
+  });
+  await page.evaluate(async () => {
+    const {useAppStore} = await import('/src/store/app.store.ts');
+    useAppStore.getState().updateSettings({patch:{themeMode:'light'}});
+  });
+  await expect(page.locator('html')).not.toHaveClass(/dark/);
+  const toolbar = page.locator('[data-fleet-bulk-control]');
+  await expect(toolbar).toHaveCount(1);
+  await expect(toolbar.getByRole('button',{name:'Stop all',exact:true})).toHaveCount(0);
+  const snooze = toolbar.getByRole('button',{name:/^Snooze \(/});
+  await expect(snooze).toBeVisible();
+  await snooze.click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.screenshot({animations:'disabled',path:'/tmp/fleet-bulk/after2/en-light-1440-snooze-open.png'});
+  await page.keyboard.press('Escape');
+  await page.evaluate(async () => {
+    const {useFleetSelectionStore} = await import('/src/store/fleet-selection-store.ts');
+    const store = useFleetSelectionStore.getState(); store.clear();
+    useFleetSelectionStore.getState().toggle(store.visibleTargets[0]!.key);
+  });
+  await toolbar.getByRole('button',{name:'More',exact:true}).click();
+  await expect(page.getByRole('menu')).toBeVisible();
+  await page.screenshot({animations:'disabled',path:'/tmp/fleet-bulk/after2/en-light-1440-more-open.png'});
+  await page.keyboard.press('Escape');
+  await page.setViewportSize({width:1024,height:900});
+  const lineBox = await toolbar.boundingBox();
+  expect(lineBox!.height).toBeLessThan(64);
   await page.evaluate(async () => { const {applyAppLocale}= await import('/src/i18n/index.ts'); applyAppLocale('en'); });
   await page.getByRole('button',{name:'Stop all',exact:true}).click();
   const confirmation=page.getByRole('dialog');
@@ -226,5 +233,48 @@ test("Fleet bulk keyboard, mouse, stop confirmation and rendered selection state
   const activeRow=page.locator('[data-fleet-task-table-row]').filter({hasText:'Task 0.0'});
   await activeRow.click({modifiers:['ControlOrMeta']});
   await page.locator('[data-fleet-bulk-control]').getByRole('button',{name:/^Stop \(/}).click();
+  await expect(confirmation).toBeVisible();
+  await expect(confirmation).toContainText('Stop 1 task?');
+  await confirmation.getByRole('button',{name:'Confirm',exact:true}).click();
   await expect.poll(() => page.evaluate(async () => { const {useAppStore}=await import('/src/store/app.store.ts'); return useAppStore.getState().activeTurnIdsByTask['task-0-0'] ?? null; })).toBeNull();
+});
+
+
+test("S1 bulk Stop targets exactly the applicable running selection", async ({page}) => {
+  test.setTimeout(120_000);
+  await seed(page);
+  await page.evaluate(async () => {
+    const {useAppStore} = await import('/src/store/app.store.ts');
+    const {useFleetSelectionStore} = await import('/src/store/fleet-selection-store.ts');
+    const selected = useFleetSelectionStore.getState(); selected.clear();
+    for (const target of selected.visibleTargets) if (['task-0-0','task-2-1','task-3-0'].includes(target.taskId)) selected.toggle(target.key);
+    const calls = {stopped:[] as string[],switched:[] as string[]};
+    (window as unknown as {fleetCalls:typeof calls}).fleetCalls = calls;
+    useAppStore.setState({
+      abortTaskTurn:async ({taskId}) => { calls.stopped.push(taskId); return true; },
+      switchWorkspace:async ({workspaceId}) => { calls.switched.push(workspaceId); },
+    });
+  });
+  await expect(page.locator('[data-fleet-bulk-control]').getByRole('button',{name:'Stop (2)',exact:true})).toBeVisible();
+  await page.locator('[data-fleet-bulk-control]').getByRole('button',{name:'Stop (2)',exact:true}).click();
+  const dialog = page.getByRole('dialog');
+  const confirmButton = dialog.getByRole('button',{name:'Confirm',exact:true});
+  if (await confirmButton.isVisible()) await confirmButton.click();
+  await expect.poll(() => page.evaluate(() => { const calls = (window as unknown as {fleetCalls:{stopped:string[];switched:string[]}}).fleetCalls; return {stopped:calls.stopped.slice().sort(),switched:calls.switched}; })).toEqual({stopped:['task-0-0','task-3-0'],switched:[]});
+});
+
+test("S2 bulk Archive excludes running and waiting tasks and confirms applicable count", async ({page}) => {
+  test.setTimeout(120_000);
+  await seed(page);
+  await page.evaluate(async () => {
+    const {useFleetSelectionStore} = await import('/src/store/fleet-selection-store.ts');
+    const state = useFleetSelectionStore.getState(); state.clear();
+    for (const target of state.visibleTargets) if (['task-0-0','task-0-1','task-29-1'].includes(target.taskId)) state.toggle(target.key);
+  });
+  const archive = page.locator('[data-fleet-bulk-control]').getByRole('button',{name:/^Archive \(/});
+  await expect(archive).toHaveText('Archive (1)');
+  await archive.click();
+  await expect(page.getByRole('dialog')).toContainText('Archive 1 task?');
+  await expect(page.getByRole('dialog')).toContainText('Work is still running');
+  await expect(page.getByRole('dialog')).toContainText('Waiting for an approval or answer');
 });

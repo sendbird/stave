@@ -1,3 +1,8 @@
+import { FleetArchiveArgsSchema, FleetArchiveResultSchema } from "../../../src/lib/fleet/host-control";
+import { isTaskManaged } from "../../../src/lib/tasks";
+import { findTarsResponsibility } from "../../../src/lib/tars/ownership";
+import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema } from "../../../src/lib/fleet/host-control";
+import { stopFleetChildren } from "./fleet-stop-children";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema } from "../../../src/lib/fleet/host-control";
 import { getDelegatedTaskCoordinator } from "../runs/delegated-task-coordinator-instance";
 import { ensurePersistenceReady } from "../state";
@@ -14,6 +19,30 @@ const TaskTakeOverArgsSchema = z
   .strict();
 
 export function registerTaskControlHandlers() {
+  ipcMain.handle("task-control:archive", async (_event, raw: unknown) => {
+    try {
+      const args = FleetArchiveArgsSchema.parse(raw);
+      return FleetArchiveResultSchema.parse((await ensurePersistenceReady()).archiveFleetTask(args));
+    } catch {
+      return FleetArchiveResultSchema.parse({ ok: false, reason: "failed" });
+    }
+  });
+  ipcMain.handle("task-control:preview-stop", async (_event, raw: unknown) => {
+    try {
+      const args = FleetStopPreviewArgsSchema.parse(raw);
+      const store = await ensurePersistenceReady();
+      const result = store.previewFleetStop(args);
+      const responsibilities = store.tars.snapshot().responsibilities;
+      for (const item of result.items) {
+        const task = store.loadWorkspaceShell({ workspaceId: item.workspaceId })?.tasks.find((candidate) => candidate.id === item.taskId);
+        item.owned = Number(Boolean(task && (isTaskManaged({ controlMode: task.controlMode ?? "interactive" }) || findTarsResponsibility(responsibilities, item))));
+      }
+      result.owned = result.items.reduce((sum, item) => sum + item.owned, 0);
+      return FleetStopPreviewResultSchema.parse(result);
+    } catch {
+      return FleetStopPreviewResultSchema.parse({ ok: false, turns: 0, children: 0, runs: 0, owned: 0, items: [], reason: "preview-failed" });
+    }
+  });
   ipcMain.handle("task-control:delete-permanently", async (_event, raw: unknown) => {
     try {
       const args = FleetTaskControlArgsSchema.parse(raw);
@@ -21,31 +50,16 @@ export function registerTaskControlHandlers() {
       store.removeTaskFromWorkspace({ ...args, permanently: true });
       return FleetTaskControlResultSchema.parse({ ok: true });
     } catch (error) {
-      return FleetTaskControlResultSchema.parse({ ok: false, message: String(error).slice(0, 1000) });
+      return FleetTaskControlResultSchema.parse({ ok: false, reason: error instanceof z.ZodError ? "invalid-request" : "protected" });
     }
   });
   ipcMain.handle("task-control:stop-children", async (_event, raw: unknown) => {
     try {
       const args = FleetTaskControlArgsSchema.parse(raw);
       const store = await ensurePersistenceReady();
-      const parent = store.loadWorkspaceShell({ workspaceId: args.workspaceId })?.tasks.find((task) => task.id === args.taskId);
-      if (!parent) throw new Error("Task not found in the requested workspace.");
-      const coordinator = getDelegatedTaskCoordinator();
-      const children = await coordinator.list({ parentTaskId: args.taskId, includeFinished: false });
-      const skipped: { taskId: string; reason: string }[] = [];
-      let stopped = 0;
-      for (const child of children) {
-        const aggregate = store.getRunAggregate({ runId: child.runId, stepId: child.stepId });
-        if (!aggregate) { skipped.push({ taskId: child.delegatedTaskId, reason: "not found" }); continue; }
-        try {
-          const result = await coordinator.stop({ parentTaskId: args.taskId, delegationKey: child.delegationKey });
-          if (result.accepted) { stopped += 1; if (result.message) skipped.push({ taskId: child.delegatedTaskId, reason: result.message }); }
-          else skipped.push({ taskId: child.delegatedTaskId, reason: result.message ?? result.reason ?? "refused" });
-        } catch (error) { skipped.push({ taskId: child.delegatedTaskId, reason: String(error) }); }
-      }
-      return FleetStopChildrenResultSchema.parse({ ok: true, stopped, skipped });
+      return FleetStopChildrenResultSchema.parse(await stopFleetChildren(store, getDelegatedTaskCoordinator(), args));
     } catch (error) {
-      return FleetStopChildrenResultSchema.parse({ ok: false, stopped: 0, skipped: [], message: String(error).slice(0, 1000) });
+      return FleetStopChildrenResultSchema.parse({ ok: false, stopped: 0, skipped: [], reason: error instanceof z.ZodError ? "invalid-request" : "failed" });
     }
   });
 

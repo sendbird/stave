@@ -1,4 +1,4 @@
-import { FleetBulkControl } from "./FleetBulkControl";
+import { FleetBulkControl, FleetStopAllButton } from "./FleetBulkControl";
 import { useFleetSelectionStore } from "@/store/fleet-selection-store";
 import { useFleetSelectionKeyboard } from "./FleetSelection";
 import { FleetGroupingControl, FleetGroupHeader } from "./FleetGrouping";
@@ -727,6 +727,7 @@ export function FleetView() {
     <div {...selectionHandlers} className={sx(styles.root)}>
       <GlobalPageHeader title={tI18n("fleet:fleetView.fleetView")} description={tI18n("fleet:fleetView.fullWorkQueue")} titleIcon={<LayoutGrid />} meta={headerLiveCount > 0 ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount }) : tI18n("fleet:fleetView.noAgentTurnsInFlight")} actions={
         <div className={sx(styles.headerActions)}>
+          <FleetStopAllButton rows={bulkRows.rows} loading={bulkRows.load.pending.length > 0} />
           <Button
             type="button"
             size="sm"
@@ -1009,7 +1010,7 @@ export function FleetView() {
                       hidden={hideRepository}
                     >
                       <div className={sx(styles.repositoryHeading)}>
-                      <FleetGroupHeader controlOnly title={repository.repositoryName} keys={selectionTargets.filter((target) => target.repositoryPath === repository.repositoryPath).map((target) => target.key)} />
+                      <FleetGroupHeader controlOnly title={repository.repositoryName} keys={(isCollapsed ? [] : selectionTargets).filter((target) => target.repositoryPath === repository.repositoryPath).map((target) => target.key)} />
                       <AuiButton
                         layout="host"
                         type="button"
@@ -1064,7 +1065,7 @@ export function FleetView() {
                         // exact third of the row (minus the two 0.625rem gaps),
                         // so wide rows land on exactly three and narrow rows
                         // still collapse to two and then one.
-                        className={sx(styles.cardGrid)}
+                        className={sx(styles.cardGrid, isCollapsed && styles.collapsedGrid)}
                       >
                         {orderRepositoryWorkspaces(
                           repository,
@@ -1083,6 +1084,7 @@ export function FleetView() {
                               repositoryName={repository.repositoryName}
                               workspace={workspace}
                               isCurrentRepository={repository.isCurrent}
+                              repositoryCollapsed={isCollapsed}
                               filter={cardFilter}
                               searchQuery={searchQuery}
                               nowMs={nowMs}

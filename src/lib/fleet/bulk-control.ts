@@ -11,7 +11,7 @@ export async function runFleetControl<T>(items: readonly T[], apply: (item: T) =
       const index = cursor++;
       const item = items[index]!;
       try { results[index] = { item, reason: await apply(item) }; }
-      catch (error) { results[index] = { item, reason: error instanceof Error ? error.message : String(error) }; }
+      catch { results[index] = { item, reason: "failed" }; }
     }
   }
   await Promise.all(Array.from({ length: Math.min(items.length, Math.max(1, Math.floor(concurrency) || 1)) }, worker));

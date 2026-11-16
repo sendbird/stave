@@ -137,6 +137,9 @@ function FleetAgentTreeBoard(props: {
     [children, facts, fleetRuns, fleetRunsLoaded, openRow?.key, rows, sharedFilesByParent, t, tarsResponsibilities, i18n.resolvedLanguage],
   );
 
+  const agentsById = useMemo(() => new Map(agents.map((agent) => [agent.id, agent])), [agents]);
+  const rowsByKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
+
   const openChild = (agent: AgentFleetAgent) => {
     const ref = children.refs.get(agent.id);
     if (!openRow || !ref) return;
@@ -148,11 +151,23 @@ function FleetAgentTreeBoard(props: {
   };
 
   return (
-    <div className={sx(styles.board)} data-fleet-agent-tree="true">
+    <div className={sx(styles.board)} data-fleet-agent-tree="true" onKeyDownCapture={(event) => {
+      if (event.defaultPrevented || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches("[data-agent-fleet-card]")) return;
+      const cards = [...event.currentTarget.querySelectorAll<HTMLElement>("[data-agent-fleet-card]")];
+      const index = cards.indexOf(target);
+      if (index < 0) return;
+      const next = event.key === "ArrowDown" ? (index + 1) % cards.length
+        : event.key === "ArrowUp" ? (index - 1 + cards.length) % cards.length
+        : event.key === "Home" ? 0 : event.key === "End" ? cards.length - 1 : null;
+      if (next === null) return;
+      event.preventDefault(); event.stopPropagation(); cards[next]?.focus();
+    }}>
       {groups.map((group) => <section key={group.id}>
         {group.title ? <FleetGroupHeader title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title} keys={group.rows.map((row) => row.key)} /> : null}
       <AgentFleet
-        agents={agents.filter((agent) => group.rows.some((row) => row.key === agent.id))}
+        agents={group.rows.map((row) => agentsById.get(row.key)!)}
         renderMainCard={(agent, card) => <div data-fleet-select-key={agent.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)}>
           <FleetSelectionCheckbox itemKey={agent.id} title={agent.name} />{card}
         </div>}
@@ -163,7 +178,7 @@ function FleetAgentTreeBoard(props: {
         onResolve={openChild}
         renderToolIcon={(tool) => getToolIcon(tool.id)}
         renderTreeActions={(agent) => {
-          const row = rows.find((candidate) => candidate.key === agent.id);
+          const row = rowsByKey.get(agent.id);
           if (!row) return null;
           return (
             <>

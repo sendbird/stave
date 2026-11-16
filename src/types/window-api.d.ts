@@ -1,3 +1,5 @@
+import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
+import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
 import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
 import type { McpAppBridgeApi } from "@/lib/mcp-app/mcp-app-bridge";
 import type { AppLocale } from "@/i18n/locale";
@@ -1025,6 +1027,8 @@ interface WindowJiraConnectorApi {
 
 interface WindowTaskControlApi {
   deletePermanently?: (args: FleetTaskControlArgs) => Promise<FleetTaskControlResult>;
+  archive?: (args: FleetArchiveArgs) => Promise<FleetArchiveResult>;
+  previewStop?: (args: FleetStopPreviewArgs) => Promise<FleetStopPreviewResult>;
   stopChildren?: (args: FleetTaskControlArgs) => Promise<FleetStopChildrenResult>;
   takeOver?: (args: { workspaceId: string; taskId: string }) => Promise<{
     ok: boolean;

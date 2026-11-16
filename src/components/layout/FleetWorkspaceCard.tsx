@@ -170,6 +170,7 @@ export function FleetWorkspaceCard(args: {
   repositoryName: string;
   workspace: FleetWorkspaceCardView;
   isCurrentRepository: boolean;
+  repositoryCollapsed?: boolean;
   filter: FleetBoardFilter;
   searchQuery: string;
   nowMs: number;
@@ -430,11 +431,11 @@ export function FleetWorkspaceCard(args: {
   const visibleRows = showAllTasks
     ? taskRowOrder.orderedRows
     : taskRowOrder.orderedRows.slice(0, taskRowOrder.collapsedCount);
-  const selectionRows = useMemo(() => visible ? visibleRows.map((row) => ({
+  const selectionRows = useMemo(() => visible && !args.repositoryCollapsed ? visibleRows.map((row) => ({
     key: getFleetTaskKey(args.repositoryPath, args.workspace.id, row.task.id),
     repositoryPath: args.repositoryPath, workspaceId: args.workspace.id, taskId: row.task.id, task: row.task,
     activeTurnId: taskState.activeTurnIdsByTask[row.task.id] ?? null,
-  })) : [], [visible, visibleRows, args.repositoryPath, args.workspace.id, taskState.activeTurnIdsByTask]);
+  })) : [], [visible, args.repositoryCollapsed, visibleRows, args.repositoryPath, args.workspace.id, taskState.activeTurnIdsByTask]);
   useFleetSelectionRows(`cards:${args.cardKey}`, selectionRows);
   const hiddenTaskCount = rows.length - visibleRows.length;
   const showSearchMatchNote =

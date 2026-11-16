@@ -1,4 +1,4 @@
-import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
+import { fleetSelectionColumn, fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { FleetGroupHeader } from "./FleetGrouping";
 import { groupFleetTaskRows, type FleetStatusGroup } from "@/lib/fleet/status-groups";
@@ -503,6 +503,7 @@ function FleetTaskRowsTable(props: {
     >
       <TableHeader sticky>
         <TableRow>
+          <TableHead xstyle={fleetSelectionColumn.cell}><FleetGroupHeader controlOnly title={t("fleet:selection.selectAll")} keys={targets.map((target) => target.key)} /></TableHead>
           {FLEET_TASK_COLUMNS.map((column) => (
             <TableHead
               key={column.key}
@@ -517,7 +518,7 @@ function FleetTaskRowsTable(props: {
       </TableHeader>
       <TableBody>
         {groups.map((group) => <Fragment key={group.id}>
-          {group.title ? <TableRow><TableCell colSpan={FLEET_TASK_COLUMNS.length}>
+          {group.title ? <TableRow><TableCell colSpan={FLEET_TASK_COLUMNS.length + 1}>
             <FleetGroupHeader title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title} keys={group.rows.map((row) => row.key)} />
           </TableCell></TableRow> : null}
           {group.rows.map((row) => (
@@ -530,7 +531,7 @@ function FleetTaskRowsTable(props: {
             />
             {row.key === props.expandedTaskKey ? (
               <TableRow data-fleet-task-table-controls={row.key}>
-                <TableCell colSpan={FLEET_TASK_COLUMNS.length} xstyle={styles.controlsCell}>
+                <TableCell colSpan={FLEET_TASK_COLUMNS.length + 1} xstyle={styles.controlsCell}>
                   <FleetTaskControlPanel
                     target={{
                       repositoryPath: row.repositoryPath,
@@ -600,9 +601,9 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
         : formatDuration(Math.floor(waitingMs / 60_000) * 60_000);
   return (
     <TableRow xstyle={fleetSelectionRowMarker} data-fleet-task-table-row={row.key} data-fleet-select-key={row.key}>
+      <TableCell xstyle={fleetSelectionColumn.cell}><FleetSelectionCheckbox itemKey={row.key} title={title} /></TableCell>
       <TableCell xstyle={styles.taskCell}>
         <span className={sx(styles.task)}>
-          <FleetSelectionCheckbox itemKey={row.key} title={title} />
           <FleetProviderIcon provider={row.task.provider} />
           <AuiButton
             layout="host"
@@ -657,6 +658,8 @@ const styles = stylex.create({
   // Bounded by the board's scroller so the table scrolls itself and its
   // header stays in view.
   table: {
+    borderInlineWidth: 0,
+    borderRadius: 0,
     maxBlockSize: "100%",
     minWidth: 0,
   },

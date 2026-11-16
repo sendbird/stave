@@ -1044,25 +1044,32 @@ Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshot
 Select tasks with their checkboxes, Cmd/Ctrl-click or Shift-click. With a row
 focused, **X** toggles selection, **Shift+Arrow** extends it, **Cmd/Ctrl+A**
 selects the visible tasks and **Esc** clears it. The selected count is announced.
-The bulk bar offers **Stop**, **Snooze**, **Mark read**, **Mark reviewed**,
-**Archive**, **Delete permanently** and **Open**. Each action reports how many
-changed and which tasks were skipped. Archive and Snooze offer **Undo** in the
-toast and with Cmd/Ctrl+Z while that toast is available.
+The one-line selection toolbar appears only with a selection. It shows the
+selected count and a clear button with an Esc hint, followed by **Stop** and
+**Archive**. **Snooze** offers 1h, 4h, 1d and 1w. **More** contains **Mark read**,
+**Mark reviewed**, **Open** for one task, and **Delete permanently**. On narrow
+widths primary actions move into More. Actions with no eligible items are hidden;
+counts and confirmations match the tasks the action can change. Skipped tasks
+include reasons. Archive and Snooze offer **Undo** in the toast and Cmd/Ctrl+Z.
 
-**Stop** also stops running delegated children before their parent and uses the
-agent run's own stop control. Finished children stay as they are. Work owned by
-Tars is paused through Tars or skipped. **Stop all** in the Fleet header, or
-**Stop all running work** in the command palette, lists the affected turns,
-children, runs and Tars work and asks for confirmation first. A repository
-command narrows the scope. The palette also offers **Archive ended tasks in
-this workspace** and **Mark all read**.
+**Stop** stops the parent turn before its running children. Finished children
+remain untouched. Owned work pauses through its owner or is skipped, including
+its children when the owner refuses. **Stop all** is a separate header button
+visible while work is running. Stop previews the affected turns, children, runs
+and owned work before confirmation. The palette also offers a repository-scoped
+stop, **Archive ended tasks in this workspace** and **Mark all read**. Mark all
+read asks for confirmation because it cannot be undone. Collapsed groups are
+excluded from Select all; selection shortcuts do not act through dialogs or menus.
 
-**Delete permanently** is available for archived or ended tasks with no running
-turn, child or run. Protected tasks are skipped. The confirmation names the
-number of tasks and warns that this cannot be undone. Cancel receives focus;
-Enter does not confirm by default. Ended children retain their content and become
-independent tasks in History when their parent is deleted. In **Task History**, select multiple tasks
-to **Restore (n)** or **Delete permanently (n)** together.
+**Archive** excludes live turns, pending approvals or questions, running children
+and running runs. Archive and Undo preserve the workspace you are viewing.
+**Delete permanently** requires archiving first, so Archive's Undo is available
+before deletion. Only archived tasks without live work or pending requests can
+be deleted. Protected tasks are skipped. The confirmation names the eligible
+count and warns that deletion cannot be undone; Cancel receives focus. Ended
+children retain their content as independent tasks. Deleting a child preserves
+its parent's history. In **Task History**, select multiple tasks to **Restore
+(n)** or **Delete permanently (n)** together.
 
 Tree and Table optionally **Group by status**: **Needs you**, **Working**,
 **Ready for review**, **Idle**, then **Ended**. Finished work with unread results

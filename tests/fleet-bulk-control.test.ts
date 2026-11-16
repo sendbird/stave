@@ -12,5 +12,5 @@ test('bulk control bounds concurrency and preserves refusals and failures', asyn
   }, 2);
   expect(peak).toBe(2);
   expect(result.changed).toEqual([1,4,5]);
-  expect(result.skipped.map(({item,reason}) => [item,reason])).toEqual([[2,'waiting for approval'],[3,'unavailable']]);
+  expect(result.skipped.map(({item,reason}) => [item,reason])).toEqual([[2,'waiting for approval'],[3,'failed']]);
 });

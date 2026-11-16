@@ -43,7 +43,7 @@ export function useFleetSelectionKeyboard() {
       row.querySelector<HTMLElement>("button,[tabindex='0'],input[type=checkbox]")?.focus();
     },
     onKeyDownCapture(event: KeyboardEvent<HTMLElement>) {
-      if (event.target instanceof Element && event.target.closest("input:not([type=checkbox]),textarea,[contenteditable=true]")) return;
+      if (event.target instanceof Element && event.target.closest('input,textarea,select,[contenteditable]:not([contenteditable="false"]),[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[data-popup],[data-popover],[popover]')) return;
       const store = useFleetSelectionStore.getState();
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "a") {
         event.preventDefault(); event.stopPropagation(); store.selectAll(); return;

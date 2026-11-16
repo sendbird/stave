@@ -153,15 +153,7 @@ export function createProviderInteractionActions(args: {
       }
       set({ providerTurnActivityByTask });
     },
-    abortTaskTurn: ({ taskId, keepAgentRun, parentOnly }) => {
-      const cascade = typeof window === "undefined" ? undefined : window.api?.taskControl?.stopChildren;
-      const cascadeWorkspace = get().taskWorkspaceIdById[taskId] ?? get().activeWorkspaceId;
-      if (!parentOnly && cascade && cascadeWorkspace) {
-        return cascade({ workspaceId: cascadeWorkspace, taskId }).then(async (result) => {
-          const parentStopped = await get().abortTaskTurn({ taskId, keepAgentRun, parentOnly: true });
-          return result.ok && result.skipped.length === 0 && parentStopped !== false;
-        }, async () => { await get().abortTaskTurn({ taskId, keepAgentRun, parentOnly: true }); return false; });
-      }
+    abortTaskTurn: ({ taskId, keepAgentRun, cascade = false, expectedTurnId }) => {
       if (cancelPendingAutoRouting(taskId)) return;
       const stateBefore = get();
       // Stop ends the task's agent run too, before the turn, so the run never picks up after it.
@@ -171,12 +163,15 @@ export function createProviderInteractionActions(args: {
         state: stateBefore,
         taskId,
       });
-      if (!keepAgentRun) {
+      const capturedTurnId = runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null;
+      // An owner response belongs to the turn that was present when Stop was pressed.
+      if (expectedTurnId !== undefined && capturedTurnId !== expectedTurnId) return Promise.resolve(false);
+      if (cascade && !keepAgentRun) {
         let hasRun = false;
         const settled = new Promise<boolean>((resolve) => {
           hasRun = cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId,
             turnId: runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null,
-            stopTurn: () => { Promise.resolve(get().abortTaskTurn({ taskId, keepAgentRun: true, parentOnly: true })).then((value) => resolve(value !== false), () => resolve(false)); },
+            stopTurn: () => { Promise.resolve(get().abortTaskTurn({ taskId, keepAgentRun: true, cascade, expectedTurnId: capturedTurnId })).then((value) => resolve(value !== false), () => resolve(false)); },
             onSettled: (endTurn) => { if (!endTurn) resolve(false); },
           });
         });
@@ -342,7 +337,17 @@ export function createProviderInteractionActions(args: {
           ] ?? [],
         endedTurnId: activeTurnId,
       });
-      return pendingStops.length ? Promise.all(pendingStops).then(() => true, () => false) : undefined;
+      const stopped = pendingStops.length ? Promise.all(pendingStops).then(() => true, () => false) : undefined;
+      const stopChildren = typeof window === "undefined" ? undefined : window.api?.taskControl?.stopChildren;
+      if (cascade && stopChildren && workspaceId) {
+        // End native parent execution before traversing children; it cannot delegate again.
+        return Promise.resolve(stopped).then(async (ok) => {
+          if (ok === false) return false;
+          const result = await stopChildren({ workspaceId, taskId });
+          return result.ok && result.skipped.length === 0;
+        }).catch(() => false);
+      }
+      return stopped;
     },
     resolveApproval: async ({ taskId, messageId, requestId, approved, scope, decidedBy, onUnanswerable = "report" }) => {
       const stateBefore = get();

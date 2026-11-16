@@ -1,3 +1,9 @@
+import { archiveTaskSnapshot } from "./task-archive";
+import { isTaskManaged } from "../../src/lib/tasks";
+import { findTarsResponsibility } from "../../src/lib/tars/ownership";
+import type { FleetArchiveArgs, FleetArchiveResult } from "../../src/lib/fleet/host-control";
+import { readFleetStopPreview } from "./fleet-stop-preview";
+import type { FleetStopPreviewArgs } from "../../src/lib/fleet/host-control";
 import { assertTaskCanBeDeleted, deleteTaskRelatedRows, withoutDeletedSnapshotTasks, releaseDeletedTaskChildren, preserveReleasedTaskParents } from "./task-permanent-delete";
 import { DelegationPolicyStore } from "./delegation-policy-store";
 import { DailyUsageStore } from "./daily-usage-store";
@@ -2185,6 +2191,36 @@ export class SqliteStore {
     // its own reply. Taking the write lock up front waits instead.
     const messageCount = tx.immediate();
     return messageCount === null ? { ok: false, messageCount: 0 } : { ok: true, messageCount };
+  }
+
+  archiveFleetTask(args: FleetArchiveArgs): FleetArchiveResult {
+    return this.db.transaction((): FleetArchiveResult => {
+      const snapshot = this.loadWorkspaceSnapshot({ workspaceId: args.workspaceId });
+      const task = snapshot?.tasks.find((item) => item.id === args.taskId);
+      if (!task || !snapshot) return { ok: false, reason: "not-found" };
+      if (isTaskManaged({ controlMode: task.controlMode ?? "interactive" }) || findTarsResponsibility(this.tars.snapshot().responsibilities, args)) return { ok: false, reason: "managed" };
+      if (args.restore) {
+        if (!task.archivedAt || (args.expectedArchivedAt && args.expectedArchivedAt !== task.archivedAt)) return { ok: false, reason: "changed" };
+      } else {
+        if (task.archivedAt) return { ok: false, reason: "changed" };
+        const pending = snapshot.messagesByTask[args.taskId]?.some((message) => message.parts.some((part) => {
+          if (!part || typeof part !== "object") return false;
+          const interaction = part as { type?: string; state?: string };
+          return (interaction.type === "approval" && interaction.state === "approval-requested") ||
+            (interaction.type === "user_input" && interaction.state === "input-requested");
+        }));
+        if (pending) return { ok: false, reason: "pending-interaction" };
+        const preview = this.previewFleetStop({ targets: [args] });
+        if (preview.turns || preview.children || preview.runs) return { ok: false, reason: "live-work" };
+      }
+      const archivedAt = args.restore ? null : new Date().toISOString();
+      this.upsertWorkspace({ id: args.workspaceId, name: (this.db.prepare("SELECT name FROM workspaces WHERE id = ?").get(args.workspaceId) as { name: string }).name, snapshot: archiveTaskSnapshot(snapshot, args.taskId, archivedAt) });
+      return { ok: true, archivedAt };
+    }).immediate();
+  }
+
+  previewFleetStop(args: FleetStopPreviewArgs) {
+    return readFleetStopPreview(this.db, args);
   }
 
   removeTaskFromWorkspace(args: { workspaceId: string; taskId: string; permanently?: boolean }) {

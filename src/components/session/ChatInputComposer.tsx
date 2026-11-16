@@ -1798,7 +1798,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               }
             }
           }}
-          onAbort={() => abortTaskTurn({ taskId: args.activeTaskId })}
+          onAbort={() => abortTaskTurn({ taskId: args.activeTaskId, cascade: true })}
           // The approval card's Enter/Tab keep working from an empty composer.
           onEmptyEditorKey={
             approvalRedirectMode ? (handleApprovalKey ?? undefined) : undefined

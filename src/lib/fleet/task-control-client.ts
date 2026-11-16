@@ -45,7 +45,7 @@ export function removeDeletedFleetTask<T extends TaskDeletionState>(state: T, ta
 }
 
 /** Host checks are authoritative; a denied deletion leaves the renderer untouched. */
-export async function deleteFleetTask(target: FleetTaskTarget): Promise<{ ok: boolean; message?: string }> {
+export async function deleteFleetTask(target: FleetTaskTarget): Promise<{ ok: boolean; reason?: string; message?: string }> {
   await flushPendingSnapshotPersists(target.workspaceId);
   const control = window.api?.taskControl;
   if (!control?.deletePermanently) return { ok: false };

@@ -1,4 +1,6 @@
 import { useMemo } from "react";
+import { fleetSelectionColumn } from "./fleet-selection.stylex";
+import { useAppStore } from "@/store/app.store";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { getFleetTaskKey } from "./FleetWorkspaceCard";
 import { useTranslation } from "@/i18n";
@@ -194,7 +196,7 @@ function FleetNeedRow(args: {
     <InboxRow
       entry={entry}
       selectionKey={item.taskId ? getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId) : undefined}
-      leading={item.taskId ? <FleetSelectionCheckbox itemKey={getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId)} title={item.taskTitle || title} /> : undefined}
+      leading={item.taskId ? <span className={sx(fleetSelectionColumn.cell, fleetSelectionColumn.leading)}><FleetSelectionCheckbox itemKey={getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId)} title={item.taskTitle || title} /></span> : undefined}
       compact
       triggerId={triggerId}
       triggerLabel={tI18n("fleet:fleetAttentionInbox.rowLabel", { action: describeFleetAttentionPrimaryAction(item.kind), title, workspace: item.workspaceName })}
@@ -431,10 +433,14 @@ export function FleetAttentionInbox(args: {
     ...blocking.map((item) => item.id),
     ...(showReviewGroup ? review.map((item) => item.id) : []),
   ];
+  const activeTurns = useAppStore((state) => state.activeTurnIdsByTask);
+  const cachedWorkspaces = useAppStore((state) => state.workspaceRuntimeCacheById);
+  const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const selectionTargets = useMemo(() => args.items.filter((item) => getFleetAttentionTier(item.kind) === "blocking" || (showReviewGroup && getFleetAttentionTier(item.kind) === "review")).flatMap((item) => item.taskId ? [{
     key: getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId), repositoryPath: item.repositoryPath,
-    workspaceId: item.workspaceId, taskId: item.taskId, activeTurnId: item.turnId,
-  }] : []), [args.items, showReviewGroup]);
+    workspaceId: item.workspaceId, taskId: item.taskId,
+    activeTurnId: (item.workspaceId === activeWorkspaceId ? activeTurns[item.taskId] : cachedWorkspaces[item.workspaceId]?.activeTurnIdsByTask[item.taskId]) ?? null,
+  }] : []), [args.items, showReviewGroup, activeTurns, cachedWorkspaces, activeWorkspaceId]);
   useFleetSelectionRows("attention", selectionTargets);
   const visibleRowKey = visibleRowIds.join("\u0000");
   const focusNextRow = useCallback(

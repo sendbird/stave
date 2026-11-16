@@ -234,7 +234,7 @@ export function TaskHistoryDrawer(args: {
         if (result.ok) {
           deleted += 1;
           setFetchedShell((shell) => shell ? { ...shell, tasks: shell.tasks.filter((item) => item.id !== taskId) } : null);
-        } else failed.push(`${task?.title ?? taskId}: ${result.message ?? i18n.t("panes:taskHistoryDrawer.deleteRefused")}`);
+        } else failed.push(`${task?.title ?? taskId}: ${i18n.t("panes:taskHistoryDrawer.deleteRefused")}`);
       } catch { failed.push(task?.title ?? taskId); }
     }
     setDeleteIds([]);
@@ -274,8 +274,8 @@ export function TaskHistoryDrawer(args: {
             <Button size="sm" variant="outline" disabled={busy || selectedIds.size === 0} onClick={() => void restoreSelected()}>
               {i18n.t("panes:taskHistoryDrawer.restoreSelected", { count: selectedIds.size })}
             </Button>
-            <Button size="sm" variant="outline" disabled={busy || selectedIds.size === 0} onClick={() => setDeleteIds([...selectedIds])}>
-              {i18n.t("panes:taskHistoryDrawer.deleteSelected", { count: selectedIds.size })}
+            <Button size="sm" variant="outline" disabled={busy || !filteredTasks.some(task => selectedIds.has(task.id) && task.archivedAt)} onClick={() => setDeleteIds(filteredTasks.filter(task => selectedIds.has(task.id) && task.archivedAt).map(task => task.id))}>
+              {i18n.t("panes:taskHistoryDrawer.deleteSelected", { count: filteredTasks.filter(task => selectedIds.has(task.id) && task.archivedAt).length })}
             </Button>
           </div>
           <Input

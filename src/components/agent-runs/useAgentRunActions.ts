@@ -57,7 +57,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
       onResume: () => void useAgentRunsStore.getState().runCommand("resume", { agentRunId: agentRun.id }),
       onExtend: () => void useAgentRunsStore.getState().runCommand("extend", { agentRunId: agentRun.id }),
       // The store's Stop pauses a run Tars holds through Tars instead of cancelling it.
-      onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId }),
+      onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId, cascade: true }),
       onTakeControl: () => {
         void (async () => {
           if (reportTarsOwnedOutcome(await routeTarsOwnedIntent({ target: owned, intent: "takeover", source: "task" }))) return;

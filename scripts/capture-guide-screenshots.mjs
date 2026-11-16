@@ -681,10 +681,11 @@ const SHOTS = [
     async capture({ page, locale, file }) {
       await openApp(page, locale, { approval: true, notifications: true });
       await quietChrome(page);
-      await page.evaluate(async () => {
-        const { useAppStore } = await import("/src/store/app.store.ts");
-        useAppStore.getState().openFleetView();
+      const openFleetLabel = await page.evaluate(async () => {
+        const { i18n } = await import("/src/i18n/index.ts");
+        return i18n.t("shell:topBarFleetAttention.openFleet");
       });
+      await page.getByTestId("top-bar").getByRole("button", { name: openFleetLabel, exact: true }).click();
       await page.locator("[data-fleet-view-root='true']").waitFor();
       await settle(page);
       await save(page, null, file);

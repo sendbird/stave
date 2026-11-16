@@ -1821,7 +1821,7 @@ describe("restart reconciliation never makes independent delegations wait on eac
 
 
 describe("cascading delegated task stop", () => {
-  test("stops descendants depth first and leaves ended children untouched", async () => {
+  test("stops each parent before descendants and leaves ended children untouched", async () => {
     const harness = createHarness();
     const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
     await harness.coordinator.waitForInFlight();
@@ -1832,7 +1832,7 @@ describe("cascading delegated task stop", () => {
     expect(ended.child).not.toBeNull();
     const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
     expect(result.accepted).toBe(true);
-    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([child.child!.delegatedTaskId, parent.child!.delegatedTaskId]);
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([parent.child!.delegatedTaskId, child.child!.delegatedTaskId]);
     expect((await harness.coordinator.get({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "ended-child" }))?.phase).toBe("completed");
   });
   test("a refused descendant is reported while its sibling and parent still stop", async () => {
@@ -1848,7 +1848,7 @@ describe("cascading delegated task stop", () => {
     const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
     expect(result.accepted).toBe(true);
     expect(result.message).toContain("managed by Tars");
-    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([sibling.child!.delegatedTaskId, parent.child!.delegatedTaskId]);
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([parent.child!.delegatedTaskId, sibling.child!.delegatedTaskId]);
   });
   test("a failed host stop is reported after the durable cancellation", async () => {
     const harness = createHarness();
@@ -1872,4 +1872,41 @@ describe("cascading delegated task stop", () => {
     expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("waiting");
     expect(child.child).not.toBeNull();
   });
+});
+
+
+test("stopping a cancelled delegation is an accepted duplicate without stopping again", async () => {
+  const harness = createHarness();
+  await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  const args = { parentTaskId: PARENT_TASK, delegationKey: "review-docs" };
+  await harness.coordinator.stop(args);
+  const calls = harness.stopTaskCalls.length;
+  const result = await harness.coordinator.stop(args);
+  expect(result.accepted).toBe(true);
+  expect(result.duplicate).toBe(true);
+  expect(result.child?.phase).toBe("cancelled");
+  expect(harness.stopTaskCalls).toHaveLength(calls);
+});
+
+test("a stopping intermediate parent cannot delegate again while descendants stop", async () => {
+  const harness = createHarness();
+  const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  const parentId = parent.child!.delegatedTaskId;
+  await harness.coordinator.delegate(delegateArgs({ parentTaskId: parentId, delegationKey: "nested", lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  let attempted = false;
+  let lateResult: { accepted: boolean; reason?: string | null } | undefined;
+  harness.host.stopTask = async ({ taskId }) => {
+    if (taskId === parentId) {
+      attempted = true;
+      const result = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parentId, delegationKey: "late-child", lifecycle: "detached" }));
+      lateResult = result;
+    }
+  };
+  await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+  expect(attempted).toBe(true);
+  expect(lateResult?.accepted).toBe(false);
+  expect(lateResult?.reason).toBe("invalid-state");
 });

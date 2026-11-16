@@ -1,3 +1,5 @@
+import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
+import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
@@ -2225,6 +2227,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   taskControl: {
     deletePermanently: async (args: FleetTaskControlArgs) => FleetTaskControlResultSchema.parse(await ipcRenderer.invoke("task-control:delete-permanently", FleetTaskControlArgsSchema.parse(args))),
+    archive: async (args: FleetArchiveArgs) => FleetArchiveResultSchema.parse(await ipcRenderer.invoke("task-control:archive", FleetArchiveArgsSchema.parse(args))),
+    previewStop: async (args: FleetStopPreviewArgs) => FleetStopPreviewResultSchema.parse(await ipcRenderer.invoke("task-control:preview-stop", FleetStopPreviewArgsSchema.parse(args))),
     stopChildren: async (args: FleetTaskControlArgs) => FleetStopChildrenResultSchema.parse(await ipcRenderer.invoke("task-control:stop-children", FleetTaskControlArgsSchema.parse(args))),
     takeOver: (args: { workspaceId: string; taskId: string }) =>
       ipcRenderer.invoke("task-control:take-over", args) as Promise<{

@@ -1193,6 +1193,7 @@ export function createDelegatedTaskCoordinator(
    * checked the count that is claimed against. The map entry is removed once
    * its chain drains so an idle parent leaves no state behind.
    */
+  const stoppingTasks = new Set<string>();
   const delegationLocksByParent = new Map<string, Promise<void>>();
   const withParentDelegationLock = <T>(
     parentTaskId: string,
@@ -1223,6 +1224,7 @@ export function createDelegatedTaskCoordinator(
       return rejected("invalid-request", null, parsed.error.issues.map(issue => issue.message).join("; ").slice(0, 500));
     }
     let args = parsed.data;
+    if (stoppingTasks.has(args.parentTaskId)) return rejected("invalid-state", null, "parent-stopping");
     let agentContentHash: string | null = null;
     let agentAssignment: { snapshot: AgentSnapshot; standards?: string } | undefined;
     if (args.agentConfigId) {
@@ -1238,7 +1240,9 @@ export function createDelegatedTaskCoordinator(
     const resourceRootRunId = await dependencies.readResourceRoot?.(args.parentTaskId);
     const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
+      stoppingTasks.has(args.parentTaskId)
+        ? Promise.resolve(rejected("invalid-state", null, "parent-stopping"))
+        : admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
     );
   };
 
@@ -1713,21 +1717,12 @@ export function createDelegatedTaskCoordinator(
         return resolved.rejection;
       }
       const { ledger, runId, stepId } = resolved;
+      if (resolved.child.phase === "cancelled") return accepted({ duplicate: true, child: resolved.child });
       if (!isActiveDelegatedTaskPhase(resolved.child.phase)) return rejected("invalid-state", resolved.child);
       if (dependencies.canStopTask && !await dependencies.canStopTask({ workspaceId: resolved.child.delegatedWorkspaceId, taskId: resolved.child.delegatedTaskId })) {
         return { ...rejected("invalid-ownership", resolved.child), message: "managed by Tars" };
       }
-      // Children settle before their parent; terminal delegations are untouched.
       const skippedDescendants: string[] = [];
-      const descendants = ledger.listRunAggregatesByOrigin({ originKind: "task", originId: resolved.child.delegatedTaskId, limit: DELEGATED_TASK_LIST_LIMIT });
-      for (const aggregate of descendants) {
-        const child = summaryFromAggregate(ledger, aggregate);
-        if (!child || !isActiveDelegatedTaskPhase(child.phase)) continue;
-        try {
-          const result = await stopChild({ parentTaskId: resolved.child.delegatedTaskId, delegationKey: child.delegationKey, reason: args.reason });
-          if (!result.accepted || result.message) skippedDescendants.push(`${child.delegatedTaskId}: ${result.message ?? result.reason ?? "refused"}`);
-        } catch (error) { skippedDescendants.push(`${child.delegatedTaskId}: ${String(error)}`); }
-      }
       const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
       const target = resolved.step.target;
       const transition = ledger.cancelRunStep({
@@ -1748,27 +1743,41 @@ export function createDelegatedTaskCoordinator(
           summaryFromTransition(resolved.ledger, transition),
         );
       }
-      if (!transition.duplicate && target) {
-        if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
-        // Cancelling the ledger row is the durable half; asking the delegated task
-        // to stop is best effort, because a child that already ended is a
-        // successful stop.
-        await (resolved.child.agentRunId && dependencies.host.stopAgentRun
-          ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
-          : dependencies.host.stopTask({
-            workspaceId: target.workspaceId,
-            taskId: target.taskId,
-          }))
-          .catch((error) => {
-            reportError(error, { scope: "stop-child", runId });
-            skippedDescendants.push(`${target.taskId}: ${String(error)}`);
-          });
+      stoppingTasks.add(resolved.child.delegatedTaskId);
+      try {
+        if (!transition.duplicate && target) {
+          if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
+          // Cancelling the ledger row is the durable half; asking the delegated task
+          // to stop is best effort, because a child that already ended is a
+          // successful stop.
+          await (resolved.child.agentRunId && dependencies.host.stopAgentRun
+            ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
+            : dependencies.host.stopTask({
+              workspaceId: target.workspaceId,
+              taskId: target.taskId,
+            }))
+            .catch((error) => {
+              reportError(error, { scope: "stop-child", runId });
+              skippedDescendants.push(`${target.taskId}: ${String(error)}`);
+            });
+        }
+        const descendants = ledger.listRunAggregatesByOrigin({ originKind: "task", originId: resolved.child.delegatedTaskId, limit: DELEGATED_TASK_LIST_LIMIT });
+        for (const aggregate of descendants) {
+          const child = summaryFromAggregate(ledger, aggregate);
+          if (!child || !isActiveDelegatedTaskPhase(child.phase)) continue;
+          try {
+            const result = await stopChild({ parentTaskId: resolved.child.delegatedTaskId, delegationKey: child.delegationKey, reason: args.reason });
+            if (!result.accepted || result.message) skippedDescendants.push(`${child.delegatedTaskId}: ${result.message ?? result.reason ?? "refused"}`);
+          } catch (error) { skippedDescendants.push(`${child.delegatedTaskId}: ${String(error)}`); }
+        }
+        notifyChanged(args.parentTaskId);
+        return { ...accepted({
+          duplicate: transition.duplicate,
+          child: summaryFromTransition(resolved.ledger, transition),
+        }), message: skippedDescendants.length ? skippedDescendants.join("; ").slice(0, 500) : null };
+      } finally {
+        stoppingTasks.delete(resolved.child.delegatedTaskId);
       }
-      notifyChanged(args.parentTaskId);
-      return { ...accepted({
-        duplicate: transition.duplicate,
-        child: summaryFromTransition(resolved.ledger, transition),
-      }), message: skippedDescendants.length ? skippedDescendants.join("; ").slice(0, 500) : null };
 
   };
 

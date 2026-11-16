@@ -29,3 +29,27 @@ test("permanent deletion uses strict native IPC and survives stale workspace sav
     await stave.close();
   }
 });
+
+test("native addressed archive, preview and guarded undo", async () => {
+  const stave = await launchStave();
+  try {
+    const result = await stave.page.evaluate(async () => {
+      const persistence = window.api.persistence!;
+      const taskControl = window.api.taskControl!;
+      const workspaceId = "fleet-addressed-workspace";
+      const taskId = "idle-archivable";
+      await persistence.upsertWorkspace!({id:workspaceId,name:"Addressed workspace",snapshot:{activeTaskId:taskId,tasks:[{id:taskId,title:"Idle task",provider:"codex",updatedAt:new Date().toISOString(),unread:false}],messagesByTask:{},openTaskTabIds:[taskId]}});
+      const preview = await taskControl.previewStop!({targets:[{workspaceId,taskId}]});
+      const archived = await taskControl.archive!({workspaceId,taskId});
+      const shell = await persistence.loadWorkspaceShell!({workspaceId});
+      const staleUndo = await taskControl.archive!({workspaceId,taskId,restore:true,expectedArchivedAt:"stale"});
+      const restored = await taskControl.archive!({workspaceId,taskId,restore:true,expectedArchivedAt:archived.archivedAt!});
+      return {preview,archived,shell,staleUndo,restored};
+    });
+    expect(result.preview).toMatchObject({ok:true,turns:0,children:0,runs:0});
+    expect(result.archived.ok).toBe(true);
+    expect(result.shell.shell?.openTaskTabIds).toEqual([]);
+    expect(result.staleUndo).toMatchObject({ok:false,reason:"changed"});
+    expect(result.restored).toMatchObject({ok:true,archivedAt:null});
+  } finally { await stave.close(); }
+});

@@ -911,7 +911,7 @@ export function AppShell() {
           setLayout({
             patch: { sidebarOverlayVisible: true, sidebarOverlayTab: tab },
           }),
-        stopActiveTurn: () => abortTaskTurn({ taskId: activeTaskId }),
+        stopActiveTurn: () => abortTaskTurn({ taskId: activeTaskId, cascade: true }),
         toggleTaskReview: () => toggleTaskReview(activeTaskId),
         askSideQuestion: () => openTaskSideQuestion(activeTaskId),
         switchWorkspace: (workspaceId: string) =>
