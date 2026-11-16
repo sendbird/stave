@@ -21,8 +21,17 @@ function owns(target: Target, owner: Owner) {
 export class WorkspaceExecutionGate {
   private suspended = new Map<string, Target & { stopping: boolean; failed: boolean }>();
   private active = new Set<Owner>();
+  private readArchived: () => readonly Target[] = () => [];
+
+  /** Resolve durable archive ownership on every admission, including after restart. */
+  setArchiveReader(reader: () => readonly Target[]) {
+    this.readArchived = reader;
+  }
 
   assertAllowed(owner: Owner) {
+    if (this.readArchived().some(target => owns(target, owner))) {
+      throw new Error("Workspace history is archived. Restore its branch before starting execution.");
+    }
     if ([...this.suspended.values()].some((target) => owns(target, owner))) {
       throw new Error("Workspace execution is stopped. Resume it in Resource Manager first.");
     }
@@ -33,6 +42,10 @@ export class WorkspaceExecutionGate {
     const lease = { ...owner };
     this.active.add(lease);
     return () => { this.active.delete(lease); };
+  }
+
+  isBusy(target: Target) {
+    return [...this.active].some((owner) => owns(target, owner));
   }
 
   async stop(target: Target, close: () => Promise<void>) {

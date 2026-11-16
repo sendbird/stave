@@ -1,3 +1,6 @@
+import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
+import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
+import { z as cleanupZ } from "zod";
 import { undoTarsAction } from "./host-service/tars-action-undo";
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
 import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
@@ -1582,6 +1585,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     withRequestAccountScope(request.params, () => handleAccountRequest(request)));
 }
 
+const workspaceCleanupRuntime = createWorkspaceCleanupRuntime({ store: ensureHostServicePersistenceReady, hasTerminals: workspaceId => terminalRuntime.hasWorkspaceSessions(workspaceId), changed: event => emitEvent("workspace.cleanup-changed", event) });
+workspaceCleanupRuntime.start();
+
 async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
   if (requestNeedsCliDiscovery(request.method)) {
     // Discovery may initialize login shells. Turns and tooling probes must see
@@ -1626,6 +1632,15 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       }
       return;
     }
+    case "workspace.cleanup-list":
+      await respond(request.id, await workspaceCleanupRuntime.list(WorkspaceCleanupListArgsSchema.parse(request.params).scanDisk)); return;
+    case "workspace.cleanup-act":
+      await respond(request.id, await workspaceCleanupRuntime.act(WorkspaceCleanupActArgsSchema.parse(request.params))); return;
+    case "workspace.cleanup-configure":
+      await respond(request.id, workspaceCleanupRuntime.configure(WorkspaceCleanupPolicySchema.parse(request.params))); return;
+    case "workspace.cleanup-run":
+      cleanupZ.object({}).strict().parse(request.params);
+      await respond(request.id, await workspaceCleanupRuntime.runNow()); return;
     case "workspace.execution-status":
       await respond(request.id, workspaceExecutionGate.snapshot());
       return;

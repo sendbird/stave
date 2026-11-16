@@ -1034,6 +1034,7 @@ export function createTerminalRuntime(args: {
   }
 
   return {
+    hasWorkspaceSessions: (workspaceId: string) => [...sessions.values()].some(session => session.workspaceId === workspaceId && !session.closing),
     stopWorkspace,
     createSession,
     createCliSession,

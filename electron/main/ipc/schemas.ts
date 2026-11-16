@@ -1595,3 +1595,5 @@ export {
   RepositoryMemoryRestoreArgsSchema as ProjectMemoryRestoreArgsSchema,
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/repository-memory";
+
+export { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../../../src/lib/workspace-cleanup-contract";

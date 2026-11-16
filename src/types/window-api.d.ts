@@ -3002,6 +3002,7 @@ interface WindowInlineCompletionApi {
 }
 
 interface WindowApi {
+  workspaceCleanup?: import("@/lib/workspace-cleanup-contract").WorkspaceCleanupApi;
   workspaceExecution?: {
     status: () => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionState[]>;
     update: (args: import("@/lib/performance/workspace-execution").WorkspaceExecutionArgs) => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionResult>;
