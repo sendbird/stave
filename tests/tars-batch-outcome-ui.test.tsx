@@ -25,3 +25,38 @@ test("restoring archives never claims the permanent deletion was undone", () => 
 test("an uncertain dispatched item remains explicit in the record summary", () => {
   expect(render([item("archive", "applying")])).toContain("Inspect outcome 1");
 });
+test("a batch still executing shows progress and no buttons", () => {
+  const html = render([item("archive", "applied"), item("archive", "included")], "executing");
+  expect(html).not.toContain("data-tars-batch-confirm");
+  expect(html).not.toContain("data-tars-batch-decline");
+  expect(html).not.toContain("<button");
+  expect(html).toContain("aria-busy=\"true\"");
+});
+test("an interrupted batch says what ran and offers Continue for the remainder only", () => {
+  const html = render([item("archive", "applied"), item("archive", "included")], "interrupted");
+  expect(html).toContain("Archived 1");
+  expect(html).toContain("data-tars-batch-continue");
+  expect(html).toContain("Continue");
+  expect(html).not.toContain("data-tars-batch-confirm");
+});
+test("a restore whose branch was deleted says Restored read-only", () => {
+  expect(render([{ ...item("archive", "restored"), readOnly: true }], "restored")).toContain("Restored read-only");
+});
+test("sizes use the app byte format and the card is a named region", () => {
+  const html = render([{ ...item("archive", "included"), bytes: 1048576 }], "proposed");
+  expect(html).toContain("1.0 MB");
+  expect(html).not.toContain(" B<");
+  const labelled = html.match(/<section[^>]*role="region"[^>]*aria-labelledby="([^"]+)"/);
+  expect(labelled).not.toBeNull();
+  expect(html).toMatch(new RegExp(`id="${labelled![1]}"[^>]*>[^<]+ · 1 included`));
+});
+test("unavailable pull request status is one reason line, not per-item noise", () => {
+  const skipped = { ...item("archive", "skipped"), reason: "prStatusUnavailable" };
+  const html = render([skipped, { ...skipped, responsibilityId: "b" }, { ...skipped, responsibilityId: "c" }], "proposed");
+  expect(html.split("Pull request status unavailable").length - 1).toBe(1);
+  expect(html).toContain("sign in to GitHub CLI or use the cleanup center");
+});
+test("ended work left out of a bulk control is one count line", () => {
+  const record: TarsBatchRecord = { id: "batch", action: { kind: "bulkControl", operation: "pause", scope: { kind: "all" } }, state: "proposed", items: [], omitted: 2, createdAt: "2026-11-17T00:00:00.000Z" };
+  expect(renderToStaticMarkup(<TarsBatchCard record={record} busy={false} onConfirm={() => {}} onRestore={() => {}} onDecline={() => {}} />)).toContain("2 ended items left out");
+});

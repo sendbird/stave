@@ -9,11 +9,11 @@ for (const [lang, theme, words] of [["en", "light", "clean up the finished work"
     const card = page.locator('[data-tars-batch-card]');
     await expect(card).toBeVisible();
     await page.evaluate(() => document.fonts.ready);
-    await card.screenshot({ path: `/tmp/tars-cleanup/${lang}-${theme}-before-card.png` });
+    await card.screenshot({ path: `/tmp/tars-cleanup/after2/${lang}-${theme}-card.png` });
     await card.locator('[data-tars-batch-confirm]').click();
     const record = page.locator('[data-tars-batch-record]');
     await expect(record).toBeVisible();
-    await record.screenshot({ path: `/tmp/tars-cleanup/${lang}-${theme}-after-record.png` });
+    await record.screenshot({ path: `/tmp/tars-cleanup/after2/${lang}-${theme}-record.png` });
     await record.locator('[data-tars-batch-restore]').click();
     await expect(record.locator('[data-tars-batch-restore]')).toHaveCount(0);
     await page.reload();
@@ -21,13 +21,28 @@ for (const [lang, theme, words] of [["en", "light", "clean up the finished work"
   });
 }
 
-test("Done menu opens the same cleanup card", async ({ page }) => {
+test("the Done lane's cleanup button opens the same card and its record joins the conversation", async ({ page }) => {
   await page.goto("/?stavePreview=tars&tray=true&batch=true");
-  await page.locator('[data-tars-cleanup-entry]').click();
-  await page.getByRole("menuitem", { name: "Clean up finished work" }).click();
+  await page.locator('[data-tars-cleanup-entry]').getByRole("button", { name: "Clean up finished work" }).click();
   await expect(page.locator('[data-tars-batch-card]')).toBeVisible();
   await page.locator('[data-tars-batch-confirm]').click();
-  await expect(page.locator('[data-tars-batch-record]').first()).toBeVisible();
+  await expect(page.locator('[data-tars-batch-card]')).toHaveCount(0);
+  await expect(page.locator('[data-tars-batch-record]')).toHaveCount(1);
+});
+
+test("declining the Done lane's cleanup closes it and reopening reuses one preview", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&tray=true&batch=true");
+  const open = page.locator('[data-tars-cleanup-open]');
+  await open.click();
+  const card = page.locator('[data-tars-batch-card]');
+  await expect(card).toBeVisible();
+  const first = await card.getAttribute("data-tars-batch-card");
+  await page.reload();
+  await open.click();
+  await expect(card).toHaveAttribute("data-tars-batch-card", first!);
+  await card.locator('[data-tars-batch-decline]').click();
+  await expect(card).toHaveCount(0);
+  await expect(page.locator('[data-tars-batch-record]')).toHaveCount(0);
 });
 
 test("cancel has danger treatment and no Enter default", async ({ page }) => {

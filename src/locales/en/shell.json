@@ -3022,7 +3022,8 @@
         "skipped": "Skipped",
         "applying": "Outcome needs inspection",
         "applied": "Applied",
-        "restored": "Restored"
+        "restored": "Restored",
+        "restoredReadOnly": "Restored read-only"
       },
       "partialReason": "Applied with a limitation: {{reason}}",
       "eligibleEnded": "Ended work; safety checks passed",
@@ -3056,7 +3057,21 @@
         "skipped_other": "Skipped {{count}}",
         "uncertain_one": "Inspect outcome {{count}}",
         "uncertain_other": "Inspect outcome {{count}}"
-      }
+      },
+      "omitted": {
+        "ended_one": "{{count}} ended item left out",
+        "ended_other": "{{count}} ended items left out",
+        "unfinished_one": "{{count}} unfinished item left out",
+        "unfinished_other": "{{count}} unfinished items left out"
+      },
+      "prStatusUnavailable": "Pull request status unavailable — sign in to GitHub CLI or use the cleanup center",
+      "executing_one": "Working on {{count}} item…",
+      "executing_other": "Working on {{count}} items…",
+      "interruptedLead": "Interrupted",
+      "interrupted_one": "{{summary}}; {{count}} item not processed yet",
+      "interrupted_other": "{{summary}}; {{count}} items not processed yet",
+      "continue": "Continue",
+      "declined": "Declined"
     }
   }
 }

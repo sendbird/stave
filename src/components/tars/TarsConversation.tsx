@@ -1,5 +1,5 @@
 import { isTarsBatchAction } from "@/lib/tars/batch";
-import { TarsBatchProposal, TarsBatchHistory } from "./TarsBatchCard";
+import { TarsBatchProposal, TarsBatchRecordEntry, useTarsBatchRecords } from "./TarsBatchCard";
 import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Clock, FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
@@ -294,6 +294,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     records: state.conversation.records, answers: state.conversation.answers ?? [], activity: state.conversation.activity,
     responsibilities: responsibilities ?? null }) : [], [responsibilities, state.conversation]);
   const decisionIds = useMemo(() => new Set(decisions.map((view) => view.id)), [decisions]);
+  const batches = useTarsBatchRecords();
   const timeline = useMemo(() => [
     ...(state.conversation?.messages ?? []).map((value) => ({ kind: "message" as const, id: `message:${value.id}`, at: value.createdAt, value })),
     // Only completion, a block and an unasked end reach the transcript; live progress stays in the tray and flow blocks.
@@ -312,7 +313,10 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     // A switch pressed in the schedules list, and each run a schedule started, where it happened.
     ...(schedule?.records ?? []).map((value) => ({ kind: "schedule" as const, id: `schedule:${value.requestId}`, at: value.createdAt, value })),
     ...(schedule?.runs ?? []).map((run) => ({ kind: "scheduleRun" as const, id: `schedule-run:${run.runId}`, at: run.startedAt, value: { run, revision: `${run.status}:${run.taskId ?? ""}` } })),
-  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [clear?.records, decisionIds, publish?.records, schedule?.records, schedule?.runs, state.conversation]);
+    // A cleanup confirmed from the Done lane stays where it happened, with its Restore.
+    ...batches.records.map((record) => ({ kind: "batch" as const, id: `batch:${record.id}`, at: record.createdAt,
+      value: { record, revision: `${record.state}:${record.items.map((item) => item.status).join(",")}` } })),
+  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [batches.records, clear?.records, decisionIds, publish?.records, schedule?.records, schedule?.runs, state.conversation]);
   const scrollKey = timeline.map((item) => `${item.id}:${item.kind === "activity" ? item.value.activity.revision : item.kind === "event" ? item.value.status : item.value.revision}`).join("|")
     + (clear?.active ? `|cleared:${clear.active.requestId}` : "")
     + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
@@ -412,6 +416,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} records={state.conversation?.records} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
       onResend={() => resend(item.value)}
       titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} schedule={schedule} onOpenWaiting={openWaiting} />;
+    if (item.kind === "batch") return { record: <TarsBatchRecordEntry key={item.id} record={item.value.record} /> };
     if (item.kind === "schedule") return { record: <TarsScheduleRecordLine key={item.id} record={item.value} /> };
     if (item.kind === "scheduleRun") return { record: <TarsScheduleRunLine key={item.id} run={item.value.run} onOpenTask={onOpenScheduleRun} /> };
     if (item.kind === "clear") return { record: <TarsClearRecordLine key={item.id} record={item.value} busy={clear?.busy} error={clear?.errors.get(item.value.requestId)}
@@ -470,7 +475,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
           decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} onOpenWaiting={openWaiting} />
         <TarsAllowRuleRecords />
-        <TarsBatchHistory />
+        {batches.error ? <p role="alert">{t("shell:tars.batch.failed")}</p> : null}
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
           onRetry={() => void (sendFailed ? submit(useTarsDraftStore.getState().text) : state.refresh())} /> : null}
