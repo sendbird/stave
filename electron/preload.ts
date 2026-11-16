@@ -1,3 +1,4 @@
+import { contentSearchPreload } from "./persistence/content-search-preload";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
@@ -1664,6 +1665,7 @@ contextBridge.exposeInMainWorld("api", {
       taskId: string;
       limit?: number;
       offset?: number;
+      messageId?: string;
     }) => ipcRenderer.invoke("persistence:load-task-messages", args),
     truncateTaskMessagesAfter: (args: {
       workspaceId: string;
@@ -1832,6 +1834,7 @@ contextBridge.exposeInMainWorld("api", {
     ...usageStatisticsPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...turnHistoryPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...taskHandoffPreload((channel, args) => ipcRenderer.invoke(channel, args)),
+    ...contentSearchPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...taskSearchPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     summarizeTurnSpend: (
       args: import("../src/lib/providers/turn-spend").TurnSpendArgs,

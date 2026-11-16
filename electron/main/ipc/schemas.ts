@@ -1260,6 +1260,7 @@ export const LoadTaskMessagesArgsSchema = z
     workspaceId: z.string().min(1).max(200),
     taskId: z.string().min(1).max(200),
     limit: z.number().int().min(1).max(500).optional(),
+    messageId: z.string().min(1).max(200).optional(),
     offset: z.number().int().min(0).max(1_000_000).optional(),
   })
   .strict();

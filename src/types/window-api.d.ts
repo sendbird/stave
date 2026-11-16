@@ -1900,6 +1900,7 @@ interface WindowPersistenceApi {
     taskId: string;
     limit?: number;
     offset?: number;
+    messageId?: string;
   }) => Promise<{
     ok: boolean;
     page: {
@@ -2212,6 +2213,9 @@ interface WindowPersistenceApi {
     args: import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffArgs,
   ) => Promise<import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffResponse>;
   /** Every registered repository's tasks matching a query, for the palette's All repositories scope. */
+  searchTaskContent?: (
+    args: import("@/lib/task-search/content-search").SearchTaskContentArgs,
+  ) => Promise<import("@/lib/task-search/content-search").SearchTaskContentResponse>;
   searchTasks?: (
     args: import("@/lib/task-search/task-search-ipc").SearchTasksArgs,
   ) => Promise<import("@/lib/task-search/task-search-ipc").SearchTasksResponse>;
