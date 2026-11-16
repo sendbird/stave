@@ -4,12 +4,12 @@ import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 
-test("Tars cleanup eligibility and Restore use real Git and SQLite across restart", () => {
+function runFixture(fixture: string) {
   mkdirSync("test-results", { recursive: true });
   const root = mkdtempSync(path.resolve("test-results/tars-cleanup-host-"));
   try {
     const output = path.join(root, "check.cjs");
-    const built = spawnSync(process.execPath, ["build", "tests/fixtures/tars-cleanup-host-check.ts", "--outfile", output, "--target=node", "--format=cjs", "--external=better-sqlite3", "--external=electron", "--external=node-pty", '--define=import.meta.env.BASE_URL="/"'], { encoding: "utf8" });
+    const built = spawnSync(process.execPath, ["build", fixture, "--outfile", output, "--target=node", "--format=cjs", "--external=better-sqlite3", "--external=electron", "--external=node-pty", '--define=import.meta.env.BASE_URL="/"'], { encoding: "utf8" });
     expect(built.stderr).toBe("");
     expect(built.status).toBe(0);
     const require = createRequire(import.meta.url);
@@ -17,4 +17,7 @@ test("Tars cleanup eligibility and Restore use real Git and SQLite across restar
     expect(executed.stderr).toBe("");
     expect(executed.status).toBe(0);
   } finally { rmSync(root, { recursive: true, force: true }); }
-}, 60_000);
+}
+
+test("Tars cleanup eligibility and Restore use real Git and SQLite across restart", () => runFixture("tests/fixtures/tars-cleanup-host-check.ts"), 60_000);
+test("a 3-item cleanup among 20 workspaces looks up each candidate's pull request at most once", () => runFixture("tests/fixtures/tars-cleanup-lookups-check.ts"), 60_000);

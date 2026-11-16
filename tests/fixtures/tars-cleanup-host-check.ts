@@ -36,7 +36,10 @@ async function main() {
     let batch = makeBatch();
     const preview = await batch.invoke({ operation: "preview", action: { kind: "cleanup", scope: { kind: "all" }, deleteBranches: false, permanentlyDeleteArchived: false } });
     const reasons = Object.fromEntries(preview.items.map(item => [item.name, item.reason]));
-    for (const [name, reason] of [["eligible", null], ["cancelled", null], ["dirty", "changedFiles"], ["unpushed", "unpushedCommits"], ["running", "responsibilityRunning"], ["pending", "publicationPending"]]) assert.equal(reasons[name!], reason, name!);
+    for (const [name, reason] of [["eligible", null], ["cancelled", null], ["dirty", "changedFiles"], ["unpushed", "unpushedCommits"], ["pending", "publicationPending"]]) assert.equal(reasons[name!], reason, name!);
+    // Running work is left out of a cleanup list and counted once.
+    assert.equal(reasons.running, undefined);
+    assert.equal(preview.omitted, 1);
     const result = await batch.invoke({ operation: "confirm", id: preview.id });
     assert.equal(result.items.filter(item => item.status === "applied").length, 2);
     assert.equal(existsSync(paths.eligible!), false);

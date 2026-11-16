@@ -15,6 +15,7 @@ export const TarsBatchInputSchema = z.discriminatedUnion("operation", [
   z.object({ operation: z.literal("preview"), action: TarsBatchActionSchema, proposal: Proposal.optional() }).strict(),
   z.object({ operation: z.literal("confirm"), id: Id }).strict(),
   z.object({ operation: z.literal("restore"), id: Id }).strict(),
+  z.object({ operation: z.literal("decline"), id: Id }).strict(),
 ]);
 export type TarsBatchInput = z.infer<typeof TarsBatchInputSchema>;
 export const TarsBatchItemSchema = z.object({
@@ -22,10 +23,20 @@ export const TarsBatchItemSchema = z.object({
   bytes: z.number().nonnegative().nullable(), reason: z.string().nullable(),
   action: z.enum(["pause", "resume", "cancel", "archive", "delete"]),
   undoable: z.boolean().optional(),
+  /** Restore brought the workspace back without its branch, so it opens read-only. */
+  readOnly: z.boolean().optional(),
   status: z.enum(["included", "skipped", "applying", "applied", "restored"]),
 }).strict();
+/**
+ * `interrupted`: the host stopped while executing (quit, crash, storage error);
+ * Continue runs the frozen remaining items. `declined` is kept only for a
+ * conversation proposal, so its card stays declined.
+ */
 export const TarsBatchRecordSchema = z.object({ id: Id, action: TarsBatchActionSchema, proposal: Proposal.optional(),
-  state: z.enum(["proposed", "executing", "applied", "restored"]), items: z.array(TarsBatchItemSchema).max(1000), createdAt: z.iso.datetime() }).strict();
+  state: z.enum(["proposed", "executing", "interrupted", "applied", "restored", "declined"]), items: z.array(TarsBatchItemSchema).max(1000),
+  /** In scope but left out of the list: ended work for a bulk control, unfinished work for a cleanup. */
+  omitted: z.number().int().nonnegative().optional(),
+  createdAt: z.iso.datetime() }).strict();
 export type TarsBatchRecord = z.infer<typeof TarsBatchRecordSchema>;
 export const TarsBatchRecordsSchema = z.array(TarsBatchRecordSchema);
 export const isTarsBatchAction = (action: { kind: string }): action is TarsBatchAction => action.kind === "bulkControl" || action.kind === "cleanup";

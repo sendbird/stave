@@ -50,13 +50,13 @@ test.each(["careful", "balanced", "handsOff"] as const)("%s cannot bypass one ba
   expect(f.responsibilities.snapshot().responsibilities[0]!.state).toBe("queued");
 });
 
-test("repository bulk preview freezes membership and skips changed revisions (real SQLite)", async () => {
+test("repository bulk cancel freezes membership and skips changed revisions (real SQLite)", async () => {
   const f = fixture(); const owned = f.make(); f.make("/tmp/other");
   let calls = 0;
   const runtime = createTarsBatchRuntime({ conversations: () => f.conversations, responsibilities: () => f.responsibilities,
     cleanup: { list: async () => { throw new Error("Unexpected cleanup"); }, act: async () => { throw new Error("Unexpected cleanup"); } },
     control: async () => { calls++; throw new Error("Changed work must be skipped"); } });
-  const preview = await runtime.invoke({ operation: "preview", action: { kind: "bulkControl", operation: "pause", scope: { kind: "repository", repositoryPath: owned.repositoryPath } } });
+  const preview = await runtime.invoke({ operation: "preview", action: { kind: "bulkControl", operation: "cancel", scope: { kind: "repository", repositoryPath: owned.repositoryPath } } });
   expect(preview.items).toHaveLength(1);
   f.make();
   f.responsibilities.patch(owned.id, owned.revision, { priority: 10 }, now);
