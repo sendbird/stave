@@ -1,3 +1,6 @@
+import { FleetBulkControl } from "./FleetBulkControl";
+import { useFleetSelectionKeyboard } from "./FleetSelection";
+import { FleetGroupingControl } from "./FleetGrouping";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
@@ -40,6 +43,7 @@ import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
 import { FleetAgentTree } from "@/components/layout/FleetAgentTree";
 import {
   FleetTaskTable,
+  useFleetTaskRows,
   type FleetTaskTableSummary,
 } from "@/components/layout/FleetTaskTable";
 import {
@@ -715,8 +719,10 @@ export function FleetView() {
     }));
   }, []);
 
+  const selectionHandlers = useFleetSelectionKeyboard();
+  const bulkRows = useFleetTaskRows({ repositories, filter: "all", searchQuery: "", nowMs }).rows;
   return (
-    <div className={sx(styles.root)}>
+    <div {...selectionHandlers} className={sx(styles.root)}>
       <GlobalPageHeader title={tI18n("fleet:fleetView.fleetView")} description={tI18n("fleet:fleetView.fullWorkQueue")} titleIcon={<LayoutGrid />} meta={headerLiveCount > 0 ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount }) : tI18n("fleet:fleetView.noAgentTurnsInFlight")} actions={
         <div className={sx(styles.headerActions)}>
           <Button
@@ -784,6 +790,7 @@ export function FleetView() {
       } />
 
       <OpenPathDialog open={openPath} onOpenChange={setOpenPath} onSubmitPath={(inputPath) => openRepositoryFromPath({ inputPath })} onBrowse={async () => { await useAppStore.getState().createRepository({}); setOpenPath(false); }} />
+      <FleetBulkControl rows={bulkRows} onOpenTask={handleOpenTask} />
       {repositories.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><FolderTree /></EmptyMedia><EmptyTitle>{tI18n("fleet:fleetView.noWorkspaces")}</EmptyTitle><EmptyDescription>{tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription></EmptyHeader><Button onClick={() => setOpenPath(true)}>{i18n.t("workspace:welcome.openRepository")}</Button></Empty> : <>
       {resultReviewError ? (
         <div
@@ -836,6 +843,7 @@ export function FleetView() {
 
         <div className={sx(styles.board)}>
           <div className={sx(styles.toolbar)}>
+            {showsTaskRows ? <FleetGroupingControl /> : null}
             <SegmentedControl
               aria-label={tI18n("fleet:fleetView.filterLabel")}
               value={boardFilter}

@@ -63,7 +63,18 @@
     "restore": "복원",
     "open": "열기",
     "close": "닫기",
-    "noMatches": "“{{query}}”에 해당하는 작업이 없습니다."
+    "noMatches": "“{{query}}”에 해당하는 작업이 없습니다.",
+    "selectAll": "표시된 작업 모두 선택",
+    "selectTask": "{{title}} 선택",
+    "selected_other": "작업 {{count}}개 선택됨",
+    "restoreSelected": "복원 ({{count}})",
+    "deleteSelected": "영구 삭제 ({{count}})",
+    "restoreResult": "{{restored}}개 복원, {{skipped}}개 건너뜀",
+    "deleteResult": "{{deleted}}개 삭제, {{skipped}}개 건너뜀",
+    "deleteRefused": "현재 상태에서는 삭제할 수 없는 작업입니다",
+    "confirmDeleteTitle_other": "작업 {{count}}개를 영구 삭제할까요?",
+    "confirmDeleteDescription": "이 작업은 되돌릴 수 없습니다. 실행 중인 작업이 없는 보관되거나 종료된 작업만 삭제합니다. 보호된 작업은 건너뜁니다.",
+    "cancel": "취소"
   },
   "workspacePaneHost": {
     "icon": "아이콘",

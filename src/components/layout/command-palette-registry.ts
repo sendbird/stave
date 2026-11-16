@@ -1,5 +1,9 @@
+import { requestFleetBulkCommand } from "@/lib/fleet/bulk-command";
 import { i18n } from "@/i18n";
 import {
+  Archive,
+  MailCheck,
+  Square,
   Bot,
   Gauge,
   Command as CommandIcon,
@@ -377,6 +381,19 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       source: "core",
     }),
   },
+  ...(["stop", "archive", "read"] as const).map((operation) => ({
+    id: `fleet.bulk.${operation}`,
+    get title() { return i18n.t(`fleet:bulk.${operation}Command`); },
+    get description() { return i18n.t(`fleet:bulk.${operation}Command`); },
+    group: "task" as const,
+    icon: operation === "stop" ? Square : operation === "archive" ? Archive : MailCheck,
+    keywords: ["fleet", operation, "bulk"],
+    build: (args: CommandPaletteRuntimeContext) => args.repositoryPath ? {
+      id: `fleet.bulk.${operation}`, title: i18n.t(`fleet:bulk.${operation}Command`),
+      group: "task" as const, icon: operation === "stop" ? Square : operation === "archive" ? Archive : MailCheck, keywords: ["fleet", operation, "bulk"], source: "core" as const,
+      run: () => { requestFleetBulkCommand({ operation }); args.commands.openFleetView(); },
+    } : null,
+  })),
   {
     id: "navigation.fleet-view",
     get title() { return i18n.t("shell:commandPaletteRegistry.openFleetView"); },
@@ -1725,6 +1742,12 @@ export function listCommandPaletteActions(args: CommandPaletteRuntimeContext) {
   return dedupeActions([
     ...buildCoreActions(args),
     ...buildDynamicActions(args),
+    ...args.repositories.map((repository): CommandPaletteAction => ({
+      id: `fleet.stop-repository.${repository.repositoryPath}`, group: "task", icon: Square,
+      title: i18n.t("fleet:bulk.stopRepositoryCommand", { repository: repository.repositoryName }),
+      keywords: ["stop", "repository", repository.repositoryName], source: "core",
+      run: () => { requestFleetBulkCommand({ operation: "stop", repositoryPath: repository.repositoryPath }); args.commands.openFleetView(); },
+    })),
     ...contributed,
   ]);
 }

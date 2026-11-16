@@ -277,7 +277,38 @@
     "cleared_other": "{{count}}개를 정리했습니다.",
     "failed_other": "{{count}}개를 정리하지 못했습니다. 다시 시도하세요.",
     "someReviewsCannotBeUndone": "같은 순간 다른 곳에서 바뀐 리뷰 일부는 여기서 되돌릴 수 없습니다.",
-    "alreadyCleared": "이미 다른 곳에서 정리되어 바뀐 것이 없습니다."
+    "alreadyCleared": "이미 다른 곳에서 정리되어 바뀐 것이 없습니다.",
+    "stopAll": "모두 중지",
+    "open": "열기",
+    "clear": "선택 해제",
+    "stop": "중지 ({{count}})",
+    "archive": "보관 ({{count}})",
+    "delete": "영구 삭제 ({{count}})",
+    "read": "읽음 표시 ({{count}})",
+    "review": "검토함 표시 ({{count}})",
+    "undoSkipped": "{{count}}개 작업을 복원하지 못했습니다",
+    "stopResult_other": "{{count}}개 중지, {{skipped}}개 건너뜀",
+    "archiveResult_other": "{{count}}개 보관, {{skipped}}개 건너뜀",
+    "deleteResult_other": "{{count}}개 삭제, {{skipped}}개 건너뜀",
+    "stopConfirm_other": "{{count}}개 작업을 중지할까요?",
+    "archiveConfirm_other": "{{count}}개 작업을 보관할까요?",
+    "deleteConfirm_other": "{{count}}개 작업을 영구 삭제할까요?",
+    "irreversible": "이 작업은 되돌릴 수 없습니다. 실행 중인 턴, 하위 작업 또는 에이전트 실행이 있으면 삭제할 수 없습니다.",
+    "stopSummary": "턴 {{turns}}개, 하위 작업 {{children}}개, 에이전트 실행 {{runs}}개, Tars를 통해 일시정지할 항목 {{tars}}개.",
+    "loading": "소유권 확인 중",
+    "managedByTars": "Tars가 관리 중",
+    "unavailable": "턴을 제어하려면 먼저 워크스페이스를 열어 주세요",
+    "noRunningWork": "실행 중인 작업 없음",
+    "changed": "작업 상태 변경됨",
+    "stopCommand": "실행 중인 작업 모두 중지",
+    "stopRepositoryCommand": "{{repository}}에서 실행 중인 작업 모두 중지",
+    "archiveCommand": "이 워크스페이스에서 종료된 작업 보관",
+    "readCommand": "모두 읽음 표시",
+    "snooze0": "1시간 숨기기 ({{count}})",
+    "snooze1": "4시간 숨기기 ({{count}})",
+    "snooze2": "1일 숨기기 ({{count}})",
+    "snooze3": "1주 숨기기 ({{count}})",
+    "previewFailed": "실행 중인 하위 작업을 확인하지 못했습니다. 다시 시도해 주세요."
   },
   "taskTable": {
     "label": "열린 작업",
@@ -405,5 +436,20 @@
   },
   "focus": {
     "workspaceNotLoaded": "작업의 워크스페이스를 아직 불러오지 않아 Fleet에서 표시할 수 없습니다. 잠시 후 다시 시도하세요."
+  },
+  "selection": {
+    "selectTask": "{{title}} 선택",
+    "selected_other": "{{count}}개 선택됨"
+  },
+  "grouping": {
+    "label": "작업 그룹",
+    "default": "기본",
+    "repository": "저장소",
+    "status": "상태",
+    "needsYou": "내 조치 필요",
+    "working": "작업 중",
+    "review": "검토 준비됨",
+    "idle": "대기",
+    "ended": "종료됨"
   }
 }

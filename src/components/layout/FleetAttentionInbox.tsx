@@ -1,3 +1,6 @@
+import { useMemo } from "react";
+import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
+import { getFleetTaskKey } from "./FleetWorkspaceCard";
 import { useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
@@ -190,6 +193,8 @@ function FleetNeedRow(args: {
   return (
     <InboxRow
       entry={entry}
+      selectionKey={item.taskId ? getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId) : undefined}
+      leading={item.taskId ? <FleetSelectionCheckbox itemKey={getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId)} title={item.taskTitle || title} /> : undefined}
       compact
       triggerId={triggerId}
       triggerLabel={tI18n("fleet:fleetAttentionInbox.rowLabel", { action: describeFleetAttentionPrimaryAction(item.kind), title, workspace: item.workspaceName })}
@@ -426,6 +431,11 @@ export function FleetAttentionInbox(args: {
     ...blocking.map((item) => item.id),
     ...(showReviewGroup ? review.map((item) => item.id) : []),
   ];
+  const selectionTargets = useMemo(() => args.items.filter((item) => getFleetAttentionTier(item.kind) === "blocking" || (showReviewGroup && getFleetAttentionTier(item.kind) === "review")).flatMap((item) => item.taskId ? [{
+    key: getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId), repositoryPath: item.repositoryPath,
+    workspaceId: item.workspaceId, taskId: item.taskId, activeTurnId: item.turnId,
+  }] : []), [args.items, showReviewGroup]);
+  useFleetSelectionRows("attention", selectionTargets);
   const visibleRowKey = visibleRowIds.join("\u0000");
   const focusNextRow = useCallback(
     (answered: FleetAttentionItem) => {

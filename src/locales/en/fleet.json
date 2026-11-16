@@ -294,7 +294,44 @@
     "undo": "Undo",
     "undoFailed": "Some cleared items could not be restored.",
     "someReviewsCannotBeUndone": "Some reviews changed elsewhere at the same time and can't be undone here.",
-    "alreadyCleared": "Already cleared elsewhere. Nothing changed."
+    "alreadyCleared": "Already cleared elsewhere. Nothing changed.",
+    "stopAll": "Stop all",
+    "open": "Open",
+    "clear": "Clear selection",
+    "stop": "Stop ({{count}})",
+    "archive": "Archive ({{count}})",
+    "delete": "Delete permanently ({{count}})",
+    "read": "Mark read ({{count}})",
+    "review": "Mark reviewed ({{count}})",
+    "undoSkipped": "Could not restore {{count}} tasks",
+    "stopResult_other": "Stopped {{count}}, skipped {{skipped}}",
+    "archiveResult_other": "Archived {{count}}, skipped {{skipped}}",
+    "deleteResult_other": "Deleted {{count}}, skipped {{skipped}}",
+    "stopConfirm_other": "Stop {{count}} tasks?",
+    "archiveConfirm_other": "Archive {{count}} tasks?",
+    "deleteConfirm_other": "Delete {{count}} tasks permanently?",
+    "irreversible": "This cannot be undone. Running tasks, children and agent runs prevent deletion.",
+    "stopSummary": "{{turns}} turns, {{children}} child tasks, {{runs}} agent runs, {{tars}} items paused through Tars.",
+    "loading": "Ownership is loading",
+    "managedByTars": "Managed by Tars",
+    "unavailable": "Open this workspace first to control its turn",
+    "noRunningWork": "No running work",
+    "changed": "Task changed",
+    "stopCommand": "Stop all running work",
+    "stopRepositoryCommand": "Stop all running work in {{repository}}",
+    "archiveCommand": "Archive ended tasks in this workspace",
+    "readCommand": "Mark all read",
+    "snooze0": "Snooze 1h ({{count}})",
+    "snooze1": "Snooze 4h ({{count}})",
+    "snooze2": "Snooze 1d ({{count}})",
+    "snooze3": "Snooze 1w ({{count}})",
+    "stopResult_one": "Stopped {{count}}, skipped {{skipped}}",
+    "archiveResult_one": "Archived {{count}}, skipped {{skipped}}",
+    "deleteResult_one": "Deleted {{count}}, skipped {{skipped}}",
+    "stopConfirm_one": "Stop {{count}} tasks?",
+    "archiveConfirm_one": "Archive {{count}} tasks?",
+    "deleteConfirm_one": "Delete {{count}} tasks permanently?",
+    "previewFailed": "Could not read running children. Retry before stopping work."
   },
   "taskTable": {
     "label": "Open tasks",
@@ -437,5 +474,21 @@
   },
   "focus": {
     "workspaceNotLoaded": "Fleet can’t show this task yet because its workspace hasn’t loaded. Try again in a moment."
+  },
+  "selection": {
+    "selectTask": "Select {{title}}",
+    "selected_one": "{{count}} selected",
+    "selected_other": "{{count}} selected"
+  },
+  "grouping": {
+    "label": "Group tasks",
+    "default": "Default",
+    "repository": "Repository",
+    "status": "Status",
+    "needsYou": "Needs you",
+    "working": "Working",
+    "review": "Ready for review",
+    "idle": "Idle",
+    "ended": "Ended"
   }
 }

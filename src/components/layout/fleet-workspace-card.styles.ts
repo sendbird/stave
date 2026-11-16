@@ -123,6 +123,7 @@ export const cardStyles = stylex.create({
   list: {
     minWidth: 0,
   },
+  selectionRow: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minInlineSize: 0 },
   listItem: {
     minWidth: 0,
   },

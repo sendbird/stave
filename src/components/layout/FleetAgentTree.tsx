@@ -1,3 +1,8 @@
+import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
+import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
+import { FleetGroupHeader } from "./FleetGrouping";
+import { groupFleetTaskRows, type FleetStatusGroup } from "@/lib/fleet/status-groups";
+import { useFleetGroupingStore } from "@/store/fleet-grouping-store";
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpRight } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
@@ -74,7 +79,12 @@ function FleetAgentTreeBoard(props: {
   onOpenTask: (target: OpenTaskTarget) => void;
 }) {
   const { t } = useTranslation(["fleet", "shell"]);
-  const { rows } = props;
+  const grouping = useFleetGroupingStore((state) => state.grouping);
+  const groupRuns = useFleetAgentRunsStore((state) => state.details);
+  const groups = useMemo(() => groupFleetTaskRows(props.rows, grouping, groupRuns), [props.rows, grouping, groupRuns]);
+  const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+  const targets = useMemo(() => rows.map((row) => ({ ...row, taskId: row.task.id })), [rows]);
+  useFleetSelectionRows("tree", targets);
   // A card names its owner beside the model when an active Tars responsibility holds the task.
   const tarsResponsibilities = useTarsResponsibilities();
   // Ownership needs the task's own active run, so a run you started there is never Tars's.
@@ -139,8 +149,13 @@ function FleetAgentTreeBoard(props: {
 
   return (
     <div className={sx(styles.board)} data-fleet-agent-tree="true">
+      {groups.map((group) => <section key={group.id}>
+        {group.title ? <FleetGroupHeader title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title} keys={group.rows.map((row) => row.key)} /> : null}
       <AgentFleet
-        agents={agents}
+        agents={agents.filter((agent) => group.rows.some((row) => row.key === agent.id))}
+        renderMainCard={(agent, card) => <div data-fleet-select-key={agent.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)}>
+          <FleetSelectionCheckbox itemKey={agent.id} title={agent.name} />{card}
+        </div>}
         open={openRow?.key ?? null}
         onOpenChange={(id) => setChosen(id)}
         // A delegated task opens as its own task; an in-turn subagent shows its steps.
@@ -173,6 +188,7 @@ function FleetAgentTreeBoard(props: {
           );
         }}
       />
+      </section>)}
     </div>
   );
 }
@@ -235,6 +251,7 @@ function useOpenAgentChildren(row: FleetTaskRow | null, nowMs: number): OpenAgen
 }
 
 const styles = stylex.create({
+  selectionRow: { gridColumn: "1", display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minInlineSize: 0 },
   // The cards' grid inset, so the agents line up under the toolbar.
   board: {
     minWidth: 0,

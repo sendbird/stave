@@ -1,3 +1,4 @@
+import { runFleetControl } from "./bulk-control";
 import { resultReviewKey, type ResultReview, type ResultReviewScope, type SetResultMarkedReviewedArgs } from "@/lib/reviews/result-review";
 import {
   getFleetAttentionTier,
@@ -210,13 +211,13 @@ export async function applyFleetBulkPlan(args: {
     | { kind: "marked-reviewed" }
     | { kind: "read"; id: string; changed: boolean }
     | { kind: "snoozed"; id: string };
-  const settled = await Promise.allSettled<Settled>([
-    ...batches.map((scopes) =>
+  const jobs: Array<() => Promise<Settled>> = [
+    ...batches.map((scopes) => () =>
       operations
         .setResultsReviewed({ scopes, reviewed: true })
         .then((updated): Settled => ({ kind: "reviewed", scopes, updated })),
     ),
-    ...(plan.markedReviewed ? pending.map(async (scope): Promise<Settled> => {
+    ...(plan.markedReviewed ? pending.map((scope) => async (): Promise<Settled> => {
       if (!operations.setResultMarkedReviewed) throw new Error("Explicit result review is unavailable.");
       const saved = await operations.setResultMarkedReviewed({ ...scope, markedReviewed: true });
       if (resultReviewKey(saved) !== resultReviewKey(scope) || !saved.markedReviewedAt || !saved.reviewedAt) {
@@ -224,17 +225,23 @@ export async function applyFleetBulkPlan(args: {
       }
       return { kind: "marked-reviewed" };
     }) : []),
-    ...plan.notificationIds.map((id) =>
+    ...plan.notificationIds.map((id) => () =>
       operations
         .markNotificationRead({ id, resolvedAt: args.resolvedAt })
         .then((changed): Settled => ({ kind: "read", id, changed })),
     ),
-    ...plan.snoozes.map((snooze) =>
+    ...plan.snoozes.map((snooze) => () =>
       operations
         .snoozeFleetAttention({ ...snooze, snoozedUntil: args.snoozedUntil })
         .then((): Settled => ({ kind: "snoozed", id: snooze.attentionId })),
     ),
-  ]);
+  ];
+  const settled: PromiseSettledResult<Settled>[] = new Array(jobs.length);
+  await runFleetControl(jobs.map((job, index) => ({ job, index })), async ({ job, index }) => {
+    try { settled[index] = { status: "fulfilled", value: await job() }; }
+    catch (reason) { settled[index] = { status: "rejected", reason }; }
+    return null;
+  });
   const outcome: FleetBulkOutcome = {
     readResults: 0,
     read: [],

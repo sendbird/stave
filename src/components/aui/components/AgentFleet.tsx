@@ -59,6 +59,8 @@ export interface AgentFleetProps extends XstyleProp {
   onResolve?: (agent: AgentFleetAgent) => void;
   /** Header actions of the open tree, e.g. a button that opens the agent's task. */
   renderTreeActions?: (agent: AgentFleetAgent) => ReactNode;
+  /** Compose a non-nested selection control beside a main card. */
+  renderMainCard?: (agent: AgentFleetAgent, card: ReactNode) => ReactNode;
   /** A tool's icon; a generic tool glyph stands in for a tool it returns nothing for. */
   renderToolIcon?: (tool: AgentFleetTool) => ReactNode;
   /** A fixed time for every running clock (tests, docs); clocks tick each second without it. */
@@ -98,6 +100,7 @@ export function AgentFleet({
   onSelect,
   onResolve,
   renderTreeActions,
+  renderMainCard,
   renderToolIcon,
   now,
   formatCost: formatCostProp = defaultFormatCost,
@@ -191,9 +194,7 @@ export function AgentFleet({
           {agents.map((agent, index) => {
             const isOpen = agent.id === openId;
             const panelId = `${baseId}-tree-${index}`;
-            return (
-              <div key={agent.id} role="listitem" className={sx(styles.item)}>
-                <MainAgentCard
+            const card = <MainAgentCard
                   agent={agent}
                   idBase={`${baseId}-card-${index}`}
                   isOpen={isOpen}
@@ -208,7 +209,10 @@ export function AgentFleet({
                   onFocus={() => setFocusIndex(index)}
                   onKeyDown={(event) => onCardKeyDown(event, index)}
                   onToggle={() => setOpen(isOpen ? null : agent.id)}
-                />
+                />;
+            return (
+              <div key={agent.id} role="listitem" className={sx(styles.item)}>
+                {renderMainCard ? renderMainCard(agent, card) : card}
                 {isOpen ? (
                   <SubagentTreePanel
                     agent={agent}

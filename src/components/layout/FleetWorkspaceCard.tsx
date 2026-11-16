@@ -1,3 +1,5 @@
+import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
+import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { i18n, useTranslation } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
 import { FleetAgentRunStrip, useFleetActiveAgentRun } from "@/components/agent-runs/FleetAgentRunStrip";
@@ -428,6 +430,12 @@ export function FleetWorkspaceCard(args: {
   const visibleRows = showAllTasks
     ? taskRowOrder.orderedRows
     : taskRowOrder.orderedRows.slice(0, taskRowOrder.collapsedCount);
+  const selectionRows = useMemo(() => visible ? visibleRows.map((row) => ({
+    key: getFleetTaskKey(args.repositoryPath, args.workspace.id, row.task.id),
+    repositoryPath: args.repositoryPath, workspaceId: args.workspace.id, taskId: row.task.id, task: row.task,
+    activeTurnId: taskState.activeTurnIdsByTask[row.task.id] ?? null,
+  })) : [], [visible, visibleRows, args.repositoryPath, args.workspace.id, taskState.activeTurnIdsByTask]);
+  useFleetSelectionRows(`cards:${args.cardKey}`, selectionRows);
   const hiddenTaskCount = rows.length - visibleRows.length;
   const showSearchMatchNote =
     Boolean(normalizedQuery) && rows.length > 0 && taskRowOrder.noTaskMatched;
@@ -595,7 +603,8 @@ export function FleetWorkspaceCard(args: {
               const runLead = row.task.id === runLeadTaskId;
               const taskAgent = runLead ? undefined : taskAgents[row.task.id];
               return (
-                <li key={row.task.id} className={sx(styles.listItem)}>
+                <li key={row.task.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)} data-fleet-select-key={taskKey}>
+                  <FleetSelectionCheckbox itemKey={taskKey} title={taskTitle} />
                   <AuiButton
                     layout="host"
                     id={`fleet-task-trigger-${taskKey}`}

@@ -1,3 +1,8 @@
+import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
+import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
+import { FleetGroupHeader } from "./FleetGrouping";
+import { groupFleetTaskRows, type FleetStatusGroup } from "@/lib/fleet/status-groups";
+import { useFleetGroupingStore } from "@/store/fleet-grouping-store";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
@@ -483,6 +488,11 @@ function FleetTaskRowsTable(props: {
     () => sortFleetTaskRows(props.rows, sort, { nowMs: props.nowMs, untitled, ownerOf: (row) => ownerByKey.get(row.key) }),
     [props.rows, sort, props.nowMs, untitled, ownerByKey],
   );
+  const grouping = useFleetGroupingStore((state) => state.grouping);
+  const groupRuns = useFleetAgentRunsStore((state) => state.details);
+  const groups = useMemo(() => groupFleetTaskRows(rows, grouping, groupRuns), [rows, grouping, groupRuns]);
+  const targets = useMemo(() => groups.flatMap((group) => group.rows).map((row) => ({ ...row, taskId: row.task.id })), [groups]);
+  useFleetSelectionRows("table", targets);
   return (
     <Table
       density="compact"
@@ -506,7 +516,11 @@ function FleetTaskRowsTable(props: {
         </TableRow>
       </TableHeader>
       <TableBody>
-        {rows.map((row) => (
+        {groups.map((group) => <Fragment key={group.id}>
+          {group.title ? <TableRow><TableCell colSpan={FLEET_TASK_COLUMNS.length}>
+            <FleetGroupHeader title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title} keys={group.rows.map((row) => row.key)} />
+          </TableCell></TableRow> : null}
+          {group.rows.map((row) => (
           <Fragment key={row.key}>
             <FleetTaskTableRow
               nowMs={props.nowMs}
@@ -533,7 +547,7 @@ function FleetTaskRowsTable(props: {
               </TableRow>
             ) : null}
           </Fragment>
-        ))}
+        ))}</Fragment>)}
       </TableBody>
     </Table>
   );
@@ -585,9 +599,10 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
         ? t("fleet:taskTable.underAMinute")
         : formatDuration(Math.floor(waitingMs / 60_000) * 60_000);
   return (
-    <TableRow data-fleet-task-table-row={row.key}>
+    <TableRow xstyle={fleetSelectionRowMarker} data-fleet-task-table-row={row.key} data-fleet-select-key={row.key}>
       <TableCell xstyle={styles.taskCell}>
         <span className={sx(styles.task)}>
+          <FleetSelectionCheckbox itemKey={row.key} title={title} />
           <FleetProviderIcon provider={row.task.provider} />
           <AuiButton
             layout="host"
