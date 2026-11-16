@@ -1,3 +1,4 @@
+import { useArchivedSearchView } from "@/store/archived-search-view";
 import { Banner } from "@/components/aui/components/Banner";
 import { setWorkspaceSidebarCollapsed } from "@/store/workspace-sidebar-fold-store";
 import { i18n, useTranslation } from "@/i18n";
@@ -134,9 +135,11 @@ export const ChatArea = memo(function ChatArea(props: ChatAreaProps) {
  */
 function ChatAreaComposerDock({archivedTaskId}: {archivedTaskId?: string}) {
   useTranslation();
+  const restoreBusy = useArchivedSearchView((state) => state.busy);
+  const restoreFailed = useArchivedSearchView((state) => state.failed);
   if(archivedTaskId) return <div className={sx(chatAreaStyles.dock)}>
     <Banner title={i18n.t("session:chatArea.archived")} role="status" data-testid="archived-task-banner"
-      action={<Button variant="secondary" onClick={()=>useAppStore.getState().restoreTask({taskId:archivedTaskId})}>{i18n.t("session:chatArea.restore")}</Button>} />
+      action={<Button variant="secondary" disabled={restoreBusy} onClick={()=>useAppStore.getState().restoreTask({taskId:archivedTaskId})}>{i18n.t("session:chatArea.restore")}</Button>}>{restoreFailed ? i18n.t("workspace:cleanupCenter.unavailable") : null}</Banner>
   </div>;
   return (
     <div className={sx(chatAreaStyles.dock)}>
@@ -211,11 +214,13 @@ function ChatAreaImpl(props: ChatAreaProps) {
   const hasPendingSend = usePendingAutoRoutingStore((state) =>
     selectHasPendingSend(state, activeTaskId),
   );
+  const archivedView = useArchivedSearchView((state) => state.view);
+  const viewingArchive = archivedView?.workspaceId === useAppStore((state) => state.activeWorkspaceId);
   const viewMode = resolveChatAreaViewMode({
     repositoryPath,
     hasHydratedWorkspaces,
     hasAnyWorkspace,
-    hasSelectedWorkspace,
+    hasSelectedWorkspace: hasSelectedWorkspace || viewingArchive,
     hasSelectedTask,
     activeTaskMessageCount,
     hasUnsentPrompt: hasFailedSends || hasPendingSend,

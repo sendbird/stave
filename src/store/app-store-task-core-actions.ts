@@ -1,3 +1,4 @@
+import { openArchivedSearchView, restoreArchivedSearchView, useArchivedSearchView } from "./archived-search-view";
 import { i18n } from "@/i18n/runtime";
 import type { LoadTaskMessagesIntoSession } from "@/store/app-store-workspace-action-types";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
@@ -105,6 +106,7 @@ export function createTaskCoreActions(args: {
         workspaceId,
         repositoryPath,
         refreshFromPersistence = false,
+        workspaceArchived = false,
         messageId,
         searchQuery,
         searchSnippet,
@@ -119,6 +121,13 @@ export function createTaskCoreActions(args: {
           workspaceId ??
           stateAfterRepositoryOpen.taskWorkspaceIdById[taskId] ??
           stateAfterRepositoryOpen.activeWorkspaceId;
+
+        if (workspaceArchived && resolvedWorkspaceId && repositoryPath) {
+          if (!await openArchivedSearchView({workspaceId:resolvedWorkspaceId,repositoryPath,taskId},set,get)) return;
+          get().selectTask({taskId,allowArchived:true});
+          if (messageId) set(state=>({focusTranscriptToolRequest:{taskId,messageId,searchQuery,searchSnippet,nonce:(state.focusTranscriptToolRequest?.nonce ?? 0)+1}}));
+          return;
+        }
 
         if (
           resolvedWorkspaceId &&
@@ -564,6 +573,7 @@ export function createTaskCoreActions(args: {
       });
     },
     createTask: ({ title }) => {
+      if (useArchivedSearchView.getState().view?.workspaceId === get().activeWorkspaceId) return;
       const trimmed = (title ?? "").trim();
       const stateBefore = get();
       const workspaceId = stateBefore.activeWorkspaceId;
@@ -699,6 +709,10 @@ export function createTaskCoreActions(args: {
       });
     },
     restoreTask: ({ taskId }) => {
+      if (useArchivedSearchView.getState().view?.workspaceId === get().activeWorkspaceId) {
+        void restoreArchivedSearchView(taskId,set,get);
+        return;
+      }
       const stateBefore = get();
       const targetTask = stateBefore.tasks.find((task) => task.id === taskId);
       if (!targetTask || !isTaskArchived(targetTask)) {
@@ -745,6 +759,7 @@ export function createTaskCoreActions(args: {
       }
     },
     duplicateTask: async ({ taskId }) => {
+      if (useArchivedSearchView.getState().view?.workspaceId === get().activeWorkspaceId) return;
       const stateBefore = get();
       const sourceTask = stateBefore.tasks.find((task) => task.id === taskId);
       if (!sourceTask) {

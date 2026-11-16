@@ -64,7 +64,7 @@ export function useContentSearch(args: { query: string; enabled: boolean; worksp
 export function openContentSearchResult(result: ContentSearchResult, query = "") {
   void useAppStore.getState().focusTaskAttention({
     taskId: result.taskId, workspaceId: result.workspaceId,
-    repositoryPath: result.repositoryPath, searchQuery: query, ...(result.messageId ? { messageId: result.messageId, searchSnippet: result.snippet } : {}),
+    repositoryPath: result.repositoryPath, workspaceArchived: result.workspaceArchived, searchQuery: query, ...(result.messageId ? { messageId: result.messageId, searchSnippet: result.snippet } : {}),
   });
 }
 
@@ -110,7 +110,7 @@ export function renderContentSearchGroup(props: { search: ContentSearchState; qu
     ><ContentSearchDetails result={result} query={props.query} /></CommandItem>,
       ...(result.parentTaskId ? [<CommandItem key={`parent:${result.workspaceId}:${result.taskId}`}
         value={`content-search-parent:${result.workspaceId}:${result.taskId}`} className={sx(styles.parentItem)}
-        onSelect={() => props.onOpen({ ...result, taskId: result.parentTaskId!, workspaceId: result.parentWorkspaceId ?? result.workspaceId, repositoryPath: result.parentRepositoryPath ?? result.repositoryPath, messageId: "", snippet: "" })}>
+        onSelect={() => props.onOpen({ ...result, taskId: result.parentTaskId!, workspaceArchived: result.parentWorkspaceArchived ?? (result.parentWorkspaceId === result.workspaceId && result.workspaceArchived), workspaceId: result.parentWorkspaceId ?? result.workspaceId, repositoryPath: result.parentRepositoryPath ?? result.repositoryPath, messageId: "", snippet: "" })}>
         {i18n.t("shell:contentSearch.openParent")}
       </CommandItem>] : []),
     ])}
@@ -130,7 +130,7 @@ export function FleetContentSearchResults(props: { search: ReturnType<typeof use
           aria-label={t("shell:contentSearch.openResult", { title: result.title, count: result.matchCount })}>
           <ContentSearchDetails result={result} query={props.query} />
         </Button>{result.parentTaskId ? <Button size="sm" variant="quiet" onClick={() => {
-          void useAppStore.getState().focusTaskAttention({ taskId: result.parentTaskId!, workspaceId: result.parentWorkspaceId ?? result.workspaceId, repositoryPath: result.parentRepositoryPath ?? result.repositoryPath, searchQuery: props.query });
+          void useAppStore.getState().focusTaskAttention({ taskId: result.parentTaskId!, workspaceArchived: result.parentWorkspaceArchived ?? (result.parentWorkspaceId === result.workspaceId && result.workspaceArchived), workspaceId: result.parentWorkspaceId ?? result.workspaceId, repositoryPath: result.parentRepositoryPath ?? result.repositoryPath, searchQuery: props.query });
         }}>{t("shell:contentSearch.openParent")}</Button> : null}</TableCell>
       </TableRow>)}</TableBody>
     </Table> : null}

@@ -4,13 +4,13 @@ import { archivedWorktreePaths } from "@/store/workspace-archive-cleanup";
 import { useAppStore } from "@/store/app.store";
 
 /** Replace the renderer mirror only after the host has committed its registry. */
-export async function refreshWorkspaceCleanupRegistry() {
+export async function refreshWorkspaceCleanupRegistry(store: Pick<typeof useAppStore, "getState" | "setState"> = useAppStore) {
   const registry = await loadRepositoryRegistryState();
   const repositories = normalizeRecentRepositoryStates({ repositories: registry.repositories as RecentRepositoryState[] });
-  const state = useAppStore.getState();
+  const state = store.getState();
   const current = repositories.find((repository) => repository.repositoryPath === state.repositoryPath);
   archivedWorktreePaths.clear();
-  useAppStore.setState({
+  store.setState({
     recentRepositories: repositories,
     ...(current ? {
       workspaces: current.workspaces,
@@ -21,7 +21,7 @@ export async function refreshWorkspaceCleanupRegistry() {
   });
   if (current && !current.workspaces.some((workspace) => workspace.id === state.activeWorkspaceId)) {
     const replacement = current.workspaces.find((workspace) => current.workspaceDefaultById[workspace.id]) ?? current.workspaces[0];
-    if (replacement) await useAppStore.getState().switchWorkspace({ workspaceId: replacement.id });
+    if (replacement) await store.getState().switchWorkspace({ workspaceId: replacement.id });
   }
 }
 

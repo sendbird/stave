@@ -16,11 +16,13 @@ export const ContentSearchResultSchema = z.object({
   repositoryPath: z.string(), repositoryName: z.string(),
   workspaceId: z.string(), workspaceName: z.string(), workspaceBranch: z.string().nullable(),
   workspacePath: z.string(), isDefaultWorkspace: z.boolean(),
+  workspaceArchived: z.boolean().optional(),
   taskId: z.string(), title: z.string(), provider: z.string(), updatedAt: z.string(),
   state: z.enum(["running", "completed", "failed", "cancelled", "new", "archived"]),
   messageId: z.string(), snippet: z.string(), matchCount: z.number().int().nonnegative(),
   parentTaskId: z.string().nullable(),
   parentWorkspaceId: z.string().nullable().optional(),
+  parentWorkspaceArchived: z.boolean().optional(),
   parentRepositoryPath: z.string().nullable().optional(),
 }).strict();
 export type ContentSearchResult = z.infer<typeof ContentSearchResultSchema>;

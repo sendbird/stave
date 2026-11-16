@@ -468,6 +468,7 @@ export interface AppState
     compareRunId: string;
   }) => Promise<StartCompareRunResult>;
   focusTaskAttention: (args: {
+    workspaceArchived?: boolean;
     taskId: string;
     workspaceId?: string;
     repositoryPath?: string;

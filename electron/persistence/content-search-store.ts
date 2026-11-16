@@ -7,6 +7,7 @@ import { extractContentSearchText } from "./content-search-text";
 
 export type ContentSearchIndexMode = "fts5-trigram" | "fts5" | "like";
 interface Source {
+  listArchivedWorkspaceIdentities?(): {workspaceId: string; repositoryPath: string}[];
   loadRepositoryRegistry(): PersistenceRepositoryRegistryEntry[];
   loadWorkspaceShell(args: {workspaceId: string}): PersistenceWorkspaceShell | null;
   listTurns(args: {workspaceId: string; taskId: string; limit?: number}): PersistenceTurnSummary[];
@@ -185,6 +186,18 @@ export class ContentSearchStore {
         isDefaultWorkspace:workspace.id===defaultId,
       });
     }
+    const archivedIds = new Set<string>();
+    for (const archived of this.source.listArchivedWorkspaceIdentities?.() ?? []) {
+      archivedIds.add(archived.workspaceId);
+      const record = this.db.prepare("SELECT name, path, branch FROM workspace_archives WHERE workspace_id = ?").get(archived.workspaceId) as {name:string;path:string;branch:string} | undefined;
+      const repository = this.cached("registry",()=>this.source.loadRepositoryRegistry()).find(entry=>entry.repositoryPath===archived.repositoryPath);
+      places.set(archived.workspaceId, {
+        repositoryPath: archived.repositoryPath, repositoryName: repository?.repositoryName ?? archived.repositoryPath.split("/").pop() ?? archived.repositoryPath,
+        workspaceId: archived.workspaceId, workspaceName: record?.name ?? archived.workspaceId,
+        workspaceBranch: record?.branch ?? null, workspacePath: record?.path ?? archived.repositoryPath,
+        isDefaultWorkspace: false,
+      });
+    }
     const words = args.query.toLowerCase().split(/\s+/).filter(Boolean);
     const params: unknown[] = [JSON.stringify([...places.keys()])];
     const predicates = ["d.workspace_id IN (SELECT value FROM json_each(?))", "CASE WHEN (d.rowid & 63)=0 THEN content_search_budget(d.rowid) ELSE 1 END=1"];
@@ -227,14 +240,14 @@ export class ContentSearchStore {
       const task = shell?.tasks.find(task=>task.id===row.task_id);
       const turn = this.cached("turn:"+row.workspace_id+":"+row.task_id,()=>this.source.listTurns({workspaceId:row.workspace_id,taskId:row.task_id,limit:1}))[0];
       const outcome = turn?.terminalReceipt?.outcome;
-      const state = row.archived_at ? "archived" : !turn ? "new" : !turn.completedAt ? "running" : outcome === "failed" ? "failed" : outcome === "cancelled" ? "cancelled" : "completed";
+      const state = archivedIds.has(row.workspace_id) || row.archived_at ? "archived" : !turn ? "new" : !turn.completedAt ? "running" : outcome === "failed" ? "failed" : outcome === "cancelled" ? "cancelled" : "completed";
       const parentOwners=task?.parentTaskId ? this.db.prepare("SELECT workspace_id FROM tasks WHERE substr(id,length(workspace_id)+2)=? ORDER BY workspace_id=? DESC LIMIT 2").all(task.parentTaskId,row.workspace_id) as Array<{workspace_id:string}> : [];
       const parentWorkspaceId=parentOwners[0]?.workspace_id ?? null;
       const parentRepositoryPath=parentWorkspaceId ? places.get(parentWorkspaceId)?.repositoryPath ?? null : null;
       const at = row.text.toLowerCase().indexOf(words[0] ?? "");
       const start = Math.max(0,at-60), end=Math.min(row.text.length,start+240);
-      return {...places.get(row.workspace_id)!, taskId:row.task_id,title:row.title,provider:row.provider,updatedAt:row.updated_at,state,
-        messageId:row.message_id,snippet:(start?"…":"")+row.text.slice(start,end)+(end<row.text.length?"…":""),matchCount:row.matches,parentTaskId:task?.parentTaskId ?? null,parentWorkspaceId,parentRepositoryPath} satisfies ContentSearchResult;
+      return {...places.get(row.workspace_id)!, ...(archivedIds.has(row.workspace_id) ? {workspaceArchived:true} : {}), taskId:row.task_id,title:row.title,provider:row.provider,updatedAt:row.updated_at,state,
+        messageId:row.message_id,snippet:(start?"…":"")+row.text.slice(start,end)+(end<row.text.length?"…":""),matchCount:row.matches,...(parentWorkspaceId && archivedIds.has(parentWorkspaceId) ? {parentWorkspaceArchived:true} : {}),parentTaskId:task?.parentTaskId ?? null,parentWorkspaceId,parentRepositoryPath} satisfies ContentSearchResult;
     });
     return {ok:true,results,nextOffset:hits.length>limit && offset+limit<=CONTENT_SEARCH_MAX_OFFSET ? offset+limit : null,indexing:this.status};
   }
