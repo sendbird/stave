@@ -379,8 +379,6 @@ export interface AppState
     workspaceId: string;
     /** Bulk cleanup must stop if the workspace becomes active or awaits input. */
     onlyIfInactive?: boolean;
-    /** Defaults to true; the archive dialog lets the user opt out. */
-    deleteBranch?: boolean;
   }) => Promise<void>;
   switchWorkspace: (args: { workspaceId: string }) => Promise<void>;
   renameWorkspace: (args: {

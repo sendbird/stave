@@ -1,0 +1,23 @@
+import * as stylex from "@stylexjs/stylex";
+import { vars } from "@/components/aui/tokens/tokens.stylex";
+
+export const cleanupStyles = stylex.create({
+  dialog: { width: "min(68rem, 94vw)", maxWidth: "94vw", maxHeight: "90vh", display: "flex", flexDirection: "column", gap: vars["--aui-space-12"] },
+  toolbar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars["--aui-space-8"], flexWrap: "wrap" },
+  actions: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flexWrap: "wrap" },
+  list: { height: "42vh", minHeight: "12rem", overflowY: "auto", borderBlockWidth: 1, borderBlockStyle: "solid", borderBlockColor: vars["--aui-color-border"] },
+  heading: { paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-8"], backgroundColor: vars["--aui-color-surface"], color: vars["--aui-color-text"], fontWeight: 600 },
+  row: { display: "flex", alignItems: "center", gap: vars["--aui-space-12"], padding: vars["--aui-space-8"], borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border"], minWidth: 0 },
+  checkbox: { width: vars["--aui-control-height-xs"], height: vars["--aui-control-height-xs"], flexShrink: 0 },
+  selected: { backgroundColor: vars["--aui-color-selection-fill"] },
+  identity: { flex: 1, display: "grid", textAlign: "start", gap: vars["--aui-space-4"], minWidth: 0 },
+  truncate: { whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  muted: { whiteSpace: "normal", overflowWrap: "anywhere", color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"] },
+  status: { overflowWrap: "anywhere", fontSize: vars["--aui-font-size-caption"] },
+  size: { whiteSpace: "nowrap", fontVariantNumeric: "tabular-nums", fontSize: vars["--aui-font-size-caption"] },
+  history: { whiteSpace: "pre-wrap", overflowWrap: "anywhere", padding: vars["--aui-space-8"], borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border"] },
+  recent: { maxHeight: "14vh", overflowY: "auto" },
+  shelf: { display: "grid", gap: vars["--aui-space-4"], paddingInline: vars["--aui-space-8"], paddingBlock: vars["--aui-space-4"] },
+  rule: { display: "flex", alignItems: "center", gap: vars["--aui-space-12"], flexWrap: "wrap" },
+  number: { width: "6rem" },
+});

@@ -46,3 +46,32 @@ When changing project, workspace, task, worktree, hydration, or notification rou
 - `bun test tests/bridge-persistence-regression.test.ts`
 
 If the change touches workspace hydration, project registry loading, or task workspace ownership, do not merge without these checks.
+
+## Archive and cleanup
+
+Workspace lifecycle mutations are owned by the host cleanup runtime, through
+strict `workspaceCleanup` IPC contracts. Renderer state is a mirror, never the
+authority for filesystem removal or responsibility ownership. Every item is
+rechecked behind the execution admission barrier; a batch continues after a
+refusal and reports that item's reason. Worktree removal never forces Git.
+
+Archive preserves tasks, messages, turns and events in SQLite. The additive
+`workspace_archives` table stores repository/path/branch identity and archive
+time. `workspace_deletions` retains deleted IDs so delayed snapshots cannot
+resurrect permanently deleted history. Both tables are additive. An absent
+archive marker means active, so existing database files keep their
+data. Active summaries omit archived identities. Registry writes retain
+archive tombstones even if an older renderer attempts to save stale state.
+
+Restore recreates a clean checkout from the retained branch and clears both
+persisted and renderer tombstones. If the branch has disappeared, history
+remains archived and opens read-only; a new workspace may be seeded from that
+history after the user asks. Permanent deletion is a separate path using the
+existing cascading history deletion. Branch deletion defaults to `git branch
+-d`; only an explicit permanent-delete force option permits `-D`.
+
+Automatic cleanup is off by default and runs in the host at most hourly. It
+protects current/default workspaces, dirty or unpushed work, provider turns,
+active runs, scripts, terminals and unfinished responsibilities. Responsibility
+state and publication evidence are read in the host. Recorded cleanup results
+survive restart and remain available for inspection and restore.

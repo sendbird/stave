@@ -1185,6 +1185,10 @@
     "accounts": {
       "label": "계정",
       "description": "프로바이더에 로그인하고 과금 방식을 고릅니다."
+    },
+    "workspaces": {
+      "label": "워크스페이스",
+      "description": "보관, 복원 및 자동 정리 정책"
     }
   },
   "pages": {

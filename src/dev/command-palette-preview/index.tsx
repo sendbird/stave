@@ -1,3 +1,5 @@
+import { WorkspaceCleanupHost } from "@/components/layout/WorkspaceCleanupDialog";
+import { installCleanupFixture } from "./cleanup-fixture";
 import { applyAppLocale } from "@/i18n";
 import { useLayoutEffect, useMemo, useState } from "react";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
@@ -91,12 +93,14 @@ export function CommandPalettePreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
   const [ready, setReady] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(true);
   const context = useMemo(previewContext, []);
   useLayoutEffect(() => {
     applyAppLocale(params.get("lang") ?? "en");
     applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
     applyCustomTheme({ theme: builtinTheme });
     installSearchStub();
+    installCleanupFixture();
     const probe: PalettePreviewProbe = {
       openedTasks: [],
       settings: () => {
@@ -113,5 +117,5 @@ export function CommandPalettePreview() {
     } as Partial<ReturnType<typeof useAppStore.getState>>);
     setReady(true);
   }, [theme, builtinTheme]);
-  return ready ? <GlobalCommandPalette open onOpenChange={() => {}} runtimeContext={context} /> : null;
+  return ready ? <><GlobalCommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} runtimeContext={context} /><WorkspaceCleanupHost /></> : null;
 }

@@ -1195,6 +1195,10 @@
     "accounts": {
       "label": "Accounts",
       "description": "Sign in to providers and choose how you pay."
+    },
+    "workspaces": {
+      "label": "Workspaces",
+      "description": "Archive, restore and automatic cleanup policies"
     }
   },
   "pages": {

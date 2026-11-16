@@ -1202,3 +1202,24 @@ promote another task's inline render. `livePreview` is supported only on saved o
 local HTML artifacts. HTTP links must omit it. Root-relative asset paths require
 a static export with relative paths. Markdown copied outside Stave describes
 saved artifacts as local-only and omits their app-specific URI.
+
+## Workspace cleanup and restore
+
+Open **Clean up workspaces** from the command palette, a repository menu or
+the Fleet header. Review all repositories, suggested workspaces and branches,
+blockers and optional disk sizes. Select rows to archive, restore or delete.
+Archive removes a clean worktree while preserving its branch and history; use
+Undo or the Repositories view's Archived shelf to restore it. When a branch no
+longer exists, history opens read-only and can seed a new workspace draft.
+
+**Delete permanently** is separate and confirms removal of history and the
+clean worktree. Branch deletion is optional, safe by default; forcing an
+unmerged branch requires an unchecked-by-default confirmation.
+
+**Settings > Workspaces** provides independent, disabled-by-default cleanup
+rules for merged PRs, inactivity, archived worktrees and a per-repository
+worktree limit. The host evaluates them at most hourly; **Run cleanup now**
+evaluates them immediately. Current/default workspaces, uncommitted files,
+unpushed commits and running work remain protected. Recent cleanup records
+results and offers Restore for preserved history. Closing a tab with
+Cmd/Ctrl+W does not archive its task or workspace.

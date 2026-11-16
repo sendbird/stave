@@ -1,3 +1,4 @@
+import { openWorkspaceCleanup } from "./workspace-cleanup-events";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
@@ -205,7 +206,7 @@ function useCoarseClock() {
 }
 
 export function FleetView() {
-  const { t: tI18n } = useTranslation(["fleet"]);
+  const { t: tI18n } = useTranslation(["fleet", "workspace"]);
   useAgentAssignmentsSync();
   // One read when Fleet opens, for its owner labels; controls read ownership again.
   useTarsSnapshotRefresh();
@@ -719,6 +720,7 @@ export function FleetView() {
     <div className={sx(styles.root)}>
       <GlobalPageHeader title={tI18n("fleet:fleetView.fleetView")} description={tI18n("fleet:fleetView.fullWorkQueue")} titleIcon={<LayoutGrid />} meta={headerLiveCount > 0 ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount }) : tI18n("fleet:fleetView.noAgentTurnsInFlight")} actions={
         <div className={sx(styles.headerActions)}>
+          <Button size="sm" variant="ghost" onClick={openWorkspaceCleanup}>{tI18n("workspace:cleanupCenter.title")}</Button>
           <Button
             type="button"
             size="sm"

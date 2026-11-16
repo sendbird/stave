@@ -648,15 +648,15 @@ describe("resolveWorkspaceRowBranch", () => {
 });
 
 describe("buildWorkspaceArchiveDialogCopy", () => {
-  test("offers branch deletion for a Stave-managed worktree", () => {
+  test("keeps the branch and history for a managed worktree", () => {
     const copy = buildWorkspaceArchiveDialogCopy({
       workspaceName: "fix/archive",
       isLinkedWorktree: false,
     });
 
-    expect(copy.canDeleteBranch).toBe(true);
+    expect(copy.canDeleteBranch).toBe(false);
     expect(copy.description).toBe(
-      'Archive workspace "fix/archive"? Stave will remove the associated git worktree only when it is clean and will preserve local changes.',
+      'Archive workspace "fix/archive"? The clean worktree is removed. The branch, tasks, messages and history are kept. Restore it from Archived or Clean up workspaces.',
     );
   });
 
@@ -668,7 +668,7 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
 
     expect(copy.canDeleteBranch).toBe(false);
     expect(copy.description).toBe(
-      'Archive workspace "imported"? It is a linked worktree owned outside this repository, so Stave only removes its shortcut — the worktree and its git branch stay untouched.',
+      'Archive workspace "imported"? Its external worktree and branch are kept, along with all tasks, messages and history. Restore it from Archived or Clean up workspaces.',
     );
   });
 });

@@ -1,3 +1,4 @@
+import { openWorkspaceCleanup } from "./workspace-cleanup-events";
 import { i18n } from "@/i18n";
 import {
   Bot,
@@ -306,6 +307,15 @@ function formatWorkspaceTitle(args: { isDefault: boolean; name: string }) {
 }
 
 const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
+  {
+    id: "workspaces.cleanup",
+    get title() { return i18n.t("workspace:cleanupCenter.title"); },
+    get description() { return i18n.t("workspace:cleanupCenter.description"); },
+    group: "navigation",
+    icon: FolderOpen,
+    keywords: ["clean", "cleanup", "archive", "restore", "workspaces", "정리", "보관", "복원"],
+    build: () => ({ id: "workspaces.cleanup", title: i18n.t("workspace:cleanupCenter.title"), group: "navigation", icon: FolderOpen, keywords: ["cleanup", "archive", "restore"], run: openWorkspaceCleanup, source: "core" }),
+  },
   {
     id: "navigation.quick-open-file",
     get title() { return i18n.t("shell:commandPaletteRegistry.quickOpenFile"); },
