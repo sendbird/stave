@@ -1,3 +1,4 @@
+import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { workspaceCleanupBlocker } from "@/lib/workspace-cleanup";
@@ -233,7 +234,7 @@ export function createWorkspaceManagementActions(args: {
         if (!replacement) return;
         await get().switchWorkspace({ workspaceId: replacement.id });
       }
-      const result = await cleanup.act({ action: "archive", workspaceId, repositoryPath });
+      const result = await runWorkspaceCleanupAction(cleanup, { action: "archive", workspaceId, repositoryPath });
       if (!result.ok) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
       // Pick the replacement active workspace, ignoring the one being archived.
       const nextWorkspace =

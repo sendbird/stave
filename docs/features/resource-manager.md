@@ -67,9 +67,15 @@ Archive removes a clean managed worktree and preserves its branch and all
 conversation history. It removes the workspace from the sidebar and Fleet.
 Restore recreates the worktree when the branch exists. Otherwise it opens
 read-only history and offers to create a new workspace with a draft based on
-that history. Linked external worktrees are protected.
+that history. Archiving a linked workspace removes only its saved link and
+registry entry, preserving the external worktree and branch. Restore reapplies
+the original dependency link and initialization command; progress and failures
+are shown in the center. The Archived shelf reads saved records without running
+repository inspections.
 
-Permanent deletion confirms removal of history and the clean worktree. Branch
+Permanent deletion confirms removal of history and the clean worktree in a
+separate dialog. Cancel receives initial focus, Escape closes only that dialog,
+and Enter never confirms permanent deletion. Branch
 deletion is a separate choice, offered for merged or pushed branches. It uses
 safe deletion; force deletion of an unmerged branch requires explicit opt-in,
 off by default. Local remote-tracking evidence is used without fetching.
@@ -85,7 +91,8 @@ The host evaluates automatic cleanup at most hourly. Dirty files, unpushed
 commits, current/default workspaces and running work are protected. A workspace
 created for a responsibility is eligible only after that responsibility ends
 and no publication is waiting. **Recent cleanup** records automatic actions
-and provides Restore for retained history.
+and provides Restore for retained history. A failed automatic action is retried
+at most once per day for the same workspace and action.
 
 ## Limits
 

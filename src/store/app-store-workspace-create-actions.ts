@@ -267,6 +267,7 @@ export function createWorkspaceCreateActions(args: {
       await persistWorkspaceSnapshot({
         workspaceId,
         workspaceName: workspaceDisplayName,
+        creationOptions: { initCommand: workspaceInitCommand || undefined, useRootNodeModulesSymlink },
         activeTaskId: snapshot.activeTaskId,
         tasks: snapshot.tasks,
         messagesByTask: snapshot.messagesByTask,
@@ -568,6 +569,17 @@ export function createWorkspaceCreateActions(args: {
         repositoryPath,
         worktreePath: worktreeRoot,
       });
+      const cleanup = window.api?.workspaceCleanup;
+      const archived = (await cleanup?.listArchived?.() ?? []).find(row =>
+        row.repositoryPath === repositoryPath && comparableWorktreePaths.includes(normalizeComparablePath(row.path)));
+      if (archived && cleanup) {
+        const restored = await cleanup.act({ action: "restore", workspaceId: archived.id, repositoryPath });
+        if (!restored.ok) return { ok: false, message: i18n.t("workspace:cleanupCenter.unavailable") };
+        const { refreshWorkspaceCleanupRegistry } = await import("@/store/workspace-cleanup-sync");
+        await refreshWorkspaceCleanupRegistry();
+        await get().switchWorkspace({ workspaceId: archived.id });
+        return { ok: true };
+      }
       const creationNotices: Array<{
         level: "success" | "warning";
         message: string;

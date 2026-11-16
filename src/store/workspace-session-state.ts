@@ -830,6 +830,7 @@ export function createWorkspaceSnapshot(args: {
 }
 
 async function persistWorkspaceSnapshotNow(args: {
+  creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
   workspaceId: string;
   workspaceName: string;
   activeTaskId: string;
@@ -903,6 +904,7 @@ async function persistWorkspaceSnapshotNow(args: {
   await upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
+    creationOptions: args.creationOptions,
     snapshot: createWorkspaceSnapshot({
       activeTaskId: mergedActiveTaskId,
       tasks: mergedTasks,

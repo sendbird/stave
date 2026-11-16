@@ -40,3 +40,27 @@ test("execution contract rejects unknown actions and fields", () => {
   expect(WorkspaceExecutionArgsSchema.safeParse({ ...target, action: "delete" }).success).toBe(false);
   expect(WorkspaceExecutionArgsSchema.safeParse({ ...target, action: "stop", force: true }).success).toBe(false);
 });
+
+test("unscoped admission ignores archives and archive ownership is cached until invalidated", () => {
+  const gate = new WorkspaceExecutionGate();
+  let reads = 0;
+  let records = [target];
+  gate.setArchiveReader(() => { reads++; return records; });
+  expect(() => gate.acquire({})).not.toThrow();
+  expect(() => gate.acquire({ workspaceId: "other" })).not.toThrow();
+  expect(() => gate.acquire({ workspaceId: "w" })).toThrow("archived");
+  expect(() => gate.acquire({ cwd: "/tmp/workspace/child" })).toThrow("archived");
+  expect(reads).toBe(1);
+  records = [];
+  gate.invalidateArchives();
+  expect(() => gate.acquire({ workspaceId: "w" })).not.toThrow();
+  expect(reads).toBe(2);
+});
+
+test("deleted workspace identities are refused without blocking unscoped work", () => {
+  const gate = new WorkspaceExecutionGate();
+  gate.setDeletionReader(() => ["deleted"]);
+  expect(() => gate.assertAllowed({ workspaceId: "deleted" })).toThrow("permanently deleted");
+  expect(() => gate.assertAllowed({})).not.toThrow();
+  expect(() => gate.assertAllowed({ workspaceId: "other" })).not.toThrow();
+});

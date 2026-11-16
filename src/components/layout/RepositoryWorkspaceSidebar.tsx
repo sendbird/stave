@@ -1,3 +1,4 @@
+import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
 import { toast } from "@/lib/notifications/toast";
 import { ArchivedWorkspaceShelf } from "./ArchivedWorkspaceShelf";
 import { openWorkspaceCleanup } from "./workspace-cleanup-events";
@@ -1826,8 +1827,8 @@ export function RepositoryWorkspaceSidebar(args: {
           setClosingWorkspaceId(workspaceToClose.id);
           void closeWorkspace({
             workspaceId: workspaceToClose.id,
-          }).catch(() => {
-            toast.error(tI18n("workspace:cleanupCenter.archiveRefused"));
+          }).catch((error: unknown) => {
+            toast.error(tI18n("workspace:cleanupCenter.archiveRefusedWithReason", { reason: workspaceCleanupReasonText(error instanceof Error ? error.message : "cleanupFailed") }));
           }).finally(() => {
             setClosingWorkspaceId(null);
             setWorkspaceToClose(null);

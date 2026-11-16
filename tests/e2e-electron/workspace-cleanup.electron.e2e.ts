@@ -91,6 +91,11 @@ test("archive and restore preserve history across restart, missing branches stay
       expect(existsSync(worktrees[id]!)).toBe(false);
       expect(git(repositoryPath, "show-ref", "--verify", `refs/heads/${id}`)).toContain(`refs/heads/${id}`);
       expect(await messages(stave.page, id)).toEqual([`History ${id}`]);
+      // Reproduce the destructive request emitted by a stale pre-archive snapshot.
+      expect(await stave.page.evaluate(workspaceId => window.api.persistence!.closeWorkspace!({ workspaceId }), id)).toMatchObject({ ok: false });
+      expect(await messages(stave.page, id)).toEqual([`History ${id}`]);
+      expect((await stave.page.evaluate(() => window.api.workspaceCleanup!.listArchived())).some(row => row.id === id)).toBe(true);
+
     }
     await stave.close();
     stave = await launchStave({ userDataDir: profile });

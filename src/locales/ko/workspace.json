@@ -1437,10 +1437,17 @@
       "branchDeleteFailed": "브랜치 삭제 실패",
       "cleanupFailed": "정리 실패",
       "responsibilityRunning": "담당 작업 진행 중",
-      "inactive_other": "{{count}}일 동안 사용하지 않음"
+      "inactive_other": "{{count}}일 동안 사용하지 않음",
+      "dependencyLinkFailed": "의존성 링크를 복원하지 못했습니다",
+      "pendingAttention": "확인 대기 중",
+      "openTerminal": "열린 터미널을 닫아 주세요",
+      "workspacePreparationFailed": "워크스페이스 초기화에 실패했습니다. 복원으로 다시 시도해 주세요."
     },
     "historyTitle": "읽기 전용 워크스페이스 기록",
     "historyDescription": "브랜치를 찾을 수 없습니다. 기록은 유지됩니다. 계속 작업하려면 새 워크스페이스를 만드세요.",
-    "createFromHistory": "이 기록에서 워크스페이스 만들기"
+    "createFromHistory": "이 기록에서 워크스페이스 만들기",
+    "workspaceUnavailable": "이전 워크스페이스",
+    "preparing": "워크스페이스 준비 중: {{command}}",
+    "archiveRefusedWithReason": "워크스페이스를 보관하지 못했습니다: {{reason}}."
   }
 }

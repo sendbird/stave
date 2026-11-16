@@ -232,6 +232,13 @@ export class LensReviewRecordStore {
     });
   }
 
+  /** Remove rows inside the caller's transaction; dispose files only after commit. */
+  deleteWorkspaceRows(workspaceId: string): () => Promise<void> {
+    const paths = this.pathsWhere("workspace_id = ?", workspaceId);
+    this.db.prepare("DELETE FROM lens_review_records WHERE workspace_id = ?").run(workspaceId);
+    return () => this.removeFiles(paths);
+  }
+
   deleteWorkspace(workspaceId: string): Promise<void> {
     return this.serialize(async () => {
       const paths = this.pathsWhere("workspace_id = ?", workspaceId);

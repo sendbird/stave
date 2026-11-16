@@ -10,6 +10,7 @@ export interface ArchivedWorkspaceRecord {
   name: string;
   archivedAt: string;
   readOnly: boolean;
+  creationOptions?: { useRootNodeModulesSymlink: boolean; initCommand?: string; linkedWorktree?: boolean };
 }
 
 /** Archive identity is separate from history; an absent marker means active. */
@@ -27,17 +28,19 @@ export class WorkspaceArchiveStore {
     CREATE TABLE IF NOT EXISTS workspace_deletions (workspace_id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS idx_workspace_archives_repository
       ON workspace_archives(repository_path, archived_at);`);
+    const columns = db.prepare("PRAGMA table_info(workspace_archives)").all() as {name:string}[];
+    if (!columns.some(column => column.name === "creation_options_json")) db.exec("ALTER TABLE workspace_archives ADD COLUMN creation_options_json TEXT");
   }
 
   list(args: { repositoryPath?: string } = {}): ArchivedWorkspaceRecord[] {
     return this.db.prepare(`SELECT workspace_id AS workspaceId,
       repository_path AS repositoryPath, path, branch, name,
-      archived_at AS archivedAt, read_only AS readOnly FROM workspace_archives
+      archived_at AS archivedAt, read_only AS readOnly, creation_options_json AS creationOptionsJson FROM workspace_archives
       ${args.repositoryPath === undefined ? "" : "WHERE repository_path = ?"}
       ORDER BY archived_at DESC`).all(...(args.repositoryPath === undefined ? [] : [args.repositoryPath]))
       .map((row) => {
-        const record = row as Omit<ArchivedWorkspaceRecord, "readOnly"> & { readOnly: number };
-        return { ...record, readOnly: Boolean(record.readOnly) };
+        const {creationOptionsJson, ...record} = row as Omit<ArchivedWorkspaceRecord, "readOnly"> & { readOnly: number; creationOptionsJson: string | null };
+        return { ...record, readOnly: Boolean(record.readOnly), ...(creationOptionsJson ? {creationOptions:JSON.parse(creationOptionsJson)} : {}) };
       });
   }
 
@@ -45,8 +48,7 @@ export class WorkspaceArchiveStore {
   protectRegistry(repositories: PersistenceRepositoryRegistryEntry[]): PersistenceRepositoryRegistryEntry[] {
     const archived = this.list();
     const deleted = new Set((this.db.prepare("SELECT workspace_id FROM workspace_deletions").all() as Array<{ workspace_id: string }>).map(row => row.workspace_id));
-    if (archived.length === 0 && deleted.size === 0) return repositories;
-    const persisted = this.registry();
+
     return repositories.map((repository) => {
       const records = archived.filter((record) => record.repositoryPath === repository.repositoryPath);
       const ids = new Set([...deleted, ...records.map((record) => record.workspaceId)]);
@@ -57,7 +59,7 @@ export class WorkspaceArchiveStore {
         workspacePathById: withoutArchived(repository.workspacePathById),
         workspaceBranchById: withoutArchived(repository.workspaceBranchById),
         workspaceDefaultById: withoutArchived(repository.workspaceDefaultById),
-        archivedWorkspacePaths: [...new Set([...(persisted.find(entry => entry.repositoryPath === repository.repositoryPath)?.archivedWorkspacePaths ?? []), ...(repository.archivedWorkspacePaths ?? []), ...records.map((record) => record.path)])] };
+        archivedWorkspacePaths: records.map(record => record.path) };
     });
   }
 
@@ -72,7 +74,7 @@ export class WorkspaceArchiveStore {
       .run(JSON.stringify(repositories), new Date().toISOString());
   }
 
-  archive(args: { workspaceId: string; repositoryPath: string; path: string; branch: string; name: string }): ArchivedWorkspaceRecord {
+  archive(args: { workspaceId: string; repositoryPath: string; path: string; branch: string; name: string; creationOptions?: ArchivedWorkspaceRecord["creationOptions"] }): ArchivedWorkspaceRecord {
     return this.db.transaction(() => {
       const existing = this.list().find((record) => record.workspaceId === args.workspaceId);
       if (existing) return existing;
@@ -89,15 +91,28 @@ export class WorkspaceArchiveStore {
         throw new Error("Cannot archive the default workspace");
       }
       const archivedAt = new Date().toISOString();
-      this.db.prepare(`INSERT INTO workspace_archives(workspace_id,repository_path,path,branch,name,archived_at)
-        VALUES(?,?,?,?,?,?)`).run(args.workspaceId,args.repositoryPath,args.path,args.branch,args.name,archivedAt);
+      this.db.prepare(`INSERT INTO workspace_archives(workspace_id,repository_path,path,branch,name,archived_at,creation_options_json)
+        VALUES(?,?,?,?,?,?,?)`).run(args.workspaceId,args.repositoryPath,args.path,args.branch,args.name,archivedAt, args.creationOptions ? JSON.stringify(args.creationOptions) : null);
       repository.workspaces = repository.workspaces.filter((workspace) => workspace.id !== args.workspaceId);
+      if (args.creationOptions?.linkedWorktree) repository.linkedWorkspacePaths = (repository.linkedWorkspacePaths ?? []).filter(entry => normalizeComparablePath(entry) !== normalizeComparablePath(args.path));
       for (const map of [repository.workspacePathById, repository.workspaceBranchById, repository.workspaceDefaultById]) delete map[args.workspaceId];
       repository.archivedWorkspacePaths = [...new Set([...(repository.archivedWorkspacePaths ?? []),args.path])];
       if (repository.activeWorkspaceId === args.workspaceId) repository.activeWorkspaceId = repository.workspaces[0]?.id ?? "";
       this.saveRegistry(repositories);
       return { ...args, archivedAt, readOnly: false };
     }).immediate();
+  }
+
+  listIdentities(): {workspaceId:string;repositoryPath:string}[] {
+    return this.db.prepare("SELECT workspace_id AS workspaceId, repository_path AS repositoryPath FROM workspace_archives").all() as {workspaceId:string;repositoryPath:string}[];
+  }
+
+  listDeletedIds(): string[] {
+    return (this.db.prepare("SELECT workspace_id FROM workspace_deletions").all() as {workspace_id:string}[]).map(row=>row.workspace_id);
+  }
+
+  assertNotDeleted(workspaceId: string) {
+    if (this.db.prepare("SELECT 1 FROM workspace_deletions WHERE workspace_id = ?").get(workspaceId)) throw new Error("Workspace history was permanently deleted");
   }
 
   isWriteProtected(workspaceId: string): boolean {
@@ -114,7 +129,7 @@ export class WorkspaceArchiveStore {
       if (!workspacePath && !repository.workspaces.some((workspace) => workspace.id === workspaceId)) continue;
       repository.workspaces = repository.workspaces.filter((workspace) => workspace.id !== workspaceId);
       for (const map of [repository.workspacePathById, repository.workspaceBranchById, repository.workspaceDefaultById]) delete map[workspaceId];
-      if (workspacePath) repository.archivedWorkspacePaths = [...new Set([...(repository.archivedWorkspacePaths ?? []), workspacePath])];
+      if (workspacePath) repository.archivedWorkspacePaths = (repository.archivedWorkspacePaths ?? []).filter(entry => normalizeComparablePath(entry) !== normalizeComparablePath(workspacePath));
       if (repository.activeWorkspaceId === workspaceId) repository.activeWorkspaceId = repository.workspaces[0]?.id ?? "";
     }
     this.saveRegistry(repositories);
@@ -147,6 +162,7 @@ export class WorkspaceArchiveStore {
       repository.workspacePathById[record.workspaceId] = record.path;
       repository.workspaceBranchById[record.workspaceId] = record.branch;
       repository.workspaceDefaultById[record.workspaceId] = false;
+      if (record.creationOptions?.linkedWorktree) repository.linkedWorkspacePaths = [...new Set([...(repository.linkedWorkspacePaths ?? []),record.path])];
       repository.archivedWorkspacePaths = (repository.archivedWorkspacePaths ?? []).filter((entry) =>
         normalizeComparablePath(entry) !== normalizeComparablePath(record.path));
       this.saveRegistry(repositories);
