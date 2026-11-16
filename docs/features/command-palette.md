@@ -205,3 +205,5 @@ press `Cmd/Ctrl+/` or run **Open keyboard shortcuts** from the palette.
 - [Integrated Terminal](integrated-terminal.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
 - [AgentRuns](agent-runs.md)
+
+Message search also includes archived workspaces. These hits show Archived and open a read-only history view. Restore restores the workspace through the cleanup center before returning to an editable task. Permanent workspace deletion removes its message-search index entries.

@@ -8,12 +8,8 @@ for (const scope of ["task", "workspace"]) test(`permanent ${scope} deletion sha
   mkdirSync("test-results", { recursive: true });
   const root = mkdtempSync(path.resolve("test-results/orchestration-delete-"));
   try {
-    const bundle = await Bun.build({
-      entrypoints: [path.resolve("tests/fixtures/orchestration-delete-scope.ts")],
-      target: "node", format: "cjs", outdir: root, naming: "check.cjs",
-      external: ["better-sqlite3"], define: { "import.meta.env.BASE_URL": '"/"' },
-    });
-    if (!bundle.success) throw new Error(bundle.logs.join("\n"));
+    const bundle = spawnSync(process.execPath, ["build", path.resolve("tests/fixtures/orchestration-delete-scope.ts"), "--target=node", "--format=cjs", "--outfile", path.join(root,"check.cjs"), "--external=better-sqlite3", '--define=import.meta.env.BASE_URL="/"'], {encoding:"utf8"});
+    if (bundle.status !== 0) throw new Error(bundle.stdout + bundle.stderr);
     const require = createRequire(import.meta.url);
     const result = spawnSync(require("electron"), [path.join(root, "check.cjs"), path.join(root, "store.sqlite"), scope], {
       env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_PATH: path.resolve("node_modules") }, encoding: "utf8",

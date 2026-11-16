@@ -1275,3 +1275,5 @@ evaluates them immediately. Current/default workspaces, uncommitted files,
 unpushed commits and running work remain protected. Recent cleanup records
 results and offers Restore for preserved history. Closing a tab with
 Cmd/Ctrl+W does not archive its task or workspace.
+
+Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
