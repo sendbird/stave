@@ -25,11 +25,11 @@ try {
   let store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
   let now = Date.parse("2026-11-16T00:00:00Z");
   let workspaceId = "feature";
-  const registry = () => ({ repositoryPath: repo, repositoryName: "Repository", lastOpenedAt: "2026-01-01", defaultBranch: "main", workspaces: [{ id: "base", name: "Default", updatedAt: "2026-01-01" }, { id: workspaceId, name: "Feature", updatedAt: "2026-01-01" }], activeWorkspaceId: "base", workspacePathById: { base: repo, [workspaceId]: path }, workspaceBranchById: { base: "main", [workspaceId]: "feature" }, workspaceDefaultById: { base: true, [workspaceId]: false } });
+  const registry = () => ({ repositoryPath: repo, repositoryName: "Repository", lastOpenedAt: "2026-01-01", defaultBranch: "main", workspaces: [{ id: "base", name: "Default", updatedAt: "2026-01-01" }, { id: workspaceId, name: "Feature", updatedAt: "2026-01-01" }], activeWorkspaceId: "base", workspacePathById: { base: repo, [workspaceId]: path }, workspaceBranchById: { base: "main", [workspaceId]: "feature" }, workspaceDefaultById: { base: true, [workspaceId]: false }, workspaceLastActiveAtById: { [workspaceId]: "2026-01-01T00:00:00Z" }, linkedWorkspacePaths: [join(root, "external-linked")] });
   store.saveRepositoryRegistry({ repositories: [registry()] });
   store.upsertWorkspace({ id: "feature", name: "Feature", snapshot: { activeTaskId: "task", tasks: [{ id: "task", title: "Task", provider: "codex", updatedAt: "2026-01-01T00:00:00Z", unread: false }], messagesByTask: { task: [{ id: "message", role: "user", model: "user", providerId: "user", content: "Keep history", parts: [] }] } } });
   let terminals = false;
-  // Only the PTY observation and PR service are faked; Git, registry, history and policy persistence are real.
+  // Only the PTY observation, PR service and clock are faked; Git, registry, history and policy persistence are real.
   const prTimes = new Map<string, string | null>();
   const prStates = new Map<string, "OPEN" | "MERGED">();
   const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => terminals, now: () => now,
@@ -77,6 +77,11 @@ try {
     if (guard === "unpushed") git(path, "reset", "--hard", "main");
     store.saveRepositoryRegistry({ repositories: [registry()] });
   }
+  // A repository's remembered selection is not the application's current workspace.
+  store.updateRepositoryRegistry(repositories => { repositories[0]!.activeWorkspaceId = "feature"; return { repositories, result: undefined }; });
+  store.saveRepositoryRegistry({ repositories: store.loadRepositoryRegistry(), activeRepositoryPath: null });
+  assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.blockers.includes("currentWorkspace"), false);
+  store.saveRepositoryRegistry({ repositories: [registry()], activeRepositoryPath: repo });
   runtime.configure(DEFAULT_WORKSPACE_CLEANUP_POLICY);
   // Denied permanent branch deletion keeps both history and checkout.
   git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: unmerged");
@@ -152,6 +157,8 @@ try {
   workspaceExecutionGate.resume("automatic-one");
   workspaceExecutionGate.resume("restorable");
   workspaceExecutionGate.setArchiveReader(() => []);
+  assert.equal(store.loadRepositoryRegistry()[0]!.workspaceLastActiveAtById?.restorable, "2026-01-01T00:00:00Z");
+  assert.deepEqual(store.loadRepositoryRegistry()[0]!.linkedWorkspacePaths, [join(root, "external-linked")]);
   const restarted = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => false, now: () => now });
   assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "automatic-one", cwd: automaticPath }), /archived/);
   assert.throws(() => workspaceExecutionGate.acquire({ workspaceId: "restorable", cwd: path }), /archived/);

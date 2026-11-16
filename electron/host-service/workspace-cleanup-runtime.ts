@@ -65,12 +65,14 @@ export function createWorkspaceCleanupRuntime(ports: {
     const repository = store.loadRepositoryRegistry().find(repo => canonical(repo.repositoryPath) === canonical(row.repositoryPath));
     const reasons: string[] = [];
     if (!repository) return ["ownershipChanged"];
+    const selectedPath = store.loadActiveRepositoryPath();
+    const selectedRepository = selectedPath === undefined || (typeof selectedPath === "string" && canonical(selectedPath) === canonical(repository.repositoryPath));
     if (row.path && canonical(row.path) === canonical(row.repositoryPath)) reasons.push("defaultWorkspace");
-    if (row.path && repository.activeWorkspaceId !== row.id && canonical(repository.workspacePathById[repository.activeWorkspaceId] ?? "") === canonical(row.path)) reasons.push("currentWorkspace");
+    if (selectedRepository && row.path && repository.activeWorkspaceId !== row.id && canonical(repository.workspacePathById[repository.activeWorkspaceId] ?? "") === canonical(row.path)) reasons.push("currentWorkspace");
     if (!row.archived && !row.branchOnly) {
       if (!repository.workspaces.some(workspace => workspace.id === row.id) || canonical(repository.workspacePathById[row.id] ?? "") !== canonical(row.path)) reasons.push("ownershipChanged");
       if (repository.workspaceDefaultById[row.id] || canonical(row.path) === canonical(row.repositoryPath)) reasons.push("defaultWorkspace");
-      if (repository.activeWorkspaceId === row.id) reasons.push("currentWorkspace");
+      if (selectedRepository && repository.activeWorkspaceId === row.id) reasons.push("currentWorkspace");
     }
     if (!row.branchOnly && workspaceExecutionGate.isBusy({ workspaceId: row.id, workspacePath: row.path })) reasons.push("runningTurn");
     if (ports.hasTerminals(row.id)) reasons.push("terminalOpen");
@@ -86,7 +88,7 @@ export function createWorkspaceCleanupRuntime(ports: {
   }
   async function inspect(row: WorkspaceCleanupRow, scanDisk = false, checkPr = false): Promise<WorkspaceCleanupRow> {
     const blockers = hostBlockers(row);
-    const reasons: string[] = [];
+    const reasons: string[] = [...row.reasons];
     let branchDeletable = false;
     const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath);
     const branchRef = `refs/heads/${row.branch}`;
@@ -149,7 +151,7 @@ export function createWorkspaceCleanupRuntime(ports: {
         const [branch, tracking] = line.split("\t");
         if (!branch || branch === repository.defaultBranch || owned.has(branch)) continue;
         if (!mergedNames.has(branch) && tracking !== "[gone]") continue;
-        rows.push({ ...base, id: `branch:${branch}`, name: branch, path: "", branch, archived: false, readOnly: false, branchOnly: true, archivedAt: null, lastActive: null });
+        rows.push({ ...base, id: `branch:${branch}`, name: branch, path: "", branch, reasons: tracking === "[gone]" ? ["remoteBranchGone"] : [], archived: false, readOnly: false, branchOnly: true, archivedAt: null, lastActive: null });
       }
     }
     const candidates = target ? rows.filter(row => row.id === target.id) : rows;

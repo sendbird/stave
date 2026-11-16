@@ -195,6 +195,10 @@ export interface PersistenceRepositoryRegistryEntry {
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
+  /** Recorded user/turn activity; shell snapshot writes are not activity. */
+  workspaceLastActiveAtById?: Record<string, string>;
+  /** Externally owned worktrees must never be removed by workspace cleanup. */
+  linkedWorkspacePaths?: string[];
   repositoryBasePrompt?: string;
   /** Free-text branch naming rule saved in repository settings; kickoff and Tars follow it. */
   kickoffBranchNamingRule?: string;

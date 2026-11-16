@@ -30,13 +30,28 @@ export function keepUnseenWorkspaces(args: {
     const unseen = persisted.workspaces.filter((workspace) => Boolean(workspace?.id) && !known.has(workspace.id) &&
       Boolean(persistedPaths[workspace.id]) && !taken.has(comparablePath(persistedPaths[workspace.id])) &&
       args.workspaceExists(workspace.id));
-    if (unseen.length === 0) return repository;
+    const retainedIds = new Set([...known, ...unseen.map(workspace => workspace.id)]);
+    const activity = { ...(repository.workspaceLastActiveAtById ?? {}) };
+    for (const [id, timestamp] of Object.entries(persisted.workspaceLastActiveAtById ?? {})) {
+      if (!retainedIds.has(id) || !Number.isFinite(Date.parse(timestamp))) continue;
+      const incoming = Date.parse(activity[id] ?? "");
+      if (!Number.isFinite(incoming) || Date.parse(timestamp) > incoming) activity[id] = timestamp;
+    }
+    const retainedPaths = new Set([...Object.values(repository.workspacePathById), ...unseen.map(workspace => persistedPaths[workspace.id])].map(comparablePath));
+    const linkedPaths = [...new Set([...(repository.linkedWorkspacePaths ?? []), ...(persisted.linkedWorkspacePaths ?? [])])]
+      .filter(path => retainedPaths.has(comparablePath(path)));
+    if (unseen.length === 0) return { ...repository,
+      ...(Object.keys(activity).length ? { workspaceLastActiveAtById: activity } : {}),
+      ...(linkedPaths.length ? { linkedWorkspacePaths: linkedPaths } : {}),
+    };
     const next = {
       ...repository,
       workspaces: [...repository.workspaces, ...unseen],
       workspaceBranchById: { ...repository.workspaceBranchById },
       workspacePathById: { ...repository.workspacePathById },
       workspaceDefaultById: { ...repository.workspaceDefaultById },
+      ...(Object.keys(activity).length ? { workspaceLastActiveAtById: activity } : {}),
+      ...(linkedPaths.length ? { linkedWorkspacePaths: linkedPaths } : {}),
     };
     for (const { id } of unseen) {
       next.workspacePathById[id] = persistedPaths[id]!;

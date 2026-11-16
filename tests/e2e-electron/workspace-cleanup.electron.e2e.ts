@@ -14,6 +14,23 @@ const act = (page: Page, args: WorkspaceCleanupActArgs) => page.evaluate(input =
 const messages = (page: Page, workspaceId: string) => page.evaluate(async id =>
   (await window.api.persistence!.loadTaskMessages!({ workspaceId: id, taskId: `task-${id}`, limit: 20 })).page?.messages.map(message => message.content) ?? [], workspaceId);
 
+// DOMContentLoaded precedes workspace hydration. Wait on the same usable shell
+// control as the shared harness, then inspect Git-backed cleanup once. Polling
+// the whole disk/Git scan puts its execution time inside the polling deadline.
+async function workspaceShellReady(page: Page) {
+  await expect(page.getByRole("button", { name: "Lens", exact: true })).toBeEnabled();
+}
+
+async function expectArchivedExecutionDenied(page: Page, workspaceId: string, workspacePath: string, cwd: string) {
+  const result = await page.evaluate(async input => {
+    const result = await window.api.terminal!.createSession!({ ...input, taskId: null, taskTitle: null, terminalTabId: "archived-admission" });
+    if (result.ok && result.sessionId) await window.api.terminal!.closeSession!({ sessionId: result.sessionId });
+    return result;
+  }, { workspaceId, workspacePath, cwd });
+  expect(result.ok).toBe(false);
+  expect(JSON.stringify(result)).toContain("Workspace history is archived");
+}
+
 test("archive and restore preserve history across restart, missing branches stay read-only, permanent deletion requires opt-in", async () => {
   test.setTimeout(240_000);
   const directory = await mkdtemp(path.join(tmpdir(), "stave-cleanup-e2e-"));
@@ -66,7 +83,8 @@ test("archive and restore preserve history across restart, missing branches stay
     const require = createRequire(import.meta.url);
     execFileSync(require("electron"), [fixtureBundle], { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_PATH: path.dirname(path.dirname(require.resolve("better-sqlite3/package.json"))) }, stdio: "pipe" });
     stave = await launchStave({ userDataDir: profile });
-    await expect.poll(async () => (await stave!.page.evaluate(() => window.api.workspaceCleanup!.list())).rows.filter(row => ids.includes(row.id)).map(row => row.id).sort()).toEqual([...ids].sort());
+    await workspaceShellReady(stave.page);
+    expect((await stave.page.evaluate(() => window.api.workspaceCleanup!.list())).rows.filter(row => ids.includes(row.id)).map(row => row.id).sort()).toEqual([...ids].sort());
     for (const id of ids.slice(0, 2)) {
       const result = await act(stave.page, { action: "archive", workspaceId: id, repositoryPath });
       expect(result, JSON.stringify(result)).toMatchObject({ ok: true });
@@ -76,7 +94,9 @@ test("archive and restore preserve history across restart, missing branches stay
     }
     await stave.close();
     stave = await launchStave({ userDataDir: profile });
-    await expect.poll(async () => (await stave!.page.evaluate(() => window.api.workspaceCleanup!.list())).rows.filter(row => row.archived).map(row => row.id).sort()).toEqual(["restore-branch", "restore-history"]);
+    await workspaceShellReady(stave.page);
+    expect((await stave.page.evaluate(() => window.api.workspaceCleanup!.list())).rows.filter(row => row.archived).map(row => row.id).sort()).toEqual(["restore-branch", "restore-history"]);
+    await expectArchivedExecutionDenied(stave.page, "restore-branch", worktrees["restore-branch"]!, repositoryPath);
     expect(await messages(stave.page, "restore-branch")).toEqual(["History restore-branch"]);
     expect(await act(stave.page, { action: "restore", workspaceId: "restore-branch", repositoryPath })).toMatchObject({ ok: true, readOnly: false });
     expect(existsSync(worktrees["restore-branch"]!)).toBe(true);
@@ -84,6 +104,10 @@ test("archive and restore preserve history across restart, missing branches stay
     expect(await act(stave.page, { action: "restore", workspaceId: "restore-history", repositoryPath })).toMatchObject({ ok: true, readOnly: true });
     expect(existsSync(worktrees["restore-history"]!)).toBe(false);
     expect(await messages(stave.page, "restore-history")).toEqual(["History restore-history"]);
+    await stave.close();
+    stave = await launchStave({ userDataDir: profile });
+    await workspaceShellReady(stave.page);
+    await expectArchivedExecutionDenied(stave.page, "restore-history", worktrees["restore-history"]!, repositoryPath);
     const historyRow = (await stave.page.evaluate(() => window.api.workspaceCleanup!.list())).rows.find(row => row.id === "restore-history");
     expect(historyRow).toMatchObject({ archived: true, readOnly: true });
     const denied = await act(stave.page, { action: "delete", workspaceId: "delete-unmerged", repositoryPath, deleteBranch: true });

@@ -1419,6 +1419,7 @@
       "checksUnavailable": "안전 검사 불가",
       "responsibilityEnded": "담당 작업 종료",
       "prMerged": "PR 병합됨",
+      "remoteBranchGone": "원격 브랜치가 삭제됨",
       "branchMerged": "브랜치 병합됨",
       "publicationPending": "게시 대기 중인 초안 PR",
       "tarsActive": "담당 작업 진행 중",

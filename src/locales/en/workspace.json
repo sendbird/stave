@@ -1449,6 +1449,7 @@
       "checksUnavailable": "Safety checks unavailable",
       "responsibilityEnded": "Assigned work ended",
       "prMerged": "PR merged",
+      "remoteBranchGone": "Remote branch gone",
       "branchMerged": "Branch merged",
       "publicationPending": "Draft PR waiting to publish",
       "tarsActive": "Assigned work is active",
