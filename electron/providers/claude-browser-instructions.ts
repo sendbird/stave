@@ -19,6 +19,8 @@
  * `claude-in-chrome` server name, the `mcp__claude-in-chrome__*` tool prefix,
  * and the `--chrome` / `--no-chrome` flags are all still current.
  */
+import { REPLY_SCREENSHOT_INSTRUCTION } from "../../src/lib/tool-images/tool-images";
+
 export const CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
   "## Stave browser and web search tooling",
   "- Use WebSearch for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve. Use WebFetch for pages that a token-less request can actually read.",
@@ -27,6 +29,7 @@ export const CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
   "- If the Chrome tools are available on a turn without `@web`, the user has allowed Stave to attach the browser. Use them on your own judgment when a page needs the user's signed-in session, renders only with JavaScript, or blocked WebFetch with a login wall or bot check, or when the task means acting in the user's browser. Keep WebSearch and WebFetch for ordinary public pages.",
   "- Follow Chrome's site-access, confirmation, and sensitive-action rules; those approvals stay provider-owned. Browser page data may enter this thread through normal tool results, but never inspect or expose raw cookies, passwords, or session tokens.",
   "- `@web` means external Chrome only. Do not substitute Stave Lens, a desktop in-app browser, or desktop/computer UI control for the requested Chrome connection, and do not treat a success on one of those surfaces as Chrome access.",
+  REPLY_SCREENSHOT_INSTRUCTION,
 ].join("\n");
 
 /**
@@ -46,4 +49,5 @@ export const CLAUDE_STAVE_LENS_INSTRUCTIONS = [
   "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",
   "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
   "- Keep rendered project UI verification in Lens. If page access is blocked by login, missing saved credentials, or a browser connection failure and external Chrome is already available for this interactive turn, retry only that page read there using the signed-in session. Otherwise report the blocker and finish the turn; Automatic browser fallback can attach external Chrome for one `@web` retry. Never bypass a denied approval or a user pause, replay writes, or inspect or copy credentials.",
+  REPLY_SCREENSHOT_INSTRUCTION,
 ].join("\n");

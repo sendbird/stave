@@ -884,7 +884,9 @@
   },
   "toolOutputImages": {
     "label": "Image {{index}}",
-    "open": "Open {{label}} full size",
+    "open": "Open {{label}} at original size",
+    "attached_one": "{{count}} image attached to this reply",
+    "attached_other": "{{count}} images attached to this reply",
     "loading": "Loading image…",
     "missing": "This image is no longer available."
   },

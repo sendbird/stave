@@ -41,6 +41,12 @@ same `ChatMessage.parts` shape before UI rendering.
   prose on the rail, not a disclosure.
 - Individual steps may still be opened and closed independently.
 - `MessageResponse` renders only the final text response area below the trace.
+- Images the assistant's own tool calls returned (Lens or Chrome screenshots)
+  are attached under the finished reply as small numbered thumbnails
+  (`Image 1`, `Image 2`; Korean `사진 1`), in call order. A click opens one at
+  original pixel size in a scrolling dialog. Tool steps in the trace use the
+  same numbers, and the provider instructions tell the model to name
+  screenshots that way.
 - Interim assistant text rendered outside the trace is user-configurable in
   Settings → Chat and defaults to hidden.
 - The assistant footer captures model information per turn instead of reading

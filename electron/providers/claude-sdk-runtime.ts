@@ -145,6 +145,7 @@ import {
   toClaudeSdkMcpServerConfig,
 } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
+import { storeWorkspaceToolResultImages } from "./claude-tool-result-image-store";
 import { createClaudeMcpAppViewCapture } from "./claude-mcp-app-views";
 import {
   buildClaudeBackgroundHoldNotice,
@@ -3991,7 +3992,7 @@ export async function streamClaudeWithSdk(
       let normalizedEvents = [
         ...trackModelResolution(message),
         ...mapClaudeMessageToEvents({
-          message,
+          message: secondaryReadOnly ? message : await storeWorkspaceToolResultImages(message, args.workspaceId),
           claudeDebugStream,
           cwd: runtimeCwd,
           ownerAgentIdResolver: subagentTracker,
