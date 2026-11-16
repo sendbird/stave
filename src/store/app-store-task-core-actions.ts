@@ -199,7 +199,7 @@ export function createTaskCoreActions(args: {
         const stateAfterWorkspaceOpen = get();
         // Search can reveal archived conversations without changing their archive state.
         if (
-          messageId &&
+          (messageId || searchQuery) &&
           stateAfterWorkspaceOpen.tasks.some((task) => task.id === taskId)
         ) {
           set((state) => ({
@@ -209,7 +209,11 @@ export function createTaskCoreActions(args: {
             openTaskTabIds: state.openTaskTabIds.includes(taskId)
               ? state.openTaskTabIds
               : [...state.openTaskTabIds, taskId],
+            workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
           }));
+          if (!messageId && resolvedWorkspaceId) {
+            await loadTaskMessagesIntoSession({ taskId, workspaceId: resolvedWorkspaceId, mode: "latest" });
+          }
         } else {
           stateAfterWorkspaceOpen.selectTask({ taskId });
         }

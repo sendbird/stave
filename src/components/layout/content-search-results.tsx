@@ -59,7 +59,7 @@ export function useContentSearch(args: { query: string; enabled: boolean; worksp
 export function openContentSearchResult(result: ContentSearchResult, query = "") {
   void useAppStore.getState().focusTaskAttention({
     taskId: result.taskId, workspaceId: result.workspaceId,
-    repositoryPath: result.repositoryPath, ...(result.messageId ? { messageId: result.messageId, searchQuery: query, searchSnippet: result.snippet } : {}),
+    repositoryPath: result.repositoryPath, searchQuery: query, ...(result.messageId ? { messageId: result.messageId, searchSnippet: result.snippet } : {}),
   });
 }
 
@@ -125,7 +125,7 @@ export function FleetContentSearchResults(props: { search: ReturnType<typeof use
           aria-label={t("shell:contentSearch.openResult", { title: result.title, count: result.matchCount })}>
           <ContentSearchDetails result={result} query={props.query} />
         </Button>{result.parentTaskId ? <Button size="sm" variant="quiet" onClick={() => {
-          void useAppStore.getState().focusTaskAttention({ taskId: result.parentTaskId!, workspaceId: result.parentWorkspaceId ?? result.workspaceId, repositoryPath: result.parentRepositoryPath ?? result.repositoryPath });
+          void useAppStore.getState().focusTaskAttention({ taskId: result.parentTaskId!, workspaceId: result.parentWorkspaceId ?? result.workspaceId, repositoryPath: result.parentRepositoryPath ?? result.repositoryPath, searchQuery: props.query });
         }}>{t("shell:contentSearch.openParent")}</Button> : null}</TableCell>
       </TableRow>)}</TableBody>
     </Table> : null}
