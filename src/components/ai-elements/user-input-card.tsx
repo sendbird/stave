@@ -225,9 +225,14 @@ export function UserInputCard(args: UserInputCardProps) {
     initialSelectionByQuestion,
   );
 
-  useEffect(() => {
+  // Stream snapshots can recreate questions/answers without changing the
+  // request. Reset only for changed content, so typing and selections survive.
+  const selectionSeed = JSON.stringify([questions, answers ?? {}, readOnly]);
+  const [previousSelectionSeed, setPreviousSelectionSeed] = useState(selectionSeed);
+  if (selectionSeed !== previousSelectionSeed) {
+    setPreviousSelectionSeed(selectionSeed);
     setSelectionByQuestion(initialSelectionByQuestion);
-  }, [initialSelectionByQuestion]);
+  }
 
   // Several questions are answered one step at a time; the step resets only
   // when the request itself changes, not when the parent re-renders.

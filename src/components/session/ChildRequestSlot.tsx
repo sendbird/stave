@@ -220,7 +220,7 @@ export function ChildRequestView(props: {
         />
       ) : null}
       {pending?.part.type === "user_input" ? (
-        <UserInputCard
+        <UserInputCard key={pending.part.requestId}
           toolName={pending.part.toolName}
           questions={pending.part.questions}
           state={pending.part.state}

@@ -492,3 +492,6 @@ may have running at once (default 3, maximum 16).
 - [`docs/features/local-mcp-user-guide.md`](local-mcp-user-guide.md)
 - [`docs/features/automations.md`](automations.md)
 - [`docs/features/provider-sandbox-and-approval.md`](provider-sandbox-and-approval.md)
+
+While answering a pending question, incoming turn events preserve the draft text
+and selected options. A different request starts with its own answers.
