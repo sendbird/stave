@@ -1,12 +1,15 @@
 import type Database from "better-sqlite3";
-import { deleteTaskRelatedRows } from "./task-permanent-delete";
+import { deleteTaskRelatedRows, releaseDeletedTaskChildren } from "./task-permanent-delete";
 
 /** Workspace row cleanup; the caller owns the IMMEDIATE transaction. */
 export function deleteWorkspaceRelatedRows(db: Database.Database, workspaceId: string): string[] {
   const taskArtifactPaths: string[] = [];
   const tasks = db.prepare("SELECT id FROM tasks WHERE workspace_id = ?").all(workspaceId) as {id:string}[];
   for (const task of tasks) {
-    taskArtifactPaths.push(...deleteTaskRelatedRows(db, { workspaceId, taskId: task.id.slice(workspaceId.length + 1) }));
+    const taskId = task.id.slice(workspaceId.length + 1);
+    releaseDeletedTaskChildren(db, taskId);
+    taskArtifactPaths.push(...deleteTaskRelatedRows(db, { workspaceId, taskId }));
+    db.prepare("INSERT OR IGNORE INTO deleted_tasks(workspace_id,task_id) VALUES (?,?)").run(workspaceId, taskId);
   }
   const scope = "workspace_id = ?";
   const params = [workspaceId];

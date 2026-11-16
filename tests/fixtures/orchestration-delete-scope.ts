@@ -13,7 +13,8 @@ const snapshot = {
   messagesByTask: { task: [{ id: "message", role: "user", model: "user", providerId: "user", content: "Searchable history", parts: [] }] },
 } as unknown as PersistenceWorkspaceSnapshot;
 store.upsertWorkspace({ id: "workspace", name: "Workspace", snapshot });
-store.upsertWorkspace({ id: "other", name: "Other", snapshot: { ...snapshot, tasks: [], messagesByTask: {} } });
+const childSnapshot = { ...snapshot, activeTaskId: "child", tasks: [{ ...snapshot.tasks[0], id: "child", parentTaskId: "task" }], messagesByTask: {} };
+store.upsertWorkspace({ id: "other", name: "Other", snapshot: childSnapshot });
 store.beginTurn({ id: "turn", workspaceId: "workspace", taskId: "task", providerId: "codex" });
 store.completeTurn({ id: "turn", completedAt: "2026-01-01" });
 // A task owns its delegated ledger even when the execution lives elsewhere.
@@ -56,7 +57,7 @@ assert.equal((db.prepare("SELECT count(*) AS n FROM lens_review_records WHERE id
 db.exec("DROP TRIGGER refuse_delete");
 remove();
 for (const table of ["runs", "run_steps", "run_receipts", "tasks", "messages", "turns", "turn_events", "wake_ups", "wake_up_occurrences", "task_handoff_records", "notifications", "result_reviews", "result_review_evidence", "fleet_attention_snoozes"]) {
-  assert.equal((db.prepare(`SELECT count(*) AS n FROM ${table}`).get() as {n:number}).n, ["turns", "turn_events"].includes(table) ? 1 : 0, `${scope} deletion left rows in ${table}`);
+  assert.equal((db.prepare(`SELECT count(*) AS n FROM ${table}`).get() as {n:number}).n, ["tasks", "turns", "turn_events"].includes(table) ? 1 : 0, `${scope} deletion left rows in ${table}`);
 }
 assert.equal((db.prepare("SELECT task_id FROM agent_assignments WHERE id='assignment'").get() as {task_id:null}).task_id, null);
 assert.equal((db.prepare("SELECT json_extract(body_json,'$.taskId') AS task FROM agent_assignments WHERE id='assignment'").get() as {task:null}).task, null);
@@ -69,6 +70,8 @@ assert.equal(existsSync(artifactPath), false, "event artifact file must be delet
 assert.equal((db.prepare("SELECT count(*) AS n FROM artifacts WHERE id='shared-payload'").get() as {n:number}).n, 1, "shared artifact survives another task's deletion");
 assert.ok(existsSync(sharedArtifactPath), "shared artifact file survives");
 assert.equal((db.prepare("SELECT count(*) AS n FROM lens_review_records WHERE id='review'").get() as {n:number}).n, 0, "review rows must be deleted in the transaction");
-assert.ok(store.loadWorkspaceShell({workspaceId:"other"}), "unrelated workspace survives");
+assert.equal(store.loadWorkspaceShell({workspaceId:"other"})?.tasks[0].parentTaskId, null, "surviving child must detach its deleted parent");
+store.upsertWorkspace({id:"other", name:"Other", snapshot:childSnapshot});
+assert.equal(store.loadWorkspaceShell({workspaceId:"other"})?.tasks[0].parentTaskId, null, "late save cannot reattach the deleted parent");
 store.close();
 db.close();
