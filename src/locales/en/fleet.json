@@ -314,6 +314,8 @@
     "stopSummary": "{{turns}} turns, {{children}} child tasks, {{runs}} agent runs, {{tars}} owner-managed items.",
     "loading": "Ownership is loading",
     "managedByTars": "Controlled by its owner",
+    "workspaceArchived": "Workspace is archived. Restore the workspace first.",
+    "workspaceDeleted": "Workspace has been permanently deleted.",
     "unavailable": "Workspace control is unavailable",
     "noRunningWork": "No running work",
     "changed": "Task changed",

@@ -94,6 +94,8 @@ export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loadin
       case "owned": case "tars-owned": return t("fleet:bulk.managedByTars");
       case "partial-stop": case "failed": return t("fleet:bulk.actionFailed");
       case "loading": return t("fleet:bulk.loading");
+      case "workspace-archived": return t("fleet:bulk.workspaceArchived");
+      case "workspace-deleted": return t("fleet:bulk.workspaceDeleted");
       case "unavailable": return t("fleet:bulk.unavailable");
       default: return t("fleet:bulk.changed");
     }

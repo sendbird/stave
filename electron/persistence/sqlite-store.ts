@@ -2241,6 +2241,8 @@ export class SqliteStore {
 
   archiveFleetTask(args: FleetArchiveArgs): FleetArchiveResult {
     return this.db.transaction((): FleetArchiveResult => {
+      if (this.workspaceArchives.listDeletedIds().includes(args.workspaceId)) return { ok: false, reason: "workspace-deleted" };
+      if (this.workspaceArchives.isWriteProtected(args.workspaceId)) return { ok: false, reason: "workspace-archived" };
       const snapshot = this.loadWorkspaceSnapshot({ workspaceId: args.workspaceId });
       const task = snapshot?.tasks.find((item) => item.id === args.taskId);
       if (!task || !snapshot) return { ok: false, reason: "not-found" };

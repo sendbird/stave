@@ -297,6 +297,8 @@
     "stopSummary": "턴 {{turns}}개, 하위 작업 {{children}}개, 에이전트 실행 {{runs}}개, 담당자가 관리하는 항목 {{tars}}개.",
     "loading": "소유권 확인 중",
     "managedByTars": "담당자가 관리하는 작업입니다",
+    "workspaceArchived": "보관된 워크스페이스입니다. 먼저 워크스페이스를 복원하세요.",
+    "workspaceDeleted": "영구 삭제된 워크스페이스입니다.",
     "unavailable": "워크스페이스를 제어할 수 없습니다",
     "noRunningWork": "실행 중인 작업 없음",
     "changed": "작업 상태 변경됨",
