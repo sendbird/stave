@@ -3,6 +3,7 @@ import { useEffect, type KeyboardEvent, type MouseEvent } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Checkbox } from "@/components/aui/components/Checkbox";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { sx } from "@/components/aui/utils/stylex";
 import { useTranslation } from "@/i18n";
 import { useFleetSelectionStore, type FleetSelectionTarget } from "@/store/fleet-selection-store";
 
@@ -27,7 +28,7 @@ export function FleetSelectionCheckbox({ itemKey, title }: { itemKey: string; ti
 export function FleetSelectionStatus() {
   const { t } = useTranslation(["fleet"]);
   const count = useFleetSelectionStore((state) => state.selectedKeys.size);
-  return <span role="status" aria-live="polite">{count ? t("fleet:selection.selected", { count }) : null}</span>;
+  return <span role="status" aria-live="polite" className={sx(styles.status)}>{count ? t("fleet:selection.selected", { count }) : null}</span>;
 }
 function selectedRow(target: EventTarget | null) {
   return target instanceof Element ? target.closest<HTMLElement>("[data-fleet-select-key]") : null;
@@ -77,4 +78,6 @@ const styles = stylex.create({
     opacity: { default: 0, [stylex.when.ancestor(":is(:hover, :focus-within)", fleetSelectionRowMarker)]: 1, "@media (hover: none)": 1 },
   },
   selected: { opacity: 1 },
+  // The selection bar's `xs` button type and line box, so the count and the actions share one centre line.
+  status: { fontSize: vars["--aui-font-size-caption"], lineHeight: vars["--aui-line-height-control"] },
 });

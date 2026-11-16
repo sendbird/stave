@@ -216,6 +216,16 @@ test("Fleet bulk keyboard, mouse, stop confirmation and rendered selection state
     const store = useFleetSelectionStore.getState(); store.clear();
     useFleetSelectionStore.getState().toggle(store.visibleTargets[0]!.key);
   });
+  await page.evaluate(() => document.fonts.ready);
+  // The count reads at the bar's button size and shares their centre line.
+  const line = await toolbar.evaluate(bar => {
+    const centre = (node: Node) => { const range = document.createRange(); range.selectNodeContents(node); const box = range.getBoundingClientRect(); return box.top + box.height / 2; };
+    const label = bar.querySelector('[role="status"]')!;
+    const buttons = [...bar.querySelectorAll('button')].filter(button => button.textContent?.trim());
+    return { label: getComputedStyle(label).fontSize, sizes: [...new Set(buttons.map(button => getComputedStyle(button).fontSize))], offsets: buttons.map(button => Math.abs(centre(button) - centre(label))) };
+  });
+  expect(line.sizes).toEqual([line.label]);
+  for (const offset of line.offsets) expect(offset).toBeLessThanOrEqual(0.5);
   await toolbar.getByRole('button',{name:'More',exact:true}).click();
   await expect(page.getByRole('menu')).toBeVisible();
   await page.screenshot({animations:'disabled',path:'/tmp/fleet-bulk/after2/en-light-1440-more-open.png'});
