@@ -72,7 +72,7 @@ export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loadin
         const outcome = await stopFleetItem({
           routeOwnership: async () => (await routeTarsOwnedIntent({ target: tarsTaskTarget(target.taskId, target.workspaceId, run), intent: "pause", source: "fleet" })).kind,
           stop: async (keepAgentRun) => {
-            const cascade = await window.api?.taskControl?.stopChildren?.({workspaceId:target.workspaceId,taskId:target.taskId});
+            const cascade = await window.api?.taskControl?.stopChildren?.({workspaceId:target.workspaceId,taskId:target.taskId}).catch((error) => ({ok:false,stopped:0,skipped:[],message:String(error)}));
             if (cascade && (!cascade.ok || cascade.skipped.length)) stopReason = cascade.message || cascade.skipped.map((item) => `${item.taskId}: ${item.reason}`).join("; ") || t("fleet:bulk.changed");
             const stopParent = async () => {
             const state = useAppStore.getState();

@@ -1051,6 +1051,22 @@
       "reviewPrevious": {
         "title": "이전 리뷰",
         "description": "검토 화면에서 리뷰를 기다리는 이전 결과나 단계를 엽니다."
+      },
+      "fleetSelectionToggle": {
+        "title": "포커스한 작업 선택 전환",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
+      },
+      "fleetSelectionExtend": {
+        "title": "작업 선택 범위 확장",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
+      },
+      "fleetSelectionAll": {
+        "title": "보이는 작업 모두 선택",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
+      },
+      "fleetSelectionClear": {
+        "title": "작업 선택 해제",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
       }
     },
     "ui": {

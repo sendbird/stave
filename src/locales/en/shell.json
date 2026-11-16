@@ -1057,6 +1057,22 @@
       "reviewPrevious": {
         "title": "Previous review",
         "description": "In Review, open the previous result or stage waiting for your review."
+      },
+      "fleetSelectionToggle": {
+        "title": "Toggle focused task selection",
+        "description": "Fleet or Task History, with task rows focused."
+      },
+      "fleetSelectionExtend": {
+        "title": "Extend task selection",
+        "description": "Fleet or Task History, with task rows focused."
+      },
+      "fleetSelectionAll": {
+        "title": "Select all visible tasks",
+        "description": "Fleet or Task History, with task rows focused."
+      },
+      "fleetSelectionClear": {
+        "title": "Clear task selection",
+        "description": "Fleet or Task History, with task rows focused."
       }
     },
     "ui": {

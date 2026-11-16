@@ -140,7 +140,7 @@ These keys work only while their surface is open or focused.
 | Action | Keys | Where |
 | --- | --- | --- |
 | Toggle focused task selection | `X` | Fleet or Task History, with a task row focused |
-| Extend task selection | `Shift+ArrowUp/ArrowDown` | Fleet or Task History task rows |
+| Extend task selection | `Shift+ArrowUp` or `Shift+ArrowDown` | Fleet or Task History task rows |
 | Select all visible tasks | `Cmd/Ctrl+A` | Fleet or Task History rows; respects filters |
 | Clear task selection | `Esc` | Fleet or Task History, before closing the surface |
 | Undo bulk archive or snooze | `Cmd/Ctrl+Z` | While the action's Undo toast is available, not while typing |
