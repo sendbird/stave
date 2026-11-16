@@ -187,6 +187,7 @@ interface RequiredPersistenceApi {
     id: string;
     name: string;
     snapshot: WorkspaceSnapshot;
+    creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
   }) => Promise<{ ok: boolean }>;
   loadRepositoryRegistry: () => Promise<{
     ok: boolean;
@@ -867,6 +868,7 @@ export async function upsertWorkspace(args: {
   id: string;
   name: string;
   snapshot: WorkspaceSnapshot;
+  creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
 }): Promise<void> {
   const validated = parseWorkspaceSnapshot({ payload: args.snapshot });
   if (!validated) {
@@ -920,6 +922,7 @@ export async function upsertWorkspace(args: {
     id: args.id,
     name: args.name,
     snapshot: normalized,
+    creationOptions: args.creationOptions,
   });
   if (!response.ok) {
     throw new Error(`Failed to upsert workspace snapshot: ${args.id}`);

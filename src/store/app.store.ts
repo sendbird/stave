@@ -124,7 +124,6 @@ export type { RecentRepositoryState as RecentProjectState } from "@/store/reposi
 export type { AppSettings } from "@/store/app-settings";
 export { SIDEBAR_NAV_VIEWS } from "@/store/app-settings";
 export type { SidebarNavView } from "@/store/app-settings";
-export { waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
 
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
   text: "",

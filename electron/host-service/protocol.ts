@@ -1,3 +1,4 @@
+import type { WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupPolicy } from "../../src/lib/workspace-cleanup-contract";
 import type { McpAppViewRequestArgs, McpAppViewRequestResponse } from "../../src/lib/mcp-app/mcp-app-bridge";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../src/lib/agent-runs/delegated-run";
@@ -543,6 +544,10 @@ export type HostAutomationAction =
   | "list-information-references";
 
 export interface HostServiceRequestMap {
+  "workspace.cleanup-list": { scanDisk?: boolean };
+  "workspace.cleanup-act": WorkspaceCleanupActArgs;
+  "workspace.cleanup-configure": WorkspaceCleanupPolicy;
+  "workspace.cleanup-run": Record<string, never>;
   "workspace.execution": WorkspaceExecutionArgs;
   "workspace.execution-status": undefined;
   "service.shutdown": undefined;
@@ -1083,6 +1088,10 @@ export interface HostServiceRequestMap {
 }
 
 export interface HostServiceResponseMap {
+  "workspace.cleanup-list": Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
+  "workspace.cleanup-act": Awaited<ReturnType<WorkspaceCleanupApi["act"]>>;
+  "workspace.cleanup-configure": WorkspaceCleanupPolicy;
+  "workspace.cleanup-run": Awaited<ReturnType<WorkspaceCleanupApi["runNow"]>>;
   "workspace.execution": WorkspaceExecutionResult;
   "workspace.execution-status": WorkspaceExecutionState[];
   "service.shutdown": {
@@ -1298,6 +1307,7 @@ export interface HostServiceResponseMap {
 }
 
 export interface HostServiceEventMap {
+  "workspace.cleanup-changed": { workspaceId: string; repositoryPath: string };
   "terminal.output": {
     sessionId: string;
     output: string;

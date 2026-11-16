@@ -1,3 +1,4 @@
+import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { workspaceCleanupBlocker } from "@/lib/workspace-cleanup";
@@ -33,8 +34,6 @@ import {
   type RecentRepositoryState,
 } from "@/store/repository.utils";
 import {
-  getLinkedWorktreePathSetForRepository,
-  startWorkspaceArchiveCleanup,
 } from "@/store/workspace-archive-cleanup";
 import {
   getCachedWorkspaceFiles,
@@ -202,7 +201,7 @@ export function createWorkspaceManagementActions(args: {
   } = args;
 
   return {
-    closeWorkspace: async ({ workspaceId, deleteBranch = true, onlyIfInactive = false }) => {
+    closeWorkspace: async ({ workspaceId, onlyIfInactive = false }) => {
       const state = get();
       const workspace = state.workspaces.find(
         (item) => item.id === workspaceId,
@@ -224,18 +223,19 @@ export function createWorkspaceManagementActions(args: {
       if (isProtectedDefault) {
         return;
       }
-      // Unresolved approvals/questions never expire on their own.
-      await get().purgeWorkspaceNotifications({
-        workspaceIds: [workspaceId],
-      });
-      assertCleanupTarget();
-      const workspacePath = state.workspacePathById[workspaceId];
-      const workspaceBranch = state.workspaceBranchById[workspaceId];
       const repositoryPath = state.repositoryPath;
-      const isLinkedWorktree = getLinkedWorktreePathSetForRepository({
-        repositoryPath,
-        recentRepositories: state.recentRepositories,
-      }).has(normalizeComparablePath(workspacePath));
+      const workspacePath = state.workspacePathById[workspaceId];
+      const cleanup = window.api?.workspaceCleanup;
+      if (!cleanup || !repositoryPath) throw new Error("Workspace cleanup is unavailable"); // i18n-ignore: diagnostic
+      await get().flushActiveWorkspaceSnapshot();
+      assertCleanupTarget();
+      if (get().activeWorkspaceId === workspaceId) {
+        const replacement = state.workspaces.find((item) => item.id !== workspaceId && state.workspaceDefaultById[item.id]);
+        if (!replacement) return;
+        await get().switchWorkspace({ workspaceId: replacement.id });
+      }
+      const result = await runWorkspaceCleanupAction(cleanup, { action: "archive", workspaceId, repositoryPath });
+      if (!result.ok) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
       // Pick the replacement active workspace, ignoring the one being archived.
       const nextWorkspace =
         state.workspaces.find(
@@ -355,15 +355,6 @@ export function createWorkspaceManagementActions(args: {
             },
           };
         });
-        startWorkspaceArchiveCleanup({
-          workspaceId,
-          workspaceName: workspace?.name,
-          workspacePath,
-          workspaceBranch,
-          repositoryPath,
-          isLinkedWorktree,
-          deleteBranch,
-        });
         try {
           await get().flushRepositoryRegistry();
         } catch (error) {
@@ -470,15 +461,6 @@ export function createWorkspaceManagementActions(args: {
               }
             : {}),
         };
-      });
-      startWorkspaceArchiveCleanup({
-        workspaceId,
-        workspaceName: workspace?.name,
-        workspacePath,
-        workspaceBranch,
-        repositoryPath,
-        isLinkedWorktree,
-        deleteBranch,
       });
       try {
         await get().flushRepositoryRegistry();

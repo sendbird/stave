@@ -1,0 +1,147 @@
+import { expect, test } from "@playwright/test";
+
+// The actual palette and cleanup components run against a simulated host API.
+// Git, SQLite and runtime guards are covered by the host integration tests.
+test("palette opens cleanup, archive can be undone and archived work restored", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+  await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+  await page.getByText("Clean up workspaces", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Clean up workspaces" })).toBeVisible();
+  const row = page.getByTestId("cleanup-row-cleanup-one");
+  await row.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "Archive (1)", exact: true }).click();
+  await expect(page.getByRole("dialog").last()).toContainText("tasks, messages and history");
+  await page.getByRole("button", { name: "Confirm action" }).click();
+  await expect(row).toContainText("Archived");
+  await page.getByRole("button", { name: "Undo archive" }).click();
+  await expect(row).not.toContainText("Archived");
+  await page.getByTestId("cleanup-row-cleanup-archived").getByRole("checkbox").click();
+  await page.getByRole("button", { name: "Restore (1)", exact: true }).click();
+  await expect(page.getByTestId("cleanup-row-cleanup-archived")).not.toContainText("Archived");
+  await page.getByRole("button", { name: "Select all ready" }).click();
+  await expect(page.getByTestId("cleanup-row-cleanup-dirty").getByRole("checkbox")).not.toBeChecked();
+});
+
+for (const width of [1440, 1024]) for (const [lang, theme] of [["en", "light"], ["ko", "dark"]]) {
+  test(`cleanup contains wrapping labels at ${width} ${lang} ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?stavePreview=command-palette&cleanupPreview=1&lang=${lang}&theme=${theme}`);
+    const label = lang === "en" ? "Clean up workspaces" : "워크스페이스 정리";
+    await page.locator("input[data-slot=command-input]").fill(label);
+    await page.getByText(label, { exact: true }).click();
+    const dialog = page.getByRole("dialog").last();
+    await expect(dialog).toContainText(lang === "en" ? "Clean up workspaces" : "워크스페이스 정리");
+    await expect(page.getByTestId("cleanup-row-cleanup-one")).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const geometry = await dialog.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const row = element.querySelector('[data-testid="cleanup-row-cleanup-one"]')!;
+      const checkbox = row.querySelector('[role="checkbox"]')!.getBoundingClientRect();
+      const text = row.querySelector('button[aria-pressed]')!.getBoundingClientRect();
+      return { right: box.right, width: box.width, overflow: element.scrollWidth > element.clientWidth, summaryHeight: element.querySelector("summary")!.getBoundingClientRect().height, checkboxHeight: checkbox.height, centerDifference: Math.abs((checkbox.top + checkbox.bottom) / 2 - (text.top + text.bottom) / 2) };
+    });
+    expect(geometry.right).toBeLessThanOrEqual(width);
+    expect(geometry.overflow).toBe(false);
+    expect(geometry.summaryHeight).toBeGreaterThanOrEqual(24);
+    expect(geometry.checkboxHeight).toBeGreaterThanOrEqual(24);
+    expect(geometry.centerDifference).toBeLessThan(1);
+    if (process.env.CLEANUP_SCREENSHOT_DIR) {
+      const { mkdir } = await import("node:fs/promises");
+      await mkdir(process.env.CLEANUP_SCREENSHOT_DIR, { recursive: true });
+      const prefix = `${process.env.CLEANUP_SCREENSHOT_DIR}/${lang}-${theme}-${width}`;
+      await page.screenshot({ animations: "disabled", path: `${prefix}-center.png` });
+      await page.getByTestId("cleanup-row-cleanup-one").getByRole("checkbox").click();
+      await page.getByRole("button", { name: lang === "en" ? "Delete permanently (1)" : "영구 삭제 (1)", exact: true }).click();
+      await expect(page.getByRole("dialog").last().getByRole("button", { name: lang === "en" ? "Cancel" : "취소", exact: true })).toBeFocused();
+      await page.screenshot({ animations: "disabled", path: `${prefix}-delete-dialog.png` });
+      await page.keyboard.press("Escape");
+      await page.getByRole("button", { name: lang === "en" ? "Archive (1)" : "보관 (1)", exact: true }).click();
+      await expect(page.getByRole("dialog").last()).toContainText(lang === "en" ? "tasks, messages and history" : "기록");
+      await page.screenshot({ animations: "disabled", path: `${prefix}-archive-dialog.png` });
+    }
+
+  });
+}
+
+test("mixed selection reports a blocked item and long lists virtualize", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1&many=1");
+  await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+  await page.getByText("Clean up workspaces", { exact: true }).click();
+  const first = page.getByTestId("cleanup-row-cleanup-one");
+  await expect(first).toBeVisible();
+  await first.getByRole("button").click();
+  await page.getByTestId("cleanup-row-cleanup-dirty").getByRole("button").click({ modifiers: ["Shift"] });
+  await expect(page.getByRole("button", { name: "Archive (2)", exact: true })).toBeEnabled();
+  expect(await page.locator('[data-testid^="cleanup-row-"]').count()).toBeLessThan(80);
+  await page.getByRole("button", { name: "Archive (2)", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm action" }).click();
+  await expect(page.getByRole("status")).toContainText("Completed 1; skipped 1.");
+  await expect(page.getByTestId("cleanup-row-cleanup-dirty")).toContainText("Changed files");
+});
+
+// Automatic checkout removal retains archive identity and the same Restore path.
+test("recent automatic worktree removal offers restore", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+  await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+  await page.getByText("Clean up workspaces", { exact: true }).click();
+  const row = page.getByTestId("cleanup-row-cleanup-archived");
+  await expect(row).toContainText("Archived");
+  await page.getByRole("button", { name: "Select all ready" }).click();
+  await page.getByRole("button", { name: "Archive (1)", exact: true }).click();
+  await expect(page.getByRole("dialog").last()).toContainText("Finished work");
+  await expect(page.getByRole("dialog").last()).not.toContainText("Earlier work");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByText("Recent cleanup", { exact: true }).click();
+  await page.getByRole("button", { name: "Restore", exact: true }).click();
+  await expect(row).not.toContainText("Archived");
+});
+
+
+test("permanent delete confirmation focuses Cancel, ignores Enter and isolates Escape", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+  await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+  await page.getByText("Clean up workspaces", { exact: true }).click();
+  const row = page.getByTestId("cleanup-row-cleanup-one");
+  await row.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "Delete permanently (1)", exact: true }).click();
+  const confirmation = page.getByRole("dialog").last();
+  await expect(confirmation.getByRole("button", { name: "Cancel", exact: true })).toBeFocused();
+  await confirmation.getByRole("button", { name: "Confirm action", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await expect(confirmation).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "Clean up workspaces" })).toBeVisible();
+  await expect(row).toBeVisible();
+});
+
+test("archived shelf reads cheap records once across workspace edits and deduplicates invalidations", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+  await page.evaluate(async () => {
+    const resources = performance.getEntriesByType("resource");
+    const moduleUrl = (name: string) => resources.find(entry => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+    const React = (await import(moduleUrl("react"))).default;
+    const { createRoot } = (await import(moduleUrl("react-dom_client"))).default;
+    const { ArchivedWorkspaceShelf } = await import("/src/components/layout/ArchivedWorkspaceShelf.tsx");
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { WORKSPACE_CLEANUP_CHANGED_EVENT } = await import("/src/components/layout/workspace-cleanup-events.ts");
+    const probe = window as typeof window & { shelfReads: number; fullReads: number; releaseShelf: () => void; updateShelf: () => void };
+    probe.shelfReads = 0; probe.fullReads = 0;
+    const api = window.api!.workspaceCleanup;
+    const cheap = api.listArchived;
+    api.list = async () => { probe.fullReads++; throw new Error("Full inspection is forbidden for shelf"); };
+    api.listArchived = async () => { probe.shelfReads++; await new Promise<void>(resolve => { probe.releaseShelf = resolve; }); return cheap(); };
+    probe.updateShelf = () => {
+      useAppStore.setState({ workspaces: [...useAppStore.getState().workspaces] });
+      window.dispatchEvent(new Event(WORKSPACE_CLEANUP_CHANGED_EVENT));
+      window.dispatchEvent(new Event(WORKSPACE_CLEANUP_CHANGED_EVENT));
+    };
+    const host = document.createElement("div"); host.id = "shelf-test"; document.body.append(host);
+    createRoot(host).render(React.createElement(ArchivedWorkspaceShelf));
+  });
+  await expect.poll(() => page.evaluate(() => (window as any).shelfReads)).toBe(1);
+  await page.evaluate(() => (window as any).updateShelf());
+  await expect.poll(() => page.evaluate(() => (window as any).shelfReads)).toBe(1);
+  expect(await page.evaluate(() => (window as any).fullReads)).toBe(0);
+  await page.evaluate(() => (window as any).releaseShelf());
+  await expect(page.locator("#shelf-test")).toContainText("Earlier work");
+});

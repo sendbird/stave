@@ -22,8 +22,6 @@ import {
   TurnSpendArgsSchema,
   type TurnSpendResponse,
 } from "../../../src/lib/providers/turn-spend";
-import { removeWorkspaceInlineRenders } from "../inline-render/inline-render-service";
-import { removeWorkspaceToolImages } from "../tool-images/tool-image-service";
 import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
@@ -279,6 +277,7 @@ export function registerPersistenceHandlers() {
         id: parsedArgs.data.id,
         name: parsedArgs.data.name,
         snapshot: parsedArgs.data.snapshot,
+        creationOptions: parsedArgs.data.creationOptions,
       });
       return { ok: true };
     },
@@ -320,14 +319,7 @@ export function registerPersistenceHandlers() {
         return { ok: false };
       }
       const store = await ensurePersistenceReady();
-      store.closeWorkspace({ workspaceId: parsedArgs.data.workspaceId });
-      // The workspace's conversation is gone, so the pages it rendered go too.
-      void removeWorkspaceInlineRenders(parsedArgs.data.workspaceId);
-      // The workspace's conversation is gone, so the images it showed go too.
-      void removeWorkspaceToolImages(parsedArgs.data.workspaceId);
-      // Its tasks are gone, so their Lens review records and captures go too.
-      void store.lensReviewRecords.deleteWorkspace(parsedArgs.data.workspaceId);
-      return { ok: true };
+      return store.closeWorkspace({ workspaceId: parsedArgs.data.workspaceId });
     },
   );
 

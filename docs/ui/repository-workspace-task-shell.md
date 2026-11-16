@@ -28,7 +28,7 @@ Replace the legacy workspace/task shell with a three-part layout:
 ### Confirmed UX Decisions
 
 - Task tabs belong to the selected workspace, not the left repository list.
-- `Cmd/Ctrl+N` should create a new task in the selected workspace, and `Cmd/Ctrl+W` should archive the currently selected task.
+- `Cmd/Ctrl+N` should create a new task in the selected workspace, and `Cmd/Ctrl+W` should close the selected tab without archiving its task or workspace.
 - `Cmd/Ctrl+Shift+1..9` should select the first nine visible workspaces in sidebar order from top to bottom.
 - Task tab close should confirm before archiving.
 - Repository delete removes the repository from Stave's list only.

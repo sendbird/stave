@@ -1376,6 +1376,7 @@ export const PersistenceUpsertArgsSchema = z
     id: z.string().min(1).max(200),
     name: z.string().min(1).max(200),
     snapshot: WorkspaceSnapshotSchema,
+    creationOptions: z.object({ initCommand: z.string().optional(), useRootNodeModulesSymlink: z.boolean() }).strict().optional(),
   })
   .strict();
 
@@ -1596,3 +1597,5 @@ export {
   RepositoryMemoryRestoreArgsSchema as ProjectMemoryRestoreArgsSchema,
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/repository-memory";
+
+export { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../../../src/lib/workspace-cleanup-contract";

@@ -52,12 +52,53 @@ Recent page releases and reopenings retain at most 120 events for the current ap
 
 ## Clean up workspaces
 
-Open **Clean up workspaces**, review checks, optionally scan disk usage, select eligible workspaces, and confirm. The current workspace stays selected. Branches and linked external files are kept.
+The cleanup center is available to everyone, independently of Developer mode.
+Open **Clean up workspaces** from the command palette, a repository menu in the
+sidebar, or the Fleet header. Resource Manager retains its shortcut.
 
-Confirmed unpushed commits block cleanup. The comparison uses local remote-tracking references and does not fetch the remote. If an upstream is unavailable, the list says so and keeps the branch. Dirty files, running sessions, active agent turns, and pending attention also block cleanup.
+The center groups all registered repositories and includes active workspaces,
+archived history, and eligible branches without a workspace. Review suggestions,
+blockers and optional disk usage before selecting rows. Use modifier-click,
+shift-click or **Select all ready**, then choose **Archive**, **Delete
+permanently**, **Delete branches**, or **Restore**. Results include skipped
+items and their reasons; one failure does not cancel the rest. Archive has Undo.
 
-A suggestion requires a PR reported as merged within the last five minutes, no commits ahead of the local upstream, and at least fourteen days since recorded activity. Suggestions do not replace the checks immediately before cleanup. Missing or stale evidence produces no suggestion.
+Archive removes a clean managed worktree and preserves its branch and all
+conversation history. It removes the workspace from the sidebar and Fleet.
+Restore recreates the worktree when the branch exists. Otherwise it opens
+read-only history and offers to create a new workspace with a draft based on
+that history. Archiving a linked workspace removes only its saved link and
+registry entry, preserving the external worktree and branch. Restore reapplies
+the saved dependency link and initialization command; progress and failures
+are shown in the center. For older workspaces without saved creation options,
+it uses the observed dependency link and the current repository initialization
+command. The Archived shelf reads saved records without running
+repository inspections.
+
+Permanent deletion confirms removal of history and the clean worktree in a
+separate dialog. Cancel receives initial focus, Escape closes only that dialog,
+and Enter never confirms permanent deletion. Branch
+deletion is a separate choice, offered for merged or pushed branches. It uses
+safe deletion; force deletion of an unmerged branch requires explicit opt-in,
+off by default. Local remote-tracking evidence is used without fetching.
+
+### Automatic cleanup
+
+In **Settings > Workspaces**, each rule has its own toggle and number. All
+rules start disabled: archive after a merged PR, archive after inactivity,
+remove an archived worktree after a delay, and keep at most a chosen number of
+worktrees per repository. **Run cleanup now** evaluates the enabled rules.
+
+The host evaluates automatic cleanup at most hourly. Dirty files, unpushed
+commits, current/default workspaces and running work are protected. A workspace
+created for a responsibility is eligible only after that responsibility ends
+and no publication is waiting. **Recent cleanup** records automatic actions
+and provides Restore for retained history. A failed automatic action is retried
+at most once per day for the same workspace and action.
 
 ## Limits
 
-Automatic disk deletion is not provided. Sleep, release and PTY closure do not guarantee a specific amount of reclaimed operating-system memory. Long-running memory improvement must be measured on the installed application; isolated fixtures establish lifecycle behavior only.
+Disk scans are informational and do not guarantee a particular amount of free
+space. Cleanup does not fetch remote references. Missing evidence blocks an
+action instead of guessing that work is safe to remove. Permanent deletion of
+history has no Undo.

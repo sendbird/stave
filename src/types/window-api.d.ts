@@ -1964,6 +1964,7 @@ interface WindowPersistenceApi {
     activeRepositoryPath?: string | null;
   }>;
   upsertWorkspace?: (args: {
+    creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
     id: string;
     name: string;
     snapshot: {
@@ -3013,6 +3014,7 @@ interface WindowInlineCompletionApi {
 }
 
 interface WindowApi {
+  workspaceCleanup?: import("@/lib/workspace-cleanup-contract").WorkspaceCleanupApi;
   workspaceExecution?: {
     status: () => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionState[]>;
     update: (args: import("@/lib/performance/workspace-execution").WorkspaceExecutionArgs) => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionResult>;

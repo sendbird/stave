@@ -2514,3 +2514,26 @@ export async function createScmPullRequest(args: {
 
   return { ok: true, prUrl, autoMergeEnabled: true, stderr: "" };
 }
+
+/** Argument-only Git entry point for the host-owned workspace lifecycle. */
+export function runWorkspaceLifecycleGit(cwd: string, commandArgs: string[]) {
+  return runCommandArgs({ command: "git", commandArgs, cwd });
+}
+
+/** Removes only the managed dependency link before Git's non-forced removal. */
+export async function removeWorkspaceLifecycleWorktree(repositoryPath: string, workspacePath: string) {
+  const dependencyLink = `${workspacePath}/node_modules`;
+  let linkTarget: string | null = null;
+  try {
+    if ((await fs.lstat(dependencyLink)).isSymbolicLink()
+      && await fs.realpath(dependencyLink) === await fs.realpath(`${repositoryPath}/node_modules`)) {
+      linkTarget = await fs.readlink(dependencyLink);
+      await fs.unlink(dependencyLink);
+    }
+  } catch { /* Git retains any checkout whose cleanliness is uncertain. */ }
+  const result = await runWorkspaceLifecycleGit(repositoryPath, ["worktree", "remove", "--", workspacePath]);
+  if (!result.ok && linkTarget !== null) {
+    try { await fs.symlink(linkTarget, dependencyLink); } catch { /* Preserve Git's original failure. */ }
+  }
+  return result;
+}

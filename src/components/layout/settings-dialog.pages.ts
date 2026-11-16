@@ -18,6 +18,7 @@ import {
  * sections has a label of its own under `settings:pages`.
  */
 export const settingsPages = [
+  { id: "workspaces", labelKey: "settings:sections.workspaces.label", sectionIds: ["workspaces"] },
   { id: "general", labelKey: "settings:sections.general.label", sectionIds: ["general"] },
   { id: "appearance", labelKey: "settings:sections.theme.label", sectionIds: ["theme"] },
   { id: "chat", labelKey: "settings:sections.chat.label", sectionIds: ["chat"] },
@@ -65,7 +66,7 @@ export const settingsPageGroups = [
     labelKey: "settings:sections.groups.app",
     pageIds: ["general", "appearance", "chat", "editorTerminal", "keyboard", "browser"],
   },
-  { labelKey: "settings:sections.groups.projects", pageIds: ["projects"] },
+  { labelKey: "settings:sections.groups.projects", pageIds: ["projects", "workspaces"] },
   {
     labelKey: "settings:sections.groups.agents",
     pageIds: [

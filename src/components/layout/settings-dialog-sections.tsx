@@ -1,3 +1,4 @@
+import { WorkspaceCleanupSettings } from "./WorkspaceCleanupSettings";
 import { RepositoryMemorySettingsSection } from "./RepositoryMemoryControls";
 import { IntegrationsSection } from "./settings-dialog-integrations-section";
 import { IssueTrackerSettingsSection } from "@/components/layout/settings-dialog-issues-section";
@@ -37,6 +38,8 @@ export function SettingsDialogSectionContent(args: {
   onNavigateSection?: (id: SectionId) => void;
 }) {
   switch (args.sectionId) {
+    case "workspaces":
+      return <WorkspaceCleanupSettings />;
     case "general":
       return <GeneralSection />;
     case "projects":

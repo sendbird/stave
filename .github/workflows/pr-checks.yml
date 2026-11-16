@@ -41,8 +41,8 @@ jobs:
     # Keep browser dependencies and font geometry on a stable OS baseline.
     runs-on: ubuntu-24.04
     timeout-minutes: 15
-    # The layout suite runs one worker for stable geometry; six shards keep
-    # each job within the timeout as layout regressions are added.
+    # One worker per job keeps geometry stable. Six shards leave headroom
+    # for dependency setup and cleanup within the unchanged job deadline.
     strategy:
       fail-fast: false
       matrix:
