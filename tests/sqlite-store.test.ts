@@ -1755,18 +1755,20 @@ describe("SqliteStore", () => {
       main.closeWorkspace({ workspaceId: "tars-ws" });
       main.saveRepositoryRegistry({ repositories: [repository(["default"])], keepUnseenWorkspaces: true });
       expect(host.loadRepositoryRegistry()[0]!.workspaces.map((workspace) => workspace.id)).toEqual(["default"]);
+      expect(() => host.upsertWorkspace({ id: "tars-ws", name: "tars-ws", snapshot: createSnapshot() })).toThrow("permanently deleted");
+      // Registry replacement uses a fresh identity; deleted identities stay closed.
       // The host's own saves replace the value as before.
-      host.upsertWorkspace({ id: "tars-ws", name: "tars-ws", snapshot: createSnapshot() });
-      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
+      host.upsertWorkspace({ id: "fresh-ws", name: "fresh-ws", snapshot: createSnapshot() });
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "fresh-ws"])] });
       host.saveRepositoryRegistry({ repositories: [repository(["default"])] });
       expect(main.loadRepositoryRegistry()[0]!.workspaces.map((workspace) => workspace.id)).toEqual(["default"]);
       // A same-path duplicate the renderer dropped (its row stays open) stays dropped.
-      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
-      const keeper = repository(["default", "keeper"], { workspacePathById: { default: "/repo", keeper: "/repo/.stave/workspaces/tars-ws" } });
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "fresh-ws"])] });
+      const keeper = repository(["default", "keeper"], { workspacePathById: { default: "/repo", keeper: "/repo/.stave/workspaces/fresh-ws" } });
       main.saveRepositoryRegistry({ repositories: [keeper], keepUnseenWorkspaces: true });
       expect(host.loadRepositoryRegistry()[0]!.workspaces.map((workspace) => workspace.id)).toEqual(["default", "keeper"]);
       // A repository the renderer removed stays removed.
-      host.saveRepositoryRegistry({ repositories: [repository(["default", "tars-ws"])] });
+      host.saveRepositoryRegistry({ repositories: [repository(["default", "fresh-ws"])] });
       main.saveRepositoryRegistry({ repositories: [], keepUnseenWorkspaces: true });
       expect(host.loadRepositoryRegistry()).toEqual([]);
     } finally {
