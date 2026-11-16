@@ -3,6 +3,7 @@ import { lstat, readdir, symlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { SqliteStore } from "../persistence/sqlite-store";
 import { runWorkspaceLifecycleGit, removeWorkspaceLifecycleWorktree, fetchGitHubPrStatus } from "./scm-runtime";
+import { listWorkspaceShelfLinks, removeWorkspaceShelfLinks, restoreWorkspaceShelfLinks } from "./workspace-linked-shelf";
 import { runWorkspacePreparation } from "./workspace-preparation";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { getScriptStatuses } from "../main/workspace-scripts";
@@ -50,6 +51,7 @@ export function createWorkspaceCleanupRuntime(ports: {
   let actionChain = Promise.resolve();
   let lastGoodState = { policy: DEFAULT_WORKSPACE_CLEANUP_POLICY, recent: [], lastRun: 0 } as import("zod").infer<typeof WorkspaceCleanupStateSchema>;
   let stateReadable = true;
+  const failureKey = (repositoryPath: string, workspaceId: string) => JSON.stringify([repositoryPath, workspaceId]);
   function saved() {
     try {
       const raw = ports.store().readWorkspaceCleanupState();
@@ -57,10 +59,21 @@ export function createWorkspaceCleanupRuntime(ports: {
       stateReadable = raw === null || parsed.success;
       if (parsed.success) lastGoodState = parsed.data;
     } catch { stateReadable = false; }
-    return structuredClone(lastGoodState);
+    const state = structuredClone(lastGoodState);
+    const failures = { ...state.automaticFailureAt };
+    // Seed earlier persisted failures before their display rows can be evicted.
+    for (const result of state.recent) {
+      if (result.automatic && !result.ok) {
+        const key = failureKey(result.repositoryPath, result.workspaceId);
+        failures[key] = Math.max(failures[key] ?? 0, Date.parse(result.at));
+      }
+    }
+    state.automaticFailureAt = Object.fromEntries(Object.entries(failures).filter(([, at]) => Number.isFinite(at) && now() - at < DAY));
+    return state;
   }
   function remember(result: WorkspaceCleanupResult, repositoryPath: string, automatic: boolean) {
     const state = saved();
+    if (automatic && !result.ok) state.automaticFailureAt![failureKey(repositoryPath, result.workspaceId)] = now();
     state.recent = [{ ...result, repositoryPath, at: new Date(now()).toISOString(), automatic }, ...state.recent].slice(0, 200);
     if (stateReadable) ports.store().writeWorkspaceCleanupState(state);
   }
@@ -103,8 +116,10 @@ export function createWorkspaceCleanupRuntime(ports: {
     const reasons: string[] = [...row.reasons];
     let branchDeletable = false;
     const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath);
+    const linked = Boolean(repository?.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)) ||
+      ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree);
     const branchRef = `refs/heads/${row.branch}`;
-    const exists = row.branch && (await git(row.repositoryPath, ["show-ref", "--verify", "--quiet", branchRef])).ok;
+    const exists = !linked && row.branch && (await git(row.repositoryPath, ["show-ref", "--verify", "--quiet", branchRef])).ok;
     if (exists) {
       const base = repository?.defaultBranch || "main";
       const merged = await git(row.repositoryPath, ["merge-base", "--is-ancestor", branchRef, `refs/heads/${base}`]);
@@ -117,8 +132,10 @@ export function createWorkspaceCleanupRuntime(ports: {
     if (!row.branchOnly && existsSync(row.path)) {
       const head = await git(row.path, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
       if (!head.ok || head.stdout.trim() !== row.branch) blockers.push("ownershipChanged");
-      const [common, repositoryCommon] = await Promise.all([git(row.path, ["rev-parse", "--path-format=absolute", "--git-common-dir"]), git(row.repositoryPath, ["rev-parse", "--path-format=absolute", "--git-common-dir"])]);
-      if (!common.ok || !repositoryCommon.ok || canonical(common.stdout.trim()) !== canonical(repositoryCommon.stdout.trim())) blockers.push("ownershipChanged");
+      if (!linked) {
+        const [common, repositoryCommon] = await Promise.all([git(row.path, ["rev-parse", "--path-format=absolute", "--git-common-dir"]), git(row.repositoryPath, ["rev-parse", "--path-format=absolute", "--git-common-dir"])]);
+        if (!common.ok || !repositoryCommon.ok || canonical(common.stdout.trim()) !== canonical(repositoryCommon.stdout.trim())) blockers.push("ownershipChanged");
+      }
       const status = await git(row.path, ["status", "--porcelain", "--untracked-files=all"]);
       if (!status.ok) blockers.push("checksUnavailable");
       else if (worktreeStatusHasMeaningfulChanges(status.stdout)) blockers.push("changedFiles");
@@ -129,7 +146,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     if (responsibilities.length && !responsibilityCleanupBlocker(responsibilities, row.id)) reasons.push("responsibilityEnded");
     // Publishing work is protected until the host reads the current PR state.
     if (checkPr || responsibilities.some(work => work.publication?.state === "opened")) {
-      const status = await pr({ cwd: row.repositoryPath, target: row.branch });
+      const status = await pr({ cwd: linked ? row.path : row.repositoryPath, target: row.branch });
       mergedAtByWorkspace.delete(row.id);
       if (status.ok && status.pr?.state === "MERGED") {
         reasons.push("prMerged");
@@ -195,7 +212,13 @@ export function createWorkspaceCleanupRuntime(ports: {
       result.workspaceName = row.name;
       if (args.action === "restore") {
         if (!row.archived) throw new Error("notArchived");
-        const branchExists = row.branch && (await git(row.repositoryPath, ["show-ref", "--verify", "--quiet", `refs/heads/${row.branch}`])).ok;
+        const archive = ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id);
+        const options = archive?.creationOptions;
+        const linked = Boolean(options?.linkedWorktree);
+        const externalHead = linked && existsSync(row.path) ? await git(row.path, ["symbolic-ref", "--quiet", "--short", "HEAD"]) : null;
+        const branchExists = linked
+          ? externalHead?.ok && externalHead.stdout.trim() === row.branch
+          : row.branch && (await git(row.repositoryPath, ["show-ref", "--verify", "--quiet", `refs/heads/${row.branch}`])).ok;
         if (existsSync(row.path)) {
           const current = await inspect(row);
           const preparation = ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions;
@@ -206,13 +229,12 @@ export function createWorkspaceCleanupRuntime(ports: {
           if (blocking.length) throw new Error(blocking.join(","));
           if (!branchExists) throw new Error("restorePathOccupied");
         }
-        if (branchExists && !existsSync(row.path)) {
+        if (!linked && branchExists && !existsSync(row.path)) {
           const added = await git(row.repositoryPath, ["worktree", "add", "--", row.path, row.branch]);
           if (!added.ok) throw new Error("worktreeRestoreFailed");
         }
         if (branchExists) {
-          const archive = ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id);
-          const options = archive?.creationOptions;
+          if (options?.linkedWorktree) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, options.linkedSymlinkNames ?? []);
           if (!options?.linkedWorktree && options?.useRootNodeModulesSymlink) {
             try { await lstat(join(row.path, "node_modules")); }
             catch { try { await symlink(join(row.repositoryPath, "node_modules"), join(row.path, "node_modules")); } catch { throw new Error("dependencyLinkFailed"); } }
@@ -245,6 +267,7 @@ export function createWorkspaceCleanupRuntime(ports: {
           if (freshBlockers.length) throw new Error(freshBlockers.join(","));
           const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath)!;
           const linked = repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)) || ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree;
+          const linkedSymlinkNames = linked ? await listWorkspaceShelfLinks(row.repositoryPath, row.path) : [];
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
@@ -253,11 +276,12 @@ export function createWorkspaceCleanupRuntime(ports: {
             let dependencyLink = false;
             try { dependencyLink = (await lstat(join(row.path, "node_modules"))).isSymbolicLink(); } catch { /* No dependency link. */ }
             ports.store().archiveWorkspacePersistence({ workspaceId: row.id, repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, name: row.name,
-              creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked) } });
+              creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked), ...(linked ? { linkedSymlinkNames } : {}) } });
             workspaceExecutionGate.invalidateArchives();
             registryChanged = true;
           }
           try {
+            if (linked && args.action === "archive") await removeWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
             if (!linked && !row.branchOnly && existsSync(row.path)) {
               const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
               if (!removed.ok) throw new Error("worktreeRemoveFailed");
@@ -266,7 +290,10 @@ export function createWorkspaceCleanupRuntime(ports: {
             // Git kept the checkout; return the workspace to its active registry.
             // If rollback also fails, the durable archive still protects history.
             if (createArchive && existsSync(row.path)) {
-              try { ports.store().restoreWorkspacePersistence({ workspaceId: row.id }); } catch { /* Keep the archive recoverable. */ }
+              try {
+                if (linked) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
+                ports.store().restoreWorkspacePersistence({ workspaceId: row.id });
+              } catch { /* Keep the archive recoverable. */ }
             }
             throw error;
           }
@@ -316,7 +343,7 @@ export function createWorkspaceCleanupRuntime(ports: {
       rows.sort((a, b) => (Date.parse(a.lastActive ?? "") || now()) - (Date.parse(b.lastActive ?? "") || now()));
       for (const row of rows) {
         if (row.blockers.length || row.branchOnly) continue;
-        if (state.recent.some(result => result.automatic && !result.ok && result.workspaceId === row.id && result.repositoryPath === row.repositoryPath && now() - Date.parse(result.at) < DAY)) continue;
+        if (state.automaticFailureAt?.[failureKey(row.repositoryPath, row.id)] !== undefined) continue;
         const age = row.lastActive ? (now() - Date.parse(row.lastActive)) / DAY : 0;
         const policy = state.policy;
         const mergedAt = mergedAtByWorkspace.get(row.id);

@@ -85,10 +85,34 @@ test("archive and restore preserve history across restart, missing branches stay
     stave = await launchStave({ userDataDir: profile });
     await workspaceShellReady(stave.page);
     expect((await stave.page.evaluate(() => window.api.workspaceCleanup!.list())).rows.filter(row => ids.includes(row.id)).map(row => row.id).sort()).toEqual([...ids].sort());
+    // Hold the real refresh after it captures renderer state and before Git
+    // observes the checkout removed by archive. Only scheduling is controlled.
+    await stave.app.evaluate(({ ipcMain }) => {
+      const handlers = (ipcMain as unknown as { _invokeHandlers: Map<string, (event: unknown, args: { command: string; cwd: string }) => unknown> })._invokeHandlers;
+      const original = handlers.get("terminal:run-command")!;
+      const control = { started: false, listed: false, release: () => {} };
+      (globalThis as unknown as { cleanupRefresh: typeof control }).cleanupRefresh = control;
+      const held = new Promise<void>(resolve => { control.release = resolve; });
+      ipcMain.removeHandler("terminal:run-command");
+      ipcMain.handle("terminal:run-command", async (event, args: { command: string; cwd: string }) => {
+        if (args.command === "git worktree prune") { control.started = true; await held; }
+        const result = await original(event, args);
+        if (args.command.includes("worktree list")) control.listed = true;
+        return result;
+      });
+    });
+    // App refreshes every 30 seconds; wait for that actual interval to capture
+    // its snapshot, with a bounded allowance for desktop scheduling.
+    await expect.poll(() => stave!.app.evaluate(() => (globalThis as unknown as { cleanupRefresh: { started: boolean } }).cleanupRefresh.started), { timeout: 40_000 }).toBe(true);
     for (const id of ids.slice(0, 2)) {
       const result = await act(stave.page, { action: "archive", workspaceId: id, repositoryPath });
       expect(result, JSON.stringify(result)).toMatchObject({ ok: true });
       expect(existsSync(worktrees[id]!)).toBe(false);
+      if (id === "restore-branch") {
+        await stave.app.evaluate(() => (globalThis as unknown as { cleanupRefresh: { release: () => void } }).cleanupRefresh.release());
+        await expect.poll(() => stave!.app.evaluate(() => (globalThis as unknown as { cleanupRefresh: { listed: boolean } }).cleanupRefresh.listed)).toBe(true);
+      }
+
       expect(git(repositoryPath, "show-ref", "--verify", `refs/heads/${id}`)).toContain(`refs/heads/${id}`);
       expect(await messages(stave.page, id)).toEqual([`History ${id}`]);
       // Reproduce the destructive request emitted by a stale pre-archive snapshot.
