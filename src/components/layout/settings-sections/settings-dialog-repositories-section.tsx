@@ -38,7 +38,7 @@ function RepositorySettingsPanel(args: {
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const updateProjectSettingsOverrides = useAppStore((state) => state.updateProjectSettingsOverrides);
-  const agentPrWatchDefault = useAppStore((state) => state.settings.agentPrWatchEnabled);
+  const prWatchDefault = useAppStore((state) => state.settings.createPrWatchEnabled);
   const setRepositoryBasePrompt = useAppStore(
     (state) => state.setRepositoryBasePrompt,
   );
@@ -54,6 +54,7 @@ function RepositorySettingsPanel(args: {
   const setRepositoryAppearance = useAppStore(
     (state) => state.setRepositoryAppearance,
   );
+  const prWatchOverride = args.repository.settingsOverrides?.createPrWatchEnabled;
   const repositoryWorkspaceInitCommand = normalizeRepositoryWorkspaceInitCommand({
     value: args.repository.newWorkspaceInitCommand,
   });
@@ -196,14 +197,20 @@ function RepositorySettingsPanel(args: {
       </div>
 
       <SwitchField
-        title={t("settings:repositoriesSection.agentPrWatch.title")}
-        description={t("settings:repositoriesSection.agentPrWatch.description")}
-        checked={args.repository.settingsOverrides?.agentPrWatchEnabled ?? agentPrWatchDefault}
+        title={t("settings:repositoriesSection.prWatch.title")}
+        description={t(prWatchOverride === undefined ? "settings:repositoriesSection.prWatch.followsGlobal" : "settings:repositoriesSection.prWatch.overridden")}
+        checked={prWatchOverride ?? prWatchDefault}
         onCheckedChange={(checked) => updateProjectSettingsOverrides({
           repositoryPath: args.repository.repositoryPath,
-          patch: { agentPrWatchEnabled: checked },
+          patch: { createPrWatchEnabled: checked },
         })}
       />
+      {prWatchOverride !== undefined ? <div>
+        <Button size="sm" variant="quiet" onClick={() => updateProjectSettingsOverrides({
+          repositoryPath: args.repository.repositoryPath,
+          clearKeys: ["createPrWatchEnabled"],
+        })}>{t("settings:repositoriesSection.prWatch.useGlobal")}</Button>
+      </div> : null}
 
       <SettingsCard
         title={t("settings:repositoriesSection.appearance.title")}

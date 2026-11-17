@@ -501,7 +501,7 @@ export type HostLocalMcpAction =
   | "list-repository-memories";
 
 export type HostWakeUpAction =
-  "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
+  "list" | "get" | "create" | "create-automatic" | "update" | "pause" | "resume" | "remove" | "sync-settings";
 
 /**
  * Agent run actions. The last three serve the stage-reporting tools and carry an

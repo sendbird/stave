@@ -153,6 +153,7 @@ import {
 } from "./local-mcp-turn-journal";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
+import { turnPullRequestEvidence } from "./turn-pr-evidence";
 import { runCommand, runCommandArgs } from "../main/utils/command";
 import { buildTurnHandoffContextPart } from "../../src/lib/task-context/handoff-delivery";
 
@@ -1303,6 +1304,7 @@ async function handleProviderEvent(args: {
     sequence: args.sequence,
     event,
   });
+  turnPullRequestEvidence.observe({ turnId: args.turnId, workspaceId: args.workspaceId, taskId: args.taskId, event });
   if (args.event.type === "usage") {
     latestTurnUsageById.delete(args.turnId);
     latestTurnUsageById.set(args.turnId, toPersistenceTurnUsage(args.event));

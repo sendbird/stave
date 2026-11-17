@@ -1,106 +1,115 @@
 import {
-  buildPullRequestStack, GetPrStackArgsSchema, GetPrStackResultSchema,
-  RetargetPrStackArgsSchema, RetargetPrStackResultSchema, StackPrSchema,
-  type GetPrStackArgs, type GetPrStackResult, type RetargetPrStackArgs,
-  type RetargetPrStackResult, type StackPr,
+  buildPullRequestStack, DEFAULT_LONG_LIVED_BRANCH_PATTERNS, GetPrStackArgsSchema, GetPrStackResultSchema,
+  isLongLivedParentHead, isStackParent, RetargetPrStackArgsSchema, RetargetPrStackResultSchema,
+  type GetPrStackArgs, type GetPrStackResult, type RetargetChildResult, type RetargetPrStackArgs,
+  type RetargetPrStackResult, type StackContext, type StackErrorCode, type StackPr,
 } from "../../src/lib/pull-request-stack";
 import { runCommandArgs } from "../main/utils/command";
 import { ensureGhAuth } from "./gh-auth";
-import { SCM_READ_TIMEOUT_MS, updateScmPrBranch, type ScmCommandRunner } from "./scm-runtime";
+import {
+  invalidateRepositoryPullRequests, OPEN_PULL_REQUEST_LIMIT, PullRequestReadError, readBranchPullRequests, readCurrentBranch, readPullRequest,
+  readRepositoryInfo, readRepositoryPullRequests, readViewer,
+} from "./pull-request-repo-cache";
+import { updateScmPrBranch, type ScmCommandRunner } from "./scm-runtime";
 
-const fields = "number,title,url,headRefName,baseRefName,state";
-function runner(runCommand?: ScmCommandRunner): ScmCommandRunner {
-  const run = runCommand ?? runCommandArgs;
-  return args => run({ ...args, timeoutMs: args.timeoutMs ?? SCM_READ_TIMEOUT_MS });
+function errorCode(error: unknown): StackErrorCode {
+  return error instanceof PullRequestReadError ? error.code : "read-failed";
 }
 
-/** Bounded branch lookups only when a PR surface asks for its stack. */
+/**
+ * Reads a PR surface's stack from the repository's shared PR lists: no
+ * per-workspace `gh` walk. Fresh lists are read at most once per short TTL
+ * for all workspaces of a clone.
+ */
 export async function getPullRequestStack(raw: GetPrStackArgs, runCommand?: ScmCommandRunner): Promise<GetPrStackResult> {
   const args = GetPrStackArgsSchema.parse(raw);
-  const run = runner(runCommand);
+  const cwd = args.cwd ?? process.cwd();
   try {
-    const auth = await ensureGhAuth({ cwd: args.cwd, runCommand: run });
-    if (!auth.ok) throw new Error(auth.stderr);
-    const command = async (commandArgs: string[]) => {
-      const result = await run({ command: "gh", commandArgs, cwd: args.cwd });
-      if (!result.ok) throw new Error(result.stderr || "Could not read the pull request stack.");
-      return JSON.parse(result.stdout) as unknown;
-    };
-    const repo = await command(["repo", "view", "--json", "defaultBranchRef"]) as { defaultBranchRef?: { name?: string } };
-    const defaultBranch = repo.defaultBranchRef?.name;
-    if (!defaultBranch) throw new Error("Could not resolve the repository default branch.");
-    const currentRead = await run({ command: "gh", commandArgs: ["pr", "view", ...(args.branch ? [args.branch] : []), "--json", fields], cwd: args.cwd });
-    if (!currentRead.ok && /no pull requests found|no open pull requests/.test(currentRead.stderr)) return { ok: true, stack: null, stderr: "" };
-    if (!currentRead.ok) throw new Error(currentRead.stderr);
-    const current = StackPrSchema.parse(JSON.parse(currentRead.stdout));
-    const prs = new Map<number, StackPr>([[current.number, current]]);
-    let root = current;
-    const seen = new Set<number>();
-    for (let depth = 0; root.baseRefName !== defaultBranch; depth++) {
-      if (depth >= 16 || seen.has(root.number)) throw new Error("The pull request stack is cyclic or exceeds the depth limit.");
-      seen.add(root.number);
-      const parents = StackPrSchema.array().max(10).parse(await command(["pr", "list", "--head", root.baseRefName, "--state", "all", "--limit", "10", "--json", fields]));
-      const parent = parents.find(pr => pr.state === "OPEN") ?? parents.find(pr => pr.state === "MERGED");
-      if (!parent) break;
-      prs.set(parent.number, parent);
-      root = parent;
+    const repository = await readRepositoryInfo({ cwd, run: runCommand });
+    const [viewer, open, branch] = await Promise.all([
+      readViewer({ cwd, repository, run: runCommand }),
+      readRepositoryPullRequests({ cwd, repository, state: "open", run: runCommand }),
+      args.branch ? Promise.resolve(args.branch) : readCurrentBranch({ cwd, run: runCommand }),
+    ]);
+    if (!branch) return { ok: true, stack: null, code: null };
+    const context: StackContext = { defaultBranch: repository.defaultBranch, viewer, longLivedBranchPatterns: args.longLivedBranchPatterns ?? DEFAULT_LONG_LIVED_BRANCH_PATTERNS };
+    const pick = (rows: readonly StackPr[]) => rows.filter(pr => pr.headRefName === branch).sort((a, b) => Number(b.sameRepository) - Number(a.sameRepository))[0];
+    let current = pick(open);
+    if (!current && open.length >= OPEN_PULL_REQUEST_LIMIT) {
+      // Large repositories: the branch's PR may sit past the shared list.
+      current = pick((await readBranchPullRequests({ cwd, repository, branch, run: runCommand })).filter(pr => pr.state === "OPEN"));
     }
-    const queue = [root];
-    const visited = new Set<number>();
-    while (queue.length) {
-      const parent = queue.shift()!;
-      if (visited.has(parent.number)) continue;
-      visited.add(parent.number);
-      const children = StackPrSchema.array().max(33).parse(await command(["pr", "list", "--base", parent.headRefName, "--state", "open", "--limit", "33", "--json", fields]));
-      for (const child of children) {
-        if (!prs.has(child.number) && prs.size >= 32) throw new Error("The pull request stack exceeds the 32 PR limit.");
-        prs.set(child.number, child);
-        if (!visited.has(child.number)) queue.push(child);
-      }
-    }
-    const stack = buildPullRequestStack(current.number, [...prs.values()], defaultBranch);
-    // An explicit branch lookup also serves the first child's create dialog.
-    // Its parent can be a standalone open PR before a stack exists.
-    const candidate = args.branch && current.state === "OPEN"
-      ? { current: current.number, position: 1, total: 1, parent: null, children: [], members: [current] }
+    // Merged PRs matter only for a merged current PR or a parent that is not open.
+    const parentIsOpen = current ? current.baseRefName === repository.defaultBranch || open.some(pr => pr.headRefName === current!.baseRefName) : false;
+    const merged = parentIsOpen ? [] : await readRepositoryPullRequests({ cwd, repository, state: "merged", run: runCommand });
+    // A branch lookup serves the create dialog, which needs an open parent.
+    if (!current && !args.branch) current = pick(merged);
+    if (!current) return { ok: true, stack: null, code: null };
+    const prs = new Map<number, StackPr>();
+    for (const pr of [...merged, ...open, current]) prs.set(pr.number, pr);
+    const stack = buildPullRequestStack(current.number, [...prs.values()], context);
+    // An explicit branch lookup also serves the first child's create dialog:
+    // its parent can be a standalone open PR before a stack exists.
+    const candidate = args.branch && current.state === "OPEN" && current.sameRepository && !isLongLivedParentHead(current, [...prs.values()], context)
+      ? { current: current.number, position: 1, total: 1, parent: null, children: [], members: [current], retarget: null }
       : null;
-    return GetPrStackResultSchema.parse({ ok: true, stack: stack ?? candidate, stderr: "" });
+    return GetPrStackResultSchema.parse({ ok: true, stack: stack ?? candidate, code: null });
   } catch (error) {
-    return { ok: false, stack: null, stderr: error instanceof Error ? error.message : String(error) };
+    return { ok: false, stack: null, code: errorCode(error) };
   }
 }
 
-/** Retarget only direct children of the observed merged parent. Never rewrites history. */
+function conflictReason(detail: string): RetargetChildResult["reason"] {
+  return /conflict/i.test(detail) ? "merge-conflict" : "update-failed";
+}
+
+/**
+ * Applies exactly the transitions the user confirmed, child by child. Each
+ * child is revalidated first; one failure never stops the others. Merging the
+ * new base into a child never rewrites history.
+ */
 export async function retargetPullRequestStack(raw: RetargetPrStackArgs, runCommand?: ScmCommandRunner): Promise<RetargetPrStackResult> {
   const args = RetargetPrStackArgsSchema.parse(raw);
-  const run = runner(runCommand);
-  const updated: number[] = [];
+  const cwd = args.cwd ?? process.cwd();
+  const run = runCommand;
+  let repository: Awaited<ReturnType<typeof readRepositoryInfo>> | null = null;
   try {
-    const auth = await ensureGhAuth({ cwd: args.cwd, runCommand: run });
-    if (!auth.ok) throw new Error(auth.stderr);
-    const read = async (number: number) => {
-      const result = await run({ command: "gh", commandArgs: ["pr", "view", String(number), "--json", fields], cwd: args.cwd });
-      if (!result.ok) throw new Error(result.stderr);
-      return StackPrSchema.parse(JSON.parse(result.stdout));
-    };
-    const parent = await read(args.parentNumber);
-    if (parent.state !== "MERGED") throw new Error("The parent pull request has not merged.");
-    // Validate the complete request before the first remote write.
-    const children: StackPr[] = [];
-    for (const number of new Set(args.childNumbers)) {
-      const child = await read(number);
-      if (child.state !== "OPEN" || child.number === parent.number || child.baseRefName !== parent.headRefName) throw new Error(`Pull request #${number} is no longer an open child of this parent.`);
-      children.push(child);
+    const auth = await ensureGhAuth({ cwd, runCommand: run });
+    if (!auth.ok) return { ok: false, code: "auth", results: [] };
+    repository = await readRepositoryInfo({ cwd, run });
+    const [viewer, open, parent] = await Promise.all([
+      readViewer({ cwd, repository, run }),
+      readRepositoryPullRequests({ cwd, repository, state: "open", run, fresh: true }),
+      readPullRequest({ cwd, repository, number: args.parentNumber, run }),
+    ]);
+    const context: StackContext = { defaultBranch: repository.defaultBranch, viewer, longLivedBranchPatterns: args.longLivedBranchPatterns ?? DEFAULT_LONG_LIVED_BRANCH_PATTERNS };
+    if (parent.state !== "MERGED") return { ok: false, code: "parent-not-merged", results: [] };
+    if (!parent.sameRepository || isLongLivedParentHead(parent, open, context)) return { ok: false, code: "parent-ineligible", results: [] };
+    const results: RetargetChildResult[] = [];
+    const seen = new Set<number>();
+    for (const confirmed of args.children) {
+      if (seen.has(confirmed.number)) continue;
+      seen.add(confirmed.number);
+      const skip = (reason: RetargetChildResult["reason"]) => results.push({ number: confirmed.number, status: "skipped", reason });
+      let child: StackPr;
+      try { child = await readPullRequest({ cwd, repository, number: confirmed.number, run }); } catch { skip("read-failed"); continue; }
+      if (child.state !== "OPEN") { skip("not-open"); continue; }
+      if (!child.sameRepository) { skip("fork"); continue; }
+      if (child.author.toLowerCase() !== viewer.toLowerCase()) { skip("not-yours"); continue; }
+      if (confirmed.fromBase !== parent.headRefName || child.baseRefName !== confirmed.fromBase) { skip("base-changed"); continue; }
+      if (confirmed.toBase !== parent.baseRefName) { skip("target-changed"); continue; }
+      if (!isStackParent(parent, child, open, context)) { skip("not-a-child"); continue; }
+      const edit = await (run ?? runCommandArgs)({ command: "gh", commandArgs: ["pr", "edit", String(child.number), "--base", confirmed.toBase], cwd });
+      if (!edit.ok) { skip("edit-failed"); continue; }
+      const update = await updateScmPrBranch({ cwd, targetPrNumber: child.number, runCommand: run });
+      results.push(update.ok
+        ? { number: child.number, status: "updated", reason: null }
+        : { number: child.number, status: "conflict", reason: conflictReason(update.stderr) });
     }
-    for (const child of children) {
-      const edit = await run({ command: "gh", commandArgs: ["pr", "edit", String(child.number), "--base", parent.baseRefName], cwd: args.cwd });
-      if (!edit.ok) throw new Error(edit.stderr || `Could not retarget pull request #${child.number}.`);
-      updated.push(child.number);
-      const result = await updateScmPrBranch({ cwd: args.cwd, targetPrNumber: child.number, runCommand: run });
-      if (!result.ok) throw new Error(`Pull request #${child.number} was already retargeted and now targets ${parent.baseRefName}, but updating its branch failed. Resolve conflicts and use Update branch on that pull request: ${result.stderr}`);
-    }
-    return RetargetPrStackResultSchema.parse({ ok: true, updated, stderr: "" });
+    return RetargetPrStackResultSchema.parse({ ok: results.every(result => result.status === "updated"), code: null, results });
   } catch (error) {
-    return { ok: false, updated, stderr: error instanceof Error ? error.message : String(error) };
+    return { ok: false, code: errorCode(error), results: [] };
+  } finally {
+    if (repository) invalidateRepositoryPullRequests(repository);
   }
 }

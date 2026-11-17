@@ -370,18 +370,18 @@ describe("store action", () => {
   });
 });
 
-describe("repository agent pull request watch", () => {
+describe("repository pull request watch override", () => {
   test("is enabled by default and accepts a boolean repository override only", () => {
-    expect(defaultSettings.agentPrWatchEnabled).toBe(true);
-    expect(normalizeProjectSettingsOverrides({ agentPrWatchEnabled: false })).toEqual({ agentPrWatchEnabled: false });
-    expect(normalizeProjectSettingsOverrides({ agentPrWatchEnabled: "false" })).toBeUndefined();
-    expect(effectiveSetting("agentPrWatchEnabled", PROJECT_PATH, {
+    expect(defaultSettings.createPrWatchEnabled).toBe(true);
+    expect(normalizeProjectSettingsOverrides({ createPrWatchEnabled: false })).toEqual({ createPrWatchEnabled: false });
+    expect(normalizeProjectSettingsOverrides({ createPrWatchEnabled: "false" })).toBeUndefined();
+    expect(effectiveSetting("createPrWatchEnabled", PROJECT_PATH, {
       settings: defaultSettings,
-      recentRepositories: [repository(PROJECT_PATH, { settingsOverrides: { agentPrWatchEnabled: false } })],
+      recentRepositories: [repository(PROJECT_PATH, { settingsOverrides: { createPrWatchEnabled: false } })],
     })).toBe(false);
-    expect(effectiveSetting("agentPrWatchEnabled", OTHER_PATH, {
+    expect(effectiveSetting("createPrWatchEnabled", OTHER_PATH, {
       settings: defaultSettings,
-      recentRepositories: [repository(PROJECT_PATH, { settingsOverrides: { agentPrWatchEnabled: false } })],
+      recentRepositories: [repository(PROJECT_PATH, { settingsOverrides: { createPrWatchEnabled: false } })],
     })).toBe(true);
   });
 });

@@ -397,15 +397,55 @@
     "position": "스택 {{total}}개 중 {{position}}번째",
     "parent": "상위 PR #{{number}}",
     "child": "하위 PR #{{number}}",
-    "retarget": "하위 PR 대상 변경 및 업데이트",
-    "updateFailed": "스택을 업데이트하지 못했습니다: {{detail}}",
+    "retarget": "하위 PR 대상 변경…",
+    "retargetTitle": "#{{number}}의 하위 PR 대상 변경",
+    "retargetDescription": "#{{number}}이 병합되었습니다. 아래 PR마다 대상 브랜치를 바꾸고 새 대상 브랜치를 PR 브랜치에 병합합니다. 히스토리는 다시 쓰지 않습니다.",
+    "retargetRow": "#{{number}} {{title}}",
+    "retargetMove": "{{from}} → {{to}}",
+    "retargetAuthor": "작성자 {{author}}",
+    "retargetConfirm_other": "PR {{count}}개 대상 변경",
+    "retargetRetry_other": "남은 {{count}}개 다시 시도",
+    "retargetNothing": "내 PR이 없어서 Stave가 바꾸지 않습니다.",
+    "excludedTitle": "변경하지 않음",
+    "excluded": {
+      "notYours": "다른 사람의 PR",
+      "fork": "포크의 PR"
+    },
+    "resultsTitle": "결과",
+    "result": {
+      "updated": "#{{number}}의 대상 브랜치를 바꾸고 최신 상태로 업데이트했습니다.",
+      "conflict": "#{{number}}의 대상 브랜치는 바꿨지만 브랜치를 업데이트하지 못했습니다. {{reason}}",
+      "skipped": "#{{number}}은 바꾸지 않았습니다. {{reason}}"
+    },
+    "reason": {
+      "notYours": "다른 사람이 연 PR입니다.",
+      "fork": "브랜치가 포크에 있습니다.",
+      "notOpen": "더 이상 열려 있지 않습니다.",
+      "baseChanged": "확인한 뒤 대상 브랜치가 바뀌었습니다.",
+      "targetChanged": "확인한 뒤 상위 PR의 대상 브랜치가 바뀌었습니다.",
+      "notAChild": "이 상위 PR의 하위 PR이 아닙니다.",
+      "readFailed": "GitHub에서 읽지 못했습니다.",
+      "editFailed": "GitHub가 새 대상 브랜치를 받아들이지 않았습니다. 다시 시도하세요.",
+      "mergeConflict": "브랜치의 충돌을 해결한 뒤 브랜치 업데이트를 사용하세요.",
+      "updateFailed": "해당 PR에서 브랜치 업데이트를 사용하세요."
+    },
+    "error": {
+      "auth": "GitHub CLI에 로그인(gh auth login)한 뒤 다시 시도하세요.",
+      "readFailed": "GitHub에서 PR을 읽지 못했습니다.",
+      "parentIneligible": "상위 PR의 브랜치가 장기 유지 브랜치라서 스택으로 보지 않습니다.",
+      "parentNotMerged": "상위 PR이 아직 병합되지 않았습니다.",
+      "invalidResponse": "GitHub 응답을 이해하지 못했습니다."
+    },
     "create": "스택 PR 만들기",
     "createHint": "열려 있는 상위 PR의 브랜치를 대상 브랜치로 선택하세요.",
     "parentReady": "{{branch}}의 상위 PR #{{number}}",
     "parentRequired": "열려 있는 상위 PR이 있는 대상 브랜치를 선택하세요."
   },
   "agentPrWatch": {
-    "watching": "이 PR의 검사 실패와 충돌을 감시하고 있습니다.",
+    "watchingPr": "PR #{{number}}의 검사 실패와 충돌을 감시하고 있습니다.",
+    "waitingForPr": "이 브랜치를 감시하고 있지만 아직 PR이 없습니다.",
+    "openSchedules": "일정에서 열기",
+    "ambiguous": "이 작업 공간에서 두 개 이상의 작업이 PR을 여는 명령을 실행해서 PR #{{number}}을 자동으로 감시하지 않았습니다. 일정에서 이 PR을 담당하는 작업에 감시를 추가하세요.",
     "paused": "PR 감시가 일시정지되었습니다.",
     "stopped": "PR 감시가 종료되었습니다.",
     "stop": "감시 중지"

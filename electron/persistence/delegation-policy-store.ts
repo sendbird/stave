@@ -65,6 +65,14 @@ export class DelegationPolicyStore {
   saveRouteSettings(settings: AgentRouteSettingsInput) {
     this.write("routing.agent-route-settings", AgentRouteSettingsSchema.parse(settings));
   }
+  /** The global "watch pull requests" switch (`createPrWatchEnabled`); null until synced. */
+  loadPullRequestWatchDefault(): boolean | null {
+    const value = this.read("wake-ups.pull-request-watch-default");
+    return typeof value === "boolean" ? value : null;
+  }
+  savePullRequestWatchDefault(enabled: boolean) {
+    this.write("wake-ups.pull-request-watch-default", enabled);
+  }
   loadTask(taskId: string) {
     const raw = this.read(`delegation.task-policy:${taskId}`);
     return raw === null ? null : DelegationPermissionPolicySchema.parse(raw);

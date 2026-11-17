@@ -91,9 +91,12 @@ export function TranscriptRowsPreview() {
       taskWorkspaceIdById: { [TASK_ID]: "transcript-rows-preview" },
       settings: { ...useAppStore.getState().settings, messageFontSize: 14 },
     });
-    if (params.get("prWatch") === "1") {
+    const prWatch = params.get("prWatch");
+    if (prWatch === "1" || prWatch === "user") {
+      // `prWatch=user` is a watch the user scheduled; `1` is one Stave added on its own.
+      const pullRequestWatch = { pullRequest: { number: 17, url: "https://example.test/pull/17", title: "Change 17" }, ...(prWatch === "1" ? { automatic: true } : {}) };
       const entry = {
-        wakeUp: { id: "test-pr-watch", workspaceId: "transcript-rows-preview", taskId: TASK_ID, trigger: { kind: "pull_request", events: ["checks_failed", "merge_conflict"] }, state: "scheduled" },
+        wakeUp: { id: "test-pr-watch", workspaceId: "transcript-rows-preview", taskId: TASK_ID, trigger: { kind: "pull_request", events: ["checks_failed", "merge_conflict"] }, state: "scheduled", pullRequestWatch },
         summary: { wakeUpId: "test-pr-watch", taskId: TASK_ID, state: "scheduled", triggerKind: "pull_request", nextRunAt: null, reason: null, occurrenceCount: 0, skippedCount: 0 },
       } as TaskWakeUp;
       useWakeUpsStore.setState({

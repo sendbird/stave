@@ -35,6 +35,14 @@ function fakeApi(existing: Array<Partial<WakeUp>> = [], createResult?: { ok: boo
 }
 
 describe("automatic pull request watch on Create PR", () => {
+  test("saves the watch as automatic so the task may offer Stop watching", async () => {
+    const { api, created } = fakeApi();
+    const automatic: WakeUpUpsertInput[] = [];
+    const outcome = await ensureCreatedPullRequestWatch({ enabled: true, workspaceId: "ws-1", task: TASK, api: { ...api, createAutomatic: async (input) => { automatic.push(input); return { ok: true, wakeUp: { id: "watch-2" } as WakeUp }; } } });
+    expect(outcome).toEqual({ kind: "created", wakeUpId: "watch-2" });
+    expect(automatic).toHaveLength(1);
+    expect(created).toHaveLength(0);
+  });
   test("watches the pull request with failing checks and conflicts only", async () => {
     const { api, created } = fakeApi();
     const outcome = await ensureCreatedPullRequestWatch({ enabled: true, workspaceId: "ws-1", task: TASK, api });
@@ -107,25 +115,39 @@ describe("automatic pull request watch on Create PR", () => {
 
 describe("watchCreatedPullRequest", () => {
   const globals = globalThis as { window?: unknown };
+  const hadWindow = "window" in globals;
   const previousWindow = globals.window;
   afterEach(() => {
-    globals.window = previousWindow;
+    // Leaving a `window: undefined` key behind breaks later suites that test for it.
+    if (hadWindow) globals.window = previousWindow;
+    else delete globals.window;
   });
 
   test("reads the setting and the task that created the pull request", async () => {
     expect(defaultSettings.createPrWatchEnabled).toBe(true);
     const { api, created } = fakeApi();
     globals.window = { api: { wakeUps: api } };
-    const state = { settings: { createPrWatchEnabled: true }, tasks: [TASK, { ...TASK, id: "task-2" }] };
-    expect((await watchCreatedPullRequest({ state, workspaceId: "ws-1", taskId: "task-1" })).kind).toBe("created");
+    const state = { settings: defaultSettings, recentRepositories: [], tasks: [TASK, { ...TASK, id: "task-2" }] };
+    expect((await watchCreatedPullRequest({ state, repositoryPath: "/tmp/repo", workspaceId: "ws-1", taskId: "task-1" })).kind).toBe("created");
     expect(created.map((entry) => entry.taskId)).toEqual(["task-1"]);
 
     const off = await watchCreatedPullRequest({
-      state: { ...state, settings: { createPrWatchEnabled: false } },
+      state: { ...state, settings: { ...defaultSettings, createPrWatchEnabled: false } },
+      repositoryPath: "/tmp/repo",
       workspaceId: "ws-1",
       taskId: "task-1",
     });
     expect(off.kind).toBe("disabled");
+    expect(created).toHaveLength(1);
+  });
+
+  test("a repository override wins over the global switch, as in the host", async () => {
+    const { api, created } = fakeApi();
+    globals.window = { api: { wakeUps: api } };
+    const repository = { repositoryPath: "/tmp/repo", repositoryName: "repo", lastOpenedAt: "2026-01-01T00:00:00.000Z", defaultBranch: "main", workspaces: [], activeWorkspaceId: "", workspaceBranchById: {}, workspacePathById: {}, workspaceDefaultById: {} };
+    const off = { settings: { ...defaultSettings, createPrWatchEnabled: false }, tasks: [TASK] };
+    expect((await watchCreatedPullRequest({ state: { ...off, recentRepositories: [{ ...repository, settingsOverrides: { createPrWatchEnabled: true } }] }, repositoryPath: "/tmp/repo", workspaceId: "ws-1", taskId: "task-1" })).kind).toBe("created");
+    expect((await watchCreatedPullRequest({ state: { settings: defaultSettings, tasks: [TASK], recentRepositories: [{ ...repository, settingsOverrides: { createPrWatchEnabled: false } }] }, repositoryPath: "/tmp/repo", workspaceId: "ws-1", taskId: "task-1" })).kind).toBe("disabled");
     expect(created).toHaveLength(1);
   });
 });

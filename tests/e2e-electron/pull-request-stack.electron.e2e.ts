@@ -1,61 +1,50 @@
 import { execFileSync } from "node:child_process";
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
+import { createFakeGh, fakePr } from "../fixtures/fake-gh";
 
-test("PR stack discovery and retarget cross real preload, main and host with strict requests", async () => {
+test("PR stack discovery and confirmed retarget cross real preload, main and host with strict requests", async () => {
   test.setTimeout(120_000);
   const directory = await mkdtemp(path.join(tmpdir(), "pr-stack-native-"));
   const cwd = path.join(directory, "repository");
-  const bin = path.join(directory, "bin");
-  const statePath = path.join(directory, "state.json");
-  const logPath = path.join(directory, "calls.jsonl");
-  await mkdir(cwd); await mkdir(bin);
+  await mkdir(cwd);
   const git = (...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: "pipe" }).trim();
   git("init", "-b", "main"); git("config", "user.name", "Test"); git("config", "user.email", "test@example.test");
-  await writeFile(path.join(cwd, "file"), "base"); git("add", "."); git("commit", "-m", "test: base");
-  const pr = (number: number, headRefName: string, baseRefName: string, state: string) => ({ number, headRefName, baseRefName, state, title: `Change ${number}`, url: `https://example.test/repo/pull/${number}` });
-  await writeFile(statePath, JSON.stringify([pr(1, "parent", "main", "MERGED"), pr(2, "child", "parent", "OPEN")]));
-  await writeFile(path.join(bin, "gh"), `#!${process.execPath}
-const fs = require('node:fs');
-const args = process.argv.slice(2);
-fs.appendFileSync(process.env.STACK_CALLS, JSON.stringify(args)+'\\n');
-const prs = JSON.parse(fs.readFileSync(process.env.STACK_STATE,'utf8'));
-const out = value => process.stdout.write(JSON.stringify(value));
-if(args[0]==='auth') process.exit(0);
-if(args[0]==='repo') out({defaultBranchRef:{name:'main'}});
-else if(args[1]==='view') {
- const pr=prs.find(pr=>pr.number===(args[2]==='--json'?2:Number(args[2])));
- out(args.at(-1)==='headRefName,baseRefName'?{headRefName:pr.headRefName,baseRefName:pr.baseRefName}:pr);
-} else if(args[1]==='list') {
- const head=args.includes('--head');const ref=args[args.indexOf(head?'--head':'--base')+1];
- out(prs.filter(pr=>(head?pr.headRefName:pr.baseRefName)===ref&&(args.includes('all')||pr.state==='OPEN')));
-} else if(args[1]==='edit') {
- prs.find(pr=>pr.number===Number(args[2])).baseRefName=args.at(-1);
- fs.writeFileSync(process.env.STACK_STATE,JSON.stringify(prs));
-} else if(args[1]!=='update-branch') {process.stderr.write('unexpected fake command');process.exit(1);}
-`);
-  await chmod(path.join(bin, "gh"), 0o755);
-  const stave = await launchStave({ env: { PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`, STACK_STATE: statePath, STACK_CALLS: logPath } });
+  git("commit", "--allow-empty", "-m", "test: base"); git("checkout", "-b", "child");
+  const state = { repo: { owner: "example", name: "repo", defaultBranch: "main" }, viewer: "me" };
+  const gh = createFakeGh(directory, { ...state, prs: [
+    fakePr({ number: 1, headRefName: "parent", baseRefName: "main", state: "MERGED", createdAt: "2026-11-17T00:00:00Z", mergedAt: "2026-11-17T00:30:00Z" }, state),
+    fakePr({ number: 2, headRefName: "child", baseRefName: "parent", createdAt: "2026-11-17T00:10:00Z" }, state),
+    fakePr({ number: 3, headRefName: "theirs", baseRefName: "parent", createdAt: "2026-11-17T00:11:00Z", author: { id: "o", login: "other", is_bot: false } }, state),
+    fakePr({ number: 10, headRefName: "develop", baseRefName: "main", state: "MERGED", createdAt: "2026-11-17T00:00:00Z", mergedAt: "2026-11-17T00:30:00Z" }, state),
+    fakePr({ number: 11, headRefName: "feature", baseRefName: "develop", createdAt: "2026-11-17T00:10:00Z" }, state),
+  ] });
+  const bin = path.dirname(gh.executable);
+  const stave = await launchStave({ env: { PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`, ...gh.env } });
   try {
     await stave.page.waitForFunction(() => Boolean(window.api?.sourceControl?.getPrStack));
     const result = await stave.page.evaluate(cwd => window.api.sourceControl!.getPrStack!({ cwd }), cwd);
-    expect(result.ok, result.stderr).toBe(true);
-    expect(result.stack).toMatchObject({ position: 2, total: 2, parent: { number: 1, state: "MERGED" } });
+    expect(result.ok, String(result.code)).toBe(true);
+    expect(result.stack?.retarget).toMatchObject({ parent: { number: 1 }, toBase: "main", children: [{ number: 2 }], excluded: [{ pr: { number: 3 }, reason: "not-yours" }] });
     const rejected = await stave.page.evaluate(async cwd => {
       try {
-        await window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 1, childNumbers: [2], force: true } as never);
+        await window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 1, children: [{ number: 2, fromBase: "parent", toBase: "main" }], force: true } as never);
         return false;
       } catch { return true; }
     }, cwd);
     expect(rejected).toBe(true);
-    const updated = await stave.page.evaluate(cwd => window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 1, childNumbers: [2] }), cwd);
-    expect(updated, JSON.stringify(updated)).toMatchObject({ ok: true, updated: [2] });
-    const calls = (await readFile(logPath, "utf8")).trim().split("\n").map(line => JSON.parse(line) as string[]);
+    // A long-lived parent is refused by the host even when the renderer asks.
+    const refused = await stave.page.evaluate(cwd => window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 10, children: [{ number: 11, fromBase: "develop", toBase: "main" }] }), cwd);
+    expect(refused).toMatchObject({ ok: false, code: "parent-ineligible", results: [] });
+    const updated = await stave.page.evaluate(cwd => window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 1, children: [{ number: 2, fromBase: "parent", toBase: "main" }, { number: 3, fromBase: "parent", toBase: "main" }] }), cwd);
+    expect(updated).toEqual({ ok: false, code: null, results: [{ number: 2, status: "updated", reason: null }, { number: 3, status: "skipped", reason: "not-yours" }] });
+    const calls = gh.calls();
     expect(calls).toContainEqual(["pr", "update-branch", "2"]);
+    expect(calls.filter(args => args[1] === "edit").map(args => args[2])).toEqual(["2"]);
     expect(calls.flat().some(arg => arg.includes("force"))).toBe(false);
-    expect(git("branch", "--show-current")).toBe("main");
+    expect(git("branch", "--show-current")).toBe("child");
   } finally { await stave.close(); await rm(directory, { recursive: true, force: true }); }
 });

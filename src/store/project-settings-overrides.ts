@@ -9,14 +9,15 @@ import type { AppSettings } from "@/store/app-settings";
  *   permission mode and sandbox switches, Codex's file access, network
  *   access and approvals, and the Cursor, Kiro and OpenCode approval presets.
  *
- * - automatic pull request watching after a task turn ends.
+ * - whether Stave watches pull requests on its own (Settings > Prompts),
+ *   after Create PR and after an agent opens one during a task turn.
  *
  * Everything else is global. Every read of an overridable value for a new
  * task or turn goes through `resolveEffectiveSettings` / `effectiveSetting`,
  * and an explicit task or composer choice still wins over both layers.
  */
 export const PROJECT_OVERRIDABLE_SETTING_KEYS = [
-  "agentPrWatchEnabled",
+  "createPrWatchEnabled",
   "modelClaude",
   "claudeEffort",
   "modelCodex",
@@ -88,7 +89,7 @@ const OVERRIDE_VALIDATORS: {
     value: unknown,
   ) => AppSettings[K] | undefined;
 } = {
-  agentPrWatchEnabled: flag,
+  createPrWatchEnabled: flag,
   modelClaude: modelId,
   claudeEffort: oneOf<AppSettings["claudeEffort"]>(EFFORTS),
   modelCodex: modelId,

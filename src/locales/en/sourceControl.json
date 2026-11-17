@@ -405,15 +405,57 @@
     "position": "{{position}} of {{total}} in stack",
     "parent": "Parent #{{number}}",
     "child": "Child #{{number}}",
-    "retarget": "Retarget and update children",
-    "updateFailed": "Could not update the stack: {{detail}}",
+    "retarget": "Retarget children…",
+    "retargetTitle": "Retarget children of #{{number}}",
+    "retargetDescription": "#{{number}} merged. Stave changes the base of each pull request below and merges the new base into its branch. History is never rewritten.",
+    "retargetRow": "#{{number}} {{title}}",
+    "retargetMove": "{{from}} → {{to}}",
+    "retargetAuthor": "by {{author}}",
+    "retargetConfirm_one": "Retarget {{count}} pull request",
+    "retargetConfirm_other": "Retarget {{count}} pull requests",
+    "retargetRetry_one": "Retry {{count}} remaining",
+    "retargetRetry_other": "Retry {{count}} remaining",
+    "retargetNothing": "None of these children are yours, so Stave will not change them.",
+    "excludedTitle": "Not changed",
+    "excluded": {
+      "notYours": "Not yours",
+      "fork": "From a fork"
+    },
+    "resultsTitle": "Results",
+    "result": {
+      "updated": "#{{number}} now targets the new base and is up to date.",
+      "conflict": "#{{number}} now targets the new base, but its branch could not be updated: {{reason}}",
+      "skipped": "#{{number}} was not changed: {{reason}}"
+    },
+    "reason": {
+      "notYours": "another person opened it.",
+      "fork": "its branch is in a fork.",
+      "notOpen": "it is no longer open.",
+      "baseChanged": "its base changed after you confirmed.",
+      "targetChanged": "the parent's base changed after you confirmed.",
+      "notAChild": "it is not a child of this parent.",
+      "readFailed": "Stave could not read it from GitHub.",
+      "editFailed": "GitHub did not accept the new base. Try again.",
+      "mergeConflict": "resolve the conflicts on its branch, then use Update branch.",
+      "updateFailed": "use Update branch on that pull request."
+    },
+    "error": {
+      "auth": "Sign in to GitHub CLI (gh auth login) and try again.",
+      "readFailed": "Stave could not read the pull requests from GitHub.",
+      "parentIneligible": "This parent's branch is a long-lived branch, so its children are not a stack.",
+      "parentNotMerged": "The parent pull request has not merged yet.",
+      "invalidResponse": "GitHub returned an unexpected response."
+    },
     "create": "Create stacked PR",
     "createHint": "Select the branch of an open parent PR as the base.",
     "parentReady": "Parent #{{number}} on {{branch}}",
     "parentRequired": "Choose a base branch with an open parent PR."
   },
   "agentPrWatch": {
-    "watching": "This pull request is now being watched for failing checks and conflicts.",
+    "watchingPr": "Watching PR #{{number}} for failing checks and conflicts.",
+    "waitingForPr": "Watching this branch, but there is no pull request yet.",
+    "openSchedules": "Open in Schedules",
+    "ambiguous": "Stave did not watch PR #{{number}} automatically because more than one task in this workspace ran a command that opens a pull request. Add the watch from Schedules on the task that owns it.",
     "paused": "Pull request watching is paused.",
     "stopped": "Pull request watching has stopped.",
     "stop": "Stop watching"

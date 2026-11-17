@@ -40,6 +40,23 @@ export type PullRequestWatchEvent = z.infer<typeof PullRequestWatchEventSchema>;
 export const AUTO_PULL_REQUEST_WATCH_EVENTS: readonly PullRequestWatchEvent[] =
   Object.freeze(["checks_failed", "merge_conflict"]);
 
+/**
+ * One switch decides whether Stave watches a pull request on its own, both
+ * after Create PR and after an agent opens one during a task turn: the global
+ * `createPrWatchEnabled` setting, which a repository may override. The host
+ * reads the synced global value and the repository override from the
+ * registry; the renderer reads the same pair through `effectiveSetting`.
+ */
+export const DEFAULT_PULL_REQUEST_WATCH_ENABLED = true;
+
+export function isPullRequestWatchEnabled(args: {
+  /** Null until the renderer synced the setting at least once. */
+  globalSetting: boolean | null | undefined;
+  repositoryOverride?: boolean;
+}) {
+  return args.repositoryOverride ?? args.globalSetting ?? DEFAULT_PULL_REQUEST_WATCH_ENABLED;
+}
+
 export const PULL_REQUEST_WATCH_LIMITS = Object.freeze({
   /** How often a healthy watch reads GitHub. */
   pollIntervalMs: 2 * 60_000,
@@ -239,6 +256,12 @@ export const PullRequestWatchStateSchema = z
      * queued wake lands right after the turn, on fresh state.
      */
     pendingSince: z.string().datetime().nullable(),
+    /**
+     * Set when Stave added the watch on its own (after Create PR or an agent
+     * opened the PR). Only such a watch offers Stop watching in the task; a
+     * watch the user scheduled is changed from Schedules.
+     */
+    automatic: z.literal(true).optional(),
   })
   .strict();
 export type PullRequestWatchState = z.infer<typeof PullRequestWatchStateSchema>;
@@ -315,6 +338,7 @@ export function advancePullRequestWatchState(args: {
     consecutiveReadFailures: 0,
     lastReadError: null,
     pendingSince: previous.pendingSince,
+    ...(previous.automatic ? { automatic: true as const } : {}),
   };
 }
 

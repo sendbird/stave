@@ -23,7 +23,8 @@ import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDi
 import { PrContextDialog } from "@/components/layout/PrContextDialog";
 import { CreatePullRequestDialog } from "@/components/layout/pull-request/CreatePullRequestDialog";
 import { PullRequestStackNotice } from "./pull-request/PullRequestStackNotice";
-import { usePullRequestStack } from "./pull-request/use-pull-request-stack";
+import { PullRequestStackRetargetDialog } from "./pull-request/PullRequestStackRetargetDialog";
+import { pullRequestStackRevision, usePullRequestStack } from "./pull-request/use-pull-request-stack";
 import { watchCreatedPullRequest } from "@/components/layout/pull-request/auto-pull-request-watch";
 import {
   FIELD_LABEL_CLASS,
@@ -277,7 +278,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const prInfo = workspacePrInfoById[activeWorkspaceId];
   const prStatus: WorkspacePrStatus = prInfo?.derived ?? "no_pr";
   const actions = PR_STATUS_ACTIONS[prStatus];
-  const prStack = usePullRequestStack({ cwd: workspaceCwd, enabled: Boolean(prInfo?.pr), revision: prInfo?.lastFetched });
+  // Re-read the stack only when the PR changed (number, state, base), not on every status poll.
+  const prStack = usePullRequestStack({ cwd: workspaceCwd, enabled: Boolean(prInfo?.pr), revision: pullRequestStackRevision(prInfo?.pr) });
+  const [stackRetargetOpen, setStackRetargetOpen] = useState(false);
+  const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const stackedParent = usePullRequestStack({ cwd: workspaceCwd, branch: targetBranch, enabled: dialogOpen && createStackedPr && Boolean(targetBranch) && targetBranch !== defaultBaseBranch });
   const stackedParentPr = stackedParent.stack?.members.find((pr) => pr.number === stackedParent.stack?.current && pr.state === "OPEN");
 
@@ -1221,7 +1225,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           prResult.prUrl ? `PR URL: ${prResult.prUrl}` : "",
         ].filter(Boolean).join(" "),
       });
-      if (prResult.prUrl && submitWorkspaceId) void watchCreatedPullRequest({ state: useAppStore.getState(), workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
+      if (prResult.prUrl && submitWorkspaceId) void watchCreatedPullRequest({ state: useAppStore.getState(), repositoryPath, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
       setStep("ready");
       return;
     }
@@ -1271,7 +1275,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (prResult.prUrl && submitWorkspaceId) {
       const state = useAppStore.getState();
-      void watchCreatedPullRequest({ state, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
+      void watchCreatedPullRequest({ state, repositoryPath, workspaceId: submitWorkspaceId, taskId: activeTask?.id ?? null });
     }
 
     // Refresh PR status to pick up the new PR
@@ -1805,7 +1809,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         /* Has PR – show status dropdown */
         <div className={sx(openPrStyles.triggerGroup)}>
           {prStack.stack && prStack.stack.total > 1 ? <span className={sx(openPrStyles.statusMenuSubtitle)}>{i18n.t("sourceControl:prStack.position", { position: prStack.stack.position, total: prStack.stack.total })}</span> : null}
-          <DropdownMenu>
+          <DropdownMenu open={statusMenuOpen} onOpenChange={setStatusMenuOpen}>
             <TopBarPrStatusTrigger
               pr={prInfo?.pr}
               status={prStatus}
@@ -1832,7 +1836,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </span>
               </DropdownMenuLabel>
 
-              <PullRequestStackNotice key={workspaceCwd} stack={prStack.stack} cwd={workspaceCwd} onUpdated={() => { prStack.refresh(); fetchStatus(); }} />
+              <PullRequestStackNotice stack={prStack.stack} showPosition={false} onRetarget={() => { setStatusMenuOpen(false); setStackRetargetOpen(true); }} />
               <DropdownMenuSeparator />
 
               {/* Primary action */}
@@ -1923,6 +1927,16 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         </div>
       )}
 
+      {/* Outside the status menu: closing the menu keeps the confirmation and its results. */}
+      <PullRequestStackRetargetDialog
+        key={workspaceCwd}
+        open={stackRetargetOpen}
+        onOpenChange={setStackRetargetOpen}
+        cwd={workspaceCwd}
+        plan={prStack.stack?.retarget ?? null}
+        longLivedBranchPatterns={prStack.patterns}
+        onSettled={() => { prStack.refresh(); fetchStatus(); }}
+      />
       <CreatePullRequestDialog
         dialog={{
           open: dialogOpen,

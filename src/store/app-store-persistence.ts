@@ -645,10 +645,10 @@ export function createAppStorePersistenceOptions() {
         typeof raw.createPrWatchEnabled === "boolean"
           ? raw.createPrWatchEnabled
           : defaultSettings.createPrWatchEnabled;
-      state.settings.agentPrWatchEnabled =
-        typeof raw.agentPrWatchEnabled === "boolean"
-          ? raw.agentPrWatchEnabled
-          : defaultSettings.agentPrWatchEnabled;
+      state.settings.pullRequestLongLivedBranches =
+        typeof raw.pullRequestLongLivedBranches === "string"
+          ? raw.pullRequestLongLivedBranches.slice(0, 2_000)
+          : defaultSettings.pullRequestLongLivedBranches;
       const legacyRepositoryInitCommand = normalizeRepositoryWorkspaceInitCommand({
         value: raw.newWorkspaceInitCommand,
       });
