@@ -143,10 +143,7 @@ import {
   type RepositoryMemory,
   type RepositoryMemoryKind,
 } from "../../src/lib/repository-memory";
-import {
-  buildRepositoryMemoryRetrievedContextPart,
-  resolveRepositoryMemoryRecallQuery,
-} from "../../src/lib/task-context/repository-memory";
+import { buildRepositoryMemoryPartForTurn } from "./local-mcp-repository-memory";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
   createLocalMcpTurnJournal,
@@ -958,40 +955,6 @@ export async function forgetRepositoryMemory(args: {
     memoryId: args.memoryId,
     forgotten: store.deleteRepositoryMemory(args.memoryId),
   };
-}
-
-/**
- * The `stave:repository-memory` block for a host-initiated turn. Memory is a
- * best-effort aid: a store without the method (test doubles) or a failing
- * query yields no block rather than a failed turn.
- */
-function buildRepositoryMemoryPartForTurn(args: {
-  repositoryPath: string;
-  history: ChatMessage[];
-  prompt: string;
-}): CanonicalRetrievedContextPart | null {
-  try {
-    const store = ensureHostServicePersistenceReady() as {
-      recallRepositoryMemories?: (input: {
-        repositoryPath: string;
-        query?: string | null;
-      }) => RepositoryMemory[];
-    };
-    if (typeof store.recallRepositoryMemories !== "function") {
-      return null;
-    }
-    const memories = store.recallRepositoryMemories({
-      repositoryPath: args.repositoryPath,
-      query: resolveRepositoryMemoryRecallQuery({
-        history: args.history,
-        prompt: args.prompt,
-      }),
-    });
-    return buildRepositoryMemoryRetrievedContextPart({ memories });
-  } catch (error) {
-    console.warn("[stave-mcp] project memory recall failed", error);
-    return null;
-  }
 }
 
 function buildTaskTitleFromPrompt(prompt: string) {
