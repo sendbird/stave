@@ -1,4 +1,4 @@
-import { TurnSnapshotStore } from "./turn-snapshot-store";
+import { TurnSnapshotStore, flushDeletedTurnSnapshotRefs } from "./turn-snapshot-store";
 import { archiveFleetTask } from "./fleet-task-archive";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../../src/lib/fleet/host-control";
 import { readFleetStopPreview } from "./fleet-stop-preview";
@@ -827,9 +827,8 @@ export class SqliteStore {
   }
 
   private removeArtifactFiles(args: { relativePaths: string[] }) {
-    if (args.relativePaths.length === 0) {
-      return;
-    }
+    flushDeletedTurnSnapshotRefs(this.db); // Deleted tasks and workspaces also release their snapshot refs.
+    if (args.relativePaths.length === 0) return;
     for (const relativePath of args.relativePaths) {
       try {
         rmSync(path.join(this.artifactRootDir, relativePath), { force: true });

@@ -771,7 +771,11 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
         options: turnArgs.runtimeOptions ?? {},
       });
     }
-    if (turnArgs.conversation?.mode === "chat" && turnArgs.workspaceId && turnArgs.taskId) await turnFileSnapshotCapture?.(turnArgs);
+    // A snapshot is best effort; its failure must never stop the turn.
+    if (turnArgs.conversation?.mode === "chat" && turnArgs.workspaceId && turnArgs.taskId) {
+      try { await turnFileSnapshotCapture?.(turnArgs); }
+      catch (error) { console.warn("[turn-snapshots] capture failed", { turnId: turnArgs.turnId, error: String(error) }); }
+    }
     preparingPolicy = false;
     return await runScopedProviderTurn(turnArgs, agentTurn, routeNote);
   } catch (error) {

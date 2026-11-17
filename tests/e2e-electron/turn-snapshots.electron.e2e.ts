@@ -27,6 +27,8 @@ test("a host-started turn records real files and restore can be undone after res
   await writeFile(path.join(repositoryPath, "README.md"), "Working state\n");
   await writeFile(path.join(repositoryPath, "untracked.bin"), Buffer.from([0, 1, 2, 255]));
   await writeFile(path.join(repositoryPath, "ignored.txt"), "Ignored state\n");
+  // A default workspace with a nested, non-ignored worktree still records snapshots.
+  git("worktree", "add", "-q", path.join(repositoryPath, ".stave", "workspaces", "feature"), "-b", "feature");
   const indexBefore = git("show", ":README.md").toString();
   const wrapper = path.join(fakeDir, "runtime");
   await writeFile(wrapper, `#!/bin/sh\nFAKE_CLAUDE_DIR='${fakeDir}' exec '${process.execPath}' '${FAKE_CLI}' "$@"\n`);

@@ -287,3 +287,12 @@ test("a read-only user turn is snapshotted while a review helper stays outside u
   await providerRuntime.streamTurn({...base,turnId:"review-helper",conversation:{mode:"review",history:[],contextParts:[]}});
   expect(captured).toEqual(["readonly-chat"]);
 });
+
+for (const providerId of ["claude-code", "codex"] as const) {
+  test(`${providerId} starts the turn when the file snapshot cannot be captured`, async () => {
+    setTurnFileSnapshotCapture?.(async () => { throw new Error("snapshot storage failed"); });
+    const events = await providerRuntime.streamTurn({ providerId,taskId:"snapshot-task",workspaceId:"snapshot-workspace",turnId:`snapshot-failure-${providerId}`,cwd:TEST_WORKSPACE_CWD,prompt:"Continue",conversation:{mode:"chat",history:[],contextParts:[]} });
+    expect(primaryTurns).toHaveLength(1);
+    expect(events).not.toContainEqual(expect.objectContaining({ type: "error" }));
+  });
+}

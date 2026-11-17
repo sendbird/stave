@@ -628,7 +628,12 @@ const agentRunRuntime = createHostAgentRunRuntime({
     emitEvent("agent-run.changed", event);
   },
 });
-function turnSnapshots() { return new TurnSnapshotService(ensureHostServicePersistenceReady(), Number(process.env.STAVE_TURN_SNAPSHOT_LIMIT ?? 50)); }
+function turnSnapshots() {
+  return new TurnSnapshotService(ensureHostServicePersistenceReady(), Number(process.env.STAVE_TURN_SNAPSHOT_LIMIT ?? 50), {
+    hasRunningTerminal: (workspaceIds) => terminalRuntime.hasRunningWorkspaceProcesses(workspaceIds),
+  });
+}
+// Capture is best effort: the service records why a turn has no snapshot and never throws.
 setTurnFileSnapshotCapture(async (args) => {
   if (!args.workspaceId || !args.taskId || !args.turnId) return;
   await turnSnapshots().capture({workspaceId:args.workspaceId,taskId:args.taskId},args.turnId);
