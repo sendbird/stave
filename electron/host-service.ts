@@ -1,4 +1,6 @@
 import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
+import { WebhookRunArgsSchema } from "../src/lib/automation-webhook-ipc";
+import { AutomationRunSchema } from "../src/lib/automations";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
 import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
@@ -913,6 +915,8 @@ async function invokeAutomationAction(action: HostAutomationAction, args: unknow
       return automationRuntime.setProviderTimeoutMs(
         args as Parameters<typeof automationRuntime.setProviderTimeoutMs>[0],
       );
+    case "run-webhook":
+      return AutomationRunSchema.parse(await automationRuntime.runWebhook(WebhookRunArgsSchema.parse(args)));
     case "run-now":
       return automationRuntime.runNow(
         args as Parameters<typeof automationRuntime.runNow>[0],

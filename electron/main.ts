@@ -1,3 +1,4 @@
+import { startAutomationWebhookReceiver, stopAutomationWebhookReceiver } from "./main/automation-webhook-service";
 import { startWorkPowerSaveBlocker, stopWorkPowerSaveBlocker } from "./main/work-power-save-instance";
 import { app, Menu } from "electron";
 import { registerHandlers } from "./main/ipc";
@@ -114,6 +115,7 @@ function runBeforeQuitCleanup() {
       Promise.resolve(stopCraneConnectorRuntime()),
       Promise.resolve(stopTrackerIssuesRuntime()),
       Promise.resolve(stopStorageCleanupRuntime()),
+      stopAutomationWebhookReceiver(),
       stopStaveMcpServer(),
       stopHostService(),
     ]);
@@ -161,6 +163,7 @@ if (hasSingleInstanceLock) {
     createMainWindow();
     startTrackerIssuesRuntime();
     startStorageCleanupRuntime();
+    void startAutomationWebhookReceiver().catch(() => console.error("[webhooks] receiver startup failed"));
     void startHostService().catch((error) => {
       console.error("[host-service] failed to start", error);
     });

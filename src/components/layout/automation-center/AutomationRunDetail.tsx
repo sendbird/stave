@@ -61,7 +61,7 @@ export function AutomationRunRow(props: {
       <div className={sx(runDetailStyles.rowMeta)}>
         <span>{formatTimeAgo(props.run.startedAt)}</span>
         <span className={sx(automationStyles.truncate)}>
-          {props.run.trigger === "scheduled" ? tI18n("automation:automationRunDetail.schedule") : tI18n("automation:automationRunDetail.manual")} ·{" "}
+          {props.run.trigger === "webhook" ? tI18n("automation:webhook.label") : props.run.trigger === "scheduled" ? tI18n("automation:automationRunDetail.schedule") : tI18n("automation:automationRunDetail.manual")} ·{" "}
           {formatRunDuration(props.run)}
         </span>
       </div>
@@ -153,7 +153,7 @@ export function AutomationRunDetail(props: {
           <dl className={sx(runDetailStyles.facts)}>
             <DetailRow
               label={tI18n("automation:automationRunDetail.trigger")}
-              value={props.run.trigger === "scheduled" ? tI18n("automation:automationRunDetail.schedule") : tI18n("automation:automationRunDetail.manual")}
+              value={props.run.trigger === "webhook" ? tI18n("automation:webhook.label") : props.run.trigger === "scheduled" ? tI18n("automation:automationRunDetail.schedule") : tI18n("automation:automationRunDetail.manual")}
             />
             <DetailRow
               label={tI18n("automation:automationRunDetail.permissions")}

@@ -179,10 +179,11 @@ export function formatAutomationSchedule(
  * computer's time zone.
  */
 export function formatAutomationCadence(
-  automation: { schedule: AutomationSchedule; runOnceAt?: string | undefined },
+  automation: { schedule: AutomationSchedule; runOnceAt?: string | undefined; webhook?: {endpointId:string} | null },
   t: TFunction<["automation"]> = i18n.getFixedT(null, ["automation"]),
   options: { compact?: boolean } = {},
 ): string {
+  if (automation.webhook) return t("automation:webhook.label");
   return automation.runOnceAt !== undefined
     ? t("automation:scheduleText.once", { when: formatDateTime(automation.runOnceAt) })
     : formatAutomationSchedule(automation.schedule, t, options);

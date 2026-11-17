@@ -1080,6 +1080,37 @@ Screens: [Subagent results](https://github.com/sendbird/stave/blob/main/docs/scr
 Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**. A schedule set up by asking Tars is listed here too; it can also run once at a date and time, shown as **Once on …**, after which it turns itself off.
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
+## Start a task from a webhook
+
+In a new-task schedule, choose **Webhook** instead of **Time**. Copy the URL
+and store the signing secret immediately; it is shown once. Choosing Webhook
+does not turn the schedule on: save it, then turn on **Enable this webhook
+schedule**. Then enable the local **Webhook receiver** and apply its settings.
+The receiver is off by default, uses loopback port 6330, and receives only while
+the app is running. The editor shows whether it is listening or why not, such as
+a port in use. Changing the bind address can expose it to other devices; the
+editor warns before you apply that choice.
+
+Webhook schedules always ask for approval before risky actions: **Auto** and
+**Manual** are not available for them. Each request needs `x-stave-timestamp`
+(Unix seconds), an optional `x-stave-delivery-id`, and `x-stave-signature:
+sha256=<hex>`, the HMAC SHA-256 of `timestamp.deliveryId.rawBody` with the
+schedule's secret. The editor shows a command-line example. Requests more than
+5 minutes old or ahead are rejected. Payload filters compare paths such as
+`$.action` with **Equals** or **Contains**, as text. Repeated delivery ids (or
+the same body and timestamp) start nothing more within the dedupe window. An
+event for a busy schedule waits and starts later. Use `{{body.path}}` in
+instructions for quoted, escaped event data, capped at 16 KB. The payload is
+always marked untrusted, never as instructions.
+
+After saving, **Send test event** sends a signed event and can start a real task;
+**Run with sample payload** starts a run with the test JSON. **Recent
+deliveries** lists accepted, filtered, duplicate and failed events, and
+**Rejected requests** counts the rest by reason. Use **Refresh deliveries** for
+the latest results. Pausing the schedule prevents new tasks. Unsigned events are
+rejected, the body limit is 1 MB, and each schedule has its own request rate
+limit. A secret no saved schedule uses is deleted when the editor closes.
+
 ## Fleet View
 
 Fleet and long sidebar lists render the rows around the viewport. Selection and keyboard navigation still cover the complete filtered, expanded list.

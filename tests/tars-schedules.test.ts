@@ -374,6 +374,19 @@ describe("Tars schedule: only what Tars created", () => {
     expect((await f.scheduler.list()).schedules[0]).toMatchObject({ editedElsewhere: true });
   });
 
+  test("a schedule the user switched to a webhook in Schedules keeps its webhook and shows no next runs", async () => {
+    const f = fixture();
+    const { record } = await f.confirmed(CHECK_RELEASE, { enable: true });
+    const live = (await f.automations.list()).automations[0]!;
+    const { id, createdAt: _created, updatedAt: _updated, lastRunAt: _last, nextRunAt: _next, ...input } = live;
+    const webhook = { endpointId: "d".repeat(64), secretId: "00000000-0000-4000-8000-000000000004", filters: [], dedupeWindowSeconds: 600, coalesceWindowSeconds: 0, rateLimitPerMinute: 60 };
+    await f.automations.update({ id, input: { ...input, webhook } });
+    const proposal = await f.propose([{ kind: "schedule", operation: "update", scheduleId: record.scheduleId, title: "Renamed by Tars" }]);
+    expect(proposal.receipts[0]).toMatchObject({ status: "rejected", reason: "editedElsewhere" });
+    expect((await f.automations.list()).automations[0]).toMatchObject({ webhook, name: CHECK_RELEASE.title });
+    expect((await f.scheduler.list()).schedules[0]).toMatchObject({ editedElsewhere: true, enabled: true, nextRuns: [] });
+  });
+
   test("a schedule removed in Schedules is refused as gone, also for a card that was already waiting", async () => {
     const f = fixture();
     const { record } = await f.confirmed(CHECK_RELEASE, { enable: true });

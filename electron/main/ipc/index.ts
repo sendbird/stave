@@ -1,3 +1,4 @@
+import { registerAutomationWebhookHandlers } from "./automation-webhooks";
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
 import { registerInlineRenderHandlers } from "./inline-render";
@@ -52,6 +53,7 @@ export function registerHandlers() {
   registerProviderAccountSetupHandlers();
   registerRunHandlers();
   registerAutomationHandlers();
+  registerAutomationWebhookHandlers();
   registerAgentRunHandlers();
   registerWakeUpHandlers();
   registerTarsHandlers();

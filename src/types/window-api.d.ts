@@ -1,6 +1,7 @@
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
+import type { AutomationWebhookApi } from "../lib/automation-webhook-ipc";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
 import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
 import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
@@ -1053,7 +1054,7 @@ interface WindowTaskControlApi {
   }>;
 }
 
-interface WindowAutomationsApi {
+interface WindowAutomationsApi extends Partial<AutomationWebhookApi> {
   setProviderTimeout?: (args: { providerTimeoutMs: number }) => Promise<{
     ok: boolean;
     message?: string;
@@ -1082,7 +1083,7 @@ interface WindowAutomationsApi {
     automation: AutomationSpec | null;
     message?: string;
   }>;
-  runNow?: (args: { id: string }) => Promise<{
+  runNow?: (args: { id: string; payload?: unknown }) => Promise<{
     ok: boolean;
     run: AutomationRun | null;
     message?: string;
