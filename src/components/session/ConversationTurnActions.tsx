@@ -148,7 +148,7 @@ export function ConversationTurnActions(props: {
         >
           <Undo2 className={sx(styles.iconSm)} />
           {i18n.t("session:conversationTurnActions.conversationTurnActions2")}</MessageAction>
-        <div className={sx(preview && styles.fullRow)}><TurnFileActions taskId={props.taskId} messageId={props.messageId} /></div>
+        <div className={sx(styles.fileSlot, preview && styles.fullRow)}><TurnFileActions taskId={props.taskId} messageId={props.messageId} /></div>
         <ForkReturnAction taskId={props.taskId} messageId={props.messageId} />
       </div>
 

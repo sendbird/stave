@@ -20,6 +20,21 @@ export const conversationTurnActionsStyles = stylex.create({
     gridColumn: "1 / -1",
     minWidth: 0,
   },
+  // A turn without a file action leaves no empty cell or extra gap behind.
+  fileSlot: {
+    display: {
+      default: "block",
+      ":empty": "none",
+    },
+    minWidth: 0,
+  },
+  // Explains a missing file snapshot in the same caption scale as the actions.
+  noSnapshot: {
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  },
   groupInline: {
     alignItems: "center",
     display: "flex",

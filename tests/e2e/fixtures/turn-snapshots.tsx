@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import * as stylex from "@stylexjs/stylex";
 import { applyAppLocale } from "@/i18n";
-import { UndoFileRestore } from "@/components/session/TurnFileActions";
+import { TurnFileActions, UndoFileRestore } from "@/components/session/TurnFileActions";
 import { ForkReturnAction } from "@/components/session/ForkReturnAction";
 import { ConversationTurnActions } from "@/components/session/ConversationTurnActions";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
@@ -35,7 +35,7 @@ Object.assign(window, { __turnSnapshotCalls: calls });
 window.api = {
   ...window.api,
   turnSnapshots: {
-    list: async () => ({ snapshots: [{ turnId: "turn-first", snapshotId: "snapshot-first", createdAt: "2026-01-01" }], canUndo }),
+    list: async () => ({ snapshots: [{ turnId: "turn-first", snapshotId: "snapshot-first", createdAt: "2026-01-01" }], skipped: [{ turnId: "turn-second", reason: "captureFailed" }], canUndo }),
     restore: async (args) => {
       calls.push({ method: "restore", ...args });
       if (!params.has("refuse")) canUndo = true;
@@ -77,6 +77,7 @@ createRoot(document.getElementById("root")!).render(
       <main className={sx(styles.frame)}>
         <div className={sx(styles.row)}>
           <ConversationTurnActions taskId={taskId} messageId="assistant-first" state={state} variant="preview" />
+          <div data-testid="second-turn-files"><TurnFileActions taskId={taskId} messageId="assistant-second" /></div>
           <ForkReturnAction taskId={taskId} messageId="assistant-second" />
           <UndoFileRestore taskId={taskId} />
         </div>

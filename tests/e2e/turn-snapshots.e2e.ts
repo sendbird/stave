@@ -57,7 +57,7 @@ test("restore refusal explains why and keeps the conversation", async ({ page })
   await page.goto(`${fixture}?refuse=1`, { waitUntil: "domcontentloaded" });
   await page.getByRole("button", { name: "Restore files to before this turn", exact: true }).click();
   await page.getByRole("button", { name: "Keep conversation, restore files", exact: true }).click();
-  await expect(page.getByRole("alert")).toHaveText("Files changed since another task used this worktree. Restore was refused to protect those changes.");
+  await expect(page.getByRole("alert")).toHaveText("Files in this worktree may have changed after this turn. The restore was refused to protect those changes.");
   await expect(page.getByRole("button", { name: "Undo restore", exact: true })).toHaveCount(0);
 });
 
@@ -89,3 +89,17 @@ test("combined restore removes the selected turn and keeps file undo available",
   await expect.poll(() => page.evaluate(() => (window as unknown as { __turnSnapshotFixtureStore: { getState(): { messagesByTask: Record<string, unknown[]> } } }).__turnSnapshotFixtureStore.getState().messagesByTask["snapshot-task"].length)).toBe(0);
   await expect(page.getByRole("button", { name: "Undo restore", exact: true })).toBeVisible();
 });
+
+for (const lang of ["en", "ko"] as const) {
+  test(`a turn without a snapshot explains why and offers no restore (${lang})`, async ({ page }) => {
+    await page.goto(`${fixture}?lang=${lang}`, { waitUntil: "domcontentloaded" });
+    const second = page.getByTestId("second-turn-files");
+    await expect(second).toHaveText(lang === "en"
+      ? "No snapshot for this turn: the files could not be saved when the turn started."
+      : "이 턴의 스냅샷이 없습니다: 턴을 시작할 때 파일을 저장하지 못했습니다.");
+    await expect(second.getByRole("button")).toHaveCount(0);
+    await mkdir("/tmp/gap-h6", { recursive: true });
+    await page.screenshot({ path: `/tmp/gap-h6/no-snapshot-${lang}.png` });
+    await expect(page.getByRole("button", { name: lang === "en" ? "Restore files to before this turn" : "이 턴 이전으로 파일 복원", exact: true })).toHaveCount(1);
+  });
+}
