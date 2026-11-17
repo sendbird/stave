@@ -251,6 +251,7 @@ export interface DelegateCaller {
 }
 
 interface DelegatedTaskCoordinatorDependencies {
+  admissionWait?: (args: { taskId: string; waiting: boolean }) => Promise<unknown>;
   canStopTask?: (args: { workspaceId: string; taskId: string }) => Promise<boolean>;
   dailyUsageLimit?: (providerId: "claude-code" | "codex") => Promise<string | null>;
   cancelTurnRoute?: (requestId: string) => Promise<unknown>;
@@ -1670,7 +1671,25 @@ export function createDelegatedTaskCoordinator(
     );
     const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
     if (!waitSeconds || !response.accepted || !response.child) return response;
-    return waitForAnswer(response, waitSeconds * 1_000);
+    const deadline = Date.now() + waitSeconds * 1_000;
+    // The parent gives its slot to its helper while it waits.
+    await Promise.resolve(dependencies.admissionWait?.({ taskId: parentTaskId, waiting: true })).catch((error) => {
+      console.warn("[delegation] could not lend the parent's turn slot", String(error));
+    });
+    try { return await waitForAnswer(response, waitSeconds * 1_000); }
+    finally {
+      // Taking the slot back never holds the tool call past the documented
+      // wait: at the deadline the call returns and the re-acquire continues.
+      // A parent turn that ends first drops its pending re-acquire.
+      const reacquired = Promise.resolve(dependencies.admissionWait?.({ taskId: parentTaskId, waiting: false })).catch((error) => {
+        console.warn("[delegation] could not take the parent's turn slot back", String(error));
+      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        reacquired,
+        new Promise<void>((resolve) => { timer = setTimeout(resolve, Math.max(0, deadline - Date.now())); timer.unref?.(); }),
+      ]).finally(() => clearTimeout(timer));
+    }
   };
 
   /**

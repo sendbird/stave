@@ -640,6 +640,8 @@ export interface HostServiceRequestMap {
     streamId: string;
     cursor: number;
   };
+  "turn-admission.wait": { taskId: string; waiting: boolean };
+  "turn-admission.take-restored": Record<string, never>;
   "provider.abort-turn": {
     turnId: string;
   };
@@ -1163,6 +1165,8 @@ export interface HostServiceResponseMap {
   "provider.start-push-turn": HostProviderStartPushTurnResult;
   "provider.read-stream-turn": HostProviderReadStreamResult;
   "provider.ack-stream-turn": HostProviderMutationResult;
+  "turn-admission.wait": { ok: true };
+  "turn-admission.take-restored": { items: import("../persistence/turn-admission-store").RestoredQueuedTurn[] };
   "provider.abort-turn": HostProviderMutationResult;
   "provider.list-live-turns": ProviderLiveTurns;
   "provider.cleanup-task": HostProviderMutationResult;

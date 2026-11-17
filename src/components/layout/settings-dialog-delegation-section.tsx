@@ -2,7 +2,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/aui/components/Button";
 import { sx } from "@/components/aui/utils/stylex";
-import { DraftInput, LabeledField, SettingsCard, readInt } from "@/components/layout/settings-dialog.shared";
+import { DraftInput, LabeledField, SettingsCard, SwitchField, readInt } from "@/components/layout/settings-dialog.shared";
 import { delegationStyles } from "./settings-dialog-delegation-section.styles";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
 import { DELEGATION_FIELD_ID } from "./settings-dialog-providers-focus";
@@ -23,6 +23,19 @@ import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
  * starts, beside its shared turn budget (its max turns), so a change applies
  * to the runs that start after it.
  */
+function GlobalTurnLimitField() {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const limit = useAppStore(state => state.settings.globalAgentTurnLimit);
+  const update = useAppStore(state => state.updateSettings);
+  return <>
+    <SwitchField title={t("settingsProviders:globalTurnLimit.title")} description={t("settingsProviders:globalTurnLimit.description")} checked={limit != null}
+      onCheckedChange={enabled => update({ patch: { globalAgentTurnLimit: enabled ? 4 : null } })} />
+    {limit != null ? <LabeledField title={t("settingsProviders:globalTurnLimit.maximum")}><DraftInput type="number" min={1} max={16} value={String(limit)}
+      data-testid="global-turn-limit" xstyle={settingsSectionsStyles.input40}
+      onCommit={next => update({ patch: { globalAgentTurnLimit: Math.min(16, Math.max(1, readInt(next, limit))) } })} /></LabeledField> : null}
+  </>;
+}
+
 function TeamLimitFields() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const concurrent = useAppStore((state) => state.settings.agentRunConcurrentHelpers);
@@ -150,6 +163,7 @@ export function SettingsDelegationSection() {
           </p>
         ) : null}
       </div>
+      <GlobalTurnLimitField />
       <SettingsAdvancedDisclosure
         compact
         title={t("settingsProviders:delegationSection.advanced.title")}

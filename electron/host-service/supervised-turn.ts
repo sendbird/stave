@@ -67,6 +67,8 @@ export async function runSupervisedTurn(args: {
   questionAnswer?: RunQuestionAnswer;
   /** After an account-pool switch: a new provider conversation on the account switched to. */
   freshSession?: boolean;
+  /** A user action routed through this path (a reply or an answer); every other supervised turn is automatic. */
+  admissionPriority?: "user";
   /** The turn's ID, when the caller named it in advance so it can find the turn again; otherwise a new one. */
   turnId?: string;
 }) {
@@ -86,6 +88,8 @@ export async function runSupervisedTurn(args: {
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     prompt: args.prompt,
+    automaticStart: args.admissionPriority !== "user",
+    ...(args.admissionPriority ? { admissionPriority: args.admissionPriority } : {}),
     questionAnswer: args.questionAnswer,
     initialContext: args.initialContext,
     controlMode: args.parentTaskId ? "managed" : "interactive",

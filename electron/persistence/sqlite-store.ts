@@ -1,4 +1,5 @@
 import { TurnSnapshotStore, flushDeletedTurnSnapshotRefs } from "./turn-snapshot-store";
+import { TurnAdmissionStore } from "./turn-admission-store";
 import { archiveFleetTask } from "./fleet-task-archive";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../../src/lib/fleet/host-control";
 import { readFleetStopPreview } from "./fleet-stop-preview";
@@ -217,7 +218,7 @@ export class SqliteStore {
   readonly taskHandoffs: TaskHandoffStore;
   readonly usageStatistics: UsageStatisticsStore;
   readonly dailyUsage: DailyUsageStore;
-  readonly delegationPolicies: DelegationPolicyStore;
+  readonly turnAdmission: TurnAdmissionStore; readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
   readonly agentAssignments: AgentAssignmentStore;
   readonly tars: TarsStore;
@@ -285,7 +286,7 @@ export class SqliteStore {
     this.taskHandoffs = new TaskHandoffStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);
     this.dailyUsage = new DailyUsageStore(this.db, this.usageStatistics);
-    this.delegationPolicies = new DelegationPolicyStore(this.db);
+    this.turnAdmission = new TurnAdmissionStore(this.db); this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
     this.trackerIssues = new TrackerIssuesStore(this.db, {

@@ -18,6 +18,8 @@ import { notifyWorkspaceCleanupChanged, OPEN_WORKSPACE_CLEANUP_EVENT } from "./w
 type Snapshot = Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
 const rowKey = (row: Pick<WorkspaceCleanupRow, "repositoryPath" | "id">) => `${row.repositoryPath}\n${row.id}`;
 const ready = (row: WorkspaceCleanupRow) => row.blockers.length === 0;
+const canSaveChanges = (row: WorkspaceCleanupRow) => Boolean(row.canSaveChanges && !row.archived && !row.branchOnly && row.blockers.length === 1 && row.blockers[0] === "changedFiles");
+const selectable = (row: WorkspaceCleanupRow) => ready(row) || canSaveChanges(row);
 /** Archived rows whose checkout was removed have no disk usage to report. */
 const withoutWorktree = (row: WorkspaceCleanupRow) => row.archived && !row.bytes;
 const REVERSIBLE_ACTIONS = ["archive", "restore"] as const;
@@ -63,6 +65,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   const [results, setResults] = useState<WorkspaceCleanupResult[]>([]);
   const [undo, setUndo] = useState<WorkspaceCleanupActArgs[]>([]);
   const [confirming, setConfirming] = useState<WorkspaceCleanupActArgs["action"] | null>(null);
+  const [saveChanges, setSaveChanges] = useState(false);
   const [deleteBranch, setDeleteBranch] = useState(false);
   const [forceDeleteBranch, setForceDeleteBranch] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
@@ -83,7 +86,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   useEffect(() => { if (open) void refresh(); return () => { generation.current++; }; }, [open, refresh]);
   // A row that became blocked since it was selected leaves the selection.
   useEffect(() => {
-    const blocked = new Set((data?.rows ?? []).filter((row) => !ready(row)).map(rowKey));
+    const blocked = new Set((data?.rows ?? []).filter((row) => !selectable(row)).map(rowKey));
     setSelected((previous) => [...previous].some((key) => blocked.has(key)) ? new Set([...previous].filter((key) => !blocked.has(key))) : previous);
   }, [data]);
   const groups = useMemo(() => {
@@ -98,10 +101,11 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   const rows = groups.flatMap((group) => group.rows);
   const selectedRows = (data?.rows ?? []).filter((row) => selected.has(rowKey(row)));
   const choose = (row: WorkspaceCleanupRow, event?: MouseEvent) => {
-    // A blocked row is never selectable; the host re-checks the rest at run time.
-    if (!ready(row)) return;
+    // Dirty rows require an explicit save choice; other blockers remain protected.
+    if (!selectable(row)) return;
     const key = rowKey(row);
     setConfirming(null);
+    setSaveChanges(false);
     setSelected((previous) => {
       const next = new Set(event?.metaKey || event?.ctrlKey || !event ? previous : []);
       if (event?.shiftKey && anchor.current) {
@@ -113,8 +117,8 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     });
     anchor.current = key;
   };
-  const actionRows = (action: WorkspaceCleanupActArgs["action"]) => selectedRows.filter((row) => action === "restore" ? row.archived : action === "deleteBranch" ? row.branchOnly && row.branchDeletable : action === "archive" ? !row.archived && !row.branchOnly : !row.branchOnly);
-  const act = async (action: WorkspaceCleanupActArgs["action"], targets: WorkspaceCleanupActArgs[] = actionRows(action).map((row) => ({ action, workspaceId: row.id, repositoryPath: row.repositoryPath, deleteBranch, forceDeleteBranch }))) => {
+  const actionRows = (action: WorkspaceCleanupActArgs["action"]) => selectedRows.filter((row) => (action === "archive" || ready(row)) && (action === "restore" ? row.archived : action === "deleteBranch" ? row.branchOnly && row.branchDeletable : action === "archive" ? !row.archived && !row.branchOnly : !row.branchOnly));
+  const act = async (action: WorkspaceCleanupActArgs["action"], targets: WorkspaceCleanupActArgs[] = actionRows(action).map((row) => ({ action, workspaceId: row.id, repositoryPath: row.repositoryPath, deleteBranch, forceDeleteBranch, ...(action === "archive" && canSaveChanges(row) ? { saveChanges } : {}) }))) => {
     setBusy(true); setConfirming(null); setResults([]);
     const finished: WorkspaceCleanupResult[] = [];
     const archived: WorkspaceCleanupActArgs[] = [];
@@ -140,11 +144,11 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   }), [t]);
   const renderRow = (row: WorkspaceCleanupRow) => {
     const key = rowKey(row);
-    const blocked = !ready(row);
+    const blocked = !selectable(row);
     const reasonId = `cleanup-reason-${encodeURIComponent(key)}`;
-    const reasonLine = blocked ? row.blockers.map(reasonText).join(" · ") : row.reasons.length ? row.reasons.map(reasonText).join(" · ") : t("cleanupDialog.row.ready");
+    const reasonLine = row.blockers.length ? row.blockers.map(reasonText).join(" · ") : row.reasons.length ? row.reasons.map(reasonText).join(" · ") : t("cleanupDialog.row.ready");
     const identity = <>
-      <span className={sx(styles.truncate)}>{row.name}{row.archived ? ` · ${t("cleanupCenter.archived")}` : ""}</span>
+      <span className={sx(styles.truncate)}>{row.name}{row.archived ? ` · ${t("cleanupCenter.archived")}` : ""}{row.savedChanges ? ` · ${t("cleanupCenter.savedChanges")}` : ""}</span>
       <span className={sx(styles.muted, styles.truncate)}>{row.branch} · {row.path}</span>
       <span className={sx(styles.muted)}>{reasonLine}</span>
     </>;
@@ -172,7 +176,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       {/* Hide actions with nothing to act on, as the Fleet selection bar does. */}
       <div className={sx(styles.footer)} data-cleanup-footer="">
         {([["reversible", REVERSIBLE_ACTIONS], ["destructive", DESTRUCTIVE_ACTIONS]] as const).map(([kind, actions]) => actions.some((action) => actionCount(action) > 0) ? <div key={kind} role="group" aria-label={t(kind === "reversible" ? "cleanupCenter.reversibleActions" : "cleanupCenter.destructiveActions")} className={sx(styles.actions)}>
-          {actions.filter((action) => actionCount(action) > 0).map((action) => <Button key={action} size="sm" variant={kind === "destructive" ? "destructive" : "secondary"} disabled={busy} onClick={() => { setDeleteBranch(false); setForceDeleteBranch(false); if (action === "restore") void act(action); else setConfirming(action); }}>{t(`cleanupCenter.actions.${action}`, { count: actionCount(action) })}</Button>)}
+          {actions.filter((action) => actionCount(action) > 0).map((action) => <Button key={action} size="sm" variant={kind === "destructive" ? "destructive" : "secondary"} disabled={busy} onClick={() => { setSaveChanges(false); setDeleteBranch(false); setForceDeleteBranch(false); if (action === "restore") void act(action); else setConfirming(action); }}>{t(`cleanupCenter.actions.${action}`, { count: actionCount(action) })}</Button>)}
         </div> : null)}
       </div>
       {message && <p role="status" className={sx(styles.status)}>{message}{undo.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act("restore", undo)}>{t("cleanupCenter.undo")}</Button>}</p>}
@@ -183,9 +187,10 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     <DialogContent showCloseButton={false} initialFocus={() => cancelRef.current} onKeyDown={(event) => { if (event.key === "Enter" && confirming === "delete") { event.preventDefault(); event.stopPropagation(); } }}>
       <DialogHeader><DialogTitle>{t("cleanupCenter.confirm")}</DialogTitle><DialogDescription>{t(confirming === "archive" ? "cleanupCenter.archiveConfirm" : confirming === "delete" ? "cleanupCenter.deleteConfirm" : "cleanupCenter.branchConfirm")}</DialogDescription></DialogHeader>
       <ul>{confirming && actionRows(confirming).map((row) => <li key={rowKey(row)}>{row.name} · {row.path} · {row.branch}</li>)}</ul>
+      {confirming === "archive" && actionRows("archive").some(canSaveChanges) && <Checkbox label={t("cleanupCenter.saveChanges")} description={t("cleanupCenter.saveChangesDescription")} checked={saveChanges} onCheckedChange={(value) => setSaveChanges(Boolean(value))} />}
       {confirming === "delete" && actionRows("delete").every((row) => row.branchDeletable) && <Checkbox label={t("cleanupCenter.alsoDeleteBranch")} checked={deleteBranch} onCheckedChange={(value) => setDeleteBranch(Boolean(value))} />}
       {confirming === "delete" && <Checkbox label={t("cleanupCenter.forceDeleteBranch")} checked={forceDeleteBranch} onCheckedChange={(value) => { setForceDeleteBranch(Boolean(value)); if (value) setDeleteBranch(true); }} />}
-      <div className={sx(styles.actions)}><Button ref={cancelRef} variant="secondary" onClick={() => setConfirming(null)}>{t("common:actions.cancel")}</Button><Button variant="destructive" onClick={() => { if (confirming) void act(confirming); }}>{t("cleanupCenter.confirm")}</Button></div>
+      <div className={sx(styles.actions)}><Button ref={cancelRef} variant="secondary" onClick={() => setConfirming(null)}>{t("common:actions.cancel")}</Button><Button variant="destructive" disabled={busy || (confirming === "archive" && actionRows("archive").some(canSaveChanges) && !saveChanges)} onClick={() => { if (confirming) void act(confirming); }}>{t("cleanupCenter.confirm")}</Button></div>
     </DialogContent>
   </Dialog>{history && <WorkspaceArchivedHistory {...history} onClose={() => setHistory(null)} />}</>;
 }

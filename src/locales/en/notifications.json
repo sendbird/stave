@@ -141,5 +141,11 @@
     "continueAll": "Continue all",
     "dismiss": "Dismiss",
     "failed": "Could not continue this task. Try again from the task."
+  },
+  "queuedTurnRecovery": {
+    "expired": "A turn that was waiting for a free slot when Stave quit was not started, because it had waited more than a day. Send it again if it still applies.",
+    "exhausted": "A turn that was waiting for a free slot could not start after Stave restarted, so it was dropped. Send it again if it still applies.",
+    "taskMissing": "A turn that was waiting for a free slot when Stave quit was not started, because its task or workspace is gone.",
+    "startFailed": "A turn that was waiting for a free slot when Stave quit could not start again. Send it again if it still applies."
   }
 }

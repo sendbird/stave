@@ -650,7 +650,8 @@
     "extraCopy172": "Resume continues the stopped turn where it left off.",
     "extraCopy173": "Resume sends {{value1}} queued in order.",
     "extraCopy174": "{{value1}}\n\nThe reviewer's full instructions are the first message of the review task.",
-    "noUpdatesForAWhile": "No updates for a while"
+    "noUpdatesForAWhile": "No updates for a while",
+    "restoredPausedLabel": "Waiting to send (restored)"
   },
   "useShelfReviews": {
     "copy": "Could not attach the review",

@@ -341,6 +341,10 @@ interface WindowProviderApi {
   }) => Promise<{ ok: boolean; message?: string }>;
   /** Turns the host provider runtime still runs, and when the host booted. */
   listLiveTurns?: () => Promise<ProviderLiveTurnsResult>;
+  /** Starts that were queued for a slot when Stave quit, put back into their composer queues once. */
+  takeRestoredQueuedTurns?: () => Promise<{
+    items: Array<{ workspaceId: string; taskId: string; item: import("@/types/chat").PromptDraftQueuedTurn }>;
+  }>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;

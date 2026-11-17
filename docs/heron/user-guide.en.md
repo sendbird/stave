@@ -1334,8 +1334,18 @@ Open **Clean up workspaces** from the command palette, a repository menu or
 the Fleet header. Review all repositories, suggested workspaces and branches,
 blockers and optional disk sizes. Select rows to archive, restore or delete.
 Archive removes a clean worktree while preserving its branch and history; use
-Undo or the Repositories view's Archived shelf to restore it. When a branch no
-longer exists, history opens read-only and can seed a new workspace draft.
+Undo or the Repositories view's Archived shelf to restore it. Without saved
+changes, a missing branch opens history read-only and can seed a new workspace draft.
+
+A dirty managed worktree with no other blockers can be selected for **Archive**.
+In confirmation, turn on **Save uncommitted changes and archive**; it starts off.
+Staged, unstaged and untracked files are saved without moving the branch; ignored
+files are excluded. **Saved changes** marks these archives. Restore brings back
+the files and staged state, stopping with a conflict if files already occupy the
+destination. A failed save leaves the worktree in place. Permanent deletion
+removes the saved reference. Saved archives can recreate a deleted branch and
+skip initialization commands during restore to protect the restored files.
+Automatic cleanup never chooses this option.
 
 **Delete permanently** is separate and confirms removal of history and the
 clean worktree. Confirmation opens with Cancel focused; Escape closes only the
@@ -1357,6 +1367,18 @@ Cmd/Ctrl+W does not archive its task or workspace.
 
 Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
 
+
+### Global agent turn limit
+
+Settings → Providers → **Run at most N agent turns at once** is off by default.
+Enable it and choose 1–16. Tasks and Fleet show the queue position while waiting.
+User messages go before automatic starts; starts within each group stay in order.
+Stop removes a queued start. After a restart, a message you sent returns to its
+composer queue as **Waiting to send (restored)** for you to send or discard;
+automatic starts resume while their task exists. A start that cannot resume, or
+waited over a day, is dropped with a notification. Parents waiting
+for delegated children release their slot and acquire it again when resuming.
+Existing feature limits still apply.
 
 ## Find tools and return to unread tasks
 

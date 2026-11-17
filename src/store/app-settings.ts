@@ -243,6 +243,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
   routingDecision: RoutingDecisionConfig;
+  /** Most agent turns running at once across Stave (1–16); null runs every turn without waiting. */
+  globalAgentTurnLimit: number | null;
   /** How many helper Agents one Agent run can have working at once (`TEAM_LIMITS`). */
   agentRunConcurrentHelpers: number;
   /** How many helper Agents one Agent run can call in total (`TEAM_LIMITS`). */
@@ -766,6 +768,7 @@ export const defaultSettings: AppSettings = {
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
   routingDecision: DEFAULT_ROUTING_DECISION,
+  globalAgentTurnLimit: null,
   agentRunConcurrentHelpers: TEAM_LIMITS.concurrentHelpers.default,
   agentRunTotalHelpers: TEAM_LIMITS.totalHelpers.default,
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),

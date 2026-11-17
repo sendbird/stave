@@ -82,9 +82,11 @@ interface AutomationTaskStatusResult {
 
 interface AutomationRuntimeDependencies {
   persistence: AutomationPersistence;
+  isQueuedTurn?: (turnId: string) => boolean;
   runTask: (args: {
     workspaceId: string;
     prompt: string;
+    automaticStart?: boolean;
     title: string;
     provider: ProviderId;
     runtimeOptions: ReturnType<typeof automationRuntimeToProviderOptions>;
@@ -128,7 +130,8 @@ interface AutomationRuntimeDependencies {
 }
 
 export interface AutomationRuntime {
-  start: () => void;
+  authorizationForTurn: (turnId: string) => string | undefined;
+  start: (options?: { deferScheduling?: boolean }) => void;
   stop: () => void;
   list: () => Promise<AutomationSnapshot>;
   /**
@@ -473,6 +476,7 @@ export function createAutomationRuntime(
         }
       }
       const taskRun = await dependencies.runTask({
+        automaticStart: true,
         workspaceId: args.automation.environment.workspaceId,
         prompt: args.automation.webhook ? renderWebhookPrompt(args.automation.prompt, args.payload ?? {}) : args.automation.prompt,
         title: buildAutomationTaskTitle({
@@ -682,7 +686,7 @@ export function createAutomationRuntime(
     }
   }
 
-  function start() {
+  function start(options?: { deferScheduling?: boolean }) {
     if (intervalHandle) {
       return;
     }
@@ -691,6 +695,10 @@ export function createAutomationRuntime(
     const interruptedRunIds = new Set<string>();
     for (const run of state.runs) {
       if (run.status !== "running" && run.status !== "waiting") {
+        continue;
+      }
+      if (run.turnId && dependencies.isQueuedTurn?.(run.turnId)) {
+        if (run.trustPolicy === "unattended") unattendedAuthorizationByRunId.set(run.id, { workspaceId: run.workspaceId, authorizationToken: unattendedAuthorizationByRunId.get(run.id)?.authorizationToken ?? randomUUID() });
         continue;
       }
       interruptedRunIds.add(run.id);
@@ -718,6 +726,7 @@ export function createAutomationRuntime(
       // set so main starts from a known state instead of a stale one.
       publishUnattendedAutomations(state);
     }
+    if (options?.deferScheduling) return;
     const enqueueTick = () => {
       if (queuedTick) return queuedTick;
       queuedTick = enqueue(() => tick(generation)).catch((error) => {
@@ -742,6 +751,10 @@ export function createAutomationRuntime(
   }
 
   return {
+    authorizationForTurn(turnId: string) {
+      const run = loadState().runs.find(row => row.turnId === turnId && (row.status === "running" || row.status === "waiting"));
+      return run ? unattendedAuthorizationByRunId.get(run.id)?.authorizationToken : undefined;
+    },
     start,
     stop,
     // Read the last committed state while execution is waiting on a provider.

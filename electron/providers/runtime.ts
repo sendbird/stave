@@ -739,6 +739,16 @@ export function setTaskPermissionObserver(observer: typeof taskPermissionObserve
 
 let turnFileSnapshotCapture: ((args: StreamTurnArgs) => Promise<void>) | undefined;
 export function setTurnFileSnapshotCapture(capture: typeof turnFileSnapshotCapture) { turnFileSnapshotCapture = capture; }
+export interface ProviderTurnAdmission {
+  acquire(args: StreamTurnArgs, changed?: (state: { state: "queued" | "running"; ahead: number }) => void): Promise<void>;
+  release(turnId: string): void;
+  cancel(turnId: string): boolean;
+  cancelTask(taskId: string): void;
+  freeze?(): void;
+  isQueued?(turnId: string): boolean;
+}
+let turnAdmission: ProviderTurnAdmission | null = null;
+export function setProviderTurnAdmission(admission: ProviderTurnAdmission | null) { turnAdmission = admission; }
 
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   // The composer's selection is read here once and never reaches a provider.
@@ -746,8 +756,18 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   rawArgs = { ...rawArgs, turnId: rawArgs.turnId ?? randomUUID(), ...(rawArgs.runtimeOptions ? { runtimeOptions: sentOptions } : {}) };
   const release = workspaceExecutionGate.acquire(rawArgs);
   let preparingPolicy = true;
+  let admitted = false;
   let routeNote: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote | undefined;
   try {
+    if (!rawArgs.executionPolicy && turnAdmission) {
+      await turnAdmission.acquire({ ...rawArgs, runtimeOptions: { ...rawArgs.runtimeOptions, ...(composerSelection ? { composerSelection } : {}) } }, state => rawArgs.onEvent?.({ type: "turn_admission", ...state }));
+      admitted = true;
+      // The terminal event frees the slot at once, whatever ended the turn
+      // (timeout, abort, provider error, user stop), together with any
+      // re-acquire a delegate wait left queued. `finally` repeats it harmlessly.
+      const admittedTurnId = rawArgs.turnId!, forward = rawArgs.onEvent;
+      rawArgs = { ...rawArgs, onEvent: (event) => { if (event.type === "done") turnAdmission?.release(admittedTurnId); forward?.(event); } };
+    }
     // A tool-less request is never a stage reply: rebuilding its options would drop `toolsDisabled`.
     if (rawArgs.taskId && rawArgs.turnId && rawArgs.conversation?.mode === "chat" && !rawArgs.unattendedAutomation && !rawArgs.executionPolicy && !rawArgs.agentRunStage &&
         !isToolsDisabledTurn(rawArgs.runtimeOptions) && (rawArgs.providerId === "claude-code" || rawArgs.providerId === "codex")) {
@@ -796,12 +816,16 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
     // Mandatory task policy cannot fail open or escape the stream's terminal contract.
     const lifecycle = createProviderTurnLifecycle({ onEvent: rawArgs.onEvent });
     // A run's refusal of a reply (a pin it cannot run, a spent budget) is written to be shown as-is.
+    if (error instanceof Error && error.message === "turnAdmissionCancelled") {
+      lifecycle.finish("user_abort");
+      return lifecycle.events();
+    }
     const refusal = error instanceof Error && error.name === "AgentRunCommandError" ? error.message : null;
     lifecycle.emit({ type: "error", recoverable: false,
       message: refusal ?? "The task's Agent configuration could not be applied. Check its assignment and provider before retrying." });
     lifecycle.finish("runtime_failure");
     return lifecycle.events();
-  } finally { release(); }
+  } finally { if (admitted) turnAdmission?.release(rawArgs.turnId!); release(); }
 }
 
 async function runScopedProviderTurn(
@@ -1401,7 +1425,8 @@ export const providerRuntime: ProviderRuntime = {
     };
   },
   abortTurn: ({ turnId }) => {
-    const ok = abortActive({ turnId });
+    const queued = turnAdmission?.cancel(turnId) ?? false;
+    const ok = abortActive({ turnId }) || queued;
     if (!ok) {
       return { ok: false, message: "No active provider turn." };
     }
@@ -1409,6 +1434,7 @@ export const providerRuntime: ProviderRuntime = {
   },
   listLiveTurns: () => listLiveTurns(),
   cleanupTask: ({ taskId }) => {
+    turnAdmission?.cancelTask(taskId);
     clearActiveTaskSessions({ taskId });
     cleanupProviderTaskState(taskId);
     return {
@@ -1526,6 +1552,7 @@ export const providerRuntime: ProviderRuntime = {
   },
   getConnectedToolStatus: async (args) => getProviderConnectedToolStatus(args),
   shutdown: async () => {
+    turnAdmission?.freeze?.();
     cleanupClaudeMcpOauthFlows();
     const taskIds = new Set<string>();
     for (const session of activeSessions.values()) {
@@ -1539,7 +1566,7 @@ export const providerRuntime: ProviderRuntime = {
     // callbacks complete *before* the caller closes the persistence layer.
     // Without this, completeTurn() races with SQLite close.
     if (activeTurnPromises.size > 0) {
-      await Promise.allSettled(Array.from(activeTurnPromises.values()));
+      await Promise.allSettled([...activeTurnPromises].filter(([id]) => !turnAdmission?.isQueued?.(id)).map(([, promise]) => promise));
     }
 
     activeSessions.clear();

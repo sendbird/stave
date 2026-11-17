@@ -651,9 +651,11 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
     row.activeTurnId ? state.providerTurnActivityByTask[row.task.id] : undefined,
   );
   const activity = snapshot && snapshot.turnId === row.activeTurnId ? snapshot : null;
-  const state = fleetStatusToWorkState(row.status);
+  const state = activity?.admission?.state === "queued" ? "queued" : fleetStatusToWorkState(row.status);
   const stateLabel =
-    row.status === "stalled"
+    activity?.admission?.state === "queued"
+      ? t("fleet:taskActivity.waitingSlot", { count: activity.admission.ahead })
+      : row.status === "stalled"
       ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]
       : WORK_STATE[state].label;
   const title = row.task.title || t("fleet:fleetWorkspaceCard.untitledTask");
