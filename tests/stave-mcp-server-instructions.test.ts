@@ -22,8 +22,15 @@ describe("buildStaveLocalMcpServerInstructions", () => {
     ).not.toContain("stave_lens_");
   });
 
+  test("says when to show an inline HTML page without being asked", () => {
+    const text = buildStaveLocalMcpServerInstructions({ browserToolsEnabled: false });
+    expect(text).toContain("stave_render_html");
+    expect(text).toContain("without being asked");
+    expect(text).toContain("stave_preview_html");
+  });
+
   test("stays small because it is resident in every turn", () => {
-    expect(buildStaveLocalMcpServerInstructions().length).toBeLessThan(1_200);
+    expect(buildStaveLocalMcpServerInstructions().length).toBeLessThan(1_500);
   });
 });
 

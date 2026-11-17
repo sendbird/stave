@@ -16,6 +16,11 @@ content.
 - Keep a visual result in the conversation history, where you can reopen,
   inspect, or save it later.
 
+Agents also show a page without being asked when a reply compares three or
+more options across several attributes, shows numbers across groups or over
+time, or explains a flow, architecture, or UI layout. Short answers, code, and
+plain lists stay as text.
+
 Use [Lens](lens.md) instead when you want to check a real web app or a running
 dev server. Inline pages are results the agent produced, not sites to browse.
 
@@ -46,7 +51,8 @@ dev server. Inline pages are results the agent produced, not sites to browse.
 The title and buttons sit on a row above the page. The page itself sits in a
 slightly tinted area that marks where it begins and ends, with 16 pixels of
 space around its content (up to 24 pixels in a wide or expanded frame) unless
-the page sets its own.
+the page sets its own. Text in the page starts at 14 pixels, the size of the
+reply around it, unless the page sets its own size.
 
 - **Title**: the name the agent gave the page.
 - **View source**: shows the page's HTML exactly as the agent wrote it, with a
