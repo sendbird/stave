@@ -221,8 +221,11 @@ export const REMOTE_MOBILE_JS = String.raw`(function () {
     if (text !== undefined && text !== null) node.textContent = String(text);
     return node;
   }
-  function notice(message, isError) {
+  // A connection problem clears on the next good refresh; an answer's outcome stays until the next answer.
+  var noticeIsConnection = false;
+  function notice(message, isError, isOutcome) {
     var node = $("notice");
+    noticeIsConnection = Boolean(message && isError && !isOutcome);
     if (!message) { node.hidden = true; node.textContent = ""; return; }
     node.textContent = message;
     node.className = isError ? "notice error" : "notice";
@@ -323,6 +326,8 @@ export const REMOTE_MOBILE_JS = String.raw`(function () {
       var message = result.reason === "rate" ? t("rateLimited") : result.reason === "network" ? t("connectionFailed") : resultMessage(result);
       status.className = result.ok ? "result" : "result error";
       status.textContent = message;
+      // The list refreshes after an answer; the page-level notice keeps the outcome visible.
+      notice(message, !result.ok, true);
       if (result.ok || result.reason === "expired" || result.reason === "invalid") {
         setTimeout(refresh, 800);
       } else {
@@ -465,7 +470,7 @@ export const REMOTE_MOBILE_JS = String.raw`(function () {
       if (response.status === 503) { notice(t("desktopUnavailable"), true); return; }
       if (response.status !== 200) { notice(t("connectionFailed"), true); return; }
       return response.json().then(function (snapshot) {
-        notice("");
+        if (noticeIsConnection) notice("");
         renderRequests(snapshot);
         renderTasks(snapshot);
         $("updated").textContent = t("lastUpdated") + " " + new Date().toLocaleTimeString();
