@@ -1,5 +1,9 @@
 import { TaskUnreadDot, TaskReadMenu, withUnreadName } from "@/components/session/TaskReadIndicator";
 import { useTaskUnread } from "@/lib/task-read-state-client";
+import { revealFleetVirtualRow, useFleetRevealListener } from "./fleet-virtual-focus";
+import { useWindowedList } from "@/hooks/use-windowed-list";
+import { themeProps } from "@/components/aui/theming/theme-props";
+import { densityPad } from "@/components/aui/tokens/density.stylex";
 import { fleetSelectionColumn, fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { FleetGroupHeader } from "./FleetGrouping";
@@ -8,12 +12,12 @@ import { useFleetGroupingStore } from "@/store/fleet-grouping-store";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
-import { Fragment, memo, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import {
-  Table,
+  tableStyles,
   TableBody,
   TableCell,
   TableHead,
@@ -24,7 +28,7 @@ import { Skeleton } from "@/components/aui/components/Skeleton";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { transition } from "@/components/aui/recipes/transition";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
-import { sx } from "@/components/aui/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { fleetStatusToWorkState } from "@/lib/fleet/task-status";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import {
@@ -498,65 +502,121 @@ function FleetTaskRowsTable(props: {
   const groups = useMemo(() => groupFleetTaskRows(rows, grouping, groupRuns), [rows, grouping, groupRuns]);
   const targets = useMemo(() => groups.flatMap((group) => group.rows).map((row) => ({ ...row, taskId: row.task.id })), [groups]);
   useFleetSelectionRows("table", targets);
+  const items = useMemo<FleetTaskTableItem[]>(() => groups.flatMap((group) => [
+    ...(group.title ? [{ key: `group:${group.id}`, group, row: null }] : []),
+    ...group.rows.flatMap((row) => [
+      { key: row.key, group, row },
+      ...(row.key === props.expandedTaskKey ? [{ key: `control:${row.key}`, group, row, controls: true }] : []),
+    ]),
+  ]), [groups, props.expandedTaskKey]);
+  const itemKeys = useMemo(() => items.map((item) => item.key), [items]);
+  const headRef = useRef<HTMLTableSectionElement>(null);
+  const [headSize, setHeadSize] = useState(0);
+  useLayoutEffect(() => {
+    const head = headRef.current;
+    if (!head || typeof ResizeObserver === "undefined") return;
+    const measure = () => setHeadSize(head.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(head);
+    return () => observer.disconnect();
+  }, []);
+  const grouped = items[0]?.row === null;
+  const windowed = useWindowedList({
+    keys: itemKeys,
+    estimateSize: (index) => (items[index]?.controls ? 240 : 37),
+    initialCount: 20,
+    overscan: 300,
+    // Rows under the sticky header (and the sticky group row) are hidden.
+    insetStart: () => (headRef.current?.getBoundingClientRect().height ?? 0)
+      + (grouped ? (headRef.current?.closest("table")?.querySelector<HTMLElement>("[data-fleet-task-table-group]")?.getBoundingClientRect().height ?? 0) : 0),
+    // The group of the first visible row keeps its header row mounted; that row is the sticky one.
+    // The rows just above (under the sticky group row) keep theirs too, so the
+    // outgoing header stays in place while the next one slides over it.
+    pinnedKeys: (first) => [...new Set(
+      [first - 2, first - 1, first].flatMap((index) => {
+        const group = items[index]?.group;
+        return group?.title ? [`group:${group.id}`] : [];
+      }),
+    )],
+  });
+  useFleetRevealListener((key) => {
+    const index = itemKeys.indexOf(key);
+    if (index >= 0) windowed.scrollToIndex(index);
+  });
+  const groupHeader = (group: typeof groups[number]) => <FleetGroupHeader
+    title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title!}
+    keys={group.rows.map((row) => row.key)} />;
+  const columnCount = FLEET_TASK_COLUMNS.length + 1;
+  const renderItem = (item: FleetTaskTableItem, index: number) => {
+    const shared = { ref: windowed.measureRef, "data-windowed-key": item.key, "aria-rowindex": index + 2 };
+    if (!item.row) {
+      return <TableRow key={item.key} {...shared} data-fleet-task-table-group={item.group.id}>
+        <TableCell colSpan={columnCount} xstyle={styles.groupCell}>{groupHeader(item.group)}</TableCell>
+      </TableRow>;
+    }
+    if (item.controls) {
+      const row = item.row;
+      return <TableRow key={item.key} {...shared} data-fleet-task-table-controls={row.key}>
+        <TableCell colSpan={columnCount} xstyle={styles.controlsCell}>
+          <FleetTaskControlPanel target={{ repositoryPath: row.repositoryPath, workspaceId: row.workspaceId,
+            taskId: row.task.id, taskTitle: row.task.title || untitled, turnId: row.activeTurnId }}
+            returnFocusElementId={fleetTaskTableOpenId(row.key)} onOpenTask={props.onOpenTask}
+            onClose={() => props.onCloseTaskControl?.()} />
+        </TableCell>
+      </TableRow>;
+    }
+    return <TableRow key={item.key} {...shared} xstyle={fleetSelectionRowMarker}
+      data-fleet-task-table-row={item.key} data-fleet-select-key={item.key}>
+      <FleetTaskTableRow nowMs={props.nowMs} onOpenTask={props.onOpenTask} owner={ownerByKey.get(item.row.key) ?? null} row={item.row} />
+    </TableRow>;
+  };
+  const theme = themeProps("table", { density: "compact" });
   return (
-    <Table
-      density="compact"
-      xstyle={styles.table}
+    <div
+      {...theme}
+      className={cx(sx(tableStyles.frame, styles.frame), theme.className)}
+      style={{ "--atelier-table-cell-padding-block": densityPad.sm, "--fleet-task-table-head": `${headSize}px` } as CSSProperties}
+      data-fleet-task-table="true"
       role="region"
       aria-label={t("fleet:taskTable.label")}
-      data-fleet-task-table="true"
+      onKeyDown={(event) => {
+        if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+        const key = (event.target as HTMLElement).closest<HTMLElement>("[data-fleet-select-key]")?.dataset.fleetSelectKey;
+        const current = targets.findIndex((row) => row.key === key);
+        if (current < 0) return;
+        const next = event.key === "End" ? targets.length - 1 : event.key === "Home" ? 0
+          : ["ArrowDown", "j"].includes(event.key) ? Math.min(current + 1, targets.length - 1)
+          : ["ArrowUp", "k"].includes(event.key) ? Math.max(current - 1, 0) : null;
+        if (next === null) return;
+        event.preventDefault(); event.stopPropagation();
+        if (next !== current) revealFleetVirtualRow(targets[next]!.key, true);
+      }}
     >
-      <TableHeader sticky>
-        <TableRow>
-          <TableHead xstyle={fleetSelectionColumn.cell}><FleetGroupHeader controlOnly title={t("fleet:selection.selectAll")} keys={targets.map((target) => target.key)} /></TableHead>
-          {FLEET_TASK_COLUMNS.map((column) => (
-            <TableHead
-              key={column.key}
-              data-fleet-task-column={column.key}
+      <table className={sx(tableStyles.table)} aria-rowcount={items.length + 1}>
+        <TableHeader sticky ref={headRef}>
+          <TableRow aria-rowindex={1}>
+            <TableHead xstyle={fleetSelectionColumn.cell}><FleetGroupHeader controlOnly title={t("fleet:selection.selectAll")} keys={targets.map((target) => target.key)} /></TableHead>
+            {FLEET_TASK_COLUMNS.map((column) => <TableHead key={column.key} data-fleet-task-column={column.key}
               sortDirection={sort?.key === column.key ? sort.direction : null}
-              onSort={() => setSort((current) => nextFleetTaskSort(current, column.key))}
-            >
-              {t(column.label)}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {groups.map((group) => <Fragment key={group.id}>
-          {group.title ? <TableRow><TableCell colSpan={FLEET_TASK_COLUMNS.length + 1}>
-            <FleetGroupHeader title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title} keys={group.rows.map((row) => row.key)} />
-          </TableCell></TableRow> : null}
-          {group.rows.map((row) => (
-          <Fragment key={row.key}>
-            <FleetTaskTableRow
-              nowMs={props.nowMs}
-              onOpenTask={props.onOpenTask}
-              owner={ownerByKey.get(row.key) ?? null}
-              row={row}
-            />
-            {row.key === props.expandedTaskKey ? (
-              <TableRow data-fleet-task-table-controls={row.key}>
-                <TableCell colSpan={FLEET_TASK_COLUMNS.length + 1} xstyle={styles.controlsCell}>
-                  <FleetTaskControlPanel
-                    target={{
-                      repositoryPath: row.repositoryPath,
-                      workspaceId: row.workspaceId,
-                      taskId: row.task.id,
-                      taskTitle: row.task.title || untitled,
-                      turnId: row.activeTurnId,
-                    }}
-                    returnFocusElementId={fleetTaskTableOpenId(row.key)}
-                    onOpenTask={props.onOpenTask}
-                    onClose={() => props.onCloseTaskControl?.()}
-                  />
-                </TableCell>
-              </TableRow>
-            ) : null}
-          </Fragment>
-        ))}</Fragment>)}
-      </TableBody>
-    </Table>
+              onSort={() => setSort((current) => nextFleetTaskSort(current, column.key))}>{t(column.label)}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody ref={windowed.listRef}>
+          {windowed.slots.map((slot) => slot.kind === "gap"
+            ? <tr key={slot.key} aria-hidden="true"><td colSpan={columnCount} className={sx(styles.gapCell)} style={{ blockSize: slot.size }} /></tr>
+            : renderItem(items[slot.index]!, slot.index))}
+        </TableBody>
+      </table>
+    </div>
   );
+}
+
+interface FleetTaskTableItem {
+  key: string;
+  group: ReturnType<typeof groupFleetTaskRows>[number];
+  row: FleetTaskRow | null;
+  controls?: boolean;
 }
 
 /** The id of a row's task button, where focus returns when its panel closes. */
@@ -606,7 +666,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
         ? t("fleet:taskTable.underAMinute")
         : formatDuration(Math.floor(waitingMs / 60_000) * 60_000);
   return (
-    <TableRow xstyle={fleetSelectionRowMarker} data-fleet-task-table-row={row.key} data-fleet-select-key={row.key}>
+    <>
       <TableCell xstyle={fleetSelectionColumn.cell}><FleetSelectionCheckbox itemKey={row.key} title={title} /></TableCell>
       <TableCell xstyle={styles.taskCell}>
         <span className={sx(styles.task)}>
@@ -657,18 +717,31 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
           <ActivityTimestamp kind="updated" value={row.task.updatedAt} />
         )}
       </TableCell>
-    </TableRow>
+    </>
   );
 });
 
 const styles = stylex.create({
   // Bounded by the board's scroller so the table scrolls itself and its
   // header stays in view.
-  table: {
+  frame: {
     borderInlineWidth: 0,
     borderRadius: 0,
     maxBlockSize: "100%",
     minWidth: 0,
+  },
+  // Every group row sticks under the header; the latest one to reach it (the
+  // group of the first visible row) paints over the earlier ones.
+  groupCell: {
+    backgroundColor: vars["--aui-color-surface-raised"],
+    insetBlockStart: "var(--fleet-task-table-head, 0px)",
+    position: "sticky",
+    zIndex: vars["--aui-z-index-sticky"],
+  },
+  // Stands in for rows outside the rendered window.
+  gapCell: {
+    borderWidth: 0,
+    padding: 0,
   },
   reading: {
     color: vars["--aui-color-text-muted"],

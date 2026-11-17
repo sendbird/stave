@@ -1,3 +1,4 @@
+import { FleetVirtualCardGrid } from "./FleetVirtualCardGrid";
 import { FleetBulkControl, FleetStopAllButton } from "./FleetBulkControl";
 import { useFleetSelectionStore } from "@/store/fleet-selection-store";
 import { useFleetSelectionKeyboard } from "./FleetSelection";
@@ -1076,18 +1077,18 @@ export function FleetView() {
                         // exact third of the row (minus the two 0.625rem gaps),
                         // so wide rows land on exactly three and narrow rows
                         // still collapse to two and then one.
-                        className={sx(styles.cardGrid, isCollapsed && styles.collapsedGrid)}
+                        className={sx(styles.cardGrid, repository.workspaces.length > 20 && styles.virtualCardGrid, isCollapsed && styles.collapsedGrid)}
                       >
-                        {orderRepositoryWorkspaces(
+                        {(() => { const ordered = orderRepositoryWorkspaces(
                           repository,
                           visibilityByCardKey,
                           boardOrderContext,
-                        ).map((workspace) => {
+                        ); const entries = ordered.map((workspace) => {
                           const cardKey = getFleetWorkspaceKey(
                             repository.repositoryPath,
                             workspace.id,
                           );
-                          return (
+                          const card = (
                             <MemoizedFleetWorkspaceCard
                               key={cardKey}
                               cardKey={cardKey}
@@ -1110,7 +1111,8 @@ export function FleetView() {
                               onVisibilityChange={handleVisibilityChange}
                             />
                           );
-                        })}
+                          return { key: cardKey, card, visible: visibilityByCardKey[cardKey]?.visible, taskKeys: visibilityByCardKey[cardKey]?.taskKeys ?? [] };
+                        }); return ordered.length > 20 ? <FleetVirtualCardGrid entries={entries} /> : entries.map((entry) => entry.card); })()}
                       </div>
                     </section>
                   );

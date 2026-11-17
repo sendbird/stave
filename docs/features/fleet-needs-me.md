@@ -488,3 +488,18 @@ switch to that workspace; only reopening a task does.
 
 Under each workspace, the sidebar lists open tasks only when one is running,
 waiting, unread or pinned, at most three, with the rest behind **+N more**.
+
+## Scale
+
+The table windows task rows and group headings inside its scroll area. Each
+group shows one selection control: its heading row, which stays under the column
+header while that group's rows are at the top. Selection and keyboard navigation
+use the complete filtered order, including rows outside the viewport, and a
+focused row stays in place when you scroll away from it. Moving focus scrolls
+only when the next row is out of view. Group selection and select-all still
+exclude filtered or collapsed items.
+
+A long Tree is one list that scrolls with the board, group headings included;
+↑/↓ (or k/j) step through every card across groups and wrap at the ends, at any
+list size. A repository with many workspace cards scrolls with the board too,
+and the cards in one row keep one height.
