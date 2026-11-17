@@ -4,6 +4,8 @@ import {
   buildMcpAppViewUrl,
   isMcpAppViewUrl,
   MCP_APP_MIME_TYPE,
+  mcpAppViewLacksData,
+  normalizeMcpAppToolCallInput,
   normalizeMcpAppToolInput,
   normalizeMcpAppToolResult,
   parseMcpAppViewUrl,
@@ -220,6 +222,26 @@ describe("urls and payloads", () => {
       normalizeMcpAppToolResult({ content: [], structuredContent: { t: 1 }, isError: false, extra: 1 }),
     ).toEqual({ content: [], structuredContent: { t: 1 }, isError: false });
     expect(normalizeMcpAppToolResult({ structuredContent: {} })).toBeNull();
+  });
+
+  test("a view lacks data without input, without a result, or without object structuredContent", () => {
+    const result = (structuredContent?: unknown) => ({
+      content: [{ type: "text", text: "x" }],
+      ...(structuredContent === undefined ? {} : { structuredContent }),
+    });
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result({ issues: [] }) })).toBe(false);
+    expect(mcpAppViewLacksData({ toolInput: null, toolResult: result({ issues: [] }) })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: null })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result() })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result(null) })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result([1]) })).toBe(true);
+  });
+
+  test("omitted call arguments are an empty call; malformed ones are not", () => {
+    for (const value of [undefined, null, "", " "]) expect(normalizeMcpAppToolCallInput(value)).toEqual({});
+    expect(normalizeMcpAppToolCallInput('{"a":1}')).toEqual({ a: 1 });
+    expect(normalizeMcpAppToolCallInput('{"a":')).toBeNull();
+    expect(normalizeMcpAppToolCallInput("[1]")).toBeNull();
   });
 
   test("a text-only result offers a lone JSON object as structuredContent", () => {

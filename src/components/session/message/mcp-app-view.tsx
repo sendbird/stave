@@ -37,6 +37,7 @@ import {
 import { setMcpAppModelContext } from "@/lib/mcp-app/mcp-app-model-context";
 import {
   buildMcpAppViewUrl,
+  mcpAppViewLacksData,
   type McpAppDisplayMode,
   type McpAppViewReference,
 } from "@/lib/mcp-app/mcp-app-view";
@@ -102,6 +103,7 @@ export const McpAppView = memo(function McpAppView(props: {
         if (cancelled) return;
         if (result.ok && result.exists && canShow(result.view, hasScheme)) {
           setView(result.view);
+          if (mcpAppViewLacksData(result.view)) setTextOpen(true);
           setAvailability("ready");
         } else {
           setAvailability(result.ok && !result.exists ? "missing" : "unavailable");
