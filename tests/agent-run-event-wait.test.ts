@@ -1037,3 +1037,47 @@ describe("event waits: pause, restart and the task's wake-ups", () => {
     expect(decision).toMatchObject({ action: "pause", reason: "agent-run-active" });
   });
 });
+
+describe("Run-scoped explicit browser consent", () => {
+  for (const providerId of ["claude-code", "codex"] as const) {
+    for (const source of ["assignment", "reply"] as const) {
+      test(`${providerId}: ${source} @web survives event wake and host restart, but not another Run`, async () => {
+        const h = createHarness();
+        h.setSnapshot({ providerId, model: "test-model" });
+        const detail = await h.runtime.startAgentRun(startInput({ origin: "agent",
+          assignment: source === "assignment" ? "@web inspect the signed-in page" : "Inspect the page" }));
+        await h.tick();
+        if (source === "reply") {
+          expect(h.runCalls[0]!.runtimeOptions?.providerBrowserAlwaysOn).toBeUndefined();
+          h.endTurn("turn-1");
+          h.userTurn("browser-reply");
+          const reply = h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "browser-reply",
+            providerId, prompt: "@web continue in Chrome" });
+          expect(reply?.runtimeOptions?.providerBrowserAlwaysOn).toBe(true);
+          h.grants.set("key-browser-reply", { ...reply!.agentRunStage, taskId: "task-1", turnId: "browser-reply" });
+        } else expect(h.runCalls[0]!.runtimeOptions?.providerBrowserAlwaysOn).toBe(true);
+        const turnId = source === "reply" ? "browser-reply" : "turn-1";
+        await h.runtime.waitForEvent({ agentRunKey: `key-${turnId}`, request: { kind: "time", at: inHours(h, 1) } });
+        h.endTurn(turnId);
+        await h.tick();
+        h.runtime.stop();
+        const restored = createHarness({ store: h.store, turns: h.turns, turnPrefix: "restored" });
+        restored.setSnapshot({ providerId, model: "test-model" });
+        restored.advance(2 * 60 * MINUTE);
+        restored.runtime.start();
+        await restored.tick();
+        expect(restored.runCalls).toHaveLength(1);
+        expect(restored.runCalls[0]!.prompt).toContain("The time you waited for");
+        expect(restored.runCalls[0]!.prompt).not.toContain("@web");
+        expect(restored.runCalls[0]!.runtimeOptions?.providerBrowserAlwaysOn).toBe(true);
+        expect(restored.store.listEventsByKind(detail.agentRun.id, ["turn-linked"]).at(-1)?.detail.browserRequested).toBe(true);
+        restored.endTurn("restored-1");
+        await restored.runtime.cancel({ agentRunId: detail.agentRun.id });
+        await restored.runtime.startAgentRun(startInput({ origin: "agent", assignment: "A separate task without browser consent" }));
+        await restored.tick();
+        expect(restored.runCalls.at(-1)!.runtimeOptions?.providerBrowserAlwaysOn).toBeUndefined();
+        restored.runtime.stop();
+      });
+    }
+  }
+});

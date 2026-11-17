@@ -835,3 +835,28 @@ of pausing again. While the Run is active, the task's own
 [wake-ups](wake-ups.md) stay paused (`agent-run-active`): the Run owns the
 task's automatic turns, and anything to do after the Run ends belongs in a
 check-back or a start-a-task schedule.
+
+
+## Global turn limit
+
+In Settings → Providers, **Run at most N agent turns at once** is off by
+default. Enable it to choose 1–16 concurrent provider turns across all tasks.
+Manual messages have priority over automatic starts; starts of equal priority
+keep their arrival order. Existing helper and automation limits still apply.
+A queued task and Fleet show **Waiting for a free slot** and the number ahead.
+Stop or cancel removes its pending start. The host counts active turns from
+the current runtime.
+
+Pending starts get one try after a restart. A message you sent is never started
+on its own: it returns to its task's composer queue marked **Waiting to send
+(restored)**, and you send or discard it. Automatic starts (delegated children,
+Agent run stages, wake-ups, automations) start again only while their task and
+workspace still exist. A start that cannot come back, or that waited more than
+a day, is dropped with a notification on its task. A turn that had already
+run, including a parent taking its slot back, ends as interrupted.
+
+A parent waiting for delegated children releases its slot and acquires a slot
+again before continuing, so a limit of one does not block its children. Several
+waits of one parent give the slot back only when the last one ends, and the
+wait never holds the tool call past its documented limit. A turn that ends
+while taking its slot back drops that request.

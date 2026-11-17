@@ -1,3 +1,8 @@
+import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
+import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
+import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
+import type { AutomationWebhookApi } from "../lib/automation-webhook-ipc";
+import type { TurnSnapshotsApi } from "../lib/turn-snapshots";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
 import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
 import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
@@ -334,6 +339,12 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  /** Turns the host provider runtime still runs, and when the host booted. */
+  listLiveTurns?: () => Promise<ProviderLiveTurnsResult>;
+  /** Starts that were queued for a slot when Stave quit, put back into their composer queues once. */
+  takeRestoredQueuedTurns?: () => Promise<{
+    items: Array<{ workspaceId: string; taskId: string; item: import("@/types/chat").PromptDraftQueuedTurn }>;
+  }>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;
@@ -1048,7 +1059,7 @@ interface WindowTaskControlApi {
   }>;
 }
 
-interface WindowAutomationsApi {
+interface WindowAutomationsApi extends Partial<AutomationWebhookApi> {
   setProviderTimeout?: (args: { providerTimeoutMs: number }) => Promise<{
     ok: boolean;
     message?: string;
@@ -1077,7 +1088,7 @@ interface WindowAutomationsApi {
     automation: AutomationSpec | null;
     message?: string;
   }>;
-  runNow?: (args: { id: string }) => Promise<{
+  runNow?: (args: { id: string; payload?: unknown }) => Promise<{
     ok: boolean;
     run: AutomationRun | null;
     message?: string;
@@ -1611,6 +1622,8 @@ interface WindowSourceControlApi {
     existingPrUrl?: string;
     stderr?: string;
   }>;
+  getPrStack?: (args: GetPrStackArgs) => Promise<GetPrStackResult>;
+  retargetPrStack?: (args: RetargetPrStackArgs) => Promise<RetargetPrStackResult>;
   getRepoMergeSettings?: (args: { cwd?: string }) => Promise<{
     ok: boolean;
     squashMergeAllowed?: boolean;
@@ -1939,6 +1952,7 @@ interface WindowPersistenceApi {
     } | null;
   }>;
   truncateTaskMessagesAfter?: (args: {
+    before?: true;
     workspaceId: string;
     taskId: string;
     messageId: string;
@@ -2072,6 +2086,8 @@ interface WindowPersistenceApi {
     draft:
       import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null;
   }) => Promise<{ ok: boolean }>;
+  listTaskReadStates?: (args: import("@/lib/task-read-state").ListTaskReadStatesArgs) => Promise<{ok:boolean;states:import("@/lib/task-read-state").TaskReadState[]}>;
+  setTaskReadStates?: (args: import("@/lib/task-read-state").SetTaskReadStatesArgs) => Promise<{ok:boolean} & import("@/lib/task-read-state").SetTaskReadStatesResult>;
   listResultReviews?: (
     args?: import("@/lib/reviews/result-review").ListResultReviewsArgs,
   ) => Promise<
@@ -3021,6 +3037,7 @@ interface WindowApi {
   };
   platform?: NodeJS.Platform;
   runs?: WindowRunsApi;
+  turnSnapshots?: TurnSnapshotsApi;
   provider?: WindowProviderApi;
   providerAccounts?: ProviderAccountsBridgeApi;
   /** App-level API connections shared by Claude Code and Codex. */
@@ -3080,6 +3097,8 @@ interface WindowApi {
   diagnostics?: WindowDiagnosticsApi;
   terminal?: WindowTerminalApi;
   notifications?: {
+    subscribeNativeResolved?: (listener: (payload: NativeNotificationResolved) => void) => () => void;
+    setActionsEnabled?: (args: { enabled: boolean }) => Promise<{ ok: boolean }>;
     showNative?: (args: {
       notificationId: string;
       title: string;

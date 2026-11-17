@@ -1,3 +1,4 @@
+import type { FeatureTipId } from "@/lib/feature-tips";
 /**
  * Application settings contract and defaults.
  *
@@ -19,6 +20,8 @@ import {
   type InlineRenderNetworkPolicy,
 } from "@/lib/inline-render/inline-render";
 import { DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS } from "@/lib/fleet/workspace-settlement";
+import { DEFAULT_PULL_REQUEST_WATCH_ENABLED } from "@/lib/supervision/pull-request-watch";
+import { DEFAULT_LONG_LIVED_BRANCHES_TEXT } from "@/lib/pull-request-stack";
 import type {
   ClaudePluginMode,
   ClaudeSettingSource,
@@ -240,6 +243,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
   routingDecision: RoutingDecisionConfig;
+  /** Most agent turns running at once across Stave (1–16); null runs every turn without waiting. */
+  globalAgentTurnLimit: number | null;
   /** How many helper Agents one Agent run can have working at once (`TEAM_LIMITS`). */
   agentRunConcurrentHelpers: number;
   /** How many helper Agents one Agent run can call in total (`TEAM_LIMITS`). */
@@ -315,6 +320,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * use) but this setting is the primary, user-facing on/off switch.
    */
   midTurnSteeringEnabled: boolean;
+  /** Short tips that offer optional features (steering, file checkpoints). */
+  featureTipsEnabled: boolean;
+  /** Tips the user closed; each stays closed. */
+  dismissedFeatureTips: FeatureTipId[];
   /** Lens shortcut that toggles visual comment mode. */
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
@@ -326,10 +335,18 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Merge strategy used when automatic merging is queued. */
   createPrMergeMethod: PrMergeMethod;
   /**
-   * Watch every pull request the Create PR flow opens and wake the task that
-   * opened it when checks fail or the branch conflicts with its base.
+   * Watch pull requests Stave opens (Create PR) or an agent opens during a
+   * task turn, and wake that task when checks fail or the branch conflicts
+   * with its base. A repository may override it; see
+   * `isPullRequestWatchEnabled` for the one contract the host shares.
    */
   createPrWatchEnabled: boolean;
+  /**
+   * Long-lived branch names or `*` globs, separated by commas or lines. A PR
+   * from such a branch is never a stack parent, so its children are not
+   * retargeted (`src/lib/pull-request-stack.ts`).
+   */
+  pullRequestLongLivedBranches: string;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -361,6 +378,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   scmAutoRefreshSeconds: number;
   confirmBeforeClose: boolean;
   nativeNotificationsEnabled: boolean;
+  notificationActionsEnabled: boolean;
+  restartContinuation: "ask" | "automatically" | "never";
   /**
    * Minutes an agent run sign-off may wait before one batched reminder; 0 turns
    * reminders off. The first request always notifies.
@@ -749,6 +768,7 @@ export const defaultSettings: AppSettings = {
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
   routingDecision: DEFAULT_ROUTING_DECISION,
+  globalAgentTurnLimit: null,
   agentRunConcurrentHelpers: TEAM_LIMITS.concurrentHelpers.default,
   agentRunTotalHelpers: TEAM_LIMITS.totalHelpers.default,
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
@@ -777,12 +797,15 @@ export const defaultSettings: AppSettings = {
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
   steerQueueEnterAction: DEFAULT_STEER_QUEUE_ENTER_ACTION,
   midTurnSteeringEnabled: false,
+  featureTipsEnabled: true,
+  dismissedFeatureTips: [],
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
-  createPrWatchEnabled: true,
+  createPrWatchEnabled: DEFAULT_PULL_REQUEST_WATCH_ENABLED,
+  pullRequestLongLivedBranches: DEFAULT_LONG_LIVED_BRANCHES_TEXT,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",
@@ -807,6 +830,8 @@ export const defaultSettings: AppSettings = {
   scmAutoRefreshSeconds: 0,
   confirmBeforeClose: true,
   nativeNotificationsEnabled: true,
+  notificationActionsEnabled: true,
+  restartContinuation: "ask",
   runSignOffReminderMinutes: 30,
   notificationSoundEnabled: true,
   notificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,

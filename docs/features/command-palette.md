@@ -207,3 +207,7 @@ press `Cmd/Ctrl+/` or run **Open keyboard shortcuts** from the palette.
 - [AgentRuns](agent-runs.md)
 
 Message search also includes archived workspaces. These hits show Archived and open a read-only history view. Restore restores the workspace through the cleanup center before returning to an editable task. Permanent workspace deletion removes its message-search index entries.
+
+## Discover existing tools
+
+Search for **Compare models**, **Schedules**, **Clean up workspaces**, **Fleet View**, **Agents**, **Performance**, **Resource Manager**, or **Secret requests**. Each entry explains its destination. Resource Manager is available without Developer mode; developer diagnostics keep their existing visibility rules.

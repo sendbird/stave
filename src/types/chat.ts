@@ -540,11 +540,20 @@ export interface TaskTakeoverResult {
 }
 
 export interface Task {
+  /** The source response of a conversation fork, separate from delegation. */
+  forkParent?: { taskId: string; workspaceId: string; messageId: string };
   id: string;
   title: string;
   provider: ProviderId;
   updatedAt: string;
   unread: boolean;
+  pinned?: boolean;
+  /**
+   * Task History position, set only when the user places the task. It shares a
+   * scale with `updatedAt` milliseconds, so unplaced tasks sort by activity
+   * among placed ones. Absent keeps activity order; the sidebar ignores it.
+   */
+  historyOrderKey?: number;
   archivedAt?: string | null;
   controlMode: TaskControlMode;
   controlOwner: TaskControlOwner;

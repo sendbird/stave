@@ -418,29 +418,6 @@ export function createSendUserMessageAction(args: {
       resolveRepositoryForWorkspaceId({ state, workspaceId: taskWorkspaceId })
         ?.repositoryPath ?? state.repositoryPath;
     const turnSettings = selectEffectiveSettings(state, taskRepositoryPath);
-    const runCommand = window.api?.terminal?.runCommand;
-
-    if (!state.taskCheckpointById[resolvedTaskId] && runCommand) {
-      void runCommand({
-        cwd: workspaceCwd,
-        command: "git rev-parse HEAD",
-      }).then((result) => {
-        if (!result.ok) {
-          return;
-        }
-        const checkpoint = result.stdout.trim().split("\n")[0]?.trim();
-        if (!checkpoint) {
-          return;
-        }
-        set((nextState) => ({
-          taskCheckpointById: {
-            ...nextState.taskCheckpointById,
-            [resolvedTaskId]: checkpoint,
-          },
-        }));
-      });
-    }
-
     const existingHistory =
       taskWorkspaceSession.messagesByTask[resolvedTaskId] ?? [];
     // A steer that declines the pending approvals may pass: the steer branch

@@ -1,3 +1,5 @@
+import { setTaskReadStates } from "@/lib/task-read-state-client";
+import { TASK_READ_BATCH_LIMIT } from "@/lib/task-read-state";
 import { useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { X } from "lucide-react";
@@ -11,7 +13,7 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { FleetSelectionStatus } from "./FleetSelection";
 import { useFleetSelectionStore, type FleetSelectionTarget } from "@/store/fleet-selection-store";
 import { useFleetBulkActions } from "./useFleetBulkActions";
-import { planFleetAttentionSnooze, planFleetOutcomeRead, planFleetOutcomeReview, countFleetBulkPlan } from "@/lib/fleet/attention-bulk";
+import { planFleetAttentionSnooze, planFleetOutcomeTaskRead, planFleetOutcomeReview, countFleetBulkPlan } from "@/lib/fleet/attention-bulk";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { useAppStore } from "@/store/app.store";
 import { runFleetControl } from "@/lib/fleet/bulk-control";
@@ -50,13 +52,13 @@ function controlFacts(rows: readonly FleetTaskRow[]): FleetControlFacts {
   return { running, waiting };
 }
 export function FleetStopAllButton({ rows, loading = false }: { rows: readonly FleetTaskRow[]; loading?: boolean }) {
-  const { t } = useTranslation(["fleet"]);
+  const { t } = useTranslation(["fleet", "panes"]);
   const runs = useFleetAgentRunsStore(state => state.details);
   const hasRunning = rows.some(row => row.activeTurnId || findActiveTaskRun(runs, row.workspaceId, row.task.id));
   return hasRunning ? <Button variant="outlined" size="sm" disabled={loading} onClick={() => requestFleetBulkCommand({operation:"stop"})}>{t("fleet:bulk.stopAll")}</Button> : null;
 }
 export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loading?: boolean; rows: readonly FleetTaskRow[]; onOpenTask: (target: FleetSelectionTarget) => void }) {
-  const { t } = useTranslation(["fleet"]);
+  const { t } = useTranslation(["fleet", "panes"]);
   const runsLoaded = useFleetAgentRunsStore(state => state.loaded);
   const runDetails = useFleetAgentRunsStore(state => state.details);
   const waiting = loading || Boolean(window.api?.agentRuns && !runsLoaded);
@@ -176,7 +178,7 @@ export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loadin
       const command = takeFleetBulkCommand();
       if (!command) return;
       if (command.operation === "stop") void openStop(rows.filter(row => !command.repositoryPath || row.repositoryPath === command.repositoryPath).map(targetOf));
-      else if (command.operation === "read") setConfirmation({operation:"read",description:t("fleet:bulk.readsCannotBeUndone")});
+      else if (command.operation === "read") setConfirmation({operation:"read",description:t("fleet:bulk.readsCanBeReopened")});
       else {
         const workspaceId = useAppStore.getState().activeWorkspaceId;
         const ended = rows.filter(row => row.workspaceId === workspaceId && Object.values(runDetails).some(({agentRun:run}) => run.workspaceId === workspaceId && run.leadTaskId === row.task.id && !isActiveAgentRunState(run.state))).map(targetOf);
@@ -187,16 +189,28 @@ export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loadin
     window.addEventListener(FLEET_BULK_COMMAND,handle); handle();
     return () => window.removeEventListener(FLEET_BULK_COMMAND,handle);
   });
-  const readPlan = planFleetOutcomeRead(items), reviewPlan = planFleetOutcomeReview(items);
+  const reviewPlan = planFleetOutcomeReview(items);
   const snoozePlan = planFleetAttentionSnooze(items,3_600_000);
   const snoozeItems: DropdownMenuItem[] = ([3_600_000,14_400_000,86_400_000,604_800_000] as const).map((duration,index) => ({label:t((["fleet:bulk.snooze0","fleet:bulk.snooze1","fleet:bulk.snooze2","fleet:bulk.snooze3"] as const)[index]!,{count:countFleetBulkPlan(snoozePlan)}),disabled:bulk.applying,onSelect:() => { void bulk.apply(planFleetAttentionSnooze(items,duration)); }}));
   const more: DropdownMenuItem[] = [];
+  /** One write per batch: the read mark owns outputs, completions and attention alike. */
+  const markTasks = async (targets: readonly { workspaceId: string; taskId: string }[], read: boolean) => {
+    if (busyRef.current || !targets.length) return;
+    busyRef.current = true; setBusy(true);
+    try {
+      for (let offset = 0; offset < targets.length; offset += TASK_READ_BATCH_LIMIT) {
+        await setTaskReadStates({targets:targets.slice(offset,offset+TASK_READ_BATCH_LIMIT).map(({workspaceId,taskId}) => ({workspaceId,taskId})),read});
+      }
+    } catch { toast(t("panes:taskReading.failed")); }
+    finally { busyRef.current = false; setBusy(false); }
+  };
+  more.push({label:t("fleet:bulk.markTasksRead",{count:selected.length}),onSelect:() => { void markTasks(selected,true); }});
+  more.push({label:t("fleet:bulk.markTasksUnread",{count:selected.length}),onSelect:() => { void markTasks(selected,false); }});
   if (narrow) {
     if (plans.stop.applicable.length) more.push({label:t("fleet:bulk.stop",{count:plans.stop.applicable.length}),onSelect:() => { void openStop(selected); }});
     if (plans.archive.applicable.length) more.push({label:t("fleet:bulk.archive",{count:plans.archive.applicable.length}),onSelect:() => openAction("archive")});
     if (countFleetBulkPlan(snoozePlan)) more.push(...snoozeItems);
   }
-  if (countFleetBulkPlan(readPlan)) more.push({label:t("fleet:bulk.read",{count:countFleetBulkPlan(readPlan)}),onSelect:() => { void bulk.apply(readPlan); }});
   if (countFleetBulkPlan(reviewPlan)) more.push({label:t("fleet:bulk.review",{count:countFleetBulkPlan(reviewPlan)}),onSelect:() => { void bulk.apply(reviewPlan); }});
   if (selected.length === 1) more.push({label:t("fleet:bulk.openCount",{count:1}),onSelect:() => onOpenTask(selected[0]!)});
   if (plans.delete.applicable.length) more.push({label:t("fleet:bulk.delete",{count:plans.delete.applicable.length}),tone:"danger",onSelect:() => openAction("delete")});
@@ -214,7 +228,12 @@ export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loadin
     </Toolbar> : null}
     <ConfirmDialog open={Boolean(confirmation)} defaultFocus="cancel" loading={busy} title={confirmation ? confirmation.operation === "read" ? t("fleet:bulk.readConfirm") : t(`fleet:bulk.${confirmation.operation}Confirm`,{count:confirmation.targets.length}) : ""} description={confirmation?.operation === "delete" ? [t("fleet:bulk.irreversible"),confirmation.description].filter(Boolean).join(" ") : confirmation?.description} onCancel={() => {previewSequence.current++;setConfirmation(null);}} onConfirm={() => {
       if (!confirmation) return;
-      if (confirmation.operation === "read") { setConfirmation(null); void bulk.apply(planFleetOutcomeRead(attention)); }
+      if (confirmation.operation === "read") {
+        setConfirmation(null);
+        const plan = planFleetOutcomeTaskRead(attention);
+        void markTasks(plan.targets,true);
+        if (plan.notificationIds.length) void bulk.apply({results:[],notificationIds:plan.notificationIds,snoozes:[]});
+      }
       else void execute(confirmation.operation,confirmation.targets,confirmation.skipped);
     }} />
   </>;

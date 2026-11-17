@@ -50,6 +50,14 @@
     "reload": "Reload window",
     "keepOpen": "Keep open"
   },
+  "nativeNotification": {
+    "allowOnce": "Allow once",
+    "deny": "Deny",
+    "reply": "Reply",
+    "openToReview": "Open to review",
+    "alreadyAnswered": "Already answered",
+    "couldNotAnswer": "Could not answer — open Stave"
+  },
   "remoteControlMobile": {
     "title": "Stave remote control",
     "risk": "This connection is not encrypted. Use it only on a trusted private network or VPN.",

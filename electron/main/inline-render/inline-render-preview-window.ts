@@ -4,13 +4,16 @@ import {
   INLINE_RENDER_PREVIEW_INITIAL_HEIGHT,
   INLINE_RENDER_PREVIEW_LOAD_BUDGET_MS,
   INLINE_RENDER_PREVIEW_MAX_RESIZE_ROUNDS,
+  INLINE_RENDER_PREVIEW_STYLE_AUDIT_SCRIPT,
   inlineRenderPreviewCaptureHeight,
   nextInlineRenderPreviewViewport,
   planInlineRenderPreviewSlices,
+  readInlineRenderPreviewStyleAudit,
   shouldBlockInlineRenderPreviewNavigation,
   shouldReportInlineRenderPreviewConsoleMessage,
   type InlineRenderPreviewImage,
   type InlineRenderPreviewMessageLog,
+  type InlineRenderPreviewStyleAudit,
 } from "../../../src/lib/inline-render/inline-render-preview";
 
 /**
@@ -58,6 +61,16 @@ async function settleAndMeasure(
     contentHeight: read(measured?.contentHeight, 0),
     viewportHeight: read(measured?.viewportHeight, viewportHeight),
   };
+}
+
+async function auditStyles(contents: WebContents): Promise<InlineRenderPreviewStyleAudit | undefined> {
+  try {
+    return readInlineRenderPreviewStyleAudit(
+      await contents.executeJavaScriptInIsolatedWorld(MEASURE_WORLD_ID, [{ code: INLINE_RENDER_PREVIEW_STYLE_AUDIT_SCRIPT }]),
+    );
+  } catch {
+    return undefined;
+  }
 }
 
 function throwIfAborted(signal: AbortSignal) {
@@ -111,6 +124,7 @@ export interface InlineRenderPreviewWindowResult {
   capturedHeight: number;
   loadTimedOut: boolean;
   images: InlineRenderPreviewImage[];
+  style?: InlineRenderPreviewStyleAudit;
 }
 
 /**
@@ -236,7 +250,10 @@ export async function captureInlineRenderPreviewWindow(args: {
       height: capturedHeight,
     });
     throwIfAborted(args.signal);
+    const style = await auditStyles(contents);
+    throwIfAborted(args.signal);
     return {
+      ...(style ? { style } : {}),
       firstContentHeight,
       contentHeight,
       viewportHeight,

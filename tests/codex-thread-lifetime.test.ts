@@ -199,3 +199,13 @@ test("browser reload cannot unsubscribe a detached active native turn", async ()
   expect(unsubscribes).toBe(1);
   client.clear();
 });
+
+ test("thread activity remains reserved through asynchronous admission and releases for history actions", async () => {
+  const lifetime = new CodexThreadLifetime(async () => {}, () => {}, () => () => {});
+  const admission = lifetime.acquire("history-thread");
+  expect(lifetime.isActive("history-thread")).toBe(true);
+  const release = await admission;
+  expect(lifetime.isActive("history-thread")).toBe(true);
+  release();
+  expect(lifetime.isActive("history-thread")).toBe(false);
+});

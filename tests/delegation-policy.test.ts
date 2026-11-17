@@ -428,3 +428,20 @@ test("delegations inherit native auto-review only within the parent permission",
   expect(restrictPermissionOptions(options, { codexApprovalPolicy: "untrusted" }))
     .toMatchObject({ codexApprovalsReviewer: "user", codexApprovalPolicy: "untrusted" });
 });
+
+
+test("browser preferences survive storage separately from inheritable permissions", () => {
+  const db = new Database(":memory:");
+  db.exec("CREATE TABLE app_state (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  const browser = { providerBrowserAlwaysOn: true, providerBrowserAutoFallback: true,
+    providerBrowserAutoArm: false, providerBrowserAutoFallbackDomains: "example.test" };
+  const store = new DelegationPolicyStore(db as never);
+  store.saveSettings({ "claude-code": {}, codex: {}, browser });
+  expect(new DelegationPolicyStore(db as never).loadSettings()?.browser).toEqual(browser);
+  expect(DelegationPermissionSettingsSchema.safeParse({ "claude-code": {}, codex: {}, browser: { ...browser, providerBrowserAlwaysOn: "yes" } }).success).toBe(false);
+  for (const providerId of ["claude-code", "codex"] as const) {
+    store.saveEffective("parent", providerId, browser);
+    expect(JSON.stringify(store.loadEffective("parent"))).not.toContain("providerBrowser");
+  }
+  db.close();
+});

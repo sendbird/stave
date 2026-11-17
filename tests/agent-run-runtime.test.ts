@@ -39,6 +39,7 @@ import { observeWorkspaceScript } from "../electron/host-service/supervision/wor
 import { createAgentRunActionExecutor, type AgentRunScmPort } from "../electron/host-service/supervision/agent-run-actions";
 import { runCommandArgs } from "../electron/main/utils/command";
 import { createAgentRunRouter } from "../electron/host-service/supervision/agent-run-route-host";
+import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import type { AgentConfig } from "../src/lib/agents/schema";
 import { buildAgentRunStartInput, buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
 import { agentRunWorkQueueLane } from "../src/lib/agent-runs/lanes";
@@ -927,6 +928,26 @@ describe("run runtime: failures and restarts", () => {
     restarted.runtime.start();
     await restarted.tick();
     expect(restarted.closedTurns).toEqual(["turn-1"]);
+  });
+
+  test("a stage turn the admission queue recovered at boot is not also closed as interrupted", async () => {
+    const store = new AgentRunStore(new Database(":memory:"));
+    const turns: AgentRunTurnRow[] = [];
+    const first = createHarness({ store, turns });
+    const agentRunId = await startedAgentRun(first, startInput());
+    // The real admission gate after a restart: one slot, held, so the recovered stage turn waits in the queue.
+    const gate = createTurnAdmission({ limit: () => 1, save: () => {} });
+    await gate.acquire({ turnId: "blocker", priority: "user" });
+    void gate.acquire({ turnId: "turn-1", taskId: "task-1", priority: "automatic" }).catch(() => {});
+    const restarted = createHarness({ store, turns, turnPrefix: "resumed", extra: { isQueuedTurn: (turnId) => gate.isQueued(turnId) } });
+    restarted.runtime.start();
+    await restarted.tick();
+    expect(gate.isQueued("turn-1")).toBe(true);
+    expect(restarted.closedTurns).toEqual([]);
+    expect(store.listEventsByKind(agentRunId, ["turn-interrupted"])).toEqual([]);
+    expect(restarted.runCalls).toHaveLength(0);
+    gate.release("blocker");
+    gate.release("turn-1");
   });
 
   test("a stage whose turn a restart interrupted resumes without spending its reminder", async () => {
@@ -2945,7 +2966,8 @@ for (const delivery of ["async", undefined] as const) {
 test("a paused Run keeps its saved question answerable until Resume", async () => {
   const { runQuestionRequestId } = await import("../src/lib/agent-runs/persistent-question");
   const replies: string[] = [];
-  const h = createHarness({ extra: { runSupervisedTurn: async args => { if (args.questionAnswer) replies.push(args.prompt); return { turnId: `turn-${replies.length}` }; } } });
+  const priorities: Array<string | undefined> = [];
+  const h = createHarness({ extra: { runSupervisedTurn: async args => { if (args.questionAnswer) { replies.push(args.prompt); priorities.push(args.admissionPriority); } return { turnId: `turn-${replies.length}` }; } } });
   const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
   const stage = { agentRunId: id, stageId: DRAFT.id, attempt: 1 };
   const requestId = runQuestionRequestId(stage, "native-question");
@@ -2958,6 +2980,8 @@ test("a paused Run keeps its saved question answerable until Resume", async () =
   await h.runtime.resume({ agentRunId: id });
   await h.runtime.answerQuestion(answer);
   expect(replies).toEqual(["> Which filename?\n\nB.md"]);
+  // The user answered: under the global cap it waits as a user turn, ahead of automatic work.
+  expect(priorities).toEqual(["user"]);
   await h.runtime.cancel({ agentRunId: id });
   await expect(h.runtime.answerQuestion(answer)).rejects.toMatchObject({ code: "not-active" });
   h.runtime.stop();
@@ -2979,7 +3003,8 @@ test("Tars's reply as the user starts one plain turn on the lead task, and is re
   expect(turns).toHaveLength(0);
   await h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." });
   // A plain chat turn: provider admission links it to the stage as the user's reply, never as a supervised stage turn.
-  expect(turns).toEqual([expect.objectContaining({ prompt: "Use the existing index.", workspaceId: "ws-1", taskId: "task-1" })]);
+  // The user's reply is admitted as a user turn.
+  expect(turns).toEqual([expect.objectContaining({ prompt: "Use the existing index.", workspaceId: "ws-1", taskId: "task-1", admissionPriority: "user" })]);
   expect(turns[0]!.agentRunStage).toBeUndefined();
   expect(turns[0]!.questionAnswer).toBeUndefined();
   expect(turns[0]).not.toHaveProperty("turnId");

@@ -1,3 +1,5 @@
+import { createRestartContinuationActions } from "@/store/app-store-restart-continuation-actions";
+import { emptyRestartRecovery } from "@/store/restart-continuation";
 import { createTaskMessagePageLoader } from "@/store/task-message-page-loader";
 import { i18n } from "@/i18n/runtime";
 import { create } from "zustand";
@@ -29,7 +31,7 @@ import { createFailedSendActions } from "@/store/app-store-failed-send-actions";
 import { createTaskPauseActions } from "@/store/app-store-task-pause-actions";
 import { createQueuedTurnEditActions, createQueuedTurnEditHolds } from "@/store/queued-turn-edit-holds";
 import { pauseQueueOnUsageLimitRefusal, resolvePausedQueueHold, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
-import { createAppStorePersistenceOptions, normalizeSharedSkillsHomeSetting } from "@/store/app-store-persistence";
+import { createAppStorePersistenceOptions, flushAppStorePersistence, normalizeSharedSkillsHomeSetting } from "@/store/app-store-persistence";
 import { createAppStoreNotificationRuntime } from "@/store/app-store-notification-runtime";
 import { createWorkspaceTurnSummaryGenerator } from "@/store/workspace-turn-summary-runtime";
 import {
@@ -684,7 +686,7 @@ export const useAppStore = create<AppState>()(
       });
 
     const { attentionSync, persistNotifications } =
-      createAppStoreNotificationRuntime({ set, get });
+      createAppStoreNotificationRuntime({ set, get, scheduleProviderTurnStallTimer });
 
     const loadTaskMessagesIntoSession = createTaskMessagePageLoader({ set, get, attentionSync });
 
@@ -905,7 +907,7 @@ export const useAppStore = create<AppState>()(
       shouldLoadLatestTaskMessages,
     });
     const failedSendActions = createFailedSendActions({ set, get });
-    const taskPauseActions = createTaskPauseActions({ set, get, dispatchNextQueuedTaskTurn });
+    const taskPauseActions = createTaskPauseActions({ set, get, dispatchNextQueuedTaskTurn, flushPersistence: flushAppStorePersistence });
     const conversationThreadActions = createConversationThreadActions({
       set,
       get,
@@ -934,6 +936,7 @@ export const useAppStore = create<AppState>()(
       normalizeSharedSkillsHomeSetting,
     });
     const providerInteractionActions = createProviderInteractionActions({
+        flushPersistence: flushAppStorePersistence,
       set,
       get,
       clearProviderTurnStallTimer,
@@ -1006,6 +1009,9 @@ export const useAppStore = create<AppState>()(
       messagesByTask: {},
       failedSendsByTask: {},
       usageLimitPauseByTask: {},
+      restartRecovery: emptyRestartRecovery(),
+      interruptedTasks: [],
+      restartPendingTasks: [],
       restoredQueueReleasedByTask: {},
       messageCountByTask: {},
       taskMessagesLoadingByTask: {},
@@ -1034,7 +1040,6 @@ export const useAppStore = create<AppState>()(
       repositoryName: null,
       repositoryFiles: workspaceFsAdapter.getKnownFiles(),
       workspaceFileCacheByPath: {},
-      taskCheckpointById: {},
       providerAvailability: createDefaultProviderAvailability(),
       providerRuntimeCapabilities: createDefaultProviderRuntimeCapabilities(),
       skillCatalog: {
@@ -1191,6 +1196,7 @@ export const useAppStore = create<AppState>()(
       ...conversationThreadActions,
       ...failedSendActions,
       ...taskPauseActions,
+      ...createRestartContinuationActions({ set, get, flushPersistence: flushAppStorePersistence }),
       ...createQueuedTurnEditActions({ holds: queuedTurnEditHolds, get, drain: drainQueueAfterSteerSettled }),
       ...terminalActions,
       ...taskLifecycleActions,

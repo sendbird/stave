@@ -1,3 +1,4 @@
+import type { InterruptedTask, RestartRecovery } from "@/store/restart-continuation";
 import type {
   TaskProviderSessionState,
   WorkspaceSummary,
@@ -234,10 +235,16 @@ export interface AppState
    */
   failedSendsByTask: FailedOutgoingSendsByTask;
   /**
-   * Tasks whose work stopped at a provider usage limit, in memory only. Their
+   * Tasks whose work stopped at a provider usage limit, persisted. Their
    * queue holds until the user resumes, or until an armed auto-resume fires.
    */
   usageLimitPauseByTask: UsageLimitPauseByTask;
+  restartRecovery: RestartRecovery;
+  interruptedTasks: InterruptedTask[];
+  restartPendingTasks: InterruptedTask[];
+  recoverInterruptedTasks: () => Promise<void>;
+  continueInterruptedTask: (args: { taskId: string; automatic?: boolean }) => Promise<void>;
+  dismissInterruptedTasks: (args?: { taskId?: string }) => void;
   /**
    * Tasks whose queue, restored from the previous run of the app, the user
    * released. Until then those items wait instead of sending on completion.
@@ -272,6 +279,7 @@ export interface AppState
   focusTranscriptToolRequest: {
     taskId: string;
     toolUseId?: string;
+    /** A whole message (a turn's reply, or a search hit), scrolled to its start. */
     messageId?: string;
     searchQuery?: string;
     searchSnippet?: string;
@@ -288,7 +296,6 @@ export interface AppState
   repositoryName: string | null;
   repositoryFiles: string[];
   workspaceFileCacheByPath: Record<string, string[]>;
-  taskCheckpointById: Record<string, string>;
   providerAvailability: Record<ProviderId, boolean>;
   providerRuntimeCapabilities: Record<ProviderId, ProviderRuntimeCapabilities>;
   skillCatalog: SkillCatalogState;
@@ -485,6 +492,8 @@ export interface AppState
     messageId: string;
     requestId: string;
   }) => void;
+  /** Scroll the transcript to a message (a turn's reply), loading older pages as needed. */
+  focusTranscriptMessage: (args: { taskId: string; messageId: string }) => void;
   selectTask: (args: { taskId: string; allowArchived?: boolean }) => void;
   loadTaskMessages: (args: {
     taskId: string;
@@ -533,6 +542,7 @@ export interface AppState
   clearTaskSourceContexts: (args: { taskId: string }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;
+  sendForkResultToOriginal: (args: { taskId: string }) => Promise<ConversationThreadActionResult>;
   forkConversationFromMessage: (args: {
     taskId: string;
     messageId: string;
@@ -546,6 +556,16 @@ export interface AppState
     messageId: string;
     dryRun: boolean;
   }) => Promise<ClaudeFileRewindResponse>;
+  pinTask: (args: { taskId: string; pinned: boolean; workspaceId?: string }) => void;
+  /** Places a task between its visible Task History neighbours; never switches workspace. */
+  reorderTaskHistory: (args: {
+    workspaceId?: string;
+    activeTaskId: string;
+    overTaskId: string;
+    visibleTaskIds: readonly string[];
+  }) => void;
+  /** Returns Task History to activity order. */
+  resetTaskHistoryOrder: (args: { workspaceId?: string }) => void;
   reorderTasks: (args: {
     activeTaskId: string;
     overTaskId: string;

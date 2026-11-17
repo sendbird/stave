@@ -22,7 +22,6 @@ import {
 import {
   getTaskControlMode,
   getTaskControlOwner,
-  isExternallyManagedTask,
 } from "../../src/lib/tasks";
 import type { RecentRepositoryState } from "../../src/store/repository.utils";
 import type { Task } from "../../src/types/chat";
@@ -31,11 +30,7 @@ import { ensureHostServicePersistenceReady } from "./persistence";
 /** Bounds the ledger walk; real delegation chains are a few levels deep. */
 const MAX_DELEGATION_DEPTH = 8;
 
-export function publishesInteractionNotifications(
-  task: Pick<Task, "controlMode" | "controlOwner" | "parentTaskId">,
-) {
-  return !isExternallyManagedTask(task) || Boolean(task.parentTaskId?.trim());
-}
+export { publishesInteractionNotifications } from "../../src/lib/notifications/interaction-policy";
 
 /**
  * The delegation chain above a child, nearest first and the root last. Each

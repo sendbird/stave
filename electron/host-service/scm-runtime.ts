@@ -2096,6 +2096,8 @@ export function isPullRequestBranchAlreadyCurrent(detail: string) {
  */
 export async function updateScmPrBranch(args: {
   cwd?: string;
+  /** Internal stack updates address a child without checking out another worktree. */
+  targetPrNumber?: number;
   runCommand?: ScmCommandRunner;
 }): Promise<UpdatePullRequestBranchResult> {
   const run = args.runCommand ?? runCommandArgs;
@@ -2122,7 +2124,7 @@ export async function updateScmPrBranch(args: {
 
   const viewResult = await run({
     command: "gh",
-    commandArgs: ["pr", "view", "--json", "headRefName,baseRefName"],
+    commandArgs: ["pr", "view", ...(args.targetPrNumber ? [String(args.targetPrNumber)] : []), "--json", "headRefName,baseRefName"],
     cwd: args.cwd,
   });
   invalidateCachedGhAuthOnFailure(viewResult, args.cwd);
@@ -2146,7 +2148,7 @@ export async function updateScmPrBranch(args: {
 
   const updateResult = await run({
     command: "gh",
-    commandArgs: ["pr", "update-branch"],
+    commandArgs: ["pr", "update-branch", ...(args.targetPrNumber ? [String(args.targetPrNumber)] : [])],
     cwd: args.cwd,
   });
   invalidateCachedGhAuthOnFailure(updateResult, args.cwd);
@@ -2157,6 +2159,13 @@ export async function updateScmPrBranch(args: {
       code: updateResult.code,
       stdout: updateResult.stdout,
     });
+  }
+
+  if (args.targetPrNumber) {
+    const branch = await resolveCurrentScmBranch({ cwd: args.cwd, runCommand: run });
+    if (branch !== headRefName) {
+      return { ok: true, code: 0, stdout: updateResult.stdout, stderr: "", remoteUpdated: !alreadyCurrent, localSynced: false };
+    }
   }
 
   const statusResult = await run({

@@ -4,7 +4,7 @@ import { AgentRunCommandError } from "../../src/lib/agent-runs/domain";
 import { applyUserInputState } from "../../src/store/editor.utils";
 import { findPendingUserInputMessageByRequestId } from "../../src/store/provider-message.utils";
 import { runQuestionStage } from "../../src/lib/agent-runs/persistent-question";
-import type { UserInputPart } from "../../src/types/chat";
+import type { ChatMessage, UserInputPart } from "../../src/types/chat";
 import { answerRunQuestion } from "./run-question-answer";
 
 export interface HostUserInputArgs {
@@ -20,7 +20,11 @@ export interface HostUserInputPorts {
   load: (workspaceId: string, taskId: string) => Promise<WorkspaceSessionState>;
   respond: (args: { turnId: string; requestId: string; answers?: Record<string, string>; denied?: boolean }) => Promise<{ ok: boolean; message?: string }>;
   cache: (workspaceId: string, session: WorkspaceSessionState) => WorkspaceSessionState;
-  persist: (args: { workspaceId: string; workspaceName: string; session: WorkspaceSessionState }) => Promise<unknown>;
+  /** `taskId` and `changedMessagesByTask` scope the write to the answered task. */
+  persist: (args: {
+    workspaceId: string; workspaceName: string; session: WorkspaceSessionState;
+    taskId: string; changedMessagesByTask: Record<string, ChatMessage[]>;
+  }) => Promise<unknown>;
 }
 
 export async function respondHostUserInput(args: HostUserInputArgs, ports: HostUserInputPorts) {
@@ -72,7 +76,7 @@ export async function respondHostUserInput(args: HostUserInputArgs, ports: HostU
       answers: args.answers,
       denied: args.denied,
     });
-    await persistMessages(args, ports, session, nextMessagesState.messagesByTask);
+    await persistMessages(args, ports, session, nextMessagesState.messagesByTask, userInput.messageId);
     return null;
   });
   if (!runQuestion) return result;
@@ -97,11 +101,19 @@ async function endMootRunQuestion(args: HostUserInputArgs, ports: HostUserInputP
       ...message,
       parts: message.parts.map((part) => part.type === "user_input" && part.requestId === args.requestId ? { ...part, state: "input-interrupted" as const } : part),
     });
-    await persistMessages(args, ports, session, { ...session.messagesByTask, [args.taskId]: nextMessages });
+    await persistMessages(args, ports, session, { ...session.messagesByTask, [args.taskId]: nextMessages }, pending.messageId);
   });
 }
 
-async function persistMessages(args: HostUserInputArgs, ports: HostUserInputPorts, session: WorkspaceSessionState, messagesByTask: WorkspaceSessionState["messagesByTask"]) {
+/**
+ * Write only the answered task's changed message. The cached session's other
+ * tasks can be older than what the renderer saved since.
+ */
+async function persistMessages(args: HostUserInputArgs, ports: HostUserInputPorts, session: WorkspaceSessionState, messagesByTask: WorkspaceSessionState["messagesByTask"], messageId: string) {
   const nextSession = ports.cache(args.workspaceId, { ...session, messagesByTask });
-  await ports.persist({ workspaceId: args.workspaceId, workspaceName: ports.workspaceName, session: nextSession });
+  const changed = (nextSession.messagesByTask[args.taskId] ?? []).filter((message) => message.id === messageId);
+  await ports.persist({
+    workspaceId: args.workspaceId, workspaceName: ports.workspaceName, session: nextSession,
+    taskId: args.taskId, changedMessagesByTask: { [args.taskId]: changed },
+  });
 }

@@ -1,5 +1,6 @@
 import type Database from "better-sqlite3";
 import { deleteTaskRelatedRows, releaseDeletedTaskChildren } from "./task-permanent-delete";
+import { deleteTurnSnapshotRows } from "./turn-snapshot-store";
 
 /** Workspace row cleanup; the caller owns the IMMEDIATE transaction. */
 export function deleteWorkspaceRelatedRows(db: Database.Database, workspaceId: string): string[] {
@@ -31,6 +32,8 @@ export function deleteWorkspaceRelatedRows(db: Database.Database, workspaceId: s
     if (hasTable(table)) db.prepare(`DELETE FROM ${table} WHERE workspace_id = ?`).run(workspaceId);
   }
   db.prepare("DELETE FROM tasks WHERE workspace_id = ?").run(workspaceId);
+  // Snapshots of tasks that were never saved are not reached through the task loop.
+  deleteTurnSnapshotRows(db, { workspaceId });
   for (const artifact of artifacts) db.prepare("DELETE FROM artifacts WHERE id = ?").run(artifact.id);
   return [...taskArtifactPaths, ...artifacts.map(artifact => artifact.relative_path)];
 }

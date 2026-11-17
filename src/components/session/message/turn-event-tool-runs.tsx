@@ -133,6 +133,7 @@ export function TraceToolRun(args: {
             reference={mcpAppView}
             taskId={taskId}
             toolUseId={part.toolUseId}
+            textResult={rawOutput || undefined}
           />
         ) : !isError && !isCommand && output ? (
           <TraceOutput capped label={i18n.t("ui:toolrun.output")} linkify={!streamingInput} text={output} />

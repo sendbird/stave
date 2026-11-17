@@ -4,7 +4,7 @@ import { Button as AuiButton } from "@/components/aui/components/Button";
 import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
 import { CalendarClock, Check, ShieldCheck, SlidersHorizontal, Zap } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { ProviderModelPicker } from "@/components/session/ProviderModelPicker";
 import {
   Badge,
@@ -36,6 +36,7 @@ import {
   applyAutomationCadencePreset,
   applyAutomationTrustPolicyToRuntime,
   automationPermissionModeToTrustPolicy,
+  isAutomationPermissionModeAvailable,
   automationTrustPolicyToPermissionMode,
   AUTOMATION_PERMISSION_MODES,
   computeNextAutomationRunAt,
@@ -53,6 +54,7 @@ import {
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { editorStyles } from "./automation-editor.styles";
 import { AutomationLocationFields } from "./AutomationLocationFields";
+import { WebhookTriggerSection } from "./WebhookTriggerSection";
 import {
   applyAutomationScheduleUnit,
   formatRelativeTime,
@@ -407,6 +409,7 @@ function PermissionSection(props: {
   const runtime = draft.runtime;
 
   function selectMode(next: AutomationPermissionMode) {
+    if (!isAutomationPermissionModeAvailable(next, draft)) return;
     const trustPolicy = automationPermissionModeToTrustPolicy(next);
     props.onDraftChange({
       ...draft,
@@ -434,12 +437,15 @@ function PermissionSection(props: {
             getAutomationPermissionModeKeys(candidate);
           const Icon = PERMISSION_MODE_ICON[candidate];
           const active = candidate === mode;
+          const available = isAutomationPermissionModeAvailable(candidate, draft);
           return (
             <AuiButton layout="host"
               key={candidate}
               type="button"
               role="radio"
               aria-checked={active}
+              disabled={!available}
+              data-permission-mode={candidate}
               onClick={() => selectMode(candidate)}
               xstyle={[
                 editorStyles.modeOption,
@@ -478,6 +484,11 @@ function PermissionSection(props: {
           );
         })}
       </div>
+      {draft.webhook ? (
+        <p className={sx(editorStyles.modeDescription)} data-webhook-permission-note="">
+          {tI18n("automation:webhook.permissionNote")}
+        </p>
+      ) : null}
 
       {mode === "manual" ? (
         <div className={sx(editorStyles.manualPanel)}>
@@ -638,6 +649,7 @@ export function AutomationEditor(props: {
   onSave: () => void;
 }) {
   const { t: tI18n } = useTranslation(["automation"]);
+  const [webhookProvisioning, setWebhookProvisioning] = useState(false);
   const selectedReferenceKeys = new Set(
     props.draft.informationReferences.map(getAutomationInformationReferenceKey),
   );
@@ -729,14 +741,14 @@ export function AutomationEditor(props: {
             variant="ghost"
             xstyle={editorStyles.headerButtonQuiet}
             onClick={props.onCancel}
-            disabled={props.saving}
+            disabled={props.saving || webhookProvisioning}
           >
             {tI18n("automation:automationEditor.cancel")}</Button>
           <Button
             size="sm"
             xstyle={editorStyles.headerButton}
             onClick={props.onSave}
-            disabled={props.saving}
+            disabled={props.saving || webhookProvisioning}
           >
             {props.saving ? tI18n("automation:automationEditor.saving") : tI18n("automation:automationEditor.save")}
           </Button>
@@ -791,6 +803,7 @@ export function AutomationEditor(props: {
             />
           </section>
 
+          <WebhookTriggerSection automationId={props.automationId} draft={props.draft} onDraftChange={props.onDraftChange} onProvisioningChange={setWebhookProvisioning}>
           {props.draft.runOnceAt !== undefined ? (
             // A one-time schedule (one Tars or a Local MCP agent set up) has no cadence to edit: it says when it runs and offers to repeat instead.
             <section className={sx(editorStyles.section)} data-automation-run-once="">
@@ -818,6 +831,8 @@ export function AutomationEditor(props: {
               onDraftChange={props.onDraftChange}
             />
           )}
+
+          </WebhookTriggerSection>
 
           <PermissionSection
             draft={props.draft}
@@ -900,7 +915,7 @@ export function AutomationEditor(props: {
                   workspaceId={props.draft.environment.workspaceId}
                   repositoryLabel={props.draft.environment.label}
                   workspaceLabel={props.draft.environment.workspace?.name}
-                  disabled={props.saving}
+                  disabled={props.saving || webhookProvisioning}
                   onCreated={(option) => {
                     props.onInformationCreated(option);
                     attachInformationOption(option);

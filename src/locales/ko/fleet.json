@@ -249,7 +249,8 @@
     "ago": "{{activity}} · {{duration}} 전",
     "running": "{{duration}}째 실행 중",
     "waiting": "{{duration}}째 대기 중",
-    "quiet": "{{duration}}째 업데이트 없음"
+    "quiet": "{{duration}}째 업데이트 없음",
+    "waitingSlot_other": "실행 자리 대기 중 (앞에 {{count}}개)"
   },
   "runProgress": {
     "working": "작업 중",
@@ -269,6 +270,7 @@
   "bulk": {
     "menuLabel": "리뷰 대기 정리",
     "readsCannotBeUndone": "결과와 알림의 읽음 처리는 되돌릴 수 없습니다.",
+    "readsCanBeReopened": "각 작업의 메뉴에서 언제든 다시 읽지 않음으로 표시할 수 있습니다.",
     "undo": "실행 취소",
     "undoFailed": "정리한 항목 일부를 되돌리지 못했습니다.",
     "reviewResults_other": "결과 {{count}}개를 리뷰 완료로 표시",
@@ -285,7 +287,8 @@
     "stop": "중지 ({{count}})",
     "archive": "보관 ({{count}})",
     "delete": "영구 삭제 ({{count}})",
-    "read": "읽음 표시 ({{count}})",
+    "markTasksRead": "읽음으로 표시 ({{count}})",
+    "markTasksUnread": "읽지 않음으로 표시 ({{count}})",
     "review": "검토함 표시 ({{count}})",
     "stopResult_other": "{{count}}개 중지, {{skipped}}개 건너뜀",
     "archiveResult_other": "{{count}}개 보관, {{skipped}}개 건너뜀",

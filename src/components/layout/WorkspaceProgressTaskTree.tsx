@@ -1,13 +1,19 @@
+import { TaskUnreadDot, TaskReadMenu, withUnreadName } from "@/components/session/TaskReadIndicator";
+import { useTaskUnread, useUnreadTaskIds } from "@/lib/task-read-state-client";
+import { ensureFleetWorkspace } from "@/lib/fleet/archive-client";
+import { toast } from "@/lib/notifications/toast";
+import { Pin, PinOff } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   TASK_DRAG_MIME,
   encodeTaskDragPayload,
 } from "@/lib/task-context/attached-task-context";
-import { memo, useMemo, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildWorkspaceProgressTaskItems,
+  selectCompactWorkspaceTaskRows,
   type WorkspaceProgressTaskItem,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { StateMark } from "@/components/aui/components/StateMark";
@@ -54,6 +60,85 @@ function TaskProviderMark(args: {
   );
 }
 
+/**
+ * Pin is the workspace's own preference: an unloaded workspace is read into the
+ * runtime cache first, so pinning never needs to switch to it.
+ */
+function SidebarTaskPin(args: { taskId: string; title: string; workspaceId: string; pinned: boolean }) {
+  useTranslation();
+  const label = i18n.t(args.pinned ? "panes:taskHistoryDrawer.unpinTask" : "panes:taskHistoryDrawer.pinTask", { title: args.title });
+  return <AuiButton layout="host" type="button" xstyle={styles.pinControl}
+    title={label}
+    aria-label={label}
+    onClick={() => {
+      void ensureFleetWorkspace({ workspaceId: args.workspaceId })
+        .then(() => useAppStore.getState().pinTask({ taskId: args.taskId, workspaceId: args.workspaceId, pinned: !args.pinned }))
+        .catch(() => toast(i18n.t("panes:taskHistoryDrawer.pinFailed")));
+    }}>
+    {args.pinned ? <PinOff className={sx(styles.pinIcon)} aria-hidden /> : <Pin className={sx(styles.pinIcon)} aria-hidden />}
+  </AuiButton>;
+}
+
+/** One open task. Its name carries the unread state; its controls name the task. */
+function WorkspaceProgressTaskRow(args: {
+  item: WorkspaceProgressTaskItem;
+  workspaceId?: string;
+  showProgress?: boolean;
+  onOpenTask: (taskId: string) => void;
+}) {
+  const { t: tI18n } = useTranslation(["workspace"]);
+  const { item, workspaceId } = args;
+  const unread = useTaskUnread(workspaceId ?? "", item.taskId);
+  const statusLabel = STATUS_LABEL[item.status];
+  return (
+    <li className={sx(styles.taskEntry)}>
+      <AuiButton layout="host"
+        type="button"
+        data-workspace-progress-task={item.taskId}
+        data-workspace-progress-status={item.status}
+        xstyle={styles.row}
+        aria-label={withUnreadName(`${item.title}, ${statusLabel}`, unread)}
+        title={workspaceId ? tI18n("workspace:workspaceProgressTaskTree.openOrDragIntoAPromptTo") : undefined}
+        onClick={() => args.onOpenTask(item.taskId)}
+        draggable={Boolean(workspaceId)}
+        onDragStart={(event) => {
+          if (!workspaceId) {
+            return;
+          }
+          event.dataTransfer.effectAllowed = "copy";
+          event.dataTransfer.setData(
+            TASK_DRAG_MIME,
+            encodeTaskDragPayload({
+              taskId: item.taskId,
+              workspaceId,
+              title: item.title,
+            }),
+          );
+        }}
+      >
+        <TaskProviderMark providerId={item.providerId} />
+        <span className={sx(styles.titleWithUnread)}>
+          {workspaceId ? <TaskUnreadDot workspaceId={workspaceId} taskId={item.taskId} decorative /> : null}
+          <span className={sx(styles.rowTitle)}>{item.title}</span>
+        </span>
+        <span className={sx(styles.statusSlot)} title={statusLabel}>
+          <StateMark state={fleetStatusToWorkState(item.status)} />
+          <VisuallyHidden>{statusLabel}</VisuallyHidden>
+        </span>
+        {args.showProgress && workspaceId && (item.status === "running" || item.status === "stalled") ? (
+          <TaskRunProgressMeta
+            workspaceId={workspaceId}
+            taskId={item.taskId}
+            xstyle={styles.progress}
+          />
+        ) : null}
+      </AuiButton>
+      {workspaceId ? <SidebarTaskPin taskId={item.taskId} title={item.title} workspaceId={workspaceId} pinned={Boolean(item.pinned)} /> : null}
+      {workspaceId ? <TaskReadMenu workspaceId={workspaceId} taskId={item.taskId} title={item.title} /> : null}
+    </li>
+  );
+}
+
 export function WorkspaceProgressTaskTreeView(args: {
   items: WorkspaceProgressTaskItem[];
   loading?: boolean;
@@ -66,6 +151,10 @@ export function WorkspaceProgressTaskTreeView(args: {
    * words sit with the task they describe, each task with its own.
    */
   showProgress?: boolean;
+  /** Open tasks folded behind "+N more"; 0 hides the disclosure. */
+  hiddenCount?: number;
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   if (!args.loading && args.items.length === 0) {
@@ -91,52 +180,28 @@ export function WorkspaceProgressTaskTreeView(args: {
       </li>
     );
   } else {
-    body = args.items.map((item) => {
-      const statusLabel = STATUS_LABEL[item.status];
-      return (
-        <li key={item.taskId}>
-          <AuiButton layout="host"
-            type="button"
-            data-workspace-progress-task={item.taskId}
-            data-workspace-progress-status={item.status}
-            xstyle={styles.row}
-            aria-label={`${item.title}, ${statusLabel}`}
-            title={args.workspaceId ? tI18n("workspace:workspaceProgressTaskTree.openOrDragIntoAPromptTo") : undefined}
-            onClick={() => args.onOpenTask(item.taskId)}
-            draggable={Boolean(args.workspaceId)}
-            onDragStart={(event) => {
-              if (!args.workspaceId) {
-                return;
-              }
-              event.dataTransfer.effectAllowed = "copy";
-              event.dataTransfer.setData(
-                TASK_DRAG_MIME,
-                encodeTaskDragPayload({
-                  taskId: item.taskId,
-                  workspaceId: args.workspaceId,
-                  title: item.title,
-                }),
-              );
-            }}
-          >
-            <TaskProviderMark providerId={item.providerId} />
-            <span className={sx(styles.rowTitle)}>{item.title}</span>
-            <span className={sx(styles.statusSlot)} title={statusLabel}>
-              <StateMark state={fleetStatusToWorkState(item.status)} />
-              <VisuallyHidden>{statusLabel}</VisuallyHidden>
-            </span>
-            {args.showProgress && args.workspaceId && (item.status === "running" || item.status === "stalled") ? (
-              <TaskRunProgressMeta
-                workspaceId={args.workspaceId}
-                taskId={item.taskId}
-                xstyle={styles.progress}
-              />
-            ) : null}
-          </AuiButton>
-        </li>
-      );
-    });
+    body = args.items.map((item) => (
+      <WorkspaceProgressTaskRow
+        key={item.taskId}
+        item={item}
+        workspaceId={args.workspaceId}
+        showProgress={args.showProgress}
+        onOpenTask={args.onOpenTask}
+      />
+    ));
   }
+  const disclosure = args.onToggleExpanded && (args.expanded || (args.hiddenCount ?? 0) > 0) ? (
+    <li>
+      <AuiButton layout="host" type="button" xstyle={styles.disclosure}
+        aria-expanded={Boolean(args.expanded)}
+        data-workspace-progress-disclosure="true"
+        onClick={args.onToggleExpanded}>
+        {args.expanded
+          ? tI18n("workspace:workspaceProgressTaskTree.showFewer")
+          : tI18n("workspace:workspaceProgressTaskTree.moreTasks", { count: args.hiddenCount ?? 0 })}
+      </AuiButton>
+    </li>
+  ) : null;
 
   return (
     <ul
@@ -145,6 +210,7 @@ export function WorkspaceProgressTaskTreeView(args: {
       aria-label={tI18n("workspace:workspaceProgressTaskTree.openTasks")}
     >
       {body}
+      {disclosure}
     </ul>
   );
 }
@@ -206,13 +272,20 @@ export const WorkspaceProgressTaskTree = memo(
         tasks, i18n.resolvedLanguage],
     );
 
-    if (items.length === 0) {
+    const [expanded, setExpanded] = useState(false);
+    const unreadTaskIds = useUnreadTaskIds(args.workspaceId, items.map((item) => item.taskId));
+    const compact = selectCompactWorkspaceTaskRows({ items, unreadTaskIds, expanded });
+
+    if (compact.rows.length === 0) {
       return null;
     }
 
     return (
       <WorkspaceProgressTaskTreeView
-        items={items}
+        items={compact.rows}
+        hiddenCount={compact.hiddenCount}
+        expanded={expanded}
+        onToggleExpanded={() => setExpanded((value) => !value)}
         workspaceId={args.workspaceId}
         showProgress={args.showProgress}
         onOpenTask={(taskId) => {

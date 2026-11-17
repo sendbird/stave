@@ -102,6 +102,24 @@ describe("applyHostTaskTurnSync", () => {
     expect(result.syncedSession.tasks[0]).toMatchObject({ title: "My chosen name", titleManuallySet: true, unread: true });
   });
 
+  test.each([true, false])("keeps a pin and history order made inside the save debounce (active: %s)", (active) => {
+    const task = buildTask({ id: "task-pinned", pinned: true, historyOrderKey: 42, controlMode: "interactive", controlOwner: "stave" });
+    const unpinned = buildTask({ id: "task-unpinned", controlMode: "interactive", controlOwner: "stave" });
+    const session = emptySession({ tasks: [task, unpinned] });
+    const workspaceId = active ? "ws-active" : "ws-background";
+    const staleHostCopy = [{ ...task, pinned: undefined, historyOrderKey: undefined, unread: true }, { ...unpinned, pinned: true, historyOrderKey: 7 }];
+    for (const target of [task, unpinned]) {
+      const result = applyHostTaskTurnSync({
+        state: buildState({ session: active ? session : emptySession(), cache: { [workspaceId]: session } }),
+        loaded: { persistedSession: emptySession({ tasks: staleHostCopy }), persistedActiveTurnId: "turn-1", messages: [], messageCount: 1 },
+        update: buildUpdate({ workspaceId, taskId: target.id }),
+      });
+      const synced = result.syncedSession.tasks.find(item => item.id === target.id)!;
+      expect(synced.pinned).toBe(target.pinned);
+      expect(synced.historyOrderKey).toBe(target.historyOrderKey);
+    }
+  });
+
   test("restored delegation identity keeps host progress from changing renderer selection", () => {
     const parent = buildTask({ id: "task-parent", controlMode: "interactive", controlOwner: "stave" });
     const child = buildTask({ id: "task-child", parentTaskId: parent.id });

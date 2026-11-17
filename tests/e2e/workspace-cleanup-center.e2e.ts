@@ -191,3 +191,73 @@ test("archived shelf reads cheap records once across workspace edits and dedupli
   await page.evaluate(() => (window as any).releaseShelf());
   await expect(page.locator("#shelf-test")).toContainText("Earlier work");
 });
+
+for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {
+  test(`dirty archive requires explicit save and labels the saved state ${lang} ${theme}`, async ({ page }) => {
+    await page.goto(`/?stavePreview=command-palette&cleanupPreview=1&lang=${lang}&theme=${theme}`);
+    await page.waitForFunction(() => Boolean(window.api?.workspaceCleanup));
+    await page.evaluate(() => {
+      const api = window.api!.workspaceCleanup;
+      const list = api.list.bind(api);
+      api.list = async (args) => {
+        const snapshot = await list(args);
+        const row = snapshot.rows.find(item => item.id === "cleanup-dirty")!;
+        Object.assign(row, { canSaveChanges: true });
+        return snapshot;
+      };
+    });
+    const label = lang === "en" ? "Clean up workspaces" : "워크스페이스 정리";
+    await page.locator("input[data-slot=command-input]").fill(label);
+    await page.getByText(label, { exact: true }).click();
+    const row = page.getByTestId("cleanup-row-cleanup-dirty");
+    await expect(row.getByRole("checkbox")).toBeEnabled();
+    await row.getByRole("checkbox").click();
+    await expect(page.locator("[data-cleanup-footer]").getByRole("button")).toHaveCount(1);
+    await page.getByRole("button", { name: lang === "en" ? "Archive (1)" : "보관 (1)", exact: true }).click();
+    const confirmation = page.getByRole("dialog").last();
+    const save = confirmation.getByRole("checkbox", { name: lang === "en" ? "Save uncommitted changes and archive" : "커밋하지 않은 변경 사항을 저장하고 보관" });
+    await expect(save).not.toBeChecked();
+    const confirm = confirmation.getByRole("button", { name: lang === "en" ? "Confirm action" : "작업 확인", exact: true });
+    await expect(confirm).toBeDisabled();
+    await save.click();
+    await expect(confirm).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: lang === "en" ? "Archive (1)" : "보관 (1)", exact: true }).click();
+    await expect(save).not.toBeChecked();
+    await expect(confirm).toBeDisabled();
+    await save.click();
+    await page.evaluate(() => document.fonts.ready);
+    const bounds = await confirmation.evaluate(element => ({ width: element.clientWidth, content: element.scrollWidth }));
+    expect(bounds.content).toBeLessThanOrEqual(bounds.width);
+    if (process.env.CLEANUP_SCREENSHOT_DIR) {
+      const { mkdir } = await import("node:fs/promises");
+      await mkdir(process.env.CLEANUP_SCREENSHOT_DIR, { recursive: true });
+      await page.screenshot({ animations: "disabled", path: `${process.env.CLEANUP_SCREENSHOT_DIR}/${lang}-${theme}-save-archive.png` });
+    }
+    await confirm.click();
+    await expect(row).toContainText(lang === "en" ? "Saved changes" : "저장된 변경 사항");
+    await page.getByRole("button", { name: lang === "en" ? "Undo archive" : "보관 실행 취소", exact: true }).click();
+    await expect(row).not.toContainText(lang === "en" ? "Saved changes" : "저장된 변경 사항");
+  });
+}
+
+
+test("dirty archive stays unavailable while a turn or run is active", async ({ page }) => {
+  for (const blocker of ["runningTurn", "runningRun"]) {
+    await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+    await page.waitForFunction(() => Boolean(window.api?.workspaceCleanup));
+    await page.evaluate((reason) => {
+      const api = window.api!.workspaceCleanup;
+      const list = api.list.bind(api);
+      api.list = async (args) => {
+        const snapshot = await list(args);
+        Object.assign(snapshot.rows.find(row => row.id === "cleanup-dirty")!, { canSaveChanges: true, blockers: ["changedFiles", reason] });
+        return snapshot;
+      };
+    }, blocker);
+    await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+    await page.getByText("Clean up workspaces", { exact: true }).click();
+    await expect(page.getByTestId("cleanup-row-cleanup-dirty").getByRole("checkbox")).toBeDisabled();
+    await expect(page.locator("[data-cleanup-footer]").getByRole("button")).toHaveCount(0);
+  }
+});

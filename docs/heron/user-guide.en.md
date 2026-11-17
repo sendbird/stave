@@ -255,7 +255,16 @@ Tool output, reasoning, and folded tool groups load their bodies on first open a
 
 **Transcript**: messages you send back to back, such as steers, stack together with one note under the last (**Steered into active turn · 3**); hover any of them for its own copy and time actions. When a reply ran on a different provider, model or effort than the reply before it, a line above it names the change (**Claude Sonnet 4.6 · Medium → Claude Opus 4.8 · High**).
 
+**Restore files from a turn**: open a completed response's actions and choose **Restore files to before this turn**. **Keep conversation, restore files** preserves the messages. **Restore files and roll back conversation** appears only when conversation rollback is supported; otherwise, use **Fork here** to continue from that point. The host saves tracked, staged and untracked files before each user turn, excluding ignored files and the worktrees under `.stave/workspaces/`. Capture leaves your branch, index and files unchanged. Unchanged states reuse a snapshot; the default retention is 50 snapshots per task and is configurable. If saving fails, the turn still runs and shows **No snapshot for this turn** with the reason instead of the restore button. A restore changes only the files that differ, keeps their permissions, and stops before changing anything when something is in the way. It first saves the current files, and **Undo restore** brings them back. Restoration is blocked while this task runs, while another running task shares its worktree, while a terminal in the worktree runs a command, or when files may have changed after the turn. The action explains the reason. Claude conversations from before this feature keep **Preview Claude file rewind** on each user message.
+
+**Return a fork's result**: in a fork, choose **Send result to original** after its final answer. The original task's composer opens with the answer as a quote and a link to the fork. The fork is attached as task context so its details are available when you send. Review the draft before sending; returning a result never sends it automatically. The parent link is saved across restarts.
+
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
+
+**Restart recovery**: in **Settings > General > Desktop Notifications**, **After a restart, continue interrupted work** offers **Ask** (default), **Automatically**, and **Never**. Ask lists interrupted ordinary tasks in one notice with **Continue all**, **Continue**, and **Dismiss**. Restored queues stay held under Ask. A continuation asks the agent to check state before repeating actions because earlier commands may have finished, and to confirm an irreversible action (push, deploy, delete, send messages, migrations) did not already run. Only turns the app's closing cut short are offered: reloading the window never starts a second turn beside one that is still running. Automatic recovery allows at most three continuations per task in five minutes, then asks. It excludes stopped work, pending approvals or input, and managed work; each excluded turn is decided once, and interruptions older than a day are not offered. Usage-limit pauses and reset-time reservations survive restart; an overdue reservation checks usage once before continuing.
+
+**System notification answers**: on macOS, **Answer from notifications** is on by default. Use **Allow once** or **Deny** for approval; a risk-flagged request, or one longer than the banner shows (80 characters), offers **Open to review** and **Deny** instead. Use up to three option buttons for a short question, or **Reply** where the in-app card takes typed text; number questions accept only valid numbers. Persistent allowances are never offered; ownership and pending-request guards still apply. Expired requests show **Already answered**, and duplicates do nothing; when Stave cannot confirm or deliver the answer it shows **Could not answer — open Stave** and the buttons stay usable. Turning the setting off disables existing actions too. Windows and Linux show title, body and click-to-open, with the setting hidden. Multi-part questions, multiple selection and questions answered by a later message stay in the app so their full answer is preserved. OS permissions can restrict delivery.
+
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)
 
 **Activity tab**: the Task panel's **Activity** tab lists the turn's steps. The **List | Timeline** switch draws the same turn on a time axis labelled in seconds or minutes (0s, 30s, 1m): the turn row with its tokens and cost, tool calls and subagents as bars, a **Now** line while it runs, and a **Slowest** tag on the longest step. Steps without a recorded time are listed under the axis instead. The **Agent tree** folds branch by branch and moves with the arrow keys. In the conversation, a tool call's arguments and output each have **Copy**, and long output scrolls inside a fixed height with a line count under it.
@@ -288,7 +297,35 @@ edge memory -> turn
 @caption A simplified view of how the app assembles a request. Whether repository instructions reach Cursor, Kiro and OpenCode turns was not confirmed.
 ```
 
+
+### Watch agent-opened PRs and manage a stack
+
+**Settings → Prompts → PR Completion → Watch pull requests** is on by default,
+and each repository can override it in its settings. It covers PRs you open
+with Create PR and PRs an agent opens during a task turn. Stave adopts an
+agent's PR only when that turn ran a command that opens a PR (or reported its
+link), the PR is on a non-default branch of this repository, you are its
+author, and it was created during the turn. If two tasks could have opened it,
+Stave watches neither and says so in both tasks. The watch covers failed
+checks and merge conflicts; review feedback stays opt-in. The task shows which
+PR is watched. **Stop watching** appears only for watches Stave added itself;
+for a watch you scheduled, **Open in Schedules** takes you to it. Watches stop
+when the PR merges or closes. Merged work is eligible for the cleanup center's
+**PR merged** rule.
+
+For related branches, choose **Create stacked PR** in the creation dialog.
+The top-bar PR area and Fleet show the stack position and parent/child links.
+Long-lived branches such as `develop`, `release/*` and `staging` (editable in
+**Settings → Prompts → PR Completion → Long-lived branches**) never count as a
+stack parent. After a parent merges, **Retarget children…** lists each of your
+PRs with its base change and author, and changes nothing until you confirm.
+Other people's PRs are listed but never changed. Each PR reports its own
+result; conflicts are left for you to resolve, and you can retry the rest.
+This action never force-pushes.
+
 ## Ways to give context
+
+For a primary task resumed by a check-back or an Agent run event, **Always** browser access also applies without typing `@web` again. An explicit `@web` in a primary Agent run’s assignment or a user reply also stays active for that same run’s continuations, including event wakes and app restarts. It ends with the run and is not inherited by another run or delegated task. Browser site-access and sensitive-action confirmations still apply.
 
 | Method                  | How                                                          | Worth knowing                                                                |
 | ----------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
@@ -308,7 +345,7 @@ The Information panel, task context and the latest turn summary are attached to 
 
 - **Side question**: the **Side question** icon (a speech bubble with a question mark) beside Attach in the composer, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Conversation width**: **Settings > Chat > Layout > Conversation width** picks **Narrow**, **Default** or **Wide** for the messages and the message box in tasks and Tars. Each choice widens in steps as the conversation area gets wider, and a narrow area uses its full width. Code blocks keep to the message column and scroll sideways inside it; only a table whose columns need more room grows past the column, centred on it.
-- **Welcome back**: after you have been away for more than 15 minutes, a card summarizes what happened and the last decision.
+- **Welcome back**: after you have been away for more than 15 minutes, a card in the conversation, right after the last message you had seen, lists what waits on you, each turn that finished and the last decision, one action each. **Got it** folds it into a one-line divider at the same place; click the divider to open it again.
 - **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task. Lines that do not fit in a section's 2,000 characters stay listed under it with **Put back**.
 - **Enhance prompt**: the wand icon in the composer rewrites your request. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.
 - **Context meter**: in the composer, shows how full the conversation is and the tokens left. For Claude, **Composition** lists what fills it (system prompt, tools, MCP tools, memory files, skills and an estimated conversation); other providers report only the total. **Compact context** shortens a long conversation. Wide composers show used / limit tokens; narrow composers show the percentage. During compaction, the notice shows elapsed time when known; inactive restored messages stop counting.
@@ -1047,7 +1084,41 @@ Screens: [Subagent results](https://github.com/sendbird/stave/blob/main/docs/scr
 Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**. A schedule set up by asking Tars is listed here too; it can also run once at a date and time, shown as **Once on …**, after which it turns itself off.
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
+## Start a task from a webhook
+
+In a new-task schedule, choose **Webhook** instead of **Time**. Copy the URL
+and store the signing secret immediately; it is shown once. Choosing Webhook
+does not turn the schedule on: save it, then turn on **Enable this webhook
+schedule**. Then enable the local **Webhook receiver** and apply its settings.
+The receiver is off by default, uses loopback port 6330, and receives only while
+the app is running. The editor shows whether it is listening or why not, such as
+a port in use. Changing the bind address can expose it to other devices; the
+editor warns before you apply that choice.
+
+Webhook schedules always ask for approval before risky actions: **Auto** and
+**Manual** are not available for them. Each request needs `x-stave-timestamp`
+(Unix seconds), an optional `x-stave-delivery-id`, and `x-stave-signature:
+sha256=<hex>`, the HMAC SHA-256 of `timestamp.deliveryId.rawBody` with the
+schedule's secret. The editor shows a command-line example. Requests more than
+5 minutes old or ahead are rejected. Payload filters compare paths such as
+`$.action` with **Equals** or **Contains**, as text. Repeated delivery ids (or
+the same body and timestamp) start nothing more within the dedupe window. An
+event for a busy schedule waits and starts later. Use `{{body.path}}` in
+instructions for quoted, escaped event data, capped at 16 KB. The payload is
+always marked untrusted, never as instructions.
+
+After saving, **Send test event** sends a signed event and can start a real task;
+**Run with sample payload** starts a run with the test JSON. **Recent
+deliveries** lists accepted, filtered, duplicate and failed events, and
+**Rejected requests** counts the rest by reason. Use **Refresh deliveries** for
+the latest results. Pausing the schedule prevents new tasks. Unsigned events are
+rejected, the body limit is 1 MB, and each schedule has its own request rate
+limit. A secret no saved schedule uses is deleted when the editor closes.
+
 ## Fleet View
+
+Fleet and long sidebar lists render the rows around the viewport. Selection and keyboard navigation still cover the complete filtered, expanded list.
+
 
 Select tasks with their checkboxes, Cmd/Ctrl-click or Shift-click. With a row
 focused, **X** toggles selection, **Shift+Arrow** extends it, **Cmd/Ctrl+A**
@@ -1131,7 +1202,7 @@ Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screensho
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |
 | MCP               | Settings > MCP                                             | **Add server**, then **Review change** and **Apply change**. The **Local MCP Server** card |
 
-Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; other text files have a 1 MiB preview limit.
+Agents also show an inline HTML page without being asked when a reply compares three or more options, shows numbers across groups or over time, or explains a flow, architecture or layout. Page text starts at 14 pixels, the size of the reply around it. A tool from an MCP server you added can show its own view in its tool row; **Show text result** in the view's header opens the tool's plain text result with **Copy**, and it opens by itself when the view has no data to draw, such as after a failed call. Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; other text files have a 1 MiB preview limit.
 
 Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/command-palette.png) · [Workspace Tools](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-tools.png) · [Information panel](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/information-panel.png) · [Lens toolbar](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/lens.png) · [Settings > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/settings-mcp.png)
 
@@ -1263,8 +1334,18 @@ Open **Clean up workspaces** from the command palette, a repository menu or
 the Fleet header. Review all repositories, suggested workspaces and branches,
 blockers and optional disk sizes. Select rows to archive, restore or delete.
 Archive removes a clean worktree while preserving its branch and history; use
-Undo or the Repositories view's Archived shelf to restore it. When a branch no
-longer exists, history opens read-only and can seed a new workspace draft.
+Undo or the Repositories view's Archived shelf to restore it. Without saved
+changes, a missing branch opens history read-only and can seed a new workspace draft.
+
+A dirty managed worktree with no other blockers can be selected for **Archive**.
+In confirmation, turn on **Save uncommitted changes and archive**; it starts off.
+Staged, unstaged and untracked files are saved without moving the branch; ignored
+files are excluded. **Saved changes** marks these archives. Restore brings back
+the files and staged state, stopping with a conflict if files already occupy the
+destination. A failed save leaves the worktree in place. Permanent deletion
+removes the saved reference. Saved archives can recreate a deleted branch and
+skip initialization commands during restore to protect the restored files.
+Automatic cleanup never chooses this option.
 
 **Delete permanently** is separate and confirms removal of history and the
 clean worktree. Confirmation opens with Cancel focused; Escape closes only the
@@ -1285,6 +1366,46 @@ results and offers Restore for preserved history. Closing a tab with
 Cmd/Ctrl+W does not archive its task or workspace.
 
 Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
+
+
+### Global agent turn limit
+
+Settings → Providers → **Run at most N agent turns at once** is off by default.
+Enable it and choose 1–16. Tasks and Fleet show the queue position while waiting.
+User messages go before automatic starts; starts within each group stay in order.
+Stop removes a queued start. After a restart, a message you sent returns to its
+composer queue as **Waiting to send (restored)** for you to send or discard;
+automatic starts resume while their task exists. A start that cannot resume, or
+waited over a day, is dropped with a notification. Parents waiting
+for delegated children release their slot and acquire it again when resuming.
+Existing feature limits still apply.
+
+## Find tools and return to unread tasks
+
+The command palette includes Compare models, Schedules, Clean up workspaces,
+Fleet View, Agents, Performance, Resource Manager and Secret requests, with
+short descriptions. Resource Manager also opens from Settings > General
+without Developer mode.
+
+When a message waits behind a running turn, a one-line hint offers to enable
+mid-turn steering. It stays off until you enable it.
+Close a hint with its × button and it stays closed. Settings > General >
+Feature tips turns all hints off.
+
+A dot on a task tab, sidebar task or Fleet row means there is unseen completion,
+failure or attention. Open the task to read it. Mark as unread keeps it for
+later; Mark as read clears its read indicators. Fleet can apply these actions
+to the selected tasks from the selection's More menu. The notification count
+follows the same mark. Reading does not approve requests or accept results.
+Output reading and task reading share the latest result's saved read mark,
+so they stay in sync after a restart.
+
+Pin tasks in Task History or the sidebar. Task History lists pinned tasks
+first and otherwise uses recent activity. Drag a task or press Alt + Up/Down
+to place it; a placed task keeps its position, while new tasks still appear
+first. Reset order returns to activity order. The sidebar keeps running and
+waiting tasks first and shows at most three open tasks per workspace, with the
+rest behind +N more. Task pins and tab pins are separate.
 
 ## Remote control from a phone
 

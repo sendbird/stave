@@ -131,7 +131,6 @@ export function createTaskLifecycleActions(args: {
     },
     viewTaskChanges: async ({ taskId }) => {
       const state = get();
-      const checkpoint = state.taskCheckpointById[taskId];
       const workspaceCwd = resolveTaskWorkspaceContext({
         taskId,
         activeWorkspaceId: state.activeWorkspaceId,
@@ -145,9 +144,7 @@ export function createTaskLifecycleActions(args: {
         return;
       }
 
-      const command = checkpoint
-        ? `git diff --name-status ${JSON.stringify(checkpoint)} --`
-        : "git status --porcelain";
+      const command = "git status --porcelain";
       const result = await runCommand({ cwd: workspaceCwd, command });
       const rawOutput = result.ok
         ? result.stdout.trim() || i18n.t("app:taskLifecycle.noChanges")
@@ -201,82 +198,13 @@ export function createTaskLifecycleActions(args: {
     },
     rollbackTask: async ({ taskId }) => {
       const state = get();
-      const checkpoint = state.taskCheckpointById[taskId];
-      const workspaceCwd = resolveTaskWorkspaceContext({
-        taskId,
-        activeWorkspaceId: state.activeWorkspaceId,
-        taskWorkspaceIdById: state.taskWorkspaceIdById,
-        workspacePathById: state.workspacePathById,
-        workspaceDefaultById: state.workspaceDefaultById,
-        repositoryPath: state.repositoryPath,
-      }).cwd;
-      const runCommand = window.api?.terminal?.runCommand;
-      if (!runCommand || !checkpoint || !workspaceCwd) {
-        return;
-      }
-
-      const rollbackResult = await runCommand({
-        cwd: workspaceCwd,
-        command: `git restore --source=${JSON.stringify(checkpoint)} --staged --worktree .`,
-      });
-      if (rollbackResult.ok) {
-        cleanupRestoredTaskProviderRuntime({ taskId });
-      }
-
-      const rawOutput = rollbackResult.ok
-        ? i18n.t("app:taskLifecycle.rollbackComplete", { checkpoint })
-        : rollbackResult.stderr.trim() || i18n.t("app:taskLifecycle.rollbackFailed");
-      const output = rollbackResult.ok
-        ? i18n.t("app:taskLifecycle.rollbackDocument", { checkpoint })
-        : i18n.t("app:taskLifecycle.rollbackFailedDetail", { detail: rollbackResult.stderr.trim() || i18n.t("app:taskLifecycle.unknownError") });
-
-      const files = await workspaceFsAdapter.listFiles();
-      set((nextState) => {
-        const current = nextState.messagesByTask[taskId] ?? [];
-        const message: ChatMessage = {
-          id: buildMessageId({
-            taskId,
-            count: Math.max(
-              current.length,
-              nextState.messageCountByTask[taskId] ?? 0,
-            ),
-          }),
-          role: "assistant",
-          model: "system",
-          providerId: "user",
-          content: rawOutput,
-          parts: [
-            {
-              type: "text",
-              text: output,
-            },
-          ],
-        };
-        return {
-          repositoryFiles: files,
-          ...(rollbackResult.ok
-            ? clearRestoredTaskProviderSession({
-                state: nextState,
-                taskId,
-              })
-            : {}),
-          messagesByTask: {
-            ...nextState.messagesByTask,
-            [taskId]: trimLoadedTaskMessages({
-              messages: [...current, message],
-            }),
-          },
-          messageCountByTask: {
-            ...nextState.messageCountByTask,
-            [taskId]: Math.max(
-              (nextState.messageCountByTask[taskId] ?? current.length) + 1,
-              current.length + 1,
-            ),
-          },
-          workspaceSnapshotVersion:
-            incrementWorkspaceSnapshotVersion(nextState),
-        };
-      });
+      const workspaceId = state.taskWorkspaceIdById[taskId];
+      const api = window.api?.turnSnapshots;
+      if (!workspaceId || !api) return;
+      const first = (await api.list({ workspaceId, taskId })).snapshots.at(-1);
+      if (!first) return;
+      const result = await api.restore({ workspaceId, taskId, turnId: first.turnId });
+      if (!result.ok) throw new Error(result.detail ?? result.reason);
     },
     rollbackToCompactBoundary: async ({ taskId, gitRef, trigger }) => {
       const state = get();

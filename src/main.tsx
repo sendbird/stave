@@ -38,7 +38,11 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "question-reply") {
+if (preview === "restart-notifications") {
+  void import("@/dev/restart-notifications-preview").then(({ RestartNotificationsPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><RestartNotificationsPreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "question-reply") {
   void import("@/dev/question-reply-preview").then(({ QuestionReplyPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><QuestionReplyPreview /></StaveDesignProvider></StrictMode>);
   });

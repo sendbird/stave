@@ -1,3 +1,7 @@
+import { FeatureEnableHint } from "./FeatureEnableHint";
+import { TurnFileActions, UndoFileRestore } from "./TurnFileActions";
+import { canOfferClaudeFileRewind } from "./turn-file-action-availability";
+import { useTurnHasSnapshot } from "./turn-snapshot-catalog";
 import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { useWholeTaskFind } from "./use-whole-task-find";
 import { TranscriptFind } from "@/components/system/TranscriptFind";
@@ -64,6 +68,7 @@ import {
   getMessageScrollFingerprint,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
+import { TaskPullRequestWatchNotice } from "@/components/session/TaskPullRequestWatchNotice";
 import { FailedOutgoingMessages } from "@/components/session/FailedOutgoingMessages";
 import { TurnDocumentRevisions } from "@/components/session/TurnDocumentRevisions";
 import {
@@ -133,6 +138,14 @@ import {
   useAgentRunPrompt,
 } from "@/components/agent-runs/AgentRunPrompt";
 import { AgentRunResultCard } from "@/components/agent-runs/AgentRunResultCard";
+import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
+import { useTaskReturnStore } from "@/store/task-return-store";
+import {
+  claimReturnReveal,
+  releaseReturnReveal,
+  RETURN_REVEAL_SETTLE_MS,
+  useReturnAnchor,
+} from "@/components/session/return-summary/use-return-anchor";
 import { StageDivider } from "@/components/agent-runs/StageDivider";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import {
@@ -193,8 +206,10 @@ interface MessageRowProps {
   showInterimMessages: boolean;
   traceExpansionMode: "auto" | "manual";
   threadActionState?: ConversationTurnActionState;
+  /** The latest finished Claude reply carries the file checkpoint tip, once. */
   message: {
     id: string;
+    turnId?: string;
     role: "user" | "assistant";
     providerId: ChatMessage["providerId"];
     nativeAccountProfileId?: string;
@@ -232,6 +247,8 @@ interface MessageRowProps {
   /** The approval or answer the return summary is revealing in this message. */
   revealRequestId?: string;
   searchMatch?: { query: string; snippet: string };
+  /** The return summary sits beside this message: where you had left off. */
+  returnSummary?: "before" | "after";
   /** On a reply whose model differs from the reply before it: both models. */
   modelChangeFrom?: string;
   modelChangeTo?: string;
@@ -284,23 +301,23 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const [timeDetailsOpen, setTimeDetailsOpen] = useState(false);
   const [rewindPreview, setRewindPreview] =
     useState<ClaudeFileRewindResponse | null>(null);
-  const [rewindClaudeFilesFromMessage, capabilities] = useAppStore(
+  const [rewindClaudeFilesFromMessage, capabilities, workspaceId] = useAppStore(
     useShallow((state) => [
       state.rewindClaudeFilesFromMessage,
       message.providerBoundary
         ? state.providerRuntimeCapabilities[message.providerBoundary.providerId]
         : null,
+      state.taskWorkspaceIdById[taskId],
     ]),
   );
-  const boundary = message.providerBoundary;
-  const canRewindFiles = Boolean(
-    !activeTurnId &&
-    !message.isStreaming &&
-    message.role === "user" &&
-    boundary?.providerId === "claude-code" &&
-    boundary.kind === "message" &&
-    capabilities?.history.rewind.files,
-  );
+  // Claude history recorded before turn snapshots keeps the native file rewind.
+  const hasTurnSnapshot = useTurnHasSnapshot(workspaceId, taskId, startedTurnId ?? message.turnId);
+  const canRewindFiles = canOfferClaudeFileRewind({
+    message,
+    activeTurnId,
+    rewindSupported: Boolean(capabilities?.history.rewind.files),
+    hasSnapshot: hasTurnSnapshot,
+  });
   // The live row owns its clock; ticking must not rerender the conversation.
   const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
   const clockActive =
@@ -500,6 +517,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           </time>
         </div>
       ) : null}
+      {args.returnSummary === "before" ? <ReturnSummaryCard taskId={taskId} /> : null}
       {message.role === "user" ? (
         <StageDivider taskId={taskId} turnId={startedTurnId} />
       ) : null}
@@ -691,6 +709,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     previousTurn={previousAssistantTurn}
                   />
                 ) : null}
+                {message.role === "assistant" && !threadActionState ? <TurnFileActions taskId={taskId} messageId={message.id} /> : null}
                 {message.role === "assistant" && threadActionState ? (
                   <ConversationTurnActions
                     taskId={taskId}
@@ -799,6 +818,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ) : null}
         </div>
       </Message>
+      {args.returnSummary === "after" ? <ReturnSummaryCard taskId={taskId} /> : null}
     </div>
   );
 });
@@ -964,6 +984,14 @@ function ChatPanelMessageList(props: {
     () => visibleSteerMessageSegments(messages),
     [messages],
   );
+  // Where you had left off, when this visit is a return with news.
+  const returnAnchor = useReturnAnchor(taskId, visibleMessages);
+  const returnAnchorMessageId = returnAnchor?.messageId;
+  const returnAnchorPlacement = returnAnchor?.placement;
+  const returnArrivalAt = returnAnchor?.arrivalAt;
+  const currentArrivalAt = useTaskReturnStore(
+    (state) => state.arrivalByTask[taskId]?.at,
+  );
   const dateSeparators = useMemo(
     () => buildConversationDateSeparators(visibleMessages),
     [visibleMessages],
@@ -1107,6 +1135,9 @@ function ChatPanelMessageList(props: {
     }
     return map;
   }, [visibleMessages]);
+  const returnAnchorIndex = returnAnchorMessageId
+    ? messageIndexById.get(returnAnchorMessageId)
+    : undefined;
   const restoreAnchor = taskScrollAnchorCache.get(scrollContextKey);
   const restoreItemIndex = restoreAnchor
     ? messageIndexById.get(restoreAnchor.messageId)
@@ -1254,12 +1285,15 @@ function ChatPanelMessageList(props: {
     query: string;
     snippet: string;
   } | null>(null);
+  // `target` reveals the message itself (a turn's reply, from its start) or
+  // the return summary beside it, without moving focus.
   const [revealedStep, setRevealedStep] = useState<{
     messageId: string;
     toolUseId?: string;
     requestId?: string;
     searchQuery?: string;
     searchSnippet?: string;
+    target?: "message" | "return-summary";
   } | null>(null);
   // Read by the focus wait below without restarting it on every provider flush.
   const visibleMessagesRef = useRef(visibleMessages);
@@ -1283,10 +1317,10 @@ function ChatPanelMessageList(props: {
       searchQuery,
       searchSnippet,
     } = focusTranscriptToolRequest;
-    const messageIndex = targetMessageId
-      ? visibleMessages.findIndex((message) => message.id === targetMessageId)
-      : decision
-        ? findMessageIndexByDecision({ messages: visibleMessages, ...decision })
+    const messageIndex = decision
+      ? findMessageIndexByDecision({ messages: visibleMessages, ...decision })
+      : targetMessageId
+        ? visibleMessages.findIndex((message) => message.id === targetMessageId)
         : findMessageIndexByToolUseId({
             messages: visibleMessages,
             toolUseId: toolUseId ?? "",
@@ -1352,16 +1386,16 @@ function ChatPanelMessageList(props: {
       Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
     virtuosoRef.current?.scrollToIndex({
       index: messageIndex,
-      align: "center",
+      align: targetMessageId ? "start" : "center",
       behavior: "auto",
     });
     const messageId = visibleMessages[messageIndex]?.id;
     if (messageId) {
       setRevealedStep(
-        targetMessageId
-          ? { messageId, searchQuery, searchSnippet }
-          : decision
-            ? { messageId, requestId: decision.requestId }
+        decision
+          ? { messageId, requestId: decision.requestId }
+          : targetMessageId
+            ? { messageId, target: "message", searchQuery, searchSnippet }
             : { messageId, toolUseId },
       );
     }
@@ -1390,9 +1424,11 @@ function ChatPanelMessageList(props: {
         snippet: revealedStep.searchSnippet,
       });
     }
-    const selector =
-      !revealedStep.requestId && !revealedStep.toolUseId
-        ? `[data-message-id="${escapeAttributeSelectorValue(revealedStep.messageId)}"]`
+    const messageSelector = `[data-testid="conversation-scroll-${escapeAttributeSelectorValue(taskId)}"] [data-message-id="${escapeAttributeSelectorValue(revealedStep.messageId)}"]`;
+    const selector = revealedStep.target === "message"
+      ? messageSelector
+      : revealedStep.target === "return-summary"
+        ? `${messageSelector} [data-testid="return-summary"]`
         : revealedStep.requestId
           ? [
               `[data-approval-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
@@ -1423,8 +1459,26 @@ function ChatPanelMessageList(props: {
     const focusStep = () => {
       const node = document.querySelector<HTMLElement>(selector);
       if (node) {
-        node.scrollIntoView({ block: "center", behavior: "auto" });
-        node.focus({ preventScroll: true });
+        // A message is read from its start; a step or the summary is centered.
+        // Only a step takes focus: the others are places to read from.
+        node.scrollIntoView({
+          block: revealedStep.target === "message" ? "start" : "center",
+          behavior: "auto",
+        });
+        if (!revealedStep.target) {
+          node.focus({ preventScroll: true });
+        } else if (
+          revealedStep.target === "message" &&
+          (revealedStep.searchSnippet ||
+            document.activeElement?.closest('[data-testid="return-summary"]'))
+        ) {
+          // The card's button may scroll out of the list and unmount: focus
+          // moves with the reader to the reply instead of falling to the page.
+          if (!node.hasAttribute("tabindex")) {
+            node.setAttribute("tabindex", "-1");
+          }
+          node.focus({ preventScroll: true });
+        }
         anchorAtStep();
       } else if (frames > 0 && frames % TRANSCRIPT_STEP_REAIM_FRAMES === 0) {
         // Rows on the way measure taller or shorter than estimated, so the
@@ -1455,6 +1509,80 @@ function ChatPanelMessageList(props: {
     frame = window.requestAnimationFrame(focusStep);
     return () => window.cancelAnimationFrame(frame);
   }, [revealedStep, scrollContextKey, taskId]);
+
+  // Coming back to the task opens the conversation where you had left off:
+  // once per return, when new messages follow the summary, the transcript
+  // moves to it the way a decision's Show does. It waits for the transcript's
+  // own first pins to the bottom to settle, which would undo an earlier move.
+  // At the end of the conversation the summary is in view already. A return
+  // is claimed once, also when it needs no move, so a reply arriving later
+  // does not pull the reader away from the bottom.
+  const returnRevealPending =
+    returnAnchorIndex !== undefined && returnArrivalAt
+      ? `${returnArrivalAt}|${returnAnchorMessageId}|${
+          returnAnchorPlacement === "after" &&
+          returnAnchorIndex === visibleMessages.length - 1
+            ? "in-view"
+            : "move"
+        }`
+      : null;
+  // A return with nothing to say once its conversation is on screen spends
+  // its move: news that shows up later (a reply while you watch) does not
+  // pull you away from where you are reading.
+  useEffect(() => {
+    if (
+      currentArrivalAt &&
+      !returnAnchorMessageId &&
+      visibleMessages.length > 0 &&
+      !taskMessagesLoading
+    ) {
+      claimReturnReveal(taskId, currentArrivalAt);
+    }
+  }, [
+    currentArrivalAt,
+    returnAnchorMessageId,
+    taskId,
+    taskMessagesLoading,
+    visibleMessages.length,
+  ]);
+  useEffect(() => {
+    if (!returnRevealPending || !returnArrivalAt || !returnAnchorMessageId) {
+      return;
+    }
+    if (!claimReturnReveal(taskId, returnArrivalAt)) {
+      return;
+    }
+    if (returnRevealPending.endsWith("|in-view")) {
+      return;
+    }
+    const messageId = returnAnchorMessageId;
+    let moved = false;
+    const timer = window.setTimeout(() => {
+      moved = true;
+      const index = visibleMessagesRef.current.findIndex(
+        (message) => message.id === messageId,
+      );
+      if (index < 0) {
+        return;
+      }
+      manualScrollIntentRef.current?.markManualScrollIntent();
+      suppressAnchorUntilRef.current =
+        Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
+      virtuosoRef.current?.scrollToIndex({
+        index,
+        align: "center",
+        behavior: "auto",
+      });
+      setRevealedStep({ messageId, target: "return-summary" });
+    }, RETURN_REVEAL_SETTLE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      // Unmounted or changed before the move ran: the next run may try again.
+      if (!moved) {
+        releaseReturnReveal(taskId, returnArrivalAt);
+      }
+    };
+  }, [returnAnchorMessageId, returnArrivalAt, returnRevealPending, taskId]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1679,6 +1807,11 @@ function ChatPanelMessageList(props: {
                     ? revealedStep.requestId
                     : undefined
                 }
+                returnSummary={
+                  message.id === returnAnchorMessageId
+                    ? returnAnchorPlacement
+                    : undefined
+                }
                 modelChangeFrom={modelChangeMarkers.get(message.id)?.from}
                 modelChangeTo={modelChangeMarkers.get(message.id)?.to}
                 userGroupPosition={userMessageGroups.get(message.id)?.position}
@@ -1715,6 +1848,7 @@ function ChatPanelMessageList(props: {
           </div>
         ) : null}
         <ConversationColumn flush={usesInnerLayout}>
+          <TaskPullRequestWatchNotice workspaceId={workspaceId} taskId={taskId} />
           <AgentRunResultCard taskId={taskId} />
           <FailedOutgoingMessages taskId={taskId} />
           <PendingAutoRouteTurn
@@ -1773,6 +1907,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
           data-chat-panel={findScopeId}
           className={sx(conversationFindMarker)}
         >
+          <UndoFileRestore taskId={taskId} />
           <div className={sx(styles.panelColumn)}>
             <MemoizedChatPanelMessageList
               findScopeId={findScopeId}

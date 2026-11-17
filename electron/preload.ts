@@ -1,3 +1,11 @@
+import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
+import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
+import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
+import { NativeNotificationResolvedSchema, type NativeNotificationResolved } from "../src/lib/notifications/native-notification-contract";
+import { AutomationWebhookReceiverSettingsSchema } from "../src/lib/automation-webhooks";
+import { WebhookIdArgsSchema, WebhookReleaseArgsSchema, WebhookReleaseResultSchema, WebhookTestArgsSchema, WebhookStatusResultSchema, WebhookProvisionResultSchema, WebhookTestResultSchema } from "../src/lib/automation-webhook-ipc";
+import { TruncateTaskMessagesAfterArgsSchema, TruncateTaskMessagesResultSchema } from "../src/lib/task-context/conversation-truncation";
+import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema, type TurnSnapshotOwner, type TurnSnapshotRestore } from "../src/lib/turn-snapshots";
 import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
@@ -809,6 +817,8 @@ ipcRenderer.on(WAKE_UP_IPC.changed, (_event, payload: WakeUpChangedEvent) => {
 const wakeUpsApi: WakeUpsBridgeApi = {
   list: (args) => ipcRenderer.invoke(WAKE_UP_IPC.list, args ?? {}),
   create: (input) => ipcRenderer.invoke(WAKE_UP_IPC.create, input),
+  createAutomatic: (input) => ipcRenderer.invoke(WAKE_UP_IPC.createAutomatic, input),
+  syncSettings: (settings) => ipcRenderer.invoke(WAKE_UP_IPC.syncSettings, settings),
   update: (args) => ipcRenderer.invoke(WAKE_UP_IPC.update, args),
   setPaused: (args) => ipcRenderer.invoke(WAKE_UP_IPC.setPaused, args),
   remove: (args) => ipcRenderer.invoke(WAKE_UP_IPC.remove, args),
@@ -1201,6 +1211,11 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  turnSnapshots: {
+    list: async (args: TurnSnapshotOwner) => TurnSnapshotListSchema.parse(await ipcRenderer.invoke("turn-snapshots:list", TurnSnapshotOwnerSchema.parse(args))),
+    restore: async (args: TurnSnapshotRestore) => TurnSnapshotResultSchema.parse(await ipcRenderer.invoke("turn-snapshots:restore", TurnSnapshotRestoreSchema.parse(args))),
+    undo: async (args: TurnSnapshotOwner) => TurnSnapshotResultSchema.parse(await ipcRenderer.invoke("turn-snapshots:undo", TurnSnapshotOwnerSchema.parse(args))),
+  },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>
       ipcRenderer.invoke("provider:stream-turn", args),
@@ -1222,6 +1237,10 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
+    listLiveTurns: (): Promise<ProviderLiveTurnsResult> =>
+      ipcRenderer.invoke("provider:list-live-turns"),
+    takeRestoredQueuedTurns: () =>
+      ipcRenderer.invoke("provider:take-restored-queued-turns"),
     steerTurn: (
       args: ProviderSteerTurnRequest,
     ): Promise<ProviderSteerTurnResponse> =>
@@ -1681,18 +1700,14 @@ contextBridge.exposeInMainWorld("api", {
       offset?: number;
       messageId?: string;
     }) => ipcRenderer.invoke("persistence:load-task-messages", args),
-    truncateTaskMessagesAfter: (args: {
+    truncateTaskMessagesAfter: async (args: {
+      before?: true;
       workspaceId: string;
       taskId: string;
       messageId: string;
-    }) =>
-      ipcRenderer.invoke(
-        "persistence:truncate-task-messages-after",
-        args,
-      ) as Promise<{
-        ok: boolean;
-        removedCount: number;
-      }>,
+    }) => TruncateTaskMessagesResultSchema.parse(await ipcRenderer.invoke(
+      "persistence:truncate-task-messages-after", TruncateTaskMessagesAfterArgsSchema.parse(args),
+    )),
     loadWorkspaceEditorTabBodies: (args: {
       workspaceId: string;
       tabIds: string[];
@@ -1746,6 +1761,8 @@ contextBridge.exposeInMainWorld("api", {
         | import("../src/lib/workspace-resume-brief").WorkspaceResumeBriefDraft
         | null;
     }) => ipcRenderer.invoke("persistence:save-direction-draft", args),
+    listTaskReadStates: async (args: ListTaskReadStatesArgs) => TaskReadStatesResponseSchema.parse(await ipcRenderer.invoke("persistence:list-task-read-states", ListTaskReadStatesArgsSchema.parse(args))),
+    setTaskReadStates: async (args: SetTaskReadStatesArgs) => SetTaskReadStatesResponseSchema.parse(await ipcRenderer.invoke("persistence:set-task-read-states", SetTaskReadStatesArgsSchema.parse(args))),
     listResultReviews: (
       args?: import("../src/lib/reviews/result-review").ListResultReviewsArgs,
     ) => ipcRenderer.invoke("persistence:list-result-reviews", args ?? {}),
@@ -2289,6 +2306,11 @@ contextBridge.exposeInMainWorld("api", {
   tars: tarsApi,
   agents: agentsApi,
   automations: {
+    webhookStatus: async () => WebhookStatusResultSchema.parse(await ipcRenderer.invoke("automations:webhook-status", {})),
+    configureWebhookReceiver: async (args: unknown) => WebhookStatusResultSchema.parse(await ipcRenderer.invoke("automations:webhook-configure", AutomationWebhookReceiverSettingsSchema.parse(args))),
+    provisionWebhook: async (args: unknown) => WebhookProvisionResultSchema.parse(await ipcRenderer.invoke("automations:webhook-provision", WebhookIdArgsSchema.parse(args))),
+    sendWebhookTest: async (args: unknown) => WebhookTestResultSchema.parse(await ipcRenderer.invoke("automations:webhook-test", WebhookTestArgsSchema.parse(args))),
+    releaseWebhookSecrets: async (args: unknown) => WebhookReleaseResultSchema.parse(await ipcRenderer.invoke("automations:webhook-release-secrets", WebhookReleaseArgsSchema.parse(args))),
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
       ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{
         ok: boolean;
@@ -2323,7 +2345,7 @@ contextBridge.exposeInMainWorld("api", {
         automation: AutomationSpec | null;
         message?: string;
       }>,
-    runNow: (args: { id: string }) =>
+    runNow: (args: { id: string; payload?: unknown }) =>
       ipcRenderer.invoke("automations:run-now", args) as Promise<{
         ok: boolean;
         run: AutomationRun | null;
@@ -2478,6 +2500,15 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("terminal:close-sessions-by-slot-prefix", args),
   },
   notifications: {
+    subscribeNativeResolved: (listener: (payload: NativeNotificationResolved) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        const parsed = NativeNotificationResolvedSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on("notifications:native-resolved", handler);
+      return () => { ipcRenderer.removeListener("notifications:native-resolved", handler); };
+    },
+    setActionsEnabled: (args: { enabled: boolean }) => ipcRenderer.invoke("notifications:set-actions-enabled", args),
     showNative: (args: {
       notificationId: string;
       title: string;
@@ -2636,6 +2667,10 @@ contextBridge.exposeInMainWorld("api", {
         autoMergeAllowed?: boolean;
         stderr: string;
       }>,
+    getPrStack: async (args: GetPrStackArgs) =>
+      GetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:get-pr-stack", GetPrStackArgsSchema.parse(args))),
+    retargetPrStack: async (args: RetargetPrStackArgs) =>
+      RetargetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:retarget-pr-stack", RetargetPrStackArgsSchema.parse(args))),
     getPrStatus: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:get-pr-status", args) as Promise<{
         ok: boolean;

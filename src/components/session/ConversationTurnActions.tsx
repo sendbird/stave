@@ -1,3 +1,5 @@
+import { TurnFileActions } from "./TurnFileActions";
+import { ForkReturnAction } from "./ForkReturnAction";
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { transition } from "@/components/aui/recipes/transition";
@@ -146,6 +148,8 @@ export function ConversationTurnActions(props: {
         >
           <Undo2 className={sx(styles.iconSm)} />
           {i18n.t("session:conversationTurnActions.conversationTurnActions2")}</MessageAction>
+        <div className={sx(styles.fileSlot, preview && styles.fullRow)}><TurnFileActions taskId={props.taskId} messageId={props.messageId} /></div>
+        <ForkReturnAction taskId={props.taskId} messageId={props.messageId} />
       </div>
 
       <Dialog open={rollbackOpen} onOpenChange={setRollbackDialogOpen}>

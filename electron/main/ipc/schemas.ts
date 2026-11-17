@@ -1,3 +1,4 @@
+export { GetPrStackArgsSchema, RetargetPrStackArgsSchema } from "../../../src/lib/pull-request-stack";
 export { TarsBatchInputSchema, TarsBatchRecordSchema } from "../../../src/lib/tars/batch";
 import { QuestionReplySchema } from "../../../src/lib/question-reply";
 import { ApprovalRuleDeciderSchema } from "../../../src/lib/approvals/approval-resolution";
@@ -457,6 +458,9 @@ export const SuggestCommitMessageArgsSchema = z
   })
   .strict();
 
+/** The live-turn read takes no arguments; anything else is refused. */
+export const ListLiveTurnsArgsSchema = z.undefined();
+
 export const AbortTurnArgsSchema = z
   .object({
     turnId: z.string().trim().min(1).max(200),
@@ -727,6 +731,8 @@ export const ShowNativeNotificationArgsSchema = z
     suppress: z.boolean().optional(),
   })
   .strict();
+
+export const SetNotificationActionsEnabledArgsSchema = z.object({ enabled: z.boolean() }).strict();
 
 export const SetNotificationBadgeArgsSchema = z
   .object({
@@ -1266,13 +1272,7 @@ export const LoadTaskMessagesArgsSchema = z
   })
   .strict();
 
-export const TruncateTaskMessagesAfterArgsSchema = z
-  .object({
-    workspaceId: z.string().min(1).max(200),
-    taskId: z.string().min(1).max(200),
-    messageId: z.string().min(1).max(200),
-  })
-  .strict();
+export { TruncateTaskMessagesAfterArgsSchema } from "../../../src/lib/task-context/conversation-truncation";
 
 export const LoadWorkspaceEditorTabBodiesArgsSchema = z
   .object({
@@ -1558,6 +1558,11 @@ export const AutomationIdArgsSchema = z
     id: z.string().uuid(),
   })
   .strict();
+
+/** `payload`: the sample event a webhook schedule's template renders with on Run now. */
+export const AutomationRunNowArgsSchema = AutomationIdArgsSchema.extend({
+  payload: z.json().optional(),
+}).strict();
 
 export const AutomationSetEnabledArgsSchema = z
   .object({

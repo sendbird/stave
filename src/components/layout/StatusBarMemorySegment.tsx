@@ -8,10 +8,11 @@ import { resourceLabelVisibility } from "@/components/layout/status-bar-shrink.s
  * stays a flat, easy-to-scan set of imports. Its label is the second thing
  * the bar gives up as it narrows (`STATUS_BAR_SHRINK_ORDER`).
  */
-export function StatusBarMemorySegment(props: { labelBreakpoint: ResourceLabelBreakpoint }) {
+export function StatusBarMemorySegment(props: { labelBreakpoint: ResourceLabelBreakpoint; hideTrigger?: boolean }) {
   return (
     <MemoryUsagePopover
       variant="bar"
+      hideTrigger={props.hideTrigger}
       barLabelXstyle={resourceLabelVisibility(props.labelBreakpoint)}
     />
   );

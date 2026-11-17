@@ -77,6 +77,31 @@ export function planFleetOutcomeRead(items: readonly FleetAttentionItem[]): Flee
   return plan;
 }
 
+/**
+ * Reading every outcome uses each task's read mark, so it stays reversible with
+ * Mark as unread. Only an outcome with no task falls back to its notification.
+ */
+export function planFleetOutcomeTaskRead(items: readonly FleetAttentionItem[]): {
+  targets: { workspaceId: string; taskId: string }[];
+  notificationIds: string[];
+} {
+  const targets: { workspaceId: string; taskId: string }[] = [];
+  const notificationIds: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (item.kind !== "run-failed" && item.kind !== "result-ready") continue;
+    const taskId = item.resultReview?.taskId ?? item.taskId;
+    const workspaceId = item.resultReview?.workspaceId ?? item.workspaceId;
+    if (taskId) {
+      const key = JSON.stringify([workspaceId, taskId]);
+      if (!seen.has(key)) { seen.add(key); targets.push({ workspaceId, taskId }); }
+    } else if (item.notificationId && !notificationIds.includes(item.notificationId)) {
+      notificationIds.push(item.notificationId);
+    }
+  }
+  return { targets, notificationIds };
+}
+
 /** Explicit review applies only to saved outcomes, never notification-only rows. */
 export function planFleetOutcomeReview(items: readonly FleetAttentionItem[]): FleetBulkPlan {
   const plan = planFleetOutcomeRead(items.filter((item) => item.resultReview && !item.resultReview.markedReviewedAt));

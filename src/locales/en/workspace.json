@@ -959,7 +959,10 @@
     "error": "Error",
     "running": "Running",
     "idle": "Idle",
-    "stalled": "No updates"
+    "stalled": "No updates",
+    "moreTasks_one": "+{{count}} more task",
+    "moreTasks_other": "+{{count}} more tasks",
+    "showFewer": "Show fewer"
   },
   "workspaceResumeBrief": {
     "sharedInstructions": "Shared instructions",
@@ -1405,7 +1408,7 @@
     "summary": "Completed {{done}}; skipped {{skipped}}.",
     "archived": "Archived",
     "selectReady": "Select all ready",
-    "archiveConfirm": "Remove clean worktrees and keep branches, tasks, messages and history. You can restore archived workspaces.",
+    "archiveConfirm": "Remove worktrees and keep branches, tasks, messages and history. Saving changed files requires the option below. You can restore archived workspaces.",
     "deleteConfirm": "Permanently delete the selected workspaces and all their tasks, messages, turns and events. Clean worktrees are removed. Branches are kept unless selected below. This cannot be undone.",
     "branchConfirm": "Delete the selected branches. Safe deletion refuses unmerged work unless you explicitly allow force deletion.",
     "alsoDeleteBranch": "Delete eligible branches too",
@@ -1476,13 +1479,26 @@
       "dependencyLinkFailed": "Dependency link could not be restored",
       "pendingAttention": "Waiting for your attention",
       "openTerminal": "An open terminal must be closed",
-      "workspacePreparationFailed": "Workspace initialization failed. Restore again to retry."
+      "workspacePreparationFailed": "Workspace initialization failed. Restore again to retry.",
+      "savedChangesGitFailed": "Changes could not be saved",
+      "savedChangesVerificationFailed": "Saved changes could not be verified",
+      "savedChangesInvalidRef": "Saved changes reference is invalid",
+      "savedChangesSubmoduleUnsupported": "Save changes is unavailable for worktrees with submodules",
+      "savedChangesChangedDuringSave": "Files changed while saving; try again",
+      "savedChangesRestoreFilesExist": "Restore stopped because files already exist at the workspace location",
+      "savedChangesRestoreBranchMoved": "Restore stopped because the branch changed after the changes were saved",
+      "savedChangesRestoreGitFailed": "Saved changes could not be restored. The archive is kept, so you can restore again.",
+      "savedChangesRestorePartial": "Saved changes could not be restored, and the partially restored folder was kept for review",
+      "savedChangesUnavailable": "Saved changes are unavailable"
     },
     "historyTitle": "Read-only workspace history",
     "historyDescription": "The branch is no longer available. Your history is preserved. Create a new workspace to continue.",
     "createFromHistory": "Create a workspace from this history",
     "workspaceUnavailable": "Former workspace",
     "preparing": "Preparing workspace: {{command}}",
-    "archiveRefusedWithReason": "Could not archive the workspace: {{reason}}."
+    "archiveRefusedWithReason": "Could not archive the workspace: {{reason}}.",
+    "savedChanges": "Saved changes",
+    "saveChanges": "Save uncommitted changes and archive",
+    "saveChangesDescription": "Preserve staged, unstaged and untracked files. Ignored files are excluded. Restore stops if existing files conflict."
   }
 }

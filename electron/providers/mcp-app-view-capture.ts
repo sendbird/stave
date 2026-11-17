@@ -1,6 +1,6 @@
 import {
   MCP_APP_RESOURCE_TIMEOUT_MS,
-  normalizeMcpAppToolInput,
+  normalizeMcpAppToolCallInput,
   normalizeMcpAppToolResult,
   selectMcpAppHtmlContent,
   type McpAppToolDescriptor,
@@ -21,9 +21,9 @@ import type { BridgeEvent } from "./types";
  * carries. Shared by the Codex and Claude runtimes, which differ only in how
  * they read the resource and list the server's tools.
  *
- * Any failure (no such resource, wrong type, too large, too slow) leaves the
- * row as plain text. Log lines carry the server and the reason, never the
- * view's content.
+ * Any failure (no such resource, wrong type, too large, too slow, or a call
+ * input or result the view could not be given) leaves the row as plain
+ * text. Log lines carry the server and the reason, never the view's content.
  */
 export async function captureMcpAppView(args: {
   provider: McpAppViewProvider;
@@ -44,6 +44,18 @@ export async function captureMcpAppView(args: {
   timeoutMs?: number;
 }): Promise<McpAppViewReference | null> {
   const timeoutMs = args.timeoutMs ?? MCP_APP_RESOURCE_TIMEOUT_MS;
+  // The host sends the view its result only after its input, so a view
+  // without both would sit empty: keep the text row instead.
+  const toolInput = normalizeMcpAppToolCallInput(args.toolInput);
+  const toolResult = normalizeMcpAppToolResult(args.toolResult);
+  if (!toolInput || !toolResult) {
+    console.warn("[mcp-app] view not captured", {
+      provider: args.provider,
+      server: args.server,
+      reason: !toolInput ? "tool input unreadable or too large" : "tool result unreadable or too large",
+    });
+    return null;
+  }
   try {
     const [resource, appTools] = await Promise.all([
       withTimeout(args.readResource(args.resourceUri), timeoutMs),
@@ -78,8 +90,8 @@ export async function captureMcpAppView(args: {
       permissions: selection.meta.permissions,
       prefersBorder: selection.meta.prefersBorder,
       appTools,
-      toolInput: normalizeMcpAppToolInput(args.toolInput),
-      toolResult: normalizeMcpAppToolResult(args.toolResult),
+      toolInput,
+      toolResult,
       html: selection.html,
     });
   } catch (error) {

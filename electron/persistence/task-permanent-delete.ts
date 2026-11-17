@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { isTaskManaged } from "../../src/lib/tasks";
 import type { PersistenceTaskRow, PersistenceWorkspaceSnapshot, PersistenceWorkspaceShell } from "./types";
+import { deleteTurnSnapshotRows } from "./turn-snapshot-store";
 
 const TERMINAL_RUNS = "('completed','failed','cancelled','interrupted')";
 
@@ -44,7 +45,7 @@ export function deleteTaskRelatedRows(db: Database.Database, args: { workspaceId
   if (hasTable("wake_up_occurrences")) {
     db.prepare("DELETE FROM wake_up_occurrences WHERE (workspace_id = ? AND task_id = ?) OR wake_up_id IN (SELECT id FROM wake_ups WHERE workspace_id = ? AND task_id = ?)").run(args.workspaceId, args.taskId, args.workspaceId, args.taskId);
   }
-  for (const table of ["wake_ups", "task_handoff_records"]) {
+  for (const table of ["wake_ups", "task_handoff_records", "task_read_marks"]) {
     if (hasTable(table)) db.prepare(`DELETE FROM ${table} WHERE workspace_id = ? AND task_id = ?`).run(args.workspaceId, args.taskId);
   }
   if (hasTable("agent_assignments")) db.prepare("UPDATE agent_assignments SET task_id = NULL, body_json = json_set(body_json, '$.taskId', NULL) WHERE task_id = ?").run(args.taskId);
@@ -67,6 +68,7 @@ export function deleteTaskRelatedRows(db: Database.Database, args: { workspaceId
   db.prepare("DELETE FROM result_review_evidence WHERE scope_key IN (SELECT json_array(project_path, workspace_id, task_id, turn_id) FROM result_reviews WHERE workspace_id = ? AND task_id = ?)").run(args.workspaceId, args.taskId);
   db.prepare("DELETE FROM result_reviews WHERE workspace_id = ? AND task_id = ?").run(args.workspaceId, args.taskId);
   db.prepare("DELETE FROM notifications WHERE workspace_id = ? AND task_id = ?").run(args.workspaceId, args.taskId);
+  deleteTurnSnapshotRows(db, args);
   for (const artifact of artifacts) db.prepare("DELETE FROM artifacts WHERE id = ?").run(artifact.id);
   return artifacts.map(artifact => artifact.relative_path);
 }

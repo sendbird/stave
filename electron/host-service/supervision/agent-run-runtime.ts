@@ -1,3 +1,4 @@
+import { agentRunBrowserRequested } from "./agent-run-browser";
 import { i18n } from "../../../src/i18n/runtime";
 import { buildTarsRunCommand } from "../tars-ownership";
 import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks, unreportedStageCriteria } from "../../../src/lib/agent-runs/acceptance";
@@ -255,6 +256,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   }) => AgentRunTurnRow[];
   runSupervisedTurn: (args: {
     gatewayCredentials?: import("../../provider-accounts/gateway-runtime").GatewayCredentials;
+    /** A reply or an answer the user sent through the run: admitted as a user turn. */
+    admissionPriority?: "user";
     workspaceId: string;
     taskId: string;
     parentTaskId?: string;
@@ -289,6 +292,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   userPermissionOptions?: (providerId: AgentRunFingerprint["providerId"]) => ProviderRuntimeOptions | undefined;
   /** Closes a turn left open by a stopped host; true when it was open. */
   completeInterruptedTurn: (turnId: string) => boolean;
+  /** A turn the admission queue holds or restored; the boot sweep leaves it running. */
+  isQueuedTurn?: (turnId: string) => boolean;
   countActiveDelegatedTasks: (taskId: string) => number;
   /** Whether the Local MCP server the model reports through is up. */
   isReportingAvailable: (options?: { fresh?: boolean }) => Promise<boolean>;
@@ -422,7 +427,7 @@ export interface AgentRunRuntime {
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
   answerQuestion: (args: { workspaceId: string; taskId: string; stage: AgentRunStageIdentity; prompt: string; questionAnswer: RunQuestionAnswer }) => Promise<void>;
-  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; composer?: AgentRunReplyComposer }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation";
+  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; prompt?: string; composer?: AgentRunReplyComposer }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation";
     /** Set when the reply runs on another model than the composer sent, so its route line can say so. */
     routeNote?: AgentRunReplyRouteNote } | null;
   resourceRootForTask: (taskId: string) => string | null;
@@ -1653,6 +1658,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     // lands. Only a linked prior turn makes this a continuation.
     const isContinuation = store.listEventsByKind(agentRun.id, ["turn-linked"])
       .some((event) => typeof event.detail.turnId === "string");
+    const browserRequested = agentRunBrowserRequested({ assignment: agentRun.assignment, delegated: !!delegation,
+      events: store.listEventsByKind(agentRun.id, ["turn-linked"]) });
     try {
       const resumedDelegatedEffort = AgentResourceRequestObjectSchema.shape.effort.safeParse(resumeEffort?.claudeEffort ?? resumeEffort?.codexReasoningEffort).data;
       const runtimeOptions: ProviderRuntimeOptions = { ...(delegation ? buildDelegatedTaskRuntimeOptions({
@@ -1661,6 +1668,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }) : {
           ...runPermissionOptions(agentRun, routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId),
           ...routed?.runtimeOptions,
+          ...(browserRequested ? { providerBrowserAlwaysOn: true } : {}),
         }), ...runAccountOptions(agentRun, resources), ...(resetContinuation ? usageLimitAccounts(resetContinuation.fingerprint, resetContinuation.accountProfileId, {}) : {}) };
       const turn = await deps.runSupervisedTurn({
         ...(resetContinuation || deps.prepareGatewayCredentials ? { gatewayCredentials: gatewayCredentials ?? {} } : {}),
@@ -1694,7 +1702,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       recordEvent(started.agentRun, {
         kind: "turn-linked",
         idempotencyKey: buildAgentRunTurnOutcomeKey(turnKey, "linked"),
-        detail: { ...identity, turnId: turn.turnId, ...(Object.keys(effort).length ? { effort } : {}) },
+        detail: { ...identity, turnId: turn.turnId, browserRequested, ...(Object.keys(effort).length ? { effort } : {}) },
       });
     } catch (error) {
       const detail = describeError(error, "The provider did not start the turn.");
@@ -2031,7 +2039,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     );
     const latestLinked = events.filter((event) => event.kind === "turn-linked").at(-1);
     const turnId = latestLinked?.detail.turnId;
-    if (typeof turnId === "string" && deps.completeInterruptedTurn(turnId) && latestLinked?.idempotencyKey) {
+    if (typeof turnId === "string" && !deps.isQueuedTurn?.(turnId) && deps.completeInterruptedTurn(turnId) && latestLinked?.idempotencyKey) {
       const turnKey = latestLinked.idempotencyKey.replace(/:linked$/, "");
       recordEvent(agentRun, {
         kind: "turn-interrupted",
@@ -2299,13 +2307,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         refuse(i18n.t("agentRuns:persistentQuestion.waitForRequest"));
       if (!(await deps.isReportingAvailable({ fresh: true }))) refuse(i18n.t("agentRuns:persistentQuestion.reportingUnavailable"));
       await deps.runSupervisedTurn({ workspaceId: args.workspaceId, taskId: args.taskId,
+        admissionPriority: "user",
         ...(delegatedAuthority(run) ? { parentTaskId: delegatedAuthority(run)!.parentTaskId } : {}),
         prompt: args.prompt, questionAnswer: args.questionAnswer, fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
       // The normal provider admission calls prepareUserTurn: the reply is a
       // user turn of this stage, not another automatic stage-start or nudge.
     }),
-    prepareUserTurn: ({ taskId, workspaceId, turnId, providerId, composer }) => {
+    prepareUserTurn: ({ taskId, workspaceId, turnId, providerId, prompt, composer }) => {
       let run = store.getActiveAgentRunForTask(taskId);
       if (!run || !hasAgentOrigin(run) || (workspaceId && run.workspaceId !== workspaceId)) return null;
       let aggregate = requireAggregate(run.id);
@@ -2373,8 +2382,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:composer:${turnId}`, detail: adaptive.composerDecision });
       if (adaptive?.decision)
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:${adaptive.requestSequence ?? `reply-auto:${turnId}`}`, detail: adaptive.decision });
+      const browserRequested = agentRunBrowserRequested({ assignment: run.assignment, prompt, delegated: !!authority,
+        events: store.listEventsByKind(run.id, ["turn-linked"]) });
       turnIdsFor(run.id).add(turnId);
-      recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
+      recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply", browserRequested } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
       const accountOptions = resources && replyAccount ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: replyAccount } : { claudeAccountProfileId: replyAccount }) : {};
       // Only a model the composer did not pin can differ from what runs; an effort-only pin still lets Auto pick the model.
@@ -2385,6 +2396,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }) } } : { runtimeOptions: { ...accountOptions,
         // The reply is a turn of the run: the run's consent, not the composer's settings alone.
         ...runPermissionOptions(run, providerId === "codex" || providerId === "claude-code" ? providerId : run.fingerprint.providerId),
+        ...(browserRequested ? { providerBrowserAlwaysOn: true } : {}),
         ...(adaptive ? { model: adaptive.model, ...adaptive.runtimeOptions } : {}) } }), context: {
         type: "retrieved_context", sourceId: AGENT_RUN_CONTEXT_SOURCE_ID, title: "Agent stage reply",
         content: `${describeAgentRunExecutionContext(aggregate)}\n${endedWait ? `Your wait for ${endedWait.kind}${endedWait.target ? ` on ${endedWait.target}` : ""} ended without the event, and the user's reply continues the run.\n` : ""}This is the user's reply in the current stage. Handle it once and report the stage using the reporting tools. If it is only a clarification, answer it and keep the stage blocked on the missing decision. Do not restart or repeat the original assignment.`,
@@ -2641,7 +2653,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // Rechecked after the reads: nothing may take the run over in between.
       guard?.(requireAggregate(agentRunId).agentRun);
       // A plain chat turn on the lead task: provider admission links it to the stage as the user's reply (`prepareUserTurn`).
-      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, ...(turnId ? { turnId } : {}),
+      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, admissionPriority: "user", ...(turnId ? { turnId } : {}),
         fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
     }),

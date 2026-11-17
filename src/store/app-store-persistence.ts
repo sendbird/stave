@@ -1,3 +1,6 @@
+import { normalizeDismissedFeatureTips } from "@/lib/feature-tips";
+import { normalizeUsageLimitPauses } from "@/store/task-work-pause";
+import { createRestartPendingTasksCapture, InterruptedTaskSchema, normalizeRestartRecovery } from "@/store/restart-continuation";
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding";
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
@@ -217,6 +220,7 @@ export async function flushPersistenceForQuit(args: {
 
 export function createAppStorePersistenceOptions() {
   const captureRecentRepositories = createCapturedRepositoriesMemo();
+  const captureRestartPendingTasks = createRestartPendingTasksCapture();
   const storage = createCoalescedPersistStorage<unknown>({
     getStorage: () => window.localStorage,
   });
@@ -251,18 +255,23 @@ export function createAppStorePersistenceOptions() {
       workspaceDefaultById: state.workspaceDefaultById,
       workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       workspaceSettlementById: state.workspaceSettlementById,
-      taskCheckpointById: state.taskCheckpointById,
       compareRunsById: state.compareRunsById,
       isDarkMode: state.isDarkMode,
       draftProvider: state.draftProvider,
       layout: state.layout,
       settings: state.settings,
+      usageLimitPauseByTask: state.usageLimitPauseByTask,
+      restartRecovery: state.restartRecovery,
+      restartPendingTasks: captureRestartPendingTasks(state),
       repositoryName: state.repositoryName,
     }),
     onRehydrateStorage: () => (state?: AppState) => {
       if (!state) {
         return;
       }
+      state.usageLimitPauseByTask = normalizeUsageLimitPauses(state.usageLimitPauseByTask);
+      state.restartRecovery = normalizeRestartRecovery(state.restartRecovery);
+      state.restartPendingTasks = (Array.isArray(state.restartPendingTasks) ? state.restartPendingTasks : []).flatMap(item => { const parsed = InterruptedTaskSchema.safeParse(item); return parsed.success ? [parsed.data] : []; });
       const persistedSettings = state.settings;
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
@@ -273,6 +282,10 @@ export function createAppStorePersistenceOptions() {
         ...defaultSettings,
         ...persistedSettings,
       };
+      state.settings.restartContinuation = ["ask", "automatically", "never"].includes(state.settings.restartContinuation)
+        ? state.settings.restartContinuation : "ask";
+      state.settings.notificationActionsEnabled = typeof state.settings.notificationActionsEnabled === "boolean"
+        ? state.settings.notificationActionsEnabled : true;
       delete (
         state.settings as AppSettings & {
           appShellMode?: unknown;
@@ -283,6 +296,10 @@ export function createAppStorePersistenceOptions() {
       delete (state.settings as AppSettings & { martinSync?: unknown })
         .martinSync;
       // end temporary-migration: strip-retired-sync-settings
+      // temporary-migration: strip-task-checkpoints
+      // Turn snapshots replaced the per-task HEAD checkpoint; drop the saved map.
+      delete (state as AppState & { taskCheckpointById?: unknown }).taskCheckpointById;
+      // end temporary-migration: strip-task-checkpoints
       // Migrate legacy fastModeVisible → per-provider fields.
       const raw = state.settings as any;
       state.settings.craneConnector = normalizeCraneConnectorSettings(
@@ -498,6 +515,11 @@ export function createAppStorePersistenceOptions() {
         typeof raw.midTurnSteeringEnabled === "boolean"
           ? raw.midTurnSteeringEnabled
           : defaultSettings.midTurnSteeringEnabled;
+      state.settings.featureTipsEnabled =
+        typeof raw.featureTipsEnabled === "boolean"
+          ? raw.featureTipsEnabled
+          : defaultSettings.featureTipsEnabled;
+      state.settings.dismissedFeatureTips = normalizeDismissedFeatureTips(raw.dismissedFeatureTips);
       state.settings.blockTurnsWhenAccountLimitReached =
         typeof raw.blockTurnsWhenAccountLimitReached === "boolean"
           ? raw.blockTurnsWhenAccountLimitReached
@@ -645,6 +667,10 @@ export function createAppStorePersistenceOptions() {
         typeof raw.createPrWatchEnabled === "boolean"
           ? raw.createPrWatchEnabled
           : defaultSettings.createPrWatchEnabled;
+      state.settings.pullRequestLongLivedBranches =
+        typeof raw.pullRequestLongLivedBranches === "string"
+          ? raw.pullRequestLongLivedBranches.slice(0, 2_000)
+          : defaultSettings.pullRequestLongLivedBranches;
       const legacyRepositoryInitCommand = normalizeRepositoryWorkspaceInitCommand({
         value: raw.newWorkspaceInitCommand,
       });

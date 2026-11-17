@@ -51,7 +51,7 @@ export function AutomationLatestRun(props: {
       </div>
 
       <div className={sx(latestRunStyles.meta)}>
-        <span>{run.trigger === "scheduled" ? tI18n("automation:automationLatestRun.scheduled") : tI18n("automation:automationLatestRun.manual")}</span>
+        <span>{run.trigger === "webhook" ? tI18n("automation:webhook.label") : run.trigger === "scheduled" ? tI18n("automation:automationLatestRun.scheduled") : tI18n("automation:automationLatestRun.manual")}</span>
         <span aria-hidden="true">·</span>
         <time dateTime={run.startedAt} title={formatDateTime(run.startedAt)}>
           {formatTimeAgo(run.startedAt)}

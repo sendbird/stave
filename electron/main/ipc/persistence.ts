@@ -1,3 +1,5 @@
+import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema } from "../../../src/lib/task-read-state";
+import { TruncateTaskMessagesResultSchema } from "../../../src/lib/task-context/conversation-truncation";
 import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
@@ -91,6 +93,16 @@ export function registerPersistenceHandlers() {
     const store = await ensurePersistenceReady();
     store.directionDrafts.save(parsed.data.workspaceId, parsed.data.draft);
     return { ok: true };
+  });
+  ipcMain.handle("persistence:list-task-read-states", async (_event, input: unknown) => {
+    const args = ListTaskReadStatesArgsSchema.parse(input);
+    const store = await ensurePersistenceReady();
+    return TaskReadStatesResponseSchema.parse({ok:true,states:store.resultReviews.listTaskReadStates(args)});
+  });
+  ipcMain.handle("persistence:set-task-read-states", async (_event, input: unknown) => {
+    const args = SetTaskReadStatesArgsSchema.parse(input);
+    const store = await ensurePersistenceReady();
+    return SetTaskReadStatesResponseSchema.parse({ok:true,...store.resultReviews.setTaskReadStates(args)});
   });
   ipcMain.handle("persistence:list-result-reviews", async (_event, args: unknown) => {
     const parsed = ListResultReviewsArgsSchema.safeParse(args ?? {});
@@ -242,7 +254,7 @@ export function registerPersistenceHandlers() {
         return { ok: false, removedCount: 0 };
       }
       const store = await ensurePersistenceReady();
-      return store.truncateTaskMessagesAfter(parsedArgs.data);
+      return TruncateTaskMessagesResultSchema.parse(store.truncateTaskMessagesAfter(parsedArgs.data));
     },
   );
 

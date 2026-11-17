@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import {
   createDelegatedTaskCoordinator,
   type DelegatedTaskHostPort,
@@ -153,6 +154,7 @@ function createHarness(
     canStopTask?: Parameters<typeof createDelegatedTaskCoordinator>[0]["canStopTask"];
     resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
     cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
+    admissionWait?: Parameters<typeof createDelegatedTaskCoordinator>[0]["admissionWait"];
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
@@ -176,6 +178,7 @@ function createHarness(
       ...(options.readProviderUsage ? { readProviderUsage: options.readProviderUsage } : {}),
       dailyUsageLimit: options.dailyUsageLimit,
       canStopTask: options.canStopTask,
+      admissionWait: options.admissionWait,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -1909,4 +1912,37 @@ test("a stopping intermediate parent cannot delegate again while descendants sto
   expect(attempted).toBe(true);
   expect(lateResult?.accepted).toBe(false);
   expect(lateResult?.reason).toBe("invalid-state");
+});
+
+describe("global turn admission during a delegate wait", () => {
+  const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+
+  test("with one slot, the wait returns at its deadline and a parent that then times out leaves no slot held", async () => {
+    // The real host gate: one slot. The parent holds it until its wait suspends it.
+    const gate = createTurnAdmission({ limit: () => 1, save: () => {} });
+    await gate.acquire({ turnId: "parent-turn", taskId: PARENT_TASK, priority: "user" });
+    let child: Promise<void> | null = null;
+    const harness = createHarness({
+      parentDefaults: { providerId: "codex" },
+      // The child takes the freed slot and keeps it longer than the parent's wait.
+      runTask: () => { child = gate.acquire({ turnId: "child-turn", taskId: "child", priority: "automatic" }); return new Promise(() => {}); },
+      admissionWait: (args) => gate.wait(args.taskId, args.waiting),
+    });
+    const started = Date.now();
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: 1 }, caller);
+    const elapsed = Date.now() - started;
+    expect(response.accepted).toBe(true);
+    // The documented wait is one second; taking the slot back never holds the tool call past it.
+    expect(elapsed).toBeLessThan(2_500);
+    await child;
+    expect(gate.snapshot().running).toEqual(["child-turn"]);
+    expect(gate.snapshot().queued.map((row) => row.turnId)).toEqual(["parent-turn"]);
+    // The parent turn times out while its re-acquire still waits; its end releases that too.
+    gate.release("parent-turn");
+    expect(gate.snapshot().queued).toEqual([]);
+    gate.release("child-turn");
+    await gate.acquire({ turnId: "next-turn", taskId: "other", priority: "user" });
+    expect(gate.snapshot().running).toEqual(["next-turn"]);
+    gate.release("next-turn");
+  }, 10_000);
 });

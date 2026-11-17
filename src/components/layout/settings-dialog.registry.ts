@@ -495,6 +495,13 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "include",
   } satisfies SettingDefinition<"uiDensity">,
+  {
+    key: "globalAgentTurnLimit", sectionId: "providers", fieldId: "settings-field-delegation",
+    titleKey: "settings:sections.fields.globalTurnLimit.title", descriptionKey: "settings:sections.fields.globalTurnLimit.description",
+    keywords: ["concurrency", "turns", "queue", "limit", "agent"],
+    schema: z.number().int().min(1).max(16).nullable(), defaultValue: null,
+    scope: "app", sensitivity: "plain", applyMode: "immediate", importExport: "include",
+  } satisfies SettingDefinition<"globalAgentTurnLimit">,
 ] as const;
 
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(

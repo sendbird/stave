@@ -74,9 +74,10 @@ describe("a past event stamped ahead of the clock reads just now", () => {
     const stopLine = (at: string) => describeReturnSummary({
       decision: null,
       changes: { turns: 0, files: 0, steps: 0 },
+      turns: [],
       stop: { kind: "finished", at },
       next: { kind: "continue" },
-    }, now).status.text;
+    }, now).rows[0]?.title;
     expect(stopLine(new Date(now + AHEAD_MS).toISOString())).toBe("Finished its last turn");
     expect(stopLine(new Date(now - 2 * 60 * 60_000).toISOString())).toBe("Finished its last turn");
   });

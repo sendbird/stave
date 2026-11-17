@@ -15,6 +15,95 @@
   check-back is a wake-up record. The Local MCP tool names (`stave_*_automation*`,
   `stave_*_wake_up*`) are unchanged.
 
+## Webhook Triggers
+
+A **Start a task** schedule can use **Webhook** instead of a time cadence.
+Select **Webhook** in its editor, copy the generated URL, and store the signing
+secret immediately: the editor shows it once. Saving stores only an encrypted
+vault reference. Choosing **Webhook** does not turn the schedule on: save it and
+turn it on with **Enable this webhook schedule** before sending an event.
+Switching back to **Time** and then to **Webhook** in the same editor reuses the
+same URL and secret. A secret the editor created but no saved schedule uses is
+deleted when the editor closes, when a schedule is saved with **Time**, or when
+the schedule is deleted.
+
+Webhook events come from outside this device, so a webhook schedule never runs
+unattended. Its runs always ask for approval before risky actions (**Guided**);
+**Auto** and **Manual** cannot be selected, and a webhook schedule saved through
+another path is stored as Guided.
+
+The local receiver is **off by default**, listens on `127.0.0.1:6330`, and
+receives events only while the desktop app is running. Under **Webhook
+receiver**, enable it, choose a port, and select **Apply receiver settings**.
+The editor shows whether the receiver is listening, or why it is not, such as a
+port another app uses. A different bind address can expose the receiver outside
+this device; the editor warns before applying it. Network routing and secure
+transport are your choice. Every automation has its own unguessable
+`/webhooks/<id>` path and secret.
+
+### Signing requests
+
+Send a JSON `POST` with these headers:
+
+- `x-stave-timestamp`: the current time in Unix seconds.
+- `x-stave-delivery-id` (optional): a unique id for the event, 1–200 characters
+  of `A-Z a-z 0-9 . _ : -`. Send the same id when you retry the same event.
+- `x-stave-signature`: `sha256=` followed by the lowercase hex HMAC-SHA256 of
+  `timestamp + "." + deliveryId + "." + rawBody`, keyed with the schedule's
+  secret. Without a delivery id header, use the empty string for `deliveryId`
+  (the signed text then contains two dots in a row).
+
+```sh
+ts=$(date +%s); id=evt-42; body='{"action":"opened"}'
+sig=$(printf '%s.%s.%s' "$ts" "$id" "$body" | openssl dgst -sha256 -hmac "$SECRET" -hex | sed 's/^.* //')
+curl -X POST "$URL" -H "content-type: application/json" \
+  -H "x-stave-timestamp: $ts" -H "x-stave-delivery-id: $id" \
+  -H "x-stave-signature: sha256=$sig" -d "$body"
+```
+
+A missing or invalid signature or timestamp returns `401`, as does a timestamp
+more than 5 minutes before or after this computer's clock. Bodies over 1 MB
+return `413`. The per-schedule request limit (default 60 per minute) counts only
+correctly signed requests, so unsigned traffic cannot use it up; invalid requests
+have their own limit and are answered `429` beyond it.
+
+### Delivery and deduplication
+
+A signed event is recorded before the receiver answers `202`. The same delivery
+id, or without one the same body and timestamp, is answered `202` again but
+starts nothing more for the dedupe window (default 86,400 seconds, and never less
+than 11 minutes so a replay inside the timestamp tolerance is always caught),
+including across restarts. If the schedule is busy (at its concurrency limit) or
+the app cannot start the run right away, the event waits in a durable queue and
+starts when it can, retried for up to 24 hours. If the event cannot be recorded,
+the receiver answers `503` and a retry is treated as a new delivery. A run that
+was being started when the app quit is not started again; it is listed as
+failed. An optional coalescing window groups closely spaced matching events into
+one run with the latest payload.
+
+**Payload filters** accept simple paths such as `$.action` or
+`$.repository.name`, with **Equals** or **Contains**. All conditions must match.
+Values compare as text: `42`, `true` and `null` match the editor values `42`,
+`true` and `null`. A missing path never matches. **Contains** on a list matches
+an item with that text.
+
+Use `{{body.path}}` in the instructions to insert JSON-escaped, quoted event
+data. Instructions that use `{{body.…}}` get only those values; instructions
+without one get the whole body. Event data in a prompt is capped at 16 KB and
+marked where it was cut. Event payloads are untrusted data, and the task prompt
+explicitly says never to treat their contents as instructions.
+
+**Send test event** sends the JSON in the test field through the signed receiver.
+Save first and enable the receiver; a matching test can start a real task.
+**Run with sample payload** starts a run right away with that JSON as the event,
+without the receiver; **Run now** elsewhere uses an empty event, so `{{body.…}}`
+values read `null`. **Recent deliveries** shows accepted, filtered, duplicate and
+failed events; **Rejected requests** counts unsigned, invalid and throttled
+requests by reason without filling the delivery list. Use **Refresh deliveries**
+to see the latest results. Pausing a webhook schedule stops it from starting
+tasks without changing its endpoint. If the delivery history cannot be read, it
+is set aside, a new one is started, and the editor says so.
+
 ## When To Use It
 
 - Use a start-a-task schedule for recurring repository reviews, status summaries, maintenance checks, or other prompts that should run at a regular interval.

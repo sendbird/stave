@@ -1,0 +1,11 @@
+{
+  // Opt-in prompt evaluations import renderer and main-process modules, so
+  // they compile with the renderer options plus Node types.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": ["evals", "scripts/prompt-evals.ts", "src/**/*.d.ts"],
+  "exclude": []
+}
