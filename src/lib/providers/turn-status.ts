@@ -118,6 +118,7 @@ export interface ProviderTurnActivitySnapshot {
   lastEventAt: number;
   stalledAt: number | null;
   pendingInteraction: ProviderTurnPendingInteraction | null;
+  admission?: { state: "queued" | "running"; ahead: number };
   terminalReceipt?: TurnTerminalReceipt;
   turnError?: string;
   turnErrorRecoverable?: boolean;
@@ -485,7 +486,7 @@ export function markProviderTurnStalled(args: {
   if (
     !current ||
     current.turnId !== args.turnId ||
-    current.stalledAt != null
+    current.stalledAt != null || current.admission?.state === "queued"
   ) {
     return args.activityByTask;
   }
@@ -1092,7 +1093,12 @@ export function reduceProviderTurnActivityEvents(args: {
     now,
   });
 
+  let admission = current?.turnId === args.turnId ? current.admission : undefined;
+  for (const event of args.events) {
+    if (event.type === "turn_admission") admission = { state: event.state, ahead: event.ahead };
+  }
   const snapshot: ProviderTurnActivitySnapshot = {
+    ...(admission && !turnCompleted ? { admission } : {}),
     turnId: args.turnId,
     terminalReceipt,
     providerId,

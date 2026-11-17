@@ -123,7 +123,7 @@ export function registerTerminalHandlers() {
     return z.array(WorkspaceCleanupRowSchema).parse(store.listArchivedWorkspacesPersistence().map(record => ({
       id: record.workspaceId, repositoryPath: record.repositoryPath,
       repositoryName: repositories.find(repository => repository.repositoryPath === record.repositoryPath)?.repositoryName ?? "",
-      name: record.name, path: record.path, branch: record.branch, archived: true,
+      name: record.name, path: record.path, branch: record.branch, archived: true, savedChanges: Boolean(record.savedChangesRef),
       readOnly: record.readOnly, branchOnly: false, archivedAt: record.archivedAt, lastActive: record.archivedAt,
       blockers: [], reasons: [], bytes: null, branchDeletable: false,
     })));

@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -49,7 +49,7 @@ test("archive and restore preserve history across restart, missing branches stay
   git(repositoryPath, "init", "--bare", remote);
   git(repositoryPath, "remote", "add", "origin", remote);
   git(repositoryPath, "push", "-u", "origin", "main");
-  const ids = ["restore-branch", "restore-history", "delete-unmerged"];
+  const ids = ["restore-branch", "restore-history", "delete-unmerged", "save-changes"];
   const worktrees = Object.fromEntries(ids.map(id => [id, path.join(repositoryPath, ".stave", "workspaces", id)]));
   for (const id of ids) git(repositoryPath, "worktree", "add", "-b", id, worktrees[id]!);
   await writeFile(path.join(worktrees["delete-unmerged"]!, "unmerged.txt"), "Keep this until explicit permanent deletion.\n");
@@ -149,6 +149,25 @@ test("archive and restore preserve history across restart, missing branches stay
     expect(() => git(repositoryPath, "show-ref", "--verify", "refs/heads/delete-unmerged")).toThrow();
     expect(await messages(stave.page, "delete-unmerged")).toEqual([]);
     expect(await stave.page.evaluate(async () => (await window.api.persistence!.loadWorkspaceShell!({workspaceId:"delete-unmerged"})).shell)).toBeNull();
+    const savedPath = worktrees["save-changes"]!;
+    await writeFile(path.join(savedPath, "README.md"), "staged bytes\n");
+    git(savedPath, "add", "README.md");
+    await writeFile(path.join(savedPath, "README.md"), "unstaged bytes\r\n");
+    await writeFile(path.join(savedPath, "untracked.bin"), Buffer.from([0, 255, 21]));
+    const beforeStatus = git(savedPath, "status", "--porcelain=v1", "-uall");
+    expect(await act(stave.page, { action: "archive", workspaceId: "save-changes", repositoryPath })).toMatchObject({ ok: false, reason: "changedFiles" });
+    expect(await act(stave.page, { action: "archive", workspaceId: "save-changes", repositoryPath, saveChanges: true })).toMatchObject({ ok: true });
+    expect(existsSync(savedPath)).toBe(false);
+    expect((await stave.page.evaluate(() => window.api.workspaceCleanup!.listArchived())).find(row => row.id === "save-changes")).toMatchObject({ savedChanges: true });
+    expect(await act(stave.page, { action: "restore", workspaceId: "save-changes", repositoryPath })).toMatchObject({ ok: true });
+    expect(git(savedPath, "status", "--porcelain=v1", "-uall")).toBe(beforeStatus);
+    expect(git(savedPath, "show", ":README.md")).toBe("staged bytes");
+    expect(await readFile(path.join(savedPath, "README.md"), "utf8")).toBe("unstaged bytes\r\n");
+    expect(await readFile(path.join(savedPath, "untracked.bin"))).toEqual(Buffer.from([0, 255, 21]));
+    expect(await act(stave.page, { action: "archive", workspaceId: "save-changes", repositoryPath, saveChanges: true })).toMatchObject({ ok: true });
+    expect(git(repositoryPath, "for-each-ref", "--format=%(refname)", "refs/stave/archives")).toMatch(/^refs\/stave\/archives\//);
+    expect(await act(stave.page, { action: "delete", workspaceId: "save-changes", repositoryPath })).toMatchObject({ ok: true });
+    expect(git(repositoryPath, "for-each-ref", "--format=%(refname)", "refs/stave/archives")).toBe("");
   } catch (error) {
     if (stave) {
       console.info("Cleanup state at failure", JSON.stringify(await stave.page.evaluate(async () => ({

@@ -1158,5 +1158,10 @@
     "defaultEffort": {
       "ariaLabel": "OpenCode default effort"
     }
+  },
+  "globalTurnLimit": {
+    "title": "Run at most N agent turns at once",
+    "description": "Off by default. User messages go before automatic starts. Existing helper limits still apply.",
+    "maximum": "Maximum concurrent turns (1–16)"
   }
 }

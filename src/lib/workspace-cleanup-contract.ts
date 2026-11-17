@@ -18,11 +18,13 @@ export const WorkspaceCleanupActArgsSchema = z.object({
   action: z.enum(["archive", "delete", "restore", "deleteBranch", "removeWorktree"]),
   /** Refuse if a concurrent Restore made the workspace active before execution. */
   archivedOnly: z.boolean().optional(),
+  saveChanges: z.boolean().optional(),
   workspaceId: Id, repositoryPath: Id, deleteBranch: z.boolean().optional(), forceDeleteBranch: z.boolean().optional(),
 }).strict();
 export type WorkspaceCleanupActArgs = z.infer<typeof WorkspaceCleanupActArgsSchema>;
 export const WorkspaceCleanupRowSchema = z.object({
   id: Id, repositoryPath: Id, repositoryName: z.string(), name: z.string(), path: z.string(), branch: z.string(),
+  savedChanges: z.boolean().optional(), canSaveChanges: z.boolean().optional(),
   archived: z.boolean(), branchOnly: z.boolean(), readOnly: z.boolean(), archivedAt: z.string().nullable(),
   lastActive: z.string().nullable(), blockers: z.array(z.string()), reasons: z.array(z.string()),
   bytes: z.number().nonnegative().nullable(), branchDeletable: z.boolean(),

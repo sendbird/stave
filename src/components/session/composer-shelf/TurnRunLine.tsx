@@ -146,7 +146,9 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
   });
   // A main loop blocked on its helpers says so instead of "Working".
   const label =
-    runKind === "waiting" && tone === "active" && activity
+    activity?.admission?.state === "queued"
+      ? i18n.t("fleet:taskActivity.waitingSlot", { count: activity.admission.ahead })
+      : runKind === "waiting" && tone === "active" && activity
       ? describeRunWaitLabel(resolveTurnWaitTarget(activity))
       : describeTurnRunLabel(tone, pendingInteraction);
   const headline = resolveTurnRunHeadline({

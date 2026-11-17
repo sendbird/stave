@@ -78,6 +78,7 @@ export async function runSupervisedTurn(args: {
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     prompt: args.prompt,
+    automaticStart: true,
     questionAnswer: args.questionAnswer,
     initialContext: args.initialContext,
     controlMode: args.parentTaskId ? "managed" : "interactive",

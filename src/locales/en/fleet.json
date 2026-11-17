@@ -258,7 +258,9 @@
     "ago": "{{activity}} · {{duration}} ago",
     "running": "Running for {{duration}}",
     "waiting": "Waiting for {{duration}}",
-    "quiet": "No updates for {{duration}}"
+    "quiet": "No updates for {{duration}}",
+    "waitingSlot_one": "Waiting for a free slot ({{count}} ahead)",
+    "waitingSlot_other": "Waiting for a free slot ({{count}} ahead)"
   },
   "runProgress": {
     "working": "Working",

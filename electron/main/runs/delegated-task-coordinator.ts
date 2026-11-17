@@ -251,6 +251,7 @@ export interface DelegateCaller {
 }
 
 interface DelegatedTaskCoordinatorDependencies {
+  admissionWait?: (args: { taskId: string; waiting: boolean }) => Promise<unknown>;
   canStopTask?: (args: { workspaceId: string; taskId: string }) => Promise<boolean>;
   dailyUsageLimit?: (providerId: "claude-code" | "codex") => Promise<string | null>;
   cancelTurnRoute?: (requestId: string) => Promise<unknown>;
@@ -1670,7 +1671,9 @@ export function createDelegatedTaskCoordinator(
     );
     const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
     if (!waitSeconds || !response.accepted || !response.child) return response;
-    return waitForAnswer(response, waitSeconds * 1_000);
+    await dependencies.admissionWait?.({ taskId: parentTaskId, waiting: true });
+    try { return await waitForAnswer(response, waitSeconds * 1_000); }
+    finally { await dependencies.admissionWait?.({ taskId: parentTaskId, waiting: false }); }
   };
 
   /**

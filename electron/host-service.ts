@@ -1,3 +1,5 @@
+import { createHostTurnAdmission } from "./host-service/turn-admission-host";
+import { TurnAdmissionWaitResultSchema } from "./host-service/turn-admission";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
 import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
@@ -13,7 +15,7 @@ import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
 import { currentProviderAccountId, withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
-import { createHostGatewayCredentialBroker, setHostGatewayCredentialBroker, type HostGatewayCredentialRequest } from "./provider-accounts/host-gateway-credentials";
+import { createHostGatewayCredentialBroker, setHostGatewayCredentialBroker, requestHostGatewayCredentials, type HostGatewayCredentialRequest } from "./provider-accounts/host-gateway-credentials";
 import { realpathSync } from "node:fs";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
@@ -133,6 +135,7 @@ import type {
 } from "./host-service/protocol";
 import {
   providerRuntime,
+  setProviderTurnAdmission,
   setAgentRunUserTurnResolver,
   setProviderDecisionAnsweredListener,
 } from "./providers/runtime";
@@ -604,6 +607,7 @@ const terminalRuntime = createTerminalRuntime({
   persistence: ensureHostServicePersistenceReady(),
 });
 const automationRuntime = createAutomationRuntime({
+  isQueuedTurn: turnId => hostTurnAdmission.isQueued(turnId),
   persistence: ensureHostServicePersistenceReady(),
   runTask: localMcpRuntime.runTask,
   getTaskStatus: localMcpRuntime.getTaskStatus,
@@ -1586,6 +1590,11 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     withRequestAccountScope(request.params, () => handleAccountRequest(request)));
 }
 
+const hostTurnAdmission = createHostTurnAdmission(ensureHostServicePersistenceReady());
+setProviderTurnAdmission(hostTurnAdmission.admission);
+const admissionRefreshTimer = setInterval(() => hostTurnAdmission.refresh(), 1000);
+admissionRefreshTimer.unref();
+
 const workspaceCleanupRuntime = createWorkspaceCleanupRuntime({ store: ensureHostServicePersistenceReady, hasTerminals: workspaceId => terminalRuntime.hasWorkspaceSessions(workspaceId), changed: event => emitEvent("workspace.cleanup-changed", event) });
 workspaceCleanupRuntime.start();
 const tarsBatchRuntime = createTarsBatchRuntime({
@@ -1609,6 +1618,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     await prepareCliExecutableDiscovery();
   }
   switch (request.method) {
+    case "turn-admission.wait":
+      await respond(request.id, TurnAdmissionWaitResultSchema.parse(await hostTurnAdmission.wait(request.params)));
+      return;
     case "service.get-resource-metrics": {
       const metrics = await readHostServiceResourceMetrics({
         ptyPids: terminalRuntime.listPtyPids(),
@@ -2358,16 +2370,6 @@ async function main() {
   });
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
-  automationRuntime.start();
-  wakeUpRuntime.start();
-  agentRunRuntime.start();
-  assignRuntime.start();
-  tarsRuntime.start();
-  // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
-  tarsPublisher.recover();
-  tarsPublisher.watcher.start();
-  // A schedule confirmation interrupted by the restart settles under its own request id; nothing is created twice.
-  void tarsScheduler.recover();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,
@@ -2464,6 +2466,30 @@ async function main() {
   // Announce readiness only once stdin is actually being consumed, so the first
   // request can never land before this process is able to read it.
   await writeMessage({ type: "ready" });
+  automationRuntime.start({ deferScheduling: true });
+  await hostTurnAdmission.recover(async (args, unattended) => {
+    const authorizationToken = unattended ? automationRuntime.authorizationForTurn(args.turnId!) : undefined;
+    if (unattended && !authorizationToken) throw new Error("Queued automation authorization could not be restored.");
+    const restored = { ...args, ...(authorizationToken ? { unattendedAutomation: { authorizationToken } } : {}) };
+    const response = await requestHostGatewayCredentials(restored.runtimeOptions ?? {});
+    if (!response) throw new Error("Queued turn account credentials could not be resolved.");
+    return withGatewayCredential(response.credentials, () => withRequestAccountScope(restored, () => {
+      if (args.admissionOwner === "host-task") return localMcpRuntime.resumeQueuedProviderTurn(restored);
+      return startPushProviderTurn(restored);
+    }));
+  });
+  automationRuntime.start();
+  wakeUpRuntime.start();
+  agentRunRuntime.start();
+  assignRuntime.start();
+  tarsRuntime.start();
+  // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
+  tarsPublisher.recover();
+  tarsPublisher.watcher.start();
+  // A schedule confirmation interrupted by the restart settles under its own request id; nothing is created twice.
+  void tarsScheduler.recover();
+
+
 }
 
 void main().catch((error) => {

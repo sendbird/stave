@@ -73,10 +73,16 @@ no branch is available, only the label appears.
 
 ### Archived shelf
 
+Archives created with **Save uncommitted changes and archive** retain staged,
+unstaged and untracked files. Open **Clean up workspaces** to see the **Saved
+changes** marker and restore them. Restore refuses occupied destinations;
+permanent deletion removes the saved archive reference. A saved archive can
+recreate its deleted branch and skips initialization commands during restore.
+
 The Repositories view includes an **Archived** shelf. Archived workspaces are
 absent from the active tree, queue and Fleet, but keep their task history. Use
 **Restore** to recreate the worktree from its retained branch. If the branch
-is gone, read the history without execution and create a new workspace from
+is gone and there are no saved changes, read the history without execution and create a new workspace from
 it when needed. Repository menus also open **Clean up workspaces**, which
 covers every registered repository and provides the same restore actions.
 

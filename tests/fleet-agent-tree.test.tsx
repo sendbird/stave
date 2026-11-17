@@ -412,3 +412,11 @@ describe("the Tree layout setting", () => {
     expect(state.settings.fleetBoardLayout).toBe("tree");
   });
 });
+
+test("queued provider turns show a queued Fleet card with their position", () => {
+  const live = { ...activity([]), admission: { state: "queued" as const, ahead: 3 } };
+  const facts = buildFleetAgentFacts({ activity: live, messages: undefined });
+  const main = buildMainAgent(row(), facts);
+  expect(main.status).toBe("queued");
+  expect(main.task).toContain("3");
+});

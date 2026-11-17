@@ -591,11 +591,14 @@ export function FleetWorkspaceCard(args: {
         ) : (
           <ul className={sx(styles.list)}>
             {visibleRows.map((row) => {
-              const state = fleetStatusToWorkState(row.status);
+              const queued = liveActivity(row)?.admission;
+              const state = queued?.state === "queued" ? "queued" : fleetStatusToWorkState(row.status);
               // A quiet turn keeps the working glyph, but its word is
               // the attention kind's: it has stopped reporting, not halted.
               const statusLabel =
-                row.status === "stalled"
+                queued?.state === "queued"
+                  ? tI18n("fleet:taskActivity.waitingSlot", { count: queued.ahead })
+                  : row.status === "stalled"
                   ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]
                   : WORK_STATE[state].label;
               const taskKey = taskKeyFor(row.task.id);

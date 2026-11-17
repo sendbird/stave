@@ -1379,7 +1379,7 @@
     "summary": "{{done}}개 완료, {{skipped}}개 건너뜀.",
     "archived": "보관됨",
     "selectReady": "정리 가능한 항목 모두 선택",
-    "archiveConfirm": "변경 사항이 없는 워크트리를 제거하고 브랜치, 작업, 메시지와 기록은 유지합니다. 보관한 워크스페이스는 복원할 수 있습니다.",
+    "archiveConfirm": "작업 트리를 제거하고 브랜치, 작업, 메시지와 기록은 유지합니다. 변경 파일을 저장하려면 아래 옵션을 선택하세요. 보관한 워크스페이스는 복원할 수 있습니다.",
     "deleteConfirm": "선택한 워크스페이스와 모든 작업, 메시지, 턴 및 이벤트를 영구 삭제합니다. 변경 사항이 없는 워크트리를 제거합니다. 아래에서 선택하지 않으면 브랜치는 유지합니다. 이 작업은 되돌릴 수 없습니다.",
     "branchConfirm": "선택한 브랜치를 삭제합니다. 강제 삭제를 직접 허용하지 않으면 병합되지 않은 브랜치는 삭제하지 않습니다.",
     "alsoDeleteBranch": "삭제 가능한 브랜치도 삭제",
@@ -1445,13 +1445,23 @@
       "dependencyLinkFailed": "의존성 링크를 복원하지 못했습니다",
       "pendingAttention": "확인 대기 중",
       "openTerminal": "열린 터미널을 닫아 주세요",
-      "workspacePreparationFailed": "워크스페이스 초기화에 실패했습니다. 복원으로 다시 시도해 주세요."
+      "workspacePreparationFailed": "워크스페이스 초기화에 실패했습니다. 복원으로 다시 시도해 주세요.",
+      "savedChangesGitFailed": "변경 사항을 저장하지 못했습니다",
+      "savedChangesVerificationFailed": "저장된 변경 사항을 확인하지 못했습니다",
+      "savedChangesInvalidRef": "저장된 변경 사항 참조가 유효하지 않습니다",
+      "savedChangesSubmoduleUnsupported": "하위 모듈이 있는 작업 트리는 변경 사항을 저장해 보관할 수 없습니다",
+      "savedChangesChangedDuringSave": "저장 중에 파일이 변경되었습니다. 다시 시도하세요",
+      "savedChangesRestoreConflict": "기존 파일과 충돌하여 복원을 중단했습니다",
+      "savedChangesUnavailable": "저장된 변경 사항을 불러올 수 없습니다"
     },
     "historyTitle": "읽기 전용 워크스페이스 기록",
     "historyDescription": "브랜치를 찾을 수 없습니다. 기록은 유지됩니다. 계속 작업하려면 새 워크스페이스를 만드세요.",
     "createFromHistory": "이 기록에서 워크스페이스 만들기",
     "workspaceUnavailable": "이전 워크스페이스",
     "preparing": "워크스페이스 준비 중: {{command}}",
-    "archiveRefusedWithReason": "워크스페이스를 보관하지 못했습니다: {{reason}}."
+    "archiveRefusedWithReason": "워크스페이스를 보관하지 못했습니다: {{reason}}.",
+    "savedChanges": "저장된 변경 사항",
+    "saveChanges": "커밋하지 않은 변경 사항을 저장하고 보관",
+    "saveChangesDescription": "스테이징 여부와 관계없이 변경 파일과 추적하지 않는 파일을 보관합니다. 무시된 파일은 제외하며 복원할 경로에 파일이 있으면 충돌을 알리고 중단합니다."
   }
 }

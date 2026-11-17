@@ -1190,6 +1190,10 @@
       "density": {
         "title": "Density",
         "description": "Regular or compact rows, controls and spacing across the app."
+      },
+      "globalTurnLimit": {
+        "title": "Global agent turn limit",
+        "description": "Limit concurrent turns across all tasks."
       }
     },
     "accounts": {

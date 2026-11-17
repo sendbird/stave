@@ -1,3 +1,4 @@
+import { TurnAdmissionPreview } from "./turn-admission-preview";
 import { WorkspaceCleanupHost } from "@/components/layout/WorkspaceCleanupDialog";
 import { installCleanupFixture } from "./cleanup-fixture";
 import { normalizeAppLocale } from "@/i18n";
@@ -130,5 +131,6 @@ export function CommandPalettePreview() {
     } as Partial<ReturnType<typeof useAppStore.getState>>);
     setReady(true);
   }, [theme, builtinTheme]);
+  if (ready && params.has("turnCapPreview")) return <TurnAdmissionPreview />;
   return ready ? <><GlobalCommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} runtimeContext={context} /><WorkspaceCleanupHost /></> : null;
 }

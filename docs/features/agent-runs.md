@@ -835,3 +835,17 @@ of pausing again. While the Run is active, the task's own
 [wake-ups](wake-ups.md) stay paused (`agent-run-active`): the Run owns the
 task's automatic turns, and anything to do after the Run ends belongs in a
 check-back or a start-a-task schedule.
+
+
+## Global turn limit
+
+In Settings → Providers, **Run at most N agent turns at once** is off by
+default. Enable it to choose 1–16 concurrent provider turns across all tasks.
+Manual messages have priority over automatic starts; starts of equal priority
+keep their arrival order. Existing helper and automation limits still apply.
+A queued task and Fleet show **Waiting for a free slot** and the number ahead.
+Stop or cancel removes its pending start. The host saves pending starts for
+restart recovery and counts active turns from the current runtime.
+
+A parent waiting for delegated children releases its slot and acquires a slot
+again before continuing, so a limit of one does not block its children.

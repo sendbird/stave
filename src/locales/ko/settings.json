@@ -1180,6 +1180,10 @@
       "density": {
         "title": "밀도",
         "description": "앱 전체의 행, 컨트롤, 간격을 기본 또는 촘촘하게 표시합니다."
+      },
+      "globalTurnLimit": {
+        "title": "전체 에이전트 동시 실행 제한",
+        "description": "모든 작업에서 동시에 실행할 턴 수를 제한합니다."
       }
     },
     "accounts": {

@@ -1715,6 +1715,7 @@ async function runTaskImpl(args: {
   parentTaskId?: string;
   provider?: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
+  automaticStart?: boolean;
   unattendedAutomation?: {
     authorizationToken: string;
   };
@@ -2050,6 +2051,8 @@ async function runTaskImpl(args: {
     {
       turnId,
       providerId: provider,
+      admissionOwner: "host-task",
+      admissionPriority: args.automaticStart || args.agentRunStage || args.unattendedAutomation || args.spawnedBy || args.parentTaskId ? "automatic" : "user",
       prompt: args.prompt,
       conversation,
       taskId: task.id,
@@ -2683,5 +2686,29 @@ export async function listKnownRepositories() {
       workspaceDefaultById: repository.workspaceDefaultById,
     }),
     workspaces: toWorkspaceList(repository),
+  }));
+}
+
+
+/** Reattach a durable queued turn without adding its already-persisted prompt again. */
+export async function resumeQueuedProviderTurn(args: import("../providers/types").StreamTurnArgs) {
+  if (!args.workspaceId || !args.taskId || !args.turnId) throw new Error("Queued host turn has no task identity.");
+  const { workspaceId, taskId, turnId } = args;
+  const session = await loadWorkspaceSession(workspaceId);
+  const task = session.tasks.find(row => row.id === taskId);
+  if (!task || session.activeTurnIdsByTask[taskId] !== turnId) return;
+  const model = args.runtimeOptions?.model ?? "default";
+  const provider = args.providerId;
+  const workspaceName = workspaceId;
+  let sequence = 0;
+  hostTaskSteers.startTurn({ turnId, workspaceId, workspaceName, taskId, provider, model }, () => providerRuntime.startTurnStream(args, {
+    onEvent(event) {
+      const eventSequence = ++sequence;
+      void workspaceProviderEventQueue.enqueue(workspaceId, async () => {
+        await handleProviderEvent({ workspaceId, workspaceName, taskId, provider, model, turnId, sequence: eventSequence, event });
+        if (event.type === "done") hostTaskSteers.unregister(turnId);
+        emitTaskTurnUpdate({ workspaceId, taskId, turnId, providerId: provider, model, sequence: eventSequence, eventType: event.type, done: event.type === "done" });
+      });
+    },
   }));
 }

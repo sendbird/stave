@@ -56,6 +56,9 @@ export function FleetTaskActivityLine(props: {
   const live = Boolean(props.activity && props.activity.completedAt == null);
   const now = useNow(live, ACTIVITY_CLOCK_MS);
   const line = buildTaskActivityLine({ activity: props.activity, now });
+  if (props.activity?.admission?.state === "queued") {
+    return <span className={sx(styles.line, props.xstyle)} data-fleet-activity-line="">{i18n.t("fleet:taskActivity.waitingSlot", { count: props.activity.admission.ahead })}</span>;
+  }
   if (!line) {
     return null;
   }

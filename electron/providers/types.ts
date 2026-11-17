@@ -41,6 +41,9 @@ export interface ProviderCommandCatalogResult {
 }
 
 export interface StreamTurnArgs {
+  /** Host-only ordering; never accepted from renderer IPC. */
+  admissionPriority?: "user" | "automatic";
+  admissionOwner?: "host-task";
   /** Minted inside the host runtime; excluded from renderer IPC and prompts. */
   staveTurnGrants?: StaveTurnGrants;
   turnId?: string;
@@ -321,6 +324,11 @@ export type BridgeEvent =
       toolUseId: string;
       toolName: string;
       elapsedSeconds: number;
+    }
+  | {
+      type: "turn_admission";
+      state: "queued" | "running";
+      ahead: number;
     }
   | {
       type: "system";

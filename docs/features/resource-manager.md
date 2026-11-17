@@ -65,8 +65,8 @@ items and their reasons; one failure does not cancel the rest. Archive has Undo.
 
 Archive removes a clean managed worktree and preserves its branch and all
 conversation history. It removes the workspace from the sidebar and Fleet.
-Restore recreates the worktree when the branch exists. Otherwise it opens
-read-only history and offers to create a new workspace with a draft based on
+Restore recreates the worktree when the branch exists. With no saved changes,
+a missing branch opens read-only history and offers to create a new workspace with a draft based on
 that history. Archiving a linked workspace removes only its saved link and
 registry entry, preserving the external worktree and branch. Restore reapplies
 the saved dependency link and initialization command; progress and failures
@@ -74,6 +74,18 @@ are shown in the center. For older workspaces without saved creation options,
 it uses the observed dependency link and the current repository initialization
 command. The Archived shelf reads saved records without running
 repository inspections.
+
+For a dirty managed worktree with no other blockers, select its row and choose
+**Archive**. The confirmation offers **Save uncommitted changes and archive**,
+off by default. Choosing it preserves staged changes, unstaged changes and
+untracked files on a hidden archive reference without moving the branch. Ignored
+files are excluded. **Saved changes** marks the archived row. Restore recreates
+those files and the staged state; if the destination already contains files,
+it stops and reports a conflict rather than overwriting them. Saving must succeed
+before the checkout is removed. Permanent deletion also removes the saved
+reference. A deleted branch can be recreated from saved changes. Restoring saved
+changes skips the initialization command to preserve the restored files.
+Automatic cleanup never enables this option.
 
 Permanent deletion confirms removal of history and the clean worktree in a
 separate dialog. Cancel receives initial focus, Escape closes only that dialog,

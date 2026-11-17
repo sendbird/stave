@@ -77,6 +77,7 @@ export const AgentRouteSettingsSchema = z
       .strict()
       .nullable(),
     /** The helper limits a starting Agent run freezes; absent uses the defaults (`TEAM_LIMITS`). */
+    globalAgentTurnLimit: z.number().int().min(1).max(16).nullable().optional(),
     teamLimits: z
       .object({ concurrentHelpers: z.number().int(), totalHelpers: z.number().int() })
       .strict()

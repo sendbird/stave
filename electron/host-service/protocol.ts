@@ -633,6 +633,7 @@ export interface HostServiceRequestMap {
     streamId: string;
     cursor: number;
   };
+  "turn-admission.wait": { taskId: string; waiting: boolean };
   "provider.abort-turn": {
     turnId: string;
   };
@@ -1150,6 +1151,7 @@ export interface HostServiceResponseMap {
   "provider.start-push-turn": HostProviderStartPushTurnResult;
   "provider.read-stream-turn": HostProviderReadStreamResult;
   "provider.ack-stream-turn": HostProviderMutationResult;
+  "turn-admission.wait": { ok: true };
   "provider.abort-turn": HostProviderMutationResult;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
