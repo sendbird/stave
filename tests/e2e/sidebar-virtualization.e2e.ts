@@ -1,4 +1,7 @@
 import { mkdir } from "node:fs/promises";
+
+// Screenshots are written only on request, never in the CI gate.
+const artifacts = process.env.FLEET_SCALE_ARTIFACTS ?? null;
 import { expect, test } from "@playwright/test";
 
 test("workspace lists keep bounded rows and navigate across offscreen repository boundaries", async ({ page }) => {
@@ -31,7 +34,7 @@ test("workspace lists keep bounded rows and navigate across offscreen repository
   const sidebar = page.getByTestId("project-workspace-sidebar");
   const rows = sidebar.locator("[data-workspace-row-focus]");
   await expect(rows.first()).toBeVisible();
-  await mkdir("/tmp/gap-h4", { recursive: true });
+  if (artifacts) await mkdir(artifacts, { recursive: true });
   for (const [language, theme] of [["en", "light"], ["ko", "dark"]] as const) {
     for (const width of [1440, 1024]) {
       await page.setViewportSize({ width, height: 900 });
@@ -44,7 +47,7 @@ test("workspace lists keep bounded rows and navigate across offscreen repository
       }, { language, theme });
       await expect(page.locator("html")).toHaveClass(theme === "dark" ? /dark/ : /^(?!.*\bdark\b).*$/);
       await expect(rows.first()).toBeVisible();
-      await sidebar.screenshot({ path: `/tmp/gap-h4/sidebar-${process.env.GAP_H4_STAGE ?? "after"}-${language}-${theme}-${width}.png` });
+      if (artifacts) await sidebar.screenshot({ path: `${artifacts}/sidebar-${language}-${theme}-${width}.png` });
     }
   }
   await page.evaluate(async () => {
@@ -54,7 +57,7 @@ test("workspace lists keep bounded rows and navigate across offscreen repository
   await page.setViewportSize({ width: 1440, height: 900 });
   const expand = page.getByRole("button", { name: "Expand project list", exact: true });
   if (await expand.isVisible()) await expand.click();
-  await expect.poll(() => rows.count()).toBeLessThan(150);
+  await expect.poll(() => rows.count()).toBeLessThan(66);
   console.log(`sidebar project rows: ${await rows.count()}`);
   await rows.first().focus();
   await page.keyboard.press("End");
@@ -63,7 +66,7 @@ test("workspace lists keep bounded rows and navigate across offscreen repository
   await expect(sidebar.locator('[data-workspace-item="scale-1-0"] [data-workspace-row-focus]')).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(sidebar.locator('[data-workspace-item="scale-1-1"] [data-workspace-row-focus]')).toBeFocused();
-  await expect.poll(() => rows.count()).toBeLessThan(150);
+  await expect.poll(() => rows.count()).toBeLessThan(66);
   await expect(sidebar.locator('[data-sidebar-virtual-index="1"]').first()).toHaveAttribute("aria-setsize", "200");
 
   const second = sidebar.locator('[data-workspace-item="scale-1-1"] [data-workspace-row-focus]');
@@ -84,7 +87,7 @@ test("workspace lists keep bounded rows and navigate across offscreen repository
   await sidebar.getByTestId("sidebar-view-work-queue").click();
   const queueRows = sidebar.locator("[data-workspace-row-focus]");
   await expect(queueRows.first()).toBeVisible();
-  await expect.poll(() => queueRows.count()).toBeLessThan(150);
+  await expect.poll(() => queueRows.count()).toBeLessThan(66);
   console.log(`sidebar queue rows: ${await queueRows.count()}`);
   await queueRows.first().focus();
   await page.keyboard.press("End");
@@ -96,6 +99,6 @@ test("workspace lists keep bounded rows and navigate across offscreen repository
   await sidebar.locator('[data-workspace-row-focus]').first().focus();
   await page.keyboard.press("End");
   await expect(sidebar.getByTestId("collapsed-workspace-scale-0-199")).toBeFocused();
-  await expect.poll(() => rows.count()).toBeLessThan(150);
+  await expect.poll(() => rows.count()).toBeLessThan(66);
 
 });

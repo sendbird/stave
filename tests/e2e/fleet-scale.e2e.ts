@@ -4,7 +4,13 @@ import { seedFleetScale } from "./fleet-scale.fixture";
 
 const baseline = process.env.FLEET_SCALE_BASELINE === "1";
 const phase = baseline ? "before" : "after";
-const output = `/tmp/gap-h4/${phase}`;
+// Measurement files and screenshots are written only on request, never in the CI gate.
+const artifacts = process.env.FLEET_SCALE_ARTIFACTS ? `${process.env.FLEET_SCALE_ARTIFACTS}/${phase}` : null;
+
+// Budgets: about 3x the values measured on the PR's shared CI runners
+// (docs/developer/fleet-scale.md), so a real regression fails while runner
+// noise does not. Mounted rows are deterministic: the viewport plus overscan.
+const BUDGET = { renderedRows: 66, treeCards: 25, firstRenderMs: 7_500, scrollFrameMs: 450 };
 
 for (const [language, theme] of [["en", "light"], ["ko", "dark"]] as const) {
   for (const width of [1440, 1024]) {
@@ -46,7 +52,6 @@ for (const [language, theme] of [["en", "light"], ["ko", "dark"]] as const) {
         await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
         return performance.now() - start;
       });
-      await mkdir(output, { recursive: true });
       const measurements = {
         phase, language, theme, width, tasks: 2000, workspaces: 40, repositories: 8,
         renderedRows, firstRenderMs, scrollFrameMs: frameMs,
@@ -54,18 +59,19 @@ for (const [language, theme] of [["en", "light"], ["ko", "dark"]] as const) {
         heapBytes: metric(after, "JSHeapUsedSize"),
       };
       console.log(JSON.stringify(measurements));
-      await writeFile(`${output}/${language}-${theme}-${width}.json`, JSON.stringify(measurements, null, 2));
-      await page.screenshot({ path: `${output}/${language}-${theme}-${width}.png`, fullPage: true, animations: "disabled" });
+      if (artifacts) {
+        await mkdir(artifacts, { recursive: true });
+        await writeFile(`${artifacts}/${language}-${theme}-${width}.json`, JSON.stringify(measurements, null, 2));
+        await page.screenshot({ path: `${artifacts}/${language}-${theme}-${width}.png`, fullPage: true, animations: "disabled" });
+      }
       if (baseline) {
-        if (process.env.FLEET_SCALE_ENFORCE_BOUNDS === "1") expect(renderedRows).toBeLessThan(150);
+        if (process.env.FLEET_SCALE_ENFORCE_BOUNDS === "1") expect(renderedRows).toBeLessThan(BUDGET.renderedRows);
         return;
       }
 
-      // CI includes cold development module compilation. Budgets intentionally
-      // leave room for shared runners while catching unbounded rendering.
-      expect(renderedRows).toBeLessThan(150);
-      expect(firstRenderMs).toBeLessThan(30_000);
-      expect(frameMs).toBeLessThan(1000);
+      expect(renderedRows).toBeLessThan(BUDGET.renderedRows);
+      expect(firstRenderMs).toBeLessThan(BUDGET.firstRenderMs);
+      expect(frameMs).toBeLessThan(BUDGET.scrollFrameMs);
       await rows.first().getByRole("button").last().focus();
       await page.keyboard.press("Home");
       await expect.poll(() => page.evaluate(async () => {
@@ -90,7 +96,7 @@ for (const [language, theme] of [["en", "light"], ["ko", "dark"]] as const) {
         const { useFleetSelectionStore } = await import("/src/store/fleet-selection-store.ts");
         return useFleetSelectionStore.getState().selectedKeys.size;
       })).toBe(2000);
-      await expect.poll(() => rows.count()).toBeLessThan(150);
+      await expect.poll(() => rows.count()).toBeLessThan(BUDGET.renderedRows);
       await client.detach();
     });
   }
@@ -108,7 +114,9 @@ test("Fleet tree keeps 2,000 logical tasks reachable with bounded cards", async 
   })).toBe(2000);
   const cards = page.locator("[data-agent-fleet-card]");
   await expect(cards.first()).toBeVisible();
-  expect(await cards.count()).toBeLessThan(150);
+  const mountedCards = await cards.count();
+  console.log(JSON.stringify({ mountedCards }));
+  expect(mountedCards).toBeLessThan(BUDGET.treeCards);
   await cards.first().focus();
   await page.keyboard.press("End");
   await expect.poll(() => page.evaluate(async () => {
@@ -121,7 +129,7 @@ test("Fleet tree keeps 2,000 logical tasks reachable with bounded cards", async 
     const { useFleetSelectionStore } = await import("/src/store/fleet-selection-store.ts");
     return useFleetSelectionStore.getState().selectedKeys.size;
   })).toBe(2000);
-  expect(await cards.count()).toBeLessThan(150);
+  expect(await cards.count()).toBeLessThan(BUDGET.treeCards);
 });
 
 
@@ -133,15 +141,20 @@ test("grouped table keeps group controls sticky and exposes logical row counts",
   await page.getByRole("radiogroup", { name: "Group tasks" }).getByRole("radio", { name: "Repository", exact: true }).click();
   const table = page.locator("[data-fleet-task-table] table");
   await expect(table).toHaveAttribute("aria-rowcount", "2009");
-  const scroller = page.locator("[data-fleet-task-table] [data-virtuoso-scroller]");
+  // The table frame is its own scroller.
+  const scroller = page.locator("[data-fleet-task-table]");
   await scroller.evaluate(element => { element.scrollTop = element.scrollHeight / 2; });
-  const group = table.locator("thead").getByRole("checkbox", { name: /^Repository 4 \(300\)/ });
+  // The sticky group row of the first visible row carries the group's only control.
+  const group = page.locator('[data-fleet-task-table-group] [role=checkbox][aria-label^="Repository 4 (300)"]');
+  await expect(group).toHaveCount(1);
   await expect(group).toBeVisible();
   const bounds = await scroller.boundingBox();
   const header = await table.locator("thead").boundingBox();
   expect(Math.abs(header!.y - bounds!.y)).toBeLessThanOrEqual(2);
   expect(header!.y + header!.height).toBeLessThan(bounds!.y + bounds!.height);
-  expect(await page.locator("[data-fleet-task-table-row]").count()).toBeLessThan(150);
+  const groupBox = await group.boundingBox();
+  expect(groupBox!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1);
+  expect(await page.locator("[data-fleet-task-table-row]").count()).toBeLessThan(BUDGET.renderedRows);
   await expect.poll(() => page.locator("[data-fleet-task-table-row]").first().getAttribute("aria-rowindex").then(Number)).toBeGreaterThan(900);
   await group.click();
   await expect.poll(() => page.evaluate(async () => (await import("/src/store/fleet-selection-store.ts")).useFleetSelectionStore.getState().selectedKeys.size)).toBe(300);
