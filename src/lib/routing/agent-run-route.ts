@@ -76,8 +76,9 @@ export const AgentRouteSettingsSchema = z
       .object({ "claude-code": ClassifierContextSchema.optional(), codex: ClassifierContextSchema.optional() })
       .strict()
       .nullable(),
-    /** The helper limits a starting Agent run freezes; absent uses the defaults (`TEAM_LIMITS`). */
+    /** Most agent turns running at once across Stave (1–16); null or absent runs every turn without waiting. */
     globalAgentTurnLimit: z.number().int().min(1).max(16).nullable().optional(),
+    /** The helper limits a starting Agent run freezes; absent uses the defaults (`TEAM_LIMITS`). */
     teamLimits: z
       .object({ concurrentHelpers: z.number().int(), totalHelpers: z.number().int() })
       .strict()
