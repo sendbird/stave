@@ -1,3 +1,4 @@
+import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
 import type { ApprovalResolvedEvent, ApprovalRisk } from "../../src/lib/approvals/approval-resolution";
 import type { CodexApprovalsAppliedEvent } from "../../src/lib/providers/codex-runtime-options";
@@ -41,6 +42,9 @@ export interface ProviderCommandCatalogResult {
 }
 
 export interface StreamTurnArgs {
+  /** Host-only ordering; never accepted from renderer IPC. */
+  admissionPriority?: "user" | "automatic";
+  admissionOwner?: "host-task";
   /** Minted inside the host runtime; excluded from renderer IPC and prompts. */
   staveTurnGrants?: StaveTurnGrants;
   turnId?: string;
@@ -323,6 +327,11 @@ export type BridgeEvent =
       elapsedSeconds: number;
     }
   | {
+      type: "turn_admission";
+      state: "queued" | "running";
+      ahead: number;
+    }
+  | {
       type: "system";
       content: string;
       compactBoundary?: {
@@ -421,5 +430,7 @@ export interface ProviderRuntime {
   getConnectedToolStatus: (
     args: ConnectedToolStatusRequest,
   ) => Promise<ConnectedToolStatusResponse>;
+  /** Turns this host process still runs, with the process boot time. */
+  listLiveTurns: () => ProviderLiveTurns;
   shutdown: () => Promise<void>;
 }

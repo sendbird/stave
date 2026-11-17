@@ -137,8 +137,17 @@ test.describe("transcript column", () => {
     // state in which an opening trace used to be pulled down after.
     await page.locator('[data-message-id="a1"]').evaluate((element) => element.scrollIntoView({ block: "start" }));
     await page.waitForTimeout(400);
-    const before = (await trigger.boundingBox())!.y;
+    // Native clicks can scroll an offscreen target into view first. Measure
+    // where the pointer actually pressed, before the disclosure opens.
+    await trigger.evaluate((element) => {
+      element.addEventListener("pointerdown", () => {
+        element.dataset.traceClickY = String(element.getBoundingClientRect().y);
+      }, { once: true });
+    });
     await trigger.click();
+    const clickedY = await trigger.getAttribute("data-trace-click-y");
+    expect(clickedY).not.toBeNull();
+    const before = Number(clickedY);
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
     const samples: number[] = [];
     for (let frame = 0; frame < 10; frame += 1) {

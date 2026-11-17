@@ -1,3 +1,4 @@
+import { TarsCleanupEntry } from "./TarsBatchCard";
 import { DailyLimitSettingsLink } from "@/components/usage/DailyLimits";
 import { ReportArtifactLink } from "@/components/agent-runs/ReportArtifactLink";
 import { isLocalPreviewUrl, savedHtmlReference } from "@/lib/agent-runs/artifacts";
@@ -84,9 +85,10 @@ export interface TarsTrayClearing {
 function TarsLaneTools({ scope, clearing }: { scope: "done" | "outputs"; clearing: TarsTrayClearing }) {
   const { t } = useTranslation(["shell"]);
   const lane = clearing[scope];
-  if (!lane.clearable && !lane.onUndo) return null;
+  if (!lane.clearable && !lane.onUndo && !(scope === "done" && typeof window !== "undefined" && window.api?.tars?.batch)) return null;
   const label = t(scope === "done" ? "shell:tars.clear.lane.clearDone" : "shell:tars.clear.lane.clearOutputs");
   return <div className={sx(clearStyles.laneActions)} data-tars-lane-tools={scope}>
+    {scope === "done" ? <TarsCleanupEntry /> : null}
     {lane.onUndo ? <Button variant="ghost" size="xs" disabled={clearing.busy} data-tars-lane-undo={scope} onClick={lane.onUndo}>{t("shell:tars.clear.undo")}</Button> : null}
     {lane.clearable ? <Button variant="ghost" size="xs" disabled={clearing.busy} aria-label={label} title={label} data-tars-lane-clear={scope}
       onClick={() => clearing.onClear(scope)}>{t("shell:tars.clear.lane.clear")}</Button> : null}

@@ -48,7 +48,7 @@ function installWindow(tars?: TarsBridgeApi) {
 }
 
 /** Every Stop entry point calls this store action; it is the one place a stop could cancel a run. */
-const stop = () => useAppStore.getState().abortTaskTurn({ taskId: "task-1" });
+const stop = () => useAppStore.getState().abortTaskTurn({ taskId: "task-1", cascade: true });
 const turnStopped = () => abortedTurns.length === 1 && useAppStore.getState().activeTurnIdsByTask["task-1"] === undefined;
 
 beforeEach(() => {
@@ -72,6 +72,8 @@ describe("Stop on a task whose run Tars holds", () => {
     const host = tarsHostBridge();
     try {
       installWindow(host.bridge);
+      const childStops: string[] = [];
+      window.api.taskControl = {stopChildren:async()=>{childStops.push("children");return {ok:false,stopped:0,skipped:[],reason:"owner-managed"};}};
       stop();
       await settle(turnStopped);
       await host.runtime.drain();
@@ -79,6 +81,7 @@ describe("Stop on a task whose run Tars holds", () => {
       expect(host.runControls).toEqual(["pause"]);
       expect(host.store.get(host.row.id)?.state).toBe("paused");
       expect(cancels).toEqual([]);
+      expect(childStops).toEqual([]);
       expect(abortedTurns).toEqual(["turn-1"]);
       const records = TarsConversationSchema.parse({ settings: null, activity: [], messages: [], receipts: [], records: host.conversations.listActions() }).records;
       expect(records.map((record) => [record.source, record.status, record.action.operation])).toEqual([["task", "applied", "pause"]]);
@@ -207,12 +210,12 @@ describe("Stop when Tars refuses, cannot be asked, or no longer owns the run", (
 describe("every Stop entry point goes through the store's Stop", () => {
   const read = (path: string) => Bun.file(new URL(`../${path}`, import.meta.url)).text();
   test.each([
-    ["composer Stop", "src/components/session/ChatInputComposer.tsx", "onAbort={() => abortTaskTurn({ taskId: args.activeTaskId })}"],
-    ["Esc keybinding", "src/components/layout/useAppKeybindings.ts", "store().abortTaskTurn({ taskId: store().activeTaskId })"],
-    ["command palette", "src/components/layout/AppShell.tsx", "stopActiveTurn: () => abortTaskTurn({ taskId: activeTaskId })"],
-    ["review status line", "src/components/review/ReviewTaskStatusLine.tsx", "useAppStore.getState().abortTaskTurn({ taskId })"],
-    ["composer shelf", "src/components/session/composer-shelf/ComposerShelf.tsx", "const onStop = useCallback(() => abortTaskTurn({ taskId })"],
-    ["run line", "src/components/agent-runs/useAgentRunActions.ts", "onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId })"],
+    ["composer Stop", "src/components/session/ChatInputComposer.tsx", "onAbort={() => abortTaskTurn({ taskId: args.activeTaskId, cascade: true })}"],
+    ["Esc keybinding", "src/components/layout/useAppKeybindings.ts", "store().abortTaskTurn({ taskId: store().activeTaskId, cascade: true })"],
+    ["command palette", "src/components/layout/AppShell.tsx", "stopActiveTurn: () => abortTaskTurn({ taskId: activeTaskId, cascade: true })"],
+    ["review status line", "src/components/review/ReviewTaskStatusLine.tsx", "useAppStore.getState().abortTaskTurn({ taskId, cascade: true })"],
+    ["composer shelf", "src/components/session/composer-shelf/ComposerShelf.tsx", "const onStop = useCallback(() => abortTaskTurn({ taskId, cascade: true })"],
+    ["run line", "src/components/agent-runs/useAgentRunActions.ts", "onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId, cascade: true })"],
   ])("%s", async (_name, path, call) => {
     const source = await read(path);
     expect(source).toContain(call);

@@ -1,3 +1,4 @@
+import { WorkspaceCleanupHost } from "./WorkspaceCleanupDialog";
 import { i18n, useTranslation } from "@/i18n";
 import { STAVE_OPEN_MODEL_SELECTOR_EVENT, requestSettingsFocus } from "@/lib/providers/accounts-navigation";
 import { WorkspaceWelcome } from "./WorkspaceWelcome";
@@ -911,7 +912,7 @@ export function AppShell() {
           setLayout({
             patch: { sidebarOverlayVisible: true, sidebarOverlayTab: tab },
           }),
-        stopActiveTurn: () => abortTaskTurn({ taskId: activeTaskId }),
+        stopActiveTurn: () => abortTaskTurn({ taskId: activeTaskId, cascade: true }),
         toggleTaskReview: () => toggleTaskReview(activeTaskId),
         askSideQuestion: () => openTaskSideQuestion(activeTaskId),
         switchWorkspace: (workspaceId: string) =>
@@ -1078,6 +1079,7 @@ export function AppShell() {
         onOpenChange={setCommandPaletteOpen}
         runtimeContext={commandPaletteContext}
       />
+      <WorkspaceCleanupHost />
       <TaskStatusAnnouncer />
       {shortcutsOpen ? (
         <Suspense

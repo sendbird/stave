@@ -126,6 +126,18 @@ afterEach(() => {
 });
 
 describe("a send waiting on the Auto classifier", () => {
+  test("explicit user Stop also stops existing children while cancelling pending classification", async () => {
+    const useAppStore = await seedStore();
+    const send = useAppStore.getState().sendUserMessage({taskId:TASK_ID,content:PROMPT});
+    await classifierStarted;
+    let childStops = 0;
+    window.api.taskControl = {stopChildren:async()=>{childStops++;return {ok:true,stopped:1,skipped:[]};}};
+    await useAppStore.getState().abortTaskTurn({taskId:TASK_ID,cascade:true});
+    expect(await send).toEqual({status:"blocked"});
+    expect(childStops).toBe(1);
+    expect(startedTurns).toBe(0);
+  });
+
   test("shows the prompt as a pending row, and Stop puts it back in the composer", async () => {
     const useAppStore = await seedStore();
     const send = useAppStore

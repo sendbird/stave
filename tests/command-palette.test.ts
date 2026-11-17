@@ -643,3 +643,14 @@ describe("command palette registry", () => {
     ).toBe(false);
   });
 });
+
+
+test("discovery commands remain available without developer mode", () => {
+  const context = createContext();
+  const actions = buildCommandPaletteGroups(context).flatMap((group) => group.items);
+  for (const id of ["navigation.resources", "navigation.secret-requests", "navigation.pr-check-back", "workspaces.cleanup", "navigation.fleet-view", "navigation.agents", "navigation.results", "task.compare-providers"]) {
+    const action = actions.find((item) => item.id === id);
+    expect(action, id).toBeDefined();
+    expect(action?.subtitle, id).toBeTruthy();
+  }
+});

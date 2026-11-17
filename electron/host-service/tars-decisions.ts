@@ -408,6 +408,10 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         receipts.push(ports.conversations.getReceipt(message.id, index)!);
         continue;
       }
+      if (action.kind === "bulkControl" || action.kind === "cleanup") {
+        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision, { status: "proposed" }, now()));
+        continue;
+      }
       if (action.kind === "clear") {
         // Clearing is never applied from words: the proposal waits for the user's confirmation
         // on its card, which takes the same clear path as the tray and header buttons.

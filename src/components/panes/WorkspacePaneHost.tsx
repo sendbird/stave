@@ -1,3 +1,4 @@
+import { changeTaskReadState } from "@/components/session/TaskReadIndicator";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/aui/utils/stylex";
@@ -63,7 +64,7 @@ import {
   type PaneSurfaceKind,
 } from "@/lib/panes/types";
 import { toPersistedDockLayout } from "@/lib/panes/dock-layout-persistence";
-import { canTakeOverTask, isTaskArchived, isTaskManaged } from "@/lib/tasks";
+import { canTakeOverTask, isTaskManaged } from "@/lib/tasks";
 import { closeTerminalSessionForTab } from "@/lib/terminal/terminal-session-cleanup";
 import { useScheduleRequestStore } from "@/store/schedule-request-store";
 import { useAppStore } from "@/store/app.store";
@@ -182,7 +183,7 @@ function buildDesiredSurfaces(
     desired.set(buildPanePanelId(surface), surface);
   };
   const openableTaskIds = new Set(
-    state.tasks.filter((task) => !isTaskArchived(task)).map((task) => task.id),
+    state.tasks.map((task) => task.id),
   );
   for (const taskId of state.openTaskTabIds) {
     if (openableTaskIds.has(taskId)) {
@@ -217,7 +218,7 @@ function surfaceExistsInStore(
   switch (surface.kind) {
     case "task":
       return state.tasks.some(
-        (task) => task.id === surface.taskId && !isTaskArchived(task),
+        (task) => task.id === surface.taskId,
       );
     case "cli-session":
       return state.cliSessionTabs.some(
@@ -506,6 +507,8 @@ function buildTabContextMenuItems(
 
   if (surface.kind === "task") {
     items.push("separator");
+    items.push({ label: i18n.t("panes:taskReading.markRead"), action: () => { void changeTaskReadState(store.activeWorkspaceId, surface.taskId, true); } });
+    items.push({ label: i18n.t("panes:taskReading.markUnread"), action: () => { void changeTaskReadState(store.activeWorkspaceId, surface.taskId, false); } });
     items.push({
       label: i18n.t("panes:workspacePaneHost.viewResults"),
       action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "results"),
@@ -978,7 +981,7 @@ export function WorkspacePaneHost() {
         if (surface.kind === "task") {
           // selectTask both ensures tab membership and focuses the surface;
           // an inactive task open is not part of wave-1 semantics.
-          store.selectTask({ taskId: surface.taskId });
+          store.selectTask({ taskId: surface.taskId, allowArchived: store.openTaskTabIds.includes(surface.taskId) });
           if (shouldDeferSurfaceOpenToStore(surface, options)) {
             return true;
           }

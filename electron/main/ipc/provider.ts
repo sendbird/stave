@@ -1,3 +1,4 @@
+import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../../../src/lib/turn-snapshots";
 import { ipcMain, webContents } from "electron";
 import {
   invokeHostService,
@@ -7,6 +8,7 @@ import {
 import {
   AgentHistoryRequestSchema,
   AbortTurnArgsSchema,
+  ListLiveTurnsArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
   CancelRouteClassificationArgsSchema,
@@ -54,6 +56,8 @@ import {
   UserInputResponseArgsSchema,
   SteerTurnArgsSchema,
 } from "./schemas";
+import { z } from "zod";
+import { RestoredQueuedTurnSchema } from "../../persistence/turn-admission-store";
 import { discoverMcpServers } from "../mcp-discovery";
 import { createUnavailableUtilityInferenceMetadata } from "../../../src/lib/providers/utility-inference";
 
@@ -179,6 +183,9 @@ function registerProviderEventBridge() {
 
 export function registerProviderHandlers() {
   registerProviderEventBridge();
+  ipcMain.handle("turn-snapshots:list", async (_event, raw: unknown) => TurnSnapshotListSchema.parse(await invokeHostService("turn-snapshots.list", TurnSnapshotOwnerSchema.parse(raw))));
+  ipcMain.handle("turn-snapshots:restore", async (_event, raw: unknown) => TurnSnapshotResultSchema.parse(await invokeHostService("turn-snapshots.restore", TurnSnapshotRestoreSchema.parse(raw))));
+  ipcMain.handle("turn-snapshots:undo", async (_event, raw: unknown) => TurnSnapshotResultSchema.parse(await invokeHostService("turn-snapshots.undo", TurnSnapshotOwnerSchema.parse(raw))));
 
   ipcMain.handle("provider:stream-turn", async (_event, args: unknown) => {
     const parsedArgs = StreamTurnArgsSchema.safeParse(args);
@@ -274,6 +281,24 @@ export function registerProviderHandlers() {
       return { ok: false, message: "Invalid provider abort request." };
     }
     return invokeHostService("provider.abort-turn", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:list-live-turns", async (_event, args: unknown) => {
+    if (!ListLiveTurnsArgsSchema.safeParse(args).success) {
+      return { ok: false, message: "Invalid live turn request." };
+    }
+    try {
+      return await invokeHostService("provider.list-live-turns", {});
+    } catch (error) {
+      return { ok: false, message: String(error) };
+    }
+  });
+
+  // Starts that were queued for a slot when Stave quit, now back in their composer queues.
+  ipcMain.handle("provider:take-restored-queued-turns", async (_event, args: unknown) => {
+    if (!z.object({}).strict().optional().safeParse(args).success) return { items: [] };
+    const result = await invokeHostService("turn-admission.take-restored", {});
+    return { items: z.array(RestoredQueuedTurnSchema).parse(result.items) };
   });
 
   ipcMain.handle("provider:cleanup-task", (_event, args: unknown) => {

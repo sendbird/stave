@@ -16,6 +16,7 @@ import { confirmDialogStyles } from "./confirm-dialog.styles";
 
 interface ConfirmDialogProps {
   open: boolean;
+  defaultFocus?: "cancel" | "confirm";
   title: string;
   description?: string;
   confirmLabel?: string;
@@ -40,6 +41,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
     onConfirm,
     onCancel,
   } = args;
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
   const confirmButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -48,8 +50,8 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
     if (!open || loading) {
       return;
     }
-    confirmButtonRef.current?.focus();
-  }, [loading, open]);
+    (args.defaultFocus === "cancel" ? cancelButtonRef : confirmButtonRef).current?.focus();
+  }, [args.defaultFocus, loading, open]);
 
   if (!open) {
     return null;
@@ -57,7 +59,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (loading) {
+    if (loading || (args.defaultFocus === "cancel" && document.activeElement !== confirmButtonRef.current)) {
       return;
     }
     onConfirm();
@@ -104,6 +106,7 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
           ) : null}
           <div className={sx(confirmDialogStyles.actions)}>
             <Button
+              ref={cancelButtonRef}
               type="button"
               variant="outline"
               onClick={onCancel}

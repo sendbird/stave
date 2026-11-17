@@ -1,3 +1,5 @@
+export { GetPrStackArgsSchema, RetargetPrStackArgsSchema } from "../../../src/lib/pull-request-stack";
+export { TarsBatchInputSchema, TarsBatchRecordSchema } from "../../../src/lib/tars/batch";
 import { QuestionReplySchema } from "../../../src/lib/question-reply";
 import { ApprovalRuleDeciderSchema } from "../../../src/lib/approvals/approval-resolution";
 import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
@@ -456,6 +458,9 @@ export const SuggestCommitMessageArgsSchema = z
   })
   .strict();
 
+/** The live-turn read takes no arguments; anything else is refused. */
+export const ListLiveTurnsArgsSchema = z.undefined();
+
 export const AbortTurnArgsSchema = z
   .object({
     turnId: z.string().trim().min(1).max(200),
@@ -726,6 +731,8 @@ export const ShowNativeNotificationArgsSchema = z
     suppress: z.boolean().optional(),
   })
   .strict();
+
+export const SetNotificationActionsEnabledArgsSchema = z.object({ enabled: z.boolean() }).strict();
 
 export const SetNotificationBadgeArgsSchema = z
   .object({
@@ -1260,17 +1267,12 @@ export const LoadTaskMessagesArgsSchema = z
     workspaceId: z.string().min(1).max(200),
     taskId: z.string().min(1).max(200),
     limit: z.number().int().min(1).max(500).optional(),
+    messageId: z.string().min(1).max(200).optional(),
     offset: z.number().int().min(0).max(1_000_000).optional(),
   })
   .strict();
 
-export const TruncateTaskMessagesAfterArgsSchema = z
-  .object({
-    workspaceId: z.string().min(1).max(200),
-    taskId: z.string().min(1).max(200),
-    messageId: z.string().min(1).max(200),
-  })
-  .strict();
+export { TruncateTaskMessagesAfterArgsSchema } from "../../../src/lib/task-context/conversation-truncation";
 
 export const LoadWorkspaceEditorTabBodiesArgsSchema = z
   .object({
@@ -1375,6 +1377,7 @@ export const PersistenceUpsertArgsSchema = z
     id: z.string().min(1).max(200),
     name: z.string().min(1).max(200),
     snapshot: WorkspaceSnapshotSchema,
+    creationOptions: z.object({ initCommand: z.string().optional(), useRootNodeModulesSymlink: z.boolean() }).strict().optional(),
   })
   .strict();
 
@@ -1595,3 +1598,5 @@ export {
   RepositoryMemoryRestoreArgsSchema as ProjectMemoryRestoreArgsSchema,
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/repository-memory";
+
+export { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../../../src/lib/workspace-cleanup-contract";

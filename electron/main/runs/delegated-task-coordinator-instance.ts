@@ -1,3 +1,5 @@
+import { TurnAdmissionWaitSchema, TurnAdmissionWaitResultSchema } from "../../host-service/turn-admission";
+import { findTarsResponsibility } from "../../../src/lib/tars/ownership";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { webContents } from "electron";
@@ -109,6 +111,8 @@ let coordinator: ReturnType<typeof createDelegatedTaskCoordinator> | null = null
 export function getDelegatedTaskCoordinator() {
   if (!coordinator) {
     coordinator = createDelegatedTaskCoordinator({
+      admissionWait: async args => TurnAdmissionWaitResultSchema.parse(await invokeHostService("turn-admission.wait", TurnAdmissionWaitSchema.parse(args))),
+      canStopTask: async (args) => !findTarsResponsibility((await ensurePersistenceReady()).tars.snapshot().responsibilities, args),
       dailyUsageLimit: async (providerId) => (await ensurePersistenceReady()).dailyUsage.refusal(providerId),
       getLedger: ensurePersistenceReady,
       readResourceRoot: async (parentTaskId) => {

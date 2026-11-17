@@ -249,8 +249,11 @@ test("result group spacing moves absolute rails with their marks after a text re
   await open(page, "", 390);
   for (const loaded of [false, true]) {
     await page.evaluate(async (loaded) => {
-      const reactPath = "/node_modules/.vite/deps/react.js";
-      const clientPath = "/node_modules/.vite/deps/react-dom_client.js";
+      // The fixture must share the runtime already loaded by the app.
+      const resources = performance.getEntriesByType("resource");
+      const moduleUrl = (name: string) => resources.find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+      const reactPath = moduleUrl("react");
+      const clientPath = moduleUrl("react-dom_client");
       const { default: { createElement: h } } = await import(reactPath);
       const { default: { createRoot } } = await import(clientPath);
       const { TarsRecordList, TarsRecordRow } = await import("/src/components/tars/TarsRecord.tsx");

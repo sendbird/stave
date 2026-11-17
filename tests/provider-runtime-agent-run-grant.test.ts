@@ -45,7 +45,7 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   getProviderConnectedToolStatus: async () => ({ ok: true, detail: "", tools: [] }),
 }));
 
-const { providerRuntime, setAgentRunUserTurnResolver, setTaskAgentTurnResolver } = await import("../electron/providers/runtime");
+const { providerRuntime, setAgentRunUserTurnResolver, setTaskAgentTurnResolver, setTurnFileSnapshotCapture } = await import("../electron/providers/runtime");
 const { resolveAgentRunGrant, clearAgentRunGrantsForTest } = await import(
   "../electron/providers/agent-run-grants"
 );
@@ -85,6 +85,7 @@ async function runTurn(args: {
 }
 
 afterEach(() => {
+  setTurnFileSnapshotCapture?.(undefined);
   setAgentRunUserTurnResolver(null);
   setTaskAgentTurnResolver(null);
   primaryTurns = [];
@@ -283,3 +284,32 @@ test("primary replies pass their explicit browser request to Run admission and k
     expect(turn.runtimeOptions?.providerBrowserAlwaysOn).toBe(true);
   }
 });
+for (const providerId of ["claude-code", "codex"] as const) {
+  test(`${providerId} captures the owned user-turn state before launching its adapter`, async () => {
+    const captured: string[] = [];
+    setTurnFileSnapshotCapture?.(async (args) => {
+      expect(primaryTurns).toHaveLength(0);
+      captured.push(args.turnId!);
+    });
+    await providerRuntime.streamTurn({ providerId,taskId:"snapshot-task",workspaceId:"snapshot-workspace",turnId:"snapshot-turn",cwd:TEST_WORKSPACE_CWD,prompt:"Continue",conversation:{mode:"chat",history:[],contextParts:[]} });
+    expect(captured).toEqual(["snapshot-turn"]);
+    expect(primaryTurns).toHaveLength(1);
+  });
+}
+test("a read-only user turn is snapshotted while a review helper stays outside user-turn history", async () => {
+  const captured: string[] = [];
+  setTurnFileSnapshotCapture?.(async (args) => { captured.push(args.turnId!); });
+  const base = {providerId:"codex" as const,taskId:"snapshot-task",workspaceId:"snapshot-workspace",cwd:TEST_WORKSPACE_CWD,prompt:"Continue",runtimeOptions:{toolsDisabled:true}};
+  await providerRuntime.streamTurn({...base,turnId:"readonly-chat",conversation:{mode:"chat",history:[],contextParts:[]}});
+  await providerRuntime.streamTurn({...base,turnId:"review-helper",conversation:{mode:"review",history:[],contextParts:[]}});
+  expect(captured).toEqual(["readonly-chat"]);
+});
+
+for (const providerId of ["claude-code", "codex"] as const) {
+  test(`${providerId} starts the turn when the file snapshot cannot be captured`, async () => {
+    setTurnFileSnapshotCapture?.(async () => { throw new Error("snapshot storage failed"); });
+    const events = await providerRuntime.streamTurn({ providerId,taskId:"snapshot-task",workspaceId:"snapshot-workspace",turnId:`snapshot-failure-${providerId}`,cwd:TEST_WORKSPACE_CWD,prompt:"Continue",conversation:{mode:"chat",history:[],contextParts:[]} });
+    expect(primaryTurns).toHaveLength(1);
+    expect(events).not.toContainEqual(expect.objectContaining({ type: "error" }));
+  });
+}

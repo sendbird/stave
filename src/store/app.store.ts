@@ -1,5 +1,7 @@
+import { createRestartContinuationActions } from "@/store/app-store-restart-continuation-actions";
+import { emptyRestartRecovery } from "@/store/restart-continuation";
+import { createTaskMessagePageLoader } from "@/store/task-message-page-loader";
 import { i18n } from "@/i18n/runtime";
-import { markTaskMessagesLoadFailed } from "@/store/task-message-load-failures";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AppState } from "@/store/app-store.types";
@@ -29,7 +31,7 @@ import { createFailedSendActions } from "@/store/app-store-failed-send-actions";
 import { createTaskPauseActions } from "@/store/app-store-task-pause-actions";
 import { createQueuedTurnEditActions, createQueuedTurnEditHolds } from "@/store/queued-turn-edit-holds";
 import { pauseQueueOnUsageLimitRefusal, resolvePausedQueueHold, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
-import { createAppStorePersistenceOptions, normalizeSharedSkillsHomeSetting } from "@/store/app-store-persistence";
+import { createAppStorePersistenceOptions, flushAppStorePersistence, normalizeSharedSkillsHomeSetting } from "@/store/app-store-persistence";
 import { createAppStoreNotificationRuntime } from "@/store/app-store-notification-runtime";
 import { createWorkspaceTurnSummaryGenerator } from "@/store/workspace-turn-summary-runtime";
 import {
@@ -82,7 +84,6 @@ import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
 import { mergeTaskMessagePage } from "@/store/task-message-merge";
 import {
   TASK_MESSAGES_PAGE_SIZE,
-  resolveInitialLatestTaskMessagesPageSize,
 } from "@/store/task-message-loading";
 import { createDefaultLayoutState } from "@/store/layout.utils";
 import {
@@ -125,7 +126,6 @@ export type { RecentRepositoryState as RecentProjectState } from "@/store/reposi
 export type { AppSettings } from "@/store/app-settings";
 export { SIDEBAR_NAV_VIEWS } from "@/store/app-settings";
 export type { SidebarNavView } from "@/store/app-settings";
-export { waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
 
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
   text: "",
@@ -686,140 +686,9 @@ export const useAppStore = create<AppState>()(
       });
 
     const { attentionSync, persistNotifications } =
-      createAppStoreNotificationRuntime({ set, get });
+      createAppStoreNotificationRuntime({ set, get, scheduleProviderTurnStallTimer });
 
-    const loadTaskMessagesIntoSession = async (args: {
-      workspaceId: string;
-      taskId: string;
-      mode: "latest" | "older";
-    }) => {
-      const stateBefore = get();
-      const ownerWorkspaceId =
-        stateBefore.taskWorkspaceIdById[args.taskId] ??
-        stateBefore.activeWorkspaceId;
-      if (
-        !args.taskId ||
-        !ownerWorkspaceId ||
-        ownerWorkspaceId !== args.workspaceId
-      ) {
-        return "unchanged";
-      }
-      if (stateBefore.taskMessagesLoadingByTask[args.taskId]) {
-        return "unchanged";
-      }
-      const currentSession =
-        args.workspaceId === stateBefore.activeWorkspaceId
-          ? stateBefore
-          : stateBefore.workspaceRuntimeCacheById[args.workspaceId];
-      if (!currentSession) {
-        return "unchanged";
-      }
-      const currentMessages = currentSession.messagesByTask[args.taskId] ?? [];
-      const totalCount =
-        currentSession.messageCountByTask[args.taskId] ??
-        currentMessages.length;
-      if (args.mode === "latest" && currentMessages.length > 0) {
-        return "unchanged";
-      }
-      if (args.mode === "older" && currentMessages.length >= totalCount) {
-        return "unchanged";
-      }
-
-      set((state) => ({
-        taskMessagesLoadingByTask: {
-          ...state.taskMessagesLoadingByTask,
-          [args.taskId]: true,
-        },
-      }));
-
-      try {
-        const page = await loadTaskMessagesPage({
-          workspaceId: args.workspaceId,
-          taskId: args.taskId,
-          limit:
-            args.mode === "latest"
-              ? resolveInitialLatestTaskMessagesPageSize()
-              : TASK_MESSAGES_PAGE_SIZE,
-          offset: args.mode === "older" ? currentMessages.length : 0,
-        });
-        set((state) => {
-          const targetSession = getWorkspaceSessionForState({
-            state,
-            workspaceId: args.workspaceId,
-          });
-          if (!targetSession) {
-            return {
-              taskMessagesLoadingByTask: {
-                ...state.taskMessagesLoadingByTask,
-                [args.taskId]: false,
-              },
-            };
-          }
-          const sessionMessages =
-            targetSession.messagesByTask[args.taskId] ?? [];
-          const nextMessages = mergeTaskMessagePage({
-            currentMessages: sessionMessages,
-            pageMessages:
-              args.mode === "latest" && sessionMessages.length === 0
-                ? trimPersistedMessageWindow({ messages: page.messages })
-                : page.messages,
-            mode: args.mode,
-          });
-          const nextLoadingState = {
-            ...state.taskMessagesLoadingByTask,
-            [args.taskId]: false,
-          };
-          if (args.workspaceId === state.activeWorkspaceId) {
-            return {
-              messagesByTask: {
-                ...state.messagesByTask,
-                [args.taskId]: nextMessages,
-              },
-              messageCountByTask: {
-                ...state.messageCountByTask,
-                [args.taskId]: Math.max(page.totalCount, nextMessages.length),
-              },
-              taskMessagesLoadingByTask: nextLoadingState,
-            };
-          }
-          return {
-            workspaceRuntimeCacheById: {
-              ...state.workspaceRuntimeCacheById,
-              [args.workspaceId]: {
-                ...targetSession,
-                messagesByTask: {
-                  ...targetSession.messagesByTask,
-                  [args.taskId]: nextMessages,
-                },
-                messageCountByTask: {
-                  ...targetSession.messageCountByTask,
-                  [args.taskId]: Math.max(page.totalCount, nextMessages.length),
-                },
-              },
-            },
-            taskMessagesLoadingByTask: nextLoadingState,
-          };
-        });
-        attentionSync.syncTaskInteractions({
-          taskId: args.taskId,
-          messages:
-            getWorkspaceSessionForState({
-              state: get(),
-              workspaceId: args.workspaceId,
-            })?.messagesByTask[args.taskId] ?? [],
-        });
-        return "loaded";
-      } catch (error) {
-        console.error("[workspace] failed to load task messages", error); markTaskMessagesLoadFailed(args.taskId);
-        set((state) => ({
-          taskMessagesLoadingByTask: {
-            ...state.taskMessagesLoadingByTask,
-            [args.taskId]: false,
-          },
-        }));
-        return "failed";
-      }
-    };
+    const loadTaskMessagesIntoSession = createTaskMessagePageLoader({ set, get, attentionSync });
 
     const hydrateWorkspaceMessagesInBackground = (args: {
       workspaceId: string;
@@ -1038,7 +907,7 @@ export const useAppStore = create<AppState>()(
       shouldLoadLatestTaskMessages,
     });
     const failedSendActions = createFailedSendActions({ set, get });
-    const taskPauseActions = createTaskPauseActions({ set, get, dispatchNextQueuedTaskTurn });
+    const taskPauseActions = createTaskPauseActions({ set, get, dispatchNextQueuedTaskTurn, flushPersistence: flushAppStorePersistence });
     const conversationThreadActions = createConversationThreadActions({
       set,
       get,
@@ -1067,6 +936,7 @@ export const useAppStore = create<AppState>()(
       normalizeSharedSkillsHomeSetting,
     });
     const providerInteractionActions = createProviderInteractionActions({
+        flushPersistence: flushAppStorePersistence,
       set,
       get,
       clearProviderTurnStallTimer,
@@ -1139,9 +1009,15 @@ export const useAppStore = create<AppState>()(
       messagesByTask: {},
       failedSendsByTask: {},
       usageLimitPauseByTask: {},
+      restartRecovery: emptyRestartRecovery(),
+      interruptedTasks: [],
+      restartPendingTasks: [],
       restoredQueueReleasedByTask: {},
       messageCountByTask: {},
       taskMessagesLoadingByTask: {},
+      taskMessageWindowOffsetByTask: {},
+      taskHistoryMessagesByTask: {},
+      taskHistoryMessageCountByTask: {},
       layout: createDefaultLayoutState(),
       settings: defaultSettings,
       editorTabs: [],
@@ -1164,7 +1040,6 @@ export const useAppStore = create<AppState>()(
       repositoryName: null,
       repositoryFiles: workspaceFsAdapter.getKnownFiles(),
       workspaceFileCacheByPath: {},
-      taskCheckpointById: {},
       providerAvailability: createDefaultProviderAvailability(),
       providerRuntimeCapabilities: createDefaultProviderRuntimeCapabilities(),
       skillCatalog: {
@@ -1321,6 +1196,7 @@ export const useAppStore = create<AppState>()(
       ...conversationThreadActions,
       ...failedSendActions,
       ...taskPauseActions,
+      ...createRestartContinuationActions({ set, get, flushPersistence: flushAppStorePersistence }),
       ...createQueuedTurnEditActions({ holds: queuedTurnEditHolds, get, drain: drainQueueAfterSteerSettled }),
       ...terminalActions,
       ...taskLifecycleActions,

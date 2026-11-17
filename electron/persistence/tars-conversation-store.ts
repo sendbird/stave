@@ -32,6 +32,8 @@ interface ConversationDatabase {
   transaction<T>(operation: () => T): { (): T; immediate(): T };
 }
 interface StoredRow { body_json: string; request_hash: string }
+/** What the store needs from a batch record (`TarsBatchRecord`); the runtime validates the rest. */
+interface BatchRecordRow { id: string; state: string; createdAt: string; proposal?: { messageId: string }; items: readonly unknown[] }
 interface ViewRow { id: string; body_json: string }
 export interface TarsProposalRef { messageId: string; actionIndex: number }
 
@@ -98,6 +100,14 @@ export class TarsConversationStore {
       CREATE INDEX IF NOT EXISTS idx_tars_publish_requests_created ON tars_publish_requests(created_at, request_id);
       CREATE TABLE IF NOT EXISTS tars_composer_drafts (
         id TEXT PRIMARY KEY CHECK (id = 'personal'), body_json TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS tars_batch_records (
+        id TEXT PRIMARY KEY, state TEXT NOT NULL, created_at TEXT NOT NULL, proposal_message_id TEXT, body_json TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_tars_batch_records_state ON tars_batch_records(state, created_at);
+      CREATE TABLE IF NOT EXISTS tars_batch_items (
+        batch_id TEXT NOT NULL, item_index INTEGER NOT NULL, body_json TEXT NOT NULL,
+        PRIMARY KEY (batch_id, item_index)
       );
     `);
   }
@@ -504,6 +514,88 @@ export class TarsConversationStore {
       this.changes.emit("conversation", "snapshot");
       return receipt;
     });
+  }
+
+  settleBatchProposal(messageId: string, actionIndex: number, now: string): void {
+    this.write(() => {
+      const current = this.getReceipt(messageId, actionIndex);
+      if (!current || !["cleanup", "bulkControl"].includes(current.action.kind)) throw new Error("Unknown batch proposal.");
+      if (current.status === "applied") return;
+      if (current.status !== "proposed") throw new Error("The batch proposal is not awaiting confirmation.");
+      const next = TarsActionReceiptSchema.parse({ ...current, status: "applied", responsibilityId: null, revision: current.revision + 1, updatedAt: now });
+      this.db.prepare("UPDATE tars_action_receipts SET revision = ?, body_json = ? WHERE message_id = ? AND action_index = ? AND revision = ?")
+        .run(next.revision, JSON.stringify(next), messageId, actionIndex, current.revision);
+      this.changes.emit("conversation", "snapshot");
+    });
+  }
+
+  /**
+   * Saved batch records, oldest first, with their items. A row that is not
+   * valid JSON reads as `null`; the caller validates and skips it, so one bad
+   * record never hides the others.
+   */
+  readBatchRecords(id?: string): unknown[] {
+    const rows = (id === undefined
+      ? this.db.prepare("SELECT id, body_json FROM tars_batch_records ORDER BY created_at, id").all()
+      : this.db.prepare("SELECT id, body_json FROM tars_batch_records WHERE id = ?").all(id)) as Array<{ id: string; body_json: string }>;
+    const items = this.db.prepare("SELECT body_json FROM tars_batch_items WHERE batch_id = ? ORDER BY item_index");
+    return rows.map((row) => {
+      try {
+        return { ...JSON.parse(row.body_json), items: (items.all(row.id) as Array<{ body_json: string }>).map((item) => JSON.parse(item.body_json)) };
+      } catch { return null; }
+    });
+  }
+
+  /** Saves a whole record: its header and every item, replacing what was saved under its id. */
+  writeBatchRecord(record: BatchRecordRow): void {
+    this.write(() => {
+      this.writeBatchHeaderRow(record);
+      this.db.prepare("DELETE FROM tars_batch_items WHERE batch_id = ?").run(record.id);
+      const insert = this.db.prepare("INSERT INTO tars_batch_items (batch_id, item_index, body_json) VALUES (?, ?, ?)");
+      record.items.forEach((item, index) => insert.run(record.id, index, JSON.stringify(item)));
+    });
+    this.changes.emit("conversation");
+  }
+
+  /** Saves the record's state and header only; its items keep their own rows. */
+  writeBatchHeader(record: BatchRecordRow): void {
+    this.writeBatchHeaderRow(record);
+    this.changes.emit("conversation");
+  }
+
+  /** Saves one item's progress without rewriting the rest of its record. */
+  writeBatchItem(batchId: string, index: number, item: unknown): void {
+    this.db.prepare("UPDATE tars_batch_items SET body_json = ? WHERE batch_id = ? AND item_index = ?").run(JSON.stringify(item), batchId, index);
+  }
+
+  deleteBatchRecord(id: string): void {
+    this.write(() => {
+      this.db.prepare("DELETE FROM tars_batch_items WHERE batch_id = ?").run(id);
+      this.db.prepare("DELETE FROM tars_batch_records WHERE id = ?").run(id);
+    });
+    this.changes.emit("conversation");
+  }
+
+  /**
+   * Drops previews nobody confirmed before `expiredBefore`, and keeps only the
+   * newest `keepFinished` finished records that no conversation message owns.
+   * A message's own record stays as long as its proposal does.
+   */
+  pruneBatchRecords(expiredBefore: string, keepFinished: number): void {
+    this.write(() => {
+      this.db.prepare("DELETE FROM tars_batch_records WHERE state = 'proposed' AND created_at < ?").run(expiredBefore);
+      this.db.prepare(`DELETE FROM tars_batch_records WHERE proposal_message_id IS NULL AND state NOT IN ('proposed', 'executing', 'interrupted')
+        AND id NOT IN (SELECT id FROM tars_batch_records WHERE proposal_message_id IS NULL AND state NOT IN ('proposed', 'executing', 'interrupted')
+          ORDER BY created_at DESC, id DESC LIMIT ?)`).run(keepFinished);
+      this.db.prepare("DELETE FROM tars_batch_items WHERE batch_id NOT IN (SELECT id FROM tars_batch_records)").run();
+    });
+  }
+
+  private writeBatchHeaderRow(record: BatchRecordRow): void {
+    const { items: _items, ...header } = record;
+    this.db.prepare(`INSERT INTO tars_batch_records (id, state, created_at, proposal_message_id, body_json) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(id) DO UPDATE SET state = excluded.state, created_at = excluded.created_at, proposal_message_id = excluded.proposal_message_id, body_json = excluded.body_json`)
+      .run(record.id, record.state, record.createdAt, record.proposal?.messageId ?? null, JSON.stringify(header));
   }
 
   settleReceipt(messageId: string, actionIndex: number, expectedRevision: number,

@@ -173,7 +173,10 @@ export const chatPanelStyles = stylex.create({
     fontSize: vars["--aui-font-size-body"],
     color: vars["--aui-color-text-muted"],
   },
-  dialogFilesLine: { fontSize: vars["--aui-font-size-body"], color: vars["--aui-color-text"] },
+  dialogFilesLine: {
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text"],
+  },
   dialogFileList: {
     display: "flex",
     flexDirection: "column",
@@ -190,8 +193,21 @@ export const chatPanelStyles = stylex.create({
     fontSize: vars["--aui-font-size-caption"],
   },
   dialogFileItem: { overflowWrap: "anywhere", wordBreak: "break-all" },
-  dialogEmpty: { fontSize: vars["--aui-font-size-body"], color: vars["--aui-color-text-muted"] },
-  dialogError: { fontSize: vars["--aui-font-size-body"], color: vars["--aui-color-danger"] },
+  dialogEmpty: {
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-text-muted"],
+  },
+  dialogError: {
+    fontSize: vars["--aui-font-size-body"],
+    color: vars["--aui-color-danger"],
+  },
+  searchMatch: {
+    color: vars["--aui-color-text"],
+    backgroundColor: vars["--aui-color-warning-soft"],
+    borderRadius: vars["--aui-radius-mark"],
+    padding: vars["--aui-space-8"],
+    margin: 0,
+  },
   loadOlderRow: {
     marginInline: "auto",
     marginBottom: vars["--aui-space-12"],

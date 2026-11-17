@@ -96,7 +96,7 @@ describe("Tars persisted ownership", () => {
     expect(prompt).toContain("expectedHead");
     // Authority is in the frozen lead instructions, not repeated in each workflow prompt.
     const leadInput = `${tarsExecutionAgentInstructions(getBuiltinAgent("supervisor")!.instructions, f.row)}\n\n${prompt}`;
-    expect(leadInput).toContain("Do not push, open or update pull requests");
+    expect(leadInput).toContain("No push, PR creation/update, publication");
     f.database.close();
   });
 });

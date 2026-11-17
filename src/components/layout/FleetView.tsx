@@ -1,3 +1,11 @@
+import { FleetVirtualCardGrid } from "./FleetVirtualCardGrid";
+import { FleetBulkControl, FleetStopAllButton } from "./FleetBulkControl";
+import { useFleetSelectionStore } from "@/store/fleet-selection-store";
+import { useFleetSelectionKeyboard } from "./FleetSelection";
+import { FleetGroupingControl, FleetGroupHeader } from "./FleetGrouping";
+import { Checkbox } from "@/components/aui/components/Checkbox";
+import { FleetContentSearchResults, useContentSearch } from "./content-search-results";
+import { openWorkspaceCleanup } from "./workspace-cleanup-events";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { i18n, useTranslation } from "@/i18n";
@@ -40,6 +48,7 @@ import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
 import { FleetAgentTree } from "@/components/layout/FleetAgentTree";
 import {
   FleetTaskTable,
+  useFleetTaskRows,
   type FleetTaskTableSummary,
 } from "@/components/layout/FleetTaskTable";
 import {
@@ -205,7 +214,7 @@ function useCoarseClock() {
 }
 
 export function FleetView() {
-  const { t: tI18n } = useTranslation(["fleet"]);
+  const { t: tI18n } = useTranslation(["fleet", "workspace"]);
   useAgentAssignmentsSync();
   // One read when Fleet opens, for its owner labels; controls read ownership again.
   useTarsSnapshotRefresh();
@@ -291,6 +300,8 @@ export function FleetView() {
   // Each visit reads unopened workspaces' task lists afresh.
   useEffect(() => () => resetFleetWorkspaceShells(), []);
   const [searchQuery, setSearchQuery] = useState("");
+  const [includeMessageText, setIncludeMessageText] = useState(false);
+  const contentSearch = useContentSearch({ query: searchQuery, enabled: includeMessageText });
   const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
   const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(
     null,
@@ -715,10 +726,15 @@ export function FleetView() {
     }));
   }, []);
 
+  const selectionHandlers = useFleetSelectionKeyboard();
+  const selectionTargets = useFleetSelectionStore((state) => state.visibleTargets);
+  const bulkRows = useFleetTaskRows({ repositories, filter: "all", searchQuery: "", nowMs });
   return (
-    <div className={sx(styles.root)}>
+    <div {...selectionHandlers} className={sx(styles.root)}>
       <GlobalPageHeader title={tI18n("fleet:fleetView.fleetView")} description={tI18n("fleet:fleetView.fullWorkQueue")} titleIcon={<LayoutGrid />} meta={headerLiveCount > 0 ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount }) : tI18n("fleet:fleetView.noAgentTurnsInFlight")} actions={
         <div className={sx(styles.headerActions)}>
+          <FleetStopAllButton rows={bulkRows.rows} loading={bulkRows.load.pending.length > 0} />
+          <Button size="sm" variant="ghost" onClick={openWorkspaceCleanup}>{tI18n("workspace:cleanupCenter.title")}</Button>
           <Button
             type="button"
             size="sm"
@@ -784,6 +800,7 @@ export function FleetView() {
       } />
 
       <OpenPathDialog open={openPath} onOpenChange={setOpenPath} onSubmitPath={(inputPath) => openRepositoryFromPath({ inputPath })} onBrowse={async () => { await useAppStore.getState().createRepository({}); setOpenPath(false); }} />
+      <FleetBulkControl rows={bulkRows.rows} loading={bulkRows.load.pending.length > 0} onOpenTask={handleOpenTask} />
       {repositories.length === 0 ? <Empty><EmptyHeader><EmptyMedia variant="icon"><FolderTree /></EmptyMedia><EmptyTitle>{tI18n("fleet:fleetView.noWorkspaces")}</EmptyTitle><EmptyDescription>{tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription></EmptyHeader><Button onClick={() => setOpenPath(true)}>{i18n.t("workspace:welcome.openRepository")}</Button></Empty> : <>
       {resultReviewError ? (
         <div
@@ -836,6 +853,7 @@ export function FleetView() {
 
         <div className={sx(styles.board)}>
           <div className={sx(styles.toolbar)}>
+            {showsTaskRows ? <FleetGroupingControl /> : null}
             <SegmentedControl
               aria-label={tI18n("fleet:fleetView.filterLabel")}
               value={boardFilter}
@@ -873,6 +891,8 @@ export function FleetView() {
                 </Tooltip>
               ) : null}
             </div>
+            <Checkbox checked={includeMessageText} onCheckedChange={(checked) => setIncludeMessageText(Boolean(checked))}
+              label={tI18n("fleet:fleetView.includeMessageText")} data-testid="fleet-include-message-text" />
             {/* Last, so it stays put while the applied filters come and go. */}
             <SegmentedControl
               aria-label={tI18n("fleet:fleetView.layoutLabel")}
@@ -919,6 +939,7 @@ export function FleetView() {
             data-fleet-board-scroll="true"
             className={sx(styles.scroller)}
           >
+            {includeMessageText ? <FleetContentSearchResults search={contentSearch} query={searchQuery} /> : null}
             {repositories.length === 0 ? (
               <Empty>
                 <EmptyHeader>
@@ -932,6 +953,7 @@ export function FleetView() {
               </Empty>
             ) : boardLayout === "tree" ? (
               <FleetAgentTree
+                suppressEmptyMessage={includeMessageText && contentSearch.results.length > 0}
                 repositories={repositories}
                 filter={boardFilter}
                 owner={ownerFilter}
@@ -942,6 +964,7 @@ export function FleetView() {
               />
             ) : boardLayout === "table" ? (
               <FleetTaskTable
+                suppressEmptyMessage={includeMessageText && contentSearch.results.length > 0}
                 repositories={repositories}
                 filter={boardFilter}
                 owner={ownerFilter}
@@ -954,7 +977,7 @@ export function FleetView() {
               />
             ) : (
               <>
-                {isBoardEmpty ? (
+                {isBoardEmpty && !(includeMessageText && contentSearch.results.length > 0) ? (
                   <div className={sx(styles.boardEmpty)}>
                     <p className={sx(styles.boardEmptyTitle)}>{tI18n("fleet:fleetView.nothingActive")}</p>
                     <p className={sx(styles.boardEmptyHint)}>
@@ -998,6 +1021,8 @@ export function FleetView() {
                       className={sx(styles.repositorySection)}
                       hidden={hideRepository}
                     >
+                      <div className={sx(styles.repositoryHeading)}>
+                      <FleetGroupHeader controlOnly title={repository.repositoryName} keys={(isCollapsed ? [] : selectionTargets).filter((target) => target.repositoryPath === repository.repositoryPath).map((target) => target.key)} />
                       <AuiButton
                         layout="host"
                         type="button"
@@ -1038,6 +1063,7 @@ export function FleetView() {
                             {tI18n("fleet:fleetView.current")}</Badge>
                         ) : null}
                       </AuiButton>
+                      </div>
                       <div
                         hidden={isCollapsed}
                         // Width-driven rather than breakpoint-driven: the board
@@ -1051,18 +1077,18 @@ export function FleetView() {
                         // exact third of the row (minus the two 0.625rem gaps),
                         // so wide rows land on exactly three and narrow rows
                         // still collapse to two and then one.
-                        className={sx(styles.cardGrid)}
+                        className={sx(styles.cardGrid, repository.workspaces.length > 20 && styles.virtualCardGrid, isCollapsed && styles.collapsedGrid)}
                       >
-                        {orderRepositoryWorkspaces(
+                        {(() => { const ordered = orderRepositoryWorkspaces(
                           repository,
                           visibilityByCardKey,
                           boardOrderContext,
-                        ).map((workspace) => {
+                        ); const entries = ordered.map((workspace) => {
                           const cardKey = getFleetWorkspaceKey(
                             repository.repositoryPath,
                             workspace.id,
                           );
-                          return (
+                          const card = (
                             <MemoizedFleetWorkspaceCard
                               key={cardKey}
                               cardKey={cardKey}
@@ -1070,6 +1096,7 @@ export function FleetView() {
                               repositoryName={repository.repositoryName}
                               workspace={workspace}
                               isCurrentRepository={repository.isCurrent}
+                              repositoryCollapsed={isCollapsed}
                               filter={cardFilter}
                               searchQuery={searchQuery}
                               nowMs={nowMs}
@@ -1084,7 +1111,8 @@ export function FleetView() {
                               onVisibilityChange={handleVisibilityChange}
                             />
                           );
-                        })}
+                          return { key: cardKey, card, visible: visibilityByCardKey[cardKey]?.visible, taskKeys: visibilityByCardKey[cardKey]?.taskKeys ?? [] };
+                        }); return ordered.length > 20 ? <FleetVirtualCardGrid entries={entries} /> : entries.map((entry) => entry.card); })()}
                       </div>
                     </section>
                   );

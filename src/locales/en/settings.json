@@ -4,6 +4,11 @@
       "title": "Language",
       "description": "Choose the language for Stave menus, settings and messages. Your prompts, files and AI responses are not translated."
     },
+    "featureTips": {
+      "title": "Feature tips",
+      "description": "Short tips that offer optional features, such as steering a running turn. A tip you close stays closed.",
+      "show": "Show feature tips"
+    },
     "windowBehavior": {
       "title": "Window behavior",
       "description": "Control how the app handles the close shortcut.",
@@ -71,6 +76,17 @@
       "afterMinutes_other": "After {{count}} minutes",
       "afterHours_one": "After {{count}} hour",
       "afterHours_other": "After {{count}} hours"
+    },
+    "actions": {
+      "title": "Answer from notifications",
+      "description": "Answer approval requests and questions from system notifications on supported platforms."
+    },
+    "restart": {
+      "title": "After a restart, continue interrupted work",
+      "description": "Choose what happens to ordinary tasks interrupted when the app closed. Managed work follows its own recovery.",
+      "ask": "Ask",
+      "automatically": "Automatically",
+      "never": "Never"
     }
   },
   "turnActivityFields": {
@@ -545,8 +561,12 @@
         }
       },
       "watch": {
-        "title": "Watch pull requests Stave creates",
-        "description": "Wakes the task that created the pull request when its checks fail or its branch conflicts with the base, after any turn that is running. Edit or remove each watch in Schedules."
+        "title": "Watch pull requests",
+        "description": "Watches pull requests opened with Create PR, or by an agent during a task turn, and wakes that task when checks fail or the branch conflicts with the base, after any turn that is running. Repositories can override this. Edit or remove each watch in Schedules."
+      },
+      "longLivedBranches": {
+        "title": "Long-lived branches",
+        "description": "Branch names or patterns with *, separated by commas. A pull request from one of these branches is never treated as a stack parent, so Stave never offers to retarget pull requests that target it. The default branch is always included."
       }
     },
     "inlineCompletion": {
@@ -697,6 +717,12 @@
       "title": "Remove repository",
       "description": "Remove \"{{name}}\" from Stave's repository list? This does not delete files on disk.",
       "confirm": "Remove repository"
+    },
+    "prWatch": {
+      "title": "Watch pull requests in this repository",
+      "followsGlobal": "Follows Settings → Prompts → Watch pull requests. Turning it on or off here applies only to this repository.",
+      "overridden": "This repository overrides Settings → Prompts → Watch pull requests.",
+      "useGlobal": "Use the global setting"
     }
   },
   "skillsSection": {
@@ -1190,11 +1216,19 @@
       "density": {
         "title": "Density",
         "description": "Regular or compact rows, controls and spacing across the app."
+      },
+      "globalTurnLimit": {
+        "title": "Global agent turn limit",
+        "description": "Limit concurrent turns across all tasks."
       }
     },
     "accounts": {
       "label": "Accounts",
       "description": "Sign in to providers and choose how you pay."
+    },
+    "workspaces": {
+      "label": "Workspaces",
+      "description": "Archive, restore and automatic cleanup policies"
     }
   },
   "pages": {

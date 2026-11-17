@@ -251,6 +251,8 @@ export interface DelegateCaller {
 }
 
 interface DelegatedTaskCoordinatorDependencies {
+  admissionWait?: (args: { taskId: string; waiting: boolean }) => Promise<unknown>;
+  canStopTask?: (args: { workspaceId: string; taskId: string }) => Promise<boolean>;
   dailyUsageLimit?: (providerId: "claude-code" | "codex") => Promise<string | null>;
   cancelTurnRoute?: (requestId: string) => Promise<unknown>;
   resolveTurnRoute?: (input: import("../../../src/lib/routing/constrained-route").ConstrainedRouteInput) => Promise<import("../../../src/lib/routing/constrained-route").ConstrainedRouteResult>;
@@ -1192,6 +1194,7 @@ export function createDelegatedTaskCoordinator(
    * checked the count that is claimed against. The map entry is removed once
    * its chain drains so an idle parent leaves no state behind.
    */
+  const stoppingTasks = new Set<string>();
   const delegationLocksByParent = new Map<string, Promise<void>>();
   const withParentDelegationLock = <T>(
     parentTaskId: string,
@@ -1222,6 +1225,7 @@ export function createDelegatedTaskCoordinator(
       return rejected("invalid-request", null, parsed.error.issues.map(issue => issue.message).join("; ").slice(0, 500));
     }
     let args = parsed.data;
+    if (stoppingTasks.has(args.parentTaskId)) return rejected("invalid-state", null, "parent-stopping");
     let agentContentHash: string | null = null;
     let agentAssignment: { snapshot: AgentSnapshot; standards?: string } | undefined;
     if (args.agentConfigId) {
@@ -1237,7 +1241,9 @@ export function createDelegatedTaskCoordinator(
     const resourceRootRunId = await dependencies.readResourceRoot?.(args.parentTaskId);
     const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
+      stoppingTasks.has(args.parentTaskId)
+        ? Promise.resolve(rejected("invalid-state", null, "parent-stopping"))
+        : admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
     );
   };
 
@@ -1665,7 +1671,25 @@ export function createDelegatedTaskCoordinator(
     );
     const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
     if (!waitSeconds || !response.accepted || !response.child) return response;
-    return waitForAnswer(response, waitSeconds * 1_000);
+    const deadline = Date.now() + waitSeconds * 1_000;
+    // The parent gives its slot to its helper while it waits.
+    await Promise.resolve(dependencies.admissionWait?.({ taskId: parentTaskId, waiting: true })).catch((error) => {
+      console.warn("[delegation] could not lend the parent's turn slot", String(error));
+    });
+    try { return await waitForAnswer(response, waitSeconds * 1_000); }
+    finally {
+      // Taking the slot back never holds the tool call past the documented
+      // wait: at the deadline the call returns and the re-acquire continues.
+      // A parent turn that ends first drops its pending re-acquire.
+      const reacquired = Promise.resolve(dependencies.admissionWait?.({ taskId: parentTaskId, waiting: false })).catch((error) => {
+        console.warn("[delegation] could not take the parent's turn slot back", String(error));
+      });
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([
+        reacquired,
+        new Promise<void>((resolve) => { timer = setTimeout(resolve, Math.max(0, deadline - Date.now())); timer.unref?.(); }),
+      ]).finally(() => clearTimeout(timer));
+    }
   };
 
   /**
@@ -1699,6 +1723,81 @@ export function createDelegatedTaskCoordinator(
         ? null
         : "The subagent is still working. Its answer arrives with this task's next turn under Subagent results.",
     });
+  };
+
+  const stopChild = async (rawArgs: unknown): Promise<DelegatedTaskActionResponse> => {
+      const parsed = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
+      if (!parsed.success) {
+        return rejected("invalid-request");
+      }
+      const args = parsed.data;
+      const resolved = await resolveForAction(args);
+      if (!resolved.ok) {
+        return resolved.rejection;
+      }
+      const { ledger, runId, stepId } = resolved;
+      if (resolved.child.phase === "cancelled") return accepted({ duplicate: true, child: resolved.child });
+      if (!isActiveDelegatedTaskPhase(resolved.child.phase)) return rejected("invalid-state", resolved.child);
+      if (dependencies.canStopTask && !await dependencies.canStopTask({ workspaceId: resolved.child.delegatedWorkspaceId, taskId: resolved.child.delegatedTaskId })) {
+        return { ...rejected("invalid-ownership", resolved.child), message: "managed by Tars" };
+      }
+      const skippedDescendants: string[] = [];
+      const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
+      const target = resolved.step.target;
+      const transition = ledger.cancelRunStep({
+        runId,
+        stepId,
+        idempotencyKey: `stop:${args.delegationKey}`,
+        detail: {
+          code: "delegated-task-stopped",
+          message: args.reason,
+          providerId: target?.providerId,
+        },
+        error: args.reason ?? DELEGATED_TASK_STOPPED_REASON,
+        now: now(),
+      });
+      if (!transition.accepted) {
+        return rejected(
+          toRejectionReason(transition.reason),
+          summaryFromTransition(resolved.ledger, transition),
+        );
+      }
+      stoppingTasks.add(resolved.child.delegatedTaskId);
+      try {
+        if (!transition.duplicate && target) {
+          if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
+          // Cancelling the ledger row is the durable half; asking the delegated task
+          // to stop is best effort, because a child that already ended is a
+          // successful stop.
+          await (resolved.child.agentRunId && dependencies.host.stopAgentRun
+            ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
+            : dependencies.host.stopTask({
+              workspaceId: target.workspaceId,
+              taskId: target.taskId,
+            }))
+            .catch((error) => {
+              reportError(error, { scope: "stop-child", runId });
+              skippedDescendants.push(`${target.taskId}: ${String(error)}`);
+            });
+        }
+        const descendants = ledger.listRunAggregatesByOrigin({ originKind: "task", originId: resolved.child.delegatedTaskId, limit: DELEGATED_TASK_LIST_LIMIT });
+        for (const aggregate of descendants) {
+          const child = summaryFromAggregate(ledger, aggregate);
+          if (!child || !isActiveDelegatedTaskPhase(child.phase)) continue;
+          try {
+            const result = await stopChild({ parentTaskId: resolved.child.delegatedTaskId, delegationKey: child.delegationKey, reason: args.reason });
+            if (!result.accepted || result.message) skippedDescendants.push(`${child.delegatedTaskId}: ${result.message ?? result.reason ?? "refused"}`);
+          } catch (error) { skippedDescendants.push(`${child.delegatedTaskId}: ${String(error)}`); }
+        }
+        notifyChanged(args.parentTaskId);
+        return { ...accepted({
+          duplicate: transition.duplicate,
+          child: summaryFromTransition(resolved.ledger, transition),
+        }), message: skippedDescendants.length ? skippedDescendants.join("; ").slice(0, 500) : null };
+      } finally {
+        stoppingTasks.delete(resolved.child.delegatedTaskId);
+      }
+
   };
 
   return {
@@ -1942,58 +2041,7 @@ export function createDelegatedTaskCoordinator(
       return DelegatedTaskListSchema.parse(summaries);
     },
 
-    async stop(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
-      const parsed = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
-      if (!parsed.success) {
-        return rejected("invalid-request");
-      }
-      const args = parsed.data;
-      const resolved = await resolveForAction(args);
-      if (!resolved.ok) {
-        return resolved.rejection;
-      }
-      const { ledger, runId, stepId } = resolved;
-      const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
-      const target = resolved.step.target;
-      const transition = ledger.cancelRunStep({
-        runId,
-        stepId,
-        idempotencyKey: `stop:${args.delegationKey}`,
-        detail: {
-          code: "delegated-task-stopped",
-          message: args.reason,
-          providerId: target?.providerId,
-        },
-        error: args.reason ?? DELEGATED_TASK_STOPPED_REASON,
-        now: now(),
-      });
-      if (!transition.accepted) {
-        return rejected(
-          toRejectionReason(transition.reason),
-          summaryFromTransition(resolved.ledger, transition),
-        );
-      }
-      if (!transition.duplicate && target) {
-        if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
-        // Cancelling the ledger row is the durable half; asking the delegated task
-        // to stop is best effort, because a child that already ended is a
-        // successful stop.
-        await (resolved.child.agentRunId && dependencies.host.stopAgentRun
-          ? dependencies.host.stopAgentRun({ agentRunId: resolved.child.agentRunId, workspaceId: target.workspaceId, taskId: target.taskId })
-          : dependencies.host.stopTask({
-            workspaceId: target.workspaceId,
-            taskId: target.taskId,
-          }))
-          .catch((error) => {
-            reportError(error, { scope: "stop-child", runId });
-          });
-      }
-      notifyChanged(args.parentTaskId);
-      return accepted({
-        duplicate: transition.duplicate,
-        child: summaryFromTransition(resolved.ledger, transition),
-      });
-    },
+    stop: stopChild,
 
     reconcile,
 

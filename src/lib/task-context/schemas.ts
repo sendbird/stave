@@ -569,6 +569,11 @@ const TaskSourceContextSchema = z
   .strict();
 
 const TaskSchema = z.object({
+  forkParent: z.object({
+    taskId: z.string().min(1).max(200),
+    workspaceId: z.string().min(1).max(200),
+    messageId: z.string().min(1).max(200),
+  }).strict().optional(),
   id: z.string(),
   title: z.string(),
   titleManuallySet: z.boolean().optional(),
@@ -576,6 +581,8 @@ const TaskSchema = z.object({
   provider: ProviderIdSchema,
   updatedAt: z.string(),
   unread: z.boolean(),
+  pinned: z.boolean().optional(),
+  historyOrderKey: z.number().finite().optional(),
   archivedAt: z
     .string()
     .nullable()

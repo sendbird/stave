@@ -1,3 +1,10 @@
+import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
+import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
+import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
+import type { TurnSnapshotsApi } from "../lib/turn-snapshots";
+import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
+import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
+import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
 import type { McpAppBridgeApi } from "@/lib/mcp-app/mcp-app-bridge";
 import type { AppLocale } from "@/i18n/locale";
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
@@ -331,6 +338,12 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  /** Turns the host provider runtime still runs, and when the host booted. */
+  listLiveTurns?: () => Promise<ProviderLiveTurnsResult>;
+  /** Starts that were queued for a slot when Stave quit, put back into their composer queues once. */
+  takeRestoredQueuedTurns?: () => Promise<{
+    items: Array<{ workspaceId: string; taskId: string; item: import("@/types/chat").PromptDraftQueuedTurn }>;
+  }>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;
@@ -1023,6 +1036,10 @@ interface WindowJiraConnectorApi {
 }
 
 interface WindowTaskControlApi {
+  deletePermanently?: (args: FleetTaskControlArgs) => Promise<FleetTaskControlResult>;
+  archive?: (args: FleetArchiveArgs) => Promise<FleetArchiveResult>;
+  previewStop?: (args: FleetStopPreviewArgs) => Promise<FleetStopPreviewResult>;
+  stopChildren?: (args: FleetTaskControlArgs) => Promise<FleetStopChildrenResult>;
   takeOver?: (args: { workspaceId: string; taskId: string }) => Promise<{
     ok: boolean;
     workspaceId?: string;
@@ -1604,6 +1621,8 @@ interface WindowSourceControlApi {
     existingPrUrl?: string;
     stderr?: string;
   }>;
+  getPrStack?: (args: GetPrStackArgs) => Promise<GetPrStackResult>;
+  retargetPrStack?: (args: RetargetPrStackArgs) => Promise<RetargetPrStackResult>;
   getRepoMergeSettings?: (args: { cwd?: string }) => Promise<{
     ok: boolean;
     squashMergeAllowed?: boolean;
@@ -1900,6 +1919,7 @@ interface WindowPersistenceApi {
     taskId: string;
     limit?: number;
     offset?: number;
+    messageId?: string;
   }) => Promise<{
     ok: boolean;
     page: {
@@ -1931,6 +1951,7 @@ interface WindowPersistenceApi {
     } | null;
   }>;
   truncateTaskMessagesAfter?: (args: {
+    before?: true;
     workspaceId: string;
     taskId: string;
     messageId: string;
@@ -1956,6 +1977,7 @@ interface WindowPersistenceApi {
     activeRepositoryPath?: string | null;
   }>;
   upsertWorkspace?: (args: {
+    creationOptions?: { initCommand?: string; useRootNodeModulesSymlink: boolean };
     id: string;
     name: string;
     snapshot: {
@@ -2063,6 +2085,8 @@ interface WindowPersistenceApi {
     draft:
       import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null;
   }) => Promise<{ ok: boolean }>;
+  listTaskReadStates?: (args: import("@/lib/task-read-state").ListTaskReadStatesArgs) => Promise<{ok:boolean;states:import("@/lib/task-read-state").TaskReadState[]}>;
+  setTaskReadStates?: (args: import("@/lib/task-read-state").SetTaskReadStatesArgs) => Promise<{ok:boolean} & import("@/lib/task-read-state").SetTaskReadStatesResult>;
   listResultReviews?: (
     args?: import("@/lib/reviews/result-review").ListResultReviewsArgs,
   ) => Promise<
@@ -2212,6 +2236,9 @@ interface WindowPersistenceApi {
     args: import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffArgs,
   ) => Promise<import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffResponse>;
   /** Every registered repository's tasks matching a query, for the palette's All repositories scope. */
+  searchTaskContent?: (
+    args: import("@/lib/task-search/content-search").SearchTaskContentArgs,
+  ) => Promise<import("@/lib/task-search/content-search").SearchTaskContentResponse>;
   searchTasks?: (
     args: import("@/lib/task-search/task-search-ipc").SearchTasksArgs,
   ) => Promise<import("@/lib/task-search/task-search-ipc").SearchTasksResponse>;
@@ -3002,12 +3029,14 @@ interface WindowInlineCompletionApi {
 }
 
 interface WindowApi {
+  workspaceCleanup?: import("@/lib/workspace-cleanup-contract").WorkspaceCleanupApi;
   workspaceExecution?: {
     status: () => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionState[]>;
     update: (args: import("@/lib/performance/workspace-execution").WorkspaceExecutionArgs) => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionResult>;
   };
   platform?: NodeJS.Platform;
   runs?: WindowRunsApi;
+  turnSnapshots?: TurnSnapshotsApi;
   provider?: WindowProviderApi;
   providerAccounts?: ProviderAccountsBridgeApi;
   /** App-level API connections shared by Claude Code and Codex. */
@@ -3052,6 +3081,9 @@ interface WindowApi {
    * (`tars:schedule-toggle`) is the pause switch of a schedule Tars created
    * and `listSchedules` (`tars:schedules`) lists those schedules; they are
    * records of Stave's Schedules service, which stores and runs them.
+   * `batch` (`tars:batch`) previews, confirms, declines or restores one bulk
+   * control or cleanup, and `batches` (`tars:batches`) reads the saved
+   * records with their per-item outcomes.
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */
@@ -3062,6 +3094,8 @@ interface WindowApi {
   diagnostics?: WindowDiagnosticsApi;
   terminal?: WindowTerminalApi;
   notifications?: {
+    subscribeNativeResolved?: (listener: (payload: NativeNotificationResolved) => void) => () => void;
+    setActionsEnabled?: (args: { enabled: boolean }) => Promise<{ ok: boolean }>;
     showNative?: (args: {
       notificationId: string;
       title: string;

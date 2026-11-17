@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
 import { createWakeUpRuntime } from "../electron/host-service/wake-up-runtime";
+import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import { WakeUpStore } from "../electron/persistence/wake-up-store";
 import type { TaskSupervisionSnapshot } from "../electron/host-service/local-mcp-runtime";
 import {
@@ -63,6 +64,7 @@ function createHarness(args?: {
   userPermissionOptions?: (providerId: string) => Record<string, unknown> | undefined;
   /** Hold the persistence methods on a prototype, as the host's `SqliteStore` does. */
   persistenceOnPrototype?: boolean;
+  isQueuedTurn?: (turnId: string) => boolean;
 }) {
   const store = new WakeUpStore(new Database(":memory:"));
   let completions: TaskCompletionSignal[] = args?.completions ?? [];
@@ -124,6 +126,7 @@ function createHarness(args?: {
   };
 
   const runtime = createWakeUpRuntime({
+    ...(args?.isQueuedTurn ? { isQueuedTurn: args.isQueuedTurn } : {}),
     persistence: args?.persistenceOnPrototype
       ? (Object.create(persistence) as typeof persistence)
       : persistence,
@@ -588,6 +591,32 @@ describe("supervisor runtime", () => {
 
     expect(harness.getCompletedTurnIds()).toContain("turn-1");
     expect(harness.store.get(wakeUp.id)?.state).toBe("scheduled");
+  });
+
+  test("leaves a turn the admission queue recovered at boot running instead of closing it as interrupted", async () => {
+    // The real admission gate after a restart: one slot, held, so the recovered wake-up turn waits.
+    const gate = createTurnAdmission({ limit: () => 1, save: () => {} });
+    const harness = createHarness({ isQueuedTurn: (turnId) => gate.isQueued(turnId) });
+    await harness.runtime.create(createInput());
+    harness.runtime.start();
+    await harness.drain();
+    harness.setNow("2026-08-10T01:00:00.000Z");
+    await harness.tick();
+    await gate.acquire({ turnId: "blocker", priority: "user" });
+    void gate.acquire({ turnId: "turn-1", taskId: "task-1", priority: "automatic" }).catch(() => {});
+
+    harness.runtime.stop();
+    harness.runtime.start();
+    await harness.drain();
+
+    expect(harness.getCompletedTurnIds()).not.toContain("turn-1");
+    gate.release("turn-1");
+    harness.runtime.stop();
+    harness.runtime.start();
+    await harness.drain();
+    // Once admission no longer holds it, the boot sweep closes it as before.
+    expect(harness.getCompletedTurnIds()).toContain("turn-1");
+    gate.release("blocker");
   });
 
   test("refuses a second wake-up on the same task", async () => {

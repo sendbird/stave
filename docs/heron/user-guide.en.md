@@ -7,7 +7,7 @@ versionLabel: v1
 status: Current · Stave 0.35.0
 statusTone: current
 captured: 2026-11-09
-updated: 2026-11-13
+updated: 2026-11-17
 recorder: jacob.kim
 footer: Stave User Guide v1 · Stave 0.35.0 · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
@@ -255,7 +255,16 @@ Tool output, reasoning, and folded tool groups load their bodies on first open a
 
 **Transcript**: messages you send back to back, such as steers, stack together with one note under the last (**Steered into active turn · 3**); hover any of them for its own copy and time actions. When a reply ran on a different provider, model or effort than the reply before it, a line above it names the change (**Claude Sonnet 4.6 · Medium → Claude Opus 4.8 · High**).
 
+**Restore files from a turn**: open a completed response's actions and choose **Restore files to before this turn**. **Keep conversation, restore files** preserves the messages. **Restore files and roll back conversation** appears only when conversation rollback is supported; otherwise, use **Fork here** to continue from that point. The host saves tracked, staged and untracked files before each user turn, excluding ignored files and the worktrees under `.stave/workspaces/`. Capture leaves your branch, index and files unchanged. Unchanged states reuse a snapshot; the default retention is 50 snapshots per task and is configurable. If saving fails, the turn still runs and shows **No snapshot for this turn** with the reason instead of the restore button. A restore changes only the files that differ, keeps their permissions, and stops before changing anything when something is in the way. It first saves the current files, and **Undo restore** brings them back. Restoration is blocked while this task runs, while another running task shares its worktree, while a terminal in the worktree runs a command, or when files may have changed after the turn. The action explains the reason. Claude conversations from before this feature keep **Preview Claude file rewind** on each user message.
+
+**Return a fork's result**: in a fork, choose **Send result to original** after its final answer. The original task's composer opens with the answer as a quote and a link to the fork. The fork is attached as task context so its details are available when you send. Review the draft before sending; returning a result never sends it automatically. The parent link is saved across restarts.
+
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
+
+**Restart recovery**: in **Settings > General > Desktop Notifications**, **After a restart, continue interrupted work** offers **Ask** (default), **Automatically**, and **Never**. Ask lists interrupted ordinary tasks in one notice with **Continue all**, **Continue**, and **Dismiss**. Restored queues stay held under Ask. A continuation asks the agent to check state before repeating actions because earlier commands may have finished, and to confirm an irreversible action (push, deploy, delete, send messages, migrations) did not already run. Only turns the app's closing cut short are offered: reloading the window never starts a second turn beside one that is still running. Automatic recovery allows at most three continuations per task in five minutes, then asks. It excludes stopped work, pending approvals or input, and managed work; each excluded turn is decided once, and interruptions older than a day are not offered. Usage-limit pauses and reset-time reservations survive restart; an overdue reservation checks usage once before continuing.
+
+**System notification answers**: on macOS, **Answer from notifications** is on by default. Use **Allow once** or **Deny** for approval; a risk-flagged request, or one longer than the banner shows (80 characters), offers **Open to review** and **Deny** instead. Use up to three option buttons for a short question, or **Reply** where the in-app card takes typed text; number questions accept only valid numbers. Persistent allowances are never offered; ownership and pending-request guards still apply. Expired requests show **Already answered**, and duplicates do nothing; when Stave cannot confirm or deliver the answer it shows **Could not answer — open Stave** and the buttons stay usable. Turning the setting off disables existing actions too. Windows and Linux show title, body and click-to-open, with the setting hidden. Multi-part questions, multiple selection and questions answered by a later message stay in the app so their full answer is preserved. OS permissions can restrict delivery.
+
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)
 
 **Activity tab**: the Task panel's **Activity** tab lists the turn's steps. The **List | Timeline** switch draws the same turn on a time axis labelled in seconds or minutes (0s, 30s, 1m): the turn row with its tokens and cost, tool calls and subagents as bars, a **Now** line while it runs, and a **Slowest** tag on the longest step. Steps without a recorded time are listed under the axis instead. The **Agent tree** folds branch by branch and moves with the arrow keys. In the conversation, a tool call's arguments and output each have **Copy**, and long output scrolls inside a fixed height with a line count under it.
@@ -287,6 +296,32 @@ edge skills -> turn
 edge memory -> turn
 @caption A simplified view of how the app assembles a request. Whether repository instructions reach Cursor, Kiro and OpenCode turns was not confirmed.
 ```
+
+
+### Watch agent-opened PRs and manage a stack
+
+**Settings → Prompts → PR Completion → Watch pull requests** is on by default,
+and each repository can override it in its settings. It covers PRs you open
+with Create PR and PRs an agent opens during a task turn. Stave adopts an
+agent's PR only when that turn ran a command that opens a PR (or reported its
+link), the PR is on a non-default branch of this repository, you are its
+author, and it was created during the turn. If two tasks could have opened it,
+Stave watches neither and says so in both tasks. The watch covers failed
+checks and merge conflicts; review feedback stays opt-in. The task shows which
+PR is watched. **Stop watching** appears only for watches Stave added itself;
+for a watch you scheduled, **Open in Schedules** takes you to it. Watches stop
+when the PR merges or closes. Merged work is eligible for the cleanup center's
+**PR merged** rule.
+
+For related branches, choose **Create stacked PR** in the creation dialog.
+The top-bar PR area and Fleet show the stack position and parent/child links.
+Long-lived branches such as `develop`, `release/*` and `staging` (editable in
+**Settings → Prompts → PR Completion → Long-lived branches**) never count as a
+stack parent. After a parent merges, **Retarget children…** lists each of your
+PRs with its base change and author, and changes nothing until you confirm.
+Other people's PRs are listed but never changed. Each PR reports its own
+result; conflicts are left for you to resolve, and you can retry the rest.
+This action never force-pushes.
 
 ## Ways to give context
 
@@ -985,6 +1020,14 @@ notifications stay quiet while Stave's window has focus.
 
 Full details: https://github.com/sendbird/stave/blob/main/docs/features/tars.md
 
+
+## Tars bulk control and cleanup
+
+Ask Tars to "stop everything", "pause all running work", resume all, or explicitly cancel many responsibilities. Limit the request to one repository or a list of responsibilities when needed. One card lists only the work the action can apply to, with each skipped item's reason; ended work is counted on one line instead of being listed. Confirmation is always required, regardless of autonomy. Pause and resume apply to the work's current state when you confirm; cancel skips work that changed since the card appeared, and never cancels work you took over. Cancellation cannot be undone and has no default Enter shortcut.
+
+Ask to "clean up the finished work" or choose **Clean up finished work** in Done. Only completed or cancelled work with no running activity, pending/open PR, dirty files or unpushed commits can be archived; unfinished work is counted on one line. The host checks each workspace again when confirmed. When pull request status is unavailable, every item is skipped and one line says to sign in to GitHub CLI or use the cleanup center. The result record offers **Restore** for archives; an archive whose branch was deleted comes back read-only. If Stave stops while a cleanup or bulk control runs, its record shows what ran and offers **Continue** for the rest. Branch deletion and permanent deletion of already archived workspaces require an explicit request and cannot be undone; force deletion is never used.
+
+
 @page review | Hand off | Review and delegation | guide
 @lead Check changes yourself in Review mode, hand them to another model as an AI review, or let an agent create delegated tasks. Results gather in the Task panel's Outputs.
 
@@ -1042,6 +1085,46 @@ Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent cre
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
 ## Fleet View
+
+Fleet and long sidebar lists render the rows around the viewport. Selection and keyboard navigation still cover the complete filtered, expanded list.
+
+
+Select tasks with their checkboxes, Cmd/Ctrl-click or Shift-click. With a row
+focused, **X** toggles selection, **Shift+Arrow** extends it, **Cmd/Ctrl+A**
+selects the visible tasks and **Esc** clears it. The selected count is announced.
+The one-line selection toolbar appears only with a selection. It shows the
+selected count and a clear button with an Esc hint, followed by **Stop** and
+**Archive**. **Snooze** offers 1h, 4h, 1d and 1w. **More** contains **Mark read**,
+**Mark reviewed**, **Open** for one task, and **Delete permanently**. On narrow
+widths primary actions move into More. Actions with no eligible items are hidden;
+counts and confirmations match the tasks the action can change. Skipped tasks
+include reasons. Archive and Snooze offer **Undo** in the toast and Cmd/Ctrl+Z.
+
+**Stop** stops the parent turn before its running children. Finished children
+remain untouched. Owned work pauses through its owner or is skipped, including
+its children when the owner refuses. **Stop all** is a separate header button
+visible while work is running. Stop previews the affected turns, children, runs
+and owned work before confirmation. The palette also offers a repository-scoped
+stop, **Archive ended tasks in this workspace** and **Mark all read**. Mark all
+read asks for confirmation because it cannot be undone. Collapsed groups are
+excluded from Select all; selection shortcuts do not act through dialogs or menus.
+
+**Archive** excludes live turns, pending approvals or questions, running children
+and running runs. Archive and Undo preserve the workspace you are viewing.
+**Delete permanently** requires archiving first, so Archive's Undo is available
+before deletion. Only archived tasks without live work or pending requests can
+be deleted. Protected tasks are skipped. The confirmation names the eligible
+count and warns that deletion cannot be undone; Cancel receives focus. Ended
+children retain their content as independent tasks. Deleting a child preserves
+its parent's history. In **Task History**, select multiple tasks to **Restore
+(n)** or **Delete permanently (n)** together.
+
+Tree and Table optionally **Group by status**: **Needs you**, **Working**,
+**Ready for review**, **Idle**, then **Ended**. Finished work with unread results
+or open pull-request states is ready for review. Group headers show counts and
+select their visible tasks. The grouping choice is saved; repository grouping
+stays the default.
+
 
 Fleet View collects tasks from every workspace in the order you should act on them. The sidebar's **Work queue** view uses the same order.
 
@@ -1171,7 +1254,16 @@ Screenshot links point at the `main` branch on GitHub. Once re-captured screensh
 
 ## Finding text and navigating views
 
-Press Cmd+F / Ctrl+F while focused in the conversation or its composer, or hover the transcript and choose the search button in its top-right corner. The find bar floats over the transcript and does not move messages. It searches loaded message text, including messages outside the viewport, and excludes thinking and tool parts. Load older messages to search earlier history. Enter and Shift+Enter move between matching messages.
+Press Cmd+F / Ctrl+F while focused in the conversation or its composer, or hover the transcript and choose the search button in its top-right corner. The find bar floats over the transcript and does not move messages. Enter at least two characters. It combines loaded messages, including unsaved streaming text and older inline snapshots, with local index hits for unloaded history and readable tool summaries. Each message appears once. Thinking and raw tool payloads are excluded. Selecting a match loads its history window automatically; **Load newer messages** moves forward again. Enter and Shift+Enter move between matching messages. The selected message stays selected after backfill completes. Sending a message or choosing **Back to latest** returns to the live transcript.
+
+The command palette shows **In messages** after you type two characters, below
+title results. It searches user messages, assistant replies and readable tool
+summaries across registered repositories, with Korean and partial-word matching.
+Results include highlighted snippets, match counts, last activity and labels for
+archived and delegated tasks. Enter opens the matching message, even in older
+history. Archived tasks remain read-only with an **Archived · Restore** banner until you restore them. In Fleet, enable **Include message text** to search the same content.
+An indexing progress notice appears while existing history is being prepared.
+Content stays local and is never sent to a provider by search.
 
 In a terminal, Cmd+F / Ctrl+F searches the retained terminal buffer. Enter and Shift+Enter move between matches; Escape closes the search. The terminal header shows Running or the completed command's exit code.
 
@@ -1204,3 +1296,82 @@ promote another task's inline render. `livePreview` is supported only on saved o
 local HTML artifacts. HTTP links must omit it. Root-relative asset paths require
 a static export with relative paths. Markdown copied outside Stave describes
 saved artifacts as local-only and omits their app-specific URI.
+
+## Workspace cleanup and restore
+
+Open **Clean up workspaces** from the command palette, a repository menu or
+the Fleet header. Review all repositories, suggested workspaces and branches,
+blockers and optional disk sizes. Select rows to archive, restore or delete.
+Archive removes a clean worktree while preserving its branch and history; use
+Undo or the Repositories view's Archived shelf to restore it. Without saved
+changes, a missing branch opens history read-only and can seed a new workspace draft.
+
+A dirty managed worktree with no other blockers can be selected for **Archive**.
+In confirmation, turn on **Save uncommitted changes and archive**; it starts off.
+Staged, unstaged and untracked files are saved without moving the branch; ignored
+files are excluded. **Saved changes** marks these archives. Restore brings back
+the files and staged state, stopping with a conflict if files already occupy the
+destination. A failed save leaves the worktree in place. Permanent deletion
+removes the saved reference. Saved archives can recreate a deleted branch and
+skip initialization commands during restore to protect the restored files.
+Automatic cleanup never chooses this option.
+
+**Delete permanently** is separate and confirms removal of history and the
+clean worktree. Confirmation opens with Cancel focused; Escape closes only the
+confirmation, and Enter never confirms permanent deletion. Linked workspaces
+keep the external worktree and branch when archived. Restore re-applies dependency
+links and the configured initialization command, with progress and failure shown.
+Older workspaces without saved creation options use the observed dependency link
+and the current repository initialization command.
+Branch deletion is optional, safe by default; forcing an
+unmerged branch requires an unchecked-by-default confirmation.
+
+**Settings > Workspaces** provides independent, disabled-by-default cleanup
+rules for merged PRs, inactivity, archived worktrees and a per-repository
+worktree limit. The host evaluates them at most hourly; **Run cleanup now**
+evaluates them immediately. Current/default workspaces, uncommitted files,
+unpushed commits and running work remain protected. Recent cleanup records
+results and offers Restore for preserved history. Closing a tab with
+Cmd/Ctrl+W does not archive its task or workspace.
+
+Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
+
+
+### Global agent turn limit
+
+Settings → Providers → **Run at most N agent turns at once** is off by default.
+Enable it and choose 1–16. Tasks and Fleet show the queue position while waiting.
+User messages go before automatic starts; starts within each group stay in order.
+Stop removes a queued start. After a restart, a message you sent returns to its
+composer queue as **Waiting to send (restored)** for you to send or discard;
+automatic starts resume while their task exists. A start that cannot resume, or
+waited over a day, is dropped with a notification. Parents waiting
+for delegated children release their slot and acquire it again when resuming.
+Existing feature limits still apply.
+
+## Find tools and return to unread tasks
+
+The command palette includes Compare models, Schedules, Clean up workspaces,
+Fleet View, Agents, Performance, Resource Manager and Secret requests, with
+short descriptions. Resource Manager also opens from Settings > General
+without Developer mode.
+
+When a message waits behind a running turn, a one-line hint offers to enable
+mid-turn steering. It stays off until you enable it.
+Close a hint with its × button and it stays closed. Settings > General >
+Feature tips turns all hints off.
+
+A dot on a task tab, sidebar task or Fleet row means there is unseen completion,
+failure or attention. Open the task to read it. Mark as unread keeps it for
+later; Mark as read clears its read indicators. Fleet can apply these actions
+to the selected tasks from the selection's More menu. The notification count
+follows the same mark. Reading does not approve requests or accept results.
+Output reading and task reading share the latest result's saved read mark,
+so they stay in sync after a restart.
+
+Pin tasks in Task History or the sidebar. Task History lists pinned tasks
+first and otherwise uses recent activity. Drag a task or press Alt + Up/Down
+to place it; a placed task keeps its position, while new tasks still appear
+first. Reset order returns to activity order. The sidebar keeps running and
+waiting tasks first and shows at most three open tasks per workspace, with the
+rest behind +N more. Task pins and tab pins are separate.

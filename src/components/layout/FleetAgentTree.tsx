@@ -1,9 +1,16 @@
+import { TaskUnreadDot } from "@/components/session/TaskReadIndicator";
+import { revealFleetVirtualRow, useFleetRevealListener } from "./fleet-virtual-focus";
+import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
+import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
+import { FleetGroupHeader } from "./FleetGrouping";
+import { groupFleetTaskRows, type FleetStatusGroup } from "@/lib/fleet/status-groups";
+import { useFleetGroupingStore } from "@/store/fleet-grouping-store";
 import { i18n, useTranslation } from "@/i18n";
 import { ArrowUpRight } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { createFleetAgentFactsSelector } from "./fleet-agent-facts-selector";
-import { AgentFleet, type AgentFleetAgent } from "@/components/aui/components/AgentFleet";
+import { AgentFleet, type AgentFleetAgent, type AgentFleetHandle } from "@/components/aui/components/AgentFleet";
 import { Button } from "@/components/aui/components/Button";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
@@ -36,6 +43,9 @@ import { useTarsResponsibilities } from "@/store/tars-snapshot-store";
 
 type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: string };
 
+/** Above this many cards the Tree renders only the cards near the board's view. */
+const FLEET_TREE_WINDOW_THRESHOLD = 80;
+
 /**
  * Fleet's Tree layout: every open task, with the same rows, filter, search
  * and unopened-workspace handling as the table, drawn as main agents. The
@@ -43,6 +53,7 @@ type OpenTaskTarget = { repositoryPath: string; workspaceId: string; taskId: str
  * load only while it is open.
  */
 export function FleetAgentTree(props: {
+  suppressEmptyMessage?: boolean;
   repositories: readonly FleetTaskTableRepository[];
   filter: FleetTaskTableFilter;
   owner?: FleetOwnerFilter;
@@ -56,6 +67,7 @@ export function FleetAgentTree(props: {
   return (
     <FleetTaskTableView
       rows={shownRows}
+      suppressEmptyMessage={props.suppressEmptyMessage}
       hasRows={rows.length > 0}
       load={load}
       onRetry={retry}
@@ -74,7 +86,12 @@ function FleetAgentTreeBoard(props: {
   onOpenTask: (target: OpenTaskTarget) => void;
 }) {
   const { t } = useTranslation(["fleet", "shell"]);
-  const { rows } = props;
+  const grouping = useFleetGroupingStore((state) => state.grouping);
+  const groupRuns = useFleetAgentRunsStore((state) => state.details);
+  const groups = useMemo(() => groupFleetTaskRows(props.rows, grouping, groupRuns), [props.rows, grouping, groupRuns]);
+  const rows = useMemo(() => groups.flatMap((group) => group.rows), [groups]);
+  const targets = useMemo(() => rows.map((row) => ({ ...row, taskId: row.task.id })), [rows]);
+  useFleetSelectionRows("tree", targets);
   // A card names its owner beside the model when an active Tars responsibility holds the task.
   const tarsResponsibilities = useTarsResponsibilities();
   // Ownership needs the task's own active run, so a run you started there is never Tars's.
@@ -111,7 +128,7 @@ function FleetAgentTreeBoard(props: {
           ...(tarsOwned
             ? { model: main.model ? t("shell:tars.owner.withModel", { model: main.model }) : t("shell:tars.owner.label") }
             : {}),
-          avatar: <FleetProviderIcon provider={row.task.provider} />,
+          avatar: <><TaskUnreadDot workspaceId={row.workspaceId} taskId={row.task.id} /><FleetProviderIcon provider={row.task.provider} /></>,
           ...(sharedFileCount > 0 ? { sharedFileCount } : {}),
         };
         return row.key === openRow?.key
@@ -127,6 +144,23 @@ function FleetAgentTreeBoard(props: {
     [children, facts, fleetRuns, fleetRunsLoaded, openRow?.key, rows, sharedFilesByParent, t, tarsResponsibilities, i18n.resolvedLanguage],
   );
 
+  const agentsById = useMemo(() => new Map(agents.map((agent) => [agent.id, agent])), [agents]);
+  const rowsByKey = useMemo(() => new Map(rows.map((row) => [row.key, row])), [rows]);
+
+  const virtualize = rows.length > FLEET_TREE_WINDOW_THRESHOLD;
+  const fleetHandle = useRef<AgentFleetHandle | null>(null);
+  useFleetRevealListener((key) => fleetHandle.current?.revealAgent(key), virtualize);
+  const groupHeader = (group: (typeof groups)[number]) => <FleetGroupHeader
+    title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title!}
+    keys={group.rows.map((row) => row.key)} />;
+  const groupStartByKey = new Map<string, ReactNode>();
+  if (virtualize) {
+    for (const group of groups) {
+      const first = group.rows[0];
+      if (group.title && first) groupStartByKey.set(first.key, groupHeader(group));
+    }
+  }
+
   const openChild = (agent: AgentFleetAgent) => {
     const ref = children.refs.get(agent.id);
     if (!openRow || !ref) return;
@@ -138,9 +172,39 @@ function FleetAgentTreeBoard(props: {
   };
 
   return (
-    <div className={sx(styles.board)} data-fleet-agent-tree="true">
+    <div className={sx(styles.board)} data-fleet-agent-tree="true" onKeyDownCapture={(event) => {
+      // One key model at every size: ↑/k and ↓/j step through every card in
+      // board order (across groups) and wrap; Home and End jump to the ends.
+      if (event.defaultPrevented || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !target.matches("[data-agent-fleet-card]")) return;
+      const current = rows.findIndex((row) => row.key === target.dataset.agentFleetCard);
+      const next = nextFleetTreeIndex(event.key, current, rows.length);
+      if (next === null) return;
+      event.preventDefault(); event.stopPropagation();
+      if (next !== current) revealFleetVirtualRow(rows[next]!.key, true);
+    }}>
+      {virtualize
+        // A large tree is one windowed list scrolled by the board, with each
+        // group heading above its first card.
+        ? renderFleet(agents, (agent) => groupStartByKey.get(agent.id) ?? null)
+        : groups.map((group) => <section key={group.id}>
+          {group.title ? groupHeader(group) : null}
+          {renderFleet(group.rows.map((row) => agentsById.get(row.key)!))}
+        </section>)}
+    </div>
+  );
+
+  function renderFleet(fleetAgents: AgentFleetAgent[], renderGroupStart?: (agent: AgentFleetAgent) => ReactNode) {
+    return (
       <AgentFleet
-        agents={agents}
+        virtualize={virtualize}
+        handleRef={virtualize ? fleetHandle : undefined}
+        renderGroupStart={renderGroupStart}
+        agents={fleetAgents}
+        renderMainCard={(agent, card) => <div data-fleet-select-key={agent.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)}>
+          <FleetSelectionCheckbox itemKey={agent.id} title={agent.name} />{card}
+        </div>}
         open={openRow?.key ?? null}
         onOpenChange={(id) => setChosen(id)}
         // A delegated task opens as its own task; an in-turn subagent shows its steps.
@@ -148,7 +212,7 @@ function FleetAgentTreeBoard(props: {
         onResolve={openChild}
         renderToolIcon={(tool) => getToolIcon(tool.id)}
         renderTreeActions={(agent) => {
-          const row = rows.find((candidate) => candidate.key === agent.id);
+          const row = rowsByKey.get(agent.id);
           if (!row) return null;
           return (
             <>
@@ -173,8 +237,27 @@ function FleetAgentTreeBoard(props: {
           );
         }}
       />
-    </div>
-  );
+    );
+  }
+}
+
+/** The Tree's card step for a key: wraps at both ends, the same for any number of cards. */
+export function nextFleetTreeIndex(key: string, current: number, count: number): number | null {
+  if (current < 0 || count === 0) return null;
+  switch (key) {
+    case "ArrowDown":
+    case "j":
+      return (current + 1) % count;
+    case "ArrowUp":
+    case "k":
+      return (current - 1 + count) % count;
+    case "Home":
+      return 0;
+    case "End":
+      return count - 1;
+    default:
+      return null;
+  }
 }
 
 interface OpenAgentChildren {
@@ -235,6 +318,7 @@ function useOpenAgentChildren(row: FleetTaskRow | null, nowMs: number): OpenAgen
 }
 
 const styles = stylex.create({
+  selectionRow: { gridColumn: "1", display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minInlineSize: 0 },
   // The cards' grid inset, so the agents line up under the toolbar.
   board: {
     minWidth: 0,

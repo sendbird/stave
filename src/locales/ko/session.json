@@ -81,7 +81,10 @@
     "chatAreaImpl2": "시작하려면 로컬 저장소 폴더를 선택하세요.",
     "chatAreaImpl3": "폴더 선택",
     "chatAreaImpl4": "워크스페이스 선택",
-    "chatAreaImpl5": "계속하려면 왼쪽 사이드바에서 워크스페이스를 선택하세요."
+    "chatAreaImpl5": "계속하려면 왼쪽 사이드바에서 워크스페이스를 선택하세요.",
+    "archivedOn": "{{date}}에 보관됨 · 계속하려면 복원하세요.",
+    "archivedUndated": "보관된 작업입니다. 계속하려면 복원하세요.",
+    "restore": "복원"
   },
   "chatInput": {
     "detail": "이 빌드에서는 프로바이더 명령 목록 API를 사용할 수 없습니다.",
@@ -1374,5 +1377,36 @@
     "viewResult": "결과 보기",
     "collapseResult": "결과 접기",
     "reportedHistory": "보고된 작업 이력"
+  },
+  "featureDiscovery": {
+    "steering": "실행 중인 턴에 방향을 전달하려면 조종 기능을 켜세요.",
+    "enable": "켜기",
+    "dismiss": "팁 닫기"
+  },
+  "forkReturn": {
+    "sendResult": "원래 작업에 결과 전달"
+  },
+  "turnFiles": {
+    "restore": "이 턴 이전으로 파일 복원",
+    "keep": "대화 유지 및 파일 복원",
+    "rollback": "파일 복원 및 대화 되돌리기",
+    "description": "이 턴이 시작되기 전의 파일을 복원합니다. 현재 파일을 먼저 저장하므로 복원을 취소할 수 있습니다. 대화를 되돌리면 이 턴과 이후 메시지를 삭제합니다. 이전 시점에서 대화를 이어가려면 분기할 수도 있습니다.",
+    "undo": "파일 복원 취소",
+    "restored": "파일을 복원했습니다",
+    "undone": "파일 복원을 취소했습니다",
+    "failed": "파일을 복원하지 못했습니다. 워크스페이스를 확인한 뒤 다시 시도하세요.",
+    "partial": "파일은 복원했지만 대화를 되돌리지 못했습니다: {{detail}}. 파일 복원을 취소할 수 있습니다.",
+    "runningTask": "파일을 복원하려면 이 작업이 끝날 때까지 기다리세요.",
+    "sharedWorktree": "다른 작업이 이 작업 트리에서 실행 중입니다. 끝날 때까지 기다리세요.",
+    "otherTaskChanges": "이 턴 이후 작업 트리의 파일이 변경되었을 수 있습니다. 그 변경을 보호하기 위해 복원하지 않았습니다.",
+    "missingSnapshot": "이 턴에 보관된 파일 스냅샷이 없습니다.",
+    "unavailable": "이 워크스페이스에서는 파일 스냅샷을 사용할 수 없습니다.",
+    "terminalRunning": "이 작업 트리의 터미널에서 명령이 실행 중입니다. 명령이 끝나거나 터미널을 닫은 뒤 다시 시도하세요.",
+    "obstructed": "작업 트리의 파일이나 폴더가 복원을 막고 있어 아무 파일도 변경하지 않았습니다.",
+    "noSnapshot": "이 턴의 스냅샷이 없습니다: {{reason}}.",
+    "skipReason": {
+      "captureFailed": "턴을 시작할 때 파일을 저장하지 못했습니다",
+      "workspaceUnavailable": "턴을 시작할 때 워크스페이스 폴더를 찾을 수 없었습니다"
+    }
   }
 }

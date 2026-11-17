@@ -182,6 +182,10 @@ for (const lang of ["en", "ko"] as const) {
               const input = element.querySelector("input")!.getBoundingClientRect();
               return {
                 inputWidth: input.width,
+                statusOutside: (() => {
+                  const status = element.querySelector('[role="status"]')!.getBoundingClientRect();
+                  return Math.max(0, status.right - box.right, box.left - status.left);
+                })(),
                 actions: [...element.querySelectorAll("button")].map((button) => {
                   const b = button.getBoundingClientRect();
                   const glyph = button.querySelector("svg")!.getBoundingClientRect();
@@ -190,6 +194,8 @@ for (const lang of ["en", "ko"] as const) {
               };
             });
             expect(geometry.inputWidth).toBeGreaterThan(0);
+            expect(geometry.statusOutside).toBeLessThanOrEqual(0.5);
+            await expect(widget.getByRole("status")).toHaveCSS("text-overflow", "ellipsis");
             for (const action of geometry.actions) {
               expect(action.width).toBe(density === "compact" ? 24 : 28);
               expect(action.height).toBe(density === "compact" ? 24 : 28);

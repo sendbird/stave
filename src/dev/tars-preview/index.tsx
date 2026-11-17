@@ -1,3 +1,4 @@
+import { createPreviewBatchBridge } from "./tars-batch-bridge";
 import { installTarsArtifactFixtures } from "./tars-artifact-fixtures";
 import { addTarsWithdrawalFixture } from "./tars-withdrawal-fixture";
 import { captureTarsControlUndo, captureTarsQueueUndo } from "@/lib/tars/action-undo";
@@ -295,6 +296,7 @@ export function TarsPreview() {
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
     const bridge: TarsBridgeApi = {
+      ...(params.get("batch") === "true" ? createPreviewBatchBridge(snapshot, () => { for (const listener of changeListeners) listener({ scope: "conversation" }); }) : {}),
       undoAction: previewTarsActionUndo({ conversation, deliveryOutcome: params.get("withdrawal") === "pending" ? "pending" : params.get("withdrawal") === "started" ? "started" : undefined, getSnapshot: () => snapshot,
         setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(next)); },
         changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }),
@@ -408,7 +410,10 @@ export function TarsPreview() {
             decision.actions.push({ kind: "show", responsibilityId: side.ids.checkout, view: "report" });
           }
           // Asking to clear proposes it: the card waits for the user's confirmation, as the host's proposal does.
-          if (/\bclear\b|정리|지워/i.test(input.text)) {
+          if (params.get("batch") === "true" && /clean up|정리|stop everything|pause all|resume all|cancel all/i.test(input.text)) {
+            decision.actions.push(/clean up|정리/i.test(input.text) ? { kind: "cleanup", scope: { kind: "all" }, deleteBranches: false, permanentlyDeleteArchived: false }
+              : { kind: "bulkControl", operation: /cancel/i.test(input.text) ? "cancel" : /resume/i.test(input.text) ? "resume" : "pause", scope: { kind: "all" } });
+          } else if (/\bclear\b|정리|지워/i.test(input.text)) {
             const korean = params.get("lang") === "ko";
             const scopes = /\beverything\b|\ball\b|전부|모두/i.test(input.text) ? ["conversation", "done", "outputs"] as const
               : /done|finished|끝난/i.test(input.text) ? ["done"] as const : ["conversation"] as const;
@@ -456,7 +461,7 @@ export function TarsPreview() {
           // The host's own policy decides what waits: the saved autonomy level, tightened by any "never do" rule that names the action or the repository.
           const key = proposed && proposed.kind !== "schedule" ? tarsActionKey(proposed) : null;
           const matches = key ? matchTarsNeverRules(conversation.settings.neverDo, { key, repository: "preview", branches: [] }) : [];
-          const held = proposed?.kind === "ask" || (key !== null && tarsActionDisposition({ key, level: conversation.settings.autonomy, matches }) === "confirm");
+          const held = proposed?.kind === "bulkControl" || proposed?.kind === "cleanup" || proposed?.kind === "ask" || (key !== null && tarsActionDisposition({ key, level: conversation.settings.autonomy, matches }) === "confirm");
           if (proposed && proposed.kind !== "inspect") conversation.receipts.push(scheduling && proposed.kind === "schedule" ? scheduling.receiptFor(proposed, message.id, 0, createdAt) : held
             // Held actions wait for a confirming click; a question waits for its answer.
             ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null,

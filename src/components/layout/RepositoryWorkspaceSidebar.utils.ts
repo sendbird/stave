@@ -10,7 +10,6 @@ import {
   classifyTaskStatus,
   resolveFleetTaskSurfaceStatus,
   compareFleetTaskStatus,
-  summarizeFleetRespondingTasks,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
 import { selectFleetOpenTasks } from "@/lib/fleet/workspace-activity";
@@ -538,16 +537,7 @@ export function getWorkspaceShortcutLabel(index: number): string | null {
   return String(index + 1);
 }
 
-/**
- * Copy for the archive confirmation, and whether it may offer branch deletion.
- *
- * Linked worktrees were imported from outside this checkout and stay owned by
- * whatever created them: archive only drops the symlink Stave placed under
- * `.stave/workspaces/`, never the worktree or its branch. Offering a
- * "delete the branch" checkbox there would ask the user to confirm a
- * destructive action that silently never happens, so the option is withheld
- * and the reason stated instead.
- */
+/** Archive preserves the branch and history, including imported workspaces. */
 export function buildWorkspaceArchiveDialogCopy(args: {
   workspaceName: string;
   isLinkedWorktree: boolean;
@@ -560,7 +550,7 @@ export function buildWorkspaceArchiveDialogCopy(args: {
   }
 
   return {
-    canDeleteBranch: true,
+    canDeleteBranch: false,
     description: i18n.t("workspace:repositoryWorkspaceSidebar.archiveWorkspaceValueStaveWillRemoveThe", { value1: args.workspaceName }),
   };
 }
@@ -590,11 +580,12 @@ export interface WorkspaceProgressTaskItem {
   title: string;
   status: FleetTaskStatus;
   providerId: ProviderId;
+  pinned?: boolean;
 }
 
 type WorkspaceProgressTaskSource = Pick<
   Task,
-  "id" | "title" | "provider" | "updatedAt" | "archivedAt" | "parentTaskId"
+  "id" | "title" | "provider" | "updatedAt" | "archivedAt" | "parentTaskId" | "pinned"
 >;
 
 /**
@@ -614,8 +605,8 @@ export function summarizeWorkspaceTaskTitle(title: string) {
 }
 
 /**
- * Open task rows under a workspace that is currently in flight. The tree is
- * hidden when nothing is responding so idle workspaces stay one line.
+ * Every open task row under a workspace, in status order. The sidebar shows a
+ * compact subset of these (`selectCompactWorkspaceTaskRows`).
  */
 export function buildWorkspaceProgressTaskItems(args: {
   tasks: readonly WorkspaceProgressTaskSource[];
@@ -632,16 +623,6 @@ export function buildWorkspaceProgressTaskItems(args: {
   const activeTurnIdsByTask = args.activeTurnIdsByTask ?? {};
   const providerTurnActivityByTask = args.providerTurnActivityByTask ?? {};
   const tasks = [...args.tasks];
-  const responding = summarizeFleetRespondingTasks({
-    tasks,
-    messagesByTask,
-    activeTurnIdsByTask,
-    providerTurnActivityByTask,
-  });
-  if (responding.respondingTaskCount === 0) {
-    return [];
-  }
-
   const openTasks = selectFleetOpenTasks(tasks as Task[], {
     openTaskTabIds: args.openTaskTabIds,
     activeTurnIdsByTask,
@@ -669,13 +650,18 @@ export function buildWorkspaceProgressTaskItems(args: {
           messages,
         }),
         updatedAt: task.updatedAt,
+        pinned: task.pinned,
       };
     })
+    // Status and attention lead; a pin only lifts a task within its status.
+    // Task History's manual order never applies here.
     .sort((left, right) => {
       const statusOrder = compareFleetTaskStatus(left.status, right.status);
       if (statusOrder !== 0) {
         return statusOrder;
       }
+      const pinOrder = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
+      if (pinOrder) return pinOrder;
       return right.updatedAt.localeCompare(left.updatedAt);
     })
     .map((item) => ({
@@ -683,5 +669,33 @@ export function buildWorkspaceProgressTaskItems(args: {
       title: item.title,
       status: item.status,
       providerId: item.providerId,
+      pinned: item.pinned,
     }));
+}
+
+/** Open task rows a collapsed workspace shows before "+N more". */
+export const WORKSPACE_TASK_ROW_LIMIT = 3;
+
+/**
+ * The compact default under a workspace row. Only tasks worth a glance show:
+ * running or waiting, unread (a finished turn the user has not read) or
+ * pinned, at most `WORKSPACE_TASK_ROW_LIMIT`. A workspace with none of them
+ * stays one line; the rest fold into "+N more" until the user expands it.
+ */
+export function selectCompactWorkspaceTaskRows(args: {
+  items: readonly WorkspaceProgressTaskItem[];
+  unreadTaskIds: ReadonlySet<string>;
+  expanded: boolean;
+}): { rows: WorkspaceProgressTaskItem[]; hiddenCount: number } {
+  const notable = args.items.filter(
+    (item) => item.status !== "idle" || item.pinned || args.unreadTaskIds.has(item.taskId),
+  );
+  if (notable.length === 0) {
+    return { rows: [], hiddenCount: 0 };
+  }
+  if (args.expanded) {
+    return { rows: [...args.items], hiddenCount: 0 };
+  }
+  const rows = notable.slice(0, WORKSPACE_TASK_ROW_LIMIT);
+  return { rows, hiddenCount: args.items.length - rows.length };
 }

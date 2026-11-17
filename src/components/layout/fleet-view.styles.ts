@@ -258,6 +258,7 @@ export const fleetStyles = stylex.create({
       ":last-child": 0,
     },
   },
+  repositoryHeading: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], paddingInlineStart: vars["--aui-space-16"] },
   repositoryHeader: {
     alignItems: "center",
     backdropFilter: "blur(8px)",
@@ -312,6 +313,8 @@ export const fleetStyles = stylex.create({
   },
   // Cards in a row share one height (their footers line up) and sit on the
   // 12px spacing step.
+  collapsedGrid: { display: "none" },
+  virtualCardGrid: { display: "block" },
   cardGrid: {
     alignItems: "stretch",
     display: "grid",

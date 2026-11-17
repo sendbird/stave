@@ -33,6 +33,7 @@ declare module "better-sqlite3" {
     exec(source: string): this;
     prepare<Result = unknown>(source: string): Statement<Result>;
     transaction<Args extends unknown[], Result>(fn: (...args: Args) => Result): Transaction<Args, Result>;
+    function(name: string, options: { deterministic?: boolean }, callback: (...args: unknown[]) => unknown): this;
     close(): void;
   }
 

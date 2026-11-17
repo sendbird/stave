@@ -1051,6 +1051,22 @@
       "reviewPrevious": {
         "title": "이전 리뷰",
         "description": "검토 화면에서 리뷰를 기다리는 이전 결과나 단계를 엽니다."
+      },
+      "fleetSelectionToggle": {
+        "title": "포커스한 작업 선택 전환",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
+      },
+      "fleetSelectionExtend": {
+        "title": "작업 선택 범위 확장",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
+      },
+      "fleetSelectionAll": {
+        "title": "보이는 작업 모두 선택",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
+      },
+      "fleetSelectionClear": {
+        "title": "작업 선택 해제",
+        "description": "Fleet 또는 작업 기록에서 작업 행에 포커스가 있을 때 사용합니다."
       }
     },
     "ui": {
@@ -1206,6 +1222,14 @@
         "workspace": {
           "label": "할 일 기록하기",
           "prompt": "이 워크스페이스에 릴리스 검사 결과를 확인하는 할 일을 추가해줘."
+        },
+        "bulkControl": {
+          "label": "모두 일시정지",
+          "prompt": "진행 중인 일 모두 일시정지해줘"
+        },
+        "cleanup": {
+          "label": "끝난 일 정리",
+          "prompt": "끝난 일 정리해줘"
         }
       },
       "repositories": {
@@ -1346,7 +1370,9 @@
           "scheduleList": "목록 열림",
           "withdraw": "거둬들임",
           "workspace": "정보 수정됨",
-          "open": "화면 열림"
+          "open": "화면 열림",
+          "bulkControl": "일괄 제어됨",
+          "cleanup": "정리됨"
         }
       },
       "delegateAgent": "에이전트: {{name}}",
@@ -2927,6 +2953,89 @@
       "documentRequest": "첨부 문서를 참고해 계획을 세워 주세요. 구현을 시작하기 전에는 확인해 주세요.",
       "failed": "출처를 추가하지 못했습니다. HTTPS 링크나 32 KB 이하 Markdown 파일을 사용하고 초안과 첨부 용량을 확인해 주세요.",
       "issueBodyUnavailable": "이슈 본문을 읽지 못했습니다. 초안에는 제목과 링크가 포함됩니다."
+    },
+    "batch": {
+      "verb": {
+        "pause": "일시정지",
+        "resume": "재개",
+        "cancel": "취소",
+        "archive": "보관",
+        "delete": "영구 삭제"
+      },
+      "entry": "끝난 일 정리",
+      "effect": "아래 목록에만 적용합니다. 실행 직전에 호스트가 각 항목을 다시 확인합니다.",
+      "count_other": "{{count}}개 포함, {{skipped}}개 제외",
+      "reversible": "보관한 워크스페이스의 기록은 유지되며 복원할 수 있습니다. 일시정지한 일은 재개할 수 있습니다.",
+      "irreversible": "취소, 브랜치 삭제, 영구 삭제는 되돌릴 수 없습니다. 보관 기록은 복원할 수 있지만 삭제한 브랜치는 복구되지 않습니다.",
+      "changed": "일의 상태가 바뀌었거나 정리할 수 없습니다",
+      "failed": "작업을 마치지 못했습니다. 새로고침해 결과를 확인한 뒤 다시 시도하세요.",
+      "loading": "항목별 상태를 확인하고 있습니다...",
+      "skippedReason": "제외: {{reason}}",
+      "status": {
+        "included": "포함",
+        "skipped": "제외",
+        "applying": "결과 확인 필요",
+        "applied": "처리됨",
+        "restored": "복원됨",
+        "restoredReadOnly": "읽기 전용으로 복원됨"
+      },
+      "partialReason": "일부 처리됨: {{reason}}",
+      "eligibleEnded": "종료된 일 · 안전 확인 통과",
+      "resultVerb": {
+        "pause": "일시정지됨",
+        "resume": "재개됨",
+        "cancel": "취소됨",
+        "archive": "보관됨",
+        "delete": "영구 삭제됨"
+      },
+      "reasons": {
+        "alreadyArchived": "이미 보관됨",
+        "duplicateWorkspace": "이미 포함된 워크스페이스",
+        "stale": "일의 상태가 바뀜"
+      },
+      "cleanupResultLead": "정리 결과",
+      "outcomeWithReasons": "{{summary}} ({{reasons}})",
+      "nothingChanged": "변경된 항목 없음",
+      "outcome": {
+        "applied_other": "처리 {{count}}개",
+        "archived_other": "보관 {{count}}개",
+        "deleted_other": "영구 삭제 {{count}}개",
+        "restored_other": "복원 {{count}}개",
+        "undone_other": "실행 취소 {{count}}개",
+        "skipped_other": "제외 {{count}}개",
+        "uncertain_other": "결과 확인 필요 {{count}}개"
+      },
+      "omitted": {
+        "ended_other": "끝난 일 {{count}}개는 목록에서 뺐습니다",
+        "unfinished_other": "끝나지 않은 일 {{count}}개는 목록에서 뺐습니다"
+      },
+      "prStatusUnavailable": "풀 리퀘스트 상태를 확인할 수 없습니다. GitHub CLI에 로그인하거나 워크스페이스 정리 화면을 사용하세요.",
+      "executing_other": "{{count}}개 항목을 처리하고 있습니다…",
+      "interruptedLead": "중단됨",
+      "interrupted_other": "{{summary}} · 아직 처리하지 않은 항목 {{count}}개",
+      "continue": "이어서 진행",
+      "declined": "진행하지 않음"
     }
+  },
+  "contentSearch": {
+    "heading": "메시지 내용",
+    "searching": "메시지를 검색하는 중…",
+    "failed": "메시지를 검색하지 못했습니다. 검색어를 더 구체적으로 입력해 보세요.",
+    "noMatch": "일치하는 메시지가 없습니다.",
+    "indexing": "메시지 색인 중: {{indexed}} / {{total}}. 일부 결과가 아직 표시되지 않을 수 있습니다.",
+    "delegated": "위임된 작업",
+    "openParent": "상위 작업 열기",
+    "firstPage": "처음 결과",
+    "nextPage": "다음 결과",
+    "matches_other": "{{count}}개 일치",
+    "openResult_other": "{{title}} 열기, 일치하는 메시지 {{count}}개"
+  },
+  "discoverability": {
+    "resourceManager": "리소스 관리자",
+    "resourceManagerDescription": "메모리, CPU와 워크스페이스 프로세스를 확인합니다.",
+    "prCheckBack": "PR 다시 확인하기",
+    "prCheckBackDescription": "예약에서 PR을 다시 확인할 일정을 설정합니다.",
+    "secretRequests": "시크릿 요청",
+    "secretRequestsDescription": "시크릿을 기다리는 작업을 열거나 저장한 시크릿을 관리합니다."
   }
 }

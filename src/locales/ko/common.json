@@ -154,6 +154,13 @@
     "matches": "{{current}} / {{total}}",
     "count_other": "{{count}}개 일치",
     "loaded": "불러온 메시지에서 검색",
-    "showSidebar": "사이드바 열기"
+    "showSidebar": "사이드바 열기",
+    "wholeTask": "태스크 전체 메시지 검색",
+    "minimum": "2자 이상 입력하세요",
+    "searching": "검색 중…",
+    "failed": "검색할 수 없습니다",
+    "position": "{{current}} / {{total}}{{more}}",
+    "newer_other": "이후 메시지 {{count}}개 불러오기",
+    "latest": "최신 메시지로 이동"
   }
 }

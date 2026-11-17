@@ -1,3 +1,18 @@
+import { TurnSnapshotStore, flushDeletedTurnSnapshotRefs } from "./turn-snapshot-store";
+import { TurnAdmissionStore } from "./turn-admission-store";
+import { archiveFleetTask } from "./fleet-task-archive";
+import type { FleetArchiveArgs, FleetArchiveResult } from "../../src/lib/fleet/host-control";
+import { readFleetStopPreview } from "./fleet-stop-preview";
+import type { FleetStopPreviewArgs } from "../../src/lib/fleet/host-control";
+import { assertTaskCanBeDeleted, withoutTaskInShell, deleteTaskSourceRows, deleteTaskRelatedRows, withoutDeletedSnapshotTasks, releaseDeletedTaskChildren, preserveReleasedTaskParents } from "./task-permanent-delete";
+import { registerContentSearchTextFunction } from "./content-search-text";
+import { ContentSearchStore } from "./content-search-store";
+import type { SearchTaskContentArgs } from "../../src/lib/task-search/content-search";
+import { deleteWorkspaceRelatedRows } from "./workspace-permanent-delete";
+import { inlineRenderWorkspaceKey } from "../main/inline-render/inline-render-store";
+import { toolImageWorkspaceKey } from "../main/tool-images/tool-image-store";
+import { readTarsOpenPublish } from "./tars-view-store";
+import { WorkspaceArchiveStore } from "./workspace-archive-store";
 import { DelegationPolicyStore } from "./delegation-policy-store";
 import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
@@ -179,6 +194,9 @@ function normalizePersistedProviderId(
 export class SqliteStore {
   readonly workspaceInformation: WorkspaceInformationStore;
   private db: Database.Database;
+  private searchIndex: ContentSearchStore | null = null;
+  private searchRetry: ReturnType<typeof setTimeout> | null = null;
+  get contentSearch() { return this.searchIndex; }
   private readonly dbPath: string;
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
@@ -188,6 +206,8 @@ export class SqliteStore {
   private automationState: AutomationStateStore;
   private repositoryMemories: RepositoryMemoryStore;
   private notifications: NotificationStore;
+  private workspaceArchives!: WorkspaceArchiveStore;
+  readonly turnSnapshots: TurnSnapshotStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly lensReviewRecords: LensReviewRecordStore;
@@ -198,7 +218,7 @@ export class SqliteStore {
   readonly taskHandoffs: TaskHandoffStore;
   readonly usageStatistics: UsageStatisticsStore;
   readonly dailyUsage: DailyUsageStore;
-  readonly delegationPolicies: DelegationPolicyStore;
+  readonly turnAdmission: TurnAdmissionStore; readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
   readonly agentAssignments: AgentAssignmentStore;
   readonly tars: TarsStore;
@@ -212,6 +232,7 @@ export class SqliteStore {
     dbPath: string;
     onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
     runMaintenance?: boolean;
+    contentSearchOwner?: boolean;
   }) {
     const dbPath = path.resolve(args.dbPath);
     this.dbPath = dbPath;
@@ -234,13 +255,27 @@ export class SqliteStore {
     this.db.pragma("synchronous = NORMAL");
     this.db.pragma("busy_timeout = 5000");
     this.db.pragma("wal_autocheckpoint = 1000");
+    registerContentSearchTextFunction(this.db);
     this.bootstrap();
+    if(args.contentSearchOwner!==false) {
+      const initializeSearch=()=>{
+        if(this._closed) return;
+        try {this.searchIndex=new ContentSearchStore(this.db,this);}
+        catch(error) {
+          if(!error || typeof error!=="object" || !("code" in error) || !/^SQLITE_(BUSY|LOCKED)/.test(String(error.code))) throw error;
+          this.searchRetry=setTimeout(initializeSearch,100);
+          this.searchRetry.unref?.();
+        }
+      };
+      initializeSearch();
+    }
     // temporary-migration: drop-retired-sync-outbox
     dropRetiredSyncOutbox(this.db);
     this.notifications = new NotificationStore(
       this.db,
       () => this.loadRepositoryRegistry(),
     );
+    this.turnSnapshots = new TurnSnapshotStore(this.db);
     this.resultReviews = new ResultReviewStore(this.db);
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.lensReviewRecords = new LensReviewRecordStore(this.db, this.artifactRootDir);
@@ -251,7 +286,7 @@ export class SqliteStore {
     this.taskHandoffs = new TaskHandoffStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);
     this.dailyUsage = new DailyUsageStore(this.db, this.usageStatistics);
-    this.delegationPolicies = new DelegationPolicyStore(this.db);
+    this.turnAdmission = new TurnAdmissionStore(this.db); this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
     this.trackerIssues = new TrackerIssuesStore(this.db, {
@@ -300,6 +335,8 @@ export class SqliteStore {
         shell_lite_json TEXT,
         shell_summary_json TEXT
       );
+
+      CREATE TABLE IF NOT EXISTS deleted_tasks (workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, PRIMARY KEY (workspace_id, task_id));
 
       CREATE TABLE IF NOT EXISTS tasks (
         id TEXT PRIMARY KEY,
@@ -493,6 +530,7 @@ export class SqliteStore {
     `,
       )
       .run();
+    this.workspaceArchives = new WorkspaceArchiveStore(this.db);
     if (this.runMaintenance) {
       this.purgeLegacyTurnJournal();
     }
@@ -790,9 +828,8 @@ export class SqliteStore {
   }
 
   private removeArtifactFiles(args: { relativePaths: string[] }) {
-    if (args.relativePaths.length === 0) {
-      return;
-    }
+    flushDeletedTurnSnapshotRefs(this.db); // Deleted tasks and workspaces also release their snapshot refs.
+    if (args.relativePaths.length === 0) return;
     for (const relativePath of args.relativePaths) {
       try {
         rmSync(path.join(this.artifactRootDir, relativePath), { force: true });
@@ -1223,6 +1260,7 @@ export class SqliteStore {
     taskId: string;
     messages: PersistenceWorkspaceSnapshot["messagesByTask"][string];
   }) {
+    if (this.db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) return;
     upsertTaskMessages({ db: this.db, ...args });
   }
 
@@ -1241,6 +1279,7 @@ export class SqliteStore {
   }
 
   truncateTaskMessagesAfter(args: {
+    before?: true;
     workspaceId: string;
     taskId: string;
     messageId: string;
@@ -1264,7 +1303,7 @@ export class SqliteStore {
       .prepare(
         `
         DELETE FROM messages
-        WHERE workspace_id = ? AND task_id = ? AND rowid > ?
+        WHERE workspace_id = ? AND task_id = ? AND rowid ${args.before ? ">=" : ">"} ?
       `,
       )
       .run(args.workspaceId, args.taskId, target.rowid);
@@ -1274,7 +1313,7 @@ export class SqliteStore {
   listWorkspaceSummaries(): PersistenceWorkspaceSummary[] {
     const rows = this.db
       .prepare(
-        "SELECT id, name, updated_at FROM workspace_meta ORDER BY updated_at DESC",
+        "SELECT id, name, updated_at FROM workspace_meta WHERE id NOT IN (SELECT workspace_id FROM workspace_archives) ORDER BY updated_at DESC",
       )
       .all() as WorkspaceMetaRow[];
     return rows.map((row) => ({
@@ -1540,7 +1579,10 @@ export class SqliteStore {
     });
   }
 
+  searchTaskContent(args: SearchTaskContentArgs) { return this.contentSearch?.search(args) ?? {ok:true as const,results:[],nextOffset:null,indexing:{indexed:0,total:0,complete:false}}; }
+
   loadTaskMessagesPage(args: {
+    messageId?: string;
     workspaceId: string;
     taskId: string;
     limit?: number;
@@ -1554,13 +1596,21 @@ export class SqliteStore {
     }
 
     const limit = Math.max(1, Math.min(500, args.limit ?? 120));
-    const offset = Math.max(0, args.offset ?? 0);
+    let offset = Math.max(0, args.offset ?? 0);
+    if (args.messageId && !("messagesByTask" in payloadEntry.payload)) {
+      const row = this.db.prepare(`SELECT count(*) AS count FROM messages WHERE workspace_id=? AND task_id=? AND rowid>(SELECT rowid FROM messages WHERE id=?)`).get(args.workspaceId,args.taskId,`${args.workspaceId}:${args.taskId}:${args.messageId}`) as {count:number};
+      offset = Math.max(0,row.count-Math.floor(limit/2));
+    }
 
     if ("messagesByTask" in payloadEntry.payload) {
       const allMessages =
         (payloadEntry.payload as PersistenceWorkspaceSnapshot).messagesByTask[
           args.taskId
         ] ?? [];
+      if (args.messageId) {
+        const target = allMessages.findIndex(message=>message.id===args.messageId);
+        if (target >= 0) offset=Math.max(0,allMessages.length-target-1-Math.floor(limit/2));
+      }
       const start = Math.max(allMessages.length - offset - limit, 0);
       const end = Math.max(allMessages.length - offset, 0);
       return {
@@ -1620,7 +1670,6 @@ export class SqliteStore {
       hasMoreOlder: offset + rows.length < totalCount,
     };
   }
-
   loadWorkspaceSnapshot(args: {
     workspaceId: string;
   }): PersistenceWorkspaceSnapshot | null {
@@ -1653,7 +1702,6 @@ export class SqliteStore {
       ),
     };
   }
-
   loadRepositoryRegistry(): PersistenceRepositoryRegistryEntry[] {
     const row = this.db
       .prepare("SELECT value_json FROM app_state WHERE key = ?")
@@ -1678,11 +1726,11 @@ export class SqliteStore {
       `INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
       ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
     );
-    const exists = this.db.prepare("SELECT 1 FROM workspaces WHERE id = ?");
+    const exists = this.db.prepare("SELECT 1 FROM workspaces WHERE id = ? AND id NOT IN (SELECT workspace_id FROM workspace_archives)");
     this.db.transaction(() => {
       const repositories = !args.keepUnseenWorkspaces ? args.repositories : keepUnseenWorkspaces({ incoming: args.repositories,
         persisted: (() => { try { return this.loadRepositoryRegistry(); } catch { return []; } })(), workspaceExists: (id) => Boolean(exists.get(id)) });
-      write.run("project_registry", JSON.stringify(repositories), now);
+      write.run("project_registry", JSON.stringify(this.workspaceArchives.protectRegistry(repositories)), now);
       if (args.activeRepositoryPath !== undefined) {
         write.run("active_project_path", JSON.stringify(args.activeRepositoryPath), now);
       }
@@ -1694,7 +1742,7 @@ export class SqliteStore {
     return this.db.transaction(() => {
       const { repositories, result } = update(this.loadRepositoryRegistry());
       this.db.prepare(`INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
-        ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`).run("project_registry", JSON.stringify(repositories), new Date().toISOString());
+        ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`).run("project_registry", JSON.stringify(this.workspaceArchives.protectRegistry(repositories)), new Date().toISOString());
       return result;
     }).immediate();
   }
@@ -1812,7 +1860,10 @@ export class SqliteStore {
     id: string;
     name: string;
     snapshot: PersistenceWorkspaceSnapshot;
+    creationOptions?: {useRootNodeModulesSymlink:boolean;initCommand?:string;linkedWorktree?:boolean};
   }) {
+    this.workspaceArchives.assertNotDeleted(args.id);
+    if (this.workspaceArchives.isWriteProtected(args.id)) return;
     const now = new Date().toISOString();
     const nextWorkspaceShellArtifactId = `workspace-shell-${randomUUID()}`;
     const previousPayloadEntry = this.readWorkspacePayload({
@@ -1830,6 +1881,12 @@ export class SqliteStore {
         })
       : new Map();
     const tx = this.db.transaction(() => {
+      this.workspaceArchives.assertNotDeleted(args.id);
+      if (this.workspaceArchives.isWriteProtected(args.id)) return false;
+      if (args.creationOptions) this.db.prepare("INSERT INTO app_state(key,value_json,updated_at) VALUES(?,?,?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at").run(`workspace_creation:${args.id}`,JSON.stringify(args.creationOptions),now);
+      const deleted = new Set((this.db.prepare("SELECT task_id FROM deleted_tasks WHERE workspace_id = ?").all(args.id) as { task_id: string }[]).map((row) => row.task_id));
+      if (deleted.size) args = { ...args, snapshot: withoutDeletedSnapshotTasks(args.snapshot, deleted) };
+      args = { ...args, snapshot: { ...args.snapshot, tasks: preserveReleasedTaskParents(this.db, args.snapshot.tasks) } };
       const existingPayloadEntry = previousPayloadEntry;
       const existingWorkspaceShellArtifact = previousWorkspaceShellArtifact;
       const nextTaskIds = new Set(args.snapshot.tasks.map((task) => task.id));
@@ -1995,7 +2052,7 @@ export class SqliteStore {
 
     // IMMEDIATE: main and the host-service each hold a connection to this
     // file. See `persistTaskTurnDelta` for why a deferred write can be lost.
-    tx.immediate();
+    if (tx.immediate() === false) return;
     if (previousWorkspaceShellArtifact) {
       this.removeArtifactFiles({
         relativePaths: [previousWorkspaceShellArtifact.relativePath],
@@ -2040,6 +2097,9 @@ export class SqliteStore {
     const now = new Date().toISOString();
 
     const tx = this.db.transaction((): number | null => {
+      this.workspaceArchives.assertNotDeleted(args.workspaceId);
+      if (this.workspaceArchives.isWriteProtected(args.workspaceId)) return null;
+      if (this.db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) return 0;
       // Read under the write lock: a payload read before it could be an older
       // shell than one main has saved since, and writing it back below would
       // revert that save (a draft, a tab).
@@ -2054,6 +2114,7 @@ export class SqliteStore {
       }
       const payload = payloadEntry.payload as PersistedWorkspaceShellPayload;
       if (args.task) {
+        args.task = preserveReleasedTaskParents(this.db, [args.task])[0]!;
         const persistedTaskRowId = `${args.workspaceId}:${args.task.id}`;
         // Archival is renderer-owned: never let a host write revive a task the
         // user just archived. Read the authoritative value for this one task
@@ -2178,7 +2239,15 @@ export class SqliteStore {
     return messageCount === null ? { ok: false, messageCount: 0 } : { ok: true, messageCount };
   }
 
-  removeTaskFromWorkspace(args: { workspaceId: string; taskId: string }) {
+  archiveFleetTask(args: FleetArchiveArgs): FleetArchiveResult {
+    return archiveFleetTask(this, this.db, this.workspaceArchives, args, this.tars.snapshot());
+  }
+
+  previewFleetStop(args: FleetStopPreviewArgs) {
+    return readFleetStopPreview(this.db, args);
+  }
+
+  removeTaskFromWorkspace(args: { workspaceId: string; taskId: string; permanently?: boolean }) {
     const existingPayloadEntry = this.readWorkspacePayload({
       workspaceId: args.workspaceId,
     });
@@ -2187,34 +2256,18 @@ export class SqliteStore {
           payload: existingPayloadEntry.payload,
         })
       : null;
+    let disposeReviewFiles: (() => Promise<void>) | undefined;
+    let taskArtifactPaths: string[] = [];
     const tx = this.db.transaction(() => {
-      const persistedTaskRowId = `${args.workspaceId}:${args.taskId}`;
-      this.db
-        .prepare(
-          `
-        DELETE FROM turn_events
-        WHERE turn_id IN (
-          SELECT id
-          FROM turns
-          WHERE workspace_id = ? AND task_id = ?
-        )
-      `,
-        )
-        .run(args.workspaceId, args.taskId);
-      this.db
-        .prepare(
-          `
-        DELETE FROM turns
-        WHERE workspace_id = ? AND task_id = ?
-      `,
-        )
-        .run(args.workspaceId, args.taskId);
-      this.db
-        .prepare("DELETE FROM messages WHERE workspace_id = ? AND task_id = ?")
-        .run(args.workspaceId, args.taskId);
-      this.db
-        .prepare("DELETE FROM tasks WHERE id = ? AND workspace_id = ?")
-        .run(persistedTaskRowId, args.workspaceId);
+      if (args.permanently) {
+        const task = this.loadWorkspaceShell({ workspaceId: args.workspaceId })?.tasks.find((candidate) => candidate.id === args.taskId);
+        assertTaskCanBeDeleted(this.db, args, task);
+        releaseDeletedTaskChildren(this.db, args.taskId);
+        taskArtifactPaths = deleteTaskRelatedRows(this.db, args);
+        disposeReviewFiles = this.lensReviewRecords.deleteTaskRows(args.taskId);
+        this.db.prepare("INSERT OR IGNORE INTO deleted_tasks (workspace_id, task_id) VALUES (?, ?)").run(args.workspaceId, args.taskId);
+      }
+      deleteTaskSourceRows(this.db, args);
 
       const payloadEntry = this.readWorkspacePayload({
         workspaceId: args.workspaceId,
@@ -2223,30 +2276,7 @@ export class SqliteStore {
         return;
       }
       const shell = this.toWorkspaceShell({ payload: payloadEntry.payload });
-      const nextTasks = shell.tasks.filter((task) => task.id !== args.taskId);
-      const nextActiveTaskId =
-        shell.activeTaskId === args.taskId
-          ? (nextTasks[0]?.id ?? "")
-          : shell.activeTaskId;
-      const { [args.taskId]: _removedMessageCount, ...remainingMessageCount } =
-        shell.messageCountByTask ?? {};
-      const {
-        [args.taskId]: _removedPromptDraft,
-        ...remainingPromptDraftByTask
-      } = shell.promptDraftByTask ?? {};
-      const {
-        [args.taskId]: _removedProviderSession,
-        ...remainingProviderSessionByTask
-      } = shell.providerSessionByTask ?? {};
-
-      const nextShell: PersistenceWorkspaceShell = {
-        ...shell,
-        activeTaskId: nextActiveTaskId,
-        tasks: nextTasks,
-        messageCountByTask: remainingMessageCount,
-        promptDraftByTask: remainingPromptDraftByTask,
-        providerSessionByTask: remainingProviderSessionByTask,
-      };
+      const nextShell = withoutTaskInShell(this.db, shell, args);
       const preparedShell = this.preparePersistedWorkspaceShell({
         shell: nextShell,
         updatedAt: new Date().toISOString(),
@@ -2298,66 +2328,104 @@ export class SqliteStore {
       }
     });
 
-    tx();
+    tx.immediate();
     this.removeArtifactFiles({
       relativePaths: [
+        ...taskArtifactPaths,
         ...(existingWorkspaceShellArtifact
           ? [existingWorkspaceShellArtifact.relativePath]
           : []),
       ],
     });
-    void this.lensReviewRecords.deleteTask(args.taskId);
+    if (args.permanently) void disposeReviewFiles?.();
+    else void this.lensReviewRecords.deleteTask(args.taskId);
+  }
+
+  archiveWorkspacePersistence(args: Parameters<WorkspaceArchiveStore["archive"]>[0]) {
+    return this.workspaceArchives.archive(args);
+  }
+
+  restoreWorkspacePersistence(args: Parameters<WorkspaceArchiveStore["restore"]>[0]) {
+    return this.workspaceArchives.restore(args);
+  }
+
+  listArchivedWorkspacesPersistence(args: { repositoryPath?: string } = {}) {
+    return this.workspaceArchives.list(args);
+  }
+
+  listArchivedWorkspaceIdentities() {
+    return this.workspaceArchives.listIdentities();
+  }
+
+  workspaceArchiveDataVersion(): number {
+    return this.db.pragma("data_version", { simple: true }) as number;
+  }
+
+  listDeletedWorkspaceIds() {
+    return this.workspaceArchives.listDeletedIds();
+  }
+
+  readWorkspaceCreationOptions(args: {workspaceId:string}): {useRootNodeModulesSymlink:boolean;initCommand?:string;linkedWorktree?:boolean} | undefined {
+    const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = ?").get(`workspace_creation:${args.workspaceId}`) as JsonValueRow | undefined;
+    return row ? JSON.parse(row.value_json) : undefined;
+  }
+
+  listWorkspaceCleanupPendingPublications(): string[] {
+    return [...readTarsOpenPublish(this.db)];
+  }
+
+  readWorkspaceCleanupState(): unknown | null {
+    const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = 'workspace_cleanup_state'").get() as JsonValueRow | undefined;
+    return row ? JSON.parse(row.value_json) : null;
+  }
+
+  writeWorkspaceCleanupState(state: unknown): void {
+    this.db.prepare(`INSERT INTO app_state(key,value_json,updated_at) VALUES('workspace_cleanup_state',?,?)
+      ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json,updated_at=excluded.updated_at`)
+      .run(JSON.stringify(state), new Date().toISOString());
   }
 
   closeWorkspace(args: { workspaceId: string }) {
-    const payloadEntry = this.readWorkspacePayload({
-      workspaceId: args.workspaceId,
-    });
-    const workspaceShellArtifact = payloadEntry
-      ? this.getWorkspaceShellArtifactPointer({ payload: payloadEntry.payload })
-      : null;
-    const tx = this.db.transaction(() => {
-      this.db
-        .prepare(
-          `
-        DELETE FROM turn_events
-        WHERE turn_id IN (SELECT id FROM turns WHERE workspace_id = ?)
-      `,
-        )
-        .run(args.workspaceId);
-      if (workspaceShellArtifact) {
-        this.deleteArtifactRows({
-          artifactIds: [workspaceShellArtifact.id],
-        });
+    return this.deleteWorkspaceHistory(args, false);
+  }
+
+  /** Only explicit host permanent deletion may remove an archived identity. */
+  permanentDeleteWorkspace(args: {workspaceId:string}) {
+    return this.deleteWorkspaceHistory(args, true);
+  }
+
+  private deleteWorkspaceHistory(args: {workspaceId:string}, allowArchived: boolean) {
+    let disposeReviewFiles: (() => Promise<void>) | undefined;
+    let artifactPaths: string[] = [];
+    const deleted = this.db.transaction(() => {
+      if (!allowArchived && this.workspaceArchives.listIdentities().some(record => record.workspaceId === args.workspaceId)) return false;
+      const payloadEntry = this.readWorkspacePayload({workspaceId:args.workspaceId});
+      const artifact = payloadEntry ? this.getWorkspaceShellArtifactPointer({payload:payloadEntry.payload}) : null;
+      disposeReviewFiles = this.lensReviewRecords.deleteWorkspaceRows(args.workspaceId);
+      artifactPaths = deleteWorkspaceRelatedRows(this.db, args.workspaceId);
+      this.workspaceArchives.deleteHistoryRows(args.workspaceId);
+      this.db.prepare("DELETE FROM app_state WHERE key = ?").run(`workspace_creation:${args.workspaceId}`);
+      if (artifact) {
+        this.deleteArtifactRows({artifactIds:[artifact.id]});
+        artifactPaths.push(artifact.relativePath);
       }
-      this.db
-        .prepare("DELETE FROM turns WHERE workspace_id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM messages WHERE workspace_id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM tasks WHERE workspace_id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM workspaces WHERE id = ?")
-        .run(args.workspaceId);
-      this.db
-        .prepare("DELETE FROM workspace_meta WHERE id = ?")
-        .run(args.workspaceId);
-    });
-    tx();
-    this.removeArtifactFiles({
-      relativePaths: [
-        ...(workspaceShellArtifact
-          ? [workspaceShellArtifact.relativePath]
-          : []),
-      ],
-    });
+      return true;
+    }).immediate();
+    if (!deleted) return {ok:false};
+    this.removeArtifactFiles({relativePaths:artifactPaths});
+    void disposeReviewFiles?.();
+    const root = path.dirname(this.artifactRootDir);
+    for (const [directory, key] of [["inline-renders",inlineRenderWorkspaceKey(args.workspaceId)], ["mcp-app-views",inlineRenderWorkspaceKey(args.workspaceId)], ["tool-images",toolImageWorkspaceKey(args.workspaceId)]]) {
+      rmSync(path.join(root,directory!,key!),{recursive:true,force:true});
+    }
+    return {ok:true};
   }
 
   beginTurn(args: UsageTrackedTurnArgs) {
-    beginUsageTrackedTurn(this.db, this.usageStatistics, args);
+    this.db.transaction(() => {
+      if (this.db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) throw new Error("Task was permanently deleted.");
+      beginUsageTrackedTurn(this.db, this.usageStatistics, args);
+    }).immediate();
   }
 
   completeTurn(args: {
@@ -2398,6 +2466,7 @@ export class SqliteStore {
       this.compactCompletedTurnEvents(args.id);
     });
     tx();
+    this.contentSearch?.requestDrain();
   }
 
   /**
@@ -2667,7 +2736,6 @@ export class SqliteStore {
       terminalReceipt: parseTurnReceipt(row.receipt_json),
     }));
   }
-
   listLatestTurnsForWorkspace(args: {
     workspaceId: string;
     limit?: number;
@@ -2956,6 +3024,8 @@ export class SqliteStore {
     if (options?.compactStorage) {
       this.compactStorageForShutdown();
     }
+    if(this.searchRetry) clearTimeout(this.searchRetry);
+    this.contentSearch?.close();
     this._closed = true;
     this.db.close();
   }

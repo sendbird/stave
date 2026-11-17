@@ -24,6 +24,7 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   // The native compact waiter owns a ten-minute deadline. Let its structured
   // failure reach the Runtime settings caller before the transport expires.
   "provider.compact-codex-thread": 11 * 60_000,
+  "turn-admission.wait": null,
   "provider.stream-turn": null,
   "provider.start-stream-turn": null,
   "provider.start-push-turn": null,

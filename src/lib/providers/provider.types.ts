@@ -1095,6 +1095,11 @@ export type NormalizedProviderEvent =
       ownerAgentId?: string;
     }
   | {
+      type: "turn_admission";
+      state: "queued" | "running";
+      ahead: number;
+    }
+  | {
       type: "system";
       content: string;
       compactBoundary?: {

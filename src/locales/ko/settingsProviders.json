@@ -1148,5 +1148,10 @@
     "defaultEffort": {
       "ariaLabel": "OpenCode 기본 추론 강도"
     }
+  },
+  "globalTurnLimit": {
+    "title": "동시에 실행할 에이전트 턴 수 제한",
+    "description": "기본값은 꺼짐입니다. 직접 보낸 메시지가 자동 실행보다 먼저 시작됩니다. 기존 도우미 수 제한도 유지됩니다.",
+    "maximum": "동시 실행 턴 수 (1–16)"
   }
 }

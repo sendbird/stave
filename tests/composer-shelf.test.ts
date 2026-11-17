@@ -451,7 +451,8 @@ describe("queue line", () => {
       isTurnActive: false,
       pause: "restart",
     });
-    expect(restored).toMatchObject({ countLabel: "2 queued", pausedLabel: "paused", frontAction: "resume" });
+    // Restored items wait for the user, and the line says so instead of a bare "paused".
+    expect(restored).toMatchObject({ countLabel: "2 queued", pausedLabel: "Waiting to send (restored)", frontAction: "resume" });
     expect(restored?.hint).toContain("Restored after Stave restarted");
     // The usage-limit line owns Resume, so the queue line does not repeat it.
     expect(

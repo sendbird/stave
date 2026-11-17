@@ -45,6 +45,7 @@ export function buildAgentRouteSettings(settings: AppSettings): AgentRouteSettin
       autoRoutingProfile: settings.autoRoutingProfile,
     },
     classifier: classifies ? { "claude-code": contextFor("claude-code"), codex: contextFor("codex") } : null,
+    globalAgentTurnLimit: settings.globalAgentTurnLimit ?? null,
     teamLimits: {
       concurrentHelpers: clampTeamLimit("concurrentHelpers", settings.agentRunConcurrentHelpers),
       totalHelpers: clampTeamLimit("totalHelpers", settings.agentRunTotalHelpers),
