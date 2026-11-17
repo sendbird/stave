@@ -4,6 +4,11 @@
       "title": "Language",
       "description": "Choose the language for Stave menus, settings and messages. Your prompts, files and AI responses are not translated."
     },
+    "featureTips": {
+      "title": "Feature tips",
+      "description": "Short tips that offer optional features, such as steering a running turn or file checkpoints. A tip you close stays closed.",
+      "show": "Show feature tips"
+    },
     "windowBehavior": {
       "title": "Window behavior",
       "description": "Control how the app handles the close shortcut.",

@@ -1443,6 +1443,7 @@
   "featureDiscovery": {
     "steering": "Want to guide the running turn? Enable steering.",
     "checkpoints": "File checkpoints let you rewind files in future turns.",
-    "enable": "Enable"
+    "enable": "Enable",
+    "dismiss": "Dismiss tip"
   }
 }
