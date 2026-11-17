@@ -8,7 +8,9 @@ function getClipboardFileKey(file: File) {
   if (absolutePath) {
     return absolutePath;
   }
-  return `${file.name}:${file.type}:${file.size}:${file.lastModified}`;
+  // Not lastModified: Chromium creates a new File on every clipboard read and
+  // stamps it with the read time, so one pasted image differs across the lists.
+  return `${file.name}:${file.type}:${file.size}`;
 }
 
 export function collectClipboardFiles(args: {
