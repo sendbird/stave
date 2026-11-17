@@ -1,4 +1,6 @@
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
+import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
+import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
 import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
 import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
@@ -335,6 +337,8 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  /** Turns the host provider runtime still runs, and when the host booted. */
+  listLiveTurns?: () => Promise<ProviderLiveTurnsResult>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;
@@ -3083,6 +3087,8 @@ interface WindowApi {
   diagnostics?: WindowDiagnosticsApi;
   terminal?: WindowTerminalApi;
   notifications?: {
+    subscribeNativeResolved?: (listener: (payload: NativeNotificationResolved) => void) => () => void;
+    setActionsEnabled?: (args: { enabled: boolean }) => Promise<{ ok: boolean }>;
     showNative?: (args: {
       notificationId: string;
       title: string;

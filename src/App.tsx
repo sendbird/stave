@@ -1,3 +1,5 @@
+import { RestartContinuationNotice } from "@/components/layout/RestartContinuationNotice";
+import { useRestartContinuation } from "@/store/use-restart-continuation";
 import { useDelegationPermissionSync } from "@/lib/runs/useDelegationPermissionSync";
 import { useAgentRunSync } from "@/store/agent-runs-store";
 import { useWakeUpSync } from "@/store/wake-ups-store";
@@ -49,6 +51,7 @@ function pushLensSecurityConfig(): void {
 }
 
 export default function App() {
+  useRestartContinuation();
   // Above the pane tree on purpose: Lens pages outlive the panels that show
   // them, and agent-opened sessions have no panel at all.
   useLensGuestHost();
@@ -491,6 +494,7 @@ export default function App() {
     <TooltipProvider>
       <AppShell />
       <WorkspaceSaveNotice />
+      <RestartContinuationNotice />
       <LensCdpApprovalDialog />
       <CraneDispatchApprovalDialog />
       <InlineRenderPreviewContextSync />

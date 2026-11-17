@@ -359,6 +359,9 @@ export function createSettingsActions(args: {
       }
     },
     updateSettings: ({ patch }) => {
+      if (patch.notificationActionsEnabled !== undefined) {
+        void window.api?.notifications?.setActionsEnabled?.({ enabled: patch.notificationActionsEnabled });
+      }
       const normalizedPatch: Partial<AppSettings> = {
         ...patch,
         ...(patch.sharedSkillsHome === undefined

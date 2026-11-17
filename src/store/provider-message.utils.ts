@@ -1,6 +1,7 @@
 import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
 import { truncateUtf8Middle } from "@/lib/providers/transport-bounds";
 import type { ApprovalResolution } from "@/lib/approvals/approval-resolution";
+import type { ProviderTurnPendingInteraction } from "@/lib/providers/turn-status";
 import type {
   ApprovalPart,
   ChatMessage,
@@ -161,6 +162,23 @@ export function findLatestPendingApproval(args: {
 }): { messageId: string; part: ApprovalPart } | null {
   const pendingApprovals = findPendingApprovals(args);
   return pendingApprovals[0] ?? null;
+}
+
+/**
+ * The prompt that still blocks the turn after one is answered, as the turn's
+ * single `pendingInteraction` hint: answering one of two approvals leaves the
+ * other open. Only the turn's own rows count, so a prompt an earlier turn left
+ * behind never raises it. An async question blocks no turn (it can outlive
+ * the one that asked), so it never raises the hint; Fleet still counts it.
+ */
+export function remainingPendingInteraction(
+  messages: ChatMessage[] | undefined,
+  turnId: string,
+): ProviderTurnPendingInteraction | null {
+  const list = (messages ?? []).filter((message) => message.turnId === turnId);
+  if (findLatestPendingUserInput({ messages: list, blockingOnly: true })) return "user_input";
+  if (findLatestPendingApproval({ messages: list })) return "approval";
+  return null;
 }
 
 export function findPendingApprovals(args: {

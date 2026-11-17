@@ -1,4 +1,5 @@
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
+import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupPolicy } from "../../src/lib/workspace-cleanup-contract";
 import type { McpAppViewRequestArgs, McpAppViewRequestResponse } from "../../src/lib/mcp-app/mcp-app-bridge";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
@@ -637,6 +638,7 @@ export interface HostServiceRequestMap {
   "provider.abort-turn": {
     turnId: string;
   };
+  "provider.list-live-turns": Record<string, never>;
   "provider.cleanup-task": {
     taskId: string;
   };
@@ -1154,6 +1156,7 @@ export interface HostServiceResponseMap {
   "provider.read-stream-turn": HostProviderReadStreamResult;
   "provider.ack-stream-turn": HostProviderMutationResult;
   "provider.abort-turn": HostProviderMutationResult;
+  "provider.list-live-turns": ProviderLiveTurns;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;

@@ -4,7 +4,9 @@
     "resumeManuallyToUseYourCurrentlySelectedAccount": "현재 선택한 계정을 사용하려면 수동으로 재개합니다.",
     "couldnTResumeTheTask": "작업을 재개하지 못했습니다",
     "theTaskIsBusyOrWaitingOnAnotherActionItStaysPaused": "작업이 실행 중이거나 다른 동작을 기다리고 있습니다. 일시 중지 상태를 유지합니다.",
-    "theContinuationTurnDidNotStart": "계속 진행할 턴이 시작되지 않았습니다."
+    "theContinuationTurnDidNotStart": "계속 진행할 턴이 시작되지 않았습니다.",
+    "autoResumeStopped": "초기화 시 재개가 꺼졌습니다",
+    "autoResumeStoppedDescription": "작업을 재개해도 되는지 확인하지 못했습니다. 일시 중지 상태를 유지하니 직접 재개해 주세요."
   },
   "notificationUtils": {
     "completedNormally": "정상 완료됨",
@@ -128,5 +130,13 @@
     "decisionRequested": "Tars가 결정을 기다립니다: {{title}}",
     "resultReady": "Tars가 결과를 준비했습니다: {{title}}",
     "blocked": "Tars에게 도움이 필요합니다: {{title}}"
+  },
+  "restart": {
+    "title": "중단된 작업을 이어갈까요?",
+    "description": "앱이 종료되면서 이 작업들이 중단되었습니다. 작업을 반복하기 전에 현재 상태를 확인합니다.",
+    "continue": "이어가기",
+    "continueAll": "모두 이어가기",
+    "dismiss": "닫기",
+    "failed": "작업을 이어가지 못했습니다. 해당 작업에서 다시 시도해 주세요."
   }
 }

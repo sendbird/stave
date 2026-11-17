@@ -1,4 +1,6 @@
 import { normalizeDismissedFeatureTips } from "@/lib/feature-tips";
+import { normalizeUsageLimitPauses } from "@/store/task-work-pause";
+import { createRestartPendingTasksCapture, InterruptedTaskSchema, normalizeRestartRecovery } from "@/store/restart-continuation";
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding";
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
@@ -218,6 +220,7 @@ export async function flushPersistenceForQuit(args: {
 
 export function createAppStorePersistenceOptions() {
   const captureRecentRepositories = createCapturedRepositoriesMemo();
+  const captureRestartPendingTasks = createRestartPendingTasksCapture();
   const storage = createCoalescedPersistStorage<unknown>({
     getStorage: () => window.localStorage,
   });
@@ -258,12 +261,18 @@ export function createAppStorePersistenceOptions() {
       draftProvider: state.draftProvider,
       layout: state.layout,
       settings: state.settings,
+      usageLimitPauseByTask: state.usageLimitPauseByTask,
+      restartRecovery: state.restartRecovery,
+      restartPendingTasks: captureRestartPendingTasks(state),
       repositoryName: state.repositoryName,
     }),
     onRehydrateStorage: () => (state?: AppState) => {
       if (!state) {
         return;
       }
+      state.usageLimitPauseByTask = normalizeUsageLimitPauses(state.usageLimitPauseByTask);
+      state.restartRecovery = normalizeRestartRecovery(state.restartRecovery);
+      state.restartPendingTasks = (Array.isArray(state.restartPendingTasks) ? state.restartPendingTasks : []).flatMap(item => { const parsed = InterruptedTaskSchema.safeParse(item); return parsed.success ? [parsed.data] : []; });
       const persistedSettings = state.settings;
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
@@ -274,6 +283,10 @@ export function createAppStorePersistenceOptions() {
         ...defaultSettings,
         ...persistedSettings,
       };
+      state.settings.restartContinuation = ["ask", "automatically", "never"].includes(state.settings.restartContinuation)
+        ? state.settings.restartContinuation : "ask";
+      state.settings.notificationActionsEnabled = typeof state.settings.notificationActionsEnabled === "boolean"
+        ? state.settings.notificationActionsEnabled : true;
       delete (
         state.settings as AppSettings & {
           appShellMode?: unknown;

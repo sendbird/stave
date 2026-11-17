@@ -593,7 +593,7 @@
   },
   "shelfUsageLimit": {
     "ariaLabel": "Usage limit",
-    "title": "Resume on its own once the limit resets, while Stave is open",
+    "title": "Resume on its own once the limit resets; the reservation survives restart",
     "shelfUsageLimit": "Resume at reset",
     "title2": "Don't resume on its own",
     "shelfUsageLimit2": "Cancel",
@@ -631,7 +631,7 @@
     "hint5": "Send one now, or it sends after your next message finishes.",
     "label": "Resumes at {{value1}}",
     "detail2": "{{value1}} usage limit{{value2}}",
-    "hint6": "{{value1}} Stave resumes on its own after the limit resets, while the app is open. {{value2}}",
+    "hint6": "{{value1}} Stave resumes on its own after the limit resets, including after reopening the app. {{value2}}",
     "detail3": "reset time unknown",
     "detail4": "resets {{value1}} · in {{value2}}",
     "detail5": "reset time passed",

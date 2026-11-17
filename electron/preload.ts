@@ -1,5 +1,7 @@
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
+import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
+import { NativeNotificationResolvedSchema, type NativeNotificationResolved } from "../src/lib/notifications/native-notification-contract";
 import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
@@ -1219,6 +1221,8 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
+    listLiveTurns: (): Promise<ProviderLiveTurnsResult> =>
+      ipcRenderer.invoke("provider:list-live-turns"),
     steerTurn: (
       args: ProviderSteerTurnRequest,
     ): Promise<ProviderSteerTurnResponse> =>
@@ -2456,6 +2460,15 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("terminal:close-sessions-by-slot-prefix", args),
   },
   notifications: {
+    subscribeNativeResolved: (listener: (payload: NativeNotificationResolved) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+        const parsed = NativeNotificationResolvedSchema.safeParse(payload);
+        if (parsed.success) listener(parsed.data);
+      };
+      ipcRenderer.on("notifications:native-resolved", handler);
+      return () => { ipcRenderer.removeListener("notifications:native-resolved", handler); };
+    },
+    setActionsEnabled: (args: { enabled: boolean }) => ipcRenderer.invoke("notifications:set-actions-enabled", args),
     showNative: (args: {
       notificationId: string;
       title: string;

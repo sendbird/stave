@@ -7,6 +7,7 @@ import {
 import {
   AgentHistoryRequestSchema,
   AbortTurnArgsSchema,
+  ListLiveTurnsArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
   CancelRouteClassificationArgsSchema,
@@ -274,6 +275,17 @@ export function registerProviderHandlers() {
       return { ok: false, message: "Invalid provider abort request." };
     }
     return invokeHostService("provider.abort-turn", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:list-live-turns", async (_event, args: unknown) => {
+    if (!ListLiveTurnsArgsSchema.safeParse(args).success) {
+      return { ok: false, message: "Invalid live turn request." };
+    }
+    try {
+      return await invokeHostService("provider.list-live-turns", {});
+    } catch (error) {
+      return { ok: false, message: String(error) };
+    }
   });
 
   ipcMain.handle("provider:cleanup-task", (_event, args: unknown) => {

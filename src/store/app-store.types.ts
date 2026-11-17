@@ -1,3 +1,4 @@
+import type { InterruptedTask, RestartRecovery } from "@/store/restart-continuation";
 import type {
   TaskProviderSessionState,
   WorkspaceSummary,
@@ -234,10 +235,16 @@ export interface AppState
    */
   failedSendsByTask: FailedOutgoingSendsByTask;
   /**
-   * Tasks whose work stopped at a provider usage limit, in memory only. Their
+   * Tasks whose work stopped at a provider usage limit, persisted. Their
    * queue holds until the user resumes, or until an armed auto-resume fires.
    */
   usageLimitPauseByTask: UsageLimitPauseByTask;
+  restartRecovery: RestartRecovery;
+  interruptedTasks: InterruptedTask[];
+  restartPendingTasks: InterruptedTask[];
+  recoverInterruptedTasks: () => Promise<void>;
+  continueInterruptedTask: (args: { taskId: string; automatic?: boolean }) => Promise<void>;
+  dismissInterruptedTasks: (args?: { taskId?: string }) => void;
   /**
    * Tasks whose queue, restored from the previous run of the app, the user
    * released. Until then those items wait instead of sending on completion.

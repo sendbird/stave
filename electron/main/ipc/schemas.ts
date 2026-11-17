@@ -458,6 +458,9 @@ export const SuggestCommitMessageArgsSchema = z
   })
   .strict();
 
+/** The live-turn read takes no arguments; anything else is refused. */
+export const ListLiveTurnsArgsSchema = z.undefined();
+
 export const AbortTurnArgsSchema = z
   .object({
     turnId: z.string().trim().min(1).max(200),
@@ -728,6 +731,8 @@ export const ShowNativeNotificationArgsSchema = z
     suppress: z.boolean().optional(),
   })
   .strict();
+
+export const SetNotificationActionsEnabledArgsSchema = z.object({ enabled: z.boolean() }).strict();
 
 export const SetNotificationBadgeArgsSchema = z
   .object({

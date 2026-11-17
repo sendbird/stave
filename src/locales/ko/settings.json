@@ -74,6 +74,17 @@
       "never": "다시 알리지 않음",
       "afterMinutes_other": "{{count}}분 후",
       "afterHours_other": "{{count}}시간 후"
+    },
+    "actions": {
+      "title": "알림에서 응답",
+      "description": "지원되는 운영체제에서 시스템 알림으로 승인 요청과 질문에 답합니다."
+    },
+    "restart": {
+      "title": "앱을 다시 시작한 뒤 중단된 작업 이어가기",
+      "description": "앱 종료로 중단된 일반 작업을 어떻게 처리할지 선택합니다. 관리형 작업은 자체 복구 방식을 따릅니다.",
+      "ask": "물어보기",
+      "automatically": "자동으로",
+      "never": "이어가지 않기"
     }
   },
   "turnActivityFields": {

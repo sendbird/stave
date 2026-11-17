@@ -69,6 +69,40 @@ Stave also notifies you through the operating system, but only while its window
 is not focused. While you are in Stave, the bell, the in-app toast and the sound
 already say it, whichever workspace the notification belongs to.
 
+### Answer From System Notifications
+
+On macOS, **Answer from notifications** is on by default under Desktop
+Notifications. Approval requests offer **Allow once** and **Deny**, never a
+persistent allowance. The banner cuts off long text, so **Allow once** appears
+only when the whole request fits: a request flagged as risky, or whose tool and
+command or description run past 80 characters, offers **Open to review** and
+**Deny** instead, and you allow it in Stave after reading it.
+
+A question with one short fixed set offers up to three option buttons. Other
+questions offer **Reply** only where the in-app card offers a text field: a
+fixed set that does not take a custom answer, and an MCP request that only asks
+you to accept, open the app instead. A number or whole-number question accepts
+only a valid number; anything else is not sent. Each answer goes through the
+same ownership and pending-request checks as the in-app card. Managed requests
+keep their existing restrictions.
+
+An expired or answered request shows **Already answered**; repeated delivery
+changes nothing. When Stave cannot confirm the request or deliver the answer,
+for example while it is saving or restarting, it shows **Could not answer —
+open Stave**, and the buttons stay usable so you can try again. An answer from a
+notification clears **Needs you** on the task, as an answer in the app does.
+Turning the setting off also disables actions on notifications already shown.
+
+Answer questions with multiple fields or multiple selections inside the app.
+Questions delivered as asynchronous messages also stay in the app: their answer
+must be sent as a follow-up task message, rather than delivered to a waiting
+provider request. Notifications preserve that guard and do not offer a shortcut
+that would record an answer without sending it.
+
+Windows and Linux keep title, body and click-to-open behavior; native action
+buttons and text replies are unavailable and the setting is hidden. Delivery
+and visible controls also depend on OS notification permissions and settings.
+
 ## Notification Sound
 
 One short sound plays when a task turn finishes and when the AI is waiting on you (a question or an approval request). This is useful when you have a long-running task in the background and want a quick audio cue.
