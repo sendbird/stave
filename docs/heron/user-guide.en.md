@@ -1049,6 +1049,9 @@ Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshot
 
 ## Fleet View
 
+Fleet and long sidebar lists render the rows around the viewport. Selection and keyboard navigation still cover the complete filtered, expanded list.
+
+
 Select tasks with their checkboxes, Cmd/Ctrl-click or Shift-click. With a row
 focused, **X** toggles selection, **Shift+Arrow** extends it, **Cmd/Ctrl+A**
 selects the visible tasks and **Esc** clears it. The selected count is announced.

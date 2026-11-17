@@ -452,3 +452,10 @@ layout and grouping remain the default.
 Fleet, Agents, Schedules, Issues, and AI usage share a page header. Closing a global surface returns one step through navigation history. Back and Forward also include global surfaces. F6 and Shift+F6 cycle window regions; Skip to content moves directly to the main area. The sidebar marks the current surface and labels its repository/work queue view switch. Counts use warning colour only when user attention is required. Without repositories, Fleet offers one Open repository action and hides its filters and board controls.
 
 Bulk task archive skips archived or permanently deleted workspaces with a translated reason. Restore an archived workspace before changing its tasks. The cleanup center uses the same persisted running-work preview as Fleet Stop, including unfinished turns, running descendants and active runs.
+
+## Scale
+
+The table windows task rows and group headings inside its scroll area. Selection
+and keyboard navigation use the complete filtered order, including rows outside
+the viewport. Group selection and select-all still exclude filtered or collapsed
+items. The transcript and Fleet reuse the same installed windowing library.

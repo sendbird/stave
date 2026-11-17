@@ -90,6 +90,14 @@ export const agentFleetStyles = stylex.create({
     padding: 0,
     rowGap: vars["--aui-space-8"],
   },
+  virtualBody: { display: "block" },
+  virtualList: { blockSize: "60vh", minBlockSize: "20rem" },
+  virtualItem: {
+    display: "grid",
+    gridTemplateColumns: { default: "minmax(0, 1fr)", [WIDE]: `minmax(16rem, 22rem) minmax(0, ${TREE_MAX_WIDTH})` },
+    columnGap: vars["--aui-space-16"],
+    paddingBlockEnd: vars["--aui-space-8"],
+  },
   // The list item adds no box: its card and tree are the grid's own items.
   item: {
     display: "contents",

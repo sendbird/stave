@@ -1,3 +1,4 @@
+import { focusFleetVirtualRow, revealFleetVirtualRow } from "./fleet-virtual-focus";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { FleetGroupHeader } from "./FleetGrouping";
@@ -157,6 +158,18 @@ function FleetAgentTreeBoard(props: {
       if (event.defaultPrevented || event.shiftKey || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
       if (!(target instanceof HTMLElement) || !target.matches("[data-agent-fleet-card]")) return;
+      if (rows.length > 80) {
+        const current = rows.findIndex((row) => row.key === target.dataset.agentFleetCard);
+        const next = event.key === "End" ? rows.length - 1 : event.key === "Home" ? 0
+          : event.key === "ArrowDown" || event.key === "j" ? Math.min(rows.length - 1, current + 1)
+          : event.key === "ArrowUp" || event.key === "k" ? Math.max(0, current - 1) : null;
+        if (next === null || current < 0) return;
+        event.preventDefault(); event.stopPropagation();
+        const key = rows[next]!.key;
+        revealFleetVirtualRow(key, true);
+        requestAnimationFrame(() => focusFleetVirtualRow(key));
+        return;
+      }
       const cards = [...event.currentTarget.querySelectorAll<HTMLElement>("[data-agent-fleet-card]")];
       const index = cards.indexOf(target);
       if (index < 0) return;
@@ -169,6 +182,7 @@ function FleetAgentTreeBoard(props: {
       {groups.map((group) => <section key={group.id}>
         {group.title ? <FleetGroupHeader title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title} keys={group.rows.map((row) => row.key)} /> : null}
       <AgentFleet
+        virtualize={rows.length > 80}
         agents={group.rows.map((row) => agentsById.get(row.key)!)}
         renderMainCard={(agent, card) => <div data-fleet-select-key={agent.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)}>
           <FleetSelectionCheckbox itemKey={agent.id} title={agent.name} />{card}

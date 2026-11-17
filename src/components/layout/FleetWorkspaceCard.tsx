@@ -1,3 +1,5 @@
+import { FleetVirtualCardTasks } from "./FleetVirtualCardTasks";
+import { createPortal } from "react-dom";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { i18n, useTranslation } from "@/i18n";
@@ -166,6 +168,7 @@ function FleetCardPrBadge({ status }: { status: WorkspacePrStatus | null }) {
 }
 
 export function FleetWorkspaceCard(args: {
+  mountTarget?: HTMLElement | null;
   repositoryPath: string;
   repositoryName: string;
   workspace: FleetWorkspaceCardView;
@@ -515,14 +518,102 @@ export function FleetWorkspaceCard(args: {
     return { completed, total };
   }, [activeTodos, i18n.resolvedLanguage]);
 
-  if (!visible) {
+  const renderTaskRow = (row: (typeof visibleRows)[number]) => {
+    const state = fleetStatusToWorkState(row.status);
+    // A quiet turn keeps the working glyph, but its word is
+    // the attention kind's: it has stopped reporting, not halted.
+    const statusLabel =
+      row.status === "stalled"
+        ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]
+        : WORK_STATE[state].label;
+    const taskKey = taskKeyFor(row.task.id);
+    const isExpanded = args.expandedTaskKey === taskKey;
+    const taskTitle = row.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask");
+    const runLead = row.task.id === runLeadTaskId;
+    const taskAgent = runLead ? undefined : taskAgents[row.task.id];
+    return (
+      <div role="listitem" aria-setsize={visibleRows.length} aria-posinset={visibleRows.indexOf(row) + 1} key={row.task.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)} data-fleet-select-key={taskKey}>
+        <FleetSelectionCheckbox itemKey={taskKey} title={taskTitle} />
+        <AuiButton
+          layout="host"
+          id={`fleet-task-trigger-${taskKey}`}
+          type="button"
+          data-fleet-task-row="true"
+          data-task-key={taskKey}
+          xstyle={[
+            styles.taskRow,
+            focusRing.ringInset,
+            isExpanded && styles.taskRowExpanded,
+          ]}
+          aria-expanded={isExpanded}
+          aria-label={
+            isExpanded
+              ? tI18n("fleet:fleetWorkspaceCard.hideControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
+              : tI18n("fleet:fleetWorkspaceCard.showControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
+          }
+          onClick={() =>
+            args.onToggleTaskControl({
+              repositoryPath: args.repositoryPath,
+              workspaceId: args.workspace.id,
+              taskId: row.task.id,
+              taskTitle,
+              turnId:
+                taskState.activeTurnIdsByTask[row.task.id] ?? null,
+            })
+          }
+        >
+          <FleetProviderIcon provider={row.task.provider} />
+          <span className={sx(styles.taskDetails)}>
+            <span className={sx(styles.taskTitle)}>
+              <SearchHighlight text={taskTitle} query={normalizedQuery} />
+            </span>
+            {/* A task in a live turn says what it last did and for how
+                long; any other task keeps its last update. */}
+            {liveActivity(row) ? (
+              <FleetTaskActivityLine
+                activity={liveActivity(row)}
+                status={row.status}
+              />
+            ) : (
+              <ActivityTimestamp value={row.task.updatedAt} kind="updated" compact />
+            )}
+          </span>
+          {taskAgent ? (
+            <Badge xstyle={styles.chip} title={tI18n("fleet:fleetWorkspaceCard.runsAsTheValueAgent", { value1: taskAgent.agentName })}>
+              <AgentAvatar
+                agent={{ id: taskAgent.agentConfigId, name: taskAgent.agentName, appearance: taskAgent.agentAppearance }}
+                size="xs"
+                aria-label={null}
+              />
+              {taskAgent.agentName}
+            </Badge>
+          ) : null}
+          <FleetTarsOwnerLabel workspaceId={args.workspace.id} taskId={row.task.id} xstyle={styles.chip} />
+          {runLead ? null : (
+            <StateMark
+              state={state}
+              size="xs"
+              showLabel
+              xstyle={styles.taskStatus}
+              labelXstyle={styles.statusLabel}
+              title={tI18n("fleet:fleetWorkspaceCard.statusUpdated", { status: statusLabel, time: row.updatedLabel })}
+              label={statusLabel}
+            />
+          )}
+        </AuiButton>
+      </div>
+    );
+  };
+
+  if (!visible || args.mountTarget === null) {
     return null;
   }
 
   const branchLabel = formatBranchLabel(args.workspace.branch);
 
-  return (
+  const card = (
     <article
+      data-fleet-workspace-card={args.cardKey}
       className={sx(
         styles.card,
         transition.colors,
@@ -589,95 +680,10 @@ export function FleetWorkspaceCard(args: {
                 : tI18n("fleet:fleetWorkspaceCard.loadingTasks")}
           </p>
         ) : (
-          <ul className={sx(styles.list)}>
-            {visibleRows.map((row) => {
-              const state = fleetStatusToWorkState(row.status);
-              // A quiet turn keeps the working glyph, but its word is
-              // the attention kind's: it has stopped reporting, not halted.
-              const statusLabel =
-                row.status === "stalled"
-                  ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]
-                  : WORK_STATE[state].label;
-              const taskKey = taskKeyFor(row.task.id);
-              const isExpanded = args.expandedTaskKey === taskKey;
-              const taskTitle = row.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask");
-              const runLead = row.task.id === runLeadTaskId;
-              const taskAgent = runLead ? undefined : taskAgents[row.task.id];
-              return (
-                <li key={row.task.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)} data-fleet-select-key={taskKey}>
-                  <FleetSelectionCheckbox itemKey={taskKey} title={taskTitle} />
-                  <AuiButton
-                    layout="host"
-                    id={`fleet-task-trigger-${taskKey}`}
-                    type="button"
-                    data-fleet-task-row="true"
-                    data-task-key={taskKey}
-                    xstyle={[
-                      styles.taskRow,
-                      focusRing.ringInset,
-                      isExpanded && styles.taskRowExpanded,
-                    ]}
-                    aria-expanded={isExpanded}
-                    aria-label={
-                      isExpanded
-                        ? tI18n("fleet:fleetWorkspaceCard.hideControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
-                        : tI18n("fleet:fleetWorkspaceCard.showControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
-                    }
-                    onClick={() =>
-                      args.onToggleTaskControl({
-                        repositoryPath: args.repositoryPath,
-                        workspaceId: args.workspace.id,
-                        taskId: row.task.id,
-                        taskTitle,
-                        turnId:
-                          taskState.activeTurnIdsByTask[row.task.id] ?? null,
-                      })
-                    }
-                  >
-                    <FleetProviderIcon provider={row.task.provider} />
-                    <span className={sx(styles.taskDetails)}>
-                      <span className={sx(styles.taskTitle)}>
-                        <SearchHighlight text={taskTitle} query={normalizedQuery} />
-                      </span>
-                      {/* A task in a live turn says what it last did and for how
-                          long; any other task keeps its last update. */}
-                      {liveActivity(row) ? (
-                        <FleetTaskActivityLine
-                          activity={liveActivity(row)}
-                          status={row.status}
-                        />
-                      ) : (
-                        <ActivityTimestamp value={row.task.updatedAt} kind="updated" compact />
-                      )}
-                    </span>
-                    {taskAgent ? (
-                      <Badge xstyle={styles.chip} title={tI18n("fleet:fleetWorkspaceCard.runsAsTheValueAgent", { value1: taskAgent.agentName })}>
-                        <AgentAvatar
-                          agent={{ id: taskAgent.agentConfigId, name: taskAgent.agentName, appearance: taskAgent.agentAppearance }}
-                          size="xs"
-                          aria-label={null}
-                        />
-                        {taskAgent.agentName}
-                      </Badge>
-                    ) : null}
-                    <FleetTarsOwnerLabel workspaceId={args.workspace.id} taskId={row.task.id} xstyle={styles.chip} />
-                    {runLead ? null : (
-                      <StateMark
-                        state={state}
-                        size="xs"
-                        showLabel
-                        xstyle={styles.taskStatus}
-                        labelXstyle={styles.statusLabel}
-                        title={tI18n("fleet:fleetWorkspaceCard.statusUpdated", { status: statusLabel, time: row.updatedLabel })}
-                        label={statusLabel}
-                      />
-                    )}
-                  </AuiButton>
-                </li>
-              );
-            })}
+          <div role="list" className={sx(styles.list)}>
+            {visibleRows.length > 80 ? <FleetVirtualCardTasks rows={visibleRows} keyOf={(row) => taskKeyFor(row.task.id)} render={renderTaskRow} /> : visibleRows.map(renderTaskRow)}
             {hiddenTaskCount > 0 || showAllTasks ? (
-              <li>
+              <div role="listitem">
                 <AuiButton
                   layout="host"
                   type="button"
@@ -689,9 +695,9 @@ export function FleetWorkspaceCard(args: {
                     ? tI18n("fleet:fleetWorkspaceCard.showFewer")
                     : tI18n("fleet:fleetWorkspaceCard.valueMoreTaskvalue", { count: hiddenTaskCount })}
                 </AuiButton>
-              </li>
+              </div>
             ) : null}
-          </ul>
+          </div>
         )}
       </div>
 
@@ -767,6 +773,7 @@ export function FleetWorkspaceCard(args: {
       </div>
     </article>
   );
+  return args.mountTarget ? createPortal(card, args.mountTarget) : card;
 }
 
 export const MemoizedFleetWorkspaceCard = memo(FleetWorkspaceCard);

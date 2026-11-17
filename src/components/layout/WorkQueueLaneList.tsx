@@ -1,3 +1,4 @@
+import { SidebarVirtualList } from "./SidebarVirtualList";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -94,7 +95,7 @@ export function WorkQueueLaneList(props: {
               </AuiButton>
               {collapsed
                 ? null
-                : group.entries.map((entry) => {
+                : <SidebarVirtualList compact items={group.entries} itemKey={(entry) => entry.workspaceId} renderItem={(entry) => {
                     const view = viewById[entry.workspaceId] ?? { state: "active" as const };
                     return (
                       <WorkQueueRow
@@ -112,7 +113,7 @@ export function WorkQueueLaneList(props: {
                         }
                       />
                     );
-                  })}
+                  }} />}
             </div>
           );
         })

@@ -1,3 +1,4 @@
+import { SidebarVirtualList } from "./SidebarVirtualList";
 import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
 import { toast } from "@/lib/notifications/toast";
 import { ArchivedWorkspaceShelf } from "./ArchivedWorkspaceShelf";
@@ -793,10 +794,10 @@ export function RepositoryWorkspaceSidebar(args: {
           </TooltipProvider>
         </div>
         {args.collapsed ? (
-          <div className={sx(repositorySidebarStyles.scrollArea)}>
+          <div data-sidebar-scroll="" className={sx(repositorySidebarStyles.scrollArea)}>
             <TooltipProvider>
               <div className={sx(repositorySidebarStyles.columnCenterGap)}>
-                {collapsedWorkspaceEntries.map((entry) => {
+                <SidebarVirtualList items={collapsedWorkspaceEntries} itemKey={(entry) => `${entry.repositoryPath}:${entry.workspaceId}`} renderItem={(entry) => {
                   const entryKey = `${entry.repositoryPath}:${entry.workspaceId}`;
                   const shortcutLabel = workspaceShortcutLabels.get(entryKey);
                   const workspaceBusy = busyWorkspaceKey === entryKey;
@@ -862,13 +863,13 @@ export function RepositoryWorkspaceSidebar(args: {
                       </WorkspaceHoverPreviewTooltip>
                     </div>
                   );
-                })}
+                }} />
               </div>
             </TooltipProvider>
           </div>
         ) : null}
         {!args.collapsed ? (
-          <div className={sx(repositorySidebarStyles.scrollAreaExpanded)}>
+          <div data-sidebar-scroll="" className={sx(repositorySidebarStyles.scrollAreaExpanded)}>
             <TooltipProvider>
               <nav
                 aria-label={i18n.t("shell:sidebarPrimaryNav.globalViews")}
@@ -1402,7 +1403,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                       repositorySidebarStyles.workspaceListInner,
                                     )}
                                   >
-                                    {repository.workspaces.map((workspace) => {
+                                    <SidebarVirtualList items={repository.workspaces} itemKey={(workspace) => workspace.id} renderItem={(workspace) => {
                                       const workspaceShortcutLabel =
                                         workspaceShortcutLabels.get(
                                           `${repository.repositoryPath}:${workspace.id}`,
@@ -1725,7 +1726,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           )}
                                         </SortableSidebarItem>
                                       );
-                                    })}
+                                    }} />
                                   </div>
                                 </div>
                               ) : null}

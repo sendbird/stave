@@ -984,6 +984,9 @@ Screens: [하위 작업 결과](https://github.com/sendbird/stave/blob/main/docs
 
 ## Fleet 보기
 
+Fleet와 긴 사이드바 목록은 화면 주변의 행을 렌더링합니다. 선택과 키보드 이동은 필터에 맞는 펼친 목록 전체에 적용됩니다.
+
+
 행의 체크박스, Cmd/Ctrl+클릭, Shift+클릭으로 여러 작업을 선택합니다.
 행에 포커스가 있으면 **X**로 선택을 바꾸고, **Shift+방향키**로 범위를
 늘리고, **Cmd/Ctrl+A**로 표시된 작업을 모두 선택하며, **Esc**로 선택을

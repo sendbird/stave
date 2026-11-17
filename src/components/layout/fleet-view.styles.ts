@@ -314,6 +314,7 @@ export const fleetStyles = stylex.create({
   // Cards in a row share one height (their footers line up) and sit on the
   // 12px spacing step.
   collapsedGrid: { display: "none" },
+  virtualCardGrid: { display: "block" },
   cardGrid: {
     alignItems: "stretch",
     display: "grid",

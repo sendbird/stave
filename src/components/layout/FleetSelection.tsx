@@ -1,3 +1,4 @@
+import { revealFleetVirtualRow } from "./fleet-virtual-focus";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { useEffect, type KeyboardEvent, type MouseEvent } from "react";
 import * as stylex from "@stylexjs/stylex";
@@ -65,6 +66,7 @@ export function useFleetSelectionKeyboard() {
         event.preventDefault(); event.stopPropagation();
         if (!store.anchor) store.toggle(key);
         useFleetSelectionStore.getState().toggle(next.key, true);
+        revealFleetVirtualRow(next.key, true);
         const root = event.currentTarget;
         const nextRow = [...root.querySelectorAll<HTMLElement>("[data-fleet-select-key]")].find((item) => item.dataset.fleetSelectKey === next.key);
         (nextRow?.querySelector<HTMLElement>("button,[tabindex='0']") ?? nextRow)?.focus();

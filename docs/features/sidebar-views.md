@@ -211,3 +211,10 @@ the queue exactly the way it narrows the tree.
 ## Related Docs
 
 - [Fleet Action Required](fleet-needs-me.md)
+
+## Scale
+
+Long workspace lists and Work queue lanes render a window of rows. Counts and
+keyboard navigation still cover the complete expanded list; Home and End reveal
+the first and last workspace. Collapsed groups stay excluded from navigation.
+Workspace drag reorder keeps its existing repository scope.
