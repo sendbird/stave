@@ -36,6 +36,7 @@ type TaskCoreActionKey =
   | "requestTaskScrollToLatest"
   | "focusTranscriptTool"
   | "focusTranscriptDecision"
+  | "focusTranscriptMessage"
   | "selectTask"
   | "loadTaskMessages"
   | "clearTaskSelection"
@@ -219,6 +220,18 @@ export function createTaskCoreActions(args: {
         focusTranscriptToolRequest: {
           taskId,
           decision: { messageId, requestId },
+          nonce: (state.focusTranscriptToolRequest?.nonce ?? 0) + 1,
+        },
+      }));
+    },
+    focusTranscriptMessage: ({ taskId, messageId }) => {
+      if (!taskId || !messageId) {
+        return;
+      }
+      set((state) => ({
+        focusTranscriptToolRequest: {
+          taskId,
+          messageId,
           nonce: (state.focusTranscriptToolRequest?.nonce ?? 0) + 1,
         },
       }));

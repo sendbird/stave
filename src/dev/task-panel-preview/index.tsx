@@ -869,7 +869,7 @@ export function TaskPanelPreview() {
       const now = Date.now();
       useTaskReturnStore.setState({
         arrivalByTask: { [PLAIN_TASK_ID]: { at: new Date(now).toISOString(), leftAt: null, baseline: null } },
-        dismissedByTask: {},
+        collapsedByTask: returning === "collapsed" ? { [PLAIN_TASK_ID]: { at: new Date(now).toISOString(), collapsed: true } } : {},
       });
       const approval: FleetAttentionItem = {
         id: "preview-return-need",

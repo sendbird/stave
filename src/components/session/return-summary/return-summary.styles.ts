@@ -1,160 +1,151 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 
-const clampTwoLines = {
-  display: "-webkit-box",
+const oneLine = {
+  margin: 0,
+  minWidth: 0,
   overflow: "hidden",
-  overflowWrap: "anywhere",
-  WebkitBoxOrient: "vertical",
-  WebkitLineClamp: 2,
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap",
 } as const;
 
 export const returnSummaryStyles = stylex.create({
-  // Pinned to the top of the conversation, so it reads without scrolling the
-  // transcript; the overlay around it passes clicks through.
+  // In the conversation's flow, between what you had seen and what came after:
+  // a surface on the transcript, not an overlay, so it carries no elevation.
   card: {
     backgroundColor: vars["--aui-color-surface"],
-    borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 80%, transparent)`,
-    borderRadius: vars["--aui-radius-frame"],
+    borderColor: vars["--aui-color-border"],
+    borderRadius: vars["--aui-radius-panel"],
     borderStyle: "solid",
     borderWidth: vars["--aui-border-width-hairline"],
-    boxShadow: vars["--aui-elevation-overlay"],
+    containerType: "inline-size",
     display: "flex",
     flexDirection: "column",
-    insetInlineStart: "50%",
+    marginBlock: vars["--aui-space-12"],
     overflow: "hidden",
-    pointerEvents: "auto",
-    position: "absolute",
-    top: vars["--aui-space-12"],
-    transform: "translateX(-50%)",
-    width: `min(40rem, calc(100% - 2 * ${vars["--aui-space-12"]}))`,
   },
   header: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--aui-space-8"],
-    paddingBlockStart: vars["--aui-space-8"],
-    paddingInlineEnd: vars["--aui-space-8"],
-    paddingInlineStart: vars["--aui-space-12"],
-  },
-  headerIcon: {
-    color: vars["--aui-color-text-muted"],
-    flexShrink: 0,
-    height: 16,
-    width: 16,
-  },
-  headerText: {
     alignItems: "baseline",
     columnGap: vars["--aui-space-8"],
     display: "flex",
-    flex: 1,
-    minWidth: 0,
+    paddingBlockStart: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-12"],
+  },
+  headerIcon: {
+    alignSelf: "center",
+    blockSize: vars["--aui-control-icon-size-md"],
+    color: vars["--aui-color-text-muted"],
+    flexShrink: 0,
+    inlineSize: vars["--aui-control-icon-size-md"],
   },
   title: {
     color: vars["--aui-color-text"],
     flexShrink: 0,
     fontSize: vars["--aui-font-size-body"],
     fontWeight: vars["--aui-font-weight-semibold"],
-    lineHeight: "1.25rem",
+    lineHeight: vars["--aui-line-height-control"],
     margin: 0,
   },
   since: {
+    ...oneLine,
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],
-    lineHeight: "1rem",
-    margin: 0,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    lineHeight: vars["--aui-line-height-caption"],
   },
-  // Where the task stands and the one thing to do about it: the line the
-  // card is for, so it comes first and reads largest.
-  status: {
+  rows: {
+    display: "flex",
+    flexDirection: "column",
+    listStyle: "none",
+    margin: 0,
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: 0,
+  },
+  // Every row is one height: a title line and a detail line, each cut to one
+  // line with the whole text on hover.
+  row: {
     alignItems: "center",
     columnGap: vars["--aui-space-8"],
-    display: "flex",
-    flexWrap: "wrap",
-    paddingBlock: vars["--aui-space-12"],
+    display: "grid",
+    gridTemplateColumns: "max-content minmax(0, 1fr) auto",
+    paddingBlock: vars["--aui-space-4"],
     paddingInline: vars["--aui-space-12"],
-    rowGap: vars["--aui-space-8"],
   },
-  statusContent: {
-    alignItems: "flex-start",
-    display: "flex",
-    flex: "1 1 14rem",
-    gap: vars["--aui-space-8"],
-    minWidth: 0,
-  },
-  statusMark: {
+  rowMark: {
+    alignSelf: "start",
     blockSize: vars["--aui-line-height-control"],
   },
-  statusText: {
+  rowIcon: {
+    alignItems: "center",
+    color: vars["--aui-color-text-muted"],
+    display: "inline-flex",
+    inlineSize: vars["--aui-control-icon-size-md"],
+    justifyContent: "center",
+    ":is(*) svg": {
+      blockSize: vars["--aui-control-icon-size-sm"],
+      inlineSize: vars["--aui-control-icon-size-sm"],
+    },
+  },
+  rowText: {
     display: "flex",
-    flex: 1,
     flexDirection: "column",
-    gap: vars["--aui-space-2"],
     minWidth: 0,
   },
-  statusTitle: {
+  rowTitle: {
+    ...oneLine,
     color: vars["--aui-color-text"],
     fontSize: vars["--aui-font-size-body"],
     fontWeight: vars["--aui-font-weight-medium"],
     lineHeight: vars["--aui-line-height-control"],
-    margin: 0,
   },
-  statusDetail: {
-    ...clampTwoLines,
+  rowDetail: {
+    ...oneLine,
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],
-    lineHeight: "1rem",
-    margin: 0,
+    lineHeight: vars["--aui-line-height-caption"],
   },
-  statusAction: {
-    flexShrink: 0,
-    marginInlineStart: "auto",
+  // A long action label never takes more than its share of a narrow card.
+  rowAction: {
+    maxInlineSize: "40cqi",
   },
-  facts: {
-    backgroundColor: vars["--aui-color-canvas-subtle"],
+  footer: {
+    alignItems: "center",
     borderTopColor: vars["--aui-color-border-subtle"],
     borderTopStyle: "solid",
     borderTopWidth: vars["--aui-border-width-hairline"],
-    columnGap: vars["--aui-space-12"],
-    display: "grid",
-    gridTemplateColumns: "max-content minmax(0, 1fr) max-content",
-    margin: 0,
+    display: "flex",
+    gap: vars["--aui-space-8"],
     paddingBlock: vars["--aui-space-8"],
-    paddingInlineEnd: vars["--aui-space-8"],
-    paddingInlineStart: vars["--aui-space-12"],
-    rowGap: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-12"],
   },
-  fact: {
-    display: "contents",
+  gotIt: {
+    marginInlineStart: "auto",
   },
-  label: {
-    alignSelf: "start",
+  // Folded: one line across the conversation where the card was.
+  divider: {
+    alignItems: "center",
+    columnGap: vars["--aui-space-8"],
+    display: "flex",
+    marginBlock: vars["--aui-space-12"],
+  },
+  dividerRule: {
+    backgroundColor: vars["--aui-color-border"],
+    blockSize: vars["--aui-border-width-hairline"],
+    flex: 1,
+    minInlineSize: vars["--aui-space-16"],
+  },
+  // The divider's button is the line's label: muted, at its content width.
+  dividerButton: {
     color: vars["--aui-color-text-muted"],
-    fontSize: vars["--aui-font-size-caption"],
-    fontWeight: vars["--aui-font-weight-medium"],
-    // With the 4px padding, the first line centers on the 28px link beside it.
-    lineHeight: "1.25rem",
-    margin: 0,
-    paddingBlock: vars["--aui-space-4"],
-    whiteSpace: "nowrap",
-  },
-  value: {
-    ...clampTwoLines,
-    alignSelf: "start",
-    color: vars["--aui-color-text"],
-    fontSize: vars["--aui-font-size-caption"],
-    lineHeight: "1.25rem",
-    margin: 0,
+    flexShrink: 1,
+    maxInlineSize: "100%",
     minWidth: 0,
-    paddingBlock: vars["--aui-space-4"],
   },
-  action: {
-    alignSelf: "start",
-    justifySelf: "end",
-    margin: 0,
+  dividerTitle: {
+    color: vars["--aui-color-text"],
+    flexShrink: 0,
+    fontWeight: vars["--aui-font-weight-medium"],
+  },
+  dividerMeta: {
+    ...oneLine,
   },
 });
