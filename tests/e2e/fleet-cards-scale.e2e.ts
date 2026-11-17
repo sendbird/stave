@@ -7,7 +7,7 @@ test("large card grid retains offscreen selection and expanded task disclosure s
   await seedFleetScale(page);
   await page.evaluate(async () => {
     const { useAppStore } = await import("/src/store/app.store.ts");
-    const fixture = JSON.parse(localStorage.getItem("stave:scale-fixture")!);
+    const fixture = useAppStore.getState();
     const workspaces = fixture.recentRepositories.flatMap((repository: { workspaces: unknown[] }) => repository.workspaces);
     const snapshot = JSON.parse(localStorage.getItem("stave:workspace-fallback:v1")!);
     const tasks = [...snapshot[0].snapshot.tasks, ...snapshot[1].snapshot.tasks];
@@ -56,7 +56,7 @@ test("large card grid retains offscreen selection and expanded task disclosure s
     const { useFleetSelectionStore } = await import("/src/store/fleet-selection-store.ts");
     return useFleetSelectionStore.getState().selectedKeys.size;
   })).toBe(120);
-  const first = cards.filter({ hasText: "Workspace 0" }).first();
+  const first = page.locator('[data-fleet-workspace-card*="scale-workspace-0"]').first();
   await first.getByRole("button", { name: /more tasks/ }).click();
   await expect.poll(() => first.locator("[data-fleet-task-row]").count()).toBeLessThan(30);
   await first.locator("[data-fleet-task-row]").first().focus();
