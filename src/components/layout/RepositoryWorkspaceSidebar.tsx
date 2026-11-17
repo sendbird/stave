@@ -797,7 +797,7 @@ export function RepositoryWorkspaceSidebar(args: {
           <div data-sidebar-scroll="" className={sx(repositorySidebarStyles.scrollArea)}>
             <TooltipProvider>
               <div className={sx(repositorySidebarStyles.columnCenterGap)}>
-                <SidebarVirtualList items={collapsedWorkspaceEntries} itemKey={(entry) => `${entry.repositoryPath}:${entry.workspaceId}`} renderItem={(entry) => {
+                <SidebarVirtualList gap={8} items={collapsedWorkspaceEntries} itemKey={(entry) => `${entry.repositoryPath}:${entry.workspaceId}`} renderItem={(entry) => {
                   const entryKey = `${entry.repositoryPath}:${entry.workspaceId}`;
                   const shortcutLabel = workspaceShortcutLabels.get(entryKey);
                   const workspaceBusy = busyWorkspaceKey === entryKey;
@@ -1403,7 +1403,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                       repositorySidebarStyles.workspaceListInner,
                                     )}
                                   >
-                                    <SidebarVirtualList items={repository.workspaces} itemKey={(workspace) => workspace.id} renderItem={(workspace) => {
+                                    <SidebarVirtualList gap={4} items={repository.workspaces} itemKey={(workspace) => workspace.id} renderItem={(workspace) => {
                                       const workspaceShortcutLabel =
                                         workspaceShortcutLabels.get(
                                           `${repository.repositoryPath}:${workspace.id}`,

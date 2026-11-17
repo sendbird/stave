@@ -95,7 +95,7 @@ export function WorkQueueLaneList(props: {
               </AuiButton>
               {collapsed
                 ? null
-                : <SidebarVirtualList compact items={group.entries} itemKey={(entry) => entry.workspaceId} renderItem={(entry) => {
+                : <SidebarVirtualList gap={2} items={group.entries} itemKey={(entry) => entry.workspaceId} renderItem={(entry) => {
                     const view = viewById[entry.workspaceId] ?? { state: "active" as const };
                     return (
                       <WorkQueueRow
