@@ -2700,7 +2700,6 @@ export async function resumeQueuedProviderTurn(args: import("../providers/types"
   const { workspaceId, taskId, turnId } = args;
   const session = await loadWorkspaceSession(workspaceId);
   const task = session.tasks.find(row => row.id === taskId);
-  // A task that is gone, archived or no longer waiting on this turn cannot take it back.
   if (!task || task.archivedAt || session.activeTurnIdsByTask[taskId] !== turnId) throw new Error("Queued host turn no longer belongs to its task.");
   const model = args.runtimeOptions?.model ?? "default";
   const provider = args.providerId;

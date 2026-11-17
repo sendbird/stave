@@ -2469,17 +2469,20 @@ async function main() {
   process.stdin.on("end", handleStdinClosed);
   process.stdin.on("close", handleStdinClosed);
 
-  // Announce readiness only once stdin is actually being consumed, so the first
-  // request can never land before this process is able to read it.
-  await writeMessage({ type: "ready" });
-  automationRuntime.start({ deferScheduling: true });
-  await hostTurnAdmission.recover(createQueuedTurnRecoveryHandlers({
+  const queuedTurnRecovery = createQueuedTurnRecoveryHandlers({
     store: ensureHostServicePersistenceReady(),
     authorizationForTurn: turnId => automationRuntime.authorizationForTurn(turnId),
     requestCredentials: accounts => requestHostGatewayCredentials(accounts),
     resumeQueuedProviderTurn: localMcpRuntime.resumeQueuedProviderTurn,
     notify: localMcpRuntime.notifySupervisorProblem,
-  }));
+  });
+  // Before any request: a renderer that takes its restored starts finds them all.
+  hostTurnAdmission.restoreRendererStarts(queuedTurnRecovery);
+  // Announce readiness only once stdin is actually being consumed, so the first
+  // request can never land before this process is able to read it.
+  await writeMessage({ type: "ready" });
+  automationRuntime.start({ deferScheduling: true });
+  await hostTurnAdmission.recover(queuedTurnRecovery);
   automationRuntime.start();
   wakeUpRuntime.start();
   agentRunRuntime.start();

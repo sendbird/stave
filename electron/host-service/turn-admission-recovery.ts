@@ -27,7 +27,7 @@ export function createQueuedTurnRecoveryHandlers(deps: {
       if (store.listArchivedWorkspacesPersistence().some(record => record.workspaceId === workspaceId)) return false;
       return Boolean(store.loadWorkspaceShell({ workspaceId })?.tasks.some(task => task.id === taskId && !task.archivedAt));
     },
-    restore: ({ workspaceId, taskId, item }) => store.restoreQueuedTurnToDraft({ workspaceId, taskId, item }),
+    restore: (restored) => store.turnAdmission.restoreToDraft(restored),
     start: async (args, unattended) => {
       const authorizationToken = unattended ? deps.authorizationForTurn(args.turnId!) : undefined;
       if (unattended && !authorizationToken) throw new Error("Queued automation authorization could not be restored.");

@@ -82,6 +82,27 @@ export function createHostTurnAdmission(store: SqliteStore, options: { now?: () 
     },
   });
   const forget = (id: string) => { recoveryPending.delete(id); starts.delete(id); gate.refresh(); };
+  function restoreRendererStarts(handlers: Pick<QueuedTurnRecoveryHandlers, "taskExists" | "restore">) {
+    const restored: RestoredQueuedTurn[] = [];
+    for (let index = recovery.length - 1; index >= 0; index--) {
+      const row = recovery[index]!;
+      if (row.hostTask) continue;
+      recovery.splice(index, 1);
+      const id = row.args.turnId!;
+      const workspaceId = row.args.workspaceId, taskId = row.args.taskId;
+      // The host never runs a renderer start again: its renderer and stream
+      // are gone. The user sends or discards it from the composer queue.
+      forget(id);
+      const item = workspaceId && taskId && handlers.taskExists({ workspaceId, taskId }) ? toRestoredQueuedTurn(row) : null;
+      try {
+        if (item && handlers.restore(item)) restored.unshift(item);
+        else console.warn("[turn-admission] queued renderer turn could not be restored", { turnId: id });
+      } catch (error) {
+        console.error("[turn-admission] queued renderer turn restore failed", { turnId: id, error: String(error) });
+      }
+    }
+    if (restored.length) store.turnAdmission.writeRestored([...store.turnAdmission.readRestored(), ...restored]);
+  }
   const admission: ProviderTurnAdmission = {
     async acquire(args, changed) {
       const id = args.turnId!;
@@ -129,31 +150,23 @@ export function createHostTurnAdmission(store: SqliteStore, options: { now?: () 
       store.turnAdmission.writeRestored(all.filter(row => !taken.includes(row)));
       return taken;
     },
+    /**
+     * Put renderer starts back into their composer queues. Synchronous, so the
+     * host runs it before it accepts requests: a renderer that takes restored
+     * starts never finds the list still empty. `recover` calls it too.
+     */
+    restoreRendererStarts,
     recover: async (handlers: QueuedTurnRecoveryHandlers) => {
+      restoreRendererStarts(handlers);
       const notify = async (row: SavedTurnStart, reason: QueuedTurnRecoveryFailure) => {
         try { await handlers.failed(row, reason); }
         catch (error) { console.error("[turn-admission] queued turn notice failed", { turnId: row.args.turnId, error: String(error) }); }
       };
       for (const { row, reason } of dropped.splice(0)) await notify(row, reason);
-      const restored: RestoredQueuedTurn[] = [];
       for (const row of recovery.splice(0)) {
         const id = row.args.turnId!;
         const workspaceId = row.args.workspaceId, taskId = row.args.taskId;
-        const exists = Boolean(workspaceId && taskId && handlers.taskExists({ workspaceId, taskId }));
-        if (!row.hostTask) {
-          // The host never runs a renderer start again: its renderer and stream
-          // are gone. The user sends or discards it from the composer queue.
-          forget(id);
-          const item = exists ? toRestoredQueuedTurn(row) : null;
-          try {
-            if (item && handlers.restore(item)) restored.push(item);
-            else console.warn("[turn-admission] queued renderer turn could not be restored", { turnId: id });
-          } catch (error) {
-            console.error("[turn-admission] queued renderer turn restore failed", { turnId: id, error: String(error) });
-          }
-          continue;
-        }
-        if (!exists) { forget(id); await notify(row, "taskMissing"); continue; }
+        if (!workspaceId || !taskId || !handlers.taskExists({ workspaceId, taskId })) { forget(id); await notify(row, "taskMissing"); continue; }
         try {
           await handlers.start({ ...row.args, admissionPriority: row.priority, admissionOwner: "host-task",
             freshSession: row.freshSession, managedTask: row.managedTask, agentRunStage: row.agentRunStage }, row.unattended ?? false);
@@ -163,7 +176,6 @@ export function createHostTurnAdmission(store: SqliteStore, options: { now?: () 
           if (recoveryPending.has(id)) { forget(id); await notify(row, "startFailed"); }
         }
       }
-      if (restored.length) store.turnAdmission.writeRestored([...store.turnAdmission.readRestored(), ...restored]);
     },
   };
 }

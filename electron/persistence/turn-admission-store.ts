@@ -38,6 +38,11 @@ export const RestoredQueuedTurnSchema = z.object({
 }).strict();
 export type RestoredQueuedTurn = z.infer<typeof RestoredQueuedTurnSchema>;
 
+type ShellPayload = {
+  tasks?: Array<{ id: string; archivedAt?: string | null }>;
+  promptDraftByTask?: Record<string, { queuedTurns?: Array<{ id: string }> } & Record<string, unknown>>;
+};
+
 /** Transient grants and credentials are excluded by the strict request schema. */
 export class TurnAdmissionStore {
   constructor(private readonly db: Database.Database) {}
@@ -72,5 +77,38 @@ export class TurnAdmissionStore {
   }
   writeRestored(rows: RestoredQueuedTurn[]) {
     this.writeKey("turn_admission_restored", z.array(RestoredQueuedTurnSchema).parse(rows));
+  }
+  /**
+   * Put a start that never ran back into its task's composer queue on disk.
+   * Drafts are renderer-owned, so only this task's `queuedTurns` changes,
+   * under the write lock; every other shell field, editor-tab artifact
+   * pointers included, is written back byte for byte. An item already there
+   * (same id) stays as it is. False when the workspace or task is gone,
+   * archived, deleted or still in the legacy inline-message format.
+   */
+  restoreToDraft({ workspaceId, taskId, item }: RestoredQueuedTurn): boolean {
+    const tx = this.db.transaction((): boolean => {
+      const blocked = this.db.prepare("SELECT 1 FROM workspace_archives WHERE workspace_id = ? UNION ALL SELECT 1 FROM workspace_deletions WHERE workspace_id = ? UNION ALL SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ? LIMIT 1")
+        .get(workspaceId, workspaceId, workspaceId, taskId);
+      const row = this.db.prepare("SELECT snapshot_json FROM workspaces WHERE id = ?").get(workspaceId) as { snapshot_json: string } | undefined;
+      if (blocked || !row) return false;
+      const payload = JSON.parse(row.snapshot_json) as ShellPayload;
+      const task = payload.tasks?.find((candidate) => candidate.id === taskId);
+      if ("messagesByTask" in payload || !task || task.archivedAt) return false;
+      const draft = payload.promptDraftByTask?.[taskId] ?? { text: "", attachedFilePaths: [], attachments: [] };
+      if (draft.queuedTurns?.some((queued) => queued.id === item.id)) return true;
+      const promptDraftByTask = { ...(payload.promptDraftByTask ?? {}), [taskId]: { ...draft, queuedTurns: [...(draft.queuedTurns ?? []), item] } };
+      const now = new Date().toISOString();
+      this.db.prepare("UPDATE workspaces SET updated_at = ?, snapshot_json = ? WHERE id = ?").run(now, JSON.stringify({ ...payload, promptDraftByTask }), workspaceId);
+      // The lite projection carries drafts; the summary does not.
+      const meta = this.db.prepare("SELECT shell_lite_json FROM workspace_meta WHERE id = ?").get(workspaceId) as { shell_lite_json: string | null } | undefined;
+      if (meta?.shell_lite_json) {
+        this.db.prepare("UPDATE workspace_meta SET updated_at = ?, shell_lite_json = ? WHERE id = ?")
+          .run(now, JSON.stringify({ ...(JSON.parse(meta.shell_lite_json) as object), promptDraftByTask }), workspaceId);
+      }
+      return true;
+    });
+    // IMMEDIATE: main writes this file too, and a deferred read-then-write would fail with SQLITE_BUSY.
+    return tx.immediate();
   }
 }
