@@ -57,13 +57,13 @@ async function main() {
     unattendedAutomation: { authorizationToken: "transient-test-token" }, agentRunStage: { agentRunId: "run", stageId: "work", attempt: 2 } };
   const recovered = withProviderAccountScope({ codexAccountProfileId: profileId }, () => host.admission.acquire(recoveryArgs));
   void recovered;
-  const recoverSecond = start("recover-second", true); void recoverSecond;
+  const recoverSecond = host.admission.acquire({ ...args("recover-second", true), admissionOwner: "host-task" }); void recoverSecond;
   assert.deepEqual(store.turnAdmission.read().map(row => [row.args.turnId, row.state]), [["recover", "queued"], ["recover-second", "queued"], ["running", "running"]]);
   store.close();
   store = new SqliteStore({ dbPath, runMaintenance: false });
   host = createHostTurnAdmission(store);
   const recoveredStarts: StreamTurnArgs[] = [];
-  await host.recover(async (request, unattended) => {
+  await host.recover({ taskExists: () => true, restore: () => false, failed: (row) => { throw new Error(`unexpected recovery failure ${row.args.turnId}`); }, start: async (request, unattended) => {
     await new Promise(resolve => setTimeout(resolve, 5));
     if (request.turnId === "recover") {
       assert.equal(unattended, true);
@@ -76,7 +76,7 @@ async function main() {
       assert.equal(store.turnAdmission.read().some(row => row.args.turnId === "recover-second"), true);
     }
     recoveredStarts.push(request); void host.admission.acquire(request);
-  });
+  } });
   await settle();
   assert.deepEqual(recoveredStarts.map(row => row.turnId), ["recover", "recover-second"]);
   assert.deepEqual(host.snapshot().running, ["recover"]);

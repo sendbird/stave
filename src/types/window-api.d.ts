@@ -334,6 +334,10 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
+  /** Starts that were queued for a slot when Stave quit, put back into their composer queues once. */
+  takeRestoredQueuedTurns?: () => Promise<{
+    items: Array<{ workspaceId: string; taskId: string; item: import("@/types/chat").PromptDraftQueuedTurn }>;
+  }>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;

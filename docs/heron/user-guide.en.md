@@ -1302,6 +1302,9 @@ Archived workspace history remains available in message search. Archived hits op
 Settings → Providers → **Run at most N agent turns at once** is off by default.
 Enable it and choose 1–16. Tasks and Fleet show the queue position while waiting.
 User messages go before automatic starts; starts within each group stay in order.
-Stop removes a queued start. Pending starts survive a restart. Parents waiting
+Stop removes a queued start. After a restart, a message you sent returns to its
+composer queue as **Waiting to send (restored)** for you to send or discard;
+automatic starts resume while their task exists. A start that cannot resume, or
+waited over a day, is dropped with a notification. Parents waiting
 for delegated children release their slot and acquire it again when resuming.
 Existing feature limits still apply.

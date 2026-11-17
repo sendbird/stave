@@ -255,6 +255,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   }) => AgentRunTurnRow[];
   runSupervisedTurn: (args: {
     gatewayCredentials?: import("../../provider-accounts/gateway-runtime").GatewayCredentials;
+    /** A reply or an answer the user sent through the run: admitted as a user turn. */
+    admissionPriority?: "user";
     workspaceId: string;
     taskId: string;
     parentTaskId?: string;
@@ -289,6 +291,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   userPermissionOptions?: (providerId: AgentRunFingerprint["providerId"]) => ProviderRuntimeOptions | undefined;
   /** Closes a turn left open by a stopped host; true when it was open. */
   completeInterruptedTurn: (turnId: string) => boolean;
+  /** A turn the admission queue holds or restored; the boot sweep leaves it running. */
+  isQueuedTurn?: (turnId: string) => boolean;
   countActiveDelegatedTasks: (taskId: string) => number;
   /** Whether the Local MCP server the model reports through is up. */
   isReportingAvailable: (options?: { fresh?: boolean }) => Promise<boolean>;
@@ -2031,7 +2035,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     );
     const latestLinked = events.filter((event) => event.kind === "turn-linked").at(-1);
     const turnId = latestLinked?.detail.turnId;
-    if (typeof turnId === "string" && deps.completeInterruptedTurn(turnId) && latestLinked?.idempotencyKey) {
+    if (typeof turnId === "string" && !deps.isQueuedTurn?.(turnId) && deps.completeInterruptedTurn(turnId) && latestLinked?.idempotencyKey) {
       const turnKey = latestLinked.idempotencyKey.replace(/:linked$/, "");
       recordEvent(agentRun, {
         kind: "turn-interrupted",
@@ -2299,6 +2303,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         refuse(i18n.t("agentRuns:persistentQuestion.waitForRequest"));
       if (!(await deps.isReportingAvailable({ fresh: true }))) refuse(i18n.t("agentRuns:persistentQuestion.reportingUnavailable"));
       await deps.runSupervisedTurn({ workspaceId: args.workspaceId, taskId: args.taskId,
+        admissionPriority: "user",
         ...(delegatedAuthority(run) ? { parentTaskId: delegatedAuthority(run)!.parentTaskId } : {}),
         prompt: args.prompt, questionAnswer: args.questionAnswer, fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
@@ -2641,7 +2646,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // Rechecked after the reads: nothing may take the run over in between.
       guard?.(requireAggregate(agentRunId).agentRun);
       // A plain chat turn on the lead task: provider admission links it to the stage as the user's reply (`prepareUserTurn`).
-      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, ...(turnId ? { turnId } : {}),
+      await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, admissionPriority: "user", ...(turnId ? { turnId } : {}),
         fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
     }),

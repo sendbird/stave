@@ -114,6 +114,7 @@ export function createHostAgentRunRuntime(args: {
   emitChanged: (event: AgentRunChangedEvent) => void;
   /** The agent a task runs as, or null. An agent run routes by it and ends without it. */
   taskAgent?: (taskId: string) => AgentConfig | null;
+  isQueuedTurn?: (turnId: string) => boolean;
   delegatedAssignment?: import("./agent-run-runtime").AgentRunRuntimeDependencies["delegatedAssignment"];
 }) {
   const persistence = ensureHostServicePersistenceReady();
@@ -199,6 +200,7 @@ export function createHostAgentRunRuntime(args: {
     }),
     userPermissionOptions: loadUserPermissionOptions,
     completeInterruptedTurn: (turnId) => persistence.completeInterruptedTurn({ id: turnId }),
+    ...(args.isQueuedTurn ? { isQueuedTurn: args.isQueuedTurn } : {}),
     countActiveDelegatedTasks: (taskId) => countActiveDelegatedTasks({ parentTaskId: taskId }),
     isReportingAvailable: async (options) => {
       if (options?.fresh) reachability.invalidate();

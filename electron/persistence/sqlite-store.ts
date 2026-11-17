@@ -2238,6 +2238,46 @@ export class SqliteStore {
     return messageCount === null ? { ok: false, messageCount: 0 } : { ok: true, messageCount };
   }
 
+  /**
+   * Put a start that never ran back into its task's composer queue. Drafts are
+   * renderer-owned, so only this task's `queuedTurns` changes, under the write
+   * lock, and an item already present (same id) is left as it is. False when
+   * the workspace or task is gone, archived or write-protected.
+   */
+  restoreQueuedTurnToDraft(args: {
+    workspaceId: string;
+    taskId: string;
+    item: NonNullable<NonNullable<PersistenceWorkspaceSnapshot["promptDraftByTask"]>[string]["queuedTurns"]>[number];
+  }): boolean {
+    const tx = this.db.transaction((): boolean => {
+      if (this.workspaceArchives.isWriteProtected(args.workspaceId)) return false;
+      if (this.db.prepare("SELECT 1 FROM deleted_tasks WHERE workspace_id = ? AND task_id = ?").get(args.workspaceId, args.taskId)) return false;
+      const entry = this.readWorkspacePayload({ workspaceId: args.workspaceId });
+      if (!entry || "messagesByTask" in entry.payload) return false;
+      const payload = entry.payload as PersistedWorkspaceShellPayload;
+      const task = payload.tasks.find((candidate) => candidate.id === args.taskId);
+      if (!task || task.archivedAt) return false;
+      const draft = payload.promptDraftByTask?.[args.taskId] ?? { text: "", attachedFilePaths: [], attachments: [] };
+      if (draft.queuedTurns?.some((item) => item.id === args.item.id)) return true;
+      const nextPayload = {
+        ...payload,
+        promptDraftByTask: { ...(payload.promptDraftByTask ?? {}), [args.taskId]: { ...draft, queuedTurns: [...(draft.queuedTurns ?? []), args.item] } },
+      } as PersistedWorkspaceShellPayload;
+      const now = new Date().toISOString();
+      this.db.prepare("UPDATE workspaces SET updated_at = ?, snapshot_json = ? WHERE id = ?").run(now, JSON.stringify(nextPayload), args.workspaceId);
+      const shellForMeta = toWorkspaceShellMetaSource(nextPayload);
+      this.db.prepare("UPDATE workspace_meta SET updated_at = ?, shell_lite_json = ?, shell_summary_json = ? WHERE id = ?").run(
+        now,
+        JSON.stringify(this.createWorkspaceShellLite({ shell: shellForMeta as never })),
+        JSON.stringify(this.createWorkspaceShellSummary({ shell: shellForMeta as never })),
+        args.workspaceId,
+      );
+      return true;
+    });
+    // IMMEDIATE for the same reason as `persistTaskTurnDelta`: main writes this file too.
+    return tx.immediate();
+  }
+
   archiveFleetTask(args: FleetArchiveArgs): FleetArchiveResult {
     return archiveFleetTask(this, this.db, this.workspaceArchives, args, this.tars.snapshot());
   }

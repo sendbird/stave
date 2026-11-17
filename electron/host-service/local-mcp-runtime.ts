@@ -1716,6 +1716,8 @@ async function runTaskImpl(args: {
   provider?: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
   automaticStart?: boolean;
+  /** Overrides the inferred admission class, for a user action that runs through a supervised path. */
+  admissionPriority?: "user" | "automatic";
   unattendedAutomation?: {
     authorizationToken: string;
   };
@@ -2052,7 +2054,7 @@ async function runTaskImpl(args: {
       turnId,
       providerId: provider,
       admissionOwner: "host-task",
-      admissionPriority: args.automaticStart || args.agentRunStage || args.unattendedAutomation || args.spawnedBy || args.parentTaskId ? "automatic" : "user",
+      admissionPriority: args.admissionPriority ?? (args.automaticStart || args.agentRunStage || args.unattendedAutomation || args.spawnedBy || args.parentTaskId ? "automatic" : "user"),
       prompt: args.prompt,
       conversation,
       taskId: task.id,
@@ -2171,6 +2173,8 @@ export async function runLocallyApprovedCraneKickoff(
 ) {
   return runTask({
     ...args,
+    // Dispatched by the external tracker, not typed by the user: it waits behind user turns.
+    automaticStart: true,
     controlMode: "interactive",
     controlOwner: "stave",
   });
@@ -2696,7 +2700,8 @@ export async function resumeQueuedProviderTurn(args: import("../providers/types"
   const { workspaceId, taskId, turnId } = args;
   const session = await loadWorkspaceSession(workspaceId);
   const task = session.tasks.find(row => row.id === taskId);
-  if (!task || session.activeTurnIdsByTask[taskId] !== turnId) return;
+  // A task that is gone, archived or no longer waiting on this turn cannot take it back.
+  if (!task || task.archivedAt || session.activeTurnIdsByTask[taskId] !== turnId) throw new Error("Queued host turn no longer belongs to its task.");
   const model = args.runtimeOptions?.model ?? "default";
   const provider = args.providerId;
   const workspaceName = workspaceId;

@@ -54,6 +54,8 @@ import {
   UserInputResponseArgsSchema,
   SteerTurnArgsSchema,
 } from "./schemas";
+import { z } from "zod";
+import { RestoredQueuedTurnSchema } from "../../persistence/turn-admission-store";
 import { discoverMcpServers } from "../mcp-discovery";
 import { createUnavailableUtilityInferenceMetadata } from "../../../src/lib/providers/utility-inference";
 
@@ -274,6 +276,12 @@ export function registerProviderHandlers() {
       return { ok: false, message: "Invalid provider abort request." };
     }
     return invokeHostService("provider.abort-turn", parsedArgs.data);
+  });
+
+  // Starts that were queued for a slot when Stave quit, now back in their composer queues.
+  ipcMain.handle("provider:take-restored-queued-turns", async () => {
+    const result = await invokeHostService("turn-admission.take-restored", {});
+    return { items: z.array(RestoredQueuedTurnSchema).parse(result.items) };
   });
 
   ipcMain.handle("provider:cleanup-task", (_event, args: unknown) => {

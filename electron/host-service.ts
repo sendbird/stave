@@ -1,4 +1,5 @@
 import { createHostTurnAdmission } from "./host-service/turn-admission-host";
+import { createQueuedTurnRecoveryHandlers } from "./host-service/turn-admission-recovery";
 import { TurnAdmissionWaitResultSchema } from "./host-service/turn-admission";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
@@ -622,6 +623,7 @@ const automationRuntime = createAutomationRuntime({
   },
 });
 const agentRunRuntime = createHostAgentRunRuntime({
+  isQueuedTurn: turnId => hostTurnAdmission.isQueued(turnId),
   // Read on each tick, after `assignRuntime` below exists.
   taskAgent: (taskId) => assignRuntime.agentForTask(taskId),
   delegatedAssignment: (taskId) => assignRuntime.assignmentForTask(taskId),
@@ -651,6 +653,7 @@ const assignRuntime = createHostAssignRuntime({
 });
 const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
+  isQueuedTurn: turnId => hostTurnAdmission.isQueued(turnId),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
   runSupervisedTurn,
   // A wake-up has no consent of its own: it runs with the user's settings.
@@ -1621,6 +1624,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "turn-admission.wait":
       await respond(request.id, TurnAdmissionWaitResultSchema.parse(await hostTurnAdmission.wait(request.params)));
       return;
+    case "turn-admission.take-restored":
+      await respond(request.id, { items: hostTurnAdmission.takeRestored() });
+      return;
     case "service.get-resource-metrics": {
       const metrics = await readHostServiceResourceMetrics({
         ptyPids: terminalRuntime.listPtyPids(),
@@ -2467,17 +2473,13 @@ async function main() {
   // request can never land before this process is able to read it.
   await writeMessage({ type: "ready" });
   automationRuntime.start({ deferScheduling: true });
-  await hostTurnAdmission.recover(async (args, unattended) => {
-    const authorizationToken = unattended ? automationRuntime.authorizationForTurn(args.turnId!) : undefined;
-    if (unattended && !authorizationToken) throw new Error("Queued automation authorization could not be restored.");
-    const restored = { ...args, ...(authorizationToken ? { unattendedAutomation: { authorizationToken } } : {}) };
-    const response = await requestHostGatewayCredentials(restored.runtimeOptions ?? {});
-    if (!response) throw new Error("Queued turn account credentials could not be resolved.");
-    return withGatewayCredential(response.credentials, () => withRequestAccountScope(restored, () => {
-      if (args.admissionOwner === "host-task") return localMcpRuntime.resumeQueuedProviderTurn(restored);
-      return startPushProviderTurn(restored);
-    }));
-  });
+  await hostTurnAdmission.recover(createQueuedTurnRecoveryHandlers({
+    store: ensureHostServicePersistenceReady(),
+    authorizationForTurn: turnId => automationRuntime.authorizationForTurn(turnId),
+    requestCredentials: accounts => requestHostGatewayCredentials(accounts),
+    resumeQueuedProviderTurn: localMcpRuntime.resumeQueuedProviderTurn,
+    notify: localMcpRuntime.notifySupervisorProblem,
+  }));
   automationRuntime.start();
   wakeUpRuntime.start();
   agentRunRuntime.start();
@@ -2488,9 +2490,8 @@ async function main() {
   tarsPublisher.watcher.start();
   // A schedule confirmation interrupted by the restart settles under its own request id; nothing is created twice.
   void tarsScheduler.recover();
-
-
 }
+
 
 void main().catch((error) => {
   process.stderr.write(`[host-service] ${String(error)}\n`);

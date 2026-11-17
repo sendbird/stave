@@ -114,6 +114,8 @@ interface WakeUpPersistence {
 
 interface WakeUpRuntimeDependencies {
   persistence: WakeUpPersistence;
+  /** A turn the admission queue holds or restored; the boot sweep leaves it running. */
+  isQueuedTurn?: (turnId: string) => boolean;
   getTaskSupervisionSnapshot: (args: {
     workspaceId: string;
     taskId: string;
@@ -1186,7 +1188,7 @@ export function createWakeUpRuntime(
       const latest = persistence
         .listWakeUpOccurrences({ wakeUpId: wakeUp.id, limit: 5 })
         .find((occurrence) => occurrence.outcome === "fired" && occurrence.turnId);
-      if (latest?.turnId) {
+      if (latest?.turnId && !dependencies.isQueuedTurn?.(latest.turnId)) {
         persistence.completeInterruptedTurn({ id: latest.turnId });
       }
     }

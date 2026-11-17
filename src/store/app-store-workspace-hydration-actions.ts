@@ -1,4 +1,5 @@
 import { isWorkspaceArchiveInProgress } from "@/lib/workspace-cleanup-activity";
+import { claimRestoredQueuedTurns } from "@/store/restored-queued-turns";
 import type { StoreApi } from "zustand";
 import { listActiveWorkspaceTurns } from "@/lib/db/turns.db";
 import {
@@ -967,6 +968,7 @@ export function createWorkspaceHydrationActions(args: {
           workspacePath: preferredWorkspacePath,
         });
       }
+      void claimRestoredQueuedTurns(get);
     },
     refreshWorkspaces: async () => {
       const state = get();

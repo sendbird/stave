@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createHostTurnAdmission } from "../../electron/host-service/turn-admission-host";
 import { ensureHostServicePersistenceReady, resetHostServicePersistence } from "../../electron/host-service/persistence";
 import { providerRuntime, setProviderTurnAdmission } from "../../electron/providers/runtime";
-import { runTask, resumeQueuedProviderTurn, cleanupLocalMcpRuntime } from "../../electron/host-service/local-mcp-runtime";
+import { runTask, resumeQueuedProviderTurn, cleanupLocalMcpRuntime, runLocallyApprovedCraneKickoff } from "../../electron/host-service/local-mcp-runtime";
 import { createDefaultAutomationRuntime } from "../../src/lib/automations";
 import { createAutomationRuntime } from "../../electron/host-service/automation-runtime";
 import { runSupervisedTurn } from "../../electron/host-service/supervised-turn";
@@ -45,6 +45,10 @@ async function main() {
     ["agent-stage", () => supervised("stage")],
     ["execution", () => supervised("execution")],
     ["wake-up", () => supervised("wake")],
+    // A reply or an answer the user sends through an agent run is a user turn.
+    ["agent-run-user-reply", () => runSupervisedTurn({ workspaceId: "workspace", taskId: lastTaskId, turnId: "user-reply", prompt: "Use the index", fingerprint: { providerId: "codex", model: "gpt-5" }, admissionPriority: "user" })],
+    // Work the external tracker dispatches is automatic.
+    ["tracker-dispatch", () => runLocallyApprovedCraneKickoff({ ...base, title: "Dispatched issue", retrievedContextParts: [] })],
     ["automation", async () => {
       const spec = await automation.create({ name: "Check", prompt: "Inspect repository", environment: { kind: "repository", workspaceId: "workspace", path: repo, repositoryPath: repo, label: "Repository" },
         runtime: createDefaultAutomationRuntime("codex"), schedule: { every: 1, unit: "hours" }, enabled: false, maxConcurrentRuns: 1, trustPolicy: "review-required", informationReferences: [] });
@@ -58,6 +62,8 @@ async function main() {
     assert.equal(seen.length, before + 1, name);
     assert.equal(host.snapshot().running.length, 1, name);
     const latest = seen.at(-1)!;
+    const expectedPriority = ({ "ordinary": "user", "agent-run-user-reply": "user", "wake-up": "automatic", "tracker-dispatch": "automatic", "automation": "automatic", "delegated-child": "automatic" } as Record<string, string>)[name];
+    if (expectedPriority) assert.equal(latest.admissionPriority ?? "user", expectedPriority, `${name} admission class`);
     host.admission.cancel(latest.turnId!);
     await new Promise(resolve => setTimeout(resolve, 20));
   }

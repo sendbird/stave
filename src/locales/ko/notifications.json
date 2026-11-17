@@ -128,5 +128,11 @@
     "decisionRequested": "Tars가 결정을 기다립니다: {{title}}",
     "resultReady": "Tars가 결과를 준비했습니다: {{title}}",
     "blocked": "Tars에게 도움이 필요합니다: {{title}}"
+  },
+  "queuedTurnRecovery": {
+    "expired": "Stave를 종료할 때 실행 자리를 기다리던 턴이 하루 넘게 대기해서 시작하지 않았습니다. 아직 필요하면 다시 보내 주세요.",
+    "exhausted": "실행 자리를 기다리던 턴이 Stave를 다시 시작한 뒤에도 시작하지 못해 삭제했습니다. 아직 필요하면 다시 보내 주세요.",
+    "taskMissing": "Stave를 종료할 때 실행 자리를 기다리던 턴의 작업이나 워크스페이스가 없어져서 시작하지 않았습니다.",
+    "startFailed": "Stave를 종료할 때 실행 자리를 기다리던 턴을 다시 시작하지 못했습니다. 아직 필요하면 다시 보내 주세요."
   }
 }

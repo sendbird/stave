@@ -23,3 +23,5 @@ function runFixture(fixture: string) {
 test("global admission uses the host runtime and real SQLite with fake providers", () => runFixture("tests/fixtures/turn-admission-host-check.ts"), 60_000);
 
 test("real provider and host start routes enter global admission", () => runFixture("tests/fixtures/turn-admission-routing-check.ts"), 60_000);
+
+test("queued turns recover once: renderer starts return to the composer queue, host starts verify their task, failures notify", () => runFixture("tests/fixtures/turn-admission-recovery-check.ts"), 90_000);

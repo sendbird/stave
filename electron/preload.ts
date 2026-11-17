@@ -1215,6 +1215,8 @@ contextBridge.exposeInMainWorld("api", {
     },
     abortTurn: (args: { turnId: string }) =>
       ipcRenderer.invoke("provider:abort-turn", args),
+    takeRestoredQueuedTurns: () =>
+      ipcRenderer.invoke("provider:take-restored-queued-turns"),
     steerTurn: (
       args: ProviderSteerTurnRequest,
     ): Promise<ProviderSteerTurnResponse> =>
