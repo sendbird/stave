@@ -1,3 +1,6 @@
+import { createTaskContextAttachment, MAX_ATTACHED_TASKS } from "@/lib/task-context/attached-task-context";
+import { appendQuotedAnswer } from "@/lib/side-chat/side-chat";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { i18n } from "@/i18n/runtime";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
 import type { StoreApi } from "zustand";
@@ -21,7 +24,7 @@ import { trimLoadedTaskMessages } from "@/store/task-message-loading";
 import type { ChatMessage, Task } from "@/types/chat";
 
 type ConversationThreadActionKey =
-  "forkConversationFromMessage" | "rollbackConversationToMessage";
+  "forkConversationFromMessage" | "rollbackConversationToMessage" | "sendForkResultToOriginal";
 
 type ConversationThreadActions = Pick<AppState, ConversationThreadActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
@@ -152,6 +155,44 @@ export function createConversationThreadActions(args: {
   } = args;
 
   return {
+    sendForkResultToOriginal: async ({ taskId }) => {
+      const before = get();
+      const fork = before.tasks.find((task) => task.id === taskId);
+      const parent = fork?.forkParent;
+      if (!fork || !parent || parent.workspaceId !== before.activeWorkspaceId ||
+          !before.tasks.some((task) => task.id === parent.taskId)) {
+        return failure(i18n.t("app:forkReturn.originalUnavailable"));
+      }
+      if (before.activeTurnIdsByTask[taskId]) return failure(i18n.t("app:forkReturn.waitForResult"));
+      const messages = await loadCompleteTaskMessages({ state: before, taskId, workspaceId: parent.workspaceId });
+      const answer = messages.findLast((message) => message.role === "assistant");
+      if (!answer?.content.trim() || answer.isStreaming) return failure(i18n.t("app:forkReturn.waitForResult"));
+      // Recheck after the history read: navigation, deletion and a new turn win.
+      const current = get();
+      if (current.activeWorkspaceId !== parent.workspaceId || !current.tasks.some((task) => task.id === parent.taskId)) {
+        return failure(i18n.t("app:forkReturn.originalUnavailable"));
+      }
+      if (current.activeTurnIdsByTask[taskId]) return failure(i18n.t("app:forkReturn.waitForResult"));
+      const draft = current.promptDraftByTask[parent.taskId];
+      const attachments = draft?.attachments ?? [];
+      const alreadyAttached = attachments.some((attachment) => attachment.kind === "task-context" && attachment.taskId === taskId);
+      if (!alreadyAttached && attachments.filter((attachment) => attachment.kind === "task-context").length >= MAX_ATTACHED_TASKS) {
+        return failure(i18n.t("app:forkReturn.attachmentLimit"));
+      }
+      const link = `stave://workspace/${encodeURIComponent(parent.workspaceId)}/task/${encodeURIComponent(taskId)}`;
+      const summary = answer.content.trim().slice(0, 6_000);
+      const quote = `${i18n.t("app:forkReturn.summary", { title: fork.title })}\n${link}\n\n${summary}`;
+      get().updatePromptDraft({ taskId: parent.taskId, patch: {
+        text: appendQuotedAnswer(draft?.text ?? "", quote),
+        attachments: alreadyAttached ? attachments : [...attachments, createTaskContextAttachment({
+          taskId, workspaceId: parent.workspaceId, title: fork.title, scope: "conversation",
+        })],
+      } });
+      get().selectTask({ taskId: parent.taskId, allowArchived: true });
+      useTaskReviewModeStore.getState().showConversation(parent.taskId);
+      set((state) => ({ promptFocusNonce: state.promptFocusNonce + 1 }));
+      return { ok: true, detail: i18n.t("app:forkReturn.prepared"), taskId: parent.taskId };
+    },
     forkConversationFromMessage: async ({ taskId, messageId }) => {
       const stateBefore = get();
       const sourceTask = stateBefore.tasks.find((task) => task.id === taskId);
@@ -263,6 +304,8 @@ export function createConversationThreadActions(args: {
       const forkedTask: Task = {
         ...sourceTask,
         id: nextTaskId,
+        parentTaskId: null,
+        forkParent: { taskId, workspaceId, messageId },
         title: nextTaskTitle,
         provider: target.providerId,
         titleManuallySet: true,

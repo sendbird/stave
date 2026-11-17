@@ -1439,5 +1439,24 @@
     "viewResult": "View result",
     "collapseResult": "Collapse result",
     "reportedHistory": "Reported work history"
+  },
+  "forkReturn": {
+    "sendResult": "Send result to original"
+  },
+  "turnFiles": {
+    "restore": "Restore files to before this turn",
+    "keep": "Keep conversation, restore files",
+    "rollback": "Restore files and roll back conversation",
+    "description": "Restore the saved files from before this turn. Current files are saved first so you can undo the restore. Conversation rollback removes this turn and later messages. To continue a conversation from an earlier point, you can also fork it.",
+    "undo": "Undo restore",
+    "restored": "Files restored",
+    "undone": "File restore undone",
+    "failed": "Files could not be restored. Try again after checking the workspace.",
+    "partial": "Files were restored, but the conversation could not be rolled back: {{detail}}. You can undo the file restore.",
+    "runningTask": "Wait for this task to finish before restoring files.",
+    "sharedWorktree": "Another task is running in this worktree. Wait for it to finish.",
+    "otherTaskChanges": "Files changed since another task used this worktree. Restore was refused to protect those changes.",
+    "missingSnapshot": "This turn has no retained file snapshot.",
+    "unavailable": "File snapshots are unavailable for this workspace."
   }
 }

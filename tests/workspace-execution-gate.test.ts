@@ -64,3 +64,16 @@ test("deleted workspace identities are refused without blocking unscoped work", 
   expect(() => gate.assertAllowed({})).not.toThrow();
   expect(() => gate.assertAllowed({ workspaceId: "other" })).not.toThrow();
 });
+
+ test("suspension and busy detection cover another workspace registered at the same folder", async () => {
+  const gate = new WorkspaceExecutionGate();
+  const target = { workspaceId: "original", workspacePath: "/tmp/stave-shared-gate" };
+  const release = gate.acquire({workspaceId:"alias",cwd:target.workspacePath});
+  expect(gate.isBusy(target)).toBe(true);
+  release();
+  let finish!: () => void;
+  const stopped = gate.stop(target,()=>new Promise<void>(resolve=>{finish=resolve;}));
+  expect(()=>gate.acquire({workspaceId:"alias",cwd:target.workspacePath})).toThrow();
+  finish();await stopped;gate.resume(target.workspaceId);
+  const end=gate.acquire({workspaceId:"alias",cwd:target.workspacePath});end();
+});

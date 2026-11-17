@@ -533,6 +533,7 @@ export interface AppState
   clearTaskSourceContexts: (args: { taskId: string }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;
+  sendForkResultToOriginal: (args: { taskId: string }) => Promise<ConversationThreadActionResult>;
   forkConversationFromMessage: (args: {
     taskId: string;
     messageId: string;

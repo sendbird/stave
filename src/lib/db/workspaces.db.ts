@@ -1,3 +1,4 @@
+import { TruncateTaskMessagesAfterArgsSchema, TruncateTaskMessagesResultSchema } from "@/lib/task-context/conversation-truncation";
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 import type { ReviewComment } from "@/types/review";
 import {
@@ -169,6 +170,7 @@ interface RequiredPersistenceApi {
     page: TaskMessagesPage | null;
   }>;
   truncateTaskMessagesAfter?: (args: {
+    before?: true;
     workspaceId: string;
     taskId: string;
     messageId: string;
@@ -701,10 +703,12 @@ export async function loadAllTaskMessages(args: {
 }
 
 export async function truncateTaskMessagesAfter(args: {
+  before?: true;
   workspaceId: string;
   taskId: string;
   messageId: string;
 }): Promise<number> {
+  args = TruncateTaskMessagesAfterArgsSchema.parse(args);
   const persistence = getPersistenceApi();
   if (!persistence) {
     const rows = loadFallbackRows();
@@ -720,14 +724,15 @@ export async function truncateTaskMessagesAfter(args: {
       if (targetIndex < 0) {
         return row;
       }
-      removedCount = messages.length - targetIndex - 1;
+      const keepCount = targetIndex + (args.before ? 0 : 1);
+      removedCount = messages.length - keepCount;
       return {
         ...row,
         snapshot: {
           ...row.snapshot,
           messagesByTask: {
             ...row.snapshot.messagesByTask,
-            [args.taskId]: messages.slice(0, targetIndex + 1),
+            [args.taskId]: messages.slice(0, keepCount),
           },
         },
       };
@@ -741,7 +746,7 @@ export async function truncateTaskMessagesAfter(args: {
     );
   }
 
-  const response = await persistence.truncateTaskMessagesAfter(args);
+  const response = TruncateTaskMessagesResultSchema.parse(await persistence.truncateTaskMessagesAfter(args));
   if (!response.ok) {
     throw new Error(
       `Failed to truncate task messages: ${args.workspaceId}/${args.taskId}/${args.messageId}`,

@@ -2,86 +2,61 @@
 
 ## Summary
 
-Stave lets you branch or rewind a provider conversation from an earlier assistant response without reverting workspace files. A compact turn rail keeps these actions available while you read long task histories.
-
-## When To Use It
-
-- Fork when you want to explore a different approach from an earlier response in a new task.
-- Roll back when you want to discard later Codex conversation turns and continue from an earlier response.
-- Rename the task when its current title no longer describes the conversation; Stave also updates linked native provider sessions.
-- Use Git or a checkpoint restore when you need to revert workspace files. Conversation actions do not change files.
+Use a response's history actions to fork the conversation, restore the files saved before a turn, or return a fork's result to its original task. File restoration and conversation rollback are separate choices.
 
 ## Before You Start
 
-- The task must have a linked Claude or Codex native session.
-- Point-in-time actions require responses recorded with native turn metadata. Legacy responses explain why they cannot be targeted.
-- Wait for the active response to finish before forking or rolling back.
+- Wait for the active turn to finish before restoring or forking.
+- Forking needs a linked native session and a response with recorded native turn metadata.
+- File restoration needs a retained snapshot captured before the selected turn.
+- A running task that shares the worktree, or changes attributed to another task, can prevent restoration. Read the explanation before trying again.
 
 ## Quick Start
 
-1. Open a task with at least two completed assistant responses.
-2. Hover or focus a tick in the right-side conversation rail.
-3. Review the prompt and response preview.
-4. Select `Fork here` or, for a supported Codex response, `Rollback here`.
-5. Confirm a rollback after checking which later messages will be removed.
+1. Open a completed response through its message actions or the conversation rail.
+2. Choose `Restore files to before this turn`.
+3. Choose `Keep conversation, restore files`, or `Restore files and roll back conversation` when the provider supports conversation rollback.
+4. After restoring, use `Undo restore` to recover the files saved immediately before the restore.
 
-## Interface Walkthrough
+## File Snapshots
 
-### Entry Points
+Before each user turn starts, the host records tracked, staged and untracked files, excluding ignored files. Capture does not change the branch, index or working files. Unchanged states reuse the previous snapshot. Retention is bounded and configurable, with a default of 50 snapshots per task; older snapshots are pruned. Set `STAVE_TURN_SNAPSHOT_LIMIT` when launching the host to change the limit (1–500).
 
-- The conversation rail appears on the right side of eligible task histories.
-- The same actions remain available on assistant-message hover or keyboard focus.
-- Use `Settings > Chat > Show Conversation Turn Rail` to hide the navigator when
-  you prefer a wider conversation surface.
-- The task tab context menu exposes `Rename task`.
-- The existing provider thread inspector remains available for advanced inspection.
+`Keep conversation, restore files` restores the saved files and keeps the messages. The combined option also rolls back the conversation, and appears only for a provider that supports it. Otherwise, use `Fork here` to continue from the chosen point in another conversation. The same file action works across providers; the host selects the available restoration method.
 
-### Key Controls
+The host saves the current files before restoration so `Undo restore` can recover them. Restoration refuses to run while this task has an active turn, while another running task shares the worktree, or when it would overwrite changes made by another task. Undo follows the same safety checks.
 
-- `Fork here`: creates and selects a new task whose native provider session starts at the chosen response. The source task remains unchanged.
-- `Rollback here`: removes every later message from the task and rolls the linked Codex thread back to the same native turn. The latest response cannot be rolled back because there is nothing after it.
-- Disabled actions remain focusable and show a tooltip explaining the provider or state limitation.
-- Arrow keys move between rail ticks. `Home` and `End` jump to the first and last loaded turns, `Tab` enters the preview actions, and `Escape` closes the preview and restores focus.
+## Fork And Return
 
-## Common Workflows
+1. Choose `Fork here` on a completed response.
+2. Continue in the new task. Forking leaves the original conversation and its files unchanged.
+3. Once the fork has a final answer, choose `Send result to original`.
+4. Review the quoted answer and fork link in the original task's composer, then send when ready.
 
-### Explore An Alternative From An Earlier Response
+The fork retains its parent link after restart. Returning a result also attaches the fork as task context, so the original can read its details when the message is sent. Returning fills the composer and never sends the message automatically. If the original task is unavailable, the action explains why it cannot return the result.
 
-1. Select the earlier response in the rail.
-2. Choose `Fork here`.
-3. Continue in the newly created task. The original task and workspace files remain unchanged.
+## Conversation Controls
 
-### Continue A Codex Thread From An Earlier Turn
+- `Fork here` creates and selects a task that starts at the chosen response.
+- `Rollback here` removes later conversation messages when supported. This conversation-only action does not restore files; choose the file restoration action for that.
+- Disabled actions explain missing metadata, active work or unsupported provider capabilities.
+- Arrow keys move between conversation-rail ticks. `Home` and `End` jump to the first and last loaded turns. `Tab` enters preview actions and `Escape` closes the preview.
+- Use `Settings > Chat > Show Conversation Turn Rail` to hide the rail.
+- The task tab menu exposes `Rename task`.
 
-1. Select a non-latest Codex response.
-2. Choose `Rollback here`.
-3. Review the confirmation, then choose `Roll back conversation`.
-4. Continue the task from the retained response.
+## Limitations
 
-## Files And Data
-
-Stave persists the provider session and native turn identifiers with task messages. Fork and rollback update task conversation state and provider-native session state, but never apply a Git reset or restore workspace files.
-
-## Limitations And Advanced Options
-
-- Claude supports point-in-time fork and native rename, but its SDK does not expose in-place session rollback. The rollback control explains this limitation instead of disappearing.
-- Codex supports point-in-time fork, rollback, and native rename through App Server.
-- The rail describes only currently loaded turns. Use `Load older messages` before targeting an earlier unloaded response.
-- Codex `/compact` remains a separate conversation command and does not restore a thread to a checkpoint.
+Only retained snapshots can restore files. Loading older messages does not recreate a pruned snapshot. Conversation rollback availability depends on the provider; file restoration does not require that capability. Forking and restoring do not automatically send another message.
 
 ## Troubleshooting
 
-### An Action Is Disabled
+### Restoration Is Unavailable
 
-- Symptom: `Fork here` or `Rollback here` is visible but unavailable.
-- Cause: the response is still streaming, the task has an active turn, the native session is missing or stale, the response predates native turn tracking, or the provider does not support that action.
-- Fix: hover or focus the action to read the exact reason, then finish the active turn or choose a newer eligible response.
+Finish or stop active work, then check the displayed reason. A snapshot may have expired, the worktree may be shared by active work, or another task may have changed files. Preserve and reconcile those changes before restoring.
 
-### Rollback Did Not Restore Files
+### Conversation Rollback Left Files Unchanged
 
-- Symptom: later chat messages are removed, but workspace edits remain.
-- Cause: rollback intentionally changes conversation state only.
-- Fix: use Git or a recorded workspace checkpoint when file restoration is also required.
+Conversation-only rollback changes messages. Use `Restore files to before this turn` and choose the combined option when both files and conversation must return to the selected point.
 
 ## Related Docs
 

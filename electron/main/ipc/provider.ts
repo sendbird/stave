@@ -1,3 +1,4 @@
+import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../../../src/lib/turn-snapshots";
 import { ipcMain, webContents } from "electron";
 import {
   invokeHostService,
@@ -179,6 +180,9 @@ function registerProviderEventBridge() {
 
 export function registerProviderHandlers() {
   registerProviderEventBridge();
+  ipcMain.handle("turn-snapshots:list", async (_event, raw: unknown) => TurnSnapshotListSchema.parse(await invokeHostService("turn-snapshots.list", TurnSnapshotOwnerSchema.parse(raw))));
+  ipcMain.handle("turn-snapshots:restore", async (_event, raw: unknown) => TurnSnapshotResultSchema.parse(await invokeHostService("turn-snapshots.restore", TurnSnapshotRestoreSchema.parse(raw))));
+  ipcMain.handle("turn-snapshots:undo", async (_event, raw: unknown) => TurnSnapshotResultSchema.parse(await invokeHostService("turn-snapshots.undo", TurnSnapshotOwnerSchema.parse(raw))));
 
   ipcMain.handle("provider:stream-turn", async (_event, args: unknown) => {
     const parsedArgs = StreamTurnArgsSchema.safeParse(args);

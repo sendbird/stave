@@ -25,6 +25,8 @@ export class CodexThreadLifetime {
     private readonly defer: Schedule = schedule,
   ) {}
 
+  isActive(threadId: string): boolean { return (this.entries.get(threadId)?.users ?? 0) > 0; }
+
   async acquire(
     threadId: string,
     options?: { reload?: boolean },

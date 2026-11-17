@@ -724,6 +724,9 @@ export function setTaskPermissionObserver(observer: typeof taskPermissionObserve
   taskPermissionObserver = observer;
 }
 
+let turnFileSnapshotCapture: ((args: StreamTurnArgs) => Promise<void>) | undefined;
+export function setTurnFileSnapshotCapture(capture: typeof turnFileSnapshotCapture) { turnFileSnapshotCapture = capture; }
+
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   // The composer's selection is read here once and never reaches a provider.
   const { composerSelection, ...sentOptions } = rawArgs.runtimeOptions ?? {};
@@ -768,6 +771,7 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
         options: turnArgs.runtimeOptions ?? {},
       });
     }
+    if (turnArgs.conversation?.mode === "chat" && turnArgs.workspaceId && turnArgs.taskId) await turnFileSnapshotCapture?.(turnArgs);
     preparingPolicy = false;
     return await runScopedProviderTurn(turnArgs, agentTurn, routeNote);
   } catch (error) {

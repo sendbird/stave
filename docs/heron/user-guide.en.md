@@ -255,6 +255,10 @@ Tool output, reasoning, and folded tool groups load their bodies on first open a
 
 **Transcript**: messages you send back to back, such as steers, stack together with one note under the last (**Steered into active turn · 3**); hover any of them for its own copy and time actions. When a reply ran on a different provider, model or effort than the reply before it, a line above it names the change (**Claude Sonnet 4.6 · Medium → Claude Opus 4.8 · High**).
 
+**Restore files from a turn**: open a completed response's actions and choose **Restore files to before this turn**. **Keep conversation, restore files** preserves the messages. **Restore files and roll back conversation** appears only when conversation rollback is supported; otherwise, use **Fork here** to continue from that point. The host saves tracked, staged and untracked files before each user turn, excluding ignored files. Capture leaves your branch, index and files unchanged. Unchanged states reuse a snapshot; the default retention is 50 snapshots per task and is configurable. A restore first saves the current files, and **Undo restore** brings them back. Restoration is blocked while this task runs, while another running task shares its worktree, or when it would overwrite another task's changes. The action explains the reason.
+
+**Return a fork's result**: in a fork, choose **Send result to original** after its final answer. The original task's composer opens with the answer as a quote and a link to the fork. The fork is attached as task context so its details are available when you send. Review the draft before sending; returning a result never sends it automatically. The parent link is saved across restarts.
+
 **Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)
 

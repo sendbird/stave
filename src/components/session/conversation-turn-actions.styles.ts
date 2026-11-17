@@ -9,6 +9,17 @@ export const conversationTurnActionsStyles = stylex.create({
     gridTemplateColumns: "1fr 1fr",
     width: "100%",
   },
+  fileChoices: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: vars["--aui-space-8"],
+    minWidth: 0,
+  },
+  fullRow: {
+    gridColumn: "1 / -1",
+    minWidth: 0,
+  },
   groupInline: {
     alignItems: "center",
     display: "flex",

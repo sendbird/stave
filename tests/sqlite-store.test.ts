@@ -98,6 +98,32 @@ describe("SqliteStore", () => {
     rmSync(rootDir, { recursive: true, force: true });
   });
 
+  nativeSqliteTest("inclusive conversation truncation clears a first turn without deleting its task", async () => {
+    const SqliteStore = await loadSqliteStore();
+    const store = new SqliteStore({ dbPath });
+    try {
+      store.upsertWorkspace({ id: "ws-1", name: "Workspace", snapshot: createSnapshot() });
+      expect(store.truncateTaskMessagesAfter({ workspaceId: "ws-1", taskId: "task-1", messageId: "m-1", before: true })).toEqual({ ok: true, removedCount: 1 });
+      expect(store.loadAllTaskMessages({ workspaceId: "ws-1", taskId: "task-1" })).toEqual([]);
+      expect(store.loadWorkspaceSnapshot({ workspaceId: "ws-1" })?.tasks.some((task) => task.id === "task-1")).toBe(true);
+    } finally { store.close(); }
+  });
+
+  nativeSqliteTest("persists a conversation fork parent across restart and schema hydration", async () => {
+    const SqliteStore = await loadSqliteStore();
+    const snapshot = createSnapshot();
+    const forkParent = { taskId: "task-1", workspaceId: "ws-1", messageId: "source-response" };
+    snapshot.tasks[1]!.forkParent = forkParent;
+    const store = new SqliteStore({ dbPath });
+    store.upsertWorkspace({ id: "ws-1", name: "Workspace", snapshot });
+    store.close();
+    const reopened = new SqliteStore({ dbPath });
+    try {
+      const loaded = reopened.loadWorkspaceSnapshot({ workspaceId: "ws-1" });
+      expect(loaded?.tasks.find((task) => task.id === "task-2")?.forkParent).toEqual(forkParent);
+    } finally { reopened.close(); }
+  });
+
   nativeSqliteTest(
     "recovers workspace snapshot and turn summaries across restart",
     async () => {

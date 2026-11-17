@@ -1,3 +1,4 @@
+import { TruncateTaskMessagesResultSchema } from "../../../src/lib/task-context/conversation-truncation";
 import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
@@ -242,7 +243,7 @@ export function registerPersistenceHandlers() {
         return { ok: false, removedCount: 0 };
       }
       const store = await ensurePersistenceReady();
-      return store.truncateTaskMessagesAfter(parsedArgs.data);
+      return TruncateTaskMessagesResultSchema.parse(store.truncateTaskMessagesAfter(parsedArgs.data));
     },
   );
 

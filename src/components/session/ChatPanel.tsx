@@ -1,3 +1,4 @@
+import { TurnFileActions, UndoFileRestore } from "./TurnFileActions";
 import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { useWholeTaskFind } from "./use-whole-task-find";
 import { TranscriptFind } from "@/components/system/TranscriptFind";
@@ -28,18 +29,10 @@ import {
   type CSSProperties,
 } from "react";
 import type { VirtuosoHandle } from "react-virtuoso";
-import { Undo2 } from "lucide-react";
 import { Button, Loader, toast } from "@/components/ui";
 import { Separator } from "@/components/aui/components/Separator";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+
 import {
   Conversation,
   ConversationColumn,
@@ -104,7 +97,7 @@ import {
 } from "@/store/task-scroll.utils";
 import type { ChatMessage, MessagePart } from "@/types/chat";
 import type { PromptCacheTurnSnapshot } from "@/lib/providers/usage-cache";
-import type { ClaudeFileRewindResponse } from "@/lib/providers/provider.types";
+
 import { useShallow } from "zustand/react/shallow";
 import { CopyButton, toProviderWaveHueClass } from "./chat-panel-message-parts";
 import { ConversationTurnActions } from "./ConversationTurnActions";
@@ -277,30 +270,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     message.id === liveStreamingMessageId &&
     message.role === "assistant" &&
     message.isStreaming;
-  const [historyAction, setHistoryAction] = useState<
-    "preview" | "rewind" | null
-  >(null);
-  const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
   const [timeDetailsOpen, setTimeDetailsOpen] = useState(false);
-  const [rewindPreview, setRewindPreview] =
-    useState<ClaudeFileRewindResponse | null>(null);
-  const [rewindClaudeFilesFromMessage, capabilities] = useAppStore(
-    useShallow((state) => [
-      state.rewindClaudeFilesFromMessage,
-      message.providerBoundary
-        ? state.providerRuntimeCapabilities[message.providerBoundary.providerId]
-        : null,
-    ]),
-  );
-  const boundary = message.providerBoundary;
-  const canRewindFiles = Boolean(
-    !activeTurnId &&
-    !message.isStreaming &&
-    message.role === "user" &&
-    boundary?.providerId === "claude-code" &&
-    boundary.kind === "message" &&
-    capabilities?.history.rewind.files,
-  );
   // The live row owns its clock; ticking must not rerender the conversation.
   const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
   const clockActive =
@@ -410,59 +380,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     event.preventDefault();
   }
 
-  async function handleRewindPreview() {
-    setRewindPreview(null);
-    setRewindDialogOpen(true);
-    setHistoryAction("preview");
-    try {
-      const result = await rewindClaudeFilesFromMessage({
-        taskId,
-        messageId: message.id,
-        dryRun: true,
-      });
-      setRewindPreview(result);
-    } catch (error) {
-      setRewindPreview({
-        ok: false,
-        canRewind: false,
-        detail: error instanceof Error ? error.message : String(error),
-      });
-    } finally {
-      setHistoryAction(null);
-    }
-  }
 
-  async function handleRewindConfirm() {
-    setHistoryAction("rewind");
-    try {
-      const result = await rewindClaudeFilesFromMessage({
-        taskId,
-        messageId: message.id,
-        dryRun: false,
-      });
-      if (result.ok && result.canRewind) {
-        setRewindDialogOpen(false);
-        toast.success(i18n.t("session:chatPanel.handleRewindConfirm"), {
-          description: i18n.t("session:chatPanel.description", {
-            value1: result.filesChanged?.length ?? 0,
-          }),
-        });
-      } else {
-        setRewindPreview(result);
-        toast.error(i18n.t("session:chatPanel.handleRewindConfirm2"), {
-          description: result.detail,
-        });
-      }
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setRewindPreview({ ok: false, canRewind: false, detail });
-      toast.error(i18n.t("session:chatPanel.handleRewindConfirm3"), {
-        description: detail,
-      });
-    } finally {
-      setHistoryAction(null);
-    }
-  }
+
+
 
   return (
     <div
@@ -593,7 +513,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           {message.role === "user" && steerDeliveryLabel ? (
             <span className={sx(styles.steerLabel)}>{steerDeliveryLabel}</span>
           ) : null}
-          {!staveWroteTurn || canRewindFiles ? (
+          {!staveWroteTurn ? (
             <MessageActions
               className={sx(
                 message.role === "user" &&
@@ -660,20 +580,6 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     className={sx(styles.turnActionsReveal)}
                   />
                 ) : null}
-                {canRewindFiles ? (
-                  <MessageAction
-                    key="rewind-action"
-                    label={i18n.t("session:chatPanel.label2")}
-                    disabled={historyAction != null}
-                    onClick={() => void handleRewindPreview()}
-                  >
-                    {historyAction === "preview" ? (
-                      <Loader aria-hidden size="xs" variant="scan" />
-                    ) : (
-                      <Undo2 className={sx(styles.rewindIcon)} />
-                    )}
-                  </MessageAction>
-                ) : null}
                 {/* Kiro can finish a turn with no usage record; the summary
                     still mounts so it can say so. Cursor never reports over
                     ACP, so an empty Cursor turn stays badge-less. */}
@@ -691,6 +597,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     previousTurn={previousAssistantTurn}
                   />
                 ) : null}
+                {message.role === "assistant" && !threadActionState ? <TurnFileActions taskId={taskId} messageId={message.id} /> : null}
                 {message.role === "assistant" && threadActionState ? (
                   <ConversationTurnActions
                     taskId={taskId}
@@ -702,101 +609,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               </div>
             </MessageActions>
           ) : null}
-          {canRewindFiles || rewindDialogOpen ? (
-            <Dialog
-              open={rewindDialogOpen}
-              onOpenChange={(open) => {
-                if (historyAction !== "rewind") {
-                  setRewindDialogOpen(open);
-                }
-              }}
-            >
-              <DialogContent
-                showCloseButton={false}
-                xstyle={styles.dialogContent}
-              >
-                <DialogHeader>
-                  <DialogTitle>
-                    {i18n.t("session:chatPanel.messageRow")}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {i18n.t("session:chatPanel.messageRow2")}
-                  </DialogDescription>
-                </DialogHeader>
-                <div aria-live="polite" className={sx(styles.dialogBody)}>
-                  {historyAction === "preview" && !rewindPreview ? (
-                    <div className={sx(styles.dialogStatusRow)}>
-                      <Loader aria-hidden size="xs" variant="scan" />
-                      {i18n.t("session:chatPanel.messageRow3")}
-                    </div>
-                  ) : rewindPreview?.ok && rewindPreview.canRewind ? (
-                    <>
-                      <p className={sx(styles.dialogFilesLine)}>
-                        {i18n.t("session:chatPanel.sentence39", {
-                          value1: rewindPreview.filesChanged?.length ?? 0,
-                          value2:
-                            rewindPreview.insertions != null ||
-                            rewindPreview.deletions != null
-                              ? ` · +${rewindPreview.insertions ?? 0} / −${rewindPreview.deletions ?? 0}`
-                              : "",
-                        })}
-                      </p>
-                      {rewindPreview.filesChanged?.length ? (
-                        <ul
-                          aria-label={i18n.t("session:chatPanel.ariaLabel")}
-                          className={sx(styles.dialogFileList)}
-                        >
-                          {rewindPreview.filesChanged.map((filePath) => (
-                            <li
-                              key={filePath}
-                              className={sx(styles.dialogFileItem)}
-                            >
-                              {filePath}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className={sx(styles.dialogEmpty)}>
-                          {i18n.t("session:chatPanel.messageRow5")}
-                        </p>
-                      )}
-                    </>
-                  ) : rewindPreview ? (
-                    <p className={sx(styles.dialogError)}>
-                      {rewindPreview.detail}
-                    </p>
-                  ) : null}
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={historyAction === "rewind"}
-                    onClick={() => setRewindDialogOpen(false)}
-                  >
-                    {i18n.t("session:chatPanel.messageRow6")}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={
-                      historyAction != null ||
-                      !rewindPreview?.ok ||
-                      !rewindPreview.canRewind
-                    }
-                    onClick={() => void handleRewindConfirm()}
-                  >
-                    {historyAction === "rewind" ? (
-                      <Loader aria-hidden size="xs" variant="persist" />
-                    ) : null}
-                    {i18n.t("session:chatPanel.messageRow7")}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          ) : null}
+
         </div>
       </Message>
     </div>
@@ -1773,6 +1586,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
           data-chat-panel={findScopeId}
           className={sx(conversationFindMarker)}
         >
+          <UndoFileRestore taskId={taskId} />
           <div className={sx(styles.panelColumn)}>
             <MemoizedChatPanelMessageList
               findScopeId={findScopeId}

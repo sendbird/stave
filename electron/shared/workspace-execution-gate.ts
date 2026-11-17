@@ -10,7 +10,8 @@ function canonicalPath(path: string) {
 }
 
 function owns(target: Target, owner: Owner) {
-  if (owner.workspaceId) return owner.workspaceId === target.workspaceId;
+  if (owner.workspaceId === target.workspaceId) return true;
+  if (owner.workspaceId && !owner.cwd) return false;
   if (!owner.cwd) return true; // Unknown ownership must not permit an unsafe stop.
   const root = canonicalPath(target.workspacePath);
   const cwd = canonicalPath(owner.cwd);

@@ -1,3 +1,5 @@
+import { TruncateTaskMessagesAfterArgsSchema, TruncateTaskMessagesResultSchema } from "../src/lib/task-context/conversation-truncation";
+import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema, type TurnSnapshotOwner, type TurnSnapshotRestore } from "../src/lib/turn-snapshots";
 import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
@@ -1194,6 +1196,11 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  turnSnapshots: {
+    list: async (args: TurnSnapshotOwner) => TurnSnapshotListSchema.parse(await ipcRenderer.invoke("turn-snapshots:list", TurnSnapshotOwnerSchema.parse(args))),
+    restore: async (args: TurnSnapshotRestore) => TurnSnapshotResultSchema.parse(await ipcRenderer.invoke("turn-snapshots:restore", TurnSnapshotRestoreSchema.parse(args))),
+    undo: async (args: TurnSnapshotOwner) => TurnSnapshotResultSchema.parse(await ipcRenderer.invoke("turn-snapshots:undo", TurnSnapshotOwnerSchema.parse(args))),
+  },
   provider: {
     streamTurn: (args: StreamTurnArgs) =>
       ipcRenderer.invoke("provider:stream-turn", args),
@@ -1674,18 +1681,14 @@ contextBridge.exposeInMainWorld("api", {
       offset?: number;
       messageId?: string;
     }) => ipcRenderer.invoke("persistence:load-task-messages", args),
-    truncateTaskMessagesAfter: (args: {
+    truncateTaskMessagesAfter: async (args: {
+      before?: true;
       workspaceId: string;
       taskId: string;
       messageId: string;
-    }) =>
-      ipcRenderer.invoke(
-        "persistence:truncate-task-messages-after",
-        args,
-      ) as Promise<{
-        ok: boolean;
-        removedCount: number;
-      }>,
+    }) => TruncateTaskMessagesResultSchema.parse(await ipcRenderer.invoke(
+      "persistence:truncate-task-messages-after", TruncateTaskMessagesAfterArgsSchema.parse(args),
+    )),
     loadWorkspaceEditorTabBodies: (args: {
       workspaceId: string;
       tabIds: string[];

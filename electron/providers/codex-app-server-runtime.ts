@@ -1397,6 +1397,7 @@ export async function rollbackCodexThread(args: {
 }): Promise<CodexMutationResponse> {
   try {
     const client = getCodexAppServerClientFromRuntimeOptions(args);
+    if (client.threadLifetime.isActive(args.threadId)) return { ok: false, detail: "Wait for the current turn to finish before rolling back the conversation." };
     await client.request("thread/rollback", {
       threadId: args.threadId,
       numTurns: args.numTurns,

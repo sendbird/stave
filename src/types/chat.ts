@@ -540,6 +540,8 @@ export interface TaskTakeoverResult {
 }
 
 export interface Task {
+  /** The source response of a conversation fork, separate from delegation. */
+  forkParent?: { taskId: string; workspaceId: string; messageId: string };
   id: string;
   title: string;
   provider: ProviderId;
