@@ -1,3 +1,4 @@
+import { publishesStoredInteractionNotifications } from "../src/lib/notifications/interaction-policy";
 import { describe, expect, test } from "bun:test";
 import { buildNativeNotificationRequest, createNativeNotificationActionResponder } from "../electron/main/native-notification-actions";
 
@@ -61,5 +62,16 @@ describe("native notification actions", () => {
     const respond = createNativeNotificationActionResponder({ isEnabled: () => false, isPending: async () => true,
       respondApproval: async () => { called = true; return { ok: true }; }, respondUserInput: async () => { called = true; return { ok: true }; }, alreadyAnswered: () => {} });
     await respond(fixture().request, { type: "approval", approved: true }); expect(called).toBe(false);
+  });
+});
+
+describe("stored notification task ownership", () => {
+  test("validates control fields without widening an unknown owner", () => {
+    expect(publishesStoredInteractionNotifications({})).toBe(true);
+    expect(publishesStoredInteractionNotifications({ controlMode: "managed", controlOwner: "external" })).toBe(false);
+    expect(publishesStoredInteractionNotifications({ controlMode: "managed", controlOwner: "external", parentTaskId: "parent" })).toBe(true);
+    expect(publishesStoredInteractionNotifications({ controlMode: "unknown", controlOwner: "external" })).toBe(false);
+    expect(publishesStoredInteractionNotifications({ controlMode: "managed", controlOwner: "unknown" })).toBe(false);
+    expect(publishesStoredInteractionNotifications({ controlMode: "managed", controlOwner: "external", parentTaskId: 1 })).toBe(false);
   });
 });

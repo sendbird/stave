@@ -1,5 +1,5 @@
 import { normalizeUsageLimitPauses } from "@/store/task-work-pause";
-import { captureRestartPendingTasks, emptyRestartRecovery, InterruptedTaskSchema, RestartRecoverySchema } from "@/store/restart-continuation";
+import { createRestartPendingTasksCapture, emptyRestartRecovery, InterruptedTaskSchema, RestartRecoverySchema } from "@/store/restart-continuation";
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding";
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
@@ -219,6 +219,7 @@ export async function flushPersistenceForQuit(args: {
 
 export function createAppStorePersistenceOptions() {
   const captureRecentRepositories = createCapturedRepositoriesMemo();
+  const captureRestartPendingTasks = createRestartPendingTasksCapture();
   const storage = createCoalescedPersistStorage<unknown>({
     getStorage: () => window.localStorage,
   });

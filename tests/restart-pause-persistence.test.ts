@@ -19,3 +19,19 @@ test("the persistence snapshot records the active turn before provider shutdown 
   const saved = createAppStorePersistenceOptions().partialize(state);
   expect(saved.restartPendingTasks).toEqual([{ taskId: "t", title: "Task", providerId: "codex", workspaceId: "w", turnId: "live" }]);
 });
+
+test("streaming-only cache changes do not rewrite the pending recovery snapshot", () => {
+  const options = createAppStorePersistenceOptions();
+  const task = { id: "t", title: "Task", provider: "codex" };
+  const cached = { tasks: [task], activeTurnIdsByTask: { t: "running" }, messagesByTask: { t: [] } };
+  const state = { activeWorkspaceId: "visible", tasks: [], activeTurnIdsByTask: {}, workspaceRuntimeCacheById: { background: cached }, restartPendingTasks: [], restartRecovery: emptyRestartRecovery(), workspaces: [], recentRepositories: [], settings: {}, usageLimitPauseByTask: {} } as unknown as AppState;
+  const first = options.partialize(state).restartPendingTasks;
+  const streaming = { ...state, workspaceRuntimeCacheById: { background: { ...cached, messagesByTask: { t: [{ content: "more output" }] } } } } as unknown as AppState;
+  expect(options.partialize(streaming).restartPendingTasks).toBe(first);
+  const renamed = { ...streaming, workspaceRuntimeCacheById: { background: { ...cached, tasks: [{ ...task, title: "Renamed" }] } } } as unknown as AppState;
+  const changed = options.partialize(renamed).restartPendingTasks;
+  expect(changed).not.toBe(first);
+  expect(changed[0]?.title).toBe("Renamed");
+  const consumed = { ...renamed, restartRecovery: { ...emptyRestartRecovery(), consumedTurnIds: ["running"] } } as unknown as AppState;
+  expect(options.partialize(consumed).restartPendingTasks).toEqual([]);
+});

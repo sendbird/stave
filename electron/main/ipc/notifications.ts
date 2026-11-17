@@ -1,4 +1,4 @@
-import { publishesInteractionNotifications } from "../../../src/lib/notifications/interaction-policy";
+import { publishesStoredInteractionNotifications } from "../../../src/lib/notifications/interaction-policy";
 import { requestRendererPersistenceFlush } from "../persistence-flush-gate";
 import { NativeNotificationResolvedSchema } from "../../../src/lib/notifications/native-notification-contract";
 import { BrowserWindow, Notification, app, ipcMain } from "electron";
@@ -35,7 +35,7 @@ export function registerNotificationHandlers() {
       if (await requestRendererPersistenceFlush() !== "flushed") return false;
       const store = await ensurePersistenceReady();
       const task = store.loadWorkspaceShell({ workspaceId: request.workspaceId })?.tasks.find(task => task.id === request.taskId);
-      if (!task || !publishesInteractionNotifications(task)) return false;
+      if (!task || !publishesStoredInteractionNotifications(task)) return false;
       const status = await getTaskStatus({ workspaceId: request.workspaceId, taskId: request.taskId, refresh: true });
       if (status.activeTurnId !== request.turnId) return false;
       const pending = request.kind === "approval" ? status.pendingApprovals : status.pendingUserInputs;
@@ -68,7 +68,7 @@ export function registerNotificationHandlers() {
     const task = row?.workspaceId && row.taskId
       ? store.loadWorkspaceShell({ workspaceId: row.workspaceId })?.tasks.find(task => task.id === row.taskId)
       : null;
-    const request = actionsEnabled && process.platform === "darwin" && row && task && publishesInteractionNotifications(task)
+    const request = actionsEnabled && process.platform === "darwin" && row && task && publishesStoredInteractionNotifications(task)
       ? buildNativeNotificationRequest(row) : null;
     const notification = new Notification({
       title: parsed.data.title,

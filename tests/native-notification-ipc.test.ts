@@ -11,7 +11,7 @@ test("native actions use stored identities, reject widened IPC, and respect plat
     mock.module("./electron/main/window", () => ({ getMainWindow: () => null }));
     mock.module("./electron/main/persistence-flush-gate", () => ({ requestRendererPersistenceFlush: async () => { order.push("flush"); return flushOutcome; } }));
     mock.module("./electron/main/i18n", () => ({ tMain: key => key }));
-    const task = { id: "task", controlMode: "interactive", controlOwner: "local", parentTaskId: null };
+    const task = { id: "task", controlMode: "interactive", controlOwner: "stave", parentTaskId: null };
     const row = { id: "notice", kind: "task.approval_requested", workspaceId: "ws", taskId: "task", turnId: "turn", action: { requestId: "request", messageId: "message" }, payload: {} };
     mock.module("./electron/main/state", () => ({ ensurePersistenceReady: async () => ({ listNotifications: () => [row], loadWorkspaceShell: () => ({ tasks: [task] }) }) }));
     mock.module("./electron/main/stave-mcp-service", () => ({
@@ -42,7 +42,7 @@ test("native actions use stored identities, reject widened IPC, and respect plat
     await stale.listeners.action?.({}, 0); await new Promise(resolve => setTimeout(resolve, 0));
     const afterChanged = calls.length;
     await handlers.get("notifications:show-native")(event, args); const external = shown.at(-1).options;
-    task.controlOwner = "local"; row.action.requestId = "local-managed";
+    task.controlOwner = "stave"; row.action.requestId = "local-managed";
     await handlers.get("notifications:show-native")(event, args);
     await shown.at(-1).listeners.action?.({}, 1); await new Promise(resolve => setTimeout(resolve, 0));
     task.controlOwner = "external"; task.parentTaskId = "parent"; row.action.requestId = "delegated";

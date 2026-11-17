@@ -65,3 +65,22 @@ export function captureRestartPendingTasks(state: {
   }
   return [...pending.values()].filter(item => !state.restartRecovery?.consumedTurnIds.includes(item.turnId) && !state.restartRecovery?.stoppedTurnIds.includes(item.turnId));
 }
+
+/** Streaming updates must not turn a recovery snapshot into a persistence write. */
+export function createRestartPendingTasksCapture() {
+  let previous: InterruptedTask[] | undefined;
+  return (state: Parameters<typeof captureRestartPendingTasks>[0]): InterruptedTask[] => {
+    const next = captureRestartPendingTasks(state);
+    if (previous && previous.length === next.length) {
+      const priorByTurn = new Map(previous.map(item => [item.turnId, item]));
+      const unchanged = next.every(item => {
+        const prior = priorByTurn.get(item.turnId);
+        return prior?.taskId === item.taskId && prior.workspaceId === item.workspaceId &&
+          prior.title === item.title && prior.providerId === item.providerId;
+      });
+      if (unchanged) return previous;
+    }
+    previous = next;
+    return next;
+  };
+}
