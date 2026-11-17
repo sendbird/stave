@@ -1,6 +1,6 @@
 /**
  * Claude side of MCP App views (MCP Apps UI extension), against
- * `@anthropic-ai/claude-agent-sdk` 0.3.284:
+ * `@anthropic-ai/claude-agent-sdk` 0.3.312:
  *
  * - `query.mcpServerStatus()` lists each server's tools with the MCP Apps
  *   members of their `_meta` (`ui.resourceUri`, `ui.visibility`, the
@@ -9,9 +9,13 @@
  * - `query.readMcpResource(serverName, uri)` (alpha, `ui://` only) reads the
  *   view when the CLI advertises `mcp_read_resource_v1`.
  *
- * The SDK reports only the text the model read, never the call's
- * `structuredContent`; a text output that is one JSON object is offered to
- * the view as `structuredContent` too (see `normalizeMcpAppToolResult`).
+ * The tool result the runtime maps is the text the model read, which can be
+ * a "result exceeds maximum allowed tokens" notice for a large call. The
+ * server's own `structuredContent` rides on the SDK user message that carries
+ * the result, as `tool_use_result.structuredContent` (the CLI keeps it for
+ * tools that declare a `ui://` view), and is what views render from. When it
+ * is missing, a text output that is one JSON object stands in for it (see
+ * `normalizeMcpAppToolResult`).
  *
  * The SDK has no host API to call an external server's tools or read its
  * other resources, and the query closes with the turn, so a Claude view can
@@ -51,6 +55,32 @@ export function findClaudeMcpAppTool(statuses: readonly ServerStatus[], toolName
   return null;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * The server's `structuredContent` for the one tool result an SDK user
+ * message carries, keyed by its `tool_use_id`. A message with several
+ * results is skipped, because its `tool_use_result` cannot be told apart.
+ */
+export function readClaudeMcpStructuredContent(
+  message: SDKMessage,
+): { toolUseId: string; structuredContent: Record<string, unknown> } | null {
+  if (message.type !== "user") return null;
+  const toolUseResult = (message as { tool_use_result?: unknown }).tool_use_result;
+  if (!isRecord(toolUseResult) || !isRecord(toolUseResult.structuredContent)) return null;
+  const content = (message.message as { content?: unknown }).content;
+  if (!Array.isArray(content)) return null;
+  const results = content.filter(
+    (block): block is { type: "tool_result"; tool_use_id: string } =>
+      isRecord(block) && block.type === "tool_result" && typeof block.tool_use_id === "string",
+  );
+  const [result] = results;
+  if (!result || results.length !== 1) return null;
+  return { toolUseId: result.tool_use_id, structuredContent: toolUseResult.structuredContent };
+}
+
 /**
  * Per-turn capture. `observe` sees every SDK message with the events it
  * mapped to; a completed `mcp__<server>__<tool>` call whose tool declares a
@@ -66,6 +96,7 @@ export function createClaudeMcpAppViewCapture(args: {
 }) {
   const tracker = createMcpAppViewCaptureTracker();
   const calls = new Map<string, { toolName: string; input: string }>();
+  const structuredContents = new Map<string, Record<string, unknown>>();
   let supported = false;
   let statuses: Promise<ServerStatus[]> | null = null;
 
@@ -80,7 +111,12 @@ export function createClaudeMcpAppViewCapture(args: {
     return match;
   }
 
-  function capture(toolUseId: string, call: { toolName: string; input: string }, output: string) {
+  function capture(
+    toolUseId: string,
+    call: { toolName: string; input: string },
+    output: string,
+    structuredContent: Record<string, unknown> | undefined,
+  ) {
     const query = args.getQuery();
     if (!query) return;
     tracker.track(
@@ -97,7 +133,10 @@ export function createClaudeMcpAppViewCapture(args: {
           workspaceId: args.workspaceId,
           taskId: args.taskId,
           toolInput: call.input,
-          toolResult: { content: [{ type: "text", text: output }] },
+          toolResult: {
+            content: [{ type: "text", text: output }],
+            ...(structuredContent ? { structuredContent } : {}),
+          },
           readResource: (uri) => query.readMcpResource(match.server.name, uri),
           listAppTools: async () => readMcpAppToolDescriptors(match.server.tools),
         });
@@ -120,13 +159,19 @@ export function createClaudeMcpAppViewCapture(args: {
           CLAUDE_MCP_APP_CAPABILITIES.every((capability) => capabilities.includes(capability));
       }
       if (!supported) return;
+      const structured = readClaudeMcpStructuredContent(message);
+      if (structured) structuredContents.set(structured.toolUseId, structured.structuredContent);
       for (const event of events) {
         if (event.type === "tool" && event.toolUseId && event.toolName.startsWith("mcp__")) {
           calls.set(event.toolUseId, { toolName: event.toolName, input: event.input });
         } else if (event.type === "tool_result" && !event.isPartial) {
           const call = calls.get(event.tool_use_id);
+          const structuredContent = structuredContents.get(event.tool_use_id);
           calls.delete(event.tool_use_id);
-          if (call && !event.isError) capture(event.tool_use_id, call, event.output);
+          structuredContents.delete(event.tool_use_id);
+          if (call && !event.isError) {
+            capture(event.tool_use_id, call, event.output, structuredContent);
+          }
         }
       }
     },

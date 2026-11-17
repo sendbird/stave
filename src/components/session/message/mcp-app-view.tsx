@@ -8,13 +8,15 @@ import {
   useState,
 } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { FileText, Maximize2, Minimize2 } from "lucide-react";
+import { Check, Copy, FileText, Maximize2, Minimize2 } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { overlaySurface } from "@/components/aui/recipes/overlay-surface";
 import { sx } from "@/components/aui/utils/stylex";
 import { toast } from "@/components/ui";
+import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
+import { useClipboardCopy } from "@/hooks/use-clipboard-copy";
 import {
   clampInlineRenderHeight,
   INLINE_RENDER_DEFAULT_HEIGHT,
@@ -52,6 +54,8 @@ const dynamic = stylex.create({
 
 type Availability = "checking" | "ready" | "missing" | "unavailable";
 
+const COPIED_MS = 1_500;
+
 /** A view the frame host can show: by URL from the desktop app, or as srcdoc in the browser preview. */
 function canShow(view: McpAppViewDescription, hasScheme: boolean) {
   return hasScheme || typeof view.html === "string";
@@ -81,6 +85,7 @@ export const McpAppView = memo(function McpAppView(props: {
   useTranslation();
   const { reference, taskId, toolUseId, textResult } = props;
   const [textOpen, setTextOpen] = useState(false);
+  const { status: copyStatus, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
   const bridge = typeof window === "undefined" ? undefined : window.api?.mcpApp;
   // The desktop preload serves the render scheme; the browser preview does not.
   const hasScheme = typeof window !== "undefined" && Boolean(window.api?.inlineRender);
@@ -366,6 +371,11 @@ export const McpAppView = memo(function McpAppView(props: {
           {textOpen && textResult ? (
             <div className={sx(styles.source, fullscreen && styles.sourceExpanded)}>
               <pre className={sx(styles.sourceText)}>{textResult}</pre>
+              <Button size="xs" type="button" variant="quiet" onClick={() => void copyText(textResult)}>
+                {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+                {copied ? i18n.t("session:inlineRender.copied") : i18n.t("session:inlineRender.copy")}
+              </Button>
+              <ClipboardCopyAnnouncement status={copyStatus} />
             </div>
           ) : null}
         </div>

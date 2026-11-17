@@ -243,4 +243,12 @@ describe("urls and payloads", () => {
     const twoBlocks = { content: [...text('{"a":1}').content, ...text("more").content] };
     expect(normalizeMcpAppToolResult(twoBlocks)).toEqual(twoBlocks);
   });
+
+  test("a result over the payload cap keeps its text without the structuredContent copy", () => {
+    // About 600,000 characters of JSON: fits alone, not alongside its parsed copy.
+    const big = JSON.stringify({ rows: "x".repeat(600_000) });
+    const result = normalizeMcpAppToolResult({ content: [{ type: "text", text: big }] });
+    expect(result).toEqual({ content: [{ type: "text", text: big }] });
+    expect(normalizeMcpAppToolResult({ content: [{ type: "text", text: "x".repeat(1_000_001) }] })).toBeNull();
+  });
 });
