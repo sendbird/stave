@@ -12,7 +12,7 @@ test("native actions use stored identities, reject widened IPC, and respect plat
     mock.module("./electron/main/persistence-flush-gate", () => ({ requestRendererPersistenceFlush: async () => { order.push("flush"); return flushOutcome; } }));
     mock.module("./electron/main/i18n", () => ({ tMain: key => key }));
     const task = { id: "task", controlMode: "interactive", controlOwner: "stave", parentTaskId: null };
-    const row = { id: "notice", kind: "task.approval_requested", workspaceId: "ws", taskId: "task", turnId: "turn", action: { requestId: "request", messageId: "message" }, payload: {} };
+    const row = { id: "notice", kind: "task.approval_requested", workspaceId: "ws", taskId: "task", turnId: "turn", action: { requestId: "request", messageId: "message" }, payload: { toolName: "Bash", description: "bun test" } };
     mock.module("./electron/main/state", () => ({ ensurePersistenceReady: async () => ({ listNotifications: () => [row], loadWorkspaceShell: () => ({ tasks: [task] }) }) }));
     mock.module("./electron/main/stave-mcp-service", () => ({
       getTaskStatus: async () => { order.push("status"); return ({ activeTurnId: "turn", pendingApprovals: [{ requestId: row.action.requestId, messageId: "message" }] }); },

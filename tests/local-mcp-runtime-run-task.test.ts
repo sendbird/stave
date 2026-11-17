@@ -106,7 +106,10 @@ const delegationAggregatesByOwnedTaskId = new Map<
   Array<{ run: RunRecord; step: RunStepRecord }>
 >();
 const rendererSelectedTaskByWorkspaceId = new Map<string, string>();
-const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string }> = [];
+const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string; messages?: Array<{ id: string }> }> = [];
+// Set by a test: field-scoped task writes succeed, as for a migrated workspace row.
+let acceptTaskDeltas = false;
+let wholeSnapshotWrites = 0;
 let persistedProviderTimeoutMs: number | null = null;
 type UpsertedMessages = Record<string, Array<{ id: string; role?: string; content?: string }>>;
 // Set by a test: the next write `when` matches throws, as a write the other
@@ -385,7 +388,7 @@ const fakeStore = {
   // whole-snapshot write below.
   persistTaskTurnDelta: (args: { taskId: string; activeTaskId?: string }) => {
     persistedDeltaSelections.push(args);
-    return { ok: false, messageCount: 0 };
+    return acceptTaskDeltas ? { ok: true, messageCount: 1 } : { ok: false, messageCount: 0 };
   },
   loadAutomationProviderTimeoutMs: () => persistedProviderTimeoutMs,
   upsertWorkspace: ({
@@ -409,6 +412,7 @@ const fakeStore = {
       >;
     };
   }) => {
+    wholeSnapshotWrites += 1;
     if (failNextWrite?.when((snapshot.messagesByTask ?? {}) as UpsertedMessages)) {
       const { message } = failNextWrite;
       failNextWrite = null;
@@ -481,6 +485,7 @@ afterAll(() => {
 
 afterEach(() => {
   failNextWrite = null;
+  acceptTaskDeltas = false;
   reportActiveTurns = false;
   persistedProviderTimeoutMs = null;
   persistedPermissionSettings = null;
@@ -2117,8 +2122,8 @@ describe("local MCP runtime runTask: an Agent run's account-pool switch", () => 
       isPending: async request => {
         const current = await runtime.getTaskStatus({ workspaceId: request.workspaceId, taskId: request.taskId });
         const pending = request.kind === "approval" ? current.pendingApprovals : current.pendingUserInputs;
-        return current.activeTurnId === request.turnId && pending.some(item => item.requestId === request.requestId && item.messageId === request.messageId);
-      }, respondApproval: runtime.respondApproval, respondUserInput: runtime.respondUserInput, alreadyAnswered: () => { expired++; },
+        return current.activeTurnId === request.turnId && pending.some(item => item.requestId === request.requestId && item.messageId === request.messageId) ? "pending" : "answered";
+      }, respondApproval: runtime.respondApproval, respondUserInput: runtime.respondUserInput, alreadyAnswered: () => { expired++; }, couldNotAnswer: () => { throw new Error("unexpected failure"); },
     });
     const approval = { workspaceId: WORKSPACE_ID, taskId: first.taskId, turnId: first.turnId,
       requestId: "native-approval", messageId: status.pendingApprovals[0]!.messageId, kind: "approval" as const, buttons: [] };
@@ -2134,6 +2139,35 @@ describe("local MCP runtime runTask: an Agent run's account-pool switch", () => 
     expect(expired).toBe(1);
     status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
     expect(status.pendingApprovals).toHaveLength(0); expect(status.pendingUserInputs).toHaveLength(0);
+    handler?.onEvent?.({ type: "done" });
+  });
+
+  test("a notification answer writes only its task, never the whole cached workspace", async () => {
+    reportActiveTurns = true;
+    const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Wait for a scoped answer" });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "approval", requestId: "scoped-approval", toolName: "Bash", description: "Run check" });
+    handler?.onEvent?.({ type: "user_input", requestId: "scoped-question", toolName: "question", questions: [
+      { key: "scope", header: "Scope", question: "Which scope?", options: [{ label: "Focused", description: "Focused checks" }] },
+    ] });
+    let status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+    for (let i = 0; i < 30 && (!status.pendingApprovals.length || !status.pendingUserInputs.length); i += 1) {
+      await Bun.sleep(0); status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+    }
+    providerRuntime.respondApproval = (async () => ({ ok: true, message: "ok" })) as typeof providerRuntime.respondApproval;
+    providerRuntime.respondUserInput = (async () => ({ ok: true, message: "ok" })) as typeof providerRuntime.respondUserInput;
+    // Another task's renderer-owned state lives only in the saved row; a stale
+    // whole-workspace write from the host cache would replace it.
+    acceptTaskDeltas = true;
+    const writesBefore = wholeSnapshotWrites;
+    const deltasBefore = persistedDeltaSelections.length;
+    await runtime.respondApproval({ workspaceId: WORKSPACE_ID, taskId: first.taskId, requestId: "scoped-approval", approved: true, expectedMessageId: status.pendingApprovals[0]!.messageId });
+    await runtime.respondUserInput({ workspaceId: WORKSPACE_ID, taskId: first.taskId, requestId: "scoped-question", answers: { scope: "Focused" }, expectedMessageId: status.pendingUserInputs[0]!.messageId });
+    expect(wholeSnapshotWrites).toBe(writesBefore);
+    const deltas = persistedDeltaSelections.slice(deltasBefore);
+    expect(deltas.map(delta => delta.taskId)).toEqual([first.taskId, first.taskId]);
+    expect(deltas[0]!.messages?.map(message => message.id)).toEqual([status.pendingApprovals[0]!.messageId]);
+    expect(deltas[1]!.messages?.map(message => message.id)).toEqual([status.pendingUserInputs[0]!.messageId]);
     handler?.onEvent?.({ type: "done" });
   });
 

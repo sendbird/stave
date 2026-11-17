@@ -1,6 +1,9 @@
 import { NativeNotificationResolvedSchema } from "@/lib/notifications/native-notification-contract";
 import { applyApprovalState, applyUserInputState } from "@/store/editor.utils";
 import { buildApprovalResolution } from "@/lib/approvals/approval-resolution";
+import { markProviderTurnInteractionResolved } from "@/lib/providers/turn-status";
+import { approvalInteractionId, userInputInteractionId } from "@/lib/work-graph/work-graph-reducer";
+import { remainingPendingInteraction } from "@/store/provider-message.utils";
 import type { StoreApi } from "zustand";
 import { createNotification as createPersistedNotification } from "@/lib/db/notifications.db";
 import { mergeNotificationIntoList } from "@/lib/notifications/notification-state";
@@ -24,6 +27,8 @@ type StoreGet = StoreApi<AppState>["getState"];
 export function createAppStoreNotificationRuntime(args: {
   set: StoreSet;
   get: StoreGet;
+  /** Restarts a turn's stall timer once a notification answer lets it resume. */
+  scheduleProviderTurnStallTimer?: (args: { taskId: string; turnId: string; lastEventAt: number }) => void;
 }) {
   const { set, get } = args;
   queueMicrotask(() => {
@@ -55,6 +60,8 @@ export function createAppStoreNotificationRuntime(args: {
     const parsed = NativeNotificationResolvedSchema.safeParse(value);
     if (!parsed.success) return;
     const update = parsed.data;
+    const resolvedAt = Date.now();
+    let resolved = false;
     set((state) => {
       const active = state.activeWorkspaceId === update.workspaceId;
       const cached = state.workspaceRuntimeCacheById[update.workspaceId];
@@ -67,13 +74,25 @@ export function createAppStoreNotificationRuntime(args: {
         taskId: update.taskId, messageId: update.messageId, requestId: update.requestId };
       const patch = update.response.type === "approval"
         ? applyApprovalState({ ...target, approved: update.response.approved,
-          resolution: buildApprovalResolution({ approved: update.response.approved, source: "user", scope: "once", decidedAt: Date.now() }) })
+          resolution: buildApprovalResolution({ approved: update.response.approved, source: "user", scope: "once", decidedAt: resolvedAt }) })
         : applyUserInputState({ ...target, answers: update.response.answers });
-      if (active) return patch;
+      // As an in-app answer does: the turn stops showing "Needs you" unless another prompt is still open.
+      const providerTurnActivityByTask = markProviderTurnInteractionResolved({
+        activityByTask: state.providerTurnActivityByTask ?? {},
+        taskId: update.taskId,
+        turnId: update.turnId,
+        now: resolvedAt,
+        interactionId: update.response.type === "approval" ? approvalInteractionId(update.requestId) : userInputInteractionId(update.requestId),
+        remaining: remainingPendingInteraction(patch.messagesByTask[update.taskId], update.turnId),
+      });
+      resolved = true;
+      if (active) return { ...patch, providerTurnActivityByTask };
       if (!cached) return state;
       return { workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById,
-        [update.workspaceId]: { ...cached, messagesByTask: patch.messagesByTask } } };
+        [update.workspaceId]: { ...cached, messagesByTask: patch.messagesByTask } }, providerTurnActivityByTask };
     });
+    // The provider resumes after the answer; the stall net counts from now.
+    if (resolved) args.scheduleProviderTurnStallTimer?.({ taskId: update.taskId, turnId: update.turnId, lastEventAt: resolvedAt });
     const state = get();
     const session = state.activeWorkspaceId === update.workspaceId ? state : state.workspaceRuntimeCacheById[update.workspaceId];
     if (session) attentionSync.syncTaskInteractions({ taskId: update.taskId, messages: session.messagesByTask[update.taskId] ?? [] });

@@ -446,6 +446,11 @@ async function persistWorkspaceSession(args: {
   });
 }
 
+/** The one message an answer changed, for a field-scoped task write. */
+function changedTaskMessages(session: WorkspaceSessionState, taskId: string, messageId: string): ChatMessage[] {
+  return (session.messagesByTask[taskId] ?? []).filter((message) => message.id === messageId);
+}
+
 function queueWorkspaceSessionPersist(args: {
   workspaceId: string;
   workspaceName: string;
@@ -1062,6 +1067,8 @@ async function persistApprovalNotification(args: {
     payload: {
       toolName: args.event.toolName,
       description: args.event.description,
+      // A risk-flagged request is never allowed from a notification banner.
+      ...(args.event.risk ? { risk: args.event.risk } : {}),
       ...attribution.payload,
     },
     dedupeKey: `task.approval_requested:${args.turnId}:${args.event.requestId}`,
@@ -2655,10 +2662,14 @@ export async function respondApproval(args: HostApprovalArgs) {
       ...session,
       messagesByTask: nextMessagesState.messagesByTask,
     });
+    // Write only this task's changed message. The cached session's other
+    // tasks can be older than what the renderer saved since.
     await queueWorkspaceSessionPersist({
       workspaceId: args.workspaceId,
       workspaceName: registration.workspace.name,
       session: nextSession,
+      taskId: args.taskId,
+      changedMessagesByTask: { [args.taskId]: changedTaskMessages(nextSession, args.taskId, approval.messageId) },
     });
     return {
       ok: true,

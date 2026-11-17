@@ -336,6 +336,8 @@ export function buildApprovalNotificationInputs(args: {
         payload: {
           toolName: event.toolName,
           description: event.description,
+          // A risk-flagged request is never allowed from a notification banner.
+          ...(event.risk ? { risk: event.risk } : {}),
         },
         dedupeKey: `task.approval_requested:${args.turnId}:${event.requestId}`,
       } satisfies AppNotificationCreateInput,

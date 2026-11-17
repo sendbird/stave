@@ -54,6 +54,8 @@
     "allowOnce": "한 번 허용",
     "deny": "거부",
     "reply": "답장",
-    "alreadyAnswered": "이미 응답한 요청입니다"
+    "openToReview": "열어서 검토",
+    "alreadyAnswered": "이미 응답한 요청입니다",
+    "couldNotAnswer": "응답하지 못했습니다. Stave에서 응답해 주세요"
   }
 }

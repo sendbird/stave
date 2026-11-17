@@ -54,6 +54,8 @@
     "allowOnce": "Allow once",
     "deny": "Deny",
     "reply": "Reply",
-    "alreadyAnswered": "Already answered"
+    "openToReview": "Open to review",
+    "alreadyAnswered": "Already answered",
+    "couldNotAnswer": "Could not answer — open Stave"
   }
 }

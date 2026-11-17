@@ -198,3 +198,28 @@ test("native resolved events update the pending card without delivering a second
   expect(subject.readState().messagesByTask.task![0]!.parts[0]).toMatchObject({ resolution: { decision: "allowed" } });
   expect(deliveries).toBe(0);
 });
+
+test("a notification answer clears Needs you and restarts the stall timer, like an in-app answer", async () => {
+  let receive: ((payload: unknown) => void) | undefined;
+  globalThis.window = { api: { notifications: { subscribeNativeResolved: (listener: (payload: unknown) => void) => { receive = listener; return () => {}; } } } } as unknown as Window & typeof globalThis;
+  const stallTimers: unknown[] = [];
+  const { createAppStoreNotificationRuntime: create } = await import("@/store/app-store-notification-runtime");
+  const { createWorkGraph } = await import("@/lib/work-graph/work-graph-reducer");
+  let state = {
+    notifications: [], activeWorkspaceId: "ws-1", settings: { nativeNotificationsEnabled: false },
+    workspaceSnapshotVersion: 0, workspaceRuntimeCacheById: {},
+    messagesByTask: { task: [{ id: "message", role: "assistant", turnId: "turn", content: "", parts: [
+      { type: "user_input", requestId: "question", state: "input-requested", toolName: "ask", questions: [{ key: "scope", question: "Which?", header: "Scope", options: [] }] },
+    ] }] },
+    providerTurnActivityByTask: { task: { turnId: "turn", lastEventAt: 1, stalledAt: 5, pendingInteraction: "user_input", workGraph: createWorkGraph({ turnId: "turn", providerId: "codex", startedAt: 1 }) } },
+  } as unknown as AppState;
+  create({
+    get: () => state,
+    set: ((patch: (value: AppState) => Partial<AppState>) => { state = { ...state, ...patch(state) }; }) as StoreApi<AppState>["setState"],
+    scheduleProviderTurnStallTimer: (args: unknown) => { stallTimers.push(args); },
+  } as never);
+  receive?.({ workspaceId: "ws-1", taskId: "task", turnId: "turn", requestId: "question", messageId: "message", response: { type: "answer", answers: { scope: "all" } } });
+  expect(state.messagesByTask.task![0]!.parts[0]).toMatchObject({ state: "input-responded" });
+  expect(state.providerTurnActivityByTask.task).toMatchObject({ pendingInteraction: null, stalledAt: null });
+  expect(stallTimers).toEqual([expect.objectContaining({ taskId: "task", turnId: "turn" })]);
+});

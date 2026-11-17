@@ -686,7 +686,7 @@ export const useAppStore = create<AppState>()(
       });
 
     const { attentionSync, persistNotifications } =
-      createAppStoreNotificationRuntime({ set, get });
+      createAppStoreNotificationRuntime({ set, get, scheduleProviderTurnStallTimer });
 
     const loadTaskMessagesIntoSession = createTaskMessagePageLoader({ set, get, attentionSync });
 

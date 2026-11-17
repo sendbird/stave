@@ -8,7 +8,6 @@ import {
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
   retainRetiredTurnActivity,
-  type ProviderTurnPendingInteraction,
 } from "@/lib/providers/turn-status";
 import { i18n } from "@/i18n/runtime";
 import { formatAsyncQuestionAnswer } from "@/lib/async-question-answer";
@@ -31,11 +30,10 @@ import {
 } from "@/store/managed-task-takeover";
 import type { NotificationAttentionSync } from "@/store/notification-attention-sync";
 import {
-  findLatestPendingApproval,
   findLatestPendingApprovalPart,
-  findLatestPendingUserInput,
   findLatestPendingUserInputPart,
   interruptPendingToolInteractionsInMessages,
+  remainingPendingInteraction,
 } from "@/store/provider-message.utils";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import { reconcileStopOfFinishedTurn } from "@/store/stopped-turn-reconcile";
@@ -66,23 +64,6 @@ function claimInteractionAnswer(taskId: string, requestId: string) {
   return () => {
     inFlightInteractionAnswers.delete(key);
   };
-}
-
-/**
- * The prompt that still blocks the turn after one is answered, as the turn's
- * single `pendingInteraction` hint: answering one of two approvals leaves the
- * other open. Only the turn's own rows count, so a prompt an earlier turn left
- * behind never raises it. An async question blocks no turn (it can outlive
- * the one that asked), so it never raises the hint; Fleet still counts it.
- */
-function remainingPendingInteraction(
-  messages: ChatMessage[] | undefined,
-  turnId: string,
-): ProviderTurnPendingInteraction | null {
-  const list = (messages ?? []).filter((message) => message.turnId === turnId);
-  if (findLatestPendingUserInput({ messages: list, blockingOnly: true })) return "user_input";
-  if (findLatestPendingApproval({ messages: list })) return "approval";
-  return null;
 }
 
 type ProviderInteractionActionKey =
