@@ -4,10 +4,10 @@ import { RemoteControlServer, type RemotePorts } from "../electron/main/remote-c
 const servers: RemoteControlServer[] = [];
 afterEach(async () => { await Promise.all(servers.splice(0).map(s => s.close())); });
 const action = {
-    kind: "approval" as const, workspaceId: "w", taskId: "t", turnId: "turn", messageId: "m", requestId: "r", approved: false
+    kind: "approval" as const, workspaceId: "w", taskId: "t", turnId: "turn" as string | null, messageId: "m", requestId: "r", approved: false
 };
 let nextPort = 6500;
-async function setup() {
+async function setup(results: Array<{ ok: boolean; reason: "applied" | "expired" | "invalid" | "unavailable" }> = []) {
     let time = 1000000;
     let onTimeRead = () => {};
     const actions: unknown[] = [];
@@ -16,7 +16,7 @@ async function setup() {
     const ports: RemotePorts = {
         snapshot: async () => ({
             tasks: [], requests: []
-        }), act: async (a) => { actions.push(a); return actions.length === 1 ? {
+        }), act: async (a) => { actions.push(a); const queued = results.shift(); if (queued) return queued; return actions.length === 1 ? {
             ok: true, reason: "applied"
         } : {
             ok: false, reason: "expired"
@@ -164,23 +164,41 @@ describe("remote control boundary", () => {
             }
         })).status).toBe(200);
     });
-    test("routes question and stop envelopes without permitting broader authority", async () => {
+    test("routes question envelopes without permitting broader authority; stop is not an action", async () => {
         const s = await setup();
         const token = await s.pair();
         const question = {
-            kind: "question", workspaceId: "w", taskId: "t", turnId: "turn", requestId: "q", messageId: "m", answers: {
-                key: "answer"
+            kind: "question", workspaceId: "w", taskId: "t", turnId: null, requestId: "q", messageId: "m", answers: {
+                key: "answer-text-secret"
             }
         };
         const stop = {
             kind: "stop", workspaceId: "w", taskId: "t", turnId: "turn"
         };
         expect((await s.post("/api/action", question, token)).status).toBe(200);
-        expect((await s.post("/api/action", stop, token)).status).toBe(200);
+        expect((await s.post("/api/action", stop, token)).status).toBe(400);
         expect(s.actions).toEqual([
-            question, stop
+            question
         ]);
-        expect(JSON.stringify(s.saves)).not.toContain("answer");
+        expect(JSON.stringify(s.saves)).not.toContain("answer-text-secret");
+        expect(JSON.stringify(s.audit)).not.toContain("answer-text-secret");
+    });
+    test("a lockout that ends starts a fresh failure window", async () => {
+        const s = await setup();
+        for (let i = 0; i < 5; i++)
+            await s.post("/api/pair", {
+                code: "0".repeat(32), name: "Phone"
+            });
+        expect(s.server.status().pairingLocked).toBe(true);
+        s.advance(300001);
+        // One mistyped code after the lock must not lock pairing again.
+        expect((await s.post("/api/pair", {
+            code: "0".repeat(32), name: "Phone"
+        })).status).toBe(403);
+        const code = s.server.pairing().code;
+        expect((await s.post("/api/pair", {
+            code, name: "Phone"
+        })).status).toBe(200);
     });
     test("concurrent duplicate answers dispatch once", async () => {
         const s = await setup();
@@ -212,5 +230,18 @@ describe("remote control boundary", () => {
         expect(s.server.status().audit[0]).toMatchObject({
             deviceName: "Phone", time: 1000000
         });
+    });
+    test("an attempt the desktop never received can be retried; a settled one cannot", async () => {
+        const s = await setup([{ ok: false, reason: "unavailable" }, { ok: true, reason: "applied" }]);
+        const token = await s.pair();
+        expect(await (await s.post("/api/action", action, token)).json()).toEqual({ ok: false, reason: "unavailable" });
+        expect(await (await s.post("/api/action", action, token)).json()).toEqual({ ok: true, reason: "applied" });
+        expect(await (await s.post("/api/action", action, token)).json()).toEqual({ ok: false, reason: "expired" });
+        expect(s.actions).toHaveLength(2);
+    });
+    test("devices record when they were paired", async () => {
+        const s = await setup();
+        await s.pair();
+        expect(s.server.status().devices[0]).toMatchObject({ name: "Phone", createdAt: 1000000, lastSeen: 1000000 });
     });
 });
