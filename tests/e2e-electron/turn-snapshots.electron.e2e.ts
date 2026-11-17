@@ -36,7 +36,7 @@ test("a host-started turn records real files and restore can be undone after res
   const first = await launchStave({ userDataDir: profileDir, env });
   try {
     const page = first.page;
-    await page.getByTestId("workspace-welcome").getByRole("button", { name: "Open a repository" }).click();
+    await page.getByTestId("workspace-welcome").getByRole("button", { name: "Open repository", exact: true }).click();
     await page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(page.getByTestId("workspace-welcome")).toHaveCount(0);
@@ -61,6 +61,10 @@ test("a host-started turn records real files and restore can be undone after res
     }, ids);
     expect(await readFile(path.join(repositoryPath, "README.md"), "utf8")).toBe("Working state\n");
     expect(git("show", ":README.md").toString()).toBe(indexBefore);
+  } catch (error) {
+    await first.page.screenshot({ path: "/tmp/gap-h6/electron-start-failure.png" }).catch(() => {});
+    console.error("Snapshot test startup", await first.page.evaluate(() => ({ url: location.href, title: document.title, text: document.body.innerText.slice(0, 4000), api: Boolean(window.api) })).catch(() => null));
+    throw error;
   } finally {
     await first.close();
   }
