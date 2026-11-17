@@ -939,7 +939,9 @@
     "error": "오류",
     "running": "실행 중",
     "idle": "유휴",
-    "stalled": "업데이트 없음"
+    "stalled": "업데이트 없음",
+    "moreTasks_other": "작업 {{count}}개 더 보기",
+    "showFewer": "간략히 표시"
   },
   "workspaceResumeBrief": {
     "sharedInstructions": "공유 지침",

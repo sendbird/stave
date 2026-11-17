@@ -126,3 +126,14 @@ describe("WorkspaceProgressTaskTreeView", () => {
     });
   });
 });
+
+test("folded open tasks are offered as +N more and can be shown again as fewer", () => {
+  const items = [{ taskId: "task-running", title: "Stream", status: "running" as const, providerId: "codex" as const }];
+  const folded = renderToStaticMarkup(createElement(WorkspaceProgressTaskTreeView, { items, onOpenTask: () => {}, hiddenCount: 2, expanded: false, onToggleExpanded: () => {} }));
+  expect(folded).toContain("+2 more tasks");
+  expect(folded).toContain('aria-expanded="false"');
+  const expanded = renderToStaticMarkup(createElement(WorkspaceProgressTaskTreeView, { items, onOpenTask: () => {}, hiddenCount: 0, expanded: true, onToggleExpanded: () => {} }));
+  expect(expanded).toContain("Show fewer");
+  const none = renderToStaticMarkup(createElement(WorkspaceProgressTaskTreeView, { items, onOpenTask: () => {}, hiddenCount: 0, expanded: false, onToggleExpanded: () => {} }));
+  expect(none).not.toContain("data-workspace-progress-disclosure");
+});

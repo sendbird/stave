@@ -959,7 +959,10 @@
     "error": "Error",
     "running": "Running",
     "idle": "Idle",
-    "stalled": "No updates"
+    "stalled": "No updates",
+    "moreTasks_one": "+{{count}} more task",
+    "moreTasks_other": "+{{count}} more tasks",
+    "showFewer": "Show fewer"
   },
   "workspaceResumeBrief": {
     "sharedInstructions": "Shared instructions",

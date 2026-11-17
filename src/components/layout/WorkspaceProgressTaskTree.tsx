@@ -1,5 +1,5 @@
 import { TaskUnreadDot, TaskReadMenu, withUnreadName } from "@/components/session/TaskReadIndicator";
-import { useTaskUnread } from "@/lib/task-read-state-client";
+import { useTaskUnread, useUnreadTaskIds } from "@/lib/task-read-state-client";
 import { ensureFleetWorkspace } from "@/lib/fleet/archive-client";
 import { toast } from "@/lib/notifications/toast";
 import { Pin, PinOff } from "lucide-react";
@@ -9,10 +9,11 @@ import {
   TASK_DRAG_MIME,
   encodeTaskDragPayload,
 } from "@/lib/task-context/attached-task-context";
-import { memo, useMemo, type ReactNode } from "react";
+import { memo, useMemo, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildWorkspaceProgressTaskItems,
+  selectCompactWorkspaceTaskRows,
   type WorkspaceProgressTaskItem,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { StateMark } from "@/components/aui/components/StateMark";
@@ -150,6 +151,10 @@ export function WorkspaceProgressTaskTreeView(args: {
    * words sit with the task they describe, each task with its own.
    */
   showProgress?: boolean;
+  /** Open tasks folded behind "+N more"; 0 hides the disclosure. */
+  hiddenCount?: number;
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   if (!args.loading && args.items.length === 0) {
@@ -185,6 +190,18 @@ export function WorkspaceProgressTaskTreeView(args: {
       />
     ));
   }
+  const disclosure = args.onToggleExpanded && (args.expanded || (args.hiddenCount ?? 0) > 0) ? (
+    <li>
+      <AuiButton layout="host" type="button" xstyle={styles.disclosure}
+        aria-expanded={Boolean(args.expanded)}
+        data-workspace-progress-disclosure="true"
+        onClick={args.onToggleExpanded}>
+        {args.expanded
+          ? tI18n("workspace:workspaceProgressTaskTree.showFewer")
+          : tI18n("workspace:workspaceProgressTaskTree.moreTasks", { count: args.hiddenCount ?? 0 })}
+      </AuiButton>
+    </li>
+  ) : null;
 
   return (
     <ul
@@ -193,6 +210,7 @@ export function WorkspaceProgressTaskTreeView(args: {
       aria-label={tI18n("workspace:workspaceProgressTaskTree.openTasks")}
     >
       {body}
+      {disclosure}
     </ul>
   );
 }
@@ -254,13 +272,20 @@ export const WorkspaceProgressTaskTree = memo(
         tasks, i18n.resolvedLanguage],
     );
 
-    if (items.length === 0) {
+    const [expanded, setExpanded] = useState(false);
+    const unreadTaskIds = useUnreadTaskIds(args.workspaceId, items.map((item) => item.taskId));
+    const compact = selectCompactWorkspaceTaskRows({ items, unreadTaskIds, expanded });
+
+    if (compact.rows.length === 0) {
       return null;
     }
 
     return (
       <WorkspaceProgressTaskTreeView
-        items={items}
+        items={compact.rows}
+        hiddenCount={compact.hiddenCount}
+        expanded={expanded}
+        onToggleExpanded={() => setExpanded((value) => !value)}
         workspaceId={args.workspaceId}
         showProgress={args.showProgress}
         onOpenTask={(taskId) => {

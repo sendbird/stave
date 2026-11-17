@@ -605,8 +605,8 @@ export function summarizeWorkspaceTaskTitle(title: string) {
 }
 
 /**
- * Open task rows stay visible after a turn finishes so completion read marks
- * and pinned tasks remain reachable without reopening History.
+ * Every open task row under a workspace, in status order. The sidebar shows a
+ * compact subset of these (`selectCompactWorkspaceTaskRows`).
  */
 export function buildWorkspaceProgressTaskItems(args: {
   tasks: readonly WorkspaceProgressTaskSource[];
@@ -671,4 +671,31 @@ export function buildWorkspaceProgressTaskItems(args: {
       providerId: item.providerId,
       pinned: item.pinned,
     }));
+}
+
+/** Open task rows a collapsed workspace shows before "+N more". */
+export const WORKSPACE_TASK_ROW_LIMIT = 3;
+
+/**
+ * The compact default under a workspace row. Only tasks worth a glance show:
+ * running or waiting, unread (a finished turn the user has not read) or
+ * pinned, at most `WORKSPACE_TASK_ROW_LIMIT`. A workspace with none of them
+ * stays one line; the rest fold into "+N more" until the user expands it.
+ */
+export function selectCompactWorkspaceTaskRows(args: {
+  items: readonly WorkspaceProgressTaskItem[];
+  unreadTaskIds: ReadonlySet<string>;
+  expanded: boolean;
+}): { rows: WorkspaceProgressTaskItem[]; hiddenCount: number } {
+  const notable = args.items.filter(
+    (item) => item.status !== "idle" || item.pinned || args.unreadTaskIds.has(item.taskId),
+  );
+  if (notable.length === 0) {
+    return { rows: [], hiddenCount: 0 };
+  }
+  if (args.expanded) {
+    return { rows: [...args.items], hiddenCount: 0 };
+  }
+  const rows = notable.slice(0, WORKSPACE_TASK_ROW_LIMIT);
+  return { rows, hiddenCount: args.items.length - rows.length };
 }

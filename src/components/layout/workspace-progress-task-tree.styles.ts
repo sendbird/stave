@@ -58,6 +58,15 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     flex: 1,
   },
   progress: { gridColumn: "2 / -1" },
+  disclosure: {
+    width: "100%",
+    textAlign: "start",
+    paddingBlock: vars["--aui-space-2"],
+    paddingInline: vars["--aui-space-8"],
+    borderRadius: vars["--aui-radius-control"],
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+  },
   titleWithUnread: { display: "flex", alignItems: "center", minWidth: 0, gap: vars["--aui-space-4"] },
   rowTitle: {
     flex: 1,
