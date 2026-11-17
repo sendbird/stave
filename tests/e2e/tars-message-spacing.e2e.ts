@@ -6,7 +6,7 @@ test.describe.configure({ timeout: 60_000 });
  * Tars writes short status lines one per line. With one newline between them
  * they shared one pre-wrap paragraph and stacked at the bare line pitch, so a
  * new statement looked the same as a long line wrapping. Each line is now its
- * own paragraph with the message's paragraph spacing (`--aui-space-8`), while
+ * own paragraph with the message's paragraph spacing (the shared Markdown block-gap token), while
  * a line that wraps by itself, lists and separate messages keep their spacing.
  */
 const KOREAN_LINES = [
@@ -112,8 +112,10 @@ for (const locale of ["en", "ko"] as const)
           const tokens = await page.evaluate(async () => {
             const { vars } =
               await import("/src/components/aui/tokens/tokens.stylex.ts");
+            const { MARKDOWN_BLOCK_GAP } =
+              await import("/src/components/ai-elements/message-markdown.styles.ts");
             const probe = document.createElement("div");
-            probe.style.paddingTop = vars["--aui-space-8"];
+            probe.style.paddingTop = MARKDOWN_BLOCK_GAP;
             probe.style.paddingBottom = vars["--aui-space-4"];
             document.body.append(probe);
             const style = getComputedStyle(probe);
