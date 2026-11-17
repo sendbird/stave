@@ -8,6 +8,7 @@ import {
   MCP_APP_MAX_CSP_DOMAINS,
   normalizeMcpAppCsp,
 } from "@/lib/mcp-app/mcp-app-csp";
+import { MCP_APP_VIEW_DOCUMENT_PRELUDE } from "@/lib/mcp-app/mcp-app-view-document";
 
 function directive(csp: string, name: string) {
   return csp
@@ -93,6 +94,17 @@ describe("MCP App view CSP", () => {
     const srcdoc = buildMcpAppSrcdoc("<!DOCTYPE html><p>view</p>", EMPTY_MCP_APP_CSP);
     expect(srcdoc.startsWith('<!doctype html><meta http-equiv="Content-Security-Policy"')).toBe(true);
     expect(srcdoc.endsWith("<p>view</p>")).toBe(true);
+  });
+
+  test("the browser preview runs the document prelude under the CSP and before the view", () => {
+    const srcdoc = buildMcpAppSrcdoc("<!doctype html><script>view()</script>", EMPTY_MCP_APP_CSP);
+    const policy = srcdoc.indexOf("Content-Security-Policy");
+    const prelude = srcdoc.indexOf(MCP_APP_VIEW_DOCUMENT_PRELUDE);
+    expect(policy).toBeGreaterThan(-1);
+    expect(prelude).toBeGreaterThan(policy);
+    expect(srcdoc.indexOf("<script>view()</script>")).toBe(prelude + MCP_APP_VIEW_DOCUMENT_PRELUDE.length);
+    // The prelude is an inline script, which every view CSP allows.
+    expect(directive(buildMcpAppCsp(EMPTY_MCP_APP_CSP), "script-src")).toContain("'unsafe-inline'");
   });
 
   test("the frame allows only declared permissions", () => {

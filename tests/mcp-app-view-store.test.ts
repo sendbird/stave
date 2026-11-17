@@ -12,6 +12,7 @@ import { handleMcpAppViewRequest } from "../electron/providers/mcp-app-view-requ
 import { captureMcpAppView } from "../electron/providers/mcp-app-view-capture";
 import { normalizeMcpAppCsp } from "@/lib/mcp-app/mcp-app-csp";
 import { buildMcpAppViewUrl, MCP_APP_MIME_TYPE } from "@/lib/mcp-app/mcp-app-view";
+import { MCP_APP_VIEW_DOCUMENT_PRELUDE } from "@/lib/mcp-app/mcp-app-view-document";
 import { buildInlineRenderUrl } from "@/lib/inline-render/inline-render";
 
 let root: string;
@@ -66,13 +67,32 @@ describe("MCP App view store and scheme", () => {
       store,
     });
     expect(response.status).toBe(200);
-    expect(await response.text()).toBe("<!doctype html><p>view</p>");
+    // The stored file is the view as returned; the doctype and prelude are added when it is served.
+    expect(await response.text()).toBe(`<!doctype html>${MCP_APP_VIEW_DOCUMENT_PRELUDE}<p>view</p>`);
     const csp = response.headers.get("Content-Security-Policy") ?? "";
     expect(csp).toContain("sandbox allow-scripts allow-forms");
     expect(csp).toContain("connect-src https://api.example.com");
     expect(csp).toContain("default-src 'none'");
     expect(csp).not.toContain("'self'");
     expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
+  test("a view's own doctype stays first, with the prelude before the view's scripts", async () => {
+    const reference = await store.publish(
+      input({
+        html: '<!DOCTYPE html>\n<html lang="en"><head><script>view()</script></head></html>',
+      }),
+    );
+    const body = await (
+      await respondToMcpAppViewRequest({
+        url: buildMcpAppViewUrl(reference.viewId),
+        method: "GET",
+        store,
+      })
+    ).text();
+    expect(body).toBe(
+      `<!DOCTYPE html>${MCP_APP_VIEW_DOCUMENT_PRELUDE}\n<html lang="en"><head><script>view()</script></head></html>`,
+    );
   });
 
   test("refuses other methods, unknown ids, and inline render urls", async () => {
