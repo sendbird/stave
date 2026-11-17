@@ -5,6 +5,7 @@ import path from "node:path";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { createClaudeMcpAppViewCapture } from "../electron/providers/claude-mcp-app-views";
 import type { BridgeEvent } from "../electron/providers/types";
+import { getMcpAppViewStore } from "../electron/main/mcp-app/mcp-app-view-store";
 import { MCP_APP_MIME_TYPE } from "@/lib/mcp-app/mcp-app-view";
 
 let userData = "";
@@ -63,10 +64,16 @@ function run(capabilities: string[], events: BridgeEvent[]) {
   return { capture, emitted, reads: fake.reads };
 }
 
-const call = (toolName: string): BridgeEvent[] => [
+const call = (toolName: string, output = "Sunny"): BridgeEvent[] => [
   { type: "tool", toolUseId: "toolu_1", toolName, input: '{"city":"Seoul"}', state: "input-available" },
-  { type: "tool_result", tool_use_id: "toolu_1", output: "Sunny" },
+  { type: "tool_result", tool_use_id: "toolu_1", output },
 ];
+
+async function storedToolResult(event: BridgeEvent | undefined) {
+  const viewId = (event as { mcpAppView?: { viewId: string } } | undefined)?.mcpAppView?.viewId;
+  if (!viewId) throw new Error("no view captured");
+  return (await getMcpAppViewStore().read(viewId))?.record.toolResult;
+}
 
 describe("Claude MCP App view capture", () => {
   test("captures a declared view through the live query", async () => {
@@ -82,6 +89,21 @@ describe("Claude MCP App view capture", () => {
       tool_use_id: "toolu_1",
       output: "Sunny",
       mcpAppView: { provider: "claude-code", server: "weather app", tool: "forecast" },
+    });
+    // Plain text stays text only.
+    expect(await storedToolResult(emitted[0])).toEqual({ content: [{ type: "text", text: "Sunny" }] });
+  });
+
+  test("offers a JSON object output to the view as structuredContent", async () => {
+    const output = '{"issues":{"nodes":[{"key":"DFE-1"}]}}';
+    const { capture, emitted } = run(
+      ["mcp_tool_ui_meta_v1", "mcp_read_resource_v1"],
+      call("mcp__weather_app__forecast", output),
+    );
+    await capture.settle();
+    expect(await storedToolResult(emitted[0])).toEqual({
+      content: [{ type: "text", text: output }],
+      structuredContent: { issues: { nodes: [{ key: "DFE-1" }] } },
     });
   });
 

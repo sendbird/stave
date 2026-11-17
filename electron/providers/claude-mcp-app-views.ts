@@ -9,6 +9,10 @@
  * - `query.readMcpResource(serverName, uri)` (alpha, `ui://` only) reads the
  *   view when the CLI advertises `mcp_read_resource_v1`.
  *
+ * The SDK reports only the text the model read, never the call's
+ * `structuredContent`; a text output that is one JSON object is offered to
+ * the view as `structuredContent` too (see `normalizeMcpAppToolResult`).
+ *
  * The SDK has no host API to call an external server's tools or read its
  * other resources, and the query closes with the turn, so a Claude view can
  * show its call's input and result but its `tools/call` and `resources/read`

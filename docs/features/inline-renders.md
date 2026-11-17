@@ -200,7 +200,8 @@ names a `ui://` resource with the type `text/html;profile=mcp-app`, under
 `_meta.ui.resourceUri` or the older `_meta["ui/resourceUri"]`. When such a tool
 runs, Stave shows the view in that tool's row instead of the plain text result.
 The row opens on its own; **Full screen** in the view's header lifts it over the
-window.
+window. **Show text result** in the same header opens the tool's plain text
+result under the view, for a view that shows nothing or less than you need.
 
 **Settings → Chat → Inline HTML pages → Show MCP App views** turns this on or
 off (on by default). Off shows those tools as plain text.
@@ -210,7 +211,7 @@ off (on by default). Off shows those tools as plain text.
 | Provider | Support |
 |---|---|
 | Codex | Full. Stave declares the extension when it starts the Codex App Server, reads the view when the call completes, and relays the view's tool calls and resource reads to the same server and thread. |
-| Claude | The view shows the call's input and result. Claude Code has no way for Stave to call the server's tools or read its other resources, so a Claude view's tool calls and resource reads are refused, and the view is told so when it starts. Needs a Claude Code version that reports tool UI metadata and resource reads to Stave. |
+| Claude | The view shows the call's input and result. Claude Code reports only the result's text, so when that text is one JSON object Stave also hands it to the view as the result's structured content, which views such as Atlassian's Jira widget need to show anything. Claude Code has no way for Stave to call the server's tools or read its other resources, so a Claude view's tool calls and resource reads are refused, and the view is told so when it starts. Needs a Claude Code version that reports tool UI metadata and resource reads to Stave. |
 | Cursor, Kiro | Not supported; the tool row shows its text result. |
 
 Stave's own Local MCP server declares no views, so every view comes from a
@@ -256,6 +257,17 @@ waiting at once.
   configuration change does.
 
 ## Troubleshooting
+
+### An MCP App view is an empty box
+
+- Symptom: a third-party tool row, such as a Jira search through the
+  Atlassian MCP server in Claude, shows its view as an empty frame.
+- Cause: the view draws only from data its provider did not pass on. Claude
+  passes the result's text; when the text is not one JSON object (for example
+  a result too large for Claude Code to keep inline), the view gets no
+  structured content.
+- Fix: choose **Show text result** in the view's header to read the result,
+  or turn off **Show MCP App views**.
 
 ### The page says it is no longer available
 

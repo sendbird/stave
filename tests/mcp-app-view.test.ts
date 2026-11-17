@@ -221,4 +221,26 @@ describe("urls and payloads", () => {
     ).toEqual({ content: [], structuredContent: { t: 1 }, isError: false });
     expect(normalizeMcpAppToolResult({ structuredContent: {} })).toBeNull();
   });
+
+  test("a text-only result offers a lone JSON object as structuredContent", () => {
+    const text = (value: string) => ({ content: [{ type: "text", text: value }] });
+    expect(normalizeMcpAppToolResult(text(' {"issues":{"nodes":[]}}\n'))).toEqual({
+      ...text(' {"issues":{"nodes":[]}}\n'),
+      structuredContent: { issues: { nodes: [] } },
+    });
+    // Plain text, arrays, scalars, broken JSON, and truncation notices stay text only.
+    for (const value of ["Sunny", "[1,2]", "42", '{"issues":', "<persisted-output>Output too large"]) {
+      expect(normalizeMcpAppToolResult(text(value))).toEqual(text(value));
+    }
+    // The server's own structuredContent wins, and errors and multi-block results are left alone.
+    expect(normalizeMcpAppToolResult({ ...text('{"a":1}'), structuredContent: { b: 2 } })).toMatchObject({
+      structuredContent: { b: 2 },
+    });
+    expect(normalizeMcpAppToolResult({ ...text('{"a":1}'), isError: true })).toEqual({
+      ...text('{"a":1}'),
+      isError: true,
+    });
+    const twoBlocks = { content: [...text('{"a":1}').content, ...text("more").content] };
+    expect(normalizeMcpAppToolResult(twoBlocks)).toEqual(twoBlocks);
+  });
 });

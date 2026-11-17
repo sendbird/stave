@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { FileText, Maximize2, Minimize2 } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
 import { Tooltip } from "@/components/aui/components/Tooltip";
@@ -71,9 +71,16 @@ export const McpAppView = memo(function McpAppView(props: {
   reference: McpAppViewReference;
   taskId: string;
   toolUseId?: string;
+  /**
+   * The call's text result, which the view replaces in the row. A view can
+   * render nothing (it needs data its provider cannot give it, or its own
+   * scripts fail), so the reader can always open the text under it.
+   */
+  textResult?: string;
 }) {
   useTranslation();
-  const { reference, taskId, toolUseId } = props;
+  const { reference, taskId, toolUseId, textResult } = props;
+  const [textOpen, setTextOpen] = useState(false);
   const bridge = typeof window === "undefined" ? undefined : window.api?.mcpApp;
   // The desktop preload serves the render scheme; the browser preview does not.
   const hasScheme = typeof window !== "undefined" && Boolean(window.api?.inlineRender);
@@ -273,6 +280,9 @@ export const McpAppView = memo(function McpAppView(props: {
     [hasScheme, view],
   );
   const title = i18n.t("session:mcpAppView.title", { tool: reference.tool, server: reference.server });
+  const textLabel = textOpen
+    ? i18n.t("session:mcpAppView.hideText")
+    : i18n.t("session:mcpAppView.showText");
   const toggleLabel = fullscreen
     ? i18n.t("session:mcpAppView.exitFullscreen")
     : i18n.t("session:mcpAppView.fullscreen");
@@ -298,6 +308,21 @@ export const McpAppView = memo(function McpAppView(props: {
             {title}
           </span>
           <span className={sx(styles.actions)}>
+            {textResult ? (
+              <Tooltip content={textLabel}>
+                <Button
+                  aria-label={textLabel}
+                  aria-pressed={textOpen}
+                  iconOnly
+                  size="xs"
+                  type="button"
+                  variant="quiet"
+                  onClick={() => setTextOpen((open) => !open)}
+                >
+                  <FileText aria-hidden />
+                </Button>
+              </Tooltip>
+            ) : null}
             <Tooltip content={toggleLabel}>
               <Button
                 aria-label={toggleLabel}
@@ -338,6 +363,11 @@ export const McpAppView = memo(function McpAppView(props: {
                   : i18n.t("session:mcpAppView.unavailable")}
             </p>
           )}
+          {textOpen && textResult ? (
+            <div className={sx(styles.source, fullscreen && styles.sourceExpanded)}>
+              <pre className={sx(styles.sourceText)}>{textResult}</pre>
+            </div>
+          ) : null}
         </div>
       </figure>
       <McpAppViewConfirm request={confirmRequest} onResolve={resolveConfirm} />
@@ -346,5 +376,6 @@ export const McpAppView = memo(function McpAppView(props: {
 }, (previous, next) =>
   previous.reference.viewId === next.reference.viewId &&
   previous.taskId === next.taskId &&
-  previous.toolUseId === next.toolUseId,
+  previous.toolUseId === next.toolUseId &&
+  previous.textResult === next.textResult,
 );

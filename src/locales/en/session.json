@@ -868,6 +868,8 @@
     "unavailable": "Open this conversation in the Stave desktop app to use this view.",
     "fullscreen": "Full screen",
     "exitFullscreen": "Exit full screen",
+    "showText": "Show text result",
+    "hideText": "Hide text result",
     "messageConfirm": {
       "title": "Send this message from the view?",
       "description": "{{server}} wants to add this message to the conversation as yours. If the agent is still working, it waits in the queue.",
