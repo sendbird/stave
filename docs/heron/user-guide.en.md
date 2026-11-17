@@ -114,7 +114,7 @@ Screens: [Settings > Providers](https://github.com/sendbird/stave/blob/main/docs
 | -------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | App      | General, Appearance, Chat, Editor & Terminal, Keyboard & Commands, Browser | Language, theme, chat display and conversation width, shortcuts, Lens and `@web` scope |
 | Projects | Projects (Repository, Workspace Tools, Memory)                          | Repository instructions, post-create command, saved commands and processes, repository memory |
-| Agents   | Accounts, Providers, Models, Presets & Macros, Prompts & Skills, MCP, Integrations, Secrets | Sign-in accounts, permission presets, default models and Auto, skills, MCP servers, Jira and Crane, secrets |
+| Agents   | Accounts, Providers, Models, Presets & Macros, Prompts & Skills, MCP, Integrations, Secrets | Sign-in accounts, permission presets, default models and Auto, skills, MCP servers, Jira and Crane, remote control, secrets |
 | System   | Developer (Developer mode only), Changelog                              | Diagnostics and release notes                                                    |
 
 @page concepts | Concepts | Core concepts | concept
@@ -1285,3 +1285,27 @@ results and offers Restore for preserved history. Closing a tab with
 Cmd/Ctrl+W does not archive its task or workspace.
 
 Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
+
+## Remote control from a phone
+
+**Settings > Integrations > Remote control** lets a paired phone see running
+tasks, approve or deny a pending request once, and answer a pending question
+while Stave runs on your computer. It is off by default. A phone cannot start
+tasks, send prompts, stop work, read files, use terminals or grant "Always
+allow". The connection is not encrypted, so use it only on a trusted private
+network or VPN.
+
+Turn on **Allow remote control**. The address starts as **This computer only**;
+to reach Stave from a phone, choose a network address and confirm it. Choose a
+port from 6500 to 6549. Select **Pair a device** to show the address and a
+one-time code that expires in five minutes, open the address on the phone, and
+enter the code. Each pairing adds a device to **Paired devices**, where
+**Revoke** or **Revoke all** stops it at once. The phone keeps its access only
+in that browser tab; closing the tab means pairing again.
+
+A phone's answer goes to the open Stave window, which checks that the request
+still waits and answers it exactly as a click there would. If the desktop
+window is closed or reloading, the phone shows that Stave did not receive the
+answer. Work owned by another controller is not shown.
+**Recent remote actions** lists the last 100 answers with device, time and result; it never
+stores question answers, codes or device credentials.

@@ -391,6 +391,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Queue a Crane issue for local Claude or Codex execution with explicit per-job approval and status-only reporting.",
       },
       {
+        routePath: "remote-control",
+        sourcePath: "docs/features/remote-control.md",
+        title: "Remote Control",
+        description:
+          "Answer approvals and questions from a paired phone on a trusted private network, off by default.",
+      },
+      {
         routePath: "language-intelligence",
         sourcePath: "docs/features/language-intelligence.md",
         title: "Language Intelligence",
