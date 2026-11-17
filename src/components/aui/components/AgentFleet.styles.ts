@@ -90,12 +90,23 @@ export const agentFleetStyles = stylex.create({
     padding: 0,
     rowGap: vars["--aui-space-8"],
   },
+  // A windowed list stacks measured slots in the normal flow of the page's
+  // scroller, so spacing is padding inside each slot rather than a grid gap.
   virtualBody: { display: "block" },
-  virtualList: { blockSize: "60vh", minBlockSize: "20rem" },
+  virtualSlot: { paddingBlockEnd: vars["--aui-space-8"] },
+  virtualGroupStart: { paddingBlockStart: vars["--aui-space-8"] },
   virtualItem: {
+    alignItems: "start",
+    columnGap: vars["--aui-space-16"],
     display: "grid",
     gridTemplateColumns: { default: "minmax(0, 1fr)", [WIDE]: `minmax(16rem, 22rem) minmax(0, ${TREE_MAX_WIDTH})` },
-    columnGap: vars["--aui-space-16"],
+    justifyContent: "start",
+    rowGap: vars["--aui-space-8"],
+  },
+  // A group heading sits above its first card, in the card column.
+  groupStart: {
+    gridColumn: "1",
+    minInlineSize: 0,
     paddingBlockEnd: vars["--aui-space-8"],
   },
   // The list item adds no box: its card and tree are the grid's own items.

@@ -37,9 +37,10 @@ function readTableTop(page: Page) {
     const table = document.querySelector("[data-fleet-task-table] table")!;
     const columns = table.querySelector("thead tr")!.getBoundingClientRect();
     const x = columns.left + 48;
-    const groupRow = document.elementFromPoint(x, columns.bottom + 2)?.closest("tr");
+    const groupCell = document.elementFromPoint(x, columns.bottom + 2)?.closest("td, th");
+    const groupRow = groupCell?.closest("tr");
     const groupLabel = groupRow?.querySelector("[role=checkbox]")?.getAttribute("aria-label") ?? null;
-    let y = (groupRow?.getBoundingClientRect().bottom ?? columns.bottom) + 2;
+    let y = (groupCell?.getBoundingClientRect().bottom ?? columns.bottom) + 2;
     let dataRow = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-fleet-task-table-row]");
     if (!dataRow) { y += 40; dataRow = document.elementFromPoint(x, y)?.closest<HTMLElement>("[data-fleet-task-table-row]"); }
     return { groupLabel, firstTitle: dataRow?.textContent?.match(/Scale task \d+/)?.[0] ?? null };
@@ -47,6 +48,7 @@ function readTableTop(page: Page) {
 }
 
 test("grouped table draws one control per group, with the sticky group of the first visible row and unique row indexes", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
   await seedFleetScale(page);
   await openFleetScope(page, "table", 2000);
   await page.getByRole("radiogroup", { name: "Group tasks" }).getByRole("radio", { name: "Repository", exact: true }).click();
@@ -70,7 +72,7 @@ test("grouped table draws one control per group, with the sticky group of the fi
   const scroller = await markScrollOwner(page, "[data-fleet-task-table-row]");
   await scroller.evaluate((element) => { element.scrollTop = element.scrollHeight / 2; });
   let label: string | null = null;
-  for (let attempt = 0; attempt < 30 && !label; attempt += 1) {
+  for (let attempt = 0; attempt < 200 && !label; attempt += 1) {
     await nextFrames(page);
     label = await page.evaluate(() => {
       const table = document.querySelector("[data-fleet-task-table] table")!;
@@ -81,12 +83,12 @@ test("grouped table draws one control per group, with the sticky group of the fi
         const checkbox = row.querySelector("[role=checkbox]");
         const name = checkbox?.getAttribute("aria-label") ?? "";
         if (!/^Repository \d+ \(\d+\)$/.test(name)) continue;
-        const box = row.getBoundingClientRect();
+        const box = (row.querySelector("td") ?? row).getBoundingClientRect();
         if (box.top < columns.bottom + 120 || box.bottom > viewport.bottom) continue;
         scroller.scrollTop += box.top - columns.bottom + box.height + 4;
         return name;
       }
-      scroller.scrollTop += scroller.clientHeight / 2;
+      scroller.scrollTop += scroller.clientHeight * 0.4;
       return null;
     });
   }
@@ -95,7 +97,7 @@ test("grouped table draws one control per group, with the sticky group of the fi
   const top = await readTableTop(page);
   expect(top.groupLabel).toBe(label);
   expect(`Repository ${repositoryOfTitle(top.firstTitle!)}`).toBe(label!.replace(/ \(\d+\)$/, ""));
-  await expect(page.getByRole("checkbox", { name: label!, exact: true })).toHaveCount(1);
+  await expect(page.locator(`[role=checkbox][aria-label="${label}"]`)).toHaveCount(1);
   await assertRowIndexes();
 });
 

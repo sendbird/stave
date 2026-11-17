@@ -1,4 +1,4 @@
-import { Virtuoso, type VirtuosoHandle } from "react-virtuoso";
+import { cancelFocusWhenMounted, focusWhenMounted, useWindowedList } from "@/hooks/use-windowed-list";
 import { useTranslation } from "@/i18n";
 import { formatCost, formatDuration } from "@/i18n/format";
 import { Wrench } from "lucide-react";
@@ -6,11 +6,14 @@ import {
   useCallback,
   useEffect,
   useId,
+  useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent,
   type ReactNode,
+  type Ref,
 } from "react";
 
 import { focusRing } from "../recipes/focus-ring";
@@ -49,8 +52,15 @@ export * from "./AgentFleet.model";
 export interface AgentFleetProps extends XstyleProp {
   /** Main agents, in the order the list shows them. */
   agents: readonly AgentFleetAgent[];
-  /** Bound the main-card DOM for large task catalogs. */
+  /**
+   * Render only the main cards near the view of the nearest scrolling ancestor,
+   * for large task catalogs. The focused card stays mounted.
+   */
   virtualize?: boolean;
+  /** A heading drawn above an agent that starts a group, inside the same list. */
+  renderGroupStart?: (agent: AgentFleetAgent, index: number) => ReactNode;
+  /** Scrolls the list to a main agent (the least distance; nothing when it is visible). */
+  handleRef?: Ref<AgentFleetHandle | null>;
   /** The main agent whose tree is open (controlled); null for none. */
   open?: string | null;
   /** The uncontrolled starting value. Defaults to the first agent. */
@@ -76,6 +86,10 @@ export interface AgentFleetProps extends XstyleProp {
   className?: string;
 }
 
+export interface AgentFleetHandle {
+  revealAgent: (id: string) => void;
+}
+
 const defaultFormatCost = (amount: number) => formatCost(amount, "USD");
 
 /**
@@ -98,6 +112,8 @@ const defaultFormatCost = (amount: number) => formatCost(amount, "USD");
 export function AgentFleet({
   agents,
   virtualize = false,
+  renderGroupStart,
+  handleRef,
   open: openProp,
   defaultOpen,
   onOpenChange,
@@ -137,38 +153,46 @@ export function AgentFleet({
   );
 
   // Roving focus over the main cards.
-  const cardRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  // Cards by agent id; one stable ref callback reads the id from the card.
+  const cardsById = useRef(new Map<string, HTMLButtonElement>());
+  const cardRef = useCallback((element: HTMLButtonElement | null) => {
+    const id = element?.dataset.agentFleetCard;
+    if (!element || id === undefined) return;
+    cardsById.current.set(id, element);
+    return () => {
+      if (cardsById.current.get(id) === element) cardsById.current.delete(id);
+    };
+  }, []);
   const openIndex = openId === null ? -1 : agents.findIndex((agent) => agent.id === openId);
   const [focusIndex, setFocusIndex] = useState(Math.max(0, openIndex));
   const tabIndexOwner = Math.min(focusIndex, Math.max(0, agents.length - 1));
-  const virtualRef = useRef<VirtuosoHandle | null>(null);
-  const pendingFocus = useRef<number | null>(null);
+  const agentIds = useMemo(() => agents.map((agent) => agent.id), [agents]);
+  // A large fleet renders only the cards near the scrolled view of its
+  // scrolling ancestor; the focused card stays mounted.
+  const windowed = useWindowedList({ keys: agentIds, estimateSize: 96, enabled: virtualize, overscan: 400 });
+  useImperativeHandle(handleRef, () => ({
+    revealAgent: (id: string) => {
+      const index = agentIds.indexOf(id);
+      if (index >= 0) windowed.scrollToIndex(index);
+    },
+  }), [agentIds, windowed]);
+  // Moves focus by agent id: at once when the card is mounted, or once it is
+  // after scrolling, unless focus moved anywhere else meanwhile.
   const focusCard = (index: number) => {
+    const id = agentIds[index];
+    if (id === undefined) return;
     setFocusIndex(index);
-    const card = cardRefs.current[index];
-    if (card?.isConnected) { card.focus(); return; }
-    pendingFocus.current = index;
-    virtualRef.current?.scrollToIndex({ index, align: "center" });
+    if (virtualize) windowed.scrollToIndex(index);
+    focusWhenMounted(() => cardsById.current.get(id) ?? null);
   };
-  useEffect(() => {
-    if (virtualize && openIndex >= 0) virtualRef.current?.scrollToIndex({ index: openIndex, align: "center" });
-  }, [openIndex, virtualize]);
-  useEffect(() => {
-    if (!virtualize) return;
-    const reveal = (event: Event) => {
-      const { key, focus } = (event as CustomEvent<{ key: string; focus: boolean }>).detail;
-      const index = agents.findIndex((agent) => agent.id === key);
-      if (index < 0) return;
-      if (focus) pendingFocus.current = index;
-      virtualRef.current?.scrollToIndex({ index, align: "center" });
-    };
-    window.addEventListener("fleet-reveal-row", reveal);
-    return () => window.removeEventListener("fleet-reveal-row", reveal);
-  }, [agents, virtualize]);
   const onCardKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const next = moveAgentFleetFocus(event.key === "j" ? "ArrowDown" : event.key === "k" ? "ArrowUp" : event.key, index, agents.length);
     if (next === null) return;
     event.preventDefault();
+    if (next === index) {
+      cancelFocusWhenMounted();
+      return;
+    }
     focusCard(next);
   };
 
@@ -178,9 +202,13 @@ export function AgentFleet({
 
   const totals = summarizeAgentFleet(agents);
 
+  const groupStarts = renderGroupStart ? agents.map((agent, index) => renderGroupStart(agent, index) ?? null) : null;
+  const groupStartCount = groupStarts?.filter((start) => start !== null).length ?? 0;
+
   const renderAgent = (agent: AgentFleetAgent, index: number) => {
     const isOpen = agent.id === openId;
     const panelId = `${baseId}-tree-${index}`;
+    const groupStart = groupStarts?.[index] ?? null;
     const card = <MainAgentCard
           agent={agent}
           idBase={`${baseId}-card-${index}`}
@@ -190,19 +218,13 @@ export function AgentFleet({
           now={now}
           formatCost={formatCostProp}
           renderToolIcon={renderToolIcon}
-          buttonRef={(element) => {
-            cardRefs.current[index] = element;
-            if (element && pendingFocus.current === index) {
-              pendingFocus.current = null;
-              requestAnimationFrame(() => element.isConnected && element.focus());
-            }
-          }}
+          buttonRef={cardRef}
           onFocus={() => setFocusIndex(index)}
           onKeyDown={(event) => onCardKeyDown(event, index)}
           onToggle={() => setOpen(isOpen ? null : agent.id)}
         />;
-    return (
-      <div key={agent.id} role="listitem" aria-setsize={agents.length} aria-posinset={index + 1} className={sx(virtualize ? styles.virtualItem : styles.item)}>
+    const content = (
+      <>
         {renderMainCard ? renderMainCard(agent, card) : card}
         {isOpen ? (
           <SubagentTreePanel
@@ -213,7 +235,7 @@ export function AgentFleet({
             actions={renderTreeActions?.(agent)}
             onReturnFocus={() => {
               setFocusIndex(index);
-              cardRefs.current[index]?.focus();
+              cardsById.current.get(agent.id)?.focus();
             }}
             onSelect={(child, trigger) => {
               onSelect?.(child);
@@ -225,6 +247,23 @@ export function AgentFleet({
             onResolve={onResolve}
           />
         ) : null}
+      </>
+    );
+    const listItem = { role: "listitem", "aria-setsize": agents.length, "aria-posinset": index + 1 } as const;
+    if (virtualize) {
+      // A measured box: the group heading, then the card with its tree.
+      return (
+        <div key={agent.id} {...listItem} ref={windowed.measureRef} data-windowed-key={agent.id}
+          className={sx(styles.virtualSlot, groupStart !== null && index > 0 && styles.virtualGroupStart)}>
+          {groupStart !== null ? <div className={sx(styles.groupStart)}>{groupStart}</div> : null}
+          <div className={sx(styles.virtualItem)}>{content}</div>
+        </div>
+      );
+    }
+    return (
+      <div key={agent.id} {...listItem} className={sx(styles.item)}>
+        {groupStart !== null ? <div className={sx(styles.groupStart)}>{groupStart}</div> : null}
+        {content}
       </div>
     );
   };
@@ -265,18 +304,16 @@ export function AgentFleet({
         <div
           role="list"
           aria-labelledby={headingId}
+          ref={virtualize ? windowed.listRef : undefined}
           className={sx(styles.body, virtualize && styles.virtualBody)}
-          // The wide layout gives each card its own grid row (see the styles).
-          style={{ "--agent-fleet-rows": String(agents.length) } as CSSProperties}
+          // The wide layout gives each card (and group heading) its own grid row (see the styles).
+          style={{ "--agent-fleet-rows": String(agents.length + groupStartCount) } as CSSProperties}
         >
-          {virtualize ? <Virtuoso
-            ref={virtualRef}
-            data={agents as AgentFleetAgent[]}
-            computeItemKey={(_, agent) => agent.id}
-            className={sx(styles.virtualList)}
-            overscan={200}
-            itemContent={(index, agent) => renderAgent(agent, index)}
-          /> : agents.map(renderAgent)}
+          {virtualize
+            ? windowed.slots.map((slot) => slot.kind === "gap"
+              ? <div key={slot.key} aria-hidden="true" style={{ blockSize: slot.size }} />
+              : renderAgent(agents[slot.index]!, slot.index))
+            : agents.map(renderAgent)}
         </div>
       )}
       <StepsWindow

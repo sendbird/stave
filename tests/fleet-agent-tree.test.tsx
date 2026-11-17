@@ -13,6 +13,7 @@ import {
   summarizeAgentFleet,
   type AgentFleetAgent,
 } from "@/components/aui/components/AgentFleet";
+import { nextFleetTreeIndex } from "@/components/layout/FleetAgentTree";
 import { applyAppLocale } from "@/i18n";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
 import {
@@ -245,6 +246,20 @@ describe("keyboard and open state", () => {
     expect(moveAgentFleetFocus("End", 0, 3)).toBe(2);
     expect(moveAgentFleetFocus("Enter", 0, 3)).toBeNull();
     expect(moveAgentFleetFocus("ArrowDown", 0, 0)).toBeNull();
+  });
+
+  test("the Fleet Tree's card step wraps the same way at any size, and j/k match the arrows", () => {
+    for (const count of [3, 2000]) {
+      expect(nextFleetTreeIndex("ArrowUp", 0, count)).toBe(count - 1);
+      expect(nextFleetTreeIndex("k", 0, count)).toBe(count - 1);
+      expect(nextFleetTreeIndex("ArrowDown", count - 1, count)).toBe(0);
+      expect(nextFleetTreeIndex("j", count - 1, count)).toBe(0);
+      expect(nextFleetTreeIndex("j", 0, count)).toBe(1);
+      expect(nextFleetTreeIndex("Home", 2, count)).toBe(0);
+      expect(nextFleetTreeIndex("End", 0, count)).toBe(count - 1);
+    }
+    expect(nextFleetTreeIndex("Enter", 0, 3)).toBeNull();
+    expect(nextFleetTreeIndex("j", -1, 3)).toBeNull();
   });
 
   test("an open id that left the list reads as none; tools stop at three and count the rest", () => {

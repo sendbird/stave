@@ -1,5 +1,6 @@
-import { TableVirtuoso, type TableVirtuosoHandle } from "react-virtuoso";
-import { focusFleetVirtualRow } from "./fleet-virtual-focus";
+import { revealFleetVirtualRow, useFleetRevealListener } from "./fleet-virtual-focus";
+import { useWindowedList } from "@/hooks/use-windowed-list";
+import { themeProps } from "@/components/aui/theming/theme-props";
 import { densityPad } from "@/components/aui/tokens/density.stylex";
 import { fleetSelectionColumn, fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
@@ -9,21 +10,23 @@ import { useFleetGroupingStore } from "@/store/fleet-grouping-store";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
-import { memo, useEffect, useMemo, useRef, useState, type ReactNode, type ComponentProps } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import {
   tableStyles,
+  TableBody,
   TableCell,
   TableHead,
+  TableHeader,
   TableRow,
 } from "@/components/aui/components/Table";
 import { Skeleton } from "@/components/aui/components/Skeleton";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { transition } from "@/components/aui/recipes/transition";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
-import { sx } from "@/components/aui/utils/stylex";
+import { cx, sx } from "@/components/aui/utils/stylex";
 import { fleetStatusToWorkState } from "@/lib/fleet/task-status";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import {
@@ -497,43 +500,87 @@ function FleetTaskRowsTable(props: {
   const groups = useMemo(() => groupFleetTaskRows(rows, grouping, groupRuns), [rows, grouping, groupRuns]);
   const targets = useMemo(() => groups.flatMap((group) => group.rows).map((row) => ({ ...row, taskId: row.task.id })), [groups]);
   useFleetSelectionRows("table", targets);
-  const list = useRef<TableVirtuosoHandle>(null);
-  const items = useMemo(() => groups.flatMap((group) => [
+  const items = useMemo<FleetTaskTableItem[]>(() => groups.flatMap((group) => [
     ...(group.title ? [{ key: `group:${group.id}`, group, row: null }] : []),
     ...group.rows.flatMap((row) => [
       { key: row.key, group, row },
       ...(row.key === props.expandedTaskKey ? [{ key: `control:${row.key}`, group, row, controls: true }] : []),
     ]),
   ]), [groups, props.expandedTaskKey]);
-  const [startIndex, setStartIndex] = useState(0);
-  const activeGroup = items[startIndex]?.group;
-  useEffect(() => {
-    let frame = 0;
-    const reveal = (event: Event) => {
-      const { key, focus } = (event as CustomEvent<{ key: string; focus: boolean }>).detail;
-      const index = items.findIndex((item) => item.key === key);
-      if (index < 0) return;
-      list.current?.scrollIntoView({ index, align: "center" });
-      if (focus) {
-        let attempts = 0;
-        const retry = () => {
-          if (!focusFleetVirtualRow(key) && ++attempts < 30) frame = requestAnimationFrame(retry);
-        };
-        frame = requestAnimationFrame(retry);
-      }
-    };
-    window.addEventListener("fleet-reveal-row", reveal);
-    return () => { window.removeEventListener("fleet-reveal-row", reveal); cancelAnimationFrame(frame); };
-  }, [items]);
+  const itemKeys = useMemo(() => items.map((item) => item.key), [items]);
+  const headRef = useRef<HTMLTableSectionElement>(null);
+  const [headSize, setHeadSize] = useState(0);
+  useLayoutEffect(() => {
+    const head = headRef.current;
+    if (!head || typeof ResizeObserver === "undefined") return;
+    const measure = () => setHeadSize(head.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(head);
+    return () => observer.disconnect();
+  }, []);
+  const grouped = items[0]?.row === null;
+  const windowed = useWindowedList({
+    keys: itemKeys,
+    estimateSize: (index) => (items[index]?.controls ? 240 : 37),
+    initialCount: 20,
+    overscan: 300,
+    // Rows under the sticky header (and the sticky group row) are hidden.
+    insetStart: () => (headRef.current?.getBoundingClientRect().height ?? 0)
+      + (grouped ? (headRef.current?.closest("table")?.querySelector<HTMLElement>("[data-fleet-task-table-group]")?.getBoundingClientRect().height ?? 0) : 0),
+    // The group of the first visible row keeps its header row mounted; that row is the sticky one.
+    // The rows just above (under the sticky group row) keep theirs too, so the
+    // outgoing header stays in place while the next one slides over it.
+    pinnedKeys: (first) => [...new Set(
+      [first - 2, first - 1, first].flatMap((index) => {
+        const group = items[index]?.group;
+        return group?.title ? [`group:${group.id}`] : [];
+      }),
+    )],
+  });
+  useFleetRevealListener((key) => {
+    const index = itemKeys.indexOf(key);
+    if (index >= 0) windowed.scrollToIndex(index);
+  });
   const groupHeader = (group: typeof groups[number]) => <FleetGroupHeader
     title={grouping === "status" ? t(`fleet:grouping.${group.title as FleetStatusGroup}`) : group.title!}
     keys={group.rows.map((row) => row.key)} />;
+  const columnCount = FLEET_TASK_COLUMNS.length + 1;
+  const renderItem = (item: FleetTaskTableItem, index: number) => {
+    const shared = { ref: windowed.measureRef, "data-windowed-key": item.key, "aria-rowindex": index + 2 };
+    if (!item.row) {
+      return <TableRow key={item.key} {...shared} data-fleet-task-table-group={item.group.id}>
+        <TableCell colSpan={columnCount} xstyle={styles.groupCell}>{groupHeader(item.group)}</TableCell>
+      </TableRow>;
+    }
+    if (item.controls) {
+      const row = item.row;
+      return <TableRow key={item.key} {...shared} data-fleet-task-table-controls={row.key}>
+        <TableCell colSpan={columnCount} xstyle={styles.controlsCell}>
+          <FleetTaskControlPanel target={{ repositoryPath: row.repositoryPath, workspaceId: row.workspaceId,
+            taskId: row.task.id, taskTitle: row.task.title || untitled, turnId: row.activeTurnId }}
+            returnFocusElementId={fleetTaskTableOpenId(row.key)} onOpenTask={props.onOpenTask}
+            onClose={() => props.onCloseTaskControl?.()} />
+        </TableCell>
+      </TableRow>;
+    }
+    return <TableRow key={item.key} {...shared} xstyle={fleetSelectionRowMarker}
+      data-fleet-task-table-row={item.key} data-fleet-select-key={item.key}>
+      <FleetTaskTableRow nowMs={props.nowMs} onOpenTask={props.onOpenTask} owner={ownerByKey.get(item.row.key) ?? null} row={item.row} />
+    </TableRow>;
+  };
+  const theme = themeProps("table", { density: "compact" });
   return (
-    <div className={sx(styles.virtualFrame)} data-fleet-task-table="true" role="region" aria-label={t("fleet:taskTable.label")}
+    <div
+      {...theme}
+      className={cx(sx(tableStyles.frame, styles.frame), theme.className)}
+      style={{ "--atelier-table-cell-padding-block": densityPad.sm, "--fleet-task-table-head": `${headSize}px` } as CSSProperties}
+      data-fleet-task-table="true"
+      role="region"
+      aria-label={t("fleet:taskTable.label")}
       onKeyDown={(event) => {
         if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-        const target = event.target as HTMLElement;
-        const key = target.closest<HTMLElement>("[data-fleet-select-key]")?.dataset.fleetSelectKey;
+        const key = (event.target as HTMLElement).closest<HTMLElement>("[data-fleet-select-key]")?.dataset.fleetSelectKey;
         const current = targets.findIndex((row) => row.key === key);
         if (current < 0) return;
         const next = event.key === "End" ? targets.length - 1 : event.key === "Home" ? 0
@@ -541,54 +588,34 @@ function FleetTaskRowsTable(props: {
           : ["ArrowUp", "k"].includes(event.key) ? Math.max(current - 1, 0) : null;
         if (next === null) return;
         event.preventDefault(); event.stopPropagation();
-        window.dispatchEvent(new CustomEvent("fleet-reveal-row", { detail: { key: targets[next]!.key, focus: true } }));
-      }}>
-    <TableVirtuoso
-      ref={list}
-      className={sx(styles.virtualTable)}
-      initialItemCount={Math.min(items.length, 20)}
-      data={items}
-      computeItemKey={(_, item) => item.key}
-      increaseViewportBy={200}
-      rangeChanged={({ startIndex }) => setStartIndex(startIndex)}
-      components={virtualTableComponents}
-      context={{ count: items.length + 1 }}
-      fixedHeaderContent={() => <>
-        <TableRow>
-          <TableHead xstyle={fleetSelectionColumn.cell}><FleetGroupHeader controlOnly title={t("fleet:selection.selectAll")} keys={targets.map((target) => target.key)} /></TableHead>
-          {FLEET_TASK_COLUMNS.map((column) => <TableHead key={column.key} data-fleet-task-column={column.key}
-            sortDirection={sort?.key === column.key ? sort.direction : null}
-            onSort={() => setSort((current) => nextFleetTaskSort(current, column.key))}>{t(column.label)}</TableHead>)}
-        </TableRow>
-        {activeGroup?.title ? <TableRow><TableCell colSpan={8}>{groupHeader(activeGroup)}</TableCell></TableRow> : null}
-      </>}
-      itemContent={(_, item) => !item.row ? <TableCell colSpan={8}>{groupHeader(item.group)}</TableCell>
-        : "controls" in item ? <TableCell colSpan={8} xstyle={styles.controlsCell}>
-          <FleetTaskControlPanel target={{ repositoryPath: item.row.repositoryPath, workspaceId: item.row.workspaceId,
-            taskId: item.row.task.id, taskTitle: item.row.task.title || untitled, turnId: item.row.activeTurnId }}
-            returnFocusElementId={fleetTaskTableOpenId(item.row.key)} onOpenTask={props.onOpenTask}
-            onClose={() => props.onCloseTaskControl?.()} />
-        </TableCell>
-        : <FleetTaskTableRow nowMs={props.nowMs} onOpenTask={props.onOpenTask} owner={ownerByKey.get(item.row.key) ?? null} row={item.row} />}
-    />
+        if (next !== current) revealFleetVirtualRow(targets[next]!.key, true);
+      }}
+    >
+      <table className={sx(tableStyles.table)} aria-rowcount={items.length + 1}>
+        <TableHeader sticky ref={headRef}>
+          <TableRow aria-rowindex={1}>
+            <TableHead xstyle={fleetSelectionColumn.cell}><FleetGroupHeader controlOnly title={t("fleet:selection.selectAll")} keys={targets.map((target) => target.key)} /></TableHead>
+            {FLEET_TASK_COLUMNS.map((column) => <TableHead key={column.key} data-fleet-task-column={column.key}
+              sortDirection={sort?.key === column.key ? sort.direction : null}
+              onSort={() => setSort((current) => nextFleetTaskSort(current, column.key))}>{t(column.label)}</TableHead>)}
+          </TableRow>
+        </TableHeader>
+        <TableBody ref={windowed.listRef}>
+          {windowed.slots.map((slot) => slot.kind === "gap"
+            ? <tr key={slot.key} aria-hidden="true"><td colSpan={columnCount} className={sx(styles.gapCell)} style={{ blockSize: slot.size }} /></tr>
+            : renderItem(items[slot.index]!, slot.index))}
+        </TableBody>
+      </table>
     </div>
   );
 }
 
-// Stable component identities preserve measured rows and their focused controls.
-const virtualTableComponents = {
-  Table: ({ context, ...props }: ComponentProps<"table"> & { context?: { count: number } }) =>
-    <table {...props} aria-rowcount={context?.count} className={sx(tableStyles.table)} />,
-  TableHead: ({ context: _context, ...props }: ComponentProps<"thead"> & { context?: unknown }) =>
-    <thead {...props} className={sx(tableStyles.header)} />,
-  TableRow: ({ item, context: _context, ...props }: ComponentProps<"tr"> & {
-    item: { key: string; row: FleetTaskRow | null; controls?: boolean }; context?: unknown;
-  }) => <TableRow {...props} xstyle={fleetSelectionRowMarker}
-    aria-rowindex={Number((props as Record<string, unknown>)["data-index"]) + 2}
-    data-fleet-task-table-row={item.row && !item.controls ? item.key : undefined}
-    data-fleet-select-key={item.row && !item.controls ? item.key : undefined}
-    data-fleet-task-table-controls={item.controls ? item.row?.key : undefined} />,
-};
+interface FleetTaskTableItem {
+  key: string;
+  group: ReturnType<typeof groupFleetTaskRows>[number];
+  row: FleetTaskRow | null;
+  controls?: boolean;
+}
 
 /** The id of a row's task button, where focus returns when its panel closes. */
 function fleetTaskTableOpenId(rowKey: string) {
@@ -691,9 +718,27 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
 });
 
 const styles = stylex.create({
-  virtualFrame: { minBlockSize: 0, blockSize: "100%", minInlineSize: 0,
-    backgroundColor: vars["--aui-color-surface-raised"] },
-  virtualTable: { blockSize: "100%", "--atelier-table-cell-padding-block": densityPad.sm },
+  // Bounded by the board's scroller so the table scrolls itself and its
+  // header stays in view.
+  frame: {
+    borderInlineWidth: 0,
+    borderRadius: 0,
+    maxBlockSize: "100%",
+    minWidth: 0,
+  },
+  // Every group row sticks under the header; the latest one to reach it (the
+  // group of the first visible row) paints over the earlier ones.
+  groupCell: {
+    backgroundColor: vars["--aui-color-surface-raised"],
+    insetBlockStart: "var(--fleet-task-table-head, 0px)",
+    position: "sticky",
+    zIndex: vars["--aui-z-index-sticky"],
+  },
+  // Stands in for rows outside the rendered window.
+  gapCell: {
+    borderWidth: 0,
+    padding: 0,
+  },
   reading: {
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],

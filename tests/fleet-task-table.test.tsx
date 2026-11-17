@@ -227,9 +227,13 @@ describe("the table", () => {
     const html = render(rows);
     const mounted = html.match(/data-fleet-task-table-row=/g) ?? [];
     expect(mounted.length).toBeGreaterThan(0);
-    expect(mounted.length).toBeLessThan(150);
+    expect(mounted.length).toBeLessThan(66);
     expect(html).toContain('aria-rowcount="2001"');
-    expect(html).toContain('aria-rowindex="2"');
+    // The header row is 1 and body rows follow it, each index once.
+    const indexes = [...html.matchAll(/aria-rowindex="(\d+)"/g)].map((match) => Number(match[1]));
+    expect(indexes[0]).toBe(1);
+    expect(indexes[1]).toBe(2);
+    expect(new Set(indexes).size).toBe(indexes.length);
   });
 
   test("names each column, the state, the need and how long it has waited", () => {
