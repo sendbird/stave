@@ -2368,13 +2368,14 @@
         "outputs_other": "끝난 작업 {{count}}개의 산출물",
         "work_other": "진행 중인 작업 {{count}}개 취소",
         "workStopped_other": "진행 중인 작업 {{count}}개 취소됨",
-        "workKept_other": "{{count}}개 유지(직접 맡음·일시정지·게시 중)"
+        "workKept_other": "{{count}}개 유지(사용자 인수, 일시정지, 게시 중 또는 취소하지 못함)"
       },
       "record": {
         "applied": "정리함",
         "undone": "되돌림",
         "fromTars": "Tars 제안",
         "nothing": "정리할 항목 없음",
+        "refused_other": "작업 {{count}}개를 취소하지 못해 화면에 유지했습니다.",
         "cancelledStays": "복원하면 카드는 다시 보이지만, 취소한 작업은 다시 시작되지 않습니다."
       },
       "restore": "복원",

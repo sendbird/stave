@@ -761,7 +761,9 @@ the one clear that also changes work: it cancels Tars's unfinished work.
   and its outputs then leave the panel. The record says what was cancelled and
   kept; **Restore** shows the cards again but never restarts cancelled work.
   If Stave stops while cancelling, retrying the same reset joins the
-  cancellations already sent.
+  cancellations already sent, using the original scope and work membership. A
+  refused cancellation keeps its question visible. Resetting more than 1,000
+  work items is refused before any cancellation.
 - **Done and Outputs.** **Clear** in the tray's **Done** section hides ended
   work's cards; **Clear** in **Outputs** hides ended work's outputs. Only ended
   (completed or cancelled) work is hidden; running, waiting, paused, blocked

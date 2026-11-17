@@ -1,6 +1,6 @@
 import { TARS_INSPECTION_ROUNDS, type TarsInspectionReader } from "./tars-inspections";
 import {
-  CancelTarsMessageInputSchema, GetTarsConversationInputSchema, TarsMessageInputSchema, TarsAnswerInputSchema,
+  TarsActInputSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema, TarsMessageInputSchema, TarsAnswerInputSchema,
   TarsConversationSchema, TarsConversationSettingsSchema, TarsControlReasonSchema, isTarsHoldableAction, tarsConfirmationRequestId, isTarsAnswerRetryable,
   TarsDismissInputSchema, TARS_MESSAGE_FAILURE_TEXT, isTarsDecisionClosure, type TarsQueueWaitReason,
   type TarsMessage, type ApplyTarsDecisionInput, type ConfirmTarsProposalInput, type TarsActInput, type TarsActResult, type TarsActionReceipt,
@@ -240,9 +240,9 @@ export function createTarsConversationService(ports: ConversationPorts) {
   async function resetWork(clearRequestId: string, source: TarsClearSource, targets: readonly string[]): Promise<TarsClearWork> {
     if (!ports.act) throw new Error("The host control path is unavailable.");
     const plan = tarsWorkResetPlan(ports.responsibilities.snapshot().responsibilities);
-    const questions = decisions().filter((view) => view.state === "waiting");
+    const questions = decisions().filter((view) => view.state === "waiting" || (view.state === "invalid" && view.why === "targetEnded"));
     const cancelled: string[] = [];
-    const kept = [...plan.kept];
+    const kept = [...plan.kept, ...plan.stop.filter((id) => !targets.includes(id)).map((responsibilityId) => ({ responsibilityId, reason: "refused" as const }))];
     const requestIds = (id: string) => [tarsClearWorkRequestId(clearRequestId, id), `${tarsClearWorkRequestId(clearRequestId, id)}:retry`];
     for (const id of targets) {
       let outcome: "applied" | "rejected" = "rejected";
@@ -253,8 +253,9 @@ export function createTarsConversationService(ports: ConversationPorts) {
         const currentPlan = tarsWorkResetPlan([row]);
         if (currentPlan.kept.length) { kept.push(...currentPlan.kept); break; }
         const saved = ports.conversations.getAction(requestId);
-        const request = saved?.action.kind === "control" ? { ...saved.action, requestId, source: saved.source }
-          : { requestId, responsibilityId: id, expectedRevision: row.revision, operation: "cancel" as const, source };
+        const request = TarsActInputSchema.parse(saved?.action.kind === "control" ? { requestId, source: saved.source, responsibilityId: saved.action.responsibilityId,
+          expectedRevision: saved.action.expectedRevision, operation: saved.action.operation, ...(saved.action.input ? { input: saved.action.input } : {}) }
+          : { requestId, responsibilityId: id, expectedRevision: row.revision, operation: "cancel" as const, source });
         const { record } = await ports.act(request);
         if (record.status === "pending") throw new Error("Some work is still stopping. Try the reset again to finish it.");
         outcome = record.status === "applied" ? "applied" : "rejected";
@@ -277,33 +278,34 @@ export function createTarsConversationService(ports: ConversationPorts) {
   }
 
   let clearing: Promise<void> = Promise.resolve();
+  const clearingProposals = new Set<string>();
   async function applyClear(rawInput: unknown) {
-      if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
-      let input = TarsClearInputSchema.parse(rawInput);
-      const proposal = parseTarsClearProposalRequestId(input.requestId);
-      // A saved clear answers its retry as it is (or refuses other scopes); its reset never runs twice.
-      if (proposal && !ports.responsibilities.view.getClear(input.requestId)) ports.conversations.checkClearProposal(proposal, input.scopes);
-      const rows = ports.responsibilities.snapshot().responsibilities;
-      const workScope = normalizeTarsClearScopes(input.scopes).includes("work");
-      // Refuse before effects: scope/counts and the persisted outcome must describe every item.
-      if (workScope && rows.length > TARS_CLEAR_MAX_ITEMS) throw new Error("Too many work items to reset at once.");
-      const intent = ports.responsibilities.view.reserveClear(input, workScope ? tarsWorkResetPlan(rows).stop : []);
-      input = intent.input;
-      const work = workScope && !ports.responsibilities.view.getClear(input.requestId)
-        ? await resetWork(input.requestId, input.source, intent.targets) : undefined;
-      const at = now();
-      const previous = clearedAt();
-      return ports.responsibilities.view.clear(input, { responsibilities: ports.responsibilities.snapshot().responsibilities, now: at,
-        hiddenMessages: () => {
-          const { keeps, messages } = clearKeeps();
-          const kept = messages.filter((message) => keeps.messageIds.has(message.id) && message.createdAt <= at && (!previous || message.createdAt > previous)
-            && message.state !== "queued" && message.state !== "reasoning").length;
-          return ports.conversations.countSettledBetween(previous, at) - kept;
-        },
-        inProgress: () => ports.conversations.listInProgressIds(),
-        ...(work ? { work } : {}),
-        ...(proposal ? { proposal: { ...proposal, settle: () => { ports.conversations.settleClearProposal(proposal, input.scopes, at); } } } : {}) });
-    }
+    if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
+    let input = TarsClearInputSchema.parse(rawInput);
+    const proposal = parseTarsClearProposalRequestId(input.requestId);
+    // A saved clear answers its retry as it is (or refuses other scopes); its reset never runs twice.
+    if (proposal && !ports.responsibilities.view.getClear(input.requestId)) ports.conversations.checkClearProposal(proposal, input.scopes);
+    const rows = ports.responsibilities.snapshot().responsibilities;
+    const workScope = normalizeTarsClearScopes(input.scopes).includes("work");
+    // Refuse before effects: scope/counts and the persisted outcome must describe every item.
+    if (workScope && !ports.responsibilities.view.getClear(input.requestId) && rows.length > TARS_CLEAR_MAX_ITEMS) throw new Error("Too many work items to reset at once.");
+    const intent = ports.responsibilities.view.reserveClear(input, workScope ? tarsWorkResetPlan(rows).stop : []);
+    input = intent.input;
+    const work = workScope && !ports.responsibilities.view.getClear(input.requestId)
+      ? await resetWork(input.requestId, input.source, intent.targets) : undefined;
+    const at = now();
+    const previous = clearedAt();
+    return ports.responsibilities.view.clear(input, { responsibilities: ports.responsibilities.snapshot().responsibilities, now: at,
+      hiddenMessages: () => {
+        const { keeps, messages } = clearKeeps();
+        const kept = messages.filter((message) => keeps.messageIds.has(message.id) && message.createdAt <= at && (!previous || message.createdAt > previous)
+          && message.state !== "queued" && message.state !== "reasoning").length;
+        return ports.conversations.countSettledBetween(previous, at) - kept;
+      },
+      inProgress: () => ports.conversations.listInProgressIds(),
+      ...(work ? { work } : {}),
+      ...(proposal ? { proposal: { ...proposal, settle: () => { ports.conversations.settleClearProposal(proposal, input.scopes, at); } } } : {}) });
+  }
 
   /** Tars's history boundary: the active clear's time and the messages it kept because they were under way. */
   function historyAfter() {
@@ -580,7 +582,11 @@ export function createTarsConversationService(ports: ConversationPorts) {
      */
     clear(rawInput: unknown) {
       const input = TarsClearInputSchema.parse(rawInput);
-      const result = clearing.then(() => applyClear(input));
+      const result = clearing.then(async () => {
+        clearingProposals.add(input.requestId);
+        try { return await applyClear(input); }
+        finally { clearingProposals.delete(input.requestId); }
+      });
       clearing = result.then(() => {}, () => {});
       return result;
     },
@@ -643,6 +649,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
     dismissDecision(rawInput: unknown): TarsAnswerResult {
       if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
       const input = TarsDismissInputSchema.parse(rawInput);
+      if (clearingProposals.has(input.decisionId.replace(/^confirm:/, "clear:"))) return { answer: null, refusal: "notWaiting" };
       const existing = ports.conversations.getAnswer(input.decisionId);
       if (existing?.effect.kind === "dismiss") return { answer: existing, refusal: null };
       // Clear cards share the saved dismissal path with other confirmations.

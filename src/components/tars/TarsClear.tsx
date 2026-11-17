@@ -49,12 +49,16 @@ export function TarsClearRecordLine({ record, busy, error, onUndo }: { record: T
   const { t } = useTranslation(["shell"]);
   const undone = record.status === "undone";
   const conversation = record.scopes.includes("conversation");
+  const refused = record.work?.kept.filter((entry) => entry.reason === "refused").length ?? 0;
   return <TarsRecordRow state={undone ? "skipped" : "applied"} icon={Eraser} data-tars-clear-record={record.requestId} data-tars-clear-status={record.status}
     data-tars-clear-scopes={record.scopes.join(",")}
     lead={t(undone ? "shell:tars.clear.record.undone" : "shell:tars.clear.record.applied")} subject={describeHidden(record)}
     status={record.proposal ? t("shell:tars.clear.record.fromTars") : undefined}
     detail={error ? <TarsRecordDetail role="alert">{error}</TarsRecordDetail>
-      : record.work?.cancelled.length && !undone ? <TarsRecordDetail data-tars-clear-cancelled-stays="">{t("shell:tars.clear.record.cancelledStays")}</TarsRecordDetail> : null}
+      : record.work && !undone ? <TarsRecordDetail>
+        {record.work.cancelled.length ? <span data-tars-clear-cancelled-stays="">{t("shell:tars.clear.record.cancelledStays")}</span> : null}
+        {refused ? <span data-tars-clear-refused="">{record.work.cancelled.length ? " " : null}{t("shell:tars.clear.record.refused", { count: refused })}</span> : null}
+      </TarsRecordDetail> : null}
     actions={!undone && onUndo ? <Button variant="ghost" size="2xs" disabled={busy} data-tars-clear-undo={record.requestId} onClick={onUndo}>
       {t(conversation ? "shell:tars.clear.restore" : "shell:tars.clear.undo")}</Button> : null} />;
 }

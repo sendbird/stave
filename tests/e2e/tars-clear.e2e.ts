@@ -85,7 +85,7 @@ test.describe("Tars clear, retention and suggestions", () => {
     await dialog.getByRole("button", { name: "Clear and reset Work" }).click();
     const record = view(page).locator('[data-tars-clear-scopes="conversation,done,outputs,work"]');
     await expect(record).toContainText("1 unfinished work item cancelled");
-    await expect(record).toContainText("2 kept (taken over, paused or publishing)");
+    await expect(record).toContainText("2 kept (taken over, paused, publishing or not cancelled)");
     await expect(record.locator("[data-tars-clear-cancelled-stays]")).toBeVisible();
     await expect(laneCount(page, "running")).toHaveText("1");
     await expect(laneCount(page, "needsYou")).toHaveText("1");

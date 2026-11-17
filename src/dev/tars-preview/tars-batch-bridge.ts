@@ -4,7 +4,8 @@ import type { TarsBridgeApi, TarsSnapshot } from "@/lib/tars/types";
 const ENDED = new Set(["completed", "cancelled"]);
 
 /** UI-only contract fixture; host eligibility is exercised separately with real stores. */
-export function createPreviewBatchBridge(snapshot: TarsSnapshot, changed: () => void): Pick<TarsBridgeApi, "batch" | "batches"> {
+export function createPreviewBatchBridge(snapshot: TarsSnapshot, changed: () => void, options: { failOnce?: boolean; missingWorkspace?: boolean } = {}): Pick<TarsBridgeApi, "batch" | "batches"> {
+  let failed = false;
   const key = "tars-preview-batches";
   let records = TarsBatchRecordsSchema.parse(JSON.parse(sessionStorage.getItem(key) ?? "[]"));
   const save = () => { sessionStorage.setItem(key, JSON.stringify(records)); changed(); };
@@ -24,9 +25,10 @@ export function createPreviewBatchBridge(snapshot: TarsSnapshot, changed: () => 
         const record: TarsBatchRecord = { id: open?.id ?? crypto.randomUUID(), action, ...(input.proposal ? { proposal: input.proposal } : {}), state: "proposed", createdAt: new Date().toISOString(),
           ...(omitted ? { omitted } : {}),
           items: rows.map(row => ({ responsibilityId: row.id, revision: row.revision, workspaceId: row.executionWorkspaceId, name: row.title, repositoryPath: row.repositoryPath,
-            bytes: action.kind === "cleanup" ? 1048576 : null, reason: null, action: action.kind === "cleanup" ? "archive" : action.operation, status: "included" })) };
+            bytes: action.kind === "cleanup" ? 1048576 : null, reason: options.missingWorkspace ? "workspaceMissing" : null, action: action.kind === "cleanup" ? "archive" : action.operation, status: options.missingWorkspace ? "skipped" : "included" })) };
         records = [...records.filter(row => row.id !== record.id), record]; save(); return structuredClone(record);
       }
+      if (input.operation === "confirm" && options.failOnce && !failed) { failed = true; throw new Error("Fixture transport failure"); }
       const record = records.find(row => row.id === input.id);
       if (!record) throw new Error("Unknown batch");
       if (input.operation === "decline") {

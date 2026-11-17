@@ -2414,14 +2414,16 @@
         "work_other": "cancel {{count}} unfinished work items",
         "workStopped_one": "{{count}} unfinished work item cancelled",
         "workStopped_other": "{{count}} unfinished work items cancelled",
-        "workKept_one": "{{count}} kept (taken over, paused or publishing)",
-        "workKept_other": "{{count}} kept (taken over, paused or publishing)"
+        "workKept_one": "{{count}} kept (taken over, paused, publishing or not cancelled)",
+        "workKept_other": "{{count}} kept (taken over, paused, publishing or not cancelled)"
       },
       "record": {
         "applied": "Cleared",
         "undone": "Restored",
         "fromTars": "from Tars",
         "nothing": "Nothing to clear",
+        "refused_one": "{{count}} item was not cancelled and remains visible.",
+        "refused_other": "{{count}} items were not cancelled and remain visible.",
         "cancelledStays": "Restore shows the cards again; cancelled work stays cancelled."
       },
       "restore": "Restore",

@@ -657,7 +657,9 @@ be hidden, and how many are kept. Tars's unfinished work is cancelled through
 the normal **Cancel**, so each run stops, and Tars's questions waiting on that
 work close instead of being asked again. Work you took over or paused, and work
 still publishing a draft PR, stays as it is; a refused cancel keeps that work
-and the record names it as kept. Asking "reset Work" or "In Progress 정리해줘"
+and the record names it as kept; its waiting question stays visible. Retrying a
+failed reset keeps the original scope and work membership. A reset with more
+than 1,000 work items is refused before any cancellation. Asking "reset Work" or "In Progress 정리해줘"
 shows one clear card without a question first, and only **Clear and cancel**
 applies it. **Restore** brings the cards back but never restarts cancelled
 work. A card with nothing left to clear offers **Close**, so it does not come

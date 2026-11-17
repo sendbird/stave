@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
+import { TarsStorageBusyError, TarsConversationStore } from "../electron/persistence/tars-conversation-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { applyTarsDecision } from "../electron/host-service/tars-decisions";
@@ -352,7 +352,7 @@ describe("Work reset", () => {
 /** The main-process service over one database with a moving clock, so a clear has a time before and after it. */
 function service(options: { filename?: string; start?: number; answer?: (request: SecondaryProviderExecutionRequest) => string;
   /** Runs before the runtime records a run control: a throw stands for a control whose outcome is not known. */
-  controlRun?: (responsibilityId: string, operation: string) => Promise<void> } = {}) {
+  controlRun?: (responsibilityId: string, operation: string) => Promise<void>; findRun?: () => Promise<string | null> } = {}) {
   let clock = options.start ?? 100;
   const now = () => at(clock++);
   const db = database(options.filename);
@@ -362,7 +362,7 @@ function service(options: { filename?: string; start?: number; answer?: (request
   const ledger = new RunLedgerStore(db);
   const requests: SecondaryProviderExecutionRequest[] = [];
   const runtime = createTarsRuntime({ store: responsibilities, now, validateScope: async () => {},
-    prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => null,
+    prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: options.findRun ?? (async () => null),
     startRun: async (entry) => `run-${entry.id}`, observe: async () => ({ state: "running", detail: null }),
     controlRun: async (entry, operation) => { if (options.controlRun) await options.controlRun(entry.id, operation); controls.push([entry.id, operation]); } });
   const controls: Array<[string, string]> = [];
@@ -594,4 +594,133 @@ describe("review fixes", () => {
     expect(store.view.activeConversationClear()?.inProgress).toEqual([]);
     expect(TarsClearRecordSchema.safeParse({ ...legacy, scopes: ["done"], hiddenMessages: undefined, done: [], inProgress: [] }).success).toBe(false);
   });
+});
+
+
+describe("Work reset failure boundaries", () => {
+  function ask(f: ReturnType<typeof service>, targets: Array<{ id: string; revision: number }>) {
+    const message = f.conversations.create({ requestId: "boundary-question", text: "Ask about work" }, f.now());
+    const claimed = f.conversations.claim(message.id, message.revision, f.now());
+    f.conversations.answer(message.id, claimed.revision, { reply: "Question", actions: [{ kind: "ask", question: "Stop this work?", options: [
+      ...targets.map(target => ({ label: target.id, rationale: "Stop", effect: { kind: "control" as const, responsibilityId: target.id, expectedRevision: target.revision, operation: "cancel" as const } })),
+      { label: "Keep", rationale: "Keep working", effect: { kind: "reply" as const } },
+    ] }] }, f.now());
+    return message;
+  }
+  test("a refused cancel retains its question through a conversation clear and restart", async () => {
+    const filename = persisted();
+    const f = service({ filename, controlRun: async () => { throw new Error("Fixture refusal"); } }); f.service.start();
+    const running = row(f.responsibilities, "refused", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+    const message = ask(f, [running]); f.service.wake(); await f.service.whenIdle();
+    const result = await f.service.clear({ requestId: "refused", scopes: ["conversation", "work"], source: "click" });
+    expect(result.work?.kept).toContainEqual({ responsibilityId: running.id, reason: "refused" });
+    expect(f.responsibilities.get(running.id)?.state).toBe("running");
+    expect(f.responsibilities.snapshot().pendingDecisions).toContainEqual(expect.objectContaining({ messageId: message.id }));
+    expect(f.service.getConversation().messages.some(m => m.id === message.id)).toBe(true);
+    await f.service.stop();
+    const restarted = service({ filename }); restarted.service.start();
+    expect(restarted.responsibilities.snapshot().pendingDecisions).toContainEqual(expect.objectContaining({ messageId: message.id }));
+    expect(restarted.service.getConversation().messages.some(m => m.id === message.id)).toBe(true);
+    await restarted.service.stop();
+  });
+  test("a pending cancel retries its saved identity across revisions, sources and restart without expanding membership", async () => {
+    const filename = persisted();
+    const f = service({ filename, controlRun: async () => { throw new TarsStorageBusyError(); } }); f.service.start();
+    const running = row(f.responsibilities, "pending", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+    const input = { requestId: "pending-reset", scopes: ["work" as const], source: "click" as const };
+    await expect(f.service.clear(input)).rejects.toThrow();
+    expect(f.responsibilities.view.getClear(input.requestId)).toBeNull();
+    f.responsibilities.patch(running.id, running.revision, { detail: "Observed again" }, f.now());
+    const newer = row(f.responsibilities, "newer", { state: "running" }, f.now());
+    await f.service.stop();
+    const restarted = service({ filename }); restarted.service.start();
+    await expect(restarted.service.clear({ ...input, scopes: ["conversation"] })).rejects.toThrow("different clear");
+    const result = await restarted.service.clear({ ...input, source: "key" });
+    expect(result.work?.cancelled).toEqual([running.id]);
+    expect(result.source).toBe("click");
+    expect(restarted.responsibilities.get(newer.id)?.state).toBe("running");
+    expect(restarted.controls).toEqual([[running.id, "cancel"]]);
+    expect(await restarted.service.clear(input)).toEqual(result);
+    expect(restarted.controls).toHaveLength(1);
+    await restarted.service.stop();
+  });
+  test("retry closes a question about work cancelled before an interrupted reset", async () => {
+    const filename = persisted();
+    let pendingId = "";
+    const f = service({ filename, controlRun: async id => { if (id === pendingId) throw new TarsStorageBusyError(); } }); f.service.start();
+    const first = row(f.responsibilities, "first", { state: "running", taskId: "first-task", executionWorkspaceId: "execution", agentRunId: "first-run" }, f.now());
+    const second = row(f.responsibilities, "second", { state: "running", taskId: "second-task", executionWorkspaceId: "execution", agentRunId: "second-run" }, f.now()); pendingId = second.id;
+    const question = ask(f, [first]); f.service.wake(); await f.service.whenIdle();
+    const input = { requestId: "partial", scopes: ["conversation" as const, "work" as const], source: "click" as const };
+    await expect(f.service.clear(input)).rejects.toThrow();
+    expect(f.responsibilities.get(first.id)?.state).toBe("cancelled");
+    await f.service.stop();
+    const restarted = service({ filename }); restarted.service.start();
+    const result = await restarted.service.clear(input);
+    expect(new Set(result.work?.cancelled)).toEqual(new Set([first.id, second.id]));
+    expect(restarted.conversations.getAnswer(`ask:${question.id}:0`)?.effect.kind).toBe("dismiss");
+    expect(restarted.responsibilities.snapshot().pendingDecisions).toEqual([]);
+    await restarted.service.stop();
+  });
+  test.each(["paused", "takenOver"] as const)("a %s ownership change during run lookup prevents cancel dispatch", async state => {
+    let f: ReturnType<typeof service>;
+    let id: string;
+    f = service({ findRun: async () => { const current = f.responsibilities.get(id)!; f.responsibilities.patch(id, current.revision, { state }, f.now()); return "fixture-run"; } });
+    f.service.start();
+    const running = row(f.responsibilities, "race", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution" }, f.now()); id = running.id;
+    const result = await f.service.clear({ requestId: "race", scopes: ["work"], source: "click" });
+    expect(f.controls).toEqual([]);
+    expect(f.responsibilities.get(id)?.state).toBe(state);
+    expect(result.work?.cancelled).toEqual([]);
+    expect(result.work?.kept.some(entry => entry.responsibilityId === id)).toBe(true);
+    await f.service.stop();
+  });
+  test("a mixed-target question is never dismissed on behalf of preserved work", async () => {
+    const f = service(); f.service.start();
+    const running = row(f.responsibilities, "stop", { state: "running" }, f.now());
+    const paused = row(f.responsibilities, "keep", { state: "paused" }, f.now());
+    const message = ask(f, [running, paused]); f.service.wake(); await f.service.whenIdle();
+    const result = await f.service.clear({ requestId: "mixed", scopes: ["work"], source: "click" });
+    expect(result.work?.cancelled).toEqual([running.id]);
+    expect(f.responsibilities.get(paused.id)).toMatchObject({ state: "paused", revision: paused.revision });
+    expect(f.conversations.getAnswer(`ask:${message.id}:0`)).toBeNull();
+    await f.service.stop();
+  });
+  test("over-limit scope is refused before any cancel or question closure", async () => {
+    const f = service(); f.service.start();
+    for (let index = 0; index < 1001; index++) row(f.responsibilities, `limit-${index}`, { state: "running" }, f.now());
+    await expect(f.service.clear({ requestId: "too-many", scopes: ["work"], source: "click" })).rejects.toThrow("Too many work items");
+    expect(f.controls).toEqual([]);
+    expect(f.responsibilities.snapshot().responsibilities.every(r => r.state === "running")).toBe(true);
+    expect(f.responsibilities.view.getClear("too-many")).toBeNull();
+    await f.service.stop();
+  });
+  test("concurrent retries cancel once and a conflicting reuse has no effects", async () => {
+    const f = service(); f.service.start();
+    const running = row(f.responsibilities, "concurrent", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+    const input = { requestId: "concurrent", scopes: ["work" as const], source: "click" as const };
+    const [first, retry] = await Promise.all([f.service.clear(input), f.service.clear(input)]);
+    expect(retry).toEqual(first); expect(f.controls).toEqual([[running.id, "cancel"]]);
+    await expect(f.service.clear({ ...input, scopes: ["conversation"] })).rejects.toThrow("different clear");
+    expect(f.controls).toHaveLength(1); await f.service.stop();
+  });
+});
+
+
+test("an in-flight clear cannot be dismissed while its lifecycle effect is running", async () => {
+  let release!: () => void;
+  let started!: () => void;
+  const entered = new Promise<void>(resolve => { started = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const f = service({ answer: () => JSON.stringify({ reply: "Confirm", actions: [{ kind: "clear", scopes: ["work"] }] }),
+    controlRun: async () => { started(); await gate; } }); f.service.start();
+  const running = row(f.responsibilities, "dismiss-race", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+  const message = f.service.sendMessage({ requestId: "reset-proposal", text: "Reset Work" }); await f.service.whenIdle();
+  const clear = f.service.clear({ requestId: tarsClearProposalRequestId(message.id, 0), scopes: ["work"], source: "click" });
+  await entered;
+  expect(f.service.dismissDecision({ decisionId: `confirm:${message.id}:0`, source: "click" }).refusal).toBe("notWaiting");
+  release();
+  expect((await clear).work?.cancelled).toEqual([running.id]);
+  expect(f.conversations.getReceipt(message.id, 0)?.status).toBe("applied");
+  await f.service.stop();
 });

@@ -311,7 +311,7 @@ export function TarsPreview() {
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
     const bridge: TarsBridgeApi = {
-      ...(params.get("batch") === "true" ? createPreviewBatchBridge(snapshot, () => { for (const listener of changeListeners) listener({ scope: "conversation" }); }) : {}),
+      ...(params.get("batch") === "true" ? createPreviewBatchBridge(snapshot, () => { for (const listener of changeListeners) listener({ scope: "conversation" }); }, { failOnce: params.get("batchFailure") === "once", missingWorkspace: params.get("batchMissing") === "true" }) : {}),
       undoAction: previewTarsActionUndo({ conversation, deliveryOutcome: params.get("withdrawal") === "pending" ? "pending" : params.get("withdrawal") === "started" ? "started" : undefined, getSnapshot: () => snapshot,
         setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(next)); },
         changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }),

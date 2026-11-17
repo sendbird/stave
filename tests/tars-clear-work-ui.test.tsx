@@ -28,7 +28,7 @@ test("a Work reset card says how much stops and what is kept, and confirms only 
   expect(confirm).toContain('data-tars-decision-tone="danger"');
   expect(confirm).not.toContain("aria-keyshortcuts");
   expect(text(html)).toContain("cancel 3 unfinished work items");
-  expect(text(html)).toContain("1 kept (taken over, paused or publishing)");
+  expect(text(html)).toContain("1 kept (taken over, paused, publishing or not cancelled)");
   expect(text(html)).toContain("runs stop");
   expect(text(html)).toContain("Clear and cancel");
 });
@@ -39,7 +39,7 @@ test("a Work reset record says what it cancelled and that Restore does not resta
     revision: 1, createdAt: "2026-11-17T00:00:00.000Z", updatedAt: "2026-11-17T00:00:00.000Z" };
   const html = renderToStaticMarkup(<TarsClearRecordLine record={record} onUndo={() => {}} />);
   expect(text(html)).toContain("1 unfinished work item cancelled");
-  expect(text(html)).toContain("1 kept (taken over, paused or publishing)");
+  expect(text(html)).toContain("1 kept (taken over, paused, publishing or not cancelled)");
   expect(html).toContain("data-tars-clear-cancelled-stays");
 });
 
@@ -56,4 +56,14 @@ test("a cleanup whose every item has no workspace says why and closes, with no d
     expect(html).toContain("data-tars-batch-nothing");
     expect(text(html)).toContain(language === "en" ? "No workspace to archive" : "보관할 워크스페이스가 없음");
   }
+});
+
+
+test("a reset refusal says work remains visible and never claims it stopped", () => {
+  const record: TarsClearRecord = { requestId: "refused", source: "click", scopes: ["done", "outputs", "work"], proposal: null, status: "applied",
+    done: [], outputs: [], work: { cancelled: [], kept: [{ responsibilityId: "running", reason: "refused" }] },
+    revision: 1, createdAt: "2026-11-17T00:00:00.000Z", updatedAt: "2026-11-17T00:00:00.000Z" };
+  const html = renderToStaticMarkup(<TarsClearRecordLine record={record} />);
+  expect(text(html)).toContain("1 item was not cancelled and remains visible.");
+  expect(html).not.toContain("data-tars-clear-cancelled-stays");
 });
