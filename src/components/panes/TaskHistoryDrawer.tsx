@@ -319,9 +319,9 @@ export function TaskHistoryDrawer(args: {
           <div className={sx(styles.orderRow)}>
             <span className={sx(styles.orderHint)}>{i18n.t("panes:taskHistoryDrawer.reorderHint")}</span>
             {historyTasks.some(task => task.historyOrderKey !== undefined) ? (
-              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void resetOrder()}>
+              <span className={sx(styles.orderAction)}><Button size="sm" variant="ghost" disabled={busy} onClick={() => void resetOrder()}>
                 {i18n.t("panes:taskHistoryDrawer.resetOrder")}
-              </Button>
+              </Button></span>
             ) : null}
           </div>
           <Input
@@ -476,7 +476,8 @@ const styles = stylex.create({
 selectionControl: {gridRow:"1 / 3",minInlineSize:vars["--aui-space-24"],minBlockSize:vars["--aui-space-24"]},
 bulkActions: {display:"flex",alignItems:"center",flexWrap:"wrap",gap:vars["--aui-space-8"],marginTop:vars["--aui-space-12"]},
 orderRow: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:vars["--aui-space-8"],marginTop:vars["--aui-space-8"],minWidth:0},
-orderHint: {minWidth:0,fontSize:vars["--aui-font-size-caption"],color:vars["--aui-color-text-muted"]},
+orderHint: {flex:1,minWidth:0,fontSize:vars["--aui-font-size-caption"],color:vars["--aui-color-text-muted"]},
+orderAction: {flexShrink:0},
 drawer: {width:"min(28rem, 92vw)",maxWidth:448},
 header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars["--aui-color-border"],padding:vars["--aui-space-20"],textAlign:"left"},
 search: {marginTop:vars["--aui-space-12"],height:36,borderRadius:vars["--aui-radius-control"],borderColor:vars["--aui-color-border"]},

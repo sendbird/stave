@@ -4,7 +4,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
 import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
-import { sx } from "@/components/aui/utils/stylex";
+import { sx, type StyleXValue } from "@/components/aui/utils/stylex";
 import { setTaskReadState, useTaskUnread } from "@/lib/task-read-state-client";
 import { toast } from "@/lib/notifications/toast";
 
@@ -12,13 +12,14 @@ import { toast } from "@/lib/notifications/toast";
  * The unread mark. A row whose own accessible name already says "unread"
  * passes `decorative`, so assistive tech hears the state once.
  */
-export function TaskUnreadDot({ workspaceId, taskId, decorative = false }: { workspaceId: string; taskId: string; decorative?: boolean }) {
+export function TaskUnreadDot({ workspaceId, taskId, decorative = false, xstyle }: { workspaceId: string; taskId: string; decorative?: boolean; xstyle?: StyleXValue }) {
   const { t } = useTranslation(["panes"]);
   const unread = useTaskUnread(workspaceId, taskId);
   if (!unread) return null;
+  const className = sx(styles.dot, xstyle);
   return decorative
-    ? <span aria-hidden data-task-unread={taskId} className={sx(styles.dot)} />
-    : <span role="img" aria-label={t("panes:taskReading.unread")} data-task-unread={taskId} className={sx(styles.dot)} />;
+    ? <span aria-hidden data-task-unread={taskId} className={className} />
+    : <span role="img" aria-label={t("panes:taskReading.unread")} data-task-unread={taskId} className={className} />;
 }
 
 /** `name`, plus the unread state when there is one, for a row's accessible name. */

@@ -609,7 +609,7 @@ export function FleetWorkspaceCard(args: {
               return (
                 <li key={row.task.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)} data-fleet-select-key={taskKey}>
                   <FleetSelectionCheckbox itemKey={taskKey} title={taskTitle} />
-                  <TaskUnreadDot workspaceId={args.workspace.id} taskId={row.task.id} decorative />
+                  <span className={sx(styles.taskRowSlot)}>
                   <AuiButton
                     layout="host"
                     id={`fleet-task-trigger-${taskKey}`}
@@ -678,6 +678,9 @@ export function FleetWorkspaceCard(args: {
                       />
                     )}
                   </AuiButton>
+                  {/* Outside the row button, over its leading padding, so the row keeps its alignment. */}
+                  <TaskUnreadDot workspaceId={args.workspace.id} taskId={row.task.id} decorative xstyle={styles.unreadDot} />
+                  </span>
                   <TaskReadMenu workspaceId={args.workspace.id} taskId={row.task.id} title={taskTitle} />
                 </li>
               );
