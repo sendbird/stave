@@ -16,7 +16,8 @@ import {
   TarsPublishInputSchema, TarsPublishRecordSchema, type TarsPublishInput, type TarsPublishReason, type TarsPublishRecord,
 } from "../../src/lib/tars/publication";
 import { TarsWorkRequestSchema, type TarsWorkRequest } from "../../src/lib/tars/types";
-import { AttachmentContextsSchema, type AttachmentContext } from "../../src/lib/providers/attachment-context";
+import { AttachmentContextSchema, AttachmentContextsSchema, type AttachmentContext } from "../../src/lib/providers/attachment-context";
+import type { TarsAttachmentImage } from "../../src/lib/tars/attachment-image";
 import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
 import { TarsComposerDraftSchema, type TarsComposerDraft } from "../../src/lib/tars/composer-draft";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
@@ -179,6 +180,21 @@ export class TarsConversationStore {
       .get(messageId) as { attachments_json: unknown } | undefined;
     if (!row) return null;
     return typeof row.attachments_json === "string" ? AttachmentContextsSchema.parse(JSON.parse(row.attachments_json)) : [];
+  }
+
+  /**
+   * One image a message carries, by its position among the message's
+   * attachments, for that image's preview. SQLite reads that one attachment
+   * only, never its siblings. Null when the message is gone or the position
+   * holds no image: a file's content is not read back this way.
+   */
+  attachmentImageOf(messageId: string, index: number): TarsAttachmentImage | null {
+    if (!Number.isInteger(index) || index < 0) return null;
+    const row = this.db.prepare("SELECT json_extract(body_json, '$.attachments[' || ? || ']') AS attachment_json FROM tars_messages WHERE id = ?")
+      .get(index, messageId) as { attachment_json: unknown } | undefined;
+    if (typeof row?.attachment_json !== "string") return null;
+    const part = AttachmentContextSchema.parse(JSON.parse(row.attachment_json));
+    return part.type === "image_context" ? part : null;
   }
 
   /** Return the most recent bounded window in conversation order. */

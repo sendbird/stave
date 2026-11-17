@@ -23,6 +23,9 @@ const META_LEADING = chatType["--chat-type-meta-leading"];
 const REVEAL = "--tars-message-reveal";
 /** An exchange's block padding. */
 const EXCHANGE_PAD = vars["--aui-space-8"];
+/** An attached image's preview box: the transcript's compact screenshot thumbnail (`tool-output-images.tsx`). */
+const IMAGE_INLINE = 112;
+const IMAGE_BLOCK = 72;
 
 export const tarsMessageStyles = stylex.create({
   /**
@@ -54,7 +57,7 @@ export const tarsMessageStyles = stylex.create({
   messageText: { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
   /** What came with the message, above its bubble on the same side: its files, then the working-changes choice. */
   fileList: {
-    display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: vars["--aui-space-4"], maxWidth: "88%", minWidth: 0,
+    display: "flex", flexWrap: "wrap", justifyContent: "flex-end", alignItems: "center", gap: vars["--aui-space-4"], maxWidth: "88%", minWidth: 0,
     margin: 0, padding: 0, listStyle: "none",
   },
   fileItem: { display: "flex", minWidth: 0, maxWidth: "100%" },
@@ -64,13 +67,29 @@ export const tarsMessageStyles = stylex.create({
   chipName: { fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
   chipMeta: { fontSize: META, lineHeight: META_LEADING },
   fileIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
-  /** A picked image's own pixels, the size of a small control, in the composer's chip. */
-  thumbnail: {
-    display: "block", flexShrink: 0, width: vars["--aui-control-height-2xs"], height: vars["--aui-control-height-2xs"],
-    borderRadius: vars["--aui-radius-mark"], objectFit: "cover", backgroundColor: vars["--aui-color-surface-tint"],
+  /**
+   * An attached image as its own pixels, before and after it is sent: the
+   * transcript's compact screenshot size, cropped from the top, where a
+   * screen's title and header usually are. One size for every image, so a row
+   * of them lines up whatever their shapes, and the same tile in the composer
+   * and the message it becomes.
+   */
+  imageTile: { position: "relative", display: "flex", flexShrink: 0, maxWidth: "100%" },
+  imageButton: {
+    display: "block", flexShrink: 0, inlineSize: IMAGE_INLINE, blockSize: IMAGE_BLOCK, maxInlineSize: "100%", padding: 0, overflow: "hidden",
+    borderRadius: vars["--aui-radius-control"], borderStyle: "solid", borderWidth: vars["--aui-border-width-hairline"], borderColor: vars["--aui-color-border-subtle"],
+    backgroundColor: vars["--aui-color-surface-tint"], cursor: "zoom-in",
   },
+  imagePixels: { display: "block", inlineSize: "100%", blockSize: "100%", objectFit: "cover", objectPosition: "top" },
+  /** Where a sent image will be while it is read: the same box, so nothing moves when it arrives. */
+  imagePending: {
+    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, inlineSize: IMAGE_INLINE, blockSize: IMAGE_BLOCK, maxInlineSize: "100%",
+    borderRadius: vars["--aui-radius-control"], backgroundColor: vars["--aui-color-surface-tint"], color: vars["--aui-color-text-muted"],
+  },
+  /** Remove sits inside the tile's corner on the floating control's opaque disc, so it never reaches past the tile into its neighbours. */
+  imageRemove: { position: "absolute", insetBlockStart: vars["--aui-space-4"], insetInlineEnd: vars["--aui-space-4"] },
   /** The composer's picked files, between the words and the controls, like the task composer's. */
-  composerFiles: { display: "flex", flexWrap: "wrap", gap: vars["--aui-space-4"], minWidth: 0 },
+  composerFiles: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0 },
   /** Where Tars's reply will be: what the message is doing now, one quiet line. */
   status: {
     display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, minHeight: vars["--aui-control-height-2xs"],

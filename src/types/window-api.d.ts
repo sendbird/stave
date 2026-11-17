@@ -3063,7 +3063,10 @@ interface WindowApi {
    * that confirmation. `reprioritize` (`tars:reprioritize`) moves queued work
    * in the queue on a `reprioritize` decision's host rules. `getBrief`
    * (`tars:get-brief`) reads one responsibility's saved message and Tars's
-   * instruction, which the snapshot leaves out. `getDraft` / `saveDraft`
+   * instruction, which the snapshot leaves out. `getAttachmentImage`
+   * (`tars:get-attachment-image`) reads one image a saved message carries for
+   * its preview; the conversation itself carries attachment summaries only,
+   * and a file's content is never read back. `getDraft` / `saveDraft`
    * (`tars:get-draft` / `tars:save-draft`) keep the composer draft across
    * views and restarts. `clear` / `undoClear` (`tars:clear` /
    * `tars:undo-clear`) hide and restore the conversation view, the tray's
