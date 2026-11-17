@@ -85,7 +85,7 @@ test("Fleet card rows keep read controls outside the row button and name unread 
   await page.getByRole("radiogroup", { name: "Board layout" }).getByRole("radio", { name: "Cards" }).click();
   const row = page.locator('[data-fleet-task-row="true"]').filter({ hasText: "Read task 2" });
   await expect(row).toHaveCount(1);
-  const item = page.locator("li").filter({ has: row });
+  const item = page.getByRole("listitem").filter({ has: row });
   await item.getByRole("button", { name: "Read actions for Read task 2", exact: true }).click();
   await page.getByRole("menuitem", { name: "Mark as unread", exact: true }).click();
   await expect(item.locator('[data-task-unread="read-2"]')).toBeVisible();
