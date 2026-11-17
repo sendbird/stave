@@ -1,5 +1,5 @@
 import { normalizeUsageLimitPauses } from "@/store/task-work-pause";
-import { createRestartPendingTasksCapture, emptyRestartRecovery, InterruptedTaskSchema, RestartRecoverySchema } from "@/store/restart-continuation";
+import { createRestartPendingTasksCapture, InterruptedTaskSchema, normalizeRestartRecovery } from "@/store/restart-continuation";
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding";
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
@@ -270,7 +270,7 @@ export function createAppStorePersistenceOptions() {
         return;
       }
       state.usageLimitPauseByTask = normalizeUsageLimitPauses(state.usageLimitPauseByTask);
-      state.restartRecovery = RestartRecoverySchema.safeParse(state.restartRecovery).data ?? emptyRestartRecovery();
+      state.restartRecovery = normalizeRestartRecovery(state.restartRecovery);
       state.restartPendingTasks = (Array.isArray(state.restartPendingTasks) ? state.restartPendingTasks : []).flatMap(item => { const parsed = InterruptedTaskSchema.safeParse(item); return parsed.success ? [parsed.data] : []; });
       const persistedSettings = state.settings;
       state.activeAppSurface = normalizeAppActiveSurface(

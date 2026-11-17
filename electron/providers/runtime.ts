@@ -226,6 +226,19 @@ function clearActiveTurnState(args: { turnId: string }) {
   activeSessions.delete(args.turnId);
 }
 
+/** When this host process booted; turns created earlier died with the previous host. */
+const HOST_PROCESS_STARTED_AT = Math.floor(performance.timeOrigin);
+
+/** Every turn this host still runs, including an aborted one that is still settling. */
+function listLiveTurns() {
+  const turns: Array<{ turnId: string; providerId: string; taskId?: string }> = summarizeActiveTurns()
+    .map(({ turnId, providerId, taskId }) => ({ turnId, providerId, ...(taskId ? { taskId } : {}) }));
+  for (const turnId of activeTurnPromises.keys()) {
+    if (!activeSessions.has(turnId)) turns.push({ turnId, providerId: "unknown" });
+  }
+  return { ok: true as const, hostStartedAt: HOST_PROCESS_STARTED_AT, turns };
+}
+
 function summarizeActiveTurns() {
   return Array.from(activeSessions.values()).map((session) => ({
     turnId: session.turnId,
@@ -1386,6 +1399,7 @@ export const providerRuntime: ProviderRuntime = {
     }
     return { ok: true, message: "Provider turn aborted." };
   },
+  listLiveTurns: () => listLiveTurns(),
   cleanupTask: ({ taskId }) => {
     clearActiveTaskSessions({ taskId });
     cleanupProviderTaskState(taskId);

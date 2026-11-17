@@ -1569,6 +1569,7 @@ function requestNeedsCliDiscovery(method: string) {
   }
   if (
     method === "provider.abort-turn" ||
+    method === "provider.list-live-turns" ||
     method === "provider.read-stream-turn" ||
     method === "provider.ack-stream-turn" ||
     method === "provider.steer-turn" ||
@@ -1820,6 +1821,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.abort-turn":
       await respond(request.id, providerRuntime.abortTurn(request.params));
+      return;
+    case "provider.list-live-turns":
+      await respond(request.id, providerRuntime.listLiveTurns());
       return;
     case "provider.cleanup-task":
       await respond(request.id, providerRuntime.cleanupTask(request.params));

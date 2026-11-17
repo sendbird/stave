@@ -35,6 +35,18 @@ describe("restart continuation", () => {
   });
 });
 
+test("saved recovery records keep valid fields when one is malformed", async () => {
+  const { normalizeRestartRecovery } = await import("../src/store/restart-continuation") as unknown as { normalizeRestartRecovery: (value: unknown, now: number) => unknown };
+  const restored = normalizeRestartRecovery({ consumedTurnIds: ["a", 7, "", "b"], stoppedTurnIds: "broken", automaticTimesByTask: { t: [1, "x", 2], bad: "nope" }, since: 5, surprise: true }, 100);
+  expect(restored).toEqual({ consumedTurnIds: ["a", "b"], stoppedTurnIds: [], automaticTimesByTask: { t: [1, 2] }, since: 5 });
+  expect(normalizeRestartRecovery(null, 100)).toEqual({ consumedTurnIds: [], stoppedTurnIds: [], automaticTimesByTask: {}, since: 100 });
+});
+
+test("continuation asks to check irreversible actions before repeating them", () => {
+  const prompt = buildRestartContinuationPrompt();
+  for (const action of ["push", "deploy", "delete", "send messages", "migrations"]) expect(prompt).toContain(action);
+});
+
 test("saved untrusted pause extras and invalid timestamps cannot arm a timer", () => {
   expect(normalizeUsageLimitPauses({ t: { workspaceId: "w", providerId: "codex", stoppedTurn: true, pausedAt: 1, resetsAt: 2, autoResumeAt: 3, extra: true } })).toEqual({});
   expect(normalizeUsageLimitPauses({ t: { workspaceId: "w", providerId: "codex", stoppedTurn: true, pausedAt: 1, resetsAt: 2, autoResumeAt: Infinity } })).toEqual({});

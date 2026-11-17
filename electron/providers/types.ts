@@ -1,3 +1,4 @@
+import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
 import type { ApprovalResolvedEvent, ApprovalRisk } from "../../src/lib/approvals/approval-resolution";
 import type { CodexApprovalsAppliedEvent } from "../../src/lib/providers/codex-runtime-options";
@@ -421,5 +422,7 @@ export interface ProviderRuntime {
   getConnectedToolStatus: (
     args: ConnectedToolStatusRequest,
   ) => Promise<ConnectedToolStatusResponse>;
+  /** Turns this host process still runs, with the process boot time. */
+  listLiveTurns: () => ProviderLiveTurns;
   shutdown: () => Promise<void>;
 }
