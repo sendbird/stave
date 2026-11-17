@@ -1047,6 +1047,28 @@ Screens: [Subagent results](https://github.com/sendbird/stave/blob/main/docs/scr
 Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**. A schedule set up by asking Tars is listed here too; it can also run once at a date and time, shown as **Once on …**, after which it turns itself off.
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
+## Start a task from a webhook
+
+In a new-task schedule, choose **Webhook** instead of **Time**. Copy the URL
+and store the signing secret immediately; it is shown once. Save the schedule,
+then enable the local **Webhook receiver** and apply its settings. The receiver
+is off by default, uses loopback port 6330, and receives only while the app is
+running. Changing the bind address can expose it to other devices; the editor
+warns before you apply that choice.
+
+Requests need an HMAC SHA-256 signature over the raw JSON body in
+`x-stave-signature: sha256=<hex>`. Payload filters compare paths such as
+`$.action` with **Equals** or **Contains**. Repeated delivery ids (or body hashes)
+are remembered durably for the dedupe window; optional coalescing groups nearby
+events. Use `{{body.path}}` in instructions for quoted, escaped event data.
+The payload is always marked untrusted, never as instructions.
+
+After saving, **Send test event** sends a signed event and can start a real task.
+**Recent deliveries** lists accepted, filtered, duplicate and rejected events.
+Use **Refresh deliveries** for the latest results. Pausing the schedule prevents
+new tasks. Unsigned events are rejected, the body limit is 1 MB, and each
+schedule has its own request rate limit.
+
 ## Fleet View
 
 Select tasks with their checkboxes, Cmd/Ctrl-click or Shift-click. With a row

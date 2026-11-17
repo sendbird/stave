@@ -1,3 +1,4 @@
+import type { AutomationWebhookApi } from "../lib/automation-webhook-ipc";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
 import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
 import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
@@ -1048,7 +1049,7 @@ interface WindowTaskControlApi {
   }>;
 }
 
-interface WindowAutomationsApi {
+interface WindowAutomationsApi extends Partial<AutomationWebhookApi> {
   setProviderTimeout?: (args: { providerTimeoutMs: number }) => Promise<{
     ok: boolean;
     message?: string;

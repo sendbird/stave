@@ -318,7 +318,7 @@ export const TarsScheduleViewSchema = z.object({
   lastRun: z.object({
     status: AutomationRunStatusSchema,
     at: TimestampSchema,
-    trigger: z.enum(["scheduled", "manual"]),
+    trigger: z.enum(["scheduled", "manual", "webhook"]),
     taskId: IdSchema.nullable(),
     workspaceId: IdSchema,
   }).strict().nullable(),

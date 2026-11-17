@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AutomationWebhookConfigSchema } from "./automation-webhooks";
 import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import type {
   ProviderId,
@@ -327,6 +328,7 @@ export const AutomationUpsertInputSchema = z
      * schedule, and on every schedule saved before one-time runs existed.
      */
     runOnceAt: z.string().datetime().optional(),
+    webhook: AutomationWebhookConfigSchema.optional(),
     environment: AutomationEnvironmentInputSchema,
     runtime: AutomationRuntimeConfigSchema,
     trustPolicy: AutomationTrustPolicySchema.default("review-required"),
@@ -385,7 +387,7 @@ export const AutomationRunSchema = z
     taskId: z.string().nullable(),
     turnId: z.string().nullable(),
     status: AutomationRunStatusSchema,
-    trigger: z.enum(["scheduled", "manual"]),
+    trigger: z.enum(["scheduled", "manual", "webhook"]),
     scheduledFor: z.string().datetime().nullable(),
     startedAt: z.string().datetime(),
     completedAt: z.string().datetime().nullable(),

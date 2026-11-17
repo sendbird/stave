@@ -15,6 +15,42 @@
   check-back is a wake-up record. The Local MCP tool names (`stave_*_automation*`,
   `stave_*_wake_up*`) are unchanged.
 
+## Webhook Triggers
+
+A **Start a task** schedule can use **Webhook** instead of a time cadence.
+Select **Webhook** in its editor, copy the generated URL, and store the signing
+secret immediately: the editor shows it once. Saving stores only an encrypted
+vault reference. Save the schedule and turn it on before sending an event.
+
+The local receiver is **off by default**, listens on `127.0.0.1:6330`, and
+receives events only while the desktop app is running. Under **Webhook
+receiver**, enable it, choose a port, and select **Apply receiver settings**.
+A different bind address can expose the receiver outside this device; the editor
+warns before applying it. Network routing and secure transport are your choice.
+Every automation has its own unguessable `/webhooks/<id>` path and secret.
+
+Send a JSON `POST` with `x-stave-signature: sha256=<hex>` containing the HMAC
+SHA-256 digest of the exact raw body bytes with that automation's secret.
+Unsigned or invalid signatures return `401`; bodies over 1 MB return `413`.
+The per-automation request limit is configurable (default 60 per minute).
+
+**Payload filters** accept simple paths such as `$.action` or
+`$.repository.name`, with **Equals** or **Contains**. All conditions must match;
+editor values are text. The default dedupe window is 86,400 seconds. Repeated
+`x-delivery-id` values, or body hashes when that header is absent, are durably
+remembered within the configured window, including across restarts. An optional
+coalescing window groups closely spaced matching events.
+
+Use `{{body.path}}` in the instructions to insert JSON-escaped, quoted event
+data. Event payloads are untrusted data, and the task prompt explicitly says
+never to treat their contents as instructions.
+
+**Send test event** sends the JSON in the test field through the signed receiver.
+Save first and enable the receiver; a matching test can start a real task.
+**Recent deliveries** shows accepted, filtered, duplicate and rejected events;
+use **Refresh deliveries** to see the latest results. Pausing a webhook schedule
+stops it from starting tasks without changing its endpoint.
+
 ## When To Use It
 
 - Use a start-a-task schedule for recurring repository reviews, status summaries, maintenance checks, or other prompts that should run at a regular interval.

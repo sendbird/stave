@@ -182,6 +182,11 @@ function installBridgeStubs() {
       },
     }),
     listInformationReferences: async () => ({ ok: true, options: [] }),
+    create: async (input: Record<string, unknown>) => ({ ok: true, automation: { ...AUTOMATIONS[0], ...input, id: crypto.randomUUID() } }),
+    webhookStatus: async () => ({ ok: true, settings: { enabled: false, bindAddress: "127.0.0.1", port: 6330 }, deliveries: [] }),
+    configureWebhookReceiver: async (settings: Record<string, unknown>) => ({ ok: true, settings, deliveries: [] }),
+    provisionWebhook: async () => ({ ok: true, endpointId: "a".repeat(64), secretId: "82fd0f14-f048-4ccc-8474-d379dfcd5061", url: `http://127.0.0.1:6330/webhooks/${"a".repeat(64)}`, secret: "preview-signing-secret" }),
+    sendWebhookTest: async () => ({ ok: true, status: 202 }),
     update: async (args: { id: string; input: Record<string, unknown> }) => ({
       ok: true,
       automation: { ...AUTOMATIONS.find((item) => item.id === args.id), ...args.input },

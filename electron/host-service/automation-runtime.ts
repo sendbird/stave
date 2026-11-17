@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
+import { renderWebhookPrompt } from "../../src/lib/automation-webhooks";
 import {
   computeNextAutomationRunAt,
   resolveNextAutomationRunAt,
@@ -143,6 +144,7 @@ export interface AutomationRuntime {
   setEnabled: (args: { id: string; enabled: boolean }) => Promise<AutomationSpec>;
   setProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
   runNow: (args: { id: string }) => Promise<AutomationRun>;
+  runWebhook: (args: { id: string; payload: unknown }) => Promise<AutomationRun>;
   listInformationReferences: (args: {
     workspaceId: string;
   }) => Promise<WorkspaceInformationReferenceOption[]>;
@@ -200,6 +202,7 @@ function createAutomationConfigHash(automation: AutomationSpec) {
     prompt: automation.prompt,
     runtime: automation.runtime,
     schedule: automation.schedule,
+    ...(automation.webhook ? { webhook: automation.webhook } : {}),
     // Only a one-time schedule adds a key, so every repeating schedule keeps the hash it had.
     ...(automation.runOnceAt !== undefined ? { runOnceAt: automation.runOnceAt } : {}),
     trustPolicy: automation.trustPolicy,
@@ -392,6 +395,7 @@ export function createAutomationRuntime(
     automation: AutomationSpec;
     trigger: AutomationRun["trigger"];
     scheduledFor: string | null;
+    payload?: unknown;
   }) {
     const startedAtDate = now();
     const startedAt = startedAtDate.toISOString();
@@ -399,7 +403,7 @@ export function createAutomationRuntime(
     const once = args.automation.runOnceAt !== undefined;
     const finishedOnce = once && args.trigger === "scheduled";
     const enabled = args.automation.enabled && !finishedOnce;
-    const nextRunAt = !enabled
+    const nextRunAt = args.automation.webhook || !enabled
       ? null
       : once
         ? args.automation.nextRunAt
@@ -466,7 +470,7 @@ export function createAutomationRuntime(
       }
       const taskRun = await dependencies.runTask({
         workspaceId: args.automation.environment.workspaceId,
-        prompt: args.automation.prompt,
+        prompt: args.trigger === "webhook" ? renderWebhookPrompt(args.automation.prompt, args.payload) : args.automation.prompt,
         title: buildAutomationTaskTitle({
           automation: args.automation,
           now: startedAtDate,
@@ -614,6 +618,7 @@ export function createAutomationRuntime(
     const dueAutomations = state.automations.filter(
       (automation) =>
         automation.enabled &&
+        !automation.webhook &&
         automation.nextRunAt !== null &&
         Date.parse(automation.nextRunAt) <= tickNow.getTime(),
     );
@@ -755,7 +760,7 @@ export function createAutomationRuntime(
           createdAt: createdAt.toISOString(),
           updatedAt: createdAt.toISOString(),
           lastRunAt: null,
-          nextRunAt: input.enabled
+          nextRunAt: input.enabled && !input.webhook
             ? resolveNextAutomationRunAt({
                 schedule: input.schedule,
                 runOnceAt: input.runOnceAt,
@@ -785,7 +790,7 @@ export function createAutomationRuntime(
           createdAt: current.createdAt,
           updatedAt: updatedAt.toISOString(),
           lastRunAt: current.lastRunAt,
-          nextRunAt: input.enabled
+          nextRunAt: input.enabled && !input.webhook
             ? resolveNextAutomationRunAt({
                 schedule: input.schedule,
                 runOnceAt: input.runOnceAt,
@@ -831,7 +836,7 @@ export function createAutomationRuntime(
           ...current,
           enabled,
           updatedAt: updatedAt.toISOString(),
-          nextRunAt: enabled
+          nextRunAt: enabled && !current.webhook
             ? resolveNextAutomationRunAt({
                 schedule: current.schedule,
                 runOnceAt: current.runOnceAt,
@@ -857,6 +862,15 @@ export function createAutomationRuntime(
         providerTimeoutMs,
       });
     },
+    runWebhook: ({ id, payload }) =>
+      enqueue(async () => {
+        const state = loadState();
+        const automation = state.automations.find((candidate) => candidate.id === id);
+        if (!automation?.enabled || !automation.webhook) throw new Error("Webhook automation is not enabled.");
+        if (countActiveRuns(state, id) >= automation.maxConcurrentRuns) throw new Error("Automation concurrency limit reached.");
+        const started = await startAutomationRun({state, automation, trigger: "webhook", scheduledFor: null, payload});
+        return started.run;
+      }),
     runNow: ({ id }) =>
       enqueue(async () => {
         const state = loadState();
