@@ -214,7 +214,9 @@ the queue exactly the way it narrows the tree.
 
 ## Scale
 
-Long workspace lists and Work queue lanes render a window of rows. Counts and
-keyboard navigation still cover the complete expanded list; Home and End reveal
-the first and last workspace. Collapsed groups stay excluded from navigation.
-Workspace drag reorder keeps its existing repository scope.
+Workspace lists and Work queue lanes longer than 60 rows render a window of
+rows; shorter lists render every row exactly as before. Counts and keyboard
+navigation still cover the complete expanded list; Home and End reveal the
+first and last workspace, and a focused row stays in place when you scroll away.
+Collapsed groups stay excluded from navigation. Workspace drag reorder keeps its
+existing repository scope.
