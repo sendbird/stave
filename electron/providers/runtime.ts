@@ -669,7 +669,7 @@ export function getProviderDecisionRequestId(event: BridgeEvent) {
   return null;
 }
 
-let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; composer?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyComposer }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; managedTask: boolean; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart; runtimeOptions?: StreamTurnArgs["runtimeOptions"]; runtimeOptionsMode?: "routing" | "delegation"; routeNote?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote } | null) | null = null;
+let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; prompt?: string; composer?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyComposer }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; managedTask: boolean; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart; runtimeOptions?: StreamTurnArgs["runtimeOptions"]; runtimeOptionsMode?: "routing" | "delegation"; routeNote?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote } | null) | null = null;
 export function setAgentRunUserTurnResolver(resolver: typeof agentRunUserTurnResolver) {
   agentRunUserTurnResolver = resolver;
 }
@@ -739,7 +739,7 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
       const { effort: pinnedEffort, ...selection } = composerSelection ?? { model: "default" as const, effortPinned: false };
       const requestedEffort = selection.effortPinned && pinnedEffort ? pinnedEffort
         : rawArgs.providerId === "codex" ? sentOptions.codexReasoningEffort : sentOptions.claudeEffort;
-      const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId, providerId: rawArgs.providerId,
+      const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId, providerId: rawArgs.providerId, prompt: rawArgs.prompt,
         ...(composerSelection ? { composer: { ...selection, ...(sentOptions.model ? { requestedModel: sentOptions.model } : {}),
           ...(requestedEffort ? { requestedEffort } : {}) } } : {}) });
       routeNote = stage?.routeNote;

@@ -72,6 +72,14 @@ export const DelegationPermissionSettingsSchema = z
   .object({
     "claude-code": DelegationPermissionOptionsSchema,
     codex: DelegationPermissionOptionsSchema,
+    // User browser preferences are only for primary supervised turns, never
+    // part of either provider's inheritable delegation permissions.
+    browser: z.object({
+      providerBrowserAlwaysOn: z.boolean(),
+      providerBrowserAutoFallback: z.boolean(),
+      providerBrowserAutoArm: z.boolean(),
+      providerBrowserAutoFallbackDomains: z.string(),
+    }).strict().optional(),
   })
   .strict();
 export type DelegationPermissionSettings = z.infer<

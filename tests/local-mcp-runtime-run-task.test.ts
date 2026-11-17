@@ -2096,3 +2096,43 @@ describe("local MCP runtime runTask: an Agent run's account-pool switch", () => 
     await finish(next.turnId);
   });
 });
+
+
+describe("supervised primary browser settings", () => {
+  test("restores Always on both providers, applies opt-out, and excludes delegates", async () => {
+    const { runSupervisedTurn } = await import("../electron/host-service/supervised-turn");
+    const { shouldActivateProviderBrowser } = await import("../src/lib/provider-browser");
+    const browser = { providerBrowserAlwaysOn: true, providerBrowserAutoFallback: true,
+      providerBrowserAutoArm: false, providerBrowserAutoFallbackDomains: "" };
+    persistedPermissionSettings = { "claude-code": {}, codex: {}, browser };
+    for (const providerId of ["claude-code", "codex"] as const) {
+      const created = await runtime.runTask({ workspaceId: WORKSPACE_ID, provider: providerId, prompt: "Start" });
+      const finish = async () => {
+        startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "done" });
+        for (let i = 0; i < 20; i += 1) await Bun.sleep(0);
+      };
+      await finish();
+      const resume = (parentTaskId?: string) => runSupervisedTurn({ workspaceId: WORKSPACE_ID,
+        taskId: created.taskId, prompt: "The checks finished. Continue.",
+        fingerprint: { providerId, model: "test-model" }, parentTaskId });
+      await resume();
+      const options = () => (startTurnStreamCalls.at(-1) as { runtimeOptions: import("../src/lib/providers/provider.types").ProviderRuntimeOptions }).runtimeOptions;
+      expect(options()).toMatchObject(browser);
+      expect(shouldActivateProviderBrowser({ prompt: "The checks finished. Continue.",
+        secondaryReadOnly: false, unattendedAutomation: false, alwaysEnabled: options().providerBrowserAlwaysOn })).toBe(true);
+      await finish();
+      const delegate = await runtime.runTask({ workspaceId: WORKSPACE_ID, provider: providerId,
+        prompt: "Delegate start", parentTaskId: "parent-task" });
+      await finish();
+      await runSupervisedTurn({ workspaceId: WORKSPACE_ID, taskId: delegate.taskId,
+        prompt: "Continue delegate", parentTaskId: "parent-task", fingerprint: { providerId, model: "test-model" } });
+      expect(options().providerBrowserAlwaysOn).toBeUndefined();
+      await finish();
+      persistedPermissionSettings = { "claude-code": {}, codex: {}, browser: { ...browser, providerBrowserAlwaysOn: false } };
+      await resume();
+      expect(options().providerBrowserAlwaysOn).toBe(false);
+      await finish();
+      persistedPermissionSettings = { "claude-code": {}, codex: {}, browser };
+    }
+  });
+});
