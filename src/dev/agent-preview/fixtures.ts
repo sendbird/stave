@@ -221,6 +221,28 @@ function commonParts(args: { reasoningStreaming: boolean }): MessagePart[] {
   ];
 }
 
+/**
+ * A Lens screenshot result as the MCP tool returns it, with a PNG drawn at
+ * runtime so the Preview needs no binary fixture. Shows the reply's numbered
+ * screenshot attachments.
+ */
+function previewScreenshotOutput(args: { width: number; height: number; accent: string }): string {
+  if (typeof document === "undefined") return "";
+  const canvas = document.createElement("canvas");
+  canvas.width = args.width;
+  canvas.height = args.height;
+  const context = canvas.getContext("2d");
+  if (!context) return "";
+  context.fillStyle = "#f1f5f9";
+  context.fillRect(0, 0, args.width, args.height);
+  context.fillStyle = "#1e293b";
+  context.fillRect(0, 0, args.width, 64);
+  context.fillStyle = args.accent;
+  context.fillRect(args.width * 0.15, args.height * 0.25, args.width * 0.4, args.height * 0.3);
+  const data = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
+  return JSON.stringify({ content: [{ type: "image", data, mimeType: "image/png" }] });
+}
+
 export function createStreamingPreviewMessage(): PreviewMessage {
   return {
     role: "assistant",
@@ -251,6 +273,22 @@ export function createCompletedPreviewMessage(): PreviewMessage {
     content: "",
     parts: [
       ...commonParts({ reasoningStreaming: false }),
+      {
+        type: "tool_use",
+        toolUseId: "tool-lens-screenshot-1",
+        toolName: "mcp__stave-local-mcp__stave_lens_screenshot",
+        input: JSON.stringify({ workspaceId: "preview" }),
+        output: previewScreenshotOutput({ width: 1280, height: 800, accent: "#3b82f6" }),
+        state: "output-available",
+      },
+      {
+        type: "tool_use",
+        toolUseId: "tool-lens-screenshot-2",
+        toolName: "mcp__stave-local-mcp__stave_lens_screenshot",
+        input: JSON.stringify({ workspaceId: "preview", fullPage: true }),
+        output: previewScreenshotOutput({ width: 900, height: 1400, accent: "#ea580c" }),
+        state: "output-available",
+      },
       {
         type: "text",
         text: [

@@ -61,6 +61,7 @@ import {
   CodexPermissionPostureFields,
 } from "./settings-dialog-permission-posture-fields";
 import { ScopeLocked } from "./settings-scope";
+import { DailyLimits } from "@/components/usage/DailyLimits";
 
 const CLAUDE_SETTING_SOURCE_HELP = [
   {
@@ -258,6 +259,7 @@ export function ProvidersSection() {
 
   return (
     <>
+      <DailyLimits editable />
       <Tabs
         value={providerTab.value}
         onValueChange={providerTab.onValueChange}

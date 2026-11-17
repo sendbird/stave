@@ -16,6 +16,16 @@ const SOURCE_LABEL: Record<DelegationIdentitySource, string> = {
   get "provider-default"() { return i18n.t("agentRuns:agentIdentity.providerDefault"); },
 };
 
+type ModelEvidence = NonNullable<AgentIdentityProps["modelEvidence"]>;
+
+/** How the model was learned, in the reader's language. */
+export function describeModelEvidence(evidence: ModelEvidence) {
+  return {
+    label: i18n.t(`agentRuns:agentIdentity.evidence.${evidence}`),
+    title: i18n.t(`agentRuns:agentIdentity.evidenceTitle.${evidence}`),
+  };
+}
+
 export interface AgentIdentityProps {
   providerId?: ProviderId | null;
   model?: string | null;
@@ -88,7 +98,15 @@ export function AgentIdentity(props: AgentIdentityProps) {
           {identity.effortLabel}
         </Badge>
       ) : null}
-      {props.modelEvidence ? <span className={sx(styles.identityEvidence)}>({props.modelEvidence})</span> : null}
+      {props.modelEvidence ? (
+        <span
+          className={sx(styles.identityEvidence)}
+          title={describeModelEvidence(props.modelEvidence).title}
+          data-model-evidence={props.modelEvidence}
+        >
+          ({describeModelEvidence(props.modelEvidence).label})
+        </span>
+      ) : null}
       {props.showSource && props.source ? (
         <Badge
           variant="soft"

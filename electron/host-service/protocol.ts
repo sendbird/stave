@@ -1,3 +1,7 @@
+import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
+import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
+import type { TurnSnapshotList, TurnSnapshotOwner, TurnSnapshotRestore, TurnSnapshotResult } from "../../src/lib/turn-snapshots";
+import type { WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupPolicy } from "../../src/lib/workspace-cleanup-contract";
 import type { McpAppViewRequestArgs, McpAppViewRequestResponse } from "../../src/lib/mcp-app/mcp-app-bridge";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../src/lib/agent-runs/delegated-run";
@@ -479,7 +483,6 @@ export type HostLocalMcpAction =
   | "respond-approval"
   | "respond-user-input"
   | "get-workspace-information"
-  | "set-workspace-martin-project"
   | "replace-workspace-notes"
   | "append-workspace-notes"
   | "write-workspace-plan-file"
@@ -500,7 +503,7 @@ export type HostLocalMcpAction =
   | "list-repository-memories";
 
 export type HostWakeUpAction =
-  "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
+  "list" | "get" | "create" | "create-automatic" | "update" | "pause" | "resume" | "remove" | "sync-settings";
 
 /**
  * Agent run actions. The last three serve the stage-reporting tools and carry an
@@ -544,6 +547,10 @@ export type HostAutomationAction =
   | "list-information-references";
 
 export interface HostServiceRequestMap {
+  "workspace.cleanup-list": { scanDisk?: boolean };
+  "workspace.cleanup-act": WorkspaceCleanupActArgs;
+  "workspace.cleanup-configure": WorkspaceCleanupPolicy;
+  "workspace.cleanup-run": Record<string, never>;
   "workspace.execution": WorkspaceExecutionArgs;
   "workspace.execution-status": undefined;
   "service.shutdown": undefined;
@@ -616,6 +623,9 @@ export interface HostServiceRequestMap {
     workspaceId: string;
   };
   "workspace-scripts.cleanup-all": undefined;
+  "turn-snapshots.list": TurnSnapshotOwner;
+  "turn-snapshots.restore": TurnSnapshotRestore;
+  "turn-snapshots.undo": TurnSnapshotOwner;
   "provider.stream-turn": StreamTurnArgs;
   "runs.execute-secondary": SecondaryProviderExecutionRequest;
   "runs.cancel-secondary": SecondaryProviderCancelRequest;
@@ -629,9 +639,12 @@ export interface HostServiceRequestMap {
     streamId: string;
     cursor: number;
   };
+  "turn-admission.wait": { taskId: string; waiting: boolean };
+  "turn-admission.take-restored": Record<string, never>;
   "provider.abort-turn": {
     turnId: string;
   };
+  "provider.list-live-turns": Record<string, never>;
   "provider.cleanup-task": {
     taskId: string;
   };
@@ -972,6 +985,8 @@ export interface HostServiceRequestMap {
     force?: boolean;
     cwd?: string;
   };
+  "scm.get-pr-stack": GetPrStackArgs;
+  "scm.retarget-pr-stack": RetargetPrStackArgs;
   "scm.get-pr-status": {
     cwd?: string;
   };
@@ -1047,14 +1062,31 @@ export interface HostServiceRequestMap {
   "tars.invoke": { action: "get" | "create" | "updateIdentity"; args: unknown };
   /** Main-only admission of a persisted decision; no model-supplied action payload. */
   "tars.apply-decision": import("../../src/lib/tars/conversation").ApplyTarsDecisionInput;
+  /** Main-only confirmation of a held work proposal; names the saved receipt, never an action. */
+  "tars.confirm-proposal": import("../../src/lib/tars/conversation").ConfirmTarsProposalInput;
   /** A direct control, admitted on the same path as a proposed control. */
   "tars.act": import("../../src/lib/tars/conversation").TarsActInput;
+  "tars.undo-action": import("../../src/lib/tars/action-undo").TarsUndoActionInput;
+  /** Main-only application of a saved, explicit PR review choice. */
+  "tars.pr-review": { decisionId: string };
   /** One publish card's confirmation, from a word proposal or a click; the host admits and runs it. */
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishInput;
   /** What a publish card shows; read only. */
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreviewInput;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsReprioritizeInput;
   "tars.brief": import("../../src/lib/tars/brief").TarsBriefInput;
+  /** One bulk control or cleanup batch: preview, confirm (or Continue), decline or restore. */
+  "tars.batch": import("../../src/lib/tars/batch").TarsBatchInput;
+  /** The saved batch records; read only. */
+  "tars.batches": undefined;
+  /** One schedule card's confirmation; the host reads the saved proposal and applies it through the Schedules service. */
+  "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleConfirmInput;
+  /** What a schedule card shows; read only. */
+  "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreviewInput;
+  /** The pause switch of a schedule Tars created. */
+  "tars.schedule-toggle": import("../../src/lib/tars/schedules").TarsScheduleToggleInput;
+  /** The schedules Tars created, as the Schedules service has them now. */
+  "tars.schedules": undefined;
   "agent-run.invoke": {
     action: HostAgentRunAction;
     args: unknown;
@@ -1071,6 +1103,10 @@ export interface HostServiceRequestMap {
 }
 
 export interface HostServiceResponseMap {
+  "workspace.cleanup-list": Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
+  "workspace.cleanup-act": Awaited<ReturnType<WorkspaceCleanupApi["act"]>>;
+  "workspace.cleanup-configure": WorkspaceCleanupPolicy;
+  "workspace.cleanup-run": Awaited<ReturnType<WorkspaceCleanupApi["runNow"]>>;
   "workspace.execution": WorkspaceExecutionResult;
   "workspace.execution-status": WorkspaceExecutionState[];
   "service.shutdown": {
@@ -1118,6 +1154,9 @@ export interface HostServiceResponseMap {
   "workspace-scripts.cleanup-all": {
     ok: true;
   };
+  "turn-snapshots.list": TurnSnapshotList;
+  "turn-snapshots.restore": TurnSnapshotResult;
+  "turn-snapshots.undo": TurnSnapshotResult;
   "provider.stream-turn": BridgeEvent[];
   "runs.execute-secondary": SecondaryProviderExecutionResult;
   "runs.cancel-secondary": HostProviderMutationResult;
@@ -1125,7 +1164,10 @@ export interface HostServiceResponseMap {
   "provider.start-push-turn": HostProviderStartPushTurnResult;
   "provider.read-stream-turn": HostProviderReadStreamResult;
   "provider.ack-stream-turn": HostProviderMutationResult;
+  "turn-admission.wait": { ok: true };
+  "turn-admission.take-restored": { items: import("../persistence/turn-admission-store").RestoredQueuedTurn[] };
   "provider.abort-turn": HostProviderMutationResult;
+  "provider.list-live-turns": ProviderLiveTurns;
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": HostProviderMutationResult;
   "provider.respond-user-input": HostProviderMutationResult;
@@ -1226,6 +1268,8 @@ export interface HostServiceResponseMap {
   "scm.rename-branch": CommandResult;
   "scm.delete-branch": CommandResult;
   "scm.push": CommandResult;
+  "scm.get-pr-stack": GetPrStackResult;
+  "scm.retarget-pr-stack": RetargetPrStackResult;
   "scm.get-pr-status": HostScmPrStatusResult;
   "scm.get-repo-merge-settings": HostScmRepoMergeSettingsResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;
@@ -1265,11 +1309,20 @@ export interface HostServiceResponseMap {
   "wake-up.invoke": unknown;
   "tars.invoke": import("../../src/lib/tars/types").TarsSnapshot;
   "tars.apply-decision": import("../../src/lib/tars/conversation").TarsActionReceipt[];
+  "tars.confirm-proposal": import("../../src/lib/tars/conversation").TarsActionReceipt;
   "tars.act": import("../../src/lib/tars/conversation").TarsActResult;
+  "tars.undo-action": import("../../src/lib/tars/conversation").TarsUndoActionResult;
+  "tars.pr-review": { ok: true };
   "tars.publish": import("../../src/lib/tars/publication").TarsPublishResult;
   "tars.publish-preview": import("../../src/lib/tars/publication").TarsPublishPreview;
   "tars.reprioritize": import("../../src/lib/tars/conversation").TarsActResult;
   "tars.brief": import("../../src/lib/tars/brief").TarsBrief;
+  "tars.batch": import("../../src/lib/tars/batch").TarsBatchRecord;
+  "tars.batches": import("../../src/lib/tars/batch").TarsBatchRecord[];
+  "tars.schedule": import("../../src/lib/tars/schedules").TarsScheduleResult;
+  "tars.schedule-preview": import("../../src/lib/tars/schedules").TarsSchedulePreview;
+  "tars.schedule-toggle": import("../../src/lib/tars/schedules").TarsScheduleResult;
+  "tars.schedules": import("../../src/lib/tars/schedules").TarsScheduleList;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "delegated-agent.prepare": AgentRunDetail;
   "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteResult;
@@ -1279,6 +1332,7 @@ export interface HostServiceResponseMap {
 }
 
 export interface HostServiceEventMap {
+  "workspace.cleanup-changed": { workspaceId: string; repositoryPath: string };
   "terminal.output": {
     sessionId: string;
     output: string;

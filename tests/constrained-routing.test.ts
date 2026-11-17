@@ -7,6 +7,9 @@ import { buildStarterProfile, previewRouteLevels, resolveRoute } from "../src/li
 import type { AgentAssignment } from "../src/lib/agents/assign";
 import { withConstrainedRoutingCancellation } from "../electron/providers/constrained-routing-cancellation";
 import { cancelUtilityRouteClassification } from "../electron/providers/utility-inference";
+import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adaptive-policy";
+import { ConstrainedRouteInputSchema } from "../src/lib/routing/constrained-route";
+import { AgentRouteSettingsSchema } from "../src/lib/routing/agent-run-route";
 
 const id = "44444444-4444-4444-8444-444444444444";
 const config = { mode: "gateway" as const, connectionId: id, model: "typesafe-ai/jev" };
@@ -17,6 +20,56 @@ const input = { workspaceId: "ws", taskId: "child", providerId: "codex" as const
 const assignment = { workspaceId: "ws", role: "delegate", agent: { ...getBuiltinAgent("reviewer")!, model: { mode: "auto" as const, decision: config } } } as AgentAssignment;
 
 describe("constrained host Decision routing", () => {
+  test("explicit execution Auto uses the saved policy and classifier even with app Auto off", async () => {
+    for (const providerId of ["codex", "claude-code"] as const) {
+      const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+      let calls = 0;
+      let profile = buildStarterProfile("starter-quality-first");
+      const router = createConstrainedHostRouter({ assignment: () => ({ ...assignment, role: "primary" }),
+        settings: () => AgentRouteSettingsSchema.parse(JSON.parse(JSON.stringify(buildAgentRouteSettings({ ...defaultSettings,
+          autoRoutingEnabled: false, autoRoutingProfile: profile })))),
+        profiles: () => [], cwd: async () => "/tmp/workspace", history: () => [],
+        classify: async () => { calls++; return { ok: true, classification }; } });
+      const base = { workspaceId: "ws", taskId: "primary", providerId, prompt: "Adjust the workspace display", model: light };
+      // Ordinary callers still honor the global off switch and do no inference.
+      expect(await router(base)).toMatchObject({ route: "task-model", fingerprint: { model: light } });
+      expect(calls).toBe(0);
+      expect(await router({ ...base, autoRouting: true })).toMatchObject({ route: "auto", fingerprint: { model: strong },
+        runtimeOptions: providerId === "codex" ? { codexReasoningEffort: "high" } : { claudeEffort: "high" } });
+      expect(calls).toBe(1);
+      for (const [starter, effort] of [["starter-balanced", "medium"], ["starter-cost-saver", "low"]] as const) {
+        profile = buildStarterProfile(starter);
+        expect(await router({ ...base, autoRouting: true })).toMatchObject({ route: "auto", fingerprint: { model: light },
+          runtimeOptions: providerId === "codex" ? { codexReasoningEffort: effort } : { claudeEffort: effort } });
+      }
+      // Custom rules are the same saved profile, not a replacement starter.
+      profile = { ...profile, id: "custom", rules: [{ ...profile.rules[0]!, id: "custom-rule", when: {}, then: { providerId, tier: "flagship" } }] };
+      expect((await router({ ...base, autoRouting: true })).fingerprint.model).not.toBe(light!);
+      const beforePin = calls;
+      expect(await router({ ...base, autoRouting: true, modelPinned: true })).toMatchObject({ route: "pinned", fingerprint: { model: light } });
+      expect(calls).toBe(beforePin);
+    }
+    expect(ConstrainedRouteInputSchema.safeParse({ ...input, autoRouting: "true" }).success).toBe(false);
+  });
+  test("explicit Auto preserves fixed Agent models and effort pins on both providers", async () => {
+    for (const providerId of ["codex", "claude-code"] as const) {
+      const model = providerId === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
+      let fixed = true, calls = 0;
+      const router = createConstrainedHostRouter({ assignment: () => ({ ...assignment, agent: { ...assignment.agent,
+        model: fixed ? { mode: "fixed", providerId, model, effort: "max" } : { mode: "auto" } } }) as AgentAssignment,
+        settings: () => buildAgentRouteSettings({ ...defaultSettings, autoRoutingEnabled: false }),
+        profiles: () => [], cwd: async () => "/tmp/workspace", history: () => [],
+        classify: async () => { calls++; return { ok: true, classification }; } });
+      const base = { ...input, providerId, accounts: {}, autoRouting: true };
+      expect(await router(base)).toMatchObject({ route: "pinned", fingerprint: { model },
+        runtimeOptions: providerId === "codex" ? { codexReasoningEffort: "max" } : { claudeEffort: "max" } });
+      expect(calls).toBe(0);
+      fixed = false;
+      expect((await router({ ...base, effort: "high", effortPinned: true })).runtimeOptions)
+        .toEqual(providerId === "codex" ? { codexReasoningEffort: "high" } : { claudeEffort: "high" });
+      expect(calls).toBe(1);
+    }
+  });
   test("only primary quality-first implementation/review expose a hard adaptive floor", async () => {
     let role: "primary" | "delegate" = "primary";
     let intent = "implement";
@@ -59,7 +112,7 @@ describe("constrained host Decision routing", () => {
     let calls = 0;
     let complexity = "extreme";
     const router = createConstrainedHostRouter({ assignment: () => null, settings: () => settings, profiles: () => [],
-      parentModels: () => ["gpt-6-luna"], cwd: async () => "/tmp/workspace", history: () => [],
+      parentPolicy: () => ({ ...freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6-luna", agent: null, settings: null, maxTurns: 30 }), allowedModels: ["gpt-6-luna"] }), cwd: async () => "/tmp/workspace", history: () => [],
       classify: async () => { calls++; return { ok: true, classification: { ...classification, complexity } }; } });
     const base = { ...input, accounts: {}, parentTaskId: "parent" };
     expect((await router({ ...base, model: "gpt-6-luna", modelPinned: true, effort: "high", effortPinned: true })).runtimeOptions.codexReasoningEffort).toBe("high");

@@ -660,10 +660,6 @@ export function createRepositoryActions(args: {
           : {};
 
         if (!isCurrentRepository) {
-          const nextTaskCheckpointById = removeRecordEntries(
-            state.taskCheckpointById,
-            removedTaskIds,
-          );
           return {
             recentRepositories: nextRecentRepositories,
             workspaceRuntimeCacheById: nextRuntimeCacheById,
@@ -671,9 +667,6 @@ export function createRepositoryActions(args: {
             taskWorkspaceIdById: nextTaskWorkspaceIdById,
             ...turnRuntimePatch,
             ...turnVerificationPatch,
-            ...(nextTaskCheckpointById
-              ? { taskCheckpointById: nextTaskCheckpointById }
-              : {}),
           };
         }
 
@@ -696,7 +689,6 @@ export function createRepositoryActions(args: {
           repositoryName: null,
           repositoryFiles: [],
           workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
-          taskCheckpointById: {},
           workspaceRuntimeCacheById: nextRuntimeCacheById,
           taskWorkspaceIdById: nextTaskWorkspaceIdById,
           layout: {

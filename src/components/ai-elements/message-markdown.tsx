@@ -46,6 +46,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
+import { chatTypeScaleVars } from "./message-text-scale";
 import { hardenSetextHeadings } from "./message-markdown.setext";
 import {
   LruCache,
@@ -573,28 +574,28 @@ const markdownComponents: Components = {
   },
   table: ({ children }: { children?: ReactNode }) => (
     <TranscriptWideBlock>
-      <Table className={sx(styles.table)}>
+      <Table xstyle={styles.table}>
         {children}
       </Table>
     </TranscriptWideBlock>
   ),
   thead: ({ children }: { children?: ReactNode }) => (
-    <TableHeader className={sx(styles.tableHeader)}>{children}</TableHeader>
+    <TableHeader xstyle={styles.tableHeader}>{children}</TableHeader>
   ),
   tbody: ({ children }: { children?: ReactNode }) => (
     <TableBody>{children}</TableBody>
   ),
   tr: ({ children }: { children?: ReactNode }) => (
-    <TableRow className={sx(styles.tableRow)}>{children}</TableRow>
+    <TableRow xstyle={styles.tableRow}>{children}</TableRow>
   ),
   th: ({ children }: { children?: ReactNode }) => (
-    <TableHead className={sx(styles.tableHead)}>
+    <TableHead xstyle={styles.tableHead}>
       {children}
     </TableHead>
   ),
   td: ({ children }: { children?: ReactNode }) => (
     <MarkdownTableCellContext.Provider value>
-      <TableCell className={sx(styles.tableCell)}>
+      <TableCell xstyle={styles.tableCell}>
         {children}
       </TableCell>
     </MarkdownTableCellContext.Provider>
@@ -689,6 +690,7 @@ export function MarkdownMessage({
     <div
       className={cx(sx(styles.body), className)}
       style={{
+        ...chatTypeScaleVars(messageFontSize),
         fontSize: `${messageFontSize}px`,
         lineHeight: MESSAGE_BODY_LINE_HEIGHT,
       }}

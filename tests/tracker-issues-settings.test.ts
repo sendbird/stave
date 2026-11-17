@@ -75,6 +75,7 @@ describe("DEFAULT_TRACKER_ISSUES_SETTINGS", () => {
     // Jira has no Issues switch; jiraConnector.enabled is its only one.
     expect(DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled).toEqual({
       crane: true,
+      github: false,
     });
   });
 });
@@ -85,7 +86,8 @@ describe("normalizeTrackerIssuesSettings", () => {
       defaultView: "in-stave" as const,
       refreshIntervalSeconds: 600,
       defaultKickoffStartMode: "stage" as const,
-      sourceEnabled: { crane: false },
+      sourceEnabled: { crane: false, github: true },
+      githubMappings: [],
     };
     expect(normalizeTrackerIssuesSettings(value)).toEqual(value);
   });
@@ -110,6 +112,7 @@ describe("normalizeTrackerIssuesSettings", () => {
       refreshIntervalSeconds: DEFAULT_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS,
       defaultKickoffStartMode: "stage",
       sourceEnabled: DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled,
+      githubMappings: [],
     });
   });
 
@@ -125,6 +128,7 @@ describe("normalizeTrackerIssuesSettings", () => {
       refreshIntervalSeconds: 1_800,
       defaultKickoffStartMode: "stage",
       sourceEnabled: DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled,
+      githubMappings: [],
     });
   });
 
@@ -140,6 +144,7 @@ describe("normalizeTrackerIssuesSettings", () => {
       refreshIntervalSeconds: 120,
       defaultKickoffStartMode: "run",
       sourceEnabled: DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled,
+      githubMappings: [],
     });
   });
 
@@ -156,6 +161,7 @@ describe("normalizeTrackerIssuesSettings", () => {
       refreshIntervalSeconds: 120,
       defaultKickoffStartMode: "stage",
       sourceEnabled: DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled,
+      githubMappings: [],
     });
   });
 
@@ -170,6 +176,7 @@ describe("normalizeTrackerIssuesSettings", () => {
       refreshIntervalSeconds: DEFAULT_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS,
       defaultKickoffStartMode: "stage",
       sourceEnabled: DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled,
+      githubMappings: [],
     });
   });
 
@@ -185,7 +192,8 @@ describe("normalizeTrackerIssuesSettings", () => {
       defaultView: "all-open",
       refreshIntervalSeconds: 120,
       defaultKickoffStartMode: "stage",
-      sourceEnabled: { crane: true },
+      sourceEnabled: { crane: true, github: false },
+      githubMappings: [],
     });
   });
 });

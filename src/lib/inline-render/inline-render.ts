@@ -126,9 +126,16 @@ function networkDirectives(policy: InlineRenderNetworkPolicy): string[] {
  */
 export function buildInlineRenderCsp(
   policy: InlineRenderNetworkPolicy,
-  options?: { delivery?: "header" | "meta" },
+  options?: { delivery?: "header" | "meta"; embeddedScripts?: boolean },
 ): string {
-  const directives = [...networkDirectives(policy), ...COMMON_DIRECTIVES];
+  const network = networkDirectives(policy);
+  // Saved local scripts may use data URLs to preserve parser/defer/async semantics.
+  // This grants no network origin and the frame remains opaque and sandboxed.
+  if (options?.embeddedScripts && policy === "blocked") {
+    const index = network.findIndex((directive) => directive.startsWith("script-src "));
+    network[index] = network[index]!.replace("script-src ", "script-src data: ");
+  }
+  const directives = [...network, ...COMMON_DIRECTIVES];
   if ((options?.delivery ?? "header") === "header") {
     directives.unshift(`sandbox ${INLINE_RENDER_FRAME_SANDBOX}`);
   }
@@ -559,7 +566,15 @@ const BOOTSTRAP_SCRIPT = `(function () {
  */
 export const INLINE_RENDER_BODY_INSET = "clamp(16px,2.5vw,24px)";
 
-const BASE_STYLE = `html{background:transparent;color:var(--foreground,CanvasText);font-family:var(--font-sans,system-ui,sans-serif);-webkit-font-smoothing:antialiased}body{margin:0;padding:${INLINE_RENDER_BODY_INSET}}a{color:var(--primary,LinkText)}`;
+/**
+ * Body text matches the conversation's body text (`--aui-font-size-body`,
+ * 14px) instead of the browser's 16px, so a page reads at the size of the
+ * reply around it. Set on `body`, not `html`, so a page's `rem` sizes keep
+ * their usual meaning.
+ */
+export const INLINE_RENDER_BODY_TEXT = "font-size:14px;line-height:1.5";
+
+const BASE_STYLE = `html{background:transparent;color:var(--foreground,CanvasText);font-family:var(--font-sans,system-ui,sans-serif);-webkit-font-smoothing:antialiased}body{margin:0;padding:${INLINE_RENDER_BODY_INSET};${INLINE_RENDER_BODY_TEXT}}a{color:var(--primary,LinkText)}`;
 
 /**
  * What shows through a transparent page in the conversation, for a window

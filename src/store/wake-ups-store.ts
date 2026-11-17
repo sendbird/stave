@@ -7,7 +7,7 @@ import { i18n } from "@/i18n/runtime";
  */
 import { useEffect } from "react";
 import { create } from "zustand";
-import type { WakeUpsBridgeApi } from "@/lib/supervision/wake-up-bridge";
+import type { PullRequestAutoWatchHint, WakeUpsBridgeApi } from "@/lib/supervision/wake-up-bridge";
 import type { WakeUp, WakeUpSummary } from "@/lib/supervision/wake-up-policy";
 import { useAppStore } from "@/store/app.store";
 
@@ -20,6 +20,8 @@ interface WakeUpsState {
   workspaceId: string | null;
   /** `${workspaceId}:${taskId}` → the task's wake-up. */
   byTask: Record<string, TaskWakeUp>;
+  /** `${workspaceId}:${taskId}` → why Stave did not watch a PR that task may have opened. */
+  hintByTask: Record<string, PullRequestAutoWatchHint>;
   pendingById: Record<string, boolean | undefined>;
   failureById: Record<string, string | undefined>;
   load: (workspaceId: string | null) => Promise<void>;
@@ -55,10 +57,11 @@ export const useWakeUpsStore = create<WakeUpsState>()((set, get) => {
   return {
     workspaceId: null,
     byTask: {},
+    hintByTask: {},
     pendingById: {},
     failureById: {},
     load: async (workspaceId) => {
-      if (workspaceId !== get().workspaceId) set({ workspaceId, byTask: {} });
+      if (workspaceId !== get().workspaceId) set({ workspaceId, byTask: {}, hintByTask: {} });
       const api = wakeUpsApi();
       if (!api || !workspaceId) return;
       const listed = await api.list({ workspaceId }).catch(() => null);
@@ -68,7 +71,12 @@ export const useWakeUpsStore = create<WakeUpsState>()((set, get) => {
         const summary = listed.summaries[index];
         if (summary) byTask[wakeUpTaskKey(workspaceId, wakeUp.taskId)] = { wakeUp, summary };
       });
-      set({ byTask });
+      const hintByTask: Record<string, PullRequestAutoWatchHint> = {};
+      for (const hint of listed.autoWatchHints ?? []) {
+        if (hint.workspaceId !== workspaceId) continue;
+        for (const taskId of hint.taskIds) hintByTask[wakeUpTaskKey(workspaceId, taskId)] = hint;
+      }
+      set({ byTask, hintByTask });
     },
     setPaused: (id, paused) =>
       run(id, () => wakeUpsApi()?.setPaused({ id, paused }) ?? Promise.resolve({ ok: false })),
@@ -80,9 +88,18 @@ export function useTaskWakeUp(workspaceId: string, taskId: string): TaskWakeUp |
   return useWakeUpsStore((state) => state.byTask[wakeUpTaskKey(workspaceId, taskId)]);
 }
 
+export function useTaskAutoWatchHint(workspaceId: string, taskId: string): PullRequestAutoWatchHint | undefined {
+  return useWakeUpsStore((state) => state.hintByTask[wakeUpTaskKey(workspaceId, taskId)]);
+}
+
 /** Keeps the store on the active workspace. Mount once, near the app root. */
 export function useWakeUpSync() {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
+  const createPrWatchEnabled = useAppStore((state) => state.settings.createPrWatchEnabled);
+  // Agent PR discovery runs in the host, which reads this switch from its own store.
+  useEffect(() => {
+    void wakeUpsApi()?.syncSettings?.({ createPrWatchEnabled }).catch(() => undefined);
+  }, [createPrWatchEnabled]);
   useEffect(() => {
     void useWakeUpsStore.getState().load(workspaceId || null);
   }, [workspaceId]);

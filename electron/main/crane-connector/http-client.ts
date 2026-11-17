@@ -14,45 +14,47 @@ const MAX_RESPONSE_BYTES = 24_000;
 const RETRY_AFTER_MS_MAX = 5 * 60 * 1_000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
 
-const ServerConnectorSchema = CraneConnectorMetadataSchema.extend({
+/*
+ * Response schemas strip properties they do not know instead of rejecting
+ * them, the same rule the dispatch job follows (`docs/features/crane-connector.md`,
+ * "Dispatch Payload Contract"). Crane commits before it answers: an exchange
+ * has already consumed the pairing code and revoked the previous connector, a
+ * claim has already leased the job. Rejecting an additive field here would
+ * leave Crane showing a pairing or claim that Stave threw away. Unknown fields
+ * never reach runtime code; known fields stay fully validated.
+ */
+const ServerConnectorSchema = z.object({
+  ...CraneConnectorMetadataSchema.shape,
   secretPrefix: z.string().trim().min(1).max(16),
   revokedAt: z.string().datetime({ offset: true }).nullable(),
-}).strict();
+});
 
-const ExchangeResponseSchema = z
-  .object({
-    connector: ServerConnectorSchema,
-    secret: z.string().trim().startsWith("stc_").max(128),
-    pollRetryMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
-  })
-  .strict();
+const ExchangeResponseSchema = z.object({
+  connector: ServerConnectorSchema,
+  secret: z.string().trim().startsWith("stc_").max(128),
+  pollRetryMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
+});
 
-const NextJobResponseSchema = z
-  .object({
-    job: CraneStaveJobV1Schema,
-    retryAfterMs: z.number().int().min(0).max(RETRY_AFTER_MS_MAX),
-  })
-  .strict();
+const NextJobResponseSchema = z.object({
+  job: CraneStaveJobV1Schema,
+  retryAfterMs: z.number().int().min(0).max(RETRY_AFTER_MS_MAX),
+});
 
-const ClaimResponseSchema = z
-  .object({
-    job: CraneStaveJobV1Schema,
-    leaseId: z.string().trim().startsWith("stl_").max(128),
-    leaseExpiresAt: z.string().datetime({ offset: true }),
-    nextSequence: z.number().int().min(1),
-    retryAfterMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
-  })
-  .strict();
+const ClaimResponseSchema = z.object({
+  job: CraneStaveJobV1Schema,
+  leaseId: z.string().trim().startsWith("stl_").max(128),
+  leaseExpiresAt: z.string().datetime({ offset: true }),
+  nextSequence: z.number().int().min(1),
+  retryAfterMs: z.number().int().min(1).max(RETRY_AFTER_MS_MAX),
+});
 
-const ReceiptResponseSchema = z
-  .object({
-    ok: z.literal(true),
-    duplicate: z.boolean(),
-    jobState: z.string().trim().min(1).max(64),
-    sequence: z.number().int().min(1),
-    nextSequence: z.number().int().min(2),
-  })
-  .strict();
+const ReceiptResponseSchema = z.object({
+  ok: z.literal(true),
+  duplicate: z.boolean(),
+  jobState: z.string().trim().min(1).max(64),
+  sequence: z.number().int().min(1),
+  nextSequence: z.number().int().min(2),
+});
 
 const HeartbeatResponseSchema = z.object({
   ok: z.literal(true),
@@ -80,7 +82,7 @@ export function readCraneTasksEnabledHeader(
   return null;
 }
 
-const RevokeResponseSchema = z.object({ ok: z.literal(true) }).strict();
+const RevokeResponseSchema = z.object({ ok: z.literal(true) });
 
 const ErrorResponseSchema = z
   .object({

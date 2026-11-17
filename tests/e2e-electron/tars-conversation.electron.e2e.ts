@@ -32,7 +32,7 @@ test("global conversation works without a workspace, admits one decision, and su
     const reasoningCount = async () => (await readFile(turnsFile, "utf8")).split("\n").filter(Boolean)
       .map((line) => JSON.parse(line)).filter((entry) => entry.markers?.currentMessage).length;
     stave = await launchStave({ userDataDir: profileDir, env });
-    const settings = { providerId: "claude-code" as const, model: "sonnet", maxTurns: 4, runtimeHints: { claudeBinaryPath: wrapper } };
+    const settings = { providerId: "claude-code" as const, model: "sonnet", executionModel: { providerId: "claude-code" as const, model: "sonnet" }, maxTurns: 4, runtimeHints: { claudeBinaryPath: wrapper } };
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input), settings);
     await stave.page.getByRole("button", { name: /^(Tars|Tars)$/ }).click();
     const conversationView = stave.page.getByTestId("tars-view");
@@ -177,7 +177,7 @@ test("a message that includes working changes starts its work from the uncommitt
     await chmod(wrapper, 0o755);
     stave = await launchStave({ userDataDir: profileDir, env: { STAVE_CLAUDE_CLI_PATH: wrapper } });
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input),
-      { providerId: "claude-code" as const, model: "sonnet", maxTurns: 4, runtimeHints: { claudeBinaryPath: wrapper } });
+      { providerId: "claude-code" as const, model: "sonnet", executionModel: { providerId: "claude-code" as const, model: "sonnet" }, maxTurns: 4, runtimeHints: { claudeBinaryPath: wrapper } });
     await seedRepository(stave.page, { repositoryPath, settings: { autoRoutingEnabled: false } });
     await expect.poll(() => stave!.page.evaluate(async (repository) => {
       const registry = await window.api!.persistence!.loadRepositoryRegistry!();
@@ -281,7 +281,7 @@ test("a Tars draft survives an app restart and a sent message clears it for good
 
     stave = await launchStave({ userDataDir: profileDir, env });
     await stave.page.evaluate((input) => window.api!.tars!.configureConversation!(input),
-      { providerId: "claude-code" as const, model: "sonnet", maxTurns: 4, runtimeHints: { claudeBinaryPath: wrapper } });
+      { providerId: "claude-code" as const, model: "sonnet", executionModel: { providerId: "claude-code" as const, model: "sonnet" }, maxTurns: 4, runtimeHints: { claudeBinaryPath: wrapper } });
     let tars = await openTars();
     await tars.editor.fill("Draft written before a restart.");
     await tars.toggle.click();

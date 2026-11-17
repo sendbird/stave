@@ -33,7 +33,8 @@ for (const { name, query } of [
     expect(await view.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
     // No name line over any reply.
     await expect(view.locator("[data-tars-reply] [data-tars-mark]")).toHaveCount(0);
-    for (const id of ["g-a1", "g-a4", "g-g1-answer"]) {
+    // A user message's time; an answer chosen on a card has none of its own (its record on the rail carries one).
+    for (const id of ["g-a1", "g-a4"]) {
       const item = exchange(page, id);
       await item.scrollIntoViewIfNeeded();
       await page.mouse.move(0, 0);
@@ -45,16 +46,13 @@ for (const { name, query } of [
       const geometry = await item.evaluate((node) => {
         const box = node.getBoundingClientRect();
         const stamp = node.querySelector("[data-tars-message-time]")!.getBoundingClientRect();
-        const head = node.querySelector("[data-tars-user-bubble], [data-tars-message-attachments], [data-tars-reply]")!.getBoundingClientRect();
-        return { left: box.left, right: box.right, stamp: { left: stamp.left, right: stamp.right, bottom: stamp.bottom }, headTop: head.top,
-          user: node.getAttribute("data-tars-message-origin") === null };
+        const bubble = node.querySelector("[data-tars-user-bubble]")!.getBoundingClientRect();
+        return { left: box.left, right: box.right, stamp: { left: stamp.left, right: stamp.right, bottom: stamp.bottom }, bubble: { left: bubble.left, bottom: bubble.bottom } };
       });
-      // In the gap above the message it belongs to, on that author's side, never outside the column.
-      expect(geometry.stamp.bottom).toBeLessThanOrEqual(geometry.headTop + 1);
+      // Beside the bubble on its leading side, on its last line, never outside the column.
+      expect(geometry.stamp.right).toBeLessThanOrEqual(geometry.bubble.left);
+      expect(Math.abs(geometry.stamp.bottom - geometry.bubble.bottom)).toBeLessThanOrEqual(5);
       expect(geometry.stamp.left).toBeGreaterThanOrEqual(geometry.left - 1);
-      expect(geometry.stamp.right).toBeLessThanOrEqual(geometry.right + 1);
-      if (geometry.user) expect(Math.abs(geometry.stamp.right - geometry.right)).toBeLessThanOrEqual(1);
-      else expect(Math.abs(geometry.stamp.left - geometry.left)).toBeLessThanOrEqual(1);
     }
     // Files sit above the bubble on the user's side, each chip inside the column.
     const files = exchange(page, "g-a4").locator("[data-tars-message-attachments]");
@@ -76,7 +74,7 @@ test("the time is reachable by keyboard and its card gives the full date", async
   const stamp = exchange(page, "g-a1").locator("[data-tars-message-time] button");
   await stamp.focus();
   await expect.poll(() => opacity(page, "g-a1")).toBe(1);
-  await expect(stamp).toHaveText(/ago|전/);
+  await expect(stamp).toHaveText(/^\d{1,2}:\d{2}\s[AP]M$/);
   await expect(page.getByText("UTC", { exact: true })).toBeVisible();
 });
 
@@ -157,8 +155,9 @@ test("the conversation's text follows the chat font size, with secondary text sc
     expect(sizes.user).toBe(size);
     expect(sizes.reply).toBe(size);
     expect(sizes.composer).toBe(size);
-    expect(sizes.status).toBeCloseTo(size * 0.875, 1);
-    expect(sizes.notice).toBeCloseTo(size * 0.875, 1);
-    expect(sizes.time).toBeCloseTo(size * 0.75, 1);
+    // The conversation scale's secondary and meta steps, in whole pixels (`chatTypeScale`).
+    expect(sizes.status).toBe(Math.round(size * 0.875));
+    expect(sizes.notice).toBe(Math.round(size * 0.875));
+    expect(sizes.time).toBe(Math.round(size * 0.75));
   }
 });

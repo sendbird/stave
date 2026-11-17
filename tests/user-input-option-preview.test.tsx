@@ -148,7 +148,7 @@ describe("option preview mapping", () => {
 });
 
 describe("UserInputCard option preview", () => {
-  test("shows no preview area before an option takes focus or the pointer", () => {
+  test("reserves hidden, inert previews before browsing starts", () => {
     const [question] = parseClaudeQuestionList({ input: claudeInput });
     const html = renderToStaticMarkup(
       createElement(UserInputCard, {
@@ -159,7 +159,23 @@ describe("UserInputCard option preview", () => {
       }),
     );
     expect(html).toContain("Scroll container");
-    expect(html).not.toContain("data-option-preview");
-    expect(html).not.toContain(SNIPPET.split("\n")[0]!.replace(/</g, "&lt;"));
+    expect(html).not.toContain("data-option-preview=");
+    expect(html).toContain("data-option-preview-slot");
+    expect(html).toContain('aria-hidden="true" inert=""');
+  });
+
+  test("does not reserve preview space for answered questions or options without previews", () => {
+    const [question] = parseClaudeQuestionList({ input: claudeInput });
+    for (const props of [
+      { state: "input-responded" as const, questions: [question!] },
+      { state: "input-requested" as const, questions: [{ ...question!, options: [{ label: "Plain choice" }] }] },
+    ]) {
+      const html = renderToStaticMarkup(createElement(UserInputCard, {
+        toolName: "AskUserQuestion",
+        presentation: "composer",
+        ...props,
+      }));
+      expect(html).not.toContain("data-option-preview-slot");
+    }
   });
 });

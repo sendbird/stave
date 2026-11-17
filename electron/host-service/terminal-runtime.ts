@@ -41,6 +41,7 @@ import {
 import { buildCliSessionLaunch } from "./cli-session-launch";
 import { createProviderAccountLoginSession } from "./provider-account-login";
 import { createNativeSessionDiscovery } from "./native-session-discovery";
+import { isTerminalSessionBusy } from "./terminal-session-busy";
 import {
   appendBackgroundBuffer,
   appendOutputChunk,
@@ -395,6 +396,7 @@ export function createTerminalRuntime(args: {
 
     const session: TerminalSessionEntry = {
       workspaceId: args.workspaceId,
+      command: args.command,
       pty: ptyProcess,
       dataSubscription: null,
       exitSubscription: null,
@@ -1034,6 +1036,11 @@ export function createTerminalRuntime(args: {
   }
 
   return {
+    hasWorkspaceSessions: (workspaceId: string) => [...sessions.values()].some(session => session.workspaceId === workspaceId && !session.closing),
+    /** An open terminal blocks a file restore unless it is an idle shell. */
+    hasRunningWorkspaceProcesses: (workspaceIds: readonly string[]) => [...sessions.values()].some(session =>
+      !session.closing && session.workspaceId !== undefined && workspaceIds.includes(session.workspaceId)
+      && isTerminalSessionBusy({ command: session.command ?? "", readForeground: () => session.pty.process })),
     stopWorkspace,
     createSession,
     createCliSession,

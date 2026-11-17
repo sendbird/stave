@@ -9,7 +9,8 @@ import type { TarsResponsibility } from "./types";
  * model: without an explicit pin (`model` null) the run routes automatically,
  * so Stave Auto picks each turn's model and effort and helpers, including the
  * reviewer, may run on the other provider. A pin locks the whole team to that
- * model and its provider, at the model's default effort.
+ * model and its provider. The lead starts at its default effort; helpers may
+ * use live Auto for effort within that model unless effort is pinned.
  */
 export function buildTarsExecutionResources(
   row: Pick<TarsResponsibility, "providerId" | "model" | "runtimeHints">,

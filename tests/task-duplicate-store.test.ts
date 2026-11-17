@@ -68,3 +68,16 @@ describe("duplicateTask resident messages", () => {
     expect(state.messagesByTask[state.activeTaskId]).toHaveLength(TOTAL_MESSAGES);
   });
 });
+
+describe("duplicateTask fork identity", () => {
+  test("a copy of a fork is not itself a fork of the source response", async () => {
+    const { task, store, actions } = setup({ flush: async () => {} });
+    store.setState({ tasks: [{ ...task, forkParent: { taskId: "original", workspaceId: "ws-active", messageId: "answer" } }] });
+    await actions.duplicateTask({ taskId: task.id });
+    const state = store.getState();
+    const copy = state.tasks.find((entry) => entry.id === state.activeTaskId);
+    expect(copy?.id).not.toBe(task.id);
+    expect(copy).not.toHaveProperty("forkParent");
+    expect(state).not.toHaveProperty("taskCheckpointById");
+  });
+});

@@ -6,7 +6,8 @@
  * still opened that pull request. The watch is a `pull_request` wake-up on the task the user created
  * the pull request from, with `checks_failed` and `merge_conflict` only:
  * acting on review comments stays opt-in per task, from Schedules or the MCP
- * tool. **Settings → Prompts → PR Completion** turns it off.
+ * tool. **Settings → Prompts → PR Completion** turns it off; a repository
+ * may override that switch.
  *
  * A task has one wake-up. An existing pull request watch is left as it is,
  * and a different schedule is never replaced behind the user's back — the
@@ -20,6 +21,7 @@ import {
 } from "@/lib/supervision/pull-request-watch";
 import type { WakeUpsBridgeApi } from "@/lib/supervision/wake-up-bridge";
 import { isTaskManaged } from "@/lib/tasks";
+import { effectiveSetting, type EffectiveSettingsSource } from "@/store/project-settings-overrides";
 import type { Task } from "@/types/chat";
 
 export type AutoPullRequestWatchOutcome =
@@ -37,7 +39,7 @@ export async function ensureCreatedPullRequestWatch(args: {
   enabled: boolean;
   workspaceId: string;
   task: WatchTask | null;
-  api: Pick<WakeUpsBridgeApi, "list" | "create"> | null | undefined;
+  api: Pick<WakeUpsBridgeApi, "list" | "create" | "createAutomatic"> | null | undefined;
 }): Promise<AutoPullRequestWatchOutcome> {
   if (!args.enabled) return { kind: "disabled" };
   const task = args.task;
@@ -63,7 +65,8 @@ export async function ensureCreatedPullRequestWatch(args: {
         ? { kind: "already-watching", wakeUpId: existing.id }
         : { kind: "task-has-schedule", wakeUpId: existing.id };
     }
-    const created = await api.create({
+    // Marked automatic, so the task can offer Stop watching for it.
+    const created = await (api.createAutomatic ?? api.create)({
       workspaceId: args.workspaceId,
       taskId: task.id,
       prompt: DEFAULT_PULL_REQUEST_WATCH_PROMPT,
@@ -110,13 +113,15 @@ export function announceCreatedPullRequestWatch(outcome: AutoPullRequestWatchOut
 
 /** The Create PR flow's one call: read the setting and the task, watch, announce. */
 export async function watchCreatedPullRequest(args: {
-  state: { settings: { createPrWatchEnabled: boolean }; tasks: readonly WatchTask[] };
+  state: EffectiveSettingsSource & { tasks: readonly WatchTask[] };
+  repositoryPath: string | null;
   workspaceId: string;
   taskId: string | null;
 }) {
   const task = args.taskId ? (args.state.tasks.find((candidate) => candidate.id === args.taskId) ?? null) : null;
   const outcome = await ensureCreatedPullRequestWatch({
-    enabled: args.state.settings.createPrWatchEnabled,
+    // The same contract the host applies to agent-opened PRs.
+    enabled: effectiveSetting("createPrWatchEnabled", args.repositoryPath, args.state),
     workspaceId: args.workspaceId,
     task,
     api: typeof window === "undefined" ? null : window.api?.wakeUps,

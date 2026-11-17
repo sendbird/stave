@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useLayoutEffect, useMemo, useState } from "react";
+import { applyAppLocale, useTranslation } from "@/i18n";
+import { applyThemeClass } from "@/lib/themes/apply";
 import { ModelEffortSelector } from "@/components/ai-elements/model-effort-selector";
 import {
   buildAutoModelSelectorOption,
@@ -16,11 +18,20 @@ import { previewStyles as styles } from "./preview.styles";
  * profile panel are checked in the component that ships.
  */
 export function ModelAutoTabPreview() {
+  const { t } = useTranslation(["composer"]);
+  useLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    applyAppLocale(params.get("lang") === "ko" ? "ko" : "en");
+    applyThemeClass({ enabled: params.get("theme") === "dark" });
+    document.documentElement.dataset.uiDensity = params.get("density") === "compact" ? "compact" : "regular";
+  }, []);
   const stance = useAppStore((state) => state.settings.autoRoutingProfile.stance);
-  const options = useMemo<ModelSelectorOption[]>(
-    () => buildModelSelectorOptions({ providerIds: listProviderIds() }),
-    [],
-  );
+  const rowsPreview = new URLSearchParams(window.location.search).get("modelRows") === "true";
+  const options = useMemo<ModelSelectorOption[]>(() => [
+    ...buildModelSelectorOptions({ providerIds: listProviderIds() }),
+    ...(rowsPreview ? [{ key: "opencode:fable", providerId: "opencode" as const, model: "claude-fable-5-2", label: "Claude Fable 5.2",
+      description: t("composer:modelSelectorUtils.extraCopy63"), available: true }] : []),
+  ], [rowsPreview, t]);
   const autoOption = useMemo(
     () =>
       buildAutoModelSelectorOption({
@@ -35,7 +46,7 @@ export function ModelAutoTabPreview() {
     [autoOption, options],
   );
   const [value, setValue] = useState<ModelSelectorOption>(
-    () => options[0] ?? autoOption,
+    () => (rowsPreview ? options.at(-1) : options[0]) ?? autoOption,
   );
   const selected = value.isAuto ? autoOption : value;
 

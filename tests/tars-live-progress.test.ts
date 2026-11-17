@@ -152,15 +152,17 @@ describe("Tars live progress", () => {
     ] };
     const entries = selectTarsRecentProgress(detail, 10);
     expect(entries.map((entry) => entry.text)).toEqual([
-      "Stopped waiting for you",
+      // Ending a wait never claims an answer arrived.
+      "No longer waiting for you",
       "Waiting for your approval",
-      `Turn started in ${cause}`,
-      `${cause} retried, attempt 2`,
-      `Turn started in ${cause}`,
+      `Started working on ${cause}`,
+      `${cause} started again, attempt 2`,
+      `Started working on ${cause}`,
+      // The agent's own report and the phase's completion stay two different events.
       `${reproduce} completed`,
-      `${reproduce} reported done`,
-      `Turn started in ${reproduce}`,
-      "Run started",
+      `${reproduce}: agent reported done`,
+      `Started working on ${reproduce}`,
+      "Work started",
     ]);
     // Bookkeeping (the resource ledger) and an event about a stage the workflow does not name are left out.
     expect(entries.some((entry) => entry.id === "event-3" || entry.id === "event-12")).toBe(false);
@@ -177,7 +179,7 @@ describe("Tars live progress", () => {
     try {
       const { run } = fixture();
       const detail: AgentRunDetail = { ...run, events: [event(run, 1, "agent-run-started", {}, 0), event(run, 2, "agent-run-ended", { outcome: "completed" }, 9)] };
-      expect(selectTarsRecentProgress(detail).map((entry) => entry.text)).toEqual(["실행 완료", "실행 시작"]);
+      expect(selectTarsRecentProgress(detail).map((entry) => entry.text)).toEqual(["작업 끝남", "작업 시작됨"]);
     } finally { await applyAppLocale("en"); }
   });
 });

@@ -178,6 +178,12 @@ Two rules keep the tolerance safe:
 Receipts going the other way stay a closed shape: Stave authors them, so an
 unexpected property there is a Stave bug, not a rollout skew.
 
+Crane's own answers to the connector (pairing exchange, next job, claim,
+receipt acknowledgement, revoke) follow the same additive rule: Stave validates
+the fields it knows and strips the rest. Crane commits each of those requests
+before it answers, so rejecting an unknown field would leave Crane holding a
+pairing or claim that Stave discarded.
+
 On approval, the Crane issue is filed in the Information panel's **Crane Issues**
 section and any resolved Jira issue in the **Jira Issues** section. The Crane
 section appears only while the connector is enabled (or while it still holds
@@ -234,6 +240,17 @@ paths, branch names, provider credentials, or Local MCP metadata.
 - Cause: Stave cannot use OS-backed credential encryption.
 - Fix: enable the operating system credential store and restart Stave. The
   connector fails closed instead of saving plaintext.
+
+### Pairing Fails In Stave But Crane Shows Connected
+
+- Symptom: `Pair securely` reports an error such as `invalid_response`, while
+  Crane's Stave connector page lists the new installation as connected.
+- Cause: Crane accepted the pairing code, created the connector, and revoked the
+  previous one before Stave rejected its answer. Stave versions up to 0.33.1
+  rejected the `scopes` field Crane includes in that answer.
+- Fix: update Stave, generate a new pairing code in Crane, and pair again. The
+  previous credential stays revoked, so re-pairing is required even if Stave
+  worked before the failed attempt.
 
 ### Stave Connector Is Missing In Crane
 

@@ -55,6 +55,7 @@ interface AgentRunRow {
   pause_reason: string | null;
   stop_reason: string | null;
   reason_detail: string | null;
+  daily_usage_limit?: number;
   current_stage_index: number;
   turn_count: number;
   max_turns: number;
@@ -123,6 +124,7 @@ function parseAgentRunRow(row: AgentRunRow): AgentRun {
     pauseReason: row.pause_reason,
     stopReason: row.stop_reason,
     reasonDetail: row.reason_detail,
+    ...(row.daily_usage_limit ? { dailyUsageLimit: true } : {}),
     ...(row.usage_limit_json ? { usageLimit: JSON.parse(row.usage_limit_json) } : {}),
     ...(row.account_pool_json ? { accountPool: JSON.parse(row.account_pool_json) } : {}),
     ...(row.event_wait_json ? { eventWait: JSON.parse(row.event_wait_json) } : {}),
@@ -219,7 +221,8 @@ export class AgentRunStore {
         initial_context_json TEXT,
         usage_limit_json TEXT,
         account_pool_json TEXT,
-        event_wait_json TEXT
+        event_wait_json TEXT,
+        daily_usage_limit INTEGER NOT NULL DEFAULT 0
       );
       CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_active_lead
         ON agent_runs (lead_task_id) WHERE state IN ${ACTIVE_STATES_SQL};
@@ -270,6 +273,9 @@ export class AgentRunStore {
     if (!columns.some((column) => column.name === "origin")) {
       this.db.exec("ALTER TABLE agent_runs ADD COLUMN origin TEXT");
     }
+    if (!columns.some((column) => column.name === "daily_usage_limit")) {
+      this.db.exec("ALTER TABLE agent_runs ADD COLUMN daily_usage_limit INTEGER NOT NULL DEFAULT 0");
+    }
   }
 
   /** Each unit reads before it writes; see `inWriteSavepoint`. */
@@ -302,6 +308,7 @@ export class AgentRunStore {
       agentRun.usageLimit ? JSON.stringify(agentRun.usageLimit) : null,
       agentRun.accountPool ? JSON.stringify(agentRun.accountPool) : null,
       agentRun.eventWait ? JSON.stringify(agentRun.eventWait) : null,
+      agentRun.dailyUsageLimit ? 1 : 0,
     ];
     if (insert) {
       this.db
@@ -310,8 +317,8 @@ export class AgentRunStore {
              repository_path, workspace_id, lead_task_id, project_id,
              workflow_json, assignment, consent_json, fingerprint_json, state,
              pause_reason, stop_reason, reason_detail, current_stage_index,
-             turn_count, max_turns, expires_at, created_at, updated_at, origin, initial_context_json, usage_limit_json, account_pool_json, event_wait_json, id
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             turn_count, max_turns, expires_at, created_at, updated_at, origin, initial_context_json, usage_limit_json, account_pool_json, event_wait_json, daily_usage_limit, id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(...values, agentRun.id);
       return;
@@ -324,7 +331,7 @@ export class AgentRunStore {
            fingerprint_json = ?, state = ?, pause_reason = ?, stop_reason = ?,
            reason_detail = ?, current_stage_index = ?, turn_count = ?,
            max_turns = ?, expires_at = ?, created_at = ?, updated_at = ?,
-           origin = ?, initial_context_json = ?, usage_limit_json = ?, account_pool_json = ?, event_wait_json = ?
+           origin = ?, initial_context_json = ?, usage_limit_json = ?, account_pool_json = ?, event_wait_json = ?, daily_usage_limit = ?
          WHERE id = ?`,
       )
       .run(...values, agentRun.id);

@@ -52,7 +52,7 @@ function renderRow(props: ReturnType<typeof rowProps>) {
 describe("Tars UI", () => {
   test("a missing bridge states desktop availability instead of faking empty work", () => {
     const html = renderToStaticMarkup(createElement(TarsView));
-    expect(html).toContain("resident conversation service");
+    expect(html).toContain("Talking with Tars needs a recent version of the Stave desktop app.");
     expect(html).not.toContain("Delegate and start");
   });
   test("terminal responsibility keeps its task and Fleet row without active controls", () => {
@@ -60,7 +60,7 @@ describe("Tars UI", () => {
     expect(done.visible).toEqual(["Open task"]);
     expect(done.labels).toEqual(["Open task", "Show in Fleet"]);
     expect(done.html).toContain('data-tars-lane="done"');
-    expect(done.html).not.toContain("Cancel responsibility");
+    expect(done.html).not.toContain("Cancel work");
   });
   test("queued transport reads finish before mutations and failure does not poison later requests", async () => {
     const queue = createTarsRequestQueue();
@@ -87,10 +87,10 @@ describe("Tars UI", () => {
     // One main action and Open task stay visible; the rest is in "More actions", Cancel last.
     const running = renderRow(rowProps(row));
     expect(running.visible).toEqual(["Pause", "Open task"]);
-    expect(running.labels).toEqual(["Pause", "Open task", "Take over", "Show in Fleet", "Cancel responsibility"]);
-    expect(renderRow(rowProps({ ...row, state: "paused" })).labels).toEqual(["Resume", "Open task", "Take over", "Show in Fleet", "Cancel responsibility"]);
+    expect(running.labels).toEqual(["Pause", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
+    expect(renderRow(rowProps({ ...row, state: "paused" })).labels).toEqual(["Resume", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
     const owned = renderRow(rowProps({ ...row, state: "takenOver" }));
-    expect(owned.labels).toEqual(["Hand back", "Open task", "Show in Fleet", "Cancel responsibility"]);
+    expect(owned.labels).toEqual(["Hand back", "Open task", "Show in Fleet", "Cancel work"]);
     expect(owned.html).toContain("Taken over");
     expect(owned.html).toContain("Owner: you");
     expect(renderRow(rowProps({ ...row, reverifyAfter: "2026-11-05T00:05:00.000Z" })).html).toContain("verify this work again");
@@ -117,7 +117,8 @@ describe("Tars UI", () => {
     const html = renderToStaticMarkup(createElement(TarsConversation, { state, name: "Tars", titleOf: () => owned.title,
       initialSettings: { providerId: "codex", model: "test-model", maxTurns: 30 } }));
     expect(html).toContain('data-tars-action-record="applied"');
-    expect(tarsRecordText(html)).toContain("Pause Verified result click Applied");
+    expect(tarsRecordText(html)).toContain("Pause Verified result Applied");
+    expect(html).toContain('aria-label="You did this in Tars"');
     expect(html).toContain("Verified result");
     expect(html).not.toContain("data-tars-message");
     expect(conversation.messages).toEqual([]);
@@ -138,12 +139,13 @@ describe("Tars UI", () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     try {
       expect(line("takenOver")).toContain("직접 맡은 작업입니다. Tars가 처리하려면 먼저 다시 맡기세요.");
-      expect(tarsRecordText(line("takenOver"))).toContain("재개 클릭 적용하지 않음");
+      expect(tarsRecordText(line("takenOver"))).toContain("재개 적용하지 않음");
+      expect(line("takenOver")).toContain('aria-label="Tars에서 직접 한 일입니다"');
       expect(line("stale")).toContain("마지막으로 확인한 뒤 작업이 바뀌었습니다.");
       // A code this build does not know, or none, falls back to the generic translated reason.
-      expect(line("futureReason")).toContain("Tars가 이 조작을 적용하지 못했습니다.");
-      expect(spoken("ownershipLost")).toContain("이 Task의 담당이 바뀌어");
-      expect(spoken(null)).toContain("Tars가 이 조작을 적용하지 못했습니다.");
+      expect(line("futureReason")).toContain("Tars가 이 동작을 하지 못했습니다.");
+      expect(spoken("ownershipLost")).toContain("이 작업을 이제 다른 곳에서 맡고 있어");
+      expect(spoken(null)).toContain("Tars가 이 동작을 하지 못했습니다.");
       for (const html of [line("takenOver"), line("futureReason"), spoken("ownershipLost"), spoken(null)]) expect(html).not.toContain(diagnostic);
     } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
     expect(line("stale")).toContain("This work changed after you last saw it.");
@@ -163,7 +165,9 @@ describe("Tars UI", () => {
       onAnswer: (decision: TarsDecisionView, index: number, source: string) => { answered.push([decision.id, index, source]); } };
     function Capture() { sink.tree = TarsConversationMessage(props); return sink.tree; }
     const html = renderToStaticMarkup(createElement(Capture));
-    expect(html).toContain("Awaiting your confirmation");
+    // The button says it waits, named by what it does; there is no waiting badge.
+    expect(html).not.toContain("Awaiting your confirmation");
+    expect(html).toMatch(/data-tars-decision-option="0"[^>]*>(?:(?!<\/button>).)*Hand back/);
     expect(html).toContain("Hand this work back to Tars?");
     expect(html).toContain("Verified result");
     expect(html).not.toContain("Hand back goal");
@@ -182,7 +186,7 @@ describe("Tars UI", () => {
     const answer: TarsDecisionAnswer = { decisionId: "confirm:message:0", optionIndex: 0, source: "click", effect: { kind: "control", ...action }, label: null,
       status: "applied", reason: null, error: null, actRequestId: "confirm:message:0", messageId: null, revision: 2, createdAt: at, updatedAt: at };
     const folded = renderToStaticMarkup(createElement(TarsConversationMessage, { ...props, decisions: views([answer]) }));
-    expect(tarsRecordText(folded)).toContain("Hand back Verified result click Confirmed");
+    expect(tarsRecordText(folded)).toContain("Hand back Verified result Confirmed");
     expect(folded).not.toContain(">Confirm<");
   });
 });

@@ -56,6 +56,8 @@ export function mergeTaskTurnDeltaPayload(args: {
                 // Names belong to the renderer; turn progress cannot rename an existing task.
                 title: task.title,
                 titleManuallySet: task.titleManuallySet,
+                pinned: task.pinned,
+                historyOrderKey: task.historyOrderKey,
                 // Renderer-owned lifecycle wins over the host's cached copy.
                 archivedAt: task.archivedAt ?? args.task!.archivedAt ?? null,
               }

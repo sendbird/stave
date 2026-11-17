@@ -1,3 +1,4 @@
+import { FeatureEnableHint } from "./FeatureEnableHint";
 import { i18n, useTranslation } from "@/i18n";
 import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
@@ -1350,6 +1351,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         <DelegatedAgentReplySlot />
         <ChildRequestSlot taskId={args.activeTaskId} />
         <SecretRequestSlot taskId={args.activeTaskId} />
+        {args.isTurnActive && (queuedTurns.length > 0 || queuedNextTurn) && !midTurnSteeringEnabled && canSteerRunningTurnProvider ? (
+          <FeatureEnableHint feature="steering" onEnable={() => useAppStore.getState().updateSettings({ patch: { midTurnSteeringEnabled: true } })} />
+        ) : null}
         </div>
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
@@ -1798,7 +1802,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               }
             }
           }}
-          onAbort={() => abortTaskTurn({ taskId: args.activeTaskId })}
+          onAbort={() => abortTaskTurn({ taskId: args.activeTaskId, cascade: true })}
           // The approval card's Enter/Tab keep working from an empty composer.
           onEmptyEditorKey={
             approvalRedirectMode ? (handleApprovalKey ?? undefined) : undefined

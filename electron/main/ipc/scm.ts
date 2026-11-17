@@ -1,4 +1,7 @@
+import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema } from "../../../src/lib/pull-request-stack";
 import { ipcMain } from "electron";
+import { WorktreeDependenciesArgsSchema } from "../../../src/lib/worktree-dependencies";
+import { seedWorktreeDependencies } from "../../host-service/worktree-dependencies";
 import { invokeHostService } from "../host-service-client";
 import { ScmReviewDiffArgsSchema, ScmReviewFileDiffArgsSchema } from "../../../src/lib/review/review-diff-contract";
 import {
@@ -39,6 +42,15 @@ function invalidGraphResult(stderr: string) {
 }
 
 export function registerScmHandlers() {
+  ipcMain.handle("scm:get-pr-stack", async (_event, args: unknown) =>
+    GetPrStackResultSchema.parse(await invokeHostService("scm.get-pr-stack", GetPrStackArgsSchema.parse(args))),
+  );
+  ipcMain.handle("scm:retarget-pr-stack", async (_event, args: unknown) =>
+    RetargetPrStackResultSchema.parse(await invokeHostService("scm.retarget-pr-stack", RetargetPrStackArgsSchema.parse(args))),
+  );
+  ipcMain.handle("scm:seed-worktree-dependencies", (_event, input: unknown) =>
+    seedWorktreeDependencies(WorktreeDependenciesArgsSchema.parse(input)),
+  );
   ipcMain.handle("scm:status", (_event, args: { cwd?: string }) =>
     invokeHostService("scm.status", args),
   );

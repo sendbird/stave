@@ -109,9 +109,15 @@ export const conversationStyles = stylex.create({
    * control came out 40×32 and the `radiusFull` turned it into a lozenge
    * instead of a circle.
    */
+  /*
+   * Centred on the transcript's axis, just above the composer, so it sits on
+   * the column the reader follows rather than in the gutter beside it. The
+   * `translate` property (not `transform`) leaves AUI's press transform alone.
+   */
   floatingButton: {
     position: "absolute",
     bottom: vars["--aui-space-12"],
-    left: vars["--aui-space-12"],
+    left: "50%",
+    translate: "-50% 0",
   },
 });

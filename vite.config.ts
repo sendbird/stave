@@ -1,8 +1,13 @@
 import { auiStylex } from "./scripts/vite-aui-stylex.mjs";
-import { defineConfig } from "vite";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { createWorkspaceWatchIgnore } from "./config/workspace-watch";
+
+const require = createRequire(import.meta.url);
+const fontAssetRoots = ["@fontsource-variable/geist", "@fontsource-variable/inter", "@fontsource-variable/jetbrains-mono", "pretendard"]
+  .map((name) => path.dirname(require.resolve(`${name}/package.json`)));
 
 export default defineConfig({
   plugins: [
@@ -19,9 +24,19 @@ export default defineConfig({
     react(),
   ],
   server: {
+    // Worktrees may resolve fonts from shared dependencies outside their own root.
+    fs: { allow: [searchForWorkspaceRoot(__dirname), ...fontAssetRoots] },
     watch: {
       ignored: createWorkspaceWatchIgnore(__dirname),
     },
+  },
+  // Scan the worker too: its engine, grammars and themes load after first paint.
+  // Discovering them then would re-optimize dependencies and reload an active conversation.
+  optimizeDeps: {
+    entries: ["**/*.html", "!**/__tests__/**", "!**/coverage/**", "src/lib/syntax-highlight.worker.ts"],
+    // The scanner covers both module graphs; serve its result without waiting
+    // for the browser's initial import crawl, which can wait on that same result.
+    holdUntilCrawlEnd: false,
   },
   resolve: {
     // React hooks and editor nodes must share one runtime across dependency trees.

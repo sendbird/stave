@@ -25,7 +25,7 @@ export function buildTarsFollowUpFixtures(start: Date, korean: boolean) {
     ? "업로드 테스트가 CI에서 계속 실패해 작업이 멈췄습니다. 실패 로그를 먼저 확인한 뒤 다시 시도하길 권합니다. 이어갈지 정해 주세요."
     : "The upload test still fails on CI, so the work stopped. I suggest checking the failure log before trying again. Tell me whether to continue.";
   // i18n-ignore: model-facing text of the preview's automatic follow-up, never shown
-  const text = "Automatic follow-up: a responsibility became blocked. Judge what it needs next.";
+  const text = "Automatic follow-up: delegated work cannot continue. Judge what it needs next.";
   const message: TarsMessage = { id: "message-follow-up", requestId: `followup:blocked:${blocked.id}:3`, text, providerId: "codex", model: "gpt-5.5",
     maxTurns: 30, revision: 3, state: "answered", reply, decision: { reply, actions: [] }, error: null,
     origin: { kind: "followUp", eventKey: `blocked:${blocked.id}:3`, responsibilityId: blocked.id, reason: "blocked", observedRevision: 3,

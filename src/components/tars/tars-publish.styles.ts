@@ -1,11 +1,16 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { chatType } from "@/components/ai-elements/chat-type.stylex";
+
+/** The card's secondary lines take the conversation scale's secondary step (as `tars-decision.styles`). */
+const SECONDARY = chatType["--chat-type-secondary"];
+const LEADING = chatType["--chat-type-secondary-leading"];
 
 /**
  * The publish card adds to the decision card (`tars-decision.styles`) only
  * what a confirmation with editable words needs: labelled fields that take
- * the card's width, and a bounded, scrolling preview of the body as it will
- * be sent. Every length comes from AUI tokens.
+ * the card's width, and a bounded, scrolling view of the body, rendered or as
+ * the raw text that is sent. Every length comes from AUI tokens.
  */
 export const tarsPublishStyles = stylex.create({
   fields: { display: "grid", gap: vars["--aui-space-12"], minWidth: 0, margin: 0 },
@@ -14,15 +19,18 @@ export const tarsPublishStyles = stylex.create({
   field: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, margin: 0 },
   typeField: { flex: "0 0 auto" },
   grow: { flex: "1 1 14rem" },
-  label: { color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"] },
-  /** The body as GitHub receives it: wrapped, never wider than the card, scrolling past a few lines. */
+  label: { color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: LEADING },
+  /** The body's label with the switch between its rendered and raw views. */
+  bodyHeader: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: vars["--aui-space-8"], minWidth: 0 },
+  /** The body, never wider than the card, scrolling past a few lines. */
   body: {
     margin: 0, minWidth: 0, maxHeight: "12rem", overflowY: "auto", overflowX: "hidden", boxSizing: "border-box",
     padding: vars["--aui-space-12"], borderRadius: vars["--aui-radius-control"], backgroundColor: vars["--aui-color-canvas-subtle"],
-    color: vars["--aui-color-text"], fontFamily: vars["--aui-font-mono"], fontSize: vars["--aui-font-size-row"],
-    lineHeight: vars["--aui-line-height-control"], whiteSpace: "pre-wrap", overflowWrap: "anywhere",
+    color: vars["--aui-color-text"], overflowWrap: "anywhere",
   },
-  hint: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere" },
+  /** The body as GitHub receives it: mono and wrapped. */
+  bodyRaw: { fontFamily: vars["--aui-font-mono"], fontSize: SECONDARY, lineHeight: LEADING, whiteSpace: "pre-wrap" },
+  hint: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: LEADING, overflowWrap: "anywhere" },
   /** Branch names and the repository are machine values: they wrap anywhere instead of widening the card. */
   machine: { fontFamily: vars["--aui-font-mono"], overflowWrap: "anywhere" },
   link: { color: vars["--aui-color-accent"], textDecoration: { default: "none", ":hover": "underline" }, overflowWrap: "anywhere" },

@@ -92,7 +92,7 @@ export function TranscriptFind(props: {
         xstyle={styles.field}
         onChange={(event) => props.onQuery(event.target.value)}
       />
-      <span role="status" aria-live="polite" className={sx(styles.result)}>
+      <span role="status" aria-live="polite" title={props.result} className={sx(styles.result)}>
         {props.result}
       </span>
       <Tooltip content={t("transcriptFind.previous")} side="bottom">
@@ -174,8 +174,11 @@ const styles = stylex.create({
     width: "14rem",
   },
   result: {
-    flexShrink: 0,
-    minWidth: "4.5rem",
+    flexShrink: 1,
+    minWidth: 0,
+    maxWidth: "45%",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     paddingInline: vars["--aui-space-4"],
     textAlign: "end",
     color: vars["--aui-color-text-muted"],

@@ -479,6 +479,7 @@
     "codexRateLimit": "Codex 요청 한도에 도달했습니다. 잠시 후 다시 시도하세요.",
     "codexBilling": "Codex 결제 또는 구독에 문제가 있습니다. 계정의 결제 상태를 확인하세요.",
     "codexNetwork": "Codex 네트워크 또는 모델 서버에 연결할 수 없습니다. 인터넷, 프록시, 방화벽을 확인한 뒤 다시 시도하세요.",
+    "codexStartup": "Codex를 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.",
     "codexAppServer": "Codex App Server 오류가 발생했습니다.",
     "claudeAuthentication": "Claude 인증에 실패했습니다. `claude auth login`을 실행한 뒤 다시 시도하세요.",
     "claudeBilling": "Claude 결제 또는 구독에 문제가 있습니다. 요금제와 결제 상태를 확인한 뒤 다시 시도하세요.",

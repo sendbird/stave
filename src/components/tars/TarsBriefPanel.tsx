@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useId, type ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
 import { useTranslation } from "@/i18n";
@@ -16,9 +17,9 @@ import { tarsSideViewStyles as styles } from "./tars-side-view.styles";
 function CopyText({ text, label }: { text: string; label: string }) {
   const { status, copied, copy } = useClipboardCopy();
   return <>
-    <Button variant="ghost" size="icon-2xs" aria-label={label} title={label} onClick={() => { void copy(text); }}>
+    <Tooltip content={label}><Button variant="ghost" size="icon-2xs" aria-label={label} onClick={() => { void copy(text); }}>
       {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-    </Button>
+    </Button></Tooltip>
     <ClipboardCopyAnnouncement status={status} />
   </>;
 }

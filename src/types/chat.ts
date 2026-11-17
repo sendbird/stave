@@ -254,6 +254,12 @@ export interface ToolUsePart extends MessagePartBase {
   completedAt?: string;
   /** Progress messages streamed from a running subagent (Agent tool only). */
   progressMessages?: string[];
+  /**
+   * The model the spawned subagent's own responses reported (Agent tool only).
+   * Absent when the provider did not report one; the spawn input's `model` is
+   * only what was asked for.
+   */
+  reportedModel?: string;
 }
 
 export interface CodeDiffPart extends MessagePartBase {
@@ -534,11 +540,20 @@ export interface TaskTakeoverResult {
 }
 
 export interface Task {
+  /** The source response of a conversation fork, separate from delegation. */
+  forkParent?: { taskId: string; workspaceId: string; messageId: string };
   id: string;
   title: string;
   provider: ProviderId;
   updatedAt: string;
   unread: boolean;
+  pinned?: boolean;
+  /**
+   * Task History position, set only when the user places the task. It shares a
+   * scale with `updatedAt` milliseconds, so unplaced tasks sort by activity
+   * among placed ones. Absent keeps activity order; the sidebar ignores it.
+   */
+  historyOrderKey?: number;
   archivedAt?: string | null;
   controlMode: TaskControlMode;
   controlOwner: TaskControlOwner;

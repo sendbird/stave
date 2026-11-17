@@ -35,7 +35,7 @@ function fixture(options: { validScope?: boolean } = {}) {
     return store.patch(row.id, row.revision, { state, taskId: `tars-${row.id}`, executionWorkspaceId: "execution", agentRunId: "owned-run" }, NOW);
   };
   const propose = async (row: TarsResponsibility, operation: TarsControlOperation, ...alternatives: TarsControlOperation[]) => {
-    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6 });
+    conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy: "careful" });
     const queued = conversations.create({ requestId: `message-${requests++}`, text: "다시 맡아줘" }, clock);
     const claimed = conversations.claim(queued.id, queued.revision, clock);
     const actions: TarsDecisionAction[] = [operation, ...alternatives]
@@ -104,15 +104,32 @@ describe("Tars pending decisions in the snapshot", () => {
   });
 
   test("a proposal stops waiting when its responsibility moved on or ended", async () => {
+    // Exercise revision changes and ended work independently.
     const f = fixture();
     const moved = f.responsibility("paused");
-    const ended = f.responsibility("paused");
     await f.propose(moved, "resume");
-    await f.propose(ended, "resume");
-    expect(f.store.snapshot().pendingDecisions).toHaveLength(2);
+    expect(f.store.snapshot().pendingDecisions).toHaveLength(1);
     f.store.patch(moved.id, moved.revision, { priority: 80 }, LATER);
-    expect(f.store.snapshot().pendingDecisions.map((decision) => decision.responsibilityId)).toEqual([ended.id]);
-    f.store.patch(ended.id, ended.revision, { state: "cancelled" }, LATER);
+    expect(f.store.snapshot().pendingDecisions).toEqual([]);
+    const g = fixture();
+    const ended = g.responsibility("paused");
+    await g.propose(ended, "resume");
+    expect(g.store.snapshot().pendingDecisions).toHaveLength(1);
+    g.store.patch(ended.id, ended.revision, { state: "cancelled" }, LATER);
+    expect(g.store.snapshot().pendingDecisions).toEqual([]);
+  });
+
+  test("an unrelated newer message keeps a proposal waiting and confirmable", async () => {
+    const f = fixture();
+    const row = f.responsibility("paused");
+    const message = await f.propose(row, "resume");
+    expect(f.store.snapshot().pendingDecisions).toHaveLength(1);
+    // The user says something newer, unrelated to the proposal.
+    f.conversations.create({ requestId: "later", text: "What is the release doing now?" }, LATER);
+    expect(f.store.snapshot().pendingDecisions).toEqual([expect.objectContaining({ messageId: message.id, responsibilityId: row.id })]);
+    expect(f.conversations.isCurrentProposal({ messageId: message.id, actionIndex: 0 })).toBe(true);
+    expect((await f.confirm(row, message.id, "resume")).record).toMatchObject({ status: "applied" });
+    expect(f.controls).toEqual(["resume"]);
     expect(f.store.snapshot().pendingDecisions).toEqual([]);
   });
 

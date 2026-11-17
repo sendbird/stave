@@ -29,7 +29,7 @@ describe("persistent conversation UI", () => {
     const decision = { reply: "The work is queued", actions: [receipt.action] };
     const html = render({ ...message, state: "answered", decision, reply: decision.reply }, [receipt]);
     expect(html).toContain("My representative");
-    expect(html).toContain("Accepted for execution");
+    expect(html).toContain("Work added");
     expect(html).not.toContain("Completed");
     expect(html).not.toContain("Cancel message");
   });
@@ -46,9 +46,9 @@ describe("persistent conversation UI", () => {
     expect(html).not.toContain("data-tars-mark");
     expect(html).not.toContain(">My representative<");
   });
-  test("the time is one short relative stamp, out of the flow, that the keyboard can reach", () => {
+  test("the time is the clock beside the user's bubble, before it, as a button the keyboard can reach", () => {
     const html = render({ ...message, state: "answered", reply: "Done.", decision: { reply: "Done.", actions: [] } });
-    expect(html).toMatch(/data-tars-message-time=""><button type="button"[^>]*><time dateTime="2026-11-05T00:00:00.000Z">[^<]+<\/time><\/button>/);
+    expect(html).toMatch(/data-tars-message-time="edge"><button type="button"[^>]*><time dateTime="2026-11-05T00:00:00.000Z">\d{1,2}:\d{2}\s[AP]M<\/time><\/button><\/span><div[^>]*data-tars-user-bubble=""/);
     // No full date line under the bubble any more: the card behind the stamp gives it.
     expect(html).not.toContain("Nov 5, 2026");
     expect(html).not.toContain("data-tars-message-meta");
@@ -105,7 +105,71 @@ describe("persistent conversation UI", () => {
     const decision = { reply: "It is yours now.", actions: [control] };
     const html = render({ ...message, text: "내가 할게", state: "answered", decision, reply: decision.reply },
       [{ ...receipt, action: control, responsibilityId: "goal" }]);
-    expect(tarsRecordText(html)).toContain("Take over goal Accepted for execution");
+    expect(tarsRecordText(html)).toContain("Take over goal Taken over by you");
     expect(html).toContain("내가 할게");
   });
+});
+
+describe("automatic follow-up", () => {
+  const origin = { kind: "followUp" as const, eventKey: "blocked:goal:3", responsibilityId: "goal", reason: "blocked" as const, observedRevision: 3, summary: "goal is blocked." };
+  const followUp = (patch: Partial<TarsMessage>) => render({ ...message, text: "Automatic follow-up: blocked.", origin, ...patch });
+
+  test("its line heads Tars's reply as one item: the reply hangs from the line's mark on the rail's text column", () => {
+    const html = followUp({ state: "answered", reply: "The rebuild stopped.", decision: { reply: "The rebuild stopped.", actions: [] } });
+    // One group, named by the line, with the line first and the reply inside its body; no user bubble.
+    expect(html).toMatch(/<div role="group" aria-label="Tars follow-up · Work cannot continue: goal"[^>]*data-tars-record-thread="">/);
+    const head = html.indexOf('data-tars-follow-up="blocked"');
+    const body = html.indexOf("data-tars-record-thread-body");
+    const reply = html.indexOf("data-tars-reply");
+    expect(head).toBeGreaterThan(0);
+    expect(head).toBeLessThan(body);
+    expect(body).toBeLessThan(reply);
+    // The rail runs on from the line's mark beside the reply.
+    expect(html.slice(html.indexOf("data-tars-record-thread"), head)).toContain('aria-hidden="true"');
+    expect(html).not.toContain("data-tars-user-bubble");
+  });
+
+  test("a follow-up the work outran is one compact item: its line and why, with no Cancelled status", () => {
+    const html = followUp({ state: "cancelled", reply: null });
+    expect(html).toContain('data-tars-follow-up="blocked"');
+    expect(html).toContain('data-tars-record-state="skipped"');
+    expect(html).toMatch(/data-tars-follow-up-superseded=""[^>]*>Tars skipped this follow-up because the work changed first\.</);
+    expect(html).not.toContain("data-tars-message-state");
+    expect(html).not.toContain("data-tars-record-thread-body");
+    expect(html.match(/data-tars-record-state=/g)).toHaveLength(1);
+  });
+});
+
+test("a queued message says why it waits, a retried one says it is trying once more, and dropped actions are named", async () => {
+  await applyAppLocale("en");
+  const waiting = render({ ...message, waiting: { reason: "earlierAction", since: message.createdAt } });
+  expect(waiting).toContain('data-tars-message-waiting="earlierAction"');
+  expect(waiting).toContain("Waiting for the result of an earlier action.");
+  expect(render({ ...message, waiting: { reason: "agentCatalog", since: message.createdAt } })).toContain("Waiting for your saved agents to load.");
+  const retrying = render({ ...message, state: "reasoning", revision: 3, retry: { attempt: 2, cause: "timeout", at: message.createdAt } });
+  expect(retrying).toContain('data-tars-message-retry="timeout"');
+  expect(retrying).toContain("The first attempt took too long. Tars is trying once more.");
+  const reply = "Done.";
+  const dropped = render({ ...message, state: "answered", reply, decision: { reply, actions: [],
+    dropped: [{ index: 0, kind: "publish", reason: "invalid", detail: "Did not match its schema at responsibilityId." }] } });
+  expect(dropped).toContain('data-tars-dropped-actions="1"');
+  expect(dropped).toContain("1 proposed action was not valid and was left out.");
+  await applyAppLocale("ko");
+  expect(render({ ...message, state: "reasoning", revision: 3, retry: { attempt: 2, cause: "provider", at: message.createdAt } })).toContain("한 번 더 시도합니다");
+  await applyAppLocale("en");
+});
+
+test("a persisted inspection status names the view and work in English and Korean", async () => {
+  try {
+    for (const locale of ["en", "ko"] as const) {
+      applyAppLocale(locale); await i18n.changeLanguage(locale);
+      const html = render({ ...message, state: "reasoning", inspection: { responsibilityId: "work", title: "Search",
+        view: "report", round: 1, reading: true, at: message.createdAt } });
+      expect(tarsRecordText(html)).toContain(locale === "en" ? "Reading the report of Search" : "Search 보고서를 읽고 있어요");
+      expect(html).toContain('role="status"');
+      const settled = render({ ...message, state: "reasoning", inspection: { responsibilityId: "work", title: "Search",
+        view: "report", round: 1, reading: false, at: message.createdAt } });
+      expect(tarsRecordText(settled)).not.toContain(locale === "en" ? "Reading the report" : "보고서를 읽고");
+    }
+  } finally { applyAppLocale("en"); await i18n.changeLanguage("en"); }
 });

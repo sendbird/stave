@@ -1,12 +1,14 @@
+import { hasEndedTarsExecution, tarsExecutionScope } from "../../src/lib/tars/continuation";
+import { WorkspacePreparationError } from "./workspace-preparation";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
-  tarsExecutionInstructions, tarsRunInitialContext, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
+  tarsExecutionAgentInstructions, tarsRunInitialContext, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
-import type { TarsChangedEvent, TarsResponsibility } from "../../src/lib/tars/types";
+import type { TarsChangedEvent, TarsResponsibility, TarsContinuation } from "../../src/lib/tars/types";
 import { createTarsChangeBatcher } from "../persistence/tars-changes";
 import { buildTarsExecutionResources } from "../../src/lib/tars/execution-resources";
 import type { AssignRuntime } from "./supervision/assign-runtime";
@@ -18,10 +20,12 @@ import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
 import {
   assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
-  TarsRunEndedError, TarsStageChangedError, TarsTaskBusyError,
+  TarsRunEndedError, TarsRunRefusedError, TarsStageChangedError, TarsTaskBusyError, tarsRunControlApplied, withTarsRunCommand,
 } from "./tars-ownership";
+import { isTarsStorageBusy } from "../persistence/tars-conversation-store";
 import { currentStageRecord } from "../../src/lib/agent-runs/domain";
 import { TARS_PENDING_REQUESTS_MAX, type TarsPendingRequest } from "../../src/lib/tars/types";
+import { createTarsPrWatcher } from "./tars-pr-watch";
 import { createTarsPublisher, type TarsPublishRunner } from "./tars-publish";
 import { projectTarsReport } from "../../src/lib/tars/report-model";
 import { runCommandArgs } from "../main/utils/command";
@@ -112,12 +116,49 @@ export function createHostTarsRuntime(args: {
       && other.workingChanges?.kind === "snapshot" && other.workingChanges.ref === ref && !isTarsResponsibilityTerminal(other));
     if (!waiting) await releaseTarsWorkingChangesRef(row.repositoryPath, ref).catch(() => undefined);
   }
+  /**
+   * Read-only proof of this request's execution, shared by dispatch, cancellation and request withdrawal.
+   * A committed continuation is found before checking the live location, so cancellation stops the actual
+   * Run even after its workspace was archived or unregistered.
+   */
+  async function readContinuation(row: TarsResponsibility, continuation: TarsContinuation, reconcileOnly = false) {
+    const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
+    if (!latest) throw new TarsOwnershipLostError("The previous execution cannot be verified.");
+    const scope = tarsExecutionScope(row, true);
+    const workflow = tarsWorkflow(scope, continuation.requestedAt);
+    // i18n-ignore: durable model-facing scope identity, not a new user instruction
+    workflow.purpose += `\nContinuation request: ${continuation.requestId}`;
+    if (latest.id !== continuation.previousRunId) {
+      // Adopt only this exact scope, never an unrelated newer run on the same task.
+      assertTarsRun({ ...scope, agentRunId: latest.id }, latest);
+      if (latest.workflow.createdAt !== continuation.requestedAt || latest.workflow.purpose !== workflow.purpose) throw new TarsOwnershipLostError("Another execution owns this task.");
+      return { task: null, scope, workflow, existingRunId: latest.id };
+    }
+    assertTarsRun(row, latest);
+    if (reconcileOnly) return { task: null, scope, workflow, existingRunId: null };
+    if (latest.state !== "completed") throw new TarsRunEndedError();
+    // Reuse the registered execution worktree, even if the original source workspace was removed.
+    await validateScope({ ...row, workspaceId: row.executionWorkspaceId! });
+    const repositories = await tasks.listKnownRepositories();
+    const execution = repositories.find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath))
+      ?.workspaces.find((item) => item.id === row.executionWorkspaceId);
+    if (!execution || !existsSync(execution.path)) throw new TarsOwnershipLostError("The execution workspace is unavailable.", "taskUnavailable");
+    const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
+    if (!task.exists || task.archived || task.providerId !== row.providerId ||
+        path.resolve(task.repositoryPath ?? "") !== path.resolve(row.repositoryPath))
+      throw new TarsOwnershipLostError("The execution task is unavailable or changed.", "taskUnavailable");
+    if (!hasAssignment(row)) throw new TarsOwnershipLostError("The task's assignment is unavailable.");
+    return { task, scope, workflow, existingRunId: null };
+  }
   return createTarsRuntime({
+    dailyUsageLimit: (providerId) => persistence.dailyUsage.refusal(providerId),
     store: persistence.tars,
+    controls: persistence.tarsConversations,
+    hasControlEffect: (row, id) => Boolean(row.agentRunId && tarsRunControlApplied(persistence.agentRuns.listEventsByKind(row.agentRunId, ["control-applied"]), id)),
     onQueueChanged: () => args.emitChanged?.({ scope: "snapshot" }),
     concurrencyLimit: () => persistence.tarsConversations.getSettings()?.maxConcurrentResponsibilities ?? 0,
     validateScope,
-    async prepareWorkspace(row) {
+    async prepareWorkspace(row, signal) {
       await validateScope(row);
       const repositories = await tasks.listKnownRepositories();
       const repository = repositories.find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath))!;
@@ -129,13 +170,15 @@ export function createHostTarsRuntime(args: {
       // Stable branch name reconciles a lost creation acknowledgement without another checkout.
       // Admission builds it under the repository's naming rule with a unique suffix; older work keeps `tars/<id>`.
       const create = (name: string) => tasks.createWorkspace({ repositoryPath: row.repositoryPath, name, label: row.title,
-        mode: "branch", ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
+        mode: "branch", signal, ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
       const fallback = `tars/${row.id}`;
       let workspaceId: string;
       if (!row.branchName) workspaceId = (await create(fallback)).workspaceId;
       else {
         try { workspaceId = (await create(row.branchName)).workspaceId; }
         catch (error) {
+          signal?.throwIfAborted();
+          if (error instanceof WorkspacePreparationError) throw error;
           // git can still refuse a rule-following name, for example `ABC-123/x` when a branch `ABC-123` exists.
           // The name is deterministic, so retrying it would fail forever; `tars/<id>` is unique and equally stable.
           try { workspaceId = (await create(fallback)).workspaceId; } catch { throw error; }
@@ -165,7 +208,7 @@ export function createHostTarsRuntime(args: {
       const agents = hostAgents();
       const publishes = (id: string) => { const found = agents.find((entry) => entry.id === id); return !found || tarsAgentPublishes(found); };
       const canCall = [...new Set([...(template.canCall ?? []).filter((id) => !publishes(id)), ...(row.agentId ? [row.agentId] : [])])];
-      const agent = { ...template, name: identity.name, instructions: tarsExecutionInstructions(row), canCall,
+      const agent = { ...template, name: identity.name, instructions: tarsExecutionAgentInstructions(template.instructions, row), canCall,
         tools: { ...template.tools, maxTurns: row.maxTurns }, reviewBeforeDone: "off" as const };
       args.assignments.recordTaskAgent({ requestId: `tars-${row.id}`, taskId, workspaceId,
         repositoryPath: row.repositoryPath, agent, providerId: row.providerId, model: row.model, assignment: row.instruction,
@@ -198,7 +241,7 @@ export function createHostTarsRuntime(args: {
         if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "The task's agent assignment is unavailable.");
         if (persistence.agentRuns.getLatestAgentRunForTask(row.taskId!))
           throw new TarsDetailError("executionExists", "This task already has an execution. Reconcile it before starting work.");
-      });
+      }, { tarsResponsibilityId: row.id });
       return detail.agentRun.id;
     },
     async observe(row) {
@@ -212,7 +255,7 @@ export function createHostTarsRuntime(args: {
       const detail = await args.agentRuns.get({ agentRunId: row.agentRunId });
       assertTarsRun(row, detail.agentRun);
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "This task's agent assignment is unavailable.");
-      const observation = tarsObservation(detail, row.acceptanceCriteria, row.reverifyAfter);
+      const observation = tarsObservation(detail, tarsExecutionScope(row).acceptanceCriteria, row.reverifyAfter, row);
       // The requests themselves, bounded, so the user can answer them through Tars.
       const own = withRefs(snapshot.pendingRequests ?? [], row.executionWorkspaceId, row.taskId);
       const withRequests = (value: typeof observation, requests: readonly TarsPendingRequest[]) =>
@@ -253,7 +296,7 @@ export function createHostTarsRuntime(args: {
         const detail = await args.agentRuns.get({ agentRunId });
         const record = currentStageRecord(detail);
         if (!row.activeStage || row.activeStage !== `${record.stageId}#${record.attempt}`) throw new TarsStageChangedError();
-        await args.agentRuns.requestChanges({ agentRunId, stageId: record.stageId, attempt: record.attempt, feedback: request.input!.text! }, guard);
+        await withTarsRunCommand(options?.commandId, "requestChanges", () => args.agentRuns.requestChanges({ agentRunId, stageId: record.stageId, attempt: record.attempt, feedback: request.input!.text! }, guard));
         return;
       }
       // Only a request Tars observed in the work's own task or a helper task of its run, read again here.
@@ -276,10 +319,12 @@ export function createHostTarsRuntime(args: {
         throw error;
       }
     },
-    controlRun: (row, operation) => {
+    controlRun: (row, operation, autoExtendMaxTurns, commandId) => {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (latest) assertTarsRun(row, latest);
       return controlTarsRun(row, operation, {
+        commandId, commandEvents: (id) => persistence.agentRuns.listEventsByKind(id, ["control-applied"]),
+        autoExtendMaxTurns,
         agentRuns: args.agentRuns,
         hasAssignment: (row) => {
           const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
@@ -322,6 +367,51 @@ export function createHostTarsRuntime(args: {
       await args.agentRuns.replyAsUser({ agentRunId: latest.id, prompt: text, turnId }, guard);
       return "sent";
     },
+    reconcileContinuation: async (row, continuation) => (await readContinuation(row, continuation, true)).existingRunId,
+    async continueWork(row, continuation, assertAdmitted) {
+      let startRequested = false;
+      try {
+        const { task, scope, workflow, existingRunId } = await readContinuation(row, continuation);
+        if (existingRunId) return existingRunId;
+        if (!task) throw new TarsOwnershipLostError("The execution task is unavailable or changed.", "taskUnavailable");
+        if (task.activeTurnId || task.pendingApprovalCount || task.pendingUserInputCount) return "busy";
+        const previous = await args.agentRuns.get({ agentRunId: continuation.previousRunId });
+        const previousReport = previous.report ? { outcome: previous.report.outcome,
+          criteria: previous.report.acceptanceCriteria.slice(0, 20), links: previous.report.links.slice(0, 12),
+          leftBehind: previous.report.leftBehind.slice(0, 12) } : null;
+        assertAdmitted?.();
+        startRequested = true;
+        const detail = await args.agentRuns.startAgentRun({
+          workspaceId: row.executionWorkspaceId!, leadTaskId: row.taskId!, origin: "agent",
+          ...buildTarsExecutionResources(row), workflow,
+          assignment: scope.instruction, maxTurns: row.maxTurns,
+          initialContext: { retrievedContextParts: [{ type: "retrieved_context", sourceId: "tars:continuation",
+            title: "Previous execution and original delegation", // i18n-ignore: model-facing context
+            content: JSON.stringify({ originalRequest: row.request, originalInstruction: row.instruction,
+              previousRunId: continuation.previousRunId, previousInstruction: continuation.previousInstruction, previousReport,
+              executionWorkspaceId: row.executionWorkspaceId, taskId: row.taskId,
+              // i18n-ignore: model-facing instructions
+              guidance: "Continue in this existing workspace and task. Inspect the conversation, code, artifacts and previous run reports. Preserve earlier results; report and verify this follow-up scope separately." }) }] },
+          consent: { checkIns: "when-stuck", permissionMode: "auto", authorizedEffectStageIds: [] },
+        }, () => {
+          assertAdmitted?.();
+          const current = persistence.tars.get(row.id);
+          if (!current || current.revision !== row.revision || !hasEndedTarsExecution(current) ||
+              current.continuation?.requestId !== continuation.requestId || !hasAssignment(current))
+            throw new TarsOwnershipLostError("Continuation authority changed before execution.");
+          const currentRun = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
+          if (!currentRun || currentRun.id !== continuation.previousRunId || currentRun.state !== "completed")
+            throw new TarsOwnershipLostError("Another execution owns this task.");
+        });
+        return detail.agentRun.id;
+      } catch (error) {
+        // No start was requested: a failed read cannot hide a committed continuation.
+        if (!startRequested && !isTarsStorageBusy(error) && !(error instanceof TarsDetailError) &&
+            !(error instanceof TarsOwnershipLostError) && !(error instanceof TarsRunEndedError))
+          throw new TarsRunRefusedError(error instanceof Error ? error.message : "Continuation preparation failed before start.");
+        throw error;
+      }
+    },
     hasUserTurn: (agentRunId, turnId) => persistence.agentRuns.hasUserTurn(agentRunId, turnId),
     // Older work's brief reads its admitting message back, without the message's attachments.
     readRequest: (messageId) => persistence.tarsConversations.workRequestOf(messageId),
@@ -342,7 +432,7 @@ const runTarsPublishCommand: TarsPublishRunner = async (command, args, cwd) => {
 /** The host's publish path over the saved responsibilities, the registered workspaces and the run's frozen report. */
 export function createHostTarsPublisher(args: { agentRuns: Pick<AgentRunRuntime, "get"> }) {
   const persistence = ensureHostServicePersistenceReady();
-  return createTarsPublisher({
+  const ports: import("./tars-publish").TarsPublishPorts = {
     conversations: persistence.tarsConversations,
     responsibilities: persistence.tars,
     async resolveWorkspace(row) {
@@ -361,5 +451,7 @@ export function createHostTarsPublisher(args: { agentRuns: Pick<AgentRunRuntime,
     },
     run: runTarsPublishCommand,
     onError: (error) => console.error("[tars] publish bookkeeping failed", error),
-  });
+  };
+  const watcher = createTarsPrWatcher({ ...ports, responsibilities: persistence.tars, conversations: persistence.tarsConversations });
+  return { ...createTarsPublisher(ports), watcher };
 }

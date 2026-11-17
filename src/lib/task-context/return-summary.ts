@@ -56,9 +56,24 @@ export type ReturnNext =
   | { kind: "wait" }
   | { kind: "continue" };
 
+/** A turn that finished while you were away. */
+export interface ReturnTurn {
+  /** The turn, or its reply when the reply carries no turn id. */
+  id: string;
+  /** Its last reply, where the conversation shows it. */
+  messageId: string;
+  outcome: "finished" | "failed" | "stopped";
+  /** The first line of the message that started it; empty when not loaded. */
+  prompt: string;
+  /** Files it changed after the visit. */
+  files: number;
+}
+
 export interface ReturnSummary {
   decision: ReturnDecision | null;
   changes: ReturnChanges;
+  /** The turns that finished while you were away, oldest first. */
+  turns: ReturnTurn[];
   stop: ReturnStop;
   next: ReturnNext;
 }
@@ -192,6 +207,104 @@ export function countChangesSince(messages: readonly ChatMessage[], baseline: Re
   return { turns: turns.size, files: files.size, steps };
 }
 
+function firstLine(text: string) {
+  return text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).find(Boolean) ?? "";
+}
+
+/**
+ * The turns that finished after the visit, counted as `countChangesSince`
+ * counts them: each with the message that started it and the files it changed
+ * since you left.
+ */
+export function listTurnsSince(messages: readonly ChatMessage[], baseline: ReturnBaseline): ReturnTurn[] {
+  let lastSeenIndex = -1;
+  messages.forEach((message, index) => {
+    if (baseline.partsByMessage[message.id] !== undefined) lastSeenIndex = index;
+  });
+  const finishedBefore = new Set(baseline.finished);
+  type Entry = ReturnTurn & { fileSet: Set<string>; finishedSince: boolean };
+  const turns = new Map<string, Entry>();
+  let prompt = "";
+  messages.forEach((message, index) => {
+    if (message.role === "user") {
+      prompt = firstLine(message.displayContent ?? message.content);
+      return;
+    }
+    const seenParts = baseline.partsByMessage[message.id];
+    if (seenParts === undefined && index < lastSeenIndex) return;
+    const id = message.turnId ?? message.id;
+    const entry: Entry = turns.get(id) ?? {
+      id, messageId: message.id, outcome: "finished", prompt, files: 0, fileSet: new Set<string>(), finishedSince: false,
+    };
+    for (const part of message.parts.slice(seenParts ?? 0)) {
+      if (part.type === "code_diff") entry.fileSet.add(part.filePath);
+    }
+    if (isFinishedReply(message) && !finishedBefore.has(message.id)) {
+      const outcome = classifyProviderTurnStopReason(message.terminalStopReason);
+      entry.messageId = message.id;
+      entry.outcome = outcome === "failed" ? "failed" : outcome === "cancelled" ? "stopped" : "finished";
+      entry.finishedSince = true;
+    }
+    turns.set(id, entry);
+  });
+  const listed: ReturnTurn[] = [];
+  for (const turn of turns.values()) {
+    if (!turn.finishedSince) continue;
+    listed.push({ id: turn.id, messageId: turn.messageId, outcome: turn.outcome, prompt: turn.prompt, files: turn.fileSet.size });
+  }
+  return listed;
+}
+
+/**
+ * Where the summary sits in the conversation: right after the last message you
+ * had seen (your messages up to the visit and the replies you had seen), so
+ * what happened while you were away follows it. Before the first message when
+ * none of the loaded ones had been seen. Null for an empty conversation.
+ */
+export function findReturnAnchor(
+  messages: readonly ChatMessage[],
+  visit: { at: string; baseline: ReturnBaseline },
+): { messageId: string; placement: "after" | "before" } | null {
+  const visitMs = Date.parse(visit.at);
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) continue;
+    const seen = message.role === "user"
+      ? Date.parse(message.startedAt ?? "") <= visitMs
+      : visit.baseline.partsByMessage[message.id] !== undefined;
+    if (seen) return { messageId: message.id, placement: "after" };
+  }
+  const first = messages[0];
+  return first ? { messageId: first.id, placement: "before" } : null;
+}
+
+/**
+ * What the return is read from, as the arrival left it: the conversation up to
+ * the first message you wrote after coming back (what came after is not
+ * "while you were away"), the last visit, and whether you have written since.
+ * Null when it is not a return.
+ */
+export function resolveReturnContext(args: {
+  messages: readonly ChatMessage[];
+  arrival: { at: string; leftAt: string | null; baseline: ReturnBaseline | null };
+}) {
+  const arrivedMs = Date.parse(args.arrival.at);
+  // A visit this session is when you left: a short absence is no return, and
+  // that is known without reading the conversation (this runs on every update).
+  if (args.arrival.leftAt && !isReturn({ lastVisitAt: args.arrival.leftAt, now: arrivedMs })) return null;
+  const replyIndex = args.messages.findIndex(
+    (message) => message.role === "user" && Date.parse(message.startedAt ?? "") > arrivedMs,
+  );
+  const messages = replyIndex < 0 ? args.messages : args.messages.slice(0, replyIndex);
+  const visit = resolveLastVisit({
+    messages: messages.filter((message) => Date.parse(message.startedAt ?? "") <= arrivedMs),
+    leftAt: args.arrival.leftAt,
+    baseline: args.arrival.baseline,
+  });
+  if (!visit || !isReturn({ lastVisitAt: visit.at, now: arrivedMs })) return null;
+  return { messages, visit, wroteSince: replyIndex >= 0 };
+}
+
 function resolveStop(args: {
   messages: readonly ChatMessage[];
   need: FleetAttentionItem | null;
@@ -255,6 +368,7 @@ export function buildReturnSummary(args: {
   return {
     decision: findLastDecision(args.messages, args.record),
     changes: countChangesSince(args.messages, args.baseline),
+    turns: listTurnsSince(args.messages, args.baseline),
     stop,
     next: resolveNext(stop, args.record),
   };

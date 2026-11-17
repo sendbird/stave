@@ -162,7 +162,6 @@ function informationFor(copy) {
     ],
     amplifyLinks: [],
     slackThreads: [],
-    martinProject: null,
     notes: copy.notes,
     todos: copy.todos.map((text, index) => ({
       id: `todo-${index + 1}`,
@@ -328,6 +327,11 @@ async function openApp(page, locale, scenario = {}) {
     locale,
     repositoryPath: REPOSITORY_PATH,
     workspaces: workspacesFor(copy),
+    workspacePaths: {
+      [WORKSPACE_IDS.main]: REPOSITORY_PATH,
+      [WORKSPACE_IDS.login]: `${REPOSITORY_PATH}/.stave/workspaces/feat-login-redirect`,
+      [WORKSPACE_IDS.docs]: `${REPOSITORY_PATH}/.stave/workspaces/docs-refresh`,
+    },
     ids: WORKSPACE_IDS,
     taskId: TASK_ID,
     otherTaskId: OTHER_TASK_ID,
@@ -368,7 +372,7 @@ async function openApp(page, locale, scenario = {}) {
           workspaces: data.workspaces,
           activeWorkspaceId: data.ids.main,
           workspaceBranchById: { [data.ids.main]: "main", [data.ids.login]: "feat/login-redirect", [data.ids.docs]: "docs/refresh" },
-          workspacePathById: Object.fromEntries(data.workspaces.map((workspace) => [workspace.id, data.repositoryPath])),
+          workspacePathById: data.workspacePaths,
           workspaceDefaultById: { [data.ids.main]: true },
           providerAvailability: { "claude-code": true, codex: true },
           settings: { language: data.locale, themeMode: "dark" },
@@ -394,7 +398,19 @@ async function openApp(page, locale, scenario = {}) {
         getClaudeMcpStatus: async () => ({ ok: true, detail: "", servers: [], checkedAt: Date.now() }),
         getCodexMcpStatus: async () => ({ ok: true, detail: "", servers: [] }),
       },
-      terminal: { runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }) },
+      terminal: {
+        runCommand: async ({ cwd, command }) => {
+          const branches = { [data.ids.main]: "main", [data.ids.login]: "feat/login-redirect", [data.ids.docs]: "docs/refresh" };
+          const workspaceId = data.workspaces.find((workspace) => data.workspacePaths[workspace.id] === cwd)?.id ?? data.ids.main;
+          let stdout = "";
+          if (command.startsWith("git worktree list --porcelain")) {
+            stdout = data.workspaces.map((workspace) => `worktree ${data.workspacePaths[workspace.id]}\nHEAD ${"1".repeat(40)}\nbranch refs/heads/${branches[workspace.id]}\n`).join("\n");
+          } else if (command.includes("symbolic-ref") || command.includes("rev-parse --abbrev-ref")) {
+            stdout = `${branches[workspaceId]}\n`;
+          } else if (command === "pwd -P") stdout = `${cwd}\n`;
+          return { ok: true, code: 0, stdout, stderr: "" };
+        },
+      },
       sourceControl: {
         getStatus: async () => ({ ok: true, branch: "main", items: [], hasConflicts: false, stderr: "" }),
         getHistory: async () => ({ ok: true, items: [], stderr: "" }),
@@ -420,15 +436,27 @@ async function openApp(page, locale, scenario = {}) {
   }, payload);
   await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded" });
   await page.getByTestId("top-bar").waitFor({ timeout: 60_000 });
-  // The browser build lists only the worktrees it finds; restate the three
-  // and stop the 30-second re-list from dropping them again.
+  await page.evaluate(() => {
+    // Reuse the store loaded by the app graph, including its HMR revision.
+    // Importing the bare path can instantiate a second, disconnected store.
+    window.__guideStoreModuleUrl = performance.getEntriesByType("resource")
+      .map((entry) => entry.name)
+      .find((url) => new URL(url).pathname === "/src/store/app.store.ts");
+    if (!window.__guideStoreModuleUrl) throw new Error("App store module was not loaded");
+  });
+  // The shell appears before hydration finishes. Wait before switching so its
+  // startup identity request cannot replace the workspace selected below.
+  await page.waitForFunction(async () => {
+    const { useAppStore } = await import(window.__guideStoreModuleUrl ?? "/src/store/app.store.ts");
+    return useAppStore.getState().hasHydratedWorkspaces;
+  });
+  // Keep the synthetic worktree identities consistent with the listing above.
   await page.evaluate(async (data) => {
-    const { useAppStore } = await import("/src/store/app.store.ts");
-    useAppStore.setState({ refreshWorkspaces: async () => {} });
+    const { useAppStore } = await import(window.__guideStoreModuleUrl ?? "/src/store/app.store.ts");
     useAppStore.setState({
       workspaces: data.workspaces,
       workspaceBranchById: { [data.ids.main]: "main", [data.ids.login]: "feat/login-redirect", [data.ids.docs]: "docs/refresh" },
-      workspacePathById: Object.fromEntries(data.workspaces.map((workspace) => [workspace.id, data.repositoryPath])),
+      workspacePathById: data.workspacePaths,
       workspaceDefaultById: { [data.ids.main]: true },
     });
     // Open the feature workspace, the way clicking its row does.
@@ -439,7 +467,7 @@ async function openApp(page, locale, scenario = {}) {
   }, payload);
   if (scenario.approval) {
     await page.evaluate(async (taskId) => {
-      const { useAppStore } = await import("/src/store/app.store.ts");
+      const { useAppStore } = await import(window.__guideStoreModuleUrl ?? "/src/store/app.store.ts");
       useAppStore.setState((state) => ({
         activeTurnIdsByTask: { ...state.activeTurnIdsByTask, [taskId]: "turn-approval" },
       }));
@@ -465,7 +493,7 @@ async function settle(page) {
 
 async function setLayout(page, patch) {
   await page.evaluate(async (patch) => {
-    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { useAppStore } = await import(window.__guideStoreModuleUrl ?? "/src/store/app.store.ts");
     useAppStore.setState((state) => ({ layout: { ...state.layout, ...patch } }));
   }, patch);
 }
@@ -623,14 +651,15 @@ const SHOTS = [
   },
   {
     name: "model-picker",
-    async capture({ page, locale, file }) {
-      await openApp(page, locale);
-      await quietChrome(page);
-      await page.evaluate(() => window.dispatchEvent(new CustomEvent("stave:open-model-selector", { detail: {} })));
-      const selector = page.locator('[role="dialog"]').filter({ has: page.locator('[role="tablist"]') }).last();
+    async capture({ page, locale, file, t }) {
+      // Render the shipping selector directly; the shell's session restore is
+      // independent of the model-row contract this image documents.
+      await openPreview(page, locale, "model-auto-tab&theme=dark");
+      await page.locator('[data-model-effort-control] button').first().click();
+      const selector = page.getByRole('dialog', { name: await t('composer:modelEffortSelector.ariaLabel3'), exact: true });
       await selector.waitFor();
       await settle(page);
-      await save(page, null, file, { clip: await unionClip(page, [selector, page.getByTestId("composer-workspace-bar")], 16, { top: 2 }) });
+      await save(page, selector, file, { padding: 16 });
     },
   },
   {
@@ -647,10 +676,10 @@ const SHOTS = [
   {
     name: "queue-usage-limit",
     async capture({ page, locale, file }) {
-      await openPreview(page, locale, "composer-frame&case=limited&theme=dark");
+      await openPreview(page, locale, "composer-frame&case=limited&theme=dark&w=1100");
       await quietChrome(page);
       await page.getByTestId("composer-shelf-usage-limit").waitFor();
-      await save(page, null, file, { clip: await unionClip(page, [page.getByTestId("composer-shelf"), page.getByTestId("composer-workspace-bar")], 16) });
+      await save(page, null, file, { clip: await unionClip(page, [page.getByTestId("composer-shelf"), page.getByTestId("preview-composer-measure")], 16) });
     },
   },
   {
@@ -681,10 +710,11 @@ const SHOTS = [
     async capture({ page, locale, file }) {
       await openApp(page, locale, { approval: true, notifications: true });
       await quietChrome(page);
-      await page.evaluate(async () => {
-        const { useAppStore } = await import("/src/store/app.store.ts");
-        useAppStore.getState().openFleetView();
+      const openFleetLabel = await page.evaluate(async () => {
+        const { i18n } = await import("/src/i18n/index.ts");
+        return i18n.t("shell:topBarFleetAttention.openFleet");
       });
+      await page.getByTestId("top-bar").getByRole("button", { name: openFleetLabel, exact: true }).click();
       await page.locator("[data-fleet-view-root='true']").waitFor();
       await settle(page);
       await save(page, null, file);
@@ -878,6 +908,7 @@ async function main() {
           const debugFile = path.join(os.tmpdir(), `guide-failed-${locale}-${shot.name}.png`);
           await page.screenshot({ path: debugFile }).catch(() => {});
           console.error(`[guide] page at failure: ${debugFile}`);
+          for (const problem of problems) console.error(`[guide] ${problem}`);
           failures.push(`${locale}/${shot.name}: ${error instanceof Error ? error.message.split("\n")[0] : String(error)}`);
           console.error(`[guide] FAIL ${locale}/${shot.name}: ${error instanceof Error ? error.message : String(error)}`);
         } finally {

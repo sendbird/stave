@@ -1,3 +1,5 @@
+import { projectTarsDecisions } from "@/lib/tars/decisions";
+import { TarsWorkActionSchema } from "@/lib/tars/conversation";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
   TARS_MESSAGE_FAILURE_TEXT, type TarsActionReason, type TarsActionReceipt, type TarsActionRecord, type TarsConversation, type TarsDecisionAction,
@@ -10,11 +12,26 @@ import type { buildTarsTrayFixtures } from "./tars-fixtures";
 import type { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { TARS_PREVIEW_RICH_REPLY } from "./tars-rich-reply-fixture";
 import { tarsGalleryCodeReply } from "./tars-code-languages-fixture";
+import { buildTarsResultFixtures } from "./tars-result-fixtures";
 
 type ControlAction = Extract<TarsDecisionAction, { kind: "control" }>;
 type ReceiptOutcome = { status: "applied"; responsibilityId: string } | { status: "proposed" | "pending" } | { status: "rejected"; reason: TarsActionReason };
 /** The host keeps full attachment snapshots; a window reads summaries (`tarsMessageView`). */
 type GalleryConversation = Omit<TarsConversation, "messages"> & { messages: TarsMessage[] };
+
+/**
+ * `spreadUntil`: each family of cases is one run of two-minute slots on its
+ * own day and hour, so the transcript shows several days (one of them more
+ * than two days back, which names its date) and several runs within a day.
+ * Today's runs count back from that moment, so nothing lands in the future;
+ * opened in the small hours, they fall on yesterday instead.
+ */
+const GALLERY_DAYS = [
+  { match: /^A/, daysAgo: 6, clock: [9, 30] }, { match: /^B/, daysAgo: 6, clock: [14, 10] },
+  { match: /^C/, daysAgo: 2, clock: [10, 0] }, { match: /^D/, daysAgo: 2, clock: [16, 20] },
+  { match: /^E/, daysAgo: 1, clock: [9, 5] }, { match: /^F/, daysAgo: 1, clock: [13, 40] }, { match: /^G/, daysAgo: 1, clock: [18, 15] },
+  { match: /^[HIJ]$/, minutesBefore: 240 }, { match: /^K/, minutesBefore: 120 }, { match: /^[LM]/, minutesBefore: 40 },
+] as const satisfies ReadonlyArray<{ match: RegExp } & ({ daysAgo: number; clock: readonly [number, number] } | { minutesBefore: number })>;
 
 /** A 1×1 PNG: the transcript shows an attachment's name, never its pixels. */
 const PIXEL_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
@@ -28,17 +45,20 @@ const DIAGNOSTIC = "Preview diagnostic: the host refused this.";
  * - an unanswered question folds as soon as anything is said after it, so the
  *   one question still waiting is the last message;
  * - a newer control proposal for the same work supersedes an older one, so
- *   each waiting confirmation targets work no later message proposes a
- *   control for, and the folded outcomes come before the waiting cards.
+ *   only the newest message can leave a confirmation waiting; the folded
+ *   outcomes come before it.
  * Work comes from the tray and side-view fixtures plus a few rows of its own,
  * so the tray beside the conversation shows the work each card names.
- * Times count from an hour after `start`, two minutes per case.
+ * Times count from an hour after `start`, two minutes per case; with
+ * `spreadUntil` they spread over the week before it instead (`GALLERY_DAYS`).
  */
-export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
+export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUntil }: {
   start: Date;
   korean: boolean;
   tray: ReturnType<typeof buildTarsTrayFixtures>;
   side: ReturnType<typeof buildTarsSideViewFixtures>;
+  /** Spread the cases over the days before this moment, so the transcript's day rules show. */
+  spreadUntil?: Date;
 }) {
   const l = (en: string, ko: string) => korean ? ko : en;
   const history = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();
@@ -93,13 +113,25 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
   const activity: TarsActivity[] = [];
   const events: TarsEvent[] = [];
   const publications: TarsPublishRecord[] = [];
-  const pendingDecisions: TarsPendingDecision[] = [];
   let section = 0;
+  const spreadCount = new Map<(typeof GALLERY_DAYS)[number], number>();
+  /** Where a case starts: its two-minute slot after the last, or with `spreadUntil` the next slot in its family's run. */
+  function slotOf(code: string) {
+    const group = spreadUntil ? GALLERY_DAYS.find((entry) => entry.match.test(code)) : undefined;
+    if (!spreadUntil || !group) return galleryStart + section * 120_000;
+    const nth = spreadCount.get(group) ?? 0;
+    spreadCount.set(group, nth + 1);
+    const day = new Date(spreadUntil);
+    if ("minutesBefore" in group) return spreadUntil.getTime() - (group.minutesBefore - nth * 2) * 60_000;
+    day.setDate(day.getDate() - group.daysAgo);
+    day.setHours(group.clock[0], group.clock[1] + nth * 2, 0, 0);
+    return day.getTime();
+  }
   /** The next case: its two-minute slot and the label its user message starts with. */
   function begin(code: string, en: string, ko: string) {
     section += 1;
     cases.push(`${code} · ${en}`);
-    const slot = galleryStart + section * 120_000;
+    const slot = slotOf(code);
     return { at: (second = 0) => new Date(slot + second * 1000).toISOString(), label: `${code} · ${l(en, ko)}` };
   }
   function said(id: string, at: string, text: string, reply: string, actions: TarsDecisionAction[] = [], extra: Partial<TarsMessage> = {}) {
@@ -115,7 +147,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
     return message;
   }
   function receipt(message: TarsMessage, actionIndex: number, outcome: ReceiptOutcome) {
-    const value: TarsActionReceipt = { messageId: message.id, actionIndex, requestHash: "a".repeat(64), action: message.decision!.actions[actionIndex]!,
+    const value: TarsActionReceipt = { messageId: message.id, actionIndex, requestHash: "a".repeat(64), action: TarsWorkActionSchema.parse(message.decision!.actions[actionIndex]),
       status: outcome.status, responsibilityId: outcome.status === "applied" ? outcome.responsibilityId : null,
       error: outcome.status === "rejected" ? DIAGNOSTIC : null, reason: outcome.status === "rejected" ? outcome.reason : null,
       revision: outcome.status === "proposed" || outcome.status === "pending" ? 1 : 2, createdAt: message.createdAt, updatedAt: message.createdAt };
@@ -132,8 +164,6 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
   }
   const control = (target: TarsResponsibility, operation: TarsControlOperation, expectedRevision = target.revision, input?: ControlAction["input"]): ControlAction =>
     ({ kind: "control", responsibilityId: target.id, expectedRevision, operation, ...(input ? { input } : {}) });
-  const waitingFor = (message: TarsMessage, actionIndex: number, action: ControlAction) => pendingDecisions.push({ responsibilityId: action.responsibilityId,
-    messageId: message.id, actionIndex, operation: action.operation, expectedRevision: action.expectedRevision, proposedAt: message.createdAt });
 
   // A · The user's own messages.
   {
@@ -307,7 +337,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
     actions.forEach((_, index) => receipt(message, index, { status: "proposed" }));
     return { message, decisionId: (index = 0) => `confirm:${id}:${index}` };
   }
-  function confirmAnswer(decisionId: string, action: ControlAction, at: string, source: TarsDecisionAnswer["source"], outcome: "applied" | "pending" | { reason: NonNullable<TarsDecisionAnswer["reason"]> },
+  function confirmAnswer(decisionId: string, action: ControlAction, at: string, source: Exclude<TarsDecisionAnswer["source"], "tars">, outcome: "applied" | "pending" | { reason: NonNullable<TarsDecisionAnswer["reason"]> },
     delivery?: TarsMessageDelivery) {
     const rejected = typeof outcome === "object";
     answers.push({ decisionId, optionIndex: 0, source, effect: action, label: null, status: rejected ? "rejected" : outcome, reason: rejected ? outcome.reason : null,
@@ -372,11 +402,11 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
       { status: "queued", agentRunId: "run-gallery-webhook", reason: null, error: null, queuedAt: c.at(20), updatedAt: c.at(20) });
   }
 
-  // F · Confirmations waiting now: each is the newest control proposal for its work.
+  // F · Confirmation cards of every kind. Later messages retire only proposals for the same work;
+  // unrelated confirmations keep waiting alongside the newest message (M).
   function waiting(code: string, en: string, ko: string, ask: [string, string], reply: [string, string], actions: ControlAction[]) {
     const c = begin(code, en, ko);
-    const { message } = propose(`g-${code.toLowerCase()}`, c.at(), `${c.label}: ${l(...ask)}`, l(...reply), actions);
-    actions.forEach((action, index) => waitingFor(message, index, action));
+    propose(`g-${code.toLowerCase()}`, c.at(), `${c.label}: ${l(...ask)}`, l(...reply), actions);
   }
   waiting("F1", "Confirm card: resume", "확인 카드: 재개", ["staging is green, resume the release check.", "스테이징이 정상이야. 릴리스 확인을 재개해."],
     ["Staging is green. Confirm and the release check continues.", "스테이징이 정상입니다. 확인하시면 릴리스 확인을 이어갑니다."], [control(release, "resume")]);
@@ -439,7 +469,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
     record(`answer:${decisionId}`, c.at(20), "words", pause, { status: "applied" });
   }
   {
-    const c = begin("G3", "Question passed: the conversation moved on", "지나간 질문: 대화가 넘어감");
+    const c = begin("G3", "Waiting question: reply only, without a work target", "대기 중인 질문: 작업 대상 없는 답변 선택");
     const message = said("g-g3", c.at(), `${c.label}: ${l("what should the retry limit be?", "재시도 한도는 얼마가 좋을까?")}`, l("Pick one:", "하나를 골라 주세요."), [{ kind: "ask",
       question: l("How many times should the webhook sender retry a failed delivery?", "웹훅 전송이 실패하면 몇 번까지 다시 시도할까요?"),
       options: [{ label: l("Three times", "세 번"), rationale: l("Matches the payment provider.", "결제 대행사와 같습니다."), effect: { kind: "reply" } },
@@ -585,8 +615,27 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
     // A retryable refusal leaves Stave's decision open, showing the attempt on the card.
     answers.push({ decisionId, optionIndex: 0, source: "click", effect: control(audit, "acceptCompletion"), label: null, status: "rejected", reason: "unknown",
       error: DIAGNOSTIC, actRequestId: `answer:${decisionId}`, messageId: null, revision: 2, createdAt: c.at(20), updatedAt: c.at(20) });
-    pendingDecisions.push({ kind: "unverifiedCompletion", responsibilityId: audit.id, messageId: null, actionIndex: null, operation: null,
-      expectedRevision: audit.revision, proposedAt: c.at(10), optionCount: 3 });
+  }
+
+  // K3–K7 · Result cards: ended work the view still holds shows what it came to, where its notice would be one line.
+  const result = buildTarsResultFixtures(start, korean);
+  for (const [code, id, en, ko, replyEn, replyKo] of [
+    ["K3", result.ids.verified, "Result card: completed and verified", "결과 카드: 완료, 검증됨",
+      "A check Stave ran or a passed review backs each criterion.", "Stave가 실행한 검사나 통과한 리뷰가 각 기준을 뒷받침합니다."],
+    ["K4", result.ids.reported, "Result card: completed, agent's report only", "결과 카드: 완료, 에이전트 보고만 있음",
+      "Nothing Stave ran or reviewed confirms these, so the card says so.", "Stave가 실행하거나 리뷰한 것이 없어 카드가 그렇게 표시합니다."],
+    ["K5", result.ids.published, "Result card: completed with a draft PR", "결과 카드: 완료, Draft PR 있음",
+      "The draft pull request is a link on the card.", "Draft PR은 카드에 링크로 표시됩니다."],
+    ["K6", result.ids.stalled, "Result card: blocked, with the run's own words", "결과 카드: 진행 불가, 실행이 남긴 설명 포함",
+      "The card says why, keeps the run's own words one click away and offers the next steps.", "카드가 이유를 말하고, 실행이 남긴 설명은 한 번 눌러 볼 수 있으며, 다음에 할 수 있는 일을 보여 줍니다."],
+    ["K7", result.ids.failed, "Result card: failed to start", "결과 카드: 시작 실패",
+      "A run that could not go on reads as failed, with the provider's diagnostic folded.", "더 진행할 수 없는 실행은 실패로 표시하고, 프로바이더의 진단은 접어 둡니다."],
+  ] as const) {
+    const c = begin(code, en, ko);
+    const target = result.responsibilities.find((entry) => entry.id === id)!;
+    said(`g-${code.toLowerCase()}`, c.at(), `${c.label}`, l(replyEn, replyKo));
+    activity.push({ id: `gallery-activity-${target.id}`, responsibilityId: target.id, revision: target.revision, title: target.title, state: target.state, detail: target.detail,
+      detailCode: target.detailCode, detailParams: target.detailParams, createdAt: c.at(10) });
   }
 
   // L · Publishing completed work as a draft pull request.
@@ -647,19 +696,29 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side }: {
       { label: l("Keep it running", "계속 실행"), rationale: l("The header row is needed either way.", "어느 쪽이든 헤더 행은 필요합니다."), effect: { kind: "reply" } },
       { label: l("Explain the risk", "위험 설명"), rationale: l("Tars explains before you decide.", "결정하기 전에 Tars가 설명합니다."), effect: { kind: "reply" } },
     ] };
+    // A proposal waits only in the newest message: the release check's resume is asked again beside the question.
+    const resume = control(release, "resume");
     const message = said("g-m", c.at(), `${c.label}: ${l("should the billing fix wait for finance?", "결제 수정이 재무팀을 기다려야 할까?")}`,
-      l("The fix is running. Choose how to continue.", "수정이 실행 중입니다. 어떻게 할지 골라 주세요."), [ask]);
+      l("The fix is running. Choose how to continue. Staging is green too, so confirm below to resume the release check.",
+        "수정이 실행 중입니다. 어떻게 할지 골라 주세요. 스테이징도 정상이니 아래에서 확인하시면 릴리스 확인을 재개합니다."), [ask, resume]);
     receipt(message, 0, { status: "proposed" });
-    pendingDecisions.push({ kind: "ask", responsibilityId: billing.id, messageId: message.id, actionIndex: 0, operation: null, expectedRevision: billing.revision,
-      proposedAt: message.createdAt, question, optionCount: 3 });
+    receipt(message, 1, { status: "proposed" });
   }
 
   const responsibilities = [...byId.values()].map((entry) => entry.id === docs.id ? docs : entry)
-    .concat([upload, audit, settingsStore, runtime, packages, webhook, onboarding, landing]);
+    .concat([upload, audit, settingsStore, runtime, packages, webhook, onboarding, landing], result.responsibilities);
   const followUps: TarsFollowUpState[] = [{ responsibilityId: search.id, kind: "blocked", status: "exhausted", at: null },
     { responsibilityId: release.id, kind: "waitExpired", status: "nextCheck", at: new Date(Math.max(Date.now(), galleryStart) + 55 * 60_000).toISOString() }];
   const conversation: GalleryConversation = { settings, messages, receipts, records, answers, activity, events, publications };
-  const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs };
+  // The tray and dock share work-bound decisions; unrelated later messages do not retire them.
+  const pendingDecisions: TarsPendingDecision[] = projectTarsDecisions({ ...conversation, answers, responsibilities })
+    .filter((decision) => decision.state === "waiting").flatMap((decision) => decision.targets.map((target) => ({
+      kind: decision.kind, ...target, messageId: decision.messageId, actionIndex: decision.actionIndex,
+      operation: decision.kind === "confirm" && decision.options[0]?.kind === "control" ? decision.options[0].control.operation : null,
+      proposedAt: decision.since, ...(decision.kind === "ask" ? { question: decision.question ?? "" } : {}),
+      optionCount: decision.options.length,
+    })));
+  const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs, ...result.runs };
   // Named so a confirmation card can say where the work runs.
   const workspaceNames = Object.fromEntries(responsibilities.flatMap((entry) => entry.executionWorkspaceId
     ? [[entry.executionWorkspaceId, entry.branchName ?? `tars/${entry.id}`]] : []));

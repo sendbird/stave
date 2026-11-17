@@ -1,18 +1,28 @@
 import { expect, test } from "@playwright/test";
 
 const OPEN = { name: "Find in conversation", exact: true } as const;
-const FIELD = { name: "Search loaded messages" } as const;
+const FIELD = { name: "Search all task messages" } as const;
 
 for (const theme of ["light", "dark"]) {
-  test(`conversation find floats over the transcript, steps and wraps in ${theme}`, async ({ page }) => {
-    await page.goto(`/tests/e2e/fixtures/conversation-time.html?theme=${theme}`);
-    const firstMessage = page.getByText("Check the settings layout and keyboard navigation.", { exact: true });
+  test(`conversation find floats over the transcript, steps and wraps in ${theme}`, async ({
+    page,
+  }) => {
+    await page.goto(
+      `/tests/e2e/fixtures/conversation-time.html?theme=${theme}`,
+    );
+    await page.evaluate(() => document.fonts.ready);
+    const firstMessage = page.getByText(
+      "Check the settings layout and keyboard navigation.",
+      { exact: true },
+    );
     const before = await firstMessage.boundingBox();
 
     // The trigger is a floating icon in the transcript's top-end corner, revealed on hover.
     const open = page.getByRole("button", OPEN);
     await expect(open).toHaveCSS("opacity", "0");
-    await page.getByText("Check the dark theme as well.", { exact: true }).hover();
+    await page
+      .getByText("Check the dark theme as well.", { exact: true })
+      .hover();
     await expect(open).toHaveCSS("opacity", "1");
     await page.evaluate(() => document.fonts.ready);
     // Use the smallest AUI control; the glyph stays on its 14px token rung.
@@ -35,20 +45,26 @@ for (const theme of ["light", "dark"]) {
     expect(widget!.y).toBeLessThan(40);
 
     const status = page.getByRole("search").getByRole("status");
-    await expect(status).toHaveText("");
-    await expect(page.getByRole("button", { name: "Next match" })).toBeDisabled();
+    await expect(status).toHaveText("Enter at least 2 characters");
+    await expect(
+      page.getByRole("button", { name: "Next match" }),
+    ).toBeDisabled();
     await input.fill("Check");
-    await expect(status).toHaveText("2 matches");
+    await expect(status).toHaveText("0 / 2");
     await input.press("Enter");
     await expect(status).toHaveText("1 / 2");
     await input.press("Shift+Enter");
     await expect(status).toHaveText("2 / 2");
     await page.getByRole("button", { name: "Next match" }).click();
     await expect(status).toHaveText("1 / 2");
-    await expect(page.getByText("Check the dark theme as well.", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Check the dark theme as well.", { exact: true }),
+    ).toBeVisible();
     await input.fill("no such phrase");
     await expect(status).toHaveText("No matches");
-    await expect(page.getByRole("button", { name: "Previous match" })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Previous match" }),
+    ).toBeDisabled();
 
     await input.press("Escape");
     await expect(input).toHaveCount(0);
@@ -56,7 +72,9 @@ for (const theme of ["light", "dark"]) {
   });
 }
 
-test("Cmd/Ctrl+F again re-selects the query in the open widget", async ({ page }) => {
+test("Cmd/Ctrl+F again re-selects the query in the open widget", async ({
+  page,
+}) => {
   await page.goto("/tests/e2e/fixtures/conversation-time.html");
   await page.getByRole("button", OPEN).focus();
   await page.keyboard.press("Control+f");
@@ -69,7 +87,9 @@ test("Cmd/Ctrl+F again re-selects the query in the open widget", async ({ page }
   await expect(input).toHaveValue("dark");
 });
 
-test("Cmd/Ctrl+F from the composer opens find in the same chat area", async ({ page }) => {
+test("Cmd/Ctrl+F from the composer opens find in the same chat area", async ({
+  page,
+}) => {
   await page.goto("/tests/e2e/fixtures/conversation-time.html?composer=1");
   const composer = page.getByRole("textbox", { name: "Composer stand-in" });
   await composer.focus();

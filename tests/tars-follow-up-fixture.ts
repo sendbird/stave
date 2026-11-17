@@ -67,7 +67,7 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
   let made = 0;
   /** A responsibility Tars holds with a run, in the given state. */
   const responsibility = (state: TarsState, patch: Partial<TarsResponsibility> = {}) => {
-    const row = responsibilities.create({ requestId: `responsibility-${made++}`, title: `Release check ${made}`,
+    const row = responsibilities.create({ completionGoal: "implementation", requestId: `responsibility-${made++}`, title: `Release check ${made}`,
       instruction: "Original user mandate:\nVerify the release.\n\nProposed work unit within that mandate:\nRun the release checks.",
       acceptanceCriteria: ["Checks pass"], workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" }, now());
     return responsibilities.patch(row.id, row.revision, { state, taskId: `tars-${row.id}`, executionWorkspaceId: "execution",

@@ -9,12 +9,27 @@ function baseModel(model: string) {
   return model.replace(/\[1m\]$/, "").replace(/-\d{8}$/, "");
 }
 
-/** Observe actual assistant models too: some CLI versions omit fallback system messages. */
+/**
+ * Observe actual assistant models too: some CLI versions omit fallback system messages.
+ *
+ * A subagent's own responses carry `parent_tool_use_id`, the Agent/Task call it
+ * runs under. Their model is what that subagent actually ran on, which may not
+ * be what the spawn asked for (an agent definition, an alias, a fallback), so
+ * it is reported once per spawn and again only when it changes.
+ */
 export function createClaudeModelResolutionTracker(requestedModel?: string) {
   let currentModel = modelId(requestedModel);
+  const subagentModels = new Map<string, string>();
   return (message: unknown): BridgeEvent[] => {
     if (!message || typeof message !== "object") return [];
     const record = message as Record<string, unknown>;
+    if (record.type === "assistant" && typeof record.parent_tool_use_id === "string" && record.parent_tool_use_id && !record.error) {
+      const subagentModel = modelId((record.message as { model?: unknown } | undefined)?.model);
+      const toolUseId = record.parent_tool_use_id;
+      if (!subagentModel || subagentModels.get(toolUseId) === subagentModel) return [];
+      subagentModels.set(toolUseId, subagentModel);
+      return [{ type: "subagent_model", toolUseId, model: subagentModel }];
+    }
     const fallback = record.type === "system" && record.subtype === "model_fallback";
     const assistant = record.type === "assistant" && record.parent_tool_use_id == null && !record.error;
     const body = record.message as { model?: unknown } | undefined;

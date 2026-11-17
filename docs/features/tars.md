@@ -8,6 +8,35 @@ follows it until the result is verified and comes back to you when a decision
 is needed. Its name, instructions, conversation and responsibilities persist
 across workspaces, tasks and restarts.
 
+The header's **How Tars works** button explains giving a task, following its
+progress and checking the result in three steps. Confirmation requirements and
+keeping Stave open stay visible; **More about running tasks** expands the remaining
+conditions. Selecting a request example fills the composer without sending it.
+Icon buttons show their action in a tooltip on hover or keyboard focus,
+including the header, side views, question navigation and attachment removal.
+
+Tars replies in your language in up to four short lines: **Done**, **Not working**,
+**Needs you**, and **Next**, omitting empty items. Technical details appear only
+when requested. Result and report headlines show one plain sentence; **Full
+summary…** keeps the complete summary, criteria, evidence and diagnostics.
+Long record and Activity descriptions stay on one line with their full text on hover.
+
+## Give Tars work from a source
+
+In **Issues**, choose **Ask Tars** on a GitHub, Jira or Crane issue to draft its
+title, link and a bounded body excerpt, with a mapped repository/workspace
+suggestion. Enable GitHub in **Settings > Integrations > Issues** after signing
+in with `gh auth login`; it reads up to 200 assigned issues and never writes back.
+Remember a GitHub repository mapping in the issue kickoff form when needed.
+In a Markdown editor's **More** menu, **Ask Tars** attaches the current contents,
+including plan files under `.stave/context/plans/` (32 KB total text limit).
+To share a document by link, paste the link into the message. Edit your
+direction and send; opening a draft starts no work and preserves existing draft
+text and attachments.
+Pasted Slack thread links stay source links. The execution lead is instructed
+to read them read-only with your Slack tools, or ask you to paste the text if
+access is unavailable. Stave has no Slack token flow.
+
 ## How it works
 
 1. **You talk.** Open **Tars** at the top of the sidebar and write. There is
@@ -20,7 +49,11 @@ across workspaces, tasks and restarts.
    **Tars decision**. If the goal or the target is unclear, Tars asks
    instead of guessing. Tars reasons over a bounded summary of your
    repositories, workspaces and work that Stave supplies; it has no file,
-   shell or MCP tools of its own.
+   shell or MCP tools of its own. When there is more work than the summary
+   holds (20 pieces), it keeps the work your message names by title or id
+   first, then work that has not ended (running, waiting on you, blocked,
+   paused, queued), then the most recently updated ended work, and says how
+   many it left out.
 3. **The host admits or refuses.** Before anything runs, Stave's host checks
    every unit: the workspace is registered and its repository resolves, a
    named agent exists, is allowed and is suitable, and the units fit the turn
@@ -47,19 +80,33 @@ across workspaces, tasks and restarts.
    an [agent run](agent-runs.md) led by the built-in Supervisor, Tars's
    execution lead. A named agent does the work stage; otherwise the lead
    chooses its own helpers from the built-in agents.
-6. **Review and verify.** The run works, hands the result to an independent
-   read-only Reviewer, then resolves findings and verifies. The Reviewer may
-   run the repository's own test, lint and typecheck scripts (taken from its
-   `package.json`) to check the evidence itself; it still cannot write files. The agent's own
-   claim is not enough: Tars completes the work only when the final stage has
-   a check Stave saw pass on the current revision, or a stage has a passed
-   independent review. Otherwise it asks you whether to accept it.
+6. **Work, then review only when needed.** The run has one **Work** stage the
+   Supervisor owns: it plans, does small or tightly coupled work itself,
+   delegates only independent or large units, runs the narrowest checks while
+   it works, commits on the execution workspace's own branch, then runs final
+   checks itself in the reporting turn through Stave workspace check scripts
+   when configured. Checks a helper ran are repeated by the lead. Work that
+   changed no files (an answer or research) ends after its report. Changed files go to an
+   independent read-only **Review** on the provider that did not write them
+   (the pinned provider and model when you fixed a model);
+   the **Fix review findings** stage runs only when that review asks for
+   changes. The Reviewer confirms the reported evidence and runs only checks
+   covering the changed files when its read-only policy permits those commands.
+   Claude reviewers may run the approved test, lint and typecheck scripts from
+   `package.json`; other commands require existing permission. When no check
+   is allowed, the reviewer reports that limitation and inspects the evidence.
+   Broader checks require missing, failed or stale evidence; it still cannot
+   write files. The
+   agent's own claim is not enough: Tars completes the work only on a check
+   Stave saw pass on the revision the run ended on, a passed independent review
+   of that revision, or work Stave saw change no files. Otherwise it asks you
+   whether to accept it.
 7. **Report and publish.** A completed or ended run leaves a frozen **Result
-   report**, its **Changes** and **Review**. Changes stay uncommitted in the
-   Tars workspace until you decide. For completed, verified work, **Create
+   report**, its **Changes** and **Review**. Verified changes are committed on
+   the Tars workspace's own branch. Requested draft PRs can publish automatically after verification. For completed, verified work, **Create
    draft PR** (or asking Tars, such as "open a draft PR for it") opens a
-   confirmation card; only your confirmation on that card makes Stave commit,
-   push the work's branch and open a draft pull request. See
+   confirmation card unless Balanced or Hands-off already authorizes the verified
+   PR endpoint. Stave commits, pushes the work's branch and opens a draft pull request. See
    [Publish completed work](#publish-completed-work).
 
 **Follow-ups.** Saved status changes appear in the conversation and the
@@ -81,8 +128,33 @@ request that was interrupted is not run again automatically.
 
 **When it runs.** Tars works only while the Stave desktop app is running. It
 does not execute while Stave is closed or the computer is asleep; it catches up
-when Stave starts again. The browser-only development runtime has no Tars
-service.
+when Stave starts again. While agent runs or Tars executions are active, Stave
+holds an app-suspension blocker and releases it when idle; the display may turn
+off. A closed lid can still put a Mac to sleep. The browser-only development
+runtime has no Tars service.
+
+## Edit workspace information
+
+Ask Tars to add notes, track or update a todo, set an existing custom field,
+or link a resource in a registered workspace. For example, “Add a release-check
+todo to the API workspace” or “Link this pull request in the release workspace.”
+These requests edit the Information panel directly without starting a coding task.
+Tars can append or replace notes, add/update/remove todos, set/remove existing
+fields, and add/remove supported resources. It cannot create a field through
+this action. If an existing item's ID is unavailable, Tars asks for the target
+rather than guessing. Workspace creation and reading/inspection are separate
+from these information edits; scheduled work keeps its existing confirmation flow.
+
+Edits apply at once at every autonomy level. **Careful** asks for confirmation
+before replacing notes or removing a todo, field or resource; other levels apply
+those edits immediately. A matching **Never do** rule still asks first.
+Every applied edit leaves a translated receipt and an activity record with
+**Undo**. Undo restores the saved prior Information panel, including deleted
+item IDs and metadata. It refuses if any information changed afterward or the
+workspace no longer belongs to the same registered repository, preserving newer
+user edits. Retrying a saved action or its confirmation never repeats the edit.
+Only known, uniquely registered workspaces can be changed. Automatic follow-ups
+cannot edit workspace information.
 
 ## Attach files
 
@@ -127,6 +199,13 @@ reports on the work.
 - Answer questions about your work from what Stave observed, saying when an
   observation is stale or missing. General conversation works even before you
   add a repository.
+- Clear this conversation, or the ended work in the panel's **Done** and
+  **Outputs**, when you ask; it shows a card first and only your **Clear**
+  hides anything. See [Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
+- Set up work that runs later or repeats, when you ask: "every weekday at 9,
+  check the release branch", "tomorrow at 3 pm look at this again". It shows a
+  card first, and only your confirmation creates, changes, pauses or removes
+  a schedule. See [Schedule work](#schedule-work).
 - Turn an explicit request into one or more work units in registered
   workspaces, each with acceptance criteria and a priority, from a single
   message, starting from the branch or, when you ask, from your uncommitted
@@ -141,14 +220,17 @@ reports on the work.
 - Do what you would do to the run in its task, from your words: give a run
   paused at its turn limit more turns, retry a blocked or stuck stage, skip
   the current stage, sign off a stage waiting for your approval, or resume a
-  run paused by a usage limit. Each waits for your **Confirm**.
+  run paused by a usage limit. Resume, retry and bounded extensions apply at
+  once at Balanced or Hands-off; skip and sign-off always need confirmation.
 - Answer what waits in the work's task from your words: approve or deny a
   tool approval, answer a question the run asked, send your words to the run
   as your reply ("tell it to use the existing index"), or request changes on a
-  stage waiting for your sign-off. Denying applies at once; the rest wait for
-  your **Confirm** on a card that shows the exact request, answers or words.
-- Supervise each unit through work, independent review and verification, and
-  refuse to call it done on the agent's word alone.
+  stage waiting for your sign-off. Denying applies at once. Approving and
+  answering for you always need confirmation; instructions to Tars's run follow
+  the autonomy level.
+- Supervise each unit through work, an independent review when it changed
+  files, and fixes when the review asks for them, and refuse to call it done on
+  the agent's word alone.
 - Ask you to choose between 2 to 4 options as a decision card you answer by
   click, key or a short word.
 - Pause, resume, take over, hand back and cancel work, from a click or from
@@ -159,22 +241,40 @@ reports on the work.
   completion criteria), report, changes, timeline or review beside the
   conversation, also on request ("show me the report", "what changed?").
 - Commit, push and open a draft pull request for completed, verified work,
-  each time only after you confirm its card.
+  automatically for a verified PR goal at Balanced or Hands-off; otherwise after
+  you confirm its card.
 - Quote selected diff lines into your message so you can ask about them.
+- Act as independently as you choose: one setting with three levels decides
+  what Tars applies at once and what waits for you, and **Never do** rules in
+  your own words make Stave ask first. See
+  [How independently Tars acts](#how-independently-tars-acts).
+- Show what it knows and what its work spent: the standing instructions, the
+  agents it may use and each repository's branch rule and memory, and tokens,
+  turns and time by work and by model. See
+  [What Tars knows, and usage](#what-tars-knows-and-usage).
+- Summarize what happened while you were away, in one card where you left the
+  conversation.
 - Recover saved work after a restart without duplicating it.
 
 ## Limits
 
-- **No publishing on its own.** Delegated work does not commit, push, open
-  pull requests, merge, deploy, send messages or spend money. Stave itself
-  commits, pushes and opens a **draft** pull request only when you confirm a
-  publish card, every time; there is no "always allow", and nothing is ever
+- **Publishing through the host only.** Delegated work commits verified changes
+  on its execution branch. Neither
+  the lead nor its helpers may push, open pull requests, merge, deploy, send
+  messages or spend money. Stave itself
+  commits, pushes and opens a **draft** pull request automatically for a verified
+  PR goal or matching saved allow rule at Balanced or Hands-off, or after you confirm a publish card; nothing is ever
   merged, deployed or force-pushed. Agents that publish or deliver outside the
   workspace, such as Shipper, are never used. This is enforced by refusing
   publishing agents and by authorizing no publishing stage; it is not a shell
   sandbox, so the task's provider permissions and safety controls still apply.
 - **Only while Stave is open.** Nothing executes while Stave is closed or the
-  computer is asleep, and Tars does not schedule wake-ups of its own.
+  computer is asleep. Tars runs no scheduler of its own: scheduled work is a
+  schedule in Stave's Schedules, which runs only while Stave is open and runs
+  a missed occurrence once when it opens.
+- **Scheduled runs are tasks, not Tars work.** A run a schedule starts is a
+  normal task in the workspace you named, in the Guided permission mode. It
+  gets no new branch, no Tars review or verification and no Tars report.
 - **Independent work runs concurrently.** There is no cap unless you set
   **Settings → Concurrent responsibilities** to a positive number; then work
   beyond it waits in the queue, and a queued card says only the reason Stave
@@ -182,9 +282,29 @@ reports on the work.
   your answer gives up its slot. Only queued work can change its place; work
   that started keeps it, and priorities stay between 0 and 100. **Start now**
   starts the work you chose even when the limit is reached.
-- **Reasoning has no tools.** Tars itself cannot read files, run commands or
-  call MCP tools; it sees only the summary Stave supplies. Connected apps are
-  not read merely because they are available.
+- **Read before deciding.** The conversation model has no shell or MCP tools.
+  It can request `inspect` for a personal responsibility's report, changes,
+  recent task transcript, recorded checks, or pull request. Stave reads the
+  existing host views and gives the same message another reasoning round.
+  It should inspect before judging a result, choosing what to do about failed
+  or blocked work, or answering questions about work details. `show` still
+  only opens a view for you. A compact translated status names what it reads.
+  Each view is capped at 12,000 characters; all observations for one message
+  share a 24,000-character serialized budget, including JSON escaping. Large
+  or unavailable reads are labeled, never treated as evidence of success.
+  Changes include at most four files with bounded before/after excerpts;
+  transcripts include the latest 40 task messages. Pull requests include saved
+  publication state and, when available, the existing live PR/check summary.
+  No commands that change work run through inspection.
+  There are at most two extra rounds: enough to follow up on discovered
+  evidence, with a fixed cost ceiling. Every round has its own run-ledger
+  claim, completion and failure keys and retains the existing one transient
+  retry. Only the final response's actions can apply; an inspecting response
+  discards every other action, including on the final round, where further
+  reads are refused. Reading status is persisted; after an interruption Stave
+  marks the message interrupted rather than silently billing another call or
+  applying an intermediate decision. Retrieved content is untrusted evidence,
+  not a new instruction or authority. Inspection changes no autonomy policy.
 - **Uncommitted changes only when you include them.** The Tars workspace
   starts from the branch, not from your working copy, unless the message had
   **Working changes** on. Then it starts from a snapshot taken when
@@ -199,33 +319,51 @@ reports on the work.
   Cursor, Kiro and OpenCode are not supported.
 - **Agent allowlist.** Saved agents are usable only after you allow them in
   settings (none at first). The host still refuses an unsuitable one.
-- **Turn limit.** Every work unit gets the whole turn limit (default 30, 1 to
+- **Turn limit.** Every work unit gets the whole turn limit (default 60, 1 to
   100); its run and its helpers share it. One message proposes at most 8
   work units.
 - **Follow-up timing.** One follow-up per change. A running run whose stage
   stops to ask you is followed up at once; a plain wait (a paused run, a usage
   limit, a tool approval or question waiting in the task) only after an hour
   without change. At most six follow-ups start per hour, and automatic turns
-  since your last action toward Tars stop at the turn-limit number. A
+  since your last user action toward Tars stop at a separate cap of 20,
+  independent of execution turn limits. Automatic controls and withdrawals do not restart the count. A
   follow-up never starts new work, starts queued work now, pauses, takes over,
   hands back, skips a stage or accepts work as done.
 - **Answers in the task are once and yours.** Tars answers a tool approval
   once, never with an "always allow" rule, and only for a request it observed
   in the work's own task or the task of a helper its run delegated to. An
-  approval waits for your **Confirm** and is never a recommended or default
+  approval waits for your confirmation (**Approve**) and is never a recommended or default
   choice. Your words reach the run only while no turn runs in its task;
   otherwise say them in the task or ask again after the turn.
-- **Never through Tars.** Merging, deploying, force-pushing, deleting
-  branches, worktrees or tasks, "always allow" rules, spending money and
+- **Never through Tars.** Merging, deploying, force-pushing, arbitrary task deletion, permanent tool approvals, spending money and
   messaging other people are not available through Tars at all.
 - **Message limits.** A message holds up to 32,000 characters and at most 32
   messages can be outstanding. A message too long to sit in the run's
   8,000-character assignment reaches the run whole as context on every turn
-  of its execution lead; nothing is cut. One reasoning attempt times out after 120
-  seconds and is not retried automatically.
+  of its execution lead; nothing is cut. One reasoning attempt times out after
+  five minutes. A timeout, a cut-short answer or a passing provider problem (a
+  rate limit, an overload, a dropped connection) is retried once by itself, with
+  the same input, and the message says so while it retries; a second failure,
+  a refusal, an account problem or a reply Stave cannot read fails the message.
+  Before a Codex model turn starts, temporary workspace-routing discovery
+  failures get up to two short retries. If starting still fails, Stave shows a
+  short error so you can try again; it does not replay an executing turn.
+- **One malformed action never costs the reply.** If one of the actions Tars
+  returns does not match its rules (or goes past a reply's limit, such as a
+  second question), only that action is left out and the message says how many
+  were; the reply and the valid actions stay. Nothing is done for a left-out
+  action.
+- **Queued messages say why they wait.** A message waits behind an earlier
+  action whose result the host has not confirmed yet, or for the saved agents
+  it allows to load, and says which under the message. Either wait lasts at
+  most a minute: then later messages go on (the earlier action keeps being
+  retried on its own), or a message still waiting for agents fails with that
+  reason so you can send it again.
 - **Settings apply forward.** Changing settings affects later messages and new
   work, not runs already admitted (removing an agent from the allowlist also
-  applies to messages already sent).
+  applies to messages already sent, and a more careful autonomy level or a new
+  **Never do** rule applies from Tars's next decision).
 
 ## Quick start
 
@@ -244,21 +382,47 @@ Name the workspace and say what "done" means; Tars turns that into acceptance
 criteria. If something is unclear it asks first. The first send saves the
 conversation settings (see [Settings and models](#settings-and-models)).
 
-An empty conversation offers a few example requests; pressing one adds its
-full text to the message box without sending it. **How Tars works** below the
-examples, and the help button in the Tars header at any time, show what Tars
-can do and its limits in short form.
+An empty conversation, and one you cleared, shows a start screen:
+
+- a greeting with the name you gave Tars;
+- **Right now**: how many pieces of work need you, are running and finished
+  in the last day. Each count opens its section of the work list (**Needs
+  you**, **In progress**, **Done**) and moves focus there. Counts of zero are
+  left out, and the line is hidden when there is nothing to count;
+- **Try asking**: example requests grouped by what Tars can do: hand off work,
+  schedule work, check or steer work, decide and answer, open results, publish,
+  and tidy up. Pressing one (or Enter on it) adds its full text to the message
+  box and focuses it; nothing is sent until you send it. Handing off and
+  scheduling work are offered only when a repository is registered, and an
+  example a suggestion chip already asks about your real work is left out;
+- **Where Tars can work**: the names of up to four registered repositories and
+  how many more there are, or, with none, how to add one (**Open repository**
+  in the sidebar).
+
+The help button in the Tars header shows what Tars can do and its limits in
+short form at any time.
 
 ### 2. Answer decisions
 
-A decision waiting on you is one card in the conversation. Answer it in
-whichever way is handy:
+Waiting decisions and publish confirmations appear one at a time above the
+message box, with their position and total count. **Previous waiting item** and
+**Next waiting item** move between them without submitting; your selected option
+and edited publish words stay with each card. Answering advances to the next
+waiting item. A failure or refused attempt stays on its card. History keeps the
+question and **Review above message box** while it waits, then the settled record.
+Long cards scroll inside the dock so the message box remains reachable.
+
+Answer whichever way is handy:
 
 - **Click** an option to choose it, then **Answer**.
 - **Keys**, while the card or one of its options has focus: **1** to **4** or
   the arrow keys choose an option, and **Enter** answers with it. The
   recommended option starts chosen, so Enter alone answers with it. A
-  confirmation's single button answers with **1**. **Esc** chooses **Not now**.
+  confirmation's single button answers with **1**. **Esc** chooses **Not now**:
+  it leaves the item waiting and moves to the next item, or back to the message
+  box when it is the only one.
+- **Dismiss** closes the card for good without choosing anything. Nothing is
+  applied, and the decision leaves the tray and Fleet.
 - **Words**: reply "1" to "4", or "yes", "ok", "네" and similar to pick the
   recommended option, when exactly one decision waits in Tars's newest message.
 
@@ -274,17 +438,17 @@ explicitly. Details are in [Decisions](#decisions).
 | **Resume** | Continues paused or blocked work. Never continues work you took over. |
 | **Take over** | Stops Tars's execution and makes the work yours; continue in its task. |
 | **Hand back** | Returns work you took over; Tars verifies it again before completing. |
-| **Cancel responsibility** | Ends supervision permanently. Changes, worktree, task and history stay. |
+| **Cancel work** | Ends supervision permanently. Changes, worktree, task and history stay. |
 | **Cancel message** | Stops a queued or running reply. Admitted work is not undone. |
 | **Do first** / **Do later** | On a queued card's more-actions menu: moves it ahead of the queued work before it, or behind the work after it. Dragging the card's grip does the same (see [Queue order](#queue-order)). |
 
 You can ask in words too ("run the queued work now", "바로 실행해"). Start now,
-pause and take over apply at once; resume, hand back and cancel wait for your
-**Confirm** on a card. **Stop** in a Tars task or in
+pause and take over apply at once at the default level. Resume follows the
+autonomy level; hand back and cancel always need confirmation. **Stop** in a Tars task or in
 Fleet pauses the work rather than cancelling it.
 
-Words also reach what you would do to the run in its task. Each waits for your
-**Confirm**, and the run checks its own state again, so a command that does not
+Words also reach what you would do to the run in its task. The autonomy policy
+decides confirmation, and the run checks its own state again, so a command that does not
 fit (for example, sign-off while no stage waits for it) is refused with
 "The run cannot do this in its current state":
 
@@ -293,7 +457,7 @@ fit (for example, sign-off while no stage waits for it) is refused with
 | "Give it more turns" (**Add turns**) | A run paused at its turn limit gets 10 more turns and continues. |
 | "Retry it" (**Retry stage**) | A blocked or stuck current stage starts a fresh attempt. |
 | "Skip this stage" (**Skip stage**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
-| "Approve it" (**Sign off**) | A stage waiting for your sign-off starts. |
+| "Approve it" (**Approve stage**) | A stage waiting for your sign-off starts. |
 | "Resume it" (**Resume**) | Also continues a run paused by a usage limit or an expired wait. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
 
 None of these apply to work you took over, including a run you took over in
@@ -305,7 +469,7 @@ observes, so you can answer them in the conversation:
 
 | Ask | Effect in the task |
 |---|---|
-| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Confirm** and its card shows the tool and its request with its line breaks. A request longer than 500 characters ends in "…" with a note that only its start is shown and **Open task**, which opens the task where it waits so you can read it whole. |
+| "Approve it" / "Deny it" (**Approve request** / **Deny request**) | Answers one tool approval once. Deny applies at once; approve waits for **Approve** on a card that shows the request as a code block labelled with its tool, with its line breaks. A request longer than 500 characters ends in "…" with a note that only its start is shown and **Open task**, which opens the task where it waits so you can read it whole. |
 | "Answer existing" (**Answer question**) | Answers one question the run asked; the card lists each question and its answer. |
 | "Tell it to …" (**Send to task**) | Sends your words to the run as your reply in its task; the card shows the words. While a turn runs there, Stave keeps them and says them once that turn ends (see below). |
 | "Ask it to change …" (**Request changes**) | On a stage waiting for your sign-off: the stage before it runs again with your feedback (at most 2,000 characters). |
@@ -316,8 +480,7 @@ your reply exactly once, after that turn ends and nothing else waits there (a
 paused run keeps them until it resumes). Under the card a line says **Waiting
 for the run's current turn to end**, then **Said in the task after its turn
 ended**, or that they were not said and why: taking the work over, cancelling
-it or its completion first cancels them, and so does its run ending or
-changing owner; a run that refuses them leaves them **Not said in the task**.
+it or explicitly accepting its unverified completion first cancels them, and so does its run changing owner; a run that refuses them leaves them **Not said in the task**. Automatic, verified completion instead lets queued follow-ups continue in the same execution task. A stopped run, incomplete report or stale or missing verification does not authorize continuation; the delivery settles with its reason and keeps the requested words in the record.
 Several are said in order, each after the turn the previous one started; words
 you confirm while earlier ones for the same work still wait are kept behind
 them even if the task is free by then. One work's words never wait for
@@ -332,6 +495,45 @@ back never says words kept from before you took it over. Your words are only
 your reply in the task: they grant no permission and never answer a waiting
 approval or question.
 
+### Continue existing work
+
+Completed follow-ups obey the configured concurrent-responsibility limit and keep their confirmed words queued across restart until capacity is available. An uncertain start acknowledgement retains one reserved slot and reconciles the same scope. A definitive failure before start settles that delivery instead of silently retrying it.
+
+Use **Withdraw request** on a pending message's record to withdraw only those
+words. This keeps the completed work, previous run reports and other queued
+requests. The request cannot start after withdrawal, including after a restart.
+If its start acknowledgement is uncertain, Stave first checks that exact
+request's execution. A confirmed new run is kept and the record opens the
+current task, where you can use its existing controls. If Stave cannot establish
+whether it started, withdrawal stays pending across restart and blocks new
+dispatch for those words until reconciliation succeeds; it never guesses or
+cancels the previous completed run.
+
+Corrections and additions such as "add error handling to that work" use the
+existing responsibility's **Send to task** confirmation. Tars considers the
+original request, delegation, conversation and observed execution identity;
+independent work still receives a new delegation. If more than one earlier
+work could be meant, Tars asks which one before proposing a mutation.
+
+Confirmed messages are saved before dispatch and delivered in order to the
+actual execution task, which can be in a different workspace from the source
+you originally selected. If that work completes before delivery, or you ask to
+improve already completed work, the message starts a fresh execution (Work,
+then Review and Fix only when needed) in the same task and workspace. The branch, code, conversation
+and artifacts stay there. The original delegation stays unchanged; previous
+run IDs, reports and verification remain in the run store. The new run has its
+own follow-up assignment and verification, so an earlier success cannot finish
+it. A restart reconciles the saved scope with its run instead of starting it
+again.
+
+A follow-up does not resume paused, cancelled, taken-over or user-owned work.
+Use the existing ownership controls first where available. If the execution
+task, workspace or assignment cannot be reused, delivery reports a reason;
+Stave never silently falls back to the source or a replacement workspace.
+Follow-up text uses the existing 8,000-character message limit. Attachments on
+a new conversation message are not forwarded by this text-only control; add
+needed files in the execution task.
+
 A request that is no longer waiting, or a set of requests that changed since
 you saw it, is refused instead of answering something else. These answers are
 confirmed only on the conversation card that shows them: the tray and Fleet
@@ -339,6 +541,14 @@ name the waiting proposal and lead you to Tars instead of offering
 **Confirm**. A stage command applies only to the stage attempt Tars had observed at
 the revision you saw; if the run moved to another stage or attempt since, it
 is refused as changed, so a confirmed skip never skips a later stage.
+
+New queue-move records offer **Undo**, which restores the earlier priorities,
+including any neighboring work that the move renumbered. A pause or takeover
+of queued work also offers **Undo** if execution had never started. Undo
+refuses if the work, its queue or its registered scope changed meanwhile; it
+never overwrites newer work. Older records without saved prior values, active
+run controls, starts, task replies, completion decisions and publication have
+no Undo. Clearing keeps its separate Undo.
 
 ### 4. See progress
 
@@ -353,10 +563,12 @@ is refused as changed, so a confirmed skip never skips a later stage.
 - **Composer**: while work runs, the band above the message box names each
   running piece of work (two at most, then a count), its stage and what Stave
   last observed, with **Timeline**.
-- **Work** tray: the header indicator ("1 running · 2 waiting · 1 needs you")
+- **Work** tray: the header indicator ("1 needs you · 2 in progress · 3 done")
   opens lanes **Needs you**, **In progress**, **Done** and **Outputs**, each card
   with a live run monitor, what Stave observed and its recent progress, and,
-  once its workspace exists, the work's branch; a **While you were away** summary leads it when you return.
+  once its workspace exists, the work's branch.
+- **While you were away**: when you return after ten minutes or more, one
+  summary card sits in the conversation where you left.
 - **Side view**: **Request**, **Report**, **Changes**, **Timeline** and **Review** of one
   responsibility, opened from an output, a flow stage or your words.
 - **Fleet**: the **Tars** owner label and **Tars decision** rows in
@@ -365,6 +577,10 @@ is refused as changed, so a confirmed skip never skips a later stage.
   the run's tool approvals and questions.
 - **Agents**: the Supervisor's **Work** list includes Tars's work once you turn
   on **Show Tars work**.
+
+While work runs, its card shows the current attempt’s latest linked turn’s selected model and effort below the branch, for example **GPT-6.1 Sol · High**. An unreported effort is omitted; without a model selection the card says **Checking model**. These are routing selections, not provider-confirmed execution values. Paused, queued and ended work does not show a current model.
+
+Use the **Group by project** icon beside the Work tray title to fold work and outputs by project within each lane. Its tooltip names the option, and it highlights while grouping is on. The title row stays above the scrolling list without a separate toolbar row. Project counts count work cards or outputs, not attention requests. Registered project names are used when available, otherwise the repository folder name; missing ownership appears as **Unknown project**. Queued work stays outside project groups in its existing order across all projects; drag and earlier/later actions still change that global queue. Lane filters, Clear and Undo keep their existing scope. The grouping choice lasts while the tray is open.
 
 ## FAQ and troubleshooting
 
@@ -389,8 +605,8 @@ take the snapshot, the work is refused with that reason instead of starting
 from the branch.
 
 **Where are the results?** In the work's own workspace (its branch follows
-the repository's naming rule, with a short suffix), left uncommitted until you
-publish them. Open **Changes** in the side view, or **Open task**.
+the repository's naming rule, with a short suffix), committed there once
+verified and not pushed until you publish them. Open **Changes** in the side view, or **Open task**.
 
 **How do I get a pull request for Tars's work?** Choose **Create draft PR** on
 the completed work's card in **Done** or in its report, or ask Tars ("open a
@@ -413,7 +629,7 @@ Accept it, cancel it, or ask Tars for new verification work.
 
 **Tars did not follow up.** It follows up once per change; plain waits wait an
 hour; at most six follow-ups start per hour (the card shows **Next check**);
-automatic turns stop at the turn-limit number until you act again; nothing
+the automatic-turn counter pauses follow-ups at its cap of 20; nothing
 follows up while Stave is closed, for work you paused or took over, or for a
 change you already wrote about.
 
@@ -425,15 +641,17 @@ end.
 the work over first.
 
 **Hand back was refused.** The run already ended, is held for a reason only
-its task can clear (such as its turn limit), or the final verification has no
-attempts left. Open the task, or cancel and ask for new work.
+its task can clear (such as its turn limit), or the stage it would restart
+(the fix stage, or a review that may end the run) has no attempts left. Open the task, or cancel and ask for new work.
 
 **A message shows as interrupted after a restart.** Reasoning is never re-run
 automatically, to avoid repeated cost. Send it again.
 
 **Does Tars cost usage while idle?** Unchanged observations and reads start no
-model call. Each message and each automatic follow-up is one call on the
-conversation model; delegated work uses the execution model.
+model call. Each message or automatic follow-up starts one reasoning job on
+the conversation model. It may make an initial call plus two inspection rounds,
+with one transient retry per round: up to six provider attempts. Delegated work
+uses the execution model.
 
 ---
 
@@ -474,8 +692,12 @@ is taken.
 as wide as their words, with their files (name, type and size) and the
 **Includes working changes** chip above it. Tars's replies start on the left,
 without a bubble or a name line; screen readers announce each side by name. A
-message's time ("5m ago") shows above it while you hover or focus the
-message, so it never moves the text; focus or hover the time for the full date.
+thin rule names each day (**Today**, **Yesterday**, then the weekday and
+date). A message's clock time ("2:32 PM") shows beside your bubble, on its
+last line, while you hover or focus the message, so it never moves the text;
+focus or hover the time for the full local and UTC time. Records sit on a
+timeline rail between messages: the first record of a run shows its time, and
+later ones show theirs on hover or focus.
 Until Tars replies, its place shows the message's state: **Thinking**,
 **Queued** or **Cancelled**, with **Cancel message** as an icon button beside
 a message in progress. Text follows the chat font size setting, as in a task.
@@ -496,6 +718,127 @@ words (and its working-changes choice, but not its files) back in the message
 box to send as a new message. Reads and unchanged execution
 observations do not start model calls.
 
+### Suggested requests
+
+While the message box is empty, up to four suggestion chips sit above it,
+built from the work as Stave last read it, most useful first and at most one
+per piece of work: **What needs me?** when anything waits on you, how the work
+Tars just delegated is going, why blocked work stopped, **Resume** paused work,
+**Start … now** for queued work (or all of it), **Open a draft PR** or **Show
+the report** for work that completed in the last day, **What finished today?**
+when several did, and how running work is going. A long title is shortened on
+the chip; the words it inserts keep the whole title. Pressing a chip (or Enter
+on it) only puts its words in the message box and focuses it: nothing is sent
+until you send it, and the chips step aside while the box holds words. No chip
+is offered before the work was read, and ended work the tray cleared is not
+suggested.
+
+## Clear the conversation and the panel
+
+Clearing hides; it never deletes. Every clear leaves a record with **Undo**
+(for the conversation, **Restore**), and survives a restart.
+
+- **Conversation.** **Clear conversation** (the eraser in the header) asks
+  first, then hides the conversation so far: the start screen returns and Tars's
+  recent conversation memory starts fresh, so its next reply does not draw on
+  the hidden messages. Your work, the requests that admitted it, decisions and
+  records stay saved and Tars still knows your work. Some things always stay
+  in view: a message still queued or being answered (and its reply, even when
+  it arrives after the clear), a question or confirmation still waiting for
+  you, a draft PR or clear proposal still waiting for its card, and words
+  still waiting to be said in a task. The record at the top says how many messages it hid;
+  **Restore** brings them back.
+- **Done and Outputs.** **Clear** in the tray's **Done** section hides ended
+  work's cards; **Clear** in **Outputs** hides ended work's outputs. Only ended
+  (completed or cancelled) work is hidden; running, waiting, paused, blocked
+  and taken-over work never is, and neither is completed work whose draft PR
+  is still committing or pushing, failed and waiting for a retry, or proposed
+  and waiting for your confirmation. The section then says how many ended
+  items it hides, with **Undo** for the latest clear; clearing the conversation
+  afterwards keeps that **Undo**. Hidden work stays in Fleet
+  and in its task, and Tars can still report on it.
+- **By asking.** Say "clear the chat", "대화 지워줘", "done 정리해줘" or
+  "clear everything". Tars proposes a clear card that says nothing is deleted,
+  then lists what each part would hide now and what always stays; **Clear**
+  (Enter) applies it through
+  the same path as the buttons, **Not now** (Esc) leaves everything as it is.
+  Tars never proposes a clear on its own initiative, and an automatic
+  follow-up cannot.
+- **Retention.** **Keep ended work in the panel** in settings hides ended
+  work's card and outputs once the work last changed more than that many days
+  ago: 1, 3, 7 (the default), 14 or 30 days, or **Until I clear it**. It is
+  judged each time the tray is read and needs no background job; work a clear
+  never hides is never aged out either. Choosing **Until I clear it** shows such
+  work again.
+
+## Schedule work
+
+Ask Tars for work that should run later or repeat, and it sets up a schedule
+in Stave's [Schedules](automations.md). Tars does not run a scheduler of its
+own: the schedule is an ordinary start-a-task schedule that Schedules stores,
+fires and shows, and each run is a normal task in the workspace you named.
+
+- **By asking.** "Every weekday at 9, check the release branch", "tomorrow at
+  3 pm look at this again", "매주 월요일 아침 9시에 의존성 업데이트 확인해줘".
+  Tars proposes a schedule card. Nothing is created until you confirm it.
+- **The card** is laid out like every confirmation card. It leads with what
+  will happen, then states what will run (the request each run gets, in plain
+  words) and when: the rule, and the next two runs in this computer's local
+  time with the time zone's name. The schedule's name is the chip under the
+  title, and its name and where it runs (the workspace, its branch and
+  repository) are under a collapsed **Details**. A new schedule is saved **paused**, as every schedule an agent
+  proposes is: **Create** (Enter) keeps it paused until you turn it on, and
+  **Create and turn on** enables it to run at the shown times. **Not now** (Esc) leaves everything as
+  it is. The same request confirmed twice (a retry, a double click) creates
+  one schedule.
+- **What a run does.** At its time the Schedules service starts a new task in
+  that workspace with the saved request, in the **Guided** permission mode
+  (the run asks you before a risky action) and one run at a time: a run due
+  while the previous one is still going is skipped and says so. The run is a
+  task of that workspace, not Tars work: it does not get a new branch, Tars's
+  review and verification stages or a Tars report, and it is not counted
+  against **Concurrent responsibilities**. The run uses the execution model
+  you chose for Tars, or the conversation's provider on its default model.
+- **In the conversation.** Each run a Tars schedule starts leaves a record
+  whose actor is the schedule (a calendar mark, "A schedule started this, not
+  you"), which follows the run to finished, failed or skipped and opens its
+  task. Your confirmation of a card, and the pause switch, are recorded as
+  your own actions.
+- **Change, pause, turn on, remove.** "Pause the release check", "move it to
+  10:30", "remove that schedule". Each shows its own card with what the
+  schedule is now and what it will be; removing cannot be undone (its run
+  history in Schedules goes with it), so the card says **Can't be undone**,
+  **Remove** is red and it is never the Enter default.
+- **Only schedules Tars created.** A schedule you made in Schedules is yours:
+  Tars refuses to change, pause, turn on or remove it and says so. A schedule
+  Tars created that you later edited in Schedules (its name, request, where or
+  when it runs, or its permission mode) is yours too; turning it on or off
+  there is not an edit. A schedule removed in Schedules is refused as removed.
+- **The list.** Under the tray's lanes, **Schedules** lists the ones Tars
+  created with their rule, where they run, the next run, the last outcome and
+  a switch that pauses or turns one on. **Open Schedules** opens Stave's
+  Schedules screen, where every schedule, its editor and its run history
+  live. "Show my schedules" opens the list.
+- **Refused with a reason.** A one-time time that has passed, a date or time
+  that cannot be read or does not exist on this computer's clock (such as
+  inside a daylight-saving jump), a repeat rule Schedules cannot run, an
+  interval under one minute, and a workspace that is not registered are
+  refused when proposed, and again when you confirm, with the reason.
+- **Never on its own.** Tars proposes a schedule only when your own message
+  asks for one. An automatic follow-up can never propose, change or list one.
+
+**Times.** A repeating rule is a local wall-clock rule ("every weekday at
+09:00"). Schedules resolves it in this computer's time zone on every run, so
+it keeps 09:00 across daylight-saving changes, and follows the computer if its
+zone changes. A one-time run is saved as one instant in UTC and shown in local
+time. The supported repeat rules are those of Schedules: every N minutes,
+hours, days or weeks, with a time of day for days and weeks and chosen
+weekdays for weeks. "The first Monday of the month" or "the last day of the
+month" cannot be expressed.
+
+**Only while Stave is open.** A run missed while Stave was closed happens
+once when it opens.
+
 ## Delegation and execution
 
 Each work unit's run gets the configured turn limit and shares it with its
@@ -510,8 +853,8 @@ Polisher, Reviewer and Researcher) are always available. Your saved agents are
 available only after you allow them under **Agents Tars may use** in Tars
 settings; none are allowed at first. Agents that publish or deliver outside
 the workspace, such as Shipper or a saved agent with a pull request or publish
-stage, are never used: publishing happens only through a publish card you
-confirm, and Stave, not an agent, carries it out.
+stage, are never used: Stave carries out publication through its guarded host
+path under the autonomy policy.
 When reasoning, Tars sees only the agents it may use, with each one's name,
 kind of work, and "use when" and "don't use when" descriptions.
 
@@ -542,8 +885,10 @@ work** there to include it.
 
 Each responsibility owns a normal Stave task and agent run. It may create
 tasks and isolated worktrees, execute, repair and review within the delegated
-goal. The generated workflow authorizes no publishing action stage at
-admission. Instructions describing the delegated scope are not an additional
+goal, and commit verified work on its own execution branch. It does not push
+or open pull requests; publication follows Tars's host policy. The
+generated workflow authorizes no publishing action stage at admission. Its
+lead runs the Supervisor's own instructions with Tars's rules after them. Instructions describing the delegated scope are not an additional
 shell sandbox; review the configured provider safeguards before leaving work
 unattended.
 
@@ -554,24 +899,63 @@ required criteria, status and any waiting or failure detail. Tars, Fleet and
 the owner labels update as soon as Tars saves a change; nothing polls, and the
 conversation also reads again when the window regains focus. Status sentences
 Tars writes itself (such as "waiting for your answer or approval") appear in
-the app's language; a reason the run gave in its own words is shown as
-written. **Open task** leads to its execution conversation, where you answer
+the app's language. When a run stops or is cancelled with a reason in its
+own words, or a stage's turn could not start, the card says so in the app's
+language and keeps the run's or provider's own words, untranslated, under
+**Technical details**. Other reasons the run gave in its own words are shown
+as written. **Open task** leads to its execution conversation, where you answer
 questions and approvals, give further direction and inspect the run's review,
 report and check evidence.
 
 A completed worker reply alone does not finish the responsibility: its run and
 required acceptance report must also complete, and the report's "met" must
-rest on more than the agent's own claim. The final stage needs a check Stave
-saw pass on the current revision (`classifyStageEvidence` +
-`isVerifiedEvidence`), or some stage needs a passed independent review.
-Otherwise the responsibility is blocked with `unverifiedCompletion`; only the
+rest on more than the agent's own claim. The run ends on the last stage that
+ran (`tarsFinalStageRecord`; a skipped review or fix stage did not run). That
+revision needs a check Stave saw pass in a stage on it (`classifyStageEvidence`
++ `isVerifiedEvidence`), or a passed independent review of it, or the run ended
+on its first stage with no files changed (`changedPaths` empty, as
+`canFinishUnchangedWork` read it). After a hand-back only stage attempts that
+started after it count; unchanged work counts when Stave read it afterwards.
+A hand-back during a stage that may end the run (the fix stage, or a review
+whose pass skips it) restarts that attempt.
+Otherwise the responsibility is blocked with `unverifiedCompletion`; for local-result endpoints, only the
 user's `acceptCompletion` (a click, or a model proposal the user confirms)
 completes it, recorded as `acceptedWithoutVerification`, and the run is not
 touched. The conversation shows this as a [decision card](#decisions) with
-**Accept as done**, **Cancel responsibility** and **Ask Tars for new
+**Accept as done**, **Cancel work** and **Ask Tars for new
 verification work**; the last only writes that request into the message box
 for you to send. While it waits, pause, resume, take over and hand back are
 refused for that work.
+
+The tray and result report show **Goal** separately from the execution report.
+An explicitly requested design delivery or implementation with validation can
+finish after the existing evidence checks. A PR goal stays **Result ready**
+until the host records the PR for that exact execution through the existing
+publication path, automatically when the autonomy policy allows it. A failed publish remains unfinished and can retry
+from that card. A merge goal stays open after PR creation: neither CI nor merge
+is inferred from a PR link. This version does not observe merge completion.
+When the endpoint was not specified, Tars leaves the result ready for your
+confirmation instead of choosing a wider goal. Accepting an execution result
+cannot substitute for a missing PR or merge.
+
+Older saved completion records without an endpoint or explicit acceptance are
+shown conservatively as result ready. Their request, task, workspace, branch,
+reports and conversation remain intact. They need a current verification before
+publication; reading them does not rewrite their history. Further edits belong
+to the same responsibility: tell Tars what to correct and confirm the message
+card. For a completed or result-ready execution, that message starts a fresh
+run (Work, then Review and Fix only when needed) in the existing task,
+workspace and branch.
+The original goal stays intact. The Outputs section retains earlier reports,
+reviews, artifact links and recorded PRs; opening a report keeps it bound to
+its own execution. Each follow-up requires new verification and publication
+confirmation. Earlier PRs remain in history and cannot complete the new run.
+Queued follow-ups survive restart and wait for capacity. Publishing waits until
+queued or uncertain follow-up work is resolved; a follow-up cannot start while
+publication is in progress. Ended results are not polled as active executions. A lost start response
+is reconciled with the saved run instead of starting twice. Paused, cancelled
+or taken-over work cannot restart through a message. Missing execution locations
+or changed ownership are refused without creating replacement work.
 
 Control details beyond the [quick start table](#3-control-work):
 
@@ -584,7 +968,7 @@ Control details beyond the [quick start table](#3-control-work):
   verification restarts that verification. It is refused when the run already
   ended while you held the work, when the run is paused for a reason only its
   task can clear, or when the final verification has no attempts left.
-- **Cancel responsibility** cancels a run still in progress but does not undo
+- **Cancel work** cancels a run still in progress but does not undo
   changes already made or delete its worktree, task or history.
 - **Start now** applies only to queued work you delegated earlier: right after
   the control settles, Tars prepares the worktree and task and starts the run
@@ -598,7 +982,7 @@ Control details beyond the [quick start table](#3-control-work):
   proposes or offers it.
 
 When a control comes from the conversation, resume, hand back and cancel wait
-for you as a decision card with **Confirm** under the reply; Tars's reply alone
+for you as a decision card under the reply, its button named by the action (**Resume**, **Hand back**, **Cancel work**); Tars's reply alone
 never returns work to Tars or cancels it. Until you confirm or refuse it, such
 a proposal counts as a Tars decision waiting on you; it stops waiting when a
 newer proposal for the same work replaces it, when the work's revision changes
@@ -671,8 +1055,14 @@ view's timeline at that stage. Every card, queued work included, also has
 buttons at the end of the card's footer, named by their tooltips, so the card's
 actions keep to one line. The work's branch is the line under the owner, in the
 code face at the same small size. What waits on you sits in a shaded area right
-above the actions: each item's kind (such as **Tars decision waiting**) on a
-short line, then its text across the card's width. Each card wears the same state tag (the state
+above the actions. A Tars decision is one line: an amber mark (read aloud as
+"Tars decision waiting") and the proposal's own text, with **Can't be undone**
+at its end when it applies; other items (such as **Blocked**) put their kind on
+a short line, then their text across the card's width. A card has at most one
+primary action, the Confirm of a waiting Tars proposal, in the danger tone
+when it cannot be undone; the state's own control (**Pause**, **Resume**,
+**Hand back**) and **Open task** are smaller secondary actions of one weight,
+and the rest is in the **More actions** menu. Each card wears the same state tag (the state
 mark and the state's word) as the run panel and Agents. Values the run
 did not record, such as a start time, are left out rather than shown as zero.
 
@@ -680,10 +1070,51 @@ did not record, such as a start time, are left out rather than shown as zero.
 the one moving mark (reduced motion settles it); blocked work wears the
 warning tone, completed work the success tone, and queued, waiting, paused and
 taken-over work stays neutral, told apart by its glyph and word. The header
-counts work as **running** only while its run is active (running, or
-preparing with its run created); the rest of **In progress** counts as
-**waiting**, or **yours** once you took it over. The conversation's one-line
-notices use the state's own word: **Completed**, **Blocked**, **Cancelled**.
+indicator uses the lanes' own names and the numbers their headers show
+("16 need you · 2 in progress · 4 done · 7 outputs"), so the two never
+disagree: running work that needs you is in **Needs you** and counted there.
+The sidebar's Tars entry still counts what is actually running. Each lane
+header keeps its place at the top of the tray while you scroll through it,
+with the chevron beside its name turned down while it is open; an empty lane
+stays folded to its muted header with a zero count until you open it. The
+conversation's notices use the state's own word: **Completed**, **Blocked**,
+**Cancelled**.
+
+**Ended work shows what it came to.** Where work completes or stops, the
+conversation shows a result card, aligned with the conversation's outer edge, under the notice's row (the state, the work,
+its agent and how long the run worked). The timeline connector stops at a
+full-width result surface and resumes between text-only records, so it never
+runs through a card. The card shows only what the run
+recorded:
+
+- Under **Full summary, criteria and evidence**, completion criteria use short
+  **Check passed**, **Reviewed**, **Reported**, **Not met**, **Unconfirmed** or
+  **Not reported** badges. The detail header counts criteria confirmed by a
+  current check or review; agent-only results say **2/2 reported met**.
+  **Evidence & review** unfolds full sources and stage-wide checks, with
+  **Open review**. Stale or failed checks and missing reviews never increase
+  the confirmed count. Extra space above the result state separates groups;
+  narrow columns place badges below wrapping criteria.
+- A short excerpt of the final recorded summary and the report's output links first, with **Open report**. No summary is invented when none was recorded.
+- **Full summary, criteria and evidence** expands the complete stage summaries, criteria and stage evidence. The Report view uses the same order: summary and outputs first, full detail folded. Unmet, unverified and unreported criteria, recorded remaining work, explicit caveats in the final summary, stale checks and completion accepted without a Stave check stay visible above the fold. The criterion count summarizes met statuses without implying a source; the details distinguish agent reports, checks and reviews. Empty criterion sets have no count. Earlier-stage caveats remain visible as historical notes labeled with their stage and may have been superseded; they are not presented as current unresolved warnings. Stop or cancellation reasons precede the summary. Result text follows the chat font size, while Report text keeps the panel scale.
+- The changed files with lines added and removed, and **View changes**; the
+  review's result; and the draft pull request as a link, or **Create draft
+  PR** where the work can be published.
+- For blocked work, and for work that **Failed** (a step that could not start,
+  or a run that stopped for a reason other than unmet criteria): the reason in
+  your language, the tool's own message under **Technical details**, the
+  controls that state admits (the tray's own, such as **Resume**, **Take
+  over** and **Open task**) and **Open timeline**.
+
+A cancel stays one row. So does an earlier stop the work has since moved on
+from: only the newest notice of a piece of work carries its card and controls.
+
+**The composer band starts folded.** Above the message box, running work is
+one summary line: how many pieces run now, and how many of them Stave has not
+observed for a while ("2 running now · 1 not updated recently"). The line is
+an inline disclosure; selecting it (or Enter/Space) unfolds one row per
+running piece of work with its stage, live line and **Timeline**, and folds
+them again. Folding is view-only and lasts while Tars stays open.
 
 **Live progress is observed, never inferred.** Under the monitor, in the flow
 block, in the composer band and at the top of the timeline, Tars says what it
@@ -692,18 +1123,18 @@ stage, its recorded events) and the provider turn of the run's lead task,
 which the host relays for every workspace.
 
 - While the turn reports steps, its latest tool call in plain words and when
-  it was reported ("Running the tests · seen just now"). Only a reported step
+  it was reported ("Running the tests · updated just now"). Only a reported step
   counts: a turn adopted after a reload, or one that has not reported a step,
-  reads "Turn in progress · no step observed yet", never as live.
-- After the relayed turn finished, "No turn running right now"; when no turn
-  has reached this window yet (such as right after a restart), "No turn
-  activity observed yet". Both add the run's last update.
+  reads "Working · no activity reported yet", never as live.
+- After the relayed turn finished, "Waiting to take the next step"; when no turn
+  has reached this window yet (such as right after a restart), "No activity
+  reported yet". Both add the run's last update.
 - When nothing was observed for five minutes (`TARS_PROGRESS_STALE_MS`, the
-  provider stall threshold) or the provider marked the turn stalled, "Nothing
-  observed for 7m · progress may be out of date" in the warning ink, or, when
-  a last step is known, "Last step: Running the tests, 7m ago · progress may
+  provider stall threshold) or the provider marked the turn stalled, "No update
+  for 7m · progress may be out of date" in the warning ink, or, when
+  a last step is known, "Last activity: Running the tests, 7m ago · progress may
   be out of date".
-- Without a run read in this window, "No run observation yet"; work that is
+- Without a run read in this window, "No progress information yet"; work that is
   not running never borrows a turn's words and is not called out of date for
   being quiet.
 
@@ -713,13 +1144,33 @@ retrying, blocking, waits on you, pauses and resumes, the run ending. Repeated
 turns of one stage fold into the newest; bookkeeping rows are left out. A card
 lists three, the timeline eight.
 
-When the Tars view opens again after you were away (it was closed or the
-window was hidden), a **While you were away** summary leads the tray: counts
-of work that came to need you, ended unfinished (cancelled by something other
-than your own cancel) or finished between the last time the view was visible
-and now, and up to four of them, each opening its report or timeline. It is
-dismissible, never shown on a first visit or when nothing changed, and the
-last-visible time is kept in this device's local storage only.
+The conversation has a **While you were away** summary, so coming back does
+not mean reading every record row. It is the only one: the work tray shows no
+recap of its own. Stave notes when you last saw the end
+of the conversation: the window visible and focused, Tars open and the
+transcript scrolled to its end. When you come back ten minutes or more later
+(`TARS_AWAY_MIN_GAP_MS`) and something happened meanwhile, one card sits in the
+transcript where you left, and the view scrolls to it:
+
+- **Decisions waiting for you**: questions and confirmations Tars raised.
+- **Blocked or failed**: work that is blocked, ended without finishing, that
+  Tars stopped following up, or whose draft PR did not open.
+- **Finished** work, and **draft PRs opened**.
+
+Each group says its count and names up to three pieces of work, newest first,
+then "And N more". A work chip opens the work's request; the link beside it
+opens its report or timeline, or goes to its decision card or its record in
+the conversation. Work is listed as it stands now: work that was blocked and
+then went on is not listed as blocked. **Jump to first new item** moves to the
+first entry after the card, and **Dismiss** removes the card for good; the
+records under it are unchanged either way. A card you did not dismiss is still
+there after a restart, and a later absence replaces it once you have seen the
+end of the conversation. Nothing shows after a shorter absence, when nothing
+happened, or on a profile that never opened the conversation. The summary is
+read from the conversation already on screen (no model call), and the seen
+time and the dismissal are saved with the Tars view settings in Stave's
+database (`tars:get-away`, `tars:save-away`): saved at most once a minute while
+you stay and when you leave, never per scroll.
 
 ### Results, changes and the side view
 
@@ -727,7 +1178,9 @@ The tray's **Outputs** section lists what each responsibility produced: its
 **Result report** once the run ended, its **Changes** when the run recorded
 changed files, its **Review** once the independent reviewer reported, the
 draft pull request Stave opened after you confirmed it, and the links the
-run's report recorded, which open in the browser. The header indicator adds the outputs count only when there is at
+run's report recorded, which open in the browser. Each row shows its kind's
+icon, and at its end where it opens: a side-panel icon for the side view, an
+arrow for the browser. The header indicator adds the outputs count only when there is at
 least one; **Needs you** keeps counting Fleet's rows.
 
 An output or a card's **Request** opens the side view: one panel about one
@@ -819,13 +1272,14 @@ opens at most one view, and reopening Tars never replays an earlier one.
 
 ### Publish completed work
 
-Completed work that Stave verified can become a draft pull request, and only
-through a confirmation card each time:
+Work that Stave verified can become a draft pull request. At Balanced or
+Hands-off, a `resultReady` execution with an originally requested PR or merge
+goal publishes automatically. Other eligible results show a confirmation card:
 
 - **Words**: ask Tars to commit, push or open a pull request for one completed
   piece of work. Tars may propose a `publish` at the revision it saw; it is
-  saved as proposed and shows as the card under the reply. An automatic
-  follow-up can never propose it.
+  applied automatically when the policy allows it, or saved as a proposal with
+  a confirmation card. An automatic follow-up may propose publication too.
 - **Click**: **Create draft PR** on a **Done** card or in the work's report
   opens the same card at the end of the conversation (or brings Tars's waiting
   proposal for that work into view).
@@ -835,32 +1289,52 @@ otherwise the repository's default branch), the head branch (the work's own
 branch, `tars/<id>` for older work), the number of changed files, an editable
 commit message and pull request title prefilled as a Conventional Commit
 subject from the work's title (such as `feat: show the saved card first`; the
-type is a choice on the card), and a preview of the body: each acceptance
-criterion with its met or unmet status and the verification evidence from the
-frozen report. A **Draft PR** tag and a **Can't be undone** tag say what it is.
-Enter, while the card or one of its fields has focus, or **Open draft PR**
+type is a choice on the card), and the body: each acceptance criterion with
+its met or unmet status and the verification evidence from the frozen report.
+The body shows as rendered markdown; **Raw text** shows exactly the text that
+is sent, which is the same either way. A **Draft PR** tag and a **Can't be
+undone** tag say what it is. Enter, while the card or one of its fields has
+focus, or **Open draft PR** (the card's primary button, in the danger tone)
 publishes; Esc or **Decline** publishes nothing and records nothing.
 
-When you confirm, the host checks everything again from saved state, not from
+Before publishing, the host checks everything again from saved state, not from
 the card or Tars's words: Tars holds the work, it is completed with Stave's
 verification, its revision is still the one you saw, its execution workspace
-exists and has uncommitted changes or commits ahead of the base, it is on its
+exists, is clean, matches the full verified workspace revision, and has commits ahead of the base, it is on its
 own branch (never the base), and the repository has a GitHub `origin` that the
-GitHub CLI can reach. Then, in the execution workspace, it runs `git add -A`,
-`git commit`, `git push -u origin` of the work's branch (never forced) and
+GitHub CLI can reach. Then, in the execution workspace, it pushes the exact verified commit to the work's branch (never forced) and
 `gh pr create --draft` against the base, or records the pull request that
 already exists for the branch. Each step is saved on the work, so **Retry**
 continues where it stopped, and a restart in the middle turns it into a
 retryable stop. The card folds to a record row such as "Draft PR #12 opened ·
 Show the saved card first at checkout · click" with **Open on GitHub**; the pull request becomes an output in the tray's **Outputs** and a link
-in the report. Stave never merges, marks it ready or deploys.
+in the report. Stave never merges or deploys.
+
+After a PR opens, the host reads its checks immediately, then at one-minute
+intervals backing off to five minutes, for at most three hours across restarts. It stops on closure or
+unavailable GitHub CLI access, with one notice. Cards and `inspect pullRequest`
+show the saved check summary. At Balanced or Hands-off, a failing published
+head can trigger at most two automatic CI-fix continuations in the same task,
+workspace, branch and PR; Careful asks first. Each new execution must pass
+Stave verification before it can update the PR. Further failures ask you.
+Once all reported checks pass for the published head, Tars offers **Mark ready
+for review** or **Keep as draft**. Only your explicit choice marks it ready;
+zero reported checks do not count as passing. Merge remains unavailable.
+
+Publication requires a clean execution workspace matching the full verified revision; changed work must be committed and verified again. Transient PR-read failures retry with backoff. After three hours or an access failure, Tars shows a stopped notice with **Keep watching**, preserving the two-round automatic fix cap. A merge goal completes only when GitHub reports the PR merged; Tars never merges it.
+
+Current-head unresolved code comments and changes-requested reviews wake Tars once per review round. At Balanced or Hands-off it continues the same work, branch and PR, then republishes only after verification; Careful asks first. Review rounds have a separate limit of two per PR across restarts and new heads, then Tars asks you. Approvals and reviews without requested changes only leave a short notice. Reads follow the same bounded PR-watch window; Tars does not post review replies on GitHub.
 
 ### Decisions
 
-A decision waiting on you is one card in the conversation, whatever asked it:
+One waiting decision at a time appears above the message box, whatever asked it:
 
-- a control Tars proposed that waits for **Confirm** (resume, hand back,
+- a control Tars proposed that waits for your confirmation (resume, hand back,
   cancel, accept as done),
+- new work or a queue change that your
+  [autonomy level](#how-independently-tars-acts) or one of your **Never do**
+  rules held: its button (**Start work** or **Change priority**) applies the
+  saved proposal, and nothing is started or reordered before it,
 - Stave's own choice for a completion it could not verify, and
 - a question Tars asks when it needs you to choose: 2 to 4 options, each with
   a short label and a one-line reason, and a recommended option when Tars has
@@ -873,16 +1347,20 @@ While it waits, the card has a full attention outline. A question's options
 group: each option shows its label, its reason on the line under it and its
 number key, the recommended one is marked **Recommended** and starts chosen,
 and an option that cannot be undone carries **Can't be undone**. **Answer**
-sends the chosen option. A confirmation keeps its one **Confirm** button with
-its key. Answering is the same action three ways:
+sends the chosen option. A confirmation has one button named by what it does,
+such as **Resume**, **Cancel work**, **Approve**, **Skip step** or **Send
+answer**, with its key. A waiting card carries no "waiting" tag: its buttons
+already say it waits. Answering is the same action three ways:
 
 - **Click** an option to choose it, then **Answer** (on a confirmation, click
-  **Confirm**).
+  its button).
 - **Keys**, only while the card or one of its options has focus: **1** to
   **4** or the arrow keys choose an option and **Enter** answers with the
   chosen one (nothing chosen: Enter does nothing). On a confirmation **1**
-  confirms, and **Enter** too when it is recommended. Keys typed in the message
-  box stay text; the card never takes focus by itself.
+  confirms, and **Enter** too when it is recommended. Enter on another button
+  in the card (**Details**, the work, **Open task**, **Not now**) is that
+  button's own press and confirms nothing. Keys typed in the message box stay
+  text; the card never takes focus by itself.
 - **Words**: a short reply binds only when exactly one decision waits in
   Tars's newest message and you said nothing after it. "1" to "4" pick that
   option; an affirmative picks the recommended option (none recommended: not
@@ -891,18 +1369,29 @@ its key. Answering is the same action three ways:
   punctuation. Otherwise the message goes to Tars as usual.
 
 A confirmation, a proposed control or Stave's unverified-completion choice,
-leads with what it does ("Cancel this work?") and the work it is about, then
-rows for the repository, workspace, revision and effect when Stave knows them,
-and a **Can't be undone** tag for cancelling or accepting as done. Its footer
-offers **Not now** (Esc while the card has focus), which leaves the decision
-waiting and moves focus to the message box, next to **Confirm** and its key.
+leads with what will happen: what it does ("Cancel this work?"), the work it is
+about as a chip, then the effect in one sentence. What it carries follows only
+when it has it: the request a tool approval answers, as a code block labelled
+with its tool ("Request from Bash"), the answers or the words to send. The
+repository and workspace, when Stave knows them, are under a
+collapsed **Details**. A single action that cannot be undone (cancelling,
+accepting as done, approving a tool request, skipping a step) says **Can't be
+undone** once, in the card's header; in a choice it is on each option it
+applies to. Its footer offers **Dismiss**, which closes the card for good
+without choosing (see below), and **Not now** (Esc while the card has focus),
+which leaves the decision waiting and opens the next queued item (or focuses the
+message box when it is the only one), next to
+the card's button and its key. Card text follows the chat font size: the
+title and effect at the messages' size, the other lines one step under it, as
+records are.
 
 Cancelling and accepting as done cannot be undone, so they are never a
 default: they are never recommended (Stave drops such a recommendation and
 keeps the question), so they never start chosen, and an affirmative never
 applies one. Choose them explicitly: in a question, choose the option, then
-**Answer** or Enter (Answer then carries the danger tone instead of the filled
-primary); on a confirmation, **Confirm** or **1**.
+**Answer** or Enter; on a confirmation, its button or **1** (never Enter). The
+card's main button is always the primary one, in the danger tone when it cannot
+be undone.
 
 Each answer folds the card to a record row with the option, the question, how
 you answered (click, key or words) and its outcome, such as "Keep it running ·
@@ -911,15 +1400,45 @@ shown as a message from you.
 Answering twice applies once, and a different answer to an answered decision
 is refused with that reason. If an answer is refused for a reason other than
 the work changing or ending (for example the run could not be reached), the
-card keeps the attempt on record and stays open, so you can try again or
-choose another option. Answering one responsibility's proposal retires only
+card stays open with a short alert under its options saying which choice was
+not applied and why, so you can try again or choose another option. Answering one responsibility's proposal retires only
 the other options for that same responsibility. A decision is bound to the
 work its options control: when that work moves past the revision Tars saw, or
 ends, the card says it is no longer valid, offers no buttons, and Tars asks
-again by itself, at most once per reply and only while nothing newer was said.
+again by itself, at most once per reply while its work has not been addressed.
 That follow-up can only ask; it cannot act. Stave's unverified-completion
-choice is not asked again: it simply stops waiting once the work changes. A
-question stops waiting when you send another message.
+choice is not asked again: it simply stops waiting once the work changes.
+
+A waiting card also closes in three other ways, none of which applies anything:
+
+- **Dismiss.** Every waiting card has it. The card folds to one record line,
+  "Dismissed", with how you did it (click). The decision leaves the tray's
+  **Needs you** and Fleet's **Tars decision** rows, it can no longer be
+  confirmed from anywhere, and dismissing it again changes nothing. Dismissing
+  Stave's choice for a completion it could not verify leaves the work blocked:
+  it stays in the tray as blocked work with its own controls, and the record
+  line says so.
+- **The conversation moves on.** A question or a proposed control stops
+  waiting when a newer request addresses that same work, reading "No longer waiting: the
+  conversation moved on." Unrelated messages and automatic follow-ups do
+  not count. Short answers still bind only to the newest message's one
+  decision. Stave's unverified-completion choice does not expire this way: it
+  waits until you answer or dismiss it, or the work changes.
+- **Tars withdraws it.** When an earlier proposal or question of its own no
+  longer fits, Tars can take it back. The card reads "Withdrawn by Tars" and
+  the reply says why. A withdrawal only closes a card that still waits; it
+  applies no option and grants nothing.
+
+Tars also notifies you through the notification bell when a decision waits,
+a result is ready for your next step, or work is blocked. This includes an
+unverified completion, a pull request ready for your review decision, and CI
+fixes that reached their automatic attempt limit. Each fact notifies once;
+answered, dismissed, expired or withdrawn decisions resolve automatically, as
+does work that moves on. Actions Tars applies by itself stay quiet. Opening a
+notification focuses its decision in Tars's decision dock, or opens the work's
+report for a result or blocker. Sound and desktop notifications use your
+existing notification settings; desktop notifications are suppressed while
+Stave's window has focus.
 
 Decisions about work also wait in the tray's **Needs you** and as **Tars
 decision** rows in [Fleet](fleet-needs-me.md). Every Tars row there offers
@@ -981,6 +1500,7 @@ follow-up turn of Tars's own, so blocked work does not wait silently for you to
 ask:
 
 - the work became blocked,
+- its run paused at its turn limit (`limitReached`): Tars follows up immediately and may propose an extension under the autonomy policy,
 - its run's own stage stopped while the run is still running: the stage
   blocked, got stuck or awaits your sign-off. A helper the run delegated to
   counts the same way when its stage stops, since the run waits for that
@@ -989,13 +1509,13 @@ ask:
   that Fleet shows. Tars tells apart what the stage waits for. Only a stage
   whose agent blocked it for your input or permission asks you a question:
   Tars gets that question and the agent's suggested action in the agent's own
-  words, and the line reads **Automatic follow-up · Needs your decision**. A
+  words, and the line reads **Tars follow-up · Needs your answer or approval**. A
   stage awaiting your sign-off reads the same. A stage that one of Stave's own
   checks stopped (a required criterion not met or not verified, no report, the
   reporting tools unavailable, a failed stage action) or that the agent
   blocked on its environment or an outside service asks you nothing: the line
-  reads **Automatic follow-up · Needs verification or a next step** (in
-  Korean, **자동 후속 · 확인 또는 다음 단계 필요**), and Tars says what needs
+  reads **Tars follow-up · A Stave check stopped progress** (in
+  Korean, **Tars 후속 확인 · Stave 검사에서 멈춤**), and Tars says what needs
   verifying or which next step fits instead of saying the run asked you
   something. When the stage blocked on an acceptance criterion, the reason
   Tars reads says whether the stage report marked it **Not met** or **Not
@@ -1009,13 +1529,17 @@ ask:
   (or in the task of a helper the run delegated to), or
 - a question Tars asked became invalid because its work changed.
 
-The follow-up appears in the conversation as **Automatic follow-up ·** its
-reason and the work's title (in Korean, **자동 후속 ·**), never as your words.
+The follow-up appears in the conversation as **Tars follow-up ·** its
+reason and the work's title (in Korean, **Tars 후속 확인 ·**), never as your words.
+That line heads Tars's reply: the reply and anything it proposes hang from the
+line's mark on the record rail, so they read as one item Tars wrote by itself.
 It goes through the same queue as your messages: it is only added while none
 of your messages can start, and a follow-up still queued starts nothing once
 you have written to Tars about the change. It may ask a question, propose a
-resume, cancel, stage retry, more turns or sign-off that waits for your
-**Confirm** when what it observed fits, or open a view. It never proposes
+resume, cancel, stage retry, more turns, instructions or sign-off when what
+it observed fits, or open a view. The autonomy policy decides which need
+confirmation. A verified resultReady execution can also offer or open its
+draft PR under the publication rule. It never proposes
 skipping a stage or starting queued work now, and never answers in the task
 for you: for a waiting approval it can only ask you with **Approve** and
 **Deny** options, and your choice applies it. It never
@@ -1023,13 +1547,13 @@ changes a priority, because that applies at once; it can ask whether you want it
 example "Start new work to fix it?", and only your answer can lead to it. It
 never pauses, takes over or hands back anything, never offers accept as done
 (or repeats the cancel Stave's own unverified-completion card offers), and
-proposes nothing about work you paused or took over, or that ended, including
+proposes no controls for work you paused or took over, or that ended, including
 when that happened while Tars was thinking. The run's own words reach Tars only
 as an untrusted observation. A change you already wrote about after it
 happened starts nothing, and a follow-up whose change is no longer current
-just before Tars would think about it is cancelled without a model call ("Tars
-did not follow up: the work changed before it could."). That check runs again
-right before the model call.
+just before Tars would think about it is cancelled without a model call: its
+line stays as one item with "Tars did not follow up: the work changed before
+it could." under it. That check runs again right before the model call.
 
 Each change gets one follow-up, however often the host sees it again. A stage
 that asks you is one change until the run continues: new words from the same
@@ -1049,11 +1573,14 @@ changes of the same work are combined into one. Follow-ups are limited:
   next.
 - Automatic turns (follow-ups and re-asks) are counted since your last action
   toward Tars: a message, an answer, a **Confirm** or any control click in
-  Tars, Fleet or the task. When their number reaches the turn limit in
-  settings, Tars stops following up and says so in the conversation and on the
+  Tars, Fleet or the task. At the separate cap of 20 automatic follow-ups,
+  independent of execution turn limits, Tars stops and says so in the conversation and on the
   card; your next action starts the count again. This count is separate from
-  the turns of delegated work, which it does not use up. Each follow-up is one
-  call on the conversation model.
+  the turns of delegated work, which it does not use up. One follow-up counts
+  as one automatic turn even when it uses inspection rounds or transient retries
+  (up to six provider attempts).
+
+Automatic controls and Tars-authored withdrawals never reset this count. A stalled answer delivery explains its wait and releases later conversation messages within one minute, without resending an in-flight request; settlement wakes the queue. Storage contention keeps retrying at a capped delay until storage becomes available.
 
 A waiting card shows **Next check** with the time Tars follows up if nothing
 changes before then; it never shows a time that has passed, and shows nothing
@@ -1063,33 +1590,193 @@ when Stave starts; unprocessed ones are kept.
 
 ## Settings and models
 
-Open the settings button (**Conversation settings**) in the conversation
-header to change the name, standing instructions, conversation model and
-account, execution model, the agents Tars may use and the turn limit per work
-unit.
+Open **Tars settings** in the conversation
+header to change the name, standing instructions, how long ended work stays in
+the panel, conversation model and account, execution model, the agents Tars may
+use and the turn limit per work unit. A turn is one request for an agent to
+work; the limit includes the lead agent and its helpers.
 Until you change them, the conversation uses Codex when it is available
 (otherwise Claude Code) with that provider's model from your app settings, and
-a turn limit of 30; the first send saves these choices for the conversation.
+a turn limit of 60; the first send saves these choices for the conversation.
+Settings have three tabs: **General** (name, standing instructions and ended-work
+retention), **Models** (conversation model/account, execution model and allowed
+agents), and **Work** (autonomy, rules and work limits). Draft edits survive
+switching tabs. **Save** remains visible below the scrolling panel.
+
 Saving settings affects later messages and new work, not already admitted
 runs. Instructions do not grant new permissions.
+
+**Standing instructions** have a short default in your app language: lead with
+the answer or the decision needed, restate the goal and completion criteria
+before delegating, prefer small reviewable work without lowering criteria, say
+what happened and what you need to decide when work blocks, and say when an
+observation is stale or unknown. A profile that has never used Tars starts with
+it. An empty saved profile also opens with this default filled into the draft;
+existing custom text is preserved. **Reset to default** replaces a custom draft.
+Clearing the field remains an explicit edit, with **Use default** available to
+restore it. **Save** applies the draft; opening settings alone changes nothing.
+An empty field means Tars follows only its built-in rules.
+
+**Keep ended work in the panel** sets the retention period described in
+[Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
+
+### How independently Tars acts
+
+**How independently Tars acts** is one choice between three levels. It decides
+which of Tars's proposals Stave applies at once and which wait for your
+confirmation on a card. **Actions and confirmations** expands a list for the level you
+picked: what Tars does on its own, asks first, always asks and never does.
+The list reads the same policy Stave applies. A saved change applies from
+Tars's next decision, without a restart.
+
+| Action | Careful | Balanced (default) / Hands-off |
+| --- | --- | --- |
+| Start requested work, reorder the queue, start queued work now | Confirm | Immediate |
+| Resume, retry a stage, instruct Tars's own run, request changes | Confirm | Immediate, including automatic follow-ups |
+| Extend the run's turn budget | Confirm | Immediate only up to twice the originally admitted `maxTurns`; otherwise confirm |
+| Publish a verified `resultReady` execution whose original goal is a PR or merge | Confirm | Push the verified commit to the execution branch and open a **draft** PR |
+| Publish other eligible results | Confirm | Confirm: "Open a PR?" |
+| Cancel, skip a stage, accept completion, approve a tool request, hand back authority, sign off, answer for the user, clear | Confirm | Confirm |
+| Pause, take over, deny a tool request | Immediate | Immediate |
+
+The extension cap uses the original task budget, not a repeatedly enlarged
+budget. Missing budget evidence asks first. Every automatic action leaves a
+visible receipt or activity record. Resume and retry offer **Undo** to pause
+the same execution; Undo does not rewind code already changed. Instructions
+already sent to a run and consumed turn budgets cannot be undone. Pending
+message delivery retains its existing withdrawal control.
+
+After execution verifies, an automatic follow-up may offer publication without
+another user message. An originally requested PR or merge endpoint authorizes automatic publication
+after verification of the current run. A saved allow rule can also permit draft
+publication for other eligible results. Existing revision,
+workspace, base/branch and default-branch guards still apply. There is no
+force-push, automatic merge or deploy.
+
+Automatic follow-ups never delegate new work, reorder the queue, answer a
+question for you or reclaim work you paused or took over. Pausing, taking over
+and denying a tool request remain immediate at every level. Tars never deletes
+branches, worktrees or tasks, grants permanent tool approval, spends money or
+messages other people.
+
+Stave uses the more careful of the level saved now and the level that was saved
+when you sent the message, so lowering the level takes effect immediately and a
+message never carries a looser level than your settings.
+
+**Always allow** on an eligible waiting confirmation applies the action and saves
+permission for that action in the card's repository (up to 24 rules). At
+Balanced and Hands-off this skips confirmation for user requests and automatic
+follow-ups, including eligible draft publication; Careful is unchanged.
+Always-confirmed actions and matching **Never do** rules take precedence.
+The saved record offers **Undo**; Settings lists rules with **Remove**. Both
+remove only the permission, without reverting the applied action.
+
+**Never do** holds up to 12 rules in your own words, such as "never touch
+production branches". Tars receives them as hard constraints. Stave also asks
+you first when a proposed action plainly names a rule's repository, branch or
+action, even at a level that would apply it, and shows the rule and the word
+that matched on the card; confirming is then never the Enter or "yes" default.
+The rules guide Tars's decisions. Stave does not block an action because of a
+rule, and it does not read a rule's meaning beyond those words, so a rule that
+names nothing Stave can match depends on Tars following it.
 
 The **Conversation model** is used only for talking with Tars, including its
 automatic follow-ups. Delegated work runs separately:
 
 - **Execution model: Automatic** (the default) forces no model. Stave Auto
-  routes each turn of the work on the conversation's provider and account, and
+  uses the shared policy selected in Task's Stave Auto controls: **Quality-first**,
+  **Balanced**, **Cost-saver**, or your custom rules. This explicit Automatic
+  choice applies even when the app-wide Stave Auto toggle is off, without
+  changing that toggle or your saved policy. It routes each turn of the work
+  on the conversation's provider and account, and
   helpers, including the reviewer, can run on the other provider so the
-  review is independent of the provider that wrote the change. With Stave Auto
-  turned off in Settings, the work stays on the provider's default model.
+  review is independent of the provider that wrote the change. Helpers use the
+  same saved policy within their own role and provider; fixed Agent models and
+  explicit model or effort pins still take priority. The Automatic choice and
+  shared policy survive a restart through the saved Run and host settings.
 - **Pinning an execution model** runs the work, its helpers and its review on
-  that model and its provider at the model's default effort. A pin on the
-  other provider runs with that provider's System default account.
+  that model and its provider. The lead starts at the model's default effort;
+  helpers can still use Auto to select effort within that model while app-wide
+  Auto is on, unless effort is explicitly pinned. A pin on the other provider
+  runs with that provider's System default account.
 
 Conversation delegation keeps the selected account; other conversation runtime
 preferences, including its reasoning effort, are not copied into supervised
 work. A task's completion report remains distinct from host-verified checks or
 a live external outcome. Use [Fleet](fleet-needs-me.md) for the detailed
 cross-workspace attention inbox.
+
+## What Tars knows, and usage
+
+The book button in the conversation header (**Knowledge and usage**) opens two
+read-mostly views beside the conversation. Opening them changes nothing and is
+not recorded in the conversation.
+
+### What Tars knows
+
+Everything Tars carries from one message to the next, grouped by where it
+applies, each part with its source and the editor that changes it:
+
+- **Everywhere**
+  - **Standing instructions**: the text as saved, whether you wrote it or it is
+    Stave's default, and when it was last saved. Tars reads it with every
+    message and hands it to the agents it starts. **Edit** opens
+    **Tars settings**.
+  - **Agents Tars may hand work to**: the saved agents you allowed. Built-in
+    agents are always allowed. **Edit** opens **Tars settings**.
+- **Per repository** (the first 12 registered repositories, which is what Tars
+  is shown; more are counted)
+  - **Branch naming rule**: the repository's own rule, or Stave's default when
+    none is set. **Edit** opens **Settings > Repository**.
+  - **Repository memory**: the repository's
+    [memories](repository-memory.md), read when you open the repository's
+    section. Tars does not read these itself: the tasks it starts in that
+    repository receive the relevant ones, at most 6 per turn. Memories in use
+    are listed first, the always-included ones leading; candidates waiting for
+    review and memories not confirmed for a long time are listed under **Not
+    used yet**. Each row shows its kind, how it is used, when it was last
+    confirmed and the task it came from, and has the same edit and forget
+    actions as the Memory section (forgetting offers **Undo**). When memory is
+    turned off for a repository the view says its tasks receive none.
+- **What Tars does not remember**: with each message Tars rereads only the last
+  8 messages of the conversation and the current state of its work. Older
+  messages stay on screen but are not read again, and Tars saves no memories
+  from the conversation.
+
+The view adds no memory store. It shows a time only where one is saved: the
+standing instructions' last save and each memory's last confirmation. The
+allowed agents and the branch rule have no saved time, and no item records when
+it was last used.
+
+### Usage
+
+What the work Tars started spent, as the providers reported it, for **Today**,
+**7 days** (the first shown) and **30 days**. Days are calendar days in your
+local time: today from midnight, 7 days as today and the six days before it.
+
+- **Totals**: tokens, turns and time working. **Reported cost** appears only
+  when a provider reported a cost for a turn in the period; Stave never applies
+  a price to tokens. When some turns reported no token count, or only some
+  reported a cost, the view says how many.
+- **By work**: each piece of work with its share of the period as a bar, its
+  tokens, turns, time, repository and the models its turns ran on. The title
+  opens that work's timeline (or its request when it has no run).
+- **By model**: the same figures per model, with its provider.
+
+Tokens are new prompt plus output; prompt read back from a provider's cache is
+not counted, on the same rule as the **AI usage** screen. A turn belongs
+to the period in which it started. The figures come from the turns of each
+work's own task, including any turns you took there.
+
+Not counted, and said in the view:
+
+- Tars's own replies. Their number is shown; their tokens and cost are not
+  recorded.
+- Turns of helper tasks that a run starts.
+
+The report is read when the view opens and on **Refresh**, never on a timer. It
+reads at most the 200 most recently changed pieces of work and 20,000 turns; if
+there were more, it says the totals are a lower bound.
 
 ## Live verification
 
@@ -1111,14 +1798,15 @@ evidence, turns, wall time and the run's recorded cost, appends that entry to
 `STAVE_TARS_LIVE_RESULTS`, then fails if any expectation failed.
 
 - **A, words**: a message asks for a small function and its test. Tars
-  delegates, the run goes work → review → verify, completion needs a passing
-  check Stave observed on the final revision or a same-revision passed
-  review, the frozen report lists every criterion with its source, the flow
-  block, tray and Fleet agree, nothing is committed. A Codex conversation
+  delegates, the run starts with work and conditionally runs review and
+  fix-review. Completion needs a passing check Stave observed on the final
+  revision or a same-revision passed review. The frozen report lists every
+  criterion with its source; the flow block, tray and Fleet agree. Changed
+  work is committed locally for review; publication is separate. A Codex conversation
   then opens the report with a `show`.
 - **B, clicks**: pause, resume, take over, a refused resume while taken
   over, and hand back, each a click record in the conversation; the hand-back
-  restarts the final verification before completion.
+  restarts the final stage that ran before completion.
 - **C+D, a failing decisive check and a restart**: the required check cannot
   pass without editing generated files the repository forbids. Stave is
   closed while the first turn runs and relaunched on the same profile: the
@@ -1142,3 +1830,73 @@ When the agent itself blocks on the failing check, Tars shows the work as
 waiting for you, so its automatic follow-up came only after an hour without
 change; a stage that asks you is now followed up at once (see Automatic
 follow-up). One planner turn failed once without a recorded cause.
+
+
+## Saved HTML outputs
+
+An agent can report a local `file://` HTML artifact from its execution workspace.
+Before accepting the stage report, Stave archives the document and its local
+images, stylesheets (including CSS imports and fonts), and standalone JavaScript
+in app data. It embeds those assets into the saved HTML; no report server stays
+running. The report and **Outputs** open the saved page directly in an isolated,
+network-blocked in-app preview. Execution workspace cleanup and app restarts do
+not remove these saved copies. Identical source/content reuses its saved ID within the run. Changed content
+gets a distinct saved ID. Repeated labels show a version number and saved time. Corrected reports and retried stages retain saved
+originals alongside new versions, up to 100 artifacts per run. Each report call
+can add up to 10. Existing frozen
+reports keep their original links; a stopped localhost server cannot be recovered
+without the source files. Report artifacts remain in local app data until that
+app data is removed; clearing an Outputs view hides entries, not their saved files.
+
+The preview identifies agent-reported actual component renders, example data,
+captures, or an unspecified source. These labels are declarations, not a Stave
+verification of the page's contents. A static comparison cannot prove that the
+real app, login or backend works.
+
+An artifact may also name an existing Workspace Tools process and HTTP URL via
+`livePreview`. **Start real app** runs that configured process only after a click;
+**Open real app** then opens its URL. The workspace, login and backend still need
+to be available. A process-start receipt does not prove server readiness. When
+starting fails, the saved comparison remains visible. Ordinary HTTP links stay
+live external links; Stave does not fetch or archive a running application.
+
+Static exports are bounded to 100 reads and 3 MiB of source assets, and the
+existing 5,120,000-character saved HTML limit. Missing, remote or out-of-workspace
+assets (including escaping symlinks) fail the report call so the agent can repair
+and retry. Export modules, responsive images (`srcset`), nested documents, and
+preload dependencies into a standalone static page first. Runtime network calls
+are blocked in the saved preview. Generated HTML is not an archive of a running
+server or its authenticated state.
+
+Saved HTML provenance and timestamps are assigned by the host. Helpers can hand
+a local export path inside the execution workspace to the lead task; they cannot
+promote another task's inline render. `livePreview` is supported only on saved or
+local HTML artifacts. HTTP links must omit it. Root-relative asset paths require
+a static export with relative paths. Markdown copied outside Stave describes
+saved artifacts as local-only and omits their app-specific URI.
+
+### Activity and opening screens
+
+The header's **Activity** button (Ctrl/Command+Shift+A while Tars has focus) opens
+a separate history panel, newest first and grouped by local day. **All**, **Done
+by Tars**, and **Needs you** filter retained actions, workspace edits, delegation,
+publications, PR checks, inspections and decisions that were dismissed, withdrawn
+or stopped waiting. Each entry shows its time, work and origin. **Undo** uses
+the existing guarded restoration only; old or irreversible actions have none.
+Clearing the conversation and its retention limit also limit this history.
+
+Ask Tars to open a task, a registered workspace, Fleet or Activity. Navigation
+applies immediately and is recorded without granting authority or changing work.
+Task navigation requires the exact task ID of Tars work; workspace navigation
+requires a registered workspace ID. Unknown or ambiguous targets are refused.
+
+
+## Bulk control and cleanup
+
+Say "stop everything" or "pause all running work" to propose pausing many responsibilities. Ask to resume all or explicitly cancel many, scoped to all work, a repository, or selected responsibility IDs. Every bulk action requires one confirmation card, at every autonomy level. Automatic follow-ups cannot propose these actions. The card lists only work the operation can act on; ended work is counted on one line, and the 1,000-item limit applies after that filter. Pause and resume keep the listed set but re-check each item's current state at confirmation, so running work whose revision moved is still paused. Cancel keeps the exact revision the user saw and leaves work the user took over (reason `takenOver`). Cancellation has no default Enter confirmation and cannot be undone.
+
+Say "clean up the finished work" or use **Clean up finished work** in Done. The card lists included and skipped work, repository, reasons and known disk sizes. Only completed or cancelled responsibilities qualify; unfinished work is counted on one line. The host inspects only each candidate's workspace and looks up its pull request once. When pull request status is unavailable, every item is skipped and one line explains it. The host rechecks ownership, running work, pending/open draft PRs, dirty files and unpushed commits for every workspace. It archives eligible workspaces using the same guarded cleanup operations as the cleanup center. The record retains per-item results and **Restore** for archived workspaces.
+
+Explicitly requested branch deletion uses safe deletion only; it never forces a branch deletion. Permanent deletion applies only to workspaces already archived when the card was prepared. Branch deletion and permanent deletion cannot be undone. An interrupted destructive item is not automatically replayed; inspect its state in the cleanup center. For cleanup and cancel, a changed revision is skipped rather than expanding the confirmed scope.
+
+A batch that was executing when Stave stopped reads as interrupted: its record shows what ran and offers **Continue**, which runs the same frozen remaining items and re-checks each one. A failed archive counts as applied only when this batch made the archive; a workspace someone else archived meanwhile is reported as already archived and is not restored by this record's **Restore**. A restore whose branch was deleted is labelled read-only. Opening **Clean up finished work** again reuses the open preview; declining it removes it. Unconfirmed previews expire after a day, and at most 50 finished Done-lane records are kept; each sits in the conversation at the time it was prepared.

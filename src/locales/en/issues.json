@@ -280,7 +280,9 @@
     "thisCraneInstallationDoesNotServeThe": "This Crane installation does not serve the task list yet, so only its dispatched jobs work. Nothing is wrong with your pairing.",
     "thisCraneInstallationHasTheTaskList": "This Crane installation has the task list turned off. Dispatched jobs still work.",
     "didNotSync": "Did not sync",
-    "unavailable": "Unavailable"
+    "unavailable": "Unavailable",
+    "githubSetup": "Install GitHub CLI and run gh auth login for github.com, then refresh Issues.",
+    "githubUnavailable": "GitHub could not be read. Check gh auth status and your connection, then retry."
   },
   "group": {
     "inProgress": "In progress",

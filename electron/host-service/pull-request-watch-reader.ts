@@ -21,7 +21,7 @@
  * falls back to the workspace's repository.
  */
 import { bucketOfCheckState } from "../../src/lib/agent-runs/checks";
-import { parsePrContextUrl } from "../../src/lib/pr-context";
+import { parsePrContextUrl, sanitizePrContextText } from "../../src/lib/pr-context";
 import {
   PULL_REQUEST_WATCH_LIMITS,
   type PullRequestWatchComment,
@@ -50,14 +50,15 @@ const DECISION_REVIEWS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$las
   repository(owner:$owner,name:$repo){
     pullRequest(number:$pr){
       reviews(last:$last,states:[APPROVED,CHANGES_REQUESTED]){
-        nodes{ id state submittedAt author{ login } }
+        nodes{ id state body submittedAt commit{ oid } author{ login } }
       }
     }
   }
 }`;
 
 /** The newest approvals and change requests, oldest first, by GitHub review id. */
-async function readDecisionReviews(args: {
+export async function readDecisionReviews(args: {
+  includeComments?: boolean;
   cwd: string;
   url: string;
   run: ScmCommandRunner;
@@ -70,7 +71,7 @@ async function readDecisionReviews(args: {
     command: "gh",
     commandArgs: [
       "api", "graphql",
-      "-f", `query=${DECISION_REVIEWS_QUERY}`,
+      "-f", `query=${args.includeComments ? DECISION_REVIEWS_QUERY.replace("states:[APPROVED,CHANGES_REQUESTED]", "states:[APPROVED,CHANGES_REQUESTED,COMMENTED]") : DECISION_REVIEWS_QUERY}`,
       "-f", `owner=${ref.owner}`,
       "-f", `repo=${ref.repo}`,
       "-F", `pr=${ref.number}`,
@@ -90,11 +91,15 @@ async function readDecisionReviews(args: {
         const value = (node ?? {}) as Record<string, unknown>;
         const id = typeof value.id === "string" ? value.id.trim() : "";
         const state = value.state;
-        if (!id || (state !== "APPROVED" && state !== "CHANGES_REQUESTED")) return [];
+        if (!id || (state !== "APPROVED" && state !== "CHANGES_REQUESTED" && !(args.includeComments && state === "COMMENTED"))) return [];
         const login = (value.author as { login?: unknown } | null | undefined)?.login;
         return [{
           id: clip(id, PULL_REQUEST_WATCH_LIMITS.maxNameChars),
-          state,
+          state: state as PullRequestWatchReview["state"],
+          ...(args.includeComments ? {
+            commitSha: clip(String((value.commit as { oid?: unknown } | null)?.oid ?? ""), 64),
+            body: sanitizePrContextText(typeof value.body === "string" ? value.body : "", 8_000),
+          } : {}),
           author: typeof login === "string" ? clip(login, 100) : "",
           submittedAt: typeof value.submittedAt === "string" ? clip(value.submittedAt, 64) : "",
         }];

@@ -67,17 +67,29 @@ export async function runSupervisedTurn(args: {
   questionAnswer?: RunQuestionAnswer;
   /** After an account-pool switch: a new provider conversation on the account switched to. */
   freshSession?: boolean;
+  /** A user action routed through this path (a reply or an answer); every other supervised turn is automatic. */
+  admissionPriority?: "user";
   /** The turn's ID, when the caller named it in advance so it can find the turn again; otherwise a new one. */
   turnId?: string;
 }) {
   const store = ensureHostServicePersistenceReady();
   const saved = store.delegationPolicies.loadTaskAccounts(args.taskId) ?? store.loadWorkspaceShell({ workspaceId: args.workspaceId })?.promptDraftByTask?.[args.taskId]?.runtimeOverrides;
   const accounts = resolveSupervisedTurnAccounts(args.runtimeOptions, saved);
+  // Wakes and event continuations are still the user's primary task. Read
+  // current preferences rather than losing Always when the composer is absent.
+  // A supervised delegate must not acquire its parent's browser access.
+  const browserOptions = !args.parentTaskId &&
+    (args.fingerprint?.providerId === "claude-code" || args.fingerprint?.providerId === "codex")
+      ? store.delegationPolicies.loadSettings()?.browser
+      : undefined;
+  const runtimeOptions = { ...browserOptions, ...args.runtimeOptions };
   const credentials = args.gatewayCredentials ?? (await requestHostGatewayCredentials(accounts))?.credentials;
   return withGatewayCredential(credentials, () => withProviderAccountScope(accounts, () => runTask({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     prompt: args.prompt,
+    automaticStart: args.admissionPriority !== "user",
+    ...(args.admissionPriority ? { admissionPriority: args.admissionPriority } : {}),
     questionAnswer: args.questionAnswer,
     initialContext: args.initialContext,
     controlMode: args.parentTaskId ? "managed" : "interactive",
@@ -87,14 +99,12 @@ export async function runSupervisedTurn(args: {
       ? {
           provider: args.fingerprint.providerId,
           runtimeOptions: {
-            ...args.runtimeOptions,
+            ...runtimeOptions,
             ...accounts,
             model: args.fingerprint.model,
           },
         }
-      : args.runtimeOptions
-        ? { runtimeOptions: { ...args.runtimeOptions, ...accounts } }
-        : { runtimeOptions: accounts }),
+      : { runtimeOptions: { ...runtimeOptions, ...accounts } }),
     ...(args.retrievedContextParts
       ? { retrievedContextParts: args.retrievedContextParts }
       : {}),

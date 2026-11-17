@@ -1,3 +1,5 @@
+import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema } from "../../../src/lib/task-read-state";
+import { TruncateTaskMessagesResultSchema } from "../../../src/lib/task-context/conversation-truncation";
 import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
@@ -22,8 +24,6 @@ import {
   TurnSpendArgsSchema,
   type TurnSpendResponse,
 } from "../../../src/lib/providers/turn-spend";
-import { removeWorkspaceInlineRenders } from "../inline-render/inline-render-service";
-import { removeWorkspaceToolImages } from "../tool-images/tool-image-service";
 import {
   ClearNotificationHistoryArgsSchema,
   CreateNotificationArgsSchema,
@@ -93,6 +93,16 @@ export function registerPersistenceHandlers() {
     const store = await ensurePersistenceReady();
     store.directionDrafts.save(parsed.data.workspaceId, parsed.data.draft);
     return { ok: true };
+  });
+  ipcMain.handle("persistence:list-task-read-states", async (_event, input: unknown) => {
+    const args = ListTaskReadStatesArgsSchema.parse(input);
+    const store = await ensurePersistenceReady();
+    return TaskReadStatesResponseSchema.parse({ok:true,states:store.resultReviews.listTaskReadStates(args)});
+  });
+  ipcMain.handle("persistence:set-task-read-states", async (_event, input: unknown) => {
+    const args = SetTaskReadStatesArgsSchema.parse(input);
+    const store = await ensurePersistenceReady();
+    return SetTaskReadStatesResponseSchema.parse({ok:true,...store.resultReviews.setTaskReadStates(args)});
   });
   ipcMain.handle("persistence:list-result-reviews", async (_event, args: unknown) => {
     const parsed = ListResultReviewsArgsSchema.safeParse(args ?? {});
@@ -244,7 +254,7 @@ export function registerPersistenceHandlers() {
         return { ok: false, removedCount: 0 };
       }
       const store = await ensurePersistenceReady();
-      return store.truncateTaskMessagesAfter(parsedArgs.data);
+      return TruncateTaskMessagesResultSchema.parse(store.truncateTaskMessagesAfter(parsedArgs.data));
     },
   );
 
@@ -279,6 +289,7 @@ export function registerPersistenceHandlers() {
         id: parsedArgs.data.id,
         name: parsedArgs.data.name,
         snapshot: parsedArgs.data.snapshot,
+        creationOptions: parsedArgs.data.creationOptions,
       });
       return { ok: true };
     },
@@ -320,14 +331,7 @@ export function registerPersistenceHandlers() {
         return { ok: false };
       }
       const store = await ensurePersistenceReady();
-      store.closeWorkspace({ workspaceId: parsedArgs.data.workspaceId });
-      // The workspace's conversation is gone, so the pages it rendered go too.
-      void removeWorkspaceInlineRenders(parsedArgs.data.workspaceId);
-      // The workspace's conversation is gone, so the images it showed go too.
-      void removeWorkspaceToolImages(parsedArgs.data.workspaceId);
-      // Its tasks are gone, so their Lens review records and captures go too.
-      void store.lensReviewRecords.deleteWorkspace(parsedArgs.data.workspaceId);
-      return { ok: true };
+      return store.closeWorkspace({ workspaceId: parsedArgs.data.workspaceId });
     },
   );
 

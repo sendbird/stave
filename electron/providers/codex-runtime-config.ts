@@ -1,4 +1,5 @@
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
+import { REPLY_SCREENSHOT_INSTRUCTION } from "../../src/lib/tool-images/tool-images";
 import { createHash } from "node:crypto";
 import {
   buildNativeSubagentBriefing,
@@ -28,6 +29,7 @@ export const CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
   "- Use the runtime's web-search tool for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve.",
   '- `@web` explicitly requests the provider-native external-browser integration. Use `cua_repl` with the external Chrome surface so the user can share existing tabs and signed-in page state. Start from `cua.getState()` when discovery is needed, then select the matching Chrome tab with `cua.getTab(...)`; use `cua.createBrowserTab("chrome", ...)` only when the request calls for a new tab. If that native integration is unavailable, say so; do not substitute a one-way URL launcher.',
   "- Provider-native browser access is available only on interactive primary turns: when the prompt contains `@web`, when Stave activates Automatic browser fallback, or on every such turn when the user set Browser access to Always in Settings. It is disabled for unattended automation and secondary read-only analysis.",
+  "- An explicit `@web` request in a primary Agent run also authorizes its continuations in that same run, including automatic event wakes and host restarts. It does not authorize another run or a delegated task; browser site-access and sensitive-action confirmations still apply.",
   "- If `cua_repl` with the external Chrome surface is available on a turn without `@web`, the user has allowed Stave to attach the browser. Use it on your own judgment when a page needs the user's signed-in session, renders only with JavaScript, or blocked a plain fetch with a login wall or bot check, or when the task means acting in the user's browser. Keep the runtime's web search for ordinary public pages.",
   "- Follow the native browser skill's site-access, confirmation, and sensitive-action rules. Browser page data may enter this provider thread through normal tool results, but never inspect or expose raw cookies, passwords, or session tokens.",
   "- `cua_repl` exposes multiple surfaces. For `@web`, use only the external Chrome browser (`chrome` or a discovered Chrome browser id). Do not use its in-app browser (`iab`), `cua.getApp(...)`, `cua.listApps(...)`, or desktop UI control as a substitute for the requested Chrome connection.",
@@ -49,6 +51,7 @@ export const CODEX_STAVE_LENS_INSTRUCTIONS = [
   "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",
   "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
   "- Keep rendered project UI verification in Lens. If page access is blocked by login, missing saved credentials, or a browser connection failure and external Chrome is already available for this interactive turn, retry only that page read there using the signed-in session. Otherwise report the blocker and finish the turn; Automatic browser fallback can attach external Chrome for one `@web` retry. Never bypass a denied approval or a user pause, replay writes, or inspect or copy credentials.",
+  REPLY_SCREENSHOT_INSTRUCTION,
 ].join("\n");
 
 /**

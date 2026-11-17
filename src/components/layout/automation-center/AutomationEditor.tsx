@@ -1,4 +1,4 @@
-import { formatAutomationSchedule, formatAutomationRuntimePermissions, formatAutomationWeekday, getAutomationCadencePresetKeys, getAutomationPermissionModeKeys } from "@/lib/automation-presentation";
+import { formatAutomationCadence, formatAutomationSchedule, formatAutomationRuntimePermissions, formatAutomationWeekday, getAutomationCadencePresetKeys, getAutomationPermissionModeKeys } from "@/lib/automation-presentation";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { transition } from "@/components/aui/recipes/transition";
@@ -791,10 +791,33 @@ export function AutomationEditor(props: {
             />
           </section>
 
-          <CadenceSection
-            draft={props.draft}
-            onDraftChange={props.onDraftChange}
-          />
+          {props.draft.runOnceAt !== undefined ? (
+            // A one-time schedule (one Tars or a Local MCP agent set up) has no cadence to edit: it says when it runs and offers to repeat instead.
+            <section className={sx(editorStyles.section)} data-automation-run-once="">
+              <SectionHeading
+                title={tI18n("automation:automationEditor.when")}
+                description={tI18n("automation:automationEditor.runsOnce", { when: formatAutomationCadence(props.draft) })}
+              />
+              <div className={sx(editorStyles.chipRow)}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => {
+                    const { runOnceAt: _runOnceAt, ...repeating } = props.draft;
+                    props.onDraftChange(repeating);
+                  }}
+                >
+                  {tI18n("automation:automationEditor.repeatInstead")}
+                </Button>
+              </div>
+            </section>
+          ) : (
+            <CadenceSection
+              draft={props.draft}
+              onDraftChange={props.onDraftChange}
+            />
+          )}
 
           <PermissionSection
             draft={props.draft}

@@ -33,7 +33,7 @@ function notification(kind: AppNotificationCreateInput["kind"]): AppNotification
   };
 }
 
-function runtime(settings: Partial<AppState["settings"]> = {}) {
+function runtime(settings: Partial<AppState["settings"]> = {}, extra: Partial<AppState> = {}) {
   let state = {
     notifications: [],
     activeWorkspaceId: "ws-1",
@@ -48,13 +48,15 @@ function runtime(settings: Partial<AppState["settings"]> = {}) {
       notificationSoundCustomAudioData: null,
       ...settings,
     },
+    ...extra,
   } as unknown as AppState;
-  return createAppStoreNotificationRuntime({
+  const subject = createAppStoreNotificationRuntime({
     get: () => state,
     set: ((patch: (value: AppState) => Partial<AppState>) => {
       state = { ...state, ...patch(state) };
     }) as StoreApi<AppState>["setState"],
   });
+  return { ...subject, readState: () => state };
 }
 
 beforeEach(() => {
@@ -117,6 +119,15 @@ describe("the shared notification sound", () => {
     expect(showToast).toHaveBeenCalledTimes(1);
   });
 
+  test("a repeated Tars notification stays quiet across hydration and refresh", async () => {
+    const subject = runtime();
+    await subject.persistNotifications([notification("tars.decision_requested")]);
+    inserted = false;
+    await subject.persistNotifications([notification("tars.decision_requested")]);
+    expect(playPreset).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledTimes(1);
+  });
+
   test("an unsuccessful persistence write stays quiet", async () => {
     persistenceFails = true;
     await runtime().persistNotifications([notification("task.turn_completed")]);
@@ -131,14 +142,14 @@ describe("OS notifications", () => {
     globalThis.document = originalDocument;
   });
 
-  async function nativeCall(focused: boolean, workspaceId: string | null) {
+  async function nativeCall(focused: boolean, workspaceId: string | null, kind: AppNotificationCreateInput["kind"] = "task.approval_requested") {
     const calls: Array<{ notificationId: string; suppress?: boolean }> = [];
     globalThis.window = { api: { notifications: {
       showNative: async (args: { notificationId: string; suppress?: boolean }) => { calls.push(args); return { ok: true }; },
     } } } as unknown as Window & typeof globalThis;
     globalThis.document = { hasFocus: () => focused } as unknown as Document;
     await runtime({ nativeNotificationsEnabled: true }).persistNotifications([
-      { ...notification("task.approval_requested"), workspaceId },
+      { ...notification(kind), workspaceId },
     ]);
     return calls;
   }
@@ -157,4 +168,58 @@ describe("OS notifications", () => {
     expect(playPreset).toHaveBeenCalled();
     expect(showToast).toHaveBeenCalled();
   });
+
+  test("Tars follows the same window focus policy and desktop toggle", async () => {
+    expect((await nativeCall(true, "ws-1", "tars.decision_requested"))[0]?.suppress).toBe(true);
+    expect((await nativeCall(false, "ws-1", "tars.result_ready"))[0]?.suppress).toBe(false);
+    const native = mock(async () => ({ ok: true }));
+    globalThis.window = { api: { notifications: { showNative: native } } } as unknown as Window & typeof globalThis;
+    await runtime({ nativeNotificationsEnabled: false }).persistNotifications([notification("tars.blocked")]);
+    expect(native).not.toHaveBeenCalled();
+  });
+});
+
+
+test("native resolved events update the pending card without delivering a second response", () => {
+  let receive: ((payload: unknown) => void) | undefined;
+  let deliveries = 0;
+  globalThis.window = { api: { notifications: { subscribeNativeResolved: (listener: (payload: unknown) => void) => { receive = listener; return () => {}; } },
+    provider: { respondApproval: async () => { deliveries++; return { ok: true }; } },
+  } } as unknown as Window & typeof globalThis;
+  const subject = runtime({}, { messagesByTask: { task: [{ id: "message", role: "assistant", content: "", parts: [
+    { type: "approval", requestId: "request", state: "approval-requested", toolName: "tool", input: "", description: "Check" },
+  ] }] }, workspaceSnapshotVersion: 0, workspaceRuntimeCacheById: {} } as unknown as Partial<AppState>);
+  const payload = { workspaceId: "ws-1", taskId: "task", turnId: "turn", requestId: "request", messageId: "message", response: { type: "approval", approved: true } };
+  receive?.({ ...payload, scope: "always" });
+  expect(subject.readState().messagesByTask.task![0]!.parts[0]).toMatchObject({ state: "approval-requested" });
+  receive?.(payload);
+  expect(subject.readState().messagesByTask.task![0]!.parts[0]).toMatchObject({ state: "approval-responded", resolution: { scope: "once", source: "user" } });
+  receive?.({ ...payload, response: { type: "approval", approved: false } });
+  expect(subject.readState().messagesByTask.task![0]!.parts[0]).toMatchObject({ resolution: { decision: "allowed" } });
+  expect(deliveries).toBe(0);
+});
+
+test("a notification answer clears Needs you and restarts the stall timer, like an in-app answer", async () => {
+  let receive: ((payload: unknown) => void) | undefined;
+  globalThis.window = { api: { notifications: { subscribeNativeResolved: (listener: (payload: unknown) => void) => { receive = listener; return () => {}; } } } } as unknown as Window & typeof globalThis;
+  const stallTimers: unknown[] = [];
+  const { createAppStoreNotificationRuntime: create } = await import("@/store/app-store-notification-runtime");
+  const { createWorkGraph } = await import("@/lib/work-graph/work-graph-reducer");
+  let state = {
+    notifications: [], activeWorkspaceId: "ws-1", settings: { nativeNotificationsEnabled: false },
+    workspaceSnapshotVersion: 0, workspaceRuntimeCacheById: {},
+    messagesByTask: { task: [{ id: "message", role: "assistant", turnId: "turn", content: "", parts: [
+      { type: "user_input", requestId: "question", state: "input-requested", toolName: "ask", questions: [{ key: "scope", question: "Which?", header: "Scope", options: [] }] },
+    ] }] },
+    providerTurnActivityByTask: { task: { turnId: "turn", lastEventAt: 1, stalledAt: 5, pendingInteraction: "user_input", workGraph: createWorkGraph({ turnId: "turn", providerId: "codex", startedAt: 1 }) } },
+  } as unknown as AppState;
+  create({
+    get: () => state,
+    set: ((patch: (value: AppState) => Partial<AppState>) => { state = { ...state, ...patch(state) }; }) as StoreApi<AppState>["setState"],
+    scheduleProviderTurnStallTimer: (args: unknown) => { stallTimers.push(args); },
+  } as never);
+  receive?.({ workspaceId: "ws-1", taskId: "task", turnId: "turn", requestId: "question", messageId: "message", response: { type: "answer", answers: { scope: "all" } } });
+  expect(state.messagesByTask.task![0]!.parts[0]).toMatchObject({ state: "input-responded" });
+  expect(state.providerTurnActivityByTask.task).toMatchObject({ pendingInteraction: null, stalledAt: null });
+  expect(stallTimers).toEqual([expect.objectContaining({ taskId: "task", turnId: "turn" })]);
 });

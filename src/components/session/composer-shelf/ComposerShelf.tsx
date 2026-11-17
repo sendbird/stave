@@ -191,7 +191,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
         : null,
     [controls.panelButton, openPanel, i18n.language],
   );
-  const onStop = useCallback(() => abortTaskTurn({ taskId }), [abortTaskTurn, taskId]);
+  const onStop = useCallback(() => abortTaskTurn({ taskId, cascade: true }), [abortTaskTurn, taskId]);
   const delegates = useTaskSubagentSources(taskId, agentRun);
   const todo = useMemo<ShelfTodoProgress | null>(
     () => summarizeShelfTodos(planItems),

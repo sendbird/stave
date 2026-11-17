@@ -5,6 +5,13 @@
  * delegation that keeps its read-only sandbox, so a check can read and run but
  * still cannot write the workspace. Codex needs no rule: its read-only sandbox
  * already runs commands and refuses writes.
+ *
+ * Permission is not an instruction to run them all: the review stage tells
+ * the reviewer to confirm the work's evidence and run only checks covering
+ * the changed files (`TARS_REVIEW_CHECK_SCOPE`), with broader runs only when
+ * that evidence is missing, failed or stale. Each rule therefore also admits
+ * the script with file filters after `--` (and `bun test <files>`), so a
+ * scoped run needs no wider rule.
  */
 
 export type TarsPackageManager = "bun" | "npm" | "pnpm" | "yarn";

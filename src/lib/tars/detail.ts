@@ -1,12 +1,16 @@
 import { i18n, type I18nKey } from "@/i18n/runtime";
 import type { AgentRunPauseReason, AgentRunStopReason } from "@/lib/agent-runs/domain";
+import { parseAgentRunTurnStartFailure } from "@/lib/agent-runs/turn-start-failure";
 import { TARS_MESSAGE_FAILURE_TEXT, TarsMessageFailureCodeSchema, type TarsMessage, type TarsMessageFailureCode } from "./conversation";
 import { TarsDetailCodeSchema, type TarsDetailCode, type TarsResponsibility } from "./types";
+import { hasEndedTarsExecution } from "./continuation";
 
 /** The fields a detail line reads; a responsibility and an activity entry both carry them. */
 export type TarsDetailFields = Pick<TarsResponsibility, "detail" | "detailCode" | "detailParams">;
 
 const DETAIL_KEYS = {
+  dailyUsageLimit: "shell:tars.detail.dailyUsageLimit",
+  preparationFailed: "shell:tars.detail.preparationFailed",
   waitingForUser: "shell:tars.detail.waitingForUser",
   runPaused: "shell:tars.detail.runPaused",
   runStopped: "shell:tars.detail.runStopped",
@@ -27,6 +31,8 @@ const DETAIL_KEYS = {
   unverifiedCompletion: "shell:tars.detail.unverifiedCompletion",
   acceptedWithoutVerification: "shell:tars.detail.acceptedWithoutVerification",
   workingChangesUnavailable: "shell:tars.detail.workingChangesUnavailable",
+  runCancelled: "shell:tars.detail.runCancelled",
+  turnStartFailed: "shell:tars.detail.turnStartFailed",
 } as const satisfies Record<TarsDetailCode, I18nKey>;
 
 /** A run's own pause reason, more specific than the generic "paused" sentence. */
@@ -66,9 +72,27 @@ export function describeTarsResponsibilityDetail(row: TarsDetailFields): string 
   return i18n.t(specific ?? DETAIL_KEYS[code.data]);
 }
 
+/** Codes whose `detail` holds the run's or provider's own words rather than Tars's fixed sentence. */
+const DIAGNOSTIC_CODES: ReadonlySet<TarsDetailCode> = new Set(["runStopped", "runCancelled", "turnStartFailed", "preparationFailed"]);
+// i18n-ignore: the fixed diagnostic Tars saves for a stop with no reason; it adds nothing to the translated line
+const BARE_STOP_DETAIL = "The run stopped.";
+
+/**
+ * The run's or provider's own words behind a coded detail line, untranslated,
+ * for an expandable "technical details" disclosure. Null when the line has
+ * no such words, or they only repeat the code.
+ */
+export function describeTarsResponsibilityDiagnostic(row: TarsDetailFields): string | null {
+  const code = TarsDetailCodeSchema.safeParse(row.detailCode);
+  if (!code.success || !DIAGNOSTIC_CODES.has(code.data) || !row.detail) return null;
+  const words = code.data === "turnStartFailed" ? parseAgentRunTurnStartFailure(row.detail) : row.detail.trim();
+  return words && words !== row.detailParams?.reason && words !== BARE_STOP_DETAIL ? words : null;
+}
+
 const FAILURE_KEYS = {
   interrupted: "shell:tars.messageFailure.interrupted",
   reasoningFailed: "shell:tars.messageFailure.reasoningFailed",
+  agentsUnavailable: "shell:tars.messageFailure.agentsUnavailable",
 } as const satisfies Record<TarsMessageFailureCode, I18nKey>;
 
 /** A message saved before failure codes existed is recognized by its fixed English diagnostic. */
@@ -101,10 +125,12 @@ export function describeTarsWorkingChanges(row: Pick<TarsResponsibility, "workin
     : i18n.t("shell:tars.workingChanges.clean");
 }
 
-/** Only scheduler evidence explains a queued row; another running row alone proves nothing. */
+/** Only scheduler evidence explains queued work or an ended execution's queued follow-up. */
 export function describeTarsQueueWait(row: Pick<TarsResponsibility, "state" | "queueWait">): string | null {
-  if (row.state !== "queued") return null;
+  const ended = hasEndedTarsExecution(row);
+  if (row.state !== "queued" && !(ended && row.queueWait)) return null;
   const wait = row.queueWait;
+  if (ended && wait?.code === "unknown") return null;
   if (wait?.code === "capacity") return i18n.t("shell:tars.queueWait.capacity", { active: wait.active, limit: wait.limit });
   return i18n.t(wait?.code === "storageBusy" ? "shell:tars.queueWait.storageBusy" : "shell:tars.queueWait.unknown");
 }

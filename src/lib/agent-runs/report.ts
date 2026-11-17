@@ -1,3 +1,6 @@
+import { formatDateTime, formatNumber } from "@/i18n/format";
+import { savedHtmlReference } from "./artifacts";
+import type { ReportArtifact } from "./artifacts";
 import { i18n } from "@/i18n/runtime";
 /**
  * The agent run report: what the agent run did, why, and what proves it. Built
@@ -40,9 +43,8 @@ export interface AgentRunReportStage {
   plan: StagePlan["items"] | null;
 }
 
-export interface AgentRunReportLink {
-  label: string;
-  url: string;
+export interface AgentRunReportLink extends ReportArtifact {
+  workspaceId?: string;
   source: EvidenceSource;
 }
 
@@ -164,8 +166,10 @@ export function buildAgentRunReport(args: {
         addLink({ label: actionEvidence.label, url: actionEvidence.ref, source: "stave" });
       }
     }
-    for (const artifact of report?.artifacts ?? []) {
-      addLink({ label: artifact.label, url: artifact.url, source: "agent" });
+    for (const artifact of records.filter((entry) => entry.stageId === stage.id).flatMap((entry) => entry.report?.outcome === "complete" ? entry.report.artifacts : [])) {
+      // Earlier attempts retain saved pages, while live links belong to the latest report.
+      if (!savedHtmlReference(artifact.url) && !report?.artifacts.includes(artifact)) continue;
+      addLink({ ...artifact, ...(artifact.livePreview || savedHtmlReference(artifact.url) ? { workspaceId: agentRun.workspaceId } : {}), source: "agent" });
     }
     return {
       stageId: stage.id,
@@ -183,6 +187,16 @@ export function buildAgentRunReport(args: {
     };
   });
 
+  // Same-label versions remain distinguishable in every consumer, including Outputs.
+  const counts = new Map<string, number>();
+  for (const link of links.values()) if (savedHtmlReference(link.url)) counts.set(link.label, (counts.get(link.label) ?? 0) + 1);
+  const versions = new Map<string, number>();
+  for (const link of links.values()) if (savedHtmlReference(link.url) && (counts.get(link.label) ?? 0) > 1) {
+    const label = link.label;
+    const version = (versions.get(label) ?? 0) + 1;
+    versions.set(label, version);
+    link.label = i18n.t("agentRuns:artifacts.version", { label, version: formatNumber(version), time: link.savedAt ? formatDateTime(link.savedAt) : i18n.t("agentRuns:artifacts.unknownTime") });
+  }
   const leftBehind: string[] = [];
   if (agentRun.state !== "completed") {
     const { branch, branchPushed, openPullRequest } = args.workspace;

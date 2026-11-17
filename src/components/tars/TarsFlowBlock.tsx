@@ -1,3 +1,4 @@
+import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useState, type ReactNode } from "react";
 import { Ellipsis, Workflow } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
@@ -18,13 +19,16 @@ import type { StageStatus } from "@/lib/agent-runs/domain";
 import { STAGE_STATUS_PRESENTATION } from "@/lib/agent-runs/agent-run-view";
 import { StageStatusIcon } from "@/components/agent-runs/StageStatusIcon";
 import { isTarsResponsibilityTerminal } from "@/lib/tars/attention";
-import { describeTarsResponsibilityDetail } from "@/lib/tars/detail";
+import { describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic } from "@/lib/tars/detail";
 import type { TarsActivityNotice, TarsFlow, TarsFlowStage } from "@/lib/tars/flow-model";
 import type { TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
-import { TarsRecordDetail, TarsRecordRow, type TarsRecordState } from "./TarsRecord";
+import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
+import { TarsRecordDetail, TarsRecordRow, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
+import { TarsResultCard, useTarsResult } from "./TarsResultCard";
 import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
+import { tarsFlowRailStyles as rail } from "./tars-record.styles";
 
 const STAGE_TONE: Record<StageStatus, BadgeTone> = {
   pending: "neutral", "awaiting-sign-off": "warning", running: "info", blocked: "warning", stuck: "warning",
@@ -47,7 +51,7 @@ function NodeMarker({ state }: { state: WorkState }) {
 
 /** "1 of 3 stages done · Running"; the state alone while the run is unread. */
 export function describeTarsFlowSummary(flow: TarsFlow) {
-  const state = flow.state ? i18n.t(`shell:tars.states.${flow.state}`) : i18n.t("shell:tars.conversation.receipts.applied");
+  const state = flow.state ? i18n.t(`shell:tars.states.${flow.state}`) : i18n.t("shell:tars.conversation.receipts.appliedAction.delegate");
   return flow.progress && flow.progress.total > 0
     ? i18n.t("shell:tars.flow.summary", { finished: flow.progress.finished, total: flow.progress.total, state })
     : state;
@@ -69,7 +73,7 @@ function NodeMenu({ title, target, onShowInFleet }: { title: string; target: Fle
   if (!target || !onShowInFleet) return null;
   return <DropdownMenu placement="bottom-end"
     trigger={<Ellipsis aria-hidden />}
-    triggerProps={{ render: <Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.flow.nodeMenu", { title })} title={t("shell:tars.tray.moreActionsHint")} /> }}
+    triggerProps={{ render: (props) => <Tooltip content={t("shell:tars.tray.moreActionsHint")}><Button {...props} variant="ghost" size="icon-sm" aria-label={t("shell:tars.flow.nodeMenu", { title })} /></Tooltip> }}
     groups={[{ items: [{ label: t("shell:tars.tray.showInFleet"), onSelect: () => onShowInFleet(target) }] }]} />;
 }
 
@@ -177,18 +181,19 @@ export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, de
 }) {
   const { t } = useTranslation(["shell"]);
   const [open, setOpen] = useState(defaultOpen);
-  return <CollapsibleRoot className={sx(inlineDisclosure.root, styles.root)} open={open} onOpenChange={setOpen}
+  // On the rail: the glyph in the records' mark column, the words at the record size on their text column.
+  return <CollapsibleRoot className={sx(inlineDisclosure.root, styles.root, rail.root)} open={open} onOpenChange={setOpen}
     data-tars-flow={flow.responsibilityId} aria-label={t("shell:tars.flow.label", { title: flow.title })}>
     <CollapsibleTrigger className={cx(sx(inlineDisclosure.trigger, inlineDisclosure.triggerIntrinsic, open && inlineDisclosure.triggerOpen,
-      transition.colors, focusRing.ring), "atelier-inline-disclosure-trigger")}>
+      transition.colors, focusRing.ring, rail.trigger), "atelier-inline-disclosure-trigger")}>
       <InlineDisclosureIcon open={open}><Workflow size={controlIconSizes.md} /></InlineDisclosureIcon>
       <span className={sx(styles.summary)}>
         <span className={sx(styles.summaryTitle)}>{flow.title}</span>
-        <span className={sx(styles.summaryState)} data-tars-flow-summary="" data-tars-flow-state={flow.state ?? undefined}>
+        <span className={sx(styles.summaryState, rail.summaryState)} data-tars-flow-summary="" data-tars-flow-state={flow.state ?? undefined}>
           {flow.state ? <TarsWorkMark state={flow.state} /> : null}{describeTarsFlowSummary(flow)}</span>
       </span>
     </CollapsibleTrigger>
-    {live ? <div className={sx(styles.live)} data-tars-flow-live="">{live}</div> : null}
+    {live ? <div className={sx(styles.live, rail.live)} data-tars-flow-live="">{live}</div> : null}
     <CollapsiblePanel className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
       <div className={cx(sx(inlineDisclosure.body), "atelier-motion-panel-inner")}>
         <TarsFlowNodes flow={flow} agentNameOf={agentNameOf} onShowInFleet={onShowInFleet} onOpenSide={onOpenSide} />
@@ -208,7 +213,15 @@ const NOTICE_STATE: Record<TarsActivityNotice["kind"], TarsRecordState> = { comp
  */
 export function TarsActivityNoticeLine({ notice }: { notice: TarsActivityNotice }) {
   const { t } = useTranslation(["shell"]);
+  // Completed, blocked or failed work the view still holds shows its result card; a cancel, and work it no longer reads, stay this one row.
+  const result = useTarsResult(notice);
+  if (result) return <TarsResultCard notice={notice} result={result} />;
   const detail = notice.kind === "completed" ? null : describeTarsResponsibilityDetail(notice.activity);
-  return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} subject={notice.activity.title}
-    data-tars-activity={notice.kind} detail={detail ? <TarsRecordDetail>{detail}</TarsRecordDetail> : null} />;
+  const diagnostic = notice.kind === "completed" ? null : describeTarsResponsibilityDiagnostic(notice.activity);
+  return <TarsRecordRow state={NOTICE_STATE[notice.kind]} lead={t(`shell:tars.states.${notice.kind}`)} at={notice.activity.createdAt}
+    values={<TarsWorkChip title={notice.activity.title} responsibilityId={notice.activity.responsibilityId} />}
+    data-tars-activity={notice.kind} detail={detail ? <>
+      <TarsRecordDetail>{detail}</TarsRecordDetail>
+      {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
+    </> : null} />;
 }

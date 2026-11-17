@@ -1,5 +1,5 @@
 import type { TarsCriterionSource, TarsReportModel } from "./report-model";
-import { TARS_PUBLISH_BODY_MAX_CHARS } from "./publication";
+import { TARS_PUBLISH_BODY_MAX_CHARS, type TarsPublishSource } from "./publication";
 
 /**
  * The draft pull request's body, built by the host from the responsibility's
@@ -29,7 +29,7 @@ function describeSource(source: TarsCriterionSource) {
   return null;
 }
 
-export function buildTarsPublicationBody(args: { title: string; report: ReportPart | null }): string {
+export function buildTarsPublicationBody(args: { title: string; report: ReportPart | null; source?: TarsPublishSource }): string {
   const { report } = args;
   // i18n-ignore: pull request body sent to GitHub
   const lines = ["## Summary", "", inline(args.title), ""];
@@ -63,7 +63,7 @@ export function buildTarsPublicationBody(args: { title: string; report: ReportPa
     lines.push(`Report frozen at ${report.frozenAt ?? "an unknown time"}${report.finalRevision ? ` on revision ${report.finalRevision}` : ""}.`, "");
   }
   // i18n-ignore: pull request body sent to GitHub
-  lines.push("---", "", "Opened as a draft by Tars in Stave after the user confirmed it. It was not merged or deployed.");
+  lines.push("---", "", args.source === "automatic" ? "Opened as a draft automatically by Tars in Stave for the requested publication goal. It was not merged or deployed." : "Opened as a draft by Tars in Stave after the user confirmed it. It was not merged or deployed.");
   const body = lines.join("\n");
   return body.length <= TARS_PUBLISH_BODY_MAX_CHARS ? body : `${body.slice(0, TARS_PUBLISH_BODY_MAX_CHARS - 2)}\n…`;
 }

@@ -1,3 +1,4 @@
+import type { InterruptedTask, RestartRecovery } from "@/store/restart-continuation";
 import type {
   TaskProviderSessionState,
   WorkspaceSummary,
@@ -6,7 +7,10 @@ import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import type { ApprovalRuleDecider } from "@/lib/approvals/approval-resolution";
 import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
 import type { TaskMessagesLoadResult } from "@/store/app-store-workspace-action-types";
-import type { AppNotification, NotificationsLoad } from "@/lib/notifications/notification.types";
+import type {
+  AppNotification,
+  NotificationsLoad,
+} from "@/lib/notifications/notification.types";
 import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-status";
 import type {
   ProviderGoalSnapshot,
@@ -144,7 +148,12 @@ export type SendUserMessageResult =
     }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string }
   /** An Agent-mode prompt started an agent run; the host starts its turns. */
-  | { status: "run-started"; taskId: string; workspaceId: string; agentRunId: string }
+  | {
+      status: "run-started";
+      taskId: string;
+      workspaceId: string;
+      agentRunId: string;
+    }
   | {
       /**
        * The message never reached the provider. Its payload is parked as a
@@ -226,10 +235,16 @@ export interface AppState
    */
   failedSendsByTask: FailedOutgoingSendsByTask;
   /**
-   * Tasks whose work stopped at a provider usage limit, in memory only. Their
+   * Tasks whose work stopped at a provider usage limit, persisted. Their
    * queue holds until the user resumes, or until an armed auto-resume fires.
    */
   usageLimitPauseByTask: UsageLimitPauseByTask;
+  restartRecovery: RestartRecovery;
+  interruptedTasks: InterruptedTask[];
+  restartPendingTasks: InterruptedTask[];
+  recoverInterruptedTasks: () => Promise<void>;
+  continueInterruptedTask: (args: { taskId: string; automatic?: boolean }) => Promise<void>;
+  dismissInterruptedTasks: (args?: { taskId?: string }) => void;
   /**
    * Tasks whose queue, restored from the previous run of the app, the user
    * released. Until then those items wait instead of sending on completion.
@@ -237,6 +252,11 @@ export interface AppState
   restoredQueueReleasedByTask: Record<string, true | undefined>;
   messageCountByTask: Record<string, number>;
   taskMessagesLoadingByTask: Record<string, boolean>;
+  /** Newer messages omitted by a bounded history window. */
+  taskMessageWindowOffsetByTask: Record<string, number>;
+  /** Read-only history windows; live replay and persistence keep their own tail. */
+  taskHistoryMessagesByTask: Record<string, ChatMessage[]>;
+  taskHistoryMessageCountByTask: Record<string, number>;
   layout: LayoutState;
   settings: AppSettings;
   editorTabs: EditorTab[];
@@ -259,6 +279,10 @@ export interface AppState
   focusTranscriptToolRequest: {
     taskId: string;
     toolUseId?: string;
+    /** A whole message (a turn's reply, or a search hit), scrolled to its start. */
+    messageId?: string;
+    searchQuery?: string;
+    searchSnippet?: string;
     decision?: { messageId: string; requestId: string };
     nonce: number;
   } | null;
@@ -272,7 +296,6 @@ export interface AppState
   repositoryName: string | null;
   repositoryFiles: string[];
   workspaceFileCacheByPath: Record<string, string[]>;
-  taskCheckpointById: Record<string, string>;
   providerAvailability: Record<ProviderId, boolean>;
   providerRuntimeCapabilities: Record<ProviderId, ProviderRuntimeCapabilities>;
   skillCatalog: SkillCatalogState;
@@ -379,8 +402,6 @@ export interface AppState
     workspaceId: string;
     /** Bulk cleanup must stop if the workspace becomes active or awaits input. */
     onlyIfInactive?: boolean;
-    /** Defaults to true; the archive dialog lets the user opt out. */
-    deleteBranch?: boolean;
   }) => Promise<void>;
   switchWorkspace: (args: { workspaceId: string }) => Promise<void>;
   renameWorkspace: (args: {
@@ -454,19 +475,30 @@ export interface AppState
     compareRunId: string;
   }) => Promise<StartCompareRunResult>;
   focusTaskAttention: (args: {
+    workspaceArchived?: boolean;
     taskId: string;
     workspaceId?: string;
     repositoryPath?: string;
     refreshFromPersistence?: boolean;
+    messageId?: string;
+    searchQuery?: string;
+    searchSnippet?: string;
   }) => Promise<void>;
   requestTaskScrollToLatest: (args: { taskId: string }) => void;
   focusTranscriptTool: (args: { taskId: string; toolUseId: string }) => void;
   /** Reveal an approval or answer you gave, in its message, in the transcript. */
-  focusTranscriptDecision: (args: { taskId: string; messageId: string; requestId: string }) => void;
-  selectTask: (args: { taskId: string }) => void;
+  focusTranscriptDecision: (args: {
+    taskId: string;
+    messageId: string;
+    requestId: string;
+  }) => void;
+  /** Scroll the transcript to a message (a turn's reply), loading older pages as needed. */
+  focusTranscriptMessage: (args: { taskId: string; messageId: string }) => void;
+  selectTask: (args: { taskId: string; allowArchived?: boolean }) => void;
   loadTaskMessages: (args: {
     taskId: string;
-    mode?: "latest" | "older";
+    mode?: "latest" | "older" | "newer";
+    messageId?: string;
   }) => Promise<TaskMessagesLoadResult>;
   clearTaskSelection: () => void;
   updatePromptDraft: (args: {
@@ -510,6 +542,7 @@ export interface AppState
   clearTaskSourceContexts: (args: { taskId: string }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;
+  sendForkResultToOriginal: (args: { taskId: string }) => Promise<ConversationThreadActionResult>;
   forkConversationFromMessage: (args: {
     taskId: string;
     messageId: string;
@@ -523,6 +556,16 @@ export interface AppState
     messageId: string;
     dryRun: boolean;
   }) => Promise<ClaudeFileRewindResponse>;
+  pinTask: (args: { taskId: string; pinned: boolean; workspaceId?: string }) => void;
+  /** Places a task between its visible Task History neighbours; never switches workspace. */
+  reorderTaskHistory: (args: {
+    workspaceId?: string;
+    activeTaskId: string;
+    overTaskId: string;
+    visibleTaskIds: readonly string[];
+  }) => void;
+  /** Returns Task History to activity order. */
+  resetTaskHistoryOrder: (args: { workspaceId?: string }) => void;
   reorderTasks: (args: {
     activeTaskId: string;
     overTaskId: string;
@@ -568,9 +611,17 @@ export interface AppState
   settleWorkspaces: (args: {
     settlements: Array<{ workspaceId: string; reason: WorkspaceSettledReason }>;
   }) => Record<string, WorkspaceSettlementRecord | undefined>;
-  unsettleWorkspace: (args: { workspaceId: string }) => WorkspaceSettlementRecord | undefined;
-  snoozeWorkspace: (args: { workspaceId: string; until: string }) => WorkspaceSettlementRecord | undefined;
-  setWorkspaceAutoSettle: (args: { workspaceId: string; enabled: boolean }) => void;
+  unsettleWorkspace: (args: {
+    workspaceId: string;
+  }) => WorkspaceSettlementRecord | undefined;
+  snoozeWorkspace: (args: {
+    workspaceId: string;
+    until: string;
+  }) => WorkspaceSettlementRecord | undefined;
+  setWorkspaceAutoSettle: (args: {
+    workspaceId: string;
+    enabled: boolean;
+  }) => void;
   restoreWorkspaceSettlements: (args: {
     records: Record<string, WorkspaceSettlementRecord | undefined>;
   }) => void;
@@ -760,7 +811,10 @@ export interface AppState
    * Keep a queued message out of automatic sending while the user edits it,
    * so a turn that completes mid-edit cannot send the pre-edit text.
    */
-  holdQueuedTurnForEdit: (args: { taskId: string; queuedTurnId: string }) => void;
+  holdQueuedTurnForEdit: (args: {
+    taskId: string;
+    queuedTurnId: string;
+  }) => void;
   /** End an edit hold and drain the queue if the task is idle. */
   releaseQueuedTurnEditHold: (args: {
     taskId: string;
@@ -785,7 +839,7 @@ export interface AppState
    * through Tars when Tars holds it. `keepAgentRun` stops only the turn, for a
    * caller that already settled the run (a Fleet control Tars answered).
    */
-  abortTaskTurn: (args: { taskId: string; keepAgentRun?: boolean }) => void;
+  abortTaskTurn: (args: { taskId: string; keepAgentRun?: boolean; cascade?: boolean; expectedTurnId?: string | null }) => void | Promise<boolean | void>;
   /**
    * Publish a parent's delegated-task listing into its active turn's work graph.
    *

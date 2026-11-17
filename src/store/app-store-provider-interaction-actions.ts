@@ -8,7 +8,6 @@ import {
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
   retainRetiredTurnActivity,
-  type ProviderTurnPendingInteraction,
 } from "@/lib/providers/turn-status";
 import { i18n } from "@/i18n/runtime";
 import { formatAsyncQuestionAnswer } from "@/lib/async-question-answer";
@@ -31,11 +30,10 @@ import {
 } from "@/store/managed-task-takeover";
 import type { NotificationAttentionSync } from "@/store/notification-attention-sync";
 import {
-  findLatestPendingApproval,
   findLatestPendingApprovalPart,
-  findLatestPendingUserInput,
   findLatestPendingUserInputPart,
   interruptPendingToolInteractionsInMessages,
+  remainingPendingInteraction,
 } from "@/store/provider-message.utils";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import { reconcileStopOfFinishedTurn } from "@/store/stopped-turn-reconcile";
@@ -68,23 +66,6 @@ function claimInteractionAnswer(taskId: string, requestId: string) {
   };
 }
 
-/**
- * The prompt that still blocks the turn after one is answered, as the turn's
- * single `pendingInteraction` hint: answering one of two approvals leaves the
- * other open. Only the turn's own rows count, so a prompt an earlier turn left
- * behind never raises it. An async question blocks no turn (it can outlive
- * the one that asked), so it never raises the hint; Fleet still counts it.
- */
-function remainingPendingInteraction(
-  messages: ChatMessage[] | undefined,
-  turnId: string,
-): ProviderTurnPendingInteraction | null {
-  const list = (messages ?? []).filter((message) => message.turnId === turnId);
-  if (findLatestPendingUserInput({ messages: list, blockingOnly: true })) return "user_input";
-  if (findLatestPendingApproval({ messages: list })) return "approval";
-  return null;
-}
-
 type ProviderInteractionActionKey =
   | "abortTaskTurn"
   | "resolveApproval"
@@ -105,6 +86,7 @@ interface TaskRuntimeTarget {
 export function createProviderInteractionActions(args: {
   set: StoreSet;
   get: StoreGet;
+  flushPersistence?: () => boolean;
   clearProviderTurnStallTimer: (taskId: string) => void;
   scheduleProviderTurnStallTimer: (args: {
     taskId: string;
@@ -153,8 +135,8 @@ export function createProviderInteractionActions(args: {
       }
       set({ providerTurnActivityByTask });
     },
-    abortTaskTurn: ({ taskId, keepAgentRun }) => {
-      if (cancelPendingAutoRouting(taskId)) return;
+    abortTaskTurn: ({ taskId, keepAgentRun, cascade = false, expectedTurnId }) => {
+      if (cancelPendingAutoRouting(taskId) && !cascade) return;
       const stateBefore = get();
       // Stop ends the task's agent run too, before the turn, so the run never picks up after it.
       // A run Tars holds is paused through Tars instead (`cancelAgentRunBeforeStop`).
@@ -163,8 +145,20 @@ export function createProviderInteractionActions(args: {
         state: stateBefore,
         taskId,
       });
-      if (!keepAgentRun && cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId,
-        turnId: runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null, stopTurn: () => get().abortTaskTurn({ taskId }) })) return;
+      const capturedTurnId = runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null;
+      // An owner response belongs to the turn that was present when Stop was pressed.
+      if (expectedTurnId !== undefined && capturedTurnId !== expectedTurnId) return Promise.resolve(false);
+      if (cascade && !keepAgentRun) {
+        let hasRun = false;
+        const settled = new Promise<boolean>((resolve) => {
+          hasRun = cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId,
+            turnId: runtimeTarget?.session.activeTurnIdsByTask[taskId] ?? null,
+            stopTurn: (cascadeAllowed) => { Promise.resolve(get().abortTaskTurn({ taskId, keepAgentRun: true, cascade: cascade && cascadeAllowed, expectedTurnId: capturedTurnId })).then((value) => resolve(value !== false), () => resolve(false)); },
+            onSettled: (endTurn) => { if (!endTurn) resolve(false); },
+          });
+        });
+        if (hasRun) return settled;
+      }
       const activeTurnId =
         runtimeTarget?.session.activeTurnIdsByTask[taskId];
       const workspaceId =
@@ -176,11 +170,9 @@ export function createProviderInteractionActions(args: {
           runtimeTarget?.task ?? findTaskById(stateBefore, taskId),
         )
       ) {
-        void requestManagedTaskStop({ taskId, state: stateBefore }).then(
+        return requestManagedTaskStop({ taskId, state: stateBefore }).then(
           (stopped) => {
-            if (!stopped) {
-              return;
-            }
+            if (!stopped) return false;
             clearProviderTurnStallTimer(taskId);
             set((state) =>
               buildManagedTaskTurnInterruptionPatch(state, taskId),
@@ -194,23 +186,28 @@ export function createProviderInteractionActions(args: {
                       ?.messagesByTask)?.[taskId] ?? [],
               endedTurnId: activeTurnId,
             });
+            return true;
           },
         );
-        return;
       }
+      if (activeTurnId) {
+        set(state => ({ restartRecovery: { ...state.restartRecovery, stoppedTurnIds: [...new Set([...state.restartRecovery.stoppedTurnIds, activeTurnId])].slice(-10000) } }));
+        args.flushPersistence?.();
+      }
+      const pendingStops: Promise<unknown>[] = [];
       clearProviderTurnStallTimer(taskId);
       const stopRequestedAt = buildRecentTimestamp();
       if (activeTurnId) {
         const abortTurn = window.api?.provider?.abortTurn;
         if (abortTurn) {
-          void abortTurn({ turnId: activeTurnId });
+          pendingStops.push(abortTurn({ turnId: activeTurnId }));
         }
       }
       // Clean up provider runtime state (thread caches, session maps) so a
       // subsequent turn does not try to resume a stale / aborted thread.
       const cleanupTask = window.api?.provider?.cleanupTask;
       if (cleanupTask) {
-        void cleanupTask({ taskId });
+        pendingStops.push(cleanupTask({ taskId }));
       }
 
       set((state) => {
@@ -326,6 +323,17 @@ export function createProviderInteractionActions(args: {
           ] ?? [],
         endedTurnId: activeTurnId,
       });
+      const stopped = pendingStops.length ? Promise.all(pendingStops).then(() => true, () => false) : undefined;
+      const stopChildren = typeof window === "undefined" ? undefined : window.api?.taskControl?.stopChildren;
+      if (cascade && stopChildren && workspaceId) {
+        // End native parent execution before traversing children; it cannot delegate again.
+        return Promise.resolve(stopped).then(async (ok) => {
+          if (ok === false) return false;
+          const result = await stopChildren({ workspaceId, taskId });
+          return result.ok && result.skipped.length === 0;
+        }).catch(() => false);
+      }
+      return stopped;
     },
     resolveApproval: async ({ taskId, messageId, requestId, approved, scope, decidedBy, onUnanswerable = "report" }) => {
       const stateBefore = get();

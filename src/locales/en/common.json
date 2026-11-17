@@ -156,6 +156,14 @@
     "count_one": "{{count}} match",
     "count_other": "{{count}} matches",
     "loaded": "Search loaded messages",
-    "showSidebar": "Show sidebar"
+    "showSidebar": "Show sidebar",
+    "wholeTask": "Search all task messages",
+    "minimum": "Enter at least 2 characters",
+    "searching": "Searching…",
+    "failed": "Search unavailable",
+    "position": "{{current}} / {{total}}{{more}}",
+    "newer_one": "Load {{count}} newer message",
+    "newer_other": "Load {{count}} newer messages",
+    "latest": "Back to latest"
   }
 }

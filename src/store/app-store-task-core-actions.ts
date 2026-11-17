@@ -1,3 +1,4 @@
+import { openArchivedSearchView, restoreArchivedSearchView, useArchivedSearchView } from "./archived-search-view";
 import { i18n } from "@/i18n/runtime";
 import type { LoadTaskMessagesIntoSession } from "@/store/app-store-workspace-action-types";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
@@ -7,15 +8,14 @@ import {
   loadWorkspaceShellForRestore,
 } from "@/lib/db/workspaces.db";
 import { getProviderSessionId, removeProviderSessionEntry } from "@/lib/providers/provider-sessions";
-import {
-  collectMartinTriggerContext,
-  notifyMartinInformationEdited,
-} from "@/lib/martin-sync/renderer-triggers";
 import { createTaskRenameAction } from "@/store/task-title-actions";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import {
   isTaskArchived,
+  keepRendererOwnedTaskFields,
+  placeTaskInHistory,
   reorderTasksWithinFilter,
+  resetTaskHistoryOrder,
 } from "@/lib/tasks";
 import type { ScriptTrigger } from "@/lib/workspace-scripts";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
@@ -40,6 +40,7 @@ type TaskCoreActionKey =
   | "requestTaskScrollToLatest"
   | "focusTranscriptTool"
   | "focusTranscriptDecision"
+  | "focusTranscriptMessage"
   | "selectTask"
   | "loadTaskMessages"
   | "clearTaskSelection"
@@ -56,6 +57,9 @@ type TaskCoreActionKey =
   | "restoreTask"
   | "duplicateTask"
   | "rewindClaudeFilesFromMessage"
+  | "pinTask"
+  | "reorderTaskHistory"
+  | "resetTaskHistoryOrder"
   | "reorderTasks";
 
 type TaskCoreActions = Pick<AppState, TaskCoreActionKey>;
@@ -100,107 +104,155 @@ export function createTaskCoreActions(args: {
     shouldLoadLatestTaskMessages,
   } = args;
 
+  /**
+   * Applies a task-list preference (pin, History order) to its own workspace.
+   * A background workspace is updated in its runtime cache and saved there, so
+   * the change never switches the active workspace.
+   */
+  const updateWorkspaceTasks = (workspaceId: string | undefined, update: (tasks: Task[]) => Task[]) => {
+    const state = get();
+    if (!workspaceId || workspaceId === state.activeWorkspaceId) {
+      set(current => {
+        const tasks = update(current.tasks);
+        return tasks === current.tasks ? {} : { tasks, workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(current) };
+      });
+      return;
+    }
+    const session = state.workspaceRuntimeCacheById[workspaceId];
+    if (!session) return;
+    const tasks = update(session.tasks);
+    if (tasks === session.tasks) return;
+    const nextSession = { ...session, tasks };
+    set(current => ({ workspaceRuntimeCacheById: { ...current.workspaceRuntimeCacheById, [workspaceId]: nextSession } }));
+    args.persistWorkspaceSessionInBackground({ workspaceId, session: nextSession });
+  };
+
   return {
     // One back/forward step however many repository and workspace switches
     // it takes to show the task.
-    focusTaskAttention: withSurfaceTransition(async ({
-      taskId,
-      workspaceId,
-      repositoryPath,
-      refreshFromPersistence = false,
-    }) => {
-      const stateBefore = get();
-      if (repositoryPath && repositoryPath !== stateBefore.repositoryPath) {
-        await stateBefore.openRepository({ repositoryPath });
-      }
+    focusTaskAttention: withSurfaceTransition(
+      async ({
+        taskId,
+        workspaceId,
+        repositoryPath,
+        refreshFromPersistence = false,
+        workspaceArchived = false,
+        messageId,
+        searchQuery,
+        searchSnippet,
+      }) => {
+        const stateBefore = get();
+        if (repositoryPath && repositoryPath !== stateBefore.repositoryPath) {
+          await stateBefore.openRepository({ repositoryPath });
+        }
 
-      let stateAfterRepositoryOpen = get();
-      const resolvedWorkspaceId =
-        workspaceId ??
-        stateAfterRepositoryOpen.taskWorkspaceIdById[taskId] ??
-        stateAfterRepositoryOpen.activeWorkspaceId;
+        let stateAfterRepositoryOpen = get();
+        const resolvedWorkspaceId =
+          workspaceId ??
+          stateAfterRepositoryOpen.taskWorkspaceIdById[taskId] ??
+          stateAfterRepositoryOpen.activeWorkspaceId;
 
-      if (
-        resolvedWorkspaceId &&
-        !stateAfterRepositoryOpen.workspaces.some(
-          (workspace) => workspace.id === resolvedWorkspaceId,
-        )
-      ) {
-        // Host-created worktrees appear in git before this renderer list.
-        await stateAfterRepositoryOpen.refreshWorkspaces();
-        stateAfterRepositoryOpen = get();
-      }
+        if (workspaceArchived && resolvedWorkspaceId && repositoryPath) {
+          if (!await openArchivedSearchView({workspaceId:resolvedWorkspaceId,repositoryPath,taskId},set,get)) return;
+          get().selectTask({taskId,allowArchived:true});
+          if (messageId) set(state=>({focusTranscriptToolRequest:{taskId,messageId,searchQuery,searchSnippet,nonce:(state.focusTranscriptToolRequest?.nonce ?? 0)+1}}));
+          return;
+        }
 
-      if (
-        resolvedWorkspaceId &&
-        resolvedWorkspaceId !== stateAfterRepositoryOpen.activeWorkspaceId
-      ) {
-        await stateAfterRepositoryOpen.switchWorkspace({
-          workspaceId: resolvedWorkspaceId,
-        });
-      }
+        if (
+          resolvedWorkspaceId &&
+          !stateAfterRepositoryOpen.workspaces.some(
+            (workspace) => workspace.id === resolvedWorkspaceId,
+          )
+        ) {
+          // Host-created worktrees appear in git before this renderer list.
+          await stateAfterRepositoryOpen.refreshWorkspaces();
+          stateAfterRepositoryOpen = get();
+        }
 
-      if (refreshFromPersistence && resolvedWorkspaceId) {
-        const shell = await loadWorkspaceShellForRestore({
-          workspaceId: resolvedWorkspaceId,
-        });
-        const persistedTask =
-          shell?.tasks.find((task) => task.id === taskId) ?? null;
-        if (persistedTask) {
-          set((state) => {
-            if (state.activeWorkspaceId !== resolvedWorkspaceId) {
-              return {};
-            }
-            const nextTasks = state.tasks.some((task) => task.id === taskId)
-              ? state.tasks.map((task) =>
-                  task.id === taskId
-                    ? { ...persistedTask, title: task.title, titleManuallySet: task.titleManuallySet }
-                    : task,
-                )
-              : [persistedTask, ...state.tasks];
-            const persistedDraft = shell?.promptDraftByTask[taskId];
-            const persistedProviderSession =
-              shell?.providerSessionByTask[taskId];
-            return {
-              tasks: nextTasks,
-              messagesByTask: {
-                ...state.messagesByTask,
-                [taskId]: [],
-              },
-              messageCountByTask: {
-                ...state.messageCountByTask,
-                [taskId]: shell?.messageCountByTask[taskId] ?? 0,
-              },
-              promptDraftByTask: persistedDraft
-                ? {
-                    ...state.promptDraftByTask,
-                    [taskId]: persistedDraft,
-                  }
-                : state.promptDraftByTask,
-              providerSessionByTask: persistedProviderSession
-                ? {
-                    ...state.providerSessionByTask,
-                    [taskId]: persistedProviderSession,
-                  }
-                : state.providerSessionByTask,
-              taskWorkspaceIdById: {
-                ...state.taskWorkspaceIdById,
-                [taskId]: resolvedWorkspaceId,
-              },
-            };
+        if (
+          resolvedWorkspaceId &&
+          resolvedWorkspaceId !== stateAfterRepositoryOpen.activeWorkspaceId
+        ) {
+          await stateAfterRepositoryOpen.switchWorkspace({
+            workspaceId: resolvedWorkspaceId,
           });
         }
-      }
 
-      const stateAfterWorkspaceOpen = get();
-      stateAfterWorkspaceOpen.selectTask({ taskId });
-      set((state) => ({
-        focusPendingInteractionRequest: {
-          taskId,
-          nonce: (state.focusPendingInteractionRequest?.nonce ?? 0) + 1,
-        },
-      }));
-    }),
+        if (refreshFromPersistence && resolvedWorkspaceId) {
+          const shell = await loadWorkspaceShellForRestore({
+            workspaceId: resolvedWorkspaceId,
+          });
+          const persistedTask =
+            shell?.tasks.find((task) => task.id === taskId) ?? null;
+          if (persistedTask) {
+            set((state) => {
+              if (state.activeWorkspaceId !== resolvedWorkspaceId) {
+                return {};
+              }
+              const nextTasks = state.tasks.some((task) => task.id === taskId)
+                ? state.tasks.map((task) =>
+                    task.id === taskId
+                      ? keepRendererOwnedTaskFields(persistedTask, task)
+                      : task,
+                  )
+                : [persistedTask, ...state.tasks];
+              const persistedDraft = shell?.promptDraftByTask[taskId];
+              const persistedProviderSession =
+                shell?.providerSessionByTask[taskId];
+              return {
+                tasks: nextTasks,
+                messagesByTask: {
+                  ...state.messagesByTask,
+                  [taskId]: [],
+                },
+                messageCountByTask: {
+                  ...state.messageCountByTask,
+                  [taskId]: shell?.messageCountByTask[taskId] ?? 0,
+                },
+                promptDraftByTask: persistedDraft
+                  ? {
+                      ...state.promptDraftByTask,
+                      [taskId]: persistedDraft,
+                    }
+                  : state.promptDraftByTask,
+                providerSessionByTask: persistedProviderSession
+                  ? {
+                      ...state.providerSessionByTask,
+                      [taskId]: persistedProviderSession,
+                    }
+                  : state.providerSessionByTask,
+                taskWorkspaceIdById: {
+                  ...state.taskWorkspaceIdById,
+                  [taskId]: resolvedWorkspaceId,
+                },
+              };
+            });
+          }
+        }
+
+        const stateAfterWorkspaceOpen = get();
+        stateAfterWorkspaceOpen.selectTask({ taskId, allowArchived: Boolean(messageId || searchQuery) });
+        if (messageId) {
+          set((state) => ({
+            focusTranscriptToolRequest: {
+              taskId,
+              messageId,
+              searchQuery,
+              searchSnippet,
+              nonce: (state.focusTranscriptToolRequest?.nonce ?? 0) + 1,
+            },
+          }));
+          return;
+        }
+        set((state) => ({
+          focusPendingInteractionRequest: {
+            taskId,
+            nonce: (state.focusPendingInteractionRequest?.nonce ?? 0) + 1,
+          },
+        }));
+      },
+    ),
     requestTaskScrollToLatest: ({ taskId }) =>
       set((state) => reduceTaskScrollToLatestRequest({ state, taskId })),
     focusTranscriptTool: ({ taskId, toolUseId }) => {
@@ -227,11 +279,23 @@ export function createTaskCoreActions(args: {
         },
       }));
     },
-    selectTask: ({ taskId }) => {
+    focusTranscriptMessage: ({ taskId, messageId }) => {
+      if (!taskId || !messageId) {
+        return;
+      }
+      set((state) => ({
+        focusTranscriptToolRequest: {
+          taskId,
+          messageId,
+          nonce: (state.focusTranscriptToolRequest?.nonce ?? 0) + 1,
+        },
+      }));
+    },
+    selectTask: ({ taskId, allowArchived }) => {
       const stateBefore = get();
       const targetTask =
         stateBefore.tasks.find((task) => task.id === taskId) ?? null;
-      if (!targetTask || isTaskArchived(targetTask)) {
+      if (!targetTask || (isTaskArchived(targetTask) && !allowArchived)) {
         return;
       }
       const workspaceId =
@@ -255,7 +319,7 @@ export function createTaskCoreActions(args: {
         stateBefore.activeSurface.kind === "task" &&
         stateBefore.activeSurface.taskId === taskId
       ) {
-        if (workspaceId && shouldLoadMessages) {
+        if (workspaceId && (shouldLoadMessages || (stateBefore.taskMessageWindowOffsetByTask?.[taskId] ?? 0) > 0)) {
           void loadTaskMessagesIntoSession({
             workspaceId,
             taskId,
@@ -274,7 +338,7 @@ export function createTaskCoreActions(args: {
           : [...state.openTaskTabIds, taskId],
         workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
       }));
-      if (workspaceId && shouldLoadMessages) {
+      if (workspaceId && (shouldLoadMessages || (stateBefore.taskMessageWindowOffsetByTask?.[taskId] ?? 0) > 0)) {
         void loadTaskMessagesIntoSession({
           workspaceId,
           taskId,
@@ -282,7 +346,7 @@ export function createTaskCoreActions(args: {
         });
       }
     },
-    loadTaskMessages: async ({ taskId, mode = "latest" }) => {
+    loadTaskMessages: async ({ taskId, mode = "latest", messageId }) => {
       const state = get();
       const workspaceId =
         state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId;
@@ -293,6 +357,7 @@ export function createTaskCoreActions(args: {
         workspaceId,
         taskId,
         mode,
+        messageId,
       });
     },
     clearTaskSelection: () =>
@@ -459,38 +524,16 @@ export function createTaskCoreActions(args: {
       });
     },
     updateWorkspaceInformation: ({ updater }) => {
-      let change:
-        | {
-            previous: AppState["workspaceInformation"];
-            next: AppState["workspaceInformation"];
-          }
-        | undefined;
       set((state) => {
         const nextWorkspaceInformation = updater(state.workspaceInformation);
         if (nextWorkspaceInformation === state.workspaceInformation) {
           return state;
         }
-        change = {
-          previous: state.workspaceInformation,
-          next: nextWorkspaceInformation,
-        };
         return {
           workspaceInformation: nextWorkspaceInformation,
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
-      if (change) {
-        const state = get();
-        notifyMartinInformationEdited({
-          context: collectMartinTriggerContext(
-            state,
-            state.activeWorkspaceId,
-          ),
-          settings: state.settings.martinSync,
-          previous: change.previous,
-          next: change.next,
-        });
-      }
     },
     applyExternalWorkspaceInformationUpdate: ({
       workspaceId,
@@ -568,6 +611,7 @@ export function createTaskCoreActions(args: {
       });
     },
     createTask: ({ title }) => {
+      if (useArchivedSearchView.getState().view?.workspaceId === get().activeWorkspaceId) return;
       const trimmed = (title ?? "").trim();
       const stateBefore = get();
       const workspaceId = stateBefore.activeWorkspaceId;
@@ -703,6 +747,10 @@ export function createTaskCoreActions(args: {
       });
     },
     restoreTask: ({ taskId }) => {
+      if (useArchivedSearchView.getState().view?.workspaceId === get().activeWorkspaceId) {
+        void restoreArchivedSearchView(taskId,set,get);
+        return;
+      }
       const stateBefore = get();
       const targetTask = stateBefore.tasks.find((task) => task.id === taskId);
       if (!targetTask || !isTaskArchived(targetTask)) {
@@ -740,7 +788,7 @@ export function createTaskCoreActions(args: {
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
-      if (workspaceId && shouldLoadMessages) {
+      if (workspaceId && (shouldLoadMessages || (stateBefore.taskMessageWindowOffsetByTask?.[taskId] ?? 0) > 0)) {
         void loadTaskMessagesIntoSession({
           workspaceId,
           taskId,
@@ -749,6 +797,7 @@ export function createTaskCoreActions(args: {
       }
     },
     duplicateTask: async ({ taskId }) => {
+      if (useArchivedSearchView.getState().view?.workspaceId === get().activeWorkspaceId) return;
       const stateBefore = get();
       const sourceTask = stateBefore.tasks.find((task) => task.id === taskId);
       if (!sourceTask) {
@@ -776,9 +825,13 @@ export function createTaskCoreActions(args: {
         id: crypto.randomUUID(),
         isStreaming: false,
       }));
+      // A copy is a new conversation, not a fork of the source's response.
+      const { forkParent: _forkParent, ...copiedTask } = sourceTask;
       set((state) => {
+        // Pin and History placement belong to the original, not its copy.
+        const { pinned: _pinned, historyOrderKey: _historyOrderKey, ...copySource } = copiedTask;
         const duplicatedTask: Task = {
-          ...sourceTask,
+          ...copySource,
           id: nextTaskId,
           title: i18n.t("app:taskCoreActions.copyTitle", { title: sourceTask.title }),
           updatedAt: buildRecentTimestamp(),
@@ -792,10 +845,6 @@ export function createTaskCoreActions(args: {
           activeTaskId: duplicatedTask.id,
           activeSurface: { kind: "task", taskId: duplicatedTask.id },
           openTaskTabIds: [...state.openTaskTabIds, duplicatedTask.id],
-          taskCheckpointById: {
-            ...state.taskCheckpointById,
-            [duplicatedTask.id]: state.taskCheckpointById[taskId] ?? "",
-          },
           messagesByTask: {
             ...state.messagesByTask,
             [duplicatedTask.id]: duplicatedMessages,
@@ -922,6 +971,15 @@ export function createTaskCoreActions(args: {
           claudeBinaryPath: state.settings.claudeBinaryPath || undefined,
         },
       });
+    },
+    pinTask: ({ taskId, pinned, workspaceId }) => {
+      updateWorkspaceTasks(workspaceId, tasks => tasks.map(task => task.id === taskId ? { ...task, pinned } : task));
+    },
+    reorderTaskHistory: ({ workspaceId, activeTaskId, overTaskId, visibleTaskIds }) => {
+      updateWorkspaceTasks(workspaceId, tasks => placeTaskInHistory({ tasks, activeTaskId, overTaskId, visibleTaskIds }));
+    },
+    resetTaskHistoryOrder: ({ workspaceId }) => {
+      updateWorkspaceTasks(workspaceId, resetTaskHistoryOrder);
     },
     reorderTasks: ({ activeTaskId, overTaskId, filter }) => {
       set((state) => {

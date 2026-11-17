@@ -84,7 +84,10 @@
     "chatAreaImpl2": "Select a local repository folder to get started.",
     "chatAreaImpl3": "Select Folder",
     "chatAreaImpl4": "Pick a Workspace",
-    "chatAreaImpl5": "Select a workspace from the left sidebar to continue."
+    "chatAreaImpl5": "Select a workspace from the left sidebar to continue.",
+    "archivedOn": "Archived on {{date}} · Restore to continue.",
+    "archivedUndated": "Archived. Restore to continue.",
+    "restore": "Restore"
   },
   "chatInput": {
     "detail": "Provider command catalog API is unavailable in this build.",
@@ -868,6 +871,8 @@
     "unavailable": "Open this conversation in the Stave desktop app to use this view.",
     "fullscreen": "Full screen",
     "exitFullscreen": "Exit full screen",
+    "showText": "Show text result",
+    "hideText": "Hide text result",
     "messageConfirm": {
       "title": "Send this message from the view?",
       "description": "{{server}} wants to add this message to the conversation as yours. If the agent is still working, it waits in the queue.",
@@ -884,7 +889,9 @@
   },
   "toolOutputImages": {
     "label": "Image {{index}}",
-    "open": "Open {{label}} full size",
+    "open": "Open {{label}} at original size",
+    "attached_one": "{{count}} image attached to this reply",
+    "attached_other": "{{count}} images attached to this reply",
     "loading": "Loading image…",
     "missing": "This image is no longer available."
   },
@@ -1331,11 +1338,9 @@
   },
   "returnSummary": {
     "title": "Welcome back",
-    "sinceVisit": "You were last here {{time}}",
-    "sinceMessage": "Your last message here was {{time}}",
-    "dismiss": "Dismiss",
+    "awaySinceVisit": "Away {{duration}} · since {{time}}",
+    "awaySinceMessage": "{{duration}} since your last message at {{time}}",
     "labelDecision": "Last decision",
-    "labelChanges": "While you were away",
     "decisionAllowed": "You allowed {{tool}}: {{description}}",
     "decisionDenied": "You denied {{tool}}: {{description}}",
     "changesTurns_one": "{{count}} turn finished",
@@ -1366,7 +1371,6 @@
     "stopStoppedPlain": "You stopped its last turn",
     "stopNone": "No turn has run yet",
     "linkShow": "Show",
-    "linkActivity": "Activity",
     "linkHandoff": "Handoff",
     "nextRemaining": "Next: {{text}}",
     "actionRequest": "Show request",
@@ -1376,7 +1380,17 @@
     "actionRun": "Open run progress",
     "actionHandoff": "Open handoff",
     "actionSideQuestion": "Ask a side question",
-    "actionComposer": "Write a reply"
+    "actionComposer": "Write a reply",
+    "labelNext": "Next",
+    "turnFinished": "Finished",
+    "turnFailed": "Failed",
+    "turnStopped": "Stopped",
+    "turnUntitled": "A turn",
+    "tallyNeedsYou": "Needs you",
+    "showMore_one": "Show {{count}} more",
+    "showMore_other": "Show {{count}} more",
+    "showLess": "Show less",
+    "gotIt": "Got it"
   },
   "userInputDelivery": {
     "failedWithDetail": "User input delivery failed: {{detail}}",
@@ -1434,5 +1448,36 @@
     "viewResult": "View result",
     "collapseResult": "Collapse result",
     "reportedHistory": "Reported work history"
+  },
+  "featureDiscovery": {
+    "steering": "Want to guide the running turn? Enable steering.",
+    "enable": "Enable",
+    "dismiss": "Dismiss tip"
+  },
+  "forkReturn": {
+    "sendResult": "Send result to original"
+  },
+  "turnFiles": {
+    "restore": "Restore files to before this turn",
+    "keep": "Keep conversation, restore files",
+    "rollback": "Restore files and roll back conversation",
+    "description": "Restore the saved files from before this turn. Current files are saved first so you can undo the restore. Conversation rollback removes this turn and later messages. To continue a conversation from an earlier point, you can also fork it.",
+    "undo": "Undo restore",
+    "restored": "Files restored",
+    "undone": "File restore undone",
+    "failed": "Files could not be restored. Try again after checking the workspace.",
+    "partial": "Files were restored, but the conversation could not be rolled back: {{detail}}. You can undo the file restore.",
+    "runningTask": "Wait for this task to finish before restoring files.",
+    "sharedWorktree": "Another task is running in this worktree. Wait for it to finish.",
+    "otherTaskChanges": "Files in this worktree may have changed after this turn. The restore was refused to protect those changes.",
+    "missingSnapshot": "This turn has no retained file snapshot.",
+    "unavailable": "File snapshots are unavailable for this workspace.",
+    "terminalRunning": "A terminal in this worktree is running a command. Wait for it to finish or close the terminal.",
+    "obstructed": "A file or folder in the worktree is in the way, so no files were changed.",
+    "noSnapshot": "No snapshot for this turn: {{reason}}.",
+    "skipReason": {
+      "captureFailed": "the files could not be saved when the turn started",
+      "workspaceUnavailable": "the workspace folder was unavailable when the turn started"
+    }
   }
 }

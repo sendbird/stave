@@ -1,18 +1,21 @@
 import { afterAll, expect, mock, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { UsageStatisticsStore } from "../electron/persistence/usage-statistics-store";
+import { DailyUsageStore } from "../electron/persistence/daily-usage-store";
 import { usageStatisticsPreload } from "../electron/persistence/usage-statistics-preload";
 import { UsageStatisticsArgsSchema, USAGE_STATISTICS_IPC, type UsageStatisticsResponse } from "../src/lib/providers/usage-statistics";
 
 const handlers = new Map<string, (event: unknown, input: unknown) => Promise<unknown>>();
 const db = new Database(":memory:");
 db.exec("CREATE TABLE turns (id TEXT PRIMARY KEY, provider_id TEXT, created_at TEXT, completed_at TEXT, usage_json TEXT)");
+db.exec("CREATE TABLE app_state (key TEXT PRIMARY KEY, value_json TEXT, updated_at TEXT)");
 const store = new UsageStatisticsStore(db);
+const daily = new DailyUsageStore(db, store);
 let failRead = false;
 mock.module("electron", () => ({ ipcMain: { handle: (channel: string, handler: (event: unknown, input: unknown) => Promise<unknown>) => handlers.set(channel, handler) } }));
 mock.module("../electron/main/state", () => ({ ensurePersistenceReady: async () => {
   if (failRead) throw new Error("private database path must stay in main");
-  return { usageStatistics: store };
+  return { usageStatistics: store, dailyUsage: daily };
 } }));
 const { registerUsageStatisticsHandlers } = await import("../electron/main/ipc/usage-statistics");
 registerUsageStatisticsHandlers();
@@ -23,6 +26,20 @@ const bridge = usageStatisticsPreload(async (channel, input) => {
 });
 const args = UsageStatisticsArgsSchema.parse({ from: "2026-10-01T00:00:00Z", to: "2026-10-02T00:00:00Z", timeZone: "UTC" });
 afterAll(() => { db.close(); mock.restore(); });
+
+test("daily settings cross preload, strict IPC validation and real SQLite; admission sees updates immediately", async () => {
+  expect((await bridge.dailyUsage.read()).providers.every((row) => row.limit === null)).toBe(true);
+  const now = new Date().toISOString();
+  store.beginTurn({ id: "daily-turn", providerId: "codex", createdAt: now });
+  store.completeTurn("daily-turn", now, JSON.stringify({ inputTokens: 30, outputTokens: 20 }));
+  const updated = await bridge.dailyUsage.update({ providerId: "codex", limit: { unit: "tokens", amount: 50 } });
+  expect(updated.providers.find((row) => row.providerId === "codex")).toMatchObject({ tokens: 50, reached: true });
+  expect(daily.refusal("codex")).toBeTruthy();
+  await expect(handlers.get("persistence:daily-limit-update")!({}, { providerId: "codex", limit: { unit: "tokens", amount: -1 } })).rejects.toThrow();
+  await expect(handlers.get("persistence:daily-limit-update")!({}, { providerId: "codex", limit: null, unknown: true })).rejects.toThrow();
+  await bridge.dailyUsage.update({ providerId: "codex", limit: null });
+  expect(daily.refusal("codex")).toBeNull();
+});
 
 test("preload -> validated IPC -> real SQLite -> JSON response preserves account scope and nullable cost", async () => {
   store.beginTurn({ id: "account-one", providerId: "codex", accountProfileId: "system-default", createdAt: args.from });

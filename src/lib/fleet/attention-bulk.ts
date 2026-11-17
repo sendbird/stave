@@ -1,3 +1,4 @@
+import { runFleetControl } from "./bulk-control";
 import { resultReviewKey, type ResultReview, type ResultReviewScope, type SetResultMarkedReviewedArgs } from "@/lib/reviews/result-review";
 import {
   getFleetAttentionTier,
@@ -74,6 +75,31 @@ export function planFleetOutcomeRead(items: readonly FleetAttentionItem[]): Flee
     }
   }
   return plan;
+}
+
+/**
+ * Reading every outcome uses each task's read mark, so it stays reversible with
+ * Mark as unread. Only an outcome with no task falls back to its notification.
+ */
+export function planFleetOutcomeTaskRead(items: readonly FleetAttentionItem[]): {
+  targets: { workspaceId: string; taskId: string }[];
+  notificationIds: string[];
+} {
+  const targets: { workspaceId: string; taskId: string }[] = [];
+  const notificationIds: string[] = [];
+  const seen = new Set<string>();
+  for (const item of items) {
+    if (item.kind !== "run-failed" && item.kind !== "result-ready") continue;
+    const taskId = item.resultReview?.taskId ?? item.taskId;
+    const workspaceId = item.resultReview?.workspaceId ?? item.workspaceId;
+    if (taskId) {
+      const key = JSON.stringify([workspaceId, taskId]);
+      if (!seen.has(key)) { seen.add(key); targets.push({ workspaceId, taskId }); }
+    } else if (item.notificationId && !notificationIds.includes(item.notificationId)) {
+      notificationIds.push(item.notificationId);
+    }
+  }
+  return { targets, notificationIds };
 }
 
 /** Explicit review applies only to saved outcomes, never notification-only rows. */
@@ -210,13 +236,13 @@ export async function applyFleetBulkPlan(args: {
     | { kind: "marked-reviewed" }
     | { kind: "read"; id: string; changed: boolean }
     | { kind: "snoozed"; id: string };
-  const settled = await Promise.allSettled<Settled>([
-    ...batches.map((scopes) =>
+  const jobs: Array<() => Promise<Settled>> = [
+    ...batches.map((scopes) => () =>
       operations
         .setResultsReviewed({ scopes, reviewed: true })
         .then((updated): Settled => ({ kind: "reviewed", scopes, updated })),
     ),
-    ...(plan.markedReviewed ? pending.map(async (scope): Promise<Settled> => {
+    ...(plan.markedReviewed ? pending.map((scope) => async (): Promise<Settled> => {
       if (!operations.setResultMarkedReviewed) throw new Error("Explicit result review is unavailable.");
       const saved = await operations.setResultMarkedReviewed({ ...scope, markedReviewed: true });
       if (resultReviewKey(saved) !== resultReviewKey(scope) || !saved.markedReviewedAt || !saved.reviewedAt) {
@@ -224,17 +250,23 @@ export async function applyFleetBulkPlan(args: {
       }
       return { kind: "marked-reviewed" };
     }) : []),
-    ...plan.notificationIds.map((id) =>
+    ...plan.notificationIds.map((id) => () =>
       operations
         .markNotificationRead({ id, resolvedAt: args.resolvedAt })
         .then((changed): Settled => ({ kind: "read", id, changed })),
     ),
-    ...plan.snoozes.map((snooze) =>
+    ...plan.snoozes.map((snooze) => () =>
       operations
         .snoozeFleetAttention({ ...snooze, snoozedUntil: args.snoozedUntil })
         .then((): Settled => ({ kind: "snoozed", id: snooze.attentionId })),
     ),
-  ]);
+  ];
+  const settled: PromiseSettledResult<Settled>[] = new Array(jobs.length);
+  await runFleetControl(jobs.map((job, index) => ({ job, index })), async ({ job, index }) => {
+    try { settled[index] = { status: "fulfilled", value: await job() }; }
+    catch (reason) { settled[index] = { status: "rejected", reason }; }
+    return null;
+  });
   const outcome: FleetBulkOutcome = {
     readResults: 0,
     read: [],

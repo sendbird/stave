@@ -39,6 +39,7 @@ import { observeWorkspaceScript } from "../electron/host-service/supervision/wor
 import { createAgentRunActionExecutor, type AgentRunScmPort } from "../electron/host-service/supervision/agent-run-actions";
 import { runCommandArgs } from "../electron/main/utils/command";
 import { createAgentRunRouter } from "../electron/host-service/supervision/agent-run-route-host";
+import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import type { AgentConfig } from "../src/lib/agents/schema";
 import { buildAgentRunStartInput, buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
 import { agentRunWorkQueueLane } from "../src/lib/agent-runs/lanes";
@@ -55,6 +56,10 @@ import { describeDoneWhen } from "../src/lib/agent-runs/agent-run-status";
 import { createConstrainedHostRouter } from "../electron/host-service/supervision/constrained-route-host";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import type { AgentAssignment } from "../src/lib/agents/assign";
+import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adaptive-policy";
+import { createRoutingHostHarness } from "./fixtures/agent-run-routing-host";
+import { buildAgentRouteSettings } from "../src/store/agent-route-settings-sync";
+import { defaultSettings } from "../src/store/app-settings";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -276,6 +281,40 @@ async function startedAgentRun(
   await harness.tick();
   return detail.agentRun.id;
 }
+
+test("daily usage refuses new Runs, pauses at the next stage boundary and resumes after a limit change", async () => {
+  let limited = true;
+  const reason = "Daily limit reached. Change it in Settings > Providers, then resume.";
+  const harness = createHarness({ extra: { dailyUsageLimit: () => limited ? reason : null } });
+  await expect(harness.runtime.startAgentRun(startInput())).rejects.toThrow(reason);
+  expect(harness.store.listActiveAgentRuns()).toHaveLength(0);
+  expect(harness.runCalls).toHaveLength(0);
+  limited = false;
+  const id = await startedAgentRun(harness);
+  expect(harness.runCalls).toHaveLength(1);
+  limited = true;
+  // Spending in this turn does not interrupt it or start another one.
+  await harness.tick();
+  expect(harness.aggregate(id).agentRun.state).toBe("running");
+  expect(harness.runCalls).toHaveLength(1);
+  await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  harness.endTurn("turn-1");
+  await harness.tick();
+  expect(harness.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", dailyUsageLimit: true, reasonDetail: reason, turnCount: 1 });
+  expect(harness.aggregate(id).agentRun.usageLimit).toBeUndefined();
+  expect(harness.runCalls).toHaveLength(1);
+  // A restart preserves the pause, even if the local day has since rolled over.
+  const restored = createHarness({ store: harness.store, turns: harness.turns, extra: { dailyUsageLimit: () => null } });
+  await restored.tick();
+  expect(restored.aggregate(id).agentRun.state).toBe("paused");
+  expect(restored.runCalls).toHaveLength(0);
+  limited = false;
+  await harness.runtime.resume({ agentRunId: id });
+  await harness.tick();
+  expect(harness.aggregate(id).agentRun.state).toBe("running");
+  expect(harness.aggregate(id).agentRun.dailyUsageLimit).toBeUndefined();
+  expect(harness.runCalls).toHaveLength(2);
+});
 
 test("a report that paraphrases a required criterion is refused in the turn instead of halting the run", async () => {
   // A Tars Work stage reported every criterion met but rewrote each text with its evidence, so none matched and the run halted.
@@ -891,6 +930,26 @@ describe("run runtime: failures and restarts", () => {
     expect(restarted.closedTurns).toEqual(["turn-1"]);
   });
 
+  test("a stage turn the admission queue recovered at boot is not also closed as interrupted", async () => {
+    const store = new AgentRunStore(new Database(":memory:"));
+    const turns: AgentRunTurnRow[] = [];
+    const first = createHarness({ store, turns });
+    const agentRunId = await startedAgentRun(first, startInput());
+    // The real admission gate after a restart: one slot, held, so the recovered stage turn waits in the queue.
+    const gate = createTurnAdmission({ limit: () => 1, save: () => {} });
+    await gate.acquire({ turnId: "blocker", priority: "user" });
+    void gate.acquire({ turnId: "turn-1", taskId: "task-1", priority: "automatic" }).catch(() => {});
+    const restarted = createHarness({ store, turns, turnPrefix: "resumed", extra: { isQueuedTurn: (turnId) => gate.isQueued(turnId) } });
+    restarted.runtime.start();
+    await restarted.tick();
+    expect(gate.isQueued("turn-1")).toBe(true);
+    expect(restarted.closedTurns).toEqual([]);
+    expect(store.listEventsByKind(agentRunId, ["turn-interrupted"])).toEqual([]);
+    expect(restarted.runCalls).toHaveLength(0);
+    gate.release("blocker");
+    gate.release("turn-1");
+  });
+
   test("a stage whose turn a restart interrupted resumes without spending its reminder", async () => {
     const store = new AgentRunStore(new Database(":memory:"));
     const turns: AgentRunTurnRow[] = [];
@@ -1017,12 +1076,17 @@ describe("run runtime: failures and restarts", () => {
 describe("run runtime: Stave action stages", () => {
   test("a real nonzero script blocks its stage even when stdout claims success", async () => {
     const store = new AgentRunStore(new Database(":memory:"));
-    const performAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => "/tmp", runScript: async () => {
+    let actionSettled!: () => void;
+    const actionFinished = new Promise<void>((resolve) => { actionSettled = resolve; });
+    const executeAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => "/tmp", runScript: async () => {
       const observed = await observeWorkspaceScript({ cwd: "/tmp", readRevision: async () => ({ status: "unknown", reason: "unavailable" }), run: () => runCommandArgs({ cwd: "/tmp", command: process.execPath, commandArgs: ["-e", "console.log('all tests passed; exit 0'); process.exit(7)"] }) });
       return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
     } });
+    const performAction: typeof executeAction = async (request) => { try { return await executeAction(request); } finally { actionSettled(); } };
     const harness = createHarness({ store, performAction, extra: { listWorkspaceActionScripts: async () => [{ scriptId: "test", definitionHash: "a".repeat(64) }] } });
     const id = await startedAgentRun(harness, startInput({ workflow: workflow([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
+    // Wait for the real subprocess, rather than assuming it finishes within 300ms.
+    await actionFinished;
     for (let attempt = 0; attempt < 30 && harness.current(id).status !== "blocked"; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
     }
@@ -1037,14 +1101,18 @@ describe("run runtime: Stave action stages", () => {
       git("init"); writeFileSync(join(cwd, "tracked.txt"), "original"); git("add", ".");
       git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "test: record workspace");
       const store = new AgentRunStore(new Database(":memory:"));
-      const performAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => cwd, runScript: async () => {
+      let actionSettled!: () => void;
+      const actionFinished = new Promise<void>((resolve) => { actionSettled = resolve; });
+      const executeAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => cwd, runScript: async () => {
         const observed = await observeWorkspaceScript({ cwd, run: () => runCommandArgs({ cwd, command: process.execPath, commandArgs: ["-e", "process.exit(0)"] }) });
         return { ok: true, definitionHash: "a".repeat(64), exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
       } });
+      const performAction: typeof executeAction = async (request) => { try { return await executeAction(request); } finally { actionSettled(); } };
       const harness = createHarness({ store, workspacePath: cwd, performAction, extra: { listWorkspaceActionScripts: async () => [{ scriptId: "test", definitionHash: "a".repeat(64) }] } });
       const id = await startedAgentRun(harness, startInput({ workflow: workflow([{ ...DRAFT, role: "plan" }, { id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
       await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] } });
       harness.endTurn("turn-1"); await harness.tick();
+      await actionFinished;
       for (let attempt = 0; attempt < 30 && harness.aggregate(id).agentRun.state !== "completed"; attempt++) {
         await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
       }
@@ -1874,6 +1942,72 @@ test("a new persisted Run event invalidates an old route before dispatch", async
 });
 
 describe("Agent run team limits", () => {
+  for (const providerId of ["codex", "claude-code"] as const) {
+    test(`${providerId}: trusted Tars Automatic uses host admission, persisted policy and restart routing with global Auto off`, async () => {
+      const host = createRoutingHostHarness();
+      const light = providerId === "codex" ? "gpt-6-luna" : "claude-haiku-5-5";
+      const strong = providerId === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
+      const extra = { freezeResources: host.freezeResources, routeConstrainedTurn: host.router };
+      const h = createHarness({ store: host.runs, extra });
+      h.setSnapshot({ providerId, model: light });
+      const admitted = host.admitTars(startInput({ origin: "agent" }), providerId);
+      const detail = await h.runtime.startAgentRun(admitted.input, undefined, admitted.admission);
+      const id = detail.agentRun.id;
+      await h.tick();
+      expect(host.runs.resourceConfig(id)?.policy.autoRouting).toBe(true);
+      expect(host.classified).toBe(1);
+      expect(h.runCalls[0]!.fingerprint).toEqual({ providerId, model: strong });
+      h.endTurn("turn-1"); h.runtime.stop();
+      // A new store/runtime reads the recorded admission; no host identity is resubmitted.
+      const restarted = createHarness({ store: new AgentRunStore(host.db), turns: h.turns, turnPrefix: "restarted", extra });
+      restarted.setSnapshot({ providerId, model: light });
+      await restarted.tick();
+      expect(host.classified).toBe(2);
+      expect(restarted.runCalls[0]!.fingerprint).toEqual({ providerId, model: strong });
+      // Helper admission uses the production parent-policy wiring with no explicit override.
+      expect(await host.router({ workspaceId: "ws-1", taskId: "child", parentTaskId: "task-1", providerId,
+        model: light, prompt: "Implement a small change" })).toMatchObject({ route: "auto", fingerprint: { model: strong } });
+      await restarted.runtime.cancel({ agentRunId: id }); host.db.close();
+    });
+    test(`${providerId}: ordinary composer Auto follows live global-off on continuation and restart`, async () => {
+      const host = createRoutingHostHarness(); host.saveSettings(true);
+      const model = providerId === "codex" ? "gpt-6-luna" : "claude-haiku-5-5";
+      const extra = { freezeResources: host.freezeResources, routeConstrainedTurn: host.router };
+      const h = createHarness({ store: host.runs, extra }); h.setSnapshot({ providerId, model });
+      const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 10, routingIntent: { autoRouting: true } }));
+      expect(host.runs.resourceConfig(id)?.policy).not.toHaveProperty("autoRouting");
+      expect(host.classified).toBe(1);
+      host.saveSettings(false);
+      await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+      h.endTurn("turn-1"); await h.tick();
+      expect(h.runCalls).toHaveLength(2); expect(host.classified).toBe(1);
+      h.endTurn("turn-2"); h.runtime.stop();
+      const restarted = createHarness({ store: new AgentRunStore(host.db), turns: h.turns, turnPrefix: "restarted", extra });
+      restarted.setSnapshot({ providerId, model }); await restarted.tick();
+      expect(restarted.runCalls).toHaveLength(1); expect(host.classified).toBe(1);
+      expect(await host.router({ workspaceId: "ws-1", taskId: "child", parentTaskId: "task-1", providerId, model,
+        prompt: "Implement a small change" })).toMatchObject({ route: "task-model" });
+      await restarted.runtime.cancel({ agentRunId: id }); host.db.close();
+    });
+  }
+  test("host admission with another responsibility's identity refuses before persisting resources or dispatch", async () => {
+    const host = createRoutingHostHarness();
+    const h = createHarness({ store: host.runs, extra: { freezeResources: host.freezeResources, routeConstrainedTurn: host.router } });
+    const admitted = host.admitTars(startInput({ origin: "agent" }), "claude-code");
+    await expect(h.runtime.startAgentRun({ ...admitted.input, workflow: { ...admitted.input.workflow, id: "unrelated-workflow" } },
+      undefined, admitted.admission)).rejects.toThrow("owned run identity changed");
+    expect(host.runs.listActiveAgentRuns()).toHaveLength(0); expect(h.runCalls).toHaveLength(0);
+    host.db.close();
+  });
+  test("renderer routing intent and Tars-looking metadata cannot grant durable Auto admission", async () => {
+    const host = createRoutingHostHarness();
+    const h = createHarness({ store: host.runs, extra: { freezeResources: host.freezeResources, routeConstrainedTurn: host.router } });
+    const admitted = host.admitTars(startInput({ origin: "agent" }), "claude-code");
+    const detail = await h.runtime.startAgentRun(admitted.input); await h.tick();
+    expect(host.runs.resourceConfig(detail.agentRun.id)?.policy).not.toHaveProperty("autoRouting");
+    expect(host.classified).toBe(0);
+    await h.runtime.cancel({ agentRunId: detail.agentRun.id }); host.db.close();
+  });
   const policy = (providerId: "claude-code" | "codex", patch = {}) => ({
     version: 1 as const, profile: "balanced" as const, providerId,
     allowedModels: providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-sonnet-5-5", "claude-opus-5-5"],
@@ -2832,7 +2966,8 @@ for (const delivery of ["async", undefined] as const) {
 test("a paused Run keeps its saved question answerable until Resume", async () => {
   const { runQuestionRequestId } = await import("../src/lib/agent-runs/persistent-question");
   const replies: string[] = [];
-  const h = createHarness({ extra: { runSupervisedTurn: async args => { if (args.questionAnswer) replies.push(args.prompt); return { turnId: `turn-${replies.length}` }; } } });
+  const priorities: Array<string | undefined> = [];
+  const h = createHarness({ extra: { runSupervisedTurn: async args => { if (args.questionAnswer) { replies.push(args.prompt); priorities.push(args.admissionPriority); } return { turnId: `turn-${replies.length}` }; } } });
   const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
   const stage = { agentRunId: id, stageId: DRAFT.id, attempt: 1 };
   const requestId = runQuestionRequestId(stage, "native-question");
@@ -2845,6 +2980,8 @@ test("a paused Run keeps its saved question answerable until Resume", async () =
   await h.runtime.resume({ agentRunId: id });
   await h.runtime.answerQuestion(answer);
   expect(replies).toEqual(["> Which filename?\n\nB.md"]);
+  // The user answered: under the global cap it waits as a user turn, ahead of automatic work.
+  expect(priorities).toEqual(["user"]);
   await h.runtime.cancel({ agentRunId: id });
   await expect(h.runtime.answerQuestion(answer)).rejects.toMatchObject({ code: "not-active" });
   h.runtime.stop();
@@ -2866,7 +3003,8 @@ test("Tars's reply as the user starts one plain turn on the lead task, and is re
   expect(turns).toHaveLength(0);
   await h.runtime.replyAsUser({ agentRunId: id, prompt: "Use the existing index." });
   // A plain chat turn: provider admission links it to the stage as the user's reply, never as a supervised stage turn.
-  expect(turns).toEqual([expect.objectContaining({ prompt: "Use the existing index.", workspaceId: "ws-1", taskId: "task-1" })]);
+  // The user's reply is admitted as a user turn.
+  expect(turns).toEqual([expect.objectContaining({ prompt: "Use the existing index.", workspaceId: "ws-1", taskId: "task-1", admissionPriority: "user" })]);
   expect(turns[0]!.agentRunStage).toBeUndefined();
   expect(turns[0]!.questionAnswer).toBeUndefined();
   expect(turns[0]).not.toHaveProperty("turnId");
@@ -3481,4 +3619,46 @@ describe("run runtime: hand-back restarts the started current stage", () => {
     expect(h.aggregate(id)).toEqual(before);
     h.runtime.stop();
   });
+});
+
+
+test("archives artifacts before report persistence and leaves a failed archive retryable", async () => {
+  let fail = true;
+  const h = createHarness({ extra: { archiveReportArtifacts: async (request) => {
+    expect(request.taskId).toBeTruthy();
+    if (fail) throw new Error("asset missing");
+    return { artifacts: request.artifacts.map((artifact) => ({ ...artifact, url: "https://example.com/archived", sourceUrl: artifact.url })), discard: async () => {} };
+  } } });
+  const id = await startedAgentRun(h);
+  const report = { ...COMPLETE, artifacts: [{ label: "Original", url: "file:///tmp/repo-ws/report.html", presentation: "example" }] };
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report })).rejects.toThrow("asset missing");
+  expect(h.current(id).report).toBeNull();
+  fail = false;
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report });
+  expect(h.current(id).report).toMatchObject({ artifacts: [{ url: "https://example.com/archived", sourceUrl: report.artifacts[0]!.url, presentation: "example" }] });
+});
+
+test("refuses a stale report before saving and discards a rejected batch without deleting existing reports", async () => {
+  let archives = 0, discards = 0;
+  const h = createHarness({ extra: { archiveReportArtifacts: async () => {
+    archives++;
+    return { artifacts: Array.from({ length: 101 }, (_, index) => ({ label: "Saved", url: `https://example.com/${index}` })), discard: async () => { discards++; } };
+  } } });
+  const id = await startedAgentRun(h);
+  await expect(h.runtime.reportStage({ agentRunKey: "missing", report: COMPLETE })).rejects.toThrow();
+  expect(archives).toBe(0);
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE })).rejects.toThrow("100");
+  expect(discards).toBe(1);
+  expect(h.current(id).report).toBeNull();
+});
+
+test("a failure after the report commits never discards its now-referenced saved pages", async () => {
+  let discards = 0;
+  const h = createHarness({ extra: { archiveReportArtifacts: async () => ({ artifacts: [{ label: "Saved", url: "https://example.com/saved" }], discard: async () => { discards++; } }) } });
+  const id = await startedAgentRun(h);
+  const apply = h.store.apply.bind(h.store);
+  h.store.apply = (...args) => { apply(...args); throw new Error("post-commit delivery failed"); };
+  await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE })).rejects.toThrow("post-commit");
+  expect(h.current(id).report).toMatchObject({ artifacts: [{ label: "Saved", url: "https://example.com/saved" }] });
+  expect(discards).toBe(0);
 });

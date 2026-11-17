@@ -99,9 +99,10 @@ describe("Auto settings routing levels", () => {
     expect(html).toContain("All (default)");
   });
 
-  test("Auto off says the settings below wait for it instead of repeating the switch in a badge", async () => {
+  test("Auto off distinguishes ordinary runs from Tars Automatic", async () => {
     // The default settings start with Auto off.
     const html = await renderSection();
-    expect(html).toContain("Auto is off. These settings are kept and apply once you turn it on.");
+    expect(html).toContain("Auto is off for the composer and ordinary Agent runs.");
+    expect(html).toContain("These settings still apply to Tars Execution set to Automatic.");
   });
 });

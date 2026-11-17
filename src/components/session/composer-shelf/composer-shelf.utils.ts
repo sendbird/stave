@@ -579,7 +579,7 @@ export function describeQueueLine(args: {
     return {
       countLabel: i18n.t("session:remaining.presentationCopy338", { v1: args.items.length }),
       preview: summarizeQueuedTurnText(front),
-      pausedLabel: "paused",
+      pausedLabel: i18n.t("composer:composerShelfUtils.restoredPausedLabel"),
       // Nothing sends on its own until the user says the work still applies.
       frontAction: "resume",
       hint: i18n.t("composer:composerShelfUtils.hint"),

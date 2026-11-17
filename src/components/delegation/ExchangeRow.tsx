@@ -19,8 +19,7 @@ import {
   describeExchangeStatus,
   exchangeStatusToWorkState,
 } from "@/lib/delegation/format";
-import { AgentIdentity } from "./AgentIdentity";
-import { DelegateRoute } from "./DelegateRoute";
+import { ExchangeIdentity } from "./ExchangeIdentity";
 import { ExchangeDetail } from "./ExchangeDetail";
 import { delegationStyles as styles } from "./delegation.styles";
 
@@ -117,14 +116,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
             >
               {exchange.title}
             </span>
-            <AgentIdentity
-              compact={!props.resultFirst}
-              providerId={exchange.identity.providerId}
-              model={exchange.identity.model}
-              effort={exchange.identity.effort}
-              modelEvidence={exchange.identity.modelEvidence}
-            />
-            <DelegateRoute exchange={exchange} />
+            <ExchangeIdentity compact={!props.resultFirst} exchange={exchange} />
           </span>
           <span
             className={sx(

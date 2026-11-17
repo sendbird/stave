@@ -99,15 +99,16 @@ describe("queue priority controls", () => {
 
   test("a move leaves one record line with how it was asked and the new priority; a refusal says why", async () => {
     const html = (value: TarsActionRecord, title = "Refresh the API reference") => renderToStaticMarkup(createElement(TarsActionRecordLine, { record: value, title }));
-    // What was done and to which work, then how it was asked with the new priority, then how it came out.
-    expect(tarsRecordText(html(record({})))).toContain("Do first Refresh the API reference click · Priority 70 Applied");
-    expect(tarsRecordText(html(record({ source: "drag", action: { kind: "move", responsibilityId: "docs", expectedRevision: 2, move: { direction: "later", relativeTo: "auth" } } })))).toContain("Move later Refresh the API reference drag");
+    // What was done and to which work, the new priority as a chip, then how it came out; how it was asked is the actor's sentence.
+    expect(tarsRecordText(html(record({})))).toContain("Do first Refresh the API reference Priority 70 Applied");
+    expect(html(record({}))).toContain('aria-label="You did this in Tars"');
+    expect(tarsRecordText(html(record({ source: "drag", action: { kind: "move", responsibilityId: "docs", expectedRevision: 2, move: { direction: "later", relativeTo: "auth" } } })))).toContain("Move later Refresh the API reference");
     const refused = html(record({ status: "rejected", error: "Edge.", reason: "queueEdge", priority: undefined }));
-    expect(tarsRecordText(refused)).toContain("Do first Refresh the API reference click Not applied");
+    expect(tarsRecordText(refused)).toContain("Do first Refresh the API reference Not applied");
     expect(refused).toContain("This work is already at that end of the queue.");
     expect(refused).not.toContain("Priority");
     await applyAppLocale("ko");
-    expect(tarsRecordText(html(record({})))).toContain("먼저 하기 Refresh the API reference 클릭 · 우선순위 70 적용됨");
+    expect(tarsRecordText(html(record({})))).toContain("먼저 하기 Refresh the API reference 우선순위 70 적용됨");
     expect(html(record({ action: { kind: "move", responsibilityId: "docs", expectedRevision: 2, move: { direction: "later" } } }))).toContain("나중에 하기");
   });
 });

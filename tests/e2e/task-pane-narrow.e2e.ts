@@ -115,8 +115,8 @@ test("the composer keeps its controls on one row and reachable from More", async
 
   // The side question stays a direct action, as a glyph that keeps its name.
   const sideQuestion = page.locator('[data-testid="composer-side-question"]:visible');
-  await expect(sideQuestion).toHaveAttribute("data-compact", "true");
-  await expect(sideQuestion).toHaveAccessibleName(/Ask about this task/);
+  await expect(sideQuestion).toHaveAccessibleName("Side question");
+  await expect(sideQuestion).toHaveAccessibleDescription(/Ask about this task/);
 
   await lane.getByRole("button", { name: /^More composer controls/ }).click();
   const menu = page.locator('[data-composer-control-menu="true"]');

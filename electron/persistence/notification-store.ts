@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
 import {
-  MAX_NOTIFICATION_HISTORY,
+  APP_NOTIFICATION_KINDS, isNotificationAttentionKind, MAX_NOTIFICATION_HISTORY,
   buildNotificationExpiresAt,
 } from "../../src/lib/notifications/notification.types";
 import type {
@@ -34,6 +34,8 @@ interface NotificationRow {
 }
 
 const ORPHAN_NOTIFICATION_DELETE_CHUNK_SIZE = 400;
+// The SQL boundary uses the same attention policy as the renderer.
+const ATTENTION_KINDS_SQL = APP_NOTIFICATION_KINDS.filter(isNotificationAttentionKind).map((kind) => `'${kind}'`).join(", ");
 
 function normalizeNotificationWorkspaceIds(workspaceIds: string[]) {
   return Array.from(
@@ -159,10 +161,7 @@ export class NotificationStore {
     const createdAt = notification.createdAt ?? new Date().toISOString();
     const readAt = notification.readAt ?? null;
     const resolvedAt = notification.resolvedAt ?? null;
-    const pendingAttention =
-      (notification.kind === "task.approval_requested" ||
-        notification.kind === "task.user_input_requested") &&
-      !resolvedAt;
+    const pendingAttention = isNotificationAttentionKind(notification.kind) && !resolvedAt;
     const expiresAt = pendingAttention
       ? null
       : (notification.expiresAt ??
@@ -255,14 +254,14 @@ export class NotificationStore {
         `
       DELETE FROM notifications
       WHERE NOT (
-          kind IN ('task.approval_requested', 'task.user_input_requested')
+          kind IN (${ATTENTION_KINDS_SQL})
           AND resolved_at IS NULL
         )
         AND id NOT IN (
           SELECT id
           FROM notifications
           WHERE NOT (
-            kind IN ('task.approval_requested', 'task.user_input_requested')
+            kind IN (${ATTENTION_KINDS_SQL})
             AND resolved_at IS NULL
           )
           ORDER BY created_at DESC, id DESC
@@ -287,7 +286,7 @@ export class NotificationStore {
     );
     const unreadOnly = args?.unreadOnly === true;
     const pendingAttentionPredicate = `
-      kind IN ('task.approval_requested', 'task.user_input_requested')
+      kind IN (${ATTENTION_KINDS_SQL})
       AND resolved_at IS NULL
       AND expires_at IS NULL
     `;
@@ -351,7 +350,7 @@ export class NotificationStore {
         read_at = COALESCE(read_at, ?),
         resolved_at = COALESCE(resolved_at, ?),
         expires_at = CASE
-          WHEN kind IN ('task.approval_requested', 'task.user_input_requested')
+          WHEN kind IN (${ATTENTION_KINDS_SQL})
             AND COALESCE(resolved_at, ?) IS NULL
           THEN NULL
           ELSE COALESCE(expires_at, ?)
@@ -379,7 +378,7 @@ export class NotificationStore {
       SET
         read_at = ?,
         expires_at = CASE
-          WHEN kind IN ('task.approval_requested', 'task.user_input_requested')
+          WHEN kind IN (${ATTENTION_KINDS_SQL})
             AND resolved_at IS NULL
           THEN NULL
           ELSE COALESCE(expires_at, ?)
@@ -400,7 +399,7 @@ export class NotificationStore {
       WHERE expires_at IS NOT NULL
         AND expires_at <= ?
         AND NOT (
-          kind IN ('task.approval_requested', 'task.user_input_requested')
+          kind IN (${ATTENTION_KINDS_SQL})
           AND resolved_at IS NULL
         )
     `,

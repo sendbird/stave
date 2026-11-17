@@ -6,12 +6,14 @@ import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
 /**
- * The return summary's last decision links to where you gave it. The task's
- * saved conversation has an approval you granted early on, a stretch of long
- * later messages, your last message two hours ago and a reply after it. On
- * opening the task, the summary names the approval; its Show link closes the
- * card, scrolls the conversation back to the approval, opens that finished
- * turn's steps and focuses it.
+ * The return summary sits in the conversation where you had left off, and its
+ * rows lead to what they name. The task's saved conversation has an approval
+ * you granted early on, a stretch of long later messages, your last message
+ * two hours ago and a reply after it. On opening the task, the summary is
+ * drawn right after your last message, above the reply, in view; it lists the
+ * reply's turn and names the approval. The approval's Show scrolls the
+ * conversation back to it, opens that finished turn's steps and focuses it;
+ * Got it folds the card into a divider at the same place, which opens it again.
  */
 const FAKE_CLI = path.join(import.meta.dirname, "harness", "fake-claude-cli.cjs");
 const REQUEST_ID = "seed-approval";
@@ -42,13 +44,15 @@ function buildHistory() {
     history.push(message(index, index % 2 === 0 ? "user" : "assistant", 2 + index, `Filler turn ${index}. ${paragraph}`));
   }
   history.push(message(20, "user", 60, "Keep the column order."));
-  history.push(message(21, "assistant", 65, "Kept the column order.", [
+  // A long reply, so the card above it is out of view at the bottom: coming
+  // back has to move the conversation to it.
+  history.push(message(21, "assistant", 65, `Kept the column order. ${paragraph.repeat(4)}`, [
     { type: "tool_use", toolUseId: "seed-edit", toolName: "Edit", state: "output-available", input: "{}", output: "ok" },
   ]));
   return history;
 }
 
-test("the return summary's Show link reveals the approval you gave and focuses it", async ({}, testInfo) => {
+test("the return summary sits where you left off, reveals the approval you gave, and folds into a divider", async ({}, testInfo) => {
   test.setTimeout(180_000);
   const directory = await mkdtemp(path.join(tmpdir(), "stave-return-decision-"));
   const repositoryPath = path.join(directory, "repository");
@@ -95,14 +99,34 @@ test("the return summary's Show link reveals the approval you gave and focuses i
     await expect(conversation.getByText("Kept the column order.")).toBeVisible({ timeout: 30_000 });
     const card = page.getByTestId("return-summary");
     await expect(card).toBeVisible({ timeout: 20_000 });
+    // In the transcript, right after your last message and above the reply.
+    await expect(conversation.locator('[data-message-id="saved-0020"] [data-testid="return-summary"]')).toHaveCount(1);
+    await expect(card).toBeInViewport();
+    const turn = card.locator('[data-return-line^="turn:"]');
+    await expect(turn).toHaveCount(1);
+    await expect(turn).toContainText("Keep the column order.");
     const decision = card.locator('[data-return-line="decision"]');
     await expect(decision).toContainText("You allowed Run command: Run the migration");
+    await page.screenshot({ path: testInfo.outputPath("summary-in-place.png") });
     const approval = page.locator(`[data-approval-request-id="${REQUEST_ID}"]`);
     await expect(approval).not.toBeInViewport();
 
-    await decision.getByRole("button", { name: "Show" }).click();
-    // The card closes so it does not cover what it points at.
-    await expect(card).toHaveCount(0);
+    // The turn's Show moves to its reply, just below the card.
+    await turn.getByRole("button", { name: "Show" }).click();
+    await expect(conversation.getByText("Kept the column order.")).toBeInViewport({ timeout: 20_000 });
+
+    // Got it folds the card into a divider in the same place; the divider opens it again.
+    await card.getByRole("button", { name: "Got it", exact: true }).click();
+    await expect(card).toHaveAttribute("data-collapsed", "true");
+    const divider = card.getByRole("button", { expanded: false });
+    await expect(divider).toBeFocused();
+    await expect(divider).toContainText("Welcome back");
+    await expect(conversation.locator('[data-message-id="saved-0020"] [data-testid="return-summary"]')).toHaveCount(1);
+    await page.screenshot({ path: testInfo.outputPath("summary-folded.png") });
+    await divider.click();
+    await expect(card).toHaveAttribute("data-collapsed", "false");
+
+    await card.locator('[data-return-line="decision"]').getByRole("button", { name: "Show" }).click();
     await expect(approval).toBeInViewport({ timeout: 20_000 });
     await expect(approval).toBeFocused();
     await page.screenshot({ path: testInfo.outputPath("decision-focused.png") });

@@ -598,7 +598,7 @@ export function FleetTaskControlPanel(args: {
     // A pause Tars refused or could not send leaves the run going: only your own turn stops then.
     if (validation?.ok && tarsStopEndsTurn(outcome, isRecordedUserTurn(run?.events, turnId))) {
       // Tars already settled the run, so only the turn stops; the store never cancels Tars's run either.
-      abortTaskTurn({ taskId: args.target.taskId, keepAgentRun: outcome.kind !== "direct" });
+      abortTaskTurn({ taskId: args.target.taskId, cascade: outcome.kind === "direct", keepAgentRun: outcome.kind !== "direct" });
     }
     if (outcome.kind === "held") {
       setStatus(turnId
@@ -732,7 +732,7 @@ export function FleetTaskControlPanel(args: {
 
       {pendingPart?.type === "user_input" ? (
         <div className={sx(styles.section)}>
-          <UserInputCard
+          <UserInputCard key={pendingPart.requestId}
             toolName={pendingPart.toolName}
             questions={pendingPart.questions}
             state={pendingPart.state}

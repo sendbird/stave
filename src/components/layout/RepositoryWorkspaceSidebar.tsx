@@ -1,6 +1,10 @@
+import { SidebarVirtualList } from "./SidebarVirtualList";
+import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
+import { toast } from "@/lib/notifications/toast";
+import { ArchivedWorkspaceShelf } from "./ArchivedWorkspaceShelf";
+import { openWorkspaceCleanup } from "./workspace-cleanup-events";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { i18n, useTranslation } from "@/i18n";
-import { Checkbox } from "@/components/aui/components/Checkbox";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
@@ -56,6 +60,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuLabel,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
@@ -161,7 +166,6 @@ export function RepositoryWorkspaceSidebar(args: {
   const [closingWorkspaceId, setClosingWorkspaceId] = useState<string | null>(
     null,
   );
-  const [archiveDeletesBranch, setArchiveDeletesBranch] = useState(true);
   const [
     currentRepositoryPath,
     currentRepositoryName,
@@ -790,10 +794,10 @@ export function RepositoryWorkspaceSidebar(args: {
           </TooltipProvider>
         </div>
         {args.collapsed ? (
-          <div className={sx(repositorySidebarStyles.scrollArea)}>
+          <div data-sidebar-scroll="" className={sx(repositorySidebarStyles.scrollArea)}>
             <TooltipProvider>
               <div className={sx(repositorySidebarStyles.columnCenterGap)}>
-                {collapsedWorkspaceEntries.map((entry) => {
+                <SidebarVirtualList gap={8} items={collapsedWorkspaceEntries} itemKey={(entry) => `${entry.repositoryPath}:${entry.workspaceId}`} renderItem={(entry) => {
                   const entryKey = `${entry.repositoryPath}:${entry.workspaceId}`;
                   const shortcutLabel = workspaceShortcutLabels.get(entryKey);
                   const workspaceBusy = busyWorkspaceKey === entryKey;
@@ -859,13 +863,13 @@ export function RepositoryWorkspaceSidebar(args: {
                       </WorkspaceHoverPreviewTooltip>
                     </div>
                   );
-                })}
+                }} />
               </div>
             </TooltipProvider>
           </div>
         ) : null}
         {!args.collapsed ? (
-          <div className={sx(repositorySidebarStyles.scrollAreaExpanded)}>
+          <div data-sidebar-scroll="" className={sx(repositorySidebarStyles.scrollAreaExpanded)}>
             <TooltipProvider>
               <nav
                 aria-label={i18n.t("shell:sidebarPrimaryNav.globalViews")}
@@ -946,6 +950,8 @@ export function RepositoryWorkspaceSidebar(args: {
                         align="end"
                         xstyle={repositorySidebarStyles.displayModeMenu}
                       >
+                        <DropdownMenuItem onSelect={openWorkspaceCleanup}>{tI18n("workspace:cleanupCenter.title")}</DropdownMenuItem>
+                        <DropdownMenuSeparator />
                         <DropdownMenuLabel>{tI18n("workspace:repositoryWorkspaceSidebar.workspaceRows")}</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         <DropdownMenuRadioGroup
@@ -1010,6 +1016,7 @@ export function RepositoryWorkspaceSidebar(args: {
                 />
               ) : (
                 <>
+                  <ArchivedWorkspaceShelf />
                   <div className={sx(repositorySidebarStyles.repositoryStack)}>
                     {visibleRepositories.map((repository) => {
                       const collapsed =
@@ -1344,6 +1351,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                         <TooltipContent side="top">
                                           {tI18n("workspace:repositoryWorkspaceSidebar.refreshWorkspaces")}</TooltipContent>
                                       </Tooltip>
+                                      <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" aria-label={tI18n("workspace:cleanupCenter.title")} />}>⋯</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={openWorkspaceCleanup}>{tI18n("workspace:cleanupCenter.title")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
                                       <Tooltip>
                                         <TooltipTrigger
                                           render={
@@ -1395,7 +1403,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                       repositorySidebarStyles.workspaceListInner,
                                     )}
                                   >
-                                    {repository.workspaces.map((workspace) => {
+                                    <SidebarVirtualList gap={4} items={repository.workspaces} itemKey={(workspace) => workspace.id} renderItem={(workspace) => {
                                       const workspaceShortcutLabel =
                                         workspaceShortcutLabels.get(
                                           `${repository.repositoryPath}:${workspace.id}`,
@@ -1718,7 +1726,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                           )}
                                         </SortableSidebarItem>
                                       );
-                                    })}
+                                    }} />
                                   </div>
                                 </div>
                               ) : null}
@@ -1812,7 +1820,6 @@ export function RepositoryWorkspaceSidebar(args: {
         loading={closingWorkspaceId !== null}
         onCancel={() => {
           setWorkspaceToClose(null);
-          setArchiveDeletesBranch(true);
         }}
         onConfirm={() => {
           if (!workspaceToClose) {
@@ -1821,36 +1828,14 @@ export function RepositoryWorkspaceSidebar(args: {
           setClosingWorkspaceId(workspaceToClose.id);
           void closeWorkspace({
             workspaceId: workspaceToClose.id,
-            deleteBranch:
-              archiveDeletesBranch &&
-              archiveDialogCopy?.canDeleteBranch !== false,
+          }).catch((error: unknown) => {
+            toast.error(tI18n("workspace:cleanupCenter.archiveRefusedWithReason", { reason: workspaceCleanupReasonText(error instanceof Error ? error.message : "cleanupFailed") }));
           }).finally(() => {
             setClosingWorkspaceId(null);
             setWorkspaceToClose(null);
-            setArchiveDeletesBranch(true);
           });
         }}
-      >
-        {archiveDialogCopy?.canDeleteBranch ? (
-          <label className={sx(repositorySidebarStyles.archiveOption)}>
-            <Checkbox
-              controlOnly
-              xstyle={repositorySidebarStyles.archiveCheckbox}
-              checked={archiveDeletesBranch}
-              disabled={closingWorkspaceId !== null}
-              onCheckedChange={(checked) => setArchiveDeletesBranch(checked)}
-            />
-            <span
-              className={sx(
-                archiveDeletesBranch
-                  ? repositorySidebarStyles.archiveLabelOn
-                  : repositorySidebarStyles.archiveLabelOff,
-              )}
-            >
-              {tI18n("workspace:repositoryWorkspaceSidebar.deleteTheGitBranchToo")}</span>
-          </label>
-        ) : null}
-      </ConfirmDialog>
+      />
       <CreateWorkspaceDialog
         open={createWorkspaceOpen}
         activeBranch={activeWorkspaceBranch}

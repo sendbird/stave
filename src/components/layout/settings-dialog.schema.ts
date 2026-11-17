@@ -38,6 +38,7 @@ export type SettingsI18nKey = Extract<I18nKey, `settings:${string}`>;
  */
 
 export const settingsSections = [
+  { id: "workspaces", labelKey: "settings:sections.workspaces.label", icon: Folder, descriptionKey: "settings:sections.workspaces.description", keywords: ["cleanup", "archive", "worktrees", "policy", "정리", "보관"] },
   {
     id: "general",
     labelKey: "settings:sections.general.label",
@@ -126,6 +127,10 @@ export const settingsSections = [
       "reasoning",
       "interim",
       "conversation",
+      "conversation width",
+      "width",
+      "layout",
+      "폭",
       "turn rail",
       "fast mode",
       "inline html",

@@ -228,5 +228,26 @@
     "hintHour": "← → move · Enter shows exact buckets",
     "readoutNotReported_one": "{{metric}} not reported · {{count}} turn",
     "readoutNotReported_other": "{{metric}} not reported · {{count}} turns"
+  },
+  "dailyLimit": {
+    "title": "Today's daily limits",
+    "off": "Off",
+    "tokens": "Tokens",
+    "usd": "USD",
+    "unit": "{{provider}} daily limit unit",
+    "amount": "{{provider}} daily limit amount",
+    "save": "Save",
+    "raise": "Change daily limit",
+    "reached": "Daily limit reached. Change it in Settings > Providers, then resume.",
+    "costUnavailable": "This provider has not reported a cost. Choose tokens instead.",
+    "failed": "Daily limits could not be read or saved. Try again.",
+    "loading": "Reading daily limits…",
+    "unknown": "Not reported",
+    "progress": "{{provider}} today: {{used}} / {{limit}} {{unit}}",
+    "unlimited": "{{provider}} today: {{used}} {{unit}} · limit off",
+    "accountingDetail": "Across all accounts and workspaces. Off by default. Resets at local midnight. Completed turns use their start date; reported costs only. Active turns may exceed the limit. Raise it or wait for tomorrow, then resume.",
+    "description": "Recorded task turns across all accounts. Off by default; resets at local midnight.",
+    "accounting": "How usage is counted",
+    "retry": "Try again"
   }
 }

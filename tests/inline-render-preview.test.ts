@@ -9,6 +9,8 @@ import {
 import {
   buildInlineRenderPreviewFallbackTheme,
   buildInlineRenderPreviewNotes,
+  INLINE_RENDER_PREVIEW_STYLE_AUDIT_SCRIPT,
+  readInlineRenderPreviewStyleAudit,
   buildInlineRenderPreviewSummary,
   buildInlineRenderPreviewToolResult,
   createInlineRenderPreviewMessageLog,
@@ -267,6 +269,39 @@ describe("result", () => {
     expect(notes[0]).toContain(`${INLINE_RENDER_MAX_HEIGHT} px`);
     expect(notes[1]).toBe("Only the top 4000 px of 5000 px were captured.");
     expect(notes[2]).toContain("still loading");
+  });
+
+  test("notes text below caption size and a page background, and stays quiet for a clean page", () => {
+    const notes = buildInlineRenderPreviewNotes(
+      measurement({ style: { smallTextCount: 3, smallestTextPx: 10, paintsPageBackground: true } }),
+    );
+    expect(notes).toHaveLength(2);
+    expect(notes[0]).toContain("3 text elements render below 12 px (smallest 10 px)");
+    expect(notes[1]).toContain("paints its own background");
+    expect(
+      buildInlineRenderPreviewNotes(
+        measurement({ style: { smallTextCount: 0, smallestTextPx: null, paintsPageBackground: false } }),
+      ),
+    ).toEqual([]);
+  });
+
+  test("the style audit script is valid JavaScript with the minimum filled in", () => {
+    expect(() => new Function(INLINE_RENDER_PREVIEW_STYLE_AUDIT_SCRIPT)).not.toThrow();
+    expect(INLINE_RENDER_PREVIEW_STYLE_AUDIT_SCRIPT).toContain("const MIN = 12;");
+  });
+
+  test("the style audit reader keeps only a well-formed report", () => {
+    expect(
+      readInlineRenderPreviewStyleAudit({ smallTextCount: 2, smallestTextPx: 10.4567, paintsPageBackground: false }),
+    ).toEqual({ smallTextCount: 2, smallestTextPx: 10.5, paintsPageBackground: false });
+    expect(readInlineRenderPreviewStyleAudit({ smallTextCount: 0, smallestTextPx: null, paintsPageBackground: true }))
+      .toEqual({ smallTextCount: 0, smallestTextPx: null, paintsPageBackground: true });
+    for (const bad of [null, "x", { smallTextCount: -1, smallestTextPx: null, paintsPageBackground: false },
+      { smallTextCount: 1.5, smallestTextPx: 9, paintsPageBackground: false },
+      { smallTextCount: 1, smallestTextPx: "9", paintsPageBackground: false },
+      { smallTextCount: 1, smallestTextPx: 9 }]) {
+      expect(readInlineRenderPreviewStyleAudit(bad)).toBeUndefined();
+    }
   });
 
   test("the summary leaves out empty optional lists and reports the frame height", () => {

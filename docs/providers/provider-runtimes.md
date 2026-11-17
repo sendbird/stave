@@ -1382,6 +1382,8 @@ Stave requires a user-installed Codex CLI. Users must have Codex CLI available i
 
 The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it. Thread and turn request payloads are checked against the generated `0.165.0` protocol surface, with capability downgrades for older executables. Optional response fields do not require raising the minimum supported version.
 
+Codex initialization has a 20-second deadline and shares one pending start per client. Before a model turn, explicit workspace-routing discovery failures during initialization, account reads and thread start/resume retry at most twice, after 500 ms and 1.5 seconds. Failed initialization retires its process before retrying; initialization timeouts also retry with a fresh process. Account and thread requests have a 30-second deadline; an ambiguous thread timeout never retries. Exhaustion ends the turn with a short localized error. This applies to primary and secondary read-only turns without changing cwd, trust, permissions or MCP isolation. Authentication failures and model turns are not replayed. This mitigation is Codex-specific; Claude has no App Server routing-discovery phase.
+
 Claude follows the same pattern. Users can force a specific local `claude` install via `runtimeOptions.claudeBinaryPath` or the Settings dialog's Claude Binary override before Stave falls back to environment-based discovery.
 
 ## Executable path resolution

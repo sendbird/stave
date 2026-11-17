@@ -558,7 +558,7 @@
     },
     "supervisor": {
       "name": "Supervisor",
-      "description": "Owns a goal end to end, from plan to verified result, choosing each part's provider and model by capability and account usage. Use for features, fixes and frontend work that should run with little supervision.",
+      "description": "Owns one goal until it is really done, working like Lead and routing each part's provider and model by capability and account usage. Use for features, fixes and frontend work that should run with little supervision.",
       "avoidWhen": "The work is only a question, or a one-line change you can already state exactly."
     },
     "debugger": {

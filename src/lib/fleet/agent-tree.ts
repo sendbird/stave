@@ -156,6 +156,7 @@ export function collectRecentToolNames(
 export interface FleetAgentFacts {
   /** "Edit file · src/search.ts", the turn's latest reported work. */
   activity: string | null;
+  queuedAhead?: number;
   tools: readonly string[];
   /** The live turn's start; absent once no turn runs. */
   startedAt: number | null;
@@ -189,7 +190,8 @@ export function buildFleetAgentFacts(args: {
   const tools = collectRecentToolNames(args.activity);
   if (!line && cost === null && model === null && tools.length === 0) return EMPTY_FLEET_AGENT_FACTS;
   return {
-    activity: line?.last ? withDetail(line.last.label, line.last.detail) : null,
+    ...(args.activity?.admission?.state === "queued" ? { queuedAhead: args.activity.admission.ahead } : {}),
+    activity: args.activity?.admission?.state === "queued" ? i18n.t("fleet:taskActivity.waitingSlot", { count: args.activity.admission.ahead }) : line?.last ? withDetail(line.last.label, line.last.detail) : null,
     tools,
     startedAt: args.activity && args.activity.completedAt == null ? args.activity.startedAt : null,
     cost,
@@ -232,6 +234,7 @@ export function buildMainAgent(row: FleetTaskRow, facts: FleetAgentFacts): Agent
     task: facts.activity ?? need ?? row.workspaceName,
     tools: facts.tools.map((tool) => ({ id: tool, name: toToolDisplayName(tool) })),
     ...mapFleetTaskRowStatus(row),
+    ...(facts.queuedAhead !== undefined ? { status: "queued" as const, statusLabel: i18n.t("fleet:taskActivity.waitingSlot", { count: facts.queuedAhead }) } : {}),
     ...(facts.cost !== null ? { cost: facts.cost } : {}),
     ...(facts.startedAt !== null && row.activeTurnId ? { startedAt: facts.startedAt } : {}),
   };

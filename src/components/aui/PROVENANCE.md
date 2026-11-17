@@ -9,6 +9,7 @@ Stave-specific theme mapping and compatibility adapters live in `../system` and 
 Host modifications are intentional and retained when refreshing the bundle:
 
 - TextField, Textarea, and Switch preserve host-provided validation and description ARIA attributes.
+- Checkbox in `controlOnly` mode forwards a host-provided `aria-describedby`, so a row that renders its own description can name it.
 - Popover, Dialog, and Drawer expose surface styling separately from geometry, so existing hosts retain popup width, placement, scroll ownership, and nested drawer behavior.
 - Badge, Breadcrumb, EmptyState, Table, Slider, Toggle, and Tooltip export their canonical styles for existing compound APIs.
 - EmptyState's medallion defaults to the `neutral` tone instead of `accent`. The host's empty states are the absence of data, not brand moments; callers that want the accent medallion (onboarding invitations) pass `tone="accent"` explicitly.
@@ -38,8 +39,10 @@ Host modifications are intentional and retained when refreshing the bundle:
   the card's `utcLabel` are required props the host fills
   (`src/components/system/RelativeTime.tsx`, with `formatRelativeTimeShort` from
   `src/i18n/format.ts`, or `formatTimeAgo` for a moment that already happened,
-  and the display language's locale).
+  and the display language's locale). It also takes `triggerXstyle`, host-owned
+  geometry for the trigger button (the Tars message time's line box and 24px hit area).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
+- Alert (added 2026-11-10 with `headless/alert`) uses the installed feedback dismiss control: like Banner it shows its dismiss control only with a host `dismissLabel` and calls `onDismiss` at once, because the installed `feedback-dismiss` predates the bundle's collapse-before-dismiss hook (`useCollapseDismiss`). The rest of the file is the bundle's.
 
 - Plan takes three optional props the host needs to draw every plan on it (the
   Agent run Progress tab and report, the composer shelf, the task's turn plan):

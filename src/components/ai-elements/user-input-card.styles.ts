@@ -239,13 +239,20 @@ export const userInputCardStyles = stylex.create({
    * the eyebrow register for its name and a capped, scrollable text box that
    * keeps the provider's line breaks and wraps long lines.
    */
-  optionPreview: {
+  optionPreviewSlot: {
     marginTop: vars["--aui-space-12"],
+    display: "grid",
+    minWidth: 0,
+  },
+  optionPreview: {
+    gridArea: "1 / 1",
+    alignSelf: "start",
     display: "flex",
     flexDirection: "column",
     gap: vars["--aui-space-4"],
     minWidth: 0,
   },
+  optionPreviewHidden: { visibility: "hidden" },
   optionPreviewLabel: {
     fontSize: vars["--aui-font-size-caption"],
     fontWeight: vars["--aui-font-weight-semibold"],

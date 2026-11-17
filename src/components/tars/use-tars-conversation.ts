@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { i18n } from "@/i18n";
 import type { TarsBridgeApi } from "@/lib/tars/types";
-import type { TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsConversationSettings, TarsMessageInput, TarsMessageView } from "@/lib/tars/conversation";
+import type { TarsAnswerInput, TarsAnswerResult, TarsConversation, TarsConversationSettings, TarsDismissInput, TarsMessageInput, TarsMessageView } from "@/lib/tars/conversation";
 import { coalesceTarsReads } from "@/store/tars-snapshot-store";
 import { createTarsRequestQueue } from "./use-tars";
 
@@ -66,6 +66,12 @@ export function useTarsConversation(bridge: TarsBridgeApi | undefined) {
     catch { return null; }
     finally { void refresh(); }
   }, [bridge, refresh]);
+  /** Dismisses a waiting decision card; like an answer, a failure stays with its card. Absent on bridges that predate dismissal. */
+  const dismiss = useMemo(() => bridge?.dismissDecision ? async (input: TarsDismissInput): Promise<TarsAnswerResult | null> => {
+    try { return await queue.current(() => bridge.dismissDecision!(input)); }
+    catch { return null; }
+    finally { void refresh(); }
+  } : undefined, [bridge, refresh]);
   useEffect(() => {
     mounted.current = true;
     // Subscribe before the first read so a change during it is not lost; there is no polling.
@@ -81,6 +87,6 @@ export function useTarsConversation(bridge: TarsBridgeApi | undefined) {
       document.removeEventListener("visibilitychange", onFocus);
     };
   }, [bridge, refresh]);
-  return { conversation, error, busy, available, refresh, send, reportSendFailure, configure, cancel, answer };
+  return { conversation, error, busy, available, refresh, send, reportSendFailure, configure, cancel, answer, dismiss };
 }
 export type TarsConversationState = ReturnType<typeof useTarsConversation>;

@@ -1,55 +1,20 @@
-import { afterEach, expect, test } from "bun:test";
-import { mkdtempSync, existsSync, writeFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { execFileSync, spawnSync } from "node:child_process";
-import { startWorkspaceArchiveCleanup, waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
-import { useWorkspaceDocumentsStore } from "@/store/workspace-documents-store";
+import { expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
+import { spawnSync } from "node:child_process";
+import path from "node:path";
 
-const originalWindow = globalThis.window;
-let fixtureRoot: string | undefined;
-
-afterEach(() => {
-  globalThis.window = originalWindow;
-  if (fixtureRoot) rmSync(fixtureRoot, { recursive: true, force: true });
-  fixtureRoot = undefined;
-});
-
-function fixture() {
-  const root = mkdtempSync(join(tmpdir(), "stave-cleanup-test-"));
-  fixtureRoot = root;
-  const git = (...args: string[]) => execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  git("init", "-b", "main");
-  git("-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: fixture");
-  const worktree = join(root, "feature's $(printf unexpected)");
-  git("worktree", "add", "-b", "feature", worktree);
-  globalThis.window = {
-    api: {
-      terminal: { runCommand: async ({ command, cwd }: { command: string; cwd: string }) => {
-        const result = spawnSync("/bin/sh", ["-c", command], { cwd, encoding: "utf8" });
-        return { ok: result.status === 0, code: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
-      } },
-      persistence: { listWorkspaces: async () => ({}), loadWorkspace: async () => ({}), upsertWorkspace: async () => ({}), closeWorkspace: async () => ({ ok: true }) },
-    },
-  } as unknown as Window & typeof globalThis;
-  return { root, worktree, git };
-}
-
-test("cleanup removes a real clean worktree with literal special characters and keeps its branch", async () => {
-  const { root, worktree, git } = fixture();
-  useWorkspaceDocumentsStore.setState({ activityByWorkspace: { fixture: { documentsByPath: {}, linksByTurn: {} } } });
-  startWorkspaceArchiveCleanup({ workspaceId: "fixture", repositoryPath: root, workspacePath: worktree, deleteBranch: false });
-  expect(useWorkspaceDocumentsStore.getState().activityByWorkspace.fixture).toBeUndefined();
-  await waitForPendingWorkspaceArchiveCleanups();
-  expect(existsSync(worktree)).toBe(false);
-  expect(git("branch", "--list", "feature").trim()).toBe("feature");
-});
-
-test("cleanup preserves real uncommitted files and the branch", async () => {
-  const { root, worktree, git } = fixture();
-  writeFileSync(join(worktree, "unsaved.txt"), "keep this work");
-  startWorkspaceArchiveCleanup({ workspaceId: "fixture-dirty", repositoryPath: root, workspacePath: worktree, deleteBranch: false });
-  await waitForPendingWorkspaceArchiveCleanups();
-  expect(existsSync(join(worktree, "unsaved.txt"))).toBe(true);
-  expect(git("branch", "--list", "feature")).toContain("feature");
-});
+test("host lifecycle preserves history and enforces real Git cleanup guards", () => {
+  mkdirSync("test-results", { recursive: true });
+  const root = mkdtempSync(path.resolve("test-results/workspace-cleanup-host-"));
+  try {
+    const output = path.join(root, "check.cjs");
+    const built = spawnSync(process.execPath, ["build", "tests/fixtures/workspace-cleanup-host-check.ts", "--outfile", output, "--target=node", "--format=cjs", "--external=better-sqlite3", "--external=electron", "--external=node-pty", '--define=import.meta.env.BASE_URL="/"'], { encoding: "utf8" });
+    expect(built.stderr).toBe("");
+    expect(built.status).toBe(0);
+    const require = createRequire(import.meta.url);
+    const executed = spawnSync(require("electron"), [output], { env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NODE_PATH: path.resolve("node_modules") }, encoding: "utf8" });
+    expect(executed.stderr).toBe("");
+    expect(executed.status).toBe(0);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+}, 60_000);

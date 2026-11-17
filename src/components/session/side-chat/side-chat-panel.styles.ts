@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
+import { transcriptMeasure } from "@/components/ai-elements/transcript-measure.stylex";
 
 export const sideChatStyles = stylex.create({
   // Conversation panels sit just above the composer, aligned to its measure.
@@ -22,10 +23,13 @@ export const sideChatStyles = stylex.create({
     bottom: vars["--aui-space-12"],
     width: `min(28rem, calc(100% - 2 * ${vars["--aui-space-12"]}))`,
   },
+  // Ends on the framed composer's outer edge: the transcript column plus its
+  // two 3.125rem wing tracks (`chatInputStyles.measureFramed`), centred in the
+  // same surface, or the composer's 16px inset once that measure fills it.
   conversationCard: {
     insetInlineEnd: {
       default: vars["--aui-space-12"],
-      "@media (min-width: 40rem)": `max(${vars["--aui-space-16"]}, calc((100% - 72rem) / 2))`,
+      "@media (min-width: 40rem)": `max(${vars["--aui-space-16"]}, calc((100% - ${transcriptMeasure["--stave-transcript-column"]} - 2 * 3.125rem) / 2))`,
     },
   },
   reviewCard: {

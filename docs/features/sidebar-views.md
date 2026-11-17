@@ -57,7 +57,7 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
 
 ### Repositories View
 
-The repository → workspace tree, unchanged: drag to reorder, rename in place, the
+The repository → workspace tree: drag to reorder, rename in place, the
 `⋮` row menu for task history, workspace settings, and archive, and the row
 density menu (`Expanded` / `Compact`) in the header bar.
 The default workspace shows its label and branch on one line, separated by a
@@ -70,6 +70,21 @@ no branch is available, only the label appears.
 - In `Expanded` rows, a running task shows what it is doing on a second line of
   its own row: the current step and to-do count, with the run time at the end.
   `Compact` rows stay one line.
+
+### Archived shelf
+
+Archives created with **Save uncommitted changes and archive** retain staged,
+unstaged and untracked files. Open **Clean up workspaces** to see the **Saved
+changes** marker and restore them. Restore refuses occupied destinations;
+permanent deletion removes the saved archive reference. A saved archive can
+recreate its deleted branch and skips initialization commands during restore.
+
+The Repositories view includes an **Archived** shelf. Archived workspaces are
+absent from the active tree, queue and Fleet, but keep their task history. Use
+**Restore** to recreate the worktree from its retained branch. If the branch
+is gone and there are no saved changes, read the history without execution and create a new workspace from
+it when needed. Repository menus also open **Clean up workspaces**, which
+covers every registered repository and provides the same restore actions.
 
 ### Work Queue View
 
@@ -202,3 +217,12 @@ the queue exactly the way it narrows the tree.
 ## Related Docs
 
 - [Fleet Action Required](fleet-needs-me.md)
+
+## Scale
+
+Workspace lists and Work queue lanes longer than 60 rows render a window of
+rows; shorter lists render every row exactly as before. Counts and keyboard
+navigation still cover the complete expanded list; Home and End reveal the
+first and last workspace, and a focused row stays in place when you scroll away.
+Collapsed groups stay excluded from navigation. Workspace drag reorder keeps its
+existing repository scope.

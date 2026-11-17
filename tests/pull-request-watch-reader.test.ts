@@ -159,7 +159,7 @@ describe("pull request watch reader", () => {
           expect(args).toEqual(expect.arrayContaining(["owner=acme", "repo=app", "pr=7"]));
           return ok(JSON.stringify({ data: { repository: { pullRequest: { reviews: { nodes: [
             { id: "PRR_1", state: "CHANGES_REQUESTED", submittedAt: "2026-10-09T00:00:00Z", author: { login: "bob" } },
-            { id: "PRR_2", state: "APPROVED", submittedAt: "2026-10-10T00:00:00Z", author: { login: "bob" } },
+            { id: "PRR_2", body: "Looks good", commit: { oid: "a".repeat(40) }, state: "APPROVED", submittedAt: "2026-10-10T00:00:00Z", author: { login: "bob" } },
             { id: "PRR_3", state: "COMMENTED", submittedAt: "2026-10-10T01:00:00Z", author: { login: "carol" } },
           ] } } } } }));
         }

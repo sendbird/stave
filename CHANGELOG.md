@@ -1,3 +1,80 @@
+## [0.35.1](https://github.com/sendbird/stave/compare/v0.35.0...v0.35.1) (2026-11-17)
+
+This patch release includes the seven merged changes since 0.35.0.
+
+### Changes
+
+- Fleet can control selected tasks in bulk, while the cleanup center and Tars preview guarded workspace cleanup with per-item results and Restore. Archived conversations stay searchable and read-only; workspaces can save uncommitted changes before archiving and restore them later.
+- Find work faster with full-history conversation search, unread markers, pinned and manually ordered task history, and discoverable feature tips. Fleet and the sidebar render nearby rows to keep large work lists responsive.
+- Resume interrupted work with restart continuation settings, actionable notifications, usage-limit retry backoff, and an optional global concurrent-turn limit that preserves queued messages across restarts. Primary Agent runs retain authorized browser access through continuations and host restarts.
+- Review and recover changes with best-effort file snapshots for every user turn across providers, selective restore with Undo, and fork answers returned to the original composer. Agent-opened pull requests are watched automatically when eligible, and stack retargeting requires confirmation and reports each result; opt-in prompt evaluations can run against real models with a call cap.
+- Welcome back summaries appear where you left the conversation, link to turns and pending decisions, and fold into a reopenable divider. Clarification drafts, focus and text selection survive turn-event updates, and assistant screenshots appear as numbered thumbnails that open at original size.
+- MCP App views receive structured results where available, expose copyable text results, and fall back to text when view data is missing or cannot be captured. Inline HTML pages use readable default text, report small text and opaque backgrounds in previews, and keep full-screen source panels scrollable.
+- English and Korean feature and user-guide sources cover the updated workflows. Remote control and webhook-triggered schedules are excluded from this release.
+
+### References
+
+- [PR #964](https://github.com/sendbird/stave/pull/964), [PR #965](https://github.com/sendbird/stave/pull/965), [PR #970](https://github.com/sendbird/stave/pull/970), [PR #975](https://github.com/sendbird/stave/pull/975), [PR #979](https://github.com/sendbird/stave/pull/979), [PR #981](https://github.com/sendbird/stave/pull/981), [PR #982](https://github.com/sendbird/stave/pull/982)
+
+## [0.35.0](https://github.com/sendbird/stave/compare/v0.34.0...v0.35.0) (2026-11-13)
+
+This minor release includes the four merged changes since 0.34.0.
+
+### Changes
+
+- Tars completion reports lead with the finished outcome and primary openable outputs; evidence, limitations, unverified results, and interruption reasons remain available in details.
+- Tars completion criteria are grouped separately from supporting evidence, with confirmed-count summaries, source badges, and readable wrapping in narrow panels.
+- Tars carries delegated work through a single risk-proportional execution flow, records reversible controls with Undo, retries provider startup failures, and recovers saved controls after interruptions.
+- Tars can inspect current work, create a draft pull request from the exact verified commit, follow CI and review feedback in bounded rounds, and keep merge and other confirmed actions under user control.
+- Tars adds an activity view, fact-based notifications, visible queue wait reasons, workspace and issue/document entry points, daily usage limits, and dependency reuse for new worktrees.
+- English and Korean feature and user-guide sources, plus focused and rendered regressions, were updated for the new Tars workflows.
+- Question option previews reserve a stable area, so hovering between options with and without previews keeps the card and choices in place; keyboard browsing and preview accessibility remain available.
+
+### References
+
+- [PR #955](https://github.com/sendbird/stave/pull/955), [PR #956](https://github.com/sendbird/stave/pull/956), [PR #961](https://github.com/sendbird/stave/pull/961), [PR #963](https://github.com/sendbird/stave/pull/963)
+
+## [0.34.0](https://github.com/sendbird/stave/compare/v0.33.1...v0.34.0) (2026-11-11)
+
+This minor release includes the four merged changes since 0.33.1.
+
+### Changes
+
+- Tars keeps waiting questions and publication confirmations above the composer, preserves edits while navigating them, and shows ended work with its completion evidence and result links. Return summaries, knowledge and usage views help you resume work in context.
+- Tars work and outputs can be grouped by project from the tray title bar. Safe recorded controls and queue moves have guarded Undo; conversation and ended-work clearing, retention and their separate Undo keep active work available.
+- Tars proposes timed and recurring work through confirmation cards; new schedules stay paused unless you explicitly enable them. General, Models and Work settings organize accounts, models, autonomy, rules and limits, and empty standing-instruction drafts start with editable defaults.
+- Chat and Tars share a responsive conversation width and text scale. Model pickers align full names, wrapping notices and token prices; result cards interrupt timeline connectors; icon controls have action hints and the running-status strip opens and closes with reduced-motion support.
+- Subagent rows distinguish the requested or configured model from the model its response reported. Claude in-turn subagents and Claude/Codex delegated tasks preserve reported model evidence through replay; effort remains the requested or configured setting.
+- Crane pairing and job responses accept additive fields while still validating known fields, avoiding an invalid-response failure after the server has already paired the connector.
+- The retired Martin sync integration is removed from Settings, workspace cards, runtime, IPC and MCP. Crane's supported task and pairing paths remain available.
+
+### Upgrade Notes
+
+- Opening the database drops the retired sync outbox table and indexes; settings rehydration removes its saved toggles. These two cleanup migrations remain registered until 0.36.0.
+- If an earlier Crane pairing failed after the server exchanged its code, generate a fresh pairing code and pair again after updating.
+
+### References
+
+- [PR #938](https://github.com/sendbird/stave/pull/938), [PR #949](https://github.com/sendbird/stave/pull/949), [PR #950](https://github.com/sendbird/stave/pull/950), [PR #952](https://github.com/sendbird/stave/pull/952)
+
+## [0.33.1](https://github.com/sendbird/stave/compare/v0.33.0...v0.33.1) (2026-11-10)
+
+This patch release includes the eight merged changes since 0.33.0.
+
+### Changes
+
+- The Tars conversation drops the name line over replies, shows a short time only on hover or focus, shows attached files as chips, cancels with an icon, shows Thinking where the reply will appear, and turns failures into notices with Edit and resend. Its text follows the chat font size setting (#927).
+- Tars records (delegation receipts, direct controls, queue moves, words for a busy run, publish outcomes, notices) read as status rows with an icon in one grouped block; question cards become a radio list with reasons and an Answer button; more code languages are highlighted (#929).
+- Tars tray cards show decisions waiting on you at full width with the branch as small header metadata, and side views give each section clear spacing (#928).
+- Independent agent runs no longer wait on each other's starts, controls and replies; only a short session update inside the same workspace is ordered (#925).
+- Global surfaces no longer repeat their title in the top bar (#931). Closed task tabs stay closed when a workspace opens (#930), and a running turn's reply stays above pinned cards (#932).
+- Claude Fable 5.2 replaces Fable 5.1 as the frontier Claude model (#926).
+- The Tars dev preview gains a gallery of every conversation case (`?stavePreview=tars&gallery=true`), and CI splits the layout suite into two shards.
+
+### References
+
+- [PR #925](https://github.com/sendbird/stave/pull/925), [PR #926](https://github.com/sendbird/stave/pull/926), [PR #927](https://github.com/sendbird/stave/pull/927), [PR #928](https://github.com/sendbird/stave/pull/928), [PR #929](https://github.com/sendbird/stave/pull/929), [PR #930](https://github.com/sendbird/stave/pull/930), [PR #931](https://github.com/sendbird/stave/pull/931), [PR #932](https://github.com/sendbird/stave/pull/932)
+
 ## [0.33.0](https://github.com/sendbird/stave/compare/v0.32.1...v0.33.0) (2026-11-10)
 
 This minor release includes the twelve merged changes since 0.32.1. Most of them answer feedback from using Tars day to day.

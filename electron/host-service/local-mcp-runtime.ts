@@ -1,4 +1,9 @@
+import { NotificationTaskStatusArgsSchema } from "../../src/lib/notifications/native-notification-contract";
+import { delegatedTaskRulesFor } from "../../src/lib/runs/delegated-task";
 import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
+import { parseGitWorktrees } from "../../src/lib/source-control-worktrees";
+import { runWorkspacePreparation, WorkspacePreparationError } from "./workspace-preparation";
+import { seedWorktreeDependencies } from "./worktree-dependencies";
 import { i18n } from "../../src/i18n/runtime";
 import { respondHostUserInput, type HostUserInputArgs } from "./host-user-input";
 import type { RunQuestionAnswer } from "./run-question-answer";
@@ -138,10 +143,7 @@ import {
   type RepositoryMemory,
   type RepositoryMemoryKind,
 } from "../../src/lib/repository-memory";
-import {
-  buildRepositoryMemoryRetrievedContextPart,
-  resolveRepositoryMemoryRecallQuery,
-} from "../../src/lib/task-context/repository-memory";
+import { buildRepositoryMemoryPartForTurn } from "./local-mcp-repository-memory";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
   createLocalMcpTurnJournal,
@@ -149,6 +151,7 @@ import {
 } from "./local-mcp-turn-journal";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
+import { turnPullRequestEvidence } from "./turn-pr-evidence";
 import { runCommand, runCommandArgs } from "../main/utils/command";
 import { buildTurnHandoffContextPart } from "../../src/lib/task-context/handoff-delivery";
 
@@ -220,6 +223,7 @@ export interface TaskStatusResult {
 
 /** The supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
 export interface TaskSupervisionSnapshot {
+  managed?: boolean;
   workspaceId: string;
   taskId: string;
   repositoryPath: string | null;
@@ -439,6 +443,11 @@ async function persistWorkspaceSession(args: {
       providerSessionByTask: args.session.providerSessionByTask,
     }) as never,
   });
+}
+
+/** The one message an answer changed, for a field-scoped task write. */
+function changedTaskMessages(session: WorkspaceSessionState, taskId: string, messageId: string): ChatMessage[] {
+  return (session.messagesByTask[taskId] ?? []).filter((message) => message.id === messageId);
 }
 
 function queueWorkspaceSessionPersist(args: {
@@ -764,7 +773,7 @@ export async function cleanupLocalMcpRuntime() {
   latestTurnUsageById.clear();
 }
 
-function emitWorkspaceInformationUpdate(
+export function emitWorkspaceInformationUpdate(
   payload: WorkspaceInformationMutationResult,
 ) {
   localMcpEventListener?.({
@@ -825,7 +834,6 @@ export async function getWorkspaceInformation(args: { workspaceId: string }) {
 }
 
 export const {
-  setWorkspaceMartinProject,
   replaceWorkspaceNotes,
   appendWorkspaceNotes,
   clearWorkspaceNotes,
@@ -949,40 +957,6 @@ export async function forgetRepositoryMemory(args: {
   };
 }
 
-/**
- * The `stave:repository-memory` block for a host-initiated turn. Memory is a
- * best-effort aid: a store without the method (test doubles) or a failing
- * query yields no block rather than a failed turn.
- */
-function buildRepositoryMemoryPartForTurn(args: {
-  repositoryPath: string;
-  history: ChatMessage[];
-  prompt: string;
-}): CanonicalRetrievedContextPart | null {
-  try {
-    const store = ensureHostServicePersistenceReady() as {
-      recallRepositoryMemories?: (input: {
-        repositoryPath: string;
-        query?: string | null;
-      }) => RepositoryMemory[];
-    };
-    if (typeof store.recallRepositoryMemories !== "function") {
-      return null;
-    }
-    const memories = store.recallRepositoryMemories({
-      repositoryPath: args.repositoryPath,
-      query: resolveRepositoryMemoryRecallQuery({
-        history: args.history,
-        prompt: args.prompt,
-      }),
-    });
-    return buildRepositoryMemoryRetrievedContextPart({ memories });
-  } catch (error) {
-    console.warn("[stave-mcp] project memory recall failed", error);
-    return null;
-  }
-}
-
 function buildTaskTitleFromPrompt(prompt: string) {
   return (
     prompt
@@ -1058,6 +1032,8 @@ async function persistApprovalNotification(args: {
     payload: {
       toolName: args.event.toolName,
       description: args.event.description,
+      // A risk-flagged request is never allowed from a notification banner.
+      ...(args.event.risk ? { risk: args.event.risk } : {}),
       ...attribution.payload,
     },
     dedupeKey: `task.approval_requested:${args.turnId}:${args.event.requestId}`,
@@ -1299,6 +1275,7 @@ async function handleProviderEvent(args: {
     sequence: args.sequence,
     event,
   });
+  turnPullRequestEvidence.observe({ turnId: args.turnId, workspaceId: args.workspaceId, taskId: args.taskId, event });
   if (args.event.type === "usage") {
     latestTurnUsageById.delete(args.turnId);
     latestTurnUsageById.set(args.turnId, toPersistenceTurnUsage(args.event));
@@ -1440,6 +1417,7 @@ export async function registerRepository(args: {
 }
 
 export async function createWorkspace(args: {
+  signal?: AbortSignal;
   repositoryPath: string;
   name: string;
   /** Human-facing sidebar label. Falls back to the derived branch name. */
@@ -1451,6 +1429,7 @@ export async function createWorkspace(args: {
   initCommand?: string;
   useRootNodeModulesSymlink?: boolean;
 }) {
+  args.signal?.throwIfAborted();
   const trimmedName = args.name.trim();
   if (!trimmedName) {
     throw new Error("Workspace name is required.");
@@ -1527,6 +1506,7 @@ export async function createWorkspace(args: {
                 cwd: repositoryPath,
                 command: "git",
                 commandArgs: ["show-ref", "--verify", "--quiet", ref],
+                signal: args.signal, timeoutMs: 30_000,
               })
             ).ok,
         })
@@ -1536,11 +1516,13 @@ export async function createWorkspace(args: {
       cwd: repositoryPath,
       command: "git",
       commandArgs: ["fetch", remoteTarget.remoteName, "--prune"],
+      signal: args.signal, timeoutMs: 60_000,
     });
     if (!fetchResult.ok) {
       const localBranchProbe = await runCommandArgs({
         cwd: repositoryPath,
         command: "git",
+        signal: args.signal, timeoutMs: 30_000,
         commandArgs: [
           "show-ref",
           "--verify",
@@ -1570,36 +1552,51 @@ export async function createWorkspace(args: {
     }
   }
 
-  await runCommand({
-    cwd: repositoryPath,
-    command: "mkdir -p .stave/workspaces",
-  });
-  // `--no-track`: a branch started from `origin/main` would otherwise track it,
-  // and a bare `git push` then suggests `git push origin HEAD:main`.
-  const addResult = await runCommandArgs({
-    cwd: repositoryPath,
-    command: "git",
-    commandArgs:
-      args.mode === "clean"
-        ? ["worktree", "add", "--no-track", "-b", branchName, workspacePath]
-        : ["worktree", "add", "--no-track", "-b", branchName, workspacePath, baseBranch],
-  });
-  if (!addResult.ok) {
-    const fallbackResult = await runCommandArgs({
+  const worktrees = await runCommandArgs({ cwd: repositoryPath, command: "git", commandArgs: ["worktree", "list", "--porcelain", "-z"], signal: args.signal, timeoutMs: 30_000 });
+  if (!worktrees.ok) throw new WorkspacePreparationError("Could not reconcile Git worktrees. Check repository access, then resume to retry.");
+  const comparable = (value: string) => fs.realpath(value).catch(() => path.resolve(value));
+  const expectedPath = await comparable(workspacePath);
+  const listed = await Promise.all(parseGitWorktrees({ stdout: worktrees.stdout }).map(async (entry) => ({ ...entry, resolved: await comparable(entry.path) })));
+  const existingTree = listed.find((entry) => entry.branch === branchName || entry.resolved === expectedPath);
+  if (existingTree && (existingTree.branch !== branchName || existingTree.resolved !== expectedPath))
+    throw new WorkspacePreparationError("The execution branch or path belongs to a different worktree. Resolve that conflict, then resume to retry.");
+  if (!existingTree) {
+    await fs.mkdir(path.join(repositoryPath, ".stave/workspaces"), { recursive: true });
+    // `--no-track`: a branch started from `origin/main` would otherwise track it,
+    // and a bare `git push` then suggests `git push origin HEAD:main`.
+    const addResult = await runCommandArgs({
       cwd: repositoryPath,
       command: "git",
-      commandArgs: ["worktree", "add", workspacePath, branchName],
+      signal: args.signal, timeoutMs: 60_000,
+      commandArgs:
+        args.mode === "clean"
+          ? ["worktree", "add", "--no-track", "-b", branchName, workspacePath]
+          : ["worktree", "add", "--no-track", "-b", branchName, workspacePath, baseBranch],
     });
-    if (!fallbackResult.ok) {
-      throw new Error(
-        (
-          fallbackResult.stderr ||
-          addResult.stderr ||
-          "Failed to create git worktree."
-        ).trim(),
-      );
+    if (!addResult.ok) {
+      const fallbackResult = await runCommandArgs({
+        cwd: repositoryPath,
+        command: "git",
+        signal: args.signal, timeoutMs: 60_000,
+        commandArgs: ["worktree", "add", workspacePath, branchName],
+      });
+      if (!fallbackResult.ok) {
+        throw new Error(
+          (
+            fallbackResult.stderr ||
+            addResult.stderr ||
+            "Failed to create git worktree."
+          ).trim(),
+        );
+      }
     }
   }
+
+  if (!existingTree) {
+    const seed = await seedWorktreeDependencies({ sourcePath: repositoryPath, workspacePath, skipRootNodeModules: useRootNodeModulesSymlink, signal: args.signal });
+    if (seed.status === "fallback") notices.push({ level: "warning", message: i18n.t("workspace:dependencyCopyFallback") });
+  }
+  args.signal?.throwIfAborted();
 
   if (useRootNodeModulesSymlink) {
     const linkResult = await runCommand({
@@ -1627,31 +1624,18 @@ export async function createWorkspace(args: {
   }
 
   if (initCommand) {
-    const initResult = await runCommand({
-      cwd: workspacePath,
-      command: initCommand,
-    });
-    const summarizedCommand = summarizeWorkspaceInitCommand({
-      command: initCommand,
-    });
-    if (initResult.ok) {
-      notices.push({
-        level: "success",
-        message: `Ran the post-create command: ${summarizedCommand}`,
-      });
-    } else {
-      notices.push({
-        level: "warning",
-        message: `The post-create command failed: ${summarizedCommand}. ${summarizeTerminalCommandDetail(
-          {
-            stderr: initResult.stderr,
-            stdout: initResult.stdout,
-            fallback: "Command failed.",
-          },
-        )}`,
-      });
+    const summarizedCommand = summarizeWorkspaceInitCommand({ command: initCommand });
+    try {
+      await runWorkspacePreparation({ cwd: workspacePath, command: initCommand, signal: args.signal });
+      notices.push({ level: "success", message: `Ran the post-create command: ${summarizedCommand}` });
+    } catch (error) {
+      // Tars must not execute in a workspace whose preparation failed; ordinary creation keeps its warning contract.
+      if (args.signal) throw error;
+      notices.push({ level: "warning", message: `The post-create command failed: ${summarizedCommand}. ${error instanceof Error ? error.message : String(error)}` });
     }
   }
+
+  args.signal?.throwIfAborted();
 
   const store = ensureHostServicePersistenceReady();
   const snapshot = createEmptyWorkspaceSnapshot();
@@ -1705,6 +1689,9 @@ async function runTaskImpl(args: {
   parentTaskId?: string;
   provider?: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
+  automaticStart?: boolean;
+  /** Overrides the inferred admission class, for a user action that runs through a supervised path. */
+  admissionPriority?: "user" | "automatic";
   unattendedAutomation?: {
     authorizationToken: string;
   };
@@ -1912,6 +1899,8 @@ async function runTaskImpl(args: {
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
     resultsSince: ensureHostServicePersistenceReady().listTurns({ workspaceId: args.workspaceId, taskId: task.id, limit: 1 })[0]?.createdAt ?? null,
   });
+  // Child-only rules: an agent run's stage turns keep delegating their stages.
+  const delegationRules = delegatedTaskRulesFor({ parentTaskId: task.parentTaskId, agentRunStage: args.agentRunStage });
   const handoffRecordPart = buildTurnHandoffContextPart({ record: ensureHostServicePersistenceReady().taskHandoffs.read({ workspaceId: args.workspaceId, taskId: task.id }), turnId, session: providerSessionCursor });
   const repositoryMemoryPart = buildRepositoryMemoryPartForTurn({
     repositoryPath: registration.project.repositoryPath,
@@ -1946,6 +1935,7 @@ async function runTaskImpl(args: {
       }),
       ...(repositoryMemoryPart ? [repositoryMemoryPart] : []),
       ...(handoffRecordPart ? [handoffRecordPart] : []),
+      ...(delegationRules ? [{ type: "retrieved_context" as const, sourceId: "stave:delegation-rules", title: "Delegation rules", content: delegationRules }] : []), // i18n-ignore: model-facing rules
       ...(delegatedTaskReceiptsPart ? [delegatedTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),
@@ -2037,6 +2027,8 @@ async function runTaskImpl(args: {
     {
       turnId,
       providerId: provider,
+      admissionOwner: "host-task",
+      admissionPriority: args.admissionPriority ?? (args.automaticStart || args.agentRunStage || args.unattendedAutomation || args.spawnedBy || args.parentTaskId ? "automatic" : "user"),
       prompt: args.prompt,
       conversation,
       taskId: task.id,
@@ -2155,6 +2147,8 @@ export async function runLocallyApprovedCraneKickoff(
 ) {
   return runTask({
     ...args,
+    // Dispatched by the external tracker, not typed by the user: it waits behind user turns.
+    automaticStart: true,
     controlMode: "interactive",
     controlOwner: "stave",
   });
@@ -2164,8 +2158,10 @@ export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
   turnId?: string;
+  refresh?: boolean;
 }) {
-  const session = await loadWorkspaceSession(args.workspaceId);
+  args = NotificationTaskStatusArgsSchema.parse(args);
+  const session = args.refresh ? await readSavedWorkspaceSession(args.workspaceId) : await loadWorkspaceSession(args.workspaceId);
   const task = session.tasks.find((item) => item.id === args.taskId);
   if (!task) {
     throw new Error(`Task not found: ${args.taskId}`);
@@ -2309,6 +2305,7 @@ export async function getTaskSupervisionSnapshot(args: {
     taskId: task.id,
     repositoryPath: registration.project.repositoryPath,
     exists: true,
+    managed: isTaskManaged(task),
     archived: Boolean(task.archivedAt),
     providerId: task.provider,
     model: resolveTaskModel({ messages, draft: session.promptDraftByTask[task.id], providerId: task.provider }),
@@ -2571,8 +2568,17 @@ export async function takeOverManagedTaskControl(args: {
 }
 
 /** The host session with the task's resident messages; a shell rebuild leaves them empty. */
-async function loadTaskInteractionSession(workspaceId: string, taskId: string) {
-  return ensureResidentTaskMessages({ workspaceId, taskId, session: await loadWorkspaceSession(workspaceId) });
+async function loadTaskInteractionSession(workspaceId: string, taskId: string, refresh = false) {
+  const session = refresh ? await readSavedWorkspaceSession(workspaceId) : await loadWorkspaceSession(workspaceId);
+  if (refresh) {
+    const page = ensureHostServicePersistenceReady().loadTaskMessagesPage({ workspaceId, taskId, limit: MAX_LOADED_TASK_MESSAGES });
+    if (!page) throw new Error("Task history is unavailable. Reopen the task before continuing.");
+    return cacheWorkspaceSession(workspaceId, { ...session,
+      messagesByTask: { ...session.messagesByTask, [taskId]: decodeTaskMessages(page.messages) },
+      messageCountByTask: { ...session.messageCountByTask, [taskId]: page.totalCount },
+    });
+  }
+  return ensureResidentTaskMessages({ workspaceId, taskId, session });
 }
 
 export async function respondApproval(args: HostApprovalArgs) {
@@ -2586,7 +2592,7 @@ export async function respondApproval(args: HostApprovalArgs) {
   }
 
   return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
-    const session = await loadTaskInteractionSession(args.workspaceId, args.taskId);
+    const session = await loadTaskInteractionSession(args.workspaceId, args.taskId, args.expectedMessageId != null);
     const activeTurnId = session.activeTurnIdsByTask[args.taskId];
     if (!activeTurnId) {
       throw new Error(`No active turn found for task ${args.taskId}.`);
@@ -2630,10 +2636,14 @@ export async function respondApproval(args: HostApprovalArgs) {
       ...session,
       messagesByTask: nextMessagesState.messagesByTask,
     });
+    // Write only this task's changed message. The cached session's other
+    // tasks can be older than what the renderer saved since.
     await queueWorkspaceSessionPersist({
       workspaceId: args.workspaceId,
       workspaceName: registration.workspace.name,
       session: nextSession,
+      taskId: args.taskId,
+      changedMessagesByTask: { [args.taskId]: changedTaskMessages(nextSession, args.taskId, approval.messageId) },
     });
     return {
       ok: true,
@@ -2652,7 +2662,7 @@ export async function respondUserInput(args: HostUserInputArgs) {
   return respondHostUserInput(args, {
     workspaceName: registration.workspace.name,
     enqueue: (key, operation) => workspaceProviderEventQueue.enqueue(key, operation),
-    load: loadTaskInteractionSession, respond: providerRuntime.respondUserInput,
+    load: (workspaceId, taskId) => loadTaskInteractionSession(workspaceId, taskId, args.expectedMessageId != null), respond: providerRuntime.respondUserInput,
     cache: cacheWorkspaceSession, persist: queueWorkspaceSessionPersist,
   });
 }
@@ -2670,5 +2680,29 @@ export async function listKnownRepositories() {
       workspaceDefaultById: repository.workspaceDefaultById,
     }),
     workspaces: toWorkspaceList(repository),
+  }));
+}
+
+
+/** Reattach a durable queued turn without adding its already-persisted prompt again. */
+export async function resumeQueuedProviderTurn(args: import("../providers/types").StreamTurnArgs) {
+  if (!args.workspaceId || !args.taskId || !args.turnId) throw new Error("Queued host turn has no task identity.");
+  const { workspaceId, taskId, turnId } = args;
+  const session = await loadWorkspaceSession(workspaceId);
+  const task = session.tasks.find(row => row.id === taskId);
+  if (!task || task.archivedAt || session.activeTurnIdsByTask[taskId] !== turnId) throw new Error("Queued host turn no longer belongs to its task.");
+  const model = args.runtimeOptions?.model ?? "default";
+  const provider = args.providerId;
+  const workspaceName = workspaceId;
+  let sequence = ensureHostServicePersistenceReady().getStreamEvents({ turnId }).at(-1)?.sequence ?? 0;
+  hostTaskSteers.startTurn({ turnId, workspaceId, workspaceName, taskId, provider, model }, () => providerRuntime.startTurnStream(args, {
+    onEvent(event) {
+      const eventSequence = ++sequence;
+      void workspaceProviderEventQueue.enqueue(workspaceId, async () => {
+        await handleProviderEvent({ workspaceId, workspaceName, taskId, provider, model, turnId, sequence: eventSequence, event });
+        if (event.type === "done") hostTaskSteers.unregister(turnId);
+        emitTaskTurnUpdate({ workspaceId, taskId, turnId, providerId: provider, model, sequence: eventSequence, eventType: event.type, done: event.type === "done" });
+      });
+    },
   }));
 }

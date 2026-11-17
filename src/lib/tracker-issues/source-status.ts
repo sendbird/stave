@@ -51,6 +51,7 @@ const AVAILABILITY_HEADLINES: Record<TrackerSourceAvailability, string> = {
  * report beats a generic sentence that hides which call failed.
  */
 export const TRACKER_ERROR_HINTS: Record<string, string> = {
+  get github_unavailable() { return i18n.t("issues:sourceStatus.githubUnavailable"); },
   get unauthorized() { return i18n.t("issues:sourceStatus.theSavedCredentialWasRejected"); },
   get forbidden() { return i18n.t("issues:sourceStatus.theAccountCannotSeeThisList"); },
   get invalid_jql() { return i18n.t("issues:sourceStatus.theSavedJqlQueryWasRejected"); },
@@ -152,7 +153,9 @@ export function summarizeTrackerSource(
       ...base,
       condition: "setup",
       headline: AVAILABILITY_HEADLINES[status.availability],
-      detail: disabledInIntegrations
+      detail: source === "github" && status.availability === "not_configured"
+        ? i18n.t("issues:sourceStatus.githubSetup")
+        : disabledInIntegrations
         ? i18n.t("issues:sourceStatus.turnedOffInSettingsIntegrations")
         : TRACKER_AVAILABILITY_HINTS[status.availability],
       retryable: false,
@@ -161,7 +164,7 @@ export function summarizeTrackerSource(
       // the connector itself is broken.
       fixInSettings:
         disabledInIntegrations ||
-        (status.availability !== "secure_storage_unavailable" &&
+        (source !== "github" && status.availability !== "secure_storage_unavailable" &&
           status.availability !== "disabled"),
     };
   }

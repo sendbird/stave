@@ -62,6 +62,8 @@ export const AdaptiveRunPolicySchema = z.object({
   providerId: z.enum(["claude-code", "codex"]),
   allowedModels: z.array(z.string().trim().min(1).max(200)).min(1).max(64),
   modelLocked: z.boolean(), effortLocked: z.boolean(),
+  /** Explicit execution choice; absent retains the app-wide Auto toggle. */
+  autoRouting: z.boolean().optional(),
   accountProfileId: z.string().min(1).max(200).optional(),
   initialEffort: z.string().max(40).nullable(),
   teamTurns: z.number().int().min(1).max(TEAM_LIMITS.maxTeamTurns),
@@ -86,7 +88,7 @@ export function constrainHelperResources(root: AdaptiveRunPolicy, child: Adaptiv
     if (helperKeepsParentProvider(root)) throw new Error("This team must keep its provider: the parent's model is pinned.");
     // Another provider: the child's own catalog, account and effort; the team's shared limits.
     if (!child.allowedModels.includes(model)) throw new Error("The helper model is outside its own eligible catalog.");
-    return AdaptiveRunPolicySchema.parse({ ...child, version: root.version, teamTurns: root.teamTurns,
+    return AdaptiveRunPolicySchema.parse({ ...child, autoRouting: root.autoRouting, version: root.version, teamTurns: root.teamTurns,
       concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });
   }
   const allowedModels = child.allowedModels.filter((id) => root.allowedModels.includes(id));
@@ -95,7 +97,7 @@ export function constrainHelperResources(root: AdaptiveRunPolicy, child: Adaptiv
   if (root.effortLocked && root.providerId === "codex" && root.initialEffort &&
       !listCodexReasoningEffortsForModel({ model }).some((effort) => effort === root.initialEffort))
     throw new Error("The helper model cannot preserve the parent's effort pin.");
-  return AdaptiveRunPolicySchema.parse({ ...child, allowedModels, accountProfileId: root.accountProfileId,
+  return AdaptiveRunPolicySchema.parse({ ...child, autoRouting: root.autoRouting, allowedModels, accountProfileId: root.accountProfileId,
     modelLocked: root.modelLocked || child.modelLocked, effortLocked: root.effortLocked || child.effortLocked,
     initialEffort: root.effortLocked ? root.initialEffort : child.initialEffort, version: root.version, teamTurns: root.teamTurns,
     concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });

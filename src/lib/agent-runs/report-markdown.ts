@@ -1,3 +1,4 @@
+import { savedHtmlReference } from "./artifacts";
 import { i18n } from "@/i18n/runtime";
 import { formatDuration } from "@/i18n/format";
 import { formatRoutingDecision } from "../providers/routing-decision-label";
@@ -89,7 +90,9 @@ export function formatAgentRunReportMarkdown(report: AgentRunReport): string {
   if (report.links.length > 0) {
     lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.linksHeading")}`);
     for (const link of report.links) {
-      lines.push(`- [${link.label}](${link.url}) — ${EVIDENCE_SOURCE_LABELS[link.source]}`);
+      lines.push(savedHtmlReference(link.url)
+        ? `- ${link.label} — ${i18n.t("agentRuns:artifacts.localOnly")} — ${EVIDENCE_SOURCE_LABELS[link.source]}`
+        : `- [${link.label}](${link.url}) — ${EVIDENCE_SOURCE_LABELS[link.source]}`);
     }
   }
   if (report.leftBehind.length > 0) {

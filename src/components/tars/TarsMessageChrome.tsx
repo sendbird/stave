@@ -8,33 +8,23 @@ import { StateMark } from "@/components/aui/components/StateMark";
 import { TextShimmer } from "@/components/aui/components/TextShimmer";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { sx } from "@/components/aui/utils/stylex";
-import { RelativeTime } from "@/components/system/RelativeTime";
 import { formatFileSize } from "@/lib/fs/file-preview-limits";
 import type { AttachmentContext } from "@/lib/providers/attachment-context";
 import { tarsAttachmentSummary, type TarsAttachmentSummary, type TarsMessageView } from "@/lib/tars/conversation";
 import { describeTarsMessageFailure } from "@/lib/tars/detail";
 import { useAppStore } from "@/store/app.store";
-import { TARS_TEXT_SIZE, tarsMessageStyles as styles } from "./tars-message.styles";
+import { chatTypeScaleVars } from "@/components/ai-elements/message-text-scale";
+import { tarsMessageStyles as styles } from "./tars-message.styles";
 
 /**
- * The conversation's text size, from the chat font size setting the task chat
- * also reads. The conversation column sets it; status lines, failures, times
- * and file details are sized from it (`tars-message.styles`).
+ * The conversation's type scale (`chat-type.stylex.ts`) for the chat font size
+ * setting the task chat also reads. The conversation column sets it; status
+ * lines, failures, times, file chips, the running strip and the composer are
+ * sized from it.
  */
 export function useTarsTextScale(): CSSProperties {
   const size = useAppStore((state) => state.settings.messageFontSize);
-  return { [TARS_TEXT_SIZE]: `${size}px` } as CSSProperties;
-}
-
-/**
- * When the message was sent, in the short relative form ("5m ago"), shown
- * only while its exchange is hovered or holds focus. It is a button, so the
- * keyboard reaches it and its card gives the full date and time.
- */
-export function TarsMessageTime({ at, side }: { at: string; side: "start" | "end" }) {
-  return <span className={sx(styles.time, side === "end" ? styles.timeEnd : styles.timeStart)} data-tars-message-time="">
-    <RelativeTime past date={at} />
-  </span>;
+  return chatTypeScaleVars(size);
 }
 
 /** Code and structured text read as code; prose and logs as a document. */
@@ -43,6 +33,14 @@ const CODE_TYPES = /^(?:[cm]?[jt]sx?|py|rb|rs|go|java|kt|swift|sh|sql|css|scss|h
 function AttachmentIcon({ summary }: { summary: TarsAttachmentSummary }) {
   const Icon = summary.kind === "image" ? ImageIcon : /^(?:diff|patch)$/i.test(summary.type) ? FileDiff : CODE_TYPES.test(summary.type) ? FileCode2 : FileText;
   return <Icon aria-hidden="true" className={sx(styles.fileIcon)} />;
+}
+
+/** A chip's words on the conversation's scale; the AUI chip keeps its truncation and ink. */
+function ChipName({ children }: { children: ReactNode }) {
+  return <span className={sx(styles.chipName)}>{children}</span>;
+}
+function ChipMeta({ children }: { children: ReactNode }) {
+  return <span className={sx(styles.chipMeta)}>{children}</span>;
 }
 
 /** "1.2 KB · YAML": the size, then the file type or image format. */
@@ -66,10 +64,10 @@ export function TarsMessageAttachments({ attachments, workingChanges }: { attach
   return <>
     {attachments.length ? <ul className={sx(styles.fileList)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">
       {attachments.map((summary, index) => <li key={index} className={sx(styles.fileItem)} data-tars-attachment-kind={summary.kind}>
-        <Attachment name={summary.name} meta={meta(summary)} icon={<AttachmentIcon summary={summary} />} xstyle={styles.chip} title={summary.name} />
+        <Attachment name={<ChipName>{summary.name}</ChipName>} meta={<ChipMeta>{meta(summary)}</ChipMeta>} icon={<AttachmentIcon summary={summary} />} xstyle={styles.chip} title={summary.name} />
       </li>)}
     </ul> : null}
-    {workingChanges ? <Attachment name={t("shell:tars.conversation.workingChanges.badge")} icon={<FileDiff aria-hidden="true" className={sx(styles.fileIcon)} />}
+    {workingChanges ? <Attachment name={<ChipName>{t("shell:tars.conversation.workingChanges.badge")}</ChipName>} icon={<FileDiff aria-hidden="true" className={sx(styles.fileIcon)} />}
       xstyle={styles.chip} data-tars-message-working-changes="" /> : null}
   </>;
 }
@@ -88,7 +86,7 @@ export function TarsComposerAttachments({ parts, nameOf, onRemove }: {
     {parts.map((part) => {
       const name = nameOf(part);
       const summary = tarsAttachmentSummary(part);
-      return <Attachment key={name} name={name} meta={meta(summary)} xstyle={styles.chip} title={name}
+      return <Attachment key={name} name={<ChipName>{name}</ChipName>} meta={<ChipMeta>{meta(summary)}</ChipMeta>} xstyle={styles.chip} title={name}
         icon={part.type === "image_context" ? <img src={part.dataUrl} alt="" className={sx(styles.thumbnail)} /> : <AttachmentIcon summary={summary} />}
         onRemove={onRemove ? () => onRemove(name) : undefined} removeLabel={t("shell:tars.conversation.attachments.remove", { name })} />;
     })}
@@ -111,11 +109,14 @@ function CancelMessageButton({ state, busy, onCancel }: { state: "queued" | "rea
  * (the moving mark and a shimmer), waiting behind another message, or
  * cancelled. A message in progress can be cancelled from here.
  */
-export function TarsMessageStatus({ state, busy, onCancel }: { state: "queued" | "reasoning" | "cancelled"; busy: boolean; onCancel: () => void }) {
+export function TarsMessageStatus({ state, busy, onCancel, inspection }: { state: "queued" | "reasoning" | "cancelled"; busy: boolean; onCancel: () => void; inspection?: TarsMessageView["inspection"] }) {
   const { t } = useTranslation(["shell"]);
-  const label = t(`shell:tars.conversation.states.${state}`);
+  const label = state === "reasoning" && inspection?.reading
+    ? t(`shell:tars.conversation.inspecting.${inspection.view}`, { title: inspection.title })
+    : t(`shell:tars.conversation.states.${state}`);
   return <div className={sx(styles.status)} data-tars-message-state={state}>
-    <StateMark state={state === "reasoning" ? "working" : state === "queued" ? "queued" : "stopped"} size="xs" motion={state === "reasoning" ? "moving" : "still"} />
+    {/* The mark sits in the records' mark column, so a message's state lines up with the rail beside it. */}
+    <span className={sx(styles.statusMark)}><StateMark state={state === "reasoning" ? "working" : state === "queued" ? "queued" : "stopped"} size="xs" motion={state === "reasoning" ? "moving" : "still"} /></span>
     {/* The words are the status a screen reader hears when the message starts or stops thinking. */}
     <span role="status" className={sx(styles.statusLabel)}>{state === "reasoning" ? <TextShimmer>{label}</TextShimmer> : label}</span>
     {state === "cancelled" ? null : <CancelMessageButton state={state} busy={busy} onCancel={onCancel} />}
@@ -135,9 +136,9 @@ export function TarsMessageFailure({ message, onResend }: { message: Pick<TarsMe
     data-tars-message-failure={message.errorCode ?? "diagnostic"}>
     <Banner.Title xstyle={styles.noticeTitle}>{t(interrupted ? "shell:tars.conversation.failure.interruptedTitle" : "shell:tars.conversation.failure.title")}</Banner.Title>
     <Banner.Description xstyle={styles.noticeBody}>
-      {reason ? <p className={sx(styles.noticeText)}>{reason}</p> : null}
-      <p className={sx(styles.noticeText)}>{t(onResend ? "shell:tars.conversation.failure.hintWithResend" : "shell:tars.conversation.failedHint")}</p>
-      {onResend && message.attachments?.length ? <p className={sx(styles.noticeText)}>{t("shell:tars.conversation.failure.reattach")}</p> : null}
+      {reason ? <p className={sx(styles.noticeText)} title={reason}>{reason}</p> : null}
+      <p className={sx(styles.noticeText)} title={t(onResend ? "shell:tars.conversation.failure.hintWithResend" : "shell:tars.conversation.failedHint")}>{t(onResend ? "shell:tars.conversation.failure.hintWithResend" : "shell:tars.conversation.failedHint")}</p>
+      {onResend && message.attachments?.length ? <p className={sx(styles.noticeText)} title={t("shell:tars.conversation.failure.reattach")}>{t("shell:tars.conversation.failure.reattach")}</p> : null}
     </Banner.Description>
     {onResend ? <Banner.Action><TarsNoticeAction icon={<RotateCcw aria-hidden="true" className={sx(styles.actionIcon)} />} onClick={onResend} data-tars-message-resend="">
       {t("shell:tars.conversation.failure.resend")}</TarsNoticeAction></Banner.Action> : null}
@@ -159,8 +160,8 @@ export function TarsConversationError({ error, send, onRetry }: { error: string;
   return <Banner.Root tone="danger" xstyle={styles.notice} data-tars-conversation-error={send ? "send" : "request"}>
     <Banner.Title xstyle={styles.noticeTitle}>{send ? t("shell:tars.conversation.sendFailed.title") : error}</Banner.Title>
     {send ? <Banner.Description xstyle={styles.noticeBody}>
-      <p className={sx(styles.noticeText)}>{error}</p>
-      <p className={sx(styles.noticeText)}>{t("shell:tars.conversation.sendFailed.kept")}</p>
+      <p className={sx(styles.noticeText)} title={error}>{error}</p>
+      <p className={sx(styles.noticeText)} title={t("shell:tars.conversation.sendFailed.kept")}>{t("shell:tars.conversation.sendFailed.kept")}</p>
     </Banner.Description> : null}
     <Banner.Action><TarsNoticeAction icon={<RotateCcw aria-hidden="true" className={sx(styles.actionIcon)} />} onClick={onRetry}>{t("shell:tars.retry")}</TarsNoticeAction></Banner.Action>
   </Banner.Root>;

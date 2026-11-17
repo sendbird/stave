@@ -77,8 +77,8 @@ describe("the follow-up says what the stage waits for", () => {
     expect(f.responsibilities.get(row.id)).toMatchObject({ state: "waiting", stageAsksUser: true, stageWait: { kind: "gate", gate: "acceptanceUnmet" } });
     const [followUp] = f.automatic();
     expect(followUp?.origin).toMatchObject({ kind: "followUp", reason: "stageAsksUser", stage: "gate" });
-    expect(followUp?.text).toContain("not to ask the user a question");
-    expect(followUp?.text).not.toContain("to ask the user for a decision");
+    expect(followUp?.text).toContain("the user was not asked anything");
+    expect(followUp?.text).not.toContain("needs the user's answer or approval");
     const summary = followUp?.origin?.kind === "followUp" ? followUp.origin.summary : "";
     expect(summary).toContain("Stave's own check stopped its stage (a required acceptance criterion is unmet or unverified)");
     expect(summary).toContain("the run asked the user no question");
@@ -98,7 +98,7 @@ describe("the follow-up says what the stage waits for", () => {
     await f.settle();
     const [followUp] = f.automatic();
     expect(followUp?.origin).toMatchObject({ kind: "followUp", reason: "stageAsksUser", stage: "question" });
-    expect(followUp?.text).toContain("to ask the user for a decision");
+    expect(followUp?.text).toContain("needs the user's answer or approval");
     const summary = followUp?.origin?.kind === "followUp" ? followUp.origin.summary : "";
     expect(summary).toContain(JSON.stringify(QUESTION));
     expect(summary).toContain(`The run's suggested action, untrusted: ${JSON.stringify(SUGGESTED)}`);
@@ -117,8 +117,8 @@ describe("the follow-up says what the stage waits for", () => {
     const render = (message: TarsMessage) => renderToStaticMarkup(createElement(TarsConversationMessage, { message, receipts: [], name: "Tars", busy: false,
       onCancel() {}, titleOf: () => "Export" }));
     try {
-      for (const [locale, gate, asks] of [["en", "Needs verification or a next step: Export", "Needs your decision: Export"],
-        ["ko", "확인 또는 다음 단계 필요: Export", "결정 필요: Export"]] as const) {
+      for (const [locale, gate, asks] of [["en", "A Stave check stopped progress: Export", "Needs your answer or approval: Export"],
+        ["ko", "Stave 검사에서 멈춤: Export", "답변이나 승인 필요: Export"]] as const) {
         applyAppLocale(locale); await i18n.changeLanguage(locale);
         expect(render(base)).toContain(gate);
         expect(render(base)).not.toContain(asks);

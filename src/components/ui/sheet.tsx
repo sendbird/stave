@@ -1,3 +1,4 @@
+import { Tooltip } from "../aui/components/Tooltip";
 import { i18n, useTranslation } from "@/i18n";
 import { sheetLayout } from "./sheet-layout.styles";
 import { transition } from "../aui/recipes/transition";
@@ -92,19 +93,21 @@ function SheetContent({
       >
         {children}
         {showCloseButton && (
-          <SheetPrimitive.Close
-            data-slot="sheet-close"
-            render={
-              <Button
-                variant="ghost"
-                xstyle={overlayLayout.close}
-                size="icon-sm"
-              />
-            }
-          >
-            <XIcon />
-            <VisuallyHidden>{i18n.t("ui:sheet.close")}</VisuallyHidden>
-          </SheetPrimitive.Close>
+          <Tooltip content={i18n.t("ui:sheet.close")}>
+            <SheetPrimitive.Close
+              data-slot="sheet-close"
+              render={
+                <Button
+                  variant="ghost"
+                  xstyle={overlayLayout.close}
+                  size="icon-sm"
+                />
+              }
+            >
+              <XIcon />
+              <VisuallyHidden>{i18n.t("ui:sheet.close")}</VisuallyHidden>
+            </SheetPrimitive.Close>
+          </Tooltip>
         )}
       </SheetPrimitive.Popup>
     </SheetPortal>

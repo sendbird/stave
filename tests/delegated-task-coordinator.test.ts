@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import {
   createDelegatedTaskCoordinator,
   type DelegatedTaskHostPort,
@@ -149,8 +150,11 @@ function createHarness(
     resolveDelegationStrengths?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveDelegationStrengths"];
     isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
     readProviderUsage?: Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"];
+    dailyUsageLimit?: Parameters<typeof createDelegatedTaskCoordinator>[0]["dailyUsageLimit"];
+    canStopTask?: Parameters<typeof createDelegatedTaskCoordinator>[0]["canStopTask"];
     resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
     cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
+    admissionWait?: Parameters<typeof createDelegatedTaskCoordinator>[0]["admissionWait"];
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
@@ -172,6 +176,9 @@ function createHarness(
       ...(options.resolveDelegationStrengths ? { resolveDelegationStrengths: options.resolveDelegationStrengths } : {}),
       ...(options.isProviderAvailable ? { isProviderAvailable: options.isProviderAvailable } : {}),
       ...(options.readProviderUsage ? { readProviderUsage: options.readProviderUsage } : {}),
+      dailyUsageLimit: options.dailyUsageLimit,
+      canStopTask: options.canStopTask,
+      admissionWait: options.admissionWait,
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -231,6 +238,13 @@ describe("account usage admission", () => {
     const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: false, ...input }, caller);
     return { harness, response };
   };
+
+  test("a daily limit refuses a new helper without starting its task", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, dailyUsageLimit: async () => "Daily limit reached." });
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: false }, caller);
+    expect(response).toMatchObject({ accepted: false, reason: "usage-limited", message: "Daily limit reached." });
+    expect(harness.runTaskCalls).toHaveLength(0);
+  });
 
   test("a model's new subagent does not start where the account is exhausted, and the refusal names the other provider", async () => {
     const { harness, response } = await start(async () => usage({ status: "headroom", usedPercent: 20 }, { status: "exhausted", usedPercent: 100, resetsAt: RESET }));
@@ -1806,4 +1820,129 @@ describe("restart reconciliation never makes independent delegations wait on eac
     }
     expect(step()).toBe("running");
   });
+});
+
+
+describe("cascading delegated task stop", () => {
+  test("stops each parent before descendants and leaves ended children untouched", async () => {
+    const harness = createHarness();
+    const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const child = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "nested", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const ended = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "ended-child" }));
+    await harness.coordinator.waitForInFlight();
+    expect(ended.child).not.toBeNull();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([parent.child!.delegatedTaskId, child.child!.delegatedTaskId]);
+    expect((await harness.coordinator.get({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "ended-child" }))?.phase).toBe("completed");
+  });
+  test("a refused descendant is reported while its sibling and parent still stop", async () => {
+    let refused = "";
+    const harness = createHarness({ canStopTask: async ({ taskId }) => taskId !== refused });
+    const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const first = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "first-child", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    refused = first.child!.delegatedTaskId;
+    const sibling = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parent.child!.delegatedTaskId, delegationKey: "second-child", lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(result.message).toContain("managed by Tars");
+    expect(harness.stopTaskCalls.map((call) => call.taskId)).toEqual([parent.child!.delegatedTaskId, sibling.child!.delegatedTaskId]);
+  });
+  test("a failed host stop is reported after the durable cancellation", async () => {
+    const harness = createHarness();
+    const child = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    harness.host.stopTask = async () => { throw new Error("host stop unavailable"); };
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(true);
+    expect(result.message).toContain(`${child.child!.delegatedTaskId}: Error: host stop unavailable`);
+    expect(result.child?.phase).toBe("cancelled");
+    expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("cancelled");
+  });
+  test("a Tars-owned child refuses direct stop before changing its ledger", async () => {
+    const harness = createHarness({ canStopTask: async () => false });
+    const child = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const result = await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    expect(result.accepted).toBe(false);
+    expect(result.message).toBe("managed by Tars");
+    expect(harness.stopTaskCalls).toEqual([]);
+    expect((await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("waiting");
+    expect(child.child).not.toBeNull();
+  });
+});
+
+
+test("stopping a cancelled delegation is an accepted duplicate without stopping again", async () => {
+  const harness = createHarness();
+  await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  const args = { parentTaskId: PARENT_TASK, delegationKey: "review-docs" };
+  await harness.coordinator.stop(args);
+  const calls = harness.stopTaskCalls.length;
+  const result = await harness.coordinator.stop(args);
+  expect(result.accepted).toBe(true);
+  expect(result.duplicate).toBe(true);
+  expect(result.child?.phase).toBe("cancelled");
+  expect(harness.stopTaskCalls).toHaveLength(calls);
+});
+
+test("a stopping intermediate parent cannot delegate again while descendants stop", async () => {
+  const harness = createHarness();
+  const parent = await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  const parentId = parent.child!.delegatedTaskId;
+  await harness.coordinator.delegate(delegateArgs({ parentTaskId: parentId, delegationKey: "nested", lifecycle: "detached" }));
+  await harness.coordinator.waitForInFlight();
+  let attempted = false;
+  let lateResult: { accepted: boolean; reason?: string | null } | undefined;
+  harness.host.stopTask = async ({ taskId }) => {
+    if (taskId === parentId) {
+      attempted = true;
+      const result = await harness.coordinator.delegate(delegateArgs({ parentTaskId: parentId, delegationKey: "late-child", lifecycle: "detached" }));
+      lateResult = result;
+    }
+  };
+  await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+  expect(attempted).toBe(true);
+  expect(lateResult?.accepted).toBe(false);
+  expect(lateResult?.reason).toBe("invalid-state");
+});
+
+describe("global turn admission during a delegate wait", () => {
+  const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+
+  test("with one slot, the wait returns at its deadline and a parent that then times out leaves no slot held", async () => {
+    // The real host gate: one slot. The parent holds it until its wait suspends it.
+    const gate = createTurnAdmission({ limit: () => 1, save: () => {} });
+    await gate.acquire({ turnId: "parent-turn", taskId: PARENT_TASK, priority: "user" });
+    let child: Promise<void> | null = null;
+    const harness = createHarness({
+      parentDefaults: { providerId: "codex" },
+      // The child takes the freed slot and keeps it longer than the parent's wait.
+      runTask: () => { child = gate.acquire({ turnId: "child-turn", taskId: "child", priority: "automatic" }); return new Promise(() => {}); },
+      admissionWait: (args) => gate.wait(args.taskId, args.waiting),
+    });
+    const started = Date.now();
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: 1 }, caller);
+    const elapsed = Date.now() - started;
+    expect(response.accepted).toBe(true);
+    // The documented wait is one second; taking the slot back never holds the tool call past it.
+    expect(elapsed).toBeLessThan(2_500);
+    await child;
+    expect(gate.snapshot().running).toEqual(["child-turn"]);
+    expect(gate.snapshot().queued.map((row) => row.turnId)).toEqual(["parent-turn"]);
+    // The parent turn times out while its re-acquire still waits; its end releases that too.
+    gate.release("parent-turn");
+    expect(gate.snapshot().queued).toEqual([]);
+    gate.release("child-turn");
+    await gate.acquire({ turnId: "next-turn", taskId: "other", priority: "user" });
+    expect(gate.snapshot().running).toEqual(["next-turn"]);
+    gate.release("next-turn");
+  }, 10_000);
 });

@@ -1095,6 +1095,11 @@ export type NormalizedProviderEvent =
       ownerAgentId?: string;
     }
   | {
+      type: "turn_admission";
+      state: "queued" | "running";
+      ahead: number;
+    }
+  | {
       type: "system";
       content: string;
       compactBoundary?: {
@@ -1118,6 +1123,13 @@ export type NormalizedProviderEvent =
        * permanently cross-wires two concurrent workers.
        */
       binding?: "authoritative" | "guess";
+    }
+  | {
+      type: "subagent_model";
+      /** The spawn call (Agent/Task tool use) the subagent runs under. */
+      toolUseId: string;
+      /** The model id the provider reported on the subagent's own response. */
+      model: string;
     }
   | {
       type: "model_resolved";

@@ -19,13 +19,15 @@ import { createAgentRun, EMPTY_STAGE_FACTS, AgentRunStartInputSchema } from "../
 import type { AgentRunChangedEvent } from "../src/lib/agent-runs/api";
 import type { AgentRunStageGrant } from "../electron/providers/agent-run-grants";
 import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types";
-import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adaptive-policy";
 import { addIdleTask } from "../electron/host-service/idle-task";
 import { createEmptyWorkspaceState } from "../src/store/workspace-session-state";
 import { rememberAdaptiveCatalog } from "../electron/providers/adaptive-observations";
-import { createConstrainedHostRouter } from "../electron/host-service/supervision/constrained-route-host";
+import { createHostConstrainedRouter, createHostResourceFreezer } from "../electron/host-service/supervision/agent-run-routing-host";
+import { TarsStore } from "../electron/persistence/tars-store";
 import { buildAgentRouteSettings } from "../src/store/agent-route-settings-sync";
 import { defaultSettings } from "../src/store/app-settings";
+import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
+import { DelegationPolicyStore } from "../electron/persistence/delegation-policy-store";
 
 const idle = { ok: true as const, activeTurnId: null, latestTurnId: null, latestTurnCompletedAt: null, latestTurnError: null };
 const agent = { ...getBuiltinAgent("reviewer")!, workflow: undefined };
@@ -33,24 +35,44 @@ const request = (patch = {}) => ({ repositoryPath: "/tmp/stave", parentWorkspace
   delegationKey: "assignment", prompt: "Review and verify the change.", providerId: "codex", agentConfigId: agent.id,
   workspace: { mode: "same-workspace" }, access: "read-only", ...patch });
 
-function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; accountProfileId?: string; routing?: boolean; decisionMetadata?: boolean; beforeTaskCreated?: () => Promise<void> } = {}) {
+function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; accountProfileId?: string; routing?: boolean; explicitAuto?: boolean; pinnedRoot?: boolean; tarsRoot?: boolean; decisionMetadata?: boolean; beforeTaskCreated?: () => Promise<void> } = {}) {
   const savedAgent = options.agent ?? agent;
   const db = new Database(":memory:");
-  const runs = new AgentRunStore(db), assignments = createAssignRuntime({ store: new AgentAssignmentStore(db), allowNativeSubagents: taskId => !runs.resourceConfig(runs.getActiveAgentRunForTask(taskId)?.id ?? "") });
+  const assignmentStore = new AgentAssignmentStore(db), tars = new TarsStore(db);
+  const runs = new AgentRunStore(db), assignments = createAssignRuntime({ store: assignmentStore, allowNativeSubagents: taskId => !runs.resourceConfig(runs.getActiveAgentRunForTask(taskId)?.id ?? "") });
   const ledger = new RunLedgerStore(db);
+  db.run("CREATE TABLE app_state (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL)");
+  const routeSettings = new DelegationPolicyStore(db);
+  routeSettings.saveRouteSettings(buildAgentRouteSettings({ ...defaultSettings, autoRoutingEnabled: !options.explicitAuto,
+    autoRoutingProfile: buildStarterProfile("starter-quality-first") }));
   let session = createEmptyWorkspaceState();
   let clock = new Date("2026-10-09T00:00:00Z");
-  const rootPolicy = freezeAdaptivePolicy({ providerId, model: providerId === "codex" ? "gpt-6-sol" : "sonnet", agent: null,
-    draft: { autoRouting: true, ...(options.accountProfileId ? (providerId === "codex" ? { codexAccountProfileId: options.accountProfileId } : { claudeAccountProfileId: options.accountProfileId }) : {}) }, settings: null, maxTurns: 30 });
+  const rootModel = options.explicitAuto ? (providerId === "codex" ? "gpt-6-luna" : "claude-haiku-5-5")
+    : (providerId === "codex" ? "gpt-6-sol" : "sonnet");
+  const freezeResources = createHostResourceFreezer({ assignments: assignmentStore, tars, taskAgent: assignments.agentForTask,
+    draft: () => undefined, settings: () => routeSettings.loadRouteSettings(), profiles: () => [] });
   if (options.adaptive) {
     session = addIdleTask(session, { taskId: "parent", workspaceId: "ws", title: "Parent", provider: providerId,
-      model: rootPolicy.allowedModels[0]! }).session;
+      model: rootModel }).session;
     assignments.recordTaskAgent({ requestId: "root", taskId: "parent", workspaceId: "ws", repositoryPath: "/tmp/stave",
-      agent: getBuiltinAgent("implementer")!, providerId, model: rootPolicy.allowedModels[0]!, assignment: "Integrate" });
+      agent: getBuiltinAgent("implementer")!, providerId, model: rootModel, assignment: "Integrate" });
     const root = createAgentRun({ id: "root", input: AgentRunStartInputSchema.parse({ origin: "agent", workspaceId: "ws", leadTaskId: "parent",
       assignment: "Integrate", workflow: buildAgentRunWorkflow({ agent: { name: "Root" }, now: clock }), maxTurns: 30,
       expiresAt: "2026-10-10T00:00:00Z", consent: { permissionMode: "manual", checkIns: "when-stuck", authorizedEffectStageIds: [] } }),
-      repositoryPath: "/tmp/stave", fingerprint: { providerId, model: rootPolicy.allowedModels[0]! }, now: clock });
+      repositoryPath: "/tmp/stave", fingerprint: { providerId, model: rootModel }, now: clock });
+    let admission;
+    if (options.explicitAuto || options.tarsRoot) {
+      const row = tars.create({ requestId: "tars-parent", title: "Integrate", instruction: "Integrate", acceptanceCriteria: ["Verified"],
+        workspaceId: "source", repositoryPath: "/tmp/stave", providerId, model: options.pinnedRoot ? root.agentRun.fingerprint.model : null }, clock.toISOString());
+      tars.patch(row.id, row.revision, { executionWorkspaceId: "ws", taskId: "parent" }, clock.toISOString());
+      assignments.recordTaskAgent({ requestId: `tars-${row.id}`, taskId: "parent", workspaceId: "ws", repositoryPath: "/tmp/stave",
+        agent: getBuiltinAgent("implementer")!, providerId, model: null, assignment: "Integrate" });
+      root.agentRun.workflow.id = `tars-${row.id}`;
+      admission = { tarsResponsibilityId: row.id };
+    }
+    const rootPolicy = freezeResources({ run: root.agentRun, routingIntent: options.pinnedRoot
+      ? { model: root.agentRun.fingerprint.model, modelProviderId: providerId, autoRouting: false } : { autoRouting: true }, admission,
+      ...(options.accountProfileId ? { accounts: providerId === "codex" ? { codexAccountProfileId: options.accountProfileId } : { claudeAccountProfileId: options.accountProfileId } } : {}) });
     root.events[0]!.detail = { ...root.events[0]!.detail, resources: rootPolicy };
     root.events[0]!.idempotencyKey = "root:policy";
     runs.create(root, clock);
@@ -63,17 +85,16 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
   let observedModel: string | undefined;
   const policy = resolveDelegationPermissionPolicy({ providerId, access: "read-only" });
   let classified = 0;
-  const constrained = createConstrainedHostRouter({ assignment: assignments.assignmentForTask,
-    settings: () => buildAgentRouteSettings({ ...defaultSettings, autoRoutingEnabled: true }), profiles: () => [], history: () => [], cwd: async () => "/tmp/stave",
+  const constrained = createHostConstrainedRouter({ runs, assignment: assignments.assignmentForTask,
+    settings: () => options.explicitAuto || options.pinnedRoot ? new DelegationPolicyStore(db).loadRouteSettings() : buildAgentRouteSettings({ ...defaultSettings, autoRoutingEnabled: true }),
+    profiles: () => [], history: () => [], cwd: async () => "/tmp/stave",
     classify: async () => { classified++; return { ok: true, classification: { version: 2, intent: "review", complexity: "low", risk: "normal", continuity: "new", domain: "logic", evidenceCodes: [] },
       ...(options.decisionMetadata ? { utility: { providerId: null, model: "moonshotai/jev", selectionReason: "explicit" as const, degraded: false, attempts: [],
         routing: { providerId: "gateway" as const, model: "moonshotai/jev", preferred: { mode: "gateway" as const, connectionId: "11111111-1111-4111-8111-111111111111", model: "moonshotai/jev" }, fallback: false, elapsedMs: 24, reportedCostUsd: 0.001 } } } : {}) }; } });
   const createRuntime = () => createAgentRunRuntime({
     store: runs, delegatedAssignment: assignments.assignmentForTask,
     ...(options.routing ? { routeConstrainedTurn: constrained } : {}),
-    freezeResources: ({ run, authority }) => freezeAdaptivePolicy({ providerId, model: run.fingerprint.model, agent: savedAgent,
-      delegated: true, effort: authority?.effort, modelPinned: authority?.modelPinned, effortPinned: authority?.effortPinned,
-      settings: null, maxTurns: 30 }),
+    freezeResources,
     delegatedExecutionCurrent: (id, taskId, authority) => ledger.listAggregatesByOwnedTask({ taskId, limit: 50 }).some(({ run, step }) =>
       step.executionId === authority.executionId && (step.status === "running" || step.status === "waiting") &&
       ledger.listReceipts({ runId: run.id }).some(r => r.type === "accepted" && r.detail?.attempt === step.attempt && r.detail.agentRunId === id)),
@@ -159,6 +180,35 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
 }
 
 describe("supervised saved-Agent delegations", () => {
+  for (const providerId of ["codex", "claude-code"] as const) for (const tarsRoot of [false, true]) test(`${providerId}: global-on pinned parent preserves helper classification and effort (Tars: ${tarsRoot})`, async () => {
+    const h = harness(providerId, { routing: true, adaptive: true, pinnedRoot: true, tarsRoot });
+    expect(h.runs.resourceConfig("root")?.policy).toMatchObject({ modelLocked: true });
+    expect(h.runs.resourceConfig("root")?.policy).not.toHaveProperty("autoRouting");
+    const child = await h.start();
+    expect(h.classified).toBeGreaterThan(0);
+    const effort = providerId === "codex" ? "codexReasoningEffort" : "claudeEffort";
+    expect(h.calls[0]!.runtimeOptions[effort]).toBe("high");
+    expect(h.calls[0]!.runtimeOptions.model).toBe(providerId === "codex" ? "gpt-6-sol" : "sonnet");
+    h.end("turn-1"); h.restartRuntime(); await h.runtime.requestTick();
+    expect(h.calls).toHaveLength(2);
+    expect(h.calls[1]!.runtimeOptions[effort]).toBe("high");
+    await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
+  });
+  for (const providerId of ["codex", "claude-code"] as const) test(`${providerId}: explicit parent Auto survives delegated admission and continuation after runtime restart with app Auto off`, async () => {
+    const h = harness(providerId, { routing: true, adaptive: true, explicitAuto: true });
+    const child = await h.start();
+    const initialClassifications = h.classified;
+    expect(initialClassifications).toBeGreaterThan(0);
+    expect(h.runs.resourceConfig(child.agentRunId!)?.policy.autoRouting).toBe(true);
+    expect(h.calls[0]!.runtimeOptions).toMatchObject(providerId === "codex"
+      ? { model: "gpt-6.1-sol", codexReasoningEffort: "high", codexFileAccess: "read-only" }
+      : { model: "claude-opus-5-5", claudeEffort: "high", claudeSandboxReadOnly: true });
+    h.end("turn-1"); h.restartRuntime(); await h.runtime.requestTick();
+    expect(h.classified).toBe(initialClassifications + 1);
+    expect(h.calls).toHaveLength(2);
+    expect(h.calls[1]!.runtimeOptions).toEqual(h.calls[0]!.runtimeOptions);
+    await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
+  });
   test("delegated AI host-check criteria refuse preparation with a reason before any run or turn", async () => {
     const h = harness("codex", { agent: { ...agent, workflow: [{ id: "check", title: "Check", kind: "ai", instruction: "Check work", doneWhen: "Checked",
       acceptanceCriteria: [{ text: "Workspace checks pass", verification: "stave-check" }],

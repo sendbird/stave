@@ -227,7 +227,7 @@ function createAppKeybindingHandlers(
       if (!shouldAbort) {
         return false;
       }
-      store().abortTaskTurn({ taskId: store().activeTaskId });
+      store().abortTaskTurn({ taskId: store().activeTaskId, cascade: true });
       return true;
     },
     "work-queue.undo": () => runPendingUndo(),

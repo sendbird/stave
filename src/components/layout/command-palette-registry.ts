@@ -1,5 +1,12 @@
+import { openSecretRequests } from "./secret-request-navigation";
+import { openResourceManager } from "./resource-manager-events";
+import { requestFleetBulkCommand } from "@/lib/fleet/bulk-command";
+import { openWorkspaceCleanup } from "./workspace-cleanup-events";
 import { i18n } from "@/i18n";
 import {
+  Archive,
+  MailCheck,
+  Square,
   Bot,
   Gauge,
   Command as CommandIcon,
@@ -307,6 +314,57 @@ function formatWorkspaceTitle(args: { isDefault: boolean; name: string }) {
 
 const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
+    id: "navigation.resources",
+    get title() { return i18n.t("shell:discoverability.resourceManager"); },
+    get description() { return i18n.t("shell:discoverability.resourceManagerDescription"); },
+    group: "navigation",
+    icon: Gauge,
+    keywords: ["resources", "memory", "cpu", "processes"],
+    build: () => ({
+      id: "navigation.resources", title: i18n.t("shell:discoverability.resourceManager"),
+      subtitle: i18n.t("shell:discoverability.resourceManagerDescription"),
+      group: "navigation", icon: Gauge, keywords: ["resources", "memory", "cpu", "processes"],
+      run: openResourceManager, source: "core",
+    }),
+  },
+  {
+    id: "navigation.pr-check-back",
+    get title() { return i18n.t("shell:discoverability.prCheckBack"); },
+    get description() { return i18n.t("shell:discoverability.prCheckBackDescription"); },
+    group: "navigation",
+    icon: GitPullRequest,
+    keywords: ["schedules", "PR", "check back", "watch"],
+    build: (args) => ({
+      id: "navigation.pr-check-back", title: i18n.t("shell:discoverability.prCheckBack"),
+      subtitle: i18n.t("shell:discoverability.prCheckBackDescription"),
+      group: "navigation", icon: GitPullRequest, keywords: ["schedules", "PR", "check back", "watch"],
+      run: args.commands.openAutomationCenter, source: "core",
+    }),
+  },
+  {
+    id: "navigation.secret-requests",
+    get title() { return i18n.t("shell:discoverability.secretRequests"); },
+    get description() { return i18n.t("shell:discoverability.secretRequestsDescription"); },
+    group: "navigation",
+    icon: KeySquare,
+    keywords: ["secrets", "requests", "credentials"],
+    build: (args) => ({
+      id: "navigation.secret-requests", title: i18n.t("shell:discoverability.secretRequests"),
+      subtitle: i18n.t("shell:discoverability.secretRequestsDescription"),
+      group: "navigation", icon: KeySquare, keywords: ["secrets", "requests", "credentials"],
+      run: () => openSecretRequests(args.commands), source: "core",
+    }),
+  },
+  {
+    id: "workspaces.cleanup",
+    get title() { return i18n.t("workspace:cleanupCenter.title"); },
+    get description() { return i18n.t("workspace:cleanupCenter.description"); },
+    group: "navigation",
+    icon: FolderOpen,
+    keywords: ["clean", "cleanup", "archive", "restore", "workspaces", "정리", "보관", "복원"],
+    build: () => ({ id: "workspaces.cleanup", title: i18n.t("workspace:cleanupCenter.title"), subtitle: i18n.t("workspace:cleanupCenter.description"), group: "navigation", icon: FolderOpen, keywords: ["cleanup", "archive", "restore"], run: openWorkspaceCleanup, source: "core" }),
+  },
+  {
     id: "navigation.quick-open-file",
     get title() { return i18n.t("shell:commandPaletteRegistry.quickOpenFile"); },
     get description() { return i18n.t("shell:commandPaletteRegistry.focusTheWorkspaceFileSearchInThe"); },
@@ -377,6 +435,19 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       source: "core",
     }),
   },
+  ...(["stop", "archive", "read"] as const).map((operation) => ({
+    id: `fleet.bulk.${operation}`,
+    get title() { return i18n.t(`fleet:bulk.${operation}Command`); },
+    get description() { return i18n.t(`fleet:bulk.${operation}Command`); },
+    group: "task" as const,
+    icon: operation === "stop" ? Square : operation === "archive" ? Archive : MailCheck,
+    keywords: ["fleet", operation, "bulk"],
+    build: (args: CommandPaletteRuntimeContext) => args.repositoryPath ? {
+      id: `fleet.bulk.${operation}`, title: i18n.t(`fleet:bulk.${operation}Command`),
+      group: "task" as const, icon: operation === "stop" ? Square : operation === "archive" ? Archive : MailCheck, keywords: ["fleet", operation, "bulk"], source: "core" as const,
+      run: () => { requestFleetBulkCommand({ operation }); args.commands.openFleetView(); },
+    } : null,
+  })),
   {
     id: "navigation.fleet-view",
     get title() { return i18n.t("shell:commandPaletteRegistry.openFleetView"); },
@@ -1725,6 +1796,12 @@ export function listCommandPaletteActions(args: CommandPaletteRuntimeContext) {
   return dedupeActions([
     ...buildCoreActions(args),
     ...buildDynamicActions(args),
+    ...args.repositories.map((repository): CommandPaletteAction => ({
+      id: `fleet.stop-repository.${repository.repositoryPath}`, group: "task", icon: Square,
+      title: i18n.t("fleet:bulk.stopRepositoryCommand", { repository: repository.repositoryName }),
+      keywords: ["stop", "repository", repository.repositoryName], source: "core",
+      run: () => { requestFleetBulkCommand({ operation: "stop", repositoryPath: repository.repositoryPath }); args.commands.openFleetView(); },
+    })),
     ...contributed,
   ]);
 }

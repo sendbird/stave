@@ -269,6 +269,75 @@
   text-decoration: var(--shiki-dark-text-decoration);
 }
 
+/*
+ * A diff's lines are rows: each spans the block (and the longest line when it
+ * scrolls), and an added or removed line takes the diff viewer's row wash
+ * (`--aui-color-diff-added` / `--aui-color-diff-removed`). The transformer
+ * marks the lines and moves the block's inline padding onto them.
+ */
+.stave-code-block[data-diff-block] > code {
+  display: grid;
+  grid-template-columns: minmax(100%, max-content);
+}
+
+.stave-code-block[data-diff-block] .line {
+  min-block-size: 1lh;
+  padding-inline: var(--aui-space-16);
+}
+
+.stave-code-block .line[data-diff="add"] {
+  background-color: var(--aui-color-diff-added);
+}
+
+.stave-code-block .line[data-diff="remove"] {
+  background-color: var(--aui-color-diff-removed);
+}
+
+/*
+ * A code line longer than the block scrolls inside it. The side that has more
+ * code fades out over one control height, so a cut line reads as continuing
+ * even where the platform's overlay scrollbar is hidden until something
+ * scrolls; the scrollbar is thin and darkens on hover and keyboard focus. A
+ * block that scrolls takes focus (`code-block.tsx`), so arrow keys move it.
+ */
+.stave-code-scroll[data-scroll-fade="end"] {
+  mask-image: linear-gradient(to right, black calc(100% - var(--aui-control-height-sm)), transparent);
+}
+
+.stave-code-scroll[data-scroll-fade="start"] {
+  mask-image: linear-gradient(to left, black calc(100% - var(--aui-control-height-sm)), transparent);
+}
+
+.stave-code-scroll[data-scroll-fade="both"] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black var(--aui-control-height-sm),
+    black calc(100% - var(--aui-control-height-sm)),
+    transparent
+  );
+}
+
+.stave-code-scroll {
+  scrollbar-color: var(--aui-color-border) transparent;
+  scrollbar-width: thin;
+}
+
+.stave-code-scroll:hover,
+.stave-code-scroll:focus-visible {
+  scrollbar-color: var(--aui-color-border-strong) transparent;
+}
+
+/* The block's own edge carries the focus ring, which the fade would otherwise mask. */
+.stave-code-scroll:focus-visible {
+  outline: none;
+}
+
+[data-code-block]:has(.stave-code-scroll:focus-visible) {
+  outline: var(--aui-focus-ring-width) solid var(--aui-color-border-focus);
+  outline-offset: var(--aui-focus-ring-offset);
+}
+
 :root {
   --background: oklch(0.985 0.003 75);
   --foreground: oklch(0.225 0.003 75);

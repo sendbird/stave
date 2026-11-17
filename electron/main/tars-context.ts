@@ -1,9 +1,13 @@
 import type { SqliteStore } from "../persistence/sqlite-store";
 import { TARS_DEFAULT_BRANCH_NAMING_RULE } from "../../src/lib/tars/branch-name";
+import { TARS_PLANNER_MAX_REPOSITORIES } from "../../src/lib/tars/knowledge";
 import { resolveTarsWorkRequest, type TarsWorkRequestSource } from "../../src/lib/tars/brief";
 import type { TarsResponsibility, TarsWorkRequest } from "../../src/lib/tars/types";
+import type { TarsMessage } from "../../src/lib/tars/conversation";
+import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
+import { tarsExecutionScope } from "../../src/lib/tars/continuation";
 
-const MAX_REPOSITORIES = 12;
+const MAX_REPOSITORIES = TARS_PLANNER_MAX_REPOSITORIES;
 const MAX_WORKSPACES = 24;
 const MAX_OWNED = 20;
 const MAX_BRANCH_RULE_CHARS = 1_000;
@@ -22,7 +26,21 @@ interface ObservationPorts extends Pick<SqliteStore, "loadRepositoryRegistry" | 
   tars: Pick<SqliteStore["tars"], "snapshot">;
   agentRuns: Pick<SqliteStore["agentRuns"], "getLatestAgentRunForTask">;
   /** Reads older work's admitting message back (`resolveTarsWorkRequest`); absent, such work shows `request: "notStored"`. */
-  tarsConversations?: Pick<SqliteStore["tarsConversations"], "workRequestOf" | "listOpenDeliveries">;
+  tarsConversations?: Pick<SqliteStore["tarsConversations"], "workRequestOf" | "listOpenDeliveries"> &
+    Partial<Pick<SqliteStore["tarsConversations"], "getAction">>;
+}
+
+/** Failed or withdrawn attempts remain history, while the previous continued run still owns its scope. */
+function observedFollowUpScope(row: TarsResponsibility, store: ObservationPorts) {
+  const scope = row.continuation;
+  if (!scope) return undefined;
+  if (row.agentRunId && row.agentRunId !== scope.previousRunId) return scope.text;
+  try {
+    const delivery = store.tarsConversations?.getAction?.(scope.requestId)?.delivery;
+    if (delivery?.status === "delivered" || delivery && (delivery.status === "queued" || delivery.status === "delivering") && !delivery.withdrawRequestedAt)
+      return scope.text;
+  } catch { /* An unreadable attempted scope is not current execution authority. */ }
+  return row.previousRunIds?.length ? tarsExecutionScope(row).instruction : undefined;
 }
 
 /** A bounded excerpt that says whether it was cut; never half of a surrogate pair. */
@@ -31,6 +49,38 @@ function excerpt(text: string, max: number) {
   let kept = text.slice(0, max);
   if (/[\uD800-\uDBFF]$/.test(kept)) kept = kept.slice(0, -1);
   return { text: kept, truncated: true };
+}
+
+/** Shorter titles match too much ordinary text to count as the user naming the work. */
+const MIN_NAMED_TITLE_CHARS = 3;
+/** Live work the user can still steer, most urgent first; anything else not ended sorts after these. */
+const LIVE_STATE_ORDER: readonly TarsResponsibility["state"][] = ["running", "preparing", "waiting", "blocked", "paused", "queued"];
+
+/** The message whose context is being built: its text and, for a follow-up, the work it is about. */
+export type TarsContextFocus = Pick<TarsMessage, "text" | "origin">;
+
+/**
+ * Which work the planner sees when there is more than it can hold, in this order:
+ * 1. work the message names by id or title, or a follow-up is about;
+ * 2. work that has not ended (running, waiting on the user, blocked, paused, queued);
+ * 3. ended work, most recently updated first.
+ * Ties keep the store's order (priority, then age). Work beyond `max` is only counted.
+ */
+export function selectTarsPlannerWork(rows: readonly TarsResponsibility[], focus: TarsContextFocus | undefined, max: number) {
+  const text = focus?.text.toLocaleLowerCase() ?? "";
+  const aboutId = focus?.origin?.kind === "followUp" ? focus.origin.responsibilityId : null;
+  const named = (row: TarsResponsibility) => row.id === aboutId || (text.length > 0 && (text.includes(row.id.toLocaleLowerCase())
+    || (row.title.trim().length >= MIN_NAMED_TITLE_CHARS && text.includes(row.title.trim().toLocaleLowerCase()))));
+  const liveRank = (row: TarsResponsibility) => {
+    const index = LIVE_STATE_ORDER.indexOf(row.state);
+    return index === -1 ? LIVE_STATE_ORDER.length : index;
+  };
+  const first: TarsResponsibility[] = []; const live: TarsResponsibility[] = []; const ended: TarsResponsibility[] = [];
+  for (const row of rows) (named(row) ? first : isTarsResponsibilityTerminal(row) ? ended : live).push(row);
+  // Array.prototype.sort is stable, so equal ranks keep the store's order.
+  live.sort((a, b) => liveRank(a) - liveRank(b));
+  ended.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  return [...first, ...live, ...ended].slice(0, max);
 }
 
 /** Units one message admitted share its time; the decision's action order (`tars-message:<id>:<index>`) keeps them in order. */
@@ -72,14 +122,14 @@ function observeRequests(rows: readonly TarsResponsibility[], read: ((messageId:
 }
 
 export function observeTarsContext(store: ObservationPorts,
-  observedAt: string) {
+  observedAt: string, focus?: TarsContextFocus) {
   const snapshot = store.tars.snapshot();
   const asked = observeRequests(snapshot.responsibilities, store.tarsConversations ? (id) => store.tarsConversations!.workRequestOf(id) : undefined);
   // Words the user confirmed for a busy task, still waiting to be said there; an unreadable queue shows none.
   const waitingWords = new Map<string, Array<{ textExcerpt: string; status: string; queuedAt: string }>>();
   try {
     for (const record of store.tarsConversations?.listOpenDeliveries(32) ?? []) {
-      if (record.action.kind !== "control" || !record.delivery || !record.action.input?.text) continue;
+      if (record.action.kind !== "control" || !record.delivery || record.delivery.withdrawRequestedAt || !record.action.input?.text) continue;
       const list = waitingWords.get(record.action.responsibilityId) ?? [];
       if (list.length < 3) list.push({ textExcerpt: excerpt(record.action.input.text, 200).text, status: record.delivery.status, queuedAt: record.delivery.queuedAt });
       waitingWords.set(record.action.responsibilityId, list);
@@ -104,7 +154,8 @@ export function observeTarsContext(store: ObservationPorts,
     return { repositoryPath: repository.repositoryPath, name: repository.repositoryName.slice(0, 200),
       branchNamingRule: rule ? rule.slice(0, MAX_BRANCH_RULE_CHARS) : TARS_DEFAULT_BRANCH_NAMING_RULE, workspaces };
   });
-  const responsibilities = snapshot.responsibilities.slice(0, MAX_OWNED).map((row) => {
+  // The planner can only act on work it sees, so new and live work is kept ahead of old ended work.
+  const responsibilities = selectTarsPlannerWork(snapshot.responsibilities, focus, MAX_OWNED).map((row) => {
     let run: ReturnType<ObservationPorts["agentRuns"]["getLatestAgentRunForTask"]> = null;
     try { run = row.taskId ? store.agentRuns.getLatestAgentRunForTask(row.taskId) : null; }
     catch { /* Unknown execution is not evidence of idle or complete. */ }
@@ -112,8 +163,11 @@ export function observeTarsContext(store: ObservationPorts,
     const owned = run && run.id === row.agentRunId && run.workspaceId === row.executionWorkspaceId &&
       run.repositoryPath === row.repositoryPath ? run : null;
     const instruction = row.delegatedInstruction ? excerpt(row.delegatedInstruction, TARS_INSTRUCTION_EXCERPT_CHARS) : null;
+    const followUpScope = observedFollowUpScope(row, store);
     return { id: row.id, revision: row.revision, title: row.title, workspaceId: row.workspaceId, repositoryPath: row.repositoryPath,
-      state: row.state, detail: row.detail, priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
+      state: row.state, completionGoal: row.completionGoal ?? "unspecified", detail: row.detail, taskId: row.taskId, executionWorkspaceId: row.executionWorkspaceId, agentRunId: row.agentRunId, resultVerifiedRunId: row.resultVerifiedRunId ?? null,
+      previousRunIds: row.previousRunIds ?? [],
+      ...(followUpScope ? { followUpScope: excerpt(followUpScope, 500).text } : {}), priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
       // The user's message that admitted it, in `requests`; "notStored" when Stave has no copy of it.
       request: asked.resolved.has(row.id) ? { messageId: asked.resolved.get(row.id)! } : "notStored" as const,
       // Tars's own instruction for the unit, as it proposed it; absent on work admitted before it was kept.
@@ -122,8 +176,9 @@ export function observeTarsContext(store: ObservationPorts,
       ...(row.attachments ? { attachments: row.attachments.items.map((item) => excerpt(item.name, 200).text) } : {}),
       requiresReverification: row.reverifyAfter !== null,
       // Whether its draft pull request is open, failed or underway; a URL only once opened.
-      ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url } } : {}),
-      source: "persisted-personal-responsibility", acceptanceCriteria: row.acceptanceCriteria.slice(0, 3),
+      ...(row.publication ? { publication: { state: row.publication.state, url: row.publication.url, agentRunId: row.publication.agentRunId,
+        branch: row.publication.branch, checks: row.publication.checks, fixRounds: row.publication.watch?.fixRounds ?? 0 } } : {}),
+      source: "persisted-personal-responsibility", acceptanceCriteria: tarsExecutionScope(row).acceptanceCriteria.slice(0, 3),
       // What the user's run commands need: why it paused, how many turns are left and which stage it is on.
       // stageAsksUser only when the stage really asks; stageWait says what it waits for (a gate asks nothing).
       ...(row.stageAsksUser && row.stageWait?.kind !== "gate" ? { stageAsksUser: true } : {}),
