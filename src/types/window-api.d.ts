@@ -2073,7 +2073,7 @@ interface WindowPersistenceApi {
       import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null;
   }) => Promise<{ ok: boolean }>;
   listTaskReadStates?: (args: import("@/lib/task-read-state").ListTaskReadStatesArgs) => Promise<{ok:boolean;states:import("@/lib/task-read-state").TaskReadState[]}>;
-  setTaskReadState?: (args: import("@/lib/task-read-state").SetTaskReadStateArgs) => Promise<{ok:boolean;state:import("@/lib/task-read-state").TaskReadState | null}>;
+  setTaskReadStates?: (args: import("@/lib/task-read-state").SetTaskReadStatesArgs) => Promise<{ok:boolean} & import("@/lib/task-read-state").SetTaskReadStatesResult>;
   listResultReviews?: (
     args?: import("@/lib/reviews/result-review").ListResultReviewsArgs,
   ) => Promise<

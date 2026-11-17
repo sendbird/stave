@@ -88,6 +88,19 @@ export function isNotificationAttentionKind(kind: AppNotificationKind) {
   );
 }
 
+/**
+ * Notifications that keep a task unread until the user reads it: every
+ * attention kind plus agent runs that stopped for the user.
+ */
+export function isTaskReadAttentionKind(kind: AppNotificationKind) {
+  return isNotificationAttentionKind(kind) || isAgentRunAttentionNotificationKind(kind);
+}
+
+/** Completion notifications follow the task's read mark, so the bell count does too. */
+export function isTaskCompletionNotificationKind(kind: AppNotificationKind) {
+  return kind === "task.turn_completed" || kind === "task.turn_failed";
+}
+
 export function isNotificationPendingAttention(
   notification: Pick<AppNotification, "kind" | "resolvedAt">,
 ) {

@@ -1,4 +1,4 @@
-import { ListTaskReadStatesArgsSchema, SetTaskReadStateArgsSchema, TaskReadStateResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStateArgs } from "../src/lib/task-read-state";
+import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
 import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
@@ -1741,7 +1741,7 @@ contextBridge.exposeInMainWorld("api", {
         | null;
     }) => ipcRenderer.invoke("persistence:save-direction-draft", args),
     listTaskReadStates: async (args: ListTaskReadStatesArgs) => TaskReadStatesResponseSchema.parse(await ipcRenderer.invoke("persistence:list-task-read-states", ListTaskReadStatesArgsSchema.parse(args))),
-    setTaskReadState: async (args: SetTaskReadStateArgs) => TaskReadStateResponseSchema.parse(await ipcRenderer.invoke("persistence:set-task-read-state", SetTaskReadStateArgsSchema.parse(args))),
+    setTaskReadStates: async (args: SetTaskReadStatesArgs) => SetTaskReadStatesResponseSchema.parse(await ipcRenderer.invoke("persistence:set-task-read-states", SetTaskReadStatesArgsSchema.parse(args))),
     listResultReviews: (
       args?: import("../src/lib/reviews/result-review").ListResultReviewsArgs,
     ) => ipcRenderer.invoke("persistence:list-result-reviews", args ?? {}),

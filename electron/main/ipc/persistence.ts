@@ -1,4 +1,4 @@
-import { ListTaskReadStatesArgsSchema, SetTaskReadStateArgsSchema, TaskReadStateResponseSchema, TaskReadStatesResponseSchema } from "../../../src/lib/task-read-state";
+import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema } from "../../../src/lib/task-read-state";
 import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
@@ -98,10 +98,10 @@ export function registerPersistenceHandlers() {
     const store = await ensurePersistenceReady();
     return TaskReadStatesResponseSchema.parse({ok:true,states:store.resultReviews.listTaskReadStates(args)});
   });
-  ipcMain.handle("persistence:set-task-read-state", async (_event, input: unknown) => {
-    const args = SetTaskReadStateArgsSchema.parse(input);
+  ipcMain.handle("persistence:set-task-read-states", async (_event, input: unknown) => {
+    const args = SetTaskReadStatesArgsSchema.parse(input);
     const store = await ensurePersistenceReady();
-    return TaskReadStateResponseSchema.parse({ok:true,state:store.resultReviews.setTaskReadState(args)});
+    return SetTaskReadStatesResponseSchema.parse({ok:true,...store.resultReviews.setTaskReadStates(args)});
   });
   ipcMain.handle("persistence:list-result-reviews", async (_event, args: unknown) => {
     const parsed = ListResultReviewsArgsSchema.safeParse(args ?? {});

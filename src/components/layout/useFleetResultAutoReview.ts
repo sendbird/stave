@@ -66,6 +66,8 @@ export function useFleetResultAutoReview() {
     /** Guards against re-running a pass the store has not invalidated. */
     let lastRunKey = "";
     let lastNotificationIds: string | null = null;
+    /** The task the window shows, regardless of focus; a refocus is not a reopen. */
+    let lastSurfaceTaskKey = "";
 
     const clearTimer = () => {
       if (timer !== null) {
@@ -198,6 +200,13 @@ export function useFleetResultAutoReview() {
        * same task, but not a change of task, workspace, or focus — those end the
        * viewing session this dwell was evidence for.
        */
+      // An explicit unread mark lasts until the user opens the task again:
+      // switching to it does, refocusing the window on it does not.
+      const surfaceTaskKey = surface.taskId ? `${surface.workspaceId}${UNIT_SEPARATOR}${surface.taskId}` : "";
+      if (surfaceTaskKey !== lastSurfaceTaskKey) {
+        if (surface.taskId) resetTaskAutoReadSuppression({workspaceId:surface.workspaceId,taskId:surface.taskId});
+        lastSurfaceTaskKey = surfaceTaskKey;
+      }
       const dwellKey =
         isWindowFocused() && surface.taskId
           ? `${surface.workspaceId}${UNIT_SEPARATOR}${surface.taskId}`
@@ -209,7 +218,6 @@ export function useFleetResultAutoReview() {
         return;
       }
       if (dwell?.key !== dwellKey) {
-        if (surface.taskId) resetTaskAutoReadSuppression({workspaceId:surface.workspaceId,taskId:surface.taskId});
         dwell = { key: dwellKey, startedAtMs: Date.now() };
       }
 

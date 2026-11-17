@@ -303,13 +303,16 @@ test("Fleet selection marks cold tasks unread and read without changing workspac
   expect(targets).toHaveLength(2);
   const toolbar = page.locator('[data-fleet-bulk-control]');
   await toolbar.getByRole('button', { name: 'More', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Mark as unread', exact: true }).click();
+  // One read item per direction: the old outcome-only "Mark read (n)" is merged in.
+  await expect(page.getByRole('menuitem', { name: /^Mark read/ })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: /^Mark as read/ })).toHaveCount(1);
+  await page.getByRole('menuitem', { name: 'Mark as unread (2)', exact: true }).click();
   for (const target of targets) {
     await expect(page.locator('[data-fleet-task-table-row]').filter({has:page.locator(`[data-task-unread="${target.taskId}"]`)})).toHaveCount(1);
   }
-  await page.screenshot({path:'/tmp/gap-h1/after/fleet-bulk-unread-en-light-1440.png'});
+  await page.screenshot({path:'/tmp/gap-h1/after2/fleet-bulk-unread-en-light-1440.png'});
   await toolbar.getByRole('button', { name: 'More', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Mark as read', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Mark as read (2)', exact: true }).click();
   for (const target of targets) await expect(page.locator(`[data-task-unread="${target.taskId}"]`)).toHaveCount(0);
   expect(await page.evaluate(async () => {
     const {useAppStore}=await import(performance.getEntriesByType('resource').filter(entry=>new URL(entry.name).pathname==='/src/store/app.store.ts').at(-1)!.name);
