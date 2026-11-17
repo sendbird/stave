@@ -279,7 +279,8 @@ export function registerProviderHandlers() {
   });
 
   // Starts that were queued for a slot when Stave quit, now back in their composer queues.
-  ipcMain.handle("provider:take-restored-queued-turns", async () => {
+  ipcMain.handle("provider:take-restored-queued-turns", async (_event, args: unknown) => {
+    if (!z.object({}).strict().optional().safeParse(args).success) return { items: [] };
     const result = await invokeHostService("turn-admission.take-restored", {});
     return { items: z.array(RestoredQueuedTurnSchema).parse(result.items) };
   });
