@@ -54,6 +54,13 @@ export function createWorkspaceCleanupRuntime(ports: {
   let lastGoodState = { policy: DEFAULT_WORKSPACE_CLEANUP_POLICY, recent: [], lastRun: 0 } as import("zod").infer<typeof WorkspaceCleanupStateSchema>;
   let stateReadable = true;
   const failureKey = (repositoryPath: string, workspaceId: string) => JSON.stringify([repositoryPath, workspaceId]);
+  function deferSavedChangesDeletion(repositoryPath: string, ref: string) {
+    console.warn("[workspace-cleanup] saved changes ref could not be deleted after restore; retrying once", { ref });
+    const timer = setTimeout(() => {
+      void deleteSavedWorkspaceChanges(repositoryPath, ref).catch(() => console.warn("[workspace-cleanup] saved changes ref was left in place", { ref }));
+    }, 60_000);
+    timer.unref();
+  }
   function saved() {
     try {
       const raw = ports.store().readWorkspaceCleanupState();
@@ -285,9 +292,13 @@ export function createWorkspaceCleanupRuntime(ports: {
           throw error;
         }
         ports.store().restoreWorkspacePersistence({ workspaceId: row.id, readOnly: !branchExists });
-        if (savedRef && branchExists) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
-        if (branchExists) workspaceExecutionGate.resume(row.id);
-        else await workspaceExecutionGate.stop({ workspaceId: row.id, workspacePath: row.path }, async () => {});
+        try {
+          // The restore is durable now; a leftover ref only costs disk space.
+          if (savedRef && branchExists) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef).catch(() => deferSavedChangesDeletion(row.repositoryPath, savedRef));
+        } finally {
+          if (branchExists) workspaceExecutionGate.resume(row.id);
+          else await workspaceExecutionGate.stop({ workspaceId: row.id, workspacePath: row.path }, async () => {});
+        }
         result = { ...result, ok: true, readOnly: !branchExists };
       } else {
         if (args.action === "removeWorktree" && !row.archived) throw new Error("notArchived");

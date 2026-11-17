@@ -140,8 +140,20 @@ async function main() {
     assert.equal(store.listArchivedWorkspacesPersistence()[0]?.savedChangesRef, ref);
     git(repo, "worktree", "remove", "--force", path);
     rmSync(marker);
-    const restored = await act("restore");
+    // A blocked ref deletion after the restore is durable must not fail the restore or keep execution stopped.
+    const lock = join(repo, ".git", `${ref}.lock`);
+    writeFileSync(lock, "");
+    assert.ok(workspaceExecutionGate.snapshot().some(state => state.workspaceId === "feature"), "Archive stopped execution");
+    const warnings: unknown[][] = [];
+    const warn = console.warn;
+    console.warn = (...args: unknown[]) => { warnings.push(args); };
+    const restored = await act("restore").finally(() => { console.warn = warn; });
     assert.equal(restored.ok, true, JSON.stringify(restored));
+    assert.equal(warnings.length, 1, "The deferred ref deletion is logged");
+    assert.equal(workspaceExecutionGate.snapshot().some(state => state.workspaceId === "feature"), false, "Restore resumes execution");
+    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+    assert.equal(git(repo, "rev-parse", "--verify", "--quiet", ref).trim().length, 40, "Blocked ref deletion is deferred");
+    rmSync(lock);
     assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
     assert.equal(git(repo, "rev-parse", "refs/heads/feature"), branch);
     assert.equal(readFileSync(join(path, "payload.ptr"), "utf8"), "large payload\n", "Restore applies the smudge filter");
