@@ -747,6 +747,11 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
     if (!rawArgs.executionPolicy && turnAdmission) {
       await turnAdmission.acquire({ ...rawArgs, runtimeOptions: { ...rawArgs.runtimeOptions, ...(composerSelection ? { composerSelection } : {}) } }, state => rawArgs.onEvent?.({ type: "turn_admission", ...state }));
       admitted = true;
+      // The terminal event frees the slot at once, whatever ended the turn
+      // (timeout, abort, provider error, user stop), together with any
+      // re-acquire a delegate wait left queued. `finally` repeats it harmlessly.
+      const admittedTurnId = rawArgs.turnId!, forward = rawArgs.onEvent;
+      rawArgs = { ...rawArgs, onEvent: (event) => { if (event.type === "done") turnAdmission?.release(admittedTurnId); forward?.(event); } };
     }
     // A tool-less request is never a stage reply: rebuilding its options would drop `toolsDisabled`.
     if (rawArgs.taskId && rawArgs.turnId && rawArgs.conversation?.mode === "chat" && !rawArgs.unattendedAutomation && !rawArgs.executionPolicy && !rawArgs.agentRunStage &&
