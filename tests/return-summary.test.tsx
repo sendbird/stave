@@ -11,9 +11,12 @@ import {
   captureReturnBaseline,
   countChangesSince,
   findLastDecision,
+  findReturnAnchor,
   hasReturnNews,
   isReturn,
+  listTurnsSince,
   resolveLastVisit,
+  resolveReturnContext,
   RETURN_AWAY_MS,
 } from "@/lib/task-context/return-summary";
 import { useAppStore } from "@/store/app.store";
@@ -142,51 +145,67 @@ describe("the return summary's facts", () => {
     expect(hasReturnNews(buildReturnSummary({ messages: MESSAGES, record: null, need: null, running: false, baseline: captureReturnBaseline(MESSAGES) }))).toBe(false);
   });
 
-  test("leads with where it stands and the one action, then the facts, in English and Korean", () => {
+  test("lists what waits on you first, then each turn that finished, then the last decision, in English and Korean", () => {
     const summary = buildReturnSummary({ messages: MESSAGES, record: null, need: APPROVAL_NEED, running: true, baseline: SEEN_AT_U2 });
     const now = Date.parse(at(220));
     const view = describeReturnSummary(summary, now);
-    expect(view.status).toEqual({
-      state: "approval",
-      text: "Waiting for your approval for 2h 5m",
-      detail: "Run tests",
-      next: null,
-      action: { label: "Show request", target: { kind: "request" } },
-      urgent: true,
-    });
-    expect(view.facts.map((line) => [line.id, line.text, line.link?.target.kind ?? null])).toEqual([
-      ["changes", "2 turns finished · 2 files changed", "tab"],
-      ["decision", "You allowed Run command: Run the migration", "decision"],
+    expect(view.needsYou).toBe(true);
+    expect(view.turns).toBe(2);
+    expect(view.rows.map((row) => [row.id, row.kind, row.state, row.title, row.detail, row.action?.target.kind ?? null, row.primary])).toEqual([
+      ["status", "needs-you", "approval", "Waiting for your approval for 2h 5m", "Run tests", "request", true],
+      ["turn:turn-a2", "done", "ready", "Keep the column order.", "Finished · 1 file changed", "message", false],
+      ["turn:turn-a3", "done", "ready", "Keep the column order.", "Finished · 2 files changed", "message", false],
+      ["decision", "info", null, "Last decision", "You allowed Run command: Run the migration", "decision", false],
     ]);
-    // An approval or answer links to where it was given in the conversation.
-    expect(view.facts[1]?.link).toEqual({ label: "Show", target: { kind: "decision", messageId: "a1", requestId: "r1" } });
+    // A turn's row goes to its reply; an approval or answer to where it was given.
+    expect(view.rows[1]?.action).toEqual({ label: "Show", target: { kind: "message", messageId: "a2" } });
+    expect(view.rows[3]?.action).toEqual({ label: "Show", target: { kind: "decision", messageId: "a1", requestId: "r1" } });
     applyAppLocale("ko");
     const ko = describeReturnSummary(summary, now);
-    expect(ko.facts[0]?.text).toBe("턴 2개 완료 · 파일 2개 변경");
-    expect(ko.status.text).toContain("승인 대기 중");
-    expect(ko.status.action.label).toBe("요청 보기");
+    expect(ko.rows[0]?.title).toContain("승인 대기 중");
+    expect(ko.rows[0]?.action?.label).toBe("요청 보기");
+    expect(ko.rows[2]?.detail).toBe("완료 · 파일 2개 변경");
   });
 
-  test("a fact with nothing to say is left out, and an idle task offers its next step quietly", () => {
+  test("a failed turn comes before finished ones, and a running task says so with a side question", () => {
+    const messages = [...MESSAGES, user("u3", 95, "Now the docs."), reply("a4", 100, [], { terminalStopReason: "runtime_failure" })];
+    const view = describeReturnSummary(
+      buildReturnSummary({ messages, record: null, need: null, running: true, baseline: SEEN_AT_U2 }),
+      Date.parse(at(220)),
+    );
+    expect(view.rows.map((row) => [row.id, row.kind])).toEqual([
+      ["turn:turn-a4", "failed"],
+      ["running", "working"],
+      ["turn:turn-a2", "done"],
+      ["turn:turn-a3", "done"],
+      ["decision", "info"],
+    ]);
+    expect(view.rows[0]).toMatchObject({ title: "Now the docs.", detail: "Failed", state: "failed" });
+    expect(view.rows[1]).toMatchObject({ title: "Still working", action: { target: { kind: "side-question" } } });
+  });
+
+  test("with nothing waiting, working or finished, one row says where it stands and offers its next step quietly", () => {
     const record = applyHandoffDraft({ record: emptyHandoffRecord(), draft: { ...EMPTY_DRAFT, remaining: "- Add a filename prompt" }, at: at(20) });
     const caughtUp = captureReturnBaseline(MESSAGES);
     const idle = describeReturnSummary(
       buildReturnSummary({ messages: MESSAGES, record, need: null, running: false, baseline: caughtUp }),
       Date.parse(at(220)),
     );
-    // Nothing changed since the visit, so only the decision stays.
-    expect(idle.facts.map((line) => line.id)).toEqual(["decision"]);
-    expect(idle.status).toMatchObject({
+    expect(idle.rows.map((row) => row.id)).toEqual(["status", "decision"]);
+    expect(idle.rows[0]).toMatchObject({
       state: "ready",
-      next: "Add a filename prompt",
+      title: "Finished its last turn",
+      detail: "Next: Add a filename prompt",
       action: { target: { kind: "tab", tab: "handoff" } },
-      urgent: false,
+      primary: false,
     });
-    const fresh = describeReturnSummary(
-      buildReturnSummary({ messages: [user("u", 0, "hi")], record: null, need: null, running: true, baseline: caughtUp }),
+    // With turns to list, the next step is a row of its own.
+    const withTurns = describeReturnSummary(
+      buildReturnSummary({ messages: MESSAGES, record, need: null, running: false, baseline: SEEN_AT_U2 }),
       Date.parse(at(220)),
     );
-    expect(fresh.facts).toEqual([]);
+    expect(withTurns.rows.map((row) => row.id)).toEqual(["turn:turn-a2", "turn:turn-a3", "next", "decision"]);
+    expect(withTurns.rows[2]).toMatchObject({ title: "Next", detail: "Add a filename prompt", action: { target: { tab: "handoff" } } });
     // A pull request's wait is read in Activity, not answered in the composer.
     const prWait = describeReturnSummary(
       buildReturnSummary({
@@ -195,8 +214,39 @@ describe("the return summary's facts", () => {
       }),
       Date.parse(at(220)),
     );
-    expect(prWait.status).toMatchObject({ action: { target: { kind: "tab", tab: "activity" } }, urgent: true });
-    expect(fresh.status).toMatchObject({ state: "working", text: "Still working", action: { target: { kind: "side-question" } } });
+    expect(prWait.rows[0]).toMatchObject({ id: "status", action: { target: { kind: "tab", tab: "activity" } }, primary: true });
+    const fresh = describeReturnSummary(
+      buildReturnSummary({ messages: [user("u", 0, "hi")], record: null, need: null, running: true, baseline: caughtUp }),
+      Date.parse(at(220)),
+    );
+    expect(fresh.rows).toEqual([expect.objectContaining({ id: "running", state: "working", title: "Still working" })]);
+  });
+});
+
+describe("where the summary sits and what it reads", () => {
+  test("it sits after the last message you had seen, or before the first when none was", () => {
+    expect(findReturnAnchor(MESSAGES, { at: at(10), baseline: SEEN_AT_U2 })).toEqual({ messageId: "u2", placement: "after" });
+    expect(findReturnAnchor(MESSAGES, { at: at(60), baseline: { partsByMessage: { a1: 1, a2: 2 }, finished: ["a1", "a2"] } }))
+      .toEqual({ messageId: "a2", placement: "after" });
+    expect(findReturnAnchor(MESSAGES.slice(3), { at: at(10), baseline: SEEN_AT_U2 })).toEqual({ messageId: "a2", placement: "before" });
+    expect(findReturnAnchor([], { at: at(10), baseline: SEEN_AT_U2 })).toBeNull();
+  });
+
+  test("a return reads the conversation up to your first message after it, and is not one within fifteen minutes", () => {
+    const arrival = { at: at(220), leftAt: null, baseline: null };
+    expect(resolveReturnContext({ messages: MESSAGES, arrival })).toMatchObject({ wroteSince: false, visit: { at: at(10), kind: "message" } });
+    const wrote = resolveReturnContext({ messages: [...MESSAGES, user("u3", 230, "Back now"), reply("a5", 240, [])], arrival });
+    expect(wrote?.wroteSince).toBe(true);
+    expect(wrote?.messages.map((message) => message.id)).toEqual(MESSAGES.map((message) => message.id));
+    expect(resolveReturnContext({ messages: MESSAGES, arrival: { at: at(20), leftAt: at(10), baseline: SEEN_AT_U2 } })).toBeNull();
+  });
+
+  test("each finished turn keeps its prompt and only the files it changed after the visit", () => {
+    expect(listTurnsSince(MESSAGES, SEEN_AT_U2)).toEqual([
+      { id: "turn-a2", messageId: "a2", outcome: "finished", prompt: "Keep the column order.", files: 1 },
+      { id: "turn-a3", messageId: "a3", outcome: "finished", prompt: "Keep the column order.", files: 2 },
+    ]);
+    expect(listTurnsSince(MESSAGES, captureReturnBaseline(MESSAGES))).toEqual([]);
   });
 });
 
@@ -244,8 +294,8 @@ describe("what changed while you were away, against what you had seen", () => {
   });
 });
 
-describe("going to the last decision", () => {
-  test("following an approval or answer asks the conversation to reveal it by its message and request", async () => {
+describe("going to what a row names", () => {
+  test("following an approval or answer, or a turn, asks the conversation to reveal it", async () => {
     const { followReturnLink } = await import("@/components/session/return-summary/ReturnSummaryCard");
     const before = useAppStore.getState().focusTranscriptToolRequest;
     try {
@@ -255,8 +305,10 @@ describe("going to the last decision", () => {
         taskId: "task-1",
         decision: { messageId: "a1", requestId: "r1" },
       });
-      // The card closes so it does not cover the decision near the top of the conversation.
-      expect(useTaskReturnStore.getState().dismissedByTask["task-1"]).toBe(at(220));
+      // The card stays open: it sits in the conversation and covers nothing.
+      expect(useTaskReturnStore.getState().collapsedByTask["task-1"]).toBeUndefined();
+      followReturnLink({ kind: "message", messageId: "a2" }, "ws-1", "task-1");
+      expect(useAppStore.getState().focusTranscriptToolRequest).toMatchObject({ taskId: "task-1", messageId: "a2" });
     } finally {
       useAppStore.setState({ focusTranscriptToolRequest: before });
     }
@@ -276,16 +328,21 @@ describe("going to the last decision", () => {
 });
 
 describe("returning to a task", () => {
-  test("arriving remembers when you had left, and dismissing hides that return only", () => {
+  test("arriving remembers when you had left, and folding or reopening applies to that return only", () => {
     const store = useTaskReturnStore.getState();
     store.noteLeft("task-x", at(0));
     store.noteArrived("task-x", at(30));
     expect(useTaskReturnStore.getState().arrivalByTask["task-x"]).toEqual({ at: at(30), leftAt: at(0), baseline: null });
-    store.dismiss("task-x");
-    expect(useTaskReturnStore.getState().dismissedByTask["task-x"]).toBe(at(30));
+    store.setCollapsed("task-x", true);
+    expect(useTaskReturnStore.getState().collapsedByTask["task-x"]).toEqual({ at: at(30), collapsed: true });
+    store.setCollapsed("task-x", false);
+    expect(useTaskReturnStore.getState().collapsedByTask["task-x"]).toEqual({ at: at(30), collapsed: false });
+    // Without an arrival there is nothing to fold.
+    store.setCollapsed("task-none", true);
+    expect(useTaskReturnStore.getState().collapsedByTask["task-none"]).toBeUndefined();
   });
 
-  test("the card leads with the status and its action, then the facts, and goes after you write", () => {
+  test("the card lists its rows with Got it, shows more past four, and folds into a divider after you write", () => {
     // Server rendering reads each store's initial state, so the return is seeded there.
     const app = useAppStore.getInitialState();
     const returns = useTaskReturnStore.getInitialState();
@@ -293,23 +350,47 @@ describe("returning to a task", () => {
     const handoff = useTaskHandoffStore.getInitialState();
     const original = {
       app: { activeWorkspaceId: app.activeWorkspaceId, messagesByTask: app.messagesByTask, activeTurnIdsByTask: app.activeTurnIdsByTask },
-      returns: { arrivalByTask: returns.arrivalByTask },
+      returns: { arrivalByTask: returns.arrivalByTask, collapsedByTask: returns.collapsedByTask },
       attention: { snapshot: attention.snapshot },
       handoff: { records: handoff.records },
     };
     try {
       Object.assign(app, { activeWorkspaceId: "ws-1", messagesByTask: { "task-1": MESSAGES }, activeTurnIdsByTask: { "task-1": "turn-live" } });
-      Object.assign(returns, { arrivalByTask: { "task-1": { at: at(220), leftAt: null, baseline: null } } });
+      Object.assign(returns, { arrivalByTask: { "task-1": { at: at(220), leftAt: null, baseline: null } }, collapsedByTask: {} });
       Object.assign(attention, { snapshot: { ...attention.snapshot, items: [APPROVAL_NEED] } });
       Object.assign(handoff, { records: { [taskHandoffKey("ws-1", "task-1")]: emptyHandoffRecord() } });
       const html = renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }));
       expect(html).toContain("Welcome back");
-      expect(html.match(/data-return-line=/g)).toHaveLength(3);
-      expect(html).toContain("Waiting for your approval");
-      expect(html.indexOf('data-return-line="status"')).toBeLessThan(html.indexOf('data-return-line="changes"'));
+      expect(html).toContain("3h 30m since your last message at");
+      expect(html).toContain('data-collapsed="false"');
+      expect(html.match(/data-return-line=/g)).toHaveLength(4);
+      expect(html.indexOf('data-return-line="status"')).toBeLessThan(html.indexOf('data-return-line="turn:turn-a2"'));
       expect(html).toContain('data-return-action="request"');
+      expect(html).toContain("Got it");
+      expect(html).not.toContain("more");
+      // You left at minute 10 and three turns finished since: five rows, the
+      // fifth behind "Show 1 more". The header tells the visit.
+      const five = [...MESSAGES, user("u3", 95, "Now the docs."), reply("a4", 100, [])];
+      Object.assign(app, { messagesByTask: { "task-1": five } });
+      Object.assign(returns, { arrivalByTask: { "task-1": { at: at(220), leftAt: at(10), baseline: null } } });
+      const longer = renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }));
+      expect(longer).toContain("Away 3h 30m · since");
+      expect(longer.match(/data-return-line=/g)).toHaveLength(4);
+      expect(longer).toContain("Show 1 more");
+      Object.assign(returns, { arrivalByTask: { "task-1": { at: at(220), leftAt: null, baseline: null } } });
+      // Writing to the task folds the card into its divider, at the same place.
       Object.assign(app, { messagesByTask: { "task-1": [...MESSAGES, user("u3", 230, "Back now")] } });
-      expect(renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }))).toBe("");
+      const folded = renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }));
+      expect(folded).toContain('data-collapsed="true"');
+      expect(folded).toContain('aria-expanded="false"');
+      expect(folded).toContain("2 turns finished");
+      expect(folded).not.toContain("data-return-line");
+      // Reopened, it opens again with what happened up to your reply.
+      Object.assign(returns, { collapsedByTask: { "task-1": { at: at(220), collapsed: false } } });
+      const reopened = renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }));
+      expect(reopened).toContain('data-collapsed="false"');
+      expect(reopened).not.toContain("Waiting for your approval");
+      expect(reopened.match(/data-return-line=/g)).toHaveLength(3);
     } finally {
       Object.assign(app, original.app);
       Object.assign(returns, original.returns);

@@ -290,6 +290,8 @@ edge memory -> turn
 
 ## Ways to give context
 
+For a primary task resumed by a check-back or an Agent run event, **Always** browser access also applies without typing `@web` again. An explicit `@web` in a primary Agent run’s assignment or a user reply also stays active for that same run’s continuations, including event wakes and app restarts. It ends with the run and is not inherited by another run or delegated task. Browser site-access and sensitive-action confirmations still apply.
+
 | Method                  | How                                                          | Worth knowing                                                                |
 | ----------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | Files and images        | The paperclip in the composer (**Attach files**); paste or drop files on the composer | A drop shows **Drop to attach** and attaches the way a paste does |
@@ -308,7 +310,7 @@ The Information panel, task context and the latest turn summary are attached to 
 
 - **Side question**: the **Side question** icon (a speech bubble with a question mark) beside Attach in the composer, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Conversation width**: **Settings > Chat > Layout > Conversation width** picks **Narrow**, **Default** or **Wide** for the messages and the message box in tasks and Tars. Each choice widens in steps as the conversation area gets wider, and a narrow area uses its full width. Code blocks keep to the message column and scroll sideways inside it; only a table whose columns need more room grows past the column, centred on it.
-- **Welcome back**: after you have been away for more than 15 minutes, a card summarizes what happened and the last decision.
+- **Welcome back**: after you have been away for more than 15 minutes, a card in the conversation, right after the last message you had seen, lists what waits on you, each turn that finished and the last decision, one action each. **Got it** folds it into a one-line divider at the same place; click the divider to open it again.
 - **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task. Lines that do not fit in a section's 2,000 characters stay listed under it with **Put back**.
 - **Enhance prompt**: the wand icon in the composer rewrites your request. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.
 - **Context meter**: in the composer, shows how full the conversation is and the tokens left. For Claude, **Composition** lists what fills it (system prompt, tools, MCP tools, memory files, skills and an estimated conversation); other providers report only the total. **Compact context** shortens a long conversation. Wide composers show used / limit tokens; narrow composers show the percentage. During compaction, the notice shows elapsed time when known; inactive restored messages stop counting.
@@ -1131,7 +1133,7 @@ Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screensho
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |
 | MCP               | Settings > MCP                                             | **Add server**, then **Review change** and **Apply change**. The **Local MCP Server** card |
 
-Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; other text files have a 1 MiB preview limit.
+Agents also show an inline HTML page without being asked when a reply compares three or more options, shows numbers across groups or over time, or explains a flow, architecture or layout. Page text starts at 14 pixels, the size of the reply around it. A tool from an MCP server you added can show its own view in its tool row; **Show text result** in the view's header opens the tool's plain text result with **Copy**, and it opens by itself when the view has no data to draw, such as after a failed call. Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; other text files have a 1 MiB preview limit.
 
 Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/command-palette.png) · [Workspace Tools](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-tools.png) · [Information panel](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/information-panel.png) · [Lens toolbar](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/lens.png) · [Settings > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/settings-mcp.png)
 

@@ -4,6 +4,8 @@ import {
   buildMcpAppViewUrl,
   isMcpAppViewUrl,
   MCP_APP_MIME_TYPE,
+  mcpAppViewLacksData,
+  normalizeMcpAppToolCallInput,
   normalizeMcpAppToolInput,
   normalizeMcpAppToolResult,
   parseMcpAppViewUrl,
@@ -220,5 +222,55 @@ describe("urls and payloads", () => {
       normalizeMcpAppToolResult({ content: [], structuredContent: { t: 1 }, isError: false, extra: 1 }),
     ).toEqual({ content: [], structuredContent: { t: 1 }, isError: false });
     expect(normalizeMcpAppToolResult({ structuredContent: {} })).toBeNull();
+  });
+
+  test("a view lacks data without input, without a result, or without object structuredContent", () => {
+    const result = (structuredContent?: unknown) => ({
+      content: [{ type: "text", text: "x" }],
+      ...(structuredContent === undefined ? {} : { structuredContent }),
+    });
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result({ issues: [] }) })).toBe(false);
+    expect(mcpAppViewLacksData({ toolInput: null, toolResult: result({ issues: [] }) })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: null })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result() })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result(null) })).toBe(true);
+    expect(mcpAppViewLacksData({ toolInput: {}, toolResult: result([1]) })).toBe(true);
+  });
+
+  test("omitted call arguments are an empty call; malformed ones are not", () => {
+    for (const value of [undefined, null, "", " "]) expect(normalizeMcpAppToolCallInput(value)).toEqual({});
+    expect(normalizeMcpAppToolCallInput('{"a":1}')).toEqual({ a: 1 });
+    expect(normalizeMcpAppToolCallInput('{"a":')).toBeNull();
+    expect(normalizeMcpAppToolCallInput("[1]")).toBeNull();
+  });
+
+  test("a text-only result offers a lone JSON object as structuredContent", () => {
+    const text = (value: string) => ({ content: [{ type: "text", text: value }] });
+    expect(normalizeMcpAppToolResult(text(' {"issues":{"nodes":[]}}\n'))).toEqual({
+      ...text(' {"issues":{"nodes":[]}}\n'),
+      structuredContent: { issues: { nodes: [] } },
+    });
+    // Plain text, arrays, scalars, broken JSON, and truncation notices stay text only.
+    for (const value of ["Sunny", "[1,2]", "42", '{"issues":', "<persisted-output>Output too large"]) {
+      expect(normalizeMcpAppToolResult(text(value))).toEqual(text(value));
+    }
+    // The server's own structuredContent wins, and errors and multi-block results are left alone.
+    expect(normalizeMcpAppToolResult({ ...text('{"a":1}'), structuredContent: { b: 2 } })).toMatchObject({
+      structuredContent: { b: 2 },
+    });
+    expect(normalizeMcpAppToolResult({ ...text('{"a":1}'), isError: true })).toEqual({
+      ...text('{"a":1}'),
+      isError: true,
+    });
+    const twoBlocks = { content: [...text('{"a":1}').content, ...text("more").content] };
+    expect(normalizeMcpAppToolResult(twoBlocks)).toEqual(twoBlocks);
+  });
+
+  test("a result over the payload cap keeps its text without the structuredContent copy", () => {
+    // About 600,000 characters of JSON: fits alone, not alongside its parsed copy.
+    const big = JSON.stringify({ rows: "x".repeat(600_000) });
+    const result = normalizeMcpAppToolResult({ content: [{ type: "text", text: big }] });
+    expect(result).toEqual({ content: [{ type: "text", text: big }] });
+    expect(normalizeMcpAppToolResult({ content: [{ type: "text", text: "x".repeat(1_000_001) }] })).toBeNull();
   });
 });

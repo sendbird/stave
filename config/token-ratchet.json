@@ -770,10 +770,6 @@
       "icon-metric": 2,
       "line-height": 3
     },
-    "src/components/session/return-summary/return-summary.styles.ts": {
-      "icon-metric": 2,
-      "line-height": 5
-    },
     "src/components/session/turn-activity-history.styles.ts": {
       "line-height": 1
     },

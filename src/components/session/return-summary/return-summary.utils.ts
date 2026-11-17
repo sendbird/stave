@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
-import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
+import type { FleetAttentionItem, FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { formatToolDisplayName } from "@/lib/providers/subagent-identity";
 import { describeToolOperationLabel } from "@/lib/providers/tool-activity";
 import type { TaskPanelTab } from "@/lib/right-rail-panels";
@@ -9,46 +9,70 @@ import type {
   ReturnDecision,
   ReturnStop,
   ReturnSummary,
+  ReturnTurn,
 } from "@/lib/task-context/return-summary";
 
 /**
- * Where a line's link leads: a Task panel tab, the waiting request, the
- * approval or answer you gave (its message and request), a side question or
- * the composer.
+ * Where a row's action leads: a Task panel tab, the waiting request, the
+ * approval or answer you gave (its message and request), a turn's reply in the
+ * conversation, a side question or the composer.
  */
 export type ReturnLinkTarget =
   | { kind: "tab"; tab: TaskPanelTab }
   | { kind: "request" }
   | { kind: "decision"; messageId: string; requestId: string }
+  | { kind: "message"; messageId: string }
   | { kind: "side-question" }
   | { kind: "composer" };
 
-/** A fact under the status: what changed while you were away, or the last decision. */
-export interface ReturnLine {
-  id: "decision" | "changes";
-  label: string;
-  text: string;
-  link: { label: string; target: ReturnLinkTarget } | null;
-}
+/** How urgent a row is; rows are listed in this order. */
+export type ReturnRowKind = "needs-you" | "failed" | "working" | "done" | "info";
 
-/** Where the task stands, in one line, with the one thing to do about it. */
-export interface ReturnStatus {
-  /** The work state its mark is drawn in, from the shared state vocabulary. */
-  state: WorkState;
-  text: string;
-  /** What the task waits on (the request's description), when it says. */
+const ROW_ORDER: Record<ReturnRowKind, number> = { "needs-you": 0, failed: 1, working: 2, done: 3, info: 4 };
+
+/**
+ * One thing the card says: a mark, a title, an optional detail and the one
+ * action for it. The mark is a work state, or none for a note (the next step,
+ * the last decision).
+ */
+export interface ReturnRow {
+  /** `status`, `running`, `next`, `decision`, or `turn:<id>` for a turn. */
+  id: string;
+  kind: ReturnRowKind;
+  state: WorkState | null;
+  title: string;
   detail: string | null;
-  /** The handoff record's next remaining step, when there is one. */
-  next: string | null;
-  action: { label: string; target: ReturnLinkTarget };
-  /** The task waits on you: the action is the card's primary one. */
-  urgent: boolean;
+  action: { label: string; target: ReturnLinkTarget } | null;
+  /** The task waits on you: this row's action is the card's primary one. */
+  primary: boolean;
 }
 
 export interface ReturnView {
-  status: ReturnStatus;
-  /** Only the facts that have something to say. */
-  facts: ReturnLine[];
+  /** Most urgent first: needs you, failed, still working, done, then notes. */
+  rows: ReturnRow[];
+  /** The task waits on you. */
+  needsYou: boolean;
+  /** Turns that finished while you were away. */
+  turns: number;
+}
+
+/** Where the task stands, as `describeStop` and `describeAction` tell it. */
+interface ReturnStatus {
+  state: WorkState;
+  text: string;
+  detail: string | null;
+  next: string | null;
+  action: { label: string; target: ReturnLinkTarget };
+}
+
+/** The task's most urgent attention item, from Fleet's shared snapshot. */
+export function selectTaskNeed(items: readonly FleetAttentionItem[], workspaceId: string, taskId: string) {
+  let need: FleetAttentionItem | null = null;
+  for (const item of items) {
+    if (item.taskId !== taskId || item.workspaceId !== workspaceId) continue;
+    if (!need || item.priority < need.priority) need = item;
+  }
+  return need;
 }
 
 function toolLabel(toolName: string) {
@@ -64,7 +88,7 @@ function describeDecision(decision: ReturnDecision): string {
     : i18n.t("session:returnSummary.decisionDenied", { tool: toolLabel(decision.toolName), description: decision.description });
 }
 
-function decisionLink(decision: ReturnDecision): NonNullable<ReturnLine["link"]> {
+function decisionLink(decision: ReturnDecision): NonNullable<ReturnRow["action"]> {
   if (decision.kind === "record") {
     return { label: i18n.t("session:returnSummary.linkHandoff"), target: { kind: "tab", tab: "handoff" } };
   }
@@ -72,19 +96,6 @@ function decisionLink(decision: ReturnDecision): NonNullable<ReturnLine["link"]>
     label: i18n.t("session:returnSummary.linkShow"),
     target: { kind: "decision", messageId: decision.messageId, requestId: decision.requestId },
   };
-}
-
-/**
- * The changes since the visit, or null when nothing changed. Steps are left
- * out: they are internal bookkeeping, not something you act on.
- */
-function describeChanges(summary: ReturnSummary): string | null {
-  const { turns, files } = summary.changes;
-  const parts = [
-    ...(turns > 0 ? [i18n.t("session:returnSummary.changesTurns", { count: turns })] : []),
-    ...(files > 0 ? [i18n.t("session:returnSummary.changesFiles", { count: files })] : []),
-  ];
-  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 const NEED_KEYS: Partial<Record<FleetAttentionKind, { since: string; plain: string; state: WorkState }>> = {
@@ -170,33 +181,75 @@ function describeAction(summary: ReturnSummary): Pick<ReturnStatus, "action" | "
   }
 }
 
+function describeTurn(turn: ReturnTurn): ReturnRow {
+  const outcome = turn.outcome === "failed"
+    ? i18n.t("session:returnSummary.turnFailed")
+    : turn.outcome === "stopped"
+      ? i18n.t("session:returnSummary.turnStopped")
+      : i18n.t("session:returnSummary.turnFinished");
+  const files = turn.files > 0 ? i18n.t("session:returnSummary.changesFiles", { count: turn.files }) : null;
+  return {
+    id: `turn:${turn.id}`,
+    kind: turn.outcome === "failed" ? "failed" : "done",
+    state: turn.outcome === "finished" ? "ready" : turn.outcome,
+    title: turn.prompt || i18n.t("session:returnSummary.turnUntitled"),
+    detail: files ? `${outcome} · ${files}` : outcome,
+    action: { label: i18n.t("session:returnSummary.linkShow"), target: { kind: "message", messageId: turn.messageId } },
+    primary: false,
+  };
+}
+
+function statusRow(status: ReturnStatus, primary: boolean): ReturnRow {
+  return {
+    id: "status",
+    kind: status.state === "failed" ? "failed" : primary ? "needs-you" : status.state === "working" ? "working" : "done",
+    state: status.state,
+    title: status.text,
+    detail: status.detail,
+    action: status.action,
+    primary,
+  };
+}
+
 /**
- * The summary in the user's language: where the task stands with the one
- * action that moves it on, then what changed while you were away and the last
- * decision, each with where it comes from. A fact with nothing to say is left
- * out.
+ * The summary in the user's language, as rows, most urgent first: what waits
+ * on you, then each turn that finished while you were away (failed ones
+ * first), whether it still works, then the next step and the last decision.
+ * Where it stands is always told: when nothing waits, works or finished, the
+ * one row says how its last turn ended, with the action that moves it on.
  */
 export function describeReturnSummary(summary: ReturnSummary, now: number): ReturnView {
-  const facts: ReturnLine[] = [];
-  const changes = describeChanges(summary);
-  if (changes) {
-    facts.push({
-      id: "changes",
-      label: i18n.t("session:returnSummary.labelChanges"),
-      text: changes,
-      link: { label: i18n.t("session:returnSummary.linkActivity"), target: { kind: "tab", tab: "activity" } },
+  const status: ReturnStatus = { ...describeStop(summary.stop, now), ...describeAction(summary) };
+  const needsYou = summary.stop.kind === "need";
+  const rows: ReturnRow[] = [];
+  if (needsYou) rows.push(statusRow(status, true));
+  rows.push(...summary.turns.map(describeTurn));
+  if (!needsYou && summary.stop.kind === "running") rows.push({ ...statusRow(status, false), id: "running" });
+  if (rows.length === 0) {
+    // Where it stands, with the action for it; its next step is that action's detail.
+    rows.push({ ...statusRow(status, false), detail: status.next ? i18n.t("session:returnSummary.nextRemaining", { text: status.next }) : null });
+  } else if (summary.next.kind === "remaining") {
+    rows.push({
+      id: "next",
+      kind: "info",
+      state: null,
+      title: i18n.t("session:returnSummary.labelNext"),
+      detail: summary.next.text,
+      action: { label: i18n.t("session:returnSummary.actionHandoff"), target: { kind: "tab", tab: "handoff" } },
+      primary: false,
     });
   }
   if (summary.decision) {
-    facts.push({
+    rows.push({
       id: "decision",
-      label: i18n.t("session:returnSummary.labelDecision"),
-      text: describeDecision(summary.decision),
-      link: decisionLink(summary.decision),
+      kind: "info",
+      state: null,
+      title: i18n.t("session:returnSummary.labelDecision"),
+      detail: describeDecision(summary.decision),
+      action: decisionLink(summary.decision),
+      primary: false,
     });
   }
-  return {
-    status: { ...describeStop(summary.stop, now), ...describeAction(summary), urgent: summary.stop.kind === "need" },
-    facts,
-  };
+  rows.sort((left, right) => ROW_ORDER[left.kind] - ROW_ORDER[right.kind]);
+  return { rows, needsYou, turns: summary.turns.length };
 }

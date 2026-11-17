@@ -56,6 +56,7 @@ async function runTurn(args: {
   providerId: StreamTurnArgs["providerId"];
   turnId: string;
   taskId?: string;
+  prompt?: string;
   agentRunStage?: StreamTurnArgs["agentRunStage"];
   conversation?: StreamTurnArgs["conversation"];
   executionPolicy?: StreamTurnArgs["executionPolicy"];
@@ -71,7 +72,7 @@ async function runTurn(args: {
       taskId: args.taskId ?? "task-1",
       cwd: TEST_WORKSPACE_CWD,
       providerId: args.providerId,
-      prompt: "Draft the change.",
+      prompt: args.prompt ?? "Draft the change.",
       ...(args.conversation ? { conversation: args.conversation } : {}),
       ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
       ...(args.executionPolicy ? { executionPolicy: args.executionPolicy } : {}),
@@ -264,4 +265,21 @@ test("a run's refusal of a reply reaches the user as written", async () => {
     conversation: { mode: "chat", history: [], contextParts: [] } }, { onEvent: (event) => generic.push(event), onDone: resolveGeneric });
   await genericDone;
   expect(generic).toContainEqual(expect.objectContaining({ type: "error", message: expect.stringContaining("could not be applied") }));
+});
+
+
+test("primary replies pass their explicit browser request to Run admission and keep its browser option", async () => {
+  const seen: string[] = [];
+  setAgentRunUserTurnResolver((args) => {
+    seen.push(args.prompt ?? "");
+    return { agentRunStage: STAGE, managedTask: false, runtimeOptionsMode: "routing",
+      context: { type: "retrieved_context", sourceId: "stage", title: "Reply", content: "Continue" },
+      runtimeOptions: { providerBrowserAlwaysOn: true } };
+  });
+  for (const providerId of ["claude-code", "codex"] as const) {
+    const turn = await runTurn({ providerId, turnId: `browser-${providerId}`, prompt: "@web continue",
+      conversation: { mode: "chat", history: [], contextParts: [] } });
+    expect(seen.at(-1)).toBe("@web continue");
+    expect(turn.runtimeOptions?.providerBrowserAlwaysOn).toBe(true);
+  }
 });

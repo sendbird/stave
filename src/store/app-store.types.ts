@@ -272,6 +272,7 @@ export interface AppState
   focusTranscriptToolRequest: {
     taskId: string;
     toolUseId?: string;
+    /** A whole message (a turn's reply, or a search hit), scrolled to its start. */
     messageId?: string;
     searchQuery?: string;
     searchSnippet?: string;
@@ -485,6 +486,8 @@ export interface AppState
     messageId: string;
     requestId: string;
   }) => void;
+  /** Scroll the transcript to a message (a turn's reply), loading older pages as needed. */
+  focusTranscriptMessage: (args: { taskId: string; messageId: string }) => void;
   selectTask: (args: { taskId: string; allowArchived?: boolean }) => void;
   loadTaskMessages: (args: {
     taskId: string;

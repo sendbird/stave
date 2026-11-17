@@ -2,10 +2,14 @@
 
 ## Summary
 
-- When you come back to a task after a while, a short card at the top of its
-  conversation says where the task stands and the one thing to do about it,
-  then what changed while you were away and the last decision.
-- Each part links to where it comes from, so you can check it in one click.
+- When you come back to a task after a while, a **Welcome back** card appears
+  in its conversation, right after the last message you had seen, so what
+  happened while you were away reads below it.
+- The card lists what waits on you, each turn that finished, whether the task
+  still works, its next step and the last decision: one row each, with the one
+  action for it.
+- **Got it** folds the card into a one-line divider at the same place; the
+  divider opens it again.
 
 ## When To Use It
 
@@ -22,59 +26,70 @@
 1. Leave a task (switch to another task, or to another app) for at least
    fifteen minutes.
 2. Come back to it. If anything happened, or the task waits on you, the
-   **Welcome back** card shows at the top of the conversation.
-3. Press the card's action button to act on it, follow a fact's link, or
-   close the card.
+   **Welcome back** card shows in the conversation where you had left off, and
+   the conversation moves to it.
+3. Press a row's button to act on it, then **Got it** to fold the card.
 
 ## Interface Walkthrough
 
 ### Entry Points
 
-- The card appears at the top of the task's conversation, above the
-  transcript, so it is visible without scrolling.
+- The card sits in the conversation, right after the last message you had
+  seen: your messages up to your last visit and the replies you had seen then.
+  When none of the loaded messages had been seen, it sits before the first one.
+- Coming back moves the conversation to the card once, when new messages
+  follow it. When it is at the end of the conversation it is already in view
+  and nothing moves. A reply that arrives later does not move the conversation
+  again.
 
 ### Key Controls
 
-- **Status**: the first line says what the task waits on and for how long
-  (the same wait Fleet shows), with the request's description under it;
-  otherwise whether it still works or how its last turn ended. Its mark uses
-  the same state glyph and color as Fleet and the task tabs. When the
-  [handoff record](task-handoff-record.md) lists Remaining work, its first
-  line shows as **Next**.
-- **Action button**: the one thing to do now, named for what it does: **Show
-  request** goes to the waiting approval or question, **Review outputs** opens
-  Outputs, **See what failed** and **Check activity** open Activity (a wait with no
-  action of its own, such as a pull request's state, also offers **Check
-  activity**), **Open
-  run progress** opens Progress, **Open handoff** opens the record, **Ask a
-  side question** opens a [side question](side-questions.md) while the task
-  works, and **Write a reply** focuses the composer. It is the primary button
-  when the task waits on you.
-- **While you were away**: how many turns finished and files changed since
-  your last visit. They are counted against what you had seen when you left:
-  a turn that was already running counts only what it did afterwards, and
-  counts as finished once it ends. Steps are counted but not shown.
-  **Activity** opens the Task panel's Activity tab. The line is left out when
-  nothing changed.
-- **Last decision**: the newest line of the handoff record under Approved
-  decisions, or else the newest approval or answer you gave in the
-  conversation (not one a Stave rule or the provider's permission mode
-  decided). An answer shows your answer only; its question is one click away
-  under **Show**. **Handoff** opens the record; for an approval or answer, **Show**
-  closes the card and scrolls the conversation to it, opening its turn's
-  steps, and focuses it. The line is left out when there is no decision yet.
-- Long text wraps to two lines; hover a line to read all of it.
-- The close button dismisses the card until your next return. Writing to the
-  task dismisses it too.
-- The card sits over the conversation: while the task shows
-  [Review](review-mode.md) it is out of sight, and it is there again when you
-  switch back.
+- **Header**: **Welcome back** and how long you were away since when, such as
+  **Away 2h 14m · since 2:05 PM**. After a restart it counts from your last
+  message instead, and says so.
+- **Rows**: each row has a state mark, a title, a detail line and one button.
+  Rows keep one height; long text is cut with "…" and shows in full on hover.
+  They are listed most urgent first:
+  - **What waits on you** (an approval, a question, a result to review, a run's
+    sign-off, a stalled turn): the wait and how long, the request's description,
+    and the primary button, named for what it does: **Show request**, **Review
+    outputs**, **See what failed**, **Check activity** or **Open run
+    progress**. A wait with no action of its own, such as a pull request's
+    state, offers **Check activity**.
+  - **Each turn that finished while you were away**, failed turns first: the
+    first line of the message that started it, and **Finished**, **Failed** or
+    **Stopped** with the files it changed since your visit. **Show** scrolls the
+    conversation to the start of its reply.
+  - **Still working**, while a turn runs: **Ask a side question** opens a
+    [side question](side-questions.md).
+  - **Next**: the first Remaining line of the
+    [handoff record](task-handoff-record.md), with **Open handoff**.
+  - **Last decision**: the newest line of the handoff record under Approved
+    decisions, or else the newest approval or answer you gave in the
+    conversation (not one a Stave rule or the provider's permission mode
+    decided). An answer shows your answer only. **Handoff** opens the record;
+    for an approval or answer, **Show** scrolls the conversation to it, opens
+    its turn's steps and focuses it.
+  - When nothing waits, works or finished, one row says how the last turn
+    ended, with its next step under it and **Open handoff** or **Write a
+    reply**.
+- **Show N more**: past four rows, the rest wait behind this button; **Show
+  less** hides them again.
+- **Got it** (or Esc inside the card) folds the card into a one-line divider
+  with **Welcome back**, how long you were away and **Needs you** or how many
+  turns finished. Focus moves to the divider; pressing it opens the card again
+  and focuses its first button.
+- Writing to the task folds the card too. Opened again, it shows what happened
+  up to your message.
+- When what the card says changes while it is open (a request is answered, a
+  turn finishes), a screen reader announces its new first row.
 
 ## Files And Data
 
 - Nothing is stored for the summary. It is read from the loaded conversation,
   the handoff record and Fleet's attention items. What you had seen when you
-  left a task is kept in memory until you come back.
+  left a task, and whether you folded its card, is kept in memory for this
+  app session.
 - Your last visit is when you left the task during this session. After a
   restart, Stave uses your last message in the task instead, and the card says
   so.

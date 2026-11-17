@@ -161,7 +161,7 @@ describe("view capture", () => {
       workspaceId: "ws-1",
       taskId: "task-1",
       toolInput: {},
-      toolResult: null,
+      toolResult: { content: [{ type: "text", text: "Sunny" }] },
       listAppTools: async () => [],
       store,
     };
@@ -178,6 +178,51 @@ describe("view capture", () => {
         readResource: () => new Promise(() => {}),
       }),
     ).toBeNull();
+  });
+});
+
+describe("view capture input and result", () => {
+  const base = {
+    provider: "claude-code" as const,
+    server: "weather",
+    tool: "forecast",
+    toolUseId: "call-1",
+    resourceUri: "ui://weather/forecast",
+    workspaceId: "ws-1",
+    taskId: "task-1",
+    toolResult: { content: [{ type: "text", text: "Sunny" }] },
+    listAppTools: async () => [],
+  };
+  function reading() {
+    const reads: string[] = [];
+    return {
+      reads,
+      readResource: async (uri: string) => {
+        reads.push(uri);
+        return { contents: [{ uri, mimeType: MCP_APP_MIME_TYPE, text: "<p>forecast</p>" }] };
+      },
+    };
+  }
+
+  test("omitted arguments are a call with no arguments", async () => {
+    for (const toolInput of [undefined, null, "", "  "]) {
+      const reference = await captureMcpAppView({ ...base, store, ...reading(), toolInput });
+      expect(reference).not.toBeNull();
+      expect((await store.read(reference!.viewId))?.record.toolInput).toEqual({});
+    }
+  });
+
+  test("unreadable input or an oversized result keeps the text row without reading the view", async () => {
+    for (const args of [
+      { toolInput: '{"city":' },
+      { toolInput: "[1]" },
+      { toolInput: { city: "Seoul" }, toolResult: { content: [{ type: "text", text: "x".repeat(1_000_001) }] } },
+      { toolInput: { city: "Seoul" }, toolResult: null },
+    ]) {
+      const read = reading();
+      expect(await captureMcpAppView({ ...base, store, ...read, ...args })).toBeNull();
+      expect(read.reads).toEqual([]);
+    }
   });
 });
 

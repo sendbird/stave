@@ -73,6 +73,14 @@ export async function runSupervisedTurn(args: {
   const store = ensureHostServicePersistenceReady();
   const saved = store.delegationPolicies.loadTaskAccounts(args.taskId) ?? store.loadWorkspaceShell({ workspaceId: args.workspaceId })?.promptDraftByTask?.[args.taskId]?.runtimeOverrides;
   const accounts = resolveSupervisedTurnAccounts(args.runtimeOptions, saved);
+  // Wakes and event continuations are still the user's primary task. Read
+  // current preferences rather than losing Always when the composer is absent.
+  // A supervised delegate must not acquire its parent's browser access.
+  const browserOptions = !args.parentTaskId &&
+    (args.fingerprint?.providerId === "claude-code" || args.fingerprint?.providerId === "codex")
+      ? store.delegationPolicies.loadSettings()?.browser
+      : undefined;
+  const runtimeOptions = { ...browserOptions, ...args.runtimeOptions };
   const credentials = args.gatewayCredentials ?? (await requestHostGatewayCredentials(accounts))?.credentials;
   return withGatewayCredential(credentials, () => withProviderAccountScope(accounts, () => runTask({
     workspaceId: args.workspaceId,
@@ -87,14 +95,12 @@ export async function runSupervisedTurn(args: {
       ? {
           provider: args.fingerprint.providerId,
           runtimeOptions: {
-            ...args.runtimeOptions,
+            ...runtimeOptions,
             ...accounts,
             model: args.fingerprint.model,
           },
         }
-      : args.runtimeOptions
-        ? { runtimeOptions: { ...args.runtimeOptions, ...accounts } }
-        : { runtimeOptions: accounts }),
+      : { runtimeOptions: { ...runtimeOptions, ...accounts } }),
     ...(args.retrievedContextParts
       ? { retrievedContextParts: args.retrievedContextParts }
       : {}),

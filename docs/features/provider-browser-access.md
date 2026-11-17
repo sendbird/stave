@@ -27,7 +27,7 @@ copy browser credentials into Stave.
 
 The browser extension, provider CLI, and the user's existing Chrome profile own
 the live connection. Stave only asks the provider to use that connection for
-the current turn.
+the current turn. A primary Agent run retains an explicit `@web` request for its own continuations.
 
 Both providers also receive an injected browser-policy block stating what
 `@web` means, that Chrome access exists only on interactive primary turns
@@ -55,7 +55,7 @@ how far Stave attaches the provider browser without `@web`:
 
 | Mode | Chrome is attached to |
 |---|---|
-| Only with @web | Interactive prompts that contain `@web`. |
+| Only with @web | Interactive prompts that contain `@web`, and continuations of a primary Agent run already authorized with `@web`. |
 | Lens first (automatic, default) | `@web` prompts and one retry after a blocked fetch or Lens read. Known-host activation is a separate opt-in. See below. |
 | Always | Every interactive primary turn. The agent decides when to open the user's Chrome. |
 
@@ -64,6 +64,8 @@ The mode is stored as two settings, `providerBrowserAutoFallback` and
 existed still reads as Only with @web. Always mode never overrides the hard
 blocks: unattended automation and secondary read-only analysis stay without a
 browser in every mode.
+
+Primary tasks resumed by a check-back schedule or an Agent run event use the current synced browser mode too. Always remains enabled without a new `@web` mention. An explicit `@web` in the primary run's assignment or a user reply is retained for that same run, including event wakes and host restarts. A new run needs its own request. Cancelling or ending the run ends this retained access. These preferences are not inherited by supervised delegates. Unattended automation and secondary analysis remain excluded.
 
 Automatic mode starts without Chrome so the agent can use Lens for workspace
 pages. **Connect Chrome in advance for listed hosts** separately enables
