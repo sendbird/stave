@@ -16,9 +16,15 @@ async function main() {
     const path = join(root, "feature");
     git(root, "init", "-b", "main", repo);
     writeFileSync(join(repo, ".gitignore"), "ignored\n");
+    // A required pointer filter proves capture uses clean filters and restore uses smudge filters.
+    writeFileSync(join(repo, ".gitattributes"), "*.ptr filter=pointer\n");
     writeFileSync(join(repo, "tracked"), "original\n");
     writeFileSync(join(repo, "removed"), "delete me\n");
     writeFileSync(join(repo, "executable"), "mode bytes\n");
+    const marker = join(root, "smudge-fails");
+    git(repo, "config", "filter.pointer.clean", "sed -e 's/^/pointer:/'");
+    git(repo, "config", "filter.pointer.smudge", `test ! -e '${marker}' && sed -e 's/^pointer://'`);
+    git(repo, "config", "filter.pointer.required", "true");
     git(repo, "add", ".");
     git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.test", "-c", "commit.gpgsign=false", "commit", "-m", "test: original state");
     git(root, "init", "--bare", join(root, "remote.git"));
@@ -34,6 +40,7 @@ async function main() {
       writeFileSync(join(path, "tracked"), "staged\n"); git(path, "add", "tracked");
       writeFileSync(join(path, "tracked"), "unstaged\r\nbytes\n");
       writeFileSync(join(path, "untracked"), Buffer.from([0, 255, 13, 10, 22]));
+      writeFileSync(join(path, "payload.ptr"), "large payload\n");
       rmSync(join(path, "removed"));
       writeFileSync(join(path, "index-only"), "staged only\n"); git(path, "add", "index-only"); rmSync(join(path, "index-only"));
       symlinkSync("tracked", join(path, "untracked-link"));
@@ -87,6 +94,7 @@ async function main() {
     assert.match(ref, /^refs\/stave\/archives\//);
     assert.equal(git(repo, "rev-parse", "refs/heads/feature"), branch);
     assert.ok(!git(repo, "ls-tree", "-r", "--name-only", ref).split("\n").includes("ignored"));
+    assert.equal(git(repo, "cat-file", "-p", `${ref}:payload.ptr`), "pointer:large payload\n", "Capture stores the clean-filtered pointer");
     assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.savedChanges, true);
     store.close(); store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
     assert.equal(store.listArchivedWorkspacesPersistence()[0]!.savedChangesRef, ref, "Snapshot ref survives SQLite restart");
@@ -98,6 +106,7 @@ async function main() {
     rmSync(path, { recursive: true });
     const restored = await act("restore");
     assert.equal(restored.ok, true, JSON.stringify(restored));
+    assert.equal(readFileSync(join(path, "payload.ptr"), "utf8"), "large payload\n", "Restore applies the smudge filter");
     assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
     assert.equal(git(path, "show", ":tracked"), index);
     assert.equal(readFileSync(join(path, "tracked"), "utf8"), "unstaged\r\nbytes\n");

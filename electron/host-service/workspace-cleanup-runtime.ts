@@ -291,42 +291,44 @@ export function createWorkspaceCleanupRuntime(ports: {
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
-          let savedRef: string | undefined;
-          if (saving) savedRef = await saveWorkspaceChanges(row.path);
-          if (createArchive) {
-            const original = ports.store().readWorkspaceCreationOptions({ workspaceId: row.id });
-            let dependencyLink = false;
-            try { dependencyLink = (await lstat(join(row.path, "node_modules"))).isSymbolicLink(); } catch { /* No dependency link. */ }
-            try { ports.store().archiveWorkspacePersistence({ workspaceId: row.id, repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, name: row.name, savedChangesRef: savedRef,
-              creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked), ...(linked ? { linkedSymlinkNames } : {}) } }); }
-            catch (error) {
-              if (savedRef) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
+          const saved = saving ? await saveWorkspaceChanges(row.path) : undefined;
+          const savedRef = saved?.ref;
+          try {
+            if (createArchive) {
+              const original = ports.store().readWorkspaceCreationOptions({ workspaceId: row.id });
+              let dependencyLink = false;
+              try { dependencyLink = (await lstat(join(row.path, "node_modules"))).isSymbolicLink(); } catch { /* No dependency link. */ }
+              try { ports.store().archiveWorkspacePersistence({ workspaceId: row.id, repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, name: row.name, savedChangesRef: savedRef,
+                creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked), ...(linked ? { linkedSymlinkNames } : {}) } }); }
+              catch (error) {
+                if (savedRef) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
+                throw error;
+              }
+              workspaceExecutionGate.invalidateArchives();
+              registryChanged = true;
+            }
+            let savedStateCleared = false;
+            try {
+              if (saved) await clearSavedWorkspaceChanges(row.path, saved, () => { savedStateCleared = true; });
+              if (linked && args.action === "archive") await removeWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
+              if (!linked && !row.branchOnly && existsSync(row.path)) {
+                const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
+                if (!removed.ok) throw new Error("worktreeRemoveFailed");
+              }
+            } catch (error) {
+              // Git kept the checkout; return the workspace to its active registry.
+              // If rollback also fails, the durable archive still protects history.
+              if (createArchive && existsSync(row.path)) {
+                try {
+                  if (savedRef && savedStateCleared) await applySavedWorkspaceChanges(row.path, savedRef);
+                  if (linked) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
+                  ports.store().restoreWorkspacePersistence({ workspaceId: row.id });
+                  if (savedRef) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
+                } catch { /* Keep the archive recoverable. */ }
+              }
               throw error;
             }
-            workspaceExecutionGate.invalidateArchives();
-            registryChanged = true;
-          }
-          let savedStateCleared = false;
-          try {
-            if (savedRef) await clearSavedWorkspaceChanges(row.path, savedRef, () => { savedStateCleared = true; });
-            if (linked && args.action === "archive") await removeWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
-            if (!linked && !row.branchOnly && existsSync(row.path)) {
-              const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
-              if (!removed.ok) throw new Error("worktreeRemoveFailed");
-            }
-          } catch (error) {
-            // Git kept the checkout; return the workspace to its active registry.
-            // If rollback also fails, the durable archive still protects history.
-            if (createArchive && existsSync(row.path)) {
-              try {
-                if (savedRef && savedStateCleared) await applySavedWorkspaceChanges(row.path, savedRef);
-                if (linked) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
-                ports.store().restoreWorkspacePersistence({ workspaceId: row.id });
-                if (savedRef) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
-              } catch { /* Keep the archive recoverable. */ }
-            }
-            throw error;
-          }
+          } finally { await saved?.dispose(); }
           if (args.action === "deleteBranch" || args.deleteBranch) {
             const deleted = await git(row.repositoryPath, ["branch", args.forceDeleteBranch ? "-D" : "-d", "--", row.branch]);
             if (!deleted.ok) throw new Error("branchDeleteFailed");
