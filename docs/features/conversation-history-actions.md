@@ -9,7 +9,7 @@ Use a response's history actions to fork the conversation, restore the files sav
 - Wait for the active turn to finish before restoring or forking.
 - Forking needs a linked native session and a response with recorded native turn metadata.
 - File restoration needs a retained snapshot captured before the selected turn.
-- A running task that shares the worktree, or changes attributed to another task, can prevent restoration. Read the explanation before trying again.
+- A running task that shares the worktree, a terminal running a command in it, or changes made after the turn can prevent restoration. Read the explanation before trying again.
 
 ## Quick Start
 
@@ -20,11 +20,15 @@ Use a response's history actions to fork the conversation, restore the files sav
 
 ## File Snapshots
 
-Before each user turn starts, the host records tracked, staged and untracked files, excluding ignored files. Capture does not change the branch, index or working files. Unchanged states reuse the previous snapshot. Retention is bounded and configurable, with a default of 50 snapshots per task; older snapshots are pruned. Set `STAVE_TURN_SNAPSHOT_LIMIT` when launching the host to change the limit (1–500).
+Before each user turn starts, the host records tracked, staged and untracked files, excluding ignored files, with their exact bytes and permissions. Capture does not change the branch, index or working files. Unchanged states reuse the previous snapshot, and unchanged files are not read again. Retention is bounded and configurable, with a default of 50 snapshots per task; older snapshots are pruned. Set `STAVE_TURN_SNAPSHOT_LIMIT` when launching the host to change the limit (1–500).
+
+Capture never stops a turn. If it fails, the turn runs anyway and its actions show `No snapshot for this turn` with the reason instead of a restore button. Worktrees that Stave creates under `.stave/workspaces/` belong to their own workspaces and are left out of the default workspace's snapshot. Submodules and other nested repositories are recorded as links to their checked-out commit and are never rewritten by a restore. During a merge conflict, the working files are recorded but the staged state is not, so restoring that snapshot leaves the index as it is.
 
 `Keep conversation, restore files` restores the saved files and keeps the messages. The combined option also rolls back the conversation, and appears only for a provider that supports it. Otherwise, use `Fork here` to continue from the chosen point in another conversation. The same file action works across providers; the host selects the available restoration method.
 
-The host saves the current files before restoration so `Undo restore` can recover them. Restoration refuses to run while this task has an active turn, while another running task shares the worktree, or when it would overwrite changes made by another task. Undo follows the same safety checks.
+Restoration changes only the files that differ from the snapshot, including files that became folders and the reverse, and keeps each file's saved permissions. It checks everything first: when an ignored file, a symbolic link or a locked git index is in the way, it stops before changing any file. The host saves the current files before restoration so `Undo restore` can recover them; that saved copy is kept apart from the turn snapshots and does not count toward the limit. Restoration refuses to run while this task has an active turn, while another running task shares the worktree, while a terminal in the worktree runs a command, or when files may have changed after the turn. Undo follows the same safety checks.
+
+Claude conversations recorded before turn snapshots keep the `Preview Claude file rewind` action on each user message, which uses the provider's own file rewind, so older history can still restore files. Snapshots and the saved copy are deleted when their task or workspace is permanently deleted.
 
 ## Fork And Return
 
@@ -46,13 +50,13 @@ The fork retains its parent link after restart. Returning a result also attaches
 
 ## Limitations
 
-Only retained snapshots can restore files. Loading older messages does not recreate a pruned snapshot. Conversation rollback availability depends on the provider; file restoration does not require that capability. Forking and restoring do not automatically send another message.
+Only retained snapshots can restore files. Loading older messages does not recreate a pruned snapshot. Restoration does not change files inside submodules or nested repositories. Conversation rollback availability depends on the provider; file restoration does not require that capability. Forking and restoring do not automatically send another message.
 
 ## Troubleshooting
 
 ### Restoration Is Unavailable
 
-Finish or stop active work, then check the displayed reason. A snapshot may have expired, the worktree may be shared by active work, or another task may have changed files. Preserve and reconcile those changes before restoring.
+Finish or stop active work, then check the displayed reason. A snapshot may have expired, the worktree may be shared by active work or a running terminal command, or files may have changed after the turn. Preserve and reconcile those changes before restoring.
 
 ### Conversation Rollback Left Files Unchanged
 
