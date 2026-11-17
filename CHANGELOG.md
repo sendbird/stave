@@ -1,3 +1,21 @@
+## [0.35.1](https://github.com/sendbird/stave/compare/v0.35.0...v0.35.1) (2026-11-17)
+
+This patch release includes the seven merged changes since 0.35.0.
+
+### Changes
+
+- Fleet can control selected tasks in bulk, while the cleanup center and Tars preview guarded workspace cleanup with per-item results and Restore. Archived conversations stay searchable and read-only; workspaces can save uncommitted changes before archiving and restore them later.
+- Find work faster with full-history conversation search, unread markers, pinned and manually ordered task history, and discoverable feature tips. Fleet and the sidebar render nearby rows to keep large work lists responsive.
+- Resume interrupted work with restart continuation settings, actionable notifications, usage-limit retry backoff, and an optional global concurrent-turn limit that preserves queued messages across restarts. Primary Agent runs retain authorized browser access through continuations and host restarts.
+- Review and recover changes with best-effort file snapshots for every user turn across providers, selective restore with Undo, and fork answers returned to the original composer. Agent-opened pull requests are watched automatically when eligible, and stack retargeting requires confirmation and reports each result; opt-in prompt evaluations can run against real models with a call cap.
+- Welcome back summaries appear where you left the conversation, link to turns and pending decisions, and fold into a reopenable divider. Clarification drafts, focus and text selection survive turn-event updates, and assistant screenshots appear as numbered thumbnails that open at original size.
+- MCP App views receive structured results where available, expose copyable text results, and fall back to text when view data is missing or cannot be captured. Inline HTML pages use readable default text, report small text and opaque backgrounds in previews, and keep full-screen source panels scrollable.
+- English and Korean feature and user-guide sources cover the updated workflows. Remote control and webhook-triggered schedules are excluded from this release.
+
+### References
+
+- [PR #964](https://github.com/sendbird/stave/pull/964), [PR #965](https://github.com/sendbird/stave/pull/965), [PR #970](https://github.com/sendbird/stave/pull/970), [PR #975](https://github.com/sendbird/stave/pull/975), [PR #979](https://github.com/sendbird/stave/pull/979), [PR #981](https://github.com/sendbird/stave/pull/981), [PR #982](https://github.com/sendbird/stave/pull/982)
+
 ## [0.35.0](https://github.com/sendbird/stave/compare/v0.34.0...v0.35.0) (2026-11-13)
 
 This minor release includes the four merged changes since 0.34.0.
