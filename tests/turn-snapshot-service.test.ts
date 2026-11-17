@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { spawnSync } from "node:child_process";
 
+mkdirSync("test-results", { recursive: true });
 const root = mkdtempSync(path.resolve("test-results/turn-snapshot-native-"));
 const output = path.join(root, "scenarios.cjs");
 beforeAll(() => {
