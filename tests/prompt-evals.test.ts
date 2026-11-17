@@ -65,3 +65,45 @@ test("provider failures are retained as failed samples and missing cost stays un
   expect(result.cost).toBeNull();
   expect(result.cases[0]).toMatchObject({ passed: false, passRate: 0, samples: [{ failures: ["provider error: offline"], cost: null, model: "fake-model", version: "fixture-1" }] });
 });
+
+test("evaluations default to the app's utility model, the planner's model for the planner suite, and honor --model", async () => {
+  const { resolveEvalModel } = await import("../evals/models");
+  const { resolveAuxLaneRuntime, DEFAULT_AUXILIARY_INFERENCE_POLICY, DEFAULT_AUX_INFERENCE_DEFAULT } = await import("../src/lib/providers/auxiliary-inference-policy");
+  const { getDefaultModelForProvider } = await import("../src/lib/providers/model-catalog");
+  for (const [provider, providerId] of [["claude", "claude-code"], ["codex", "codex"]] as const) {
+    const lane = (name: "taskName" | "prDescription" | "utility") => resolveAuxLaneRuntime({ lane: name, policy: DEFAULT_AUXILIARY_INFERENCE_POLICY, shared: DEFAULT_AUX_INFERENCE_DEFAULT, activeProviderId: providerId }).model;
+    const titles = resolveEvalModel({ suite: "titles", provider });
+    expect(titles).toEqual({ model: lane("taskName")!, source: "utility-default" });
+    expect(titles.model).not.toBe(getDefaultModelForProvider({ providerId }));
+    expect(resolveEvalModel({ suite: "pr-body", provider })).toEqual({ model: lane("prDescription")!, source: "utility-default" });
+    expect(resolveEvalModel({ suite: "delegation", provider })).toEqual({ model: lane("utility")!, source: "utility-default" });
+    expect(resolveEvalModel({ suite: "planner", provider })).toEqual({ model: getDefaultModelForProvider({ providerId }), source: "planner-default" });
+    expect(resolveEvalModel({ suite: "titles", provider, model: " custom-model " })).toEqual({ model: "custom-model", source: "option" });
+  }
+});
+
+test("call budget refuses large runs without --yes, asks only on a TTY, and enforces --max-calls", async () => {
+  const { checkEvalCallBudget, EVAL_CONFIRMATION_THRESHOLD } = await import("../evals/plan");
+  expect(EVAL_CONFIRMATION_THRESHOLD).toBe(20);
+  expect(checkEvalCallBudget({ plannedCalls: 20, yes: false, interactive: false })).toEqual({ kind: "run" });
+  expect(checkEvalCallBudget({ plannedCalls: 21, yes: false, interactive: false })).toMatchObject({ kind: "refuse" });
+  expect(checkEvalCallBudget({ plannedCalls: 21, yes: false, interactive: true })).toEqual({ kind: "confirm" });
+  expect(checkEvalCallBudget({ plannedCalls: 21, yes: true, interactive: false })).toEqual({ kind: "run" });
+  expect(checkEvalCallBudget({ plannedCalls: 12, yes: true, interactive: true, maxCalls: 10 })).toMatchObject({ kind: "refuse" });
+  expect(checkEvalCallBudget({ plannedCalls: 10, yes: false, interactive: false, maxCalls: 10 })).toEqual({ kind: "run" });
+});
+
+test("the CLI refuses an unconfirmed or over-cap paid run without checking credentials or calling a model", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const run = (args: string[]) => spawnSync(process.execPath, ["run", "scripts/prompt-evals.ts", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 60_000 });
+  // 4 planner cases x 6 samples = 24 planned calls, above the confirmation threshold.
+  const unconfirmed = run(["--suite", "planner", "--provider", "codex", "--samples", "6"]);
+  expect(unconfirmed.status).not.toBe(0);
+  expect(unconfirmed.stderr).toContain("--yes");
+  expect(unconfirmed.stdout).not.toContain("Results:");
+  // 2 title cases x 2 samples = 4 planned calls, above the explicit cap.
+  const capped = run(["--suite", "titles", "--provider", "codex", "--samples", "2", "--max-calls", "3", "--yes"]);
+  expect(capped.status).not.toBe(0);
+  expect(capped.stderr).toContain("--max-calls");
+  expect(capped.stdout).not.toContain("Results:");
+}, 120_000);

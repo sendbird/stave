@@ -19,8 +19,39 @@ tool-disabled runtime. With missing credentials it records a skipped result and
 prints the reason without generating. Failed cases exit with status 1; a skip
 exits successfully and is explicitly labeled, never counted as a pass.
 
+Before checking credentials, the runner counts the planned calls (cases ×
+samples). A run of more than 20 calls needs `--yes`; in an interactive terminal
+it asks for confirmation instead, and without a terminal it refuses. Add
+`--max-calls <n>` to refuse any run that plans more than `n` calls, even with
+`--yes`:
+
+```sh
+bun run eval:prompts -- --suite planner --provider codex --samples 10 --yes --max-calls 40
+```
+
+## Model selection
+
+By default each suite uses the model the app uses for that output, so results
+and cost match production:
+
+- `planner`: the provider's default conversation model, which is what the
+  planner uses until a different model is chosen in the app.
+- `titles`, `pr-body` and `delegation`: the app's default Background AI utility
+  model for the task-name, PR-description and utility lanes (the provider's
+  light tier).
+
+Models changed in the app's settings are not read by this script. Pass
+`--model <id>` to evaluate a configured or candidate model; the id must belong
+to the selected provider:
+
+```sh
+bun run eval:prompts -- --suite titles --provider claude --model <model-id>
+```
+
 Results are written to `evals/results/<timestamp>.json`, which is ignored
-by Git. The file includes provider, model, installed CLI version, each response,
+by Git. The file includes provider, model, how the model was chosen
+(`modelSource`: `option`, `planner-default` or `utility-default`), the planned
+call count, installed CLI version, each response,
 per-sample grader failures, per-case pass rate, and cost in USD when the runtime
 reports it. Unreported cost is `null`, not zero. A case fails when at least half
 its samples fail; a suite fails when any case fails. Results contain model text;
