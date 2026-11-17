@@ -2700,7 +2700,7 @@ export async function resumeQueuedProviderTurn(args: import("../providers/types"
   const model = args.runtimeOptions?.model ?? "default";
   const provider = args.providerId;
   const workspaceName = workspaceId;
-  let sequence = 0;
+  let sequence = ensureHostServicePersistenceReady().getStreamEvents({ turnId }).at(-1)?.sequence ?? 0;
   hostTaskSteers.startTurn({ turnId, workspaceId, workspaceName, taskId, provider, model }, () => providerRuntime.startTurnStream(args, {
     onEvent(event) {
       const eventSequence = ++sequence;

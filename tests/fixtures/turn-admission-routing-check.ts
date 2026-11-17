@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { createHostTurnAdmission } from "../../electron/host-service/turn-admission-host";
 import { ensureHostServicePersistenceReady, resetHostServicePersistence } from "../../electron/host-service/persistence";
 import { providerRuntime, setProviderTurnAdmission } from "../../electron/providers/runtime";
-import { runTask, cleanupLocalMcpRuntime } from "../../electron/host-service/local-mcp-runtime";
+import { runTask, resumeQueuedProviderTurn, cleanupLocalMcpRuntime } from "../../electron/host-service/local-mcp-runtime";
 import { createDefaultAutomationRuntime } from "../../src/lib/automations";
 import { createAutomationRuntime } from "../../electron/host-service/automation-runtime";
 import { runSupervisedTurn } from "../../electron/host-service/supervised-turn";
@@ -61,6 +61,26 @@ async function main() {
     host.admission.cancel(latest.turnId!);
     await new Promise(resolve => setTimeout(resolve, 20));
   }
+  // Resume the exact queued turn after clearing resident host state. Its earlier
+  // admission event already owns sequence 1 in the real SQLite journal.
+  const pending = await runTask({ ...base, turnId: "resume-journal" });
+  await new Promise(resolve => setTimeout(resolve, 20));
+  await cleanupLocalMcpRuntime();
+  const beforeResume = store.getStreamEvents({ turnId: pending.turnId });
+  assert.equal(beforeResume.length, 1);
+  assert.equal(beforeResume[0]!.event?.type, "turn_admission");
+  host.admission.freeze?.();
+  const restarted = createHostTurnAdmission(store);
+  const restoredArgs = store.turnAdmission.read().find(row => row.args.turnId === pending.turnId)!.args;
+  await restarted.admission.acquire({ ...held, turnId: "restart-held" });
+  setProviderTurnAdmission(restarted.admission);
+  await resumeQueuedProviderTurn(restoredArgs);
+  await new Promise(resolve => setTimeout(resolve, 20));
+  await cleanupLocalMcpRuntime();
+  const resumedEvents = store.getStreamEvents({ turnId: pending.turnId });
+  assert.deepEqual(resumedEvents.map(row => row.sequence), [1, 2], "resume must append after the durable queued event instead of colliding with it");
+  assert.deepEqual(resumedEvents.map(row => row.event?.type), ["turn_admission", "turn_admission"]);
+  restarted.admission.freeze?.();
   console.log("Real provider and host task paths reached central admission without native execution.");
 }
 void main().finally(async () => { host.admission.release("held"); setProviderTurnAdmission(null); await cleanupLocalMcpRuntime(); resetHostServicePersistence(); rmSync(root, { recursive: true, force: true }); });

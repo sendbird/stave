@@ -965,7 +965,7 @@ function flushActivePushTurnEvents() {
 function startPushProviderTurn(args: StreamTurnArgs) {
   const turnId = args.turnId ?? randomUUID();
   const store = args.taskId ? ensureHostServicePersistenceReady() : null;
-  let sequence = 0;
+  let sequence = store?.getStreamEvents({ turnId }).at(-1)?.sequence ?? 0;
   let completed = false;
 
   // W1 Phase 0 — durable turn-event journaling. Buffer events and flush to
