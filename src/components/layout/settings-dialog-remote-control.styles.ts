@@ -15,7 +15,7 @@ export const remoteControlStyles = stylex.create({
     fontSize: vars["--aui-font-size-caption"],
     lineHeight: vars["--aui-line-height-control"],
   },
-  portInput: {
+  fullWidth: {
     inlineSize: "100%",
   },
   pairActions: {

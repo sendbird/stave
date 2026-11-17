@@ -5,6 +5,7 @@ import { Check, Copy, Smartphone } from "lucide-react";
 import { Alert } from "@/components/aui/components/Alert";
 import { Badge } from "@/components/aui/components/Badge";
 import { Button, Input, toast } from "@/components/ui";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { sx } from "@/components/aui/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
@@ -24,11 +25,11 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import {
   LabeledField,
   SectionStack,
-  SelectField,
   SettingsCard,
   SwitchField,
 } from "./settings-dialog.shared";
 import { remoteControlStyles as styles } from "./settings-dialog-remote-control.styles";
+import { settingsSharedStyles as sharedStyles } from "./settings-dialog.shared.styles";
 
 export const REMOTE_CONTROL_SETTING_FIELD_ID = "settings-field-remote-control";
 const STATUS_REFRESH_MS = 5_000;
@@ -248,18 +249,32 @@ export function RemoteControlSection() {
             if (!busy && status) void configure({ enabled: checked });
           }}
         />
-        <SelectField
+        <LabeledField
           title={t("settingsConnections:remoteControl.addressTitle")}
           description={t("settingsConnections:remoteControl.addressDescription")}
-          value={status?.address ?? REMOTE_CONTROL_DEFAULT_ADDRESS}
-          disabled={busy || !status}
-          options={addressOptions}
-          onChange={(address) => {
-            if (!status || address === status.address) return;
-            if (isLoopbackAddress(address)) void configure({ address });
-            else setPendingAddress(address);
-          }}
-        />
+        >
+          <Select
+            value={status?.address ?? REMOTE_CONTROL_DEFAULT_ADDRESS}
+            disabled={busy || !status}
+            onValueChange={(value) => {
+              const address = String(value);
+              if (!status || address === status.address) return;
+              if (isLoopbackAddress(address)) void configure({ address });
+              else setPendingAddress(address);
+            }}
+          >
+            <SelectTrigger aria-label={t("settingsConnections:remoteControl.addressTitle")} className={sx(sharedStyles.selectTrigger)}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {addressOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </LabeledField>
         <LabeledField
           title={t("settingsConnections:remoteControl.portTitle")}
           description={t("settingsConnections:remoteControl.portDescription", {
@@ -275,7 +290,7 @@ export function RemoteControlSection() {
             value={portDraft}
             disabled={busy || !status}
             aria-label={t("settingsConnections:remoteControl.portTitle")}
-            className={sx(styles.portInput)}
+            className={sx(styles.fullWidth)}
             onChange={(event) => setPortDraft(event.target.value)}
             onBlur={commitPort}
             onKeyDown={(event) => {
