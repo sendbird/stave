@@ -126,9 +126,17 @@ export const inlineHtmlRenderStyles = stylex.create({
     justifyItems: "end",
     padding: vars["--aui-space-8"],
   },
+  /**
+   * Expanded, the panel takes at most 40% of the canvas. Its text row may
+   * shrink below its content so the text scrolls inside the panel instead of
+   * running past the canvas's clipped edge.
+   */
   sourceExpanded: {
     flex: "0 0 auto",
+    gridTemplateRows: "minmax(0, 1fr)",
+    gridAutoRows: "auto",
     maxBlockSize: "40%",
+    minBlockSize: 0,
   },
   sourceText: {
     color: vars["--aui-color-text"],

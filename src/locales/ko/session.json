@@ -834,6 +834,8 @@
     "unavailable": "이 뷰를 사용하려면 Stave 데스크톱 앱에서 대화를 여세요.",
     "fullscreen": "전체 화면",
     "exitFullscreen": "전체 화면 종료",
+    "showText": "텍스트 결과 보기",
+    "hideText": "텍스트 결과 숨기기",
     "messageConfirm": {
       "title": "뷰가 작성한 이 메시지를 보낼까요?",
       "description": "{{server}}에서 이 메시지를 사용자 메시지로 대화에 추가하려고 합니다. 에이전트가 아직 작업 중이면 대기열에서 기다립니다.",

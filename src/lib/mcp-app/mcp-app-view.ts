@@ -367,16 +367,51 @@ export function normalizeMcpAppToolInput(value: unknown): Record<string, unknown
   return boundedJson(parsed) ? parsed : null;
 }
 
-/** A tool result as the view's `tool-result` notification needs it: a CallToolResult. */
+/**
+ * A tool result as the view's `tool-result` notification needs it: a
+ * CallToolResult.
+ *
+ * A result without `structuredContent` whose only block is text holding one
+ * JSON object gets that object as `structuredContent`. The MCP spec asks a
+ * tool that returns structured content to repeat it as serialized JSON in a
+ * text block, and views commonly render from `structuredContent` alone
+ * (Atlassian's Jira widget shows an empty frame without it). Claude views
+ * stored before the runtime read the SDK's `structuredContent` carry only
+ * text and need this; fresh Codex and Claude results carry the server's own.
+ * Plain text, arrays, errors, and truncation notices stay text only. A
+ * result over the payload cap drops its `structuredContent` before it is
+ * dropped whole.
+ */
 export function normalizeMcpAppToolResult(value: unknown): Record<string, unknown> | null {
   if (!isRecord(value) || !Array.isArray(value.content)) return null;
   const result: Record<string, unknown> = { content: value.content };
   if ("structuredContent" in value && value.structuredContent !== undefined) {
     result.structuredContent = value.structuredContent;
+  } else if (value.isError !== true) {
+    const derived = readLoneJsonObjectText(value.content);
+    if (derived) result.structuredContent = derived;
   }
   if (typeof value.isError === "boolean") result.isError = value.isError;
   if (isRecord(value._meta)) result._meta = value._meta;
-  return boundedJson(result) ? result : null;
+  if (boundedJson(result)) return result;
+  // Over the cap, the view still gets the text rather than nothing.
+  if (!("structuredContent" in result)) return null;
+  const { structuredContent: _omitted, ...textOnly } = result;
+  return boundedJson(textOnly) ? textOnly : null;
+}
+
+function readLoneJsonObjectText(content: readonly unknown[]): Record<string, unknown> | null {
+  if (content.length !== 1) return null;
+  const block = content[0];
+  if (!isRecord(block) || block.type !== "text" || typeof block.text !== "string") return null;
+  const text = block.text.trim();
+  if (!text.startsWith("{")) return null;
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function boundedJson(value: unknown): boolean {
