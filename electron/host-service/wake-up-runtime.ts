@@ -1470,8 +1470,8 @@ export function createWakeUpRuntime(
           if (input.trigger.kind !== "pull_request" || existing || snapshot.activeTurnId || snapshot.pendingApprovalCount || snapshot.pendingUserInputCount || snapshot.managed || dependencies.getActiveAgentRunForTask?.(input.taskId)) {
             throw new Error("Automatic pull request watching must wait for an idle, unmanaged task without a schedule.");
           }
-          if (persistence.listWakeUpsForWorkspace(input.workspaceId).some(row => row.state !== "stopped" && row.trigger.kind === "pull_request")) {
-            throw new Error("This workspace already has a pull request watcher.");
+          if (persistence.listWakeUps().some(row => row.state !== "stopped" && row.trigger.kind === "pull_request" && (row.workspaceId === input.workspaceId || row.pullRequestWatch?.pullRequest?.url === initialPr.url))) {
+            throw new Error("This workspace or pull request already has a watcher.");
           }
         }
         if (existing) {

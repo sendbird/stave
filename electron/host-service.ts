@@ -690,9 +690,9 @@ const agentPrAutoWatch = createAgentPrAutoWatch({
     return { cwd: registration.workspacePath, enabled: registration.project.settingsOverrides?.agentPrWatchEnabled ?? true,
       managed: snapshot.managed ?? false, snapshot };
   },
-  owned: ({ workspaceId, number }) => ensureHostServicePersistenceReady().agentRuns.listActiveAgentRuns().some(run => run.workspaceId === workspaceId) ||
+  owned: ({ workspaceId, number, url }) => ensureHostServicePersistenceReady().agentRuns.listActiveAgentRuns().some(run => run.workspaceId === workspaceId) ||
     ensureHostServicePersistenceReady().tars.snapshot().responsibilities.some(row =>
-      row.executionWorkspaceId === workspaceId && row.publication?.number === number),
+      (row.executionWorkspaceId === workspaceId && row.publication?.number === number || row.publication?.url === url)),
   onError: (error) => console.warn("[pr-auto-watch] discovery failed", error),
 });
 function discoverAgentPullRequest(args: { workspaceId: string; taskId: string; turnId: string }) {

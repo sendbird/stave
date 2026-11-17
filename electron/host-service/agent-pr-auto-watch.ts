@@ -10,7 +10,7 @@ interface Context { cwd: string; enabled: boolean; managed: boolean; snapshot: T
 interface Dependencies {
   wakeUps: Pick<WakeUpRuntime, "list" | "create">;
   context: (candidate: AutoWatchCandidate) => Promise<Context | null>;
-  owned: (args: { workspaceId: string; taskId: string; number: number }) => boolean;
+  owned: (args: { workspaceId: string; taskId: string; number: number; url: string }) => boolean;
   run?: ScmCommandRunner;
   now?: () => number;
   onError?: (error: unknown) => void;
@@ -47,7 +47,9 @@ export function createAgentPrAutoWatch(deps: Dependencies) {
       const status = await fetchGitHubPrStatus({ cwd: context.cwd, runCommand: run });
       if (!status.ok || !status.pr || status.pr.state !== "OPEN") continue;
       const pr = status.pr;
-      if (deps.owned({ ...c, number: pr.number })) { pending.delete(key); continue; }
+      const allWatches = await deps.wakeUps.list();
+      if (allWatches.wakeUps.some(row => row.state !== "stopped" && row.trigger.kind === "pull_request" && row.pullRequestWatch?.pullRequest?.url === pr.url)) { pending.delete(key); continue; }
+      if (deps.owned({ ...c, number: pr.number, url: pr.url })) { pending.delete(key); continue; }
       const created = await run({ command: "gh", commandArgs: ["pr", "view", String(pr.number), "--json", "createdAt"], cwd: context.cwd });
       if (!created.ok) continue;
       let date: string;
@@ -56,7 +58,7 @@ export function createAgentPrAutoWatch(deps: Dependencies) {
       if (Date.parse(date) < Math.floor(Date.parse(c.startedAt) / 1_000) * 1_000) { pending.delete(key); continue; }
       // Re-read after I/O: settings, decisions and ownership can change during gh.
       const fresh = await deps.context(c);
-      if (!fresh || !fresh.enabled || fresh.managed || !fresh.snapshot.exists || fresh.snapshot.archived || deps.owned({ ...c, number: pr.number })) { pending.delete(key); continue; }
+      if (!fresh || !fresh.enabled || fresh.managed || !fresh.snapshot.exists || fresh.snapshot.archived || deps.owned({ ...c, number: pr.number, url: pr.url })) { pending.delete(key); continue; }
       if (fresh.snapshot.activeTurnId || fresh.snapshot.pendingApprovalCount || fresh.snapshot.pendingUserInputCount) continue;
       const branch = await run({ command: "git", commandArgs: ["branch", "--show-current"], cwd: fresh.cwd });
       if (fresh.cwd !== context.cwd || !branch.ok || branch.stdout.trim() !== pr.headRefName) { pending.delete(key); continue; }

@@ -59,3 +59,32 @@ test("stack conflicts stay visible", async ({ page }) => {
   await page.getByRole("button", { name: "Retarget and update children" }).click();
   await expect(page.getByRole("alert")).toContainText("Merge conflict");
 });
+
+test("stack creation explicitly chooses the parent branch", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette");
+  await page.evaluate(async () => {
+    const reactModule = await import("/node_modules/.vite/deps/react.js");
+    const React = reactModule.default ?? reactModule;
+    const domModule = await import("/node_modules/.vite/deps/react-dom_client.js");
+    const { createRoot } = domModule.default ?? domModule;
+    const { i18n } = await import("/src/i18n/index.ts");
+    const { StackedPullRequestBranchFields } = await import("/src/components/layout/pull-request/StackedPullRequestBranchFields.tsx");
+    await i18n.changeLanguage("en");
+    document.body.replaceChildren();
+    const host = document.createElement("div"); document.body.append(host);
+    const root = createRoot(host);
+    let stacked = false;
+    function render() {
+      root.render(React.createElement(StackedPullRequestBranchFields, { disabled: false, branch: {
+        currentBranch: "feature/child", defaultBranch: "main", targetBranch: "feature/base", options: ["main", "feature/base"], loading: false,
+        stacked, parentNumber: 1, onStackedChange: (checked: boolean) => { stacked = checked; render(); }, onTargetBranchChange: () => {},
+      } }));
+    }
+    render();
+  });
+  const choice = page.getByRole("checkbox", { name: "Create stacked PR", exact: true });
+  await expect(choice).not.toBeChecked();
+  await choice.check();
+  await expect(choice).toBeChecked();
+  await expect(page.getByRole("status")).toHaveText("Parent #1 on feature/base");
+});

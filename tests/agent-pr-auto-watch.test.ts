@@ -81,3 +81,9 @@ test("automatic registration rechecks busy state atomically before saving", asyn
   await expect(h.runtime.create({ workspaceId: "ws", taskId: "task", prompt: "Watch checks", trigger: { kind: "pull_request", events: ["checks_failed", "merge_conflict"] }, maxOccurrences: null, expiresAt: null }, { number: 17, url: h.pr.url, title: h.pr.title })).rejects.toThrow("must wait");
   expect(h.store.list()).toHaveLength(0);
 });
+test("the same PR already watched in another workspace has exactly one watcher", async () => {
+  const h = harness();
+  await h.runtime.create({ workspaceId: "other", taskId: "other-task", prompt: "Watch checks", trigger: { kind: "pull_request", events: ["checks_failed", "merge_conflict"] }, maxOccurrences: null, expiresAt: null }, { number: 17, url: h.pr.url, title: h.pr.title });
+  h.notify(); await h.watcher.tick();
+  expect(h.store.list()).toHaveLength(1);
+});
