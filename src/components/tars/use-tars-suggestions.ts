@@ -48,10 +48,16 @@ export function useTarsSuggestions(args: {
   const settled = useRef(new Map<string, Settled>());
   /** Requests under way by facts key: facts that come back while one runs join it instead of asking again. */
   const inflight = useRef(new Map<string, Promise<Settled>>());
+  const mounted = useRef(false);
   const current = useRef<string | null>(null);
   const latest = useRef({ facts, language, bridge });
   latest.current = { facts, language, bridge };
   current.current = key;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!key) return;
@@ -73,7 +79,7 @@ export function useTarsSuggestions(args: {
         const preceding = Promise.all([...inflight.current.values()]);
         let skipped = false;
         run = preceding.then(() => {
-          if (current.current !== key) {
+          if (!mounted.current || current.current !== key) {
             skipped = true;
             return { status: "failed" as const, requestId, reason: "provider" as const };
           }

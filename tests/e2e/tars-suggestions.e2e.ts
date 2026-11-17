@@ -33,7 +33,7 @@ for (const mode of ["empty", "failed", "noSettings"]) test(`honest ${mode} state
   await expect(page.getByRole("button", { name: "Try again", exact: true })).toHaveCount(mode === "failed" ? 1 : 0);
 });
 
-test("hook suppresses stale results, reuses in-flight calls and caches empty/failure without loops", async ({ page }) => {
+test("hook suppresses stale results, reuses in-flight calls, caches empty/failure and drops queued calls on unmount", async ({ page }) => {
   await page.goto("/?stavePreview=tars&tray=true");
   await expect(page.locator("[data-tars-composer]")).toBeVisible();
   await page.evaluate(async () => {
@@ -42,7 +42,7 @@ test("hook suppresses stale results, reuses in-flight calls and caches empty/fai
     const reactPath = moduleUrl("react"), clientPath = moduleUrl("react-dom_client"), hookPath = "/src/components/tars/use-tars-suggestions.ts";
     const { default: React } = await import(reactPath);
     const { default: { createRoot } } = await import(clientPath);
-    const { useTarsSuggestions } = await import(hookPath);
+    const { useTarsSuggestions, TARS_SUGGESTION_DEBOUNCE_MS } = await import(hookPath);
     const requests: any[] = [], renders: any[] = [];
     let setFact: any, retry: any;
     const bridge = { suggest: (input: any) => new Promise((resolve) => requests.push({ input, resolve })) };
@@ -53,8 +53,9 @@ test("hook suppresses stale results, reuses in-flight calls and caches empty/fai
       renders.push({ title, ...value.state });
       return React.createElement("pre", { id: "suggestion-probe" }, JSON.stringify({ title, ...value.state }));
     }
-    const host = document.createElement("div"); document.body.append(host); createRoot(host).render(React.createElement(Probe));
-    (window as any).suggestionProbe = { requests, renders, set: (title: string) => setFact(title), retry: () => retry(), resolve: (index: number, items: any[]) => { const r = requests[index]; r.resolve({ status: "generated", requestId: r.input.requestId, providerId: "codex", model: "model", suggestions: items }); } };
+    const host = document.createElement("div"); document.body.append(host);
+    const root = createRoot(host); root.render(React.createElement(React.StrictMode, null, React.createElement(Probe)));
+    (window as any).suggestionProbe = { requests, renders, debounce: TARS_SUGGESTION_DEBOUNCE_MS, unmount: () => root.unmount(), set: (title: string) => setFact(title), retry: () => retry(), resolve: (index: number, items: any[]) => { const r = requests[index]; r.resolve({ status: "generated", requestId: r.input.requestId, providerId: "codex", model: "model", suggestions: items }); } };
   });
   const probe = page.locator("#suggestion-probe");
   await expect.poll(() => page.evaluate(() => (window as any).suggestionProbe.requests.length)).toBe(1);
@@ -85,4 +86,17 @@ test("hook suppresses stale results, reuses in-flight calls and caches empty/fai
   await page.evaluate(() => (window as any).suggestionProbe.set("B"));
   await expect(probe).toContainText('"status":"failed"');
   expect(await page.evaluate(() => (window as any).suggestionProbe.requests.length)).toBe(3);
+  await page.evaluate(() => (window as any).suggestionProbe.set("C"));
+  await expect.poll(() => page.evaluate(() => (window as any).suggestionProbe.requests.length)).toBe(4);
+  await page.evaluate(() => (window as any).suggestionProbe.set("D"));
+  await expect(probe).toContainText('"title":"D"');
+  // Let D queue behind unresolved C; unmount must invalidate the queued promise, not just its timer.
+  await page.evaluate(async () => { await new Promise((resolve) => setTimeout(resolve, (window as any).suggestionProbe.debounce + 1)); });
+  expect(await page.evaluate(() => (window as any).suggestionProbe.requests.length)).toBe(4);
+  await page.evaluate(async () => {
+    const p = (window as any).suggestionProbe; p.unmount(); p.resolve(3, []);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+  await expect(probe).toHaveCount(0);
+  expect(await page.evaluate(() => (window as any).suggestionProbe.requests.length)).toBe(4);
 });
