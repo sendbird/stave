@@ -655,7 +655,9 @@ panel (In Progress, Needs You and Done). Before you confirm it lists how many
 unfinished work items will be cancelled, how many ended cards and outputs will
 be hidden, and how many are kept. Tars's unfinished work is cancelled through
 the normal **Cancel**, so each run stops, and Tars's questions waiting on that
-work close instead of being asked again. Work you took over or paused, and work
+work close instead of being asked again. Questions whose targets have all
+finished also close, including targets that finish during the reset; natural
+completion is not reported as cancellation. Work you took over or paused, and work
 still publishing a draft PR, stays as it is; a refused cancel keeps that work
 and the record names it as kept; its waiting question stays visible. Retrying a
 failed reset keeps the original scope and work membership. A reset with more

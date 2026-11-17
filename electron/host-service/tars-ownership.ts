@@ -130,6 +130,14 @@ export async function controlTarsRun(
   const invoke = <T>(step: string, run: () => Promise<T>, final = true) => withTarsRunCommand(ports.commandId, step, run, final);
   const detail = await ports.agentRuns.get({ agentRunId: row.agentRunId! });
   assertTarsRun(row, detail.agentRun);
+  // A reset cannot spend an explicit Cancel's authority over work the user holds.
+  // Replays reconcile the already-applied command, even if a later hold appeared.
+  const assertResetRun = (run: AgentRun) => {
+    if (!applied && operation === "cancel" && ports.commandId?.startsWith("click:clear-work:") &&
+        (run.pauseReason === "paused-by-user" || run.pauseReason === "taken-over"))
+      throw new TarsRunRefusedError("Work reset must preserve work the user holds or paused.");
+  };
+  assertResetRun(detail.agentRun);
   // Pausing, cancelling or taking over leaves an already human-owned task untouched.
   if (!applied && detail.agentRun.pauseReason === "taken-over" && operation !== "handBack") {
     // Continuing or commanding a run the user holds in its task is refused, never a silent no-op.
@@ -137,6 +145,7 @@ export async function controlTarsRun(
     return;
   }
   const guard = (run: AgentRun) => {
+    assertResetRun(run);
     assertTarsControl(row, run);
     if (operation === "extend" && ports.autoExtendMaxTurns !== undefined && Math.min(run.maxTurns + TARS_EXTEND_TURNS, AGENT_RUN_LIMITS.maxTurnsCeiling) > ports.autoExtendMaxTurns)
       throw new TarsRunRefusedError("Extending beyond twice the admitted turn budget needs your confirmation.");

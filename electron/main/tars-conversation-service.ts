@@ -22,6 +22,7 @@ import {
   tarsWorkResetPlan, TARS_CLEAR_MAX_ITEMS, type TarsClearInput, type TarsClearSource, type TarsClearWork,
 } from "../../src/lib/tars/clearing";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
+import { isTarsPublicationUnfinished } from "../../src/lib/tars/publication";
 import { filterTarsConversationView, tarsClearKeeps } from "../../src/lib/tars/clear-view";
 import { TarsAwayStateSchema } from "../../src/lib/tars/away-state";
 
@@ -261,7 +262,10 @@ export function createTarsConversationService(ports: ConversationPorts) {
         outcome = record.status === "applied" ? "applied" : "rejected";
         if (outcome === "applied" || record.reason !== "stale") break;
       }
-      if (outcome === "applied") cancelled.push(id); else if (!kept.some((entry) => entry.responsibilityId === id)) kept.push({ responsibilityId: id, reason: "refused" });
+      const latest = ports.responsibilities.get(id);
+      if (outcome === "applied") cancelled.push(id);
+      else if ((!latest || !isTarsResponsibilityTerminal(latest) || isTarsPublicationUnfinished(latest.publication)) && !kept.some((entry) => entry.responsibilityId === id))
+        kept.push({ responsibilityId: id, reason: "refused" });
     }
     // A retry after an interrupted reset: work it already cancelled has ended and is no longer in the plan, but its cancellation is this reset's.
     for (const row of ports.responsibilities.snapshot().responsibilities) {
@@ -269,9 +273,14 @@ export function createTarsConversationService(ports: ConversationPorts) {
         cancelled.push(row.id);
     }
     const stopped = new Set(cancelled);
-    const noUnfinishedWork = ports.responsibilities.snapshot().responsibilities.every(isTarsResponsibilityTerminal);
+    // Natural completion also makes a question obsolete, including completion
+    // while another cancellation awaited the host. It is not this reset's cancel.
+    const finalRows = ports.responsibilities.snapshot().responsibilities;
+    const ended = new Set(finalRows
+      .filter(row => isTarsResponsibilityTerminal(row) && !isTarsPublicationUnfinished(row.publication)).map(row => row.id));
+    const noUnfinishedWork = finalRows.every(row => ended.has(row.id));
     for (const view of questions) {
-      if (view.targets.length ? view.targets.every((target) => stopped.has(target.responsibilityId)) : view.kind === "ask" && noUnfinishedWork)
+      if (view.targets.length ? view.targets.every((target) => ended.has(target.responsibilityId)) : view.kind === "ask" && noUnfinishedWork)
         ports.conversations.closeDecision(view.id, { kind: "dismiss", source }, now());
     }
     return { cancelled, kept: [...new Map(kept.filter((entry) => !stopped.has(entry.responsibilityId)).map((entry) => [entry.responsibilityId, entry])).values()] };

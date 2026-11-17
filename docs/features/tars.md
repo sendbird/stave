@@ -755,7 +755,9 @@ the one clear that also changes work: it cancels Tars's unfinished work.
   will be hidden, and how many are kept. Tars's unfinished work (queued,
   preparing, running, waiting, blocked or result-ready) is cancelled through
   the normal **Cancel**, so each run stops; Tars's questions waiting on that
-  work close, so they are not asked again. Work you took over or paused, and
+  work close, so they are not asked again. Questions whose targets have all
+  finished also close, including targets that finish during the reset; natural
+  completion is not reported as cancellation. Work you took over or paused, and
   work still publishing a draft PR, is kept exactly as it is. A cancel the host
   refuses keeps that work, and the record names it as kept. Every ended card
   and its outputs then leave the panel. The record says what was cancelled and
