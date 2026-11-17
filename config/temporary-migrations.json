@@ -36,6 +36,18 @@
         "electron/persistence/content-search-store.ts"
       ],
       "tests": []
+    },
+    {
+      "id": "strip-task-checkpoints",
+      "description": "Turn file snapshots replaced the per-task HEAD checkpoint after 0.35.0. Store rehydration deletes the saved taskCheckpointById map, which is no longer written. At expiry, delete the marked block and the listed test; a profile that skipped these releases keeps an unused key that nothing reads.",
+      "introducedAfter": "0.35.0",
+      "removeInVersion": "0.38.0",
+      "files": [
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/retired-task-checkpoints.test.ts"
+      ]
     }
   ]
 }

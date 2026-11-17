@@ -276,10 +276,6 @@ export function createWorkspaceManagementActions(args: {
               ...nextState.tasks.map((task) => task.id),
             ]),
           ];
-          const nextTaskCheckpointById = removeRecordEntries(
-            nextState.taskCheckpointById,
-            removedTaskIds,
-          );
           const nextTurnVerificationByWorkspace = removeRecordEntries(
             nextState.turnVerificationByWorkspace,
             [workspaceId],
@@ -320,15 +316,12 @@ export function createWorkspaceManagementActions(args: {
             workspaceRuntimeCacheById: nextRuntimeCacheById,
             taskWorkspaceIdById: nextTaskWorkspaceIdById,
             // Shed the closed workspace's per-task turn runtime snapshots and
-            // persisted checkpoint/verification entries; nothing else removes
+            // persisted verification entries; nothing else removes
             // them once the tasks are gone.
             ...removeTaskTurnRuntimeEntries({
               state: nextState,
               taskIds: removedTaskIds,
             }),
-            ...(nextTaskCheckpointById
-              ? { taskCheckpointById: nextTaskCheckpointById }
-              : {}),
             ...(nextTurnVerificationByWorkspace
               ? {
                   turnVerificationByWorkspace: nextTurnVerificationByWorkspace,
@@ -404,10 +397,6 @@ export function createWorkspaceManagementActions(args: {
             ).map((task) => task.id),
           ]),
         ];
-        const nextTaskCheckpointById = removeRecordEntries(
-          nextState.taskCheckpointById,
-          removedTaskIds,
-        );
         const nextTurnVerificationByWorkspace = removeRecordEntries(
           nextState.turnVerificationByWorkspace,
           [workspaceId],
@@ -442,15 +431,12 @@ export function createWorkspaceManagementActions(args: {
           workspaceRuntimeCacheById: nextRuntimeCacheById,
           taskWorkspaceIdById: nextTaskWorkspaceIdById,
           // Shed the closed workspace's per-task turn runtime snapshots and
-          // persisted checkpoint/verification entries; nothing else removes
+          // persisted verification entries; nothing else removes
           // them once the tasks are gone.
           ...removeTaskTurnRuntimeEntries({
             state: nextState,
             taskIds: removedTaskIds,
           }),
-          ...(nextTaskCheckpointById
-            ? { taskCheckpointById: nextTaskCheckpointById }
-            : {}),
           ...(nextTurnVerificationByWorkspace
             ? { turnVerificationByWorkspace: nextTurnVerificationByWorkspace }
             : {}),

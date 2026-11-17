@@ -288,7 +288,6 @@ export interface AppState
   repositoryName: string | null;
   repositoryFiles: string[];
   workspaceFileCacheByPath: Record<string, string[]>;
-  taskCheckpointById: Record<string, string>;
   providerAvailability: Record<ProviderId, boolean>;
   providerRuntimeCapabilities: Record<ProviderId, ProviderRuntimeCapabilities>;
   skillCatalog: SkillCatalogState;

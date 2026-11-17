@@ -787,9 +787,11 @@ export function createTaskCoreActions(args: {
         id: crypto.randomUUID(),
         isStreaming: false,
       }));
+      // A copy is a new conversation, not a fork of the source's response.
+      const { forkParent: _forkParent, ...copiedTask } = sourceTask;
       set((state) => {
         const duplicatedTask: Task = {
-          ...sourceTask,
+          ...copiedTask,
           id: nextTaskId,
           title: i18n.t("app:taskCoreActions.copyTitle", { title: sourceTask.title }),
           updatedAt: buildRecentTimestamp(),
@@ -803,10 +805,6 @@ export function createTaskCoreActions(args: {
           activeTaskId: duplicatedTask.id,
           activeSurface: { kind: "task", taskId: duplicatedTask.id },
           openTaskTabIds: [...state.openTaskTabIds, duplicatedTask.id],
-          taskCheckpointById: {
-            ...state.taskCheckpointById,
-            [duplicatedTask.id]: state.taskCheckpointById[taskId] ?? "",
-          },
           messagesByTask: {
             ...state.messagesByTask,
             [duplicatedTask.id]: duplicatedMessages,

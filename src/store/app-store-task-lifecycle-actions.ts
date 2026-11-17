@@ -131,7 +131,6 @@ export function createTaskLifecycleActions(args: {
     },
     viewTaskChanges: async ({ taskId }) => {
       const state = get();
-      const checkpoint = state.taskCheckpointById[taskId];
       const workspaceCwd = resolveTaskWorkspaceContext({
         taskId,
         activeWorkspaceId: state.activeWorkspaceId,
@@ -145,9 +144,7 @@ export function createTaskLifecycleActions(args: {
         return;
       }
 
-      const command = checkpoint
-        ? `git diff --name-status ${JSON.stringify(checkpoint)} --`
-        : "git status --porcelain";
+      const command = "git status --porcelain";
       const result = await runCommand({ cwd: workspaceCwd, command });
       const rawOutput = result.ok
         ? result.stdout.trim() || i18n.t("app:taskLifecycle.noChanges")

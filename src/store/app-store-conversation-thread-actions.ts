@@ -324,10 +324,6 @@ export function createConversationThreadActions(args: {
         openTaskTabIds: state.openTaskTabIds.includes(nextTaskId)
           ? state.openTaskTabIds
           : [...state.openTaskTabIds, nextTaskId],
-        taskCheckpointById: {
-          ...state.taskCheckpointById,
-          [nextTaskId]: state.taskCheckpointById[taskId] ?? "",
-        },
         messagesByTask: {
           ...state.messagesByTask,
           [nextTaskId]: cloned.messages,
