@@ -1,8 +1,8 @@
-import { tarsHoldsTask } from "@/store/tars-owned-control";
 import { canRecoverOrdinaryTask } from "@/store/restart-continuation";
 import { loadTaskMessagesPage, loadWorkspaceShellForRestore } from "@/lib/db/workspaces.db";
 import { buildWorkspaceSessionStateFromShell } from "@/store/workspace-session-state";
-import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
+import { hostRunsTaskTurn, readProviderLiveTurns } from "@/lib/providers/live-turns";
+import { readTaskOwnership } from "@/store/task-recovery-ownership";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
@@ -34,6 +34,12 @@ const AUTO_RESUME_RETRY_WINDOW_MS = 2 * 60_000;
 
 /** The longest wait between usage reads while they keep failing. */
 export const UNREADABLE_USAGE_RETRY_MAX_MS = 30 * 60_000;
+
+/**
+ * Ownership or host reads in a row an armed resume may fail before it gives
+ * up and tells the user. With the usage backoff this spans about an hour.
+ */
+export const OWNERSHIP_READ_MAX_FAILURES = 6;
 
 /**
  * How long an armed resume waits after its `failures`-th unreadable usage
@@ -244,28 +250,54 @@ export function createTaskPauseActions(args: {
         toast.info(i18n.t("notifications:appStoreTaskPauseActions.pausedAccountIsUnknown"), { description: i18n.t("notifications:appStoreTaskPauseActions.resumeManuallyToUseYourCurrentlySelectedAccount") });
         return;
       }
-      const expected = pause;
+      let expected = pause;
       // Read usage once more before sending: the reset can move, and another
       // window (weekly after the 5-hour one) may still be out. The resume runs
       // on the account selected now, so that is the account read.
       const snapshot = await readProviderAccountUsage(get, pause.providerId, selectedProviderAccount(pause.providerId, get().settings));
-      const [shell, page, assignments, runs] = await Promise.all([
+      const [shell, page, ownership, live] = await Promise.all([
         window.api?.persistence ? loadWorkspaceShellForRestore({ workspaceId: expected.workspaceId }) : Promise.resolve(null),
-        window.api?.persistence ? loadTaskMessagesPage({ workspaceId: expected.workspaceId, taskId, preserveStreaming: true }) : Promise.resolve({ messages: getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })?.messagesByTask[taskId] ?? [] }),
-        window.api?.agents?.listAssignments({ limit: 500 }),
-        window.api?.agentRuns?.list({ workspaceId: expected.workspaceId, includeActive: true }),
+        // The stopped turn is not running, so its messages load sealed as interrupted.
+        window.api?.persistence ? loadTaskMessagesPage({ workspaceId: expected.workspaceId, taskId }) : Promise.resolve({ messages: getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })?.messagesByTask[taskId] ?? [] }),
+        readTaskOwnership({ taskId, workspaceId: expected.workspaceId }),
+        readProviderLiveTurns(window.api?.provider?.listLiveTurns),
       ]);
       if (get().usageLimitPauseByTask[taskId] !== expected) return;
+      // The host still runs a turn for this task (a reload empties the renderer's
+      // copy): resume only after it ends, never beside it.
+      if (live && hostRunsTaskTurn(live, { taskId })) {
+        patchPause(taskId, (current) => current === expected && current.autoResumeAt != null
+          ? { ...current, autoResumeAt: Date.now() + USAGE_LIMIT_UNAVAILABLE_RETRY_MS }
+          : current);
+        return;
+      }
+      // An unreadable answer is no verdict: read again later, backing off, and
+      // tell the user only when the reads keep failing.
+      if (ownership === "unreadable" || !live) {
+        const failures = (expected.unreadableOwnershipReads ?? 0) + 1;
+        if (failures >= OWNERSHIP_READ_MAX_FAILURES) {
+          get().setUsageLimitAutoResume({ taskId, enabled: false });
+          toast.info(i18n.t("notifications:appStoreTaskPauseActions.autoResumeStopped"), { description: i18n.t("notifications:appStoreTaskPauseActions.autoResumeStoppedDescription") });
+          return;
+        }
+        patchPause(taskId, (current) => current === expected && current.autoResumeAt != null
+          ? { ...current, autoResumeAt: Date.now() + resolveUnreadableUsageRetryDelay(failures), unreadableOwnershipReads: failures }
+          : current);
+        return;
+      }
       const task = shell?.tasks.find(row => row.id === taskId) ?? getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })?.tasks.find(row => row.id === taskId);
-      if (assignments?.ok && assignments.value.length >= 500 && !assignments.value.some(row => row.taskId === taskId)) { get().setUsageLimitAutoResume({ taskId, enabled: false }); return; }
-      const owned = Boolean(assignments?.ok && assignments.value.some(row => row.taskId === taskId && !row.endedAt)) ||
-        Boolean(runs?.agentRuns.some(run => run.leadTaskId === taskId && isActiveAgentRunState(run.state))) ||
-        await tarsHoldsTask({ taskId, workspaceId: expected.workspaceId });
-      if (!task || (window.api?.agents && !assignments?.ok) || (window.api?.agentRuns && !runs?.ok) ||
-        !canRecoverOrdinaryTask({ task, messages: page.messages, stopped: false, owned })) {
+      if (!task || !canRecoverOrdinaryTask({ task, messages: page.messages, stopped: false, owned: ownership === "owned" })) {
         get().setUsageLimitAutoResume({ taskId, enabled: false });
         return;
       }
+      if (expected.unreadableOwnershipReads != null) {
+        patchPause(taskId, (current) => {
+          if (current !== expected) return current;
+          const { unreadableOwnershipReads: _failures, ...rest } = current;
+          return rest;
+        });
+      }
+      expected = get().usageLimitPauseByTask[taskId] ?? expected;
       if (shell && !getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })) {
         const restored = buildWorkspaceSessionStateFromShell({ shell, messagesByTask: { [taskId]: page.messages } });
         set(state => ({ workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [expected.workspaceId]: { ...restored, activeTurnIdsByTask: {} } }, taskWorkspaceIdById: { ...state.taskWorkspaceIdById, [taskId]: expected.workspaceId } }));
@@ -425,10 +457,10 @@ export function createTaskPauseActions(args: {
       }
       patchPause(taskId, (pause) => {
         if (!enabled) {
-          if (pause.autoResumeAt == null && pause.unreadableUsageReads == null) {
+          if (pause.autoResumeAt == null && pause.unreadableUsageReads == null && pause.unreadableOwnershipReads == null) {
             return pause;
           }
-          const { autoResumeAt: _armed, unreadableUsageReads: _failures, ...rest } = pause;
+          const { autoResumeAt: _armed, unreadableUsageReads: _failures, unreadableOwnershipReads: _ownershipFailures, ...rest } = pause;
           return rest;
         }
         const autoResumeAt = resolveUsageLimitAutoResumeAt({

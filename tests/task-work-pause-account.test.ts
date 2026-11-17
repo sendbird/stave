@@ -28,14 +28,16 @@ function codexUsage(usedPercent: number, resetsAt = Date.now() + 86_400_000): Ra
   };
 }
 
-function harness(read: () => Promise<RateLimitsSnapshotResponse> = async () => codexUsage(0)) {
+function harness(read: () => Promise<RateLimitsSnapshotResponse> = async () => codexUsage(0), extraApi: Record<string, unknown> = {}) {
   const requests: unknown[] = [];
   const sends: unknown[] = [];
   const dispatches: unknown[] = [];
+  // The host provider runtime's live turns; a reload empties the renderer's copy.
+  const host = { live: [] as Array<{ turnId: string; taskId: string; providerId: string }>, ok: true };
   globalThis.window = { api: { provider: { getRateLimitsSnapshot: (args: unknown) => {
     requests.push(args);
     return read();
-  } } } } as unknown as Window & typeof globalThis;
+  }, listLiveTurns: async () => host.ok ? { ok: true, hostStartedAt: 0, turns: host.live } : { ok: false } }, ...extraApi } } as unknown as Window & typeof globalThis;
   let state = {
     activeWorkspaceId: "ws-main", activeTaskId: "task-main",
     settings: { blockTurnsWhenAccountLimitReached: true, codexAccountProfileId: ACCOUNT_B },
@@ -61,7 +63,7 @@ function harness(read: () => Promise<RateLimitsSnapshotResponse> = async () => c
     model: "gpt-5.5", stoppedTurn: false,
     usageLimit: { providerId: "codex", accountProfileId: ACCOUNT_A, windowLabel: "A primary", resetsAt: Date.now() - 60_000 },
   });
-  return { get, set, actions, requests, sends, dispatches, pause };
+  return { host, get, set, actions, requests, sends, dispatches, pause };
 }
 
 describe("paused work resumes on the account selected when it resumes", () => {
@@ -338,4 +340,67 @@ test("an armed reset survives a simulated restart and concurrent startup catch-u
   expect(restarted.get().usageLimitPauseByTask["task-main"]).toBeUndefined();
   await restarted.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
   expect(restarted.dispatches).toHaveLength(1);
+});
+
+describe("an automatic resume waits out transient reads instead of disarming", () => {
+  const armed = (h: ReturnType<typeof harness>) => {
+    h.pause();
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+  };
+  test("a failed ownership lookup retries later with backoff and then resumes", async () => {
+    let failing = true;
+    const h = harness(undefined, { agents: { listAssignments: async () => failing ? { ok: false, code: "failed", message: "host restarting" } : { ok: true, value: [] } } });
+    armed(h);
+    const before = Date.now();
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    const retried = h.get().usageLimitPauseByTask["task-main"];
+    expect(h.dispatches).toHaveLength(0);
+    expect(retried?.autoResumeAt).toBeGreaterThan(before);
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    const second = h.get().usageLimitPauseByTask["task-main"];
+    expect(second!.autoResumeAt! - Date.now()).toBeGreaterThan(retried!.autoResumeAt! - before);
+    failing = false;
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    expect(h.dispatches).toHaveLength(1);
+  });
+  test("it gives up with a visible note after repeated lookup failures", async () => {
+    const { toast } = await import("../src/lib/notifications/toast");
+    const notes: unknown[] = [];
+    const original = toast.info;
+    toast.info = ((title: unknown) => { notes.push(title); return "" as never; }) as typeof toast.info;
+    try {
+      const h = harness(undefined, { agents: { listAssignments: async () => { throw new Error("offline"); } } });
+      armed(h);
+      for (let attempt = 0; attempt < 20 && h.get().usageLimitPauseByTask["task-main"]?.autoResumeAt != null; attempt += 1) {
+        await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+      }
+      expect(h.dispatches).toHaveLength(0);
+      expect(h.get().usageLimitPauseByTask["task-main"]).toBeDefined();
+      expect(h.get().usageLimitPauseByTask["task-main"]?.autoResumeAt).toBeUndefined();
+      expect(notes).toHaveLength(1);
+    } finally {
+      toast.info = original;
+    }
+  });
+  test("a turn the host still runs for the task is never resumed beside it", async () => {
+    const h = harness();
+    armed(h);
+    h.host.live = [{ turnId: "running", taskId: "task-main", providerId: "codex" }];
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    expect(h.dispatches).toHaveLength(0);
+    expect(h.get().usageLimitPauseByTask["task-main"]?.autoResumeAt).toBeGreaterThan(Date.now());
+  });
+  test("a restored task loads its stopped turn as interrupted, not streaming", async () => {
+    const shell = { activeTaskId: "task-main", tasks: [{ id: "task-main", title: "Task", provider: "codex", updatedAt: "2026-01-01T00:00:00Z", unread: false, controlMode: "interactive", controlOwner: "stave" }], promptDraftByTask: {}, providerSessionByTask: {}, editorTabs: [], activeEditorTabId: null, terminalTabs: [], activeTerminalTabId: null, messageCountByTask: { "task-main": 1 } };
+    const messages = [{ id: "m", role: "assistant", model: "m", providerId: "codex", content: "partial", isStreaming: true, parts: [{ type: "text", text: "partial" }] }];
+    const h = harness(undefined, { persistence: {
+      listWorkspaces: async () => ({ ok: true, rows: [] }), loadWorkspace: async () => ({ ok: true, row: null }), upsertWorkspace: async () => ({ ok: true }),
+      loadWorkspaceShellForRestore: async () => ({ ok: true, shell }),
+      loadTaskMessages: async () => ({ ok: true, page: { messages, totalCount: 1, limit: 120, offset: 0, hasMoreOlder: false } }),
+    } });
+    h.set({ activeWorkspaceId: "elsewhere" });
+    armed(h);
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    expect(h.get().workspaceRuntimeCacheById["ws-main"]?.messagesByTask["task-main"]?.[0]?.isStreaming).toBe(false);
+  });
 });

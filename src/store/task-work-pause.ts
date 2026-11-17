@@ -31,6 +31,11 @@ export interface TaskUsageLimitPause {
    * so it ends with it; Cancel and any readable verdict clear it.
    */
   unreadableUsageReads?: number;
+  /**
+   * Ownership or host reads in a row an armed resume could not complete.
+   * It retries with backoff and gives up, with a note, after a few.
+   */
+  unreadableOwnershipReads?: number;
 }
 
 export type UsageLimitPauseByTask = Record<string, TaskUsageLimitPause | undefined>;
@@ -171,6 +176,7 @@ export const UsageLimitPauseSchema = z.object({
   windowLabel: z.string().optional(),
   autoResumeAt: z.number().finite().nonnegative().optional(),
   unreadableUsageReads: z.number().int().nonnegative().optional(),
+  unreadableOwnershipReads: z.number().int().nonnegative().optional(),
 }).strict();
 
 export function normalizeUsageLimitPauses(value: unknown): UsageLimitPauseByTask {

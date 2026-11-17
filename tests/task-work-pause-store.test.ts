@@ -43,6 +43,7 @@ function installProviderHarness() {
           };
         },
         abortTurn: async () => ({ ok: true, message: "aborted" }),
+        listLiveTurns: async () => ({ ok: true, hostStartedAt: 0, turns: [] }),
         cleanupTask: async () => ({ ok: true }),
       },
       fs: {
