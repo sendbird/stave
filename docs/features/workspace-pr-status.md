@@ -275,34 +275,78 @@ The dialog keeps the base branch simple by default. It shows the current remote 
 
 ## Agent-opened PRs
 
-**Repository settings → Watch pull requests agents open** is on by default.
-After a task turn completes, the host checks that workspace branch for a newly
-opened PR. Discovery is bounded to four reads within five minutes; idle
-workspaces do not poll. Only a PR created during that turn is adopted. Both
-supported task providers use the same path.
+One switch decides whether Stave watches pull requests on its own:
+**Settings → Prompts → PR Completion → Watch pull requests**, on by default.
+It covers PRs opened with Create PR and PRs an agent opens during a task turn.
+**Repository settings → Watch pull requests in this repository** overrides it
+for one repository; **Use the global setting** removes the override. The host
+reads the same pair: the renderer syncs the global switch, and the repository
+override comes from the registry (`isPullRequestWatchEnabled`).
 
-The task's existing check-back schedule is preserved. Active turns, approvals
-and questions defer registration. Managed work and PRs already owned by another
-automatic watcher do not acquire a second watcher. The default policy watches
-failed checks and merge conflicts; review feedback remains opt-in. A persistent
-task notice shows the watch and **Stop watching**. A stopped or existing schedule
-is never replaced by discovery. Once registered, the existing supervisor stops
-on merge or close. The cleanup center independently reads that branch's PR and
+A task turn is considered only when its tool calls ran a PR-creating command
+(`gh pr create`, `hub pull-request`, a `POST` to `/pulls` through `gh api`, or
+a create-pull-request tool) or the agent reported a PR link. Other turns cause
+no GitHub read at all. The host records these facts while the turn streams,
+because completed turns drop their tool events.
+
+The PR is adopted only when all of these hold:
+
+- the workspace branch is not the repository's default branch;
+- the PR's head is in this repository (`isCrossRepository` is false and the head
+  owner is the repository owner) and its author is the signed-in `gh` user;
+- it was created during that turn (from its start to shortly after it ended);
+- exactly one task in the workspace has such a turn. When two tasks both ran a
+  PR-creating command in that window, neither gets the watch and both tasks show
+  a notice explaining why, with a link to Schedules.
+
+Discovery reads the repository's shared PR list (`pull-request-repo-cache.ts`):
+no check rollup, at most four attempts with backoff within five minutes, and
+timer-based waiting while the task has a running turn, approval or question.
+The task's existing check-back schedule is preserved, managed work and PRs
+already owned by another automatic watcher do not get a second watcher, and a
+stopped watch is never re-created by a later turn. The default policy watches
+failed checks and merge conflicts; review feedback remains opt-in.
+
+The task notice names the watched PR (**Watching PR #17 …**) or says no PR has
+been found yet. Only a watch Stave added on its own (Create PR or discovery)
+offers **Stop watching**; a watch the user scheduled shows **Open in Schedules**
+instead, so its schedule is never deleted from the task. Once registered, the
+existing supervisor stops on merge or close. The cleanup center independently
 lists merged work under **PR merged**; watching does not archive or delete it.
 
 ## Stacked PRs
 
-A PR targeting another PR's branch belongs to that stack. The top-bar PR area
-and Fleet show its position, such as **2 of 3 in stack**, with parent and child
-links. Reads are bounded to 32 members and 16 ancestor levels; incomplete or
-cyclic stacks report a read error instead of an incorrect position.
+A PR targeting another PR's branch belongs to that stack, but only when that
+parent PR:
+
+- is open, or merged after the child PR was created;
+- has its head branch in this repository;
+- does not come from a long-lived branch: not the default branch, not a branch
+  that older open PRs already target, and not a name in **Settings → Prompts →
+  PR Completion → Long-lived branches** (default `main, master, develop,
+  staging, release/*`).
+
+So a merged `develop` → `main` release PR never makes the PRs targeting
+`develop` look like its children.
+
+The top-bar PR area and Fleet show the position, such as **2 of 3 in stack**
+(shown once in the top bar, next to the PR status), with parent and child
+links. All workspaces of a repository share short-lived PR lists, so ten Fleet
+cards cost a handful of `gh` calls. Fleet reads stacks only for cards on screen,
+at most two at a time, and both surfaces re-read only when the PR's number,
+state or base changed. A re-read keeps the current stack on screen.
 
 In the creation dialog, **Create stacked PR** targets the current parent PR's
-branch. After a parent merges, **Retarget and update children** first rechecks
-the relationship, changes each direct child's base to the parent's base, and
-uses the existing branch-update operation. Updates merge the base without
-rewriting history. Conflicts stop the update and remain visible; partial remote
-changes are reported. This action never force-pushes.
+branch. After a parent merges, **Retarget children…** opens a dialog that lists
+each change: the PR, its base from → to, and its author. Only your own
+same-repository PRs are changed; PRs by other people or from forks are listed
+under **Not changed** and never touched. Nothing happens until you confirm, and
+the host revalidates each child before changing it, skipping any whose base
+changed since. Each child is processed on its own and reports **updated**,
+**conflict** (the base changed but the branch update needs you) or **skipped**
+with a reason. The dialog stays open with these results, outside the PR menu,
+and offers **Retry … remaining** for children that can still be retried.
+Updates merge the base without rewriting history and never force-push.
 
 ## Store Shape
 

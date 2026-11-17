@@ -598,11 +598,15 @@ When changing PR status fetching, derivation, or UI rendering:
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
 
 Stack discovery and retargeting extend this route through
-`src/lib/pull-request-stack.ts` (strict request and response schemas),
-`electron/host-service/pull-request-stack-runtime.ts`, `protocol.ts`, SCM IPC,
-preload and the window API. Retargeting revalidates the merged parent and every
-open direct child before writing; the existing update operation addresses the
-selected child explicitly and never rewrites history.
+`src/lib/pull-request-stack.ts` (strict request and response schemas, parent
+eligibility and long-lived branch rules),
+`electron/host-service/pull-request-stack-runtime.ts`,
+`electron/host-service/pull-request-repo-cache.ts` (per-repository PR lists
+shared with agent PR discovery), `protocol.ts`, SCM IPC, preload and the window
+API. Retargeting performs only the confirmed `{ number, fromBase, toBase }`
+transitions, revalidates the merged parent and each child, and returns a result
+per child with reason codes the renderer translates; the existing update
+operation addresses the selected child explicitly and never rewrites history.
 
 ## PR Context Contract
 
@@ -636,11 +640,14 @@ When changing how a wake-up resumes an existing task:
 - `electron/main/stave-mcp-server.ts` — the `stave_*_wake_up` tools
 
 Automatic discovery starts at completed task-turn events in
-`electron/host-service.ts`, then `agent-pr-auto-watch.ts` checks the repository
-setting, task ownership and newly opened branch PR. It registers through the
-serialized wake-up runtime, preserving existing schedules and pinning the PR
-identity. The existing change event feeds `wake-ups-store.ts` and the task's
-persistent watch notice. Discovery itself is bounded and memory-only.
+`electron/host-service.ts`. Both provider paths feed
+`turn-pr-evidence.ts` while a turn streams; `agent-pr-auto-watch.ts` then
+checks the shared watch setting (`isPullRequestWatchEnabled`, synced through
+`wake-ups:sync-settings`), the PR's repository, author and creation time, and
+which task's turn opened it. It registers through the serialized wake-up
+runtime with `automatic: true`, preserving existing schedules and pinning the
+PR identity. The existing change event feeds `wake-ups-store.ts`, including
+memory-only hints for ambiguous PRs, and the task's watch notice.
 
 A change to the defer / pause / stop priority order is a change to the
 `wake-up-safety` gate, and a change to what a wake-up definition may
