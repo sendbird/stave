@@ -328,7 +328,12 @@ export const AutomationUpsertInputSchema = z
      * schedule, and on every schedule saved before one-time runs existed.
      */
     runOnceAt: z.string().datetime().optional(),
-    webhook: AutomationWebhookConfigSchema.optional(),
+    /**
+     * Starts runs from signed webhook events instead of the cadence. On an
+     * update, absent keeps the saved webhook (callers such as Tars and Local
+     * MCP do not know it) and null removes it.
+     */
+    webhook: AutomationWebhookConfigSchema.nullable().optional(),
     environment: AutomationEnvironmentInputSchema,
     runtime: AutomationRuntimeConfigSchema,
     trustPolicy: AutomationTrustPolicySchema.default("review-required"),
@@ -343,8 +348,10 @@ export type AutomationUpsertInput = z.infer<typeof AutomationUpsertInputSchema>;
 
 export const AutomationSpecSchema = AutomationUpsertInputSchema.omit({
   environment: true,
+  webhook: true,
 }).extend({
   id: z.string().min(1),
+  webhook: AutomationWebhookConfigSchema.optional(),
   environment: AutomationEnvironmentSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
@@ -735,6 +742,29 @@ export function applyAutomationTrustPolicyToRuntime(
     permissionMode: "default",
     allowUnsandboxedCommands: false,
     allowDangerouslySkipPermissions: false,
+  };
+}
+
+/**
+ * Webhook events come from outside this computer, so a webhook schedule never
+ * runs unattended: it always asks before a risky action (Guided). Saving
+ * enforces it, and every run of a webhook schedule uses it whatever is stored.
+ */
+export const WEBHOOK_AUTOMATION_TRUST_POLICY: AutomationTrustPolicy = "review-required";
+
+export function isAutomationPermissionModeAvailable(
+  mode: AutomationPermissionMode,
+  draft: { webhook?: unknown },
+): boolean {
+  return !draft.webhook || automationPermissionModeToTrustPolicy(mode) === WEBHOOK_AUTOMATION_TRUST_POLICY;
+}
+
+export function enforceWebhookTrustPolicy<T extends { webhook?: unknown; trustPolicy: AutomationTrustPolicy; runtime: AutomationRuntimeConfig }>(input: T): T {
+  if (!input.webhook || input.trustPolicy === WEBHOOK_AUTOMATION_TRUST_POLICY) return input;
+  return {
+    ...input,
+    trustPolicy: WEBHOOK_AUTOMATION_TRUST_POLICY,
+    runtime: applyAutomationTrustPolicyToRuntime(input.runtime, WEBHOOK_AUTOMATION_TRUST_POLICY),
   };
 }
 

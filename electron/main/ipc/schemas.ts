@@ -1559,6 +1559,11 @@ export const AutomationIdArgsSchema = z
   })
   .strict();
 
+/** `payload`: the sample event a webhook schedule's template renders with on Run now. */
+export const AutomationRunNowArgsSchema = AutomationIdArgsSchema.extend({
+  payload: z.json().optional(),
+}).strict();
+
 export const AutomationSetEnabledArgsSchema = z
   .object({
     id: z.string().uuid(),

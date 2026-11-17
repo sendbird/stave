@@ -1078,7 +1078,7 @@ interface WindowAutomationsApi extends Partial<AutomationWebhookApi> {
     automation: AutomationSpec | null;
     message?: string;
   }>;
-  runNow?: (args: { id: string }) => Promise<{
+  runNow?: (args: { id: string; payload?: unknown }) => Promise<{
     ok: boolean;
     run: AutomationRun | null;
     message?: string;

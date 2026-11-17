@@ -421,16 +421,19 @@ export function tarsScheduleFallbackCadence(runAt: string): AutomationSchedule {
 /**
  * What Tars compares to tell its own last save from an edit made elsewhere:
  * the name, the request, the workspace, the rule and the permission mode, in
- * one fixed order. Turning a schedule on or off, and its model, are not
- * content. The permission mode is: Tars saves every schedule as Guided, so one
+ * one fixed order, plus the webhook a schedule starts from, if any. Turning
+ * a schedule on or off, and its model, are not content. The permission mode is: Tars saves every schedule as Guided, so one
  * the user made unattended in Schedules is theirs, and Tars never rewrites
  * what such a schedule runs.
  */
-export function tarsScheduleContentKey(content: { title: string; request: string; workspaceId: string; rule: TarsScheduleRule; trustPolicy: string }): string {
+export function tarsScheduleContentKey(content: { title: string; request: string; workspaceId: string; rule: TarsScheduleRule; trustPolicy: string;
+  /** The webhook endpoint a schedule starts from instead of its rule; only a schedule with one adds it, so every other key is unchanged. */
+  webhookEndpointId?: string | undefined }): string {
   const rule = content.rule.kind === "once" ? ["once", new Date(content.rule.runAt).toISOString()]
     : ["recurring", content.rule.schedule.every, content.rule.schedule.unit, content.rule.schedule.at?.hour ?? null, content.rule.schedule.at?.minute ?? null,
       getAutomationScheduleWeekdays(content.rule.schedule)];
-  return JSON.stringify([content.title.trim(), content.request.trim(), content.workspaceId, rule, content.trustPolicy]);
+  return JSON.stringify([content.title.trim(), content.request.trim(), content.workspaceId, rule, content.trustPolicy,
+    ...(content.webhookEndpointId ? [["webhook", content.webhookEndpointId]] : [])]);
 }
 
 /** A schedule proposal as the conversation shows it: its card while it waits, its record once confirmed. */

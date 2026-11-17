@@ -9,6 +9,7 @@ import {
   automationRuntimeToProviderOptions,
   AutomationUpsertInputSchema,
   AUTOMATION_WORKSPACE_MISSING_MESSAGE,
+  enforceWebhookTrustPolicy,
   automationWorkspaceRepositoryMismatchMessage,
   type AutomationRun,
   type AutomationSnapshot,
@@ -143,7 +144,8 @@ export interface AutomationRuntime {
   remove: (args: { id: string }) => Promise<{ ok: true; id: string }>;
   setEnabled: (args: { id: string; enabled: boolean }) => Promise<AutomationSpec>;
   setProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
-  runNow: (args: { id: string }) => Promise<AutomationRun>;
+  /** `payload` is the sample event a webhook schedule's template renders with; without one it renders with an empty event. */
+  runNow: (args: { id: string; payload?: unknown }) => Promise<AutomationRun>;
   runWebhook: (args: { id: string; payload: unknown }) => Promise<AutomationRun>;
   listInformationReferences: (args: {
     workspaceId: string;
@@ -397,6 +399,8 @@ export function createAutomationRuntime(
     scheduledFor: string | null;
     payload?: unknown;
   }) {
+    // A webhook schedule never runs unattended, whatever an older save stored.
+    args = { ...args, automation: enforceWebhookTrustPolicy(args.automation) };
     const startedAtDate = now();
     const startedAt = startedAtDate.toISOString();
     // A one-time schedule's scheduled run is its only one: it turns itself off.
@@ -470,7 +474,7 @@ export function createAutomationRuntime(
       }
       const taskRun = await dependencies.runTask({
         workspaceId: args.automation.environment.workspaceId,
-        prompt: args.trigger === "webhook" ? renderWebhookPrompt(args.automation.prompt, args.payload) : args.automation.prompt,
+        prompt: args.automation.webhook ? renderWebhookPrompt(args.automation.prompt, args.payload ?? {}) : args.automation.prompt,
         title: buildAutomationTaskTitle({
           automation: args.automation,
           now: startedAtDate,
@@ -752,7 +756,8 @@ export function createAutomationRuntime(
         if (existing) {
           return existing;
         }
-        const input = await withCurrentLocation(AutomationUpsertInputSchema.parse(rawInput));
+        const { webhook, ...parsed } = await withCurrentLocation(AutomationUpsertInputSchema.parse(rawInput));
+        const input = enforceWebhookTrustPolicy({ ...parsed, ...(webhook ? { webhook } : {}) });
         const createdAt = now();
         const automation: AutomationSpec = {
           ...input,
@@ -777,12 +782,15 @@ export function createAutomationRuntime(
       }),
     update: ({ id, input: rawInput }) =>
       enqueue(async () => {
-        const input = await withCurrentLocation(AutomationUpsertInputSchema.parse(rawInput));
+        const { webhook: webhookInput, ...parsed } = await withCurrentLocation(AutomationUpsertInputSchema.parse(rawInput));
         const state = loadState();
         const current = state.automations.find((automation) => automation.id === id);
         if (!current) {
           throw new Error(`Automation not found: ${id}`);
         }
+        // Absent keeps the saved webhook (Tars and Local MCP updates do not carry it); null removes it.
+        const webhook = webhookInput === undefined ? current.webhook : webhookInput ?? undefined;
+        const input = enforceWebhookTrustPolicy({ ...parsed, ...(webhook ? { webhook } : {}) });
         const updatedAt = now();
         const automation: AutomationSpec = {
           ...input,
@@ -871,7 +879,7 @@ export function createAutomationRuntime(
         const started = await startAutomationRun({state, automation, trigger: "webhook", scheduledFor: null, payload});
         return started.run;
       }),
-    runNow: ({ id }) =>
+    runNow: ({ id, payload }) =>
       enqueue(async () => {
         const state = loadState();
         const automation = state.automations.find((candidate) => candidate.id === id);
@@ -888,6 +896,7 @@ export function createAutomationRuntime(
           automation,
           trigger: "manual",
           scheduledFor: null,
+          payload,
         });
         return started.run;
       }),

@@ -63,7 +63,7 @@ function contentHash(content: Parameters<typeof tarsScheduleContentKey>[0]) {
 
 function automationContentHash(automation: AutomationSpec) {
   return contentHash({ title: automation.name, request: automation.prompt, workspaceId: automation.environment.workspaceId, rule: tarsScheduleRuleOf(automation),
-    trustPolicy: automation.trustPolicy });
+    trustPolicy: automation.trustPolicy, webhookEndpointId: automation.webhook?.endpointId });
 }
 
 function systemTimezone() {
@@ -207,7 +207,7 @@ export function createTarsScheduler(ports: TarsSchedulePorts) {
         if (rule?.ok) next = { ...next, rule: rule.rule };
         // A change that was saved before its record settled (an interrupted confirmation) reads as already there, not as an edit made elsewhere.
         const target = contentHash({ title: next.title, request: next.request, workspaceId: next.workspace?.id ?? automation.environment.workspaceId, rule: next.rule,
-          trustPolicy: TARS_SCHEDULE_TRUST_POLICY });
+          trustPolicy: TARS_SCHEDULE_TRUST_POLICY, webhookEndpointId: automation.webhook?.endpointId });
         base.alreadySaved = automationContentHash(automation) === target && target !== owned.contentHash;
       }
       base.next = next;
@@ -258,12 +258,14 @@ export function createTarsScheduler(ports: TarsSchedulePorts) {
       // One the user made unattended in Schedules reads as edited elsewhere and never reaches this point.
       trustPolicy: TARS_SCHEDULE_TRUST_POLICY,
       maxConcurrentRuns: current?.maxConcurrentRuns ?? 1,
+      // No `webhook` key: the Schedules service keeps the one the schedule has.
       informationReferences: current && current.environment.workspaceId === location.workspaceId ? current.informationReferences : [],
     };
   }
 
-  function summaryOf(facts: TarsScheduleFacts, enabled: boolean, at: Date): TarsScheduleSummary {
-    return { title: facts.title, workspace: facts.workspace, rule: facts.rule, timezone: timezone(), enabled, nextRuns: enabled ? tarsScheduleNextRuns(facts.rule, at) : [] };
+  /** A webhook schedule runs on events, not on its rule, so it has no next runs to show. */
+  function summaryOf(facts: TarsScheduleFacts, enabled: boolean, at: Date, webhook = false): TarsScheduleSummary {
+    return { title: facts.title, workspace: facts.workspace, rule: facts.rule, timezone: timezone(), enabled, nextRuns: enabled && !webhook ? tarsScheduleNextRuns(facts.rule, at) : [] };
   }
 
   function ownedOf(automation: AutomationSpec, requestId: string, at: string, previous: TarsOwnedSchedule | null): TarsOwnedSchedule {
@@ -311,7 +313,7 @@ export function createTarsScheduler(ports: TarsSchedulePorts) {
           : await ports.automations.update({ id: resolved.scheduleId, input });
       }
       const facts = (await factsOf(saved)).facts;
-      return { record: ports.schedules.settle(record.requestId, { status: "applied", summary: summaryOf(facts, saved.enabled, at) }, stamp, {
+      return { record: ports.schedules.settle(record.requestId, { status: "applied", summary: summaryOf(facts, saved.enabled, at, Boolean(saved.webhook)) }, stamp, {
         // Turning it on or off is not content: the saved hash still names what Tars last wrote.
         ...(operation === "pause" || operation === "resume" ? {} : { owned: ownedOf(saved, record.requestId, stamp, owned) }),
         ...(settleProposal ? { settleProposal } : {}) }) };
@@ -363,7 +365,7 @@ export function createTarsScheduler(ports: TarsSchedulePorts) {
         reason: waiting ? resolved.reason : "notWaiting", error: waiting ? resolved.error : "This proposal no longer waits for a confirmation.",
         next: resolved.next, current: resolved.current, timezone: timezone(),
         // What the user is agreeing to: when it runs once it is on.
-        nextRuns: resolved.next && operation !== "pause" && operation !== "remove" ? tarsScheduleNextRuns(resolved.next.rule, at) : [],
+        nextRuns: resolved.next && operation !== "pause" && operation !== "remove" && !resolved.automation?.webhook ? tarsScheduleNextRuns(resolved.next.rule, at) : [],
         enabledAfter, canEnableOnCreate: true,
       });
     },
@@ -429,7 +431,7 @@ export function createTarsScheduler(ports: TarsSchedulePorts) {
         const run = latest.get(owned.id);
         const { enabled, ...content } = facts;
         views.push({ id: owned.id, ...content, timezone: owned.timezone, enabled,
-          nextRuns: enabled ? nextRunsOf(automation, facts.rule, at) : [],
+          nextRuns: enabled && !automation.webhook ? nextRunsOf(automation, facts.rule, at) : [],
           lastRun: run ? { status: run.status, at: run.completedAt ?? run.startedAt, trigger: run.trigger, taskId: run.taskId, workspaceId: run.workspaceId } : null,
           editedElsewhere: automationContentHash(automation) !== owned.contentHash, createdAt: owned.createdAt });
       }
