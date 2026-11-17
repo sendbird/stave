@@ -1023,7 +1023,7 @@ Fleet 보기는 모든 워크스페이스의 작업을 내가 할 일 순서로 
 | 독립 CLI          | 상단 바 **독립 CLI 열기**                                  | 워크스페이스와 상관없이 CLI를 엽니다. 폴더는 설정 > 일반에서 정합니다                 |
 | MCP               | 설정 > MCP                                                 | **서버 추가** 후 **변경 사항 검토**와 **변경 사항 적용**. **로컬 MCP 서버** 카드      |
 
-인라인 HTML 페이지와 에이전트의 표시 전 검사는 최대 5,120,000자까지 지원합니다. 워크스페이스의 `.html`·`.htm` 파일은 개발 서버 없이 최대 10MiB(10,485,760바이트)까지 미리 볼 수 있습니다. 다른 텍스트 파일의 미리보기 제한은 1MiB입니다.
+에이전트는 답변이 세 가지 이상의 선택지를 비교하거나, 그룹별·시간별 수치를 보여주거나, 흐름·구조·레이아웃을 설명할 때 요청하지 않아도 인라인 HTML 페이지를 표시합니다. 페이지 글자는 주변 답변과 같은 14픽셀로 시작합니다. 직접 추가한 MCP 서버의 도구는 도구 행에 자체 뷰를 표시할 수 있습니다. 뷰 머리글의 **텍스트 결과 보기**를 누르면 도구의 텍스트 결과를 **복사** 버튼과 함께 볼 수 있고, 실패한 호출처럼 뷰가 그릴 데이터가 없으면 이 텍스트가 처음부터 열립니다. 인라인 HTML 페이지와 에이전트의 표시 전 검사는 최대 5,120,000자까지 지원합니다. 워크스페이스의 `.html`·`.htm` 파일은 개발 서버 없이 최대 10MiB(10,485,760바이트)까지 미리 볼 수 있습니다. 다른 텍스트 파일의 미리보기 제한은 1MiB입니다.
 
 화면 보기: [명령 팔레트](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/command-palette.png) · [워크스페이스 도구](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/workspace-tools.png) · [정보 패널](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/information-panel.png) · [Lens 도구 막대](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/lens.png) · [설정 > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/settings-mcp.png)
 

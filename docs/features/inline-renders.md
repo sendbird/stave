@@ -210,7 +210,9 @@ runs, Stave shows the view in that tool's row instead of the plain text result.
 The row opens on its own; **Full screen** in the view's header lifts it over the
 window. **Show text result** in the same header opens the tool's plain text
 result under the view, with a **Copy** button, for a view that shows nothing
-or less than you need.
+or less than you need. It opens by itself when the view has no data to draw:
+the call's result carries no structured content (for example a failed call
+whose server left it empty) or its input could not be read.
 
 **Settings → Chat → Inline HTML pages → Show MCP App views** turns this on or
 off (on by default). Off shows those tools as plain text.
@@ -260,7 +262,9 @@ waiting at once.
   removed when the workspace is archived.
 - A view is at most 5 MB. Stave waits up to 20 seconds for the server to return
   it; a view that is missing, of the wrong type, too large, or too slow leaves
-  the row as plain text.
+  the row as plain text. So does a call whose input cannot be read or whose
+  result is over 1,000,000 characters, because the view could not be given
+  them. A call with no arguments counts as an empty input.
 - Turning the setting on or off restarts the Codex App Server once its running
   turns finish, and the next Codex turn starts a new native thread, as an MCP
   configuration change does.

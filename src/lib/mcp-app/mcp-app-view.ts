@@ -353,6 +353,35 @@ export function isMcpAppViewUrl(url: string): boolean {
 
 /* ─── Tool payloads ──────────────────────────────────────────────── */
 
+/**
+ * Whether a captured view starts without the data views commonly draw
+ * from: no call input or result (the host then sends neither), or a result
+ * without an object `structuredContent`, such as a failed call whose server
+ * left it null. The view's text result opens by default for these, so the
+ * reader sees the result (often an error) instead of an empty frame. A view
+ * built to render from text alone shows its text twice, which is the cheaper
+ * mistake.
+ */
+export function mcpAppViewLacksData(view: {
+  toolInput: Record<string, unknown> | null;
+  toolResult: Record<string, unknown> | null;
+}): boolean {
+  return !view.toolInput || !view.toolResult || !isRecord(view.toolResult.structuredContent);
+}
+
+/**
+ * A completed call's arguments for a view about to be captured. Omitted
+ * arguments (absent, null, or an empty string) are a call with no
+ * arguments, so `{}`; anything else must normalize to an object, and
+ * malformed or oversized input stays null so the caller keeps the text row
+ * rather than present corrupted input as an empty call.
+ */
+export function normalizeMcpAppToolCallInput(value: unknown): Record<string, unknown> | null {
+  if (value === undefined || value === null) return {};
+  if (typeof value === "string" && value.trim() === "") return {};
+  return normalizeMcpAppToolInput(value);
+}
+
 /** Tool arguments as the view's `tool-input` notification needs them: an object. */
 export function normalizeMcpAppToolInput(value: unknown): Record<string, unknown> | null {
   let parsed = value;
