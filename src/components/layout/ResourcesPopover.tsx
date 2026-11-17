@@ -1,3 +1,5 @@
+import { useAppStore } from "@/store/app.store";
+import { OPEN_RESOURCE_MANAGER_EVENT } from "./resource-manager-events";
 import { formatPercent } from "@/i18n/format";
 import { formatNumber } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
@@ -193,7 +195,9 @@ export function MemoryUsagePopover({
   collapsed,
   variant = "sidebar",
   barLabelXstyle,
+  hideTrigger = false,
 }: {
+  hideTrigger?: boolean;
   collapsed?: boolean;
   /** "bar" renders a compact inline trigger for the bottom status bar. */
   variant?: "sidebar" | "bar";
@@ -202,7 +206,13 @@ export function MemoryUsagePopover({
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   const isBar = variant === "bar";
+  const developerModeEnabled = useAppStore((state) => state.settings.developerModeEnabled);
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const show = () => setOpen(true);
+    window.addEventListener(OPEN_RESOURCE_MANAGER_EVENT, show);
+    return () => window.removeEventListener(OPEN_RESOURCE_MANAGER_EVENT, show);
+  }, []);
   const [view, setView] = useState<"usage" | "diagnostics">("usage");
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [metrics, setMetrics] = useState<AppMetrics | null>(null);
@@ -415,7 +425,7 @@ export function MemoryUsagePopover({
           setOpen(nextOpen);
         }}
       >
-        <Tooltip>
+        {!hideTrigger ? <Tooltip>
           <TooltipTrigger
             render={<span className={sx(resourceStyles.tooltipAnchor)} />}
           >
@@ -458,7 +468,7 @@ export function MemoryUsagePopover({
             >
               {tI18n("workspace:resourcesPopover.resourceManager")}</TooltipContent>
           ) : null}
-        </Tooltip>
+        </Tooltip> : null}
 
         <DialogContent
           showCloseButton={false}
@@ -529,7 +539,7 @@ export function MemoryUsagePopover({
           ) : null}
 
           <div className={sx(managerStyles.toolbar)}>
-            <SegmentedControl
+            {developerModeEnabled ? <SegmentedControl
               aria-label={tI18n("workspace:resourcesPopover.resourceView")}
               value={view}
               onValueChange={setView}
@@ -537,7 +547,7 @@ export function MemoryUsagePopover({
                 { value: "usage", label: tI18n("workspace:resourcesPopover.workspacesAndProcesses") },
                 { value: "diagnostics", label: tI18n("workspace:resourcesPopover.diagnosticsAndStorage") },
               ]}
-            />
+            /> : null}
             <Button
               variant="outline"
               size="sm"
@@ -560,13 +570,13 @@ export function MemoryUsagePopover({
               </div>
             ) : (
               <div className={sx(resourceStyles.stack)}>
-                <div hidden={view !== "usage"}>
+                <div hidden={developerModeEnabled && view !== "usage"}>
                   <ResourceManagerOverview
                     metrics={metrics}
                     refresh={fetchMetrics}
                   />
                 </div>
-                <section
+                {developerModeEnabled ? <section
                   hidden={view !== "diagnostics"}
                   aria-label={tI18n("workspace:resourcesPopover.memoryDiagnosticsAndStorage")}
                 >
@@ -1001,7 +1011,7 @@ export function MemoryUsagePopover({
                       </div>
                     </div>
                   </div>
-                </section>
+                </section> : null}
               </div>
             )}
           </div>

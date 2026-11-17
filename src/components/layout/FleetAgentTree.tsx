@@ -1,3 +1,4 @@
+import { TaskUnreadDot } from "@/components/session/TaskReadIndicator";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { FleetGroupHeader } from "./FleetGrouping";
@@ -123,7 +124,7 @@ function FleetAgentTreeBoard(props: {
           ...(tarsOwned
             ? { model: main.model ? t("shell:tars.owner.withModel", { model: main.model }) : t("shell:tars.owner.label") }
             : {}),
-          avatar: <FleetProviderIcon provider={row.task.provider} />,
+          avatar: <><TaskUnreadDot workspaceId={row.workspaceId} taskId={row.task.id} /><FleetProviderIcon provider={row.task.provider} /></>,
           ...(sharedFileCount > 0 ? { sharedFileCount } : {}),
         };
         return row.key === openRow?.key

@@ -1448,5 +1448,11 @@
     "viewResult": "View result",
     "collapseResult": "Collapse result",
     "reportedHistory": "Reported work history"
+  },
+  "featureDiscovery": {
+    "steering": "Want to guide the running turn? Enable steering.",
+    "checkpoints": "File checkpoints let you rewind files in future turns.",
+    "enable": "Enable",
+    "dismiss": "Dismiss tip"
   }
 }

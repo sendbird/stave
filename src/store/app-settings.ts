@@ -1,3 +1,4 @@
+import type { FeatureTipId } from "@/lib/feature-tips";
 /**
  * Application settings contract and defaults.
  *
@@ -315,6 +316,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * use) but this setting is the primary, user-facing on/off switch.
    */
   midTurnSteeringEnabled: boolean;
+  /** Short tips that offer optional features (steering, file checkpoints). */
+  featureTipsEnabled: boolean;
+  /** Tips the user closed; each stays closed. */
+  dismissedFeatureTips: FeatureTipId[];
   /** Lens shortcut that toggles visual comment mode. */
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
@@ -777,6 +782,8 @@ export const defaultSettings: AppSettings = {
   promptCommentShortcut: DEFAULT_PROMPT_COMMENT_SHORTCUT,
   steerQueueEnterAction: DEFAULT_STEER_QUEUE_ENTER_ACTION,
   midTurnSteeringEnabled: false,
+  featureTipsEnabled: true,
+  dismissedFeatureTips: [],
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,

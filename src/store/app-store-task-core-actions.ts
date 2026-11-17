@@ -12,7 +12,10 @@ import { createTaskRenameAction } from "@/store/task-title-actions";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import {
   isTaskArchived,
+  keepRendererOwnedTaskFields,
+  placeTaskInHistory,
   reorderTasksWithinFilter,
+  resetTaskHistoryOrder,
 } from "@/lib/tasks";
 import type { ScriptTrigger } from "@/lib/workspace-scripts";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
@@ -54,6 +57,9 @@ type TaskCoreActionKey =
   | "restoreTask"
   | "duplicateTask"
   | "rewindClaudeFilesFromMessage"
+  | "pinTask"
+  | "reorderTaskHistory"
+  | "resetTaskHistoryOrder"
   | "reorderTasks";
 
 type TaskCoreActions = Pick<AppState, TaskCoreActionKey>;
@@ -97,6 +103,29 @@ export function createTaskCoreActions(args: {
     incrementPromptDraftPersistenceVersion,
     shouldLoadLatestTaskMessages,
   } = args;
+
+  /**
+   * Applies a task-list preference (pin, History order) to its own workspace.
+   * A background workspace is updated in its runtime cache and saved there, so
+   * the change never switches the active workspace.
+   */
+  const updateWorkspaceTasks = (workspaceId: string | undefined, update: (tasks: Task[]) => Task[]) => {
+    const state = get();
+    if (!workspaceId || workspaceId === state.activeWorkspaceId) {
+      set(current => {
+        const tasks = update(current.tasks);
+        return tasks === current.tasks ? {} : { tasks, workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(current) };
+      });
+      return;
+    }
+    const session = state.workspaceRuntimeCacheById[workspaceId];
+    if (!session) return;
+    const tasks = update(session.tasks);
+    if (tasks === session.tasks) return;
+    const nextSession = { ...session, tasks };
+    set(current => ({ workspaceRuntimeCacheById: { ...current.workspaceRuntimeCacheById, [workspaceId]: nextSession } }));
+    args.persistWorkspaceSessionInBackground({ workspaceId, session: nextSession });
+  };
 
   return {
     // One back/forward step however many repository and workspace switches
@@ -164,11 +193,7 @@ export function createTaskCoreActions(args: {
               const nextTasks = state.tasks.some((task) => task.id === taskId)
                 ? state.tasks.map((task) =>
                     task.id === taskId
-                      ? {
-                          ...persistedTask,
-                          title: task.title,
-                          titleManuallySet: task.titleManuallySet,
-                        }
+                      ? keepRendererOwnedTaskFields(persistedTask, task)
                       : task,
                   )
                 : [persistedTask, ...state.tasks];
@@ -801,8 +826,10 @@ export function createTaskCoreActions(args: {
         isStreaming: false,
       }));
       set((state) => {
+        // Pin and History placement belong to the original, not its copy.
+        const { pinned: _pinned, historyOrderKey: _historyOrderKey, ...copySource } = sourceTask;
         const duplicatedTask: Task = {
-          ...sourceTask,
+          ...copySource,
           id: nextTaskId,
           title: i18n.t("app:taskCoreActions.copyTitle", { title: sourceTask.title }),
           updatedAt: buildRecentTimestamp(),
@@ -946,6 +973,15 @@ export function createTaskCoreActions(args: {
           claudeBinaryPath: state.settings.claudeBinaryPath || undefined,
         },
       });
+    },
+    pinTask: ({ taskId, pinned, workspaceId }) => {
+      updateWorkspaceTasks(workspaceId, tasks => tasks.map(task => task.id === taskId ? { ...task, pinned } : task));
+    },
+    reorderTaskHistory: ({ workspaceId, activeTaskId, overTaskId, visibleTaskIds }) => {
+      updateWorkspaceTasks(workspaceId, tasks => placeTaskInHistory({ tasks, activeTaskId, overTaskId, visibleTaskIds }));
+    },
+    resetTaskHistoryOrder: ({ workspaceId }) => {
+      updateWorkspaceTasks(workspaceId, resetTaskHistoryOrder);
     },
     reorderTasks: ({ activeTaskId, overTaskId, filter }) => {
       set((state) => {

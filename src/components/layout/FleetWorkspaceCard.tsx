@@ -1,3 +1,5 @@
+import { TaskUnreadDot, TaskReadMenu, withUnreadName } from "@/components/session/TaskReadIndicator";
+import { useUnreadTaskIds } from "@/lib/task-read-state-client";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { i18n, useTranslation } from "@/i18n";
@@ -431,6 +433,7 @@ export function FleetWorkspaceCard(args: {
   const visibleRows = showAllTasks
     ? taskRowOrder.orderedRows
     : taskRowOrder.orderedRows.slice(0, taskRowOrder.collapsedCount);
+  const unreadTaskIds = useUnreadTaskIds(args.workspace.id, visibleRows.map((row) => row.task.id));
   const selectionRows = useMemo(() => visible && !args.repositoryCollapsed ? visibleRows.map((row) => ({
     key: getFleetTaskKey(args.repositoryPath, args.workspace.id, row.task.id),
     repositoryPath: args.repositoryPath, workspaceId: args.workspace.id, taskId: row.task.id, task: row.task,
@@ -606,6 +609,7 @@ export function FleetWorkspaceCard(args: {
               return (
                 <li key={row.task.id} className={sx(styles.selectionRow, fleetSelectionRowMarker)} data-fleet-select-key={taskKey}>
                   <FleetSelectionCheckbox itemKey={taskKey} title={taskTitle} />
+                  <span className={sx(styles.taskRowSlot)}>
                   <AuiButton
                     layout="host"
                     id={`fleet-task-trigger-${taskKey}`}
@@ -618,11 +622,12 @@ export function FleetWorkspaceCard(args: {
                       isExpanded && styles.taskRowExpanded,
                     ]}
                     aria-expanded={isExpanded}
-                    aria-label={
+                    aria-label={withUnreadName(
                       isExpanded
                         ? tI18n("fleet:fleetWorkspaceCard.hideControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
-                        : tI18n("fleet:fleetWorkspaceCard.showControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
-                    }
+                        : tI18n("fleet:fleetWorkspaceCard.showControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel }),
+                      unreadTaskIds.has(row.task.id),
+                    )}
                     onClick={() =>
                       args.onToggleTaskControl({
                         repositoryPath: args.repositoryPath,
@@ -673,6 +678,10 @@ export function FleetWorkspaceCard(args: {
                       />
                     )}
                   </AuiButton>
+                  {/* Outside the row button, over its leading padding, so the row keeps its alignment. */}
+                  <TaskUnreadDot workspaceId={args.workspace.id} taskId={row.task.id} decorative xstyle={styles.unreadDot} />
+                  </span>
+                  <TaskReadMenu workspaceId={args.workspace.id} taskId={row.task.id} title={taskTitle} />
                 </li>
               );
             })}

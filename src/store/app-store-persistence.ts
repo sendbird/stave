@@ -1,3 +1,4 @@
+import { normalizeDismissedFeatureTips } from "@/lib/feature-tips";
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding";
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
@@ -498,6 +499,11 @@ export function createAppStorePersistenceOptions() {
         typeof raw.midTurnSteeringEnabled === "boolean"
           ? raw.midTurnSteeringEnabled
           : defaultSettings.midTurnSteeringEnabled;
+      state.settings.featureTipsEnabled =
+        typeof raw.featureTipsEnabled === "boolean"
+          ? raw.featureTipsEnabled
+          : defaultSettings.featureTipsEnabled;
+      state.settings.dismissedFeatureTips = normalizeDismissedFeatureTips(raw.dismissedFeatureTips);
       state.settings.blockTurnsWhenAccountLimitReached =
         typeof raw.blockTurnsWhenAccountLimitReached === "boolean"
           ? raw.blockTurnsWhenAccountLimitReached

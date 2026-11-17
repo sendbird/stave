@@ -3029,5 +3029,13 @@
     "nextPage": "다음 결과",
     "matches_other": "{{count}}개 일치",
     "openResult_other": "{{title}} 열기, 일치하는 메시지 {{count}}개"
+  },
+  "discoverability": {
+    "resourceManager": "리소스 관리자",
+    "resourceManagerDescription": "메모리, CPU와 워크스페이스 프로세스를 확인합니다.",
+    "prCheckBack": "PR 다시 확인하기",
+    "prCheckBackDescription": "예약에서 PR을 다시 확인할 일정을 설정합니다.",
+    "secretRequests": "시크릿 요청",
+    "secretRequestsDescription": "시크릿을 기다리는 작업을 열거나 저장한 시크릿을 관리합니다."
   }
 }

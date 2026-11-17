@@ -289,3 +289,33 @@ test("S2 bulk Archive excludes running and waiting tasks and confirms applicable
   await expect(page.getByRole('dialog')).toContainText('Work is still running');
   await expect(page.getByRole('dialog')).toContainText('Waiting for an approval or answer');
 });
+
+test("Fleet selection marks cold tasks unread and read without changing workspace", async ({ page }) => {
+  await seed(page);
+  const targets = await page.evaluate(async () => {
+    const { useFleetSelectionStore } = await import('/src/store/fleet-selection-store.ts');
+    const selection = useFleetSelectionStore.getState();
+    selection.clear();
+    const targets = selection.visibleTargets.filter(item => item.workspaceId !== 'ws-table-0').slice(0, 2);
+    for (const target of targets) useFleetSelectionStore.getState().toggle(target.key);
+    return targets;
+  });
+  expect(targets).toHaveLength(2);
+  const toolbar = page.locator('[data-fleet-bulk-control]');
+  await toolbar.getByRole('button', { name: 'More', exact: true }).click();
+  // One read item per direction: the old outcome-only "Mark read (n)" is merged in.
+  await expect(page.getByRole('menuitem', { name: /^Mark read/ })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: /^Mark as read/ })).toHaveCount(1);
+  await page.getByRole('menuitem', { name: 'Mark as unread (2)', exact: true }).click();
+  for (const target of targets) {
+    await expect(page.locator('[data-fleet-task-table-row]').filter({has:page.locator(`[data-task-unread="${target.taskId}"]`)})).toHaveCount(1);
+  }
+  await page.screenshot({path:'/tmp/gap-h1/after2/fleet-bulk-unread-en-light-1440.png'});
+  await toolbar.getByRole('button', { name: 'More', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Mark as read (2)', exact: true }).click();
+  for (const target of targets) await expect(page.locator(`[data-task-unread="${target.taskId}"]`)).toHaveCount(0);
+  expect(await page.evaluate(async () => {
+    const {useAppStore}=await import(performance.getEntriesByType('resource').filter(entry=>new URL(entry.name).pathname==='/src/store/app.store.ts').at(-1)!.name);
+    return useAppStore.getState().activeWorkspaceId;
+  })).toBe('ws-table-0');
+});

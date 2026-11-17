@@ -78,7 +78,12 @@
     "confirmDeleteTitle_one": "Delete {{count}} task permanently?",
     "confirmDeleteTitle_other": "Delete {{count}} tasks permanently?",
     "confirmDeleteDescription": "This cannot be undone. Only archived or ended tasks without running work can be deleted. Protected tasks will be skipped.",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "pinTask": "Pin {{title}}",
+    "unpinTask": "Unpin {{title}}",
+    "resetOrder": "Reset order",
+    "reorderHint": "Drag tasks to reorder, or focus a row and press Alt + ↑ / ↓.",
+    "pinFailed": "Could not load this workspace's tasks. Try again."
   },
   "workspacePaneHost": {
     "icon": "Icon",
@@ -186,5 +191,13 @@
     "diffLayout": "Diff layout"
   },
   "paneTabChip.closeNamed": "Close {{title}} pane",
-  "terminalSurfacePanel.clear": "Clear terminal"
+  "terminalSurfacePanel.clear": "Clear terminal",
+  "taskReading": {
+    "unread": "Unread task updates",
+    "menu": "Read actions for {{title}}",
+    "unreadName": "{{name}}, unread",
+    "markRead": "Mark as read",
+    "markUnread": "Mark as unread",
+    "failed": "Could not save the read state. Try again."
+  }
 }

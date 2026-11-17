@@ -1287,3 +1287,33 @@ results and offers Restore for preserved history. Closing a tab with
 Cmd/Ctrl+W does not archive its task or workspace.
 
 Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
+
+
+## Find tools and return to unread tasks
+
+The command palette includes Compare models, Schedules, Clean up workspaces,
+Fleet View, Agents, Performance, Resource Manager and Secret requests, with
+short descriptions. Resource Manager also opens from Settings > General
+without Developer mode.
+
+When a message waits behind a running turn, a one-line hint offers to enable
+mid-turn steering. It stays off until you enable it. Beside the latest
+finished turn's actions, the file-checkpoint hint offers to enable checkpoints
+for future turns; enabling it cannot create checkpoints for earlier work.
+Close a hint with its × button and it stays closed. Settings > General >
+Feature tips turns all hints off.
+
+A dot on a task tab, sidebar task or Fleet row means there is unseen completion,
+failure or attention. Open the task to read it. Mark as unread keeps it for
+later; Mark as read clears its read indicators. Fleet can apply these actions
+to the selected tasks from the selection's More menu. The notification count
+follows the same mark. Reading does not approve requests or accept results.
+Output reading and task reading share the latest result's saved read mark,
+so they stay in sync after a restart.
+
+Pin tasks in Task History or the sidebar. Task History lists pinned tasks
+first and otherwise uses recent activity. Drag a task or press Alt + Up/Down
+to place it; a placed task keeps its position, while new tasks still appear
+first. Reset order returns to activity order. The sidebar keeps running and
+waiting tasks first and shows at most three open tasks per workspace, with the
+rest behind +N more. Task pins and tab pins are separate.

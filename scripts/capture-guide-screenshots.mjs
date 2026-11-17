@@ -679,7 +679,7 @@ const SHOTS = [
       await openPreview(page, locale, "composer-frame&case=limited&theme=dark");
       await quietChrome(page);
       await page.getByTestId("composer-shelf-usage-limit").waitFor();
-      await save(page, null, file, { clip: await unionClip(page, [page.getByTestId("composer-shelf"), page.getByTestId("composer-workspace-bar")], 16) });
+      await save(page, null, file, { clip: await unionClip(page, [page.getByTestId("composer-shelf"), page.getByTestId("preview-composer-measure")], 16) });
     },
   },
   {

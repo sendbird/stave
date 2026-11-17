@@ -1,3 +1,4 @@
+import { DiscoveryFixture } from "./discovery-fixture";
 import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/ui";
@@ -334,7 +335,7 @@ function installFixture() {
 
 export function ResourceManagerPreview() {
   const [ready, setReady] = useState(false);
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(() => new URLSearchParams(location.search).get("theme") === "dark");
   const [active, setActive] = useState<Scenario>("normal");
   useEffect(() => {
     installFixture();
@@ -365,7 +366,7 @@ export function ResourceManagerPreview() {
           </Button>
         ))}
       </div>
-      {ready && <MemoryUsagePopover variant="bar" />}
+      {ready && (new URLSearchParams(location.search).has("discovery") ? <DiscoveryFixture /> : <MemoryUsagePopover variant="bar" />)}
     </main>
   );
 }

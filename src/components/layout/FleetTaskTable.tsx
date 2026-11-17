@@ -1,3 +1,5 @@
+import { TaskUnreadDot, TaskReadMenu, withUnreadName } from "@/components/session/TaskReadIndicator";
+import { useTaskUnread } from "@/lib/task-read-state-client";
 import { fleetSelectionColumn, fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { FleetGroupHeader } from "./FleetGrouping";
@@ -581,6 +583,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
 }) {
   const { t } = useTranslation(["fleet"]);
+  const unread = useTaskUnread(props.row.workspaceId, props.row.task.id);
   const { row } = props;
   // The running turn's snapshot changes with every streamed event, so only
   // this row reads it, and only while the turn is the task's active one.
@@ -607,13 +610,14 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
       <TableCell xstyle={fleetSelectionColumn.cell}><FleetSelectionCheckbox itemKey={row.key} title={title} /></TableCell>
       <TableCell xstyle={styles.taskCell}>
         <span className={sx(styles.task)}>
+          <TaskReadMenu workspaceId={row.workspaceId} taskId={row.task.id} title={title} /><TaskUnreadDot workspaceId={row.workspaceId} taskId={row.task.id} decorative />
           <FleetProviderIcon provider={row.task.provider} />
           <AuiButton
             layout="host"
             id={fleetTaskTableOpenId(row.key)}
             type="button"
             xstyle={[styles.taskButton, focusRing.ring, transition.colors]}
-            aria-label={t("fleet:taskTable.openTask", { title, workspace: row.workspaceName })}
+            aria-label={withUnreadName(t("fleet:taskTable.openTask", { title, workspace: row.workspaceName }), unread)}
             onClick={() =>
               props.onOpenTask({
                 repositoryPath: row.repositoryPath,

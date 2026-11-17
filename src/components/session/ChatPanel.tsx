@@ -1,3 +1,5 @@
+import { FeatureEnableHint } from "./FeatureEnableHint";
+import { selectCheckpointTipMessageId } from "@/lib/feature-tips";
 import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { useWholeTaskFind } from "./use-whole-task-find";
 import { TranscriptFind } from "@/components/system/TranscriptFind";
@@ -201,6 +203,8 @@ interface MessageRowProps {
   showInterimMessages: boolean;
   traceExpansionMode: "auto" | "manual";
   threadActionState?: ConversationTurnActionState;
+  /** The latest finished Claude reply carries the file checkpoint tip, once. */
+  showCheckpointTip?: boolean;
   message: {
     id: string;
     role: "user" | "assistant";
@@ -713,6 +717,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               </div>
             </MessageActions>
           ) : null}
+          {args.showCheckpointTip ? (
+            <FeatureEnableHint feature="checkpoints" onEnable={() => useAppStore.getState().updateSettings({ patch: { claudeEnableFileCheckpointing: true } })} />
+          ) : null}
           {canRewindFiles || rewindDialogOpen ? (
             <Dialog
               open={rewindDialogOpen}
@@ -997,6 +1004,11 @@ function ChatPanelMessageList(props: {
   const userMessageGroups = useMemo(
     () => buildUserMessageGroups(visibleMessages, dateSeparators),
     [dateSeparators, visibleMessages],
+  );
+  const checkpointingEnabled = useAppStore((state) => state.settings.claudeEnableFileCheckpointing);
+  const checkpointTipMessageId = useMemo(
+    () => selectCheckpointTipMessageId({ messages: visibleMessages, activeTurnId, checkpointingEnabled }),
+    [activeTurnId, checkpointingEnabled, visibleMessages],
   );
   const threadActionStateByMessageId = useMemo(
     () =>
@@ -1783,6 +1795,7 @@ function ChatPanelMessageList(props: {
                 showInterimMessages={showInterimMessages}
                 traceExpansionMode={traceExpansionMode}
                 threadActionState={threadActionStateByMessageId.get(message.id)}
+                showCheckpointTip={message.id === checkpointTipMessageId}
                 message={message}
                 previousAssistantTurn={previousAssistantTurnByMessageId.get(
                   message.id,

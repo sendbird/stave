@@ -10,7 +10,7 @@ const archiveVersions = new Map<string, string>();
 export function fleetArchiveVersion(target: FleetTaskTarget) { return archiveVersions.get(JSON.stringify(target)); }
 const loading = new Map<string, Promise<void>>();
 /** Load live task state without changing the visible repository or workspace. */
-export async function ensureFleetWorkspace(target: FleetTaskTarget): Promise<void> {
+export async function ensureFleetWorkspace(target: Pick<FleetTaskTarget, "workspaceId">): Promise<void> {
   const state = useAppStore.getState();
   if (state.activeWorkspaceId === target.workspaceId || state.workspaceRuntimeCacheById[target.workspaceId]) return;
   const pending = loading.get(target.workspaceId);

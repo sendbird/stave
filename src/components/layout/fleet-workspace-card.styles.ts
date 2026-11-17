@@ -124,6 +124,15 @@ export const cardStyles = stylex.create({
     minWidth: 0,
   },
   selectionRow: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minInlineSize: 0 },
+  /** Holds the row button and its unread mark, which sits in the button's leading padding. */
+  taskRowSlot: { position: "relative", display: "flex", flex: 1, minInlineSize: 0 },
+  unreadDot: {
+    position: "absolute",
+    insetInlineStart: vars["--aui-space-4"],
+    insetBlock: 0,
+    marginBlock: "auto",
+    pointerEvents: "none",
+  },
   listItem: {
     minWidth: 0,
   },
