@@ -39,14 +39,32 @@ async function mountIssueRow(page: Page) {
   await expect(page.locator("#alignment-issue-row .lucide-corner-down-right")).toBeVisible();
 }
 
-test("return status stays on its first line with details, without details and after the action wraps", async ({ page }) => {
+test("return rows keep their mark on the title line and one height, and Got it folds the card into a divider", async ({ page }) => {
   await page.goto("/?stavePreview=task-panel&return=idle");
   const card = page.getByTestId("return-summary");
   await expect(card).toBeVisible();
   await page.evaluate(() => document.fonts.ready);
-  const row = card.locator('[data-return-line="status"]');
+  const rows = card.locator("[data-return-line]");
+  const row = rows.first();
   const delta = () => firstLineDelta(row, "svg", "p");
-  expect(Math.abs(await delta())).toBeLessThanOrEqual(0.5);
+  // Every row keeps its mark on its title line and the same height.
+  const geometry = () => rows.evaluateAll((elements) => elements.map((element) => {
+    const glyph = element.querySelector("svg")!.getBoundingClientRect();
+    const title = element.querySelector("p")!;
+    const line = Number.parseFloat(getComputedStyle(title).lineHeight);
+    return {
+      delta: glyph.y + glyph.height / 2 - (title.getBoundingClientRect().y + line / 2),
+      height: element.getBoundingClientRect().height,
+    };
+  }));
+  const wide = await geometry();
+  expect(wide.length).toBeGreaterThan(1);
+  for (const entry of wide) {
+    expect(Math.abs(entry.delta)).toBeLessThanOrEqual(0.5);
+    expect(Math.abs(entry.height - wide[0]!.height)).toBeLessThanOrEqual(0.5);
+  }
+  // Without a next step in the handoff record, its row goes.
+  await expect(card.locator('[data-return-line="next"]')).toHaveCount(1);
   await page.evaluate(async () => {
     const { useTaskHandoffStore } = await import("/src/store/task-handoff-store.ts");
     useTaskHandoffStore.setState((state) => ({
@@ -55,17 +73,27 @@ test("return status stays on its first line with details, without details and af
       }])),
     }));
   });
-  await expect(row.locator("p")).toHaveCount(1);
-  expect(Math.abs(await delta())).toBeLessThanOrEqual(0.5);
+  await expect(card.locator('[data-return-line="next"]')).toHaveCount(0);
+  // A narrow conversation cuts the text, not the row: the action stays beside it.
   await page.getByTestId("side-chat-frame").evaluate((element) => {
     element.style.cssText = "flex:0 0 300px;min-width:0;width:300px";
   });
   expect(Math.abs(await delta())).toBeLessThanOrEqual(0.5);
-  const title = (await row.locator("p").boundingBox())!;
+  const box = (await row.boundingBox())!;
+  const title = (await row.locator("p").first().boundingBox())!;
   const action = (await row.getByRole("button").boundingBox())!;
-  expect(action.y).toBeGreaterThan(title.y + title.height);
-  await card.getByRole("button", { name: "Dismiss", exact: true }).click();
-  await expect(card).toHaveCount(0);
+  expect(action.y).toBeGreaterThanOrEqual(box.y);
+  expect(action.y + action.height).toBeLessThanOrEqual(box.y + box.height + 0.5);
+  expect(action.x).toBeGreaterThanOrEqual(title.x + title.width);
+  await card.getByRole("button", { name: "Got it", exact: true }).click();
+  const divider = card.getByRole("button", { expanded: false });
+  await expect(card).toHaveAttribute("data-collapsed", "true");
+  await expect(divider).toBeFocused();
+  await divider.click();
+  await expect(card).toHaveAttribute("data-collapsed", "false");
+  await expect(card.locator("[data-return-action]").first()).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(card).toHaveAttribute("data-collapsed", "true");
 });
 
 test("run check marks stay on the first line when criteria wrap and when details grow", async ({ page }) => {

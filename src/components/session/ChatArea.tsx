@@ -21,7 +21,6 @@ import {
 import { EmptySplash } from "@/components/session/EmptySplash";
 import { TurnActivity } from "@/components/session/TurnActivity";
 import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
-import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
 import { SessionLoadingState } from "@/components/session/SessionLoadingState";
 import {
   Button,
@@ -413,8 +412,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <RenderProfiler id="TurnActivityFloating">
               <TurnActivity host="floating" />
             </RenderProfiler>
-            {/* What changed while you were away, then a side question about the task. */}
-            <ReturnSummaryCard taskId={activeTaskId} />
+            {/* A side question about the task. What changed while you were
+                away is in the conversation itself, where you had left off. */}
             <SideChatPanel taskId={activeTaskId} host="conversation" />
           </div>
           {/* Outside the pointer-events-none overlay, and outside both of its

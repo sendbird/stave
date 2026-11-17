@@ -135,6 +135,14 @@ import {
   useAgentRunPrompt,
 } from "@/components/agent-runs/AgentRunPrompt";
 import { AgentRunResultCard } from "@/components/agent-runs/AgentRunResultCard";
+import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
+import { useTaskReturnStore } from "@/store/task-return-store";
+import {
+  claimReturnReveal,
+  releaseReturnReveal,
+  RETURN_REVEAL_SETTLE_MS,
+  useReturnAnchor,
+} from "@/components/session/return-summary/use-return-anchor";
 import { StageDivider } from "@/components/agent-runs/StageDivider";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import {
@@ -233,6 +241,8 @@ interface MessageRowProps {
   revealToolUseId?: string;
   /** The approval or answer the return summary is revealing in this message. */
   revealRequestId?: string;
+  /** The return summary sits beside this message: where you had left off. */
+  returnSummary?: "before" | "after";
   /** On a reply whose model differs from the reply before it: both models. */
   modelChangeFrom?: string;
   modelChangeTo?: string;
@@ -492,6 +502,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           </time>
         </div>
       ) : null}
+      {args.returnSummary === "before" ? <ReturnSummaryCard taskId={taskId} /> : null}
       {message.role === "user" ? (
         <StageDivider taskId={taskId} turnId={startedTurnId} />
       ) : null}
@@ -791,6 +802,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ) : null}
         </div>
       </Message>
+      {args.returnSummary === "after" ? <ReturnSummaryCard taskId={taskId} /> : null}
     </div>
   );
 });
@@ -953,6 +965,14 @@ function ChatPanelMessageList(props: {
     () => visibleSteerMessageSegments(messages),
     [messages],
   );
+  // Where you had left off, when this visit is a return with news.
+  const returnAnchor = useReturnAnchor(taskId, visibleMessages);
+  const returnAnchorMessageId = returnAnchor?.messageId;
+  const returnAnchorPlacement = returnAnchor?.placement;
+  const returnArrivalAt = returnAnchor?.arrivalAt;
+  const currentArrivalAt = useTaskReturnStore(
+    (state) => state.arrivalByTask[taskId]?.at,
+  );
   const dateSeparators = useMemo(
     () => buildConversationDateSeparators(visibleMessages),
     [visibleMessages],
@@ -1082,6 +1102,9 @@ function ChatPanelMessageList(props: {
     }
     return map;
   }, [visibleMessages]);
+  const returnAnchorIndex = returnAnchorMessageId
+    ? messageIndexById.get(returnAnchorMessageId)
+    : undefined;
   const restoreAnchor = taskScrollAnchorCache.get(scrollContextKey);
   const restoreItemIndex = restoreAnchor
     ? messageIndexById.get(restoreAnchor.messageId)
@@ -1224,10 +1247,13 @@ function ChatPanelMessageList(props: {
   const [transcriptRevealTick, setTranscriptRevealTick] = useState(0);
   // The step being revealed (a tool call, or an approval or answer you gave):
   // its row opens the trace that holds it, and focus moves once it is on screen.
+  // `target` reveals the message itself (a turn's reply, from its start) or
+  // the return summary beside it, without moving focus.
   const [revealedStep, setRevealedStep] = useState<{
     messageId: string;
     toolUseId?: string;
     requestId?: string;
+    target?: "message" | "return-summary";
   } | null>(null);
   // Read by the focus wait below without restarting it on every provider flush.
   const visibleMessagesRef = useRef(visibleMessages);
@@ -1243,13 +1269,16 @@ function ChatPanelMessageList(props: {
     ) {
       return;
     }
-    const { toolUseId, decision, nonce } = focusTranscriptToolRequest;
+    const { toolUseId, decision, messageId: targetMessageId, nonce } =
+      focusTranscriptToolRequest;
     const messageIndex = decision
       ? findMessageIndexByDecision({ messages: visibleMessages, ...decision })
-      : findMessageIndexByToolUseId({
-          messages: visibleMessages,
-          toolUseId: toolUseId ?? "",
-        });
+      : targetMessageId
+        ? visibleMessages.findIndex((message) => message.id === targetMessageId)
+        : findMessageIndexByToolUseId({
+            messages: visibleMessages,
+            toolUseId: toolUseId ?? "",
+          });
     if (transcriptRevealRef.current?.nonce !== nonce) {
       transcriptRevealRef.current = { nonce, pages: 0, inFlight: false };
     }
@@ -1304,7 +1333,7 @@ function ChatPanelMessageList(props: {
       Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
     virtuosoRef.current?.scrollToIndex({
       index: messageIndex,
-      align: "center",
+      align: targetMessageId ? "start" : "center",
       behavior: "auto",
     });
     const messageId = visibleMessages[messageIndex]?.id;
@@ -1312,7 +1341,9 @@ function ChatPanelMessageList(props: {
       setRevealedStep(
         decision
           ? { messageId, requestId: decision.requestId }
-          : { messageId, toolUseId },
+          : targetMessageId
+            ? { messageId, target: "message" }
+            : { messageId, toolUseId },
       );
     }
   }, [
@@ -1332,12 +1363,17 @@ function ChatPanelMessageList(props: {
     if (!revealedStep) {
       return;
     }
-    const selector = revealedStep.requestId
-      ? [
-          `[data-approval-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
-          `[data-user-input-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
-        ].join(", ")
-      : `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId ?? "")}"]`;
+    const messageSelector = `[data-testid="conversation-scroll-${escapeAttributeSelectorValue(taskId)}"] [data-message-id="${escapeAttributeSelectorValue(revealedStep.messageId)}"]`;
+    const selector = revealedStep.target === "message"
+      ? messageSelector
+      : revealedStep.target === "return-summary"
+        ? `${messageSelector} [data-testid="return-summary"]`
+        : revealedStep.requestId
+          ? [
+              `[data-approval-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
+              `[data-user-input-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
+            ].join(", ")
+          : `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId ?? "")}"]`;
     // Where the step now is becomes the reading anchor a later render keeps.
     const anchorAtStep = () => {
       suppressAnchorUntilRef.current = 0;
@@ -1362,8 +1398,25 @@ function ChatPanelMessageList(props: {
     const focusStep = () => {
       const node = document.querySelector<HTMLElement>(selector);
       if (node) {
-        node.scrollIntoView({ block: "center", behavior: "auto" });
-        node.focus({ preventScroll: true });
+        // A message is read from its start; a step or the summary is centered.
+        // Only a step takes focus: the others are places to read from.
+        node.scrollIntoView({
+          block: revealedStep.target === "message" ? "start" : "center",
+          behavior: "auto",
+        });
+        if (!revealedStep.target) {
+          node.focus({ preventScroll: true });
+        } else if (
+          revealedStep.target === "message" &&
+          document.activeElement?.closest('[data-testid="return-summary"]')
+        ) {
+          // The card's button may scroll out of the list and unmount: focus
+          // moves with the reader to the reply instead of falling to the page.
+          if (!node.hasAttribute("tabindex")) {
+            node.setAttribute("tabindex", "-1");
+          }
+          node.focus({ preventScroll: true });
+        }
         anchorAtStep();
       } else if (frames > 0 && frames % TRANSCRIPT_STEP_REAIM_FRAMES === 0) {
         // Rows on the way measure taller or shorter than estimated, so the
@@ -1394,6 +1447,80 @@ function ChatPanelMessageList(props: {
     frame = window.requestAnimationFrame(focusStep);
     return () => window.cancelAnimationFrame(frame);
   }, [revealedStep, scrollContextKey, taskId]);
+
+  // Coming back to the task opens the conversation where you had left off:
+  // once per return, when new messages follow the summary, the transcript
+  // moves to it the way a decision's Show does. It waits for the transcript's
+  // own first pins to the bottom to settle, which would undo an earlier move.
+  // At the end of the conversation the summary is in view already. A return
+  // is claimed once, also when it needs no move, so a reply arriving later
+  // does not pull the reader away from the bottom.
+  const returnRevealPending =
+    returnAnchorIndex !== undefined && returnArrivalAt
+      ? `${returnArrivalAt}|${returnAnchorMessageId}|${
+          returnAnchorPlacement === "after" &&
+          returnAnchorIndex === visibleMessages.length - 1
+            ? "in-view"
+            : "move"
+        }`
+      : null;
+  // A return with nothing to say once its conversation is on screen spends
+  // its move: news that shows up later (a reply while you watch) does not
+  // pull you away from where you are reading.
+  useEffect(() => {
+    if (
+      currentArrivalAt &&
+      !returnAnchorMessageId &&
+      visibleMessages.length > 0 &&
+      !taskMessagesLoading
+    ) {
+      claimReturnReveal(taskId, currentArrivalAt);
+    }
+  }, [
+    currentArrivalAt,
+    returnAnchorMessageId,
+    taskId,
+    taskMessagesLoading,
+    visibleMessages.length,
+  ]);
+  useEffect(() => {
+    if (!returnRevealPending || !returnArrivalAt || !returnAnchorMessageId) {
+      return;
+    }
+    if (!claimReturnReveal(taskId, returnArrivalAt)) {
+      return;
+    }
+    if (returnRevealPending.endsWith("|in-view")) {
+      return;
+    }
+    const messageId = returnAnchorMessageId;
+    let moved = false;
+    const timer = window.setTimeout(() => {
+      moved = true;
+      const index = visibleMessagesRef.current.findIndex(
+        (message) => message.id === messageId,
+      );
+      if (index < 0) {
+        return;
+      }
+      manualScrollIntentRef.current?.markManualScrollIntent();
+      suppressAnchorUntilRef.current =
+        Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
+      virtuosoRef.current?.scrollToIndex({
+        index,
+        align: "center",
+        behavior: "auto",
+      });
+      setRevealedStep({ messageId, target: "return-summary" });
+    }, RETURN_REVEAL_SETTLE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      // Unmounted or changed before the move ran: the next run may try again.
+      if (!moved) {
+        releaseReturnReveal(taskId, returnArrivalAt);
+      }
+    };
+  }, [returnAnchorMessageId, returnArrivalAt, returnRevealPending, taskId]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1602,6 +1729,11 @@ function ChatPanelMessageList(props: {
                 revealRequestId={
                   revealedStep?.messageId === message.id
                     ? revealedStep.requestId
+                    : undefined
+                }
+                returnSummary={
+                  message.id === returnAnchorMessageId
+                    ? returnAnchorPlacement
                     : undefined
                 }
                 modelChangeFrom={modelChangeMarkers.get(message.id)?.from}

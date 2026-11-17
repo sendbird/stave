@@ -4,9 +4,9 @@ import type { ChatMessage } from "@/types/chat";
 
 /**
  * When you leave and come back to tasks, for this app session only: nothing
- * is persisted. A return shows the task's summary until you dismiss it or
- * write to the task; after a restart, your last message stands in for the
- * last visit.
+ * is persisted. A return shows the task's summary in its conversation; Got it
+ * or writing to the task folds it into a one-line divider until the next
+ * return. After a restart, your last message stands in for the last visit.
  */
 export interface TaskArrival {
   /** When you came to the task. */
@@ -21,19 +21,22 @@ interface TaskReturnState {
   leftAtByTask: Record<string, string>;
   baselineByTask: Record<string, ReturnBaseline | null>;
   arrivalByTask: Record<string, TaskArrival | undefined>;
-  /** Arrivals whose summary was dismissed, by task. */
-  dismissedByTask: Record<string, string | undefined>;
+  /**
+   * Whether you folded or reopened the summary of a task's current arrival
+   * (`at`). Without a choice for it, the summary folds once you write.
+   */
+  collapsedByTask: Record<string, { at: string; collapsed: boolean } | undefined>;
   /** `messages`: the task's loaded conversation as you leave it. */
   noteLeft: (taskId: string, at?: string, messages?: readonly ChatMessage[]) => void;
   noteArrived: (taskId: string, at?: string) => void;
-  dismiss: (taskId: string) => void;
+  setCollapsed: (taskId: string, collapsed: boolean) => void;
 }
 
 export const useTaskReturnStore = create<TaskReturnState>((set) => ({
   leftAtByTask: {},
   baselineByTask: {},
   arrivalByTask: {},
-  dismissedByTask: {},
+  collapsedByTask: {},
   noteLeft: (taskId, at = new Date().toISOString(), messages) => {
     if (!taskId) return;
     set((state) => ({
@@ -54,8 +57,10 @@ export const useTaskReturnStore = create<TaskReturnState>((set) => ({
       },
     }));
   },
-  dismiss: (taskId) =>
-    set((state) => ({
-      dismissedByTask: { ...state.dismissedByTask, [taskId]: state.arrivalByTask[taskId]?.at },
-    })),
+  setCollapsed: (taskId, collapsed) =>
+    set((state) => {
+      const at = state.arrivalByTask[taskId]?.at;
+      if (!at) return state;
+      return { collapsedByTask: { ...state.collapsedByTask, [taskId]: { at, collapsed } } };
+    }),
 }));

@@ -260,6 +260,8 @@ export interface AppState
     taskId: string;
     toolUseId?: string;
     decision?: { messageId: string; requestId: string };
+    /** A whole message (a turn's reply), scrolled to its start. */
+    messageId?: string;
     nonce: number;
   } | null;
   scrollToLatestMessageRequest: TaskScrollToLatestRequest | null;
@@ -463,6 +465,8 @@ export interface AppState
   focusTranscriptTool: (args: { taskId: string; toolUseId: string }) => void;
   /** Reveal an approval or answer you gave, in its message, in the transcript. */
   focusTranscriptDecision: (args: { taskId: string; messageId: string; requestId: string }) => void;
+  /** Scroll the transcript to a message (a turn's reply), loading older pages as needed. */
+  focusTranscriptMessage: (args: { taskId: string; messageId: string }) => void;
   selectTask: (args: { taskId: string }) => void;
   loadTaskMessages: (args: {
     taskId: string;
