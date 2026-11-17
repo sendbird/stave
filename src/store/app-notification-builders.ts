@@ -458,6 +458,8 @@ export function buildUserInputNotificationInputs(args: {
           toolName: event.toolName,
           question,
           questionCount: event.questions.length,
+          questions: event.questions,
+          ...(event.delivery ? { delivery: event.delivery } : {}),
           requestId: event.requestId,
           messageId: location.messageId,
         },

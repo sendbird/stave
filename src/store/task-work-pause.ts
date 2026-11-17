@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
 import type { QueuedTurnAutoDispatchHold } from "@/store/queued-task-turn-dispatch";
@@ -5,9 +6,7 @@ import type { QueuedTurnAutoDispatchHold } from "@/store/queued-task-turn-dispat
 /**
  * A task whose work stopped at a provider usage limit.
  *
- * Held in memory only. After a restart the task's queue is paused anyway
- * (see {@link isQueuedTurnRestoredAfterRestart}), so nothing runs on its own
- * until the user picks it up again.
+ * Persisted with the armed reset schedule across app restarts.
  */
 export interface TaskUsageLimitPause {
   workspaceId: string;
@@ -158,4 +157,26 @@ export function resolveUsageLimitAutoResumeAt(args: {
     return null;
   }
   return Math.max(args.resetsAt, args.now) + USAGE_LIMIT_RESUME_GRACE_MS;
+}
+
+/** Untrusted saved pauses never become executable until their full shape validates. */
+export const UsageLimitPauseSchema = z.object({
+  workspaceId: z.string().min(1),
+  providerId: z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]),
+  accountProfileId: z.string().min(1).optional(),
+  model: z.string().optional(),
+  stoppedTurn: z.boolean(),
+  pausedAt: z.number().finite().nonnegative(),
+  resetsAt: z.number().finite().nonnegative().nullable(),
+  windowLabel: z.string().optional(),
+  autoResumeAt: z.number().finite().nonnegative().optional(),
+  unreadableUsageReads: z.number().int().nonnegative().optional(),
+}).strict();
+
+export function normalizeUsageLimitPauses(value: unknown): UsageLimitPauseByTask {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).flatMap(([id, pause]) => {
+    const parsed = UsageLimitPauseSchema.safeParse(pause);
+    return parsed.success ? [[id, parsed.data]] : [];
+  }));
 }

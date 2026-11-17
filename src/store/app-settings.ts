@@ -361,6 +361,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   scmAutoRefreshSeconds: number;
   confirmBeforeClose: boolean;
   nativeNotificationsEnabled: boolean;
+  notificationActionsEnabled: boolean;
+  restartContinuation: "ask" | "automatically" | "never";
   /**
    * Minutes an agent run sign-off may wait before one batched reminder; 0 turns
    * reminders off. The first request always notifies.
@@ -807,6 +809,8 @@ export const defaultSettings: AppSettings = {
   scmAutoRefreshSeconds: 0,
   confirmBeforeClose: true,
   nativeNotificationsEnabled: true,
+  notificationActionsEnabled: true,
+  restartContinuation: "ask",
   runSignOffReminderMinutes: 30,
   notificationSoundEnabled: true,
   notificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,

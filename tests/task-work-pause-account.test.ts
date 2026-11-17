@@ -321,3 +321,21 @@ describe("paused work resumes on the account selected when it resumes", () => {
     expect(h.sends[0]).toMatchObject({ providerOverride: "codex", runtimeOverrides: { codexAccountProfileId: ACCOUNT_B, model: "gpt-5.5" } });
   });
 });
+
+test("an armed reset survives a simulated restart and concurrent startup catch-up dispatches once", async () => {
+  const first = harness();
+  first.pause();
+  first.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+  const saved = JSON.stringify(first.get().usageLimitPauseByTask);
+  const restarted = harness();
+  restarted.set({ usageLimitPauseByTask: JSON.parse(saved) });
+  expect(listDueUsageLimitAutoResumes({ pauses: restarted.get().usageLimitPauseByTask, now: Date.now() + 120000 })).toEqual(["task-main"]);
+  await Promise.all([
+    restarted.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" }),
+    restarted.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" }),
+  ]);
+  expect(restarted.dispatches).toHaveLength(1);
+  expect(restarted.get().usageLimitPauseByTask["task-main"]).toBeUndefined();
+  await restarted.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+  expect(restarted.dispatches).toHaveLength(1);
+});

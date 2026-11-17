@@ -1,3 +1,8 @@
+import { tarsHoldsTask } from "@/store/tars-owned-control";
+import { canRecoverOrdinaryTask } from "@/store/restart-continuation";
+import { loadTaskMessagesPage, loadWorkspaceShellForRestore } from "@/lib/db/workspaces.db";
+import { buildWorkspaceSessionStateFromShell } from "@/store/workspace-session-state";
+import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
@@ -64,6 +69,7 @@ function readUsageLimitReset(args: {
 export function createTaskPauseActions(args: {
   set: StoreApi<AppState>["setState"];
   get: StoreApi<AppState>["getState"];
+  flushPersistence?: () => boolean;
   /** Drains a task's queue; it honours every pause, so release first. */
   dispatchNextQueuedTaskTurn: (target: { workspaceId: string; taskId: string }) => void;
 }): TaskPauseActions {
@@ -243,6 +249,27 @@ export function createTaskPauseActions(args: {
       // window (weekly after the 5-hour one) may still be out. The resume runs
       // on the account selected now, so that is the account read.
       const snapshot = await readProviderAccountUsage(get, pause.providerId, selectedProviderAccount(pause.providerId, get().settings));
+      const [shell, page, assignments, runs] = await Promise.all([
+        window.api?.persistence ? loadWorkspaceShellForRestore({ workspaceId: expected.workspaceId }) : Promise.resolve(null),
+        window.api?.persistence ? loadTaskMessagesPage({ workspaceId: expected.workspaceId, taskId, preserveStreaming: true }) : Promise.resolve({ messages: getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })?.messagesByTask[taskId] ?? [] }),
+        window.api?.agents?.listAssignments({ limit: 500 }),
+        window.api?.agentRuns?.list({ workspaceId: expected.workspaceId, includeActive: true }),
+      ]);
+      if (get().usageLimitPauseByTask[taskId] !== expected) return;
+      const task = shell?.tasks.find(row => row.id === taskId) ?? getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })?.tasks.find(row => row.id === taskId);
+      if (assignments?.ok && assignments.value.length >= 500 && !assignments.value.some(row => row.taskId === taskId)) { get().setUsageLimitAutoResume({ taskId, enabled: false }); return; }
+      const owned = Boolean(assignments?.ok && assignments.value.some(row => row.taskId === taskId && !row.endedAt)) ||
+        Boolean(runs?.agentRuns.some(run => run.leadTaskId === taskId && isActiveAgentRunState(run.state))) ||
+        await tarsHoldsTask({ taskId, workspaceId: expected.workspaceId });
+      if (!task || (window.api?.agents && !assignments?.ok) || (window.api?.agentRuns && !runs?.ok) ||
+        !canRecoverOrdinaryTask({ task, messages: page.messages, stopped: false, owned })) {
+        get().setUsageLimitAutoResume({ taskId, enabled: false });
+        return;
+      }
+      if (shell && !getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })) {
+        const restored = buildWorkspaceSessionStateFromShell({ shell, messagesByTask: { [taskId]: page.messages } });
+        set(state => ({ workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [expected.workspaceId]: { ...restored, activeTurnIdsByTask: {} } }, taskWorkspaceIdById: { ...state.taskWorkspaceIdById, [taskId]: expected.workspaceId } }));
+      }
       // The user may have resumed, cancelled or dismissed during the read.
       pause = get().usageLimitPauseByTask[taskId];
       if (!pause || pause !== expected || pause.autoResumeAt == null) {
@@ -307,6 +334,11 @@ export function createTaskPauseActions(args: {
         ? current.restoredQueueReleasedByTask
         : { ...current.restoredQueueReleasedByTask, [taskId]: true },
     }));
+
+    if (trigger === "auto" && args.flushPersistence && !args.flushPersistence()) {
+      if (pause) set(state => ({ usageLimitPauseByTask: { ...state.usageLimitPauseByTask, [taskId]: pause } }));
+      return;
+    }
 
     retargetHeldQueue(workspaceId, taskId);
     const session = getWorkspaceSessionForState({ state: get(), workspaceId });

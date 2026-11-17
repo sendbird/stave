@@ -1,3 +1,6 @@
+import { NativeNotificationResolvedSchema } from "@/lib/notifications/native-notification-contract";
+import { applyApprovalState, applyUserInputState } from "@/store/editor.utils";
+import { buildApprovalResolution } from "@/lib/approvals/approval-resolution";
 import type { StoreApi } from "zustand";
 import { createNotification as createPersistedNotification } from "@/lib/db/notifications.db";
 import { mergeNotificationIntoList } from "@/lib/notifications/notification-state";
@@ -23,6 +26,11 @@ export function createAppStoreNotificationRuntime(args: {
   get: StoreGet;
 }) {
   const { set, get } = args;
+  queueMicrotask(() => {
+    if (typeof window !== "undefined") {
+      void window.api?.notifications?.setActionsEnabled?.({ enabled: get().settings.notificationActionsEnabled });
+    }
+  });
   const attentionSync = createNotificationAttentionSync({
     getNotifications: () => get().notifications,
     markRead: (args) => get().markNotificationRead(args),
@@ -41,6 +49,34 @@ export function createAppStoreNotificationRuntime(args: {
           document.hasFocus(),
       };
     },
+  });
+
+  if (typeof window !== "undefined") window.api?.notifications?.subscribeNativeResolved?.((value) => {
+    const parsed = NativeNotificationResolvedSchema.safeParse(value);
+    if (!parsed.success) return;
+    const update = parsed.data;
+    set((state) => {
+      const active = state.activeWorkspaceId === update.workspaceId;
+      const cached = state.workspaceRuntimeCacheById[update.workspaceId];
+      const session = active ? state : cached;
+      if (!session) return state;
+      const part = session.messagesByTask[update.taskId]?.find(message => message.id === update.messageId)?.parts.find(part =>
+        (part.type === "approval" || part.type === "user_input") && part.requestId === update.requestId);
+      if (!part || (part.type === "approval" ? part.state !== "approval-requested" : part.type === "user_input" && part.state !== "input-requested")) return state;
+      const target = { messagesByTask: session.messagesByTask, workspaceSnapshotVersion: state.workspaceSnapshotVersion,
+        taskId: update.taskId, messageId: update.messageId, requestId: update.requestId };
+      const patch = update.response.type === "approval"
+        ? applyApprovalState({ ...target, approved: update.response.approved,
+          resolution: buildApprovalResolution({ approved: update.response.approved, source: "user", scope: "once", decidedAt: Date.now() }) })
+        : applyUserInputState({ ...target, answers: update.response.answers });
+      if (active) return patch;
+      if (!cached) return state;
+      return { workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById,
+        [update.workspaceId]: { ...cached, messagesByTask: patch.messagesByTask } } };
+    });
+    const state = get();
+    const session = state.activeWorkspaceId === update.workspaceId ? state : state.workspaceRuntimeCacheById[update.workspaceId];
+    if (session) attentionSync.syncTaskInteractions({ taskId: update.taskId, messages: session.messagesByTask[update.taskId] ?? [] });
   });
 
   const persistNotification = async (
@@ -107,6 +143,7 @@ export function createAppStoreNotificationRuntime(args: {
           typeof document !== "undefined" &&
           typeof document.hasFocus === "function" &&
           document.hasFocus();
+        await window.api?.notifications?.setActionsEnabled?.({ enabled: get().settings.notificationActionsEnabled });
         void window.api?.notifications?.showNative?.({
           notificationId: result.notification.id,
           title: result.notification.title,

@@ -414,6 +414,7 @@ export async function respondApproval(args: {
   taskId: string;
   requestId: string;
   approved: boolean;
+  expectedMessageId?: string;
   decidedBy?: ApprovalRuleDecider;
 }) {
   return invokeLocalMcp<{
@@ -430,6 +431,7 @@ export async function respondUserInput(args: {
   taskId: string;
   requestId: string;
   answers?: Record<string, string>;
+  expectedMessageId?: string;
   denied?: boolean;
   /** Renderer IPC only: the async answer was already sent as a user message. */
   answerDelivered?: boolean;

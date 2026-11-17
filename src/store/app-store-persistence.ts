@@ -1,3 +1,5 @@
+import { normalizeUsageLimitPauses } from "@/store/task-work-pause";
+import { captureRestartPendingTasks, emptyRestartRecovery, InterruptedTaskSchema, RestartRecoverySchema } from "@/store/restart-continuation";
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
 import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding";
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
@@ -257,12 +259,18 @@ export function createAppStorePersistenceOptions() {
       draftProvider: state.draftProvider,
       layout: state.layout,
       settings: state.settings,
+      usageLimitPauseByTask: state.usageLimitPauseByTask,
+      restartRecovery: state.restartRecovery,
+      restartPendingTasks: captureRestartPendingTasks(state),
       repositoryName: state.repositoryName,
     }),
     onRehydrateStorage: () => (state?: AppState) => {
       if (!state) {
         return;
       }
+      state.usageLimitPauseByTask = normalizeUsageLimitPauses(state.usageLimitPauseByTask);
+      state.restartRecovery = RestartRecoverySchema.safeParse(state.restartRecovery).data ?? emptyRestartRecovery();
+      state.restartPendingTasks = (Array.isArray(state.restartPendingTasks) ? state.restartPendingTasks : []).flatMap(item => { const parsed = InterruptedTaskSchema.safeParse(item); return parsed.success ? [parsed.data] : []; });
       const persistedSettings = state.settings;
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
@@ -273,6 +281,10 @@ export function createAppStorePersistenceOptions() {
         ...defaultSettings,
         ...persistedSettings,
       };
+      state.settings.restartContinuation = ["ask", "automatically", "never"].includes(state.settings.restartContinuation)
+        ? state.settings.restartContinuation : "ask";
+      state.settings.notificationActionsEnabled = typeof state.settings.notificationActionsEnabled === "boolean"
+        ? state.settings.notificationActionsEnabled : true;
       delete (
         state.settings as AppSettings & {
           appShellMode?: unknown;

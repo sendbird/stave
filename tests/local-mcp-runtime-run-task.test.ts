@@ -1,3 +1,4 @@
+import { createNativeNotificationActionResponder } from "../electron/main/native-notification-actions";
 import {
   createTurnReceipt,
   observeTurnEvent,
@@ -492,6 +493,7 @@ afterEach(() => {
 });
 
 describe("local MCP runtime runTask", () => {
+
   test("creates a new task turn without crashing on messageCountByTask", async () => {
     const result = await runtime.runTask({
       workspaceId: WORKSPACE_ID,
@@ -2095,4 +2097,42 @@ describe("local MCP runtime runTask: an Agent run's account-pool switch", () => 
     expect(lastCall().freshSession).toBeUndefined();
     await finish(next.turnId);
   });
+  test("notification actions use the real host responder and persist each decision once", async () => {
+    const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Wait for notification actions" });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "approval", requestId: "native-approval", toolName: "Bash", description: "Run check" });
+    handler?.onEvent?.({ type: "user_input", requestId: "native-question", toolName: "question", questions: [
+      { key: "scope", header: "Scope", question: "Which scope?", options: [{ label: "Focused", description: "Focused checks" }] },
+    ] });
+    let status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+    for (let i = 0; i < 30 && (!status.pendingApprovals.length || !status.pendingUserInputs.length); i += 1) {
+      await Bun.sleep(0); status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+    }
+    const delivered: unknown[] = []; let expired = 0;
+    providerRuntime.respondApproval = (async args => { delivered.push(args); return { ok: true, message: "ok" }; }) as typeof providerRuntime.respondApproval;
+    providerRuntime.respondUserInput = (async args => { delivered.push(args); return { ok: true, message: "ok" }; }) as typeof providerRuntime.respondUserInput;
+    const respond = createNativeNotificationActionResponder({ isEnabled: () => true,
+      isPending: async request => {
+        const current = await runtime.getTaskStatus({ workspaceId: request.workspaceId, taskId: request.taskId });
+        const pending = request.kind === "approval" ? current.pendingApprovals : current.pendingUserInputs;
+        return current.activeTurnId === request.turnId && pending.some(item => item.requestId === request.requestId && item.messageId === request.messageId);
+      }, respondApproval: runtime.respondApproval, respondUserInput: runtime.respondUserInput, alreadyAnswered: () => { expired++; },
+    });
+    const approval = { workspaceId: WORKSPACE_ID, taskId: first.taskId, turnId: first.turnId,
+      requestId: "native-approval", messageId: status.pendingApprovals[0]!.messageId, kind: "approval" as const, buttons: [] };
+    const question = { ...approval, kind: "question" as const, requestId: "native-question", messageId: status.pendingUserInputs[0]!.messageId };
+    await respond(approval, { type: "approval", approved: false });
+    await respond(approval, { type: "approval", approved: true });
+    await respond(question, { type: "answer", answers: { scope: "Focused" } });
+    await respond({ ...approval, requestId: "expired" }, { type: "approval", approved: true });
+    expect(delivered).toEqual([
+      { turnId: first.turnId, requestId: "native-approval", approved: false },
+      { turnId: first.turnId, requestId: "native-question", answers: { scope: "Focused" }, denied: undefined },
+    ]);
+    expect(expired).toBe(1);
+    status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+    expect(status.pendingApprovals).toHaveLength(0); expect(status.pendingUserInputs).toHaveLength(0);
+    handler?.onEvent?.({ type: "done" });
+  });
+
 });

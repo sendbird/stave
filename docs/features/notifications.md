@@ -69,6 +69,27 @@ Stave also notifies you through the operating system, but only while its window
 is not focused. While you are in Stave, the bell, the in-app toast and the sound
 already say it, whichever workspace the notification belongs to.
 
+### Answer From System Notifications
+
+On macOS, **Answer from notifications** is on by default under Desktop
+Notifications. Approval requests offer **Allow once** and **Deny**, never a
+persistent allowance. A question with one short fixed set offers up to three
+option buttons; other supported questions offer **Reply**. Each answer goes
+through the same ownership and pending-request checks as the in-app card.
+Managed requests keep their existing restrictions. An expired or answered
+request shows **Already answered**; repeated delivery changes nothing.
+Turning the setting off also disables actions on notifications already shown.
+
+Answer questions with multiple fields or multiple selections inside the app.
+Questions delivered as asynchronous messages also stay in the app: their answer
+must be sent as a follow-up task message, rather than delivered to a waiting
+provider request. Notifications preserve that guard and do not offer a shortcut
+that would record an answer without sending it.
+
+Windows and Linux keep title, body and click-to-open behavior; native action
+buttons and text replies are unavailable and the setting is hidden. Delivery
+and visible controls also depend on OS notification permissions and settings.
+
 ## Notification Sound
 
 One short sound plays when a task turn finishes and when the AI is waiting on you (a question or an approval request). This is useful when you have a long-running task in the background and want a quick audio cue.

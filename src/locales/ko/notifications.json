@@ -128,5 +128,13 @@
     "decisionRequested": "Tars가 결정을 기다립니다: {{title}}",
     "resultReady": "Tars가 결과를 준비했습니다: {{title}}",
     "blocked": "Tars에게 도움이 필요합니다: {{title}}"
+  },
+  "restart": {
+    "title": "중단된 작업을 이어갈까요?",
+    "description": "앱이 종료되면서 이 작업들이 중단되었습니다. 작업을 반복하기 전에 현재 상태를 확인합니다.",
+    "continue": "이어가기",
+    "continueAll": "모두 이어가기",
+    "dismiss": "닫기",
+    "failed": "작업을 이어가지 못했습니다. 해당 작업에서 다시 시도해 주세요."
   }
 }

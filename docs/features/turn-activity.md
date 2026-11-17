@@ -187,14 +187,25 @@ reservation moves five minutes later to read again. While reads keep failing,
 the wait doubles up to 30 minutes. Older pauses without a recorded account need
 **Resume now**.
 
-The pause and reservation last only until Stave restarts. Keep Stave open for
-**Resume at reset** to run. Nothing runs while the computer sleeps; a
-reservation whose time passed during sleep reads usage again within about a
-minute of waking and resumes if the account has usage left. After reopening,
-review the restored queue and choose **Resume**; the old reset-time
-reservation is not restored, and this
-queue action does not automatically continue the interrupted turn. Send a
-follow-up if you also want the agent to finish that turn's remaining work.
+The pause and reset-time reservation survive a restart. Nothing runs while the
+app is closed or the computer sleeps. On startup or wake, an overdue reservation
+checks current usage before resuming, with at most one catch-up in flight.
+Cancelling the reservation keeps the task paused.
+
+### Continue Interrupted Work After Restart
+
+In **Settings > General > Desktop Notifications**, choose **After a restart,
+continue interrupted work**: **Ask** (default), **Automatically**, or **Never**.
+Ask shows one notice listing interrupted ordinary tasks with **Continue all**,
+**Continue** per task, and **Dismiss**. Restored queues remain held until released.
+Automatically sends a short continuation asking the agent to check current state
+before repeating actions: a command started before closing may have finished.
+Never leaves interrupted work for you to resume manually.
+
+Automatic continuation is capped at three attempts per task in five minutes;
+further interruptions fall back to Ask. Work waiting for approval or input,
+work you stopped, and managed work are excluded. Managed work uses its own
+recovery. Explicit reset-time reservations retain their own usage checks.
 
 ### Narrow Composers
 
@@ -525,8 +536,8 @@ row when it is narrower.
 - A manually dragged floating position is stored with the layout state.
 - The details toggle's state lasts for the current run only and is not saved.
 - Queued messages are saved with the workspace. Whether a restored queue was
-  resumed, a usage-limit pause and its **Resume at reset** choice are kept in
-  memory only: after a restart the queue is paused again and you choose anew.
+  resumed follows the restart setting. Usage-limit pauses and **Resume at reset**
+  reservations are saved and restored; Ask keeps restored queues held.
 - Each turn's record is saved with the turn in the app database: at most 64
   entries and 16 KB per turn. When a turn has more, retries and stalls give way
   first, then model and account changes, then errors; the record says how many
@@ -547,7 +558,7 @@ row when it is narrower.
   the step appears, up to ten pages. If the step is no longer in the
   conversation, is further back than that, or earlier messages fail to load,
   a notice says so.
-- **Resume at reset** runs only while Stave is open. A usage limit is
+- **Resume at reset** runs while Stave is open and catches up after reopening. A usage limit is
   recognized from the provider's own limit message; a short per-request
   throttle is not treated as one.
 - `Headroom` reports remaining context only when the provider states it. A

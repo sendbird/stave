@@ -105,6 +105,7 @@ interface TaskRuntimeTarget {
 export function createProviderInteractionActions(args: {
   set: StoreSet;
   get: StoreGet;
+  flushPersistence?: () => boolean;
   clearProviderTurnStallTimer: (taskId: string) => void;
   scheduleProviderTurnStallTimer: (args: {
     taskId: string;
@@ -207,6 +208,10 @@ export function createProviderInteractionActions(args: {
             return true;
           },
         );
+      }
+      if (activeTurnId) {
+        set(state => ({ restartRecovery: { ...state.restartRecovery, stoppedTurnIds: [...new Set([...state.restartRecovery.stoppedTurnIds, activeTurnId])].slice(-10000) } }));
+        args.flushPersistence?.();
       }
       const pendingStops: Promise<unknown>[] = [];
       clearProviderTurnStallTimer(taskId);

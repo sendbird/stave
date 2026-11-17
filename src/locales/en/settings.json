@@ -71,6 +71,17 @@
       "afterMinutes_other": "After {{count}} minutes",
       "afterHours_one": "After {{count}} hour",
       "afterHours_other": "After {{count}} hours"
+    },
+    "actions": {
+      "title": "Answer from notifications",
+      "description": "Answer approval requests and questions from system notifications on supported platforms."
+    },
+    "restart": {
+      "title": "After a restart, continue interrupted work",
+      "description": "Choose what happens to ordinary tasks interrupted when the app closed. Managed work follows its own recovery.",
+      "ask": "Ask",
+      "automatically": "Automatically",
+      "never": "Never"
     }
   },
   "turnActivityFields": {

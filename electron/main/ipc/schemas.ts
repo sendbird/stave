@@ -728,6 +728,8 @@ export const ShowNativeNotificationArgsSchema = z
   })
   .strict();
 
+export const SetNotificationActionsEnabledArgsSchema = z.object({ enabled: z.boolean() }).strict();
+
 export const SetNotificationBadgeArgsSchema = z
   .object({
     count: z.number().int().min(0).max(999_999),

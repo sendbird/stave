@@ -676,7 +676,7 @@ const SHOTS = [
   {
     name: "queue-usage-limit",
     async capture({ page, locale, file }) {
-      await openPreview(page, locale, "composer-frame&case=limited&theme=dark");
+      await openPreview(page, locale, "composer-frame&case=limited&theme=dark&w=1100");
       await quietChrome(page);
       await page.getByTestId("composer-shelf-usage-limit").waitFor();
       await save(page, null, file, { clip: await unionClip(page, [page.getByTestId("composer-shelf"), page.getByTestId("composer-workspace-bar")], 16) });

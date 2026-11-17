@@ -15,8 +15,8 @@ const MIN_AUTO_RESUME_WAIT_MS = 1_000;
 
 /**
  * Resumes tasks whose usage-limit pause was armed with "Resume at reset".
- * Mounted once at the app root; it runs only while Stave is open, which is
- * what the shelf line promises.
+ * Mounted once at the app root. Saved reset times catch up after a restart;
+ * the action consumes each reservation durably before dispatching work.
  */
 export function useUsageLimitAutoResume() {
   const pauses = useAppStore((state) => state.usageLimitPauseByTask);
