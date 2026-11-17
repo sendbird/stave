@@ -459,15 +459,32 @@ An unseen dot on task tabs, sidebar tasks and Fleet rows means a finished or
 failed result, or a request for attention, has not been seen. Opening a task
 in the focused window reads it; merely expanding a Fleet row does not.
 Use **Mark as unread** to return to a task later, or **Mark as read** to clear
-its dot. Fleet offers both actions for the selected tasks.
+its dot. Fleet's selection **More** menu offers **Mark as read (n)** and
+**Mark as unread (n)** for the selected tasks, saved in one write. An unread
+mark stays after the window regains focus; it clears when you open the task
+again.
 
 The latest output's existing read mark is the source of truth for completion
 reading. Reading a task reads its latest output and attention notification history without
 approving a request, resolving a blocker or explicitly marking a result as
 reviewed. Marking a task unread also marks its latest output unread. The
-separate manual mark covers tasks without an output. These marks survive
+task's completion notifications follow the same mark, so the notification
+count changes with it. The separate manual mark covers tasks without an
+output. These marks survive
 restarts; reading an older output cannot hide a newer unread completion.
 
-Pin tasks from Task History or the sidebar task menu to keep them first.
-Task pins are separate from pane tab pins. Task History defaults to activity
-order. Drag a task onto another task, or focus its row and press `Alt + Up/Down`, to establish manual order. Later activity does not reset that order. Reordering stays within the displayed subset and does not cross pinned and unpinned groups.
+Pin tasks from Task History or the sidebar task row. Task pins are separate
+from pane tab pins. In Task History, pinned tasks come first. In the sidebar,
+running and waiting tasks still come first, and a pin lifts a task within its
+status.
+
+Task History defaults to activity order. Drag a task onto another task, or
+focus its row and press `Alt + Up/Down`, to place it. A placed task keeps its
+position when its activity changes; tasks you have not placed, including new
+and newly closed ones, still enter by activity. Under a search, a moved task
+lands between the visible tasks around it. **Reset order** returns every task
+to activity order. Pinning or reordering another workspace's history does not
+switch to that workspace; only reopening a task does.
+
+Under each workspace, the sidebar lists open tasks only when one is running,
+waiting, unread or pinned, at most three, with the rest behind **+N more**.
