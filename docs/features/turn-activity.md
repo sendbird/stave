@@ -202,10 +202,25 @@ Automatically sends a short continuation asking the agent to check current state
 before repeating actions: a command started before closing may have finished.
 Never leaves interrupted work for you to resume manually.
 
+The continuation also asks the agent to check whether an irreversible action
+(push, deploy, delete, send messages, run migrations) already ran before
+repeating it.
+
+Only a turn that the app's closing cut short is offered. Reloading the window,
+or recovering it after a crash, does not count: Stave asks its background
+process which turns are still running and never starts a second turn beside a
+running one, or for a task that started a newer turn since.
+
 Automatic continuation is capped at three attempts per task in five minutes;
 further interruptions fall back to Ask. Work waiting for approval or input,
-work you stopped, and managed work are excluded. Managed work uses its own
-recovery. Explicit reset-time reservations retain their own usage checks.
+work you stopped, and managed work are excluded, and each such turn is decided
+once and not looked at again on later starts. Interruptions older than a day,
+and turns from before this setting existed, are not offered. Managed work uses
+its own recovery. Explicit reset-time reservations retain their own usage
+checks; when Stave cannot confirm the task is free to resume (for example its
+agent assignments cannot be read), the reservation tries again later, waiting
+longer each time, and after about an hour turns **Resume at reset** off with a
+note so you can resume by hand.
 
 ### Narrow Composers
 

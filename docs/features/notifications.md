@@ -73,11 +73,24 @@ already say it, whichever workspace the notification belongs to.
 
 On macOS, **Answer from notifications** is on by default under Desktop
 Notifications. Approval requests offer **Allow once** and **Deny**, never a
-persistent allowance. A question with one short fixed set offers up to three
-option buttons; other supported questions offer **Reply**. Each answer goes
-through the same ownership and pending-request checks as the in-app card.
-Managed requests keep their existing restrictions. An expired or answered
-request shows **Already answered**; repeated delivery changes nothing.
+persistent allowance. The banner cuts off long text, so **Allow once** appears
+only when the whole request fits: a request flagged as risky, or whose tool and
+command or description run past 80 characters, offers **Open to review** and
+**Deny** instead, and you allow it in Stave after reading it.
+
+A question with one short fixed set offers up to three option buttons. Other
+questions offer **Reply** only where the in-app card offers a text field: a
+fixed set that does not take a custom answer, and an MCP request that only asks
+you to accept, open the app instead. A number or whole-number question accepts
+only a valid number; anything else is not sent. Each answer goes through the
+same ownership and pending-request checks as the in-app card. Managed requests
+keep their existing restrictions.
+
+An expired or answered request shows **Already answered**; repeated delivery
+changes nothing. When Stave cannot confirm the request or deliver the answer,
+for example while it is saving or restarting, it shows **Could not answer —
+open Stave**, and the buttons stay usable so you can try again. An answer from a
+notification clears **Needs you** on the task, as an answer in the app does.
 Turning the setting off also disables actions on notifications already shown.
 
 Answer questions with multiple fields or multiple selections inside the app.
