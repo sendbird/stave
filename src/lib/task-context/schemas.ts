@@ -577,7 +577,7 @@ const TaskSchema = z.object({
   updatedAt: z.string(),
   unread: z.boolean(),
   pinned: z.boolean().optional(),
-  manualOrder: z.number().int().nonnegative().optional(),
+  historyOrderKey: z.number().finite().optional(),
   archivedAt: z
     .string()
     .nullable()

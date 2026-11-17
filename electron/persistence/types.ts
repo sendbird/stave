@@ -24,8 +24,12 @@ export interface PersistenceTaskRow {
   updatedAt: string;
   unread: boolean;
   pinned?: boolean;
-  /** Set only after a deliberate reorder; absent keeps activity ordering. */
-  manualOrder?: number;
+  /**
+   * Task History position, set only when the user places the task. It shares a
+   * scale with `updatedAt` milliseconds, so unplaced tasks sort by activity
+   * among placed ones. Absent keeps activity order; the sidebar ignores it.
+   */
+  historyOrderKey?: number;
   archivedAt?: string | null;
   controlMode?: "interactive" | "managed";
   controlOwner?: "stave" | "external";

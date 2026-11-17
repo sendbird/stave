@@ -79,10 +79,11 @@
     "confirmDeleteTitle_other": "Delete {{count}} tasks permanently?",
     "confirmDeleteDescription": "This cannot be undone. Only archived or ended tasks without running work can be deleted. Protected tasks will be skipped.",
     "cancel": "Cancel",
-    "pinTask": "Pin task",
-    "unpinTask": "Unpin task",
+    "pinTask": "Pin {{title}}",
+    "unpinTask": "Unpin {{title}}",
+    "resetOrder": "Reset order",
     "reorderHint": "Drag tasks to reorder, or focus a row and press Alt + ↑ / ↓.",
-    "openWorkspaceToPin": "Open this workspace to pin tasks."
+    "pinFailed": "Could not load this workspace's tasks. Try again."
   },
   "workspacePaneHost": {
     "icon": "Icon",
@@ -193,7 +194,8 @@
   "terminalSurfacePanel.clear": "Clear terminal",
   "taskReading": {
     "unread": "Unread task updates",
-    "menu": "Task read actions",
+    "menu": "Read actions for {{title}}",
+    "unreadName": "{{name}}, unread",
     "markRead": "Mark as read",
     "markUnread": "Mark as unread",
     "failed": "Could not save the read state. Try again."

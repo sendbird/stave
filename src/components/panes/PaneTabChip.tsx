@@ -1,4 +1,5 @@
 import { TaskUnreadDot } from "@/components/session/TaskReadIndicator";
+import { useTaskUnread } from "@/lib/task-read-state-client";
 import { i18n, useTranslation } from "@/i18n";
 import { Input as AuiInput } from "@/components/ui/input";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -506,12 +507,15 @@ function TaskTabAccessibleName(args: {
   const provider = taskChip.provider
     ? (PROVIDER_IDENTITIES[taskChip.provider]?.shortLabel ?? null)
     : null;
-  const name = describePaneTabAccessibleName({ title: args.title, provider, status });
+  const workspaceId = useAppStore(state => state.activeWorkspaceId);
+  const unread = useTaskUnread(workspaceId, args.taskId);
+  const name = describePaneTabAccessibleName({ title: args.title, provider, status, unread });
   useLayoutEffect(() => setTabAccessibleName(args.rootRef, name), [args.rootRef, name]);
   return null;
 }
 
 function TaskUnreadSlot({ taskId }: { taskId: string }) {
   const workspaceId = useAppStore(state => state.activeWorkspaceId);
-  return <TaskUnreadDot workspaceId={workspaceId} taskId={taskId} />;
+  // The tab's own name says "unread" (TaskTabAccessibleName), so the dot is decorative.
+  return <TaskUnreadDot workspaceId={workspaceId} taskId={taskId} decorative />;
 }

@@ -235,14 +235,94 @@ function moveArrayItem<T>(items: T[], fromIndex: number, toIndex: number) {
   return nextItems;
 }
 
-export function compareTaskListOrder(left: Pick<Task, "pinned" | "manualOrder" | "updatedAt">, right: Pick<Task, "pinned" | "manualOrder" | "updatedAt">) {
-  const pinOrder = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
-  if (pinOrder) return pinOrder;
-  if (left.manualOrder !== undefined || right.manualOrder !== undefined) {
-    return (left.manualOrder ?? Number.MAX_SAFE_INTEGER) - (right.manualOrder ?? Number.MAX_SAFE_INTEGER)
-      || right.updatedAt.localeCompare(left.updatedAt);
+type HistoryOrderFields = Pick<Task, "id" | "pinned" | "historyOrderKey" | "updatedAt">;
+
+/**
+ * Task History position. A task the user placed keeps its stored key; every
+ * other task uses its last activity, so new and newly closed tasks enter by
+ * activity instead of sinking below placed ones.
+ */
+export function effectiveHistoryOrderKey(task: Pick<Task, "historyOrderKey" | "updatedAt">) {
+  return task.historyOrderKey ?? (Date.parse(task.updatedAt) || 0);
+}
+
+/** Task History order: pinned first, then the newest effective key. */
+export function compareTaskHistoryOrder(left: HistoryOrderFields, right: HistoryOrderFields) {
+  return Number(Boolean(right.pinned)) - Number(Boolean(left.pinned))
+    || effectiveHistoryOrderKey(right) - effectiveHistoryOrderKey(left)
+    || right.updatedAt.localeCompare(left.updatedAt)
+    || left.id.localeCompare(right.id);
+}
+
+/**
+ * Moves `activeTaskId` to `overTaskId`'s place in Task History by giving it a
+ * key between its new visible neighbours. Hidden tasks and array order are
+ * untouched, so filters, prepends and new tasks never shift a placement.
+ */
+export function placeTaskInHistory(args: {
+  tasks: Task[];
+  activeTaskId: string;
+  overTaskId: string;
+  /** The rows the user sees, in any order; neighbours come from these only. */
+  visibleTaskIds: readonly string[];
+  now?: number;
+}): Task[] {
+  if (args.activeTaskId === args.overTaskId) return args.tasks;
+  const visibleIds = new Set(args.visibleTaskIds);
+  const visible = args.tasks.filter(task => visibleIds.has(task.id) && !isDelegatedTask(task)).sort(compareTaskHistoryOrder);
+  const from = visible.findIndex(task => task.id === args.activeTaskId);
+  const to = visible.findIndex(task => task.id === args.overTaskId);
+  if (from < 0 || to < 0 || Boolean(visible[from]!.pinned) !== Boolean(visible[to]!.pinned)) return args.tasks;
+  const moved = moveArrayItem(visible, from, to);
+  const pinned = Boolean(visible[from]!.pinned);
+  const group = moved.filter(task => Boolean(task.pinned) === pinned);
+  const index = group.findIndex(task => task.id === args.activeTaskId);
+  const previous = group[index - 1];
+  const next = group[index + 1];
+  const keys = new Map<string, number>();
+  if (previous && next) {
+    const high = effectiveHistoryOrderKey(previous);
+    const low = effectiveHistoryOrderKey(next);
+    const middle = (high + low) / 2;
+    if (middle < high && middle > low) keys.set(args.activeTaskId, middle);
+    else {
+      // No room left between equal or adjacent keys: space the visible group out.
+      const top = Math.max(...group.map(effectiveHistoryOrderKey));
+      group.forEach((task, position) => keys.set(task.id, top - position));
+    }
+  } else if (next) {
+    keys.set(args.activeTaskId, Math.max(args.now ?? Date.now(), effectiveHistoryOrderKey(next) + 1));
+  } else if (previous) {
+    keys.set(args.activeTaskId, effectiveHistoryOrderKey(previous) - 1);
+  } else {
+    return args.tasks;
   }
-  return right.updatedAt.localeCompare(left.updatedAt);
+  return args.tasks.map(task => keys.has(task.id) ? { ...task, historyOrderKey: keys.get(task.id)! } : task);
+}
+
+/** "Reset order": every task returns to activity order. */
+export function resetTaskHistoryOrder(tasks: Task[]): Task[] {
+  if (!tasks.some(task => task.historyOrderKey !== undefined)) return tasks;
+  return tasks.map(task => {
+    if (task.historyOrderKey === undefined) return task;
+    const { historyOrderKey: _key, ...rest } = task;
+    return rest;
+  });
+}
+
+/**
+ * Fields only the renderer writes. A persisted copy read back from the host can
+ * predate the renderer's save debounce, so it never overrides them.
+ */
+export function keepRendererOwnedTaskFields(persisted: Task, current: Task): Task {
+  const { pinned: _pinned, historyOrderKey: _key, ...rest } = persisted;
+  return {
+    ...rest,
+    title: current.title,
+    titleManuallySet: current.titleManuallySet,
+    ...(current.pinned ? { pinned: true } : {}),
+    ...(current.historyOrderKey !== undefined ? { historyOrderKey: current.historyOrderKey } : {}),
+  };
 }
 
 export function reorderTasksWithinFilter(args: {
@@ -250,7 +330,6 @@ export function reorderTasksWithinFilter(args: {
   activeTaskId: string;
   overTaskId: string;
   filter: TaskFilter;
-  visibleTaskIds?: readonly string[];
 }) {
   if (args.activeTaskId === args.overTaskId) {
     return args.tasks;
@@ -259,14 +338,12 @@ export function reorderTasksWithinFilter(args: {
   const visibleTasks = getVisibleTasks({
     tasks: args.tasks,
     filter: args.filter,
-  }).filter(task => !args.visibleTaskIds || args.visibleTaskIds.includes(task.id));
-  // Existing callers reorder storage order. History supplies the displayed subset.
-  if (args.visibleTaskIds) visibleTasks.sort(compareTaskListOrder);
+  });
   const fromIndex = visibleTasks.findIndex(
     (task) => task.id === args.activeTaskId,
   );
   const toIndex = visibleTasks.findIndex((task) => task.id === args.overTaskId);
-  if (fromIndex < 0 || toIndex < 0 || Boolean(visibleTasks[fromIndex]?.pinned) !== Boolean(visibleTasks[toIndex]?.pinned)) {
+  if (fromIndex < 0 || toIndex < 0) {
     return args.tasks;
   }
 
@@ -276,14 +353,14 @@ export function reorderTasksWithinFilter(args: {
   }
 
   let reorderedVisibleIndex = 0;
-  return args.tasks.map((task, index) => {
-    if (!matchesTaskFilter({ task, filter: args.filter }) || (args.visibleTaskIds && !args.visibleTaskIds.includes(task.id))) {
+  return args.tasks.map((task) => {
+    if (!matchesTaskFilter({ task, filter: args.filter })) {
       return task;
     }
 
     const nextTask = reorderedVisibleTasks[reorderedVisibleIndex];
     reorderedVisibleIndex += 1;
-    return nextTask ? { ...nextTask, manualOrder: index } : task;
+    return nextTask ?? task;
   });
 }
 
@@ -300,7 +377,8 @@ export function getTaskCounts(args: {
 }
 
 /**
- * The set of past tasks Task History has to offer, most recently updated first.
+ * The set of past tasks Task History has to offer: pinned first, then by each
+ * task's placed position or, if never placed, its last activity.
  *
  * A task qualifies when it is archived, or when it is still live but no longer
  * occupies a pane tab. That second case is the one an archived-only list used
@@ -327,7 +405,7 @@ export function selectTaskHistoryEntries(args: {
       );
   return tasks
     .filter((task) => isTaskArchived(task) || !openTaskIds.has(task.id))
-    .sort(compareTaskListOrder);
+    .sort(compareTaskHistoryOrder);
 }
 
 export function filterTasksByName(args: { tasks: Task[]; query: string }) {

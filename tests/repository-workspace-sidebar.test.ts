@@ -986,16 +986,21 @@ describe("workspace progress task tree", () => {
   });
 });
 
-test("idle sidebar preserves pin/activity order and excludes closed, archived and delegated tasks", () => {
+test("sidebar keeps status order, puts pins first within a status and ignores history order", () => {
+  const base = { provider: "codex" as const, archivedAt: null };
   const tasks = [
-    { id: "new", title: "Newest", provider: "codex" as const, updatedAt: "2026-11-17", archivedAt: null },
-    { id: "pinned", title: "Pinned", provider: "codex" as const, updatedAt: "2026-11-15", archivedAt: null, pinned: true },
-    { id: "old", title: "Older", provider: "codex" as const, updatedAt: "2026-11-16", archivedAt: null },
-    { id: "closed", title: "Closed", provider: "codex" as const, updatedAt: "2026-11-18", archivedAt: null },
-    { id: "archived", title: "Archived", provider: "codex" as const, updatedAt: "2026-11-18", archivedAt: "2026-11-18" },
-    { id: "child", title: "Child", provider: "codex" as const, updatedAt: "2026-11-18", archivedAt: null, parentTaskId: "new" },
+    { ...base, id: "new", title: "Newest", updatedAt: "2026-11-17" },
+    { ...base, id: "pinned", title: "Pinned", updatedAt: "2026-11-15", pinned: true },
+    { ...base, id: "reopened", title: "Reopened", updatedAt: "2026-11-10", historyOrderKey: Date.parse("2027-01-01") },
+    { ...base, id: "approval", title: "Needs approval", updatedAt: "2026-11-01" },
+    { ...base, id: "closed", title: "Closed", updatedAt: "2026-11-18" },
+    { ...base, id: "archived", title: "Archived", updatedAt: "2026-11-18", archivedAt: "2026-11-18" },
+    { ...base, id: "child", title: "Child", updatedAt: "2026-11-18", parentTaskId: "new" },
   ];
+  const approvalMessage = { id: "m", role: "assistant", model: "codex", providerId: "codex", content: "", isStreaming: false,
+    parts: [{ type: "approval", toolName: "bash", requestId: "r", description: "Run", state: "approval-requested" }] };
   expect(buildWorkspaceProgressTaskItems({
-    tasks, openTaskTabIds: ["new", "pinned", "old", "archived", "child"],
-  }).map(task => task.taskId)).toEqual(["pinned", "new", "old"]);
+    tasks, openTaskTabIds: ["new", "pinned", "reopened", "approval", "archived", "child"],
+    messagesByTask: { approval: [approvalMessage] } as never,
+  }).map(task => task.taskId)).toEqual(["approval", "pinned", "new", "reopened"]);
 });

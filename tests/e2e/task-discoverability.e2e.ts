@@ -19,8 +19,8 @@ for (const width of [1440, 1024]) {
         expect(row.center).toBeLessThanOrEqual(1);
         expect(row.contained).toBe(true);
       }
-      await mkdir("/tmp/gap-h1/after", { recursive: true });
-      await hints.screenshot({ path: `/tmp/gap-h1/after/hints-${language}-${theme}-${width}.png` });
+      await mkdir("/tmp/gap-h1/after2", { recursive: true });
+      await hints.screenshot({ path: `/tmp/gap-h1/after2/hints-${language}-${theme}-${width}.png` });
       await hints.locator('[data-feature-hint="steering"]').getByRole("button").click();
       await expect(hints.locator('[data-feature-hint="steering"]')).toHaveCount(0);
       await hints.locator('[data-feature-hint="checkpoints"]').getByRole("button").click();
@@ -30,7 +30,7 @@ for (const width of [1440, 1024]) {
       await expect(dialog).toBeVisible();
       await expect(dialog.getByText(language === "en" ? "Diagnostics and storage" : "진단 및 저장 공간", { exact: true })).toHaveCount(0);
       await expect(dialog.getByText(language === "en" ? "Memory diagnostics and storage" : "메모리 진단 및 저장 공간", { exact: true })).toHaveCount(0);
-      await page.screenshot({ path: `/tmp/gap-h1/after/resources-${language}-${theme}-${width}.png` });
+      await page.screenshot({ path: `/tmp/gap-h1/after2/resources-${language}-${theme}-${width}.png` });
       expect(await dialog.evaluate((node) => node.getBoundingClientRect().right <= innerWidth)).toBe(true);
     });
 
@@ -45,8 +45,8 @@ for (const width of [1440, 1024]) {
       }
       await input.fill("resources");
       await page.evaluate(() => document.fonts.ready);
-      await mkdir("/tmp/gap-h1/after", { recursive: true });
-      await page.screenshot({ path: `/tmp/gap-h1/after/palette-${language}-${theme}-${width}.png` });
+      await mkdir("/tmp/gap-h1/after2", { recursive: true });
+      await page.screenshot({ path: `/tmp/gap-h1/after2/palette-${language}-${theme}-${width}.png` });
     });
   }
 }

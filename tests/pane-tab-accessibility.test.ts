@@ -39,6 +39,13 @@ describe("pane tab names", () => {
     expect(describePaneTabAccessibleName({ title: "Terminal" })).toBe("Terminal");
   });
 
+  test("an unread task tab says so in its name", () => {
+    expect(describePaneTabAccessibleName({ title: "Persist sidebar state", provider: "Claude", status: "awaitingApproval", unread: true }))
+      .toBe("Persist sidebar state, Claude, awaiting approval, unread");
+    expect(describePaneTabAccessibleName({ title: "Stabilize e2e", unread: true })).toBe("Stabilize e2e, unread");
+    expect(describePaneTabAccessibleName({ title: "Stabilize e2e", unread: false })).toBe("Stabilize e2e");
+  });
+
   test("status prefers the person-facing wait over working", () => {
     expect(resolvePaneTabTaskStatus({ isResponding: true, isStalled: false, waiting: "approval" })).toBe("awaitingApproval");
     expect(resolvePaneTabTaskStatus({ isResponding: true, isStalled: false, waiting: "user_input" })).toBe("awaitingInput");

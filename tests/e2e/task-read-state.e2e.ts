@@ -48,7 +48,7 @@ for (const locale of ["en", "ko"] as const) for (const width of [1440, 1024]) {
  await first.getByRole('button', {name: locale === "en" ? "Task read actions" : "작업 읽음 메뉴"}).click();
  await page.getByRole('menuitem', {name: locale === "en" ? "Mark as unread" : "읽지 않음으로 표시", exact:true}).click();
  await expect(first.locator('[data-task-unread="Alpha"]')).toBeVisible();
- await page.screenshot({path: `/tmp/gap-h1/after/history-${locale}-${width}.png`});
+ await page.screenshot({path: `/tmp/gap-h1/after2/history-${locale}-${width}.png`});
  const saved = await page.evaluate(() => window.localStorage.getItem("stave:task-read-marks:v1"));
  expect(saved).toContain("Alpha");
  await first.getByRole('button', {name: locale === "en" ? "Task read actions" : "작업 읽음 메뉴"}).click();

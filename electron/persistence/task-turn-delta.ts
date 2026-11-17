@@ -57,7 +57,7 @@ export function mergeTaskTurnDeltaPayload(args: {
                 title: task.title,
                 titleManuallySet: task.titleManuallySet,
                 pinned: task.pinned,
-                manualOrder: task.manualOrder,
+                historyOrderKey: task.historyOrderKey,
                 // Renderer-owned lifecycle wins over the host's cached copy.
                 archivedAt: task.archivedAt ?? args.task!.archivedAt ?? null,
               }

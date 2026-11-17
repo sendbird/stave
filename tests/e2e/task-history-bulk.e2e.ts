@@ -125,6 +125,6 @@ for (const options of [{ locale: "en", dark: false, width: 1440 }, { locale: "ko
       .toEqual(["Beta", "Alpha", "Gamma"]);
     const contained = await rows.evaluateAll(nodes => nodes.every(node => node.scrollWidth <= node.clientWidth));
     expect(contained).toBe(true);
-    await page.screenshot({ path: `/tmp/gap-h1/after/history-order-${options.locale}-${options.width}.png` });
+    await page.screenshot({ path: `/tmp/gap-h1/after2/history-order-${options.locale}-${options.width}.png` });
   });
 }

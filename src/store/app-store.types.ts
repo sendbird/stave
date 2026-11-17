@@ -547,11 +547,19 @@ export interface AppState
     dryRun: boolean;
   }) => Promise<ClaudeFileRewindResponse>;
   pinTask: (args: { taskId: string; pinned: boolean; workspaceId?: string }) => void;
+  /** Places a task between its visible Task History neighbours; never switches workspace. */
+  reorderTaskHistory: (args: {
+    workspaceId?: string;
+    activeTaskId: string;
+    overTaskId: string;
+    visibleTaskIds: readonly string[];
+  }) => void;
+  /** Returns Task History to activity order. */
+  resetTaskHistoryOrder: (args: { workspaceId?: string }) => void;
   reorderTasks: (args: {
     activeTaskId: string;
     overTaskId: string;
     filter: TaskFilter;
-    visibleTaskIds?: readonly string[];
   }) => void;
   exportTask: (args: { taskId: string }) => Promise<void>;
   viewTaskChanges: (args: { taskId: string }) => Promise<void>;

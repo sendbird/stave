@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Checkbox } from "@/components/aui/components/Checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { deleteFleetTask } from "@/lib/fleet/task-control-client";
+import { ensureFleetWorkspace } from "@/lib/fleet/archive-client";
 import { reconcileFleetSelection, toggleFleetSelection } from "@/lib/fleet/selection";
 import { toast } from "@/lib/notifications/toast";
 import { useShallow } from "zustand/react/shallow";
@@ -191,18 +192,38 @@ export function TaskHistoryDrawer(args: {
     }
   }
 
+  /**
+   * Pins and order are this workspace's preferences: they load it into the
+   * runtime cache when needed but never switch to it. Only reopening switches.
+   */
+  async function loadTargetWorkspace() {
+    if (!targetWorkspaceId) return false;
+    try {
+      await ensureFleetWorkspace({ workspaceId: targetWorkspaceId });
+      return true;
+    } catch {
+      toast(i18n.t("panes:taskHistoryDrawer.pinFailed"));
+      return false;
+    }
+  }
+
   async function reorderTask(taskId: string, overTaskId: string) {
-    if (busy || taskId === overTaskId) return;
-    await activateTargetWorkspace();
-    useAppStore.getState().reorderTasks({
-      activeTaskId: taskId, overTaskId, filter: "all",
+    if (busy || taskId === overTaskId || !(await loadTargetWorkspace())) return;
+    useAppStore.getState().reorderTaskHistory({
+      workspaceId: targetWorkspaceId ?? undefined,
+      activeTaskId: taskId, overTaskId,
       visibleTaskIds: filteredTasks.map(task => task.id),
     });
   }
 
   async function togglePin(task: Task) {
-    await activateTargetWorkspace();
-    useAppStore.getState().pinTask({ taskId: task.id, pinned: !task.pinned });
+    if (!(await loadTargetWorkspace())) return;
+    useAppStore.getState().pinTask({ workspaceId: targetWorkspaceId ?? undefined, taskId: task.id, pinned: !task.pinned });
+  }
+
+  async function resetOrder() {
+    if (busy || !(await loadTargetWorkspace())) return;
+    useAppStore.getState().resetTaskHistoryOrder({ workspaceId: targetWorkspaceId ?? undefined });
   }
 
   async function reopenTask(task: Task) {
@@ -295,7 +316,14 @@ export function TaskHistoryDrawer(args: {
               {i18n.t("panes:taskHistoryDrawer.deleteSelected", { count: filteredTasks.filter(task => selectedIds.has(task.id) && task.archivedAt).length })}
             </Button>
           </div>
-          <span>{i18n.t("panes:taskHistoryDrawer.reorderHint")}</span>
+          <div className={sx(styles.orderRow)}>
+            <span className={sx(styles.orderHint)}>{i18n.t("panes:taskHistoryDrawer.reorderHint")}</span>
+            {historyTasks.some(task => task.historyOrderKey !== undefined) ? (
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void resetOrder()}>
+                {i18n.t("panes:taskHistoryDrawer.resetOrder")}
+              </Button>
+            ) : null}
+          </div>
           <Input
             className={sx(styles.search)}
             placeholder={i18n.t("panes:taskHistoryDrawer.searchTasks")}
@@ -392,9 +420,9 @@ export function TaskHistoryDrawer(args: {
                   </div>
                   </div>
                   <div className={sx(styles.rowActions)}>
-                  <TaskReadMenu workspaceId={targetWorkspaceId ?? ""} taskId={task.id} />
+                  <TaskReadMenu workspaceId={targetWorkspaceId ?? ""} taskId={task.id} title={task.title} />
                   <Button size="sm" variant="ghost" disabled={busy}
-                    aria-label={i18n.t(task.pinned ? "panes:taskHistoryDrawer.unpinTask" : "panes:taskHistoryDrawer.pinTask")}
+                    aria-label={i18n.t(task.pinned ? "panes:taskHistoryDrawer.unpinTask" : "panes:taskHistoryDrawer.pinTask", { title: task.title })}
                     onClick={() => void togglePin(task)}>
                     {task.pinned ? <PinOff className={sx(styles.icon)} /> : <Pin className={sx(styles.icon)} />}
                   </Button>
@@ -447,6 +475,8 @@ export function TaskHistoryDrawer(args: {
 const styles = stylex.create({
 selectionControl: {gridRow:"1 / 3",minInlineSize:vars["--aui-space-24"],minBlockSize:vars["--aui-space-24"]},
 bulkActions: {display:"flex",alignItems:"center",flexWrap:"wrap",gap:vars["--aui-space-8"],marginTop:vars["--aui-space-12"]},
+orderRow: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:vars["--aui-space-8"],marginTop:vars["--aui-space-8"],minWidth:0},
+orderHint: {minWidth:0,fontSize:vars["--aui-font-size-caption"],color:vars["--aui-color-text-muted"]},
 drawer: {width:"min(28rem, 92vw)",maxWidth:448},
 header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars["--aui-color-border"],padding:vars["--aui-space-20"],textAlign:"left"},
 search: {marginTop:vars["--aui-space-12"],height:36,borderRadius:vars["--aui-radius-control"],borderColor:vars["--aui-color-border"]},

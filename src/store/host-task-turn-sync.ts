@@ -4,7 +4,7 @@ import {
   loadWorkspaceShellForRestore,
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
-import { appendOpenTaskTabForHostCreatedTask } from "@/lib/tasks";
+import { appendOpenTaskTabForHostCreatedTask, keepRendererOwnedTaskFields } from "@/lib/tasks";
 import { WORKSPACE_APP_SURFACE, type AppActiveSurface } from "@/store/app-surface";
 import {
   reduceProviderTurnActivityEvents,
@@ -172,7 +172,7 @@ function mergePersistedTaskIntoSession(args: {
       )
         ? args.currentSession.tasks.map((task) =>
             task.id === args.update.taskId
-              ? { ...persistedTask, title: task.title, titleManuallySet: task.titleManuallySet }
+              ? keepRendererOwnedTaskFields(persistedTask, task)
               : task,
           )
         : [persistedTask, ...args.currentSession.tasks],

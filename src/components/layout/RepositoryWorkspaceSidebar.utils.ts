@@ -1,4 +1,3 @@
-import { compareTaskListOrder } from "@/lib/tasks";
 import { i18n } from "@/i18n";
 import type {
   FleetAttentionItem,
@@ -586,7 +585,7 @@ export interface WorkspaceProgressTaskItem {
 
 type WorkspaceProgressTaskSource = Pick<
   Task,
-  "id" | "title" | "provider" | "updatedAt" | "archivedAt" | "parentTaskId" | "pinned" | "manualOrder"
+  "id" | "title" | "provider" | "updatedAt" | "archivedAt" | "parentTaskId" | "pinned"
 >;
 
 /**
@@ -652,17 +651,17 @@ export function buildWorkspaceProgressTaskItems(args: {
         }),
         updatedAt: task.updatedAt,
         pinned: task.pinned,
-        manualOrder: task.manualOrder,
       };
     })
+    // Status and attention lead; a pin only lifts a task within its status.
+    // Task History's manual order never applies here.
     .sort((left, right) => {
-      const pinOrder = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
-      if (pinOrder) return pinOrder;
-      if (left.manualOrder !== undefined || right.manualOrder !== undefined) return compareTaskListOrder(left, right);
       const statusOrder = compareFleetTaskStatus(left.status, right.status);
       if (statusOrder !== 0) {
         return statusOrder;
       }
+      const pinOrder = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
+      if (pinOrder) return pinOrder;
       return right.updatedAt.localeCompare(left.updatedAt);
     })
     .map((item) => ({

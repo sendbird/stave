@@ -359,9 +359,9 @@ describe("carryRendererOwnedShellFields", () => {
 
 test("host progress preserves renderer task pinning and manual order", () => {
   const payload = createPayload();
-  const stale = { ...payload.tasks[0]!, pinned: false, manualOrder: 7 };
-  payload.tasks[0] = { ...payload.tasks[0]!, pinned: true, manualOrder: 2 };
+  const stale = { ...payload.tasks[0]!, pinned: false, historyOrderKey: 7 };
+  payload.tasks[0] = { ...payload.tasks[0]!, pinned: true, historyOrderKey: 2 };
   const next = mergeTaskTurnDeltaPayload({ payload, taskId: stale.id, task: stale, messageCount: 12 });
   expect(next.tasks[0]?.pinned).toBe(true);
-  expect(next.tasks[0]?.manualOrder).toBe(2);
+  expect(next.tasks[0]?.historyOrderKey).toBe(2);
 });
