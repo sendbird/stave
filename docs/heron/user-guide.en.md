@@ -290,6 +290,8 @@ edge memory -> turn
 
 ## Ways to give context
 
+For a primary task resumed by a check-back or an Agent run event, **Always** browser access also applies without typing `@web` again. An explicit `@web` in a primary Agent run’s assignment or a user reply also stays active for that same run’s continuations, including event wakes and app restarts. It ends with the run and is not inherited by another run or delegated task. Browser site-access and sensitive-action confirmations still apply.
+
 | Method                  | How                                                          | Worth knowing                                                                |
 | ----------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | Files and images        | The paperclip in the composer (**Attach files**); paste or drop files on the composer | A drop shows **Drop to attach** and attaches the way a paste does |
