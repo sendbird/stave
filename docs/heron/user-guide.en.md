@@ -1366,9 +1366,7 @@ short descriptions. Resource Manager also opens from Settings > General
 without Developer mode.
 
 When a message waits behind a running turn, a one-line hint offers to enable
-mid-turn steering. It stays off until you enable it. Beside the latest
-finished turn's actions, the file-checkpoint hint offers to enable checkpoints
-for future turns; enabling it cannot create checkpoints for earlier work.
+mid-turn steering. It stays off until you enable it.
 Close a hint with its × button and it stays closed. Settings > General >
 Feature tips turns all hints off.
 

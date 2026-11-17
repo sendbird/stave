@@ -6,7 +6,7 @@
     },
     "featureTips": {
       "title": "Feature tips",
-      "description": "Short tips that offer optional features, such as steering a running turn or file checkpoints. A tip you close stays closed.",
+      "description": "Short tips that offer optional features, such as steering a running turn. A tip you close stays closed.",
       "show": "Show feature tips"
     },
     "windowBehavior": {

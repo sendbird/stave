@@ -12,7 +12,6 @@ import { sx } from "@/components/aui/utils/stylex";
 export function DiscoveryFixture() {
   const [ready, setReady] = useState(false);
   const steering = useAppStore((state) => state.settings.midTurnSteeringEnabled);
-  const checkpoints = useAppStore((state) => state.settings.claudeEnableFileCheckpointing);
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     useAppStore.setState((state) => ({ settings: {
@@ -21,7 +20,6 @@ export function DiscoveryFixture() {
       language: params.get("lang") === "ko" ? "ko" : "en",
       themeMode: params.get("theme") === "dark" ? "dark" : "light",
       midTurnSteeringEnabled: false,
-      claudeEnableFileCheckpointing: false,
     } }));
     void i18n.changeLanguage(params.get("lang") === "ko" ? "ko" : "en").then(() => setReady(true));
   }, []);
@@ -29,7 +27,6 @@ export function DiscoveryFixture() {
   return <div className={sx(styles.body)}>
     <div data-discovery-hints className={sx(styles.hints)}>
       {!steering && <FeatureEnableHint feature="steering" onEnable={() => useAppStore.getState().updateSettings({ patch: { midTurnSteeringEnabled: true } })} />}
-      {!checkpoints && <FeatureEnableHint feature="checkpoints" onEnable={() => useAppStore.getState().updateSettings({ patch: { claudeEnableFileCheckpointing: true } })} />}
     </div>
     <GeneralSection />
     <MemoryUsagePopover variant="bar" hideTrigger />

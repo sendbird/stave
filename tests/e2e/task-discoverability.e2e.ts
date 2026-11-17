@@ -7,7 +7,7 @@ for (const width of [1440, 1024]) {
       await page.setViewportSize({ width, height: 1000 });
       await page.goto(`/?stavePreview=resource-manager&discovery=1&lang=${language}&theme=${theme}`);
       const hints = page.locator("[data-discovery-hints]");
-      await expect(hints.locator("[data-feature-hint]")).toHaveCount(2);
+      await expect(hints.locator("[data-feature-hint]")).toHaveCount(1);
       await page.evaluate(() => document.fonts.ready);
       const geometry = await hints.locator("[data-feature-hint]").evaluateAll((rows) => rows.map((row) => {
         const text = row.querySelector("span")!.getBoundingClientRect();
@@ -21,14 +21,13 @@ for (const width of [1440, 1024]) {
       }
       await mkdir("/tmp/gap-h1/after2", { recursive: true });
       await hints.screenshot({ path: `/tmp/gap-h1/after2/hints-${language}-${theme}-${width}.png` });
-      // Closing a tip remembers it; enabling the feature also retires its tip.
+      // Closing a tip remembers it.
       await hints.locator('[data-feature-hint="steering"]').getByRole("button", { name: language === "en" ? "Dismiss tip" : "팁 닫기", exact: true }).click();
       await expect(hints.locator('[data-feature-hint="steering"]')).toHaveCount(0);
       expect(await page.evaluate(async () => {
         const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
         return useAppStore.getState().settings.dismissedFeatureTips;
       })).toEqual(["steering"]);
-      await hints.locator('[data-feature-hint="checkpoints"]').getByRole("button", { name: language === "en" ? "Enable" : "켜기", exact: true }).click();
       await expect(hints.locator("[data-feature-hint]")).toHaveCount(0);
       await page.getByRole("button", { name: language === "en" ? "Resource Manager" : "리소스 관리자", exact: true }).click();
       const dialog = page.getByRole("dialog");
