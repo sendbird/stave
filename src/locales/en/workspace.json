@@ -1482,7 +1482,10 @@
       "savedChangesInvalidRef": "Saved changes reference is invalid",
       "savedChangesSubmoduleUnsupported": "Save changes is unavailable for worktrees with submodules",
       "savedChangesChangedDuringSave": "Files changed while saving; try again",
-      "savedChangesRestoreConflict": "Restore stopped because existing files conflict",
+      "savedChangesRestoreFilesExist": "Restore stopped because files already exist at the workspace location",
+      "savedChangesRestoreBranchMoved": "Restore stopped because the branch changed after the changes were saved",
+      "savedChangesRestoreGitFailed": "Saved changes could not be restored. The archive is kept, so you can restore again.",
+      "savedChangesRestorePartial": "Saved changes could not be restored, and the partially restored folder was kept for review",
       "savedChangesUnavailable": "Saved changes are unavailable"
     },
     "historyTitle": "Read-only workspace history",

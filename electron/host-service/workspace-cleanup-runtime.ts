@@ -1,4 +1,4 @@
-import { saveWorkspaceChanges, clearSavedWorkspaceChanges, applySavedWorkspaceChanges, deleteSavedWorkspaceChanges } from "./workspace-archive-snapshot";
+import { saveWorkspaceChanges, clearSavedWorkspaceChanges, applySavedWorkspaceChanges, deleteSavedWorkspaceChanges, discardPartialSavedWorkspaceChanges } from "./workspace-archive-snapshot";
 import { existsSync, realpathSync } from "node:fs";
 import { workspaceRunningCleanupBlockers } from "./workspace-cleanup-running";
 import { lstat, readdir, symlink } from "node:fs/promises";
@@ -218,7 +218,7 @@ export function createWorkspaceCleanupRuntime(ports: {
         const archive = ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id);
         const options = archive?.creationOptions;
         const savedRef = archive?.savedChangesRef;
-        if (savedRef && existsSync(row.path)) throw new Error("savedChangesRestoreConflict");
+        if (savedRef && existsSync(row.path)) throw new Error("savedChangesRestoreFilesExist");
         const linked = Boolean(options?.linkedWorktree);
         const externalHead = linked && existsSync(row.path) ? await git(row.path, ["symbolic-ref", "--quiet", "--short", "HEAD"]) : null;
         let branchExists = linked
@@ -237,30 +237,52 @@ export function createWorkspaceCleanupRuntime(ports: {
         if (savedRef && branchExists) {
           const head = await git(row.repositoryPath, ["rev-parse", `refs/heads/${row.branch}`]);
           const original = await git(row.repositoryPath, ["rev-parse", `${savedRef}^1`]);
-          if (!head.ok || !original.ok || head.stdout.trim() !== original.stdout.trim()) throw new Error("savedChangesRestoreConflict");
+          if (!head.ok || !original.ok) throw new Error("savedChangesRestoreGitFailed");
+          if (head.stdout.trim() !== original.stdout.trim()) throw new Error("savedChangesRestoreBranchMoved");
         }
+        // A saved restore removes only what it created, so the archive and its ref stay retryable.
+        let createdBranch: string | null = null;
+        let createdWorktree = false;
+        const discardCreated = async () => {
+          if (createdWorktree) {
+            await discardPartialSavedWorkspaceChanges(row.path, savedRef!);
+            const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
+            if (!removed.ok) throw new Error("savedChangesRestorePartial");
+          }
+          // Compare-and-delete keeps a branch that moved after this restore created it.
+          if (createdBranch) await git(row.repositoryPath, ["update-ref", "-d", `refs/heads/${row.branch}`, createdBranch]);
+        };
         if (savedRef && !branchExists) {
           const recreated = await git(row.repositoryPath, ["branch", "--", row.branch, `${savedRef}^1`]);
-          if (!recreated.ok) throw new Error("savedChangesRestoreConflict");
+          if (!recreated.ok) throw new Error("savedChangesRestoreGitFailed");
+          const head = await git(row.repositoryPath, ["rev-parse", "--verify", `refs/heads/${row.branch}`]);
+          createdBranch = head.ok ? head.stdout.trim() : null;
           branchExists = true;
         }
-        if (!linked && branchExists && !existsSync(row.path)) {
-          const added = await git(row.repositoryPath, ["worktree", "add", "--", row.path, row.branch]);
-          if (!added.ok) throw new Error("worktreeRestoreFailed");
-        }
-        if (branchExists) {
-          if (savedRef) await applySavedWorkspaceChanges(row.path, savedRef);
-          if (options?.linkedWorktree) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, options.linkedSymlinkNames ?? []);
-          if (!options?.linkedWorktree && options?.useRootNodeModulesSymlink) {
-            try { await lstat(join(row.path, "node_modules")); }
-            catch { try { await symlink(join(row.repositoryPath, "node_modules"), join(row.path, "node_modules")); } catch { throw new Error("dependencyLinkFailed"); } }
+        try {
+          if (!linked && branchExists && !existsSync(row.path)) {
+            const added = await git(row.repositoryPath, ["worktree", "add", "--", row.path, row.branch]);
+            if (!added.ok) throw new Error("worktreeRestoreFailed");
+            createdWorktree = Boolean(savedRef);
           }
-          if (!savedRef && !options?.linkedWorktree && options?.initCommand) {
-            ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "preparing", command: options.initCommand });
-            try { await runWorkspacePreparation({ command: options.initCommand, cwd: row.path }); }
-            catch { ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "preparationFailed", command: options.initCommand }); throw new Error("workspacePreparationFailed"); }
-            ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "prepared", command: options.initCommand });
+          if (branchExists) {
+            if (savedRef) await applySavedWorkspaceChanges(row.path, savedRef);
+            if (options?.linkedWorktree) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, options.linkedSymlinkNames ?? []);
+            if (!options?.linkedWorktree && options?.useRootNodeModulesSymlink) {
+              try { await lstat(join(row.path, "node_modules")); }
+              catch { try { await symlink(join(row.repositoryPath, "node_modules"), join(row.path, "node_modules")); } catch { throw new Error("dependencyLinkFailed"); } }
+            }
+            if (!savedRef && !options?.linkedWorktree && options?.initCommand) {
+              ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "preparing", command: options.initCommand });
+              try { await runWorkspacePreparation({ command: options.initCommand, cwd: row.path }); }
+              catch { ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "preparationFailed", command: options.initCommand }); throw new Error("workspacePreparationFailed"); }
+              ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "prepared", command: options.initCommand });
+            }
           }
+        } catch (error) {
+          // A partial checkout that cannot be proven snapshot-only is kept and reported instead.
+          if (savedRef) await discardCreated();
+          throw error;
         }
         ports.store().restoreWorkspacePersistence({ workspaceId: row.id, readOnly: !branchExists });
         if (savedRef && branchExists) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);

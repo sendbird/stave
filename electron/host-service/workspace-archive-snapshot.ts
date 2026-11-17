@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { copyFile, lstat, mkdtemp, rm, stat, utimes } from "node:fs/promises";
+import { copyFile, lstat, mkdtemp, rm, stat, unlink, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -85,16 +85,45 @@ export async function clearSavedWorkspaceChanges(cwd: string, saved: SavedWorksp
 /** Called only for a newly created checkout or to roll back our own failed removal. */
 export async function applySavedWorkspaceChanges(cwd: string, ref: string) {
   if (!validRef(ref)) throw new Error("savedChangesInvalidRef");
-  if (await text(cwd, ["rev-parse", "HEAD"]) !== await text(cwd, ["rev-parse", `${ref}^1`])) throw new Error("savedChangesRestoreConflict");
-  const tracked = new Set(await entries(cwd, ["ls-files", "-z"]));
-  for (const path of await entries(cwd, ["ls-tree", "-r", "-z", "--name-only", ref])) {
-    if (tracked.has(path)) continue;
-    try { await lstat(join(cwd, path)); } catch { continue; }
-    throw new Error("savedChangesRestoreConflict");
+  try {
+    if (await text(cwd, ["rev-parse", "HEAD"]) !== await text(cwd, ["rev-parse", `${ref}^1`])) throw new Error("savedChangesRestoreBranchMoved");
+    const tracked = new Set(await entries(cwd, ["ls-files", "-z"]));
+    for (const path of await entries(cwd, ["ls-tree", "-r", "-z", "--name-only", ref])) {
+      if (tracked.has(path)) continue;
+      try { await lstat(join(cwd, path)); } catch { continue; }
+      throw new Error("savedChangesRestoreFilesExist");
+    }
+    // Checkout applies smudge filters, symlinks and modes; the second read restores the exact staged index.
+    await git(cwd, ["read-tree", "--reset", "-u", ref]);
+    await git(cwd, ["read-tree", "--reset", `${ref}^2`]);
+  } catch (error) {
+    throw error instanceof Error && error.message === "savedChangesGitFailed" ? new Error("savedChangesRestoreGitFailed") : error;
   }
-  // Checkout applies smudge filters, symlinks and modes; the second read restores the exact staged index.
-  await git(cwd, ["read-tree", "--reset", "-u", ref]);
-  await git(cwd, ["read-tree", "--reset", `${ref}^2`]);
+}
+
+/**
+ * Return a checkout created by a failed restore to clean HEAD so Git can remove
+ * it without force. Every changed path must belong to the snapshot or its base.
+ */
+export async function discardPartialSavedWorkspaceChanges(cwd: string, ref: string) {
+  if (!validRef(ref)) throw new Error("savedChangesInvalidRef");
+  try {
+    if (await text(cwd, ["rev-parse", "HEAD"]) !== await text(cwd, ["rev-parse", `${ref}^1`])) throw new Error("savedChangesRestorePartial");
+    const owned = new Set<string>();
+    for (const tree of [ref, `${ref}^1`, `${ref}^2`]) for (const path of await entries(cwd, ["ls-tree", "-r", "-z", "--name-only", tree])) owned.add(path);
+    const changes = async () => (await entries(cwd, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames", "--ignore-submodules=none"]))
+      .map(entry => ({ untracked: entry.startsWith("?? "), path: entry.slice(3) }));
+    if ((await changes()).some(change => !owned.has(change.path))) throw new Error("savedChangesRestorePartial");
+    await git(cwd, ["read-tree", "--reset", "-u", "HEAD"]);
+    const leftovers = await changes();
+    if (leftovers.some(change => !change.untracked || !owned.has(change.path))) throw new Error("savedChangesRestorePartial");
+    for (const change of leftovers) {
+      const file = join(cwd, change.path);
+      if ((await lstat(file)).isDirectory()) throw new Error("savedChangesRestorePartial");
+      await unlink(file);
+    }
+    if ((await changes()).length) throw new Error("savedChangesRestorePartial");
+  } catch { throw new Error("savedChangesRestorePartial"); }
 }
 
 export async function deleteSavedWorkspaceChanges(cwd: string, ref: string) {
