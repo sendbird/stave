@@ -29,6 +29,7 @@ import { PromptsSection } from "./settings-sections/settings-dialog-prompts-sect
 import { LensSection } from "./settings-sections/settings-dialog-lens-section";
 import { MentionsSection } from "./settings-sections/settings-dialog-mentions-section";
 import { SecretsSection } from "./settings-dialog-secrets";
+import { RemoteControlSection } from "./settings-dialog-remote-control";
 
 export function SettingsDialogSectionContent(args: {
   sectionId: SectionId;
@@ -90,6 +91,8 @@ export function SettingsDialogSectionContent(args: {
       return <IssueTrackerSettingsSection onNavigateSection={args.onNavigateSection} />;
     case "kickoff":
       return <KickoffSection />;
+    case "remoteControl":
+      return <RemoteControlSection />;
     case "auxiliaryInference":
       return <SettingsAuxiliaryInferenceSection onNavigateSection={args.onNavigateSection} />;
     case "autoRouting":

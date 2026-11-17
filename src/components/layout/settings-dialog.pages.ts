@@ -39,7 +39,7 @@ export const settingsPages = [
   {
     id: "integrations",
     labelKey: "settings:sections.integrations.label",
-    sectionIds: ["integrations", "issues", "kickoff"],
+    sectionIds: ["integrations", "issues", "kickoff", "remoteControl"],
   },
   { id: "secrets", labelKey: "settings:sections.secrets.label", sectionIds: ["secrets"] },
   { id: "developer", labelKey: "settings:sections.developer.label", sectionIds: ["developer"] },

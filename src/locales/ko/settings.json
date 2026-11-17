@@ -1189,6 +1189,10 @@
     "workspaces": {
       "label": "워크스페이스",
       "description": "보관, 복원 및 자동 정리 정책"
+    },
+    "remoteControl": {
+      "label": "원격 제어",
+      "description": "신뢰할 수 있는 네트워크에서 연결한 휴대폰으로 승인 요청과 질문에 응답합니다."
     }
   },
   "pages": {

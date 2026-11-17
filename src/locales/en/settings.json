@@ -1199,6 +1199,10 @@
     "workspaces": {
       "label": "Workspaces",
       "description": "Archive, restore and automatic cleanup policies"
+    },
+    "remoteControl": {
+      "label": "Remote control",
+      "description": "Answer approvals and questions from a paired phone on a trusted network."
     }
   },
   "pages": {

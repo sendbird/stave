@@ -62,7 +62,7 @@ describe("settings pages", () => {
           ["Presets & Macros", ["presets", "macros"]],
           ["Prompts & Skills", ["prompts", "skills"]],
           ["MCP", ["mcp"]],
-          ["Integrations", ["integrations", "issues", "kickoff"]],
+          ["Integrations", ["integrations", "issues", "kickoff", "remoteControl"]],
           ["Secrets", ["secrets"]],
         ],
       ],
