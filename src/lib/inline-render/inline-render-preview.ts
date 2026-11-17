@@ -338,6 +338,107 @@ export function planInlineRenderPreviewSlices(
   return slices;
 }
 
+/* ─── Style audit ────────────────────────────────────────────────── */
+
+/** Text below this renders smaller than the chat's caption text. */
+export const INLINE_RENDER_PREVIEW_MIN_TEXT_PX = 12;
+
+/**
+ * What the preview window found about the page's own styling, for the two
+ * mistakes agents make most and a screenshot hides: labels shrunk below
+ * caption size, and a page background over Stave's tinted canvas.
+ */
+export interface InlineRenderPreviewStyleAudit {
+  /** Visible text elements rendered below the minimum, after SVG scaling. */
+  smallTextCount: number;
+  /** The smallest rendered text size among them, in CSS pixels. */
+  smallestTextPx: number | null;
+  /** The page paints its own background on `<html>` or `<body>`. */
+  paintsPageBackground: boolean;
+}
+
+/**
+ * Reads the page's own styling once it has settled: visible text rendered
+ * below the minimum (an SVG's text scaled by its transform, so a chart drawn
+ * in a scaled viewBox is judged by what the reader sees), and a background
+ * the page paints on `<html>` or `<body>`. The preview's backdrop rule is
+ * switched off for the read, synchronously, so only the page's own `<html>`
+ * background counts. At most 4,000 text elements are checked. It runs in
+ * the preview window's isolated world; its result goes through
+ * `readInlineRenderPreviewStyleAudit`.
+ */
+export const INLINE_RENDER_PREVIEW_STYLE_AUDIT_SCRIPT = `(() => {
+  const MIN = ${INLINE_RENDER_PREVIEW_MIN_TEXT_PX};
+  const root = document.documentElement;
+  const SKIP = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, TEMPLATE: 1, TITLE: 1 };
+  let smallTextCount = 0;
+  let smallestTextPx = null;
+  const seen = new Set();
+  const walker = document.createTreeWalker(document.body || root, NodeFilter.SHOW_TEXT);
+  while (walker.nextNode() && seen.size < 4000) {
+    const node = walker.currentNode;
+    if (!node.nodeValue || !node.nodeValue.trim()) continue;
+    const element = node.parentElement;
+    if (!element || seen.has(element) || SKIP[element.tagName]) continue;
+    seen.add(element);
+    const rect = element.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) continue;
+    // checkVisibility also sees an ancestor's opacity: 0 or visibility: hidden.
+    if (
+      typeof element.checkVisibility === "function" &&
+      !element.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+    ) continue;
+    const style = getComputedStyle(element);
+    if (style.visibility === "hidden" || Number(style.opacity) === 0) continue;
+    let size = parseFloat(style.fontSize);
+    if (!Number.isFinite(size)) continue;
+    if (typeof element.getScreenCTM === "function") {
+      const matrix = element.getScreenCTM();
+      if (matrix) size *= Math.sqrt(Math.abs(matrix.a * matrix.d - matrix.b * matrix.c));
+    }
+    if (size < MIN - 0.05) {
+      smallTextCount += 1;
+      smallestTextPx = smallestTextPx === null ? size : Math.min(smallestTextPx, size);
+    }
+  }
+  const painted = (element) => {
+    if (!element) return false;
+    const style = getComputedStyle(element);
+    if (style.backgroundImage && style.backgroundImage !== "none") return true;
+    // No regex here: a backslash in this template literal would need doubling.
+    const color = style.backgroundColor.split(" ").join("");
+    return !(color === "transparent" || color.endsWith(",0)") || color.endsWith("/0)"));
+  };
+  const backdrop = document.getElementById("stave-inline-render-backdrop");
+  const sheet = backdrop && backdrop.sheet;
+  if (sheet) sheet.disabled = true;
+  let paintsPageBackground = false;
+  try {
+    paintsPageBackground = painted(root) || painted(document.body);
+  } finally {
+    if (sheet) sheet.disabled = false;
+  }
+  return { smallTextCount, smallestTextPx, paintsPageBackground };
+})()`;
+
+/** The audit as the preview window's isolated-world script reported it; anything malformed is dropped. */
+export function readInlineRenderPreviewStyleAudit(value: unknown): InlineRenderPreviewStyleAudit | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const record = value as Record<string, unknown>;
+  const count = record.smallTextCount;
+  const smallest = record.smallestTextPx;
+  if (typeof count !== "number" || !Number.isInteger(count) || count < 0) return undefined;
+  if (smallest !== null && (typeof smallest !== "number" || !Number.isFinite(smallest) || smallest < 0)) {
+    return undefined;
+  }
+  if (typeof record.paintsPageBackground !== "boolean") return undefined;
+  return {
+    smallTextCount: count,
+    smallestTextPx: smallest === null ? null : Math.round(smallest * 10) / 10,
+    paintsPageBackground: record.paintsPageBackground,
+  };
+}
+
 /* ─── Result ─────────────────────────────────────────────────────── */
 
 export interface InlineRenderPreviewMeasurement {
@@ -353,6 +454,8 @@ export interface InlineRenderPreviewMeasurement {
   consoleMessages: string[];
   failedRequests: string[];
   blockedNavigations: string[];
+  /** Absent when the audit could not run. */
+  style?: InlineRenderPreviewStyleAudit;
 }
 
 export interface InlineRenderPreviewImage {
@@ -383,6 +486,20 @@ export function buildInlineRenderPreviewNotes(measurement: InlineRenderPreviewMe
     notes.push(
       // i18n-ignore: model-facing tool result, read by the agent, not the user
       `Only the top ${measurement.capturedHeight} px of ${contentHeight} px were captured.`,
+    );
+  }
+  const style = measurement.style;
+  if (style && style.smallTextCount > 0) {
+    const smallest = style.smallestTextPx === null ? "" : ` (smallest ${style.smallestTextPx} px)`;
+    notes.push(
+      // i18n-ignore: model-facing tool result, read by the agent, not the user
+      `${style.smallTextCount} text element${style.smallTextCount === 1 ? "" : "s"} render below ${INLINE_RENDER_PREVIEW_MIN_TEXT_PX} px${smallest}. Body text is already 14 px like the chat; keep labels, axis ticks, and badges at ${INLINE_RENDER_PREVIEW_MIN_TEXT_PX} px or larger.`,
+    );
+  }
+  if (style?.paintsPageBackground) {
+    notes.push(
+      // i18n-ignore: model-facing tool result, read by the agent, not the user
+      "The page paints its own background on <html> or <body>. Stave already frames the page on a tinted canvas; keep the page background transparent and use --card only for panels inside it.",
     );
   }
   if (measurement.loadTimedOut) {

@@ -135,7 +135,9 @@ access** option, and your current theme, and gives the agent:
 - the page's height and the height its frame will take in the conversation;
 - console errors and warnings (with line numbers in the agent's HTML), requests
   that failed or that **Network access** blocked, and any attempt to navigate
-  away.
+  away;
+- a note when text renders smaller than 12 pixels, or when the page paints its
+  own background instead of letting the tinted area show through.
 
 Nothing appears in the conversation and nothing is saved; the trace shows only
 a **Preview HTML page** step. The agent then fixes what it found and shows the
