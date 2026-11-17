@@ -140,9 +140,11 @@ export const RemoteQuestionSchema = z
   .object({
     key: z.string().max(4000),
     question: z.string().max(4000),
-    options: z.array(z.string().max(4000)).max(100),
+    /** `value` is what the answer carries, as on the desktop card; `label` is what is shown. */
+    options: z
+      .array(z.object({ label: z.string().max(4000), value: z.string().max(4000) }).strict())
+      .max(100),
     multiSelect: z.boolean(),
-    allowCustom: z.boolean(),
     required: z.boolean(),
   })
   .strict();

@@ -8,6 +8,7 @@ import {
 import { findPendingUserInputMessageByRequestId } from "@/store/provider-message.utils";
 import { useAppStore } from "@/store/app.store";
 import type { ApprovalPart, UserInputPart } from "@/types/chat";
+import type { ApprovalAnswerOutcome } from "@/store/app-store.types";
 
 /**
  * A question that did not pause its turn: it can still be answered after the
@@ -37,6 +38,21 @@ export function respondToFleetInteraction(
   expected: FleetInteractionControlIdentity,
   response: FleetInteractionResponse,
 ): FleetControlValidation {
+  return deliverFleetInteraction(expected, response).validation;
+}
+
+/**
+ * `respondToFleetInteraction`, plus what became of an approval answer. A
+ * question's respond action reports through the transcript, so its delivery
+ * is null; callers watch the request leave pending instead.
+ */
+export function deliverFleetInteraction(
+  expected: FleetInteractionControlIdentity,
+  response: FleetInteractionResponse,
+): {
+  validation: FleetControlValidation;
+  delivery: Promise<ApprovalAnswerOutcome> | null;
+} {
   const state = useAppStore.getState();
   const current = resolveFleetCurrentTaskControlState({ state, expected });
   const asyncQuestion =
@@ -52,15 +68,18 @@ export function respondToFleetInteraction(
     current,
   });
   if (!validation.ok || response.kind !== expected.kind) {
-    return validation.ok
-      ? { ok: false, reason: i18n.t("app:errors.childMismatch") }
-      : validation;
+    return {
+      validation: validation.ok
+        ? { ok: false, reason: i18n.t("app:errors.childMismatch") }
+        : validation,
+      delivery: null,
+    };
   }
   if (!validation.messageId) {
-    return { ok: false, reason: i18n.t("app:errors.childMissingTarget") };
+    return { validation: { ok: false, reason: i18n.t("app:errors.childMissingTarget") }, delivery: null };
   }
   if (response.kind === "approval") {
-    state.resolveApproval({
+    const delivery = state.resolveApproval({
       taskId: expected.taskId,
       messageId: validation.messageId,
       requestId: expected.requestId,
@@ -69,14 +88,14 @@ export function respondToFleetInteraction(
         ? { scope: "always" as const }
         : {}),
     });
-  } else {
-    state.resolveUserInput({
-      taskId: expected.taskId,
-      messageId: validation.messageId,
-      requestId: expected.requestId,
-      answers: response.answers,
-      denied: response.denied,
-    });
+    return { validation, delivery };
   }
-  return validation;
+  state.resolveUserInput({
+    taskId: expected.taskId,
+    messageId: validation.messageId,
+    requestId: expected.requestId,
+    answers: response.answers,
+    denied: response.denied,
+  });
+  return { validation, delivery: null };
 }

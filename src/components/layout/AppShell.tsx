@@ -35,6 +35,7 @@ import { openTaskSideQuestion, toggleTaskReview } from "@/components/panes/task-
 import { useEditorPaneFocus } from "@/components/panes/use-editor-pane-focus";
 import { useFleetResultAutoReview } from "@/components/layout/useFleetResultAutoReview";
 import { FleetAttentionProducer } from "@/components/layout/FleetAttentionProducer";
+import { RemoteControlResponder } from "@/components/layout/RemoteControlResponder";
 import { TaskReturnTracker } from "@/components/session/return-summary/TaskReturnTracker";
 import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-palette-navigation";
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
@@ -1027,6 +1028,7 @@ export function AppShell() {
       ) : null}
       <Toaster />
       <FleetAttentionProducer />
+      <RemoteControlResponder />
       <TaskReturnTracker />
       <ConfirmDialog
         open={showCloseConfirm}
