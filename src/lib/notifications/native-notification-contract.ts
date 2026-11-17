@@ -10,3 +10,7 @@ export const NativeNotificationResolvedSchema = z.object({
   ]),
 }).strict();
 export type NativeNotificationResolved = z.infer<typeof NativeNotificationResolvedSchema>;
+
+export const NotificationTaskStatusArgsSchema = z.object({
+  workspaceId: identity, taskId: identity, turnId: identity.optional(), refresh: z.boolean().optional(),
+}).strict();

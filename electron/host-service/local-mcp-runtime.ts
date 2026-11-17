@@ -1,3 +1,4 @@
+import { NotificationTaskStatusArgsSchema } from "../../src/lib/notifications/native-notification-contract";
 import { delegatedTaskRulesFor } from "../../src/lib/runs/delegated-task";
 import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
 import { parseGitWorktrees } from "../../src/lib/source-control-worktrees";
@@ -2177,8 +2178,10 @@ export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
   turnId?: string;
+  refresh?: boolean;
 }) {
-  const session = await loadWorkspaceSession(args.workspaceId);
+  args = NotificationTaskStatusArgsSchema.parse(args);
+  const session = args.refresh ? await readSavedWorkspaceSession(args.workspaceId) : await loadWorkspaceSession(args.workspaceId);
   const task = session.tasks.find((item) => item.id === args.taskId);
   if (!task) {
     throw new Error(`Task not found: ${args.taskId}`);
@@ -2584,8 +2587,17 @@ export async function takeOverManagedTaskControl(args: {
 }
 
 /** The host session with the task's resident messages; a shell rebuild leaves them empty. */
-async function loadTaskInteractionSession(workspaceId: string, taskId: string) {
-  return ensureResidentTaskMessages({ workspaceId, taskId, session: await loadWorkspaceSession(workspaceId) });
+async function loadTaskInteractionSession(workspaceId: string, taskId: string, refresh = false) {
+  const session = refresh ? await readSavedWorkspaceSession(workspaceId) : await loadWorkspaceSession(workspaceId);
+  if (refresh) {
+    const page = ensureHostServicePersistenceReady().loadTaskMessagesPage({ workspaceId, taskId, limit: MAX_LOADED_TASK_MESSAGES });
+    if (!page) throw new Error("Task history is unavailable. Reopen the task before continuing.");
+    return cacheWorkspaceSession(workspaceId, { ...session,
+      messagesByTask: { ...session.messagesByTask, [taskId]: decodeTaskMessages(page.messages) },
+      messageCountByTask: { ...session.messageCountByTask, [taskId]: page.totalCount },
+    });
+  }
+  return ensureResidentTaskMessages({ workspaceId, taskId, session });
 }
 
 export async function respondApproval(args: HostApprovalArgs) {
@@ -2599,7 +2611,7 @@ export async function respondApproval(args: HostApprovalArgs) {
   }
 
   return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
-    const session = await loadTaskInteractionSession(args.workspaceId, args.taskId);
+    const session = await loadTaskInteractionSession(args.workspaceId, args.taskId, args.expectedMessageId != null);
     const activeTurnId = session.activeTurnIdsByTask[args.taskId];
     if (!activeTurnId) {
       throw new Error(`No active turn found for task ${args.taskId}.`);
@@ -2665,7 +2677,7 @@ export async function respondUserInput(args: HostUserInputArgs) {
   return respondHostUserInput(args, {
     workspaceName: registration.workspace.name,
     enqueue: (key, operation) => workspaceProviderEventQueue.enqueue(key, operation),
-    load: loadTaskInteractionSession, respond: providerRuntime.respondUserInput,
+    load: (workspaceId, taskId) => loadTaskInteractionSession(workspaceId, taskId, args.expectedMessageId != null), respond: providerRuntime.respondUserInput,
     cache: cacheWorkspaceSession, persist: queueWorkspaceSessionPersist,
   });
 }

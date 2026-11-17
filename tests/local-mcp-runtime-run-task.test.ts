@@ -2098,6 +2098,8 @@ describe("local MCP runtime runTask: an Agent run's account-pool switch", () => 
     await finish(next.turnId);
   });
   test("notification actions use the real host responder and persist each decision once", async () => {
+    reportActiveTurns = true;
+    await expect(runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: "task", refresh: true, scope: "always" } as never)).rejects.toThrow();
     const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Wait for notification actions" });
     const handler = startTurnStreamHandlers.at(-1);
     handler?.onEvent?.({ type: "approval", requestId: "native-approval", toolName: "Bash", description: "Run check" });

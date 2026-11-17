@@ -1,3 +1,5 @@
+import { publishesInteractionNotifications } from "../../../src/lib/notifications/interaction-policy";
+import { requestRendererPersistenceFlush } from "../persistence-flush-gate";
 import { NativeNotificationResolvedSchema } from "../../../src/lib/notifications/native-notification-contract";
 import { BrowserWindow, Notification, app, ipcMain } from "electron";
 import { getMainWindow } from "../window";
@@ -30,7 +32,11 @@ export function registerNotificationHandlers() {
   const respond = createNativeNotificationActionResponder({
     isEnabled: () => process.platform === "darwin" && actionsEnabled,
     isPending: async (request) => {
-      const status = await getTaskStatus({ workspaceId: request.workspaceId, taskId: request.taskId });
+      if (await requestRendererPersistenceFlush() !== "flushed") return false;
+      const store = await ensurePersistenceReady();
+      const task = store.loadWorkspaceShell({ workspaceId: request.workspaceId })?.tasks.find(task => task.id === request.taskId);
+      if (!task || !publishesInteractionNotifications(task)) return false;
+      const status = await getTaskStatus({ workspaceId: request.workspaceId, taskId: request.taskId, refresh: true });
       if (status.activeTurnId !== request.turnId) return false;
       const pending = request.kind === "approval" ? status.pendingApprovals : status.pendingUserInputs;
       return pending.some(item => item.requestId === request.requestId && item.messageId === request.messageId);
@@ -59,7 +65,11 @@ export function registerNotificationHandlers() {
       BrowserWindow.fromWebContents(event.sender) ?? getMainWindow();
     const store = await ensurePersistenceReady();
     const row = store.listNotifications().find(item => item.id === parsed.data.notificationId);
-    const request = actionsEnabled && process.platform === "darwin" && row ? buildNativeNotificationRequest(row) : null;
+    const task = row?.workspaceId && row.taskId
+      ? store.loadWorkspaceShell({ workspaceId: row.workspaceId })?.tasks.find(task => task.id === row.taskId)
+      : null;
+    const request = actionsEnabled && process.platform === "darwin" && row && task && publishesInteractionNotifications(task)
+      ? buildNativeNotificationRequest(row) : null;
     const notification = new Notification({
       title: parsed.data.title,
       body: parsed.data.body,

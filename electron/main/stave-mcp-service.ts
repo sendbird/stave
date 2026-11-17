@@ -1,3 +1,4 @@
+import { NotificationTaskStatusArgsSchema } from "../../src/lib/notifications/native-notification-contract";
 import { webContents } from "electron";
 import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
 import type { ApprovalRuleDecider } from "../../src/lib/approvals/approval-resolution";
@@ -392,10 +393,11 @@ export async function getTaskStatus(args: {
   workspaceId: string;
   taskId: string;
   turnId?: string;
+  refresh?: boolean;
 }) {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").TaskStatusResult
-  >("get-task-status", args);
+  >("get-task-status", NotificationTaskStatusArgsSchema.parse(args));
 }
 
 /**

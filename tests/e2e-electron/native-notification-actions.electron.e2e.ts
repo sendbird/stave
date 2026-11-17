@@ -38,6 +38,7 @@ test("native approval action reaches the host responder and settles the in-app c
     await page.getByRole("button", { name: /^Claude Auto:/ }).click();
     await page.getByRole("radio", { name: /^Guided/ }).click();
     const composer = page.locator('[data-prompt-lexical-editor="true"]');
+    for (const pass of [0, 1]) {
     await composer.fill("[permissions] Run the checks and clean the build"); await composer.press("Enter");
     const queue = page.getByRole("region", { name: "Approval queue" });
     await expect(queue).toContainText("rm -rf build", { timeout: 30_000 });
@@ -45,7 +46,7 @@ test("native approval action reaches the host responder and settles the in-app c
       const api = window.api!.notifications!;
       await api.setActionsEnabled!({ enabled: true });
       const response = await window.api!.persistence!.listNotifications!({});
-      const row = response.notifications.find(item => item.kind === "task.approval_requested")!;
+      const row = response.notifications.find(item => item.kind === "task.approval_requested" && !item.resolvedAt)!;
       if (!row) throw new Error("No approval notification stored");
       return api.showNative!({ notificationId: row.id, title: row.title, body: row.body });
     });
@@ -67,12 +68,9 @@ test("native approval action reaches the host responder and settles the in-app c
       return labels;
     });
     expect(actions).toEqual(["Allow once", "Deny"]);
-    await expect(page.getByText("Permissions: Edit allowed, Bash allowed.")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Permissions: Edit allowed, Bash allowed.")).toHaveCount(pass + 1, { timeout: 10_000 });
     await expect(queue).toHaveCount(0);
-  } catch (error) {
-    console.log("native-action-diagnostic", await stave.page.locator("body").innerText());
-    console.log("native-action-captured", await stave.app.evaluate(() => (globalThis as unknown as { nativeActionNotifications: Electron.Notification[] }).nativeActionNotifications.map(item => ({ title: item.title, body: item.body, actions: item.actions }))));
-    throw error;
+    }
   } finally {
     await stave.close(); await rm(directory, { recursive: true, force: true });
   }

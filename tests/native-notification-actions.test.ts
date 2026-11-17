@@ -17,6 +17,9 @@ function fixture() {
   return { request, respond, calls, expire: () => { pending = false; } };
 }
 describe("native notification actions", () => {
+  test.each(["tars.decision_requested", "tars.result_ready", "tars.blocked"])("%s keeps its dedicated response path", kind => {
+    expect(buildNativeNotificationRequest({ ...approval, kind })).toBeNull();
+  });
   test.each([true, false])("approval %s uses request identity and once-only responder", async approved => {
     const f = fixture(); await f.respond(f.request, { type: "approval", approved });
     expect(f.calls).toEqual([{ workspaceId: "workspace", taskId: "task", requestId: "request", expectedMessageId: "message", approved }]);
