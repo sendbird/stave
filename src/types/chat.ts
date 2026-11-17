@@ -545,6 +545,9 @@ export interface Task {
   provider: ProviderId;
   updatedAt: string;
   unread: boolean;
+  pinned?: boolean;
+  /** Set only after a deliberate reorder; absent keeps activity ordering. */
+  manualOrder?: number;
   archivedAt?: string | null;
   controlMode: TaskControlMode;
   controlOwner: TaskControlOwner;

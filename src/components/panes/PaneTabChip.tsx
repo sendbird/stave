@@ -1,3 +1,4 @@
+import { TaskUnreadDot } from "@/components/session/TaskReadIndicator";
 import { i18n, useTranslation } from "@/i18n";
 import { Input as AuiInput } from "@/components/ui/input";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -442,6 +443,7 @@ function TaskChipBadgesSlot(args: { taskId: string }) {
   const taskChip = useTaskChipState(args.taskId);
   return (
     <>
+      <TaskUnreadSlot taskId={args.taskId} />
       <TaskSupervisionMarks taskId={args.taskId} />
       <TaskChipBadges taskChip={taskChip} />
     </>
@@ -507,4 +509,9 @@ function TaskTabAccessibleName(args: {
   const name = describePaneTabAccessibleName({ title: args.title, provider, status });
   useLayoutEffect(() => setTabAccessibleName(args.rootRef, name), [args.rootRef, name]);
   return null;
+}
+
+function TaskUnreadSlot({ taskId }: { taskId: string }) {
+  const workspaceId = useAppStore(state => state.activeWorkspaceId);
+  return <TaskUnreadDot workspaceId={workspaceId} taskId={taskId} />;
 }

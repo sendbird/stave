@@ -1,3 +1,4 @@
+import { TaskUnreadDot, TaskReadMenu } from "@/components/session/TaskReadIndicator";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { i18n, useTranslation } from "@/i18n";
@@ -637,7 +638,7 @@ export function FleetWorkspaceCard(args: {
                     <FleetProviderIcon provider={row.task.provider} />
                     <span className={sx(styles.taskDetails)}>
                       <span className={sx(styles.taskTitle)}>
-                        <SearchHighlight text={taskTitle} query={normalizedQuery} />
+                        <TaskReadMenu workspaceId={args.workspace.id} taskId={row.task.id} /><TaskUnreadDot workspaceId={args.workspace.id} taskId={row.task.id} /><SearchHighlight text={taskTitle} query={normalizedQuery} />
                       </span>
                       {/* A task in a live turn says what it last did and for how
                           long; any other task keeps its last update. */}

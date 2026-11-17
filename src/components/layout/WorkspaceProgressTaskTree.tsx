@@ -1,3 +1,5 @@
+import { TaskUnreadDot, TaskReadMenu } from "@/components/session/TaskReadIndicator";
+import { Pin, PinOff } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
@@ -54,6 +56,22 @@ function TaskProviderMark(args: {
   );
 }
 
+function SidebarTaskPin(args: { taskId: string; workspaceId: string; pinned: boolean }) {
+  useTranslation();
+  const available = useAppStore(state => {
+    const tasks = state.activeWorkspaceId === args.workspaceId
+      ? state.tasks : state.workspaceRuntimeCacheById[args.workspaceId]?.tasks;
+    return Boolean(tasks?.some(task => task.id === args.taskId));
+  });
+  const label = i18n.t(args.pinned ? "panes:taskHistoryDrawer.unpinTask" : "panes:taskHistoryDrawer.pinTask");
+  return <AuiButton layout="host" type="button" xstyle={styles.pinControl}
+    disabled={!available} title={!available ? i18n.t("panes:taskHistoryDrawer.openWorkspaceToPin") : label}
+    aria-label={label}
+    onClick={() => useAppStore.getState().pinTask({ taskId: args.taskId, workspaceId: args.workspaceId, pinned: !args.pinned })}>
+    {args.pinned ? <PinOff className={sx(styles.pinIcon)} aria-hidden /> : <Pin className={sx(styles.pinIcon)} aria-hidden />}
+  </AuiButton>;
+}
+
 export function WorkspaceProgressTaskTreeView(args: {
   items: WorkspaceProgressTaskItem[];
   loading?: boolean;
@@ -94,7 +112,7 @@ export function WorkspaceProgressTaskTreeView(args: {
     body = args.items.map((item) => {
       const statusLabel = STATUS_LABEL[item.status];
       return (
-        <li key={item.taskId}>
+        <li key={item.taskId} className={sx(styles.taskEntry)}>
           <AuiButton layout="host"
             type="button"
             data-workspace-progress-task={item.taskId}
@@ -120,7 +138,10 @@ export function WorkspaceProgressTaskTreeView(args: {
             }}
           >
             <TaskProviderMark providerId={item.providerId} />
-            <span className={sx(styles.rowTitle)}>{item.title}</span>
+            <span className={sx(styles.titleWithUnread)}>
+              {args.workspaceId ? <TaskUnreadDot workspaceId={args.workspaceId} taskId={item.taskId} /> : null}
+              <span className={sx(styles.rowTitle)}>{item.title}</span>
+            </span>
             <span className={sx(styles.statusSlot)} title={statusLabel}>
               <StateMark state={fleetStatusToWorkState(item.status)} />
               <VisuallyHidden>{statusLabel}</VisuallyHidden>
@@ -133,6 +154,8 @@ export function WorkspaceProgressTaskTreeView(args: {
               />
             ) : null}
           </AuiButton>
+          {args.workspaceId ? <SidebarTaskPin taskId={item.taskId} workspaceId={args.workspaceId} pinned={Boolean(item.pinned)} /> : null}
+          {args.workspaceId ? <TaskReadMenu workspaceId={args.workspaceId} taskId={item.taskId} /> : null}
         </li>
       );
     });

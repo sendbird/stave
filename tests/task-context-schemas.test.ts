@@ -863,3 +863,15 @@ describe("task-context workspace schemas", () => {
     ]);
   });
 });
+
+
+test("workspace snapshots round-trip task pinning and explicit order", () => {
+  const payload = { ...createWorkspaceBase(), messagesByTask: {}, tasks: [{
+    id: "task", title: "Task", provider: "claude-code",
+    updatedAt: "2026-11-17", unread: false, pinned: true, manualOrder: 3,
+  }] };
+  const parsed = parseWorkspaceSnapshot({ payload });
+  expect(parsed.tasks[0]?.pinned).toBe(true);
+  expect(parsed.tasks[0]?.manualOrder).toBe(3);
+  expect(parseWorkspaceSnapshot({ payload: JSON.parse(JSON.stringify(parsed)) }).tasks).toEqual(parsed.tasks);
+});

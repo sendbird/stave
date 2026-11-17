@@ -3104,5 +3104,13 @@
     "matches_other": "{{count}} matches",
     "openResult_one": "Open {{title}}, {{count}} matching message",
     "openResult_other": "Open {{title}}, {{count}} matching messages"
+  },
+  "discoverability": {
+    "resourceManager": "Resource Manager",
+    "resourceManagerDescription": "Inspect memory, CPU and workspace processes.",
+    "prCheckBack": "Check back on a PR",
+    "prCheckBackDescription": "Open Schedules to configure a check-back for a pull request.",
+    "secretRequests": "Secret requests",
+    "secretRequestsDescription": "Open a task waiting for a secret, or manage saved secrets."
   }
 }

@@ -1,3 +1,4 @@
+import { setTaskReadState } from "@/lib/task-read-state-client";
 import { useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { X } from "lucide-react";
@@ -50,13 +51,13 @@ function controlFacts(rows: readonly FleetTaskRow[]): FleetControlFacts {
   return { running, waiting };
 }
 export function FleetStopAllButton({ rows, loading = false }: { rows: readonly FleetTaskRow[]; loading?: boolean }) {
-  const { t } = useTranslation(["fleet"]);
+  const { t } = useTranslation(["fleet", "panes"]);
   const runs = useFleetAgentRunsStore(state => state.details);
   const hasRunning = rows.some(row => row.activeTurnId || findActiveTaskRun(runs, row.workspaceId, row.task.id));
   return hasRunning ? <Button variant="outlined" size="sm" disabled={loading} onClick={() => requestFleetBulkCommand({operation:"stop"})}>{t("fleet:bulk.stopAll")}</Button> : null;
 }
 export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loading?: boolean; rows: readonly FleetTaskRow[]; onOpenTask: (target: FleetSelectionTarget) => void }) {
-  const { t } = useTranslation(["fleet"]);
+  const { t } = useTranslation(["fleet", "panes"]);
   const runsLoaded = useFleetAgentRunsStore(state => state.loaded);
   const runDetails = useFleetAgentRunsStore(state => state.details);
   const waiting = loading || Boolean(window.api?.agentRuns && !runsLoaded);
@@ -191,6 +192,20 @@ export function FleetBulkControl({ rows, loading = false, onOpenTask }: { loadin
   const snoozePlan = planFleetAttentionSnooze(items,3_600_000);
   const snoozeItems: DropdownMenuItem[] = ([3_600_000,14_400_000,86_400_000,604_800_000] as const).map((duration,index) => ({label:t((["fleet:bulk.snooze0","fleet:bulk.snooze1","fleet:bulk.snooze2","fleet:bulk.snooze3"] as const)[index]!,{count:countFleetBulkPlan(snoozePlan)}),disabled:bulk.applying,onSelect:() => { void bulk.apply(planFleetAttentionSnooze(items,duration)); }}));
   const more: DropdownMenuItem[] = [];
+  const markSelected = async (read: boolean) => {
+    if (busyRef.current) return;
+    busyRef.current = true; setBusy(true);
+    let failed = 0;
+    try {
+      for (const target of selected) {
+        try { await setTaskReadState({workspaceId: target.workspaceId, taskId: target.taskId, read}); }
+        catch { failed++; }
+      }
+      if (failed) toast(t("panes:taskReading.failed"));
+    } finally { busyRef.current = false; setBusy(false); }
+  };
+  more.push({label:t("panes:taskReading.markRead"),onSelect:() => { void markSelected(true); }});
+  more.push({label:t("panes:taskReading.markUnread"),onSelect:() => { void markSelected(false); }});
   if (narrow) {
     if (plans.stop.applicable.length) more.push({label:t("fleet:bulk.stop",{count:plans.stop.applicable.length}),onSelect:() => { void openStop(selected); }});
     if (plans.archive.applicable.length) more.push({label:t("fleet:bulk.archive",{count:plans.archive.applicable.length}),onSelect:() => openAction("archive")});

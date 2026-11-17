@@ -59,7 +59,7 @@ describe("WorkspaceProgressTaskTreeView", () => {
     expect(html).toContain('data-loader-variant="pulse"');
   });
 
-  test("renders nothing when the workspace is idle", () => {
+  test("renders nothing when the workspace has no open task rows", () => {
     const html = renderToStaticMarkup(
       createElement(WorkspaceProgressTaskTreeView, {
         items: [],

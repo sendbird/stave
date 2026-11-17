@@ -1,10 +1,10 @@
+import { setTaskReadState, isTaskAutoReadSuppressed, resetTaskAutoReadSuppression } from "@/lib/task-read-state-client";
 import { useEffect } from "react";
 import {
   FLEET_RESULT_AUTO_REVIEW_DWELL_MS,
   findLatestFinishedTurnId,
   selectAutoReviewableResults,
 } from "@/lib/fleet/result-auto-review";
-import type { AppNotification } from "@/lib/notifications/notification.types";
 import {
   listResultReviews,
   setResultsReviewed,
@@ -65,7 +65,7 @@ export function useFleetResultAutoReview() {
     let dwell: { key: string; startedAtMs: number } | null = null;
     /** Guards against re-running a pass the store has not invalidated. */
     let lastRunKey = "";
-    let lastNotifications: AppNotification[] | null = null;
+    let lastNotificationIds: string | null = null;
 
     const clearTimer = () => {
       if (timer !== null) {
@@ -95,6 +95,8 @@ export function useFleetResultAutoReview() {
         return;
       }
 
+      if (isTaskAutoReadSuppressed({workspaceId:surface.workspaceId,taskId:surface.taskId})) return;
+
       // Only the turn the task window shows as finished may be acknowledged by
       // viewing it; its result row is matched by turn, not by storage order.
       const latestResultTurnId = surface.latestFinishedTurnId;
@@ -113,9 +115,16 @@ export function useFleetResultAutoReview() {
         console.warn("[fleet] result auto-review read failed", error);
         return;
       }
-      if (cancelled || dwell !== session) {
+      if (cancelled || dwell !== session || isTaskAutoReadSuppressed({workspaceId:surface.workspaceId,taskId:surface.taskId})) {
         return;
       }
+
+      // Attention and manual reminders follow this viewing session. Output
+      // acknowledgement stays below, fenced to the exact finished turn.
+      try {
+        await setTaskReadState({workspaceId:surface.workspaceId,taskId:surface.taskId,read:true,attentionOnly:true});
+      } catch (error) { console.warn("[task-read] view acknowledgement failed",error); }
+      if (cancelled || dwell !== session || isTaskAutoReadSuppressed({workspaceId:surface.workspaceId,taskId:surface.taskId})) return;
 
       const nowMs = Date.now();
       const ready = selectAutoReviewableResults({
@@ -180,9 +189,9 @@ export function useFleetResultAutoReview() {
         return;
       }
       const surface = readSurface();
-      const notificationsChanged =
-        lastNotifications !== null && surface.notifications !== lastNotifications;
-      lastNotifications = surface.notifications;
+      const notificationIds = surface.notifications.filter(item => item.workspaceId === surface.workspaceId && item.taskId === surface.taskId).map(item => item.id).sort().join(UNIT_SEPARATOR);
+      const notificationsChanged = lastNotificationIds !== null && notificationIds !== lastNotificationIds;
+      lastNotificationIds = notificationIds;
 
       /**
        * The dwell survives unrelated store updates and even a new turn on the
@@ -200,6 +209,7 @@ export function useFleetResultAutoReview() {
         return;
       }
       if (dwell?.key !== dwellKey) {
+        if (surface.taskId) resetTaskAutoReadSuppression({workspaceId:surface.workspaceId,taskId:surface.taskId});
         dwell = { key: dwellKey, startedAtMs: Date.now() };
       }
 

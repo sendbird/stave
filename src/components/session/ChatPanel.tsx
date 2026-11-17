@@ -1,3 +1,4 @@
+import { FeatureEnableHint } from "./FeatureEnableHint";
 import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { useWholeTaskFind } from "./use-whole-task-find";
 import { TranscriptFind } from "@/components/system/TranscriptFind";
@@ -292,6 +293,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
         : null,
     ]),
   );
+  const checkpointingEnabled = useAppStore((state) => state.settings.claudeEnableFileCheckpointing);
   const boundary = message.providerBoundary;
   const canRewindFiles = Boolean(
     !activeTurnId &&
@@ -701,6 +703,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 ) : null}
               </div>
             </MessageActions>
+          ) : null}
+          {message.role === "user" && boundary?.providerId === "claude-code" && boundary.kind === "message" && !activeTurnId && !checkpointingEnabled ? (
+            <FeatureEnableHint feature="checkpoints" onEnable={() => useAppStore.getState().updateSettings({ patch: { claudeEnableFileCheckpointing: true } })} />
           ) : null}
           {canRewindFiles || rewindDialogOpen ? (
             <Dialog

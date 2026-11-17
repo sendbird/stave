@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { appendOpenTaskTabForHostCreatedTask, selectTaskHistoryEntries } from "../src/lib/tasks";
+import { appendOpenTaskTabForHostCreatedTask, selectTaskHistoryEntries, reorderTasksWithinFilter } from "../src/lib/tasks";
 import type { Task } from "../src/types/chat";
 
 function buildTask(overrides: Partial<Task> & Pick<Task, "id">): Task {
@@ -142,4 +142,31 @@ describe("appendOpenTaskTabForHostCreatedTask", () => {
       }),
     ).toBeUndefined();
   });
+});
+
+
+test("history puts pinned tasks first and otherwise keeps activity order", () => {
+  const tasks = [
+    buildTask({ id: "old", updatedAt: "2026-03-01", pinned: true }),
+    buildTask({ id: "new", updatedAt: "2026-03-10" }),
+    buildTask({ id: "middle", updatedAt: "2026-03-05" }),
+  ];
+  expect(selectTaskHistoryEntries({ tasks, openTaskTabIds: [] }).map(t => t.id))
+    .toEqual(["old", "new", "middle"]);
+});
+
+test("history manual order survives activity updates and preserves hidden tasks", () => {
+  const tasks = [
+    buildTask({ id: "old", updatedAt: "2026-03-01" }),
+    buildTask({ id: "open", updatedAt: "2026-03-11" }),
+    buildTask({ id: "new", updatedAt: "2026-03-10" }),
+  ];
+  const reordered = reorderTasksWithinFilter({
+    tasks, activeTaskId: "old", overTaskId: "new", filter: "all",
+    visibleTaskIds: ["new", "old"],
+  });
+  reordered.find(t => t.id === "new")!.updatedAt = "2026-03-20";
+  expect(selectTaskHistoryEntries({ tasks: reordered, openTaskTabIds: ["open"] }).map(t => t.id))
+    .toEqual(["old", "new"]);
+  expect(reordered.find(t => t.id === "open")?.title).toBe("open");
 });

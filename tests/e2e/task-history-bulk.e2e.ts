@@ -87,3 +87,44 @@ for (const options of [{ locale: "en", dark: false, width: 1440 }, { locale: "ko
     expect(await page.evaluate(() => (window as unknown as { deleted: string[] }).deleted)).toEqual(["Alpha", "Beta", "Gamma"]);
   });
 }
+
+for (const options of [{ locale: "en", dark: false, width: 1440 }, { locale: "ko", dark: true, width: 1024 }] as const) {
+  test(`Task History supports pinning, keyboard order and drag order ${options.locale}`, async ({ page }) => {
+    await mountHistory(page, options);
+    const rows = page.locator("[data-history-task-id]");
+    await page.locator('[data-history-task-id="Gamma"]').focus();
+    await page.keyboard.press("Alt+ArrowUp");
+    expect(await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-history-task-id"))))
+      .toEqual(["Alpha", "Gamma", "Beta"]);
+    await page.locator('[data-history-task-id="Beta"]').dragTo(page.locator('[data-history-task-id="Alpha"]'));
+    expect(await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-history-task-id"))))
+      .toEqual(["Beta", "Alpha", "Gamma"]);
+    await page.locator('[data-history-task-id="Gamma"]').getByRole("button", {
+      name: options.locale === "en" ? "Pin task" : "작업 고정", exact: true,
+    }).click();
+    await expect(rows.first()).toHaveAttribute("data-history-task-id", "Gamma");
+    // Exercise the public snapshot boundary and browser persistence, then rehydrate.
+    await page.evaluate(async () => {
+      const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
+      const { upsertWorkspace, loadWorkspaceSnapshot } = await import("/src/lib/db/workspaces.db.ts");
+      const { buildWorkspaceSessionState } = await import("/src/store/workspace-session-state.ts");
+      const priorApi = window.api;
+      window.api = { ...priorApi, persistence: undefined };
+      try {
+        await upsertWorkspace({ id: "history-ws", name: "history", snapshot: useAppStore.getState() });
+        useAppStore.setState({ tasks: [] });
+        const snapshot = await loadWorkspaceSnapshot({ workspaceId: "history-ws" });
+        useAppStore.setState(buildWorkspaceSessionState({ snapshot }));
+      } finally { window.api = priorApi; }
+    });
+    await expect(rows.first()).toHaveAttribute("data-history-task-id", "Gamma");
+    await page.locator('[data-history-task-id="Gamma"]').getByRole("button", {
+      name: options.locale === "en" ? "Unpin task" : "작업 고정 해제", exact: true,
+    }).click();
+    expect(await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-history-task-id"))))
+      .toEqual(["Beta", "Alpha", "Gamma"]);
+    const contained = await rows.evaluateAll(nodes => nodes.every(node => node.scrollWidth <= node.clientWidth));
+    expect(contained).toBe(true);
+    await page.screenshot({ path: `/tmp/gap-h1/after/history-order-${options.locale}-${options.width}.png` });
+  });
+}

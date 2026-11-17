@@ -1369,5 +1369,10 @@
     "viewResult": "결과 보기",
     "collapseResult": "결과 접기",
     "reportedHistory": "보고된 작업 이력"
+  },
+  "featureDiscovery": {
+    "steering": "실행 중인 턴에 방향을 전달하려면 조종 기능을 켜세요.",
+    "checkpoints": "파일 체크포인트를 켜면 이후 턴에서 파일을 되돌릴 수 있습니다.",
+    "enable": "켜기"
   }
 }

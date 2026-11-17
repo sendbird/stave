@@ -235,11 +235,22 @@ function moveArrayItem<T>(items: T[], fromIndex: number, toIndex: number) {
   return nextItems;
 }
 
+export function compareTaskListOrder(left: Pick<Task, "pinned" | "manualOrder" | "updatedAt">, right: Pick<Task, "pinned" | "manualOrder" | "updatedAt">) {
+  const pinOrder = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
+  if (pinOrder) return pinOrder;
+  if (left.manualOrder !== undefined || right.manualOrder !== undefined) {
+    return (left.manualOrder ?? Number.MAX_SAFE_INTEGER) - (right.manualOrder ?? Number.MAX_SAFE_INTEGER)
+      || right.updatedAt.localeCompare(left.updatedAt);
+  }
+  return right.updatedAt.localeCompare(left.updatedAt);
+}
+
 export function reorderTasksWithinFilter(args: {
   tasks: Task[];
   activeTaskId: string;
   overTaskId: string;
   filter: TaskFilter;
+  visibleTaskIds?: readonly string[];
 }) {
   if (args.activeTaskId === args.overTaskId) {
     return args.tasks;
@@ -248,12 +259,14 @@ export function reorderTasksWithinFilter(args: {
   const visibleTasks = getVisibleTasks({
     tasks: args.tasks,
     filter: args.filter,
-  });
+  }).filter(task => !args.visibleTaskIds || args.visibleTaskIds.includes(task.id));
+  // Existing callers reorder storage order. History supplies the displayed subset.
+  if (args.visibleTaskIds) visibleTasks.sort(compareTaskListOrder);
   const fromIndex = visibleTasks.findIndex(
     (task) => task.id === args.activeTaskId,
   );
   const toIndex = visibleTasks.findIndex((task) => task.id === args.overTaskId);
-  if (fromIndex < 0 || toIndex < 0) {
+  if (fromIndex < 0 || toIndex < 0 || Boolean(visibleTasks[fromIndex]?.pinned) !== Boolean(visibleTasks[toIndex]?.pinned)) {
     return args.tasks;
   }
 
@@ -263,14 +276,14 @@ export function reorderTasksWithinFilter(args: {
   }
 
   let reorderedVisibleIndex = 0;
-  return args.tasks.map((task) => {
-    if (!matchesTaskFilter({ task, filter: args.filter })) {
+  return args.tasks.map((task, index) => {
+    if (!matchesTaskFilter({ task, filter: args.filter }) || (args.visibleTaskIds && !args.visibleTaskIds.includes(task.id))) {
       return task;
     }
 
     const nextTask = reorderedVisibleTasks[reorderedVisibleIndex];
     reorderedVisibleIndex += 1;
-    return nextTask ?? task;
+    return nextTask ? { ...nextTask, manualOrder: index } : task;
   });
 }
 
@@ -314,7 +327,7 @@ export function selectTaskHistoryEntries(args: {
       );
   return tasks
     .filter((task) => isTaskArchived(task) || !openTaskIds.has(task.id))
-    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    .sort(compareTaskListOrder);
 }
 
 export function filterTasksByName(args: { tasks: Task[]; query: string }) {

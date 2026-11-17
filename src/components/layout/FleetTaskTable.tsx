@@ -1,3 +1,4 @@
+import { TaskUnreadDot, TaskReadMenu } from "@/components/session/TaskReadIndicator";
 import { fleetSelectionColumn, fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { FleetGroupHeader } from "./FleetGrouping";
@@ -607,6 +608,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
       <TableCell xstyle={fleetSelectionColumn.cell}><FleetSelectionCheckbox itemKey={row.key} title={title} /></TableCell>
       <TableCell xstyle={styles.taskCell}>
         <span className={sx(styles.task)}>
+          <TaskReadMenu workspaceId={row.workspaceId} taskId={row.task.id} /><TaskUnreadDot workspaceId={row.workspaceId} taskId={row.task.id} />
           <FleetProviderIcon provider={row.task.provider} />
           <AuiButton
             layout="host"

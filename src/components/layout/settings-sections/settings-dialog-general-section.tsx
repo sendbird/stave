@@ -1,3 +1,5 @@
+import { Button } from "@/components/aui/components/Button";
+import { openResourceManager } from "../resource-manager-events";
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -42,6 +44,9 @@ export function GeneralSection() {
   return (
     <SectionStack>
       <LanguageSettingsCard />
+      <SettingsCard title={t("shell:discoverability.resourceManager")} description={t("shell:discoverability.resourceManagerDescription")}>
+        <Button onClick={openResourceManager}>{t("shell:discoverability.resourceManager")}</Button>
+      </SettingsCard>
       <SettingsCard
         title={t("settings:general.windowBehavior.title")}
         description={t("settings:general.windowBehavior.description")}

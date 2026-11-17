@@ -1,3 +1,5 @@
+import { openSecretRequests } from "./secret-request-navigation";
+import { openResourceManager } from "./resource-manager-events";
 import { requestFleetBulkCommand } from "@/lib/fleet/bulk-command";
 import { openWorkspaceCleanup } from "./workspace-cleanup-events";
 import { i18n } from "@/i18n";
@@ -312,13 +314,55 @@ function formatWorkspaceTitle(args: { isDefault: boolean; name: string }) {
 
 const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
+    id: "navigation.resources",
+    get title() { return i18n.t("shell:discoverability.resourceManager"); },
+    get description() { return i18n.t("shell:discoverability.resourceManagerDescription"); },
+    group: "navigation",
+    icon: Gauge,
+    keywords: ["resources", "memory", "cpu", "processes"],
+    build: () => ({
+      id: "navigation.resources", title: i18n.t("shell:discoverability.resourceManager"),
+      subtitle: i18n.t("shell:discoverability.resourceManagerDescription"),
+      group: "navigation", icon: Gauge, keywords: ["resources", "memory", "cpu", "processes"],
+      run: openResourceManager, source: "core",
+    }),
+  },
+  {
+    id: "navigation.pr-check-back",
+    get title() { return i18n.t("shell:discoverability.prCheckBack"); },
+    get description() { return i18n.t("shell:discoverability.prCheckBackDescription"); },
+    group: "navigation",
+    icon: GitPullRequest,
+    keywords: ["schedules", "PR", "check back", "watch"],
+    build: (args) => ({
+      id: "navigation.pr-check-back", title: i18n.t("shell:discoverability.prCheckBack"),
+      subtitle: i18n.t("shell:discoverability.prCheckBackDescription"),
+      group: "navigation", icon: GitPullRequest, keywords: ["schedules", "PR", "check back", "watch"],
+      run: args.commands.openAutomationCenter, source: "core",
+    }),
+  },
+  {
+    id: "navigation.secret-requests",
+    get title() { return i18n.t("shell:discoverability.secretRequests"); },
+    get description() { return i18n.t("shell:discoverability.secretRequestsDescription"); },
+    group: "navigation",
+    icon: KeySquare,
+    keywords: ["secrets", "requests", "credentials"],
+    build: (args) => ({
+      id: "navigation.secret-requests", title: i18n.t("shell:discoverability.secretRequests"),
+      subtitle: i18n.t("shell:discoverability.secretRequestsDescription"),
+      group: "navigation", icon: KeySquare, keywords: ["secrets", "requests", "credentials"],
+      run: () => openSecretRequests(args.commands), source: "core",
+    }),
+  },
+  {
     id: "workspaces.cleanup",
     get title() { return i18n.t("workspace:cleanupCenter.title"); },
     get description() { return i18n.t("workspace:cleanupCenter.description"); },
     group: "navigation",
     icon: FolderOpen,
     keywords: ["clean", "cleanup", "archive", "restore", "workspaces", "정리", "보관", "복원"],
-    build: () => ({ id: "workspaces.cleanup", title: i18n.t("workspace:cleanupCenter.title"), group: "navigation", icon: FolderOpen, keywords: ["cleanup", "archive", "restore"], run: openWorkspaceCleanup, source: "core" }),
+    build: () => ({ id: "workspaces.cleanup", title: i18n.t("workspace:cleanupCenter.title"), subtitle: i18n.t("workspace:cleanupCenter.description"), group: "navigation", icon: FolderOpen, keywords: ["cleanup", "archive", "restore"], run: openWorkspaceCleanup, source: "core" }),
   },
   {
     id: "navigation.quick-open-file",

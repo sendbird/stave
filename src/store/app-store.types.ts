@@ -546,10 +546,12 @@ export interface AppState
     messageId: string;
     dryRun: boolean;
   }) => Promise<ClaudeFileRewindResponse>;
+  pinTask: (args: { taskId: string; pinned: boolean; workspaceId?: string }) => void;
   reorderTasks: (args: {
     activeTaskId: string;
     overTaskId: string;
     filter: TaskFilter;
+    visibleTaskIds?: readonly string[];
   }) => void;
   exportTask: (args: { taskId: string }) => Promise<void>;
   viewTaskChanges: (args: { taskId: string }) => Promise<void>;

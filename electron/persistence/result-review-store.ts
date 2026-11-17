@@ -1,3 +1,4 @@
+import { ListTaskReadStatesArgsSchema, SetTaskReadStateArgsSchema, type ListTaskReadStatesArgs, type SetTaskReadStateArgs, type TaskReadState } from "../../src/lib/task-read-state";
 import type {
   ListResultReviewsArgs,
   ResultReview,
@@ -47,6 +48,7 @@ function sourcePredicate(prefix: string) {
 export class ResultReviewStore {
   constructor(private readonly db: ReviewDatabase) {
     db.exec(`
+      CREATE TABLE IF NOT EXISTS task_read_marks (workspace_id TEXT NOT NULL, task_id TEXT NOT NULL, PRIMARY KEY(workspace_id, task_id));
       CREATE TABLE IF NOT EXISTS result_reviews (
         id TEXT NOT NULL PRIMARY KEY,
         project_path TEXT NOT NULL, project_name TEXT NOT NULL,
@@ -91,6 +93,36 @@ export class ResultReviewStore {
     const columns = db.prepare("PRAGMA table_info(result_reviews)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "marked_reviewed_at")) {
       db.exec("ALTER TABLE result_reviews ADD COLUMN marked_reviewed_at TEXT");
+    }
+  }
+
+  listTaskReadStates(input: ListTaskReadStatesArgs): TaskReadState[] {
+    const args = ListTaskReadStatesArgsSchema.parse(input);
+    return args.targets.map(target => {
+      const latest = this.db.prepare(`SELECT reviewed_at AS readAt FROM result_reviews WHERE workspace_id = ? AND task_id = ? ORDER BY created_at DESC, id DESC LIMIT 1`).get(target.workspaceId,target.taskId) as {readAt: string | null} | undefined;
+      const attention = this.db.prepare(`SELECT 1 FROM notifications WHERE workspace_id = ? AND task_id = ? AND kind IN ('task.approval_requested','task.user_input_requested','agent_run.sign_off_requested','agent_run.blocked','agent_run.stuck') AND read_at IS NULL AND resolved_at IS NULL LIMIT 1`).get(target.workspaceId,target.taskId);
+      const manual = this.db.prepare(`SELECT 1 FROM task_read_marks WHERE workspace_id = ? AND task_id = ?`).get(target.workspaceId,target.taskId);
+      return {...target,unread: Boolean((latest && !latest.readAt) || attention || (!latest && manual))};
+    });
+  }
+
+  /** Completion read state remains in result_reviews; this table only holds a
+   * manual reminder for tasks with no output. Reading never resolves attention. */
+  setTaskReadState(input: SetTaskReadStateArgs): TaskReadState {
+    const args = SetTaskReadStateArgsSchema.parse(input);
+    const values = [args.workspaceId,args.taskId];
+    const now = new Date().toISOString();
+    this.db.exec("SAVEPOINT set_task_read_state");
+    try {
+      if (!args.attentionOnly) this.db.prepare(`UPDATE result_reviews SET reviewed_at = ${args.read ? "COALESCE(reviewed_at, ?)" : "NULL"} WHERE id = (SELECT id FROM result_reviews WHERE workspace_id = ? AND task_id = ? ORDER BY created_at DESC, id DESC LIMIT 1)`).run(...(args.read ? [now] : []),...values);
+      this.db.prepare(`UPDATE notifications SET read_at = ${args.read ? "COALESCE(read_at, ?)" : "NULL"} WHERE workspace_id = ? AND task_id = ? AND kind IN ('task.approval_requested','task.user_input_requested','agent_run.sign_off_requested','agent_run.blocked','agent_run.stuck') AND resolved_at IS NULL`).run(...(args.read ? [now] : []),...values);
+      if (args.read) this.db.prepare("DELETE FROM task_read_marks WHERE workspace_id = ? AND task_id = ?").run(...values);
+      else this.db.prepare("INSERT OR IGNORE INTO task_read_marks (workspace_id,task_id) VALUES (?,?)").run(...values);
+      const state = this.listTaskReadStates({targets:[{workspaceId:args.workspaceId,taskId:args.taskId}]})[0]!;
+      this.db.exec("RELEASE set_task_read_state");
+      return state;
+    } catch (error) {
+      this.db.exec("ROLLBACK TO set_task_read_state"); this.db.exec("RELEASE set_task_read_state"); throw error;
     }
   }
 

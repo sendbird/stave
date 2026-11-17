@@ -4,6 +4,14 @@ import { vars } from "@/components/aui/tokens/tokens.stylex";
 
 /** Flat open-task list under a workspace row in the project sidebar. */
 export const workspaceProgressTaskTreeStyles = stylex.create({
+  pinIcon: { width: vars["--aui-control-icon-size-sm"], height: vars["--aui-control-icon-size-sm"], flexShrink: 0 },
+  taskEntry: { display: "flex", alignItems: "center", minWidth: 0 },
+  pinControl: {
+    flexShrink: 0,
+    color: vars["--aui-color-text-muted"],
+    padding: vars["--aui-space-4"],
+    borderRadius: vars["--aui-radius-control"],
+  },
   list: {
     display: "flex",
     flexDirection: "column",
@@ -47,8 +55,10 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     paddingInline: vars["--aui-space-8"],
     textAlign: "start",
     width: "100%",
+    flex: 1,
   },
   progress: { gridColumn: "2 / -1" },
+  titleWithUnread: { display: "flex", alignItems: "center", minWidth: 0, gap: vars["--aui-space-4"] },
   rowTitle: {
     flex: 1,
     minWidth: 0,

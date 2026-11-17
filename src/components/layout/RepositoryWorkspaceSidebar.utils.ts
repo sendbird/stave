@@ -1,3 +1,4 @@
+import { compareTaskListOrder } from "@/lib/tasks";
 import { i18n } from "@/i18n";
 import type {
   FleetAttentionItem,
@@ -10,7 +11,6 @@ import {
   classifyTaskStatus,
   resolveFleetTaskSurfaceStatus,
   compareFleetTaskStatus,
-  summarizeFleetRespondingTasks,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
 import { selectFleetOpenTasks } from "@/lib/fleet/workspace-activity";
@@ -581,11 +581,12 @@ export interface WorkspaceProgressTaskItem {
   title: string;
   status: FleetTaskStatus;
   providerId: ProviderId;
+  pinned?: boolean;
 }
 
 type WorkspaceProgressTaskSource = Pick<
   Task,
-  "id" | "title" | "provider" | "updatedAt" | "archivedAt" | "parentTaskId"
+  "id" | "title" | "provider" | "updatedAt" | "archivedAt" | "parentTaskId" | "pinned" | "manualOrder"
 >;
 
 /**
@@ -605,8 +606,8 @@ export function summarizeWorkspaceTaskTitle(title: string) {
 }
 
 /**
- * Open task rows under a workspace that is currently in flight. The tree is
- * hidden when nothing is responding so idle workspaces stay one line.
+ * Open task rows stay visible after a turn finishes so completion read marks
+ * and pinned tasks remain reachable without reopening History.
  */
 export function buildWorkspaceProgressTaskItems(args: {
   tasks: readonly WorkspaceProgressTaskSource[];
@@ -623,16 +624,6 @@ export function buildWorkspaceProgressTaskItems(args: {
   const activeTurnIdsByTask = args.activeTurnIdsByTask ?? {};
   const providerTurnActivityByTask = args.providerTurnActivityByTask ?? {};
   const tasks = [...args.tasks];
-  const responding = summarizeFleetRespondingTasks({
-    tasks,
-    messagesByTask,
-    activeTurnIdsByTask,
-    providerTurnActivityByTask,
-  });
-  if (responding.respondingTaskCount === 0) {
-    return [];
-  }
-
   const openTasks = selectFleetOpenTasks(tasks as Task[], {
     openTaskTabIds: args.openTaskTabIds,
     activeTurnIdsByTask,
@@ -660,9 +651,14 @@ export function buildWorkspaceProgressTaskItems(args: {
           messages,
         }),
         updatedAt: task.updatedAt,
+        pinned: task.pinned,
+        manualOrder: task.manualOrder,
       };
     })
     .sort((left, right) => {
+      const pinOrder = Number(Boolean(right.pinned)) - Number(Boolean(left.pinned));
+      if (pinOrder) return pinOrder;
+      if (left.manualOrder !== undefined || right.manualOrder !== undefined) return compareTaskListOrder(left, right);
       const statusOrder = compareFleetTaskStatus(left.status, right.status);
       if (statusOrder !== 0) {
         return statusOrder;
@@ -674,5 +670,6 @@ export function buildWorkspaceProgressTaskItems(args: {
       title: item.title,
       status: item.status,
       providerId: item.providerId,
+      pinned: item.pinned,
     }));
 }

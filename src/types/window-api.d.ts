@@ -2072,6 +2072,8 @@ interface WindowPersistenceApi {
     draft:
       import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null;
   }) => Promise<{ ok: boolean }>;
+  listTaskReadStates?: (args: import("@/lib/task-read-state").ListTaskReadStatesArgs) => Promise<{ok:boolean;states:import("@/lib/task-read-state").TaskReadState[]}>;
+  setTaskReadState?: (args: import("@/lib/task-read-state").SetTaskReadStateArgs) => Promise<{ok:boolean;state:import("@/lib/task-read-state").TaskReadState | null}>;
   listResultReviews?: (
     args?: import("@/lib/reviews/result-review").ListResultReviewsArgs,
   ) => Promise<

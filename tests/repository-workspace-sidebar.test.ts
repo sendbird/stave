@@ -895,7 +895,7 @@ describe("workspace progress task tree", () => {
     ).toBe("Rewrite the provider logo fallback so…");
   });
 
-  test("hides the tree when no open task is responding", () => {
+  test("keeps idle open tasks visible after the last turn finishes", () => {
     expect(
       buildWorkspaceProgressTaskItems({
         tasks: [
@@ -908,7 +908,7 @@ describe("workspace progress task tree", () => {
           },
         ],
       }),
-    ).toEqual([]);
+    ).toEqual([{ taskId: "task-idle", title: "Idle task", providerId: "claude-code", status: "idle" }]);
   });
 
   test("lists open tasks under a responding workspace with provider and status", () => {
@@ -984,4 +984,18 @@ describe("workspace progress task tree", () => {
       },
     ]);
   });
+});
+
+test("idle sidebar preserves pin/activity order and excludes closed, archived and delegated tasks", () => {
+  const tasks = [
+    { id: "new", title: "Newest", provider: "codex" as const, updatedAt: "2026-11-17", archivedAt: null },
+    { id: "pinned", title: "Pinned", provider: "codex" as const, updatedAt: "2026-11-15", archivedAt: null, pinned: true },
+    { id: "old", title: "Older", provider: "codex" as const, updatedAt: "2026-11-16", archivedAt: null },
+    { id: "closed", title: "Closed", provider: "codex" as const, updatedAt: "2026-11-18", archivedAt: null },
+    { id: "archived", title: "Archived", provider: "codex" as const, updatedAt: "2026-11-18", archivedAt: "2026-11-18" },
+    { id: "child", title: "Child", provider: "codex" as const, updatedAt: "2026-11-18", archivedAt: null, parentTaskId: "new" },
+  ];
+  expect(buildWorkspaceProgressTaskItems({
+    tasks, openTaskTabIds: ["new", "pinned", "old", "archived", "child"],
+  }).map(task => task.taskId)).toEqual(["pinned", "new", "old"]);
 });

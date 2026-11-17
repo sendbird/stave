@@ -452,3 +452,22 @@ layout and grouping remain the default.
 Fleet, Agents, Schedules, Issues, and AI usage share a page header. Closing a global surface returns one step through navigation history. Back and Forward also include global surfaces. F6 and Shift+F6 cycle window regions; Skip to content moves directly to the main area. The sidebar marks the current surface and labels its repository/work queue view switch. Counts use warning colour only when user attention is required. Without repositories, Fleet offers one Open repository action and hides its filters and board controls.
 
 Bulk task archive skips archived or permanently deleted workspaces with a translated reason. Restore an archived workspace before changing its tasks. The cleanup center uses the same persisted running-work preview as Fleet Stop, including unfinished turns, running descendants and active runs.
+
+## Task reading and ordering
+
+An unseen dot on task tabs, sidebar tasks and Fleet rows means a finished or
+failed result, or a request for attention, has not been seen. Opening a task
+in the focused window reads it; merely expanding a Fleet row does not.
+Use **Mark as unread** to return to a task later, or **Mark as read** to clear
+its dot. Fleet offers both actions for the selected tasks.
+
+The latest output's existing read mark is the source of truth for completion
+reading. Reading a task reads its latest output and attention notification history without
+approving a request, resolving a blocker or explicitly marking a result as
+reviewed. Marking a task unread also marks its latest output unread. The
+separate manual mark covers tasks without an output. These marks survive
+restarts; reading an older output cannot hide a newer unread completion.
+
+Pin tasks from Task History or the sidebar task menu to keep them first.
+Task pins are separate from pane tab pins. Task History defaults to activity
+order. Drag a task onto another task, or focus its row and press `Alt + Up/Down`, to establish manual order. Later activity does not reset that order. Reordering stays within the displayed subset and does not cross pinned and unpinned groups.

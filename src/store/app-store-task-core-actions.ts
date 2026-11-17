@@ -53,6 +53,7 @@ type TaskCoreActionKey =
   | "restoreTask"
   | "duplicateTask"
   | "rewindClaudeFilesFromMessage"
+  | "pinTask"
   | "reorderTasks";
 
 type TaskCoreActions = Pick<AppState, TaskCoreActionKey>;
@@ -934,13 +935,29 @@ export function createTaskCoreActions(args: {
         },
       });
     },
-    reorderTasks: ({ activeTaskId, overTaskId, filter }) => {
+    pinTask: ({ taskId, pinned, workspaceId }) => {
+      const state = get();
+      if (!workspaceId || workspaceId === state.activeWorkspaceId) {
+        set(current => ({
+          tasks: current.tasks.map(task => task.id === taskId ? { ...task, pinned } : task),
+          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(current),
+        }));
+        return;
+      }
+      const session = state.workspaceRuntimeCacheById[workspaceId];
+      if (!session) return;
+      const nextSession = { ...session, tasks: session.tasks.map(task => task.id === taskId ? { ...task, pinned } : task) };
+      set(current => ({ workspaceRuntimeCacheById: { ...current.workspaceRuntimeCacheById, [workspaceId]: nextSession } }));
+      args.persistWorkspaceSessionInBackground({ workspaceId, session: nextSession });
+    },
+    reorderTasks: ({ activeTaskId, overTaskId, filter, visibleTaskIds }) => {
       set((state) => {
         const nextTasks = reorderTasksWithinFilter({
           tasks: state.tasks,
           activeTaskId,
           overTaskId,
           filter,
+          visibleTaskIds,
         });
         if (nextTasks === state.tasks) {
           return {};

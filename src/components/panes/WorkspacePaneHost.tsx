@@ -1,3 +1,4 @@
+import { changeTaskReadState } from "@/components/session/TaskReadIndicator";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/aui/utils/stylex";
@@ -506,6 +507,8 @@ function buildTabContextMenuItems(
 
   if (surface.kind === "task") {
     items.push("separator");
+    items.push({ label: i18n.t("panes:taskReading.markRead"), action: () => { void changeTaskReadState(store.activeWorkspaceId, surface.taskId, true); } });
+    items.push({ label: i18n.t("panes:taskReading.markUnread"), action: () => { void changeTaskReadState(store.activeWorkspaceId, surface.taskId, false); } });
     items.push({
       label: i18n.t("panes:workspacePaneHost.viewResults"),
       action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "results"),

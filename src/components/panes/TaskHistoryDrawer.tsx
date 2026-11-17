@@ -1,3 +1,5 @@
+import { TaskUnreadDot, TaskReadMenu } from "@/components/session/TaskReadIndicator";
+import { Pin, PinOff, GripVertical } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/aui/utils/stylex";
@@ -63,6 +65,7 @@ export function TaskHistoryDrawer(args: {
   const [busy, setBusy] = useState(false);
   const [deleteIds, setDeleteIds] = useState<string[]>([]);
   const anchorRef = useRef<string | null>(null);
+  const dragTaskRef = useRef<string | null>(null);
   const cancelDeleteRef = useRef<HTMLButtonElement>(null);
   const [activeWorkspaceId, restoreTask, selectTask] = useAppStore(
     useShallow(
@@ -188,6 +191,20 @@ export function TaskHistoryDrawer(args: {
     }
   }
 
+  async function reorderTask(taskId: string, overTaskId: string) {
+    if (busy || taskId === overTaskId) return;
+    await activateTargetWorkspace();
+    useAppStore.getState().reorderTasks({
+      activeTaskId: taskId, overTaskId, filter: "all",
+      visibleTaskIds: filteredTasks.map(task => task.id),
+    });
+  }
+
+  async function togglePin(task: Task) {
+    await activateTargetWorkspace();
+    useAppStore.getState().pinTask({ taskId: task.id, pinned: !task.pinned });
+  }
+
   async function reopenTask(task: Task) {
     await activateTargetWorkspace();
     // `restoreTask` is a no-op on a task that was never archived, so a merely
@@ -278,6 +295,7 @@ export function TaskHistoryDrawer(args: {
               {i18n.t("panes:taskHistoryDrawer.deleteSelected", { count: filteredTasks.filter(task => selectedIds.has(task.id) && task.archivedAt).length })}
             </Button>
           </div>
+          <span>{i18n.t("panes:taskHistoryDrawer.reorderHint")}</span>
           <Input
             className={sx(styles.search)}
             placeholder={i18n.t("panes:taskHistoryDrawer.searchTasks")}
@@ -313,6 +331,22 @@ export function TaskHistoryDrawer(args: {
                   className={sx(styles.row)}
                   tabIndex={0}
                   data-history-task-id={task.id}
+                  draggable={!busy}
+                  onDragStart={(event) => {
+                    dragTaskRef.current = task.id;
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("application/x-stave-history-task", task.id);
+                  }}
+                  onDragEnd={() => { dragTaskRef.current = null; }}
+                  onDragOver={(event) => {
+                    if (dragTaskRef.current) event.preventDefault();
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    const source = dragTaskRef.current;
+                    dragTaskRef.current = null;
+                    if (source) void reorderTask(source, task.id);
+                  }}
                   onClick={(event) => {
                     if (!busy && (event.metaKey || event.ctrlKey || event.shiftKey)) {
                       event.preventDefault(); toggleSelection(task.id, event.shiftKey);
@@ -320,7 +354,11 @@ export function TaskHistoryDrawer(args: {
                   }}
                   onKeyDown={(event) => {
                     if (busy || event.target !== event.currentTarget) return;
-                    if (event.key.toLowerCase() === "x") {
+                    if (event.altKey && ["ArrowDown", "ArrowUp"].includes(event.key)) {
+                      event.preventDefault();
+                      const next = filteredTasks[filteredTasks.indexOf(task) + (event.key === "ArrowDown" ? 1 : -1)];
+                      if (next) void reorderTask(task.id, next.id);
+                    } else if (event.key.toLowerCase() === "x") {
                       event.preventDefault(); toggleSelection(task.id);
                     } else if (event.shiftKey && ["ArrowDown", "ArrowUp"].includes(event.key)) {
                       event.preventDefault();
@@ -339,6 +377,9 @@ export function TaskHistoryDrawer(args: {
                     disabled={busy} aria-label={i18n.t("panes:taskHistoryDrawer.selectTask", { title: task.title })}
                     onClick={(event) => event.stopPropagation()}
                     onCheckedChange={() => toggleSelection(task.id)} />
+                  <div className={sx(styles.rowContent)}>
+                  <GripVertical className={sx(styles.icon)} aria-hidden />
+                  <TaskUnreadDot workspaceId={targetWorkspaceId ?? ""} taskId={task.id} />
                   <ModelIcon
                     providerId={task.provider}
                     className={sx(styles.icon)}
@@ -349,6 +390,14 @@ export function TaskHistoryDrawer(args: {
                     </span>
                     <ActivityTimestamp value={task.updatedAt} kind="updated" />
                   </div>
+                  </div>
+                  <div className={sx(styles.rowActions)}>
+                  <TaskReadMenu workspaceId={targetWorkspaceId ?? ""} taskId={task.id} />
+                  <Button size="sm" variant="ghost" disabled={busy}
+                    aria-label={i18n.t(task.pinned ? "panes:taskHistoryDrawer.unpinTask" : "panes:taskHistoryDrawer.pinTask")}
+                    onClick={() => void togglePin(task)}>
+                    {task.pinned ? <PinOff className={sx(styles.icon)} /> : <Pin className={sx(styles.icon)} />}
+                  </Button>
                   {isTaskArchived(task) ? (
                     <span className={sx(styles.badge)}>
                       {i18n.t("panes:taskHistoryDrawer.archived")}
@@ -364,6 +413,7 @@ export function TaskHistoryDrawer(args: {
                   >
                     {isTaskArchived(task) ? i18n.t("panes:taskHistoryDrawer.restore") : i18n.t("panes:taskHistoryDrawer.open")}
                   </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -395,7 +445,7 @@ export function TaskHistoryDrawer(args: {
 }
 
 const styles = stylex.create({
-selectionControl: {minInlineSize:vars["--aui-space-24"],minBlockSize:vars["--aui-space-24"]},
+selectionControl: {gridRow:"1 / 3",minInlineSize:vars["--aui-space-24"],minBlockSize:vars["--aui-space-24"]},
 bulkActions: {display:"flex",alignItems:"center",flexWrap:"wrap",gap:vars["--aui-space-8"],marginTop:vars["--aui-space-12"]},
 drawer: {width:"min(28rem, 92vw)",maxWidth:448},
 header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars["--aui-color-border"],padding:vars["--aui-space-20"],textAlign:"left"},
@@ -403,7 +453,9 @@ search: {marginTop:vars["--aui-space-12"],height:36,borderRadius:vars["--aui-rad
 body: {minHeight:0,flex:1,overflowY:"auto",paddingInline:vars["--aui-space-20"],paddingBlock:vars["--aui-space-16"]},
 empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars["--aui-color-border"],paddingInline:vars["--aui-space-12"],paddingBlock:vars["--aui-space-16"],fontSize: vars["--aui-font-size-body"],color:vars["--aui-color-text-muted"]},
 list: {display:"flex",flexDirection:"column",gap:vars["--aui-space-8"]},
-row: {display:"flex",alignItems:"center",gap:vars["--aui-space-12"],borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--aui-color-border"],backgroundColor:vars["--aui-color-canvas"],padding:vars["--aui-space-12"]},
+rowContent: {display:"flex",alignItems:"center",minWidth:0,gap:vars["--aui-space-8"]},
+rowActions: {display:"flex",alignItems:"center",flexWrap:"wrap",gridColumn:2,minWidth:0,gap:vars["--aui-space-8"]},
+row: {display:"grid",gridTemplateColumns:"auto minmax(0, 1fr)",alignItems:"center",gap:vars["--aui-space-12"],borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--aui-color-border"],backgroundColor:vars["--aui-color-canvas"],padding:vars["--aui-space-12"]},
 icon: {width:16,height:16,flexShrink:0,color:vars["--aui-color-text-muted"]},
 details: {minWidth:0,flex:1,display:"flex",flexDirection:"column",gap:vars["--aui-space-4"]},
 title: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--aui-font-size-body"],fontWeight:500},

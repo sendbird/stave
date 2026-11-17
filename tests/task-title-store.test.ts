@@ -78,3 +78,21 @@ describe("task titles in the owning workspace", () => {
     }
   });
 });
+
+test("task pinning persists background workspace preferences without activating it", () => {
+  const { task, store, actions, writes } = setup();
+  actions.pinTask({ taskId: task.id, workspaceId: "ws-background", pinned: true });
+  expect(store.getState().activeWorkspaceId).toBe("ws-active");
+  expect(store.getState().tasks).toEqual([]);
+  expect(store.getState().workspaceRuntimeCacheById["ws-background"]?.tasks[0]?.pinned).toBe(true);
+  expect(writes[0]?.session.tasks[0]?.pinned).toBe(true);
+});
+
+test("active task pinning preserves task activity and increments the snapshot version", () => {
+  const { task, store, actions } = setup();
+  store.setState({ tasks: [task], workspaceSnapshotVersion: 10 });
+  actions.pinTask({ taskId: task.id, pinned: true });
+  expect(store.getState().tasks[0]?.pinned).toBe(true);
+  expect(store.getState().tasks[0]?.updatedAt).toBe(task.updatedAt);
+  expect(store.getState().workspaceSnapshotVersion).toBe(11);
+});

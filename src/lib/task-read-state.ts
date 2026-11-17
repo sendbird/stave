@@ -1,0 +1,13 @@
+import { z } from "zod";
+const Identity = z.string().trim().min(1).max(1000);
+export const TaskReadTargetSchema = z.object({workspaceId: Identity, taskId: Identity}).strict();
+export const ListTaskReadStatesArgsSchema = z.object({targets: z.array(TaskReadTargetSchema).max(500)}).strict();
+export const SetTaskReadStateArgsSchema = TaskReadTargetSchema.extend({read: z.boolean(), attentionOnly: z.literal(true).optional()}).strict();
+export const TaskReadStateSchema = TaskReadTargetSchema.extend({unread: z.boolean()}).strict();
+export const TaskReadStatesResponseSchema = z.object({ok: z.boolean(), states: z.array(TaskReadStateSchema).max(500)}).strict();
+export const TaskReadStateResponseSchema = z.object({ok: z.boolean(), state: TaskReadStateSchema.nullable()}).strict();
+export type TaskReadTarget = z.infer<typeof TaskReadTargetSchema>;
+export type ListTaskReadStatesArgs = z.infer<typeof ListTaskReadStatesArgsSchema>;
+export type SetTaskReadStateArgs = z.infer<typeof SetTaskReadStateArgsSchema>;
+export type TaskReadState = z.infer<typeof TaskReadStateSchema>;
+export const taskReadKey = (target: TaskReadTarget) => JSON.stringify([target.workspaceId,target.taskId]);
