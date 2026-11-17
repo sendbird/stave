@@ -17,6 +17,7 @@ import { registerTarsHandlers } from "./tars";
 import { registerAgentHandlers } from "./agents";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
+import { registerRemoteControlHandlers } from "./remote-control";
 import { registerUsageStatisticsHandlers } from "./usage-statistics";
 import { registerTurnHistoryHandlers } from "./turn-history";
 import { registerTaskHandoffHandlers } from "./task-handoff";
@@ -86,4 +87,5 @@ export function registerHandlers() {
   registerBrowserHandlers();
   registerSecretHandlers();
   registerSecretRequestHandlers();
+  registerRemoteControlHandlers();
 }

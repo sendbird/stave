@@ -35,6 +35,7 @@ import {
   shouldSkipQuitConfirmation,
 } from "./main/quit-state";
 import { stopCraneConnectorRuntime } from "./main/crane-connector/service";
+import { startRemoteControlRuntime, stopRemoteControlRuntime } from "./main/remote-control/service";
 import { STAVE_LOCAL_MCP_OWNER_PID_ENV } from "./main/stave-local-mcp-manifest";
 import {
   startTrackerIssuesRuntime,
@@ -115,6 +116,7 @@ function runBeforeQuitCleanup() {
       Promise.resolve(stopTrackerIssuesRuntime()),
       Promise.resolve(stopStorageCleanupRuntime()),
       stopStaveMcpServer(),
+      stopRemoteControlRuntime(),
       stopHostService(),
     ]);
 
@@ -166,6 +168,10 @@ if (hasSingleInstanceLock) {
     });
     void startStaveMcpServer().catch((error) => {
       console.error("[stave-mcp] failed to start local MCP server", error);
+    });
+    // Off by default: only a listener the user turned on is restored.
+    void startRemoteControlRuntime().catch(() => {
+      console.error("[remote-control] failed to restore the saved listener");
     });
   });
 }

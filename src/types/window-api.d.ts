@@ -3030,6 +3030,8 @@ interface WindowApi {
   skills?: WindowSkillsApi;
   localMcp?: WindowLocalMcpApi;
   craneConnector?: WindowCraneConnectorApi;
+  /** Opt-in remote control: Settings actions and the phone-answer bridge. */
+  remoteControl?: import("@/lib/remote-control").RemoteControlApi;
   trackerIssues?: WindowTrackerIssuesApi;
   repositoryMemory?: WindowRepositoryMemoryApi;
   jiraConnector?: WindowJiraConnectorApi;

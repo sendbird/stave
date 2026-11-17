@@ -150,7 +150,8 @@ export class RemoteControlServer {
     ) {
       throw new RemoteConfigError("invalid-address");
     }
-    if (!loopback && !this.interfaces().some((entry) => entry.address === config.address)) {
+    // Turning off must work even after the address left this computer.
+    if (config.enabled && !loopback && !this.interfaces().some((entry) => entry.address === config.address)) {
       throw new RemoteConfigError("address-unavailable");
     }
     await this.close();

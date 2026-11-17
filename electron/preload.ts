@@ -978,6 +978,13 @@ ipcRenderer.on(
   },
 );
 
+const remoteControlRequestSubscribers = new Set<(request: unknown) => void>();
+ipcRenderer.on("remote-control:request", (_event, payload: unknown) => {
+  for (const subscriber of remoteControlRequestSubscribers) {
+    subscriber(payload);
+  }
+});
+
 const appQuitRequestSubscribers = new Set<() => void>();
 ipcRenderer.on("window:app-quit-requested", () => {
   for (const subscriber of appQuitRequestSubscribers) {
@@ -2006,6 +2013,27 @@ contextBridge.exposeInMainWorld("api", {
         localMcpTaskTurnUpdateSubscribers.delete(listener);
       };
     },
+  },
+  /**
+   * Remote control: Settings actions, and the renderer half of the bridge
+   * that answers a paired phone. Every payload is validated by strict Zod
+   * schemas in main and again in the renderer.
+   */
+  remoteControl: {
+    invoke: (args: import("../src/lib/remote-control").RemoteAdmin) =>
+      ipcRenderer.invoke("remote-control:admin", args) as Promise<
+        import("../src/lib/remote-control").RemoteAdminResult
+      >,
+    onRequest: (listener: (request: unknown) => void) => {
+      remoteControlRequestSubscribers.add(listener);
+      return () => {
+        remoteControlRequestSubscribers.delete(listener);
+      };
+    },
+    respond: (response: import("../src/lib/remote-control").RemoteRendererResponse) =>
+      ipcRenderer.invoke("remote-control:respond", response) as Promise<{ ok: boolean }>,
+    setResponderReady: (ready: boolean) =>
+      ipcRenderer.invoke("remote-control:responder-ready", { ready }) as Promise<{ ok: boolean }>,
   },
   craneConnector: {
     getStatus: () =>

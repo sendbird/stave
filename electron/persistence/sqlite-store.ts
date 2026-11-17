@@ -16,6 +16,7 @@ import { DailyUsageStore } from "./daily-usage-store";
 import { keepUnseenWorkspaces } from "./repository-registry-merge";
 import { TarsStore } from "./tars-store";
 import { TarsConversationStore } from "./tars-conversation-store";
+import { RemoteControlStore } from "./remote-control-store";
 import {
   insertTurnEventWithReceipt,
   finalizeTurnReceipt,
@@ -220,6 +221,7 @@ export class SqliteStore {
   readonly agentAssignments: AgentAssignmentStore;
   readonly tars: TarsStore;
   readonly tarsConversations: TarsConversationStore;
+  readonly remoteControl: RemoteControlStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -295,6 +297,7 @@ export class SqliteStore {
     this.agentAssignments = new AgentAssignmentStore(this.db);
     this.tars = new TarsStore(this.db);
     this.tarsConversations = new TarsConversationStore(this.db);
+    this.remoteControl = new RemoteControlStore(this.db);
     this.workspaceInformation = new WorkspaceInformationStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     if (this.runMaintenance) {
