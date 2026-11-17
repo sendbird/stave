@@ -166,7 +166,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   const outcome = [
     message.reply !== null ? <Message key="reply" from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
       {/* A wide table may claim the transcript's wide measure; prose, code and cards keep the reading column. */}
-      <TranscriptWideScope enabled><MessageResponse fileLinkContext="none">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
+      <TranscriptWideScope enabled><MessageResponse fileLinkContext="none" lineBreaks="paragraph">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
       : message.state === "failed" ? <TarsMessageFailure key="failure" message={message} onResend={userWords && onResend ? onResend : undefined} />
         : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} inspection={message.inspection} /> : null,
     // Why it has not started yet, or that its first attempt failed and Tars is trying once more: never a silent wait.
