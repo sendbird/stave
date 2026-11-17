@@ -200,8 +200,8 @@ reports on the work.
   observation is stale or missing. General conversation works even before you
   add a repository.
 - Clear this conversation, or the ended work in the panel's **Done** and
-  **Outputs**, when you ask; it shows a card first and only your **Clear**
-  hides anything. See [Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
+  **Outputs**, or reset the whole Work panel, when you ask; it shows a card
+  first and only your confirmation applies anything. See [Clear the conversation and the panel](#clear-the-conversation-and-the-panel).
 - Set up work that runs later or repeats, when you ask: "every weekday at 9,
   check the release branch", "tomorrow at 3 pm look at this again". It shows a
   card first, and only your confirmation creates, changes, pauses or removes
@@ -736,7 +736,8 @@ suggested.
 ## Clear the conversation and the panel
 
 Clearing hides; it never deletes. Every clear leaves a record with **Undo**
-(for the conversation, **Restore**), and survives a restart.
+(for the conversation, **Restore**), and survives a restart. Resetting Work is
+the one clear that also changes work: it cancels Tars's unfinished work.
 
 - **Conversation.** **Clear conversation** (the eraser in the header) asks
   first, then hides the conversation so far: the start screen returns and Tars's
@@ -748,6 +749,19 @@ Clearing hides; it never deletes. Every clear leaves a record with **Undo**
   you, a draft PR or clear proposal still waiting for its card, and words
   still waiting to be said in a task. The record at the top says how many messages it hid;
   **Restore** brings them back.
+- **Work.** In the same dialog, **Also reset Work** empties the Work panel
+  (In Progress, Needs You and Done). Before you confirm, it lists how many
+  unfinished work items will be cancelled, how many ended cards and outputs
+  will be hidden, and how many are kept. Tars's unfinished work (queued,
+  preparing, running, waiting, blocked or result-ready) is cancelled through
+  the normal **Cancel**, so each run stops; Tars's questions waiting on that
+  work close, so they are not asked again. Work you took over or paused, and
+  work still publishing a draft PR, is kept exactly as it is. A cancel the host
+  refuses keeps that work, and the record names it as kept. Every ended card
+  and its outputs then leave the panel. The record says what was cancelled and
+  kept; **Restore** shows the cards again but never restarts cancelled work.
+  If Stave stops while cancelling, retrying the same reset joins the
+  cancellations already sent.
 - **Done and Outputs.** **Clear** in the tray's **Done** section hides ended
   work's cards; **Clear** in **Outputs** hides ended work's outputs. Only ended
   (completed or cancelled) work is hidden; running, waiting, paused, blocked
@@ -757,11 +771,15 @@ Clearing hides; it never deletes. Every clear leaves a record with **Undo**
   items it hides, with **Undo** for the latest clear; clearing the conversation
   afterwards keeps that **Undo**. Hidden work stays in Fleet
   and in its task, and Tars can still report on it.
-- **By asking.** Say "clear the chat", "대화 지워줘", "done 정리해줘" or
-  "clear everything". Tars proposes a clear card that says nothing is deleted,
-  then lists what each part would hide now and what always stays; **Clear**
-  (Enter) applies it through
-  the same path as the buttons, **Not now** (Esc) leaves everything as it is.
+- **By asking.** Say "clear the chat", "대화 지워줘", "done 정리해줘",
+  "In Progress 정리해줘", "reset Work" or "clear everything". Tars proposes one
+  clear card (never a separate question first) that lists what each part
+  would hide or cancel now and what stays; **Clear** (Enter) applies it through
+  the same path as the buttons, **Not now** (Esc) leaves everything as it is. A
+  card that resets Work uses the danger tone and **Clear and cancel**, and
+  applies only by click. When nothing is left to clear (for example after you
+  cleared Outputs yourself), the card offers **Close**, which settles it, so
+  it does not wait again after a restart.
   Tars never proposes a clear on its own initiative, and an automatic
   follow-up cannot.
 - **Retention.** **Keep ended work in the panel** in settings hides ended
@@ -1895,7 +1913,9 @@ requires a registered workspace ID. Unknown or ambiguous targets are refused.
 
 Say "stop everything" or "pause all running work" to propose pausing many responsibilities. Ask to resume all or explicitly cancel many, scoped to all work, a repository, or selected responsibility IDs. Every bulk action requires one confirmation card, at every autonomy level. Automatic follow-ups cannot propose these actions. The card lists only work the operation can act on; ended work is counted on one line, and the 1,000-item limit applies after that filter. Pause and resume keep the listed set but re-check each item's current state at confirmation, so running work whose revision moved is still paused. Cancel keeps the exact revision the user saw and leaves work the user took over (reason `takenOver`). Cancellation has no default Enter confirmation and cannot be undone.
 
-Say "clean up the finished work" or use **Clean up finished work** in Done. The card lists included and skipped work, repository, reasons and known disk sizes. Only completed or cancelled responsibilities qualify; unfinished work is counted on one line. The host inspects only each candidate's workspace and looks up its pull request once. When pull request status is unavailable, every item is skipped and one line explains it. The host rechecks ownership, running work, pending/open draft PRs, dirty files and unpushed commits for every workspace. It archives eligible workspaces using the same guarded cleanup operations as the cleanup center. The record retains per-item results and **Restore** for archived workspaces.
+Cleanup archives execution workspaces; it does not remove cards from Work (use Clear for that). Ended work with no workspace (never prepared, or already removed) is listed as **No workspace to archive**. When nothing on the card can be archived or changed, the card says why and offers only **Close** instead of a disabled action.
+
+Say "clean up the finished work's workspaces" or use **Clean up finished work** in Done. The card lists included and skipped work, repository, reasons and known disk sizes. Only completed or cancelled responsibilities qualify; unfinished work is counted on one line. The host inspects only each candidate's workspace and looks up its pull request once. When pull request status is unavailable, every item is skipped and one line explains it. The host rechecks ownership, running work, pending/open draft PRs, dirty files and unpushed commits for every workspace. It archives eligible workspaces using the same guarded cleanup operations as the cleanup center. The record retains per-item results and **Restore** for archived workspaces.
 
 Explicitly requested branch deletion uses safe deletion only; it never forces a branch deletion. Permanent deletion applies only to workspaces already archived when the card was prepared. Branch deletion and permanent deletion cannot be undone. An interrupted destructive item is not automatically replayed; inspect its state in the cleanup center. For cleanup and cancel, a changed revision is skipped rather than expanding the confirmed scope.
 

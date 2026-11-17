@@ -56,7 +56,7 @@ import { isTarsResponsibilityTerminal } from "@/lib/tars/attention";
 import { tarsControlFailureKey, tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { listAgents } from "@/lib/agents/library";
 import { getAgentDisplayName } from "@/lib/agents/display";
-import { isTarsTrayPinned, type TarsViewSettings } from "@/lib/tars/clearing";
+import { isTarsTrayPinned, normalizeTarsClearScopes, tarsWorkResetPlan, type TarsViewSettings } from "@/lib/tars/clearing";
 import { isTarsNewProfile } from "@/lib/tars/default-instructions";
 import { buildTarsSuggestions } from "@/lib/tars/suggestions";
 import { TarsClearConversationButton, type TarsClearCounts } from "./TarsClear";
@@ -315,14 +315,18 @@ function TarsViewContent() {
   // What a clear would hide now: settled messages, and ended work that is not waiting on a draft PR.
   const waitingPublish = useMemo(() => new Set(publishing.context.proposals.filter((view) => view.state === "waiting").map((view) => view.responsibilityId)),
     [publishing.context.proposals]);
+  // A Work reset's plan, read from the same rule the host applies (`tarsWorkResetPlan`).
+  const workPlan = useMemo(() => tarsWorkResetPlan(responsibilities), [responsibilities]);
   const clearCounts = useMemo<TarsClearCounts>(() => {
     const clearable = (row: TarsResponsibility) => isTarsResponsibilityTerminal(row) && !isTarsTrayPinned(row, waitingPublish);
     return {
       conversation: (conversation.conversation?.messages ?? []).filter((message) => message.state !== "queued" && message.state !== "reasoning").length,
       done: tray.lanes.done.filter((card) => clearable(card.row)).length,
       outputs: new Set(outputs.filter((output) => { const row = rowOf(output.responsibilityId); return row && clearable(row); }).map((output) => output.responsibilityId)).size,
+      work: workPlan.stop.length,
+      kept: workPlan.kept.length,
     };
-  }, [conversation.conversation?.messages, outputs, rowOf, tray.lanes.done, waitingPublish]);
+  }, [conversation.conversation?.messages, outputs, rowOf, tray.lanes.done, waitingPublish, workPlan]);
   const announce = useCallback((text: string) => setQueueNotice((current) => current === text ? `${text}\u00a0` : text), []);
   const clearing = useTarsClear({ bridge: api, conversation: conversation.conversation, counts: clearCounts, announce,
     refresh: () => { void refresh(); void conversation.refresh(); } });
@@ -409,7 +413,9 @@ function TarsViewContent() {
       <TarsInsights identity={snapshot?.identity ?? null} settings={conversation.conversation?.settings ?? null} bridge={api} onEditSettings={() => setSettingsOpen(true)}
         onOpenWork={(id) => { const row = rowOf(id); if (row) openSide({ responsibilityId: id, kind: row.agentRunId ? "timeline" : "brief" }); }} />
       {clearing.available ? <TarsClearConversationButton count={clearCounts.conversation} busy={clearing.busy}
-        error={clearing.errors.get("conversation") ?? null} onClear={() => clearing.clear(["conversation"], "click")} /> : null}
+        work={{ stop: clearCounts.work, ended: clearCounts.done, kept: clearCounts.kept }}
+        error={clearing.errors.get("conversation") ?? clearing.errors.get(normalizeTarsClearScopes(["conversation", "work"]).join(",")) ?? null}
+        onClear={(includeWork) => clearing.clear(includeWork ? ["conversation", "work"] : ["conversation"], "click")} /> : null}
       <Tooltip content={t("shell:tars.conversation.settings")}><Button variant="ghost" size="icon-sm" disabled={!snapshot} focusableWhenDisabled aria-label={t("shell:tars.conversation.settings")} onClick={() => setSettingsOpen(true)}><Settings /></Button></Tooltip>
       <Tooltip content={t("shell:tars.close")}><Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.close")} onClick={close}><X /></Button></Tooltip>
     </div>} />

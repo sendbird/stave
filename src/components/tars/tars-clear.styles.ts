@@ -21,4 +21,10 @@ export const tarsClearStyles = stylex.create({
   chipItem: { maxWidth: "100%", minWidth: 0 },
   chipButton: { maxWidth: "100%", minWidth: 0 },
   chipLabel: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  /** The header Clear dialog's "Also reset Work" choice and, once chosen, what it would do. */
+  work: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
+  workList: {
+    display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], margin: 0, paddingInlineStart: vars["--aui-space-16"],
+    color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere",
+  },
 });

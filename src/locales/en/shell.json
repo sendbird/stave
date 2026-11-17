@@ -2400,7 +2400,8 @@
       "scope": {
         "conversation": "Conversation",
         "done": "Done",
-        "outputs": "Outputs"
+        "outputs": "Outputs",
+        "work": "Work"
       },
       "hidden": {
         "conversation_one": "{{count}} message",
@@ -2408,12 +2409,20 @@
         "done_one": "{{count}} ended work item",
         "done_other": "{{count}} ended work items",
         "outputs_one": "outputs of {{count}} ended work item",
-        "outputs_other": "outputs of {{count}} ended work items"
+        "outputs_other": "outputs of {{count}} ended work items",
+        "work_one": "cancel {{count}} unfinished work item",
+        "work_other": "cancel {{count}} unfinished work items",
+        "workStopped_one": "{{count}} unfinished work item cancelled",
+        "workStopped_other": "{{count}} unfinished work items cancelled",
+        "workKept_one": "{{count}} kept (taken over, paused or publishing)",
+        "workKept_other": "{{count}} kept (taken over, paused or publishing)"
       },
       "record": {
         "applied": "Cleared",
         "undone": "Restored",
-        "fromTars": "from Tars"
+        "fromTars": "from Tars",
+        "nothing": "Nothing to clear",
+        "cancelledStays": "Restore shows the cards again; cancelled work stays cancelled."
       },
       "restore": "Restore",
       "undo": "Undo",
@@ -2431,14 +2440,32 @@
         "keysHint": "Enter clears; Esc leaves everything as it is.",
         "decline": "Not now",
         "confirm": "Clear",
-        "declined": "Not cleared"
+        "declined": "Not cleared",
+        "subtitleWork": "Tars's unfinished work is cancelled and its runs stop. Nothing is deleted; the record can show the hidden cards again.",
+        "keptWork": "Work you took over or paused, and work still publishing a draft pull request, stays as it is. Restore brings back cards, not cancelled runs.",
+        "closeEmpty": "Close",
+        "confirmWork": "Clear and cancel",
+        "keptLabel": "Kept"
       },
       "conversation": {
         "button": "Clear conversation",
         "title": "Clear the conversation?",
         "description_one": "Hide {{count}} message from this view and from the conversation history Tars reads. Your work, pending decisions and records stay. Nothing is deleted; Restore brings the conversation back.",
         "description_other": "Hide {{count}} messages from this view and from the conversation history Tars reads. Your work, pending decisions and records stay. Nothing is deleted; Restore brings the conversation back.",
-        "confirm": "Clear conversation"
+        "confirm": "Clear conversation",
+        "work": {
+          "label": "Also reset Work",
+          "stop_one": "Cancels {{count}} unfinished work item through the normal Cancel; its run stops.",
+          "stop_other": "Cancels {{count}} unfinished work items through the normal Cancel; their runs stop.",
+          "ended_one": "Hides {{count}} ended work item and its outputs.",
+          "ended_other": "Hides {{count}} ended work items and their outputs.",
+          "kept_one": "Keeps {{count}} item you took over, paused or that is publishing.",
+          "kept_other": "Keeps {{count}} items you took over, paused or that are publishing.",
+          "irreversible": "Restore brings back the cards, not cancelled runs."
+        },
+        "confirmWork": "Clear and reset Work",
+        "descriptionWork_one": "Hide {{count}} message from this view and from the conversation history Tars reads, and reset Work as listed below. Nothing is deleted.",
+        "descriptionWork_other": "Hide {{count}} messages from this view and from the conversation history Tars reads, and reset Work as listed below. Nothing is deleted."
       },
       "lane": {
         "clear": "Clear",
@@ -3053,7 +3080,8 @@
       "reasons": {
         "alreadyArchived": "Already archived",
         "duplicateWorkspace": "Workspace already included",
-        "stale": "The work changed"
+        "stale": "The work changed",
+        "workspaceMissing": "No workspace to archive"
       },
       "cleanupResultLead": "Cleanup",
       "outcomeWithReasons": "{{summary}} ({{reasons}})",
@@ -3087,7 +3115,12 @@
       "interrupted_one": "{{summary}}; {{count}} item not processed yet",
       "interrupted_other": "{{summary}}; {{count}} items not processed yet",
       "continue": "Continue",
-      "declined": "Declined"
+      "declined": "Declined",
+      "nothingIncluded": {
+        "cleanup": "Nothing here can be archived. To remove these cards from Work, use Clear in the Tars header and include Work.",
+        "control": "Nothing here can be changed now."
+      },
+      "close": "Close"
     }
   },
   "contentSearch": {

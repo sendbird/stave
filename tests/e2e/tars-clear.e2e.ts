@@ -59,7 +59,8 @@ test.describe("Tars clear, retention and suggestions", () => {
     await expect(view(page).locator("[data-tars-message]")).toHaveCount(0);
     await expect(view(page).locator("[data-tars-welcome]")).toBeVisible();
     await expect(view(page).locator('[data-tars-clear-scopes="conversation"]')).toContainText("2 messages");
-    await expect(view(page).locator("[data-tars-clear-conversation]")).toBeDisabled();
+    // Work is still in the tray, so Clear stays available for a Work reset.
+    await expect(view(page).locator("[data-tars-clear-conversation]")).toBeEnabled();
     // The tray's work is not part of the conversation.
     await expect(laneCount(page, "running")).toHaveText("2");
 
@@ -69,6 +70,30 @@ test.describe("Tars clear, retention and suggestions", () => {
     await view(page).locator("[data-tars-clear-undo]").click();
     await expect(view(page).locator("[data-tars-message]")).toHaveCount(2);
     await expect(view(page).locator("[data-tars-welcome]")).toHaveCount(0);
+  });
+
+  test("resetting Work says what it cancels and keeps, cancels Tars's work, keeps paused and taken-over work, and stays after a reload", async ({ page }) => {
+    await page.goto("/?stavePreview=tars&tray=true");
+    await view(page).locator("[data-tars-clear-conversation]").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("checkbox", { name: "Also reset Work" }).click();
+    const plan = dialog.locator("[data-tars-clear-work-plan]");
+    await expect(plan).toContainText("Cancels 1 unfinished work item through the normal Cancel; its run stops.");
+    await expect(plan).toContainText("Hides 1 ended work item and its outputs.");
+    await expect(plan).toContainText("Keeps 2 items you took over, paused or that are publishing.");
+    await expect(plan).toContainText("Restore brings back the cards, not cancelled runs.");
+    await dialog.getByRole("button", { name: "Clear and reset Work" }).click();
+    const record = view(page).locator('[data-tars-clear-scopes="conversation,done,outputs,work"]');
+    await expect(record).toContainText("1 unfinished work item cancelled");
+    await expect(record).toContainText("2 kept (taken over, paused or publishing)");
+    await expect(record.locator("[data-tars-clear-cancelled-stays]")).toBeVisible();
+    await expect(laneCount(page, "running")).toHaveText("1");
+    await expect(laneCount(page, "needsYou")).toHaveText("1");
+    await expect(laneCount(page, "done")).toHaveText("0");
+    await page.reload();
+    await expect(laneCount(page, "running")).toHaveText("1");
+    await expect(laneCount(page, "done")).toHaveText("0");
+    await expect(view(page).locator('[data-tars-clear-scopes="conversation,done,outputs,work"]')).toContainText("1 unfinished work item cancelled");
   });
 
   test("asking Tars to clear shows a card; Esc leaves everything, Enter clears through the same path", async ({ page }) => {
@@ -81,6 +106,9 @@ test.describe("Tars clear, retention and suggestions", () => {
     await page.keyboard.press("Escape");
     await expect(view(page).locator('[data-tars-clear-proposal="declined"]')).toContainText("정리하지 않음");
     await expect(laneCount(page, "done")).toHaveText("1");
+    await page.reload();
+    await expect(view(page).locator('[data-tars-clear-proposal="declined"]')).toContainText("정리하지 않음");
+    await expect(view(page).locator("[data-tars-clear-card]")).toHaveCount(0);
 
     await send(page, "끝난 작업만 정리해줘");
     const second = view(page).locator("[data-tars-clear-card]");
@@ -194,3 +222,37 @@ test.describe("Tars clear, retention and suggestions", () => {
     await expect(page.getByLabel("Standing instructions")).toHaveValue(/^- Lead with the answer/);
   });
 });
+
+for (const width of [800, 1440]) for (const lang of ["en", "ko"]) {
+  test(`Work reset dialog contains its plan and uses token spacing at ${width}px / ${lang}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?stavePreview=tars&tray=true&lang=${lang}&theme=${lang === "ko" ? "dark" : "light"}&density=${width === 800 ? "compact" : "regular"}`);
+    await view(page).locator("[data-tars-clear-conversation]").click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("checkbox").click();
+    await page.evaluate(() => document.fonts.ready);
+    const geometry = await dialog.evaluate((element) => {
+      const plan = element.querySelector<HTMLElement>("[data-tars-clear-work-plan]")!;
+      const work = element.querySelector<HTMLElement>("[data-tars-clear-work]")!;
+      const rect = element.getBoundingClientRect();
+      const token = (name: string) => {
+        const probe = document.createElement("div"); probe.style.width = `var(${name})`; element.append(probe);
+        const value = probe.getBoundingClientRect().width; probe.remove(); return value;
+      };
+      return { overflow: element.scrollWidth - element.clientWidth, gap: parseFloat(getComputedStyle(work).rowGap), expectedGap: token("--aui-space-8"),
+        indent: parseFloat(getComputedStyle(plan).paddingInlineStart), expectedIndent: token("--aui-space-16"),
+        contained: [...plan.children].every((item) => { const r = item.getBoundingClientRect(); return r.left >= rect.left && r.right <= rect.right + 1; }) };
+    });
+    // One CSS pixel allows fractional font/layout rounding while preserving containment and token spacing.
+    expect(geometry.overflow).toBeLessThanOrEqual(1);
+    expect(geometry.contained).toBe(true);
+    expect(Math.abs(geometry.gap - geometry.expectedGap)).toBeLessThanOrEqual(1);
+    expect(Math.abs(geometry.indent - geometry.expectedIndent)).toBeLessThanOrEqual(1);
+    // Selecting Work moves default focus to Not now; Enter dismisses without cancelling work.
+    await page.keyboard.press("Enter");
+    await expect(dialog).toHaveCount(0);
+    // The narrow viewport folds the tray; its always-visible indicator still reports the unchanged work.
+    await expect(view(page).locator("[data-tars-tray-indicator]")).toContainText(lang === "en" ? "2 in progress" : "진행 중 2");
+    await expect(view(page).locator('[data-tars-clear-scopes="conversation,done,outputs,work"]')).toHaveCount(0);
+  });
+}

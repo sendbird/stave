@@ -85,10 +85,14 @@ export function TarsBatchCard({ record, busy, error, onConfirm, onRestore, onDec
     <p className={sx(styles.effect)}>{t("shell:tars.batch.effect")}</p>
     {notes}
     {details}
-    <p className={sx(styles.detail)}>{t(danger ? "shell:tars.batch.irreversible" : "shell:tars.batch.reversible")}</p>
+    {/* Nothing can be applied: the card says why and closes, instead of leaving a dead positive button. */}
+    {included ? <p className={sx(styles.detail)}>{t(danger ? "shell:tars.batch.irreversible" : "shell:tars.batch.reversible")}</p>
+      : <p className={sx(styles.detail)} data-tars-batch-nothing="">{t(record.action.kind === "cleanup" ? "shell:tars.batch.nothingIncluded.cleanup" : "shell:tars.batch.nothingIncluded.control")}</p>}
     <div className={sx(styles.footerActions)}>
-      <Button size="xs" variant="quiet" onClick={onDecline} disabled={busy} data-tars-batch-decline="">{t("shell:tars.clear.card.decline")}</Button>
-      <Button size="xs" variant="primary" tone={danger ? "danger" : "neutral"} onClick={onConfirm} disabled={busy || !included} data-tars-batch-confirm="">{t(`shell:tars.batch.verb.${verb}`)}</Button>
+      {included ? <>
+        <Button size="xs" variant="quiet" onClick={onDecline} disabled={busy} data-tars-batch-decline="">{t("shell:tars.clear.card.decline")}</Button>
+        <Button size="xs" variant="primary" tone={danger ? "danger" : "neutral"} onClick={onConfirm} disabled={busy} data-tars-batch-confirm="">{t(`shell:tars.batch.verb.${verb}`)}</Button>
+      </> : <Button size="xs" variant="primary" tone="neutral" onClick={onDecline} disabled={busy} data-tars-batch-close="">{t("shell:tars.batch.close")}</Button>}
     </div>
     {alert}
   </section>;
