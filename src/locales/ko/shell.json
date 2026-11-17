@@ -2403,6 +2403,11 @@
       }
     },
     "suggestions": {
+      "generating": "추천 요청을 만들고 있습니다…",
+      "empty": "지금 추천할 요청이 없습니다.",
+      "noSettings": "추천 요청을 만들려면 Tars 모델을 선택하세요.",
+      "failed": "추천 요청을 만들지 못했습니다.",
+      "retry": "다시 시도",
       "label": "추천 요청",
       "needsYou": {
         "label": "내가 확인할 일",

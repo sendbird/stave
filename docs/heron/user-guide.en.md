@@ -667,10 +667,13 @@ edited in Schedules is yours, and Tars says so. A time that has passed, an
 interval under one minute and an unregistered workspace are refused with the
 reason.
 
-While the message box is empty, up to four suggestions sit above it, drawn
-from your work, such as **What needs me?**, **Resume …** or **Show the report
-for …**. A suggestion only fills the message box; nothing is sent until you
-send it.
+While the message box is empty, Tars's saved conversation model generates up
+to four suggestions about your work in a separate read-only turn with tools
+disabled. Generating, failure and no suggestions are shown separately. Choose
+a Tars model if none is saved; use **Try again** after failure. Facts, language
+or model changes request a new result; older responses are hidden. Reopening
+Tars can generate again. A suggestion only fills and focuses the message box
+with the generated prompt; nothing is sent until you send it.
 
 An empty or cleared conversation shows a start screen: a greeting, **Right
 now** (how many pieces of work need you, are running and finished in the last

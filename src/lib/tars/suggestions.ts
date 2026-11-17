@@ -5,6 +5,9 @@ import { tarsQueueOf } from "./queue-order";
 import type { TarsTrayModel } from "./tray-model";
 import { isTarsWorkRunning } from "./live-progress";
 import type { TarsResponsibility } from "./types";
+import { TARS_SUGGESTIONS_MAX } from "./suggestion-generation";
+
+export { TARS_SUGGESTIONS_MAX };
 
 /**
  * What a suggestion asks Tars:
@@ -31,8 +34,6 @@ export interface TarsSuggestion {
   count: number;
 }
 
-/** A chip row stays short: more choices would read as a menu, not a nudge. */
-export const TARS_SUGGESTIONS_MAX = 4;
 /** A title longer than this is cut for the chip; the words it inserts keep the whole title. */
 export const TARS_SUGGESTION_TITLE_MAX = 32;
 const DAY_MS = 86_400_000;

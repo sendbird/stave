@@ -19,6 +19,7 @@ import { TarsUsageInputSchema, TarsUsageReportSchema } from "../../../src/lib/ta
 import { SaveTarsComposerDraftInputSchema } from "../../../src/lib/tars/composer-draft";
 import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../../../src/lib/tars/clearing";
 import { TarsAwayStateSchema } from "../../../src/lib/tars/away-state";
+import { TarsSuggestInputSchema, TarsSuggestResultSchema } from "../../../src/lib/tars/suggestion-generation";
 import { TarsScheduleConfirmInputSchema, TarsSchedulePreviewInputSchema, TarsScheduleToggleInputSchema } from "../../../src/lib/tars/schedules";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
@@ -112,6 +113,13 @@ export function registerTarsHandlers() {
     // Loaded on first use, so registering these handlers does not load main's persistence module.
     const { getTarsUsageReport } = await import("../tars-usage-instance");
     return TarsUsageReportSchema.parse(await getTarsUsageReport(input));
+  });
+  // Suggestions name only observed facts and a language; main reads the saved model itself and admits one tool-less turn.
+  ipcMain.handle(TARS_IPC.suggest, async (_event, rawInput: unknown) => {
+    const input = TarsSuggestInputSchema.parse(rawInput);
+    // Loaded on first use, like usage, so registering these handlers does not load the run coordinator.
+    const { suggestTarsRequests } = await import("../tars-suggestion-instance");
+    return TarsSuggestResultSchema.parse(await suggestTarsRequests(input));
   });
   ipcMain.handle(TARS_IPC.updateIdentity, (_event, input: unknown) =>
     invokeHostService("tars.invoke", { action: "updateIdentity", args: UpdateTarsIdentityInputSchema.parse(input) }));

@@ -59,6 +59,10 @@ import { getAgentDisplayName } from "@/lib/agents/display";
 import { isTarsTrayPinned, type TarsViewSettings } from "@/lib/tars/clearing";
 import { isTarsNewProfile } from "@/lib/tars/default-instructions";
 import { buildTarsSuggestions } from "@/lib/tars/suggestions";
+import { tarsSuggestionFacts } from "@/lib/tars/suggestion-generation";
+import { normalizeAppLocale } from "@/i18n";
+import { useTarsSuggestions } from "./use-tars-suggestions";
+import type { TarsConversationSuggestions } from "./TarsConversation";
 import { TarsClearConversationButton, type TarsClearCounts } from "./TarsClear";
 import { useTarsClear } from "./use-tars-clear";
 import type { TarsTrayClearing } from "./TarsTray";
@@ -97,7 +101,7 @@ export function TarsView() {
 }
 
 function TarsViewContent() {
-  const { t } = useTranslation(["shell"]);
+  const { t, i18n } = useTranslation(["shell"]);
   const close = useAppStore((state) => state.closeTars);
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
   const exitToWorkspace = useAppStore((state) => state.exitToWorkspace);
@@ -338,9 +342,15 @@ function TarsViewContent() {
   };
   const trayClearing: TarsTrayClearing | undefined = clearing.available ? { busy: clearing.busy, done: laneClearing("done"), outputs: laneClearing("outputs"),
     onClear: (scope) => void clearing.clear([scope], "click") } : undefined;
-  // Suggested requests from the work as it is now; none before the work was read.
-  const suggestions = useMemo(() => buildTarsSuggestions({ tray: snapshot ? tray : null, messages: conversation.conversation?.messages ?? [],
+  // What the work is doing now that a suggestion could be about; none before the work was read.
+  const observed = useMemo(() => buildTarsSuggestions({ tray: snapshot ? tray : null, messages: conversation.conversation?.messages ?? [],
     receipts: conversation.conversation?.receipts ?? [], now: followUpNow }), [conversation.conversation?.messages, conversation.conversation?.receipts, followUpNow, snapshot, tray]);
+  const facts = useMemo(() => tarsSuggestionFacts(observed), [observed]);
+  // Tars's saved reasoning model writes the chips about those facts; a different saved model asks again.
+  const savedSettings = conversation.conversation?.settings;
+  const suggested = useTarsSuggestions({ bridge: api, facts, language: normalizeAppLocale(i18n.language),
+    model: savedSettings ? JSON.stringify([savedSettings.providerId, savedSettings.model, savedSettings.runtimeHints]) : null });
+  const suggestions = useMemo<TarsConversationSuggestions>(() => ({ state: suggested.state, facts: observed, retry: suggested.retry }), [observed, suggested.retry, suggested.state]);
   // The start screen's facts: the tray's own counts, and the repositories the app has registered.
   const registered = useAppStore((state) => state.recentRepositories);
   const repositoryPath = useAppStore((state) => state.repositoryPath);

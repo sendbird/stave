@@ -2449,6 +2449,11 @@
       }
     },
     "suggestions": {
+      "generating": "Generating suggestions…",
+      "empty": "No suggestions right now.",
+      "noSettings": "Choose a Tars model to generate suggestions.",
+      "failed": "Could not generate suggestions.",
+      "retry": "Try again",
       "label": "Suggested requests",
       "needsYou": {
         "label": "What needs me?",

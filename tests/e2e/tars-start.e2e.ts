@@ -14,6 +14,7 @@ async function open(page: Page, query: string) {
   await page.goto(`/?stavePreview=tars&${query}`);
   await expect(start(page)).toBeVisible();
   await expect(editor(page)).toBeEditable();
+  await expect(composer(page).locator('[data-tars-suggestions-status="loading"]')).toHaveCount(0);
   await page.evaluate(() => document.fonts.ready);
 }
 
@@ -75,7 +76,7 @@ test.describe("Tars start screen", () => {
     const chips = composer(page).locator("[data-tars-suggestion]");
     await expect(chips).not.toHaveCount(0);
     const kinds = await chips.evaluateAll((nodes) => nodes.map((node) => (node as HTMLElement).dataset.tarsSuggestion));
-    expect(kinds).toContain("needsYou");
+    expect(kinds).toEqual(["0"]);
     // "What needs me?" is a chip, so the status example is left out.
     await expect(example(page, "status")).toHaveCount(0);
     const chipPrompts = await chips.evaluateAll((nodes) => nodes.map((node) => node.getAttribute("title")));
