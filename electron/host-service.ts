@@ -1,3 +1,4 @@
+import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
 import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
@@ -93,6 +94,7 @@ import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-files";
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
+import { createAgentPrAutoWatch } from "./host-service/agent-pr-auto-watch";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/tars-host";
 import { applyTarsDecision, confirmTarsProposal, type TarsDecisionPorts } from "./host-service/tars-decisions";
@@ -678,6 +680,25 @@ const wakeUpRuntime = createWakeUpRuntime({
     emitEvent("wake-up.changed", event);
   },
 });
+const agentPrAutoWatch = createAgentPrAutoWatch({
+  wakeUps: wakeUpRuntime,
+  context: async (candidate) => {
+    const { repositories } = await localMcpRuntime.loadNormalizedRepositories();
+    const registration = localMcpRuntime.findWorkspaceRegistration({ repositories, workspaceId: candidate.workspaceId });
+    if (!registration) return null;
+    const snapshot = await localMcpRuntime.getTaskSupervisionSnapshot(candidate);
+    return { cwd: registration.workspacePath, enabled: registration.project.settingsOverrides?.agentPrWatchEnabled ?? true,
+      managed: snapshot.managed ?? false, snapshot };
+  },
+  owned: ({ workspaceId, number }) => ensureHostServicePersistenceReady().agentRuns.listActiveAgentRuns().some(run => run.workspaceId === workspaceId) ||
+    ensureHostServicePersistenceReady().tars.snapshot().responsibilities.some(row =>
+      row.executionWorkspaceId === workspaceId && row.publication?.number === number),
+  onError: (error) => console.warn("[pr-auto-watch] discovery failed", error),
+});
+function discoverAgentPullRequest(args: { workspaceId: string; taskId: string; turnId: string }) {
+  const turn = ensureHostServicePersistenceReady().listTurns({ ...args, limit: 1 })[0];
+  if (turn) agentPrAutoWatch.notify({ ...args, startedAt: turn.createdAt });
+}
 const tarsRuntime = createHostTarsRuntime({
   agentRuns: agentRunRuntime,
   assignments: assignRuntime,
@@ -703,6 +724,7 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
   }
   emitEvent("local-mcp.task-turn-updated", event.payload);
   if (event.payload.done) {
+    discoverAgentPullRequest(event.payload);
     agentRunRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
   }
 });
@@ -1099,6 +1121,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
           }
           // A reply during an agent run is guidance for the current stage; the
           // agent run picks it up now instead of at its next interval.
+          if (args.workspaceId) discoverAgentPullRequest({ workspaceId: args.workspaceId, taskId: args.taskId, turnId });
           agentRunRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
         }
       },
@@ -1456,6 +1479,7 @@ async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
+  agentPrAutoWatch.stop();
   wakeUpRuntime.stop();
   tarsPublisher.watcher.stop();
   tarsRuntime.stop();
@@ -2131,6 +2155,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.push":
       await respond(request.id, await pushScmBranch(request.params));
+      return;
+    case "scm.get-pr-stack":
+      await respond(request.id, await getPullRequestStack(request.params));
+      return;
+    case "scm.retarget-pr-stack":
+      await respond(request.id, await retargetPullRequestStack(request.params));
       return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));

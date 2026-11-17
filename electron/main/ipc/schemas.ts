@@ -1,3 +1,4 @@
+export { GetPrStackArgsSchema, RetargetPrStackArgsSchema } from "../../../src/lib/pull-request-stack";
 export { TarsBatchInputSchema, TarsBatchRecordSchema } from "../../../src/lib/tars/batch";
 import { QuestionReplySchema } from "../../../src/lib/question-reply";
 import { ApprovalRuleDeciderSchema } from "../../../src/lib/approvals/approval-resolution";

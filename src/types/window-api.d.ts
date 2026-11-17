@@ -1,3 +1,4 @@
+import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
 import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
 import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
@@ -1611,6 +1612,8 @@ interface WindowSourceControlApi {
     existingPrUrl?: string;
     stderr?: string;
   }>;
+  getPrStack?: (args: GetPrStackArgs) => Promise<GetPrStackResult>;
+  retargetPrStack?: (args: RetargetPrStackArgs) => Promise<RetargetPrStackResult>;
   getRepoMergeSettings?: (args: { cwd?: string }) => Promise<{
     ok: boolean;
     squashMergeAllowed?: boolean;

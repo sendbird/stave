@@ -692,6 +692,10 @@
       "title": "저장소 제거",
       "description": "Stave 저장소 목록에서 \"{{name}}\" 저장소를 제거하시겠습니까? 디스크의 파일은 삭제되지 않습니다.",
       "confirm": "저장소 제거"
+    },
+    "agentPrWatch": {
+      "title": "에이전트가 만든 PR 감시",
+      "description": "작업에서 PR을 만들면 실패한 검사와 충돌을 감시합니다. 리뷰 대응은 별도로 켤 수 있습니다."
     }
   },
   "skillsSection": {

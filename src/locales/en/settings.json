@@ -697,6 +697,10 @@
       "title": "Remove repository",
       "description": "Remove \"{{name}}\" from Stave's repository list? This does not delete files on disk.",
       "confirm": "Remove repository"
+    },
+    "agentPrWatch": {
+      "title": "Watch pull requests agents open",
+      "description": "Watch failing checks and conflicts after a task opens a pull request. Reviews stay opt-in."
     }
   },
   "skillsSection": {

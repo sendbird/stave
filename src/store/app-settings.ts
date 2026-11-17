@@ -330,6 +330,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * opened it when checks fail or the branch conflicts with its base.
    */
   createPrWatchEnabled: boolean;
+  /** Watch pull requests discovered after a task turn ends. */
+  agentPrWatchEnabled: boolean;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -783,6 +785,7 @@ export const defaultSettings: AppSettings = {
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
   createPrWatchEnabled: true,
+  agentPrWatchEnabled: true,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",

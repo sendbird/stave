@@ -273,6 +273,37 @@ The dialog keeps the base branch simple by default. It shows the current remote 
 - When uncommitted files are auto-committed during PR creation, progress, success, and failure messages are shown inline inside the dialog instead of as transient toast notifications.
 - While commit, push, or PR creation is running, the dialog no longer accepts dismiss attempts that would clear the prepared title and description mid-flight.
 
+## Agent-opened PRs
+
+**Repository settings → Watch pull requests agents open** is on by default.
+After a task turn completes, the host checks that workspace branch for a newly
+opened PR. Discovery is bounded to four reads within five minutes; idle
+workspaces do not poll. Only a PR created during that turn is adopted. Both
+supported task providers use the same path.
+
+The task's existing check-back schedule is preserved. Active turns, approvals
+and questions defer registration. Managed work and PRs already owned by another
+automatic watcher do not acquire a second watcher. The default policy watches
+failed checks and merge conflicts; review feedback remains opt-in. A persistent
+task notice shows the watch and **Stop watching**. A stopped or existing schedule
+is never replaced by discovery. Once registered, the existing supervisor stops
+on merge or close. The cleanup center independently reads that branch's PR and
+lists merged work under **PR merged**; watching does not archive or delete it.
+
+## Stacked PRs
+
+A PR targeting another PR's branch belongs to that stack. The top-bar PR area
+and Fleet show its position, such as **2 of 3 in stack**, with parent and child
+links. Reads are bounded to 32 members and 16 ancestor levels; incomplete or
+cyclic stacks report a read error instead of an incorrect position.
+
+In the creation dialog, **Create stacked PR** targets the current parent PR's
+branch. After a parent merges, **Retarget and update children** first rechecks
+the relationship, changes each direct child's base to the parent's base, and
+uses the existing branch-update operation. Updates merge the base without
+rewriting history. Conflicts stop the update and remain visible; partial remote
+changes are reported. This action never force-pushes.
+
 ## Store Shape
 
 ```ts

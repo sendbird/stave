@@ -3,17 +3,20 @@ import type { AppSettings } from "@/store/app-settings";
 /**
  * Settings scope: the only settings a project (repository) may override.
  *
- * Two groups, both owned by a Settings section that already exists:
+ * Each group is owned by an existing Settings section:
  * - the default model and effort per provider (Settings > Models);
  * - the permission posture per provider (Settings > Providers): Claude's
  *   permission mode and sandbox switches, Codex's file access, network
  *   access and approvals, and the Cursor, Kiro and OpenCode approval presets.
+ *
+ * - automatic pull request watching after a task turn ends.
  *
  * Everything else is global. Every read of an overridable value for a new
  * task or turn goes through `resolveEffectiveSettings` / `effectiveSetting`,
  * and an explicit task or composer choice still wins over both layers.
  */
 export const PROJECT_OVERRIDABLE_SETTING_KEYS = [
+  "agentPrWatchEnabled",
   "modelClaude",
   "claudeEffort",
   "modelCodex",
@@ -85,6 +88,7 @@ const OVERRIDE_VALIDATORS: {
     value: unknown,
   ) => AppSettings[K] | undefined;
 } = {
+  agentPrWatchEnabled: flag,
   modelClaude: modelId,
   claudeEffort: oneOf<AppSettings["claudeEffort"]>(EFFORTS),
   modelCodex: modelId,

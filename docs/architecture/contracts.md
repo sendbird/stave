@@ -597,6 +597,13 @@ When changing PR status fetching, derivation, or UI rendering:
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
 
+Stack discovery and retargeting extend this route through
+`src/lib/pull-request-stack.ts` (strict request and response schemas),
+`electron/host-service/pull-request-stack-runtime.ts`, `protocol.ts`, SCM IPC,
+preload and the window API. Retargeting revalidates the merged parent and every
+open direct child before writing; the existing update operation addresses the
+selected child explicitly and never rewrites history.
+
 ## PR Context Contract
 
 When changing how PR review threads or failed-CI evidence are attached to a task:
@@ -627,6 +634,13 @@ When changing how a wake-up resumes an existing task:
 - `electron/host-service.ts` — construction, `start`/`stop`, the dispatch arm
 - `electron/main/wake-up-service.ts` — the main-process bridge
 - `electron/main/stave-mcp-server.ts` — the `stave_*_wake_up` tools
+
+Automatic discovery starts at completed task-turn events in
+`electron/host-service.ts`, then `agent-pr-auto-watch.ts` checks the repository
+setting, task ownership and newly opened branch PR. It registers through the
+serialized wake-up runtime, preserving existing schedules and pinning the PR
+identity. The existing change event feeds `wake-ups-store.ts` and the task's
+persistent watch notice. Discovery itself is bounded and memory-only.
 
 A change to the defer / pause / stop priority order is a change to the
 `wake-up-safety` gate, and a change to what a wake-up definition may

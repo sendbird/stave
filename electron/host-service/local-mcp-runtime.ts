@@ -224,6 +224,7 @@ export interface TaskStatusResult {
 
 /** The supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
 export interface TaskSupervisionSnapshot {
+  managed?: boolean;
   workspaceId: string;
   taskId: string;
   repositoryPath: string | null;
@@ -2322,6 +2323,7 @@ export async function getTaskSupervisionSnapshot(args: {
     taskId: task.id,
     repositoryPath: registration.project.repositoryPath,
     exists: true,
+    managed: isTaskManaged(task),
     archived: Boolean(task.archivedAt),
     providerId: task.provider,
     model: resolveTaskModel({ messages, draft: session.promptDraftByTask[task.id], providerId: task.provider }),

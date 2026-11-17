@@ -288,6 +288,23 @@ edge memory -> turn
 @caption A simplified view of how the app assembles a request. Whether repository instructions reach Cursor, Kiro and OpenCode turns was not confirmed.
 ```
 
+
+### Watch agent-opened PRs and manage a stack
+
+**Repository settings → Watch pull requests agents open** is on by default.
+When an agent opens a PR during a task turn, Stave briefly checks that branch
+after the turn and adds a watch for failed checks and merge conflicts. Review
+feedback stays opt-in. Existing schedules and other automatic owners are kept.
+Turns, approvals and questions delay registration. The task shows the watch;
+choose **Stop watching** to remove it. Watches stop when the PR merges or closes.
+Merged work is eligible for the cleanup center's **PR merged** rule.
+
+For related branches, choose **Create stacked PR** in the creation dialog.
+The top-bar PR area and Fleet show the stack position and parent/child links.
+After a parent merges, **Retarget and update children** changes the children's
+base and updates their branches. Conflicts are reported for manual resolution.
+This action never force-pushes.
+
 ## Ways to give context
 
 | Method                  | How                                                          | Worth knowing                                                                |

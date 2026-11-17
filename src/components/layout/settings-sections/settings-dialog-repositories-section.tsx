@@ -28,7 +28,7 @@ import {
   repositoryRemotesState,
   type RepositoryMetadataState,
 } from "./settings-dialog-repository-status";
-import { LabeledField, SettingsCard } from "../settings-dialog.shared";
+import { LabeledField, SettingsCard, SwitchField } from "../settings-dialog.shared";
 import { DraftTextarea } from "../settings-dialog.shared";
 
 function RepositorySettingsPanel(args: {
@@ -37,6 +37,8 @@ function RepositorySettingsPanel(args: {
   onRequestRemove: (args: { repositoryPath: string; repositoryName: string }) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
+  const updateProjectSettingsOverrides = useAppStore((state) => state.updateProjectSettingsOverrides);
+  const agentPrWatchDefault = useAppStore((state) => state.settings.agentPrWatchEnabled);
   const setRepositoryBasePrompt = useAppStore(
     (state) => state.setRepositoryBasePrompt,
   );
@@ -192,6 +194,16 @@ function RepositorySettingsPanel(args: {
             {t("common:actions.refresh")}</Button>
         </div>
       </div>
+
+      <SwitchField
+        title={t("settings:repositoriesSection.agentPrWatch.title")}
+        description={t("settings:repositoriesSection.agentPrWatch.description")}
+        checked={args.repository.settingsOverrides?.agentPrWatchEnabled ?? agentPrWatchDefault}
+        onCheckedChange={(checked) => updateProjectSettingsOverrides({
+          repositoryPath: args.repository.repositoryPath,
+          patch: { agentPrWatchEnabled: checked },
+        })}
+      />
 
       <SettingsCard
         title={t("settings:repositoriesSection.appearance.title")}

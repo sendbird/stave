@@ -45,7 +45,7 @@ function repository(
 }
 
 describe("project settings allow-list", () => {
-  test("names only model, effort and permission posture keys", () => {
+  test("names model, effort, permission and pull request watch keys", () => {
     expect(PROJECT_OVERRIDABLE_SETTING_KEYS).toContain("modelClaude");
     expect(PROJECT_OVERRIDABLE_SETTING_KEYS).toContain("codexReasoningEffort");
     expect(PROJECT_OVERRIDABLE_SETTING_KEYS).toContain("claudePermissionMode");
@@ -367,5 +367,21 @@ describe("store action", () => {
         recentRepositories: state.recentRepositories,
       }),
     ).toEqual({ modelCodex: "gpt-5.6" });
+  });
+});
+
+describe("repository agent pull request watch", () => {
+  test("is enabled by default and accepts a boolean repository override only", () => {
+    expect(defaultSettings.agentPrWatchEnabled).toBe(true);
+    expect(normalizeProjectSettingsOverrides({ agentPrWatchEnabled: false })).toEqual({ agentPrWatchEnabled: false });
+    expect(normalizeProjectSettingsOverrides({ agentPrWatchEnabled: "false" })).toBeUndefined();
+    expect(effectiveSetting("agentPrWatchEnabled", PROJECT_PATH, {
+      settings: defaultSettings,
+      recentRepositories: [repository(PROJECT_PATH, { settingsOverrides: { agentPrWatchEnabled: false } })],
+    })).toBe(false);
+    expect(effectiveSetting("agentPrWatchEnabled", OTHER_PATH, {
+      settings: defaultSettings,
+      recentRepositories: [repository(PROJECT_PATH, { settingsOverrides: { agentPrWatchEnabled: false } })],
+    })).toBe(true);
   });
 });

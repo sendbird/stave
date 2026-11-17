@@ -392,5 +392,22 @@
     "taskHasScheduleDescription": "{{task}} 작업에 이미 다시 확인 일정이 있습니다. 체크 실패 시 Stave가 작업을 깨우게 하려면 일정에서 해당 일정을 PR 감시로 바꾸세요.",
     "failedTitle": "PR을 감시하지 못함",
     "failedFallback": "Stave가 PR 감시를 저장하지 못했습니다."
+  },
+  "prStack": {
+    "position": "스택 {{total}}개 중 {{position}}번째",
+    "parent": "상위 PR #{{number}}",
+    "child": "하위 PR #{{number}}",
+    "retarget": "하위 PR 대상 변경 및 업데이트",
+    "updateFailed": "스택을 업데이트하지 못했습니다: {{detail}}",
+    "create": "스택 PR 만들기",
+    "createHint": "열려 있는 상위 PR의 브랜치를 대상 브랜치로 선택하세요.",
+    "parentReady": "{{branch}}의 상위 PR #{{number}}",
+    "parentRequired": "열려 있는 상위 PR이 있는 대상 브랜치를 선택하세요."
+  },
+  "agentPrWatch": {
+    "watching": "이 PR의 검사 실패와 충돌을 감시하고 있습니다.",
+    "paused": "PR 감시가 일시정지되었습니다.",
+    "stopped": "PR 감시가 종료되었습니다.",
+    "stop": "감시 중지"
   }
 }

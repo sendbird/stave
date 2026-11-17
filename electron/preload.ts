@@ -1,3 +1,4 @@
+import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
 import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
@@ -2608,6 +2609,10 @@ contextBridge.exposeInMainWorld("api", {
         autoMergeAllowed?: boolean;
         stderr: string;
       }>,
+    getPrStack: async (args: GetPrStackArgs) =>
+      GetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:get-pr-stack", GetPrStackArgsSchema.parse(args))),
+    retargetPrStack: async (args: RetargetPrStackArgs) =>
+      RetargetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:retarget-pr-stack", RetargetPrStackArgsSchema.parse(args))),
     getPrStatus: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:get-pr-status", args) as Promise<{
         ok: boolean;
