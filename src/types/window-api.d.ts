@@ -2,6 +2,7 @@ import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrS
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
 import type { AutomationWebhookApi } from "../lib/automation-webhook-ipc";
+import type { TurnSnapshotsApi } from "../lib/turn-snapshots";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../lib/fleet/host-control";
 import type { FleetStopPreviewArgs, FleetStopPreviewResult } from "../lib/fleet/host-control";
 import type { FleetTaskControlArgs, FleetTaskControlResult, FleetStopChildrenResult } from "../lib/fleet/host-control";
@@ -1947,6 +1948,7 @@ interface WindowPersistenceApi {
     } | null;
   }>;
   truncateTaskMessagesAfter?: (args: {
+    before?: true;
     workspaceId: string;
     taskId: string;
     messageId: string;
@@ -3031,6 +3033,7 @@ interface WindowApi {
   };
   platform?: NodeJS.Platform;
   runs?: WindowRunsApi;
+  turnSnapshots?: TurnSnapshotsApi;
   provider?: WindowProviderApi;
   providerAccounts?: ProviderAccountsBridgeApi;
   /** App-level API connections shared by Claude Code and Codex. */

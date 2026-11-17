@@ -1040,7 +1040,6 @@ export const useAppStore = create<AppState>()(
       repositoryName: null,
       repositoryFiles: workspaceFsAdapter.getKnownFiles(),
       workspaceFileCacheByPath: {},
-      taskCheckpointById: {},
       providerAvailability: createDefaultProviderAvailability(),
       providerRuntimeCapabilities: createDefaultProviderRuntimeCapabilities(),
       skillCatalog: {

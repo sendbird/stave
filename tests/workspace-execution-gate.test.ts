@@ -1,4 +1,7 @@
-import { expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { WorkspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
 
@@ -63,4 +66,58 @@ test("deleted workspace identities are refused without blocking unscoped work", 
   expect(() => gate.assertAllowed({ workspaceId: "deleted" })).toThrow("permanently deleted");
   expect(() => gate.assertAllowed({})).not.toThrow();
   expect(() => gate.assertAllowed({ workspaceId: "other" })).not.toThrow();
+});
+
+ test("suspension and busy detection cover another workspace registered at the same folder", async () => {
+  const gate = new WorkspaceExecutionGate();
+  const target = { workspaceId: "original", workspacePath: "/tmp/stave-shared-gate" };
+  const release = gate.acquire({workspaceId:"alias",cwd:target.workspacePath});
+  expect(gate.isBusy(target)).toBe(true);
+  release();
+  let finish!: () => void;
+  const stopped = gate.stop(target,()=>new Promise<void>(resolve=>{finish=resolve;}));
+  expect(()=>gate.acquire({workspaceId:"alias",cwd:target.workspacePath})).toThrow();
+  finish();await stopped;gate.resume(target.workspaceId);
+  const end=gate.acquire({workspaceId:"alias",cwd:target.workspacePath});end();
+});
+
+describe("a default workspace and its nested worktrees are separate owners", () => {
+  let root = "";
+  let defaultTarget = { workspaceId: "default", workspacePath: "" };
+  let worktree = { workspaceId: "feature", cwd: "" };
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(path.join(tmpdir(), "stave-gate-")));
+    mkdirSync(path.join(root, ".stave", "workspaces", "feature"), { recursive: true });
+    defaultTarget = { workspaceId: "default", workspacePath: root };
+    worktree = { workspaceId: "feature", cwd: path.join(root, ".stave", "workspaces", "feature") };
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  test("stopping the default workspace while a worktree runs is allowed", async () => {
+    const gate = new WorkspaceExecutionGate();
+    const release = gate.acquire(worktree);
+    expect(gate.isBusy(defaultTarget)).toBe(false);
+    await expect(gate.stop(defaultTarget, async () => {})).resolves.toBeUndefined();
+    gate.resume(defaultTarget.workspaceId);
+    release();
+  });
+
+  test("a stopped default workspace does not block worktree turns", async () => {
+    const gate = new WorkspaceExecutionGate();
+    await gate.stop(defaultTarget, async () => {});
+    expect(() => gate.acquire(worktree)()).not.toThrow();
+    expect(() => gate.assertAllowed({ workspaceId: "default", cwd: root })).toThrow("stopped");
+    // Another registration of the same folder is still the same checkout.
+    expect(() => gate.assertAllowed({ workspaceId: "alias", cwd: `${root}/` })).toThrow("stopped");
+  });
+
+  test("a restore in the default workspace is not refused because a worktree runs", async () => {
+    const gate = new WorkspaceExecutionGate();
+    const release = gate.acquire(worktree);
+    let entered = false;
+    await gate.stop(defaultTarget, async () => { entered = true; });
+    expect(entered).toBe(true);
+    gate.resume(defaultTarget.workspaceId);
+    release();
+  });
 });

@@ -17,6 +17,7 @@ import type {
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 
 export interface PersistenceTaskRow {
+  forkParent?: { taskId: string; workspaceId: string; messageId: string };
   id: string;
   title: string;
   titleManuallySet?: boolean;

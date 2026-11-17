@@ -1,6 +1,9 @@
 import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
 import { WebhookRunArgsSchema } from "../src/lib/automation-webhook-ipc";
 import { AutomationRunSchema } from "../src/lib/automations";
+import { TurnSnapshotService } from "./host-service/turn-snapshots";
+import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../src/lib/turn-snapshots";
+import { setTurnFileSnapshotCapture } from "./providers/runtime";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
 import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
@@ -630,6 +633,16 @@ const agentRunRuntime = createHostAgentRunRuntime({
   emitChanged: (event) => {
     emitEvent("agent-run.changed", event);
   },
+});
+function turnSnapshots() {
+  return new TurnSnapshotService(ensureHostServicePersistenceReady(), Number(process.env.STAVE_TURN_SNAPSHOT_LIMIT ?? 50), {
+    hasRunningTerminal: (workspaceIds) => terminalRuntime.hasRunningWorkspaceProcesses(workspaceIds),
+  });
+}
+// Capture is best effort: the service records why a turn has no snapshot and never throws.
+setTurnFileSnapshotCapture(async (args) => {
+  if (!args.workspaceId || !args.taskId || !args.turnId) return;
+  await turnSnapshots().capture({workspaceId:args.workspaceId,taskId:args.taskId},args.turnId);
 });
 setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
 // The turn's record counts the time a decision waited on the user as waiting, not a stall.
@@ -1838,6 +1851,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await cleanupAllScriptProcesses();
       await respond(request.id, { ok: true });
       return;
+    case "turn-snapshots.list":
+      await respond(request.id, TurnSnapshotListSchema.parse(await turnSnapshots().list(TurnSnapshotOwnerSchema.parse(request.params)))); return;
+    case "turn-snapshots.restore":
+      await respond(request.id, TurnSnapshotResultSchema.parse(await turnSnapshots().restore(TurnSnapshotRestoreSchema.parse(request.params)))); return;
+    case "turn-snapshots.undo":
+      await respond(request.id, TurnSnapshotResultSchema.parse(await turnSnapshots().undo(TurnSnapshotOwnerSchema.parse(request.params)))); return;
     case "provider.stream-turn":
       await respond(
         request.id,

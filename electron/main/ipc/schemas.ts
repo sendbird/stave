@@ -1272,13 +1272,7 @@ export const LoadTaskMessagesArgsSchema = z
   })
   .strict();
 
-export const TruncateTaskMessagesAfterArgsSchema = z
-  .object({
-    workspaceId: z.string().min(1).max(200),
-    taskId: z.string().min(1).max(200),
-    messageId: z.string().min(1).max(200),
-  })
-  .strict();
+export { TruncateTaskMessagesAfterArgsSchema } from "../../../src/lib/task-context/conversation-truncation";
 
 export const LoadWorkspaceEditorTabBodiesArgsSchema = z
   .object({

@@ -296,7 +296,6 @@ export interface AppState
   repositoryName: string | null;
   repositoryFiles: string[];
   workspaceFileCacheByPath: Record<string, string[]>;
-  taskCheckpointById: Record<string, string>;
   providerAvailability: Record<ProviderId, boolean>;
   providerRuntimeCapabilities: Record<ProviderId, ProviderRuntimeCapabilities>;
   skillCatalog: SkillCatalogState;
@@ -543,6 +542,7 @@ export interface AppState
   clearTaskSourceContexts: (args: { taskId: string }) => void;
   restoreTask: (args: { taskId: string }) => void;
   duplicateTask: (args: { taskId: string }) => Promise<void>;
+  sendForkResultToOriginal: (args: { taskId: string }) => Promise<ConversationThreadActionResult>;
   forkConversationFromMessage: (args: {
     taskId: string;
     messageId: string;

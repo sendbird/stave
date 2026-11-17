@@ -1,3 +1,4 @@
+import { TurnSnapshotStore, flushDeletedTurnSnapshotRefs } from "./turn-snapshot-store";
 import { archiveFleetTask } from "./fleet-task-archive";
 import type { FleetArchiveArgs, FleetArchiveResult } from "../../src/lib/fleet/host-control";
 import { readFleetStopPreview } from "./fleet-stop-preview";
@@ -205,6 +206,7 @@ export class SqliteStore {
   private repositoryMemories: RepositoryMemoryStore;
   private notifications: NotificationStore;
   private workspaceArchives!: WorkspaceArchiveStore;
+  readonly turnSnapshots: TurnSnapshotStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly lensReviewRecords: LensReviewRecordStore;
@@ -272,6 +274,7 @@ export class SqliteStore {
       this.db,
       () => this.loadRepositoryRegistry(),
     );
+    this.turnSnapshots = new TurnSnapshotStore(this.db);
     this.resultReviews = new ResultReviewStore(this.db);
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.lensReviewRecords = new LensReviewRecordStore(this.db, this.artifactRootDir);
@@ -824,9 +827,8 @@ export class SqliteStore {
   }
 
   private removeArtifactFiles(args: { relativePaths: string[] }) {
-    if (args.relativePaths.length === 0) {
-      return;
-    }
+    flushDeletedTurnSnapshotRefs(this.db); // Deleted tasks and workspaces also release their snapshot refs.
+    if (args.relativePaths.length === 0) return;
     for (const relativePath of args.relativePaths) {
       try {
         rmSync(path.join(this.artifactRootDir, relativePath), { force: true });
@@ -1276,6 +1278,7 @@ export class SqliteStore {
   }
 
   truncateTaskMessagesAfter(args: {
+    before?: true;
     workspaceId: string;
     taskId: string;
     messageId: string;
@@ -1299,7 +1302,7 @@ export class SqliteStore {
       .prepare(
         `
         DELETE FROM messages
-        WHERE workspace_id = ? AND task_id = ? AND rowid > ?
+        WHERE workspace_id = ? AND task_id = ? AND rowid ${args.before ? ">=" : ">"} ?
       `,
       )
       .run(args.workspaceId, args.taskId, target.rowid);
@@ -1666,7 +1669,6 @@ export class SqliteStore {
       hasMoreOlder: offset + rows.length < totalCount,
     };
   }
-
   loadWorkspaceSnapshot(args: {
     workspaceId: string;
   }): PersistenceWorkspaceSnapshot | null {
@@ -1699,7 +1701,6 @@ export class SqliteStore {
       ),
     };
   }
-
   loadRepositoryRegistry(): PersistenceRepositoryRegistryEntry[] {
     const row = this.db
       .prepare("SELECT value_json FROM app_state WHERE key = ?")
@@ -2734,7 +2735,6 @@ export class SqliteStore {
       terminalReceipt: parseTurnReceipt(row.receipt_json),
     }));
   }
-
   listLatestTurnsForWorkspace(args: {
     workspaceId: string;
     limit?: number;

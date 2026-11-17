@@ -1,5 +1,6 @@
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
 import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
+import type { TurnSnapshotList, TurnSnapshotOwner, TurnSnapshotRestore, TurnSnapshotResult } from "../../src/lib/turn-snapshots";
 import type { WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupPolicy } from "../../src/lib/workspace-cleanup-contract";
 import type { McpAppViewRequestArgs, McpAppViewRequestResponse } from "../../src/lib/mcp-app/mcp-app-bridge";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
@@ -623,6 +624,9 @@ export interface HostServiceRequestMap {
     workspaceId: string;
   };
   "workspace-scripts.cleanup-all": undefined;
+  "turn-snapshots.list": TurnSnapshotOwner;
+  "turn-snapshots.restore": TurnSnapshotRestore;
+  "turn-snapshots.undo": TurnSnapshotOwner;
   "provider.stream-turn": StreamTurnArgs;
   "runs.execute-secondary": SecondaryProviderExecutionRequest;
   "runs.cancel-secondary": SecondaryProviderCancelRequest;
@@ -1149,6 +1153,9 @@ export interface HostServiceResponseMap {
   "workspace-scripts.cleanup-all": {
     ok: true;
   };
+  "turn-snapshots.list": TurnSnapshotList;
+  "turn-snapshots.restore": TurnSnapshotResult;
+  "turn-snapshots.undo": TurnSnapshotResult;
   "provider.stream-turn": BridgeEvent[];
   "runs.execute-secondary": SecondaryProviderExecutionResult;
   "runs.cancel-secondary": HostProviderMutationResult;

@@ -737,6 +737,9 @@ export function setTaskPermissionObserver(observer: typeof taskPermissionObserve
   taskPermissionObserver = observer;
 }
 
+let turnFileSnapshotCapture: ((args: StreamTurnArgs) => Promise<void>) | undefined;
+export function setTurnFileSnapshotCapture(capture: typeof turnFileSnapshotCapture) { turnFileSnapshotCapture = capture; }
+
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   // The composer's selection is read here once and never reaches a provider.
   const { composerSelection, ...sentOptions } = rawArgs.runtimeOptions ?? {};
@@ -780,6 +783,11 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
         providerId: turnArgs.providerId,
         options: turnArgs.runtimeOptions ?? {},
       });
+    }
+    // A snapshot is best effort; its failure must never stop the turn.
+    if (turnArgs.conversation?.mode === "chat" && turnArgs.workspaceId && turnArgs.taskId) {
+      try { await turnFileSnapshotCapture?.(turnArgs); }
+      catch (error) { console.warn("[turn-snapshots] capture failed", { turnId: turnArgs.turnId, error: String(error) }); }
     }
     preparingPolicy = false;
     return await runScopedProviderTurn(turnArgs, agentTurn, routeNote);

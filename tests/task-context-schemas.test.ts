@@ -45,6 +45,16 @@ function createWorkspaceBase() {
 }
 
 describe("task-context workspace schemas", () => {
+  test("preserves a fork's parent independently of delegation", () => {
+    const forkParent = { taskId: "original", workspaceId: "workspace", messageId: "response" };
+    const parsed = parseWorkspaceSnapshot({ payload: {
+      ...createWorkspaceBase(), messagesByTask: {},
+      tasks: [{ id: "fork", title: "Fork", provider: "codex", updatedAt: "now", unread: false, forkParent }],
+    } });
+    expect(parsed?.tasks[0]?.forkParent).toEqual(forkParent);
+    expect(parsed?.tasks[0]?.parentTaskId).toBeUndefined();
+  });
+
   test("drops legacy provider browser connection status from saved workspaces", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {

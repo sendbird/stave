@@ -277,5 +277,20 @@
     "copyDetails": "Copy error details",
     "copied": "Error details copied",
     "copyFailed": "Couldn't copy the error details"
+  },
+  "forkReturn": {
+    "originalUnavailable": "The original task is unavailable in this workspace.",
+    "waitForResult": "Wait for the fork to finish a response before returning its result.",
+    "attachmentLimit": "Remove an attached task from the original draft before returning this result.",
+    "summary": "Result from fork: {{title}}",
+    "prepared": "The result is in the original composer. Review it before sending.",
+    "failed": "Could not prepare the fork result."
+  },
+  "turnFileConversation": {
+    "unavailable": "Conversation rollback is unavailable for this response.",
+    "mixed": "Later responses belong to another provider, session, or account. Restore files while keeping the conversation.",
+    "running": "Wait for the current turn or restore to finish.",
+    "metadata": "This response has no complete turn boundary metadata. Restore files while keeping the conversation.",
+    "restored": "The conversation was restored to before this turn."
   }
 }

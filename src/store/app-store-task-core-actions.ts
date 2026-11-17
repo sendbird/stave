@@ -825,9 +825,11 @@ export function createTaskCoreActions(args: {
         id: crypto.randomUUID(),
         isStreaming: false,
       }));
+      // A copy is a new conversation, not a fork of the source's response.
+      const { forkParent: _forkParent, ...copiedTask } = sourceTask;
       set((state) => {
         // Pin and History placement belong to the original, not its copy.
-        const { pinned: _pinned, historyOrderKey: _historyOrderKey, ...copySource } = sourceTask;
+        const { pinned: _pinned, historyOrderKey: _historyOrderKey, ...copySource } = copiedTask;
         const duplicatedTask: Task = {
           ...copySource,
           id: nextTaskId,
@@ -843,10 +845,6 @@ export function createTaskCoreActions(args: {
           activeTaskId: duplicatedTask.id,
           activeSurface: { kind: "task", taskId: duplicatedTask.id },
           openTaskTabIds: [...state.openTaskTabIds, duplicatedTask.id],
-          taskCheckpointById: {
-            ...state.taskCheckpointById,
-            [duplicatedTask.id]: state.taskCheckpointById[taskId] ?? "",
-          },
           messagesByTask: {
             ...state.messagesByTask,
             [duplicatedTask.id]: duplicatedMessages,

@@ -255,7 +255,6 @@ export function createAppStorePersistenceOptions() {
       workspaceDefaultById: state.workspaceDefaultById,
       workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       workspaceSettlementById: state.workspaceSettlementById,
-      taskCheckpointById: state.taskCheckpointById,
       compareRunsById: state.compareRunsById,
       isDarkMode: state.isDarkMode,
       draftProvider: state.draftProvider,
@@ -297,6 +296,10 @@ export function createAppStorePersistenceOptions() {
       delete (state.settings as AppSettings & { martinSync?: unknown })
         .martinSync;
       // end temporary-migration: strip-retired-sync-settings
+      // temporary-migration: strip-task-checkpoints
+      // Turn snapshots replaced the per-task HEAD checkpoint; drop the saved map.
+      delete (state as AppState & { taskCheckpointById?: unknown }).taskCheckpointById;
+      // end temporary-migration: strip-task-checkpoints
       // Migrate legacy fastModeVisible → per-provider fields.
       const raw = state.settings as any;
       state.settings.craneConnector = normalizeCraneConnectorSettings(

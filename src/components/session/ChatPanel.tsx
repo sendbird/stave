@@ -1,5 +1,8 @@
 import { FeatureEnableHint } from "./FeatureEnableHint";
 import { selectCheckpointTipMessageId } from "@/lib/feature-tips";
+import { TurnFileActions, UndoFileRestore } from "./TurnFileActions";
+import { canOfferClaudeFileRewind } from "./turn-file-action-availability";
+import { useTurnHasSnapshot } from "./turn-snapshot-catalog";
 import { SearchHighlight } from "@/components/system/SearchHighlight";
 import { useWholeTaskFind } from "./use-whole-task-find";
 import { TranscriptFind } from "@/components/system/TranscriptFind";
@@ -208,6 +211,7 @@ interface MessageRowProps {
   showCheckpointTip?: boolean;
   message: {
     id: string;
+    turnId?: string;
     role: "user" | "assistant";
     providerId: ChatMessage["providerId"];
     nativeAccountProfileId?: string;
@@ -299,23 +303,23 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   const [timeDetailsOpen, setTimeDetailsOpen] = useState(false);
   const [rewindPreview, setRewindPreview] =
     useState<ClaudeFileRewindResponse | null>(null);
-  const [rewindClaudeFilesFromMessage, capabilities] = useAppStore(
+  const [rewindClaudeFilesFromMessage, capabilities, workspaceId] = useAppStore(
     useShallow((state) => [
       state.rewindClaudeFilesFromMessage,
       message.providerBoundary
         ? state.providerRuntimeCapabilities[message.providerBoundary.providerId]
         : null,
+      state.taskWorkspaceIdById[taskId],
     ]),
   );
-  const boundary = message.providerBoundary;
-  const canRewindFiles = Boolean(
-    !activeTurnId &&
-    !message.isStreaming &&
-    message.role === "user" &&
-    boundary?.providerId === "claude-code" &&
-    boundary.kind === "message" &&
-    capabilities?.history.rewind.files,
-  );
+  // Claude history recorded before turn snapshots keeps the native file rewind.
+  const hasTurnSnapshot = useTurnHasSnapshot(workspaceId, taskId, startedTurnId ?? message.turnId);
+  const canRewindFiles = canOfferClaudeFileRewind({
+    message,
+    activeTurnId,
+    rewindSupported: Boolean(capabilities?.history.rewind.files),
+    hasSnapshot: hasTurnSnapshot,
+  });
   // The live row owns its clock; ticking must not rerender the conversation.
   const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
   const clockActive =
@@ -707,6 +711,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     previousTurn={previousAssistantTurn}
                   />
                 ) : null}
+                {message.role === "assistant" && !threadActionState ? <TurnFileActions taskId={taskId} messageId={message.id} /> : null}
                 {message.role === "assistant" && threadActionState ? (
                   <ConversationTurnActions
                     taskId={taskId}
@@ -1913,6 +1918,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
           data-chat-panel={findScopeId}
           className={sx(conversationFindMarker)}
         >
+          <UndoFileRestore taskId={taskId} />
           <div className={sx(styles.panelColumn)}>
             <MemoizedChatPanelMessageList
               findScopeId={findScopeId}
