@@ -13,10 +13,10 @@ module compilation affect timings; no statistical speedup claim is made.
 
 | Locale/theme width | DOM rows before → after | First render ms | Scripting ms | Scroll sample ms | Heap MB |
 | --- | --- | --- | --- | --- | --- |
-| en/light 1024 | 2000 → 13 | 4387 → 357 | 5091 → 547 | 405.6 → 33.0 | 315 → 83 |
-| en/light 1440 | 2000 → 20 | 4495 → 499 | 5774 → 641 | 22.6 → 152.6 | 344 → 240 |
-| ko/dark 1024 | 2000 → 14 | 4315 → 310 | 5398 → 462 | 26.0 → 63.6 | 298 → 269 |
-| ko/dark 1440 | 2000 → 20 | 4030 → 354 | 4853 → 507 | 26.7 → 28.2 | 322 → 263 |
+| en/light 1024 | 2000 → 13 | 4387 → 328 | 5091 → 472 | 405.6 → 25.1 | 315 → 100 |
+| en/light 1440 | 2000 → 19 | 4495 → 453 | 5774 → 669 | 22.6 → 34.1 | 344 → 128 |
+| ko/dark 1024 | 2000 → 14 | 4315 → 424 | 5398 → 489 | 26.0 → 40.8 | 298 → 259 |
+| ko/dark 1440 | 2000 → 19 | 4030 → 504 | 4853 → 589 | 26.7 → 44.2 | 322 → 307 |
 
 The CI regression budgets are fewer than 150 mounted task rows, first render
 under 30 seconds, and the two-frame scroll sample under 1 second. The margins

@@ -578,7 +578,7 @@ function FleetTaskRowsTable(props: {
 // Stable component identities preserve measured rows and their focused controls.
 const virtualTableComponents = {
   Table: ({ context, ...props }: ComponentProps<"table"> & { context?: { count: number } }) =>
-    <table {...props} aria-rowcount={context?.count} className={sx(tableStyles.table, styles.nativeTable)} />,
+    <table {...props} aria-rowcount={context?.count} className={sx(tableStyles.table)} />,
   TableHead: ({ context: _context, ...props }: ComponentProps<"thead"> & { context?: unknown }) =>
     <thead {...props} className={sx(tableStyles.header)} />,
   TableRow: ({ item, context: _context, ...props }: ComponentProps<"tr"> & {
@@ -691,7 +691,6 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
 });
 
 const styles = stylex.create({
-  nativeTable: { borderCollapse: "separate", borderSpacing: 0 },
   virtualFrame: { minBlockSize: 0, blockSize: "100%", minInlineSize: 0,
     backgroundColor: vars["--aui-color-surface-raised"] },
   virtualTable: { blockSize: "100%", "--atelier-table-cell-padding-block": densityPad.sm },
