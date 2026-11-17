@@ -1,5 +1,7 @@
 import { TaskUnreadDot, TaskReadMenu, withUnreadName } from "@/components/session/TaskReadIndicator";
 import { useUnreadTaskIds } from "@/lib/task-read-state-client";
+import { PullRequestStackSlot } from "./pull-request/PullRequestStackSlot";
+import { pullRequestStackRevision } from "./pull-request/use-pull-request-stack";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
 import { FleetSelectionCheckbox, useFleetSelectionRows } from "./FleetSelection";
 import { i18n, useTranslation } from "@/i18n";
@@ -235,6 +237,9 @@ export function FleetWorkspaceCard(args: {
     }),
   );
 
+  const workspacePath = useAppStore((state) => state.workspacePathById[args.workspace.id]);
+  // Re-read the stack only when the PR itself changed, not on every status poll.
+  const prRevision = useAppStore((state) => pullRequestStackRevision(state.workspacePrInfoById[args.workspace.id]?.pr));
   const [showAllTasks, setShowAllTasks] = useState(false);
 
   const isActiveWorkspace =
@@ -565,6 +570,7 @@ export function FleetWorkspaceCard(args: {
         <FleetCardPrBadge status={prStatus} />
       </div>
 
+      <PullRequestStackSlot cwd={workspacePath ?? args.repositoryPath} branch={args.workspace.branch} enabled={Boolean(prStatus && prStatus !== "no_pr")} revision={prRevision} />
       <FleetAgentRunStrip
         workspaceId={args.workspace.id}
         leadTaskDecision={runLeadDecision}

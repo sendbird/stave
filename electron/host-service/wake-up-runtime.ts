@@ -34,6 +34,7 @@
  * `src/lib/supervision/wake-up-policy.ts`; this file is the I/O around it.
  */
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 import {
   applyWakeUpDecision,
   buildTaskCompletionSignalKey,
@@ -203,6 +204,11 @@ export interface WakeUpSnapshot {
   summaries: WakeUpSummary[];
 }
 
+export interface WakeUpCreateOptions {
+  automatic?: boolean;
+  pullRequest?: { number: number; url: string; title: string };
+}
+
 export interface WakeUpRuntime {
   start: () => void;
   stop: () => void;
@@ -211,7 +217,11 @@ export interface WakeUpRuntime {
     wakeUp: WakeUp;
     occurrences: WakeUpOccurrence[];
   }>;
-  create: (input: WakeUpUpsertInput) => Promise<WakeUp>;
+  /**
+   * `automatic` marks a watch Stave added on its own (Create PR or agent
+   * discovery); `pullRequest` pins the PR discovery found.
+   */
+  create: (input: WakeUpUpsertInput, options?: WakeUpCreateOptions) => Promise<WakeUp>;
   update: (args: {
     id: string;
     input: WakeUpUpsertInput;
@@ -1450,7 +1460,7 @@ export function createWakeUpRuntime(
           }),
         };
       }),
-    create: (rawInput) =>
+    create: (rawInput, options = {}) =>
       enqueue(async () => {
         const input = WakeUpUpsertInputSchema.parse(rawInput);
         const existing = persistence.getWakeUpByTaskId(input.taskId);
@@ -1464,13 +1474,21 @@ export function createWakeUpRuntime(
           taskId: input.taskId,
         });
         requireObservableCompletion({ trigger: input.trigger, snapshot });
+        const initialPr = options.pullRequest ? z.object({ number: z.number().int().positive(), url: z.string().url().max(2_000), title: z.string().max(500) }).strict().parse(options.pullRequest) : null;
+        if (initialPr) {
+          if (input.trigger.kind !== "pull_request" || existing || snapshot.activeTurnId || snapshot.pendingApprovalCount || snapshot.pendingUserInputCount || snapshot.managed || dependencies.getActiveAgentRunForTask?.(input.taskId)) {
+            throw new Error("Automatic pull request watching must wait for an idle, unmanaged task without a schedule.");
+          }
+          if (persistence.listWakeUps().some(row => row.state !== "stopped" && row.trigger.kind === "pull_request" && (row.workspaceId === input.workspaceId || row.pullRequestWatch?.pullRequest?.url === initialPr.url))) {
+            throw new Error("This workspace or pull request already has a watcher.");
+          }
+        }
         if (existing) {
           // A stopped wake-up is terminal but still occupies the task. Adding
           // a new one replaces it rather than resurrecting a stale reason.
           persistence.removeWakeUp(existing.id);
         }
-        return persistence.upsertWakeUp(
-          createWakeUp({
+        const created = createWakeUp({
             id: randomUUID(),
             input,
             repositoryPath: snapshot.repositoryPath!,
@@ -1479,8 +1497,10 @@ export function createWakeUpRuntime(
               model: snapshot.model!,
             },
             now: now(),
-          }),
-        );
+          });
+        if (initialPr && created.pullRequestWatch) created.pullRequestWatch.pullRequest = initialPr;
+        if (options.automatic && created.pullRequestWatch) created.pullRequestWatch.automatic = true;
+        return persistence.upsertWakeUp(created);
       }),
     update: ({ id, input: rawInput }) =>
       enqueue(async () => {

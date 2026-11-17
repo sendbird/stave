@@ -48,6 +48,20 @@ const REPO_SETTINGS = JSON.stringify({
 });
 
 describe("Create PR SCM runtime", () => {
+  test("stack child updates address the selected PR and leave another checkout alone", async () => {
+    invalidateGhAuthCache();
+    const { run, calls } = scriptedRunner((command, args) => {
+      if (command === "gh" && args[0] === "auth") return ok();
+      if (command === "gh" && args[1] === "view") return ok(JSON.stringify({ headRefName: "child", baseRefName: "main" }));
+      if (command === "gh" && args[1] === "update-branch") return ok();
+      if (command === "git" && args[0] === "rev-parse") return ok("another-branch\n");
+    });
+    const result = await updateScmPrBranch({ cwd: "/tmp/stack-target-test", targetPrNumber: 42, runCommand: run });
+    expect(result.ok).toBe(true);
+    expect(calls).toContain("gh pr view 42 --json headRefName,baseRefName");
+    expect(calls).toContain("gh pr update-branch 42");
+    expect(calls.some(call => /git (checkout|merge|push|reset)/.test(call))).toBe(false);
+  });
   test("builds a concrete auto-merge command", () => {
     expect(buildAutoMergePullRequestArgs("squash")).toEqual(["pr", "merge", "--auto", "--squash", "--delete-branch"]);
   });

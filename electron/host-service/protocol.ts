@@ -1,3 +1,4 @@
+import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
 import type { WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupPolicy } from "../../src/lib/workspace-cleanup-contract";
 import type { McpAppViewRequestArgs, McpAppViewRequestResponse } from "../../src/lib/mcp-app/mcp-app-bridge";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
@@ -500,7 +501,7 @@ export type HostLocalMcpAction =
   | "list-repository-memories";
 
 export type HostWakeUpAction =
-  "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
+  "list" | "get" | "create" | "create-automatic" | "update" | "pause" | "resume" | "remove" | "sync-settings";
 
 /**
  * Agent run actions. The last three serve the stage-reporting tools and carry an
@@ -976,6 +977,8 @@ export interface HostServiceRequestMap {
     force?: boolean;
     cwd?: string;
   };
+  "scm.get-pr-stack": GetPrStackArgs;
+  "scm.retarget-pr-stack": RetargetPrStackArgs;
   "scm.get-pr-status": {
     cwd?: string;
   };
@@ -1251,6 +1254,8 @@ export interface HostServiceResponseMap {
   "scm.rename-branch": CommandResult;
   "scm.delete-branch": CommandResult;
   "scm.push": CommandResult;
+  "scm.get-pr-stack": GetPrStackResult;
+  "scm.retarget-pr-stack": RetargetPrStackResult;
   "scm.get-pr-status": HostScmPrStatusResult;
   "scm.get-repo-merge-settings": HostScmRepoMergeSettingsResult;
   "scm.get-pr-status-for-url": HostScmPrStatusResult;

@@ -1,3 +1,4 @@
+import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
 import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
@@ -93,6 +94,9 @@ import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createWorkspacePlanFileWriter } from "./host-service/local-mcp-plan-files";
 import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
+import { createAgentPrAutoWatch } from "./host-service/agent-pr-auto-watch";
+import { turnPullRequestEvidence } from "./host-service/turn-pr-evidence";
+import { isPullRequestWatchEnabled } from "../src/lib/supervision/pull-request-watch";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/tars-host";
 import { applyTarsDecision, confirmTarsProposal, type TarsDecisionPorts } from "./host-service/tars-decisions";
@@ -678,6 +682,33 @@ const wakeUpRuntime = createWakeUpRuntime({
     emitEvent("wake-up.changed", event);
   },
 });
+const agentPrAutoWatch = createAgentPrAutoWatch({
+  wakeUps: wakeUpRuntime,
+  context: async (candidate) => {
+    const { repositories } = await localMcpRuntime.loadNormalizedRepositories();
+    const registration = localMcpRuntime.findWorkspaceRegistration({ repositories, workspaceId: candidate.workspaceId });
+    if (!registration) return null;
+    const snapshot = await localMcpRuntime.getTaskSupervisionSnapshot(candidate);
+    // One contract with the renderer: the synced global switch, overridden per repository.
+    const enabled = isPullRequestWatchEnabled({
+      globalSetting: ensureHostServicePersistenceReady().delegationPolicies.loadPullRequestWatchDefault(),
+      repositoryOverride: registration.project.settingsOverrides?.createPrWatchEnabled,
+    });
+    return { cwd: registration.workspacePath, enabled, managed: snapshot.managed ?? false, snapshot };
+  },
+  evidence: turnPullRequestEvidence,
+  owned: ({ workspaceId, number, url }) => ensureHostServicePersistenceReady().agentRuns.listActiveAgentRuns().some(run => run.workspaceId === workspaceId) ||
+    ensureHostServicePersistenceReady().tars.snapshot().responsibilities.some(row =>
+      (row.executionWorkspaceId === workspaceId && row.publication?.number === number || row.publication?.url === url)),
+  onError: (error) => console.warn("[pr-auto-watch] discovery failed", error),
+  // The tasks' notices read hints through the wake-up list.
+  onHint: (hint) => { for (const taskId of hint.taskIds) emitEvent("wake-up.changed", { wakeUpId: "", workspaceId: hint.workspaceId, taskId }); },
+});
+function discoverAgentPullRequest(args: { workspaceId: string; taskId: string; turnId: string }) {
+  turnPullRequestEvidence.complete(args.turnId);
+  const turn = ensureHostServicePersistenceReady().listTurns({ ...args, limit: 1 })[0];
+  if (turn) agentPrAutoWatch.notify({ ...args, startedAt: turn.createdAt, completedAt: turn.completedAt });
+}
 const tarsRuntime = createHostTarsRuntime({
   agentRuns: agentRunRuntime,
   assignments: assignRuntime,
@@ -703,6 +734,7 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
   }
   emitEvent("local-mcp.task-turn-updated", event.payload);
   if (event.payload.done) {
+    discoverAgentPullRequest(event.payload);
     agentRunRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
   }
 });
@@ -900,10 +932,10 @@ async function invokeWakeUpAction(
   args: unknown,
 ) {
   switch (action) {
-    case "list":
-      return wakeUpRuntime.list(
-        args as Parameters<typeof wakeUpRuntime.list>[0],
-      );
+    case "list": {
+      const listArgs = args as Parameters<typeof wakeUpRuntime.list>[0];
+      return { ...(await wakeUpRuntime.list(listArgs)), autoWatchHints: agentPrAutoWatch.hints(listArgs?.workspaceId) };
+    }
     case "get":
       return wakeUpRuntime.get(
         args as Parameters<typeof wakeUpRuntime.get>[0],
@@ -912,6 +944,17 @@ async function invokeWakeUpAction(
       return wakeUpRuntime.create(
         args as Parameters<typeof wakeUpRuntime.create>[0],
       );
+    case "create-automatic":
+      return wakeUpRuntime.create(
+        args as Parameters<typeof wakeUpRuntime.create>[0],
+        { automatic: true },
+      );
+    case "sync-settings": {
+      const value = (args as { createPrWatchEnabled?: unknown } | null)?.createPrWatchEnabled;
+      if (typeof value !== "boolean") throw new Error("Invalid wake-up settings.");
+      ensureHostServicePersistenceReady().delegationPolicies.savePullRequestWatchDefault(value);
+      return { ok: true };
+    }
     case "update":
       return wakeUpRuntime.update(
         args as Parameters<typeof wakeUpRuntime.update>[0],
@@ -1056,6 +1099,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
           latestTurnUsage = toPersistenceTurnUsage(turnEvent);
         }
 
+        if (args.taskId && args.workspaceId) {
+          turnPullRequestEvidence.observe({ turnId, workspaceId: args.workspaceId, taskId: args.taskId, event: turnEvent });
+        }
         if (persistEnabled) {
           pendingTurnEvents.push({ sequence, event: turnEvent });
           if (pendingTurnEvents.length >= TURN_EVENT_FLUSH_MAX_PENDING) {
@@ -1099,6 +1145,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
           }
           // A reply during an agent run is guidance for the current stage; the
           // agent run picks it up now instead of at its next interval.
+          if (args.workspaceId) discoverAgentPullRequest({ workspaceId: args.workspaceId, taskId: args.taskId, turnId });
           agentRunRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
         }
       },
@@ -1456,6 +1503,7 @@ async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
+  agentPrAutoWatch.stop();
   wakeUpRuntime.stop();
   tarsPublisher.watcher.stop();
   tarsRuntime.stop();
@@ -2131,6 +2179,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.push":
       await respond(request.id, await pushScmBranch(request.params));
+      return;
+    case "scm.get-pr-stack":
+      await respond(request.id, await getPullRequestStack(request.params));
+      return;
+    case "scm.retarget-pr-stack":
+      await respond(request.id, await retargetPullRequestStack(request.params));
       return;
     case "scm.get-pr-status":
       await respond(request.id, await fetchGitHubPrStatus(request.params));

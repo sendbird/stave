@@ -28,7 +28,7 @@ import {
   repositoryRemotesState,
   type RepositoryMetadataState,
 } from "./settings-dialog-repository-status";
-import { LabeledField, SettingsCard } from "../settings-dialog.shared";
+import { LabeledField, SettingsCard, SwitchField } from "../settings-dialog.shared";
 import { DraftTextarea } from "../settings-dialog.shared";
 
 function RepositorySettingsPanel(args: {
@@ -37,6 +37,8 @@ function RepositorySettingsPanel(args: {
   onRequestRemove: (args: { repositoryPath: string; repositoryName: string }) => void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
+  const updateProjectSettingsOverrides = useAppStore((state) => state.updateProjectSettingsOverrides);
+  const prWatchDefault = useAppStore((state) => state.settings.createPrWatchEnabled);
   const setRepositoryBasePrompt = useAppStore(
     (state) => state.setRepositoryBasePrompt,
   );
@@ -52,6 +54,7 @@ function RepositorySettingsPanel(args: {
   const setRepositoryAppearance = useAppStore(
     (state) => state.setRepositoryAppearance,
   );
+  const prWatchOverride = args.repository.settingsOverrides?.createPrWatchEnabled;
   const repositoryWorkspaceInitCommand = normalizeRepositoryWorkspaceInitCommand({
     value: args.repository.newWorkspaceInitCommand,
   });
@@ -192,6 +195,22 @@ function RepositorySettingsPanel(args: {
             {t("common:actions.refresh")}</Button>
         </div>
       </div>
+
+      <SwitchField
+        title={t("settings:repositoriesSection.prWatch.title")}
+        description={t(prWatchOverride === undefined ? "settings:repositoriesSection.prWatch.followsGlobal" : "settings:repositoriesSection.prWatch.overridden")}
+        checked={prWatchOverride ?? prWatchDefault}
+        onCheckedChange={(checked) => updateProjectSettingsOverrides({
+          repositoryPath: args.repository.repositoryPath,
+          patch: { createPrWatchEnabled: checked },
+        })}
+      />
+      {prWatchOverride !== undefined ? <div>
+        <Button size="sm" variant="quiet" onClick={() => updateProjectSettingsOverrides({
+          repositoryPath: args.repository.repositoryPath,
+          clearKeys: ["createPrWatchEnabled"],
+        })}>{t("settings:repositoriesSection.prWatch.useGlobal")}</Button>
+      </div> : null}
 
       <SettingsCard
         title={t("settings:repositoriesSection.appearance.title")}

@@ -288,6 +288,32 @@ edge memory -> turn
 @caption A simplified view of how the app assembles a request. Whether repository instructions reach Cursor, Kiro and OpenCode turns was not confirmed.
 ```
 
+
+### Watch agent-opened PRs and manage a stack
+
+**Settings → Prompts → PR Completion → Watch pull requests** is on by default,
+and each repository can override it in its settings. It covers PRs you open
+with Create PR and PRs an agent opens during a task turn. Stave adopts an
+agent's PR only when that turn ran a command that opens a PR (or reported its
+link), the PR is on a non-default branch of this repository, you are its
+author, and it was created during the turn. If two tasks could have opened it,
+Stave watches neither and says so in both tasks. The watch covers failed
+checks and merge conflicts; review feedback stays opt-in. The task shows which
+PR is watched. **Stop watching** appears only for watches Stave added itself;
+for a watch you scheduled, **Open in Schedules** takes you to it. Watches stop
+when the PR merges or closes. Merged work is eligible for the cleanup center's
+**PR merged** rule.
+
+For related branches, choose **Create stacked PR** in the creation dialog.
+The top-bar PR area and Fleet show the stack position and parent/child links.
+Long-lived branches such as `develop`, `release/*` and `staging` (editable in
+**Settings → Prompts → PR Completion → Long-lived branches**) never count as a
+stack parent. After a parent merges, **Retarget children…** lists each of your
+PRs with its base change and author, and changes nothing until you confirm.
+Other people's PRs are listed but never changed. Each PR reports its own
+result; conflicts are left for you to resolve, and you can retry the rest.
+This action never force-pushes.
+
 ## Ways to give context
 
 For a primary task resumed by a check-back or an Agent run event, **Always** browser access also applies without typing `@web` again. An explicit `@web` in a primary Agent run’s assignment or a user reply also stays active for that same run’s continuations, including event wakes and app restarts. It ends with the run and is not inherited by another run or delegated task. Browser site-access and sensitive-action confirmations still apply.

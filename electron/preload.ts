@@ -1,4 +1,5 @@
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
+import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
 import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
@@ -810,6 +811,8 @@ ipcRenderer.on(WAKE_UP_IPC.changed, (_event, payload: WakeUpChangedEvent) => {
 const wakeUpsApi: WakeUpsBridgeApi = {
   list: (args) => ipcRenderer.invoke(WAKE_UP_IPC.list, args ?? {}),
   create: (input) => ipcRenderer.invoke(WAKE_UP_IPC.create, input),
+  createAutomatic: (input) => ipcRenderer.invoke(WAKE_UP_IPC.createAutomatic, input),
+  syncSettings: (settings) => ipcRenderer.invoke(WAKE_UP_IPC.syncSettings, settings),
   update: (args) => ipcRenderer.invoke(WAKE_UP_IPC.update, args),
   setPaused: (args) => ipcRenderer.invoke(WAKE_UP_IPC.setPaused, args),
   remove: (args) => ipcRenderer.invoke(WAKE_UP_IPC.remove, args),
@@ -2611,6 +2614,10 @@ contextBridge.exposeInMainWorld("api", {
         autoMergeAllowed?: boolean;
         stderr: string;
       }>,
+    getPrStack: async (args: GetPrStackArgs) =>
+      GetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:get-pr-stack", GetPrStackArgsSchema.parse(args))),
+    retargetPrStack: async (args: RetargetPrStackArgs) =>
+      RetargetPrStackResultSchema.parse(await ipcRenderer.invoke("scm:retarget-pr-stack", RetargetPrStackArgsSchema.parse(args))),
     getPrStatus: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:get-pr-status", args) as Promise<{
         ok: boolean;

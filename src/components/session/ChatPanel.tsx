@@ -66,6 +66,7 @@ import {
   getMessageScrollFingerprint,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
+import { TaskPullRequestWatchNotice } from "@/components/session/TaskPullRequestWatchNotice";
 import { FailedOutgoingMessages } from "@/components/session/FailedOutgoingMessages";
 import { TurnDocumentRevisions } from "@/components/session/TurnDocumentRevisions";
 import {
@@ -1853,6 +1854,7 @@ function ChatPanelMessageList(props: {
           </div>
         ) : null}
         <ConversationColumn flush={usesInnerLayout}>
+          <TaskPullRequestWatchNotice workspaceId={workspaceId} taskId={taskId} />
           <AgentRunResultCard taskId={taskId} />
           <FailedOutgoingMessages taskId={taskId} />
           <PendingAutoRouteTurn

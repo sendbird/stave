@@ -20,6 +20,8 @@ import {
   type InlineRenderNetworkPolicy,
 } from "@/lib/inline-render/inline-render";
 import { DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS } from "@/lib/fleet/workspace-settlement";
+import { DEFAULT_PULL_REQUEST_WATCH_ENABLED } from "@/lib/supervision/pull-request-watch";
+import { DEFAULT_LONG_LIVED_BRANCHES_TEXT } from "@/lib/pull-request-stack";
 import type {
   ClaudePluginMode,
   ClaudeSettingSource,
@@ -331,10 +333,18 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Merge strategy used when automatic merging is queued. */
   createPrMergeMethod: PrMergeMethod;
   /**
-   * Watch every pull request the Create PR flow opens and wake the task that
-   * opened it when checks fail or the branch conflicts with its base.
+   * Watch pull requests Stave opens (Create PR) or an agent opens during a
+   * task turn, and wake that task when checks fail or the branch conflicts
+   * with its base. A repository may override it; see
+   * `isPullRequestWatchEnabled` for the one contract the host shares.
    */
   createPrWatchEnabled: boolean;
+  /**
+   * Long-lived branch names or `*` globs, separated by commas or lines. A PR
+   * from such a branch is never a stack parent, so its children are not
+   * retargeted (`src/lib/pull-request-stack.ts`).
+   */
+  pullRequestLongLivedBranches: string;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -789,7 +799,8 @@ export const defaultSettings: AppSettings = {
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
-  createPrWatchEnabled: true,
+  createPrWatchEnabled: DEFAULT_PULL_REQUEST_WATCH_ENABLED,
+  pullRequestLongLivedBranches: DEFAULT_LONG_LIVED_BRANCHES_TEXT,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",

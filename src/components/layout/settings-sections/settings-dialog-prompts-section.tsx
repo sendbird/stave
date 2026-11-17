@@ -15,6 +15,7 @@ import {
 } from "@/lib/providers/prompt-defaults";
 import { ReviewSettingsCards } from "./settings-dialog-review-cards";
 import { PrMergeMethod } from "@/lib/pr-status";
+import { DEFAULT_LONG_LIVED_BRANCHES_TEXT } from "@/lib/pull-request-stack";
 import {
   ChoiceButtons,
   LabeledField,
@@ -98,6 +99,7 @@ export function PromptsSection() {
     createPrAutoMergeEnabled,
     createPrMergeMethod,
     createPrWatchEnabled,
+    pullRequestLongLivedBranches,
     promptInlineCompletion,
     workspaceTurnSummaryPrompt,
   ] = useAppStore(
@@ -109,6 +111,7 @@ export function PromptsSection() {
           state.settings.createPrAutoMergeEnabled,
           state.settings.createPrMergeMethod,
           state.settings.createPrWatchEnabled,
+          state.settings.pullRequestLongLivedBranches,
           state.settings.promptInlineCompletion,
           state.settings.workspaceTurnSummaryPrompt,
         ] as const,
@@ -204,6 +207,13 @@ export function PromptsSection() {
           onCheckedChange={(checked) =>
             updateSettings({ patch: { createPrWatchEnabled: checked } })
           }
+        />
+        <PromptField
+          title={t("settings:promptsSection.prCompletion.longLivedBranches.title")}
+          description={t("settings:promptsSection.prCompletion.longLivedBranches.description")}
+          value={pullRequestLongLivedBranches}
+          defaultValue={DEFAULT_LONG_LIVED_BRANCHES_TEXT}
+          onCommit={(value) => updateSettings({ patch: { pullRequestLongLivedBranches: value } })}
         />
       </SettingsCard>
       <SettingsCard

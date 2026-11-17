@@ -153,6 +153,7 @@ import {
 } from "./local-mcp-turn-journal";
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
+import { turnPullRequestEvidence } from "./turn-pr-evidence";
 import { runCommand, runCommandArgs } from "../main/utils/command";
 import { buildTurnHandoffContextPart } from "../../src/lib/task-context/handoff-delivery";
 
@@ -224,6 +225,7 @@ export interface TaskStatusResult {
 
 /** The supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
 export interface TaskSupervisionSnapshot {
+  managed?: boolean;
   workspaceId: string;
   taskId: string;
   repositoryPath: string | null;
@@ -1302,6 +1304,7 @@ async function handleProviderEvent(args: {
     sequence: args.sequence,
     event,
   });
+  turnPullRequestEvidence.observe({ turnId: args.turnId, workspaceId: args.workspaceId, taskId: args.taskId, event });
   if (args.event.type === "usage") {
     latestTurnUsageById.delete(args.turnId);
     latestTurnUsageById.set(args.turnId, toPersistenceTurnUsage(args.event));
@@ -2322,6 +2325,7 @@ export async function getTaskSupervisionSnapshot(args: {
     taskId: task.id,
     repositoryPath: registration.project.repositoryPath,
     exists: true,
+    managed: isTaskManaged(task),
     archived: Boolean(task.archivedAt),
     providerId: task.provider,
     model: resolveTaskModel({ messages, draft: session.promptDraftByTask[task.id], providerId: task.provider }),
