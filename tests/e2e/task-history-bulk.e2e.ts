@@ -100,9 +100,12 @@ for (const options of [{ locale: "en", dark: false, width: 1440 }, { locale: "ko
     expect(await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-history-task-id"))))
       .toEqual(["Beta", "Alpha", "Gamma"]);
     await page.locator('[data-history-task-id="Gamma"]').getByRole("button", {
-      name: options.locale === "en" ? "Pin task" : "작업 고정", exact: true,
+      name: options.locale === "en" ? "Pin Gamma" : "Gamma 고정", exact: true,
     }).click();
     await expect(rows.first()).toHaveAttribute("data-history-task-id", "Gamma");
+    const resetOrder = page.getByRole("button", { name: options.locale === "en" ? "Reset order" : "순서 초기화", exact: true });
+    await expect(resetOrder).toBeVisible();
+    await page.screenshot({ path: `/tmp/gap-h1/after2/history-pins-reset-${options.locale}-${options.width}.png` });
     // Exercise the public snapshot boundary and browser persistence, then rehydrate.
     await page.evaluate(async () => {
       const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
@@ -119,12 +122,43 @@ for (const options of [{ locale: "en", dark: false, width: 1440 }, { locale: "ko
     });
     await expect(rows.first()).toHaveAttribute("data-history-task-id", "Gamma");
     await page.locator('[data-history-task-id="Gamma"]').getByRole("button", {
-      name: options.locale === "en" ? "Unpin task" : "작업 고정 해제", exact: true,
+      name: options.locale === "en" ? "Unpin Gamma" : "Gamma 고정 해제", exact: true,
     }).click();
     expect(await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-history-task-id"))))
       .toEqual(["Beta", "Alpha", "Gamma"]);
+    await resetOrder.click();
+    expect(await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-history-task-id"))))
+      .toEqual(["Alpha", "Beta", "Gamma"]);
+    await expect(resetOrder).toHaveCount(0);
     const contained = await rows.evaluateAll(nodes => nodes.every(node => node.scrollWidth <= node.clientWidth));
     expect(contained).toBe(true);
     await page.screenshot({ path: `/tmp/gap-h1/after2/history-order-${options.locale}-${options.width}.png` });
   });
 }
+
+test("pinning and ordering another workspace's history never switches workspace", async ({ page }) => {
+  await mountHistory(page, { locale: "en", dark: false, width: 1440 });
+  // The drawer stays on history-ws while another workspace becomes active;
+  // history-ws keeps its tasks in the runtime cache, as a background workspace does.
+  await page.evaluate(async () => {
+    const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
+    const { createEmptyWorkspaceState } = await import("/src/store/workspace-session-state.ts");
+    const state = useAppStore.getState();
+    useAppStore.setState({
+      activeWorkspaceId: "other-ws", tasks: [], openTaskTabIds: [],
+      workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, "history-ws": { ...createEmptyWorkspaceState(), tasks: state.tasks, openTaskTabIds: [] } },
+    });
+  });
+  const rows = page.locator("[data-history-task-id]");
+  await expect(rows).toHaveCount(3);
+  await page.locator('[data-history-task-id="Gamma"]').getByRole("button", { name: "Pin Gamma", exact: true }).click();
+  await expect(rows.first()).toHaveAttribute("data-history-task-id", "Gamma");
+  await page.locator('[data-history-task-id="Beta"]').focus();
+  await page.keyboard.press("Alt+ArrowUp");
+  expect(await rows.evaluateAll(nodes => nodes.map(node => node.getAttribute("data-history-task-id")))).toEqual(["Gamma", "Beta", "Alpha"]);
+  expect(await page.evaluate(async () => {
+    const { useAppStore } = await import(performance.getEntriesByType("resource").filter((entry) => new URL(entry.name).pathname === "/src/store/app.store.ts").at(-1)!.name);
+    const state = useAppStore.getState();
+    return { active: state.activeWorkspaceId, pinned: state.workspaceRuntimeCacheById["history-ws"].tasks.find((task: { id: string }) => task.id === "Gamma")?.pinned };
+  })).toEqual({ active: "other-ws", pinned: true });
+});
