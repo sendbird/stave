@@ -17,7 +17,6 @@ import {
   AutomationInformationReferencesArgsSchema,
   AutomationSetEnabledArgsSchema,
   AutomationProviderTimeoutArgsSchema,
-  AutomationRunNowArgsSchema,
   AutomationUpdateArgsSchema,
 } from "./schemas";
 
@@ -122,7 +121,7 @@ export function registerAutomationHandlers() {
   });
 
   ipcMain.handle("automations:run-now", async (_event, args: unknown) => {
-    const parsed = AutomationRunNowArgsSchema.safeParse(args);
+    const parsed = AutomationIdArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, run: null, message: "Invalid automation id." };
     }

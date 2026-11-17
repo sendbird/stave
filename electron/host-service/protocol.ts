@@ -544,7 +544,6 @@ export type HostAutomationAction =
   | "set-enabled"
   | "set-provider-timeout"
   | "run-now"
-  | "run-webhook"
   | "list-information-references";
 
 export interface HostServiceRequestMap {

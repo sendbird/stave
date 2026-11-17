@@ -1,6 +1,4 @@
 import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
-import { WebhookRunArgsSchema } from "../src/lib/automation-webhook-ipc";
-import { AutomationRunSchema } from "../src/lib/automations";
 import { TurnSnapshotService } from "./host-service/turn-snapshots";
 import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../src/lib/turn-snapshots";
 import { setTurnFileSnapshotCapture } from "./providers/runtime";
@@ -935,8 +933,6 @@ async function invokeAutomationAction(action: HostAutomationAction, args: unknow
       return automationRuntime.setProviderTimeoutMs(
         args as Parameters<typeof automationRuntime.setProviderTimeoutMs>[0],
       );
-    case "run-webhook":
-      return AutomationRunSchema.parse(await automationRuntime.runWebhook(WebhookRunArgsSchema.parse(args)));
     case "run-now":
       return automationRuntime.runNow(
         args as Parameters<typeof automationRuntime.runNow>[0],

@@ -139,7 +139,6 @@ export function automationToDraft(automation: AutomationSpec): AutomationUpsertI
     prompt: automation.prompt,
     enabled: automation.enabled,
     schedule: automation.schedule,
-    ...(automation.webhook ? { webhook: automation.webhook } : {}),
     // A one-time schedule stays one-time through an edit that does not touch its cadence.
     ...(automation.runOnceAt !== undefined ? { runOnceAt: automation.runOnceAt } : {}),
     environment: automation.environment,
