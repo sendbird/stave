@@ -1,5 +1,5 @@
 import { AutomationWebhookReceiverSettingsSchema } from "../src/lib/automation-webhooks";
-import { WebhookIdArgsSchema, WebhookTestArgsSchema, WebhookStatusResultSchema, WebhookProvisionResultSchema, WebhookTestResultSchema } from "../src/lib/automation-webhook-ipc";
+import { WebhookIdArgsSchema, WebhookReleaseArgsSchema, WebhookReleaseResultSchema, WebhookTestArgsSchema, WebhookStatusResultSchema, WebhookProvisionResultSchema, WebhookTestResultSchema } from "../src/lib/automation-webhook-ipc";
 import { FleetArchiveArgsSchema, FleetArchiveResultSchema, type FleetArchiveArgs } from "../src/lib/fleet/host-control";
 import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetStopPreviewArgs } from "../src/lib/fleet/host-control";
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
@@ -2267,6 +2267,7 @@ contextBridge.exposeInMainWorld("api", {
     configureWebhookReceiver: async (args: unknown) => WebhookStatusResultSchema.parse(await ipcRenderer.invoke("automations:webhook-configure", AutomationWebhookReceiverSettingsSchema.parse(args))),
     provisionWebhook: async (args: unknown) => WebhookProvisionResultSchema.parse(await ipcRenderer.invoke("automations:webhook-provision", WebhookIdArgsSchema.parse(args))),
     sendWebhookTest: async (args: unknown) => WebhookTestResultSchema.parse(await ipcRenderer.invoke("automations:webhook-test", WebhookTestArgsSchema.parse(args))),
+    releaseWebhookSecrets: async (args: unknown) => WebhookReleaseResultSchema.parse(await ipcRenderer.invoke("automations:webhook-release-secrets", WebhookReleaseArgsSchema.parse(args))),
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
       ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{
         ok: boolean;
@@ -2301,7 +2302,7 @@ contextBridge.exposeInMainWorld("api", {
         automation: AutomationSpec | null;
         message?: string;
       }>,
-    runNow: (args: { id: string }) =>
+    runNow: (args: { id: string; payload?: unknown }) =>
       ipcRenderer.invoke("automations:run-now", args) as Promise<{
         ok: boolean;
         run: AutomationRun | null;

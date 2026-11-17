@@ -36,6 +36,7 @@ import {
   applyAutomationCadencePreset,
   applyAutomationTrustPolicyToRuntime,
   automationPermissionModeToTrustPolicy,
+  isAutomationPermissionModeAvailable,
   automationTrustPolicyToPermissionMode,
   AUTOMATION_PERMISSION_MODES,
   computeNextAutomationRunAt,
@@ -408,6 +409,7 @@ function PermissionSection(props: {
   const runtime = draft.runtime;
 
   function selectMode(next: AutomationPermissionMode) {
+    if (!isAutomationPermissionModeAvailable(next, draft)) return;
     const trustPolicy = automationPermissionModeToTrustPolicy(next);
     props.onDraftChange({
       ...draft,
@@ -435,12 +437,15 @@ function PermissionSection(props: {
             getAutomationPermissionModeKeys(candidate);
           const Icon = PERMISSION_MODE_ICON[candidate];
           const active = candidate === mode;
+          const available = isAutomationPermissionModeAvailable(candidate, draft);
           return (
             <AuiButton layout="host"
               key={candidate}
               type="button"
               role="radio"
               aria-checked={active}
+              disabled={!available}
+              data-permission-mode={candidate}
               onClick={() => selectMode(candidate)}
               xstyle={[
                 editorStyles.modeOption,
@@ -479,6 +484,11 @@ function PermissionSection(props: {
           );
         })}
       </div>
+      {draft.webhook ? (
+        <p className={sx(editorStyles.modeDescription)} data-webhook-permission-note="">
+          {tI18n("automation:webhook.permissionNote")}
+        </p>
+      ) : null}
 
       {mode === "manual" ? (
         <div className={sx(editorStyles.manualPanel)}>

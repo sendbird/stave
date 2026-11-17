@@ -63,3 +63,59 @@ for (const variant of [{ lang: "en", theme: "light" }, { lang: "ko", theme: "dar
     expect(saved).not.toHaveProperty("secret");
   });
 }
+
+test("a webhook schedule keeps approvals: Auto cannot be selected and turning the trigger on does not enable it", async ({ page }) => {
+  await page.goto("/?stavePreview=schedules&new=1&lang=en&theme=light");
+  await page.getByRole("button", { name: "New schedule", exact: true }).click();
+  const auto = page.getByRole("radio", { name: /^Auto/ });
+  const guided = page.getByRole("radio", { name: /^Guided/ });
+  await auto.click();
+  await expect(auto).toHaveAttribute("aria-checked", "true");
+  await page.getByRole("button", { name: "Webhook", exact: true }).click();
+  const section = page.locator("[data-webhook-trigger]");
+  await expect(section.locator("[data-webhook-url]")).toHaveValue(/\/webhooks\/[a-f0-9]{64}$/);
+  await expect(auto).toBeDisabled();
+  await expect(page.getByRole("radio", { name: /^Manual/ })).toBeDisabled();
+  await expect(guided).toHaveAttribute("aria-checked", "true");
+  await expect(page.locator("[data-webhook-permission-note]")).toContainText("always ask for approval");
+  await auto.click({ force: true });
+  await expect(guided).toHaveAttribute("aria-checked", "true");
+  await expect(section.getByRole("switch", { name: "Enable this webhook schedule", exact: true })).not.toBeChecked();
+  await page.getByLabel("Name", { exact: true }).fill("Review incoming event");
+  await page.getByLabel("Instructions").fill("Review {{body.action}}.");
+  await page.evaluate(() => {
+    const api = window.api?.automations;
+    if (!api?.create) throw new Error("Missing preview create bridge");
+    const original = api.create;
+    api.create = async (input) => {
+      (window as unknown as { savedWebhookDraft: unknown }).savedWebhookDraft = input;
+      return original(input);
+    };
+  });
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { savedWebhookDraft?: unknown }).savedWebhookDraft)).toBeTruthy();
+  const saved = await page.evaluate(() => (window as unknown as { savedWebhookDraft: Record<string, unknown> }).savedWebhookDraft);
+  expect(saved).toMatchObject({ enabled: false, trustPolicy: "review-required" });
+});
+
+test("cancelling a provisioned webhook releases its unsaved secret, and switching back reuses it", async ({ page }) => {
+  await page.goto("/?stavePreview=schedules&new=1&lang=en&theme=light");
+  await page.getByRole("button", { name: "New schedule", exact: true }).click();
+  await page.evaluate(() => {
+    const api = window.api?.automations as Record<string, unknown> & { provisionWebhook?: (input: unknown) => Promise<unknown> };
+    const original = api.provisionWebhook!;
+    const state = window as unknown as { provisions: number; released: string[] };
+    state.provisions = 0;
+    state.released = [];
+    api.provisionWebhook = async (input) => { state.provisions += 1; return original(input); };
+    api.releaseWebhookSecrets = async ({ secretIds }: { secretIds: string[] }) => { state.released.push(...secretIds); return { ok: true, deleted: secretIds }; };
+  });
+  await page.getByRole("button", { name: "Webhook", exact: true }).click();
+  await expect(page.locator("[data-webhook-url]")).toHaveValue(/\/webhooks\/[a-f0-9]{64}$/);
+  await page.getByRole("button", { name: "Time", exact: true }).click();
+  await page.getByRole("button", { name: "Webhook", exact: true }).click();
+  await expect(page.locator("[data-webhook-url]")).toHaveValue(/\/webhooks\/[a-f0-9]{64}$/);
+  expect(await page.evaluate(() => (window as unknown as { provisions: number }).provisions)).toBe(1);
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { released: string[] }).released)).toEqual(["82fd0f14-f048-4ccc-8474-d379dfcd5061"]);
+});

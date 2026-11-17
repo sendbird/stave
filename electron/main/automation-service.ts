@@ -70,12 +70,40 @@ export function createAutomation(input: AutomationUpsertInput) {
   return invokeAutomation<AutomationSpec>("create", input);
 }
 
-export function updateAutomation(args: { id: string; input: AutomationUpsertInput }) {
-  return invokeAutomation<AutomationSpec>("update", args);
+type WebhookSecretsDroppedListener = (secretIds: string[]) => void;
+const webhookSecretsDroppedListeners = new Set<WebhookSecretsDroppedListener>();
+
+/** Called with the webhook signing secrets a saved change stopped using (trigger switched off or replaced, schedule deleted). */
+export function onAutomationWebhookSecretsDropped(listener: WebhookSecretsDroppedListener) {
+  webhookSecretsDroppedListeners.add(listener);
+  return () => { webhookSecretsDroppedListeners.delete(listener); };
 }
 
-export function removeAutomation(args: { id: string }) {
-  return invokeAutomation<{ ok: true; id: string }>("remove", args);
+async function webhookSecretOf(id: string) {
+  try {
+    return (await listAutomations()).automations.find((automation) => automation.id === id)?.webhook?.secretId ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function notifyWebhookSecretDropped(previous: string | null, next: string | null | undefined) {
+  if (!previous || previous === next) return;
+  for (const listener of webhookSecretsDroppedListeners) listener([previous]);
+}
+
+export async function updateAutomation(args: { id: string; input: AutomationUpsertInput }) {
+  const previous = await webhookSecretOf(args.id);
+  const saved = await invokeAutomation<AutomationSpec>("update", args);
+  notifyWebhookSecretDropped(previous, saved.webhook?.secretId);
+  return saved;
+}
+
+export async function removeAutomation(args: { id: string }) {
+  const previous = await webhookSecretOf(args.id);
+  const removed = await invokeAutomation<{ ok: true; id: string }>("remove", args);
+  notifyWebhookSecretDropped(previous, null);
+  return removed;
 }
 
 export function setAutomationEnabled(args: { id: string; enabled: boolean }) {
@@ -88,7 +116,7 @@ export function setAutomationProviderTimeoutMs(args: {
   return invokeAutomation<void>("set-provider-timeout", args);
 }
 
-export function runAutomationNow(args: { id: string }) {
+export function runAutomationNow(args: { id: string; payload?: unknown }) {
   return invokeAutomation<AutomationRun>("run-now", args);
 }
 

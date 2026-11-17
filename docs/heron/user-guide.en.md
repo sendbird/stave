@@ -1050,24 +1050,33 @@ Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshot
 ## Start a task from a webhook
 
 In a new-task schedule, choose **Webhook** instead of **Time**. Copy the URL
-and store the signing secret immediately; it is shown once. Save the schedule,
-then enable the local **Webhook receiver** and apply its settings. The receiver
-is off by default, uses loopback port 6330, and receives only while the app is
-running. Changing the bind address can expose it to other devices; the editor
-warns before you apply that choice.
+and store the signing secret immediately; it is shown once. Choosing Webhook
+does not turn the schedule on: save it, then turn on **Enable this webhook
+schedule**. Then enable the local **Webhook receiver** and apply its settings.
+The receiver is off by default, uses loopback port 6330, and receives only while
+the app is running. The editor shows whether it is listening or why not, such as
+a port in use. Changing the bind address can expose it to other devices; the
+editor warns before you apply that choice.
 
-Requests need an HMAC SHA-256 signature over the raw JSON body in
-`x-stave-signature: sha256=<hex>`. Payload filters compare paths such as
-`$.action` with **Equals** or **Contains**. Repeated delivery ids (or body hashes)
-are remembered durably for the dedupe window; optional coalescing groups nearby
-events. Use `{{body.path}}` in instructions for quoted, escaped event data.
-The payload is always marked untrusted, never as instructions.
+Webhook schedules always ask for approval before risky actions: **Auto** and
+**Manual** are not available for them. Each request needs `x-stave-timestamp`
+(Unix seconds), an optional `x-stave-delivery-id`, and `x-stave-signature:
+sha256=<hex>`, the HMAC SHA-256 of `timestamp.deliveryId.rawBody` with the
+schedule's secret. The editor shows a command-line example. Requests more than
+5 minutes old or ahead are rejected. Payload filters compare paths such as
+`$.action` with **Equals** or **Contains**, as text. Repeated delivery ids (or
+the same body and timestamp) start nothing more within the dedupe window. An
+event for a busy schedule waits and starts later. Use `{{body.path}}` in
+instructions for quoted, escaped event data, capped at 16 KB. The payload is
+always marked untrusted, never as instructions.
 
-After saving, **Send test event** sends a signed event and can start a real task.
-**Recent deliveries** lists accepted, filtered, duplicate and rejected events.
-Use **Refresh deliveries** for the latest results. Pausing the schedule prevents
-new tasks. Unsigned events are rejected, the body limit is 1 MB, and each
-schedule has its own request rate limit.
+After saving, **Send test event** sends a signed event and can start a real task;
+**Run with sample payload** starts a run with the test JSON. **Recent
+deliveries** lists accepted, filtered, duplicate and failed events, and
+**Rejected requests** counts the rest by reason. Use **Refresh deliveries** for
+the latest results. Pausing the schedule prevents new tasks. Unsigned events are
+rejected, the body limit is 1 MB, and each schedule has its own request rate
+limit. A secret no saved schedule uses is deleted when the editor closes.
 
 ## Fleet View
 
