@@ -1,3 +1,4 @@
+import { request } from "node:http";
 import { afterEach, describe, expect, test } from "bun:test";
 import { RemoteControlServer, type RemotePorts } from "../electron/main/remote-control/server";
 const servers: RemoteControlServer[] = [];
@@ -8,6 +9,7 @@ const action = {
 let nextPort = 6500;
 async function setup() {
     let time = 1000000;
+    let onTimeRead = () => {};
     const actions: unknown[] = [];
     const saves: unknown[] = [];
     const audit: unknown[] = [];
@@ -18,7 +20,7 @@ async function setup() {
             ok: true, reason: "applied"
         } : {
             ok: false, reason: "expired"
-        }; }, save: async (s) => { saves.push(structuredClone(s)); }, record: async (a) => { audit.push(a); }, asset: async () => null, now: () => time
+        }; }, save: async (s) => { saves.push(structuredClone(s)); }, record: async (a) => { audit.push(a); }, asset: async () => null, now: () => { onTimeRead(); return time; }
     };
     const server = new RemoteControlServer(ports);
     servers.push(server);
@@ -41,7 +43,7 @@ async function setup() {
         token: string;
     }).token; };
     return {
-        server, base, post, pair, actions, saves, audit, advance: (ms: number) => { time += ms; }
+        server, base, post, pair, actions, saves, audit, onTimeRead: (callback: () => void) => { onTimeRead = callback; }, advance: (ms: number) => { time += ms; }
     };
 }
 describe("remote control boundary", () => {
@@ -120,6 +122,23 @@ describe("remote control boundary", () => {
         expect((await s.post("/api/action", action, token, {
             Origin: "http://untrusted.invalid"
         })).status).toBe(403);
+    });
+    test("a code expiring while the request body arrives is rejected", async () => {
+        const s = await setup();
+        const code = s.server.pairing().code;
+        let accepted!: () => void;
+        const headersRead = new Promise<void>(resolve => { accepted = resolve; });
+        s.onTimeRead(accepted);
+        let pending!: ReturnType<typeof request>;
+        const response = new Promise<number>((resolve, reject) => {
+            pending = request(s.base + "/api/pair", { method: "POST", headers: { "Content-Type": "application/json" } }, res => { res.resume(); resolve(res.statusCode!); });
+            pending.on("error", reject);
+            pending.flushHeaders();
+        });
+        await headersRead;
+        s.advance(300001);
+        pending.end(JSON.stringify({ code, name: "Phone" }));
+        expect(await response).toBe(403);
     });
     test("bounded polling and same-origin policy", async () => {
         const s = await setup();

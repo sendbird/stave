@@ -163,6 +163,9 @@ export class RemoteControlServer {
                 });
             }
             return this.serial(async () => {
+                // Body transfer and queued storage work may cross the code deadline.
+                const now = this.now();
+                if (now < this.lockedUntil) return this.json(res, 429, { error: "locked" });
                 if (!this.server)
                     return this.json(res, 503, {
                         error: "unavailable"
