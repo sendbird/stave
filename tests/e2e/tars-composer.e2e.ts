@@ -257,6 +257,44 @@ test("same-name selections and repeated image pastes keep separate snapshots", a
   await expect(page.locator("[data-tars-message-attachments]").getByRole("button", { name: "Open image (2).png full size", exact: true })).toBeVisible();
 });
 
+test("one pasted image attaches and sends once when every clipboard read hands out a new copy", async ({ page }) => {
+  await page.goto("/?stavePreview=tars");
+  const composer = page.locator("[data-tars-composer]");
+  const editor = composer.getByRole("textbox");
+  await expect(editor).toBeEditable();
+  const attached = composer.getByRole("button", { name: /^Remove attached file / });
+  // As Chromium does: each read of either clipboard list creates a new File stamped with the read time.
+  const paste = (images: number[][]) => editor.evaluate((node, contents) => {
+    let stamp = 1_000;
+    const read = (bytes: number[]) => new File([new Uint8Array(bytes)], "image.png", { type: "image/png", lastModified: stamp++ });
+    const clipboardData = { types: ["Files"], getData: () => "",
+      items: contents.map((bytes) => ({ kind: "file", type: "image/png", getAsFile: () => read(bytes) })),
+      get files() { return contents.map(read); } };
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", { value: clipboardData });
+    node.dispatchEvent(event);
+  }, images);
+  await paste([[1, 2, 3]]);
+  await expect(composer.getByRole("button", { name: "Remove attached file image.png", exact: true })).toBeVisible();
+  await expect(attached).toHaveCount(1);
+  // Pasting the same image again attaches it again.
+  await paste([[1, 2, 3]]);
+  await expect(composer.getByRole("button", { name: "Remove attached file image (2).png", exact: true })).toBeVisible();
+  await expect(attached).toHaveCount(2);
+  // Two images in one paste stay two, even with the same name and size.
+  await paste([[4, 5, 6], [7, 8, 9]]);
+  await expect(composer.getByRole("button", { name: "Remove attached file image (4).png", exact: true })).toBeVisible();
+  await expect(attached).toHaveCount(4);
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  const parts = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!).messages[0].attachments);
+  expect(parts).toEqual([
+    { type: "image_context", label: "image.png", dataUrl: "data:image/png;base64,AQID", mimeType: "image/png" },
+    { type: "image_context", label: "image (2).png", dataUrl: "data:image/png;base64,AQID", mimeType: "image/png" },
+    { type: "image_context", label: "image (3).png", dataUrl: "data:image/png;base64,BAUG", mimeType: "image/png" },
+    { type: "image_context", label: "image (4).png", dataUrl: "data:image/png;base64,BwgJ", mimeType: "image/png" },
+  ]);
+});
+
 test("Tars body, supporting copy, report and settings remain readable across layouts", async ({ page }, testInfo) => {
   test.setTimeout(60_000);
   for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) {

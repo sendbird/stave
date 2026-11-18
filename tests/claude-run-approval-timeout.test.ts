@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { afterAll, afterEach, beforeEach, expect, mock, setSystemTime, test } from "bun:test";
 import { classifyAgentRunTurnEnding } from "../electron/host-service/supervision/agent-run-actions";
 import type { BridgeEvent } from "../electron/providers/types";
 
@@ -45,6 +45,7 @@ const { streamClaudeWithSdk } = await import("../electron/providers/claude-sdk-r
 const originalTimeout = process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS;
 beforeEach(() => { process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS = "25"; });
 afterEach(() => {
+  setSystemTime();
   decisions.length = 0; questionMode = false;
   if (originalTimeout === undefined) delete process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS;
   else process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS = originalTimeout;
@@ -53,23 +54,26 @@ afterAll(() => mock.restore());
 
 for (const agentRunStage of [{ agentRunId: "run", stageId: "work", attempt: 1 }, undefined]) {
   test(`${agentRunStage ? "an agent run" : "an ordinary turn"}: an unanswered Claude approval is denied after the decision timeout`, async () => {
+    setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     const events: BridgeEvent[] = [];
     await streamClaudeWithSdk({
       providerId: "claude-code", cwd: process.cwd(), taskId: `task-${agentRunStage ? "run" : "chat"}`, prompt: "Work",
       runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude", claudePermissionMode: agentRunStage ? "auto" : "default" },
       ...(agentRunStage ? { agentRunStage } : {}),
       registerApprovalResponder: () => {},
-      onEvent: (event) => { events.push(event); },
+      onEvent: (event) => {
+        events.push(event);
+        // The real timer can finish while the display clock is still 1ms
+        // before the deadline; the two clocks need not advance together.
+        if (event.type === "approval") setSystemTime(new Date("2026-01-01T00:00:00.024Z"));
+      },
     });
     expect(events.filter((event) => event.type === "approval")).toHaveLength(1);
-    // The request says when the decision timer denies it.
+    // The displayed deadline is the request's wall clock plus the configured
+    // 25ms, independent of the timer callback's wall-clock reading.
     const approval = events.find((event) => event.type === "approval");
     const timeoutAt = events.findIndex((event) => event.type === "error");
-    expect(approval?.type === "approval" && typeof approval.expiresAt).toBe("string");
-    if (approval?.type === "approval" && approval.expiresAt) {
-      expect(Date.parse(approval.expiresAt)).toBeLessThanOrEqual(Date.now());
-      expect(Date.parse(approval.expiresAt)).toBeGreaterThan(Date.now() - 5_000);
-    }
+    expect(approval?.type === "approval" && approval.expiresAt).toBe("2026-01-01T00:00:00.025Z");
     expect(timeoutAt).toBeGreaterThan(-1);
     expect(decisions).toEqual([expect.objectContaining({ behavior: "deny", message: expect.stringContaining("Denied automatically") })]);
     expect(events.some((event) => event.type === "error" && event.message.includes("did not receive"))).toBe(true);
