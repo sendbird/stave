@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -28,32 +29,44 @@ function stripComments(code: string) {
     .replace(/(^|[^:"'`])\/\/.*$/gm, "$1");
 }
 
-async function findOffenders(pattern: RegExp, allowed: ReadonlySet<string>) {
-  const offenders: string[] = [];
-  for (const root of ["electron", "src", "server"]) {
-    const glob = new Bun.Glob("**/*.{ts,tsx,mts,mjs}");
-    for await (const relativePath of glob.scan({ cwd: path.join(REPO_ROOT, root) })) {
-      const repoPath = `${root}/${relativePath}`;
-      if (repoPath.includes("/node_modules/") || allowed.has(repoPath)) {
-        continue;
-      }
-      const code = stripComments(await Bun.file(path.join(REPO_ROOT, repoPath)).text());
-      if (pattern.test(code)) {
-        offenders.push(repoPath);
-      }
-    }
-  }
-  return offenders.sort();
+/**
+ * Production sources with comments stripped, read once and synchronously.
+ * This file runs inside the large shared Bun test process; awaiting one read
+ * per file there let earlier tests' pending work starve the scan past the
+ * 5 s timeout on CI runners.
+ */
+const PRODUCTION_SOURCES: ReadonlyArray<{ repoPath: string; code: string }> = [
+  "electron",
+  "src",
+  "server",
+].flatMap((root) =>
+  Array.from(
+    new Bun.Glob("**/*.{ts,tsx,mts,mjs}").scanSync({ cwd: path.join(REPO_ROOT, root) }),
+    (relativePath) => `${root}/${relativePath}`,
+  )
+    .filter((repoPath) => !repoPath.includes("/node_modules/"))
+    .map((repoPath) => ({
+      repoPath,
+      code: stripComments(readFileSync(path.join(REPO_ROOT, repoPath), "utf8")),
+    })),
+);
+
+function findOffenders(pattern: RegExp, allowed: ReadonlySet<string>) {
+  return PRODUCTION_SOURCES.filter(
+    ({ repoPath, code }) => !allowed.has(repoPath) && pattern.test(code),
+  )
+    .map(({ repoPath }) => repoPath)
+    .sort();
 }
 
 describe("Local MCP manifest consumers", () => {
-  test("no production code hardcodes a manifest path", async () => {
-    expect(await findOffenders(/local-mcp(?:\.json|-instances)/, MANIFEST_OWNERS)).toEqual([]);
+  test("no production code hardcodes a manifest path", () => {
+    expect(findOffenders(/local-mcp(?:\.json|-instances)/, MANIFEST_OWNERS)).toEqual([]);
   });
 
-  test("only the manifest store touches the shared manifest path", async () => {
+  test("only the manifest store touches the shared manifest path", () => {
     expect(
-      await findOffenders(
+      findOffenders(
         /\bgetPrimaryStaveLocalMcpManifestPath\b|\bgetStaveLocalMcpInstanceManifestRoot\b/,
         new Set([
           "electron/main/stave-local-mcp-manifest.ts",
