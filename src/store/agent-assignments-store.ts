@@ -132,20 +132,25 @@ export const useAgentAssignmentsStore = create<AgentAssignmentsState>()((set) =>
   },
 }));
 
-let subscribed = false;
+let syncConsumers = 0;
+let unsubscribeChanged: (() => void) | null = null;
 
-/** Mount once near the surfaces that read the store; later mounts are free. */
+/** Share one subscription until the last surface reading the store unmounts. */
 export function useAgentAssignmentsSync() {
   useEffect(() => {
-    if (subscribed) return;
     const api = agentsApi();
     if (!api) return;
-    subscribed = true;
-    void useAgentAssignmentsStore.getState().load();
-    const unsubscribe = api.subscribeChanged(() => void useAgentAssignmentsStore.getState().load());
+    syncConsumers += 1;
+    if (syncConsumers === 1) {
+      unsubscribeChanged = api.subscribeChanged(() => void useAgentAssignmentsStore.getState().load());
+      void useAgentAssignmentsStore.getState().load();
+    }
     return () => {
-      subscribed = false;
-      unsubscribe();
+      syncConsumers -= 1;
+      if (syncConsumers === 0) {
+        unsubscribeChanged?.();
+        unsubscribeChanged = null;
+      }
     };
   }, []);
 }
