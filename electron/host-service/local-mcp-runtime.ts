@@ -787,14 +787,6 @@ export function emitWorkspaceInformationUpdate(
   });
 }
 
-/**
- * Tells renderers the host created a workspace or added a task to one. Sent
- * only after the write is saved, so a reader that follows it finds the change.
- */
-function emitWorkspaceChange(payload: LocalMcpWorkspaceChange) {
-  localMcpEventListener?.({ type: "workspace-changed", payload });
-}
-
 function emitTaskTurnUpdate(payload: LocalMcpTaskTurnUpdate) {
   localMcpEventListener?.({
     type: "task-turn-updated",
@@ -1669,7 +1661,8 @@ export async function createWorkspace(args: {
     }),
     result: undefined,
   }));
-  emitWorkspaceChange({ workspaceId, repositoryPath });
+  // Notify only after saving so a renderer refresh finds the new workspace.
+  localMcpEventListener?.({ type: "workspace-changed", payload: { workspaceId, repositoryPath } });
 
   const notice = buildWorkspaceCreationNotice({ notices });
   return {
@@ -2348,7 +2341,7 @@ export async function createIdleTask(args: { workspaceId: string; title: string;
     const added = addIdleTask(await loadWorkspaceSession(args.workspaceId, true), args);
     const next = cacheWorkspaceSession(args.workspaceId, added.session);
     await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
-    emitWorkspaceChange({ workspaceId: args.workspaceId, repositoryPath: registration.project.repositoryPath });
+    localMcpEventListener?.({ type: "workspace-changed", payload: { workspaceId: args.workspaceId, repositoryPath: registration.project.repositoryPath } });
     return { taskId: added.taskId };
   });
 }
