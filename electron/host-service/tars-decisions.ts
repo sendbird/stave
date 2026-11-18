@@ -3,6 +3,7 @@ import { admitTarsOpen } from "./tars-open";
 import { tarsAutoControlLedger } from "./tars-auto-control";
 import { tarsDefaultCommitSubject, tarsPublishProposalRequestId, type TarsPublishInput, type TarsPublishResult } from "../../src/lib/tars/publication";
 import { applyTarsWorkspace, type TarsWorkspacePorts } from "./tars-workspace";
+import { tarsSelectedWorkRefusal } from "../../src/lib/tars/selected-work";
 import { resolveTarsWorkspace } from "../main/tars-scope";
 import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { ApplyTarsDecisionInputSchema, ConfirmTarsProposalInputSchema } from "../../src/lib/tars/conversation";
@@ -11,7 +12,7 @@ import {
   matchTarsNeverRules, tarsHasAllowRule, tarsActionDisposition, tarsActionKey, tarsEffectiveAutonomy, tarsRepositoryName,
   TARS_AUTO_EXTEND_MULTIPLIER, type TarsActionOrigin, type TarsNeverRuleMatch,
 } from "../../src/lib/tars/autonomy";
-import { isTarsWorkProposal, type TarsWorkProposalAction } from "../../src/lib/tars/decisions";
+import { isTarsWorkProposal, parseTarsDecisionId, type TarsWorkProposalAction } from "../../src/lib/tars/decisions";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsStore } from "../persistence/tars-store";
 import { admitTarsControl, tarsControlRejection, TarsControlRejection, type TarsControlLedger, type TarsControlRequest } from "./tars-control";
@@ -339,6 +340,16 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
       if (action.kind === "inspect") continue;
       const intent = ports.conversations.recordReceipt(message.id, message.revision, index, action, now());
       if (intent.status !== "pending" && !(intent.status === "proposed" && action.kind === "publish")) { receipts.push(intent); continue; }
+      // A selected message stays on its one existing work; judged once, when its receipt first settles.
+      const withdrawn = action.kind === "withdraw" ? parseTarsDecisionId(action.decisionId) : null;
+      const targetRefusal = intent.status === "pending" && message.target ? tarsSelectedWorkRefusal(message.target, action,
+        ports.responsibilities.get(message.target.responsibilityId),
+        withdrawn?.kind === "confirm" || withdrawn?.kind === "ask" ? ports.conversations.getReceipt(withdrawn.messageId, withdrawn.actionIndex)?.action ?? null : null) : null;
+      if (targetRefusal) {
+        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
+          { status: "rejected", ...targetRefusal }, now()));
+        continue;
+      }
       // A follow-up Tars started by itself carries no user mandate: it may only ask.
       if (message.origin?.kind === "reask" && action.kind !== "ask") {
         receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,

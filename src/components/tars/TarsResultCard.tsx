@@ -146,6 +146,8 @@ export function TarsResultCard({ notice, result }: { notice: TarsActivityNotice;
       </div> : null}
       {/* What the state admits next, through the tray's own handlers; then the views that explain it. */}
       {stopped ? <TarsBlockedNextSteps row={row} decision={undefined} actions={actions} /> : null}
+      {actions.onFollowUp ? <div className={sx(styles.actions)}><Button type="button" size="xs" variant="outline" data-tars-select-work={row.id}
+        onClick={() => actions.onFollowUp!(row)}>{t("shell:tars.selection.followUp")}</Button></div> : null}
       {views.length ? <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.result.views", { title: row.title })}>{views}</div> : null}
       {model.report === "frozen" || diagnostic ? <TarsResultDetails textScale="conversation" key={row.id} label={t("shell:tars.completion.details")}>
         {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}

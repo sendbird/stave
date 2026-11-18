@@ -575,9 +575,7 @@ function PromptLexicalSelectionPlugin(args: {
       editor.registerCommand(
         SELECTION_CHANGE_COMMAND,
         () => {
-          const range = editor
-            .getEditorState()
-            .read(() => getSelectionRangeFromEditorState());
+          const range = editor.read("pending", () => getSelectionRangeFromEditorState());
           onSelectionChangeRef.current?.(range);
           return false;
         },
@@ -635,8 +633,9 @@ function PromptLexicalImperativePlugin(args: {
         editor.focus();
       },
       getRootElement: () => editor.getRootElement() as HTMLDivElement | null,
+      // A palette key can arrive before the selection update commits.
       getSelectionRange: () =>
-        editor.getEditorState().read(() => getSelectionRangeFromEditorState()),
+        editor.read("pending", () => getSelectionRangeFromEditorState()),
       setSelectionRange: (start: number, end = start) => {
         editor.update(() => setSelectionFromCharacterRange(start, end), {
           discrete: true,

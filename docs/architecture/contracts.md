@@ -844,6 +844,33 @@ The host refuses every action of such a message except `ask`, and an invalid
 decision from it is never asked again. Main wakes the service on the host's
 `snapshot` change events.
 
+### Tars selected work
+
+Existing-work selection is `TarsWorkTarget` (`responsibilityId` only), an optional
+`target` on the composer draft and message input/view schemas. The renderer saves
+it with the draft and sends it through the existing preload and `tars:send-message`
+validation into `TarsConversationStore` JSON. Planner current/history contexts and
+reply-option answer messages retain the ID. Host decision admission
+(`tarsSelectedWorkRefusal`, checked once while a receipt is still pending) narrows
+a selected message to that responsibility. It refuses missing targets
+(`targetUnavailable`) and, as `targetMismatch`, delegation, schedules, clearing,
+controls/views/publish/reprioritize/inspect of another responsibility, ask
+options whose effects reach another responsibility, `open` of anything but the
+selected task or execution workspace, `workspace` edits outside that execution
+workspace, `bulkControl`/`cleanup` scopes beyond the selected ID, and `withdraw`
+of a decision whose action leaves the target. The switch is exhaustive over
+`TarsDecisionAction`, so a new action kind must decide its selection rule.
+Selection grants no execution, tool or publication authority; existing revision,
+ownership, completion, continuation and confirmation checks remain required. Natural-language conflicts and ambiguous references are
+clarification instructions to the representative, not a new execution engine.
+Focused coverage: `tests/tars-selected-work.test.ts`, `tests/tars-ipc.test.ts`,
+`tests/tars-queued-message.test.ts` and `tests/e2e/tars-work-selection.e2e.ts`.
+
+The renderer uses PromptInput's caret-aware `@` mention palette for host-owned
+selection options. Only an active mention opens candidates; selection consumes
+that token and saves its stable ID as a draft target. Card/report follow-ups use
+the same target store without submitting. There is no persistent selector.
+
 ### Tars schedules
 
 Tars stores and runs no schedule itself. A schedule it sets up is an

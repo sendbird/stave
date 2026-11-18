@@ -1,3 +1,4 @@
+import { TarsWorkTargetSchema } from "./selected-work";
 import { z } from "zod";
 import { TARS_MESSAGE_MAX_CHARS } from "./types";
 
@@ -25,6 +26,7 @@ export const TARS_DRAFT_MAX_CHARS = TARS_MESSAGE_MAX_CHARS * 4;
 export const TarsComposerDraftSchema = z.object({
   text: z.string().max(TARS_DRAFT_MAX_CHARS),
   includeWorkingChanges: z.boolean(),
+  target: TarsWorkTargetSchema.optional(),
   requestId: z.string().trim().min(1).max(256).nullable(),
   requestHadAttachments: z.literal(true).optional(),
 }).strict();
@@ -37,6 +39,6 @@ export const SaveTarsComposerDraftInputSchema = z.object({
 export type SaveTarsComposerDraftInput = z.infer<typeof SaveTarsComposerDraftInputSchema>;
 
 /** Nothing worth saving: no words and no choice. A pending request ID alone is not a draft. */
-export function isEmptyTarsComposerDraft(draft: Pick<TarsComposerDraft, "text" | "includeWorkingChanges">): boolean {
-  return draft.text.length === 0 && !draft.includeWorkingChanges;
+export function isEmptyTarsComposerDraft(draft: Pick<TarsComposerDraft, "text" | "includeWorkingChanges" | "target">): boolean {
+  return draft.text.length === 0 && !draft.includeWorkingChanges && !draft.target;
 }

@@ -3130,6 +3130,25 @@
         "control": "Nothing here can be changed now."
       },
       "close": "Close"
+    },
+    "selection": {
+      "choose": "Select work",
+      "empty": "No matching work",
+      "clear": "Clear target",
+      "result": "View result",
+      "openResult": "View result: {{title}}",
+      "unavailableLabel": "Selected work is unavailable",
+      "clearUnavailable": "Clear the selection to choose again",
+      "numberedRepository": "{{repository}} · Work {{number}}",
+      "details": "{{title}}\n{{state}} · {{repository}}\nWork ID: {{id}}",
+      "followUp": "Follow up",
+      "unavailable": "Unavailable work: {{id}}",
+      "messageTarget": "Selected work: {{title}}",
+      "refusal": {
+        "targetMismatch": "This request is for selected existing work. Select the intended work or clear the target before starting independent work.",
+        "targetUnavailable": "The selected work is unavailable. Select an existing work item or clear the target."
+      },
+      "hint": "Type after @ to search work. Use arrow keys and Enter to select; Escape closes."
     }
   },
   "contentSearch": {

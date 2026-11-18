@@ -22,7 +22,7 @@ import {
 import type { DocumentMentionOption } from "@/lib/documents/attached-document-context";
 import type { TaskMentionOption } from "@/lib/task-context/attached-task-context";
 import { NO_COMMAND_SELECTION } from "./prompt-input.utils";
-import { buildMentionPaletteItems } from "./prompt-input-mentions";
+import { type SelectionMentionOption, buildMentionPaletteItems } from "./prompt-input-mentions";
 import type { ModelSelectorOption } from "./model-selector";
 
 const PALETTE_ITEM_INDEX_ATTRIBUTE = "data-palette-index";
@@ -40,6 +40,8 @@ function getPaletteItemSelector(index: number) {
  */
 export function usePromptInputPaletteState(args: {
   enabled?: boolean;
+  mentionsOnly?: boolean;
+  selectionOptions?: readonly SelectionMentionOption[];
   value: string;
   caretIndex: number;
   selectedModel: ModelSelectorOption;
@@ -55,6 +57,8 @@ export function usePromptInputPaletteState(args: {
 }) {
   const {
     enabled = true,
+    mentionsOnly = false,
+    selectionOptions,
     value,
     caretIndex,
     selectedModel,
@@ -99,24 +103,24 @@ export function usePromptInputPaletteState(args: {
   const commandListRef = useRef<HTMLDivElement | null>(null);
   const activeCommandToken = useMemo(
     () =>
-      enabled ? getActiveSlashCommandTokenMatch({
+      enabled && !mentionsOnly ? getActiveSlashCommandTokenMatch({
         value,
         caretIndex,
       }) : null,
-    [caretIndex, enabled, value],
+    [caretIndex, enabled, mentionsOnly, value],
   );
   const deferredCommandQuery = useDeferredValue(
     activeCommandToken?.query ?? "",
   );
   const activeSkillToken = useMemo(
     () =>
-      enabled && skillsEnabled
+      enabled && !mentionsOnly && skillsEnabled
         ? getActiveSkillTokenMatch({
             value,
             caretIndex,
           })
         : null,
-    [caretIndex, enabled, skillsEnabled, value],
+    [caretIndex, enabled, mentionsOnly, skillsEnabled, value],
   );
   const activeWorkspaceInformationToken = useMemo(
     () =>
@@ -148,11 +152,11 @@ export function usePromptInputPaletteState(args: {
   );
   const activeMacroToken = useMemo(
     () =>
-      enabled ? getActiveMacroTokenMatch({
+      enabled && !mentionsOnly ? getActiveMacroTokenMatch({
         value,
         caretIndex,
       }) : null,
-    [caretIndex, enabled, value],
+    [caretIndex, enabled, mentionsOnly, value],
   );
   const paletteMacros = useMemo(() => [...(macros ?? []), ASSIGN_PALETTE_ENTRY], [macros]);
   const filteredMacroItems = useMemo(
@@ -169,12 +173,14 @@ export function usePromptInputPaletteState(args: {
         query: deferredWorkspaceInformationQuery,
         informationOptions: workspaceInformationReferenceOptions ?? [],
         taskOptions: taskMentionOptions ?? [],
+        selectionOptions,
         documentOptions: documentMentionOptions ?? [],
       }),
     [
       deferredWorkspaceInformationQuery,
       documentMentionOptions,
       taskMentionOptions,
+      selectionOptions,
       workspaceInformationReferenceOptions,
     ],
   );
@@ -516,6 +522,8 @@ export function usePromptInputPaletteState(args: {
     globalSkillItems,
     workspaceInformationSectionItems,
     taskMentionItems,
+    selectionMentionItems: indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
+      item.kind === "selection" ? [{ item: item.option, index }] : []),
     documentMentionItems,
     workspaceInformationEntryItems,
     activePalette,

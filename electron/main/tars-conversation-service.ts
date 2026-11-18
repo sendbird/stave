@@ -365,7 +365,9 @@ export function createTarsConversationService(ports: ConversationPorts) {
     if (receipt?.action.kind !== "ask") throw new Error("The question for this answer was not found.");
     const option = receipt.action.options[answer.optionIndex];
     if (!option) throw new Error("The chosen option was not found.");
-    const message = ports.conversations.create({ requestId: tarsAnswerMessageRequestId(answer.decisionId), text: option.label }, now(), 32,
+    const target = ports.conversations.get(receipt.messageId)?.target;
+    const message = ports.conversations.create({ requestId: tarsAnswerMessageRequestId(answer.decisionId), text: option.label,
+      ...(target ? { target } : {}) }, now(), 32,
       { kind: "answer", decisionId: answer.decisionId, optionIndex: answer.optionIndex, source: answer.source,
         question: receipt.action.question, rationale: option.rationale });
     requestWork();

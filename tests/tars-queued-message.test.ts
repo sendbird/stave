@@ -83,7 +83,7 @@ function fixture(options: { queue?: boolean } = {}) {
   const tell = async (text: string, work: TarsResponsibility = row) => {
     const { conversations, store, runtime } = current;
     conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy: "careful" });
-    const queued = conversations.create({ requestId: `message-${messages++}`, text: `그렇게 전해줘: ${text}` }, NOW);
+    const queued = conversations.create({ requestId: `message-${messages++}`, text: `그렇게 전해줘: ${text}`, target: { responsibilityId: work.id } }, NOW);
     const claimed = conversations.claim(queued.id, queued.revision, NOW);
     const revision = store.get(work.id)!.revision;
     const message = conversations.answer(claimed.id, claimed.revision, { reply: "Confirm on the card.",

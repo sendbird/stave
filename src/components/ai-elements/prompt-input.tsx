@@ -119,6 +119,7 @@ export function PromptInput(args: PromptInputProps) {
     onMacroSelect,
     workspaceInformationReferenceOptions,
     taskMentionOptions,
+    selectionMentions,
     onAttachTask,
     documentMentionOptions,
     onAttachDocument,
@@ -175,14 +176,8 @@ export function PromptInput(args: PromptInputProps) {
   const useComposerFrame = Boolean(framed && !minimal);
   const trayChrome = minimal && chrome === "tray";
   const useComposerWings = useComposerFrame && !isMobile;
-  /**
-   * AUI `size` for an icon-only composer control, picked to land on the same
-   * rung of the control ramp as the lane it will stand in: `md` (36) in the
-   * classic in-card toolbar, `sm` (32) on the framed bottom shelf, in a wing,
-   * and in either overflow menu. Passing the size (rather than overriding the
-   * rendered box with a literal) keeps `controlSquares` — the one square-height
-   * map — in charge of both axes.
-   */
+  // AUI `size` for icon-only controls on their lane's rung: `md` (36) in the classic toolbar, `sm` (32) on the framed
+  // shelf, in a wing and in overflow menus. Passing a size, not a literal box, keeps `controlSquares` in charge of both axes.
   const composerIconButtonSize = useComposerWings ? "icon-sm" : "icon";
   const promptEnhancementReveal = usePromptEnhancementReveal({
     active: promptEnhancementRevealing,
@@ -327,7 +322,9 @@ export function PromptInput(args: PromptInputProps) {
   });
 
   const palette = usePromptInputPaletteState({
-    enabled: !plainText,
+    enabled: !interactionsDisabled && (!plainText || Boolean(selectionMentions)),
+    mentionsOnly: plainText,
+    selectionOptions: selectionMentions?.options,
     value,
     caretIndex,
     selectedModel,
@@ -358,6 +355,7 @@ export function PromptInput(args: PromptInputProps) {
     onValueChange,
     onMacroSelect,
     onAttachTask,
+    selectionMentions,
     onAttachDocument,
     getLiveCaretIndex,
     restoreComposerSelection,
@@ -683,7 +681,8 @@ export function PromptInput(args: PromptInputProps) {
                         );
                         onFocus?.();
                       }}
-                      onBlur={() => onBlur?.()}
+                      // Leaving a plain-text editor closes host-owned `@` candidates until the next mention.
+                      onBlur={() => { if (plainText && selectionMentions) setDismissedWorkspaceInformationToken(activeWorkspaceInformationToken?.token ?? null); onBlur?.(); }}
                       onPaste={handlePaste}
                       onKeyDown={(event) =>
                         handlePromptEditorKeyDown(event, {
@@ -771,6 +770,7 @@ export function PromptInput(args: PromptInputProps) {
                 selection={paletteSelection}
                 selectedModel={selectedModel}
                 taskMentionOptions={taskMentionOptions}
+                selectionMentions={selectionMentions}
                 commandPaletteProviderNote={commandPaletteProviderNote}
               />
             </PopoverContent>

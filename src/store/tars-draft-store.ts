@@ -1,3 +1,4 @@
+import type { TarsWorkTarget } from "@/lib/tars/selected-work";
 import { create } from "zustand";
 import {
   TARS_DRAFT_MAX_CHARS, isEmptyTarsComposerDraft, type TarsComposerDraft,
@@ -33,7 +34,7 @@ export const TARS_DRAFT_SAVE_DELAY_MS = 300;
 
 /** One shared empty list, so a selector on `attachments` keeps its identity while nothing is attached. */
 const NO_ATTACHMENTS: readonly AttachmentContext[] = Object.freeze([]);
-const EMPTY = { text: "", includeWorkingChanges: false, requestId: null, attachments: NO_ATTACHMENTS } satisfies DraftContent;
+const EMPTY = { text: "", includeWorkingChanges: false, requestId: null, target: undefined, attachments: NO_ATTACHMENTS } satisfies DraftContent;
 
 export const useTarsDraftStore = create<TarsDraftState>(() => ({ ...EMPTY, ready: false, reading: false }));
 
@@ -49,8 +50,8 @@ let read: symbol | null = null;
 
 /** The saved copy: the files are left out, and a request ID that also carried files says so. */
 function snapshot(): TarsComposerDraft {
-  const { text, includeWorkingChanges, requestId, attachments } = useTarsDraftStore.getState();
-  return { text, includeWorkingChanges, requestId, ...(requestId !== null && attachments.length ? { requestHadAttachments: true as const } : {}) };
+  const { text, includeWorkingChanges, target, requestId, attachments } = useTarsDraftStore.getState();
+  return { text, includeWorkingChanges, ...(target ? { target } : {}), requestId, ...(requestId !== null && attachments.length ? { requestHadAttachments: true as const } : {}) };
 }
 
 function write(draft: TarsComposerDraft): Promise<boolean> {
@@ -178,6 +179,11 @@ export function setTarsDraftText(text: string) {
   update({ text, requestId: null });
 }
 
+export function setTarsDraftTarget(target: TarsWorkTarget | undefined) {
+  if (useTarsDraftStore.getState().target?.responsibilityId === target?.responsibilityId) return;
+  update({ target, requestId: null });
+}
+
 export function setTarsDraftWorkingChanges(includeWorkingChanges: boolean) {
   const current = useTarsDraftStore.getState();
   if (current.includeWorkingChanges === includeWorkingChanges) return;
@@ -213,15 +219,15 @@ export function appendTarsDraft(addition: string) {
  * anyway could leave a message the saved draft does not know about, so the
  * draft would come back after a restart and be sent a second time.
  */
-export async function beginTarsDraftSend(): Promise<{ requestId: string; text: string; includeWorkingChanges: boolean; attachments: readonly AttachmentContext[] } | null> {
-  const { requestId: retried, text, includeWorkingChanges, attachments } = useTarsDraftStore.getState();
+export async function beginTarsDraftSend(): Promise<{ requestId: string; text: string; includeWorkingChanges: boolean; attachments: readonly AttachmentContext[]; target?: TarsWorkTarget } | null> {
+  const { requestId: retried, text, includeWorkingChanges, attachments, target } = useTarsDraftStore.getState();
   const requestId = retried ?? crypto.randomUUID();
   useTarsDraftStore.setState({ requestId });
   dirty = true;
   // No message carries this request ID yet, so keeping it for the next try is still the same, unsent request.
   if (!(await flushTarsDraft()) && bridge?.saveDraft) return null;
   // The words as they stand in the draft, not as sent (the composer trims what it sends), so settling compares like with like.
-  return { requestId, text, includeWorkingChanges, attachments };
+  return { requestId, text, includeWorkingChanges, attachments, ...(target ? { target } : {}) };
 }
 
 /**

@@ -467,6 +467,11 @@ export const promptInputStyles = stylex.create({
     padding: 0,
   },
   commandList: { maxHeight: "32rem", scrollPaddingBlock: vars["--aui-space-8"] },
+  selectionMentionItem: {
+    cursor: "pointer", minWidth: 0, alignItems: "flex-start",
+    paddingInline: vars["--aui-space-12"], paddingBlock: vars["--aui-space-12"], borderRadius: vars["--aui-radius-control"],
+  },
+  selectionMentionText: { minWidth: 0, flex: 1, overflowWrap: "anywhere" },
   itemStandard: {
     minHeight: 56,
     cursor: "pointer",

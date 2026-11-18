@@ -70,6 +70,17 @@ describe("task mention options", () => {
     expect(filterTaskMentionOptions({ options, query: "", limit: 1 }).map((o) => o.taskId)).toEqual(["new"]);
   });
 
+  test("host selection mentions search titles, state, repository and stable IDs without task identity", () => {
+    const options = [{ id: "work-1", title: "결제 화면", description: "Waiting · /tmp/shop · work-1", searchText: "결제 화면" },
+      { id: "work-2", title: "결제 화면", description: "Done · /tmp/docs · work-2", searchText: "결제 화면" }];
+    for (const query of ["결제", "WAITING", "shop", "work-1"]) {
+      const items = buildMentionPaletteItems({ query, selectionOptions: options, informationOptions: [], taskOptions: [] });
+      expect(items[0]).toEqual({ kind: "selection", key: "@selection:work-1", option: options[0] });
+      if (query !== "결제") expect(items).toHaveLength(1);
+    }
+    expect(buildMentionPaletteItems({ query: "missing", selectionOptions: options, informationOptions: [], taskOptions: [] })).toEqual([]);
+  });
+
   test("the @ palette walks sections, then tasks, then items", () => {
     const info = (token: string, kind: "section" | "item"): WorkspaceInformationReferenceOption => ({
       reference: { section: "notes", scope: kind, label: token, token },

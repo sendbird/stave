@@ -370,7 +370,7 @@ function TarsViewContent() {
     // The saved identity is the new snapshot; a read already under way could otherwise leave the old one on screen.
     void api.updateIdentity({ name: snapshot.identity.name, instructions: t("shell:tars.instructionsDefault") }).then(publishTarsSnapshot).catch(() => undefined);
   }, [api, settingsRead, snapshot, t]);
-  const trayActions: TarsTrayActions = { busy, onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
+  const trayActions: TarsTrayActions = { busy, onFollowUp: (row) => controller.current?.selectWork(row.id), onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
     onOpenTask: (row) => void open(row), onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
     ...(api?.reprioritize ? { onMove: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void moveInQueue(row, move, source) } : {}) };
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
@@ -400,7 +400,8 @@ function TarsViewContent() {
     records={conversation.conversation?.records.filter((record) => "responsibilityId" in record.action && record.action.responsibilityId === sideRow.id) ?? []}
     publishAction={(!side.target.agentRunId || side.target.agentRunId === sideRow.agentRunId) && (sideRow.state === "completed" || sideRow.state === "resultReady") ? <TarsPublishEntry row={sideRow} onPublish={openPublish} /> : undefined} loadBrief={loadBrief}
     takeFocus={side.takeFocus} onClose={closeSide} onKind={(kind) => setSide({ target: { ...side.target, kind }, takeFocus: false })}
-    onQuote={(text) => controller.current?.insert(text)}
+    onFollowUp={(row) => controller.current?.selectWork(row.id)}
+    onQuote={(text) => { controller.current?.selectWork(sideRow.id); controller.current?.insert(text); }}
     blockedActions={sideRow.state !== "blocked" ? undefined : <TarsBlockedNextSteps row={sideRow} actions={trayActions} titleOf={(id) => responsibilities.find((row) => row.id === id)?.title}
       rowOf={rowOf} workspaceNameOf={workspaceNameOf}
       decision={decisions.find((view) => view.id === tarsUnverifiedDecisionId(sideRow.id, sideRow.revision) && view.state === "waiting")}

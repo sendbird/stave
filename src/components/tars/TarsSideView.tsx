@@ -47,6 +47,7 @@ export interface TarsSideViewProps {
   onKind: (kind: TarsSideViewKind) => void;
   onClose: () => void;
   onQuote: (text: string) => void;
+  onFollowUp?: (row: TarsResponsibility) => void;
 }
 
 /**
@@ -100,6 +101,8 @@ export function TarsSideView(props: TarsSideViewProps) {
           onValueChange={(value) => { const next = value[0] as TarsSideViewKind | undefined; if (next && next !== target.kind) props.onKind(next); }} />
       </div>
     </header>
-    <div className={sx(styles.body)} data-tars-side-body="">{body}</div>
+    <div className={sx(styles.body)} data-tars-side-body="">
+      {props.onFollowUp ? <Button variant="secondary" size="sm" data-tars-select-work={row.id} onClick={() => props.onFollowUp!(row)}>{t("shell:tars.selection.followUp")}</Button> : null}
+      {body}</div>
   </section>;
 }
