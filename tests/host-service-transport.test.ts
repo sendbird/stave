@@ -7,7 +7,12 @@ import {
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES,
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
   HOST_SERVICE_EVENT_QUEUE_MAX_BYTES,
+  HOST_SERVICE_CHANGE_SIGNAL_MAX_BYTES,
+  HOST_SERVICE_QUEUE_REJECTED_PREFIX,
+  OutboundBacklog,
+  outboundBacklogKind,
   outboundQueueLimitBytes,
+  selectHostQueueRejections,
   shouldBypassOutboundQueueLimit,
   truncateHostServiceErrorMessage,
 } from "../electron/shared/host-service-transport";
@@ -47,6 +52,35 @@ describe("outboundQueueLimitBytes", () => {
     expect(outboundQueueLimitBytes({ type: "event" })).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
     expect(outboundQueueLimitBytes({ type: "ready" })).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
     expect(outboundQueueLimitBytes({ type: "response", ok: false })).toBe(Number.POSITIVE_INFINITY);
+  });
+});
+
+describe("outbound change signals and backlog diagnostics", () => {
+  test("a small change signal is not shed with bulk events; a large one is", () => {
+    // Dropping `tars.changed` left the Tars tray stale until something else changed.
+    expect(outboundQueueLimitBytes({ type: "event", event: "tars.changed" }, 200)).toBe(HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES);
+    expect(outboundQueueLimitBytes({ type: "event", event: "agent-run.changed" }, 200)).toBe(HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES);
+    expect(outboundQueueLimitBytes({ type: "event", event: "tars.changed" }, HOST_SERVICE_CHANGE_SIGNAL_MAX_BYTES + 1)).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
+    expect(outboundQueueLimitBytes({ type: "event", event: "provider.stream-event" }, 200)).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
+  });
+
+  test("the backlog names what holds the most pending bytes and forgets what was written", () => {
+    const backlog = new OutboundBacklog();
+    backlog.add(outboundBacklogKind({ type: "event", event: "provider.stream-event" }), 1_500_000);
+    backlog.add(outboundBacklogKind({ type: "event", event: "agent-run.changed" }), 2_000);
+    backlog.add(outboundBacklogKind({ type: "response" }), 120_000);
+    expect(backlog.bytes).toBe(1_622_000);
+    expect(backlog.describeTop(2)).toBe("provider.stream-event=1500000 response=120000");
+    backlog.remove("provider.stream-event", 1_500_000);
+    expect(backlog.describeTop()).toBe("response=120000 agent-run.changed=2000");
+    expect(backlog.bytes).toBe(122_000);
+  });
+
+  test("only queue-rejection lines from host stderr are kept, bounded", () => {
+    const line = `${HOST_SERVICE_QUEUE_REJECTED_PREFIX} label=response:7 bytes=120000 top=provider.stream-event=2000000`;
+    expect(selectHostQueueRejections(`noise\n${line}\n[host-service] other\n`)).toEqual([line]);
+    expect(selectHostQueueRejections(Array.from({ length: 9 }, () => line).join("\n"))).toHaveLength(4);
+    expect(selectHostQueueRejections(`${HOST_SERVICE_QUEUE_REJECTED_PREFIX}${"x".repeat(5_000)}`)[0]).toHaveLength(1_000);
   });
 });
 

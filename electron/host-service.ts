@@ -226,6 +226,9 @@ import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES,
+  HOST_SERVICE_QUEUE_REJECTED_PREFIX,
+  OutboundBacklog,
+  outboundBacklogKind,
   outboundQueueLimitBytes,
   truncateHostServiceErrorMessage,
 } from "./shared/host-service-transport";
@@ -318,6 +321,24 @@ setHostGatewayCredentialBroker(gatewayCredentialBroker);
 function logHostServiceQueue(message: string) {
   if (!isDevBuild) return;
   process.stderr.write(`[host-service:backpressure] ${message}\n`);
+}
+
+const outboundBacklog = new OutboundBacklog();
+const QUEUE_REJECTION_LOG_INTERVAL_MS = 10_000;
+let lastQueueRejectionLogAt = 0;
+/**
+ * In every build, a rejected message says what filled the queue; the main
+ * process keeps these lines in its diagnostic log (`renderer-errors.log`).
+ */
+function logQueueRejection(label: string, messageBytes: number) {
+  const now = Date.now();
+  if (now - lastQueueRejectionLogAt < QUEUE_REJECTION_LOG_INTERVAL_MS) return;
+  lastQueueRejectionLogAt = now;
+  try {
+    process.stderr.write(`${HOST_SERVICE_QUEUE_REJECTED_PREFIX} label=${label} bytes=${messageBytes} pendingBytes=${pendingMessageBytes} pendingMessages=${pendingMessageCount} top=${outboundBacklog.describeTop()}\n`);
+  } catch {
+    // Diagnostics never fail the host.
+  }
 }
 
 function maybeLogQueueBackpressure(args: {
@@ -540,7 +561,7 @@ function writeMessage(message: HostServiceOutboundMessage) {
   if (fatalHostServiceError) {
     return Promise.reject(fatalHostServiceError);
   }
-  const queueLimitBytes = outboundQueueLimitBytes(message);
+  const queueLimitBytes = outboundQueueLimitBytes(message, messageBytes);
   if (pendingMessageBytes + messageBytes > queueLimitBytes) {
     const error = new Error(
       `protocol overflow: outbound queue exceeded ${queueLimitBytes} bytes`,
@@ -549,8 +570,11 @@ function writeMessage(message: HostServiceOutboundMessage) {
       reason: "rejected",
       label,
     });
+    logQueueRejection(label, messageBytes);
     return Promise.reject(error);
   }
+  const backlogKind = outboundBacklogKind(message);
+  outboundBacklog.add(backlogKind, messageBytes);
   pendingMessageCount += 1;
   pendingMessageBytes += messageBytes;
   peakPendingMessageCount = Math.max(
@@ -579,6 +603,7 @@ function writeMessage(message: HostServiceOutboundMessage) {
     .finally(() => {
       pendingMessageCount = Math.max(0, pendingMessageCount - 1);
       pendingMessageBytes = Math.max(0, pendingMessageBytes - messageBytes);
+      outboundBacklog.remove(backlogKind, messageBytes);
       maybeLogQueueRecovery();
     });
   messageWriteChain = trackedWrite.catch(() => {});

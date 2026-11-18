@@ -5,7 +5,7 @@ import { resolveHostGatewayCredentialRequest } from "./host-gateway-credentials"
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
+import { selectHostQueueRejections,
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES,
 } from "../shared/host-service-transport";
@@ -296,13 +296,16 @@ class HostServiceClient {
     });
 
     child.stderr.setEncoding("utf8");
-    if (process.env.STAVE_DEV) {
-      child.stderr.on("data", (chunk: string) => {
-        forwardHostServiceStderr(chunk);
-      });
-    } else {
-      child.stderr.resume();
-    }
+    child.stderr.on("data", (chunk: string) => {
+      if (process.env.STAVE_DEV) forwardHostServiceStderr(chunk);
+      // A rejected outbound message is kept in every build: it names what filled the queue.
+      const rejections = selectHostQueueRejections(chunk);
+      if (rejections.length) {
+        // Loaded on demand: the log writer needs Electron's app paths.
+        void import("./runtime-diagnostic-log").then(({ appendRuntimeDiagnostic }) => Promise.all(rejections.map((line) =>
+          appendRuntimeDiagnostic({ scope: "host-service", context: "outbound-queue", message: line })))).catch(() => undefined);
+      }
+    });
 
     // Without these, a spawn failure (ENOENT/EACCES/EMFILE) or a destroyed
     // stdin becomes an unhandled 'error' event and takes down the main process.
