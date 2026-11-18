@@ -99,6 +99,62 @@ describe("workspace integrity regressions", () => {
     expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["current", "old"]);
   });
 
+  test("archiving the current workspace saves the switched selection before the host checks it", async () => {
+    const events: string[] = [];
+    let savedActiveWorkspaceId = "current";
+    let pendingActiveWorkspaceId = "current";
+    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage(), api: { workspaceCleanup: { act: async () => {
+      events.push(`archive:${savedActiveWorkspaceId}`);
+      // The host reads the saved registry, not the renderer's in-memory state.
+      return savedActiveWorkspaceId === "current" ? { ok: false, workspaceId: "current", action: "archive", reason: "currentWorkspace" } : { ok: true, workspaceId: "current", action: "archive", reason: null };
+    } } } };
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      repositoryPath: REPOSITORY_PATH,
+      workspaces: ["base", "current"].map((id) => ({ id, name: id, updatedAt: "2026-01-01" })),
+      activeWorkspaceId: "current",
+      workspacePathById: { base: REPOSITORY_PATH, current: `${REPOSITORY_PATH}/current` },
+      workspaceDefaultById: { base: true },
+      activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
+      flushActiveWorkspaceSnapshot: async () => {},
+      flushRepositoryRegistry: async () => {
+        events.push("save");
+        savedActiveWorkspaceId = pendingActiveWorkspaceId;
+      },
+      switchWorkspace: async ({ workspaceId }) => {
+        events.push(`switch:${workspaceId}`);
+        pendingActiveWorkspaceId = workspaceId;
+        useAppStore.setState({ activeWorkspaceId: workspaceId });
+      },
+    });
+    await useAppStore.getState().closeWorkspace({ workspaceId: "current" });
+    expect(events.slice(0, 3)).toEqual(["switch:base", "save", "archive:base"]);
+    expect(useAppStore.getState().activeWorkspaceId).toBe("base");
+    expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["base"]);
+  });
+
+  test("archiving the current workspace stops when the switch away does not happen", async () => {
+    let archiveRequests = 0;
+    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage(), api: { workspaceCleanup: { act: async () => { archiveRequests++; return { ok: true }; } } } };
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      repositoryPath: REPOSITORY_PATH,
+      workspaces: ["base", "current"].map((id) => ({ id, name: id, updatedAt: "2026-01-01" })),
+      activeWorkspaceId: "current",
+      workspacePathById: { base: REPOSITORY_PATH, current: `${REPOSITORY_PATH}/current` },
+      workspaceDefaultById: { base: true },
+      activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
+      flushActiveWorkspaceSnapshot: async () => {},
+      flushRepositoryRegistry: async () => {},
+      switchWorkspace: async () => {},
+    });
+    await expect(useAppStore.getState().closeWorkspace({ workspaceId: "current" })).rejects.toThrow("currentWorkspace");
+    expect(archiveRequests).toBe(0);
+    expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["base", "current"]);
+  });
+
   test("bulk cleanup preserves the current session without an asynchronous workspace switch", async () => {
     (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage() };
     const { useAppStore } = await import("../src/store/app.store");

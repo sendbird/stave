@@ -233,6 +233,10 @@ export function createWorkspaceManagementActions(args: {
         const replacement = state.workspaces.find((item) => item.id !== workspaceId && state.workspaceDefaultById[item.id]);
         if (!replacement) return;
         await get().switchWorkspace({ workspaceId: replacement.id });
+        if (get().activeWorkspaceId === workspaceId) throw new Error("currentWorkspace");
+        // The host re-reads the saved registry, whose debounced save would
+        // still name this workspace current and refuse the archive.
+        await get().flushRepositoryRegistry();
       }
       const result = await runWorkspaceCleanupAction(cleanup, { action: "archive", workspaceId, repositoryPath });
       if (!result.ok) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
