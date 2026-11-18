@@ -122,7 +122,7 @@ describe("account pool rotation decisions", () => {
     ] })).toEqual({ kind: "wait", resetsAt: "2026-09-26T12:00:00.000Z", resumeAt: "2026-09-26T12:01:00.000Z" });
   });
 
-  test("none left: the earliest known reset plus the grace; unreadable only: retry; nothing known: the user resumes", () => {
+  test("none left: the earliest reset plus grace; unknown reset: bounded retry", () => {
     expect(decideAccountPoolRotation({ now, limitedAccountId: WORK, limitedResetsAt: "2026-09-26T13:00:00.000Z", usage: [
       { accountProfileId: WORK, status: "exhausted", resetsAt: "2026-09-26T13:00:00.000Z" },
       { accountProfileId: PERSONAL, status: "exhausted", resetsAt: "2026-09-26T11:30:00.000Z" },
@@ -131,7 +131,7 @@ describe("account pool rotation decisions", () => {
     expect(decideAccountPoolRotation({ now, usage: [{ accountProfileId: WORK, status: "unavailable" }] }))
       .toEqual({ kind: "wait", resetsAt: null, resumeAt: "2026-09-26T10:05:00.000Z" });
     expect(decideAccountPoolRotation({ now, usage: [{ accountProfileId: WORK, status: "exhausted" }] }))
-      .toEqual({ kind: "wait", resetsAt: null, resumeAt: null });
+      .toEqual({ kind: "wait", resetsAt: null, resumeAt: "2026-09-26T10:05:00.000Z" });
   });
 
   test("reads: the limited account then the others in pool order; at a due reset the whole pool; off or another provider: none", () => {

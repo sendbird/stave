@@ -1,3 +1,4 @@
+import { resolveAgentRunUsageLimitResumeAt, resolveUsageLimitRetryAt } from "../../../src/lib/agent-runs/usage-limit";
 import { agentRunBrowserRequested } from "./agent-run-browser";
 import { i18n } from "../../../src/i18n/runtime";
 import { buildTarsRunCommand } from "../tars-ownership";
@@ -459,7 +460,7 @@ export interface AgentRunRuntime {
    */
   /** `turnId` names the reply's turn when the caller must find it later (a Tars delivery after a restart). */
   replyAsUser: (args: { agentRunId: string; prompt: string; turnId?: string }, guard?: (run: AgentRun) => void) => Promise<void>;
-  reply: (args: AgentRunRequestChangesArgs) => Promise<AgentRunDetail>;
+  reply: (args: AgentRunRequestChangesArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   skipStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   retryStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   pause: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
@@ -1487,6 +1488,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     reason: AgentRunTurnReason,
     actionPrompt?: string,
     userReply = false,
+    beforeDispatch?: () => void,
+    requestedTurnId?: string,
   ) {
     const { agentRun } = aggregate;
     const before = currentStageRecord(aggregate);
@@ -1520,14 +1523,23 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       ? usageLimitedTurnEffort(store.listEventsByKind(agentRun.id, ["turn-linked"]), resetContinuation.turnId) : null;
     // After a pool switch the cached observations of the account in use apply, not the frozen one's.
     const observedAccount = resources ? (agentRunPoolAccount(agentRun)?.accountProfileId ?? resources.policy.accountProfileId) : undefined;
-    const observed = !resetContinuation && resources && observedAccount ? readAdaptiveObservations(resources.policy.providerId, observedAccount, now().getTime()) : null;
+    let observed = !resetContinuation && resources && observedAccount ? readAdaptiveObservations(resources.policy.providerId, observedAccount, now().getTime()) : null;
     const catalogModels = observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length ? observed.catalog.catalog.models : null;
     // A cached catalog can reject a proposal; it never silently replaces a pinned/current model.
     let adaptive = !resetContinuation && resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels) : null;
     preparationControllers.set(agentRun.id, controller);
     let routed: AgentRunTurnRoute | null, startHeadSha = before.startHeadSha;
+    let dispatchQuota = observed?.quota?.snapshot ?? null;
     let gatewayCredentials: import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined;
     try {
+      // A missing/expired cache is not evidence that this account can start work.
+      // Refresh once at the dispatch boundary, scoped to the Run's captured account.
+      if (!resetContinuation && resources && !observed?.quota && deps.readAccountUsage) {
+        dispatchQuota = await prepareRunTurn(controller.signal, () => deps.readAccountUsage!({
+          fingerprint: agentRun.fingerprint, accounts: runAccountOptions(agentRun, resources), workspaceId: agentRun.workspaceId,
+        }).catch(() => null));
+        if (observedAccount) observed = readAdaptiveObservations(resources.policy.providerId, observedAccount, now().getTime());
+      }
       const initialDecision = !actionPrompt && !agentRun.turnCount ? delegation?.initialDecision : undefined;
       // A model pinned in the composer is not classified again: nothing automatic may replace it.
       const constrained = !resetContinuation && !initialDecision && !adaptive?.composerPin?.model && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
@@ -1559,6 +1571,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         return cwd ? deps.readHeadSha(cwd).catch(() => null) : null;
       });
       const snapshot = await prepareRunTurn(controller.signal, () => readSnapshot(agentRun));
+      beforeDispatch?.();
       if (!snapshot.exists || snapshot.archived || snapshot.activeTurnId || snapshot.pendingApprovalCount || snapshot.pendingUserInputCount) return;
       controller.signal.throwIfAborted();
     } catch (error) {
@@ -1593,13 +1606,22 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       attempt: before.attempt,
       turn: change.agentRun.turnCount,
     });
-    const availability = resources && observed?.quota ? resolveAccountUsageBlock({
-      providerId: resources.policy.providerId, model: adaptive?.model, snapshot: observed.quota.snapshot, now: now().getTime(),
+    const availability = resources && dispatchQuota ? resolveAccountUsageBlock({
+      providerId: resources.policy.providerId, model: adaptive?.model, snapshot: dispatchQuota, now: now().getTime(),
     }) === null : undefined;
     if (adaptive && !supportsAdaptiveEffort(resources!.policy.providerId, adaptive.model, adaptive.effort, catalogModels)) {
       await markStartFailure(agentRun.id, "The cached model catalog does not support this Run's effort. Refresh it and retry; pinned settings cannot be changed silently."); return;
     }
-    if (availability === false || observed?.catalog?.catalog.ok === false || (adaptive && catalogModels && !catalogModels.some((entry) => entry.model === adaptive.model))) {
+    if (availability === false && resources) {
+      const fingerprint = routed?.fingerprint ?? agentRun.fingerprint;
+      const quota = observeUsageLimitQuota(fingerprint, dispatchQuota, now());
+      applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "usage-limit", detail: "",
+        usageLimit: { turnId: `quota:${before.stageId}:${before.attempt}:${agentRun.turnCount}`, fingerprint,
+          accountProfileId: observedAccount!, resetsAt: quota.resetsAt ?? null,
+          resumeAt: resolveAgentRunUsageLimitResumeAt(quota.resetsAt ?? null, now()) ?? resolveUsageLimitRetryAt(now()) } } }));
+      return;
+    }
+    if (observed?.catalog?.catalog.ok === false || (adaptive && catalogModels && !catalogModels.some((entry) => entry.model === adaptive.model))) {
       await markStartFailure(agentRun.id, "Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers."); return;
     }
     if (resources && !store.consumeResourceTurn?.(agentRun.id, turnKey, now())) {
@@ -1671,6 +1693,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           ...(browserRequested ? { providerBrowserAlwaysOn: true } : {}),
         }), ...runAccountOptions(agentRun, resources), ...(resetContinuation ? usageLimitAccounts(resetContinuation.fingerprint, resetContinuation.accountProfileId, {}) : {}) };
       const turn = await deps.runSupervisedTurn({
+        ...(requestedTurnId ? { turnId: requestedTurnId } : {}),
         ...(resetContinuation || deps.prepareGatewayCredentials ? { gatewayCredentials: gatewayCredentials ?? {} } : {}),
         workspaceId: agentRun.workspaceId,
         taskId: agentRun.leadTaskId,
@@ -1842,7 +1865,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const waiting = aggregate.agentRun.usageLimit;
       const limited = observation.lastEndedTurn?.usageLimited;
       const due = aggregate.agentRun.state === "paused" && aggregate.agentRun.pauseReason === "usage-limit" &&
-        waiting?.resumeAt && Date.parse(waiting.resumeAt) <= now().getTime();
+        waiting && Date.parse(waiting.resumeAt ?? resolveUsageLimitRetryAt(new Date(aggregate.agentRun.updatedAt))) <= now().getTime();
       // The policy keeps a reservation idle while the task's runtime drifted;
       // reading usage then would repeat a forced read on every tick.
       const leadFingerprint = observation.leadTask.fingerprint;
@@ -2652,13 +2675,22 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       if (!(await deps.isReportingAvailable({ fresh: true }))) refuse("Local reporting tools must be available before the run continues.");
       // Rechecked after the reads: nothing may take the run over in between.
       guard?.(requireAggregate(agentRunId).agentRun);
+      // Manager guidance resumes the supervised stage, including an independent review.
+      // Keep queued delivery identity so restart reconciliation can find the same turn.
+      if (guard && (record.status === "blocked" || record.status === "stuck")) {
+        await startAgentRunTurn(aggregate, { action: "start-stage-turn", stageIndex: run.currentStageIndex,
+          attempt: record.attempt, reason: "continue-after-user" }, "continue-after-user", text, true,
+          () => guard(requireAggregate(agentRunId).agentRun), turnId);
+        return;
+      }
       // A plain chat turn on the lead task: provider admission links it to the stage as the user's reply (`prepareUserTurn`).
       await deps.runSupervisedTurn({ workspaceId: run.workspaceId, taskId: run.leadTaskId, prompt: text, admissionPriority: "user", ...(turnId ? { turnId } : {}),
         fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
         runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
     }),
-    reply: (args) => enqueueRun(args.agentRunId, async () => {
+    reply: (args, guard) => enqueueRun(args.agentRunId, async () => {
       const aggregate = requireAggregate(args.agentRunId);
+      guard?.(aggregate.agentRun);
       const { agentRun } = aggregate, record = currentStageRecord(aggregate);
       if (record.stageId !== args.stageId || record.attempt !== args.attempt)
         throw new AgentRunCommandError("stale-identity", "The delegated stage changed. Refresh before replying.");
@@ -2679,9 +2711,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       if (snapshot.activeTurnId || snapshot.pendingApprovalCount || snapshot.pendingUserInputCount)
         refuse("Answer the current request or wait for the active turn before replying to this stage.");
       if (!(await deps.isReportingAvailable({ fresh: true }))) refuse("Local reporting tools must be available before the delegated Agent continues.");
+      guard?.(requireAggregate(agentRun.id).agentRun);
       await startAgentRunTurn(aggregate, { action: "start-stage-turn", stageIndex: agentRun.currentStageIndex,
         attempt: record.attempt, reason: "continue-after-user" }, "continue-after-user",
-        `The user replied to the blocked stage:\n${feedback}\n\nHandle this guidance once, continue the current stage, and report or block it using the stage tools. Do not restart the original assignment.`, true);
+        `The ${guard ? "owning Tars representative" : "user"} replied to the blocked stage:\n${feedback}\n\nHandle this guidance once, continue the current stage, and report or block it using the stage tools. Do not restart the original assignment.`, true, guard ? () => guard(requireAggregate(agentRun.id).agentRun) : undefined);
       return detailOf(agentRun.id);
     }),
     skipStage: (args, guard) =>

@@ -425,7 +425,7 @@ Main settings under **How it runs**:
 ```pipeline "A run with Review before done"
 Work | Does the work against the instructions and done-when conditions.
 Review | Another agent reviews the changes read-only.
-Fix | Fixes what the review found.
+Fix | Fixes what the review found. A fix that changed files goes back to Review once, for the fix only.
 ! Done check | Stave runs the workspace check command itself and confirms it passes.
 @caption Work that changed no files ends without the review stages.
 ```
@@ -478,6 +478,14 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 8. At the end, add the run report from Outputs to the PR description or share it to Slack.
 
 ## Keep responsibilities with Tars
+
+For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account, model constraints and shared turn budget. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
+
+
+Automatic execution reads usage for the captured Claude and Codex accounts before assigning new work. It prefers a provider with confirmed room when the current one is low, critical, exhausted or unknown; an unknown reading never counts as room. Explicit model pins and fixed-agent provider constraints stay in place. Each admitted Run keeps its provider and accounts, and refreshes missing or expired usage before starting another turn.
+
+One work owner implements, debugs and verifies a unit in the same task. Independent units may run in parallel; implementation, debugging and validation are not separate hand-offs for one unit. Changed files receive one independent review after Work, and only findings open the fix stage. Routine completion and internal Run updates from Tars-managed tasks and their descendants stay as read notification history without pop-ups or sounds. Tars announces the final result, a decision or a blocker. Direct approvals, questions and stage sign-offs still notify you; taking over a task restores its normal notifications.
+
 
 In **Issues**, **Ask Tars** drafts a GitHub, Jira or Crane issue's title, link and body excerpt with its mapped target. Enable GitHub in **Settings > Integrations > Issues** after `gh auth login`; it reads up to 200 assigned issues without writing back. The kickoff form can remember the GitHub repository mapping.
 
@@ -1393,3 +1401,5 @@ to place it; a placed task keeps its position, while new tasks still appear
 first. Reset order returns to activity order. The sidebar keeps running and
 waiting tasks first and shows at most three open tasks per workspace, with the
 rest behind +N more. Task pins and tab pins are separate.
+
+If an independent review is blocked, Tars can send recovery guidance to that review while preserving its model, permissions and remaining budget. A provider usage limit saves a resume reservation. If the reset time is unknown, Stave checks usage every five minutes and resumes only when headroom is confirmed. Your manual pauses, takeovers, approvals and daily limits still require your action.

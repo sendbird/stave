@@ -57,9 +57,15 @@ function requiredAiStageCriteria(aggregate: AgentRunAggregate, record: AgentRunS
         : report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text)?.status ?? (verifiedInherited.has(text) ? "met" : criterion.status);
       if (current !== "met") required.set(text, ownCheck ? { ...ownCheck, required: true } : { text: criterion.text });
     }
+    // A criterion the assignment itself names is the run's goal: an earlier
+    // stage (a Debugger's reproduction) reports its status honestly without
+    // having to settle it. It carries forward (`collectAcceptanceCriteria`), so
+    // the final stage still must mark it met.
+    const assignment = aggregate.agentRun.assignment;
     for (const criterion of report?.acceptanceCriteria ?? []) {
       const text = criterion.text.trim();
-      if (criterion.required !== false && !required.has(text) && !optionalTexts.has(text) && (finalStage || !inheritedTexts.has(text))) required.set(text, { text: criterion.text });
+      if (criterion.required !== false && !required.has(text) && !optionalTexts.has(text) &&
+        (finalStage || (!inheritedTexts.has(text) && !assignment.includes(text)))) required.set(text, { text: criterion.text });
     }
   }
   return required;

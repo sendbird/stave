@@ -2592,7 +2592,7 @@ describe("run runtime: persisted usage-limit reservation", () => {
     // The continuation hits the limit too, with no known reset; Resume keeps the same effort.
     current = quota(100); current.claude.session!.resetsAt = null;
     h.endTurn("turn-2"); await h.tick();
-    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", usageLimit: { turnId: "turn-2", resumeAt: null } });
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", usageLimit: { turnId: "turn-2" } });
     await h.runtime.resume({ agentRunId: id }); await h.tick();
     expect(h.runCalls).toHaveLength(3);
     expect(h.runCalls[2]!.runtimeOptions).toMatchObject({ claudeEffort: "xhigh", claudeAccountProfileId: account });
@@ -2609,7 +2609,7 @@ describe("run runtime: persisted usage-limit reservation", () => {
     expect(h.runCalls).toHaveLength(1);
     current = quota(100); current.claude.session!.resetsAt = null;
     h.advance(3 * 60 * 60_000); await h.tick();
-    expect(h.aggregate(id).agentRun.usageLimit?.resumeAt).toBeNull();
+    expect(h.aggregate(id).agentRun.usageLimit?.resumeAt).not.toBeNull();
     h.advance(24 * 60 * 60_000); await h.tick(); expect(h.runCalls).toHaveLength(1);
     await h.runtime.resume({ agentRunId: id }); await h.tick();
     expect(h.runCalls).toHaveLength(2);
@@ -2643,13 +2643,15 @@ describe("run runtime: persisted usage-limit reservation", () => {
     expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(account);
   });
 
-  test("no known reset and a read that reports none: the run waits for the user", async () => {
-    const exhausted = quota(100); exhausted.claude.session!.resetsAt = null;
+  test("no known reset is rechecked and resumes only after confirmed headroom", async () => {
+    let exhausted = quota(100); exhausted.claude.session!.resetsAt = null;
     const h = limitedHarness(async () => exhausted, { readUsageLimitStop: (id) => id === "turn-1" ? {} : null });
     const id = await startedAgentRun(h, startInput({ accounts: { claudeAccountProfileId: account } }));
     h.endTurn("turn-1"); await h.tick();
-    expect(h.aggregate(id).agentRun.usageLimit).toMatchObject({ resetsAt: null, resumeAt: null });
-    h.advance(24 * 60 * 60_000); await h.tick(); expect(h.runCalls).toHaveLength(1);
+    expect(h.aggregate(id).agentRun.usageLimit?.resumeAt).not.toBeNull();
+    h.advance(5 * 60_000); await h.tick(); expect(h.runCalls).toHaveLength(1);
+    exhausted = quota(5); h.advance(5 * 60_000); await h.tick();
+    expect(h.runCalls).toHaveLength(2);
   });
 
   test("boot reconstructs the persisted due reservation and dispatches only once", async () => {
@@ -2761,7 +2763,7 @@ describe("run runtime: opt-in account pool", () => {
     const reads: string[] = [];
     const h = createHarness({ extra: {
       readUsageLimitStop: (turnId) => turnId === "turn-1" ? { resetsAt: reset } : null,
-      readAccountUsage: async ({ accounts }) => { reads.push(accounts.claudeAccountProfileId!); return ({ [WORK]: quota(100), [PERSONAL]: quota(10) } as Record<string, ReturnType<typeof quota>>)[accounts.claudeAccountProfileId!] ?? null; },
+      readAccountUsage: async ({ accounts }) => { reads.push(accounts.claudeAccountProfileId!); return ({ [WORK]: quota(reads.length === 1 ? 10 : 100), [PERSONAL]: quota(10) } as Record<string, ReturnType<typeof quota>>)[accounts.claudeAccountProfileId!] ?? null; },
       listSubscriptionAccounts: (providerId) => providerId === "claude-code" ? [{ id: WORK, label: "Work" }, { id: PERSONAL, label: "Personal" }] : [],
       freezeResources: () => ({ version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["sonnet"], modelLocked: true,
         effortLocked: false, initialEffort: null, accountProfileId: WORK, teamTurns: 30, concurrentHelpers: 3, totalHelpers: 8,
@@ -3661,4 +3663,84 @@ test("a failure after the report commits never discards its now-referenced saved
   await expect(h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE })).rejects.toThrow("post-commit");
   expect(h.current(id).report).toMatchObject({ artifacts: [{ label: "Saved", url: "https://example.com/saved" }] });
   expect(discards).toBe(0);
+});
+
+test("a Run refreshes missing quota on its captured account before dispatch and refuses exhausted usage", async () => {
+  const account = "fresh-dispatch-regression";
+  const policy = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const,
+    allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", accountProfileId: account, teamTurns: 30,
+    concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
+  const reads: unknown[] = [];
+  const snapshot = emptyRateLimitsSnapshot();
+  snapshot.claude = { ...snapshot.claude, source: "oauth", session: { usedPercent: 100, resetsAt: Date.parse(START) / 1000 + 3600 } };
+  const h = createHarness({ extra: { freezeResources: () => policy, readAccountUsage: async (args) => { reads.push(args); return snapshot; } } });
+  await startedAgentRun(h, startInput({ origin: "agent" }));
+  expect(reads).toHaveLength(1);
+  expect(reads[0]).toMatchObject({ accounts: { claudeAccountProfileId: account } });
+  expect(h.runCalls).toHaveLength(0);
+});
+
+
+test("dispatch exhaustion persists a wake reservation without spending a turn and resumes once", async () => {
+  const account = "dispatch-resume-regression";
+  const policy = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const,
+    allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", accountProfileId: account, teamTurns: 30,
+    concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
+  let percent = 100;
+  const h = createHarness({ extra: { freezeResources: () => policy, readAccountUsage: async () => {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.claude = { ...snapshot.claude, source: "oauth", session: { usedPercent: percent, resetsAt: null } };
+    return snapshot;
+  } } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+  expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", turnCount: 0 });
+  expect(h.store.readResources(id)?.spent).toBe(0);
+  h.advance(5 * 60_000); await h.tick(); expect(h.runCalls).toHaveLength(0);
+  percent = 5; h.advance(5 * 60_000); await Promise.all([h.tick(), h.tick()]);
+  expect(h.runCalls).toHaveLength(1);
+  expect(h.runCalls[0]?.runtimeOptions.claudeAccountProfileId).toBe(account);
+  expect(h.store.readResources(id)?.spent).toBe(1);
+});
+
+test("Tars recovery continues a blocked independent review through supervised admission", async () => {
+  const h = createHarness({ extra: { routeAgentTurn: async ({ agentRun }) => ({
+    fingerprint: agentRun.currentStageIndex === 1 ? { providerId: "codex", model: "gpt-5" } : agentRun.fingerprint,
+    runtimeOptions: {}, route: "agent-model", rationale: "Current stage agent" }) } });
+  const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: new Date(START) });
+  const id = await startedAgentRun(h, startInput({ workflow, origin: "agent" }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  h.endTurn("turn-1"); h.setFacts({ ...EMPTY_STAGE_FACTS, changedPaths: ["src/example.ts"] });
+  h.setRunError(new Error("review provider temporarily unavailable")); await h.tick();
+  expect(h.current(id).status).toBe("stuck");
+  h.setRunError(null);
+  const stage = h.current(id);
+  const args = { agentRunId: id, stageId: stage.stageId, attempt: stage.attempt, feedback: "Continue reviewing the committed diff." };
+  await expect(h.runtime.reply(args)).rejects.toThrow();
+  await h.runtime.replyAsUser({ agentRunId: id, prompt: args.feedback, turnId: "saved-delivery" }, () => {});
+  expect(h.runCalls).toHaveLength(3);
+  expect(h.runCalls[2]?.agentRunStage?.stageId).toBe("review");
+  expect(h.runCalls[2]?.turnId).toBe("saved-delivery");
+  expect(h.runCalls[2]?.fingerprint).toEqual({ providerId: "codex", model: "gpt-5" });
+  await h.runtime.pause({ agentRunId: id });
+  await expect(h.runtime.replyAsUser({ agentRunId: id, prompt: args.feedback }, () => {})).rejects.toThrow("Resume");
+  expect(h.runCalls).toHaveLength(3);
+  expect(h.runCalls[2]?.prompt).toContain(args.feedback);
+});
+
+
+test("restart rechecks an older quota pause without a resume time, while manual pause stays held", async () => {
+  const h = createHarness({ extra: { readUsageLimitStop: () => ({}), readAccountUsage: async () => null } });
+  const id = await startedAgentRun(h);
+  h.endTurn("turn-1"); await h.tick();
+  const aggregate = h.aggregate(id);
+  h.store.apply({ agentRun: { ...aggregate.agentRun, usageLimit: { ...aggregate.agentRun.usageLimit!, resumeAt: null } }, upserts: [], events: [] });
+  const snapshot = emptyRateLimitsSnapshot();
+  snapshot.claude = { ...snapshot.claude, source: "oauth", session: { usedPercent: 5, resetsAt: null } };
+  const restarted = createHarness({ store: h.store, turns: h.turns, turnPrefix: "resumed", extra: { readAccountUsage: async () => snapshot } });
+  restarted.advance(6 * 60_000); await Promise.all([restarted.tick(), restarted.tick()]);
+  expect(restarted.runCalls).toHaveLength(1);
+  await restarted.runtime.pause({ agentRunId: id });
+  restarted.endTurn("resumed-1"); restarted.advance(10 * 60_000); await restarted.tick();
+  expect(restarted.runCalls).toHaveLength(1);
+  expect(restarted.aggregate(id).agentRun.pauseReason).toBe("paused-by-user");
 });

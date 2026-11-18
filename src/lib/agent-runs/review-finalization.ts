@@ -4,6 +4,48 @@ import { collectAcceptanceCriteria } from "./briefing";
 import { currentStageRecord, type AgentRun, type AgentRunAggregate } from "./domain";
 import { revisionsMatch } from "./verification-contract";
 
+/** Completed reviews a "Review before done" run gets: the first one and one re-review of its fix. */
+export const MAX_REVIEW_ROUNDS = 2;
+
+/**
+ * The review stage to return to after the final repair stage changed the work
+ * its Reviewer asked changes to: the Reviewer checks the fix once, so the run
+ * ends on a revision an agent that did not write it reviewed. A fix the agent
+ * reviewed itself is still its own claim. Null when the repair changed nothing
+ * or the run already used its review rounds; then the run finishes as before.
+ */
+export function reReviewStageIndex(aggregate: AgentRunAggregate): number | null {
+  const { agentRun } = aggregate;
+  const index = agentRun.currentStageIndex;
+  const repair = agentRun.workflow.stages[index];
+  const review = agentRun.workflow.stages[index - 1];
+  if (index !== agentRun.workflow.stages.length - 1 ||
+      repair?.kind !== "ai" || !repair.skipIfReviewPassed || repair.agentConfigId ||
+      review?.kind !== "ai" || review.agentConfigId !== REVIEW_AGENT_ID || !review.pinCommit) return null;
+  const reviews = aggregate.stages.filter((record) => record.stageId === review.id && record.report?.outcome === "complete");
+  const latest = reviews.at(-1);
+  if (reviews.length >= MAX_REVIEW_ROUNDS || latest?.report?.outcome !== "complete" || latest.report.reviewVerdict !== "changes-requested") return null;
+  const facts = currentStageRecord(aggregate).facts;
+  const changed = facts?.changedPathsTruncated === true || (facts?.changedPaths?.length ?? 0) > 0 ||
+    (facts?.workspaceRevision?.status === "known" && latest.report.workspaceRevision?.status === "known" &&
+      !revisionsMatch(latest.report.workspaceRevision, facts.workspaceRevision));
+  return changed ? index - 1 : null;
+}
+
+/** What the re-review checks: the fix since the reviewed commit, against the earlier findings. */
+export function reReviewFeedback(aggregate: AgentRunAggregate): string {
+  const reviewIndex = aggregate.agentRun.currentStageIndex - 1;
+  const reviewId = aggregate.agentRun.workflow.stages[reviewIndex]?.id;
+  const latest = aggregate.stages.filter((record) => record.stageId === reviewId).at(-1);
+  const findings = latest?.report?.outcome === "complete" ? latest.report.summary : "";
+  // i18n-ignore: model-facing stage feedback
+  return [
+    `Re-review of the fix only. Review the commits made after ${latest?.startHeadSha ?? "the commit you reviewed before"} up to the pinned commit:`,
+    "confirm each earlier finding is resolved at its cause and the fix adds no defect. Do not re-review unchanged work.",
+    findings ? `Earlier review: ${findings.slice(0, 1_500)}` : "",
+  ].filter(Boolean).join(" ");
+}
+
 /** A successful review can finish only when the final repair stage has no work or checks left. */
 export function canFinishAfterReview(aggregate: AgentRunAggregate): boolean {
   const { agentRun } = aggregate;

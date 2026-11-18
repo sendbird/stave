@@ -671,3 +671,26 @@ test("helper preparation and replies enforce effort support from the inherited r
   expect(fresh.calls).toHaveLength(0);
   expect(fresh.runs.readResources("root")).toMatchObject({ spent: 0, reserved: 0, activeHelpers: 0, helpersLaunched: 1 });
 });
+
+for (const providerId of ["codex", "claude-code"] as const) test(`${providerId}: Tars resumes its blocked helper through delegated admission and spends the existing team budget`, async () => {
+  const { recoverTarsHelper } = await import("../electron/host-service/tars-helper-recovery");
+  const { tarsResponsibility } = await import("./fixtures/tars-host-bridge");
+  const h = harness(providerId, { adaptive: true, tarsRoot: true }), child = await h.start();
+  await h.runtime.blockStage({ agentRunKey: "turn-1", block: { kind: "input", missing: "Which test target?" } });
+  h.end("turn-1"); await h.runtime.requestTick();
+  const detail = await h.runtime.get({ agentRunId: child.agentRunId! }), stage = detail.stages[0]!;
+  const row = tarsResponsibility({ state: "waiting", taskId: "parent", waitingTaskId: child.delegatedTaskId,
+    observedStage: `${child.agentRunId}/${stage.stageId}#${stage.attempt}:${stage.reportRevision}` });
+  const before = h.runs.readResources("root")!.spent;
+  await recoverTarsHelper(row, "Use the existing unit test target from the task.", {
+    readHelpers: async () => [detail], readCurrent: id => h.runs.getAggregate(id), guardRoot: () => {}, reply: h.runtime.reply,
+  });
+  expect(h.calls).toHaveLength(2);
+  expect(h.calls[1]?.parentTaskId).toBe("parent");
+  expect(h.calls[1]?.runtimeOptions).toMatchObject(h.policy.options);
+  expect(h.runs.readResources("root")!.spent).toBe(before + 1);
+  await expect(recoverTarsHelper(row, "Retry old guidance", {
+    readHelpers: async () => [detail], readCurrent: id => h.runs.getAggregate(id), guardRoot: () => {}, reply: h.runtime.reply,
+  })).rejects.toThrow("no longer waits");
+  expect(h.calls).toHaveLength(2);
+});

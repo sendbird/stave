@@ -94,3 +94,11 @@ test("8: Tars claims cover execution commits, bounded rounds/retries and logical
   expect(claims).toContain("At the separate cap of 20 automatic follow-ups, independent of execution turn limits");
   expect(claims).toContain("Automatic controls and Tars-authored withdrawals never reset this count");
 });
+
+test("one work owner keeps implementation, debugging and verification; the workflow owns the single review", () => {
+  expect(lead()).toContain("One work owner implements, debugs and verifies the unit in the same task");
+  expect(lead()).toContain("do not start another review during Work");
+  expect(workflow.stages.filter(stage => stage.kind === "ai" && stage.agentConfigId === "reviewer")).toHaveLength(1);
+  expect(workflow.stages[1]).toMatchObject({ skipIfWorkUnchanged: true });
+  expect(workflow.stages[2]).toMatchObject({ skipIfReviewPassed: true });
+});

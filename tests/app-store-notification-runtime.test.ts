@@ -223,3 +223,14 @@ test("a notification answer clears Needs you and restarts the stall timer, like 
   expect(state.providerTurnActivityByTask.task).toMatchObject({ pendingInteraction: null, stalledAt: null });
   expect(stallTimers).toEqual([expect.objectContaining({ taskId: "task", turnId: "turn" })]);
 });
+
+test("Tars-managed updates persist in history without toast, sound or native delivery", async () => {
+  const showNative = mock(() => Promise.resolve({ ok: true }));
+  globalThis.window = { api: { notifications: { showNative } } } as unknown as Window & typeof globalThis;
+  const subject = runtime({ nativeNotificationsEnabled: true });
+  await subject.persistNotifications([{ ...notification("task.turn_completed"), readAt: "2026-11-18T00:00:00Z", payload: { tarsManaged: true, responsibilityId: "work" } }]);
+  expect(subject.readState().notifications).toHaveLength(1);
+  expect(playPreset).not.toHaveBeenCalled();
+  expect(showToast).not.toHaveBeenCalled();
+  expect(showNative).not.toHaveBeenCalled();
+});

@@ -922,7 +922,7 @@
   },
   "usageLimit": {
     "waitingUntil": "Waiting for usage reset at {{time}}. Stave resumes after checking this account.",
-    "unknownReset": "Usage limit reached. The reset time is unknown, so the run waits for you; resume it when usage is available.",
+    "unknownReset": "Usage limit reached. The reset time is unknown. Stave checks again every five minutes and resumes when usage is available.",
     "resumeNow": "Resume now",
     "waitingUntilPool": "Every account in this run's pool is at its usage limit. The first reset is at {{time}}; Stave then resumes on the first account with usage left."
   },

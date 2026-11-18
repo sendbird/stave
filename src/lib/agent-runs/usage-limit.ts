@@ -22,8 +22,7 @@ export function resolveAgentRunUsageLimitResumeAt(resetsAt: string | null, now: 
 
 /**
  * Whether a usage-limit pause resumes on its own: it holds a resume time.
- * Without one the reset time is unknown, the run needs the user, and the
- * user resumes it.
+ * Older rows without one are re-armed by the host before the next quota check.
  */
 export function awaitsUsageReset(run: Pick<AgentRun, "usageLimit">): boolean {
   return Boolean(run.usageLimit?.resumeAt);
