@@ -22,7 +22,7 @@ const assignment = { workspaceId: "ws", role: "delegate", agent: { ...getBuiltin
 describe("constrained host Decision routing", () => {
   test("explicit execution Auto uses the saved policy and classifier even with app Auto off", async () => {
     for (const providerId of ["codex", "claude-code"] as const) {
-      const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+      const [strong, light] = providerId === "codex" ? ["gpt-6.2-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
       let calls = 0;
       let profile = buildStarterProfile("starter-quality-first");
       const router = createConstrainedHostRouter({ assignment: () => ({ ...assignment, role: "primary" }),
@@ -53,7 +53,7 @@ describe("constrained host Decision routing", () => {
   });
   test("explicit Auto preserves fixed Agent models and effort pins on both providers", async () => {
     for (const providerId of ["codex", "claude-code"] as const) {
-      const model = providerId === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
+      const model = providerId === "codex" ? "gpt-6.2-sol" : "claude-opus-5-5";
       let fixed = true, calls = 0;
       const router = createConstrainedHostRouter({ assignment: () => ({ ...assignment, agent: { ...assignment.agent,
         model: fixed ? { mode: "fixed", providerId, model, effort: "max" } : { mode: "auto" } } }) as AgentAssignment,
@@ -105,7 +105,7 @@ describe("constrained host Decision routing", () => {
     expect(route.fingerprint).toEqual({ providerId: "codex", model: "moonshotai/kimi-k3" });
     expect(route.allowedModels).toEqual(["moonshotai/kimi-k3"]);
     expect(chosen).toEqual(config);
-    await expect(router({ ...input, model: "gpt-6-astra", modelPinned: true })).rejects.toThrow("pinned");
+    await expect(router({ ...input, model: "gpt-6.2-astra", modelPinned: true })).rejects.toThrow("pinned");
     await expect(router({ ...input, workspaceId: "other" })).rejects.toThrow("another workspace");
   });
   test("pins bypass Decision, and a parent frozen catalog wins over widened settings", async () => {
@@ -120,7 +120,7 @@ describe("constrained host Decision routing", () => {
     await expect(router(base)).rejects.toThrow("allowed model");
     complexity = "low";
     expect((await router(base)).fingerprint.model).toBe("gpt-6-luna");
-    await expect(router({ ...base, model: "gpt-6-astra", modelPinned: true })).rejects.toThrow("frozen");
+    await expect(router({ ...base, model: "gpt-6.2-astra", modelPinned: true })).rejects.toThrow("frozen");
   });
   test("classification failure keeps local routing inside the same provider/catalog and cancellation rejects a late result", async () => {
     const router = createConstrainedHostRouter({ assignment: () => assignment, settings: () => settings, profiles: () => profiles,
@@ -131,16 +131,16 @@ describe("constrained host Decision routing", () => {
   });
   test("a run's frozen composer pin wins over the Agent's fixed model on its provider", async () => {
     const fixedAgent = { ...assignment, role: "primary", agent: { ...getBuiltinAgent("implementer")!,
-      model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-6.1-sol" } } } as AgentAssignment;
+      model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-6.2-sol" } } } as AgentAssignment;
     const router = createConstrainedHostRouter({ assignment: () => fixedAgent, settings: () => settings, profiles: () => [],
       cwd: async () => "/tmp/workspace", history: () => [], classify: async () => ({ ok: false }) });
     const run = { workspaceId: "ws", taskId: "lead", prompt: "Fix a typo", accounts: {}, modelPinned: true };
-    expect((await router({ ...run, providerId: "codex", model: "gpt-6-astra", allowedModels: ["gpt-6-astra"] })).fingerprint)
-      .toEqual({ providerId: "codex", model: "gpt-6-astra" });
+    expect((await router({ ...run, providerId: "codex", model: "gpt-6.2-astra", allowedModels: ["gpt-6.2-astra"] })).fingerprint)
+      .toEqual({ providerId: "codex", model: "gpt-6.2-astra" });
     // A fixed Agent compiles for its own provider only, pinned or not.
     await expect(router({ ...run, providerId: "claude-code", model: "claude-opus-5-5", allowedModels: ["claude-opus-5-5"] })).rejects.toThrow("fixed Agent provider");
     // Without a frozen pin the fixed model still applies.
-    expect((await router({ ...run, providerId: "codex", modelPinned: false })).fingerprint.model).toBe("gpt-6.1-sol");
+    expect((await router({ ...run, providerId: "codex", modelPinned: false })).fingerprint.model).toBe("gpt-6.2-sol");
     await expect(router({ ...run, providerId: "claude-code", modelPinned: false })).rejects.toThrow("fixed Agent provider");
   });
   test("Settings previews use the same exclusive models as execution, including empty intersections", () => {
