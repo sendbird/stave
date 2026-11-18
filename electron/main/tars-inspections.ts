@@ -1,4 +1,5 @@
 import type { TarsInspectAction } from "../../src/lib/tars/conversation";
+import { tarsSelectedWorkRefusal, type TarsSelectionReason, type TarsWorkTarget } from "../../src/lib/tars/selected-work";
 import type { TarsResponsibility, TarsSnapshot } from "../../src/lib/tars/types";
 
 /** Two reads allow a follow-up on discovered evidence, without an unbounded paid loop. */
@@ -9,6 +10,8 @@ export const TARS_INSPECTION_TOTAL_CHARS = 24_000;
 export interface TarsInspectionObservation extends TarsInspectAction {
   observedAt: string;
   status: "read" | "notOwned" | "unavailable" | "sizeLimit";
+  /** Why an unavailable read was refused: the message selected other work, or its selected work is gone. */
+  reason?: TarsSelectionReason;
   content: string;
   truncated: boolean;
 }
@@ -16,10 +19,14 @@ export type TarsInspectionReader = (row: TarsResponsibility, view: TarsInspectAc
 
 /** Do not let an unknown id reach any host reader, including ids omitted from this profile's snapshot. */
 export async function inspectTarsResponsibility(action: TarsInspectAction, snapshot: TarsSnapshot,
-  read: TarsInspectionReader | undefined, observedAt: string, remaining: number): Promise<TarsInspectionObservation | null> {
-  const observation: TarsInspectionObservation = { ...action, observedAt, status: "read", content: "", truncated: false };
+  read: TarsInspectionReader | undefined, observedAt: string, remaining: number, target?: TarsWorkTarget): Promise<TarsInspectionObservation | null> {
+  // A selected message reads only its selected work, judged by the same rule host admission applies to its actions.
+  const refusal = tarsSelectedWorkRefusal(target, action, target && snapshot.responsibilities.find((candidate) => candidate.id === target.responsibilityId));
+  const observation: TarsInspectionObservation = { ...action, observedAt, status: refusal ? "unavailable" : "read", ...(refusal ? { reason: refusal.reason } : {}), content: "", truncated: false };
   const size = () => JSON.stringify(observation).length;
   if (size() > remaining) return null;
+  // Refused before any host reader runs; the code tells the model why, with no content.
+  if (refusal) return observation;
   const row = snapshot.responsibilities.find((candidate) => candidate.id === action.responsibilityId);
   if (!row) observation.status = "notOwned";
   else if (!read) observation.status = "unavailable";

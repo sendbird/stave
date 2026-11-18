@@ -108,7 +108,7 @@ test("actual preload exposes strict send/list/cancel and rejects malformed respo
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
-    const input = { requestId: "preload", text: "Discuss", attachments: [{ type: "file_context", filePath: "notes.txt", content: "Attachment bytes", language: "text" }] };
+    const input = { requestId: "preload", text: "Discuss", target: { responsibilityId: "stable-work" }, attachments: [{ type: "file_context", filePath: "notes.txt", content: "Attachment bytes", language: "text" }] };
     const settings = { providerId: "codex", model: "chosen", maxTurns: 30 };
     reply = settings; await api.tars.configureConversation(settings);
     const routed = { ...settings, executionModel: { providerId: "codex", model: "gpt-6.1-sol" }, allowedAgentIds: ["release-notes"] };
@@ -135,11 +135,11 @@ test("actual preload exposes strict send/list/cancel and rejects malformed respo
     const before = calls.length;
     reply = { ...sent, state: "cancelled", revision: 2 }; await api.tars.cancelMessage({ messageId: "saved", expectedRevision: 1 });
     reply = { messages: [], receipts: [], actions: [] }; try { await api.tars.getConversation(); } catch { denied++; }
-    console.log(JSON.stringify({ sent: sent.id, saved, denied, before, channels: calls.map(([channel]) => channel), hasHostAction: "applyDecision" in api.tars }));
+    console.log(JSON.stringify({ sent: sent.id, target: sent.target, saved, denied, before, channels: calls.map(([channel]) => channel), hasHostAction: "applyDecision" in api.tars }));
   `;
   const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
   expect(result.exitCode, result.stderr.toString()).toBe(0);
-  expect(JSON.parse(result.stdout.toString())).toEqual({ sent: "saved",
+  expect(JSON.parse(result.stdout.toString())).toEqual({ sent: "saved", target: { responsibilityId: "stable-work" },
     saved: { providerId: "codex", model: "chosen", maxTurns: 30, executionModel: { providerId: "codex", model: "gpt-6.1-sol" }, allowedAgentIds: ["release-notes"] },
     denied: 10, before: 7,
     channels: ["tars:configure-conversation", "tars:configure-conversation", "tars:send-message", "tars:get-conversation", "tars:send-message", "tars:get-conversation",

@@ -1,6 +1,9 @@
 import { isTarsBatchAction } from "@/lib/tars/batch";
 import { TarsBatchProposal, TarsBatchRecordEntry, useTarsBatchRecords } from "./TarsBatchCard";
 import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
+import { TarsWorkSelection } from "./TarsWorkSelection";
+import { tarsSelectionStyles as selectionStyles } from "./tars-selection.styles";
+import { setTarsDraftTarget } from "@/store/tars-draft-store";
 import { useEffect, useId, useImperativeHandle, useMemo, useRef, useState, type ReactNode, type Ref } from "react";
 import { Clock, FileDiff, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { useTarsAttachments, attachmentName } from "./use-tars-attachments";
@@ -83,6 +86,7 @@ export interface TarsFlowContext {
 export interface TarsConversationController {
   /** Adds text to the draft (after what is there) and focuses the composer; nothing is sent. */
   insert: (text: string) => void;
+  selectWork: (responsibilityId: string) => void;
   answer: TarsDecisionAnswerHandler;
   focusComposer: () => void;
 }
@@ -207,6 +211,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
         {origin?.kind === "answer" ? null
           // The user's words sit on the trailing side in a bubble no wider than they need, under what came with them; Tars's reply reads full-width.
           : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(chrome.userColumn)}>
+            {message.target ? <p className={sx(selectionStyles.messageTarget)} data-tars-message-target={message.target.responsibilityId}>{t("shell:tars.selection.messageTarget", { title: titleOf?.(message.target.responsibilityId) ?? message.target.responsibilityId })}</p> : null}
             <TarsMessageAttachments messageId={message.id} attachments={message.attachments ?? []} workingChanges={Boolean(message.includeWorkingChanges)} />
             {/* The time sits beside the bubble on its last line, shown on hover or focus. */}
             {bubble ? <div className={sx(transcriptStyles.bubbleRow)}><TarsEdgeTime at={message.createdAt} />{bubble}</div> : null}
@@ -279,6 +284,12 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   const { t } = useTranslation(["shell"]);
   // The draft outlives this view (see `tars-draft-store`): leaving Tars and coming back, or restarting, shows it again. Its files stay for this window.
   const text = useTarsDraftStore((draft) => draft.text);
+  const target = useTarsDraftStore((draft) => draft.target);
+  const workMentionOptions = useMemo(() => (responsibilities ?? []).map((row) => ({
+    id: row.id, title: row.title,
+    description: `${t(`shell:tars.states.${row.state}`)} · ${row.repositoryPath} · ${row.id}`,
+    searchText: `${row.title} ${row.repositoryPath} ${row.id}`,
+  })), [responsibilities, t]);
   const attached = useTarsAttachments();
   // Per message and off by default: the next send carries it, then it resets.
   const includeWorkingChanges = useTarsDraftStore((draft) => draft.includeWorkingChanges);
@@ -388,13 +399,14 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   };
   useImperativeHandle(controller, () => ({
     insert: insertDraft,
+    selectWork: (responsibilityId) => { setTarsDraftTarget({ responsibilityId }); focusComposer(); },
     answer, focusComposer,
   }));
   /** The composer's send, also what Retry runs after a send that failed: the same draft is the same request. */
   const submit = async (submitted: string) => {
     if (composerDisabled || (!submitted.trim() && !attached.parts.length) || submitted.length > TARS_MESSAGE_LIMIT) return;
     // A short answer binds to the one waiting decision; anything else is a message to Tars.
-    const bound = onAnswer && !attached.parts.length ? bindTarsShortAnswer(submitted, selectAnswerableTarsDecisions(decisions)) : null;
+    const bound = onAnswer && !target && !attached.parts.length ? bindTarsShortAnswer(submitted, selectAnswerableTarsDecisions(decisions)) : null;
     if (bound) {
       const option = bound.decision.options[bound.optionIndex];
       // The words were only the answer, so the verification request takes their place.
@@ -409,7 +421,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     // The request ID could not be saved with the draft, so nothing was sent: the words stay and the send shows as failed.
     if (!sending) { setSendFailed(true); state.reportSendFailure(); return; }
     const message = await state.send({ requestId: sending.requestId, text: submitted, ...(sending.attachments.length ? { attachments: [...sending.attachments] } : {}),
-      ...(sending.includeWorkingChanges ? { includeWorkingChanges: true } : {}) }, initialSettings);
+      ...(sending.includeWorkingChanges ? { includeWorkingChanges: true } : {}), ...(sending.target ? { target: sending.target } : {}) }, initialSettings);
     setSendFailed(!message);
     settleTarsDraftSend({ ...sending, outcome: !message ? "unsent" : message.state === "failed" ? "failed" : "sent" });
   };
@@ -417,6 +429,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   const resend = (message: TarsMessageView) => {
     if (message.text) appendTarsDraft(message.text);
     if (message.includeWorkingChanges) setTarsDraftWorkingChanges(true);
+    setTarsDraftTarget(message.target);
     focusComposer();
   };
   const widthTheme = useTranscriptWidthTheme();
@@ -503,11 +516,18 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           onEmptyFocus={focusSettled} onDismiss={focusComposer} />
       </TarsRecordOpenWorkContext>
       {/* Suggestions only fill an empty message box; they never send. */}
-      {suggestions && !text.trim() && !composerDisabled ? <TarsSuggestionChips state={suggestions.state} onRetry={suggestions.retry} onPick={(words) => { setTarsDraftText(words); focusComposer(); }} /> : null}
+      <div className={sx(selectionStyles.toolbar)} data-tars-selection-toolbar="">
+        {suggestions && !text.trim() && !composerDisabled ? <TarsSuggestionChips state={suggestions.state} xstyle={selectionStyles.suggestions} onRetry={suggestions.retry} onPick={(words) => { setTarsDraftText(words); focusComposer(); }} /> : null}
+        <TarsWorkSelection rows={responsibilities ?? []} target={target} disabled={composerDisabled}
+          onSelect={(next) => { setTarsDraftTarget(next); focusComposer(); }}
+          onOpen={openSide ? (responsibilityId) => openSide({ responsibilityId, kind: "report" }) : undefined} />
+      </div>
       <div className={sx(composerTray.tray, dockStyles.tray)}>
       {composerStatus}
       <input ref={attached.picker} type="file" multiple hidden aria-label={t("shell:tars.conversation.attachments.select")} onChange={(event) => { void attached.add(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} />
       <PromptInput minimal chrome="tray" invalid={tooLong} errorMessageId={composerErrorId} value={text} onValueChange={setTarsDraftText} disabled={composerDisabled}
+        selectionMentions={{ options: workMentionOptions, heading: t("shell:tars.selection.choose"), emptyText: t("shell:tars.selection.empty"), hint: t("shell:tars.selection.hint"),
+          onSelect: (responsibilityId) => setTarsDraftTarget({ responsibilityId }) }}
         sendAccessory={<TarsWorkingChangesToggle pressed={includeWorkingChanges} disabled={composerDisabled} onPressedChange={setTarsDraftWorkingChanges} />}
         selectedModel={buildModelSelectorValue({ providerId: settings.providerId, model: settings.model })} modelOptions={[]} onModelSelect={() => undefined}
         attachedFilePaths={attached.parts.map(attachmentName)} plainText allowPlainTextAttachments

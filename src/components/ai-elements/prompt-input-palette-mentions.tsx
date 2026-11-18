@@ -14,6 +14,7 @@ import type { PromptInputPaletteSelection } from "./prompt-input-palette-selecti
 export function PromptInputMentionPaletteGroups(args: {
   palette: PromptInputPaletteState;
   selection: PromptInputPaletteSelection;
+  selectionHeading?: string;
 }) {
   useTranslation();
   const {
@@ -31,6 +32,22 @@ export function PromptInputMentionPaletteGroups(args: {
   } = args.selection;
   return (
     <>
+      {activePalette === "info" && args.palette.selectionMentionItems.length > 0 ? (
+        <CommandGroup heading={args.selectionHeading}>
+          {args.palette.selectionMentionItems.map(({ item, index }) => (
+            <CommandItem key={item.id} value={`@selection:${item.id}`}
+              className={sx(promptInputStyles.selectionMentionItem)} data-palette-index={index}
+              onMouseEnter={() => setSelectedWorkspaceInformationIndex(index)}
+              onMouseDown={(event) => { event.preventDefault(); rememberActivePaletteTokenSelection(); }}
+              onSelect={() => applyMentionSelection({ kind: "selection", key: `@selection:${item.id}`, option: item })}>
+              <div className={sx(promptInputStyles.selectionMentionText)}>
+                <span className={sx(promptInputStyles.fontMedium)}>{item.title}</span>
+                <p className={sx(promptInputStyles.itemDesc)}>{item.description}</p>
+              </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+      ) : null}
       {activePalette === "info" &&
       workspaceInformationSectionItems.length > 0 ? (
         <CommandGroup heading={i18n.t("composer:promptInput.heading")}>

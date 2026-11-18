@@ -38,6 +38,8 @@ export function handlePromptEditorKeyDown(
   event: ReactKeyboardEvent<HTMLDivElement>,
   context: PromptEditorKeyDownContext,
 ) {
+  // Let the IME own candidate navigation and confirmation, including Escape.
+  if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) return;
   const {
     handleModelShortcut,
     applyPromptHistoryNavigation,

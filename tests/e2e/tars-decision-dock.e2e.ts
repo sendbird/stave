@@ -120,7 +120,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
         const rect = (element: Element) => element.getBoundingClientRect();
         const center = (element: Element) => (rect(element).top + rect(element).bottom) / 2;
         const token = (name: string) => {
-          const probe = document.createElement("div"); probe.style.height = `var(${name})`; node.append(probe);
+          const probe = document.createElement("div"); probe.style.height = `var(${name})`; probe.style.flexShrink = "0"; node.append(probe);
           const height = rect(probe).height; probe.remove(); return height;
         };
         return { gap: rect(body).top - rect(header).bottom, expectedGap: token("--aui-space-8"),

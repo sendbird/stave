@@ -1,5 +1,6 @@
 import { TarsBulkControlActionSchema, TarsCleanupActionSchema, isTarsBatchAction } from "./batch";
 import { TarsPrReviewEffectSchema } from "./pr-checks";
+import { TarsSelectionReasonSchema, TarsWorkTargetSchema } from "./selected-work";
 import { z } from "zod";
 import { TarsOpenActionSchema } from "./open";
 export { TarsOpenActionSchema, type TarsOpenAction } from "./open";
@@ -43,6 +44,7 @@ const messageInputShape = {
   text: z.string().trim().max(TARS_MESSAGE_MAX_CHARS),
   attachments: AttachmentContextsSchema.optional(),
   includeWorkingChanges: z.boolean().optional(),
+  target: TarsWorkTargetSchema.optional(),
 };
 const hasContent = (message: { text: string; attachments?: readonly unknown[] }) => Boolean(message.text || message.attachments?.length);
 export const TarsMessageInputSchema = z.object(messageInputShape).strict().refine(hasContent);
@@ -138,7 +140,7 @@ export const TarsDelegateReasonSchema = z.enum([
 ]);
 export type TarsDelegateReason = z.infer<typeof TarsDelegateReasonSchema>;
 /** A publish proposal refused when it was made carries a `TarsPublishReason`, a schedule proposal a `TarsScheduleReason`. */
-export const TarsActionReasonSchema = z.union([TarsControlReasonSchema, TarsDelegateReasonSchema, TarsPublishReasonSchema, TarsScheduleReasonSchema]);
+export const TarsActionReasonSchema = z.union([TarsSelectionReasonSchema, TarsControlReasonSchema, TarsDelegateReasonSchema, TarsPublishReasonSchema, TarsScheduleReasonSchema]);
 export type TarsActionReason = z.infer<typeof TarsActionReasonSchema>;
 
 /** Fixed across the host boundary: a saved agent cannot be judged until the renderer syncs the catalog. */
@@ -538,7 +540,7 @@ export const TarsActionReceiptSchema = z.object({
   // A clear or a schedule belongs to no responsibility, so its applied receipt names none.
   const unbound = isTarsBatchAction(receipt.action) || receipt.action.kind === "clear" || receipt.action.kind === "schedule" || receipt.action.kind === "withdraw" || receipt.action.kind === "workspace" || receipt.action.kind === "open";
   // An automatic follow-up's refusal carries its one code on any kind of action.
-  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "open" || receipt.action.kind === "reprioritize" || receipt.action.kind === "withdraw"
+  const coded = receipt.reason === null || (receipt.status === "rejected" && (receipt.reason === "notByFollowUp" || TarsSelectionReasonSchema.safeParse(receipt.reason).success || (receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "open" || receipt.action.kind === "reprioritize" || receipt.action.kind === "withdraw"
     ? TarsControlReasonSchema.safeParse(receipt.reason).success
     : receipt.action.kind === "publish" ? TarsPublishReasonSchema.safeParse(receipt.reason).success
       : receipt.action.kind === "schedule" ? TarsScheduleReasonSchema.safeParse(receipt.reason).success

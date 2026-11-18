@@ -10,12 +10,29 @@ import {
   type DocumentMentionOption,
 } from "@/lib/documents/attached-document-context";
 
+/** A host-owned choice attached as a chip after selecting its stable ID. */
+export interface SelectionMentionOption {
+  id: string;
+  title: string;
+  description: string;
+  searchText: string;
+}
+
+export interface SelectionMentions {
+  options: readonly SelectionMentionOption[];
+  heading: string;
+  emptyText: string;
+  hint: string;
+  onSelect: (id: string) => void;
+}
+
 /**
  * One entry of the `@` palette. Information references insert a token in the
  * prompt; tasks attach as a chip under it.
  */
 export type MentionPaletteItem =
   | { kind: "information"; key: string; option: WorkspaceInformationReferenceOption }
+  | { kind: "selection"; key: string; option: SelectionMentionOption }
   | { kind: "task"; key: string; option: TaskMentionOption }
   | { kind: "document"; key: string; option: DocumentMentionOption };
 
@@ -27,6 +44,7 @@ export type MentionPaletteItem =
  */
 export function buildMentionPaletteItems(args: {
   query: string;
+  selectionOptions?: readonly SelectionMentionOption[];
   informationOptions: readonly WorkspaceInformationReferenceOption[];
   taskOptions: readonly TaskMentionOption[];
   documentOptions?: readonly DocumentMentionOption[];
@@ -41,6 +59,9 @@ export function buildMentionPaletteItems(args: {
     option,
   });
   return [
+    ...(args.selectionOptions ?? []).filter((option) => !query ||
+      [option.id, option.title, option.description, option.searchText].join(" ").toLocaleLowerCase().includes(query))
+      .map((option): MentionPaletteItem => ({ kind: "selection", key: `@selection:${option.id}`, option })),
     ...information.filter((option) => option.kind === "section").map(toInformation),
     ...filterTaskMentionOptions({ options: args.taskOptions, query }).map(
       (option): MentionPaletteItem => ({

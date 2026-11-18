@@ -3049,6 +3049,25 @@
         "control": "지금 바꿀 수 있는 항목이 없습니다."
       },
       "close": "닫기"
+    },
+    "selection": {
+      "choose": "작업 선택",
+      "empty": "일치하는 작업이 없습니다",
+      "clear": "선택 해제",
+      "result": "결과 보기",
+      "openResult": "{{title}} 결과 보기",
+      "unavailableLabel": "선택한 작업을 확인할 수 없습니다",
+      "clearUnavailable": "선택을 해제하고 다시 골라 주세요",
+      "numberedRepository": "{{repository}} · 작업 {{number}}",
+      "details": "{{title}}\n{{state}} · {{repository}}\n작업 ID: {{id}}",
+      "followUp": "이어서 요청",
+      "unavailable": "확인할 수 없는 작업: {{id}}",
+      "messageTarget": "선택한 작업: {{title}}",
+      "refusal": {
+        "targetMismatch": "기존 작업이 선택되어 있습니다. 요청할 작업을 선택하거나, 별개의 새 작업을 시작하려면 선택을 해제해 주세요.",
+        "targetUnavailable": "선택한 작업을 확인할 수 없습니다. 기존 작업을 다시 선택하거나 선택을 해제해 주세요."
+      },
+      "hint": "@ 뒤에 입력해 작업을 검색하세요. 방향키와 Enter로 선택하고 Escape로 닫습니다."
     }
   },
   "contentSearch": {

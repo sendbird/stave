@@ -57,7 +57,7 @@ const MIN_NAMED_TITLE_CHARS = 3;
 const LIVE_STATE_ORDER: readonly TarsResponsibility["state"][] = ["running", "preparing", "waiting", "blocked", "paused", "queued"];
 
 /** The message whose context is being built: its text and, for a follow-up, the work it is about. */
-export type TarsContextFocus = Pick<TarsMessage, "text" | "origin">;
+export type TarsContextFocus = Pick<TarsMessage, "text" | "origin" | "target">;
 
 /**
  * Which work the planner sees when there is more than it can hold, in this order:
@@ -68,7 +68,7 @@ export type TarsContextFocus = Pick<TarsMessage, "text" | "origin">;
  */
 export function selectTarsPlannerWork(rows: readonly TarsResponsibility[], focus: TarsContextFocus | undefined, max: number) {
   const text = focus?.text.toLocaleLowerCase() ?? "";
-  const aboutId = focus?.origin?.kind === "followUp" ? focus.origin.responsibilityId : null;
+  const aboutId = focus?.target?.responsibilityId ?? (focus?.origin?.kind === "followUp" ? focus.origin.responsibilityId : null);
   const named = (row: TarsResponsibility) => row.id === aboutId || (text.length > 0 && (text.includes(row.id.toLocaleLowerCase())
     || (row.title.trim().length >= MIN_NAMED_TITLE_CHARS && text.includes(row.title.trim().toLocaleLowerCase()))));
   const liveRank = (row: TarsResponsibility) => {
@@ -77,6 +77,8 @@ export function selectTarsPlannerWork(rows: readonly TarsResponsibility[], focus
   };
   const first: TarsResponsibility[] = []; const live: TarsResponsibility[] = []; const ended: TarsResponsibility[] = [];
   for (const row of rows) (named(row) ? first : isTarsResponsibilityTerminal(row) ? ended : live).push(row);
+  // Explicit identity wins even when many similar titles match or the selected work ended long ago.
+  first.sort((a, b) => Number(b.id === aboutId) - Number(a.id === aboutId));
   // Array.prototype.sort is stable, so equal ranks keep the store's order.
   live.sort((a, b) => liveRank(a) - liveRank(b));
   ended.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));

@@ -3,7 +3,7 @@ import type { TarsConversationStore } from "../persistence/tars-conversation-sto
 import type { TarsEventInbox } from "../persistence/tars-event-inbox";
 import type { TarsStore } from "../persistence/tars-store";
 import { TARS_FOLLOW_UP_CAP, TarsFollowUpReasonSchema, isTarsEventCurrent, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
-import { describeTarsDecisionForModel, tarsReaskRequestId, type TarsDecisionView } from "../../src/lib/tars/decisions";
+import { describeTarsDecisionForModel, parseTarsDecisionId, tarsReaskRequestId, type TarsDecisionView } from "../../src/lib/tars/decisions";
 import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
 import type { TarsMessage } from "../../src/lib/tars/conversation";
 
@@ -180,7 +180,10 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
       let messageId: string;
       if (chosen.kind === "decisionInvalidated") {
         const view = reaskable.get(chosen.episode)!;
-        messageId = ports.conversations.create({ requestId: tarsReaskRequestId(view.id), text: TARS_REASK_TEXT }, now, undefined,
+        // The re-ask stays on the work its source message selected, so its question and the answer cannot reach other work.
+        const source = parseTarsDecisionId(view.id);
+        const target = source && source.kind !== "unverifiedCompletion" ? ports.conversations.get(source.messageId)?.target : undefined;
+        messageId = ports.conversations.create({ requestId: tarsReaskRequestId(view.id), text: TARS_REASK_TEXT, ...(target ? { target } : {}) }, now, undefined,
           { kind: "reask", decisionId: view.id, reason: view.why === "targetEnded" ? "targetEnded" : "targetMoved", summary: describeTarsDecisionForModel(view) }).id;
       } else {
         const reason = TarsFollowUpReasonSchema.parse(chosen.kind);

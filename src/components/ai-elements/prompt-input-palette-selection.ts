@@ -38,6 +38,7 @@ export function usePromptInputPaletteSelection(args: {
   onValueChange: (value: string) => void;
   onMacroSelect: PromptInputProps["onMacroSelect"];
   onAttachTask: PromptInputProps["onAttachTask"];
+  selectionMentions: PromptInputProps["selectionMentions"];
   onAttachDocument: PromptInputProps["onAttachDocument"];
   getLiveCaretIndex: (currentValue: string) => number;
   restoreComposerSelection: (nextCaretIndex: number) => void;
@@ -47,6 +48,7 @@ export function usePromptInputPaletteSelection(args: {
     onValueChange,
     onMacroSelect,
     onAttachTask,
+    selectionMentions,
     onAttachDocument,
     getLiveCaretIndex,
     restoreComposerSelection,
@@ -314,7 +316,9 @@ export function usePromptInputPaletteSelection(args: {
     setSuppressedAutocompleteValue({ palette: "info", value: nextValue });
     setDismissedWorkspaceInformationToken(null);
     setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
-    if (item.kind === "document") {
+    if (item.kind === "selection") {
+      selectionMentions?.onSelect(item.option.id);
+    } else if (item.kind === "document") {
       onAttachDocument?.(item.option);
     } else {
       onAttachTask?.(item.option);

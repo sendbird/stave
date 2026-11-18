@@ -7,6 +7,7 @@ import { createTarsConversationService } from "../electron/main/tars-conversatio
 import { applyTarsDecision } from "../electron/host-service/tars-decisions";
 import { createTarsRuntime, type TarsExecutionObservation } from "../electron/host-service/tars-runtime";
 import { actTars } from "../electron/host-service/tars-control";
+import type { TarsInspectionReader } from "../electron/main/tars-inspections";
 import type { SecondaryProviderExecutionRequest } from "../src/lib/runs/secondary-run";
 import type { TarsDecision } from "../src/lib/tars/conversation";
 import type { TarsResponsibility, TarsState } from "../src/lib/tars/types";
@@ -22,7 +23,9 @@ export const minutes = (count: number) => count * 60_000;
  */
 export function followUpFixture(options: { filename?: string; maxTurns?: number; replies?: TarsDecision[];
   /** Runs while the model is "thinking", for changes that race the planner. */
-  duringPlanner?: () => Promise<void> | void; } = {}) {
+  duringPlanner?: () => Promise<void> | void;
+  /** The host's inspection reader; absent, every read is unavailable. */
+  inspect?: TarsInspectionReader; } = {}) {
   const database = new Database(options.filename ?? ":memory:");
   const conversations = new TarsConversationStore(database);
   if (!conversations.getSettings()) conversations.configure({ ...SETTINGS, maxTurns: options.maxTurns ?? SETTINGS.maxTurns });
@@ -62,6 +65,7 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
     applyDecision: (input) => applyTarsDecision(input, { conversations, responsibilities, readRegistry: () => REGISTRY,
       requestTick: () => runtime.requestTick(), control: runtime.act, now }),
     act: (input) => actTars(input, { conversations, runtime, now }),
+    ...(options.inspect ? { inspect: options.inspect } : {}),
     retryDelaysMs: [60_000], onError: (error) => errors.push(error),
   });
   let made = 0;

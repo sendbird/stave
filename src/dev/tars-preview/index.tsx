@@ -389,7 +389,7 @@ export function TarsPreview() {
         } else {
           // The chosen option goes back to Tars as the user's answer; the preview answers it at once.
           const reply = "Understood. I will keep the plan and report back when the check finishes.";
-          const message = { requestId: `answer:${decisionId}`, text: label!, ...conversation.settings!, id: `answer-${decisionId.replace(/[^A-Za-z0-9-]/g, "-")}`, state: "answered" as const,
+          const message = { requestId: `answer:${decisionId}`, text: label!, ...(receipt ? { target: conversation.messages.find((entry) => entry.id === receipt.messageId)?.target } : {}), ...conversation.settings!, id: `answer-${decisionId.replace(/[^A-Za-z0-9-]/g, "-")}`, state: "answered" as const,
             revision: 2, decision: { reply, actions: [] }, reply, error: null, origin: { kind: "answer" as const, decisionId, optionIndex, source,
               question: receipt?.action.kind === "ask" ? receipt.action.question : "", rationale: receipt?.action.kind === "ask" ? receipt.action.options[optionIndex]!.rationale : "" },
             createdAt, updatedAt: createdAt };
@@ -427,7 +427,7 @@ export function TarsPreview() {
       getConversation: async () => { syncAway(); return clearing.view(conversationView()); },
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },
       sendMessage: async (input) => {
-        if (Object.keys(input).some((key) => !["requestId", "text", "includeWorkingChanges", "attachments"].includes(key)))
+        if (Object.keys(input).some((key) => !["requestId", "text", "includeWorkingChanges", "attachments", "target"].includes(key)))
           throw new Error("Global messages accept only requestId, text and the working-changes choice.");
         if (!conversation.settings) throw new Error("Missing global settings.");
         // `sendFailure=before`: the host refuses the message before saving it, so nothing exists and the draft stays.

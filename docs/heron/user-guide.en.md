@@ -1047,6 +1047,30 @@ quiet. Open a notification to focus its decision card in Tars or the work's
 report. Your existing sound and desktop notification settings apply; desktop
 notifications stay quiet while Stave's window has focus.
 
+Type **@** in the composer, then keep typing to search existing work by title,
+repository or ID. Candidates appear only for the active **@** mention; there is
+no persistent selector or separate search box. Arrow keys and Enter select a
+result; Escape or leaving the input closes candidates. Choosing a result keeps
+the surrounding draft and shows a chip with its title, state and short repository
+name. The title and arrow open its result report. The separate × (**Clear target**)
+removes only the selection and returns focus to your unchanged draft; another
+**@** selection replaces it. Hover or keyboard-focus the title for the full path
+and work ID. Same-title work uses a distinguishing repository suffix; work with
+the same title and repository also has a number. Missing work shows an unavailable
+notice and keeps your draft until you clear or replace the selection.
+**Follow up** on a work card, result card or side view selects that work and
+focuses the composer without sending. **View result** opens its report. Drafts
+and selected work survive restart. Follow-up messages and structured reply
+choices keep the work's stable ID even when its title or status changes.
+While work is selected, Tars acts only on that work: new work, schedules,
+clearing and actions on other work are refused. Clear the selection before
+requesting independent new work or acting on several work items. A follow-up
+for selected work, including completed work, continues it in its existing task
+with the usual confirmation and ownership checks; when that is refused, nothing
+is sent and no replacement work is created. A selection never grants tool
+approval or publication permission; PR requests still require the existing
+completed-work checks and final confirmation.
+
 Full details: https://github.com/sendbird/stave/blob/main/docs/features/tars.md
 
 

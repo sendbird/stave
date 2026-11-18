@@ -53,6 +53,7 @@ export { stateTone } from "./TarsRunMonitor";
 /** Every tray control goes through the view's host action path; opening and folding are view-only. */
 export interface TarsTrayActions {
   busy: boolean;
+  onFollowUp?: (row: TarsResponsibility) => void;
   onAct: (row: TarsResponsibility, operation: TarsControlOperation) => void;
   onConfirm: (decision: TarsTrayDecision) => void;
   onOpenTask: (row: TarsResponsibility) => void;
@@ -321,6 +322,9 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
       })}
     </ul> : null,
     report && !blockedEntry ? <div key="report" className={sx(styles.actions)}>{report}</div> : null,
+    // Follow up selects this work for the next message; nothing is sent.
+    actions.onFollowUp ? <div key="followUpRequest" className={sx(styles.actions)}><Button variant="ghost" size="xs" data-tars-select-work={row.id}
+      onClick={() => actions.onFollowUp!(row)}>{t("shell:tars.selection.followUp")}</Button></div> : null,
     // Completed work leads to its draft pull request: the link once open, else the button that opens its confirmation card.
     (row.publication || ((row.state === "completed" || row.state === "resultReady") && actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
       <TarsPublishEntry row={row} onPublish={actions.onPublish} />

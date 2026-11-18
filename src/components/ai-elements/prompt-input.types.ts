@@ -1,3 +1,4 @@
+import type { SelectionMentions } from "./prompt-input-mentions";
 import type { ReactNode } from "react";
 import type {
   Attachment,
@@ -119,6 +120,8 @@ export interface PromptInputProps {
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
   /** Tasks `@` can attach as context, most recent first. */
   taskMentionOptions?: readonly TaskMentionOption[];
+  /** Opt in to host-owned `@` choices, including in a plain-text composer. */
+  selectionMentions?: SelectionMentions;
   /** Attach a task picked with `@` or dropped on the composer. */
   onAttachTask?: (task: { taskId: string; workspaceId: string; title: string }) => void;
   /** Documents from other workspaces `@` can attach as context, most recent first. */

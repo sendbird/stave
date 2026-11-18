@@ -1,4 +1,5 @@
 import { TarsWorkspaceReceipt } from "./TarsWorkspaceReceipt";
+import { TarsSelectionReasonSchema } from "@/lib/tars/selected-work";
 import { Bot } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatList } from "@/i18n/format";
@@ -10,6 +11,8 @@ import { TarsRecordChip, TarsRecordDetail, TarsRecordRow, TarsWorkChip, type Tar
 
 /** A receipt's refusal key: a translated code when the host gave one; null keeps its diagnostic. */
 export function tarsReceiptRefusalKey(receipt: TarsActionReceipt) {
+  const selection = TarsSelectionReasonSchema.safeParse(receipt.reason);
+  if (selection.success) return `shell:tars.selection.refusal.${selection.data}` as const;
   // An automatic follow-up's refusal reads the same for every kind of action.
   if (receipt.action.kind === "publish") { const parsed = TarsPublishReasonSchema.safeParse(receipt.reason); return `shell:tars.publish.reason.${parsed.success ? parsed.data : "unknown"}` as const; }
   if (receipt.action.kind === "schedule") return tarsScheduleReasonKey(receipt.reason);

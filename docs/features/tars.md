@@ -45,6 +45,53 @@ Pasted Slack thread links stay source links. The execution lead is instructed
 to read them read-only with your Slack tools, or ask you to paste the text if
 access is unavailable. Stave has no Slack token flow.
 
+## Select existing work for a follow-up
+
+Type `@` in the composer to open work candidates, then keep typing there to
+search titles, repository paths, state labels and stable work IDs. No separate
+selector or search box is shown while no `@` token is active. Use arrow keys and
+Enter to choose; Escape or leaving the input closes the candidates. Selection
+removes only the active mention and keeps the surrounding draft and caret.
+The selected work chip shows its title, current state and short repository name.
+The title and arrow open its result report; the separate × control (**Clear
+target**) removes only the selection and returns focus to the unchanged draft.
+Hover or keyboard-focus the title for the full repository path and stable ID.
+Same-title work uses a distinguishing repository suffix; identical titles in the
+same repository also show a work number. If selected work disappears, the chip
+says it is unavailable and keeps the draft until you clear or replace it. Choosing
+another `@` candidate replaces the target.
+
+**Follow up** on a work card, result card or side view selects that same work
+and focuses the composer without sending anything. **View result** opens its
+existing report panel. Quotes from the changes view keep that panel's work as
+the target. Selection and draft text survive restarting Stave; messages, Tars's
+automatic re-asks and reply-option answers preserve the stable responsibility ID,
+not the title.
+
+An explicit selection narrows the representative's routing to that one existing
+work item. The host refuses new delegations, schedules and clearing, and any
+action that reaches other work: controls and views of another item, reading
+another item's details while reasoning, opening
+another task or workspace, workspace information edits outside the work's own
+execution workspace, bulk control or cleanup beyond that one item, and
+withdrawing a waiting decision about other work. Missing targets are never
+substituted. When the words conflict with a selection, or several prior works
+fit a natural-language reference, the representative is instructed to ask for
+clarification before proposing an action. Clear the target before commissioning
+independent work or acting on several work items.
+
+Selection does not change the execution engine. A follow-up for selected work,
+including completed work, takes the [Continue existing work](#continue-existing-work)
+path with its confirmation, revision and ownership checks. When that path
+refuses, nothing is sent to the task and no replacement work is created.
+
+Viewing a result, HTML preview or comparison, or choosing a reply option, grants
+no tool permission or publication authority. Structured reply choices retain the
+question's selected target. PR requests still use the existing completed-work
+checks and final publish confirmation. Persistent HTML artifacts and completed-work
+continuation belong to their own contracts; this selection layer stores neither
+HTML nor a second execution engine.
+
 ## How it works
 
 1. **You talk.** Open **Tars** at the top of the sidebar and write. There is

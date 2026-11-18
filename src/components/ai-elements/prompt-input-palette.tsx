@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import type { CommandPaletteProviderNote } from "@/lib/commands";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
+import type { SelectionMentions } from "./prompt-input-mentions";
 import type { TaskMentionOption } from "@/lib/task-context/attached-task-context";
 import { isAssignPaletteEntry } from "@/components/session/assign-palette-entry";
 import { sx } from "../aui/utils/stylex";
@@ -47,6 +48,7 @@ export function PromptInputPaletteMenu(args: {
   selection: PromptInputPaletteSelection;
   selectedModel: ModelSelectorOption;
   taskMentionOptions?: readonly TaskMentionOption[];
+  selectionMentions?: SelectionMentions;
   commandPaletteProviderNote?: CommandPaletteProviderNote;
 }) {
   useTranslation();
@@ -97,7 +99,7 @@ export function PromptInputPaletteMenu(args: {
         {activePalette === "info" &&
         filteredWorkspaceInformationItems.length === 0 ? (
           <CommandEmpty>
-            {taskMentionOptions && taskMentionOptions.length > 0
+            {args.selectionMentions ? args.selectionMentions.emptyText : taskMentionOptions && taskMentionOptions.length > 0
               ? i18n.t("composer:promptInput.composerCard7")
               : i18n.t("composer:promptInput.composerCard8")}
           </CommandEmpty>
@@ -118,6 +120,7 @@ export function PromptInputPaletteMenu(args: {
           <>
             <PromptInputMentionPaletteGroups
               palette={palette}
+              selectionHeading={args.selectionMentions?.heading}
               selection={selection}
             />
             {activePalette === "skill" &&
@@ -395,7 +398,9 @@ export function PromptInputPaletteMenu(args: {
           </>
         )}
       </CommandList>
-      {activePalette === "info" ? (
+      {activePalette === "info" && args.selectionMentions ? (
+        <p className={sx(promptInputStyles.paletteFooter)}>{args.selectionMentions.hint}</p>
+      ) : activePalette === "info" ? (
         <div className={sx(promptInputStyles.paletteFooter)}>
           <p className={sx(promptInputStyles.paletteFooterTitle)}>
             <Info className={sx(promptInputStyles.icon35)} />
