@@ -889,7 +889,7 @@
   },
   "toolOutputImages": {
     "label": "Image {{index}}",
-    "open": "Open {{label}} at original size",
+    "open": "Open {{label}}",
     "attached_one": "{{count}} image attached to this reply",
     "attached_other": "{{count}} images attached to this reply",
     "loading": "Loading image…",
