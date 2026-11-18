@@ -105,10 +105,10 @@ and they are not pinned or kept in Recent.
 
 Default bindings:
 
-- `Alt+1` → `Claude Opus 5` (Claude default)
-- `Alt+2` → `GPT-5.6 Sol` (Codex default)
+- `Alt+1` → `Claude Opus 5.5` (Claude default)
+- `Alt+2` → `GPT-6.2 Sol` (Codex default)
 - `Alt+3` → `Claude Fable 5.2` (Claude frontier)
-- `Alt+4` → `GPT-6 Astra` (Codex frontier)
+- `Alt+4` → `GPT-6.2 Astra` (Codex frontier)
 
 The same four bindings back the model picker's **Recommended** group.
 

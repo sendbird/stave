@@ -20,10 +20,10 @@ Deterministic rules then map each level to one model rung and an effort range:
 | Level | Work | Claude | Codex | Effort range |
 | --- | --- | --- | --- | --- |
 | Simple | A bounded, obvious step: a typo, rename, small config edit, direct answer | Haiku 5.5 | GPT-6 Luna | Low – Medium |
-| Standard | Ordinary connected work, including routine workflows such as shipping a PR | Opus 5.5 | GPT-6.1 Sol | Medium – High |
-| Complex | Cross-module changes, non-obvious bugs, migrations, sensitive changes | Opus 5.5 | GPT-6.1 Sol | High – Extra high |
-| Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.2 | GPT-6 Astra | Low – Medium |
-| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.2 | GPT-6 Astra | Medium – High |
+| Standard | Ordinary connected work, including routine workflows such as shipping a PR | Opus 5.5 | GPT-6.2 Sol | Medium – High |
+| Complex | Cross-module changes, non-obvious bugs, migrations, sensitive changes | Opus 5.5 | GPT-6.2 Sol | High – Extra high |
+| Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.2 | GPT-6.2 Astra | Low – Medium |
+| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.2 | GPT-6.2 Astra | Medium – High |
 
 The frontier levels stop at high effort by default: Fable and Astra at extra
 high cost far more than they add for most work. Each level is editable (see
@@ -51,6 +51,10 @@ Haiku 4.5 moves onto Haiku 5.5.
 GPT-6.1 Terra is the balanced Codex rung, the counterpart of Sonnet 5.5. It
 replaces GPT-5.6 Terra, and a stored allow-list that names GPT-5.6 Terra moves
 onto GPT-6.1 Terra.
+
+GPT-6.2 Sol and GPT-6.2 Astra are the flagship and frontier Codex rungs. They
+replace GPT-6.1 Sol and GPT-6 Astra, and a stored allow-list that names either
+previous model moves onto its 6.2 successor.
 
 A task that runs as an [agent](agents.md) whose model is Auto-routing with a
 task class uses that class as a fallback: a confident classification still
