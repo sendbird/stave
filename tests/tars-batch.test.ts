@@ -136,3 +136,14 @@ test("one bulk record restores only controls with host-saved Undo evidence", asy
   expect(f.responsibilities.get(row.id)!.revision).toBe(revision);
   runtime.stop();
 });
+
+test("cleanup names ended work without a workspace as missing, not as ownership changed (real SQLite)", async () => {
+  const f = fixture();
+  const never = f.make(); f.responsibilities.patch(never.id, never.revision, { state: "cancelled" }, now);
+  const gone = f.make(); f.responsibilities.patch(gone.id, gone.revision, { state: "cancelled", executionWorkspaceId: "worktree:gone" }, now);
+  const runtime = createTarsBatchRuntime({ conversations: () => f.conversations, responsibilities: () => f.responsibilities,
+    cleanup: { list: async () => ({ rows: [] }) as never, act: async () => { throw new Error("Unexpected cleanup"); } },
+    control: async () => { throw new Error("Unexpected control"); } });
+  const preview = await runtime.invoke({ operation: "preview", action: { kind: "cleanup", scope: { kind: "all" }, deleteBranches: false, permanentlyDeleteArchived: false } });
+  expect(new Set(preview.items.map((item) => [item.workspaceId, item.status, item.reason]))).toEqual(new Set([[null, "skipped", "workspaceMissing"], ["worktree:gone", "skipped", "workspaceMissing"]]));
+});

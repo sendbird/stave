@@ -91,7 +91,9 @@ export function createTarsBatchRuntime(ports: {
           if (!workspaces.has(key)) workspaces.set(key, await inspect(row.executionWorkspaceId, row.repositoryPath, true));
           workspace = workspaces.get(key) ?? null;
         }
-        if (!workspace || workspace.branchOnly) reason = "ownershipChanged";
+        // No execution workspace (never prepared, or already removed) leaves nothing to archive; the card is removed with Clear.
+        if (!workspace) reason = "workspaceMissing";
+        else if (workspace.branchOnly) reason = "ownershipChanged";
         else if (seen.has(workspace.id)) reason = "duplicateWorkspace";
         else if (workspace.blockers.length) reason = workspace.blockers.join(",");
         else if (workspace.archived && !action.permanentlyDeleteArchived) reason = "alreadyArchived";

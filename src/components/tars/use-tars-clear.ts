@@ -45,13 +45,13 @@ export function useTarsClear(args: {
   const { bridge, conversation, counts, refresh, announce } = args;
   const [busy, setBusy] = useState(false);
   const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map());
-  const [declined, setDeclined] = useState<ReadonlySet<string>>(new Set());
   const pending = useRef(new Map<string, string>());
   const clears = conversation?.clears ?? NO_CLEARS;
   const activeId = conversation?.view?.clearRequestId ?? null;
   const active = useMemo(() => clears.find((record) => record.requestId === activeId) ?? null, [activeId, clears]);
   const records = useMemo(() => clears.filter((record) => record.proposal === null && record.requestId !== activeId), [activeId, clears]);
-  const proposals = useMemo(() => projectTarsClearProposals(conversation?.receipts ?? [], clears), [clears, conversation?.receipts]);
+  const proposals = useMemo(() => projectTarsClearProposals(conversation?.receipts ?? [], clears, conversation?.answers), [clears, conversation?.receipts, conversation?.answers]);
+  const declined = useMemo(() => new Set(proposals.filter((view) => view.state === "declined").map((view) => view.requestId)), [proposals]);
   const latest = useCallback((scope: "done" | "outputs") => tarsLaneUndoClear(conversation, scope), [conversation]);
   const setError = (key: string, message: string | null) => setErrors((current) => {
     const next = new Map(current);
@@ -89,6 +89,15 @@ export function useTarsClear(args: {
       return false;
     } finally { setBusy(false); refresh(); }
   };
-  const decline = (requestId: string) => setDeclined((current) => new Set(current).add(requestId));
+  const decline = async (requestId: string) => {
+    if (!bridge?.dismissDecision || busy) return;
+    setBusy(true); setError(requestId, null);
+    try {
+      const result = await bridge.dismissDecision({ decisionId: requestId.replace(/^clear:/, "confirm:"), source: "click" });
+      if (result.refusal) throw new Error(result.refusal);
+      refresh();
+    } catch { setError(requestId, i18n.t("shell:tars.clear.failed")); }
+    finally { setBusy(false); }
+  };
   return { available: Boolean(bridge?.clear && bridge.undoClear), busy, counts, active, records, proposals, errors, declined, latest, clear, undo, decline };
 }

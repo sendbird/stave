@@ -5,6 +5,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { formatList } from "@/i18n/format";
 import { Button } from "@/components/ui";
 import { Button as AuiButton } from "@/components/aui/components/Button";
+import { Checkbox } from "@/components/aui/components/Checkbox";
 import { IconTile, iconTileGlyphSizes } from "@/components/aui/components/IconTile";
 import { Kbd } from "@/components/aui/components/Kbd";
 import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
@@ -12,23 +13,31 @@ import { agentSurface } from "@/components/aui/recipes/agent-surface";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { sx } from "@/components/aui/utils/stylex";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
-import type { TarsClearRecord, TarsClearScope, TarsClearSource } from "@/lib/tars/clearing";
+import { normalizeTarsClearScopes, type TarsClearRecord, type TarsClearScope, type TarsClearSource } from "@/lib/tars/clearing";
 import type { TarsSuggestion } from "@/lib/tars/suggestions";
 import { tarsPublishCardKey } from "./TarsPublishCard";
 import { TarsRecordDetail, TarsRecordList, TarsRecordRow } from "./TarsRecord";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
 import { tarsClearStyles as clearStyles } from "./tars-clear.styles";
 
-/** What a clear of each scope would hide now, as the view counts it. */
-export type TarsClearCounts = Record<TarsClearScope, number>;
+/**
+ * What a clear of each scope would hide now, as the view counts it; `work` is
+ * the unfinished work a Work reset would cancel, and `kept` the unfinished
+ * work it would leave as it is (taken over, paused or publishing).
+ */
+export type TarsClearCounts = Record<TarsClearScope, number> & { kept: number };
 
-/** What one clear hid, in a list: "12 messages, 3 Done cards and outputs of 2 ended work items". */
+/** What one clear did, in a list: "12 messages, 3 ended work items and 2 unfinished work items cancelled". */
 function describeHidden(record: TarsClearRecord) {
-  return formatList([
-    record.hiddenMessages !== undefined ? i18n.t("shell:tars.clear.hidden.conversation", { count: record.hiddenMessages }) : null,
-    record.done ? i18n.t("shell:tars.clear.hidden.done", { count: record.done.length }) : null,
-    record.outputs ? i18n.t("shell:tars.clear.hidden.outputs", { count: record.outputs.length }) : null,
-  ].filter((part): part is string => part !== null));
+  const parts = [
+    record.hiddenMessages ? i18n.t("shell:tars.clear.hidden.conversation", { count: record.hiddenMessages }) : null,
+    record.done?.length ? i18n.t("shell:tars.clear.hidden.done", { count: record.done.length }) : null,
+    record.outputs?.length ? i18n.t("shell:tars.clear.hidden.outputs", { count: record.outputs.length }) : null,
+    record.work?.cancelled.length ? i18n.t("shell:tars.clear.hidden.workStopped", { count: record.work.cancelled.length }) : null,
+    record.work?.kept.length ? i18n.t("shell:tars.clear.hidden.workKept", { count: record.work.kept.length }) : null,
+  ].filter((part): part is string => part !== null);
+  // A confirmed proposal that found nothing left still closes, and says so.
+  return parts.length ? formatList(parts) : i18n.t("shell:tars.clear.record.nothing");
 }
 
 /**
@@ -40,11 +49,16 @@ export function TarsClearRecordLine({ record, busy, error, onUndo }: { record: T
   const { t } = useTranslation(["shell"]);
   const undone = record.status === "undone";
   const conversation = record.scopes.includes("conversation");
+  const refused = record.work?.kept.filter((entry) => entry.reason === "refused").length ?? 0;
   return <TarsRecordRow state={undone ? "skipped" : "applied"} icon={Eraser} data-tars-clear-record={record.requestId} data-tars-clear-status={record.status}
     data-tars-clear-scopes={record.scopes.join(",")}
     lead={t(undone ? "shell:tars.clear.record.undone" : "shell:tars.clear.record.applied")} subject={describeHidden(record)}
     status={record.proposal ? t("shell:tars.clear.record.fromTars") : undefined}
-    detail={error ? <TarsRecordDetail role="alert">{error}</TarsRecordDetail> : null}
+    detail={error ? <TarsRecordDetail role="alert">{error}</TarsRecordDetail>
+      : record.work && !undone ? <TarsRecordDetail>
+        {record.work.cancelled.length ? <span data-tars-clear-cancelled-stays="">{t("shell:tars.clear.record.cancelledStays")}</span> : null}
+        {refused ? <span data-tars-clear-refused="">{record.work.cancelled.length ? " " : null}{t("shell:tars.clear.record.refused", { count: refused })}</span> : null}
+      </TarsRecordDetail> : null}
     actions={!undone && onUndo ? <Button variant="ghost" size="2xs" disabled={busy} data-tars-clear-undo={record.requestId} onClick={onUndo}>
       {t(conversation ? "shell:tars.clear.restore" : "shell:tars.clear.undo")}</Button> : null} />;
 }
@@ -54,8 +68,8 @@ export function TarsClearRecordLine({ record, busy, error, onUndo }: { record: T
  * would hide now and what always stays; Clear (Enter) applies it through the
  * same path as the buttons, Not now (Esc) leaves everything as it is. Like
  * every confirmation card it leads with the effect and its main action is the
- * primary button; clearing can be undone, so Clear keeps Enter and the
- * neutral tone.
+ * primary button. Hiding keeps Enter and the neutral tone; cancelling
+ * unfinished work requires an explicit click and uses the danger tone.
  */
 export function TarsClearCard({ id, scopes, counts, busy = false, error, onConfirm, onDecline }: {
   id: string;
@@ -69,8 +83,14 @@ export function TarsClearCard({ id, scopes, counts, busy = false, error, onConfi
   const { t } = useTranslation(["shell"]);
   const titleId = useId();
   const hintId = useId();
-  const nothing = scopes.every((scope) => counts[scope] === 0);
-  const confirmClear = (source: TarsClearSource) => { if (!busy && !nothing) onConfirm(source); };
+  // As the host applies them: a Work reset also hides Done and Outputs, so its card lists them.
+  const shown = normalizeTarsClearScopes(scopes);
+  const nothing = shown.every((scope) => counts[scope] === 0);
+  const work = shown.includes("work");
+  // Cancelling work cannot be undone: the confirmation takes the danger tone and leaves Enter to the explicit click.
+  const stopsWork = work && counts.work > 0;
+  // With nothing left, confirming still closes the proposal through the host, so it never waits forever behind a dead button.
+  const confirmClear = (source: TarsClearSource) => { if (!busy && !(stopsWork && source === "key")) onConfirm(source); };
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const action = tarsPublishCardKey(event);
     if (!action) return;
@@ -86,14 +106,18 @@ export function TarsClearCard({ id, scopes, counts, busy = false, error, onConfi
         <p id={titleId} className={sx(styles.title)}>{t("shell:tars.clear.card.title")}</p>
       </div>
     </div>
-    <p className={sx(styles.effect)} data-tars-clear-effect="">{t("shell:tars.clear.card.subtitle")}</p>
+    <p className={sx(styles.effect)} data-tars-clear-effect="">{t(stopsWork ? "shell:tars.clear.card.subtitleWork" : "shell:tars.clear.card.subtitle")}</p>
     <dl className={sx(agentSurface.well, styles.rows)} aria-label={t("shell:tars.clear.card.details")}>
-      {scopes.map((scope) => <div key={scope} className={sx(styles.row)} data-tars-clear-row={scope}>
+      {shown.map((scope) => <div key={scope} className={sx(styles.row)} data-tars-clear-row={scope}>
         <dt className={sx(styles.rowLabel)}>{t(`shell:tars.clear.scope.${scope}`)}</dt>
         <dd className={sx(styles.rowValue)}>{t(`shell:tars.clear.hidden.${scope}`, { count: counts[scope] })}</dd>
       </div>)}
+      {work && counts.kept > 0 ? <div className={sx(styles.row)} data-tars-clear-row="kept">
+        <dt className={sx(styles.rowLabel)}>{t("shell:tars.clear.card.keptLabel")}</dt>
+        <dd className={sx(styles.rowValue)}>{t("shell:tars.clear.hidden.workKept", { count: counts.kept })}</dd>
+      </div> : null}
     </dl>
-    <p className={sx(styles.detail)}>{t("shell:tars.clear.card.kept")}</p>
+    <p className={sx(styles.detail)}>{t(work ? "shell:tars.clear.card.keptWork" : "shell:tars.clear.card.kept")}</p>
     {nothing ? <p className={sx(styles.detail)} data-tars-clear-nothing="">{t("shell:tars.clear.card.nothing")}</p> : null}
     <div className={sx(styles.footer)}>
       <VisuallyHidden id={hintId}>{t("shell:tars.clear.card.keysHint")}</VisuallyHidden>
@@ -101,9 +125,10 @@ export function TarsClearCard({ id, scopes, counts, busy = false, error, onConfi
         <Button type="button" size="2xs" variant="ghost" aria-keyshortcuts="Escape" disabled={busy} data-tars-clear-decline="" onClick={onDecline}>
           {t("shell:tars.clear.card.decline")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.escKey")}</Kbd></span>
         </Button>
-        <AuiButton type="button" size="xs" variant="primary" tone="neutral" aria-keyshortcuts="Enter" disabled={busy || nothing} data-tars-clear-confirm=""
-          data-tars-decision-tone="neutral" onClick={() => confirmClear("click")}>
-          {t("shell:tars.clear.card.confirm")}<span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.enterKey")}</Kbd></span>
+        <AuiButton type="button" size="xs" variant="primary" tone={stopsWork ? "danger" : "neutral"} aria-keyshortcuts={stopsWork ? undefined : "Enter"} disabled={busy}
+          data-tars-clear-confirm={nothing ? "empty" : ""} data-tars-decision-tone={stopsWork ? "danger" : "neutral"} onClick={() => confirmClear("click")}>
+          {t(nothing ? "shell:tars.clear.card.closeEmpty" : stopsWork ? "shell:tars.clear.card.confirmWork" : "shell:tars.clear.card.confirm")}
+          {stopsWork ? null : <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{t("shell:tars.publish.card.enterKey")}</Kbd></span>}
         </AuiButton>
       </div>
     </div>
@@ -117,19 +142,43 @@ export function TarsClearProposalRecord({ record, busy, error, onUndo }: { recor
 }
 
 /**
- * The header's Clear conversation: one confirmation that says what leaves the
- * view and what stays, then the clear. Disabled while there is nothing to hide.
+ * The header's Clear: one confirmation that says what leaves the view and what
+ * stays, then the clear. "Also reset Work" adds the Work panel: it says how
+ * much unfinished work is cancelled (its runs stop), how many ended cards
+ * leave and what is kept, before anything is applied. Disabled while there is
+ * nothing to clear or reset.
  */
-export function TarsClearConversationButton({ count, busy, error, onClear }: { count: number; busy: boolean; error?: string | null; onClear: () => Promise<boolean> }) {
+export function TarsClearConversationButton({ count, work, busy, error, onClear }: {
+  count: number;
+  /** What a Work reset would do now; absent where the bridge cannot reset Work. */
+  work?: { stop: number; ended: number; kept: number };
+  busy: boolean;
+  error?: string | null;
+  onClear: (includeWork: boolean) => Promise<boolean>;
+}) {
   const { t } = useTranslation(["shell"]);
   const [open, setOpen] = useState(false);
+  const [includeWork, setIncludeWork] = useState(false);
   const label = t("shell:tars.clear.conversation.button");
+  const workable = Boolean(work && (work.stop > 0 || work.ended > 0));
+  const resetting = includeWork && workable;
+  const close = () => { setOpen(false); setIncludeWork(false); };
   return <>
-    <Tooltip content={label}><Button variant="ghost" size="icon-sm" disabled={busy || count === 0} focusableWhenDisabled aria-label={label} data-tars-clear-conversation="" onClick={() => setOpen(true)}><Eraser /></Button></Tooltip>
-    <ConfirmDialog open={open} loading={busy} title={t("shell:tars.clear.conversation.title")}
-      description={t("shell:tars.clear.conversation.description", { count })} confirmLabel={t("shell:tars.clear.conversation.confirm")}
-      cancelLabel={t("shell:tars.clear.card.decline")} onCancel={() => setOpen(false)}
-      onConfirm={() => { void onClear().then((ok) => { if (ok) setOpen(false); }); }}>
+    <Tooltip content={label}><Button variant="ghost" size="icon-sm" disabled={busy || (count === 0 && !workable)} focusableWhenDisabled aria-label={label} data-tars-clear-conversation="" onClick={() => setOpen(true)}><Eraser /></Button></Tooltip>
+    <ConfirmDialog open={open} loading={busy} defaultFocus={resetting ? "cancel" : "confirm"} title={t("shell:tars.clear.conversation.title")}
+      description={t(resetting ? "shell:tars.clear.conversation.descriptionWork" : "shell:tars.clear.conversation.description", { count })} confirmLabel={t(resetting ? "shell:tars.clear.conversation.confirmWork" : "shell:tars.clear.conversation.confirm")}
+      cancelLabel={t("shell:tars.clear.card.decline")} onCancel={close}
+      onConfirm={() => { void onClear(resetting).then((ok) => { if (ok) close(); }); }}>
+      {workable && work ? <div className={sx(clearStyles.work)} data-tars-clear-work="">
+        <Checkbox checked={includeWork} onCheckedChange={(checked) => setIncludeWork(checked === true)} disabled={busy} label={t("shell:tars.clear.conversation.work.label")}
+          data-tars-clear-include-work="" />
+        {includeWork ? <ul className={sx(clearStyles.workList)} data-tars-clear-work-plan="">
+          {work.stop > 0 ? <li data-tars-clear-work-stop={work.stop}>{t("shell:tars.clear.conversation.work.stop", { count: work.stop })}</li> : null}
+          {work.ended > 0 ? <li data-tars-clear-work-ended={work.ended}>{t("shell:tars.clear.conversation.work.ended", { count: work.ended })}</li> : null}
+          {work.kept > 0 ? <li data-tars-clear-work-kept={work.kept}>{t("shell:tars.clear.conversation.work.kept", { count: work.kept })}</li> : null}
+          {work.stop > 0 ? <li>{t("shell:tars.clear.conversation.work.irreversible")}</li> : null}
+        </ul> : null}
+      </div> : null}
       {/* A clear that did not go through keeps the dialog open with the reason, so Clear can be pressed again. */}
       {error ? <p className={sx(styles.error)} role="alert">{error}</p> : null}
     </ConfirmDialog>

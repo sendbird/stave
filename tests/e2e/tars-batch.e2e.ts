@@ -77,3 +77,34 @@ for (const width of [800, 1440]) for (const lang of ["en", "ko"]) {
     expect(Math.abs(geometry.padding - geometry.tokenPadding)).toBeLessThanOrEqual(1);
   });
 }
+
+
+for (const [lang, theme] of [["en", "light"], ["ko", "dark"]]) {
+  test(`${lang}/${theme}: a failed cleanup stays retryable and success replaces its positive button`, async ({ page }) => {
+    await page.goto(`/?stavePreview=tars&tray=true&batch=true&batchFailure=once&lang=${lang}&theme=${theme}`);
+    const input = page.locator('[data-tars-composer]').getByRole("textbox");
+    await input.fill("clean up the finished work"); await input.press("Enter");
+    const card = page.locator('[data-tars-batch-card]');
+    await card.locator('[data-tars-batch-confirm]').click();
+    await expect(card.getByRole("alert")).toBeVisible();
+    await expect(card.locator('[data-tars-batch-confirm]')).toBeEnabled();
+    await card.locator('[data-tars-batch-confirm]').click();
+    await expect(page.locator('[data-tars-batch-record]')).toBeVisible();
+    await expect(page.locator('[data-tars-batch-confirm]')).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('[data-tars-batch-record]')).toBeVisible();
+    await expect(page.locator('[data-tars-batch-confirm]')).toHaveCount(0);
+  });
+  test(`${lang}/${theme}: no workspace offers Close and never a disabled Archive`, async ({ page }) => {
+    await page.goto(`/?stavePreview=tars&tray=true&batch=true&batchMissing=true&lang=${lang}&theme=${theme}`);
+    const input = page.locator('[data-tars-composer]').getByRole("textbox");
+    await input.fill("clean up the finished work"); await input.press("Enter");
+    const card = page.locator('[data-tars-batch-card]');
+    await expect(card.locator('[data-tars-batch-nothing]')).toBeVisible();
+    await expect(card.locator('[data-tars-batch-confirm]')).toHaveCount(0);
+    await card.locator('[data-tars-batch-close]').click();
+    await expect(card).toHaveCount(0);
+    await page.reload();
+    await expect(page.locator('[data-tars-batch-card]')).toHaveCount(0);
+  });
+}

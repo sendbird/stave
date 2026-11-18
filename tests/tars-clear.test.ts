@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
+import { TarsStorageBusyError, TarsConversationStore } from "../electron/persistence/tars-conversation-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { applyTarsDecision } from "../electron/host-service/tars-decisions";
@@ -12,12 +12,13 @@ import { createSecondaryRunCoordinator } from "../electron/main/runs/secondary-r
 import { createTarsConversationService } from "../electron/main/tars-conversation-service";
 import { buildTarsPlannerPrompt, parseTarsDecisionOutput } from "../electron/main/tars-planner";
 import { createTarsRuntime } from "../electron/host-service/tars-runtime";
+import { actTars } from "../electron/host-service/tars-control";
 import { REGISTRY, SETTINGS, testContext } from "./tars-test-context";
 import type { SecondaryProviderExecutionRequest } from "../src/lib/runs/secondary-run";
 import { TarsActionReceiptSchema, type TarsActionReceipt, type TarsConversation, type TarsDecision, type TarsMessageView } from "../src/lib/tars/conversation";
 import { filterTarsConversationView, projectTarsClearProposals, tarsClearKeeps, tarsLaneUndoClear } from "../src/lib/tars/clear-view";
 import {
-  TarsClearInputSchema, TarsClearRecordSchema, TarsViewSettingsSchema, tarsClearProposalRequestId,
+  TarsClearInputSchema, TarsClearRecordSchema, TarsViewSettingsSchema, normalizeTarsClearScopes, tarsClearProposalRequestId,
 } from "../src/lib/tars/clearing";
 import type { CreateTarsResponsibilityInput, TarsResponsibilityPatch } from "../src/lib/tars/types";
 
@@ -175,7 +176,7 @@ describe("clear contracts", () => {
     const store = new TarsStore(database());
     const message = { requestId: "m", text: "Clear the chat", ...SETTINGS, id: "m", state: "reasoning" as const, revision: 2, reply: null, error: null,
       decision: null, createdAt: at(0), updatedAt: at(0) };
-    expect(buildTarsPlannerPrompt(message, testContext(store), [])).toContain("{kind:'clear',scopes:['conversation'|'done'|'outputs']}");
+    expect(buildTarsPlannerPrompt(message, testContext(store), [])).toContain("{kind:'clear',scopes:['conversation'|'done'|'outputs'|'work']}");
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "clear", scopes: ["conversation", "done"] }] })).actions)
       .toEqual([{ kind: "clear", scopes: ["conversation", "done"] }]);
     expect(parseTarsDecisionOutput(JSON.stringify({ reply: "x", actions: [{ kind: "clear", scopes: ["done"], responsibilityId: "r" }] })))
@@ -185,8 +186,173 @@ describe("clear contracts", () => {
   });
 });
 
+describe("Work reset", () => {
+  /** Tars's own unfinished work in every state a reset stops, the user's work it keeps, ended work, and a question waiting on the running work. */
+  async function seeded(f: ReturnType<typeof service>) {
+    const live = (id: string, patch: TarsResponsibilityPatch) => row(f.responsibilities, id, patch, f.now());
+    const running = live("running", { state: "running", taskId: "tars-running", executionWorkspaceId: "execution", agentRunId: "run-running" });
+    const waiting = live("waiting", { state: "waiting" });
+    const blocked = live("blocked", { state: "blocked" });
+    const queued = live("queued", { state: "queued" });
+    const takenOver = live("taken", { state: "takenOver", taskId: "tars-taken", executionWorkspaceId: "execution", agentRunId: "run-taken" });
+    const paused = live("paused", { state: "paused" });
+    const ended = live("ended", { state: "completed" });
+    const ask = f.conversations.create({ requestId: "ask", text: "Ask about the running work." }, f.now());
+    const claimed = f.conversations.claim(ask.id, ask.revision, f.now());
+    f.conversations.answer(ask.id, claimed.revision, { reply: "One question.", actions: [{ kind: "ask", question: "Should I stop it?", options: [
+      { label: "Stop", rationale: "Not needed.", effect: { kind: "control", responsibilityId: running.id, expectedRevision: running.revision, operation: "cancel" } },
+      { label: "Keep going", rationale: "Fine.", effect: { kind: "reply" } }] }] }, f.now());
+    f.service.wake(); await f.service.whenIdle();
+    return { running, waiting, blocked, queued, takenOver, paused, ended, ask };
+  }
+
+  test("cancels Tars's unfinished work through the normal cancel, keeps taken-over and paused work, closes its questions, and stays reset after a restart", async () => {
+    const filename = persisted();
+    const f = service({ filename });
+    f.service.start();
+    const rows = await seeded(f);
+    expect(f.responsibilities.snapshot().pendingDecisions).toContainEqual(expect.objectContaining({ kind: "ask", messageId: rows.ask.id }));
+
+    const record = await f.service.clear({ requestId: "reset", scopes: ["conversation", "work"], source: "click" });
+    // The reset brings Done and Outputs with it, and says what it stopped and what it kept.
+    expect(record.scopes).toEqual(["conversation", "done", "outputs", "work"]);
+    expect(new Set(record.work?.cancelled)).toEqual(new Set([rows.running.id, rows.waiting.id, rows.blocked.id, rows.queued.id]));
+    expect(record.work?.kept).toEqual(expect.arrayContaining([{ responsibilityId: rows.takenOver.id, reason: "takenOver" }, { responsibilityId: rows.paused.id, reason: "paused" }]));
+    // The running work's run was stopped through the runtime's cancel, not merely hidden.
+    expect(f.controls).toContainEqual([rows.running.id, "cancel"]);
+    expect(f.controls.some(([id]) => id === rows.takenOver.id)).toBe(false);
+    const state = (id: string) => f.responsibilities.get(id)?.state;
+    for (const id of record.work!.cancelled) expect(state(id)).toBe("cancelled");
+    // The user's own work is untouched: same state, same revision.
+    expect(f.responsibilities.get(rows.takenOver.id)).toMatchObject({ state: "takenOver", revision: rows.takenOver.revision });
+    expect(f.responsibilities.get(rows.paused.id)).toMatchObject({ state: "paused", revision: rows.paused.revision });
+    // Every ended card leaves the Work panel; the kept work stays in it.
+    const cleared = f.responsibilities.snapshot().cleared!;
+    expect(new Set(cleared.done)).toEqual(new Set([...record.work!.cancelled, rows.ended.id]));
+    // The question about the stopped work is closed, not left waiting or re-asked.
+    expect(f.responsibilities.snapshot().pendingDecisions?.some((decision) => decision.messageId === rows.ask.id)).toBe(false);
+    expect(f.conversations.getAnswer(`ask:${rows.ask.id}:0`)?.effect.kind).toBe("dismiss");
+    // A retry of the same reset returns the saved record and sends no control again.
+    const sent = f.controls.length;
+    expect(await f.service.clear({ requestId: "reset", scopes: ["conversation", "work"], source: "click" })).toEqual(record);
+    expect(f.controls.length).toBe(sent);
+    await f.service.whenIdle();
+    await f.service.stop();
+
+    const restarted = service({ filename, start: 1_000 });
+    restarted.service.start();
+    await restarted.service.whenIdle();
+    const after = restarted.responsibilities.snapshot();
+    expect(new Set(after.cleared!.done)).toEqual(new Set(cleared.done));
+    for (const id of record.work!.cancelled) expect(restarted.responsibilities.get(id)?.state).toBe("cancelled");
+    // No automatic re-ask comes back for the closed question, and nothing restarts the cancelled runs.
+    expect(restarted.conversations.list(100).some((message) => message.origin?.kind === "reask")).toBe(false);
+    expect(restarted.controls).toEqual([]);
+    // Restore brings the cards back; cancelled work stays cancelled.
+    restarted.service.undoClear({ requestId: "reset" });
+    expect(restarted.responsibilities.snapshot().cleared?.done).toEqual([]);
+    expect(restarted.responsibilities.get(rows.running.id)?.state).toBe("cancelled");
+    await restarted.service.stop();
+  });
+
+  test("a cancel the host refuses keeps that work and says so, instead of hiding it", async () => {
+    const f = service({ controlRun: async (_id, operation) => { if (operation === "cancel") throw new Error("The run did not stop."); } });
+    f.service.start();
+    const running = row(f.responsibilities, "running", { state: "running", taskId: "tars-running", executionWorkspaceId: "execution", agentRunId: "run-running" }, f.now());
+    const record = await f.service.clear({ requestId: "reset", scopes: ["work"], source: "click" });
+    expect(record.work).toEqual({ cancelled: [], kept: [{ responsibilityId: running.id, reason: "refused" }] });
+    expect(f.responsibilities.get(running.id)?.state).toBe("running");
+    expect(f.responsibilities.snapshot().cleared?.done).toEqual([]);
+    await f.service.stop();
+  });
+
+  test("a Work reset Tars proposes waits for the card and confirms with the Done and Outputs it brings", async () => {
+    const f = service({ answer: () => JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "clear", scopes: ["work"] }] }) });
+    f.service.start();
+    const running = row(f.responsibilities, "running", { state: "running" }, f.now());
+    const message = f.service.sendMessage({ requestId: "words", text: "In Progress 비워줘" });
+    await f.service.whenIdle();
+    expect(f.conversations.getReceipt(message.id, 0)?.status).toBe("proposed");
+    // Nothing stops before the confirmation.
+    expect(f.responsibilities.get(running.id)?.state).toBe("running");
+    const record = await f.service.clear({ requestId: tarsClearProposalRequestId(message.id, 0), scopes: ["work"], source: "click" });
+    expect(record.work?.cancelled).toEqual([running.id]);
+    expect(f.conversations.getReceipt(message.id, 0)?.status).toBe("applied");
+    await f.service.stop();
+  });
+
+  test("a proposal with nothing left to clear still closes through the host", async () => {
+    const f = service({ answer: () => JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "clear", scopes: ["outputs"] }] }) });
+    f.service.start();
+    const message = f.service.sendMessage({ requestId: "words", text: "Clear outputs." });
+    await f.service.whenIdle();
+    const record = await f.service.clear({ requestId: tarsClearProposalRequestId(message.id, 0), scopes: ["outputs"], source: "click" });
+    expect(record.outputs).toEqual([]);
+    const view = f.service.getConversation();
+    expect(projectTarsClearProposals(view.receipts, view.clears ?? []).map((proposal) => proposal.state)).toEqual(["settled"]);
+    await f.service.stop();
+  });
+
+  test("Work reset dismisses a reply-only question instead of leaving a confirmation waiting", async () => {
+    const f = service({ answer: () => JSON.stringify({ reply: "Reset it?", actions: [{ kind: "ask", question: "Reset Work?", options: [
+      { label: "Yes", rationale: "Reset it.", effect: { kind: "reply" } }, { label: "No", rationale: "Keep it.", effect: { kind: "reply" } }] }] }) });
+    f.service.start();
+    const message = f.service.sendMessage({ requestId: "reply-question", text: "Reset Work." });
+    await f.service.whenIdle();
+    await f.service.clear({ requestId: "reset", scopes: ["conversation", "work"], source: "click" });
+    expect(f.conversations.getAnswer(`ask:${message.id}:0`)?.effect.kind).toBe("dismiss");
+    expect(f.service.getConversation().messages).toEqual([]);
+    await f.service.stop();
+  });
+
+  test("a mismatched or missing clear proposal is refused before cancelling any work", async () => {
+    const f = service({ answer: () => JSON.stringify({ reply: "Confirm.", actions: [{ kind: "clear", scopes: ["outputs"] }] }) });
+    f.service.start();
+    const live = row(f.responsibilities, "running", { state: "running", taskId: "tars-running", executionWorkspaceId: "execution", agentRunId: "run-running" }, f.now());
+    const message = f.service.sendMessage({ requestId: "proposal", text: "Clear outputs." });
+    await f.service.whenIdle();
+    for (const messageId of [message.id, "missing"]) {
+      await expect(f.service.clear({ requestId: tarsClearProposalRequestId(messageId, 0), scopes: ["work"], source: "click" })).rejects.toThrow();
+      expect(f.responsibilities.get(live.id)?.state).toBe("running");
+      expect(f.controls).toEqual([]);
+    }
+    await f.service.stop();
+  });
+
+  test("declining a clear persists across restart and cannot later cancel Work", async () => {
+    const filename = persisted();
+    const f = service({ filename, answer: () => JSON.stringify({ reply: "Confirm.", actions: [{ kind: "clear", scopes: ["work"] }] }) });
+    f.service.start();
+    const message = f.service.sendMessage({ requestId: "proposal", text: "Reset Work." });
+    await f.service.whenIdle();
+    const decisionId = `confirm:${message.id}:0`;
+    expect(f.service.dismissDecision({ decisionId, source: "click" }).refusal).toBeNull();
+    expect(f.service.dismissDecision({ decisionId, source: "click" }).refusal).toBeNull();
+    await expect(f.service.clear({ requestId: tarsClearProposalRequestId(message.id, 0), scopes: ["work"], source: "click" })).rejects.toThrow("dismissed");
+    await f.service.stop();
+    const restarted = service({ filename, start: 1000 });
+    restarted.service.start(); await restarted.service.whenIdle();
+    const view = restarted.service.getConversation();
+    expect(projectTarsClearProposals(view.receipts, view.clears ?? [], view.answers).map((proposal) => proposal.state)).toEqual(["declined"]);
+    const cleared = await restarted.service.clear({ requestId: "chat", scopes: ["conversation"], source: "click" });
+    expect(cleared.hiddenMessages).toBe(1);
+    expect(restarted.service.getConversation().messages).toEqual([]);
+    await restarted.service.stop();
+  });
+
+  test("records hold exactly what a Work reset did", () => {
+    const base = { requestId: "a", source: "click", proposal: null, status: "applied", revision: 1, createdAt: at(0), updatedAt: at(0), done: [], outputs: [] };
+    expect(TarsClearRecordSchema.safeParse({ ...base, scopes: ["done", "outputs", "work"], work: { cancelled: ["r"], kept: [{ responsibilityId: "u", reason: "takenOver" }] } }).success).toBe(true);
+    expect(TarsClearRecordSchema.safeParse({ ...base, scopes: ["done", "outputs", "work"] }).success).toBe(false);
+    expect(TarsClearRecordSchema.safeParse({ ...base, scopes: ["done", "outputs"], work: { cancelled: [], kept: [] } }).success).toBe(false);
+    expect(normalizeTarsClearScopes(["work"])).toEqual(["done", "outputs", "work"]);
+  });
+});
+
 /** The main-process service over one database with a moving clock, so a clear has a time before and after it. */
-function service(options: { filename?: string; start?: number; answer?: (request: SecondaryProviderExecutionRequest) => string } = {}) {
+function service(options: { filename?: string; start?: number; answer?: (request: SecondaryProviderExecutionRequest) => string;
+  /** Runs before the runtime records a run control: a throw stands for a control whose outcome is not known. */
+  controlRun?: (responsibilityId: string, operation: string) => Promise<void>; findRun?: () => Promise<string | null> } = {}) {
   let clock = options.start ?? 100;
   const now = () => at(clock++);
   const db = database(options.filename);
@@ -196,8 +362,10 @@ function service(options: { filename?: string; start?: number; answer?: (request
   const ledger = new RunLedgerStore(db);
   const requests: SecondaryProviderExecutionRequest[] = [];
   const runtime = createTarsRuntime({ store: responsibilities, now, validateScope: async () => {},
-    prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => null,
-    startRun: async (entry) => `run-${entry.id}`, observe: async () => ({ state: "running", detail: null }), controlRun: async () => {} });
+    prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: options.findRun ?? (async () => null),
+    startRun: async (entry) => `run-${entry.id}`, observe: async () => ({ state: "running", detail: null }),
+    controlRun: async (entry, operation) => { if (options.controlRun) await options.controlRun(entry.id, operation); controls.push([entry.id, operation]); } });
+  const controls: Array<[string, string]> = [];
   const coordinator = createSecondaryRunCoordinator({
     getLedger: () => ({ getRunAggregate: ledger.getAggregate.bind(ledger), claimRunStep: ledger.claimStep.bind(ledger),
       markRunStepWaiting: ledger.markStepWaiting.bind(ledger), completeRunStep: ledger.completeStep.bind(ledger),
@@ -213,8 +381,9 @@ function service(options: { filename?: string; start?: number; answer?: (request
   const svc = createTarsConversationService({ conversations, responsibilities, coordinator, now,
     context: async () => testContext(responsibilities, REGISTRY),
     applyDecision: (input) => applyTarsDecision(input, { conversations, responsibilities, readRegistry: () => REGISTRY, requestTick: () => {}, control: runtime.act, now }),
+    act: (input) => actTars(input, { conversations, runtime, now }),
   });
-  return { conversations, responsibilities, requests, service: svc, now };
+  return { conversations, responsibilities, requests, controls, service: svc, now };
 }
 
 describe("conversation clears", () => {
@@ -234,7 +403,7 @@ describe("conversation clears", () => {
     f.service.wake(); await f.service.whenIdle();
     expect(f.service.getConversation().messages.map((message) => message.requestId)).toEqual(["older", "ask"]);
 
-    const record = f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
+    const record = await f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
     // The waiting question is not counted: it stays in view.
     expect(record.hiddenMessages).toBe(1);
     const view = f.service.getConversation();
@@ -269,7 +438,7 @@ describe("conversation clears", () => {
     first.service.sendMessage({ requestId: "said", text: "Said before." });
     await first.service.whenIdle();
     const queued = first.conversations.create({ requestId: "queued", text: "Still waiting." }, first.now());
-    const record = first.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "key" });
+    const record = await first.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "key" });
     expect(record.hiddenMessages).toBe(1);
     expect(first.service.getConversation().messages.map((message) => message.id)).toEqual([queued.id]);
     await first.service.stop();
@@ -302,16 +471,16 @@ describe("clear proposals", () => {
     expect(receipt.status).toBe("proposed");
     expect(f.responsibilities.snapshot().cleared?.done).toEqual([]);
     const requestId = tarsClearProposalRequestId(message.id, 0);
-    expect(() => f.service.clear({ requestId, scopes: ["done"], source: "click" })).toThrow("other scopes");
+    await expect(f.service.clear({ requestId, scopes: ["done"], source: "click" })).rejects.toThrow("other scopes");
     // The refused confirmation changed nothing.
     expect(f.responsibilities.snapshot().cleared?.done).toEqual([]);
     expect(f.responsibilities.view.getClear(requestId)).toBeNull();
-    const record = f.service.clear({ requestId, scopes: ["conversation", "done"], source: "key" });
+    const record = await f.service.clear({ requestId, scopes: ["conversation", "done"], source: "key" });
     expect(record.proposal).toEqual({ messageId: message.id, actionIndex: 0 });
     expect(record.done).toEqual([done.id]);
     expect(f.conversations.getReceipt(message.id, 0)).toMatchObject({ status: "applied", responsibilityId: null });
     // A retry from another surface joins the first record.
-    expect(f.service.clear({ requestId, scopes: ["done", "conversation"], source: "click" })).toEqual(record);
+    expect(await f.service.clear({ requestId, scopes: ["done", "conversation"], source: "click" })).toEqual(record);
     await f.service.stop();
   });
 
@@ -348,14 +517,14 @@ describe("review fixes", () => {
     const message = f.service.sendMessage({ requestId: "words", text: "Clear finished work." });
     await f.service.whenIdle();
     expect(f.conversations.getReceipt(message.id, 0)?.status).toBe("proposed");
-    const chat = f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
+    const chat = await f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
     // The proposal's message stays, so it is not counted as hidden.
     expect(chat.hiddenMessages).toBe(0);
     const cleared = f.service.getConversation();
     expect(cleared.messages.map((entry) => entry.id)).toEqual([message.id]);
     const requestId = tarsClearProposalRequestId(message.id, 0);
     expect(projectTarsClearProposals(cleared.receipts, cleared.clears ?? []).map((proposal) => [proposal.requestId, proposal.state])).toEqual([[requestId, "waiting"]]);
-    const confirmed = f.service.clear({ requestId, scopes: ["done", "outputs"], source: "click" });
+    const confirmed = await f.service.clear({ requestId, scopes: ["done", "outputs"], source: "click" });
     expect(confirmed.done).toEqual([done.id]);
     expect(f.service.getConversation().view?.clearRequestId).toBe("clear-chat");
     await f.service.stop();
@@ -367,8 +536,8 @@ describe("review fixes", () => {
     f.service.sendMessage({ requestId: "older", text: "Earlier words." });
     await f.service.whenIdle();
     const done = row(f.responsibilities, "done", { state: "completed" }, f.now());
-    expect(f.service.clear({ requestId: "clear-done", scopes: ["done"], source: "click" }).done).toEqual([done.id]);
-    f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
+    expect((await f.service.clear({ requestId: "clear-done", scopes: ["done"], source: "click" })).done).toEqual([done.id]);
+    await f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
     const cleared = f.service.getConversation();
     // The conversation's record lines start at the conversation clear...
     expect(cleared.clears?.map((record) => record.requestId)).toEqual(["clear-chat"]);
@@ -400,7 +569,7 @@ describe("review fixes", () => {
     await f.service.whenIdle();
     const working = f.conversations.create({ requestId: "working", text: "Still being answered." }, f.now());
     const claimed = f.conversations.claim(working.id, working.revision, f.now())!;
-    const record = f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
+    const record = await f.service.clear({ requestId: "clear-chat", scopes: ["conversation"], source: "click" });
     expect(record.hiddenMessages).toBe(1);
     // The reply lands in the clear's own millisecond.
     const answered = f.conversations.answer(working.id, claimed.revision, { reply: "Same-millisecond reply.", actions: [] }, record.createdAt);
@@ -425,4 +594,133 @@ describe("review fixes", () => {
     expect(store.view.activeConversationClear()?.inProgress).toEqual([]);
     expect(TarsClearRecordSchema.safeParse({ ...legacy, scopes: ["done"], hiddenMessages: undefined, done: [], inProgress: [] }).success).toBe(false);
   });
+});
+
+
+describe("Work reset failure boundaries", () => {
+  function ask(f: ReturnType<typeof service>, targets: Array<{ id: string; revision: number }>) {
+    const message = f.conversations.create({ requestId: "boundary-question", text: "Ask about work" }, f.now());
+    const claimed = f.conversations.claim(message.id, message.revision, f.now());
+    f.conversations.answer(message.id, claimed.revision, { reply: "Question", actions: [{ kind: "ask", question: "Stop this work?", options: [
+      ...targets.map(target => ({ label: target.id, rationale: "Stop", effect: { kind: "control" as const, responsibilityId: target.id, expectedRevision: target.revision, operation: "cancel" as const } })),
+      { label: "Keep", rationale: "Keep working", effect: { kind: "reply" as const } },
+    ] }] }, f.now());
+    return message;
+  }
+  test("a refused cancel retains its question through a conversation clear and restart", async () => {
+    const filename = persisted();
+    const f = service({ filename, controlRun: async () => { throw new Error("Fixture refusal"); } }); f.service.start();
+    const running = row(f.responsibilities, "refused", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+    const message = ask(f, [running]); f.service.wake(); await f.service.whenIdle();
+    const result = await f.service.clear({ requestId: "refused", scopes: ["conversation", "work"], source: "click" });
+    expect(result.work?.kept).toContainEqual({ responsibilityId: running.id, reason: "refused" });
+    expect(f.responsibilities.get(running.id)?.state).toBe("running");
+    expect(f.responsibilities.snapshot().pendingDecisions).toContainEqual(expect.objectContaining({ messageId: message.id }));
+    expect(f.service.getConversation().messages.some(m => m.id === message.id)).toBe(true);
+    await f.service.stop();
+    const restarted = service({ filename }); restarted.service.start();
+    expect(restarted.responsibilities.snapshot().pendingDecisions).toContainEqual(expect.objectContaining({ messageId: message.id }));
+    expect(restarted.service.getConversation().messages.some(m => m.id === message.id)).toBe(true);
+    await restarted.service.stop();
+  });
+  test("a pending cancel retries its saved identity across revisions, sources and restart without expanding membership", async () => {
+    const filename = persisted();
+    const f = service({ filename, controlRun: async () => { throw new TarsStorageBusyError(); } }); f.service.start();
+    const running = row(f.responsibilities, "pending", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+    const input = { requestId: "pending-reset", scopes: ["work" as const], source: "click" as const };
+    await expect(f.service.clear(input)).rejects.toThrow();
+    expect(f.responsibilities.view.getClear(input.requestId)).toBeNull();
+    f.responsibilities.patch(running.id, running.revision, { detail: "Observed again" }, f.now());
+    const newer = row(f.responsibilities, "newer", { state: "running" }, f.now());
+    await f.service.stop();
+    const restarted = service({ filename }); restarted.service.start();
+    await expect(restarted.service.clear({ ...input, scopes: ["conversation"] })).rejects.toThrow("different clear");
+    const result = await restarted.service.clear({ ...input, source: "key" });
+    expect(result.work?.cancelled).toEqual([running.id]);
+    expect(result.source).toBe("click");
+    expect(restarted.responsibilities.get(newer.id)?.state).toBe("running");
+    expect(restarted.controls).toEqual([[running.id, "cancel"]]);
+    expect(await restarted.service.clear(input)).toEqual(result);
+    expect(restarted.controls).toHaveLength(1);
+    await restarted.service.stop();
+  });
+  test("retry closes a question about work cancelled before an interrupted reset", async () => {
+    const filename = persisted();
+    let pendingId = "";
+    const f = service({ filename, controlRun: async id => { if (id === pendingId) throw new TarsStorageBusyError(); } }); f.service.start();
+    const first = row(f.responsibilities, "first", { state: "running", taskId: "first-task", executionWorkspaceId: "execution", agentRunId: "first-run" }, f.now());
+    const second = row(f.responsibilities, "second", { state: "running", taskId: "second-task", executionWorkspaceId: "execution", agentRunId: "second-run" }, f.now()); pendingId = second.id;
+    const question = ask(f, [first]); f.service.wake(); await f.service.whenIdle();
+    const input = { requestId: "partial", scopes: ["conversation" as const, "work" as const], source: "click" as const };
+    await expect(f.service.clear(input)).rejects.toThrow();
+    expect(f.responsibilities.get(first.id)?.state).toBe("cancelled");
+    await f.service.stop();
+    const restarted = service({ filename }); restarted.service.start();
+    const result = await restarted.service.clear(input);
+    expect(new Set(result.work?.cancelled)).toEqual(new Set([first.id, second.id]));
+    expect(restarted.conversations.getAnswer(`ask:${question.id}:0`)?.effect.kind).toBe("dismiss");
+    expect(restarted.responsibilities.snapshot().pendingDecisions).toEqual([]);
+    await restarted.service.stop();
+  });
+  test.each(["paused", "takenOver"] as const)("a %s ownership change during run lookup prevents cancel dispatch", async state => {
+    let f: ReturnType<typeof service>;
+    let id: string;
+    f = service({ findRun: async () => { const current = f.responsibilities.get(id)!; f.responsibilities.patch(id, current.revision, { state }, f.now()); return "fixture-run"; } });
+    f.service.start();
+    const running = row(f.responsibilities, "race", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution" }, f.now()); id = running.id;
+    const result = await f.service.clear({ requestId: "race", scopes: ["work"], source: "click" });
+    expect(f.controls).toEqual([]);
+    expect(f.responsibilities.get(id)?.state).toBe(state);
+    expect(result.work?.cancelled).toEqual([]);
+    expect(result.work?.kept.some(entry => entry.responsibilityId === id)).toBe(true);
+    await f.service.stop();
+  });
+  test("a mixed-target question is never dismissed on behalf of preserved work", async () => {
+    const f = service(); f.service.start();
+    const running = row(f.responsibilities, "stop", { state: "running" }, f.now());
+    const paused = row(f.responsibilities, "keep", { state: "paused" }, f.now());
+    const message = ask(f, [running, paused]); f.service.wake(); await f.service.whenIdle();
+    const result = await f.service.clear({ requestId: "mixed", scopes: ["work"], source: "click" });
+    expect(result.work?.cancelled).toEqual([running.id]);
+    expect(f.responsibilities.get(paused.id)).toMatchObject({ state: "paused", revision: paused.revision });
+    expect(f.conversations.getAnswer(`ask:${message.id}:0`)).toBeNull();
+    await f.service.stop();
+  });
+  test("over-limit scope is refused before any cancel or question closure", async () => {
+    const f = service(); f.service.start();
+    for (let index = 0; index < 1001; index++) row(f.responsibilities, `limit-${index}`, { state: "running" }, f.now());
+    await expect(f.service.clear({ requestId: "too-many", scopes: ["work"], source: "click" })).rejects.toThrow("Too many work items");
+    expect(f.controls).toEqual([]);
+    expect(f.responsibilities.snapshot().responsibilities.every(r => r.state === "running")).toBe(true);
+    expect(f.responsibilities.view.getClear("too-many")).toBeNull();
+    await f.service.stop();
+  });
+  test("concurrent retries cancel once and a conflicting reuse has no effects", async () => {
+    const f = service(); f.service.start();
+    const running = row(f.responsibilities, "concurrent", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+    const input = { requestId: "concurrent", scopes: ["work" as const], source: "click" as const };
+    const [first, retry] = await Promise.all([f.service.clear(input), f.service.clear(input)]);
+    expect(retry).toEqual(first); expect(f.controls).toEqual([[running.id, "cancel"]]);
+    await expect(f.service.clear({ ...input, scopes: ["conversation"] })).rejects.toThrow("different clear");
+    expect(f.controls).toHaveLength(1); await f.service.stop();
+  });
+});
+
+
+test("an in-flight clear cannot be dismissed while its lifecycle effect is running", async () => {
+  let release!: () => void;
+  let started!: () => void;
+  const entered = new Promise<void>(resolve => { started = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const f = service({ answer: () => JSON.stringify({ reply: "Confirm", actions: [{ kind: "clear", scopes: ["work"] }] }),
+    controlRun: async () => { started(); await gate; } }); f.service.start();
+  const running = row(f.responsibilities, "dismiss-race", { state: "running", taskId: "fixture-task", executionWorkspaceId: "execution", agentRunId: "fixture-run" }, f.now());
+  const message = f.service.sendMessage({ requestId: "reset-proposal", text: "Reset Work" }); await f.service.whenIdle();
+  const clear = f.service.clear({ requestId: tarsClearProposalRequestId(message.id, 0), scopes: ["work"], source: "click" });
+  await entered;
+  expect(f.service.dismissDecision({ decisionId: `confirm:${message.id}:0`, source: "click" }).refusal).toBe("notWaiting");
+  release();
+  expect((await clear).work?.cancelled).toEqual([running.id]);
+  expect(f.conversations.getReceipt(message.id, 0)?.status).toBe("applied");
+  await f.service.stop();
 });

@@ -18,6 +18,7 @@ import {
 import { TarsWorkRequestSchema, type TarsWorkRequest } from "../../src/lib/tars/types";
 import { AttachmentContextsSchema, type AttachmentContext } from "../../src/lib/providers/attachment-context";
 import { tarsWorkRequestOf } from "../../src/lib/tars/brief";
+import { normalizeTarsClearScopes, type TarsClearScope } from "../../src/lib/tars/clearing";
 import { TarsComposerDraftSchema, type TarsComposerDraft } from "../../src/lib/tars/composer-draft";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { readLatestTarsControls, readMovedOnTarsMessages, readSettledTarsTargets } from "./tars-proposals";
@@ -962,10 +963,17 @@ export class TarsConversationStore {
    * The clear proposal a confirmation applies, settled with the clear in the
    * caller's transaction. Throws unless it is that exact proposal and still waits.
    */
-  settleClearProposal(ref: TarsProposalRef, scopes: readonly string[], now: string): TarsActionReceipt {
+  checkClearProposal(ref: TarsProposalRef, scopes: readonly TarsClearScope[]): TarsActionReceipt {
     const current = this.getReceipt(ref.messageId, ref.actionIndex);
     if (current?.action.kind !== "clear" || current.status !== "proposed") throw new Error("The clear proposal is not awaiting confirmation.");
-    if ([...current.action.scopes].sort().join() !== [...scopes].sort().join()) throw new Error("The confirmation names other scopes than the proposal.");
+    // Compared as the host applies them: a proposal to reset Work confirms with the Done and Outputs it always brings.
+    if (normalizeTarsClearScopes(current.action.scopes).join() !== normalizeTarsClearScopes(scopes).join()) throw new Error("The confirmation names other scopes than the proposal.");
+    if (this.getAnswer(`confirm:${ref.messageId}:${ref.actionIndex}`)?.effect.kind === "dismiss") throw new Error("The clear proposal was dismissed.");
+    return current;
+  }
+
+  settleClearProposal(ref: TarsProposalRef, scopes: readonly TarsClearScope[], now: string): TarsActionReceipt {
+    const current = this.checkClearProposal(ref, scopes);
     const next = TarsActionReceiptSchema.parse({ ...current, status: "applied", responsibilityId: null, error: null, reason: null,
       revision: current.revision + 1, updatedAt: now });
     const result = this.db.prepare(`UPDATE tars_action_receipts SET revision = ?, body_json = ?
