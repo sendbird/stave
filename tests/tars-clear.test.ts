@@ -724,3 +724,25 @@ test("an in-flight clear cannot be dismissed while its lifecycle effect is runni
   expect(f.conversations.getReceipt(message.id, 0)?.status).toBe("applied");
   await f.service.stop();
 });
+
+test("an interrupted proposed reset cannot be dismissed after it failed or across a restart, and its retry still finishes", async () => {
+  const filename = persisted();
+  let pendingId = "";
+  const proposal = () => JSON.stringify({ reply: "Confirm", actions: [{ kind: "clear", scopes: ["work"] }] });
+  const f = service({ filename, answer: proposal, controlRun: async id => { if (id === pendingId) throw new TarsStorageBusyError(); } }); f.service.start();
+  const first = row(f.responsibilities, "first", { state: "running", taskId: "first-task", executionWorkspaceId: "execution", agentRunId: "first-run" }, f.now());
+  const second = row(f.responsibilities, "second", { state: "running", taskId: "second-task", executionWorkspaceId: "execution", agentRunId: "second-run" }, f.now()); pendingId = second.id;
+  const message = f.service.sendMessage({ requestId: "interrupted-proposal", text: "Reset Work" }); await f.service.whenIdle();
+  const input = { requestId: tarsClearProposalRequestId(message.id, 0), scopes: ["work" as const], source: "click" as const };
+  await expect(f.service.clear(input)).rejects.toThrow();
+  expect(f.responsibilities.get(first.id)?.state).toBe("cancelled");
+  const decisionId = `confirm:${message.id}:0`;
+  expect(f.service.dismissDecision({ decisionId, source: "click" }).refusal).toBe("notWaiting");
+  await f.service.stop();
+  const restarted = service({ filename, answer: proposal }); restarted.service.start();
+  expect(restarted.service.dismissDecision({ decisionId, source: "click" }).refusal).toBe("notWaiting");
+  const result = await restarted.service.clear(input);
+  expect(new Set(result.work?.cancelled)).toEqual(new Set([first.id, second.id]));
+  expect(restarted.conversations.getReceipt(message.id, 0)?.status).toBe("applied");
+  await restarted.service.stop();
+});

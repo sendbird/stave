@@ -664,7 +664,10 @@ export function createTarsConversationService(ports: ConversationPorts) {
     dismissDecision(rawInput: unknown): TarsAnswerResult {
       if (!started || stopped) throw new Error("The representative conversation service is unavailable.");
       const input = TarsDismissInputSchema.parse(rawInput);
-      if (clearingProposals.has(input.decisionId.replace(/^confirm:/, "clear:"))) return { answer: null, refusal: "notWaiting" };
+      // A reset in flight, or one admitted before it failed or the app restarted, may already have cancelled work: only its retry may settle it.
+      const clearId = input.decisionId.replace(/^confirm:/, "clear:");
+      if (clearingProposals.has(clearId) || (clearId !== input.decisionId && ports.responsibilities.view.hasClearIntent(clearId)))
+        return { answer: null, refusal: "notWaiting" };
       const existing = ports.conversations.getAnswer(input.decisionId);
       if (existing?.effect.kind === "dismiss") return { answer: existing, refusal: null };
       // Clear cards share the saved dismissal path with other confirmations.
