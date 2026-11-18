@@ -169,6 +169,7 @@ export type WorkspaceScriptEvent =
       totalCommands: number;
     }
   | { type: "orbit-url"; url: string }
+  | { type: "orbit-local-url"; url: string }
   | { type: "output"; data: string }
   | { type: "command-completed"; commandIndex: number; exitCode: number }
   | { type: "completed"; exitCode: number }
@@ -194,6 +195,7 @@ export interface WorkspaceScriptStatusEntry {
   sessionId?: string;
   error?: string;
   orbitUrl?: string;
+  orbitLocalUrl?: string;
   source?: WorkspaceScriptRunSource;
 }
 

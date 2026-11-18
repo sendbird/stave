@@ -52,6 +52,20 @@ describe("countRunningServiceEntries", () => {
 });
 
 describe("reduceScriptUiState", () => {
+  test("records the orbit localhost URL next to the orbit host", () => {
+    const withHost = reduceScriptUiState(
+      { running: true, runId: "run-1", log: "" },
+      createEnvelope({ type: "orbit-url", url: "https://dev.stave.localhost" }),
+    );
+    const state = reduceScriptUiState(
+      withHost,
+      createEnvelope({ type: "orbit-local-url", url: "http://localhost:4123" }),
+    );
+
+    expect(state.orbitUrl).toBe("https://dev.stave.localhost");
+    expect(state.orbitLocalUrl).toBe("http://localhost:4123");
+  });
+
   test("marks non-zero completion as an inline error and records exit code", () => {
     const state = reduceScriptUiState(
       { running: true, log: "booting\n" },
@@ -87,6 +101,7 @@ describe("reduceScriptUiState", () => {
         runId: "run-0",
         log: "old log",
         orbitUrl: "https://old.example.com",
+        orbitLocalUrl: "http://localhost:4001",
         error: "previous failure",
         endedAt: 500,
         exitCode: 1,
@@ -105,6 +120,7 @@ describe("reduceScriptUiState", () => {
       runId: "run-1",
       log: "",
       orbitUrl: undefined,
+      orbitLocalUrl: undefined,
       error: undefined,
       startedAt: 2_000,
       endedAt: undefined,

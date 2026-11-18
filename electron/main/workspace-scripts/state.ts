@@ -26,6 +26,7 @@ export interface WorkspaceScriptProcess {
   log: string;
   error?: string;
   orbitUrl?: string;
+  orbitLocalUrl?: string;
   cleanup?: () => void;
 }
 
@@ -92,6 +93,9 @@ export function recordWorkspaceScriptEvent(args: {
     case "orbit-url":
       entry.orbitUrl = args.event.url;
       break;
+    case "orbit-local-url":
+      entry.orbitLocalUrl = args.event.url;
+      break;
     case "error":
       entry.error = args.event.error;
       break;
@@ -110,6 +114,7 @@ export function getWorkspaceScriptStatusesForWorkspace(workspaceId: string): Wor
     sessionId: entry.sessionId,
     error: entry.error,
     orbitUrl: entry.orbitUrl,
+    orbitLocalUrl: entry.orbitLocalUrl,
     source: entry.source,
   }));
 }

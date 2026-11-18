@@ -7,6 +7,8 @@
     "openInBrowser": "Open in browser",
     "openOrbitUrlInLens": "Open Orbit URL in Lens",
     "openOrbitUrlInBrowser": "Open Orbit URL in browser",
+    "openLocalUrlInLens": "Open local URL in Lens",
+    "openLocalUrlInBrowser": "Open local URL in browser",
     "runValueHook": "Run {{value1}} hook",
     "run": "Run",
     "orbit": " · Orbit",

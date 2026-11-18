@@ -44,6 +44,13 @@ describe("workspace script runtime snapshots", () => {
       scriptId: "dev",
       scriptKind: "service",
       runId: "run-1",
+      event: { type: "orbit-local-url", url: "http://localhost:4123" },
+    });
+    recordWorkspaceScriptEvent({
+      workspaceId: "ws-1",
+      scriptId: "dev",
+      scriptKind: "service",
+      runId: "run-1",
       event: { type: "error", error: "port already in use" },
     });
 
@@ -57,6 +64,7 @@ describe("workspace script runtime snapshots", () => {
         sessionId: "session-1",
         error: "port already in use",
         orbitUrl: "https://dev.stave.localhost",
+        orbitLocalUrl: "http://localhost:4123",
         source: { kind: "manual" },
       },
     ]);

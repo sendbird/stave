@@ -78,6 +78,8 @@ This rendered example shows the right-rail Workspace Tools panel with a running 
 Orbit works best when the process command is a direct dev-server command such as `yarn start`, `pnpm dev`, or `bun run dev`.
 For those commands, Stave passes the argv directly to `portless run`, which lets Portless assign an ephemeral app port and inject `--port` / `--host` flags for supported frameworks.
 If the command relies on shell-only syntax such as `&&`, pipes, redirects, command substitution, or inline env assignments, Stave falls back to a shell wrapper and the underlying app must still honor `PORT` / `HOST` on its own.
+While an Orbit process runs, the process row shows the Orbit host badge and, under it, a `http://localhost:<port>` badge for the app port that Portless assigned.
+Use the localhost URL when a backend's CORS allowlist accepts only `localhost` origins and rejects the Orbit host.
 
 ### Assign A Trigger
 

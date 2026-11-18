@@ -19,6 +19,7 @@ export interface ScriptUiState {
   log: string;
   error?: string;
   orbitUrl?: string;
+  orbitLocalUrl?: string;
   sourceLabel?: string;
   startedAt?: number;
   endedAt?: number;
@@ -93,10 +94,14 @@ export function reduceScriptUiState(
       if (isNewRun) {
         next.log = "";
         next.orbitUrl = undefined;
+        next.orbitLocalUrl = undefined;
       }
       break;
     case "orbit-url":
       next.orbitUrl = payload.event.url;
+      break;
+    case "orbit-local-url":
+      next.orbitLocalUrl = payload.event.url;
       break;
     case "output":
       next.log = appendScriptLog(current.log, payload.event.data);
@@ -144,6 +149,7 @@ export function buildEntryStateFromStatus(
     log: status.log,
     error: status.error,
     orbitUrl: status.orbitUrl,
+    orbitLocalUrl: status.orbitLocalUrl,
     sourceLabel: getScriptRunSourceLabel(status.source),
   };
 }
@@ -160,6 +166,7 @@ export function buildScriptRunFailureState(args: {
     log: args.existing?.log ?? "",
     error: args.error,
     orbitUrl: undefined,
+    orbitLocalUrl: undefined,
     sourceLabel: args.sourceLabel ?? args.existing?.sourceLabel ?? i18n.t("scripts:runtimeState.manual"),
   };
 }

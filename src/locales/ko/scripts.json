@@ -7,6 +7,8 @@
     "openInBrowser": "브라우저에서 열기",
     "openOrbitUrlInLens": "Lens에서 Orbit URL 열기",
     "openOrbitUrlInBrowser": "브라우저에서 Orbit URL 열기",
+    "openLocalUrlInLens": "Lens에서 로컬 URL 열기",
+    "openLocalUrlInBrowser": "브라우저에서 로컬 URL 열기",
     "runValueHook": "{{value1}} 훅 실행",
     "run": "실행",
     "orbit": " · Orbit 연결",

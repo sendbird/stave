@@ -278,3 +278,41 @@ export function extractOrbitOutput(args: { buffer: string; chunk: string }) {
       (passthroughLines.length > 0 ? `${passthroughLines.join("\n")}\n` : "") + overflow,
   };
 }
+
+const ANSI_ESCAPE_PATTERN = /\u001b\[[0-9;?]*[ -/]*[@-~]/g;
+// The lookahead waits for the end of the number, so a chunk split mid-port
+// ("-- Using port 41" + "69") is not read as port 41.
+const ORBIT_APP_PORT_PATTERN = /-- Using port (\d{1,5})(?=\D)/;
+const ORBIT_APP_PORT_SCAN_TAIL_CHARS = 256;
+
+export function buildOrbitLocalUrl(port: number) {
+  return `http://localhost:${port}`;
+}
+
+/**
+ * Watch portless output for the app port it assigns (`-- Using port 4123`).
+ * Portless gives the child `PORT`, and the proxy only forwards the Orbit host,
+ * so the direct localhost URL is what CORS allowlists usually accept.
+ * Returns the port once, then stops scanning.
+ */
+export function createOrbitAppPortDetector() {
+  let tail = "";
+  let found = false;
+  return (chunk: string): number | null => {
+    if (found) {
+      return null;
+    }
+    const text = (tail + chunk).replace(ANSI_ESCAPE_PATTERN, "");
+    const match = ORBIT_APP_PORT_PATTERN.exec(text);
+    if (match) {
+      const port = Number(match[1]);
+      if (Number.isInteger(port) && port > 0 && port <= 65535) {
+        found = true;
+        tail = "";
+        return port;
+      }
+    }
+    tail = text.slice(-ORBIT_APP_PORT_SCAN_TAIL_CHARS);
+    return null;
+  };
+}
