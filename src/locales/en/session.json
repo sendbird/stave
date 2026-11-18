@@ -1459,6 +1459,7 @@
   },
   "turnFiles": {
     "restore": "Restore files to before this turn",
+    "restoreShort": "Restore files",
     "keep": "Keep conversation, restore files",
     "rollback": "Restore files and roll back conversation",
     "description": "Restore the saved files from before this turn. Current files are saved first so you can undo the restore. Conversation rollback removes this turn and later messages. To continue a conversation from an earlier point, you can also fork it.",

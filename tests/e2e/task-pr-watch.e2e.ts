@@ -8,7 +8,8 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {
       await expect(page.getByText("Plan the next settings pass.", { exact: true })).toBeVisible();
       const notice = page.getByTestId("task-pr-watch-notice");
       await expect(notice).toBeVisible();
-      await expect(notice).toContainText(lang === "ko" ? "PR #17의" : "Watching PR #17");
+      await expect(notice).toContainText("PR #17");
+      await expect(notice).toContainText(lang === "ko" ? "검사 실패와 충돌을 감시하는 중" : "Watching for failing checks and conflicts");
       await page.evaluate(() => document.fonts.ready);
       const icon = notice.locator("svg");
       const text = notice.locator("p").first();

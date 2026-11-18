@@ -452,12 +452,14 @@
     "parentRequired": "Choose a base branch with an open parent PR."
   },
   "agentPrWatch": {
-    "watchingPr": "Watching PR #{{number}} for failing checks and conflicts.",
-    "waitingForPr": "Watching this branch, but there is no pull request yet.",
+    "label": "PR #{{number}}",
+    "labelNoPr": "Pull request watch",
+    "statusWatching": "Watching for failing checks and conflicts",
+    "statusWaiting": "No pull request on this branch yet",
+    "statusPaused": "Watch paused",
+    "statusStopped": "Watch stopped",
     "openSchedules": "Open in Schedules",
     "ambiguous": "Stave did not watch PR #{{number}} automatically because more than one task in this workspace ran a command that opens a pull request. Add the watch from Schedules on the task that owns it.",
-    "paused": "Pull request watching is paused.",
-    "stopped": "Pull request watching has stopped.",
     "stop": "Stop watching"
   }
 }

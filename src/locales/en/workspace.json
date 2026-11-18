@@ -1500,5 +1500,10 @@
     "savedChanges": "Saved changes",
     "saveChanges": "Save uncommitted changes and archive",
     "saveChangesDescription": "Preserve staged, unstaged and untracked files. Ignored files are excluded. Restore stops if existing files conflict."
+  },
+  "archivedShelf": {
+    "title": "Archived workspaces",
+    "trigger": "Archived workspaces ({{count}})",
+    "manage": "Open Clean up workspaces"
   }
 }

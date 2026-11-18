@@ -17,9 +17,11 @@ const render = (props: Partial<Parameters<typeof TaskPullRequestWatchNoticeView>
 
 describe("task pull request watch record", () => {
   test("names the watched PR and offers Stop watching for an automatic watch in each locale", async () => {
-    for (const [locale, watching, stop] of [["en", "Watching PR #17", "Stop watching"], ["ko", "PR #17의 검사 실패와 충돌을 감시하고 있습니다", "감시 중지"]]) {
+    for (const [locale, watching, stop] of [["en", "Watching for failing checks and conflicts", "Stop watching"], ["ko", "검사 실패와 충돌을 감시하는 중", "감시 중지"]]) {
       await i18n.changeLanguage(locale);
       const html = render({ entry: entry("scheduled") });
+      expect(html).toContain("PR #17");
+      expect(html).toContain('href="https://github.com/example/repo/pull/17"');
       expect(html).toContain(watching);
       expect(html).toContain(stop);
     }
@@ -32,12 +34,12 @@ describe("task pull request watch record", () => {
   });
   test("a watch without a PR yet does not claim to watch one", () => {
     const html = render({ entry: entry("scheduled", { pr: null }) });
-    expect(html).not.toContain("Watching PR");
-    expect(html).toContain("no pull request yet");
+    expect(html).not.toContain("PR #");
+    expect(html).toContain("No pull request on this branch yet");
   });
   test("retains the stopped record without offering an ineffective action", () => {
     const html = render({ entry: entry("stopped") });
-    expect(html).toContain("watching has stopped");
+    expect(html).toContain("Watch stopped");
     expect(html).not.toContain("<button");
   });
   test("does not claim a different schedule watches a pull request", () => {

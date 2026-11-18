@@ -1,7 +1,10 @@
 import { sx } from "@/components/aui/utils/stylex";
 import { conversationTurnActionsStyles as styles } from "./conversation-turn-actions.styles";
 import { useState } from "react";
+import { FileClock } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
+import { transition } from "@/components/aui/recipes/transition";
+import { MessageAction } from "@/components/ai-elements";
 import { Button, toast } from "@/components/ui";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useAppStore } from "@/store/app.store";
@@ -12,7 +15,7 @@ import { TURN_FILE_RESTORE_EVENT, useTurnSnapshotCatalog, useTurnSnapshotCatalog
 const announceRestore = () => window.dispatchEvent(new Event(TURN_FILE_RESTORE_EVENT));
 
 /** The host resolves the task's worktree and makes every mutation decision. */
-export function TurnFileActions(props: { taskId: string; messageId: string }) {
+export function TurnFileActions(props: { taskId: string; messageId: string; variant?: "inline" | "preview" }) {
   useTranslation();
   const turnId = useAppStore((state) => state.messagesByTask[props.taskId]?.find((message) => message.id === props.messageId)?.turnId);
   const workspaceId = useAppStore((state) => state.taskWorkspaceIdById[props.taskId]);
@@ -57,11 +60,26 @@ export function TurnFileActions(props: { taskId: string; messageId: string }) {
   }
 
   return <>
-    <Button variant="outline" size="sm" disabled={busy || running} onClick={async () => {
-      setOpen(true); setDetail(""); setCanRollback(false);
-      const plan = await getRestoreConversationBeforeTurnPlan(props);
-      setCanRollback(plan.ok);
-    }}>{i18n.t("session:turnFiles.restore")}</Button>
+    {/* Same shell as Fork here / Rollback here: caption text, 14px glyph, no outline. */}
+    <MessageAction
+      label={i18n.t("session:turnFiles.restore")}
+      aria-disabled={busy || running}
+      data-turn-file-action="restore"
+      className={sx(
+        props.variant === "preview" ? styles.actionPreview : styles.actionInline,
+        (busy || running) && styles.actionDisabled,
+        transition.control,
+      )}
+      onClick={async () => {
+        if (busy || running) return;
+        setOpen(true); setDetail(""); setCanRollback(false);
+        const plan = await getRestoreConversationBeforeTurnPlan(props);
+        setCanRollback(plan.ok);
+      }}
+    >
+      <FileClock aria-hidden className={sx(styles.iconSm)} />
+      {i18n.t("session:turnFiles.restoreShort")}
+    </MessageAction>
     <Dialog open={open} onOpenChange={(value) => { if (!busy) setOpen(value); }}>
       <DialogContent>
         <DialogHeader>

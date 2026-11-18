@@ -442,12 +442,14 @@
     "parentRequired": "열려 있는 상위 PR이 있는 대상 브랜치를 선택하세요."
   },
   "agentPrWatch": {
-    "watchingPr": "PR #{{number}}의 검사 실패와 충돌을 감시하고 있습니다.",
-    "waitingForPr": "이 브랜치를 감시하고 있지만 아직 PR이 없습니다.",
+    "label": "PR #{{number}}",
+    "labelNoPr": "PR 감시",
+    "statusWatching": "검사 실패와 충돌을 감시하는 중",
+    "statusWaiting": "이 브랜치에 아직 PR이 없습니다",
+    "statusPaused": "감시 일시정지됨",
+    "statusStopped": "감시 종료됨",
     "openSchedules": "일정에서 열기",
     "ambiguous": "이 작업 공간에서 두 개 이상의 작업이 PR을 여는 명령을 실행해서 PR #{{number}}을 자동으로 감시하지 않았습니다. 일정에서 이 PR을 담당하는 작업에 감시를 추가하세요.",
-    "paused": "PR 감시가 일시정지되었습니다.",
-    "stopped": "PR 감시가 종료되었습니다.",
     "stop": "감시 중지"
   }
 }
