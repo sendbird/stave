@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 
 /**
@@ -35,26 +37,29 @@ function stripComments(code: string) {
  * per file there let earlier tests' pending work starve the scan past the
  * 5 s timeout on CI runners.
  */
-const PRODUCTION_SOURCES: ReadonlyArray<{ repoPath: string; code: string }> = [
-  "electron",
-  "src",
-  "server",
-].flatMap((root) =>
-  Array.from(
-    new Bun.Glob("**/*.{ts,tsx,mts,mjs}").scanSync({ cwd: path.join(REPO_ROOT, root) }),
-    (relativePath) => `${root}/${relativePath}`,
-  )
-    .filter((repoPath) => !repoPath.includes("/node_modules/"))
-    .map((repoPath) => ({
-      repoPath,
-      code: stripComments(readFileSync(path.join(REPO_ROOT, repoPath), "utf8")),
-    })),
-);
+function readProductionSources(repoRoot: string) {
+  return ["electron", "src", "server"].flatMap((root) =>
+    Array.from(
+      new Bun.Glob("**/*.{ts,tsx,mts,mjs}").scanSync({ cwd: path.join(repoRoot, root) }),
+      (relativePath) => `${root}/${relativePath}`,
+    )
+      .filter((repoPath) => !repoPath.includes("/node_modules/"))
+      .map((repoPath) => ({
+        repoPath,
+        code: stripComments(readFileSync(path.join(repoRoot, repoPath), "utf8")),
+      })),
+  );
+}
 
-function findOffenders(pattern: RegExp, allowed: ReadonlySet<string>) {
-  return PRODUCTION_SOURCES.filter(
-    ({ repoPath, code }) => !allowed.has(repoPath) && pattern.test(code),
-  )
+const PRODUCTION_SOURCES = readProductionSources(REPO_ROOT);
+
+function findOffenders(
+  pattern: RegExp,
+  allowed: ReadonlySet<string>,
+  sources = PRODUCTION_SOURCES,
+) {
+  return sources
+    .filter(({ repoPath, code }) => !allowed.has(repoPath) && pattern.test(code))
     .map(({ repoPath }) => repoPath)
     .sort();
 }
@@ -74,6 +79,61 @@ describe("Local MCP manifest consumers", () => {
         ]),
       ),
     ).toEqual([]);
+  });
+
+  test("the scan preserves per-rule ownership, comments, extensions and exclusions", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "manifest-consumers-"));
+    function scanFixture() {
+      const sources = readProductionSources(root);
+      return [
+        findOffenders(/local-mcp(?:\.json|-instances)/, MANIFEST_OWNERS, sources),
+        findOffenders(
+          /\bgetPrimaryStaveLocalMcpManifestPath\b|\bgetStaveLocalMcpInstanceManifestRoot\b/,
+          new Set([
+            "electron/main/stave-local-mcp-manifest.ts",
+            "electron/main/stave-local-mcp-manifest-store.ts",
+          ]),
+          sources,
+        ),
+      ];
+    }
+    try {
+      const sources: Record<string, string> = {
+        "electron/main/stave-local-mcp-manifest.ts":
+          'const p = "local-mcp.json"; getPrimaryStaveLocalMcpManifestPath();',
+        "electron/main/stave-mcp-server.ts":
+          'const p = "local-mcp.json"; getPrimaryStaveLocalMcpManifestPath();',
+        "electron/bad.mts": 'const p = "local-mcp-instances";',
+        "src/bad.tsx": "getStaveLocalMcpInstanceManifestRoot();",
+        "server/bad.mjs":
+          'const p = "local-mcp.json"; getPrimaryStaveLocalMcpManifestPath();',
+        "src/comments.ts":
+          "// local-mcp.json\n/* getPrimaryStaveLocalMcpManifestPath() */",
+        "src/node_modules/ignored.ts": 'const p = "local-mcp.json";',
+        "src/ignored.txt": 'const p = "local-mcp.json";',
+      };
+      for (const [relativePath, source] of Object.entries(sources)) {
+        const file = path.join(root, relativePath);
+        await mkdir(path.dirname(file), { recursive: true });
+        await Bun.write(file, source);
+      }
+      expect(scanFixture()).toEqual([
+        ["electron/bad.mts", "server/bad.mjs"],
+        ["electron/main/stave-mcp-server.ts", "server/bad.mjs", "src/bad.tsx"],
+      ]);
+      await Promise.all(
+        ["electron/bad.mts", "server/bad.mjs", "src/bad.tsx"].map((file) =>
+          Bun.write(path.join(root, file), "export {};"),
+        ),
+      );
+      await Bun.write(
+        path.join(root, "electron/main/stave-mcp-server.ts"),
+        'const p = "local-mcp.json";',
+      );
+      expect(scanFixture()).toEqual([[], []]);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
   });
 
   test("the main process stamps itself as the Local MCP owner of its children", async () => {
