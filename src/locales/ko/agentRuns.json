@@ -955,6 +955,7 @@
       "pullRequestMerged": "PR #{{number}} 병합됨",
       "pullRequestClosed": "PR #{{number}} 닫힘",
       "delegatedFinished_other": "위임 작업 {{count}}개 완료",
+      "delegatedStalled_other": "위임 작업 {{count}}개가 멈춰 판단이 필요함",
       "timeReached": "정해진 시각 도래"
     },
     "timeline": {

@@ -23,6 +23,7 @@ import {
   type TaskCompletionSignal,
 } from "../../src/lib/supervision/wake-up-policy";
 import { taskCompletionSignalOf } from "../../src/lib/supervision/task-completion-signal";
+import type { DelegatedStallSignal } from "../../src/lib/agent-runs/event-wait-observe";
 import { ensureHostServicePersistenceReady } from "./persistence";
 
 /**
@@ -100,6 +101,34 @@ export function listTaskCompletionSignals(args: {
     const signal = taskCompletionSignalOf(summary);
     return signal ? [signal] : [];
   });
+}
+
+/**
+ * Delegated work of a parent whose child Run stopped for a person (its stage
+ * got stuck or blocked; a usage reset resumes on its own and is not one). The
+ * key is that stall's own waiting receipt, so a child that resumes and stops
+ * again wakes its parent again, and the same stall never does twice.
+ */
+export function listDelegatedStallSignals(args: { taskId: string }): DelegatedStallSignal[] {
+  try {
+    const store = ensureHostServicePersistenceReady();
+    return store.listRunAggregatesByOrigin({ originKind: "task", originId: args.taskId, limit: TASK_COMPLETION_FEED_LIMIT })
+      .flatMap((aggregate) => {
+        if (aggregate.step.status !== "waiting") return [];
+        const receipt = [...store.listRunReceipts({ runId: aggregate.run.id })].reverse().find((entry) =>
+          entry.type === "waiting" && entry.executionId === aggregate.step.executionId && entry.detail?.code === "child-agent-run-waiting");
+        if (!receipt) return [];
+        return [{
+          runId: aggregate.run.id, stepId: aggregate.step.id, delegatedTaskId: aggregate.step.target?.taskId ?? null,
+          providerId: aggregate.step.target?.providerId ?? "unknown",
+          reason: receipt.detail?.message ? receipt.detail.message.slice(0, WAKE_UP_LIMITS.maxReasonChars) : null,
+          key: receipt.idempotencyKey,
+        }];
+      });
+  } catch (error) {
+    console.warn(`[stave-mcp] failed to read stalled delegated work: ${String(error)}`);
+    return [];
+  }
 }
 
 /** Delegated tasks of a parent that have not reached a terminal phase. */

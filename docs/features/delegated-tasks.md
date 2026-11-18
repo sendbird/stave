@@ -73,7 +73,9 @@ change within the frozen parent/member pins, provider, account and catalog;
 permissions cannot widen. A
 workflow does not grant publication permission, and sign-off cannot widen a
 read-only delegation. Open the child's task to answer a block, sign off or use
-its Run controls. Parent Follow-up and Detach are reserved for other lifecycles;
+its Run controls. When its Run stops for a person (a stuck or blocked stage),
+the parent can also answer it with Follow-up, which continues that stage with
+the admitted permissions; Detach stays reserved for other lifecycles;
 Stop cancels supervision and the active provider turn. A limit reached before
 acceptance leaves a failed assignment with its progress, not a completed result.
 The parent still owns integration and acceptance of the overall work.
@@ -180,7 +182,7 @@ allows:
 | Control | Available when |
 | --- | --- |
 | Open | Always. Navigates to the delegated task, across workspaces if needed. |
-| Follow-up | The delegation is `detached` and waiting. Sends one more turn. |
+| Follow-up | The delegation is `detached` and waiting, or `supervised` and its Run stopped for a person. Sends one more turn; a supervised child continues its waiting stage. |
 | Stop | The child is still active. Ends the child's work. |
 | Detach | A one-turn or detached child is still active. Releases the parent's claim and leaves the child running as an ordinary task. Supervised Agent work retains its delegation authority. |
 | Retry | The delegation ended without succeeding and has attempts left. Starts a new attempt on the same child. |
@@ -269,7 +271,9 @@ Limits:
 ### Run As An Agent
 
 A saved Agent defaults to supervised completion. If it pauses for guidance,
-open the child task and use **Reply to the delegated Agent** in its Run area;
+its parent is asked first: a parent waiting on delegated work wakes once for
+that stall and may answer with `stave_follow_up_delegated_task`, stop it or do
+the work itself. You can also open the child task and use **Reply to the delegated Agent** in its Run area;
 the reply continues the same stage with the admitted permissions and turn
 limit. A paused Run must be resumed first. **Take Over** cancels delegated
 supervision and gives you direct task control. To supervise that work again,

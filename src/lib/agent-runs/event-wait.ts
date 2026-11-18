@@ -352,6 +352,7 @@ export const EVENT_WAIT_FACTS = [
   "pull-request-merged",
   "pull-request-closed",
   "delegated-finished",
+  "delegated-stalled",
   "time-reached",
 ] as const;
 export type EventWaitFactKind = (typeof EVENT_WAIT_FACTS)[number];
@@ -462,6 +463,8 @@ export function describeEventWaitFact(fact: EventWaitFact): string {
       return i18n.t("agentRuns:eventWait.fact.pullRequestClosed", { number });
     case "delegated-finished":
       return i18n.t("agentRuns:eventWait.fact.delegatedFinished", { count: fact.count });
+    case "delegated-stalled":
+      return i18n.t("agentRuns:eventWait.fact.delegatedStalled", { count: fact.count });
     case "time-reached":
       return i18n.t("agentRuns:eventWait.fact.timeReached");
   }

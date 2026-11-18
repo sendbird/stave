@@ -37,6 +37,21 @@ import {
   type EventWaitFact,
 } from "./event-wait";
 
+/**
+ * Delegated work that stopped and waits for a person (its stage got stuck or
+ * blocked). Its parent is its manager: the wait wakes once per stall so the
+ * parent replies to it, stops it or does the work itself instead of waiting
+ * on a child nobody watches. `key` is that stall's own waiting receipt.
+ */
+export interface DelegatedStallSignal {
+  runId: string;
+  stepId: string;
+  delegatedTaskId: string | null;
+  providerId: string;
+  reason: string | null;
+  key: string;
+}
+
 /** An event that wakes the run, with what its turn is told. */
 export interface EventWaitWake {
   waitId: string;
@@ -251,7 +266,7 @@ function completionKey(signal: TaskCompletionSignal) {
   return `completion:${buildTaskCompletionSignalKey(signal)}`;
 }
 
-function matchesDelegatedTarget(signal: TaskCompletionSignal, target: string, parentTaskId: string) {
+function matchesDelegatedTarget(signal: Pick<TaskCompletionSignal, "delegatedTaskId" | "runId">, target: string, parentTaskId: string) {
   return (
     signal.delegatedTaskId === target ||
     signal.runId === target ||
@@ -281,32 +296,50 @@ export function selectFreshCompletions(args: {
   });
 }
 
+const stallKey = (signal: DelegatedStallSignal) => `stall:${signal.key}`;
+
+/** Stalls not delivered yet, of the named child or of any child. */
+function selectFreshStalls(args: { wait: AgentRunEventWait; stalls: readonly DelegatedStallSignal[]; parentTaskId: string }) {
+  const consumed = new Set(args.wait.consumedKeys);
+  return args.stalls.filter((signal) => !consumed.has(stallKey(signal)) &&
+    (!args.wait.target || matchesDelegatedTarget(signal, args.wait.target, args.parentTaskId)));
+}
+
 function observeCompletions(args: {
   wait: AgentRunEventWait;
   completions: readonly TaskCompletionSignal[];
+  stalls?: readonly DelegatedStallSignal[];
   parentTaskId: string;
 }): EventWaitOutcome {
   const { wait } = args;
   const fresh = selectFreshCompletions(args);
-  if (fresh.length === 0) return { kind: "none" };
-  const lines = fresh.map((signal) => {
-    const who = signal.delegatedTaskId ?? signal.runId;
-    const why = signal.reason ? ` — ${signal.reason}` : "";
-    return `- ${who} (${signal.providerId}): ${signal.status}${why}`;
-  });
+  const stalled = selectFreshStalls({ wait, stalls: args.stalls ?? [], parentTaskId: args.parentTaskId });
+  if (fresh.length === 0 && stalled.length === 0) return { kind: "none" };
+  const line = (signal: { delegatedTaskId: string | null; runId: string; providerId: string; reason: string | null }, status: string) =>
+    `- ${signal.delegatedTaskId ?? signal.runId} (${signal.providerId}): ${status}${signal.reason ? ` — ${signal.reason}` : ""}`;
+  // i18n-ignore: model-facing event summary
+  const finished = fresh.length ? [
+    fresh.length === 1 ? "Delegated work you waited for finished:" : `${fresh.length} delegated tasks you waited for finished:`,
+    ...fresh.map((signal) => line(signal, signal.status)),
+    "Their answers are under Subagent results in this turn's context. Review each result before you rely on it.",
+  ] : [];
+  // i18n-ignore: model-facing event summary
+  const stuck = stalled.length ? [
+    stalled.length === 1 ? "Delegated work you waited for stopped and waits for its manager:" : `${stalled.length} delegated tasks you waited for stopped and wait for their manager:`,
+    ...stalled.map((signal) => line(signal, "waiting")),
+    "Decide now instead of waiting: reply with bounded instructions from the assignment and project evidence (stave_follow_up_delegated_task), stop it (stave_stop_delegated_task), or do the work yourself. Ask the user only for new authority, credentials or personal choices.",
+  ] : [];
   return {
     kind: "event",
     wake: {
       waitId: wait.id,
-      keys: fresh.map(completionKey),
-      fact: { fact: "delegated-finished", count: fresh.length, pullRequestNumber: null },
-      // i18n-ignore: model-facing event summary
-      summary: clip([
-        fresh.length === 1 ? "Delegated work you waited for finished:" : `${fresh.length} delegated tasks you waited for finished:`,
-        ...lines,
-        "Their answers are under Subagent results in this turn's context. Review each result before you rely on it.",
-      ].join("\n")),
-      final: Boolean(wait.target),
+      keys: [...fresh.map(completionKey), ...stalled.map(stallKey)],
+      fact: fresh.length
+        ? { fact: "delegated-finished", count: fresh.length, pullRequestNumber: null }
+        : { fact: "delegated-stalled", count: stalled.length, pullRequestNumber: null },
+      summary: clip([...finished, ...stuck].join("\n")),
+      // A stalled child has not finished: the wait stays for its end.
+      final: Boolean(wait.target) && fresh.length > 0,
     },
   };
 }
@@ -325,6 +358,8 @@ export function observeEventWait(args: {
   pullRequestRead?: PullRequestWatchRead;
   /** This tick's delegated-task completion feed, for a completion wait. */
   completions?: readonly TaskCompletionSignal[];
+  /** This tick's delegated work that stopped for a person, for a completion wait. */
+  stalls?: readonly DelegatedStallSignal[];
 }): { wait: AgentRunEventWait; outcome: EventWaitOutcome } {
   const { wait, now } = args;
   switch (wait.kind) {
@@ -351,7 +386,7 @@ export function observeEventWait(args: {
       return {
         wait,
         outcome: args.completions
-          ? observeCompletions({ wait, completions: args.completions, parentTaskId: args.parentTaskId })
+          ? observeCompletions({ wait, completions: args.completions, stalls: args.stalls, parentTaskId: args.parentTaskId })
           : { kind: "none" },
       };
     case "pull_request_checks":

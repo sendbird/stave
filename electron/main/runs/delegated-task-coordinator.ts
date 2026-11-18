@@ -172,6 +172,8 @@ export interface DelegatedTaskHostPort {
   runAgentRun?: (args: DelegatedAgentRunStart & { onPrepared: () => Promise<boolean> }) => Promise<AgentRunDetail>;
   readAgentRun?: (args: { agentRunId: string }) => Promise<DelegatedAgentRunRead | null>;
   stopAgentRun?: (args: { agentRunId: string; workspaceId: string; taskId: string }) => Promise<unknown>;
+  /** Continues a supervised child's Run stage that stopped for a person with its parent's bounded reply. */
+  replyAgentRun?: (args: { agentRunId: string; stageId: string; attempt: number; feedback: string }) => Promise<unknown>;
   resolveWorkspace(args: {
     workspaceId: string;
   }): Promise<DelegatedTaskWorkspaceLocation | null>;
@@ -1908,6 +1910,22 @@ export function createDelegatedTaskCoordinator(
         !executionId
       ) {
         return rejected("invalid-state", resolved.child);
+      }
+      if (resolved.child.lifecycle === "supervised") {
+        // The child's own Run keeps its admitted permissions, model and budget; the
+        // runtime re-checks that its stage still waits before it continues. Its
+        // supervisor stays in flight while it waits, so that is not "already active".
+        const agentRunId = resolved.child.agentRunId!;
+        const read = await dependencies.host.readAgentRun?.({ agentRunId }).catch(() => null) ?? null;
+        const detail = read && !("missing" in read) ? read : null;
+        const stage = detail?.stages.filter((record) => record.stageId === detail.agentRun.workflow.stages[detail.agentRun.currentStageIndex]?.id).at(-1);
+        if (!detail || !stage || !dependencies.host.replyAgentRun) return rejected("invalid-state", resolved.child);
+        try {
+          await dependencies.host.replyAgentRun({ agentRunId, stageId: stage.stageId, attempt: stage.attempt, feedback: args.prompt });
+        } catch {
+          return rejected("stale-execution", resolved.child);
+        }
+        return accepted({ duplicate: false, child: resolved.child });
       }
       if (inFlightByStepId.has(resolved.stepId)) {
         return rejected("already-active", resolved.child);

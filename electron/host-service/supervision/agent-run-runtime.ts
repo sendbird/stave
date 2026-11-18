@@ -69,7 +69,7 @@ import {
   type AgentRunEventWait,
   type EventWaitReceipt,
 } from "../../../src/lib/agent-runs/event-wait";
-import { observeEventWait, planEventWaitRead } from "../../../src/lib/agent-runs/event-wait-observe";
+import { observeEventWait, planEventWaitRead, type DelegatedStallSignal } from "../../../src/lib/agent-runs/event-wait-observe";
 import {
   PULL_REQUEST_WATCH_LIMITS,
   PullRequestWatchReadSchema,
@@ -381,6 +381,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
    */
   listCompletedDelegatedRuns?: (args: { workspaceId: string; taskId: string }) =>
     Promise<TaskCompletionSignal[]> | TaskCompletionSignal[];
+  /** Delegated work of a task that stopped for a person; a waiting parent wakes once per stall. */
+  listStalledDelegatedRuns?: (args: { workspaceId: string; taskId: string }) => Promise<DelegatedStallSignal[]> | DelegatedStallSignal[];
   /** The saved Agent a task's delegated task (by id or delegation key) runs as; null for a model-only one. */
   delegatedTargetAgent?: (args: { taskId: string; target: string }) => string | null;
   emitChanged?: (event: AgentRunChangedEvent) => void;
@@ -1331,17 +1333,21 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         wait.wakes >= wait.maxWakes || (expired && wait.kind !== "time")) return aggregate;
     const pullRequestRead = isPullRequestEventWait(wait.kind) ? takePullRequestRead(agentRun, wait) : undefined;
     let completions: TaskCompletionSignal[] | undefined;
+    let stalls: DelegatedStallSignal[] | undefined;
     if (planEventWaitRead(wait, now()).completions && deps.listCompletedDelegatedRuns) {
       try {
         completions = (await prepareRunTurn(signal, async () => deps.listCompletedDelegatedRuns!({ workspaceId: agentRun.workspaceId, taskId: agentRun.leadTaskId })))
           .map((signal) => TaskCompletionSignalSchema.parse(signal));
+        stalls = deps.listStalledDelegatedRuns
+          ? await prepareRunTurn(signal, async () => deps.listStalledDelegatedRuns!({ workspaceId: agentRun.workspaceId, taskId: agentRun.leadTaskId }))
+          : undefined;
       } catch (error) {
         if (signal.aborted) throw error;
         // A ledger read that fails this tick is no verdict; the wait reads again next tick.
         console.warn("[agent-runs] could not read delegated completions for a wait", error, { agentRunId: agentRun.id });
       }
     }
-    const observed = observeEventWait({ wait, now: now(), parentTaskId: agentRun.leadTaskId, pullRequestRead, completions });
+    const observed = observeEventWait({ wait, now: now(), parentTaskId: agentRun.leadTaskId, pullRequestRead, completions, stalls });
     observation.eventWait = observed.outcome;
     const next = observed.wait.waitingSince ? observed.wait : { ...observed.wait, waitingSince: now().toISOString() };
     const saved = JSON.stringify(next) === JSON.stringify(wait) ? aggregate : save(next);

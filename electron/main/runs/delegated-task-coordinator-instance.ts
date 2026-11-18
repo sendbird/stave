@@ -99,7 +99,12 @@ const agentRunPort = createDelegatedAgentRunPort({
   stopTask: (args) => invokeHostService("task.stop", args),
   subscribe: (listener) => onHostServiceEvent("agent-run.changed", listener),
 });
-Object.assign(host, { runAgentRun: agentRunPort.run, readAgentRun: agentRunPort.read, stopAgentRun: agentRunPort.stop });
+Object.assign(host, { runAgentRun: agentRunPort.run, readAgentRun: agentRunPort.read, stopAgentRun: agentRunPort.stop,
+  replyAgentRun: async (args: { agentRunId: string; stageId: string; attempt: number; feedback: string }) => {
+    const result = await invokeHostService("agent-run.invoke", { action: "reply", args }) as AgentRunInvokeResult<AgentRunDetail>;
+    if (!result.ok) throw new Error(result.message);
+    return result.value;
+  } });
 // Observe child Run changes through the existing coordinator, including blocked/sign-off states.
 onHostServiceEvent("agent-run.changed", (event) => {
   if (coordinator) void coordinator.reconcile({ taskId: event.leadTaskId, agentRunId: event.agentRunId })
