@@ -60,7 +60,10 @@ function storeOpenAt(open: RecentRepositoryState, remembered: RecentRepositorySt
 const staveIds = (state: State) =>
   state.recentRepositories.find((item) => item.repositoryPath === STAVE)?.workspaces.map((item) => item.id);
 
+let previousWindowDescriptor: PropertyDescriptor | undefined;
+
 beforeEach(() => {
+  previousWindowDescriptor = Object.getOwnPropertyDescriptor(globalThis, "window");
   savedRegistry = [repository(OTHER, ["base:other"]), repository(STAVE, ["base:stave", NEW_ID], NEW_ID)];
   (globalThis as { window?: unknown }).window = {
     api: {
@@ -76,7 +79,11 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  delete (globalThis as { window?: unknown }).window;
+  if (previousWindowDescriptor) {
+    Object.defineProperty(globalThis, "window", previousWindowDescriptor);
+  } else {
+    delete (globalThis as { window?: unknown }).window;
+  }
   resetFleetWorkspaceShells();
 });
 
