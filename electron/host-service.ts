@@ -226,7 +226,7 @@ import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES,
-  shouldBypassOutboundQueueLimit,
+  outboundQueueLimitBytes,
   truncateHostServiceErrorMessage,
 } from "./shared/host-service-transport";
 import {
@@ -272,7 +272,6 @@ type HostServiceOutboundMessage =
 
 const HOST_SERVICE_QUEUE_WARN_DEPTH = 24;
 const HOST_SERVICE_QUEUE_WARN_BYTES = 256 * 1024;
-const HOST_SERVICE_QUEUE_MAX_BYTES = 2 * 1024 * 1024;
 const HOST_SERVICE_QUEUE_SLOW_WRITE_MS = 48;
 const HOST_SERVICE_QUEUE_LOG_INTERVAL_MS = 2_000;
 const HOST_SERVICE_SHUTDOWN_TIMEOUT_MS = 10_000;
@@ -541,12 +540,10 @@ function writeMessage(message: HostServiceOutboundMessage) {
   if (fatalHostServiceError) {
     return Promise.reject(fatalHostServiceError);
   }
-  if (
-    !shouldBypassOutboundQueueLimit(message) &&
-    pendingMessageBytes + messageBytes > HOST_SERVICE_QUEUE_MAX_BYTES
-  ) {
+  const queueLimitBytes = outboundQueueLimitBytes(message);
+  if (pendingMessageBytes + messageBytes > queueLimitBytes) {
     const error = new Error(
-      `protocol overflow: outbound queue exceeded ${HOST_SERVICE_QUEUE_MAX_BYTES} bytes`,
+      `protocol overflow: outbound queue exceeded ${queueLimitBytes} bytes`,
     );
     maybeLogQueueBackpressure({
       reason: "rejected",
@@ -1506,7 +1503,7 @@ async function respond<TMethod extends HostServiceMethod>(
 
 /**
  * Truncated so the response stays small enough to safely bypass the outbound
- * queue cap (see {@link shouldBypassOutboundQueueLimit}).
+ * queue cap (see {@link outboundQueueLimitBytes}).
  */
 async function respondError(id: number, error: unknown) {
   await writeMessage({

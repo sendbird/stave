@@ -6,6 +6,8 @@ import {
   HOST_SERVICE_ERROR_MESSAGE_MAX_CHARS,
   HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES,
   HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES,
+  HOST_SERVICE_EVENT_QUEUE_MAX_BYTES,
+  outboundQueueLimitBytes,
   shouldBypassOutboundQueueLimit,
   truncateHostServiceErrorMessage,
 } from "../electron/shared/host-service-transport";
@@ -26,6 +28,25 @@ describe("shouldBypassOutboundQueueLimit", () => {
     );
     expect(shouldBypassOutboundQueueLimit({ type: "event" })).toBe(false);
     expect(shouldBypassOutboundQueueLimit({ type: "ready" })).toBe(false);
+  });
+});
+
+describe("outboundQueueLimitBytes", () => {
+  test("an event backlog cannot reject a success response a caller waits for", () => {
+    // Reported: `tars:get` failed with "protocol overflow: outbound queue exceeded 2097152 bytes"
+    // when a ~120 KB snapshot response met a backlog of events from parallel runs.
+    const backlog = HOST_SERVICE_EVENT_QUEUE_MAX_BYTES - 1_000;
+    const snapshotResponse = 120 * 1024;
+    expect(backlog + snapshotResponse).toBeGreaterThan(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
+    expect(backlog + snapshotResponse).toBeLessThanOrEqual(outboundQueueLimitBytes({ type: "response", ok: true }));
+    // Responses still share the receiver's finite buffer budget.
+    expect(outboundQueueLimitBytes({ type: "response", ok: true })).toBe(HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES);
+  });
+
+  test("events keep the small backlog cap and error responses always pass", () => {
+    expect(outboundQueueLimitBytes({ type: "event" })).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
+    expect(outboundQueueLimitBytes({ type: "ready" })).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
+    expect(outboundQueueLimitBytes({ type: "response", ok: false })).toBe(Number.POSITIVE_INFINITY);
   });
 });
 
