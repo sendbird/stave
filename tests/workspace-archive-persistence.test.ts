@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 
 // The native driver is built for the desktop ABI. Run the real store there;
 // no persistence or SQL methods are mocked.
-for (const scenario of ["history", "paths", "delete"]) test(`archive persistence review regression: ${scenario}`, async () => {
+for (const scenario of ["history", "paths", "delete", "tombstones"]) test(`archive persistence review regression: ${scenario}`, async () => {
   mkdirSync("test-results", { recursive: true });
   const root = mkdtempSync(path.resolve("test-results/workspace-archive-"));
   try {
@@ -40,6 +40,29 @@ for (const scenario of ["history", "paths", "delete"]) test(`archive persistence
       assert.equal(store.listArchivedWorkspacesPersistence().length,0);
       const staleRegistry = store.loadRepositoryRegistry();
       const identity = {workspaceId:"workspace",repositoryPath:"/tmp/repository",path:"/tmp/repository/worktree",branch:"feature",name:"Workspace"};
+      if (${JSON.stringify(scenario)} === "tombstones") {
+        const closedPath = "/tmp/repository/preserved-checkout";
+        // Existing installs can have path-only archive markers and no history row.
+        before.prepare("UPDATE app_state SET value_json=? WHERE key='project_registry'").run(JSON.stringify(staleRegistry.map(repository=>({...repository,archivedWorkspacePaths:[closedPath]}))));
+        store.saveRepositoryRegistry({repositories:staleRegistry,keepUnseenWorkspaces:true});
+        assert.deepEqual(store.loadRepositoryRegistry()[0].archivedWorkspacePaths,[closedPath],"a stale renderer save must retain path-only archives");
+        store.updateRepositoryRegistry(repositories=>({repositories,result:null}));
+        store.close();
+        store = new SqliteStore({dbPath,runMaintenance:false});
+        assert.deepEqual(store.loadRepositoryRegistry()[0].archivedWorkspacePaths,[closedPath]);
+        const anotherPath = "/tmp/repository/another-closed-checkout";
+        store.saveRepositoryRegistry({repositories:staleRegistry.map(repository=>({...repository,archivedWorkspacePaths:[anotherPath,closedPath + "/",identity.path + "/"]}))});
+        assert.deepEqual(store.loadRepositoryRegistry()[0].archivedWorkspacePaths,[closedPath,anotherPath],"merge both writers' markers, deduplicate canonical paths, and allow active paths");
+        store.archiveWorkspacePersistence(identity);
+        const archivedPaths = store.loadRepositoryRegistry()[0].archivedWorkspacePaths;
+        store.saveRepositoryRegistry({repositories:staleRegistry,keepUnseenWorkspaces:true});
+        assert.deepEqual(store.loadRepositoryRegistry()[0].archivedWorkspacePaths,archivedPaths);
+        assert.equal(store.loadRepositoryRegistry()[0].workspaces.some(row=>row.id===identity.workspaceId),false);
+        store.restoreWorkspacePersistence({workspaceId:identity.workspaceId});
+        store.saveRepositoryRegistry({repositories:staleRegistry.map(repository=>({...repository,archivedWorkspacePaths:archivedPaths})),keepUnseenWorkspaces:true});
+        assert.deepEqual(store.loadRepositoryRegistry()[0].archivedWorkspacePaths,[closedPath,anotherPath],"restore clears only the restored path");
+        store.close();before.close();process.exit(0);
+      }
       const archive = store.archiveWorkspacePersistence(identity);
       if (${JSON.stringify(scenario)} === "paths") {
         store.restoreWorkspacePersistence({workspaceId:"workspace"});
