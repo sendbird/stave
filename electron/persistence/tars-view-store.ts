@@ -186,6 +186,11 @@ export class TarsViewStore {
     return this.read(this.db.prepare("SELECT body_json FROM tars_clears WHERE request_id = ?").get(requestId));
   }
 
+  /** An admitted reset may have controlled work already, so it cannot be dismissed midway, even after a restart. */
+  hasClearIntent(requestId: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM tars_clear_intents WHERE request_id = ?").get(requestId));
+  }
+
   /** Bind retry identity and membership before lifecycle I/O, including across restarts. */
   reserveClear(rawInput: TarsClearInput, targets: readonly string[]): { input: TarsClearInput; targets: string[] } {
     const input = TarsClearInputSchema.parse(rawInput);
