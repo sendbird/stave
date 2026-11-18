@@ -8,6 +8,7 @@
  */
 import { INLINE_RENDER_FRAME_SANDBOX } from "@/lib/inline-render/inline-render";
 import type { McpAppCspDeclaration, McpAppPermissions } from "./mcp-app-view";
+import { MCP_APP_VIEW_DOCUMENT_PRELUDE } from "./mcp-app-view-document";
 
 /** The most origins Stave accepts in any one declared list. */
 export const MCP_APP_MAX_CSP_DOMAINS = 32;
@@ -105,7 +106,8 @@ const LEADING_DOCTYPE_PATTERN = /^﻿?\s*<!doctype[^>]*>/i;
 /**
  * The browser-only preview path, where the render scheme does not exist: the
  * view's own HTML with the same CSP delivered by a leading `<meta>`, so it
- * governs every script after it.
+ * governs every script after it, then the document prelude
+ * (`mcp-app-view-document.ts`) ahead of the view's own markup.
  */
 export function buildMcpAppSrcdoc(html: string, csp: McpAppCsp): string {
   const rest = html.replace(LEADING_DOCTYPE_PATTERN, "");
@@ -113,7 +115,7 @@ export function buildMcpAppSrcdoc(html: string, csp: McpAppCsp): string {
     .replace(/&/g, "&amp;")
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;");
-  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${policy}"><meta charset="utf-8">${rest}`;
+  return `<!doctype html><meta http-equiv="Content-Security-Policy" content="${policy}"><meta charset="utf-8">${MCP_APP_VIEW_DOCUMENT_PRELUDE}${rest}`;
 }
 
 const PERMISSION_FEATURES: Record<keyof McpAppPermissions, string> = {

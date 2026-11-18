@@ -6,8 +6,9 @@ export const MCP_APP_PREVIEW_VIEW_ID = "fedcba9876543210-0f0e0d0c-0b0a-4908-8706
 
 /**
  * A hand-written MCP App view (no SDK): it runs the handshake, renders the
- * tool input and result, follows the host theme, reports its size, and has a
- * button for each request a view can make.
+ * tool input and result, follows the host theme, reports its size, reads and
+ * writes `document.cookie` without a guard, and has a button for each request
+ * a view can make.
  */
 const MCP_APP_PREVIEW_HTML = `<!doctype html>
 <style>
@@ -33,6 +34,7 @@ const MCP_APP_PREVIEW_HTML = `<!doctype html>
 </div>
 <p id="log" class="muted"></p>
 <p id="network" class="muted">network: checking…</p>
+<p id="cookies" class="muted">cookies: checking…</p>
 <script>
   var nextId = 1;
   var pending = {};
@@ -75,9 +77,19 @@ const MCP_APP_PREVIEW_HTML = `<!doctype html>
     el("status").textContent = "theme: " + result.hostContext.theme + " · server tools: " + (result.hostCapabilities.serverTools ? "yes" : "no");
     notify("ui/notifications/initialized", {});
     size();
+    // Model a view error boundary after first paint and its first size report.
+    setTimeout(function () {
+      try {
+        document.cookie = "preview-visit=1; path=/";
+        el("cookies").textContent = "cookies: " + document.cookie;
+      } catch (error) {
+        document.body.replaceChildren();
+        throw error;
+      }
+    }, 0);
   });
-  function size() { notify("ui/notifications/size-changed", { width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight }); }
-  if (typeof ResizeObserver === "function") new ResizeObserver(size).observe(document.documentElement);
+  function size() { notify("ui/notifications/size-changed", { width: document.body.offsetWidth, height: document.body.offsetHeight }); }
+  if (typeof ResizeObserver === "function") new ResizeObserver(size).observe(document.body);
   function report(label) {
     return [function (result) { log(label + ": " + JSON.stringify(result)); }, function (error) { log(label + " error: " + error.message); }];
   }
