@@ -311,6 +311,45 @@ describe("while a turn streams", () => {
   });
 });
 
+describe("a workspace of a repository that is not open", () => {
+  // Tars runs in an execution workspace of /tmp/stave while /tmp/other is open.
+  // Host turn events keep its session in this window's runtime cache.
+  const running = task("tars-work");
+  const select = (cache: Record<string, unknown>) =>
+    createFleetTaskRowsSelector({
+      repositories: [
+        { repositoryPath: "/tmp/other", repositoryName: "other", workspaces: [{ id: "ws-other", name: "other" }] },
+        { repositoryPath: "/tmp/stave", repositoryName: "stave", workspaces: [{ id: "ws-tars", name: "tars" }] },
+      ],
+      nowMs: NOW,
+      attentionItems: [],
+      attentionItemsByWorkspaceId: {},
+      shells: { "ws-tars": { status: "loaded", shell: { tasks: [running], openTaskTabIds: ["tars-work"] } as unknown as WorkspaceShellSummary } },
+    })({
+      repositoryPath: "/tmp/other",
+      activeWorkspaceId: "ws-other",
+      tasks: [],
+      messagesByTask: {},
+      activeTurnIdsByTask: {},
+      openTaskTabIds: [],
+      workspaceRuntimeCacheById: cache,
+      providerTurnActivityByTask: { "tars-work": { ...activity("turn-tars", false), lastEventAt: NOW - 1_000 } },
+      workspaceLastActiveAtById: { "ws-tars": minutesAgo(0) },
+    } as never);
+
+  test("shows the running turn its cached session holds, not an unknown state", () => {
+    const rows = select({
+      "ws-tars": { tasks: [running], messagesByTask: {}, activeTurnIdsByTask: { "tars-work": "turn-tars" }, openTaskTabIds: ["tars-work"] },
+    });
+    expect(rows.map((row) => `${row.task.id}:${row.status}`)).toEqual(["tars-work:running"]);
+  });
+
+  test("without a cached session it shows the stored task once, as unknown", () => {
+    const rows = select({});
+    expect(rows.map((row) => `${row.task.id}:${row.status}`)).toEqual(["tars-work:unknown"]);
+  });
+});
+
 describe("workspaces whose task lists are not read", () => {
   afterEach(() => applyAppLocale("en"));
   const view = (rows: readonly FleetTaskRow[], load: { pending: string[]; failed: string[] }) =>

@@ -1131,7 +1131,9 @@ export function createWorkspaceHydrationActions(args: {
           );
         }
         if (newRows.length > 0) {
-          nextWorkspaces = [...nextWorkspaces, ...newRows];
+          // A host workspace notification may have listed one of these while this pass awaited Git.
+          const listed = new Set(nextWorkspaces.map((ws) => ws.id));
+          nextWorkspaces = [...nextWorkspaces, ...newRows.filter((row) => !listed.has(row.id))];
         }
 
         const nextBranch = {

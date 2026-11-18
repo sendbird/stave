@@ -33,6 +33,7 @@ import {
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { bootstrapTrackerIssuesClient } from "@/lib/tracker-issues/bootstrap";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
+import { syncHostWorkspaceChange } from "@/store/host-workspace-sync";
 import { refreshRegisteredWorkspaceDocumentActivity } from "@/store/workspace-documents-store";
 import { primeProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
 
@@ -157,6 +158,16 @@ export default function App() {
       pendingByTaskTurn.clear();
     };
   }, []);
+
+  useEffect(
+    () =>
+      window.api?.localMcp?.subscribeWorkspaceChanges?.((change) => {
+        void syncHostWorkspaceChange(change).catch((error) => {
+          console.error("[local-mcp] Failed to sync host workspace change", error, change);
+        });
+      }),
+    [],
+  );
 
   useEffect(() => {
     const connectorApi = window.api?.craneConnector;

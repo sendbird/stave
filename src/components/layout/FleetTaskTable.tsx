@@ -152,7 +152,11 @@ export function useFleetTaskOwners(rows: readonly FleetTaskRow[]): FleetTaskOwne
   );
 }
 
-/** Workspaces of `repositories` that have no live session in this window. */
+/**
+ * Workspaces of `repositories` that have no live session in this window. A
+ * session cached for a workspace of another repository counts: host-run turns
+ * keep it current whichever repository is open.
+ */
 function listColdWorkspaceIds(
   state: Pick<FleetTaskTableState, "repositoryPath" | "activeWorkspaceId" | "workspaceRuntimeCacheById">,
   repositories: readonly FleetTaskTableRepository[],
@@ -162,9 +166,9 @@ function listColdWorkspaceIds(
       .filter(
         (workspace) =>
           !(
-            repository.repositoryPath === state.repositoryPath &&
-            (workspace.id === state.activeWorkspaceId ||
-              state.workspaceRuntimeCacheById[workspace.id])
+            (repository.repositoryPath === state.repositoryPath &&
+              workspace.id === state.activeWorkspaceId) ||
+            state.workspaceRuntimeCacheById[workspace.id]
           ),
       )
       .map((workspace) => workspace.id),
@@ -192,7 +196,7 @@ export function createFleetTaskRowsSelector(args: {
       repository.workspaces.map((workspace) => {
         const isCurrent = repository.repositoryPath === state.repositoryPath;
         const isActive = isCurrent && workspace.id === state.activeWorkspaceId;
-        const cached = isCurrent ? state.workspaceRuntimeCacheById[workspace.id] : undefined;
+        const cached = state.workspaceRuntimeCacheById[workspace.id];
         const session = isActive
           ? {
               tasks: state.tasks,

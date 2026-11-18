@@ -1352,6 +1352,7 @@ export interface HostServiceEventMap {
     workspaceInformation: WorkspaceInformationState;
   };
   "local-mcp.task-turn-updated": LocalMcpTaskTurnUpdate;
+  "local-mcp.workspace-changed": import("../../src/lib/local-mcp/workspace-change").LocalMcpWorkspaceChange;
   "automation.unattended-authorizations-changed": {
     authorizations: Array<{
       workspaceId: string;

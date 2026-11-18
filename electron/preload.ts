@@ -89,6 +89,7 @@ import type {
   StaveLocalMcpStatus,
 } from "../src/lib/local-mcp";
 import type { LocalMcpTaskTurnUpdate } from "../src/lib/local-mcp/task-turn-update";
+import { parseLocalMcpWorkspaceChange, type LocalMcpWorkspaceChange } from "../src/lib/local-mcp/workspace-change";
 import type { PrCheckLogExcerpt, PrContextIndex } from "../src/lib/pr-context";
 import type {
   GitHubPrInboxKind,
@@ -772,6 +773,17 @@ ipcRenderer.on(
     }
   },
 );
+
+const localMcpWorkspaceChangeSubscribers = new Set<
+  (payload: LocalMcpWorkspaceChange) => void
+>();
+ipcRenderer.on("local-mcp:workspace-changed", (_event, payload: unknown) => {
+  const change = parseLocalMcpWorkspaceChange(payload);
+  if (!change) return;
+  for (const subscriber of localMcpWorkspaceChangeSubscribers) {
+    subscriber(change);
+  }
+});
 
 const agentRunChangedSubscribers = new Set<(payload: AgentRunChangedEvent) => void>();
 ipcRenderer.on(AGENT_RUN_IPC.changed, (_event, payload: AgentRunChangedEvent) => {
@@ -2023,6 +2035,14 @@ contextBridge.exposeInMainWorld("api", {
       localMcpTaskTurnUpdateSubscribers.add(listener);
       return () => {
         localMcpTaskTurnUpdateSubscribers.delete(listener);
+      };
+    },
+    subscribeWorkspaceChanges: (
+      listener: (payload: LocalMcpWorkspaceChange) => void,
+    ) => {
+      localMcpWorkspaceChangeSubscribers.add(listener);
+      return () => {
+        localMcpWorkspaceChangeSubscribers.delete(listener);
       };
     },
   },

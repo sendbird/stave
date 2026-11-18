@@ -45,6 +45,7 @@ import {
   repositoryLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "../../src/lib/local-mcp/task-turn-update";
+import type { LocalMcpWorkspaceChange } from "../../src/lib/local-mcp/workspace-change";
 import {
   applyDetectedWorkspaceResources,
   detectWorkspaceResourcesInText,
@@ -293,6 +294,10 @@ let localMcpEventListener:
         | {
             type: "task-turn-updated";
             payload: LocalMcpTaskTurnUpdate;
+          }
+        | {
+            type: "workspace-changed";
+            payload: LocalMcpWorkspaceChange;
           },
     ) => void)
   | null = null;
@@ -780,6 +785,14 @@ export function emitWorkspaceInformationUpdate(
     type: "workspace-information-updated",
     payload,
   });
+}
+
+/**
+ * Tells renderers the host created a workspace or added a task to one. Sent
+ * only after the write is saved, so a reader that follows it finds the change.
+ */
+function emitWorkspaceChange(payload: LocalMcpWorkspaceChange) {
+  localMcpEventListener?.({ type: "workspace-changed", payload });
 }
 
 function emitTaskTurnUpdate(payload: LocalMcpTaskTurnUpdate) {
@@ -1656,6 +1669,7 @@ export async function createWorkspace(args: {
     }),
     result: undefined,
   }));
+  emitWorkspaceChange({ workspaceId, repositoryPath });
 
   const notice = buildWorkspaceCreationNotice({ notices });
   return {
@@ -2334,6 +2348,7 @@ export async function createIdleTask(args: { workspaceId: string; title: string;
     const added = addIdleTask(await loadWorkspaceSession(args.workspaceId, true), args);
     const next = cacheWorkspaceSession(args.workspaceId, added.session);
     await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
+    emitWorkspaceChange({ workspaceId: args.workspaceId, repositoryPath: registration.project.repositoryPath });
     return { taskId: added.taskId };
   });
 }

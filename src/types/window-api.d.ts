@@ -82,6 +82,7 @@ import type {
   StaveLocalMcpStatus,
 } from "@/lib/local-mcp";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
+import type { LocalMcpWorkspaceChange } from "@/lib/local-mcp/workspace-change";
 import type {
   CraneConnectorConfigInput,
   CraneConnectorPairInput,
@@ -865,6 +866,10 @@ interface WindowLocalMcpApi {
   ) => () => void;
   subscribeTaskTurnUpdates?: (
     listener: (payload: LocalMcpTaskTurnUpdate) => void,
+  ) => () => void;
+  /** The host created a workspace, or added a task to one, outside this window. */
+  subscribeWorkspaceChanges?: (
+    listener: (payload: LocalMcpWorkspaceChange) => void,
   ) => () => void;
 }
 
