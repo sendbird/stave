@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
-  hasStaveVerifiedOutcome, TARS_REVIEW_CHECK_SCOPE, tarsExecutionAgentInstructions, tarsFinalStageRecord, tarsObservation, tarsWorkflow,
+  hasStaveVerifiedOutcome, TARS_OWNER_EXECUTION_POLICY, TARS_OWNER_RULES, TARS_REVIEW_CHECK_SCOPE, tarsExecutionAgentInstructions, tarsFinalStageRecord, tarsObservation,
+  tarsRunOwner, tarsWorkflow,
 } from "../electron/host-service/tars-execution";
+import { TARS_OWNER_CALLABLE_AGENT_IDS, tarsOwnerAgent } from "../src/lib/tars/agents";
 import { createAgentRun, createStageRecord, type AgentRunStageRecord } from "../src/lib/agent-runs/domain";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import { mayFinishUnchangedWork } from "../src/lib/agent-runs/review-finalization";
@@ -54,9 +56,60 @@ describe("Tars execution workflow", () => {
     expect(work).toContain("Do small or tightly coupled work yourself");
     expect(work).toContain("commit only its changes, then run the final checks on that commit");
     expect(work).toContain("do not create an empty commit");
-    const assigned = tarsWorkflow(row({ agentId: "implementer" }), NOW);
-    expect(assigned.stages[0]).toMatchObject({ agentConfigId: "implementer" });
+    // An agent that cannot own the run (read only) still receives the work stage from the lead.
+    const assigned = tarsWorkflow(row({ agentId: "researcher" }), NOW);
+    expect(assigned.stages[0]).toMatchObject({ agentConfigId: "researcher" });
     expect(instructionOf(assigned, 0)).toContain("same-workspace");
+    expect(assigned.team).toBe("workers");
+  });
+
+  test("a built-in work agent owns the run: it does the work stage itself and only the review is delegated", () => {
+    for (const agentId of ["implementer", "debugger", "ui-polisher"]) {
+      const workflow = WorkflowSchema.parse(tarsWorkflow(row({ agentId }), NOW));
+      const [work, review, fix] = workflow.stages;
+      expect(work && "agentConfigId" in work ? work.agentConfigId : undefined).toBeUndefined();
+      expect(workflow.team).toBe("solo");
+      expect(instructionOf(workflow, 0)).toContain("yourself in this execution workspace; do not delegate the work");
+      expect(instructionOf(workflow, 0)).toContain("commit only your changes, then run the final checks on that commit");
+      expect(instructionOf(workflow, 0)).not.toContain("Have the assigned agent");
+      expect(instructionOf(workflow, 0)).not.toContain("helper");
+      expect(review).toMatchObject({ agentConfigId: "reviewer", pinCommit: true, skipIfWorkUnchanged: true });
+      expect(fix && "agentConfigId" in fix ? fix.agentConfigId : undefined).toBeUndefined();
+      expect(instructionOf(workflow, 2)).toContain("Fix them yourself in this task");
+      expect(instructionOf(workflow, 2)).not.toContain("helper");
+      expect(mayFinishUnchangedWork({ workflow, currentStageIndex: 0 })).toBe(true);
+    }
+  });
+
+  test("the lead recorded for a run decides whether it owns the work", () => {
+    // New lead: it may call only read-only agents, so the named agent is the lead itself.
+    expect(tarsRunOwner(row({ agentId: "implementer" }), [...TARS_OWNER_CALLABLE_AGENT_IDS])?.id).toBe("implementer");
+    expect(tarsRunOwner(row({ agentId: "implementer" }), null)?.id).toBe("implementer");
+    // A Supervisor lead recorded before the owner rule can call the agent and keeps delegating to it.
+    expect(tarsRunOwner(row({ agentId: "implementer" }), ["implementer", "reviewer"])).toBeNull();
+    const legacy = tarsWorkflow(row({ agentId: "implementer" }), NOW, false);
+    expect(legacy.stages[0]).toMatchObject({ agentConfigId: "implementer" });
+    expect(legacy.team).toBe("workers");
+    // No agent, a read-only agent, a saved agent and agents that only lead or publish never own a run.
+    for (const agentId of [null, "researcher", "reviewer", "my-saved-agent", "lead", "supervisor", "shipper"])
+      expect(tarsOwnerAgent(agentId)).toBeNull();
+  });
+
+  test("an owner's instructions are its own agent's, with no advice to delegate the work", () => {
+    const supervisor = getBuiltinAgent("supervisor")!.instructions;
+    const owner = getBuiltinAgent("debugger")!;
+    const text = tarsExecutionAgentInstructions(supervisor, row({ agentId: "debugger" }), owner);
+    expect(text.startsWith("You find why something is broken and fix it at the cause.")).toBe(true);
+    expect(text).toContain(TARS_OWNER_RULES);
+    expect(text).toContain(TARS_OWNER_EXECUTION_POLICY);
+    expect(text).toContain("The workflow's Review stage after Work is the only delegation");
+    expect(text).toContain("Tell the reviewer: do not push or open pull requests");
+    for (const gone of ["Delegate that stage to it", "Delegate a unit only when", "Delegate with `stave_delegate_task`", "Create isolated workspaces/tasks", "Tell every helper"])
+      expect(text).not.toContain(gone);
+    expect(text.length).toBeLessThanOrEqual(AGENT_CONFIG_LIMITS.instructions);
+    // The Supervisor lead, for a unit no agent owns, is unchanged.
+    expect(tarsExecutionAgentInstructions(supervisor, row())).toContain("Do small or tightly coupled work yourself");
+    expect(tarsExecutionAgentInstructions(supervisor, row({ agentId: "researcher" }))).toContain("Delegate that stage to it");
   });
 
   test("names the full checks once per revision, never in the review", () => {
@@ -139,6 +192,17 @@ describe("Tars completion over the conditional stages", () => {
     for (const patch of [{ facts: facts("r1", { changedPaths: ["src/search.ts"] }) }, { facts: facts("r1", { changedPaths: [], changedPathsTruncated: true }) },
       { startHeadSha: null }, { facts: facts("r9", { changedPaths: [] }) }])
       expect(observe(ended([answer(patch), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject(unverified);
+  });
+
+  test("a pull request endpoint is reached when the run changed no files, and still waits for publication when it changed some", () => {
+    const pullRequest = (detail: AgentRunDetail) => tarsObservation(detail, ["Search works"], null, { completionGoal: "pullRequest" });
+    // Nothing changed: there is no change to publish, so the work is complete instead of waiting on a pull request.
+    expect(pullRequest(ended([answer(), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject({ state: "completed", resultVerifiedRunId: "run" });
+    // Verified changes still wait for the draft pull request.
+    const work = record("work", { report: complete(), facts: facts("r2", { changedPaths: ["src/search.ts"] }) });
+    expect(pullRequest(ended([work, reviewed("passed"), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject({ state: "resultReady", resultVerifiedRunId: "run" });
+    // A merge endpoint is never reached by an unchanged run.
+    expect(tarsObservation(ended([answer(), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]), ["Search works"], null, { completionGoal: "merge" }).state).toBe("resultReady");
   });
 
   test("changed work skipped past its review by the user still needs a Stave check", () => {

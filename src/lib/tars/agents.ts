@@ -1,7 +1,7 @@
 import { compileAgent, snapshotAgent } from "../agents/compile";
 import { exceedsDelegateCeiling } from "../agents/delegate";
 import type { AgentConfig, AgentPermission } from "../agents/schema";
-import { currentAgentId } from "../agents/starters";
+import { currentAgentId, getBuiltinAgent } from "../agents/starters";
 import { stageHasExternalEffect } from "../agent-runs/domain";
 import { TARS_AGENT_CATALOG_PENDING_MESSAGE, TARS_EXECUTION_PROVIDERS, type TarsDelegateReason } from "./conversation";
 
@@ -52,6 +52,25 @@ export function assertTarsAgentCatalog(args: { agentId: string; agents: readonly
  */
 export function tarsAgentPublishes(agent: Pick<AgentConfig, "workflow">): boolean {
   return (agent.workflow ?? []).some((stage) => stageHasExternalEffect(stage));
+}
+
+/** The read-only built-ins a run's owner may still call: the review stage's Reviewer and a Researcher for searches. */
+export const TARS_OWNER_CALLABLE_AGENT_IDS = ["reviewer", "researcher"] as const;
+
+/**
+ * The agent that does a work unit itself, as the run's lead, instead of
+ * receiving it from the Supervisor: a built-in the unit names that edits files
+ * and can run a task of its own (Implementer, Debugger, UI Polisher). One
+ * agent then reads, changes, checks and commits in one context, and the
+ * workflow's review is the run's only hand-off. Null keeps the Supervisor as
+ * lead: no agent named, a read-only agent (its delegated run enforces read
+ * only), or a saved agent (its own provider, model and workflow apply only to
+ * a delegated run).
+ */
+export function tarsOwnerAgent(agentId: string | null | undefined): AgentConfig | null {
+  const agent = agentId ? getBuiltinAgent(agentId) : undefined;
+  if (!agent || agent.archived || agent.permission === "read-only" || tarsAgentPublishes(agent)) return null;
+  return agent.usableAs.includes("primary") && agent.usableAs.includes("delegate") ? agent : null;
 }
 
 /** Built-in agents are always allowed; a saved agent only when the user allowed it. */

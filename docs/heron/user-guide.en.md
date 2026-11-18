@@ -589,7 +589,8 @@ turns apply automatically only within twice the original task budget; exceeding
 it needs your confirmation. Each action leaves a visible record. Resume and
 retry offer **Undo** to pause that execution; already sent instructions and
 consumed turns cannot be undone.
-When your original goal asks for a PR or merge, a verified result opens a
+Work that changes repository files ends at a draft PR unless you named another
+endpoint or said not to publish. A verified result with a PR or merge goal opens a
 **draft PR** automatically at Balanced or Hands-off. Other publication asks
 "Open a PR?"; Careful always asks. The host rechecks the revision and branches,
 never pushes the default branch and never force-pushes. Tars never merges or
@@ -896,9 +897,12 @@ could not verify, its decision card. A blocked or stuck stage in the work flow
 shows its reason and opens the same place.
 
 Work runs in an
-isolated worktree on its own branch, led by the Supervisor: it plans, does
-small work itself, runs the narrowest checks while it works and the full checks
-once at the end, and commits verified work on that branch. An independent
+isolated worktree on its own branch. When Tars names a built-in agent that
+edits files (Implementer, Debugger or UI Polisher), that one agent does the
+whole unit itself: it reads the code, makes the change, runs the narrowest
+checks while it works and the full checks once at the end, and commits verified
+work on that branch. Other work is led by the Supervisor, which does small work
+itself and hands the rest to helpers. An independent
 review on the other provider runs only when files changed, and a fix stage only
 when that review asks for changes. Nothing is pushed until you confirm
 publishing.

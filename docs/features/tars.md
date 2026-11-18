@@ -84,16 +84,22 @@ access is unavailable. Stave has no Slack token flow.
    or staging, and the new workspace starts from that commit. A tree without
    changes starts from the branch as usual. The choice is off by default and
    turns off again after each send.
-5. **Execution lead and helpers.** The unit becomes a normal Stave task with
-   an [agent run](agent-runs.md) led by the built-in Supervisor, Tars's
-   execution lead. A named agent does the work stage; otherwise the lead
-   chooses its own helpers from the built-in agents.
-6. **Work, then review only when needed.** The run has one **Work** stage the
-   Supervisor owns: it plans, does small or tightly coupled work itself,
-   delegates only independent or large units, runs the narrowest checks while
-   it works, commits on the execution workspace's own branch, then runs final
-   checks itself in the reporting turn through Stave workspace check scripts
-   when configured. Checks a helper ran are repeated by the lead. Work that
+5. **One owner per unit.** The unit becomes a normal Stave task with an
+   [agent run](agent-runs.md). When Tars names a built-in agent that edits
+   files (Implementer, Debugger or UI Polisher), that agent leads the run and
+   does the whole unit itself, in one context: it reads the code, makes the
+   change, checks it and commits it. It hands no part of the work to another
+   agent; the review is the run's only hand-off. Tars names such an agent
+   whenever one fits. A unit with no named agent, a read-only agent
+   (Researcher, Reviewer) or one of your saved agents is led by the built-in
+   Supervisor instead, which delegates the work stage to that agent or, with no
+   agent named, splits the unit among helpers.
+6. **Work, then review only when needed.** The run has one **Work** stage. Its
+   owner runs the narrowest checks while it works, commits on the execution
+   workspace's own branch, then runs final checks in the reporting turn through
+   Stave workspace check scripts when configured. A Supervisor lead does small
+   or tightly coupled work itself, delegates only independent or large units
+   and repeats the checks a helper ran. Work that
    changed no files (an answer or research) ends after its report. Changed files go to an
    independent read-only **Review** on the provider that did not write them
    (the pinned provider and model when you fixed a model);
@@ -112,7 +118,10 @@ access is unavailable. Stave has no Slack token flow.
    whether to accept it.
 7. **Report and publish.** A completed or ended run leaves a frozen **Result
    report**, its **Changes** and **Review**. Verified changes are committed on
-   the Tars workspace's own branch. Requested draft PRs can publish automatically after verification. For completed, verified work, **Create
+   the Tars workspace's own branch. Work that changes repository files ends at a
+   draft pull request unless you named another endpoint or said not to publish, so
+   at Balanced or Hands-off the draft PR opens by itself after verification; work
+   that changed no files is complete without one. For completed, verified work, **Create
    draft PR** (or asking Tars, such as "open a draft PR for it") opens a
    confirmation card unless Balanced or Hands-off already authorizes the verified
    PR endpoint. Stave commits, pushes the work's branch and opens a draft pull request. See
@@ -918,7 +927,12 @@ Right after Stave starts, saved agents are not known until the app has loaded
 them. Work naming a saved agent waits for them and is then checked; it is not
 refused just because they had not loaded yet.
 
-Tars's execution lead runs as the built-in Supervisor agent. In **Agents**, the
+A named built-in agent that edits files leads its own run: the run's lead
+carries that agent's instructions and may call only the read-only Reviewer and
+Researcher. Every other run's lead carries the Supervisor's instructions. Either
+way the lead is recorded under the built-in Supervisor agent. Work that started
+before this rule keeps the Supervisor lead it started with, including when you
+continue it. In **Agents**, the
 Supervisor's **Work** list leaves out what Tars delegated, so your own
 Supervisor work stays easy to find; once Tars has had work, turn on **Show Tars
 work** there to include it.
@@ -1312,9 +1326,10 @@ opens at most one view, and reopening Tars never replays an earlier one.
 
 ### Publish completed work
 
-Work that Stave verified can become a draft pull request. At Balanced or
-Hands-off, a `resultReady` execution with an originally requested PR or merge
-goal publishes automatically. Other eligible results show a confirmation card:
+Work that Stave verified can become a draft pull request. Tars gives work that
+changes repository files a pull request goal unless you named another endpoint
+or said not to publish. At Balanced or Hands-off, a `resultReady` execution
+with a PR or merge goal publishes automatically. Other eligible results show a confirmation card:
 
 - **Words**: ask Tars to commit, push or open a pull request for one completed
   piece of work. Tars may propose a `publish` at the revision it saw; it is

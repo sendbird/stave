@@ -112,6 +112,8 @@ test("actual host preparation and Run admission route automatically by default, 
       { label: "cross-pinned", settings: { providerId: "codex", model: "gpt-6.1-sol", runtimeHints: { codexAccountProfileId: "${ACCOUNT}" },
         executionModel: { providerId: "claude-code", model: "claude-sonnet-5-5" } } },
       { label: "saved-agent", settings: { providerId: "codex", model: "gpt-6.1-sol", allowedAgentIds: ["release-notes"] }, agentId: "release-notes" },
+      { label: "owner-agent", settings: { providerId: "codex", model: "gpt-6.1-sol" }, agentId: "debugger" },
+      { label: "read-only-agent", settings: { providerId: "codex", model: "gpt-6.1-sol" }, agentId: "researcher" },
     ];
     for (const selection of selections) {
       persistence.tarsConversations.configure({ ...selection.settings, maxTurns: 5 });
@@ -152,6 +154,7 @@ test("actual host preparation and Run admission route automatically by default, 
         accounts: input.accounts ?? null, routingIntent: input.routingIntent, account: policy.accountProfileId, locked: policy.modelLocked,
         effortLocked: policy.effortLocked, models: policy.allowedModels.length, helpersKeepProvider: helperKeepsParentProvider(policy),
         canCall: agent.canCall, instructions: agent.instructions, workAgent: input.workflow.stages[0].agentConfigId ?? null,
+        team: input.workflow.team, work: input.workflow.stages[0].instruction, leadId: agent.id, permission: agent.permission,
         review: input.workflow.stages[1].instruction, idle: idle.find(entry => entry.taskId === current.taskId) };
       return { agentRun: { id: "run" } };
     } } });
@@ -167,7 +170,7 @@ test("actual host preparation and Run admission route automatically by default, 
   const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
   expect(result.exitCode, result.stderr.toString()).toBe(0);
   const rows = JSON.parse(result.stdout.toString());
-  expect(Object.keys(rows).sort()).toEqual(["claude-auto", "codex-auto", "codex-pinned", "cross-pinned", "saved-agent"]);
+  expect(Object.keys(rows).sort()).toEqual(["claude-auto", "codex-auto", "codex-pinned", "cross-pinned", "owner-agent", "read-only-agent", "saved-agent"]);
   // The Supervisor's callable list without the publishing Shipper: publication needs a separate request.
   const builtinCallable = ["implementer", "ui-polisher", "debugger", "reviewer", "researcher"];
   for (const label of ["codex-auto", "claude-auto", "saved-agent"]) {
@@ -197,4 +200,19 @@ test("actual host preparation and Run admission route automatically by default, 
   expect(rows["saved-agent"]).toMatchObject({ agentId: "release-notes", workAgent: "release-notes" });
   expect(rows["saved-agent"].canCall).toEqual([...builtinCallable, "release-notes"]);
   expect(rows["saved-agent"].instructions).toContain("`release-notes`");
+  expect(rows["saved-agent"].team).toBe("workers");
+  // A built-in work agent owns its run: the recorded lead carries that agent's instructions, does the
+  // work stage itself and may call only read-only agents, so the review is the run's one hand-off.
+  const owner = rows["owner-agent"];
+  expect(owner).toMatchObject({ agentId: "debugger", workAgent: null, team: "solo", leadId: "supervisor", permission: "auto" });
+  expect(owner.canCall).toEqual(["reviewer", "researcher"]);
+  expect(owner.instructions.startsWith("You find why something is broken and fix it at the cause.")).toBe(true);
+  expect(owner.instructions).toContain("never hand it, or a part of it, to another agent or task");
+  expect(owner.instructions).not.toContain("Delegate that stage to it");
+  expect(owner.instructions).not.toContain("Delegate with `stave_delegate_task`");
+  expect(owner.work).toContain("do not delegate the work");
+  // A read-only agent keeps its enforced read-only delegated run under the Supervisor lead.
+  expect(rows["read-only-agent"]).toMatchObject({ agentId: "researcher", workAgent: "researcher", team: "workers" });
+  expect(rows["read-only-agent"].canCall).toEqual(builtinCallable);
+  expect(rows["read-only-agent"].instructions).toContain("Delegate that stage to it");
 });
