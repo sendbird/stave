@@ -2159,7 +2159,7 @@
     },
     "followUp": {
       "line": {
-        "resultReady": "Tars 후속 확인 · 결과 검증 후 다음 단계: {{title}}",
+        "resultReady": "Tars 후속 확인 · 결과 준비됨, 다음 단계: {{title}}",
         "blocked": "Tars 후속 확인 · 진행할 수 없음: {{title}}",
         "unverifiedCompletion": "Tars 후속 확인 · 완료 보고, 아직 확인 안 됨: {{title}}",
         "verificationFailed": "Tars 후속 확인 · 완료 확인이 끝나지 않음: {{title}}",

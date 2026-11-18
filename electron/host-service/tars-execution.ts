@@ -344,12 +344,17 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
     // A report saying "met" is the agent's own claim. Completion also needs a
     // check Stave saw pass on the final revision, a passed independent review
     // of it, or work Stave saw change nothing; otherwise the user decides (`acceptCompletion`).
-    if (!hasStaveVerifiedOutcome(detail, final, reverifyAfter))
+    if (!hasStaveVerifiedOutcome(detail, final, reverifyAfter)) {
+      // A pull request is where a change is checked and reviewed next, and accepting a result cannot stand in for one,
+      // so this work would only wait to be cancelled. It goes on to its draft pull request, which says Stave did not verify it.
+      if (goal.completionGoal === "pullRequest" || goal.completionGoal === "merge")
+        return { state: "resultReady", detail: null, resultVerifiedRunId: null, resultUnverifiedRunId: run.id, unchangedRunId: null };
       return { state: "blocked", detail: "The run reported its criteria as met, but Stave has no verified check or passed review for it.",
         detailCode: "unverifiedCompletion" };
+    }
     // Saved with the row: a pull request goal whose only run changed no file has nothing to publish (`tarsGoalReached`).
     const unchangedRunId = final && endedOnUnchangedWork(detail, final, reverifyAfter) ? run.id : null;
-    return { state: tarsGoalReached({ ...goal, agentRunId: run.id, unchangedRunId }) ? "completed" : "resultReady", detail: null, resultVerifiedRunId: run.id, unchangedRunId };
+    return { state: tarsGoalReached({ ...goal, agentRunId: run.id, unchangedRunId }) ? "completed" : "resultReady", detail: null, resultVerifiedRunId: run.id, resultUnverifiedRunId: null, unchangedRunId };
   }
   // The run's own takeover pause is human ownership, whichever surface took it.
   if (run.state === "paused" && run.pauseReason === "taken-over") return { state: "takenOver", detail: run.reasonDetail ?? null };

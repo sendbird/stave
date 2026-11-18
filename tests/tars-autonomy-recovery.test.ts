@@ -72,6 +72,14 @@ for (const level of TARS_AUTONOMY_LEVELS) for (const origin of ["user", "automat
     for (const patch of [{ state: "completed" as const }, { executionPending: true }, { agentRunId: null }, { executionWorkspaceId: null }])
       expect(tarsActionMode("publish", level, origin, { responsibility: { ...row, ...patch } })).toBe("confirm");
   });
+  test(`${level}/${origin}: a PR goal's result Stave could not verify still opens its draft, only for the run that reported it`, () => {
+    const row = fixture(level).create({ completionGoal: "pullRequest", state: "resultReady" });
+    const unverified = { ...row, resultVerifiedRunId: null, resultUnverifiedRunId: "run" };
+    expect(tarsActionMode("publish", level, origin, { responsibility: unverified })).toBe(level === "careful" ? "confirm" : "auto");
+    // A result recorded for an earlier run, or for no run, says nothing about this one.
+    for (const patch of [{ resultUnverifiedRunId: "old-run" }, { resultUnverifiedRunId: null }, { agentRunId: null }, { completionGoal: "implementation" as const }])
+      expect(tarsActionMode("publish", level, origin, { responsibility: { ...unverified, ...patch } })).toBe("confirm");
+  });
 }
 
 test("extension fails closed on unknown or invalid budgets and counts all previous extensions", () => {

@@ -436,6 +436,11 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   agentRunId: IdSchema.nullable(),
   /** The exact run whose result passed completion verification; cleared when execution resumes. */
   resultVerifiedRunId: IdSchema.nullable().optional(),
+  /**
+   * The exact run that reported a pull request or merge goal's work complete without a check or review Stave
+   * could confirm. The result still goes to its draft pull request, which says so; cleared when execution resumes.
+   */
+  resultUnverifiedRunId: IdSchema.nullable().optional(),
   /** The exact run Stave saw end without changing a file, so it left nothing to publish; cleared when execution resumes. */
   unchangedRunId: IdSchema.nullable().optional(),
   /** Explicit user acceptance, distinct from execution ending. */
@@ -522,7 +527,7 @@ export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   continuationFromRevision: true,
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
-  executionPending: true, resultVerifiedRunId: true, unchangedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,
+  executionPending: true, resultVerifiedRunId: true, resultUnverifiedRunId: true, unchangedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;

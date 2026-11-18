@@ -1,4 +1,4 @@
-import { tarsCanUpdatePublication } from "./publication";
+import { tarsCanUpdatePublication, tarsResultStanding } from "./publication";
 import type { TarsActionReceipt } from "./conversation";
 import { tarsPublishProposalRequestId, tarsPublicationResumeStep, type TarsPublishRecord, type TarsPublicationStep } from "./publication";
 import type { TarsResponsibility } from "./types";
@@ -22,9 +22,9 @@ export interface TarsPublishProposalView {
 }
 
 /** Whether completed work can show a publish card now, from the saved row alone; the host checks the workspace and GitHub. */
-export function isTarsPublishable(row: Pick<TarsResponsibility, "state" | "detailCode" | "executionWorkspaceId" | "publication" | "resultVerifiedRunId" | "agentRunId" | "executionPending"> | undefined) {
+export function isTarsPublishable(row: Pick<TarsResponsibility, "state" | "detailCode" | "executionWorkspaceId" | "publication" | "resultVerifiedRunId" | "resultUnverifiedRunId" | "agentRunId" | "executionPending"> | undefined) {
   return Boolean(row && !row.executionPending && (row.state === "completed" || row.state === "resultReady") && row.detailCode !== "acceptedWithoutVerification" && row.executionWorkspaceId
-    && (row.state !== "resultReady" || Boolean(row.agentRunId && row.resultVerifiedRunId === row.agentRunId))
+    && (row.state !== "resultReady" || tarsResultStanding(row) !== null)
     && (row.publication?.state !== "opened" || tarsCanUpdatePublication(row)));
 }
 

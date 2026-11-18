@@ -136,6 +136,32 @@ describe("Tars goal publication boundary", () => {
     expect(f.responsibilities.get(row.id)).toMatchObject({ state: "resultReady", publication: { state: "opened", url: URL } });
   });
 
+  test("a PR goal's result Stave could not verify publishes as a draft whose body says so", async () => {
+    const f = fixture();
+    let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    // What the runtime saves when the run reported the work complete without a Stave check or a passed review.
+    row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: null, resultUnverifiedRunId: row.agentRunId }, NOW);
+    expect((await f.publisher.preview({ responsibilityId: row.id })).reason).toBeNull();
+    expect((await f.publisher.preview({ responsibilityId: row.id })).body).toContain("**Not verified by Stave.**");
+    expect((await f.confirm(row)).record.status).toBe("applied");
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "completed", publication: { state: "opened", agentRunId: row.agentRunId, url: URL } });
+    const created = f.repo.calls.find(([command, args]) => command === "gh" && args[0] === "pr" && args[1] === "create")!;
+    expect(created[1]).toContain("--draft");
+    expect(created[1].join("\n")).toContain("**Not verified by Stave.** The agent reported this work complete, but no check Stave ran and no independent review passed on the final revision.");
+    // A verified result's body carries no such note.
+    const verified = fixture();
+    let other = verified.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    other = verified.responsibilities.patch(other.id, other.revision, { resultVerifiedRunId: other.agentRunId }, NOW);
+    expect((await verified.publisher.preview({ responsibilityId: other.id })).body).not.toContain("Not verified by Stave");
+  });
+
+  test("an unverified result recorded for an earlier run never publishes the current one", async () => {
+    const f = fixture(); let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    row = f.responsibilities.patch(row.id, row.revision, { resultUnverifiedRunId: "earlier-run" }, NOW);
+    expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+    expect(f.repo.commands("push")).toHaveLength(0);
+  });
+
   test("a restored execution without current verification cannot publish", async () => {
     const f = fixture(); const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
     expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });

@@ -1,5 +1,5 @@
 import {
-  tarsCanUpdatePublication, isTarsPublicationUnfinished, parseTarsPublishProposalRequestId, tarsPublicationResumeStep, tarsPublishHeadBranch, tarsPullRequestNumber,
+  tarsCanUpdatePublication, tarsResultStanding, isTarsPublicationUnfinished, parseTarsPublishProposalRequestId, tarsPublicationResumeStep, tarsPublishHeadBranch, tarsPullRequestNumber,
   TarsPublishInputSchema, TarsPublishPreviewInputSchema, TarsPublishPreviewSchema,
   type TarsPublication, type TarsPublicationStep, type TarsPublishPreview, type TarsPublishReason, type TarsPublishRecord, type TarsPublishResult,
 } from "../../src/lib/tars/publication";
@@ -57,7 +57,7 @@ export function admitTarsPublish(row: TarsResponsibility | null, request: { expe
   if (!row) return refuse("notOwned", "The responsibility is not owned by the personal representative.");
   if (row.executionPending) refuse("inProgress", "A continuation is still being reconciled. Wait for its result.");
   if (row.state !== "completed" && row.state !== "resultReady") refuse("notCompleted", "Only verified execution results can be published.");
-  if (row.state === "resultReady" && (!row.agentRunId || row.resultVerifiedRunId !== row.agentRunId))
+  if (row.state === "resultReady" && tarsResultStanding(row) === null)
     refuse("notVerified", "This restored result needs verification before publishing.");
   if (row.detailCode === "acceptedWithoutVerification")
     refuse("notVerified", "Stave did not verify this work; it was accepted as done without a check. Publish it yourself if you want it.");
@@ -292,7 +292,7 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
       let existing = opened !== null;
       if (!opened) {
         await verify();
-        const body = buildTarsPublicationBody({ title: row.title, report, source: record.source });
+        const body = buildTarsPublicationBody({ title: row.title, report, source: record.source, unverified: tarsResultStanding(row) === "unverified" });
         const created = await ports.run("gh", tarsPublishCommands.create({ base, head, title: record.title, body }), cwd);
         const url = lastUrl(created.ok ? created.stdout : `${created.stderr}\n${created.stdout}`);
         // gh refuses a second pull request for the branch and names the one that exists.
@@ -397,7 +397,7 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
         responsibilityId: row.id, revision: row.revision, reason: reason ?? facts?.reason ?? null,
         repository: facts?.repository ?? null, repositoryUrl: facts?.repositoryUrl ?? null, base: facts?.base ?? null,
         head: facts?.head ?? tarsPublishHeadBranch(row), changedFiles: facts?.changedFiles ?? null,
-        body: buildTarsPublicationBody({ title: row.title, report: await ports.readReport(row) }), publication: row.publication ?? null,
+        body: buildTarsPublicationBody({ title: row.title, report: await ports.readReport(row), unverified: tarsResultStanding(row) === "unverified" }), publication: row.publication ?? null,
       });
     },
     /**

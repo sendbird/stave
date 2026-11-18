@@ -161,8 +161,10 @@ HTML nor a second execution engine.
    write files. The
    agent's own claim is not enough: Tars completes the work only on a check
    Stave saw pass on the revision the run ended on, a passed independent review
-   of that revision, or work Stave saw change no files. Otherwise it asks you
-   whether to accept it.
+   of that revision, or work Stave saw change no files. Otherwise work with a
+   pull request or merge goal still goes on to its draft pull request, whose body
+   says **Not verified by Stave**: the pull request's CI and review check it
+   next. Work that ends in the workspace asks you whether to accept it.
 7. **Report and publish.** A completed or ended run leaves a frozen **Result
    report**, its **Changes** and **Review**. Verified changes are committed on
    the Tars workspace's own branch. Work that changes repository files ends at a
@@ -1021,7 +1023,15 @@ on its first stage with no files changed (`changedPaths` empty, as
 started after it count; unchanged work counts when Stave read it afterwards.
 A hand-back during a stage that may end the run (the fix stage, or a review
 whose pass skips it) restarts that attempt.
-Otherwise the responsibility is blocked with `unverifiedCompletion`; for local-result endpoints, only the
+Otherwise a pull request or merge goal becomes **Result ready** with
+`resultUnverifiedRunId` set to that run instead of `resultVerifiedRunId`. It
+publishes like a verified result under the same autonomy policy, and its draft
+pull request body starts its verification section with **Not verified by
+Stave**. Accepting a result cannot stand in for a pull request, so blocking this
+work left only **Cancel work**. A report that leaves a required criterion unmet
+still blocks it. A result recorded for an earlier run, or a restored record that
+names no run, is never published.
+For local-result endpoints the responsibility is blocked with `unverifiedCompletion`; only the
 user's `acceptCompletion` (a click, or a model proposal the user confirms)
 completes it, recorded as `acceptedWithoutVerification`, and the run is not
 touched. The conversation shows this as a [decision card](#decisions) with

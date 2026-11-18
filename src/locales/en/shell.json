@@ -2193,7 +2193,7 @@
     },
     "followUp": {
       "line": {
-        "resultReady": "Tars follow-up · Result verified; next step: {{title}}",
+        "resultReady": "Tars follow-up · Result ready; next step: {{title}}",
         "blocked": "Tars follow-up · Work cannot continue: {{title}}",
         "unverifiedCompletion": "Tars follow-up · Reported done, not yet confirmed: {{title}}",
         "verificationFailed": "Tars follow-up · Completion checks incomplete: {{title}}",
