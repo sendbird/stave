@@ -176,6 +176,7 @@ describe("read-only delegation access", () => {
     const sources = [
       "electron/main/stave-mcp-server.ts",
       "electron/main/browser/browser-tools.ts",
+      "electron/main/stave-workspace-cleanup-tools.ts",
     ].map((file) => readFileSync(file, "utf8")).join("\n");
     const registered = new Set([
       ...[...sources.matchAll(/registerTool\(\s*"(stave_[a-z_]+)"/g)].map((match) => match[1]!),
