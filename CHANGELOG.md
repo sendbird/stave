@@ -1,3 +1,21 @@
+## [0.35.2](https://github.com/sendbird/stave/compare/v0.35.1...v0.35.2) (2026-11-18)
+
+This patch release includes the 23 merged changes since 0.35.1.
+
+### Changes
+
+- Tars work that names an editing agent (Implementer, Debugger or UI Polisher) is now done by that agent in one context, with an independent review as its only hand-off. Work that changes files ends at a draft pull request unless you name another endpoint; merging stays yours, and Careful still confirms first.
+- Tars no longer dead-ends after review findings: a fix returns once to review, delegated Debugger runs continue past their reproduce stage, stalled helpers wake their parent, and a pull request goal Stave could not verify still opens its draft, marked **Not verified by Stave**. An interrupted work reset can no longer be dismissed half-applied.
+- Tars lets you pick existing work with `@` for follow-ups, previews image attachments before and after sending without duplicating pasted images, generates suggested requests with your saved model, keeps always-allowed records where they were saved, separates status lines in replies, and shows new execution workspaces in the sidebar and Fleet without navigating.
+- Workspace cleanup archives squash-merged and current workspaces, keeps archived worktrees from reappearing after registry saves, and shows archived workspaces from a sidebar footer entry. Agents can list cleanup blockers and archive finished workspaces through Local MCP (`stave_list_workspace_cleanup`, `stave_archive_workspace`); archives stay restorable and nothing is deleted permanently.
+- Codex uses GPT-6.2 Sol and GPT-6.2 Astra as the default and picker models. A one-time settings migration moves saved GPT-6.1 Sol and GPT-6 Astra selections to their 6.2 successors, and a thread falls back once to the previous model when 6.2 is unavailable.
+- Host request responses are no longer rejected when many events are queued, and the queue logs what filled it. Sandboxed MCP app output survives cookie access, agent assignments stay synced when a surface unmounts, and Orbit runs show their localhost URL under the Orbit host badge.
+- `scripts/measure-tars-outcomes.ts` reports how Tars work ended, how long it took to reach a pull request and how many hand-offs it needed.
+
+### References
+
+- [PR #984](https://github.com/sendbird/stave/pull/984), [PR #985](https://github.com/sendbird/stave/pull/985), [PR #986](https://github.com/sendbird/stave/pull/986), [PR #987](https://github.com/sendbird/stave/pull/987), [PR #988](https://github.com/sendbird/stave/pull/988), [PR #989](https://github.com/sendbird/stave/pull/989), [PR #990](https://github.com/sendbird/stave/pull/990), [PR #991](https://github.com/sendbird/stave/pull/991), [PR #992](https://github.com/sendbird/stave/pull/992), [PR #993](https://github.com/sendbird/stave/pull/993), [PR #994](https://github.com/sendbird/stave/pull/994), [PR #995](https://github.com/sendbird/stave/pull/995), [PR #996](https://github.com/sendbird/stave/pull/996), [PR #997](https://github.com/sendbird/stave/pull/997), [PR #998](https://github.com/sendbird/stave/pull/998), [PR #999](https://github.com/sendbird/stave/pull/999), [PR #1000](https://github.com/sendbird/stave/pull/1000), [PR #1001](https://github.com/sendbird/stave/pull/1001), [PR #1002](https://github.com/sendbird/stave/pull/1002), [PR #1003](https://github.com/sendbird/stave/pull/1003), [PR #1004](https://github.com/sendbird/stave/pull/1004), [PR #1005](https://github.com/sendbird/stave/pull/1005), [PR #1006](https://github.com/sendbird/stave/pull/1006)
+
 ## [0.35.1](https://github.com/sendbird/stave/compare/v0.35.0...v0.35.1) (2026-11-17)
 
 This patch release includes the seven merged changes since 0.35.0.
