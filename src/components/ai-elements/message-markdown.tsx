@@ -48,6 +48,7 @@ import {
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import { chatTypeScaleVars } from "./message-text-scale";
 import { hardenSetextHeadings } from "./message-markdown.setext";
+import { remarkLineParagraphs } from "./message-markdown-line-paragraphs";
 import {
   LruCache,
   markdownRenderBlocks,
@@ -61,6 +62,12 @@ export interface MarkdownMessageProps extends HTMLAttributes<HTMLDivElement> {
   /** Render local/relative destinations as text when no file context owns this message. */
   disableLocalLinks?: boolean;
   isStreaming?: boolean;
+  /**
+   * `paragraph`: each line of a paragraph is its own paragraph and takes
+   * paragraph spacing, for replies written as short lines (Tars). Default
+   * `line`: one newline stays a line break inside the paragraph.
+   */
+  lineBreaks?: MarkdownLineBreaks;
   messageFontSize: number;
   messageCodeFontSize: number;
   resolveFileLink?: (args: {
@@ -602,17 +609,25 @@ const markdownComponents: Components = {
   ),
 };
 
-const remarkPlugins = [remarkGfm];
+export type MarkdownLineBreaks = "line" | "paragraph";
+
+const remarkPlugins = {
+  line: [remarkGfm],
+  paragraph: [remarkGfm, remarkLineParagraphs],
+} satisfies Record<MarkdownLineBreaks, unknown[]>;
 
 /**
  * Render Markdown text as one document with the message components. Each
  * top-level block goes through it; tests use it on a whole message as the
  * reference a block-by-block render must match.
  */
-export function renderMarkdownBlock(text: string): ReactElement {
+export function renderMarkdownBlock(
+  text: string,
+  lineBreaks: MarkdownLineBreaks = "line",
+): ReactElement {
   return Markdown({
     children: text,
-    remarkPlugins,
+    remarkPlugins: remarkPlugins[lineBreaks],
     components: markdownComponents,
   });
 }
@@ -624,13 +639,17 @@ const finishedBlockElements = new LruCache<string, ReactElement>(2_000);
 // Block splits of finished replies, keyed by the (setext-hardened) source.
 const finishedReplySplits = new LruCache<string, MarkdownBlockSplit>(200);
 
-function finishedBlockElement(text: string): ReactElement {
-  const cached = finishedBlockElements.get(text);
+function finishedBlockElement(
+  text: string,
+  lineBreaks: MarkdownLineBreaks,
+): ReactElement {
+  const key = lineBreaks === "line" ? text : `${lineBreaks}\u0000${text}`;
+  const cached = finishedBlockElements.get(key);
   if (cached) {
     return cached;
   }
-  const element = renderMarkdownBlock(text);
-  finishedBlockElements.set(text, element);
+  const element = renderMarkdownBlock(text, lineBreaks);
+  finishedBlockElements.set(key, element);
   return element;
 }
 
@@ -638,6 +657,7 @@ export function MarkdownMessage({
   content,
   disableLocalLinks,
   isStreaming,
+  lineBreaks = "line",
   messageFontSize,
   messageCodeFontSize,
   resolveFileLink,
@@ -682,8 +702,10 @@ export function MarkdownMessage({
   const streamingText = blocks[streamingIndex];
   const streamingElement = useMemo(
     () =>
-      streamingText === undefined ? null : renderMarkdownBlock(streamingText),
-    [streamingText],
+      streamingText === undefined
+        ? null
+        : renderMarkdownBlock(streamingText, lineBreaks),
+    [streamingText, lineBreaks],
   );
 
   return (
@@ -708,7 +730,7 @@ export function MarkdownMessage({
             >
               {index === streamingIndex
                 ? streamingElement
-                : finishedBlockElement(text)}
+                : finishedBlockElement(text, lineBreaks)}
             </MarkdownStreamingBlockContext.Provider>
           </Fragment>
         ))}

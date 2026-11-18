@@ -37,7 +37,11 @@ import {
   CodeBlockHeader,
   CodeBlockTitle,
 } from "./code-block";
-import { MarkdownMessage, MessageFileLink } from "./message-markdown";
+import {
+  MarkdownMessage,
+  MessageFileLink,
+  type MarkdownLineBreaks,
+} from "./message-markdown";
 import { MermaidBlock } from "./mermaid-block";
 import { codeBlockLanguageLabel } from "./code-block-language";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
@@ -154,12 +158,15 @@ interface MessageResponseProps extends HTMLAttributes<HTMLDivElement> {
   tokenizePromptTokens?: boolean;
   /** Global conversations have no owning workspace; local paths remain text. */
   fileLinkContext?: "active-workspace" | "none";
+  /** How one newline inside a paragraph renders (`MarkdownMessage`). */
+  lineBreaks?: MarkdownLineBreaks;
 }
 
 export function MessageResponse({
   isStreaming,
   tokenizePromptTokens,
   fileLinkContext = "active-workspace",
+  lineBreaks,
   children,
   className,
   style,
@@ -307,6 +314,7 @@ export function MessageResponse({
       content={content}
       disableLocalLinks={fileLinkContext === "none"}
       isStreaming={isStreaming}
+      lineBreaks={lineBreaks}
       messageFontSize={messageFontSize}
       messageCodeFontSize={messageCodeFontSize}
       resolveFileLink={resolveFileLink}
