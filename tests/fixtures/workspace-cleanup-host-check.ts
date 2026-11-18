@@ -32,10 +32,11 @@ try {
   // Only the PTY observation, PR service and clock are faked; Git, registry, history and policy persistence are real.
   const prTimes = new Map<string, string | null>();
   const prStates = new Map<string, "OPEN" | "MERGED">();
+  const prHeads = new Map<string, string>();
   const changed: Array<{ workspaceId: string; repositoryPath: string; stage?: string; command?: string }> = [];
   const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => terminals, now: () => now, changed: event => changed.push(event),
     pr: async ({ target }) => {
-      const pr: GitHubPrPayload | null = prTimes.has(target ?? "") ? { number: 1, title: "Completed work", state: prStates.get(target ?? "") ?? "MERGED", isDraft: prStates.get(target ?? "") === "OPEN",
+      const pr: GitHubPrPayload | null = prTimes.has(target ?? "") || prHeads.has(target ?? "") ? { headRefOid: prHeads.get(target ?? "") ?? null, number: 1, title: "Completed work", state: prStates.get(target ?? "") ?? "MERGED", isDraft: prStates.get(target ?? "") === "OPEN",
         url: "https://example.test/pull/1", reviewDecision: null, mergeable: "UNKNOWN", mergeStateStatus: "UNKNOWN", checksRollup: null,
         mergedAt: prTimes.get(target ?? "") ?? null, baseRefName: "main", headRefName: target ?? "" } : null;
       return { ok: true, pr, stderr: "" };
@@ -157,6 +158,19 @@ try {
   assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.blockers.includes("currentWorkspace"), false);
   store.saveRepositoryRegistry({ repositories: [registry()], activeRepositoryPath: repo });
   runtime.configure(DEFAULT_WORKSPACE_CLEANUP_POLICY);
+  // A squash-merged PR whose remote branch was pruned still holds the pushed commits on GitHub.
+  git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: pushed through a pull request");
+  const pushedTip = git(path, "rev-parse", "HEAD").trim();
+  const featureBlockers = async () => (await runtime.list()).rows.find(row => row.id === "feature")!.blockers;
+  assert.ok((await featureBlockers()).includes("unpushedCommits"), "Commits without a remote or PR head stay protected");
+  prHeads.set("feature", "f".repeat(40));
+  assert.ok((await featureBlockers()).includes("unpushedCommits"), "A PR head that does not contain the local tip stays protected");
+  prHeads.set("feature", pushedTip);
+  assert.equal((await featureBlockers()).includes("unpushedCommits"), false, "The PR head proves the commits were pushed");
+  git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: committed after the pull request");
+  assert.ok((await featureBlockers()).includes("unpushedCommits"), "A commit after the PR head stays protected");
+  git(path, "reset", "--hard", "main");
+  prHeads.delete("feature");
   // Denied permanent branch deletion keeps both history and checkout.
   git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: unmerged");
   assert.equal((await act("delete", { deleteBranch: true })).ok, false);

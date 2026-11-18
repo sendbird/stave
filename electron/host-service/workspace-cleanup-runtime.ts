@@ -49,6 +49,7 @@ export function createWorkspaceCleanupRuntime(ports: {
   const pr = ports.pr ?? fetchGitHubPrStatus;
   const now = ports.now ?? Date.now;
   const mergedAtByWorkspace = new Map<string, number>();
+  const prSavedTips = new Set<string>();
   let running = false;
   let actionChain = Promise.resolve();
   let lastGoodState = { policy: DEFAULT_WORKSPACE_CLEANUP_POLICY, recent: [], lastRun: 0 } as import("zod").infer<typeof WorkspaceCleanupStateSchema>;
@@ -121,6 +122,25 @@ export function createWorkspaceCleanupRuntime(ports: {
     if (responsibility) reasons.push(responsibility);
     return reasons;
   }
+  /**
+   * A squash-merged PR whose head branch was deleted leaves no remote-tracking
+   * ref after a pruning fetch, so `--not --remotes` counts every pushed commit.
+   * GitHub keeps the PR head, which is enough when the local tip is that head
+   * or one of its ancestors. Confirmed tips are remembered; a moved tip re-checks.
+   */
+  async function savedByPullRequest(repositoryPath: string, branch: string, branchRef: string) {
+    const tip = await git(repositoryPath, ["rev-parse", "--verify", "--quiet", `${branchRef}^{commit}`]);
+    if (!tip.ok) return false;
+    const key = JSON.stringify([canonical(repositoryPath), branch, tip.stdout.trim()]);
+    if (prSavedTips.has(key)) return true;
+    const status = await pr({ cwd: repositoryPath, target: branch });
+    const head = status.ok ? status.pr?.headRefOid?.trim() : undefined;
+    if (!head || !/^[0-9a-f]{40,64}$/i.test(head)) return false;
+    const saved = head.toLowerCase() === tip.stdout.trim().toLowerCase()
+      || (await git(repositoryPath, ["merge-base", "--is-ancestor", tip.stdout.trim(), head])).ok;
+    if (saved) prSavedTips.add(key);
+    return saved;
+  }
   async function inspect(row: WorkspaceCleanupRow, scanDisk = false, checkPr = false, action?: WorkspaceCleanupActArgs["action"]): Promise<WorkspaceCleanupRow> {
     const blockers = hostBlockers(row, action);
     const reasons: string[] = [...row.reasons];
@@ -134,8 +154,10 @@ export function createWorkspaceCleanupRuntime(ports: {
       const base = repository?.defaultBranch || "main";
       const merged = await git(row.repositoryPath, ["merge-base", "--is-ancestor", branchRef, `refs/heads/${base}`]);
       const unpushed = await git(row.repositoryPath, ["rev-list", "--count", branchRef, "--not", "--remotes"]);
-      const pushed = unpushed.ok && unpushed.stdout.trim() === "0";
-      branchDeletable = merged.ok || pushed;
+      const onRemote = unpushed.ok && unpushed.stdout.trim() === "0";
+      // A PR head keeps the commits, but `git branch -d` still refuses a squash-merged branch.
+      const pushed = onRemote || (unpushed.ok && !row.branchOnly && await savedByPullRequest(row.repositoryPath, row.branch, branchRef));
+      branchDeletable = merged.ok || onRemote;
       if (merged.ok) reasons.push("branchMerged");
       if (!pushed) blockers.push("unpushedCommits");
     }
