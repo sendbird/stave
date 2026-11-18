@@ -194,15 +194,18 @@ describe("Tars completion over the conditional stages", () => {
       expect(observe(ended([answer(patch), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject(unverified);
   });
 
-  test("a pull request endpoint is reached when the run changed no files, and still waits for publication when it changed some", () => {
-    const pullRequest = (detail: AgentRunDetail) => tarsObservation(detail, ["Search works"], null, { completionGoal: "pullRequest" });
-    // Nothing changed: there is no change to publish, so the work is complete instead of waiting on a pull request.
-    expect(pullRequest(ended([answer(), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject({ state: "completed", resultVerifiedRunId: "run" });
+  test("a pull request endpoint is reached when the work's only run changed no files, and still waits for publication otherwise", () => {
+    const pullRequest = (detail: AgentRunDetail, goal: Record<string, unknown> = {}) => tarsObservation(detail, ["Search works"], null, { completionGoal: "pullRequest", ...goal });
+    const nothingChanged = ended([answer(), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]);
+    // Nothing changed: there is no change to publish. The run is recorded so the saved row keeps the completion.
+    expect(pullRequest(nothingChanged)).toMatchObject({ state: "completed", resultVerifiedRunId: "run", unchangedRunId: "run" });
+    // An earlier run of the same work may have left commits that were never published.
+    expect(pullRequest(nothingChanged, { previousRunIds: ["earlier"] })).toMatchObject({ state: "resultReady", unchangedRunId: "run" });
     // Verified changes still wait for the draft pull request.
     const work = record("work", { report: complete(), facts: facts("r2", { changedPaths: ["src/search.ts"] }) });
-    expect(pullRequest(ended([work, reviewed("passed"), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject({ state: "resultReady", resultVerifiedRunId: "run" });
+    expect(pullRequest(ended([work, reviewed("passed"), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject({ state: "resultReady", resultVerifiedRunId: "run", unchangedRunId: null });
     // A merge endpoint is never reached by an unchanged run.
-    expect(tarsObservation(ended([answer(), skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]), ["Search works"], null, { completionGoal: "merge" }).state).toBe("resultReady");
+    expect(tarsObservation(nothingChanged, ["Search works"], null, { completionGoal: "merge" }).state).toBe("resultReady");
   });
 
   test("changed work skipped past its review by the user still needs a Stave check", () => {

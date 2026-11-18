@@ -48,6 +48,44 @@ test("old completed records restore conservatively without rewriting history or 
   db.close();
 });
 
+test("a pull request goal stays completed across a restart only when the work's single run changed no file", () => {
+  const dir = mkdtempSync(join(tmpdir(), "tars-unchanged-")); dirs.push(dir);
+  const file = join(dir, "tasks.sqlite");
+  let db = new Database(file);
+  let store = new TarsStore(db);
+  const start = (requestId: string) => {
+    const created = store.create({ ...input, requestId, completionGoal: "pullRequest", branchName: `fix/${requestId}` }, NOW);
+    return store.patch(created.id, created.revision, { state: "running", agentRunId: "run-1", taskId: `task-${requestId}`, executionWorkspaceId: "execution" }, NOW);
+  };
+  // What the runtime saves from an ended run's observation.
+  const end = (row: ReturnType<typeof start>, unchangedRunId: string | null, extra: Record<string, unknown> = {}) =>
+    store.patch(row.id, row.revision, { state: "completed", resultVerifiedRunId: row.agentRunId, unchangedRunId, ...extra }, NOW);
+
+  // Nothing changed: there is no change to publish, so the work is complete and is not offered for publication again.
+  const unchanged = end(start("unchanged"), "run-1");
+  expect(unchanged).toMatchObject({ state: "completed", unchangedRunId: "run-1" });
+  expect(tarsGoalNext(unchanged)).toBe("complete");
+  // Changed files still wait for the draft pull request.
+  const changed = end(start("changed"), null);
+  expect(changed.state).toBe("resultReady");
+  expect(tarsGoalNext(changed)).toBe("publish");
+  // An earlier run of the same work may have left commits that were never published.
+  const continued = end(start("continued"), "run-1", { previousRunIds: ["run-0"] });
+  expect(continued.state).toBe("resultReady");
+  // A run id that is not the current run proves nothing about the current one.
+  expect(end(start("stale"), "run-0").state).toBe("resultReady");
+
+  db.close(); db = new Database(file); store = new TarsStore(db);
+  expect(store.get(unchanged.id)).toMatchObject({ state: "completed", unchangedRunId: "run-1" });
+  expect(store.get(changed.id)!.state).toBe("resultReady");
+  expect(store.get(continued.id)!.state).toBe("resultReady");
+  // Resuming execution forgets the unchanged run, so a later change is never completed on its strength.
+  const resumed = store.patch(unchanged.id, unchanged.revision, { state: "running" }, NOW);
+  expect(resumed.unchangedRunId).toBeNull();
+  expect(store.patch(resumed.id, resumed.revision, { state: "completed", resultVerifiedRunId: "run-1" }, NOW).state).toBe("resultReady");
+  db.close();
+});
+
 test("a verified implementation completion remains completed and publishable after a SQLite restart", () => {
   const dir = mkdtempSync(join(tmpdir(), "tars-completed-")); dirs.push(dir);
   const file = join(dir, "tasks.sqlite");

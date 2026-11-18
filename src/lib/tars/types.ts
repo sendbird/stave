@@ -436,6 +436,8 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   agentRunId: IdSchema.nullable(),
   /** The exact run whose result passed completion verification; cleared when execution resumes. */
   resultVerifiedRunId: IdSchema.nullable().optional(),
+  /** The exact run Stave saw end without changing a file, so it left nothing to publish; cleared when execution resumes. */
+  unchangedRunId: IdSchema.nullable().optional(),
   /** Explicit user acceptance, distinct from execution ending. */
   completionConfirmedAt: z.iso.datetime().optional(),
   /** A start may have committed without its acknowledgement; only a receipt read clears this reservation. */
@@ -520,7 +522,7 @@ export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   continuationFromRevision: true,
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
-  executionPending: true, resultVerifiedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,
+  executionPending: true, resultVerifiedRunId: true, unchangedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;

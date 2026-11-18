@@ -273,6 +273,7 @@ export class TarsStore {
         (patch.state === "running" && previous.state !== "running")) {
         delete merged.completionConfirmedAt;
         merged.resultVerifiedRunId = null;
+        merged.unchangedRunId = null;
       }
       if ("agentRunId" in patch && patch.agentRunId !== previous.agentRunId && previous.publication) {
         merged.publicationHistory = [...(previous.publicationHistory ?? []),

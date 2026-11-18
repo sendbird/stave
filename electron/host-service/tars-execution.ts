@@ -321,7 +321,7 @@ export function tarsStageWait(record: Pick<AgentRunStageRecord, "status" | "bloc
  * attempt (`controlTarsRun`).
  */
 export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: readonly string[],
-  reverifyAfter?: string | null, goal: Pick<TarsResponsibility, "completionGoal" | "publication"> = {}): TarsExecutionObservation {
+  reverifyAfter?: string | null, goal: Pick<TarsResponsibility, "completionGoal" | "publication" | "previousRunIds"> = {}): TarsExecutionObservation {
   const run = detail.agentRun;
   // The run's own reason is a diagnostic: surfaces say the stop or cancel by code and keep the words expandable.
   if (run.state === "cancelled") return run.reasonDetail ? { state: "cancelled", detail: run.reasonDetail, detailCode: "runCancelled", detailParams: null }
@@ -347,9 +347,9 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
     if (!hasStaveVerifiedOutcome(detail, final, reverifyAfter))
       return { state: "blocked", detail: "The run reported its criteria as met, but Stave has no verified check or passed review for it.",
         detailCode: "unverifiedCompletion" };
-    // A pull request endpoint has nothing left when the run changed no files: there is no change to publish.
-    const nothingToPublish = goal.completionGoal === "pullRequest" && Boolean(final && endedOnUnchangedWork(detail, final, reverifyAfter));
-    return { state: nothingToPublish || tarsGoalReached({ ...goal, agentRunId: run.id }) ? "completed" : "resultReady", detail: null, resultVerifiedRunId: run.id };
+    // Saved with the row: a pull request goal whose only run changed no file has nothing to publish (`tarsGoalReached`).
+    const unchangedRunId = final && endedOnUnchangedWork(detail, final, reverifyAfter) ? run.id : null;
+    return { state: tarsGoalReached({ ...goal, agentRunId: run.id, unchangedRunId }) ? "completed" : "resultReady", detail: null, resultVerifiedRunId: run.id, unchangedRunId };
   }
   // The run's own takeover pause is human ownership, whichever surface took it.
   if (run.state === "paused" && run.pauseReason === "taken-over") return { state: "takenOver", detail: run.reasonDetail ?? null };
