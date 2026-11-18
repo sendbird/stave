@@ -164,3 +164,27 @@ describe("host registry writers keep what another writer saved between their rea
     expect(workspaceIdsOf(otherPath)).toEqual(["other-default"]);
   });
 });
+
+describe("renderers hear about a workspace the host created", () => {
+  test("creating a workspace signals it once, after the registry holds it", async () => {
+    const repositoryPath = makeRepository("signal-repo");
+    const git = (...args: string[]) => execFileSync("git", args, { cwd: repositoryPath, stdio: "ignore" });
+    git("init", "-b", "main");
+    git("-c", "user.name=Stave Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-m", "initial");
+    await runtime.registerRepository({ repositoryPath, defaultBranch: "main" });
+
+    const signals: Array<{ workspaceId: string; repositoryPath: string; savedIds: string[] }> = [];
+    runtime.setLocalMcpEventListener((event) => {
+      if (event.type === "workspace-changed") signals.push({ ...event.payload, savedIds: workspaceIdsOf(repositoryPath) });
+    });
+    try {
+      const created = await runtime.createWorkspace({ repositoryPath, name: "tars/signal", mode: "clean" });
+      expect(signals).toHaveLength(1);
+      expect(signals[0]!.workspaceId).toBe(created.workspaceId);
+      expect(signals[0]!.repositoryPath).toBe(repositoryPath);
+      expect(signals[0]!.savedIds).toContain(created.workspaceId);
+    } finally {
+      runtime.setLocalMcpEventListener(null);
+    }
+  });
+});

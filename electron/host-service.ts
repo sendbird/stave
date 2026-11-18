@@ -750,6 +750,10 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
     emitEvent("local-mcp.workspace-information-updated", event.payload);
     return;
   }
+  if (event.type === "workspace-changed") {
+    emitEvent("local-mcp.workspace-changed", event.payload);
+    return;
+  }
   emitEvent("local-mcp.task-turn-updated", event.payload);
   if (event.payload.done) {
     discoverAgentPullRequest(event.payload);

@@ -511,6 +511,21 @@ describe("local MCP runtime runTask", () => {
     expect(startTurnStreamCalls).toHaveLength(1);
   });
 
+  test("adding an idle task signals its workspace after the task is saved", async () => {
+    const signals: Array<{ workspaceId: string; savedTaskIds: string[] }> = [];
+    runtime.setLocalMcpEventListener((event) => {
+      if (event.type !== "workspace-changed") return;
+      const saved = lastUpsertSnapshotByWorkspaceId.get(event.payload.workspaceId)?.tasks ?? [];
+      signals.push({ workspaceId: event.payload.workspaceId, savedTaskIds: saved.map((item: { id: string }) => item.id) });
+    });
+    try {
+      const { taskId } = await runtime.createIdleTask({ workspaceId: WORKSPACE_ID, title: "Tars work", provider: "claude-code" });
+      expect(signals).toEqual([{ workspaceId: WORKSPACE_ID, savedTaskIds: expect.arrayContaining([taskId]) }]);
+    } finally {
+      runtime.setLocalMcpEventListener(null);
+    }
+  });
+
   test("does not start a turn whose prompt row could not be saved", async () => {
     // Starting anyway left the prompt to a later full write, which stored it
     // below the reply the turn had already streamed.

@@ -65,6 +65,28 @@ export function requestFleetWorkspaceShell(
   );
 }
 
+/**
+ * Reads a workspace again when this visit already holds an entry for it: the
+ * host added a task after the first read. Without an entry nobody is showing
+ * the workspace, and the next visit reads it fresh.
+ */
+export function refreshFleetWorkspaceShell(
+  workspaceId: string,
+  load: typeof loadWorkspaceShellSummary = loadWorkspaceShellSummary,
+) {
+  if (!useFleetWorkspaceShellsStore.getState().byWorkspaceId[workspaceId]) {
+    return;
+  }
+  const requestedIn = generation;
+  void load({ workspaceId }).then(
+    (shell) => {
+      if (requestedIn === generation) setEntry(workspaceId, { status: "loaded", shell });
+    },
+    // The earlier entry stays; a failed re-read is not worse than no re-read.
+    () => {},
+  );
+}
+
 /** Reads again the workspaces whose read failed (the table's Retry). */
 export function retryFleetWorkspaceShells(
   workspaceIds: readonly string[],

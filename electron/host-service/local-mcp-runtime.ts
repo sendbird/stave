@@ -45,6 +45,7 @@ import {
   repositoryLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "../../src/lib/local-mcp/task-turn-update";
+import type { LocalMcpWorkspaceChange } from "../../src/lib/local-mcp/workspace-change";
 import {
   applyDetectedWorkspaceResources,
   detectWorkspaceResourcesInText,
@@ -293,6 +294,10 @@ let localMcpEventListener:
         | {
             type: "task-turn-updated";
             payload: LocalMcpTaskTurnUpdate;
+          }
+        | {
+            type: "workspace-changed";
+            payload: LocalMcpWorkspaceChange;
           },
     ) => void)
   | null = null;
@@ -1656,6 +1661,8 @@ export async function createWorkspace(args: {
     }),
     result: undefined,
   }));
+  // Notify only after saving so a renderer refresh finds the new workspace.
+  localMcpEventListener?.({ type: "workspace-changed", payload: { workspaceId, repositoryPath } });
 
   const notice = buildWorkspaceCreationNotice({ notices });
   return {
@@ -2334,6 +2341,7 @@ export async function createIdleTask(args: { workspaceId: string; title: string;
     const added = addIdleTask(await loadWorkspaceSession(args.workspaceId, true), args);
     const next = cacheWorkspaceSession(args.workspaceId, added.session);
     await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
+    localMcpEventListener?.({ type: "workspace-changed", payload: { workspaceId: args.workspaceId, repositoryPath: registration.project.repositoryPath } });
     return { taskId: added.taskId };
   });
 }
