@@ -49,6 +49,7 @@ export class WorkspaceArchiveStore {
   /** Stale registry snapshots cannot resurrect archived identities or erase tombstones. */
   protectRegistry(repositories: PersistenceRepositoryRegistryEntry[]): PersistenceRepositoryRegistryEntry[] {
     const archived = this.list();
+    const persisted = this.registry();
     const deleted = new Set((this.db.prepare("SELECT workspace_id FROM workspace_deletions").all() as Array<{ workspace_id: string }>).map(row => row.workspace_id));
 
     return repositories.map((repository) => {
@@ -56,12 +57,27 @@ export class WorkspaceArchiveStore {
       const ids = new Set([...deleted, ...records.map((record) => record.workspaceId)]);
       const workspaces = repository.workspaces.filter((workspace) => !ids.has(workspace.id));
       const withoutArchived = <T>(map: Record<string, T>) => Object.fromEntries(Object.entries(map).filter(([id]) => !ids.has(id)));
+      const workspacePathById = withoutArchived(repository.workspacePathById);
+      const activePaths = new Set(Object.values(workspacePathById).map(normalizeComparablePath));
+      // Path-only archives can outlive their history rows. Keep both writers'
+      // markers so saving the registry cannot make preserved checkouts discoverable.
+      // A restored live path wins over a stale path marker; archive records still
+      // remove archived identities before this comparison.
+      const archivedPaths = new Map<string, string>();
+      for (const path of [
+        ...(persisted.find(entry => entry.repositoryPath === repository.repositoryPath)?.archivedWorkspacePaths ?? []),
+        ...(repository.archivedWorkspacePaths ?? []),
+      ]) {
+        const key = normalizeComparablePath(path);
+        if (key && !activePaths.has(key) && !archivedPaths.has(key)) archivedPaths.set(key, path);
+      }
+      for (const record of records) archivedPaths.set(normalizeComparablePath(record.path), record.path);
       return { ...repository, workspaces,
         activeWorkspaceId: ids.has(repository.activeWorkspaceId) ? workspaces[0]?.id ?? "" : repository.activeWorkspaceId,
-        workspacePathById: withoutArchived(repository.workspacePathById),
+        workspacePathById,
         workspaceBranchById: withoutArchived(repository.workspaceBranchById),
         workspaceDefaultById: withoutArchived(repository.workspaceDefaultById),
-        archivedWorkspacePaths: records.map(record => record.path) };
+        archivedWorkspacePaths: [...archivedPaths.values()] };
     });
   }
 
