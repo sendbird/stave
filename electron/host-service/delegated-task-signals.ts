@@ -109,14 +109,24 @@ export function listTaskCompletionSignals(args: {
  * key is that stall's own waiting receipt, so a child that resumes and stops
  * again wakes its parent again, and the same stall never does twice.
  */
+/** The stall a waiting step's receipts show, or null; pure so it can be tested on recorded receipts. */
+export function delegatedStallReceipt<T extends { type: string; executionId: string | null; detail?: { code?: string } | null }>(
+  receipts: readonly T[], step: { status: string; executionId: string | null },
+): T | null {
+  if (step.status !== "waiting") return null;
+  const latest = [...receipts].reverse().find((entry) => entry.type === "waiting" && entry.executionId === step.executionId &&
+    (entry.detail?.code === "child-agent-run-waiting" || entry.detail?.code === "child-agent-run-usage-reset"));
+  return latest?.detail?.code === "child-agent-run-waiting" ? latest : null;
+}
+
 export function listDelegatedStallSignals(args: { taskId: string }): DelegatedStallSignal[] {
   try {
     const store = ensureHostServicePersistenceReady();
     return store.listRunAggregatesByOrigin({ originKind: "task", originId: args.taskId, limit: TASK_COMPLETION_FEED_LIMIT })
       .flatMap((aggregate) => {
-        if (aggregate.step.status !== "waiting") return [];
-        const receipt = [...store.listRunReceipts({ runId: aggregate.run.id })].reverse().find((entry) =>
-          entry.type === "waiting" && entry.executionId === aggregate.step.executionId && entry.detail?.code === "child-agent-run-waiting");
+        // The latest child wait decides: one that now waits for a usage reset is not a stall,
+        // even when an earlier wait of the same execution needed a person.
+        const receipt = delegatedStallReceipt(store.listRunReceipts({ runId: aggregate.run.id }), aggregate.step);
         if (!receipt) return [];
         return [{
           runId: aggregate.run.id, stepId: aggregate.step.id, delegatedTaskId: aggregate.step.target?.taskId ?? null,

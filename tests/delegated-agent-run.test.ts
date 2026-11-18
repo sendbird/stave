@@ -313,8 +313,14 @@ describe("supervised saved-Agent delegations", () => {
     for (let i = 0; i < 200 && !(waiting?.phase === "waiting" && waiting.waitsForPerson); i++) { await Bun.sleep(2); waiting = await h.coordinator.get(child); }
     expect(waiting).toMatchObject({ phase: "waiting", lifecycle: "supervised", waitsForPerson: true });
     const before = h.calls.length;
+    const identity = { delegatedTaskId: waiting!.delegatedTaskId!, delegatedWorkspaceId: waiting!.delegatedWorkspaceId!, attempt: waiting!.attempt };
+    // The Run keeps the permissions it was admitted with: a reply asking for others is refused, not silently ignored.
+    const narrowed = await h.coordinator.followUp({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey,
+      prompt: "Continue with approvals.", permissionProfile: "manual", expected: identity });
+    expect(narrowed).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(h.calls.length).toBe(before);
     const followed = await h.coordinator.followUp({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey,
-      prompt: "Review only the diff since abc1234 and report.", permissionProfile: "guided",
+      prompt: "Review only the diff since abc1234 and report.",
       expected: { delegatedTaskId: waiting!.delegatedTaskId!, delegatedWorkspaceId: waiting!.delegatedWorkspaceId!, attempt: waiting!.attempt } });
     expect(followed.accepted).toBe(true);
     expect(h.calls.length).toBe(before + 1);

@@ -1912,6 +1912,9 @@ export function createDelegatedTaskCoordinator(
         return rejected("invalid-state", resolved.child);
       }
       if (resolved.child.lifecycle === "supervised") {
+        // A supervised Run keeps the permissions it was admitted with; a reply cannot
+        // narrow or widen them, so an explicit profile is refused rather than ignored.
+        if (args.permissionProfile && args.permissionProfile !== "inherit") return rejected("invalid-request", resolved.child);
         // The child's own Run keeps its admitted permissions, model and budget; the
         // runtime re-checks that its stage still waits before it continues. Its
         // supervisor stays in flight while it waits, so that is not "already active".
