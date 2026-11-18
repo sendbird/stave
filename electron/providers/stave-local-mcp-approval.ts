@@ -60,6 +60,9 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // are not, so `stave_delegate_task` and `stave_stop_delegated_task` stay on the
   // approval path alongside `stave_run_task`.
   "stave_list_delegated_tasks",
+  // Reading cleanup state is local and read-only. Archiving removes a checkout,
+  // so `stave_archive_workspace` stays on the approval path.
+  "stave_list_workspace_cleanup",
   // Same line the automation tools sit on: defining or pausing scheduled work only
   // edits a definition, so it belongs here, while anything that starts a turn
   // right now (`stave_run_automation_now`) does not. A wake-up has no immediate

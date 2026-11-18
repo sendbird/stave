@@ -30,6 +30,8 @@ import {
   RepositoryMemoryKindSchema,
 } from "../../src/lib/repository-memory";
 import { registerAgentRunTools } from "./stave-agent-run-tools";
+import { registerWorkspaceCleanupTools } from "./stave-workspace-cleanup-tools";
+import { invokeHostService } from "./host-service-client";
 import {
   blockAgentRunStage,
   requestAgentRunResources,
@@ -685,6 +687,11 @@ function createToolServer(options?: {
       });
     },
   );
+
+  registerWorkspaceCleanupTools(server, {
+    list: () => invokeHostService("workspace.cleanup-list", {}),
+    act: (args) => invokeHostService("workspace.cleanup-act", args),
+  });
 
   registerAgentRunTools(server, options?.turnGrants ?? {}, {
     getAgentRunForGrant,

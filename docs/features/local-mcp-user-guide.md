@@ -130,6 +130,11 @@ If `Codex` auto-registration is enabled, Stave also keeps the current loopback U
    - `stave_get_task`
    - `stave_respond_user_input` when the task asks a question
 
+To clean up finished workspaces, use:
+
+- `stave_list_workspace_cleanup` — `{ repositoryPath?, includeArchived? }`; read only. Lists workspaces with `blockers` (what stops archiving now: uncommitted changes, unpushed commits, a running turn, run or script, an open terminal, something waiting on you, unfinished Tars work or an open draft pull request, the default or selected workspace) and `reasons` (signs the work is finished, such as `branchMerged`, `prMerged` or `responsibilityEnded`)
+- `stave_archive_workspace` — `{ repositoryPath, workspaceId, deleteBranch? }`; archives one workspace through the same host path as the [cleanup center](resource-manager.md#clean-up-workspaces): Stave removes its worktree and keeps its tasks and history under Archived, where you can restore it. The host re-checks every blocker and refuses with their codes. `deleteBranch` deletes the local branch only when it is merged or pushed, never forced. There is no permanent delete. It is not on the always-allowed list, so it asks for approval unless the task runs in a prompt-free permission mode, and read-only runs cannot call it
+
 To delegate work from a task to a durable delegated task, use:
 
 - `stave_delegate_task`

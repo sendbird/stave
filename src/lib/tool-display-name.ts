@@ -30,6 +30,8 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_list_repositories: "View repositories",
   stave_register_repository: "Add repository",
   stave_create_workspace: "Create workspace",
+  stave_list_workspace_cleanup: "View workspace cleanup",
+  stave_archive_workspace: "Archive workspace",
   stave_run_task: "Run task",
   stave_get_task: "Open task",
   stave_delegate_task: "Start subagent",
