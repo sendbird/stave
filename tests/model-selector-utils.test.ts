@@ -121,9 +121,9 @@ describe("model selector utils", () => {
       ),
     ).toEqual([
       "claude-code:claude-opus-5-5",
-      "codex:gpt-6.1-sol",
+      "codex:gpt-6.2-sol",
       "claude-code:claude-fable-5-2",
-      "codex:gpt-6-astra",
+      "codex:gpt-6.2-astra",
     ]);
   });
 
@@ -182,13 +182,13 @@ describe("model selector utils", () => {
 
   test("passes enrichment data (description, isDefault) into built options", () => {
     const enrichment = new Map([
-      ["gpt-6.1-sol", { description: "Flagship model", isDefault: true }],
+      ["gpt-6.2-sol", { description: "Flagship model", isDefault: true }],
     ]);
     const options = buildModelSelectorOptions({
       providerIds: ["codex"],
       enrichmentByModel: enrichment,
     });
-    const sol = options.find((option) => option.model === "gpt-6.1-sol");
+    const sol = options.find((option) => option.model === "gpt-6.2-sol");
     expect(sol).toBeDefined();
     expect(sol?.description).toContain("Flagship model");
     expect(sol?.isDefault).toBe(true);

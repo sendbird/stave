@@ -182,7 +182,8 @@ test("Always allow on the draft PR card saves its repository and publishes the w
     configure: async (settings) => { saved.push(settings); return settings; }, children: createElement(Capture) }));
   expect(html).toContain("Always allow");
   await ((button as ReactElement<{ onClick: () => Promise<void> }>).props.onClick)();
-  expect(saved[0]?.allowRules).toEqual([{ key: "publish", repositoryPath: "/tmp/web" }]);
+  // The saved rule records when, so its "Always allowed" line sits there in the transcript.
+  expect(saved[0]?.allowRules).toEqual([{ key: "publish", repositoryPath: "/tmp/web", savedAt: expect.any(String) }]);
   expect(calls.publish).toEqual([[{ commitMessage: "fix: reviewed commit", title: "fix: reviewed title" }, "click"]]);
 });
 

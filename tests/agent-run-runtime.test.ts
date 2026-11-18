@@ -1946,7 +1946,7 @@ describe("Agent run team limits", () => {
     test(`${providerId}: trusted Tars Automatic uses host admission, persisted policy and restart routing with global Auto off`, async () => {
       const host = createRoutingHostHarness();
       const light = providerId === "codex" ? "gpt-6-luna" : "claude-haiku-5-5";
-      const strong = providerId === "codex" ? "gpt-6.1-sol" : "claude-opus-5-5";
+      const strong = providerId === "codex" ? "gpt-6.2-sol" : "claude-opus-5-5";
       const extra = { freezeResources: host.freezeResources, routeConstrainedTurn: host.router };
       const h = createHarness({ store: host.runs, extra });
       h.setSnapshot({ providerId, model: light });
@@ -2010,14 +2010,14 @@ describe("Agent run team limits", () => {
   });
   const policy = (providerId: "claude-code" | "codex", patch = {}) => ({
     version: 1 as const, profile: "balanced" as const, providerId,
-    allowedModels: providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-sonnet-5-5", "claude-opus-5-5"],
+    allowedModels: providerId === "codex" ? ["gpt-6.2-sol", "gpt-6-luna"] : ["claude-sonnet-5-5", "claude-opus-5-5"],
     modelLocked: false, effortLocked: false, initialEffort: "medium", teamTurns: 30,
     concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const,
     maxChanges: 2 as const, cooldownTurns: 2 as const, ...patch,
   });
   for (const providerId of ["codex", "claude-code"] as const) for (const taskClass of ["implement", "review"] as const) {
     test(`${providerId} ${taskClass}: primary host turns and stage replies enforce the Auto floor after a resource request`, async () => {
-      const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+      const [strong, light] = providerId === "codex" ? ["gpt-6.2-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
       const p = policy(providerId, { allowedModels: [strong, light] });
       const router = createConstrainedHostRouter({ assignment: () => ({ workspaceId: "ws-1", role: "primary", agent: { ...getBuiltinAgent("implementer")!, model: { mode: "auto", taskClass } } }) as AgentAssignment,
         settings: () => AgentRouteSettingsSchema.parse({ routing: { autoRoutingEnabled: true, autoRoutingProfile: buildStarterProfile("starter-quality-first") }, classifier: null }),
@@ -2090,7 +2090,7 @@ describe("Agent run team limits", () => {
   });
   for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a proposal made in a reply to a blocked stage escalates the stage's next turn`, async () => {
     // The light placement at stage start, then a block, then the user asks for the strongest model.
-    const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+    const [strong, light] = providerId === "codex" ? ["gpt-6.2-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
     const p = policy(providerId, { allowedModels: [strong, light] });
     const setup = () => {
       const h = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: async () => ({
@@ -2138,7 +2138,7 @@ describe("Agent run team limits", () => {
     expect(reblocked.h.store.listEventsByKind(reblocked.id, ["resource-decision"])).toHaveLength(2);
   });
   for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a reply follows a composer pin and weighs the composer's Auto pick`, async () => {
-    const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+    const [strong, light] = providerId === "codex" ? ["gpt-6.2-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
     const p = policy(providerId, { allowedModels: [strong, light] });
     let classified = 0;
     const setup = async () => {
@@ -2191,16 +2191,16 @@ describe("Agent run team limits", () => {
 
     // A pin this run's provider cannot run refuses the reply with a sentence the user can act on.
     const foreign = await setup();
-    expect(() => reply(foreign.h, "reply-1", { model: "pinned", effortPinned: false, requestedModel: providerId === "codex" ? "claude-opus-5-5" : "gpt-6.1-sol" }))
+    expect(() => reply(foreign.h, "reply-1", { model: "pinned", effortPinned: false, requestedModel: providerId === "codex" ? "claude-opus-5-5" : "gpt-6.2-sol" }))
       .toThrow("not available");
     expect(foreign.h.store.readResources(foreign.id)?.spent).toBe(1);
   });
   test("a reply admitted twice keeps the route decided the first time", async () => {
     // The start places the run on another model of the same rung, which starts the cooldown.
-    const p = policy("codex", { allowedModels: ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"] });
+    const p = policy("codex", { allowedModels: ["gpt-6.2-astra", "gpt-6.2-sol", "gpt-6-luna"] });
     const h = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: async () => ({
-      fingerprint: { providerId: "codex", model: "gpt-6.1-sol" }, runtimeOptions: {}, route: "auto", rationale: "standard" }) } });
-    h.setSnapshot({ providerId: "codex", model: "gpt-6-astra" });
+      fingerprint: { providerId: "codex", model: "gpt-6.2-sol" }, runtimeOptions: {}, route: "auto", rationale: "standard" }) } });
+    h.setSnapshot({ providerId: "codex", model: "gpt-6.2-astra" });
     const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Scope", kind: "input" } });
     h.endTurn("turn-1"); await h.tick();
@@ -2208,9 +2208,9 @@ describe("Agent run team limits", () => {
     const args = { taskId: "task-1", workspaceId: "ws-1", turnId: "reply-1", providerId: "codex" as const,
       composer: { model: "auto" as const, effortPinned: false, requestedModel: "gpt-6-luna" } };
     h.userTurn("reply-1");
-    expect(h.runtime.prepareUserTurn(args)?.runtimeOptions?.model).toBe("gpt-6.1-sol");
+    expect(h.runtime.prepareUserTurn(args)?.runtimeOptions?.model).toBe("gpt-6.2-sol");
     // Admitted again, the reply now counts as a linked turn, yet the refusal recorded for it stands.
-    expect(h.runtime.prepareUserTurn(args)?.runtimeOptions?.model).toBe("gpt-6.1-sol");
+    expect(h.runtime.prepareUserTurn(args)?.runtimeOptions?.model).toBe("gpt-6.2-sol");
     expect(h.store.listEventsByKind(id, ["resource-decision"]).filter((row) => row.idempotencyKey?.includes("reply-1"))).toHaveLength(1);
   });
   test("a resource proposal is refused once its stage attempt moved on, not while the stage waits", async () => {
@@ -2303,7 +2303,7 @@ describe("Agent run team limits", () => {
   });
   const rememberCodexEfforts = (account: string, efforts: string[]) => rememberAdaptiveCatalog(account, {
     providerId: "codex", ok: true, detail: "Observed model support",
-    models: [{ model: "gpt-6.1-sol", displayName: "Sol", description: "", hidden: false, isDefault: true,
+    models: [{ model: "gpt-6.2-sol", displayName: "Sol", description: "", hidden: false, isDefault: true,
       defaultEffort: "medium", supportedEfforts: efforts }],
   }, Date.parse(START));
   test("initial pins respect the fresh account catalog, but not another account or expired facts", async () => {

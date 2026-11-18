@@ -58,6 +58,8 @@ export const TARS_ALLOW_RULES_MAX = 24;
 export const TarsAllowRuleSchema = z.object({
   key: z.enum(TARS_ACTION_KEYS),
   repositoryPath: z.string().trim().min(1).max(4_096).nullable(),
+  /** When the user saved it from a card: its record sits there in the transcript. Settings-made rules have none. */
+  savedAt: z.string().datetime().optional(),
 }).strict();
 export type TarsAllowRule = z.infer<typeof TarsAllowRuleSchema>;
 export const TarsAllowRulesSchema = z.array(TarsAllowRuleSchema).max(TARS_ALLOW_RULES_MAX);

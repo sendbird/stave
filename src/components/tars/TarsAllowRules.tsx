@@ -1,21 +1,21 @@
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
 import { TARS_ALLOW_RULES_MAX, TARS_ALWAYS_CONFIRMED, sameTarsAllowRule, tarsRepositoryName, type TarsActionKey, type TarsAllowRule } from "@/lib/tars/autonomy";
 import type { TarsConversationSettings } from "@/lib/tars/conversation";
 import { sx } from "@/components/aui/utils/stylex";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
-import { TarsRecordList, TarsRecordRow } from "./TarsRecord";
+import { TarsRecordRow } from "./TarsRecord";
 
 type Configure = (settings: TarsConversationSettings) => Promise<TarsConversationSettings | null>;
 type AllowContext = { settings: TarsConversationSettings; busy: boolean; error: boolean; save: (rule: TarsAllowRule, apply?: () => void) => Promise<void>; remove: (rule: TarsAllowRule) => Promise<void>; repositoryOf?: (workspaceId: string) => string | undefined };
 const Context = createContext<AllowContext | null>(null);
 
 /** A failed save must never apply the action; duplicates consume no additional slot. */
-export async function saveTarsAllowRule(settings: TarsConversationSettings, configure: Configure, rule: TarsAllowRule, apply: () => void): Promise<boolean> {
+export async function saveTarsAllowRule(settings: TarsConversationSettings, configure: Configure, rule: TarsAllowRule, apply: () => void, now = () => new Date()): Promise<boolean> {
   const rules = settings.allowRules ?? [];
   if (TARS_ALWAYS_CONFIRMED.has(rule.key) || (rules.length >= TARS_ALLOW_RULES_MAX && !rules.some((entry) => sameTarsAllowRule(entry, rule)))) return false;
-  const next = rules.some((entry) => sameTarsAllowRule(entry, rule)) ? rules : [...rules, rule];
+  const next = rules.some((entry) => sameTarsAllowRule(entry, rule)) ? rules : [...rules, { ...rule, savedAt: now().toISOString() }];
   if (!await configure({ ...settings, allowRules: next })) return false;
   apply();
   return true;
@@ -51,13 +51,29 @@ export function TarsAlwaysAllowButton({ actionKey, repositoryPath, workspaceId, 
     onClick={() => context.save({ key: actionKey, repositoryPath: repository }, onApply)}>{t("shell:tars.autonomy.allow.button")}</Button>;
 }
 
-/** Standing permission records survive reopening; Undo changes only future admission. */
-export function TarsAllowRuleRecords() {
+/**
+ * The rules saved from a card, each with when: the transcript places its
+ * record there, so it scrolls away with the conversation instead of staying
+ * under the last message. Every rule stays listed in Settings.
+ */
+export function useTarsAllowRecords(): (TarsAllowRule & { savedAt: string })[] {
+  const rules = useContext(Context)?.settings.allowRules;
+  return useMemo(() => (rules ?? []).filter((rule): rule is TarsAllowRule & { savedAt: string } => Boolean(rule.savedAt)), [rules]);
+}
+
+/** One saved rule where it was saved; Undo changes only future admission. */
+export function TarsAllowRuleRecord({ rule }: { rule: TarsAllowRule & { savedAt: string } }) {
   const { t } = useTranslation(["shell"]);
   const context = useContext(Context);
   if (!context) return null;
-  return <>{context.error ? <p className={sx(styles.error)} role="alert">{t("shell:tars.autonomy.allow.failed")}</p> : null}
-    {context.settings.allowRules?.length ? <TarsRecordList>{context.settings.allowRules.map((rule) => <TarsRecordRow key={`${rule.key}:${rule.repositoryPath}`} state="applied" title={rule.repositoryPath ?? undefined}
+  return <TarsRecordRow state="applied" title={rule.repositoryPath ?? undefined} at={rule.savedAt} data-tars-allow-record=""
     subject={t("shell:tars.autonomy.allow.record", { action: t(`shell:tars.autonomy.action.${rule.key}`), repo: tarsRepositoryName(rule.repositoryPath) ?? t("shell:tars.autonomy.allow.anyRepository") })}
-    actions={<Button size="xs" variant="quiet" disabled={context.busy} onClick={() => context.remove(rule)}>{t("shell:tars.autonomy.allow.undo")}</Button>} />)}</TarsRecordList> : null}</>;
+    actions={<Button size="xs" variant="quiet" disabled={context.busy} onClick={() => context.remove(rule)}>{t("shell:tars.autonomy.allow.undo")}</Button>} />;
+}
+
+/** A save that failed says so at the end, beside the message box. */
+export function TarsAllowRuleError() {
+  const { t } = useTranslation(["shell"]);
+  const context = useContext(Context);
+  return context?.error ? <p className={sx(styles.error)} role="alert">{t("shell:tars.autonomy.allow.failed")}</p> : null;
 }

@@ -72,12 +72,15 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
   DEFAULT_CLAUDE_HAIKU_MODEL,
 ] as const;
 
-// GPT-6.1 Sol is the flagship default. GPT-6 Sol stays resolvable for history
-// and is the automatic fallback when 6.1 is unavailable on the installed
-// runtime. Verified against the Codex CLI 0.159.1 bundled catalog on
-// 2026-09-30.
-export const DEFAULT_CODEX_MODEL = "gpt-6.1-sol";
-export const DEFAULT_CODEX_SOL_FALLBACK_MODEL = "gpt-6-sol";
+// GPT-6.2 Sol is the flagship default and GPT-6.2 Astra the frontier model.
+// GPT-6.1 Sol and GPT-6 Astra stay resolvable for history and are the
+// automatic fallbacks when a 6.2 model is unavailable on the installed runtime
+// or plan. Verified against the Codex CLI 0.168.0 `model/list` catalog on
+// 2026-11-18.
+export const DEFAULT_CODEX_MODEL = "gpt-6.2-sol";
+export const DEFAULT_CODEX_SOL_FALLBACK_MODEL = "gpt-6.1-sol";
+export const CODEX_ASTRA_MODEL = "gpt-6.2-astra";
+export const LEGACY_CODEX_ASTRA_MODEL = "gpt-6-astra";
 // GPT-6.1 Terra is the balanced tier and succeeds GPT-5.6 Terra. GPT-5.6
 // Terra stays resolvable for history and is the automatic fallback when 6.1
 // Terra is unavailable on the installed runtime or plan. Verified against the
@@ -85,7 +88,7 @@ export const DEFAULT_CODEX_SOL_FALLBACK_MODEL = "gpt-6-sol";
 export const CODEX_TERRA_MODEL = "gpt-6.1-terra";
 export const LEGACY_CODEX_TERRA_MODEL = "gpt-5.6-terra";
 export const CODEX_MODEL_OPTIONS = [
-  "gpt-6-astra",
+  CODEX_ASTRA_MODEL,
   DEFAULT_CODEX_MODEL,
   CODEX_TERRA_MODEL,
   "gpt-6-luna",
@@ -543,18 +546,18 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   //
   //   frontier (Fable, Astra)                    medium
   //   flagship (Opus 5.5)                        medium
-  //   flagship (Sol 6.1, Sol 6)                  high
+  //   flagship (Sol 6.2, Sol 6.1, Sol 6)         high
   //   balanced (Sonnet 5.5, Sonnet 5)           high
   //   balanced (Terra)                           xhigh
   //   light    (Haiku 5.5)                        medium
   //   light    (Luna)                             xhigh
   //
-  // Sonnet 5.5, GPT-6.1 Sol, and GPT-6 Sol list at half of Opus 5.5 per
-  // token, so their composer default is high. GPT-6.1 Sol keeps that same
+  // Sonnet 5.5 and every GPT-6.x Sol list at half of Opus 5.5 per token, so
+  // their composer default is high. GPT-6.2 Sol and GPT-6.1 Sol keep the same
   // default as GPT-6 Sol. Terra is the same price band and sits at xhigh.
-  // Luna lists far below that and sits at xhigh. GPT-6.1 Sol, GPT-6 Sol,
-  // Terra, and Luna defaults are Stave's: a fetched App Server catalog does
-  // not replace them. Astra follows the catalog, with the static value above
+  // Luna lists far below that and sits at xhigh. Sol, GPT-6.2 Astra, Terra,
+  // and Luna defaults are Stave's: a fetched App Server catalog does not
+  // replace them. GPT-6 Astra follows the catalog, with the static value above
   // used until it arrives. max stays off Luna. xhigh and max stay off Sonnet
   // and Sol routes.
   //
@@ -672,6 +675,20 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   //
   // Astra is the GPT-6 frontier model and leads the Codex picker, mirroring
   // how Fable leads the Claude picker — including the "medium" default effort.
+  // Codex CLI 0.168.0 reports `default_reasoning_level: "low"` for GPT-6.2
+  // Astra. Stave keeps GPT-6 Astra's composer default (`medium`) so moving an
+  // Astra selection onto 6.2 does not change the stored effort. The scale is
+  // Low through Ultra. A fetched catalog does not replace this default.
+  [CODEX_ASTRA_MODEL]: {
+    providerId: "codex",
+    model: CODEX_ASTRA_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "medium",
+    supportedCodexReasoningEfforts: ALL_CODEX_REASONING_EFFORTS,
+  },
+  // Previous frontier model. Kept resolvable for history and used when
+  // GPT-6.2 Astra is unavailable.
   "gpt-6-astra": {
     providerId: "codex",
     model: "gpt-6-astra",
@@ -687,10 +704,10 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
       "ultra",
     ],
   },
-  // Codex CLI 0.159.1 reports `default_reasoning_level: "low"` for GPT-6.1
-  // Sol. Stave keeps the same composer default as GPT-6 Sol (`high`) so a
-  // model change does not change the stored effort. The scale is Low through
-  // Ultra. A fetched catalog does not replace this default.
+  // Codex CLI 0.168.0 reports `default_reasoning_level: "medium"` for
+  // GPT-6.2 Sol. Stave keeps the same composer default as GPT-6.1 Sol
+  // (`high`) so a model change does not change the stored effort. The scale
+  // is Low through Ultra. A fetched catalog does not replace this default.
   [DEFAULT_CODEX_MODEL]: {
     providerId: "codex",
     model: DEFAULT_CODEX_MODEL,
@@ -699,10 +716,21 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     defaultCodexReasoningEffort: "high",
     supportedCodexReasoningEfforts: ALL_CODEX_REASONING_EFFORTS,
   },
+  // Previous flagship. Kept resolvable for history and used when GPT-6.2 Sol
+  // is unavailable. Codex CLI 0.159.1 reported `default_reasoning_level:
+  // "low"` for it; Stave keeps `high`.
+  [DEFAULT_CODEX_SOL_FALLBACK_MODEL]: {
+    providerId: "codex",
+    model: DEFAULT_CODEX_SOL_FALLBACK_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "high",
+    supportedCodexReasoningEfforts: ALL_CODEX_REASONING_EFFORTS,
+  },
   // Codex supports Ultra for Sol, while Luna caps at Max. The API's
   // reasoning scale differs; use the Codex documentation for this adapter.
-  // Previous flagship. Kept resolvable for history and used when GPT-6.1 Sol
-  // is unavailable.
+  // Older flagship. Kept resolvable for history and used when a pinned
+  // GPT-6.1 Sol is unavailable.
   "gpt-6-sol": {
     providerId: "codex",
     model: "gpt-6-sol",
@@ -924,6 +952,8 @@ export function resolveDefaultClaudeFallbackModel(args: {
 
 const CODEX_FALLBACK_MODELS: Readonly<Record<string, string>> = {
   [DEFAULT_CODEX_MODEL]: DEFAULT_CODEX_SOL_FALLBACK_MODEL,
+  [DEFAULT_CODEX_SOL_FALLBACK_MODEL]: "gpt-6-sol",
+  [CODEX_ASTRA_MODEL]: LEGACY_CODEX_ASTRA_MODEL,
   [CODEX_TERRA_MODEL]: LEGACY_CODEX_TERRA_MODEL,
 };
 
@@ -937,14 +967,20 @@ export function resolveDefaultCodexFallbackModel(args: {
   return CODEX_FALLBACK_MODELS[args.model.trim().toLowerCase()];
 }
 
+// Same-rung successors for a pinned previous-generation Codex id.
+const CODEX_PINNED_MODEL_UPGRADES: Readonly<Record<string, string>> = {
+  [LEGACY_CODEX_TERRA_MODEL]: CODEX_TERRA_MODEL,
+  [DEFAULT_CODEX_SOL_FALLBACK_MODEL]: DEFAULT_CODEX_MODEL,
+  [LEGACY_CODEX_ASTRA_MODEL]: CODEX_ASTRA_MODEL,
+};
+
 /**
- * Moves a pinned GPT-5.6 Terra id onto GPT-6.1 Terra. Auto's allowed-model
- * lists store model ids outside the settings migration, so they call this.
+ * Moves a pinned GPT-5.6 Terra, GPT-6.1 Sol or GPT-6 Astra id onto its
+ * successor on the same rung. Auto's allowed-model lists store model ids
+ * outside the settings migration, so they call this.
  */
-export function upgradePinnedCodexTerraModel(model: string) {
-  return model.trim().toLowerCase() === LEGACY_CODEX_TERRA_MODEL
-    ? CODEX_TERRA_MODEL
-    : model;
+export function upgradePinnedCodexModel(model: string) {
+  return CODEX_PINNED_MODEL_UPGRADES[model.trim().toLowerCase()] ?? model;
 }
 
 export function resolveDefaultClaudeEffortForModel(args: {
@@ -973,7 +1009,9 @@ export function resolveDefaultClaudeEffortForModel(args: {
 }
 
 const STAVE_OWNED_CODEX_EFFORT_MODELS = new Set([
-  "gpt-6.1-sol",
+  DEFAULT_CODEX_MODEL,
+  DEFAULT_CODEX_SOL_FALLBACK_MODEL,
+  CODEX_ASTRA_MODEL,
   CODEX_TERRA_MODEL,
   "gpt-6-sol",
   "gpt-6-luna",
@@ -985,8 +1023,9 @@ export function resolveDefaultCodexEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
   const model = args.model.trim();
-  // Stave owns the composer default for Sol 6.1, Sol 6, Terra 6.1, Terra
-  // 5.6, and Luna. A fetched App Server catalog must not replace those.
+  // Stave owns the composer default for Sol 6.2, Sol 6.1, Sol 6, Astra 6.2,
+  // Terra 6.1, Terra 5.6, and Luna. A fetched App Server catalog must not
+  // replace those.
   // Every other model still prefers the catalog recommendation below.
   if (STAVE_OWNED_CODEX_EFFORT_MODELS.has(model)) {
     const ownedDefault = getModelCapability({ model })?.defaultCodexReasoningEffort;
@@ -1358,6 +1397,13 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     source: CLAUDE_PRICING_SOURCE,
     asOf: "2026-09-14",
   },
+  [CODEX_ASTRA_MODEL]: {
+    inputPerMTok: 8,
+    outputPerMTok: 40,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-11-18",
+    get note() { return i18n.t("providers:modelCatalog.astraStandardPriceBelowTheKInput"); },
+  },
   "gpt-6-astra": {
     inputPerMTok: 10,
     outputPerMTok: 50,
@@ -1365,6 +1411,13 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     asOf: "2026-09-14",
   },
   [DEFAULT_CODEX_MODEL]: {
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-11-18",
+    get note() { return i18n.t("providers:modelCatalog.standardPriceBelowTheKInput"); },
+  },
+  [DEFAULT_CODEX_SOL_FALLBACK_MODEL]: {
     inputPerMTok: 2,
     outputPerMTok: 10,
     source: CODEX_PRICING_SOURCE,
@@ -1497,8 +1550,10 @@ export function findHumanModelName(args: { model: string }): string | null {
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 5.5",
     [LEGACY_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",
+    [CODEX_ASTRA_MODEL]: "GPT-6.2 Astra",
     "gpt-6-astra": "GPT-6 Astra",
-    [DEFAULT_CODEX_MODEL]: "GPT-6.1 Sol",
+    [DEFAULT_CODEX_MODEL]: "GPT-6.2 Sol",
+    [DEFAULT_CODEX_SOL_FALLBACK_MODEL]: "GPT-6.1 Sol",
     "gpt-6-sol": "GPT-6 Sol",
     [CODEX_TERRA_MODEL]: "GPT-6.1 Terra",
     "gpt-6-luna": "GPT-6 Luna",

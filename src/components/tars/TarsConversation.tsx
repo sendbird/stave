@@ -33,7 +33,7 @@ import { TarsActivityNoticeLine, TarsFlowBlock } from "./TarsFlowBlock";
 import { TarsActionRecordLine } from "./TarsActionRecordLine";
 import { describeTarsDecisionSubject, TarsDecisionCard, type TarsDecisionCardContext, type TarsDecisionCardProps } from "./TarsDecisionCard";
 import { tarsDockStyles as dockStyles } from "./tars-decision-dock.styles";
-import { TarsAllowRuleRecords } from "./TarsAllowRules";
+import { TarsAllowRuleError, TarsAllowRuleRecord, useTarsAllowRecords } from "./TarsAllowRules";
 import { TarsDecisionDock, TarsWaitingRecord, type TarsDecisionDockController, type TarsDockItem } from "./TarsDecisionDock";
 import { TarsPublishCard } from "./TarsPublishCard";
 import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
@@ -303,6 +303,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     responsibilities: responsibilities ?? null }) : [], [responsibilities, state.conversation]);
   const decisionIds = useMemo(() => new Set(decisions.map((view) => view.id)), [decisions]);
   const batches = useTarsBatchRecords();
+  const allowRecords = useTarsAllowRecords();
   const timeline = useMemo(() => [
     ...(state.conversation?.messages ?? []).map((value) => ({ kind: "message" as const, id: `message:${value.id}`, at: value.createdAt, value })),
     // Only completion, a block and an unasked end reach the transcript; live progress stays in the tray and flow blocks.
@@ -324,7 +325,9 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     // A cleanup confirmed from the Done lane stays where it happened, with its Restore.
     ...batches.records.map((record) => ({ kind: "batch" as const, id: `batch:${record.id}`, at: record.createdAt,
       value: { record, revision: `${record.state}:${record.items.map((item) => item.status).join(",")}` } })),
-  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [batches.records, clear?.records, decisionIds, publish?.records, schedule?.records, schedule?.runs, state.conversation]);
+    // An "Always allow" saved from a card stays where it was saved, with its Undo.
+    ...allowRecords.map((rule) => ({ kind: "allow" as const, id: `allow:${rule.key}:${rule.repositoryPath ?? ""}`, at: rule.savedAt, value: { rule, revision: rule.savedAt } })),
+  ].sort((a, b) => a.at.localeCompare(b.at) || a.id.localeCompare(b.id)), [allowRecords, batches.records, clear?.records, decisionIds, publish?.records, schedule?.records, schedule?.runs, state.conversation]);
   const scrollKey = timeline.map((item) => `${item.id}:${item.kind === "activity" ? item.value.activity.revision : item.kind === "event" ? item.value.status : item.value.revision}`).join("|")
     + (clear?.active ? `|cleared:${clear.active.requestId}` : "")
     + decisions.map((view) => `${view.id}:${view.state}`).join("|") + (publish?.proposals ?? []).map((view) => `${view.requestId}:${view.state}`).join("|")
@@ -424,6 +427,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} records={state.conversation?.records} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
       onResend={() => resend(item.value)}
       titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} schedule={schedule} onOpenWaiting={openWaiting} />;
+    if (item.kind === "allow") return { record: <TarsAllowRuleRecord key={item.id} rule={item.value.rule} /> };
     if (item.kind === "batch") return { record: <TarsBatchRecordEntry key={item.id} record={item.value.record} /> };
     if (item.kind === "schedule") return { record: <TarsScheduleRecordLine key={item.id} record={item.value} /> };
     if (item.kind === "scheduleRun") return { record: <TarsScheduleRunLine key={item.id} run={item.value.run} onOpenTask={onOpenScheduleRun} /> };
@@ -482,7 +486,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
         {/* The transcript, with the "while you were away" summary where the user left. */}
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
           decisions={decisions} publishProposals={publish?.proposals} titleOf={titleOf} onOpenSide={openSide} onOpenWaiting={openWaiting} />
-        <TarsAllowRuleRecords />
+        <TarsAllowRuleError />
         {batches.error ? <p role="alert">{t("shell:tars.batch.failed")}</p> : null}
         {/* A request that did not go through says so at the end, beside the message box that still holds the words. */}
         {state.error ? <TarsConversationError error={state.error} send={sendFailed}
