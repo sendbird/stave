@@ -5,10 +5,10 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
-  tarsExecutionAgentInstructions, tarsRunInitialContext, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
+  tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
-import { TARS_EXECUTION_AGENT_ID, tarsAgentPublishes } from "../../src/lib/tars/agents";
+import { TARS_EXECUTION_AGENT_ID, TARS_OWNER_CALLABLE_AGENT_IDS, tarsAgentPublishes, tarsOwnerAgent } from "../../src/lib/tars/agents";
 import type { TarsChangedEvent, TarsResponsibility, TarsContinuation } from "../../src/lib/tars/types";
 import { createTarsChangeBatcher } from "../persistence/tars-changes";
 import { buildTarsExecutionResources } from "../../src/lib/tars/execution-resources";
@@ -49,6 +49,10 @@ export function createHostTarsRuntime(args: {
   function hasAssignment(row: TarsResponsibility) {
     return assertTarsAssignment(row, persistence.agentAssignments.getByTaskId(row.taskId!),
       persistence.agentAssignments.getByRequestId(`tars-${row.id}`));
+  }
+  /** Whether the task's recorded lead does the unit itself (`tarsRunOwner`); a lead recorded before that rule delegates. */
+  function ownsRun(row: TarsResponsibility) {
+    return Boolean(tarsRunOwner(row, row.taskId ? persistence.agentAssignments.getByTaskId(row.taskId)?.agent.canCall : null));
   }
   /** The task a delegated run's parent delegated it from; null for a run nobody delegated. */
   function delegatedParentTaskId(agentRunId: string): string | null {
@@ -126,7 +130,7 @@ export function createHostTarsRuntime(args: {
     const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
     if (!latest) throw new TarsOwnershipLostError("The previous execution cannot be verified.");
     const scope = tarsExecutionScope(row, true);
-    const workflow = tarsWorkflow(scope, continuation.requestedAt);
+    const workflow = tarsWorkflow(scope, continuation.requestedAt, ownsRun(row));
     // i18n-ignore: durable model-facing scope identity, not a new user instruction
     workflow.purpose += `\nContinuation request: ${continuation.requestId}`;
     if (latest.id !== continuation.previousRunId) {
@@ -208,8 +212,11 @@ export function createHostTarsRuntime(args: {
       // Agents that publish (push, pull requests) stay out: that needs a separate user request.
       const agents = hostAgents();
       const publishes = (id: string) => { const found = agents.find((entry) => entry.id === id); return !found || tarsAgentPublishes(found); };
-      const canCall = [...new Set([...(template.canCall ?? []).filter((id) => !publishes(id)), ...(row.agentId ? [row.agentId] : [])])];
-      const agent = { ...template, name: identity.name, instructions: tarsExecutionAgentInstructions(template.instructions, row), canCall,
+      // A unit that names a built-in work agent is that agent's own: it leads the run and calls only read-only agents.
+      const owner = tarsOwnerAgent(row.agentId);
+      const canCall = owner ? [...TARS_OWNER_CALLABLE_AGENT_IDS]
+        : [...new Set([...(template.canCall ?? []).filter((id) => !publishes(id)), ...(row.agentId ? [row.agentId] : [])])];
+      const agent = { ...template, name: identity.name, instructions: tarsExecutionAgentInstructions(template.instructions, row, owner), canCall,
         tools: { ...template.tools, maxTurns: row.maxTurns }, reviewBeforeDone: "off" as const };
       args.assignments.recordTaskAgent({ requestId: `tars-${row.id}`, taskId, workspaceId,
         repositoryPath: row.repositoryPath, agent, providerId: row.providerId, model: row.model, assignment: row.instruction,
@@ -231,7 +238,7 @@ export function createHostTarsRuntime(args: {
       const detail = await args.agentRuns.startAgentRun({
         workspaceId: row.executionWorkspaceId!, leadTaskId: row.taskId!, origin: "agent",
         ...buildTarsExecutionResources(row),
-        workflow: tarsWorkflow(row, new Date().toISOString()),
+        workflow: tarsWorkflow(row, new Date().toISOString(), ownsRun(row)),
         assignment: row.instruction,
         // The attachments travel as a reference; the run's first turn reads their content from the message.
         initialContext: tarsRunInitialContext(row, { representative: identity.name, responsibilities: portfolio }),

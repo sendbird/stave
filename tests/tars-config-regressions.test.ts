@@ -16,7 +16,11 @@ const row = { id: "goal", model: null, agentId: "implementer", acceptanceCriteri
 const workflow = tarsWorkflow(row, "2026-11-12T00:00:00.000Z");
 const prompt = (stageIndex: number) => compileStagePrompt({ workflow, stageIndex, assignment: "Fix search", priorStages: [], acceptanceCriteria: [], attempt: 1 });
 const lead = (model: string | null = null) => tarsExecutionAgentInstructions(getBuiltinAgent("supervisor")!.instructions, { ...row, model });
-const instruction = (index: number) => { const stage = workflow.stages[index]; return stage?.kind === "ai" ? stage.instruction : ""; };
+const instruction = (index: number, flow = workflow) => { const stage = flow.stages[index]; return stage?.kind === "ai" ? stage.instruction : ""; };
+// A read-only agent cannot own the run, so the Supervisor lead still delegates its work stage.
+const delegated = tarsWorkflow({ ...row, agentId: "researcher" } as TarsResponsibility, "2026-11-12T00:00:00.000Z");
+const delegatedPrompt = (stageIndex: number) => compileStagePrompt({ workflow: delegated, stageIndex, assignment: "Find the cause", priorStages: [], acceptanceCriteria: [], attempt: 1 });
+const owner = () => tarsExecutionAgentInstructions(getBuiltinAgent("supervisor")!.instructions, row, getBuiltinAgent("implementer"));
 
 test("1: helper and unstructured Claude checks remain unverified; work and fix tell the lead how to obtain recorded evidence", () => {
   const report = { turnId: "lead", evidence: [{ kind: "check", command: "bun test", label: "Passed" }] } as CompleteStageReport;
@@ -61,10 +65,19 @@ test("4: assembled Tars lead removes Supervisor shipping and conflicting UI/logi
   expect(lead()).toContain("Route by usage, capability, then continuity");
 });
 
-test("5: assigned work remains delegated while integration, commits and final checks belong to the lead", () => {
-  expect(prompt(0)).toContain('agentConfigId: "implementer"');
-  expect(prompt(0)).not.toContain("Do not do the stage's work yourself");
-  expect(prompt(0)).toContain("Integrating accepted changes, committing and running final checks are the lead's job");
+test("5: work a lead delegates stays delegated while integration, commits and final checks belong to the lead", () => {
+  expect(delegatedPrompt(0)).toContain('agentConfigId: "researcher"');
+  expect(delegatedPrompt(0)).not.toContain("Do not do the stage's work yourself");
+  expect(delegatedPrompt(0)).toContain("Integrating accepted changes, committing and running final checks are the lead's job");
+});
+
+test("5b: a work agent that owns the run is told to keep the work in its task; only the review stage delegates", () => {
+  expect(prompt(0)).not.toContain("stave_delegate_task");
+  expect(prompt(0)).toContain("Keep the work in this task. Do not start workers or delegated tasks.");
+  expect(prompt(0)).toContain("do not delegate the work");
+  expect(prompt(1)).toContain('agentConfigId: "reviewer"');
+  expect(prompt(1)).toContain("You may hand bounded parts of this stage to workers");
+  expect(prompt(2)).not.toContain("stave_delegate_task");
 });
 
 test("6: reviewer with no allowed check scripts gets conditional verification and no routing assignment", () => {
@@ -79,7 +92,8 @@ test("6: reviewer with no allowed check scripts gets conditional verification an
 
 test("7: all Tars delegation entry points include the helper no-publish brief rule", () => {
   expect(lead()).toContain("Tell every helper and reviewer: do not push or open pull requests");
-  expect(instruction(0)).toContain("Helper briefs: do not push or open pull requests");
+  expect(instruction(0, delegated)).toContain("Helper briefs: do not push or open pull requests");
+  expect(owner()).toContain("Tell the reviewer: do not push or open pull requests");
   expect(instruction(1)).toContain("Do not push or open pull requests");
 });
 

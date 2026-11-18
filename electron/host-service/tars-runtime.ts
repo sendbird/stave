@@ -25,6 +25,8 @@ export interface TarsExecutionObservation {
   state: "running" | "waiting" | "resultReady" | "completed" | "blocked" | "cancelled" | "takenOver";
   detail: string | null;
   resultVerifiedRunId?: string | null;
+  /** The run when it ended without changing a file; null for any other ended run. */
+  unchangedRunId?: string | null;
   /** Set when `detail` is a sentence Tars wrote; absent, `detail` is the run's own words. */
   detailCode?: TarsDetailCode | null;
   detailParams?: TarsDetailParams | null;
@@ -248,7 +250,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       const going = waiting || observed.state === "running";
       const asks = waiting && observed.stageAsksUser === true;
       // An unchanged observation must not reset an existing wait just to add scheduler metadata.
-      noteExpiredWait(patch(initial, { ...change, ...(going ? { resultVerifiedRunId: null } : {}), executionPending: initial.executionPending === true || initial.state === "blocked" ? false : initial.executionPending,
+      noteExpiredWait(patch(initial, { ...change, ...(going ? { resultVerifiedRunId: null, unchangedRunId: null } : {}), executionPending: initial.executionPending === true || initial.state === "blocked" ? false : initial.executionPending,
         continuationFromRevision: hasEndedTarsExecution(observed) && (initial.state === "running" || initial.state === "waiting") ? initial.revision : initial.continuationFromRevision,
         stageAsksUser: asks || undefined, stageWait: asks ? stageWait : undefined,
         activeStage: going ? activeStage : undefined,

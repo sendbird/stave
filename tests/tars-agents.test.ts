@@ -209,7 +209,15 @@ describe("Tars planner agent context", () => {
     const context = { ...observeTarsContext({ tars, loadRepositoryRegistry: () => REGISTRY, loadWorkspaceShellSummary: () => null,
       agentRuns: { getLatestAgentRunForTask: () => null } }, NOW), cwd: "/tmp/profile/representative", agents: bounded };
     const prompt = buildTarsPlannerPrompt(message, context, []);
-    expect(prompt).toContain("agentId is optional");
+    // One named agent does the whole unit; a lead with helpers is the exception.
+    expect(prompt).toContain("that one agent does the whole unit itself, in one context");
+    expect(prompt).toContain("Omit it only when no agent fits or the unit needs several kinds of agent");
+    // A change to repository files ends at a draft pull request unless the user said otherwise.
+    expect(prompt).toContain("A unit that changes repository files ends at pullRequest unless the user named another endpoint or said not to publish");
+    expect(prompt).toContain("Use merge only when the user asked for it");
+    // The planner has not read the code: it states outcomes and leaves causes, steps and verification to the owner.
+    expect(prompt).toContain("name no cause, file or implementation step the user did not give");
+    expect(prompt).toContain("never prescribe how to verify, which tests to add or which steps to take");
     expect(prompt).toContain("Never invent or guess an agent id");
     const supplied = JSON.parse(prompt.split("\n\n").at(-1)!);
     expect(supplied.availableAgents).toHaveLength(TARS_PLANNER_MAX_AGENTS);
