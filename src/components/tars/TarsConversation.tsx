@@ -203,7 +203,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
         {origin?.kind === "answer" ? null
           // The user's words sit on the trailing side in a bubble no wider than they need, under what came with them; Tars's reply reads full-width.
           : <Message from="user" aria-label={t("shell:tars.conversation.you")} data-tars-user-message=""><div className={sx(chrome.userColumn)}>
-            <TarsMessageAttachments attachments={message.attachments ?? []} workingChanges={Boolean(message.includeWorkingChanges)} />
+            <TarsMessageAttachments messageId={message.id} attachments={message.attachments ?? []} workingChanges={Boolean(message.includeWorkingChanges)} />
             {/* The time sits beside the bubble on its last line, shown on hover or focus. */}
             {bubble ? <div className={sx(transcriptStyles.bubbleRow)}><TarsEdgeTime at={message.createdAt} />{bubble}</div> : null}
           </div></Message>}

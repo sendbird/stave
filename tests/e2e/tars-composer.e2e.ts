@@ -1,4 +1,4 @@
-import { expect, test, type Locator } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /** The composer band starts folded to its summary; its rows (and their Timeline buttons) show once unfolded. */
 async function unfoldRunningStrip(view: Locator) {
@@ -74,8 +74,8 @@ test("select, remove, send attachments only, retry the same snapshot, and replay
     { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==", "base64") }]);
   await expect(composer.getByRole("button", { name: "Remove attached file notes.txt", exact: true })).toBeVisible();
   const remove = composer.getByRole("button", { name: "Remove attached file screen.png", exact: true });
-  // Suppress the chip's inherited filename title over the removal action.
-  await expect(remove).toHaveAttribute("title", "");
+  // No filename title over the removal action: its tooltip names what it removes.
+  expect(await remove.getAttribute("title") ?? "").toBe("");
   await remove.hover();
   await expect(page.getByRole("tooltip")).toHaveText("Remove attached file screen.png");
   await remove.click();
@@ -253,7 +253,8 @@ test("same-name selections and repeated image pastes keep separate snapshots", a
     { type: "file_context", filePath: "notes (3).txt", content: "third note", language: "txt" },
   ]);
   await page.reload();
-  await expect(page.locator("[data-tars-message-attachments]")).toContainText("image (2).png");
+  // A sent image is its preview, named for assistive technology and its tooltip.
+  await expect(page.locator("[data-tars-message-attachments]").getByRole("button", { name: "Open image (2).png full size", exact: true })).toBeVisible();
 });
 
 test("Tars body, supporting copy, report and settings remain readable across layouts", async ({ page }, testInfo) => {
@@ -422,3 +423,182 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
     expect(narrow.switcherRight).toBeLessThanOrEqual(narrow.right);
   });
 }
+
+// Image attachments: previews before and after send, the full-size viewer and its keyboard, and containment.
+/** Three images that look nothing alike (a wide screen, a square chart, a tall phone screen), drawn by the page as real PNGs. */
+async function drawImages(page: Page) {
+  const images = await page.evaluate(async () => {
+    const draw = (width: number, height: number, color: string) => {
+      const canvas = document.createElement("canvas");
+      canvas.width = width; canvas.height = height;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#ffffff"; context.fillRect(0, 0, width, height);
+      context.fillStyle = color; context.fillRect(0, 0, width, Math.round(height / 4));
+      return canvas.toDataURL("image/png").slice("data:image/png;base64,".length);
+    };
+    return [draw(960, 600, "#dc2626"), draw(800, 800, "#0d9488"), draw(390, 844, "#4f46e5")];
+  });
+  return [
+    { name: "staging-login-error.png", mimeType: "image/png", buffer: Buffer.from(images[0]!, "base64") },
+    { name: "weekly-errors-chart-with-a-very-long-descriptive-file-name.png", mimeType: "image/png", buffer: Buffer.from(images[1]!, "base64") },
+    { name: "checkout-mobile.png", mimeType: "image/png", buffer: Buffer.from(images[2]!, "base64") },
+    { name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("Deploy notes") },
+  ];
+}
+
+/** Every attachment of a row stays inside the row, no two overlap, every image tile has its pixels, and a tile's remove button stays inside it. */
+async function expectContained(row: Locator, bounds: Locator) {
+  const geometry = await row.evaluate((node, boundsSelector) => {
+    const box = (element: Element) => element.getBoundingClientRect().toJSON() as DOMRect;
+    const limits = box(node.closest(boundsSelector) ?? node);
+    // The row's own children: a tile or a chip each (the sent list wraps each in its item).
+    const items = [...node.children].filter((element) => element.getBoundingClientRect().width > 0);
+    return {
+      limits,
+      items: items.map(box),
+      tiles: [...node.querySelectorAll("[data-tars-attachment-image=\"ready\"]")].map((tile) => ({
+        box: box(tile.querySelector("[data-tars-attachment-open]")!),
+        loaded: (tile.querySelector("img") as HTMLImageElement).complete && (tile.querySelector("img") as HTMLImageElement).naturalWidth > 0,
+        remove: tile.querySelector("[data-tars-attachment-remove]") ? box(tile.querySelector("[data-tars-attachment-remove]")!) : null,
+      })),
+    };
+  }, await bounds.evaluate((node) => node.hasAttribute("data-tars-composer") ? "[data-tars-composer] form" : "[data-tars-message]"));
+  for (const item of geometry.items) {
+    expect(item.left).toBeGreaterThanOrEqual(geometry.limits.left - 1);
+    expect(item.right).toBeLessThanOrEqual(geometry.limits.right + 1);
+  }
+  for (let a = 0; a < geometry.items.length; a++) for (let b = a + 1; b < geometry.items.length; b++) {
+    const [first, second] = [geometry.items[a]!, geometry.items[b]!];
+    const overlaps = first.left < second.right - 0.5 && second.left < first.right - 0.5 && first.top < second.bottom - 0.5 && second.top < first.bottom - 0.5;
+    expect(overlaps, `attachments ${a} and ${b} overlap`).toBe(false);
+  }
+  for (const tile of geometry.tiles) {
+    expect(tile.loaded).toBe(true);
+    expect(Math.round(tile.box.width)).toBe(112);
+    expect(Math.round(tile.box.height)).toBe(72);
+    if (tile.remove) {
+      expect(tile.remove.left).toBeGreaterThanOrEqual(tile.box.left);
+      expect(tile.remove.right).toBeLessThanOrEqual(tile.box.right);
+      expect(tile.remove.top).toBeGreaterThanOrEqual(tile.box.top);
+      expect(tile.remove.bottom).toBeLessThanOrEqual(tile.box.bottom);
+    }
+  }
+  return geometry.tiles.length;
+}
+
+/** Opens a tile with the keyboard, walks the viewer with the arrow keys and closes it with Escape; focus returns to the tile. */
+async function viewWithKeyboard(page: Page, tile: Locator, names: string[], start: number) {
+  await tile.focus();
+  await page.keyboard.press("Enter");
+  const viewer = page.getByTestId("tars-attachment-viewer");
+  await expect(viewer).toBeVisible();
+  await expect(viewer).toContainText(names[start]!);
+  await expect(viewer).toContainText(`${start + 1} / ${names.length}`);
+  await page.keyboard.press("ArrowRight");
+  await expect(viewer).toContainText(`${Math.min(start + 2, names.length)} / ${names.length}`);
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(tile).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(viewer).toBeVisible();
+  await page.keyboard.press("Tab");
+  expect(await viewer.evaluate((node) => node.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(tile).toBeFocused();
+}
+
+const NAMES = ["staging-login-error.png", "weekly-errors-chart-with-a-very-long-descriptive-file-name.png", "checkout-mobile.png"];
+
+for (const { name, query, open } of [
+  { name: "light en regular", query: "", open: (file: string) => `Open ${file} full size` },
+  { name: "dark ko compact", query: "&theme=dark&lang=ko&density=compact", open: (file: string) => `${file} 크게 보기` },
+]) for (const width of [390, 1440]) {
+  test(`image attachments preview before and after send and open full size: ${name} ${width}px`, async ({ page }) => {
+    test.setTimeout(60_000);
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?stavePreview=tars&noRepositories=true${query}`);
+    const composer = page.locator("[data-tars-composer]");
+    await expect(composer.getByRole("textbox")).toBeEditable();
+    await page.evaluate(() => document.fonts.ready);
+    await composer.locator('input[type="file"]').setInputFiles(await drawImages(page));
+
+    // Before send: three image tiles in the order attached, then the text file's chip, all inside the composer.
+    const draft = composer.locator("[data-tars-composer-attachments]");
+    await expect(draft.locator('[data-tars-attachment-image="ready"]')).toHaveCount(3);
+    await expect(draft.getByText("notes.txt", { exact: true })).toBeVisible();
+    expect(await expectContained(draft, composer)).toBe(3);
+    const draftTiles = draft.locator("[data-tars-attachment-open]");
+    await expect(draftTiles.nth(1)).toHaveAccessibleName(open(NAMES[1]!));
+    await viewWithKeyboard(page, draftTiles.nth(1), NAMES, 1);
+    // The viewer also opens by click and closes with its own button.
+    await draftTiles.first().click();
+    const viewer = page.getByTestId("tars-attachment-viewer");
+    await expect(viewer).toContainText(`1 / 3`);
+    await viewer.getByRole("button", { name: query ? "미리 보기 닫기" : "Close preview", exact: true }).click();
+    await expect(viewer).toBeHidden();
+    await expect(draftTiles.first()).toBeFocused();
+
+    // Send: the same images become the sent message's previews, read back from the saved message; the file stays a chip.
+    await composer.getByRole("button", { name: query ? "보내기" : "Send", exact: true }).click();
+    await expect(draft).toHaveCount(0);
+    const sent = page.locator("[data-tars-message-attachments]");
+    await expect(sent.locator('[data-tars-attachment-image="ready"]')).toHaveCount(3);
+    await expect(sent.getByText("notes.txt", { exact: true })).toBeVisible();
+    const message = page.locator("[data-tars-message]").filter({ has: sent });
+    expect(await expectContained(sent, message)).toBe(3);
+    await viewWithKeyboard(page, sent.locator("[data-tars-attachment-open]").first(), NAMES, 0);
+    const view = page.getByTestId("tars-view");
+    expect(await view.evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
+
+    // The saved message still carries the images and the file exactly as attached, and replays them after a reload.
+    const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!).messages[0].attachments);
+    expect(saved.map((part: { type: string; label?: string; filePath?: string }) => `${part.type}:${part.label ?? part.filePath}`))
+      .toEqual([...NAMES.map((file) => `image_context:${file}`), "file_context:notes.txt"]);
+    await page.reload();
+    await expect(page.locator("[data-tars-message-attachments]").locator('[data-tars-attachment-image="ready"]')).toHaveCount(3);
+  });
+}
+
+test("a sent image the bridge cannot read stays a named file chip", async ({ page }) => {
+  test.setTimeout(60_000);
+  await page.goto("/?stavePreview=tars&noRepositories=true&imagePreview=missing");
+  const composer = page.locator("[data-tars-composer]");
+  await expect(composer.getByRole("textbox")).toBeEditable();
+  await composer.locator('input[type="file"]').setInputFiles((await drawImages(page)).slice(0, 1));
+  await expect(composer.locator('[data-tars-attachment-image="ready"]')).toHaveCount(1);
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  const sent = page.locator("[data-tars-message-attachments]");
+  await expect(sent).toContainText(NAMES[0]!);
+  await expect(sent).toContainText("PNG");
+  await expect(sent.locator("[data-tars-attachment-image]")).toHaveCount(0);
+});
+
+test("an earlier image finishing its read keeps the viewer on the image the user opened", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&noRepositories=true");
+  const composer = page.locator("[data-tars-composer]");
+  await expect(composer.getByRole("textbox")).toBeEditable();
+  await page.evaluate(() => {
+    const read = window.api.tars.getAttachmentImage!;
+    window.api.tars.getAttachmentImage = (input) => input.index === 0
+      ? new Promise((resolve) => {
+        (window as unknown as { finishImageRead: () => void }).finishImageRead = () => { void read(input).then(resolve); };
+      })
+      : read(input);
+  });
+  await composer.locator('input[type="file"]').setInputFiles((await drawImages(page)).slice(0, 3));
+  await composer.getByRole("button", { name: "Send", exact: true }).click();
+  const sent = page.locator("[data-tars-message-attachments]");
+  await expect(sent.locator('[data-tars-attachment-image="loading"]')).toHaveCount(1);
+  await sent.getByRole("button", { name: `Open ${NAMES[1]} full size`, exact: true }).click();
+  const viewer = page.getByTestId("tars-attachment-viewer");
+  await expect(viewer).toHaveAccessibleName(NAMES[1]!);
+  await page.evaluate(() => (window as unknown as { finishImageRead: () => void }).finishImageRead());
+  await expect(viewer).toContainText("2 / 3");
+  await expect(viewer).toHaveAccessibleName(NAMES[1]!);
+  await page.keyboard.press("ArrowLeft");
+  await expect(viewer).toHaveAccessibleName(NAMES[0]!);
+  await page.keyboard.press("Escape");
+  await expect(viewer).toBeHidden();
+  await expect(sent.getByRole("button", { name: `Open ${NAMES[1]} full size`, exact: true })).toBeFocused();
+});

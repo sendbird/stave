@@ -4,6 +4,7 @@ import { z } from "zod";
 import { TarsCompletionGoalSchema } from "./completion";
 import type { TarsPublishInput, TarsPublishPreview, TarsPublishPreviewInput, TarsPublishResult } from "./publication";
 import type { TarsBrief, TarsBriefInput } from "./brief";
+import type { TarsAttachmentImage, TarsAttachmentImageInput } from "./attachment-image";
 import type { TarsUsageInput, TarsUsageReport } from "./usage";
 import type { SaveTarsComposerDraftInput, TarsComposerDraft } from "./composer-draft";
 import type {
@@ -48,6 +49,8 @@ export const TARS_IPC = Object.freeze({
   reprioritize: "tars:reprioritize",
   /** Reads one responsibility's saved message and Tars's instruction (`TarsBrief`); changes nothing. */
   getBrief: "tars:get-brief",
+  /** Reads one image a saved message carries (`TarsAttachmentImage`) for its preview; changes nothing. */
+  getAttachmentImage: "tars:get-attachment-image",
   /** Reads the saved composer draft; `null` when there is none. */
   getDraft: "tars:get-draft",
   /** Saves or (with `null`) deletes the composer draft. Never announced through `changed`. */
@@ -617,6 +620,8 @@ export interface TarsBridgeApi {
   reprioritize?(input: TarsReprioritizeInput): Promise<TarsActResult>;
   /** Reads one responsibility's saved message and instruction; absent on bridges that predate the request view. */
   getBrief?(input: TarsBriefInput): Promise<TarsBrief>;
+  /** Reads one image of a saved message for its preview; absent on bridges that predate previews, which show the image as a file chip. */
+  getAttachmentImage?(input: TarsAttachmentImageInput): Promise<TarsAttachmentImage | null>;
   /** Reads what Tars's work spent in a period; absent on bridges that predate the usage view, which then says so. */
   getUsage?(input: TarsUsageInput): Promise<TarsUsageReport>;
   /** The saved composer draft; absent on bridges that predate saved drafts, which keep it in memory only. */

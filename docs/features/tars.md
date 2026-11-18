@@ -170,17 +170,24 @@ cannot edit workspace information.
 Use **Attach files** beside **Send**, or drop or paste files onto the input.
 Text files and PNG, JPEG, GIF and WebP images are supported, including files
 outside a registered workspace. You can attach up to eight files: text is
-limited to 32 KB total; images to 4 MB each and 6 MB total. Remove a file with
-its chip's remove button before sending. Unsupported or oversized selections
+limited to 32 KB total; images to 4 MB each and 6 MB total. Before sending,
+each image shows as a small preview of its own pixels and each text file as a
+chip; remove either with its remove button. Unsupported or oversized selections
 show an error and leave the existing draft intact.
 Files with the same name stay separate; a number distinguishes their attachment names.
 
 Stave saves the selected contents with the message and passes them to the
 conversation model. A retry uses the same snapshot; switching workspaces or
-reopening Stave preserves the attachment names in the conversation. The
-conversation itself shows each attachment as a chip with its name, type and
-size, never its contents: the saved contents, such as an image's data, are not loaded again every
-time the conversation refreshes, and Stave reads them only for Tars's own
+reopening Stave preserves the attachments in the conversation. A sent message
+shows its images as the same small previews, in the order attached, and its
+text files as chips with their name, type and size. Select an image, or press
+Enter or Space on it, to open it full size; the message's other images are a
+step away with the arrow keys or the viewer's buttons, and Escape or the close
+button returns focus to the image you opened. Each preview reads that one image
+from the saved message when it is shown; the conversation refresh itself
+carries names, types and sizes only, never a text file's contents. An image
+that cannot be read for its preview shows as a chip instead. Beyond previews,
+Stave reads the saved contents only for Tars's own
 reasoning turn on that message and for the first turn of the work it delegates. Attached
 material supplies context and does not authorize delegated work on its own.
 You can discuss attachments without text; to start work, include a written

@@ -53,6 +53,32 @@ describe("a window reads attachment summaries, never their content", () => {
     expect(store.latestId()).toBe(later.id);
   });
 
+  test("one image is read back by message and position for its preview; a file's content and other messages' images are not", () => {
+    const database = new Database(":memory:"); cleanup.push(() => database.close());
+    const store = new TarsConversationStore(database);
+    store.configure(SETTINGS);
+    const attached = store.create({ requestId: "attached", text: "With attachments", attachments: ATTACHMENTS }, "2026-11-09T00:00:01.000Z");
+    const plain = store.create({ requestId: "plain", text: "No attachments" }, "2026-11-09T00:00:02.000Z");
+    expect(store.attachmentImageOf(attached.id, 1)).toEqual(ATTACHMENTS[1]);
+    expect(store.attachmentImageOf(attached.id, 3)).toEqual(ATTACHMENTS[3]);
+    // A file at that position, a position past the end, a message without attachments, and a missing message read nothing.
+    expect(store.attachmentImageOf(attached.id, 0)).toBeNull();
+    expect(store.attachmentImageOf(attached.id, 4)).toBeNull();
+    expect(store.attachmentImageOf(plain.id, 0)).toBeNull();
+    expect(store.attachmentImageOf("missing", 1)).toBeNull();
+    expect(store.attachmentImageOf(attached.id, -1)).toBeNull();
+    expect(store.attachmentImageOf(attached.id, 1.5)).toBeNull();
+  });
+
+  test("the service validates an image read and reads it while stopped", () => {
+    const f = followUpFixture(); cleanup.push(f.close);
+    const sent = f.conversations.create({ requestId: "with-image", text: "", attachments: ATTACHMENTS }, "2026-11-09T00:00:00.000Z");
+    expect(f.service.getAttachmentImage({ messageId: sent.id, index: 2 })).toEqual(ATTACHMENTS[2]);
+    expect(f.service.getAttachmentImage({ messageId: sent.id, index: 0 })).toBeNull();
+    for (const invalid of [undefined, {}, { messageId: sent.id }, { messageId: "", index: 1 }, { messageId: sent.id, index: 8 }, { messageId: sent.id, index: -1 },
+      { messageId: sent.id, index: 1, extra: true }]) expect(() => f.service.getAttachmentImage(invalid)).toThrow();
+  });
+
   test("the conversation snapshot carries no data URLs while the planner still receives the attachments", async () => {
     const f = followUpFixture(); cleanup.push(f.close);
     f.service.start();
