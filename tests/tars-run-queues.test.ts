@@ -57,7 +57,12 @@ function fixture() {
       const turnId = args.turnId ?? `turn-${++counter}`;
       clock += 1_000;
       turnsOf(args.taskId).unshift({ id: turnId, createdAt: new Date(clock).toISOString(), completedAt: null });
-      if (args.agentRunStage) grants.set(`key-${turnId}`, { ...args.agentRunStage, turnId, taskId: args.taskId });
+      if (args.agentRunStage) {
+        grants.set(`key-${turnId}`, { ...args.agentRunStage, turnId, taskId: args.taskId });
+        // Tars words for a waiting stage continue that supervised stage on its own route;
+        // a stage's own turn opens with its compiled "# <agent> — Stage" prompt.
+        if (!args.prompt.startsWith("# ")) said.push(`${args.taskId}: ${args.prompt}`);
+      }
       // A plain turn on the lead task is the user's reply; provider admission links it to the run's stage.
       else { said.push(`${args.taskId}: ${args.prompt}`); agentRuns.prepareUserTurn({ taskId: args.taskId, workspaceId: args.workspaceId, turnId }); }
       return { turnId };
@@ -186,10 +191,10 @@ test("words kept for two works reach their runs independently while one work's r
   await f.tars.drain();
   await f.agentRuns.whenIdle();
   await settle(() => f.delivery(forA) === "delivered", "work A's words delivered");
-  // Each said exactly once, as its own run's user turn.
+  // Each said exactly once, as a continuation of its own run's waiting stage.
   expect(f.said.sort()).toEqual(["task-a: Use the cached index.", "task-b: Keep the public API."]);
-  expect(f.runs.listEventsByKind(a.agentRunId!, ["user-turn"])).toHaveLength(1);
-  expect(f.runs.listEventsByKind(b.agentRunId!, ["user-turn"])).toHaveLength(1);
+  for (const id of [a.agentRunId!, b.agentRunId!])
+    expect(f.runs.listEventsByKind(id, ["turn-started"]).filter((event) => event.detail.reason === "continue-after-user")).toHaveLength(1);
   for (let tick = 0; tick < 2; tick++) { f.tars.requestTick(); await f.tars.drain(); }
   expect(f.said).toHaveLength(2);
 });

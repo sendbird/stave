@@ -23,7 +23,7 @@ describe("a helper of the run that waits on the user", () => {
     for (const status of ["blocked", "stuck", "awaiting-sign-off"] as const)
       expect(tarsHelperObservation([{ detail: helperRunDetail({ status, turnCount: 2 }), pendingRequests: 0 }])).toEqual({
         state: "waiting", detail: TEAM.question, stageAsksUser: true, stageWait: waits[status], waitingTaskId: TEAM.helperTaskId, runTurns: 2,
-        runStage: `${TEAM.helperRunId}/${helperRunDetail().agentRun.workflow.stages[0]!.id}#1` });
+        runStage: `${TEAM.helperRunId}/${helperRunDetail().agentRun.workflow.stages[0]!.id}#1:${helperRunDetail().stages[0]!.reportRevision}` });
     expect(tarsHelperObservation([{ detail: helperRunDetail({ status: "running" }), pendingRequests: 0 }])).toBeNull();
     expect(tarsHelperObservation([])).toBeNull();
   });

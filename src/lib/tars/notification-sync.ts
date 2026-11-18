@@ -17,6 +17,7 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
   let dirty = false;
   let current: Promise<void> | null = null;
   const seen = new Set<string>();
+  let primed = false;
   const reconcile = () => {
     dirty = true;
     if (current) return current;
@@ -27,6 +28,11 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
         // A failed or unfinished read cannot withdraw a live request.
         if (!snapshot || !deps.notificationsReady()) continue;
         const drafts = describeTarsNotifications(snapshot);
+        // Completed history is not a new result when Stave first hydrates.
+        if (!primed) {
+          for (const draft of drafts) if (draft.payload.tarsCompletion === true) seen.add(draft.id);
+          primed = true;
+        }
         const live = new Set(drafts.map((notification) => notification.id));
         const notifications = deps.getNotifications();
         const known = new Set(notifications.map((notification) => notification.id));

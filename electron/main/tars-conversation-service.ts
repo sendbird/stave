@@ -13,6 +13,7 @@ import {
 import { admitTarsFollowUps, claimTarsMessage, releaseTarsFollowUpStart, supersedeStaleTarsFollowUp, tarsAutomaticStartDeferral } from "./tars-follow-up";
 import type { TarsStore } from "../persistence/tars-store";
 import { SaveTarsComposerDraftInputSchema } from "../../src/lib/tars/composer-draft";
+import { TarsAttachmentImageInputSchema } from "../../src/lib/tars/attachment-image";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { createSecondaryRunCoordinator } from "./runs/secondary-run-coordinator";
 import { processTarsMessage, tarsMessageRunIdentity, type TarsPlannerContext } from "./tars-planner";
@@ -620,6 +621,11 @@ export function createTarsConversationService(ports: ConversationPorts) {
     },
     saveDraft(rawInput: unknown) {
       ports.conversations.saveDraft(SaveTarsComposerDraftInputSchema.parse(rawInput).draft);
+    },
+    /** One saved image for its preview in the conversation: the user's own attachment, readable while the service is stopped. */
+    getAttachmentImage(rawInput: unknown) {
+      const { messageId, index } = TarsAttachmentImageInputSchema.parse(rawInput);
+      return ports.conversations.attachmentImageOf(messageId, index);
     },
     /**
      * Answers one option of a waiting decision. The option is read from saved

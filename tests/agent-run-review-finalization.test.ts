@@ -63,6 +63,58 @@ test.each([false, true])("empty repair cannot bypass an inherited host check (st
   expect(decide(aggregate)).toMatchObject(stale ? { next: "start" } : { skipReviewFix: true });
 });
 
+/** The final repair after a review that asked changes, as Stave read it after its report. */
+function repaired(fixedTree: string | null = "fixed-tree") {
+  const aggregate = reviewed();
+  const review = aggregate.stages[1]!;
+  if (review.report?.outcome !== "complete") throw new Error("Expected report");
+  aggregate.stages[1] = { ...review, status: "completed", startHeadSha: "b".repeat(40), report: { ...review.report, reviewVerdict: "changes-requested", summary: "Unmount guard missing." } };
+  aggregate.agentRun.currentStageIndex = 2;
+  const tree = fixedTree ? { status: "known" as const, revision: fixedTree } : undefined;
+  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "fix-review", attempt: 1 }), status: "running",
+    report: { ...COMPLETE_REPORT, ...(tree ? { workspaceRevision: tree } : {}), acceptanceCriteria: [] },
+    facts: { ...EMPTY_STAGE_FACTS, changedPaths: fixedTree ? ["src/hook.ts"] : [], ...(tree ? { workspaceRevision: tree } : {}) } });
+  return aggregate;
+}
+
+test("a repair that changed the reviewed work returns to the Reviewer once, which then finishes the run on the fixed revision", () => {
+  // Recorded failure: work, review (changes requested), fix ended on a revision no Reviewer saw, so Tars blocked it as unverified.
+  const aggregate = repaired();
+  const decision = decide(aggregate);
+  expect(decision).toEqual({ action: "complete-stage", next: "start", reReview: true });
+  const change = applyAgentRunDecision({ aggregate, decision, now: AGENT_RUN_NOW });
+  expect(change.agentRun).toMatchObject({ state: "running", currentStageIndex: 1 });
+  expect(change.upserts.map(({ stageId, status, attempt }) => ({ stageId, status, attempt }))).toEqual([
+    { stageId: "fix-review", status: "completed", attempt: 1 }, { stageId: "review", status: "pending", attempt: 2 },
+  ]);
+  expect(change.upserts[1]!.feedback).toContain(`after ${"b".repeat(40)}`);
+  expect(change.upserts[1]!.feedback).toContain("Unmount guard missing.");
+  expect(change.events.map((event) => [event.kind, event.detail.reason ?? null])).toEqual([["stage-completed", null], ["stage-retried", "fix-re-review"]]);
+
+  // The re-review passes on the fixed revision: the run finishes and skips the second, empty repair.
+  const stages = [...aggregate.stages.slice(0, 2), change.upserts[0]!, { ...change.upserts[1]!, status: "running" as const,
+    report: { ...COMPLETE_REPORT, reviewVerdict: "passed" as const, workspaceRevision: { status: "known" as const, revision: "fixed-tree" }, acceptanceCriteria: [] },
+    facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: { status: "known" as const, revision: "fixed-tree" } } }];
+  const atReReview = { agentRun: change.agentRun, stages };
+  expect(decide(atReReview)).toEqual({ action: "complete-stage", next: "finish", skipReviewFix: true });
+});
+
+test("a re-review that still asks changes gets one more repair, and the run then finishes without a third review", () => {
+  const aggregate = repaired();
+  const firstReview = aggregate.stages[1]!;
+  aggregate.stages.splice(2, 0, { ...firstReview, attempt: 2, startHeadSha: "c".repeat(40) });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+});
+
+test.each(["unchanged-repair", "review-passed", "review-sign-off"])("a repair finishes the run without a re-review when %s", (boundary) => {
+  const aggregate = repaired(boundary === "unchanged-repair" ? null : "fixed-tree");
+  if (boundary === "unchanged-repair") aggregate.stages[2]!.facts!.workspaceRevision = { status: "known", revision: "reviewed-tree" };
+  const review = aggregate.stages[1]!;
+  if (boundary === "review-passed" && review.report?.outcome === "complete") review.report.reviewVerdict = "passed";
+  if (boundary === "review-sign-off") aggregate.agentRun.workflow.stages[1]!.signOff = "ask";
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+});
+
 /** A behavior-changes run whose work stage answered without changing a file, as Stave read it after the report. */
 function answered(mode: "behavior-changes" | "always" = "behavior-changes") {
   const workflow = buildAgentRunWorkflow({ agent: { name: "Supervisor", permission: "auto", reviewBeforeDone: mode }, now: AGENT_RUN_NOW });

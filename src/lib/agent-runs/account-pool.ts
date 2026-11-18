@@ -123,7 +123,7 @@ export type AccountPoolRotation =
  * The first account read with usage left, in read order, never the account
  * that just stopped on a limit. With none: wait for the earliest reset any
  * read reported (plus the usual grace); with no known reset, read again later
- * when a read failed, else leave the resume to the user.
+ * regardless of whether the read failed or reported no reset.
  */
 export function decideAccountPoolRotation(args: {
   usage: readonly PoolAccountUsage[];
@@ -140,8 +140,7 @@ export function decideAccountPoolRotation(args: {
     .sort((left, right) => Date.parse(left) - Date.parse(right));
   const earliest = resets[0] ?? null;
   if (earliest) return { kind: "wait", resetsAt: earliest, resumeAt: resolveAgentRunUsageLimitResumeAt(earliest, args.now) };
-  const unreadable = args.usage.some((entry) => entry.status === "unavailable");
-  return { kind: "wait", resetsAt: null, resumeAt: unreadable ? resolveUsageLimitRetryAt(args.now) : null };
+  return { kind: "wait", resetsAt: null, resumeAt: resolveUsageLimitRetryAt(args.now) };
 }
 
 /** One account switch, as the timeline and the report show it. */

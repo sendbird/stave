@@ -175,6 +175,21 @@ describe("Tars completion over the conditional stages", () => {
       .toMatchObject(unverified);
   });
 
+  test("after requested changes, a re-review that passed the fix on the final revision completes the work", () => {
+    // The run returned to the Reviewer after the fix (`reReviewStageIndex`); its second, empty repair is skipped.
+    const work = record("work", { report: complete(), facts: facts("r2", { changedPaths: ["src/search.ts"] }) });
+    const fix = record(FIX_REVIEW_STAGE_ID, { report: complete(), facts: facts("r3", { changedPaths: ["src/search.ts"] }) });
+    const reReviewed = (verdict: "passed" | "changes-requested", rev = "r3") => ({ ...reviewed(verdict, rev, { facts: facts("r3") }), attempt: 2 });
+    const detail = ended([work, reviewed("changes-requested"), fix, reReviewed("passed"), { ...skipped(FIX_REVIEW_STAGE_ID), attempt: 2 }]);
+    expect(tarsFinalStageRecord(detail)).toMatchObject({ stageId: REVIEW_STAGE_ID, attempt: 2 });
+    expect(observe(detail).state).toBe("completed");
+    // A re-review that reported an older revision than the fixed one, or still asked changes, does not verify it.
+    expect(observe(ended([work, reviewed("changes-requested"), fix, reReviewed("passed", "r2"), { ...skipped(FIX_REVIEW_STAGE_ID), attempt: 2 }])))
+      .toMatchObject(unverified);
+    expect(observe(ended([work, reviewed("changes-requested"), fix, reReviewed("changes-requested"),
+      { ...record(FIX_REVIEW_STAGE_ID, { report: complete(), facts: facts("r4") }), attempt: 2 }]))).toMatchObject(unverified);
+  });
+
   test("a hand-back needs fresh evidence on whichever stage the run ended", () => {
     const handedBack = at(3);
     // The review's attempt started before the hand-back: its pass may predate the user's changes.

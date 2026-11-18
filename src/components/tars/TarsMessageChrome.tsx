@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { CircleStop, FileCode2, FileDiff, FileText, Image as ImageIcon, RotateCcw, X } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { Attachment } from "@/components/aui/components/Attachment";
@@ -15,6 +15,7 @@ import { describeTarsMessageFailure } from "@/lib/tars/detail";
 import { useAppStore } from "@/store/app.store";
 import { chatTypeScaleVars } from "@/components/ai-elements/message-text-scale";
 import { tarsMessageStyles as styles } from "./tars-message.styles";
+import { TarsImagePending, TarsImageTile, TarsImageViewer, useTarsSavedImages } from "./TarsAttachmentImages";
 
 /**
  * The conversation's type scale (`chat-type.stylex.ts`) for the chat font size
@@ -54,25 +55,47 @@ function useAttachmentMeta() {
 }
 
 /**
- * What came with a sent message, above its bubble on the user's side: a chip
- * per file with its type, name and size. The window holds summaries only, so
- * an image shows its format, not its pixels.
+ * What came with a sent message, above its bubble on the user's side, in the
+ * order it was attached: each image as its own pixels, read from the saved
+ * message on demand (the conversation holds summaries only), and each file as
+ * a chip with its type, name and size. An image the bridge cannot read stays a
+ * chip. Any image opens larger, with the message's other images beside it.
  */
-export function TarsMessageAttachments({ attachments, workingChanges }: { attachments: readonly TarsAttachmentSummary[]; workingChanges: boolean }) {
+export function TarsMessageAttachments({ messageId, attachments, workingChanges }: { messageId: string; attachments: readonly TarsAttachmentSummary[]; workingChanges: boolean }) {
   const { t } = useTranslation(["shell"]);
   const meta = useAttachmentMeta();
+  const saved = useTarsSavedImages(messageId, attachments.flatMap((summary, index) => summary.kind === "image" ? [index] : []));
+  const shown = attachments.flatMap((summary, index) => {
+    const src = saved.get(index);
+    return summary.kind === "image" && src ? [{ index, image: { name: summary.name, src } }] : [];
+  });
+  // Keep the attachment's position, not its position among already-read images:
+  // an earlier image finishing its read must not change the image being viewed.
+  const [open, setOpen] = useState<number | null>(null);
+  const viewerIndex = shown.findIndex((entry) => entry.index === open);
   return <>
     {attachments.length ? <ul className={sx(styles.fileList)} aria-label={t("shell:tars.conversation.attachments.sent")} data-tars-message-attachments="">
-      {attachments.map((summary, index) => <li key={index} className={sx(styles.fileItem)} data-tars-attachment-kind={summary.kind}>
-        <Attachment name={<ChipName>{summary.name}</ChipName>} meta={<ChipMeta>{meta(summary)}</ChipMeta>} icon={<AttachmentIcon summary={summary} />} xstyle={styles.chip} title={summary.name} />
-      </li>)}
+      {attachments.map((summary, index) => {
+        const src = summary.kind === "image" ? saved.get(index) : null;
+        return <li key={index} className={sx(styles.fileItem)} data-tars-attachment-kind={summary.kind}>
+          {src ? <TarsImageTile image={{ name: summary.name, src }} onOpen={() => setOpen(index)} />
+            : src === undefined ? <TarsImagePending name={summary.name} />
+            : <Attachment name={<ChipName>{summary.name}</ChipName>} meta={<ChipMeta>{meta(summary)}</ChipMeta>} icon={<AttachmentIcon summary={summary} />} xstyle={styles.chip} title={summary.name} />}
+        </li>;
+      })}
     </ul> : null}
+    <TarsImageViewer images={shown.map((entry) => entry.image)} index={viewerIndex < 0 ? null : viewerIndex}
+      onIndexChange={(index) => setOpen(index === null ? null : shown[index]?.index ?? null)} />
     {workingChanges ? <Attachment name={<ChipName>{t("shell:tars.conversation.workingChanges.badge")}</ChipName>} icon={<FileDiff aria-hidden="true" className={sx(styles.fileIcon)} />}
       xstyle={styles.chip} data-tars-message-working-changes="" /> : null}
   </>;
 }
 
-/** The composer's picked files: the same chips, with a picked image's own pixels and a remove button each. */
+/**
+ * The composer's picked files, in the order they will be sent: each image as
+ * the same tile it becomes in the sent message, which opens larger, and each
+ * file as a chip. Every one has its remove button while the composer is enabled.
+ */
 export function TarsComposerAttachments({ parts, nameOf, onRemove }: {
   parts: readonly AttachmentContext[];
   nameOf: (part: AttachmentContext) => string;
@@ -81,15 +104,23 @@ export function TarsComposerAttachments({ parts, nameOf, onRemove }: {
 }) {
   const { t } = useTranslation(["shell"]);
   const meta = useAttachmentMeta();
+  const [open, setOpen] = useState<number | null>(null);
   if (!parts.length) return null;
+  const images = parts.flatMap((part) => part.type === "image_context" ? [{ name: nameOf(part), src: part.dataUrl }] : []);
   return <div role="group" aria-label={t("shell:tars.conversation.attachments.draft")} className={sx(styles.composerFiles)} data-tars-composer-attachments="">
     {parts.map((part) => {
       const name = nameOf(part);
+      const removeLabel = t("shell:tars.conversation.attachments.remove", { name });
+      if (part.type === "image_context") {
+        const position = images.findIndex((image) => image.name === name);
+        return <TarsImageTile key={name} image={images[position]!} onOpen={() => setOpen(position)}
+          onRemove={onRemove ? () => onRemove(name) : undefined} removeLabel={removeLabel} />;
+      }
       const summary = tarsAttachmentSummary(part);
       return <Attachment key={name} name={<ChipName>{name}</ChipName>} meta={<ChipMeta>{meta(summary)}</ChipMeta>} xstyle={styles.chip} title={name}
-        icon={part.type === "image_context" ? <img src={part.dataUrl} alt="" className={sx(styles.thumbnail)} /> : <AttachmentIcon summary={summary} />}
-        onRemove={onRemove ? () => onRemove(name) : undefined} removeLabel={t("shell:tars.conversation.attachments.remove", { name })} />;
+        icon={<AttachmentIcon summary={summary} />} onRemove={onRemove ? () => onRemove(name) : undefined} removeLabel={removeLabel} />;
     })}
+    <TarsImageViewer images={images} index={open} onIndexChange={setOpen} />
   </div>;
 }
 

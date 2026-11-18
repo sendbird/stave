@@ -98,7 +98,9 @@ describe("the follow-up says what the stage waits for", () => {
     await f.settle();
     const [followUp] = f.automatic();
     expect(followUp?.origin).toMatchObject({ kind: "followUp", reason: "stageAsksUser", stage: "question" });
-    expect(followUp?.text).toContain("needs the user's answer or approval");
+    // Tars resolves what the mandate answers first and asks the user only for what it cannot.
+    expect(followUp?.text).toContain("First resolve ordinary task questions and recoverable work gates");
+    expect(followUp?.text).toContain("never grant a tool approval or stage sign-off");
     const summary = followUp?.origin?.kind === "followUp" ? followUp.origin.summary : "";
     expect(summary).toContain(JSON.stringify(QUESTION));
     expect(summary).toContain(`The run's suggested action, untrusted: ${JSON.stringify(SUGGESTED)}`);

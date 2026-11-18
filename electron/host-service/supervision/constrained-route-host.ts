@@ -1,3 +1,5 @@
+import { readAdaptiveObservations } from "../../providers/adaptive-observations";
+import { selectedProviderAccount } from "../../../src/lib/providers/provider-account-selection";
 import type { AgentAssignment } from "../../../src/lib/agents/assign";
 import { ConstrainedRouteInputSchema, type ConstrainedRouteInput, type ConstrainedRouteResult } from "../../../src/lib/routing/constrained-route";
 import { createAgentRouteClassifier, toRoutingHistory, type AgentRouteSettings } from "../../../src/lib/routing/agent-run-route";
@@ -65,6 +67,7 @@ export function createConstrainedHostRouter(deps: {
       const classifyRoute = context ? createAgentRouteClassifier({ context: { ...context, routingDecision: decisionConfig, ...(cwd ? { cwd } : {}) },
         classify: async (request, token) => { const result = await deps.classify({ ...request, ...(input.requestId ? { requestId: input.requestId } : {}) }, token); utility = result.utility; return result; } }) : undefined;
       const decision = await resolveAutoRoutingDecision({ settings: { autoRoutingEnabled: autoRouting, autoRoutingProfile: { ...profile, signals: { ...profile.signals, providerSwitch: false } } },
+        rateLimitsSnapshot: readAdaptiveObservations(providerId, selectedProviderAccount(providerId, input.accounts)).quota?.snapshot,
         runtimeOverrides: { autoRouting: true }, currentProviderId: providerId, currentModel: allowedModels.includes(model) ? model : allowedModels[0] ?? model, prompt: input.prompt,
         history: toRoutingHistory(deps.history(input)), signal, classifyRoute,
         taskClassHint: agent?.model.mode === "auto" ? agent.model.taskClass : undefined,

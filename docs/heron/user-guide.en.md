@@ -425,7 +425,7 @@ Main settings under **How it runs**:
 ```pipeline "A run with Review before done"
 Work | Does the work against the instructions and done-when conditions.
 Review | Another agent reviews the changes read-only.
-Fix | Fixes what the review found.
+Fix | Fixes what the review found. A fix that changed files goes back to Review once, for the fix only.
 ! Done check | Stave runs the workspace check command itself and confirms it passes.
 @caption Work that changed no files ends without the review stages.
 ```
@@ -479,6 +479,14 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
+For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account, model constraints and shared turn budget. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
+
+
+Automatic execution reads usage for the captured Claude and Codex accounts before assigning new work. It prefers a provider with confirmed room when the current one is low, critical, exhausted or unknown; an unknown reading never counts as room. Explicit model pins and fixed-agent provider constraints stay in place. Each admitted Run keeps its provider and accounts, and refreshes missing or expired usage before starting another turn.
+
+One work owner implements, debugs and verifies a unit in the same task. Independent units may run in parallel; implementation, debugging and validation are not separate hand-offs for one unit. Changed files receive one independent review after Work, and only findings open the fix stage. Routine completion and internal Run updates from Tars-managed tasks and their descendants stay as read notification history without pop-ups or sounds. Tars announces the final result, a decision or a blocker. Direct approvals, questions and stage sign-offs still notify you; taking over a task restores its normal notifications.
+
+
 In **Issues**, **Ask Tars** drafts a GitHub, Jira or Crane issue's title, link and body excerpt with its mapped target. Enable GitHub in **Settings > Integrations > Issues** after `gh auth login`; it reads up to 200 assigned issues without writing back. The kickoff form can remember the GitHub repository mapping.
 
 In a Markdown editor's **More** menu, **Ask Tars** attaches the current document, including `.stave/context/plans/*.md` (32 KB total text). To share a document by link, paste the link into your message. Existing draft text and files stay; edit your direction and send to start. Pasted Slack thread links tell the execution lead to read with your Slack tools read-only, or ask for pasted text if unavailable; no Slack token setup is needed.
@@ -526,7 +534,7 @@ setup form; an unclear execution target is resolved in the conversation.
 Switching workspaces keeps the same history, and you can chat before adding a
 repository.
 
-Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Remove a chip before sending to leave that file out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model; attachment names remain visible after restart. The conversation shows each attachment as a chip with its name, type and size; the contents, such as image data, are read only when Tars reasons about that message and when the work it delegates starts, not on every refresh. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
+Use **Attach files** beside **Send**, or drop or paste text files and PNG, JPEG, GIF or WebP images. Files can be outside a workspace. Attach up to eight files: text up to 32 KB total; images up to 4 MB each and 6 MB total. Files with the same name stay separate, with a number added to distinguish them. Before you send, each image shows as a small preview and each text file as a chip; use its remove button to leave it out. Unsupported or oversized selections show an error and preserve your draft. Stave saves the selected contents with the message for the conversation model, and the attachments remain visible after restart. A sent message shows its images as the same previews and its text files as chips with their name, type and size. Select an image, or press Enter or Space on it, to open it full size; use the arrow keys or the viewer's buttons for the message's other images, and Escape or the close button to return to the image. Each preview reads only its own image when it is shown; an image that cannot be read shows as a chip. Otherwise the contents are read only when Tars reasons about that message and when the work it delegates starts, not on every refresh. You can discuss attachments on their own; to start delegated work, write what you want Tars to do along with the files.
 
 The attachments also go to the work the message delegates, so you can send a screenshot with "fix this" and the agent doing the work sees it. The work's run receives them with its first turn, as attached files and images, and does not send them again on later turns; its helpers get only what the lead passes on. When one message starts several works, each gets every attachment unless Tars gives a work only the ones it needs, such as one screenshot per bug. Queued work keeps them through a restart. If the saved attachments cannot be read when the work starts, its first turn waits with the reason instead of running without them. The work's **Request** view lists them by name.
 
@@ -1396,3 +1404,5 @@ to place it; a placed task keeps its position, while new tasks still appear
 first. Reset order returns to activity order. The sidebar keeps running and
 waiting tasks first and shows at most three open tasks per workspace, with the
 rest behind +N more. Task pins and tab pins are separate.
+
+If an independent review is blocked, Tars can send recovery guidance to that review while preserving its model, permissions and remaining budget. A provider usage limit saves a resume reservation. If the reset time is unknown, Stave checks usage every five minutes and resumes only when headroom is confirmed. Your manual pauses, takeovers, approvals and daily limits still require your action.

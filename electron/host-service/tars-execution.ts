@@ -27,7 +27,7 @@ export function tarsReviewGuidance(row: Pick<TarsResponsibility, "model">): stri
     // i18n-ignore: model-facing instructions
     ? "Every helper, including the reviewer, stays on this provider and model the user pinned. Pass `provider` and `model` explicitly to `stave_delegate_task`, using the pinned provider and model from Run team limits, including when passing `agentConfigId: \"reviewer\"`; this overrides an Auto agent's provider preference. Report the same-provider review."
     // i18n-ignore: model-facing instructions
-    : "Auto picks each unit's model and effort. Run the review on the provider that did not write the change; helpers may use Claude or Codex.";
+    : "Auto picks each unit's model and effort; the workflow reviews on the provider that did not write the change. Helpers may use Claude or Codex.";
 }
 
 /**
@@ -79,6 +79,10 @@ export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" 
     // i18n-ignore: model-facing instructions
     "Commit verified work here for review; a publication goal grants no publishing authority, including through another agent. Tell every helper and reviewer: do not push or open pull requests. You integrate, commit and run final checks.",
     tarsReviewGuidance(row),
+    // i18n-ignore: model-facing ownership instructions
+    "Settle a helper's Needs you or blocked stage from the mandate and evidence, or send it bounded recovery steps; ask the user only for new authority, credentials, personal choices or unresolvable ambiguity. Never approve tools or sign-offs.",
+    // i18n-ignore: model-facing execution policy
+    "One work owner implements, debugs and verifies the unit in the same task. Delegate only independent units; each owner fixes its own failures. The workflow supplies the independent review after Work, so ask no helper for another; findings alone open the fix.",
     ...(row.agentId
       // i18n-ignore: model-facing instructions
       ? [`The user's representative assigned this responsibility's work stage to the agent \`${row.agentId}\`. Delegate that stage to it; do not substitute another agent for it.`]
@@ -108,6 +112,7 @@ export function tarsExecutionAgentInstructions(supervisor: string,
     if (paragraph.startsWith("Route by usage, capability, then continuity.")) {
       return [paragraph.replace(/ Starting points:.*?(?= After two failed attempts)/, "")];
     }
+    if (paragraph.startsWith("Verify in proportion to risk.")) return ["Verify in proportion to risk. Run focused checks while working and the required final checks once on the final commit; do not start another review during Work. The reviewer checks the diff and recorded evidence, rerunning only missing, failed or stale checks."];
     return [paragraph.replace("; visual findings go to Claude, logic findings to Codex", "")];
   });
   return [...instructions, tarsExecutionInstructions(row)].filter(Boolean).join("\n\n");
@@ -352,7 +357,7 @@ export function tarsHelperObservation(helpers: readonly TarsHelperRead[]): TarsE
     if (!kind && pendingRequests <= 0) return [];
     const stage = currentStageRecord(detail);
     // The helper's own turn and stage attempt identify the ask: a new turn or attempt there is a new ask.
-    const at = { waitingTaskId: run.leadTaskId, runTurns: run.turnCount, runStage: `${run.id}/${stage.stageId}#${stage.attempt}`.slice(0, 300) };
+    const at = { waitingTaskId: run.leadTaskId, runTurns: run.turnCount, runStage: `${run.id}/${stage.stageId}#${stage.attempt}:${stage.reportRevision}`.slice(0, 300) };
     const wait = tarsStageWait(stage);
     // A helper's turn that could not start is said by code, like the run's own.
     const failed: Pick<TarsExecutionObservation, "detailCode" | "detailParams"> = parseAgentRunTurnStartFailure(stage.detail)

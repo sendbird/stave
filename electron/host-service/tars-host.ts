@@ -1,3 +1,4 @@
+import { recoverTarsHelper } from "./tars-helper-recovery";
 import { hasEndedTarsExecution, tarsExecutionScope } from "../../src/lib/tars/continuation";
 import { WorkspacePreparationError } from "./workspace-preparation";
 import path from "node:path";
@@ -259,7 +260,8 @@ export function createHostTarsRuntime(args: {
       // The requests themselves, bounded, so the user can answer them through Tars.
       const own = withRefs(snapshot.pendingRequests ?? [], row.executionWorkspaceId, row.taskId);
       const withRequests = (value: typeof observation, requests: readonly TarsPendingRequest[]) =>
-        requests.length ? { ...value, pendingRequests: requests.slice(0, TARS_PENDING_REQUESTS_MAX) } : value;
+        requests.length ? { ...value, pendingRequests: requests.slice(0, TARS_PENDING_REQUESTS_MAX),
+          ...(requests.some(request => request.kind === "question") ? { stageAsksUser: true, stageWait: { kind: "question" as const, blockKind: "input" as const } } : {}) } : value;
       // Every observation of a run still going names its own current stage attempt, which stage commands are bound to.
       if (observation.state === "running" && (snapshot.pendingApprovalCount || snapshot.pendingUserInputCount))
         return withTarsActiveStage(detail, withRequests({ state: "waiting", detail: "The execution task is waiting for your input or approval.", detailCode: "waitingForUser",
@@ -285,6 +287,15 @@ export function createHostTarsRuntime(args: {
       guard(latest);
       const agentRunId = row.agentRunId!;
       if (request.operation === "message") {
+        if (row.waitingTaskId && row.waitingTaskId !== row.taskId && row.stageAsksUser && row.stageWait?.kind !== "signOff" && !row.pendingRequests?.length) {
+          await recoverTarsHelper(row, request.input!.text!, {
+            readHelpers: async () => (await readHelpers(latest)).map(read => read.detail),
+            readCurrent: id => persistence.agentRuns.getAggregate(id),
+            guardRoot: () => guard(persistence.agentRuns.getLatestAgentRunForTask(row.taskId!) ?? latest),
+            reply: args.agentRuns.reply,
+          });
+          return;
+        }
         const task = await tasks.getTaskSupervisionSnapshot({ workspaceId: row.executionWorkspaceId!, taskId: row.taskId! });
         // A running turn, or older words still kept for this work: the words wait with the request and are
         // said once the turn ends, after the older ones (`deliverMessage`).

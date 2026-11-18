@@ -344,6 +344,12 @@ export function TarsPreview() {
         if (!row) throw new Error("The responsibility was not found.");
         return buildTarsBrief(row);
       },
+      // As the host: one image of a saved message, read from its full snapshot; `imagePreview=missing` reads none, so previews fall back to file chips.
+      getAttachmentImage: async ({ messageId, index }) => {
+        if (params.get("imagePreview") === "missing") return null;
+        const part = conversation.messages.find((message) => message.id === messageId)?.attachments?.[index];
+        return part?.type === "image_context" ? structuredClone(part) : null;
+      },
       updateIdentity: async (input) => { snapshot = { ...snapshot, identity: { ...snapshot.identity, ...input, updatedAt: nextPreviewAt() } }; sessionStorage.setItem(identityKey, JSON.stringify(snapshot));
         return structuredClone({ ...snapshot, cleared: clearing.cleared() }); },
       create: async () => { throw new Error("Use the global conversation."); },

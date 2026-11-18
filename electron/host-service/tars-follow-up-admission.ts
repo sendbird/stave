@@ -1,3 +1,4 @@
+import { tarsOwnedQuestion } from "../../src/lib/tars/managed-recovery";
 import { TARS_CONFIRMED_OPERATIONS, type TarsControlOperation, type TarsDecisionAction, type TarsMessageOrigin } from "../../src/lib/tars/conversation";
 import type { TarsStore } from "../persistence/tars-store";
 
@@ -50,7 +51,8 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, origin: FollowUp
     // Skipping a stage cannot be undone and drops work the run planned: only the user's own words propose it.
     || operation === "skipStage"
     // Approval and answers speak for the user. Instructions to the owned run do not.
-    || operation === "approve" || operation === "deny" || operation === "answer";
+    || operation === "approve" || operation === "deny" || operation === "answer" &&
+      !(action.kind === "control" && (origin.reason === "stageAsksUser" || origin.reason === "waitExpired") && tarsOwnedQuestion(row(id), action.input?.requestRef));
   if (action.kind === "control" && refused(action.responsibilityId, action.operation))
     return "An automatic follow-up cannot propose this control: only the user starts it, or the work is held by the user or ended.";
   if (action.kind === "show" && outOfReach(action.responsibilityId))

@@ -13,6 +13,7 @@ import { undoTarsAction } from "./host-service/tars-action-undo";
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
 import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
 import { findAutomationWorkspace } from "./host-service/automation-workspace-location";
+import { createTarsExecutionRouter } from "./host-service/tars-execution-routing";
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
 import { readTeamProviderUsage } from "./host-service/supervision/provider-usage-context";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
@@ -2342,6 +2343,8 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         conversations: persistence.tarsConversations, responsibilities: persistence.tars,
         readRegistry: () => persistence.loadRepositoryRegistry(),
         agents: hostAgents, agentCatalogReady: hostAgentCatalogSynced,
+        routeExecution: createTarsExecutionRouter({ fixedAgent: id => hostAgents().find(agent => agent.id === id)?.model.mode === "fixed",
+          read: accounts => getRateLimitsSnapshot({ runtimeOptions: accounts, providers: ["claude-code", "codex"], force: true, reason: "dispatch-guard" }) }),
         requestTick: () => tarsRuntime.requestTick(),
         control: (action, ledger) => tarsRuntime.act(action, ledger),
         readRunBudget: (id) => persistence.agentRuns.getAggregate(id)?.agentRun ?? null,

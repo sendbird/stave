@@ -17,6 +17,7 @@ import { TarsPublishInputSchema, TarsPublishPreviewInputSchema } from "../../../
 import { TarsBriefInputSchema } from "../../../src/lib/tars/brief";
 import { TarsUsageInputSchema, TarsUsageReportSchema } from "../../../src/lib/tars/usage";
 import { SaveTarsComposerDraftInputSchema } from "../../../src/lib/tars/composer-draft";
+import { TarsAttachmentImageInputSchema } from "../../../src/lib/tars/attachment-image";
 import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../../../src/lib/tars/clearing";
 import { TarsAwayStateSchema } from "../../../src/lib/tars/away-state";
 import { TarsSuggestInputSchema, TarsSuggestResultSchema } from "../../../src/lib/tars/suggestion-generation";
@@ -48,6 +49,9 @@ export function registerTarsHandlers() {
     const input = SaveTarsComposerDraftInputSchema.parse(rawInput);
     (await getTarsConversationService()).saveDraft(input);
   });
+  // One image of a saved message for its preview, by message and position; a file's content is never read back.
+  ipcMain.handle(TARS_IPC.getAttachmentImage, async (_event, rawInput: unknown) =>
+    (await getTarsConversationService()).getAttachmentImage(TarsAttachmentImageInputSchema.parse(rawInput)));
   ipcMain.handle(TARS_IPC.cancelMessage, async (_event, rawInput: unknown) => {
     const input = CancelTarsMessageInputSchema.parse(rawInput);
     return tarsMessageView(await (await getTarsConversationService()).cancelMessage(input));

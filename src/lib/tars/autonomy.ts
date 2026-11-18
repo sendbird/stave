@@ -88,6 +88,8 @@ function defaultMode(key: TarsActionKey): TarsActionMode {
 
 /** Evidence read by the host at admission, never supplied by the model. */
 export interface TarsActionContext {
+  /** Host-verified, complete ordinary question within this responsibility. */
+  ownedQuestion?: boolean;
   allowRules?: readonly TarsAllowRule[];
   repositoryPath?: string | null;
   responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> | null;
@@ -123,6 +125,7 @@ export function tarsCanAutoPublish(row: TarsActionContext["responsibility"]): bo
 export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | null | undefined,
   _origin: TarsActionOrigin = "user", context: TarsActionContext = {}): TarsActionMode {
   const chosen = TarsAutonomyLevelSchema.safeParse(level).success ? level! : TARS_DEFAULT_AUTONOMY;
+  if (key === "answer" && chosen !== "careful" && context.ownedQuestion) return "auto";
   if (TARS_ALWAYS_CONFIRMED.has(key)) return "confirm";
   if (chosen !== "careful") {
     if (tarsHasAllowRule(key, context)) return "auto";
