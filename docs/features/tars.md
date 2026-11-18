@@ -64,12 +64,14 @@ another `@` candidate replaces the target.
 **Follow up** on a work card, result card or side view selects that same work
 and focuses the composer without sending anything. **View result** opens its
 existing report panel. Quotes from the changes view keep that panel's work as
-the target. Selection and draft text survive restarting Stave; messages and
-reply-option answers preserve the stable responsibility ID, not the title.
+the target. Selection and draft text survive restarting Stave; messages, Tars's
+automatic re-asks and reply-option answers preserve the stable responsibility ID,
+not the title.
 
 An explicit selection narrows the representative's routing to that one existing
 work item. The host refuses new delegations, schedules and clearing, and any
-action that reaches other work: controls and views of another item, opening
+action that reaches other work: controls and views of another item, reading
+another item's details while reasoning, opening
 another task or workspace, workspace information edits outside the work's own
 execution workspace, bulk control or cleanup beyond that one item, and
 withdrawing a waiting decision about other work. Missing targets are never

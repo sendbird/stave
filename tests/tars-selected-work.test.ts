@@ -308,3 +308,113 @@ test("a selected withdraw closes only a waiting decision about the selected work
     expect(f.conversations.listReceipts(asked.id)[0]?.status).toBe("proposed");
   } finally { await f.close(); }
 });
+
+const askToPause = (responsibilityId: string, expectedRevision: number): TarsDecisionAction => ({ kind: "ask", question: "Pause it?", options: [
+  { label: "Pause", rationale: "Stop it now", effect: { kind: "control", responsibilityId, expectedRevision, operation: "pause" } },
+  { label: "Keep going", rationale: "Leave it", effect: { kind: "reply" } }] });
+
+test("a re-ask keeps the original selection, so a mistaken question about other work is refused and its answer pauses nothing", async () => {
+  const f = followUpFixture();
+  try {
+    const row = f.responsibility("running");
+    const other = f.responsibility("running");
+    f.replies.push({ reply: "A question", actions: [askToPause(row.id, row.revision)] });
+    f.service.start();
+    const original = f.service.sendMessage({ requestId: "selected-ask", text: "Should this work pause?", target: { responsibilityId: row.id } });
+    await f.service.whenIdle();
+    expect(f.conversations.listReceipts(original.id)[0]?.status).toBe("proposed");
+    // The selected work moves, so the waiting question is invalid and Tars asks again by itself.
+    // That re-ask's reply (a model mistake or injected text) asks about the other work.
+    f.replies.push({ reply: "Pause the other one?", actions: [askToPause(other.id, other.revision)] });
+    f.responsibilities.patch(row.id, f.responsibilities.get(row.id)!.revision, { detail: "Moved on" }, f.now());
+    f.service.wake(); await f.service.whenIdle();
+    const reask = f.automatic().find((message) => message.origin?.kind === "reask")!;
+    expect(reask.origin).toMatchObject({ kind: "reask", decisionId: tarsAskDecisionId(original.id, 0) });
+    // Choosing its "Pause" option must not reach the other work.
+    const chosen = await f.service.answerDecision({ decisionId: tarsAskDecisionId(reask.id, 0), optionIndex: 0, source: "click" });
+    await f.runtime.drain();
+    expect(f.runControls).toEqual([]);
+    expect(f.responsibilities.get(other.id)?.state).toBe("running");
+    expect(chosen.answer).toBeNull();
+    expect(reask.target).toEqual({ responsibilityId: row.id });
+    expect(f.conversations.listReceipts(reask.id).map(({ status, reason }) => [status, reason])).toEqual([["rejected", "targetMismatch"]]);
+  } finally { await f.close(); }
+});
+
+test("the selection survives original, re-ask, answer, a second re-ask and its answer", async () => {
+  const f = followUpFixture();
+  try {
+    const row = f.responsibility("running");
+    const other = f.responsibility("running");
+    const move = () => { f.advance(60_000); return f.responsibilities.patch(row.id, f.responsibilities.get(row.id)!.revision, { detail: `Moved at ${f.now()}` }, f.now()); };
+    const reasks = () => f.automatic().filter((message) => message.origin?.kind === "reask");
+    // Tars never re-asks a re-ask's own question; a later re-ask comes from the question the user's answer led to.
+    const reaskAndAnswer = async (asker: string) => {
+      const current = move();
+      f.replies.push({ reply: "Still pause it?", actions: [askToPause(row.id, current.revision)] });
+      f.service.wake(); await f.service.whenIdle();
+      const reask = reasks().at(-1)!;
+      expect(reask.origin).toMatchObject({ kind: "reask", decisionId: tarsAskDecisionId(asker, 0) });
+      expect(reask.target).toEqual({ responsibilityId: row.id });
+      expect(f.conversations.listReceipts(reask.id)[0]?.status).toBe("proposed");
+      return reask;
+    };
+    f.replies.push({ reply: "A question", actions: [askToPause(row.id, row.revision)] });
+    f.service.start();
+    const original = f.service.sendMessage({ requestId: "selected-ask", text: "Should this work pause?", target: { responsibilityId: row.id } });
+    await f.service.whenIdle();
+    const first = await reaskAndAnswer(original.id);
+    // Answering "Keep going" starts a message on the same selection; its reply asks again about the selected work.
+    f.replies.push({ reply: "Then later?", actions: [askToPause(row.id, f.responsibilities.get(row.id)!.revision)] });
+    const firstAnswer = await f.service.answerDecision({ decisionId: tarsAskDecisionId(first.id, 0), optionIndex: 1, source: "click" });
+    await f.service.whenIdle();
+    const answered = f.conversations.get(firstAnswer.answer!.messageId!)!;
+    expect(answered.target).toEqual({ responsibilityId: row.id });
+    expect(f.conversations.listReceipts(answered.id)[0]?.status).toBe("proposed");
+    const second = await reaskAndAnswer(answered.id);
+    expect(reasks()).toHaveLength(2);
+    // The second answer's reply cannot reach the other work.
+    f.replies.push({ reply: "Pausing the other one", actions: [{ kind: "control", responsibilityId: other.id, expectedRevision: other.revision, operation: "pause" }] });
+    const secondAnswer = await f.service.answerDecision({ decisionId: tarsAskDecisionId(second.id, 0), optionIndex: 1, source: "click" });
+    await f.service.whenIdle(); await f.runtime.drain();
+    const last = f.conversations.get(secondAnswer.answer!.messageId!)!;
+    expect(last.target).toEqual({ responsibilityId: row.id });
+    expect(f.conversations.listReceipts(last.id).map(({ status, reason }) => [status, reason])).toEqual([["rejected", "targetMismatch"]]);
+    expect(f.runControls).toEqual([]);
+    expect(f.responsibilities.get(other.id)?.state).toBe("running");
+  } finally { await f.close(); }
+});
+
+test("a selected message inspects only its selected work: other and missing targets are refused before any read", async () => {
+  const reads: string[] = [];
+  const f = followUpFixture({ inspect: async (work, view) => { reads.push(`${work.id}:${view}`); return { evidence: `transcript of ${work.id}` }; } });
+  try {
+    const row = f.responsibility("running");
+    const other = f.responsibility("running");
+    const send = async (requestId: string, target: string | null, ids: string[]) => {
+      f.replies.push({ reply: "Reading", actions: ids.map((responsibilityId) => ({ kind: "inspect" as const, responsibilityId, view: "transcript" as const })) },
+        { reply: "Done", actions: [] });
+      const before = f.planner.length;
+      const message = f.service.sendMessage({ requestId, text: "What happened in the transcript?", ...(target ? { target: { responsibilityId: target } } : {}) });
+      await f.service.whenIdle();
+      const data = JSON.parse(f.planner[before + 1]!.input.prompt.split("\n\n").at(-1)!);
+      return { message: f.conversations.get(message.id)!, inspections: data.inspections as Array<Record<string, unknown>> };
+    };
+    f.service.start();
+    const selected = await send("selected-read", row.id, [other.id, row.id]);
+    expect(reads).toEqual([`${row.id}:transcript`]);
+    expect(selected.inspections.map(({ responsibilityId, status, reason, content }) => ({ responsibilityId, status, reason, content }))).toEqual([
+      { responsibilityId: other.id, status: "unavailable", reason: "targetMismatch", content: "" },
+      { responsibilityId: row.id, status: "read", reason: undefined, content: JSON.stringify({ evidence: `transcript of ${row.id}` }) },
+    ]);
+    expect(selected.message.inspections?.map((entry) => [entry.responsibilityId, entry.status])).toEqual([[other.id, "unavailable"], [row.id, "read"]]);
+    reads.length = 0;
+    const missing = await send("missing-read", "no-longer-present", [row.id]);
+    expect(reads).toEqual([]);
+    expect(missing.inspections).toEqual([expect.objectContaining({ responsibilityId: row.id, status: "unavailable", reason: "targetUnavailable", content: "" })]);
+    // Without a selection every owned work stays readable, as before.
+    const unselected = await send("unselected-read", null, [other.id, row.id]);
+    expect(reads).toEqual([`${other.id}:transcript`, `${row.id}:transcript`]);
+    expect(unselected.inspections.map((entry) => [entry.status, entry.reason])).toEqual([["read", undefined], ["read", undefined]]);
+  } finally { await f.close(); }
+});

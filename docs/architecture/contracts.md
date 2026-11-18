@@ -849,8 +849,9 @@ decision from it is never asked again. Main wakes the service on the host's
 Existing-work selection is `TarsWorkTarget` (`responsibilityId` only), an optional
 `target` on the composer draft and message input/view schemas. The renderer saves
 it with the draft and sends it through the existing preload and `tars:send-message`
-validation into `TarsConversationStore` JSON. Planner current/history contexts and
-reply-option answer messages retain the ID. Host decision admission
+validation into `TarsConversationStore` JSON. Planner current/history contexts,
+automatic re-asks (from the source message named by the invalidated decision ID)
+and reply-option answer messages retain the ID. Host decision admission
 (`tarsSelectedWorkRefusal`, checked once while a receipt is still pending) narrows
 a selected message to that responsibility. It refuses missing targets
 (`targetUnavailable`) and, as `targetMismatch`, delegation, schedules, clearing,
@@ -858,7 +859,9 @@ controls/views/publish/reprioritize/inspect of another responsibility, ask
 options whose effects reach another responsibility, `open` of anything but the
 selected task or execution workspace, `workspace` edits outside that execution
 workspace, `bulkControl`/`cleanup` scopes beyond the selected ID, and `withdraw`
-of a decision whose action leaves the target. The switch is exhaustive over
+of a decision whose action leaves the target. Inspect reads never reach admission,
+so `inspectTarsResponsibility` applies the same rule before any host reader and
+returns an `unavailable` observation with the refusal reason to the planner. The switch is exhaustive over
 `TarsDecisionAction`, so a new action kind must decide its selection rule.
 Selection grants no execution, tool or publication authority; existing revision,
 ownership, completion, continuation and confirmation checks remain required. Natural-language conflicts and ambiguous references are
