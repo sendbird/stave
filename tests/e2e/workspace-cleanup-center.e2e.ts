@@ -162,6 +162,7 @@ test("permanent delete confirmation focuses Cancel, ignores Enter and isolates E
 
 test("archived shelf reads cheap records once across workspace edits and deduplicates invalidations", async ({ page }) => {
   await page.goto("/?stavePreview=command-palette&cleanupPreview=1");
+  await page.waitForFunction(() => Boolean(window.api?.workspaceCleanup));
   await page.evaluate(async () => {
     const resources = performance.getEntriesByType("resource");
     const moduleUrl = (name: string) => resources.find(entry => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
@@ -189,7 +190,13 @@ test("archived shelf reads cheap records once across workspace edits and dedupli
   await expect.poll(() => page.evaluate(() => (window as any).shelfReads)).toBe(1);
   expect(await page.evaluate(() => (window as any).fullReads)).toBe(0);
   await page.evaluate(() => (window as any).releaseShelf());
-  await expect(page.locator("#shelf-test")).toContainText("Earlier work");
+  const trigger = page.locator("#shelf-test").getByTestId("archived-workspaces-trigger");
+  await expect(trigger).toHaveAccessibleName("Archived workspaces (1)");
+  // The preview opens the command palette as a modal; close it to reach the footer entry.
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Command Palette" })).toHaveCount(0);
+  await trigger.click();
+  await expect(page.getByTestId("archived-workspaces-list")).toContainText("Earlier work");
 });
 
 for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {

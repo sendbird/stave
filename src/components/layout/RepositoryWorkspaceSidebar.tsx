@@ -1016,7 +1016,6 @@ export function RepositoryWorkspaceSidebar(args: {
                 />
               ) : (
                 <>
-                  <ArchivedWorkspaceShelf />
                   <div className={sx(repositorySidebarStyles.repositoryStack)}>
                     {visibleRepositories.map((repository) => {
                       const collapsed =
@@ -1758,6 +1757,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   onOpenKeyboardShortcuts={args.onOpenKeyboardShortcuts}
                   onOpenSettings={() => args.onOpenSettings()}
                 />
+                <ArchivedWorkspaceShelf compact />
                 <Tooltip>
                   <TooltipTrigger
                     render={
@@ -1788,6 +1788,8 @@ export function RepositoryWorkspaceSidebar(args: {
                     onOpenSettings={() => args.onOpenSettings()}
                   />
                 </div>
+                <div className={sx(repositorySidebarStyles.footerGroup)}>
+                <ArchivedWorkspaceShelf />
                 <Tooltip>
                   <TooltipTrigger
                     render={
@@ -1807,6 +1809,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   </TooltipTrigger>
                   <TooltipContent side="top">{tI18n("workspace:repositoryWorkspaceSidebar.settings")}</TooltipContent>
                 </Tooltip>
+                </div>
               </div>
             )}
           </TooltipProvider>
