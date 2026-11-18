@@ -227,7 +227,7 @@ describe("resolveAutoRoutingDecision", () => {
     });
 
     expect(decision.providerId).toBe("codex");
-    expect(decision.model).toBe("gpt-6.1-sol");
+    expect(decision.model).toBe("gpt-6.2-sol");
     expect(decision.codexReasoningEffort).toBe("medium");
   });
 
@@ -277,7 +277,7 @@ describe("resolveAutoRoutingDecision", () => {
         });
         expect(decision).toMatchObject({ source: "classifier", stance: "quality-first", ruleId: "standard",
           signals: { taskClass: intent, complexity: "medium" },
-          model: currentProviderId === "codex" ? "gpt-6.1-sol" : DEFAULT_CLAUDE_OPUS_MODEL,
+          model: currentProviderId === "codex" ? "gpt-6.2-sol" : DEFAULT_CLAUDE_OPUS_MODEL,
         });
         expect(decision.ruleReason).toContain("Quality-first");
         expect(decision.rationale).toContain("low complexity");

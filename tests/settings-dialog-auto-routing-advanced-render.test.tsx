@@ -84,7 +84,7 @@ describe("Auto settings routing levels", () => {
     expect(table.match(/>Custom</g)?.length).toBe(1);
     // Quality-first on the customized Extreme level runs its own high end.
     expect(table).toContain("Fable 5.2 · Xhigh");
-    expect(table).toContain("GPT-6 Astra · Xhigh");
+    expect(table).toContain("GPT-6.2 Astra · Xhigh");
     // Expert keeps the built-in ceiling.
     expect(table).toContain("Fable 5.2 · Medium");
   });

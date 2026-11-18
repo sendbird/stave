@@ -177,7 +177,7 @@ export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
   {
     id: "default-gpt-5-6-task",
     // i18n-ignore: model catalog proper name
-    label: "GPT-6.1 Sol",
+    label: "GPT-6.2 Sol",
     kind: "task",
     provider: "codex",
     model: DEFAULT_CODEX_MODEL,

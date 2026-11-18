@@ -201,7 +201,7 @@ describe("supervised saved-Agent delegations", () => {
     expect(initialClassifications).toBeGreaterThan(0);
     expect(h.runs.resourceConfig(child.agentRunId!)?.policy.autoRouting).toBe(true);
     expect(h.calls[0]!.runtimeOptions).toMatchObject(providerId === "codex"
-      ? { model: "gpt-6.1-sol", codexReasoningEffort: "high", codexFileAccess: "read-only" }
+      ? { model: "gpt-6.2-sol", codexReasoningEffort: "high", codexFileAccess: "read-only" }
       : { model: "claude-opus-5-5", claudeEffort: "high", claudeSandboxReadOnly: true });
     h.end("turn-1"); h.restartRuntime(); await h.runtime.requestTick();
     expect(h.classified).toBe(initialClassifications + 1);

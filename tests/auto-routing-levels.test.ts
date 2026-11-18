@@ -47,7 +47,7 @@ describe("frontier effort defaults", () => {
       expect(expert.effort).toBe("medium");
     }
     expect(route(quality, { complexity: "extreme" }).model).toBe(CLAUDE_FABLE_MODEL);
-    expect(route(quality, { complexity: "extreme", currentProviderId: "codex" }).model).toBe("gpt-6-astra");
+    expect(route(quality, { complexity: "extreme", currentProviderId: "codex" }).model).toBe("gpt-6.2-astra");
   });
 
   test("each preference runs its own end of the Extreme range", () => {
@@ -157,7 +157,7 @@ describe("custom levels", () => {
       const simple = previewRouteLevels({ profile: buildStarterProfile("starter-quality-first"), providerId })[0]!;
       expect(simple.level.complexity).toBe("low");
       expect(simple.route).toMatchObject({ complexity: "medium", ruleId: "standard", effort: "high" });
-      expect(simple.route?.model).toBe(providerId === "codex" ? "gpt-6.1-sol" : DEFAULT_CLAUDE_OPUS_MODEL);
+      expect(simple.route?.model).toBe(providerId === "codex" ? "gpt-6.2-sol" : DEFAULT_CLAUDE_OPUS_MODEL);
     }
   });
 
@@ -169,6 +169,6 @@ describe("custom levels", () => {
     });
     const expert = previewRouteLevels({ profile: custom, providerId: "codex" })
       .find((entry) => entry.level.complexity === "expert");
-    expect(expert?.route).toMatchObject({ model: "gpt-6.1-sol", effort: "high" });
+    expect(expert?.route).toMatchObject({ model: "gpt-6.2-sol", effort: "high" });
   });
 });

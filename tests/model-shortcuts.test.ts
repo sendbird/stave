@@ -18,7 +18,7 @@ describe("model shortcuts", () => {
       "codex:gpt-6-luna",
       "",
       "claude-code:claude-fable-5-2",
-      "codex:gpt-6-astra",
+      "codex:gpt-6.2-astra",
       "",
       "",
       "",
