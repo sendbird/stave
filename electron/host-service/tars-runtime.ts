@@ -1,3 +1,4 @@
+import { tarsWorkResetPlan } from "../../src/lib/tars/clearing";
 import { isTarsPublicationUnfinished } from "../../src/lib/tars/publication";
 import { WorkspacePreparationError } from "./workspace-preparation";
 import { createTarsWithdrawal, tarsContinuationRunPatch } from "./tars-withdrawal";
@@ -570,13 +571,19 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         return ledger.reject(tarsControlRejection(error));
       };
       // The effect already ran for this very request: only its outcome is left to save.
+      const assertResetOwnership = () => {
+        if (request.operation !== "cancel" || !ledger.key.startsWith("click:clear-work:")) return;
+        const row = ports.store.get(id);
+        if (!row || tarsWorkResetPlan([row]).kept.length)
+          throw new TarsControlRejection(row?.state === "takenOver" ? "takenOver" : "runRefused", "Work reset must preserve work the user holds or paused.");
+      };
       const sent = sentEffects.has(ledger.key) || Boolean(target && ports.hasControlEffect?.(target, ledger.key));
       try {
         const settled = ledger.settled();
         if (settled) return Promise.resolve(settled);
         if (running) throw new TarsControlRejection("stale", TARS_CONTROL_STALE);
         // A stale or inadmissible stop must not freeze newer work.
-        if (!sent) { admitTarsControl(ports.store.get(id), request); ledger.admit?.(); }
+        if (!sent) { assertResetOwnership(); admitTarsControl(ports.store.get(id), request); ledger.admit?.(); }
       } catch (error) {
         try { return Promise.resolve(settle(error)); } catch (busy) { return Promise.reject(busy); }
       }
@@ -584,6 +591,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       const promise = enqueue(id, async () => {
         const replay = ledger.settled();
         if (replay) return replay;
+        assertResetOwnership();
         const current = ports.store.get(id);
         if (sent && !current) throw new TarsControlRejection("notOwned", "The responsibility is not owned by the personal representative.");
         let row = sent ? current! : admitTarsControl(current, request, "dispatch");
@@ -636,7 +644,10 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           }
           else if (row.agentRunId && request.operation !== "acceptCompletion" && request.operation !== "startNow" &&
               (!sent || TARS_STOPPING_OPERATIONS.has(request.operation)))
+          {
+            assertResetOwnership();
             await ports.controlRun(row, request.operation as TarsRunControlOperation, request.autoExtendMaxTurns, ledger.key);
+          }
         } catch (error) {
           if (!(error instanceof TarsOwnershipLostError) || TARS_GRANTING_OPERATIONS.has(request.operation)) throw error;
           // Confirmed transfer relinquishes only this responsibility. Never send
@@ -666,6 +677,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           const latest = ports.store.get(id);
           if (!latest || latest.revision !== row.revision) throw new TarsControlRejection("stale", TARS_CONTROL_STALE);
           // An answer already given in the task is recorded as given, whatever was observed since.
+          assertResetOwnership();
           if (!sent && !sentEffects.has(ledger.key)) admitTarsControl(latest, request, "dispatch");
           // A queued message changes nothing about the work until it is said, so other decisions on it stay current.
           if (!queued && !(sent && row.revision !== request.expectedRevision)) ports.store.patch(id, row.revision, value, now());

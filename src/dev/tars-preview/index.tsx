@@ -32,6 +32,7 @@ import { TRANSCRIPT_OVERFLOW_REPLY } from "@/dev/fixtures/transcript-overflow-fi
 import { buildTarsGalleryFixtures } from "./tars-gallery-fixtures";
 import type { TarsComposerDraft } from "@/lib/tars/composer-draft";
 import { createPreviewClearBridge } from "./tars-clear-fixtures";
+import { tarsClearWorkRequestId, tarsWorkResetPlan } from "@/lib/tars/clearing";
 import { buildTarsInsightsFixtures } from "./tars-insights-fixtures";
 import { buildTarsStartRepositoryFixtures } from "./tars-start-fixtures";
 import { TARS_IDENTITY_UNSAVED_AT } from "@/lib/tars/default-instructions";
@@ -230,7 +231,21 @@ export function TarsPreview() {
     // Clearing as the host does it; `retentionDays=N` starts with another retention period than the default.
     const clearing = createPreviewClearBridge({ storageKey: `${conversationKey}-view`, now,
       ...(params.get("retentionDays") ? { retentionDays: Number(params.get("retentionDays")) } : {}),
-      getSnapshot: () => snapshot, getConversation: () => ({ ...conversation, messages: conversation.messages.map((message) => tarsMessageView(message)) }), changed: saveConversation });
+      getSnapshot: () => snapshot, getConversation: () => ({ ...conversation, messages: conversation.messages.map((message) => tarsMessageView(message)) }), changed: saveConversation,
+      // The host's Work reset rule over the preview's own control path: `controlRefusal=true` shows a refused cancel kept and named.
+      resetWork: async (requestId, source) => {
+        const plan = tarsWorkResetPlan(snapshot.responsibilities);
+        const cancelled: string[] = [];
+        const kept = [...plan.kept];
+        for (const id of plan.stop) {
+          const row = snapshot.responsibilities.find((candidate) => candidate.id === id)!;
+          const { record } = await act({ requestId: tarsClearWorkRequestId(requestId, id), responsibilityId: id, expectedRevision: row.revision, operation: "cancel", source });
+          if (record.status === "applied") cancelled.push(id); else kept.push({ responsibilityId: id, reason: "refused" });
+        }
+        // Saved like the host's rows, so a reload (the preview's restart) keeps the cancelled work cancelled.
+        sessionStorage.setItem(identityKey, JSON.stringify(snapshot));
+        return { cancelled, kept };
+      } });
     /** One second after anything saved, clears included, so a new message never lands before a clear. */
     const nextPreviewAt = () => new Date(Math.max(clockBase() + (conversation.messages.length + conversation.records.length + 1) * 1000,
       ...(clearing.view(conversationView()).clears ?? []).map((record) => Date.parse(record.updatedAt) + 1000))).toISOString();
@@ -297,7 +312,7 @@ export function TarsPreview() {
     }
     if (params.get("suggestions") !== "noSettings") conversation.settings ??= { providerId: "codex", model: "preview-model", maxTurns: 6 };
     const bridge: TarsBridgeApi = {
-      ...(params.get("batch") === "true" ? createPreviewBatchBridge(snapshot, () => { for (const listener of changeListeners) listener({ scope: "conversation" }); }) : {}),
+      ...(params.get("batch") === "true" ? createPreviewBatchBridge(snapshot, () => { for (const listener of changeListeners) listener({ scope: "conversation" }); }, { failOnce: params.get("batchFailure") === "once", missingWorkspace: params.get("batchMissing") === "true" }) : {}),
       undoAction: previewTarsActionUndo({ conversation, deliveryOutcome: params.get("withdrawal") === "pending" ? "pending" : params.get("withdrawal") === "started" ? "started" : undefined, getSnapshot: () => snapshot,
         setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(next)); },
         changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }),
@@ -308,6 +323,16 @@ export function TarsPreview() {
       reprioritize: async (input) => reprioritize(input),
       ...away?.bridge,
       get: async () => { syncAway(); reads++; if (params.get("readFailure") === "once" && reads === 2) throw new Error("Preview read failed."); return tarsSnapshotForWindow(structuredClone({ ...snapshot, cleared: clearing.cleared() })); },
+      dismissDecision: async ({ decisionId, source }) => {
+        const receipt = conversation.receipts.find((entry) => `confirm:${entry.messageId}:${entry.actionIndex}` === decisionId && entry.action.kind === "clear" && entry.status === "proposed");
+        if (!receipt) return { answer: null, refusal: "notWaiting" };
+        const existing = conversation.answers!.find((answer) => answer.decisionId === decisionId);
+        const answer: TarsDecisionAnswer = existing ?? { decisionId, optionIndex: 0, source, effect: { kind: "dismiss" }, label: null, status: "applied", reason: null,
+          error: null, actRequestId: null, messageId: null, revision: 1, createdAt: now, updatedAt: now };
+        if (!existing) conversation.answers!.push(answer);
+        saveConversation();
+        return { answer: structuredClone(answer), refusal: null };
+      },
       clear: (input) => clearing.clear(input),
       undoClear: (input) => clearing.undoClear(input),
       configureView: (input) => clearing.configureView(input),
@@ -424,7 +449,10 @@ export function TarsPreview() {
               : { kind: "bulkControl", operation: /cancel/i.test(input.text) ? "cancel" : /resume/i.test(input.text) ? "resume" : "pause", scope: { kind: "all" } });
           } else if (/\bclear\b|정리|지워/i.test(input.text)) {
             const korean = params.get("lang") === "ko";
-            const scopes = /\beverything\b|\ball\b|전부|모두/i.test(input.text) ? ["conversation", "done", "outputs"] as const
+            // Asking to empty In Progress or the Work panel proposes a Work reset; its card says what stops and what is kept.
+            const scopes = /reset work|work panel|work 패널|in progress|진행 중|needs you/i.test(input.text) ? ["work"] as const
+              : /\beverything\b|\ball\b|전부|모두/i.test(input.text) ? ["conversation", "done", "outputs"] as const
+              : /outputs|산출물/i.test(input.text) ? ["outputs"] as const
               : /done|finished|끝난/i.test(input.text) ? ["done"] as const : ["conversation"] as const;
             decision.reply = korean ? "정리 카드를 띄웠습니다. 확인하면 화면에서만 정리되고 삭제되는 것은 없습니다." : "Here is the clear card. Confirming hides these from view; nothing is deleted.";
             decision.actions.push({ kind: "clear", scopes: [...scopes] });

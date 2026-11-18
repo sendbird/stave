@@ -27,4 +27,10 @@ export const tarsClearStyles = stylex.create({
     paddingBlockEnd: vars["--aui-space-8"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"],
   },
   chipStatusText: { minWidth: 0, margin: 0, overflowWrap: "anywhere" },
+  /** The header Clear dialog's "Also reset Work" choice and, once chosen, what it would do. */
+  work: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },
+  workList: {
+    display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], margin: 0, paddingInlineStart: vars["--aui-space-16"],
+    color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"], overflowWrap: "anywhere",
+  },
 });

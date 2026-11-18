@@ -650,6 +650,24 @@ ended work leaves **Done** and **Outputs**; running, waiting, blocked and
 taken-over work, and work whose draft PR is unfinished or waits for your
 confirmation, stay. Hidden work stays in Fleet and in its task.
 
+In the **Clear conversation** dialog, **Also reset Work** also empties the Work
+panel (In Progress, Needs You and Done). Before you confirm it lists how many
+unfinished work items will be cancelled, how many ended cards and outputs will
+be hidden, and how many are kept. Tars's unfinished work is cancelled through
+the normal **Cancel**, so each run stops, and Tars's questions waiting on that
+work close instead of being asked again. Questions whose targets have all
+finished also close, including targets that finish during the reset; natural
+completion is not reported as cancellation. Work you took over or paused, and work
+still publishing a draft PR, stays as it is; a refused cancel keeps that work
+and the record names it as kept; its waiting question stays visible. Retrying a
+failed reset keeps the original scope and work membership. A reset with more
+than 1,000 work items is refused before any cancellation. Asking "reset Work" or "In Progress 정리해줘"
+shows one clear card without a question first, and only **Clear and cancel**
+applies it. **Restore** brings the cards back but never restarts cancelled
+work. A card with nothing left to clear offers **Close**, so it does not come
+back after a restart. **Not now** also saves the dismissal, so the card stays closed
+after re-entry or restart.
+
 Ask Tars for work that should run later or repeat, such as "every weekday at
 9, check the release branch" or "tomorrow at 3 pm look at this again". Tars
 shows a schedule card with what will run and the next two runs in local time
@@ -1028,7 +1046,7 @@ Full details: https://github.com/sendbird/stave/blob/main/docs/features/tars.md
 
 Ask Tars to "stop everything", "pause all running work", resume all, or explicitly cancel many responsibilities. Limit the request to one repository or a list of responsibilities when needed. One card lists only the work the action can apply to, with each skipped item's reason; ended work is counted on one line instead of being listed. Confirmation is always required, regardless of autonomy. Pause and resume apply to the work's current state when you confirm; cancel skips work that changed since the card appeared, and never cancels work you took over. Cancellation cannot be undone and has no default Enter shortcut.
 
-Ask to "clean up the finished work" or choose **Clean up finished work** in Done. Only completed or cancelled work with no running activity, pending/open PR, dirty files or unpushed commits can be archived; unfinished work is counted on one line. The host checks each workspace again when confirmed. When pull request status is unavailable, every item is skipped and one line says to sign in to GitHub CLI or use the cleanup center. The result record offers **Restore** for archives; an archive whose branch was deleted comes back read-only. If Stave stops while a cleanup or bulk control runs, its record shows what ran and offers **Continue** for the rest. Branch deletion and permanent deletion of already archived workspaces require an explicit request and cannot be undone; force deletion is never used.
+Ask to "clean up the finished work" or choose **Clean up finished work** in Done. Cleanup archives execution workspaces and does not remove Work cards (use Clear for that). Ended work without a workspace is listed as **No workspace to archive**; when nothing can be archived, the card says why and offers only **Close** instead of a disabled action. Only completed or cancelled work with no running activity, pending/open PR, dirty files or unpushed commits can be archived; unfinished work is counted on one line. The host checks each workspace again when confirmed. When pull request status is unavailable, every item is skipped and one line says to sign in to GitHub CLI or use the cleanup center. The result record offers **Restore** for archives; an archive whose branch was deleted comes back read-only. If Stave stops while a cleanup or bulk control runs, its record shows what ran and offers **Continue** for the rest. Branch deletion and permanent deletion of already archived workspaces require an explicit request and cannot be undone; force deletion is never used.
 
 
 @page review | Hand off | Review and delegation | guide

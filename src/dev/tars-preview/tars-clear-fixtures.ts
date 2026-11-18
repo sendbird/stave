@@ -1,6 +1,6 @@
 import {
   TARS_DEFAULT_RETENTION_DAYS, TarsClearRecordSchema, TarsViewSettingsSchema, normalizeTarsClearScopes, parseTarsClearProposalRequestId, tarsClearableIds, tarsTrayCleared,
-  type TarsClearInput, type TarsClearRecord, type TarsTrayCleared, type TarsViewSettings,
+  type TarsClearInput, type TarsClearRecord, type TarsClearWork, type TarsTrayCleared, type TarsViewSettings,
 } from "@/lib/tars/clearing";
 import { filterTarsConversationView, tarsClearKeeps } from "@/lib/tars/clear-view";
 import type { TarsConversation } from "@/lib/tars/conversation";
@@ -28,6 +28,8 @@ export function createPreviewClearBridge(args: {
   getConversation: () => TarsConversation;
   /** Called after each write so the preview announces the change, as the host does. */
   changed: () => void;
+  /** The host's Work reset against the preview's work: cancels through the preview's control path and says what it kept. */
+  resetWork?: (requestId: string, source: TarsClearInput["source"]) => Promise<TarsClearWork>;
 }) {
   const saved = JSON.parse(sessionStorage.getItem(args.storageKey) ?? "null") as PreviewViewState | null;
   const state: PreviewViewState = saved ?? { settings: TarsViewSettingsSchema.parse({ retentionDays: args.retentionDays ?? TARS_DEFAULT_RETENTION_DAYS }), clears: [], archived: [] };
@@ -48,7 +50,7 @@ export function createPreviewClearBridge(args: {
     return new Date(Math.max(...times.map((time) => Date.parse(time))) + 1_000).toISOString();
   };
   const active = () => [...state.clears].reverse().find((record) => record.status === "applied" && record.scopes.includes("conversation")) ?? null;
-  const keeps = (conversation: TarsConversation) => tarsClearKeeps({ receipts: conversation.receipts, decisions: projectTarsDecisions({ messages: conversation.messages,
+  const keeps = (conversation: TarsConversation) => tarsClearKeeps({ receipts: conversation.receipts, answers: conversation.answers, decisions: projectTarsDecisions({ messages: conversation.messages,
     receipts: conversation.receipts, records: conversation.records, answers: conversation.answers ?? [], activity: conversation.activity,
     responsibilities: args.getSnapshot().responsibilities }) });
   return {
@@ -68,6 +70,8 @@ export function createPreviewClearBridge(args: {
       if (existing) return structuredClone(existing);
       const scopes = normalizeTarsClearScopes(input.scopes);
       const proposal = parseTarsClearProposalRequestId(input.requestId);
+      // Work stops before the record is written, as on the host, so the cards it ends leave with Done and Outputs.
+      const work = scopes.includes("work") ? await (args.resetWork?.(input.requestId, input.source) ?? Promise.resolve({ cancelled: [], kept: [] })) : undefined;
       const conversation = args.getConversation();
       const at = nextAt();
       const previous = active()?.createdAt ?? null;
@@ -79,7 +83,7 @@ export function createPreviewClearBridge(args: {
       const outputs = ids("outputs");
       const record = TarsClearRecordSchema.parse({ requestId: input.requestId, source: input.source, scopes, proposal, status: "applied",
         ...(scopes.includes("conversation") ? { hiddenMessages: hidden, inProgress: conversation.messages.filter((message) => message.state === "queued" || message.state === "reasoning").map((message) => message.id) } : {}), ...(done ? { done } : {}), ...(outputs ? { outputs } : {}),
-        revision: 1, createdAt: at, updatedAt: at });
+        ...(work ? { work } : {}), revision: 1, createdAt: at, updatedAt: at });
       for (const id of done ?? []) state.archived.push({ scope: "done", responsibilityId: id, requestId: record.requestId });
       for (const id of outputs ?? []) state.archived.push({ scope: "outputs", responsibilityId: id, requestId: record.requestId });
       state.clears.push(record);

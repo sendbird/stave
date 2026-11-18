@@ -3068,7 +3068,10 @@ interface WindowApi {
    * views and restarts. `clear` / `undoClear` (`tars:clear` /
    * `tars:undo-clear`) hide and restore the conversation view, the tray's
    * Done cards or its outputs, and `configureView` (`tars:configure-view`)
-   * saves how long ended work stays in the tray; nothing is deleted.
+   * saves how long ended work stays in the tray; nothing is deleted. A clear
+   * with the `work` scope resolves after the host cancels Tars's unfinished
+   * work through `tars.act` (kept work is named in its record); undoing it
+   * shows the cards again but never restarts cancelled work.
    * `undoAction` (`tars:undo-action`) restores only host-snapshotted reversible
    * records, rejecting changed work or queue membership. It never resumes a run.
    * `getAway` / `saveAway` (`tars:get-away` / `tars:save-away`) keep when

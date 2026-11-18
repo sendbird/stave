@@ -1,4 +1,4 @@
-import type { TarsActionReceipt, TarsConversation } from "./conversation";
+import type { TarsActionReceipt, TarsConversation, TarsDecisionAnswer } from "./conversation";
 import { tarsClearProposalRequestId, type TarsClearRecord, type TarsClearScope } from "./clearing";
 import { tarsUnverifiedDecisionId, type TarsDecisionView } from "./decisions";
 
@@ -9,12 +9,13 @@ import { tarsUnverifiedDecisionId, type TarsDecisionView } from "./decisions";
  * clear proposal still waits for its card's confirmation. Read from the full
  * saved state (`projectTarsDecisions` over every message, not the cleared view).
  */
-export function tarsClearKeeps(args: { decisions: readonly TarsDecisionView[]; receipts: readonly TarsActionReceipt[] }) {
+export function tarsClearKeeps(args: { decisions: readonly TarsDecisionView[]; receipts: readonly TarsActionReceipt[]; answers?: readonly TarsDecisionAnswer[] }) {
   const waiting = args.decisions.filter((view) => view.state === "waiting");
   return {
     messageIds: new Set([
       ...waiting.flatMap((view) => view.messageId ? [view.messageId] : []),
-      ...args.receipts.filter((receipt) => (receipt.action.kind === "publish" || receipt.action.kind === "clear" || receipt.action.kind === "schedule") && receipt.status === "proposed")
+      ...args.receipts.filter((receipt) => (receipt.action.kind === "publish" || receipt.action.kind === "clear" || receipt.action.kind === "schedule") && receipt.status === "proposed"
+        && !(receipt.action.kind === "clear" && args.answers?.some((answer) => answer.decisionId === `confirm:${receipt.messageId}:${receipt.actionIndex}` && answer.effect.kind === "dismiss")))
         .map((receipt) => receipt.messageId),
     ]),
     decisionIds: new Set(waiting.map((view) => view.id)),
@@ -73,11 +74,11 @@ export interface TarsClearProposalView {
   messageId: string;
   actionIndex: number;
   scopes: TarsClearScope[];
-  state: "waiting" | "settled";
+  state: "waiting" | "settled" | "declined";
   record: TarsClearRecord | null;
 }
 
-export function projectTarsClearProposals(receipts: readonly TarsActionReceipt[], clears: readonly TarsClearRecord[]): TarsClearProposalView[] {
+export function projectTarsClearProposals(receipts: readonly TarsActionReceipt[], clears: readonly TarsClearRecord[], answers: readonly TarsDecisionAnswer[] = []): TarsClearProposalView[] {
   const records = new Map(clears.map((record) => [record.requestId, record]));
   return receipts.flatMap((receipt): TarsClearProposalView[] => {
     if (receipt.action.kind !== "clear") return [];
@@ -85,6 +86,7 @@ export function projectTarsClearProposals(receipts: readonly TarsActionReceipt[]
     const record = records.get(requestId) ?? null;
     const base = { requestId, messageId: receipt.messageId, actionIndex: receipt.actionIndex, scopes: receipt.action.scopes, record };
     if (record) return [{ ...base, state: "settled" }];
+    if (answers.some((answer) => answer.decisionId === `confirm:${receipt.messageId}:${receipt.actionIndex}` && answer.effect.kind === "dismiss")) return [{ ...base, state: "declined" }];
     return receipt.status === "proposed" ? [{ ...base, state: "waiting" }] : [];
   });
 }

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import {
   TARS_DEFAULT_VIEW_SETTINGS, TarsClearInputSchema, TarsClearRecordSchema, TarsViewSettingsSchema, normalizeTarsClearRecord, normalizeTarsClearScopes, tarsClearableIds,
   tarsTrayCleared,
-  type TarsClearInput, type TarsClearRecord, type TarsTrayCleared, type TarsViewSettings,
+  type TarsClearInput, type TarsClearRecord, type TarsClearWork, type TarsTrayCleared, type TarsViewSettings,
 } from "../../src/lib/tars/clearing";
 import { TARS_AWAY_INITIAL_STATE, TarsAwayStateSchema, mergeTarsAwayState, type TarsAwayState } from "../../src/lib/tars/away-state";
 import type { TarsResponsibility } from "../../src/lib/tars/types";
@@ -114,6 +114,9 @@ export class TarsViewStore {
       );
       CREATE INDEX IF NOT EXISTS idx_tars_clears_conversation ON tars_clears(conversation, status, created_at);
       CREATE INDEX IF NOT EXISTS idx_tars_clears_created ON tars_clears(created_at, request_id);
+      CREATE TABLE IF NOT EXISTS tars_clear_intents (
+        request_id TEXT PRIMARY KEY, request_hash TEXT NOT NULL, body_json TEXT NOT NULL
+      );
       CREATE TABLE IF NOT EXISTS tars_archived (
         scope TEXT NOT NULL CHECK (scope IN ('done', 'outputs')), responsibility_id TEXT NOT NULL,
         clear_request_id TEXT NOT NULL, archived_at TEXT NOT NULL, PRIMARY KEY (scope, responsibility_id)
@@ -183,6 +186,23 @@ export class TarsViewStore {
     return this.read(this.db.prepare("SELECT body_json FROM tars_clears WHERE request_id = ?").get(requestId));
   }
 
+  /** Bind retry identity and membership before lifecycle I/O, including across restarts. */
+  reserveClear(rawInput: TarsClearInput, targets: readonly string[]): { input: TarsClearInput; targets: string[] } {
+    const input = TarsClearInputSchema.parse(rawInput);
+    const requestHash = hash(normalizeTarsClearScopes(input.scopes));
+    return this.write(() => {
+      const existing = this.db.prepare("SELECT request_hash, body_json FROM tars_clear_intents WHERE request_id = ?").get(input.requestId) as StoredRow | undefined;
+      if (existing) {
+        if (existing.request_hash !== requestHash) throw new Error("This request ID already names a different clear.");
+        return JSON.parse(existing.body_json) as { input: TarsClearInput; targets: string[] };
+      }
+      const intent = { input, targets: [...targets] };
+      this.db.prepare("INSERT INTO tars_clear_intents (request_id, request_hash, body_json) VALUES (?, ?, ?)")
+        .run(input.requestId, requestHash, JSON.stringify(intent));
+      return intent;
+    });
+  }
+
   /** The newest applied conversation clear: the view and Tars's history start after its time. */
   activeConversationClear(): TarsClearRecord | null {
     return this.read(this.db.prepare(`SELECT body_json FROM tars_clears WHERE conversation = 1 AND status = 'applied'
@@ -216,6 +236,8 @@ export class TarsViewStore {
     now: string;
     hiddenMessages?: () => number;
     inProgress?: () => string[];
+    /** With the `work` scope: what the reset cancelled and kept before this record is written. */
+    work?: TarsClearWork;
     proposal?: { messageId: string; actionIndex: number; settle: () => void };
   }): TarsClearRecord {
     const input = TarsClearInputSchema.parse(rawInput);
@@ -236,7 +258,8 @@ export class TarsViewStore {
       const outputs = ids("outputs");
       const record = TarsClearRecordSchema.parse({ requestId: input.requestId, source: input.source, scopes, proposal, status: "applied",
         ...(scopes.includes("conversation") ? { hiddenMessages: Math.max(0, context.hiddenMessages?.() ?? 0), inProgress: context.inProgress?.() ?? [] } : {}),
-        ...(done ? { done } : {}), ...(outputs ? { outputs } : {}), revision: 1, createdAt: now, updatedAt: now });
+        ...(done ? { done } : {}), ...(outputs ? { outputs } : {}), ...(scopes.includes("work") ? { work: context.work ?? { cancelled: [], kept: [] } } : {}),
+        revision: 1, createdAt: now, updatedAt: now });
       const archive = this.db.prepare(`INSERT INTO tars_archived (scope, responsibility_id, clear_request_id, archived_at) VALUES (?, ?, ?, ?)
         ON CONFLICT(scope, responsibility_id) DO UPDATE SET clear_request_id = excluded.clear_request_id, archived_at = excluded.archived_at`);
       for (const id of done ?? []) archive.run("done", id, record.requestId, now);

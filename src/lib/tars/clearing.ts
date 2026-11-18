@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isTarsResponsibilityTerminal } from "./attention";
+import { isTarsPublicationUnfinished } from "./publication";
 import type { TarsResponsibility } from "./types";
 
 /**
@@ -13,7 +14,15 @@ import type { TarsResponsibility } from "./types";
  * - `done` / `outputs`: the tray leaves out ended work's Done card or its
  *   outputs. Only ended work, and never work whose draft pull request is not
  *   finished or still waits for the user's confirmation.
- * Each clear can be undone from its record. Retention hides ended work the same
+ * - `work`: resets the Work panel. It is the one scope that changes work: the
+ *   host cancels Tars's own unfinished work through the normal cancel control
+ *   (its run stops, the same as pressing Cancel), closes Tars's questions
+ *   waiting on that work, and then hides every ended card and its outputs, so
+ *   it always comes with `done` and `outputs`. Work the user took over or
+ *   paused, and work whose draft pull request is still being published, is
+ *   kept as it is and named in the record.
+ * Each clear can be undone from its record; undoing a `work` clear shows the
+ * cards again but never restarts cancelled work. Retention hides ended work the same
  * way after a number of days, computed on every read, so choosing "Never"
  * shows it again.
  *
@@ -23,17 +32,60 @@ import type { TarsResponsibility } from "./types";
 
 const IdSchema = z.string().trim().min(1).max(256);
 const TimestampSchema = z.iso.datetime();
+/** The most responsibilities one clear names; a longer list is hidden by retention long before it matters. */
+export const TARS_CLEAR_MAX_ITEMS = 1_000;
 
-export const TarsClearScopeSchema = z.enum(["conversation", "done", "outputs"]);
+export const TarsClearScopeSchema = z.enum(["conversation", "done", "outputs", "work"]);
 export type TarsClearScope = z.infer<typeof TarsClearScopeSchema>;
 
-export const TarsClearScopesSchema = z.array(TarsClearScopeSchema).min(1).max(3)
+export const TarsClearScopesSchema = z.array(TarsClearScopeSchema).min(1).max(4)
   // i18n-ignore: schema diagnostic, not user-facing copy
   .refine((scopes) => new Set(scopes).size === scopes.length, "Each scope is listed once.");
 
-/** Scopes in one order, so the same choice always reads and hashes the same. */
+/**
+ * Scopes in one order, so the same choice always reads and hashes the same.
+ * Resetting Work empties the whole panel, so `work` always brings `done` and
+ * `outputs` with it.
+ */
 export function normalizeTarsClearScopes(scopes: readonly TarsClearScope[]): TarsClearScope[] {
-  return TarsClearScopeSchema.options.filter((scope) => scopes.includes(scope));
+  const wanted = new Set<TarsClearScope>(scopes);
+  if (wanted.has("work")) { wanted.add("done"); wanted.add("outputs"); }
+  return TarsClearScopeSchema.options.filter((scope) => wanted.has(scope));
+}
+
+/** Why a Work reset left unfinished work as it was: the user holds it, paused it, or the host refused to cancel it. */
+export const TarsClearKeptReasonSchema = z.enum(["takenOver", "paused", "publishing", "refused"]);
+export type TarsClearKeptReason = z.infer<typeof TarsClearKeptReasonSchema>;
+
+/** What a Work reset did to unfinished work: cancelled through the normal control, or kept with its reason. */
+export const TarsClearWorkSchema = z.object({
+  cancelled: z.array(IdSchema).max(TARS_CLEAR_MAX_ITEMS),
+  kept: z.array(z.object({ responsibilityId: IdSchema, reason: TarsClearKeptReasonSchema }).strict()).max(TARS_CLEAR_MAX_ITEMS),
+}).strict();
+export type TarsClearWork = z.infer<typeof TarsClearWorkSchema>;
+
+/**
+ * What a Work reset would do now, from the saved rows: unfinished work Tars
+ * holds is stopped through the normal cancel; work the user took over or
+ * paused, and work still publishing its draft pull request, is kept. Ended
+ * work is not listed: it only leaves the panel with `done` and `outputs`.
+ */
+export function tarsWorkResetPlan(rows: readonly Pick<TarsResponsibility, "id" | "state" | "publication">[]): { stop: string[]; kept: TarsClearWork["kept"] } {
+  const stop: string[] = [];
+  const kept: TarsClearWork["kept"] = [];
+  for (const row of rows) {
+    if (isTarsResponsibilityTerminal(row)) continue;
+    if (row.state === "takenOver") kept.push({ responsibilityId: row.id, reason: "takenOver" });
+    else if (row.state === "paused") kept.push({ responsibilityId: row.id, reason: "paused" });
+    else if (isTarsPublicationUnfinished(row.publication)) kept.push({ responsibilityId: row.id, reason: "publishing" });
+    else stop.push(row.id);
+  }
+  return { stop, kept };
+}
+
+/** The `tars:act` request id of one cancellation a Work reset makes: retrying the reset joins the same control. */
+export function tarsClearWorkRequestId(clearRequestId: string, responsibilityId: string) {
+  return `clear-work:${clearRequestId}:${responsibilityId}`;
 }
 
 /** How many days ended work stays in the tray; 0 keeps it until cleared. */
@@ -83,9 +135,6 @@ export type TarsClearInput = z.infer<typeof TarsClearInputSchema>;
 export const TarsUndoClearInputSchema = z.object({ requestId: IdSchema }).strict();
 export type TarsUndoClearInput = z.infer<typeof TarsUndoClearInputSchema>;
 
-/** The most responsibilities one clear names; a longer list is hidden by retention long before it matters. */
-export const TARS_CLEAR_MAX_ITEMS = 1_000;
-
 /**
  * What one clear hid, as saved: `hiddenMessages` with the conversation scope,
  * `done` and `outputs` (the responsibilities whose card or outputs it hid)
@@ -106,13 +155,15 @@ export const TarsClearRecordSchema = z.object({
   done: z.array(IdSchema).max(TARS_CLEAR_MAX_ITEMS).optional(),
   outputs: z.array(IdSchema).max(TARS_CLEAR_MAX_ITEMS).optional(),
   inProgress: z.array(IdSchema).max(TARS_CLEAR_MAX_ITEMS).optional(),
+  /** With the `work` scope: what the reset cancelled and what it kept. */
+  work: TarsClearWorkSchema.optional(),
   revision: z.number().int().min(1),
   createdAt: TimestampSchema,
   updatedAt: TimestampSchema,
 }).strict().superRefine((record, context) => {
   const has = (scope: TarsClearScope) => record.scopes.includes(scope);
   if (has("conversation") !== (record.hiddenMessages !== undefined) || has("done") !== (record.done !== undefined) || has("outputs") !== (record.outputs !== undefined)
-    || (record.inProgress !== undefined && !has("conversation")))
+    || (record.inProgress !== undefined && !has("conversation")) || has("work") !== (record.work !== undefined) || (has("work") && !(has("done") && has("outputs"))))
     // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
     context.addIssue({ code: "custom", message: "A clear records exactly what its scopes hid." });
 });

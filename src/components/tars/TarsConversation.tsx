@@ -308,8 +308,8 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     // Only completion, a block and an unasked end reach the transcript; live progress stays in the tray and flow blocks.
     ...selectTarsActivityNotices(state.conversation?.activity ?? [], state.conversation?.records ?? [])
       .map((value) => ({ kind: "activity" as const, id: `activity:${value.activity.id}`, at: value.activity.createdAt, value })),
-    // A decision's own record shows on its card, never twice.
-    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("batch:") && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
+    // A decision's own record shows on its card, never twice; a Work reset's cancellations read as its one clear record.
+    ...(state.conversation?.records ?? []).filter((value) => value.action.kind !== "workspace" && !value.requestId.startsWith("batch:") && !value.requestId.startsWith("clear-work:") && !value.requestId.startsWith("answer:") && !decisionIds.has(value.requestId))
       .map((value) => ({ kind: "record" as const, id: `record:${value.requestId}`, at: value.createdAt, value })),
     // A card the user opened leaves its confirmation's outcome where it was confirmed.
     ...(publish?.records ?? []).map((value) => ({ kind: "publish" as const, id: `publish:${value.requestId}`, at: value.createdAt, value })),
