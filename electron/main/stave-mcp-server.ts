@@ -767,7 +767,7 @@ function createToolServer(options?: {
   server.registerTool(
     "stave_follow_up_delegated_task",
     {
-      description: "Continue an open subagent with a bounded follow-up. Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
+      description: "Continue an open subagent with a bounded follow-up, including a supervised subagent whose stage stopped for its manager (the reply continues that stage within its admitted permissions). Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
       inputSchema: { ...DelegatedTaskFollowUpArgsSchema.shape, parentTaskId: DelegatedTaskFollowUpArgsSchema.shape.parentTaskId.optional() },
     },
     async (input) => {

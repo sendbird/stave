@@ -19,7 +19,7 @@ import { buildAgentRunTurnDividers, describeAgentRunStatusLine } from "../src/li
 import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
 import { agentRunWorkQueueLane } from "../src/lib/agent-runs/lanes";
 import { appendConsumedKeys, resolveEventWaitRequest, type AgentRunEventWait } from "../src/lib/agent-runs/event-wait";
-import { observeEventWait } from "../src/lib/agent-runs/event-wait-observe";
+import { observeEventWait, type DelegatedStallSignal } from "../src/lib/agent-runs/event-wait-observe";
 import type { PullRequestWatchRead, PullRequestWatchSnapshot } from "../src/lib/supervision/pull-request-watch";
 import { createWakeUp, decideWakeUpAction, type TaskCompletionSignal } from "../src/lib/supervision/wake-up-policy";
 import { WorkflowSchema, type WorkflowStage } from "../src/lib/workflows/schema";
@@ -90,6 +90,7 @@ function createHarness(options: { store?: AgentRunStore; turns?: AgentRunTurnRow
   };
   let prRead: PullRequestWatchRead = { ok: true, pullRequest: pullRequest() };
   let completions: TaskCompletionSignal[] = [];
+  let stalls: DelegatedStallSignal[] = [];
   let counter = 0;
   const advance = (ms = 1_000) => {
     clock = new Date(clock.getTime() + ms);
@@ -124,6 +125,7 @@ function createHarness(options: { store?: AgentRunStore; turns?: AgentRunTurnRow
       return prRead;
     },
     listCompletedDelegatedRuns: () => completions,
+    listStalledDelegatedRuns: () => stalls,
     now: () => clock,
     setInterval: (() => 0) as unknown as typeof globalThis.setInterval,
     clearInterval: () => {},
@@ -135,6 +137,7 @@ function createHarness(options: { store?: AgentRunStore; turns?: AgentRunTurnRow
     now: () => clock,
     setPullRequest: (read: PullRequestWatchRead) => { prRead = read; },
     setCompletions: (next: TaskCompletionSignal[]) => { completions = next; },
+    setStalls: (next: DelegatedStallSignal[]) => { stalls = next; },
     setSnapshot: (patch: Partial<TaskSupervisionSnapshot>) => { snapshot = { ...snapshot, ...patch }; },
     endTurn: (id: string) => {
       advance();
@@ -314,6 +317,27 @@ describe("event waits: request rules and reads (pure)", () => {
     expect(before.outcome).toEqual({ kind: "none" });
     const after = observeEventWait({ wait: wait.wait, now, parentTaskId: "task-1", completions: [signal("2026-09-26T10:05:00.000Z", "child-task:task-1:b")] });
     expect(after.outcome).toMatchObject({ kind: "event", wake: { final: false, fact: { fact: "delegated-finished", count: 1 } } });
+  });
+
+  test("delegated work that stopped for its manager wakes the waiting parent once per stall, without ending the wait", () => {
+    // Recorded failure: a nested Reviewer got stuck within a minute and its parent Review stage waited 7.5 hours on it.
+    const wait = resolveEventWaitRequest({ ...base, input: { kind: "delegated_completion", target: "child-task:task-1:review" } });
+    if (!wait.ok) throw new Error(wait.message);
+    const stall = (key: string) => ({ runId: "child-task:task-1:review", stepId: "child-task:task-1:review:turn", delegatedTaskId: "child-1",
+      providerId: "claude-code", reason: "No report after the reminder.", key });
+    const first = observeEventWait({ wait: wait.wait, now, parentTaskId: "task-1", completions: [], stalls: [stall("child:e1:waiting:3")] });
+    expect(first.outcome).toMatchObject({ kind: "event", wake: { final: false, fact: { fact: "delegated-stalled", count: 1 }, keys: ["stall:child:e1:waiting:3"] } });
+    if (first.outcome.kind !== "event") throw new Error("Expected a wake");
+    expect(first.outcome.wake.summary).toContain("stave_follow_up_delegated_task");
+    expect(first.outcome.wake.summary).toContain("No report after the reminder.");
+    // The same stall never wakes it twice; the child stopping again after a reply does.
+    const delivered = { ...first.wait, consumedKeys: appendConsumedKeys(first.wait.consumedKeys, first.outcome.wake.keys) };
+    expect(observeEventWait({ wait: delivered, now, parentTaskId: "task-1", completions: [], stalls: [stall("child:e1:waiting:3")] }).outcome).toEqual({ kind: "none" });
+    expect(observeEventWait({ wait: delivered, now, parentTaskId: "task-1", completions: [], stalls: [stall("child:e1:waiting:7")] }).outcome)
+      .toMatchObject({ kind: "event", wake: { fact: { fact: "delegated-stalled" } } });
+    // Another child's stall does not wake a wait named for this one.
+    expect(observeEventWait({ wait: wait.wait, now, parentTaskId: "task-1", completions: [], stalls: [{ ...stall("child:e2:waiting:1"), runId: "child-task:task-1:other", delegatedTaskId: "child-2" }] }).outcome)
+      .toEqual({ kind: "none" });
   });
 
   test("a pull request that stays unreadable ends the wait", () => {
@@ -601,6 +625,25 @@ describe("event waits: what wakes the run", () => {
     harness.endTurn("turn-2");
     await harness.tick();
     expect(harness.eventKinds(id)).toContain("nudge");
+  });
+
+  test("delegated work that stopped for its manager wakes the waiting run once and keeps the wait", async () => {
+    const harness = createHarness();
+    const { id } = await waitingRun(harness, { kind: "delegated_completion", target: "review" });
+    harness.advance(MINUTE);
+    const stall = { runId: "child-task:task-1:review", stepId: "child-task:task-1:review:turn", delegatedTaskId: "task-child-1",
+      providerId: "claude-code", reason: "The agent ended two turns without reporting this stage.", key: "child:exec-1:waiting:4" };
+    harness.setStalls([stall]);
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(2);
+    expect(harness.runCalls[1]!.prompt).toContain("stopped and waits for its manager");
+    expect(harness.runCalls[1]!.prompt).toContain("stave_follow_up_delegated_task");
+    // The wait stays for the child's end; the same stall does not wake it again.
+    expect(harness.aggregate(id).agentRun.eventWait).toBeDefined();
+    harness.endTurn("turn-2");
+    harness.advance(MINUTE);
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(2);
   });
 
   test("delegated work finishing wakes the run with the child's result", async () => {

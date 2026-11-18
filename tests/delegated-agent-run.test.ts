@@ -143,6 +143,7 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
     runTask: async () => { singleTurns++; return { turnId: "single-turn" }; },
     stopTask: async () => { stops++; }, releaseTaskParent: async () => {},
     runAgentRun: port.run, readAgentRun: port.read, stopAgentRun: port.stop,
+    replyAgentRun: args => runtime.reply(args),
   };
   const createCoordinator = () => createDelegatedTaskCoordinator({
     ...(options.routing ? { resolveTurnRoute: constrained } : {}),
@@ -301,6 +302,35 @@ describe("supervised saved-Agent delegations", () => {
     await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
   });
 
+  for (const provider of ["claude-code", "codex"] as const) test(`${provider}: a parent's follow-up continues a stuck supervised child on its own route`, async () => {
+    // Recorded failure: a stuck nested Reviewer could only be stopped; its parent had no way to answer it.
+    const h = harness(provider), child = await h.start({ model: provider === "codex" ? "gpt-6-sol" : "sonnet", effort: "high" });
+    h.end("turn-1"); await h.runtime.requestTick();
+    h.end("turn-2"); await h.runtime.requestTick();
+    // The app reconciles on every child Run change; the harness does it once here.
+    await h.coordinator.reconcile({ taskId: child.delegatedTaskId!, agentRunId: child.agentRunId! });
+    let waiting = await h.coordinator.get(child);
+    for (let i = 0; i < 200 && !(waiting?.phase === "waiting" && waiting.waitsForPerson); i++) { await Bun.sleep(2); waiting = await h.coordinator.get(child); }
+    expect(waiting).toMatchObject({ phase: "waiting", lifecycle: "supervised", waitsForPerson: true });
+    const before = h.calls.length;
+    const identity = { delegatedTaskId: waiting!.delegatedTaskId!, delegatedWorkspaceId: waiting!.delegatedWorkspaceId!, attempt: waiting!.attempt };
+    // The Run keeps the permissions it was admitted with: a reply asking for others is refused, not silently ignored.
+    const narrowed = await h.coordinator.followUp({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey,
+      prompt: "Continue with approvals.", permissionProfile: "manual", expected: identity });
+    expect(narrowed).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(h.calls.length).toBe(before);
+    const followed = await h.coordinator.followUp({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey,
+      prompt: "Review only the diff since abc1234 and report.",
+      expected: { delegatedTaskId: waiting!.delegatedTaskId!, delegatedWorkspaceId: waiting!.delegatedWorkspaceId!, attempt: waiting!.attempt } });
+    expect(followed.accepted).toBe(true);
+    expect(h.calls.length).toBe(before + 1);
+    // The reply keeps the admitted permissions and model; it is not a new delegation.
+    expect(h.calls.at(-1)!.runtimeOptions).toMatchObject(h.policy.options);
+    expect(h.calls.at(-1)!.runtimeOptions.model).toBe(child.requestedModel);
+    expect(h.runs.listEventsByKind(child.agentRunId!, ["turn-started"]).at(-1)?.detail.reason).toBe("continue-after-user");
+    await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
+  });
+
   test("a smaller turn limit fails the assignment rather than accepting the provider response", async () => {
     const h = harness(), child = await h.start({ maxTurns: 1 });
     h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
@@ -329,7 +359,8 @@ describe("supervised saved-Agent delegations", () => {
     const restarted = h.createCoordinator(); await restarted.reconcile();
     const waiting = await restarted.get(child);
     expect(waiting?.phase).toBe("waiting"); expect(waiting?.reason).toContain("Select a target");
-    expect(resolveDelegatedTaskControls(waiting!).canFollowUp).toBe(false);
+    // Its parent is its manager: it may answer the child's question with a follow-up on the same Run.
+    expect(resolveDelegatedTaskControls(waiting!).canFollowUp).toBe(true);
     expect(resolveDelegatedTaskControls(waiting!).canDetach).toBe(false);
     expect(waiting?.agentRunId).toBe(child.agentRunId);
     h.host.readAgentRun = async () => null; await restarted.reconcile();

@@ -762,7 +762,9 @@ export function describeDelegatedTaskRejection(reason: DelegatedTaskRejectionRea
 export function resolveDelegatedTaskControls(child: DelegatedTaskSummary) {
   const active = isActiveDelegatedTaskPhase(child.phase);
   return {
-    canFollowUp: child.lifecycle === "detached" && child.phase === "waiting",
+    // A supervised child's Run that stopped for a person takes its manager's reply on that stage.
+    canFollowUp: child.phase === "waiting" && (child.lifecycle === "detached" ||
+      (child.lifecycle === "supervised" && child.waitsForPerson === true && Boolean(child.agentRunId))),
     canStop: active,
     canDetach: active && child.lifecycle !== "supervised",
     canRetry:

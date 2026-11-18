@@ -801,7 +801,10 @@ what fails, and waits again.
     default the wait never expires before its time.
   - **Delegated work**: a delegated task the agent named finishes, or, without
     a name, any delegated work of the task that finishes after the wait began.
-    The woken turn sees the result under Subagent results.
+    The woken turn sees the result under Subagent results. Delegated work
+    that stops for a person (a stuck or blocked stage) wakes the waiting Run
+    once per stall without ending the wait, so the parent answers, stops or
+    replaces it instead of waiting on it.
   - A merged or closed pull request ends a pull request wait as its event.
 - When the event comes, Stave starts the stage's next turn with what happened.
   That turn counts against the Run's turn limit. The transcript divider reads

@@ -984,6 +984,8 @@
       "pullRequestClosed": "PR #{{number}} closed",
       "delegatedFinished_one": "delegated work finished",
       "delegatedFinished_other": "{{count}} delegated tasks finished",
+      "delegatedStalled_one": "delegated work stopped and needs a decision",
+      "delegatedStalled_other": "{{count}} delegated tasks stopped and need a decision",
       "timeReached": "the scheduled time"
     },
     "timeline": {
