@@ -45,7 +45,9 @@ import {
   buildOrbitGetArgs,
   buildOrbitShellWrapperRunArgs,
   buildPortlessLaunchSpec,
+  buildOrbitLocalUrl,
   buildOrbitRunArgs,
+  createOrbitAppPortDetector,
   extractOrbitOutput,
   resolvePortlessCommand,
   tokenizeOrbitCommand,
@@ -655,7 +657,24 @@ async function runServiceScript(args: {
   };
   entry.cleanup = cleanupSubscriptions;
 
+  const detectOrbitAppPort = args.scriptEntry.orbit && orbitLaunchSpec
+    ? createOrbitAppPortDetector()
+    : null;
+
   dataSubscription = ptyProcess.onData((data) => {
+    const orbitAppPort = detectOrbitAppPort?.(data);
+    if (orbitAppPort) {
+      emitScriptEvent({
+        workspaceId: args.workspaceId,
+        scriptId: args.scriptEntry.id,
+        scriptKind: args.scriptEntry.kind,
+        runId,
+        sessionId,
+        source: args.source,
+        event: { type: "orbit-local-url", url: buildOrbitLocalUrl(orbitAppPort) },
+      });
+    }
+
     if (args.scriptEntry.orbit && orbitUsesShellWrapper) {
       const parsed = extractOrbitOutput({
         buffer: orbitBuffer,

@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Globe,
   History,
+  Laptop,
   X,
   Play,
   RefreshCcw,
@@ -108,10 +109,14 @@ function OriginLabel(props: { origin?: ScriptEntryOrigin }) {
 /* ---------- Orbit URL pill ---------- */
 function OrbitUrlBadge(props: {
   url: string;
+  /** `local` marks the direct localhost URL portless assigned to the app. */
+  kind?: "orbit" | "local";
   lensAvailable: boolean;
   onOpenInLens: (url: string) => Promise<void>;
 }) {
   const { t: tI18n } = useTranslation(["scripts"]);
+  const isLocal = props.kind === "local";
+  const Icon = isLocal ? Laptop : Globe;
   return (
     <AuiButton layout="host"
       type="button"
@@ -119,12 +124,16 @@ function OrbitUrlBadge(props: {
       onClick={() => void props.onOpenInLens(props.url)}
       title={props.lensAvailable ? tI18n("scripts:workspaceScriptsPanel.openInLens") : tI18n("scripts:workspaceScriptsPanel.openInBrowser")}
       aria-label={
-        props.lensAvailable
-          ? tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInLens")
-          : tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInBrowser")
+        isLocal
+          ? props.lensAvailable
+            ? tI18n("scripts:workspaceScriptsPanel.openLocalUrlInLens")
+            : tI18n("scripts:workspaceScriptsPanel.openLocalUrlInBrowser")
+          : props.lensAvailable
+            ? tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInLens")
+            : tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInBrowser")
       }
     >
-      <Globe className={sx(toolStyles.smallIcon)} />
+      <Icon className={sx(toolStyles.smallIcon)} />
       <span className={sx(toolStyles.truncated)}>{props.url}</span>
       {props.lensAvailable ? (
         <span className={sx(toolStyles.urlHint)}>
@@ -319,12 +328,24 @@ export function ScriptEntryRow(props: {
               {state.sourceLabel}
             </p>
           ) : null}
-          {state?.orbitUrl ? (
-            <OrbitUrlBadge
-              url={state.orbitUrl}
-              lensAvailable={props.lensAvailable}
-              onOpenInLens={props.onOpenOrbitUrlInLens}
-            />
+          {state?.orbitUrl || state?.orbitLocalUrl ? (
+            <div className={sx(toolStyles.urlStack)}>
+              {state.orbitUrl ? (
+                <OrbitUrlBadge
+                  url={state.orbitUrl}
+                  lensAvailable={props.lensAvailable}
+                  onOpenInLens={props.onOpenOrbitUrlInLens}
+                />
+              ) : null}
+              {state.orbitLocalUrl ? (
+                <OrbitUrlBadge
+                  url={state.orbitLocalUrl}
+                  kind="local"
+                  lensAvailable={props.lensAvailable}
+                  onOpenInLens={props.onOpenOrbitUrlInLens}
+                />
+              ) : null}
+            </div>
           ) : null}
         </div>
         <div className={sx(toolStyles.actions)}>

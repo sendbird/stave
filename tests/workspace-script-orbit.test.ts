@@ -7,7 +7,9 @@ import {
   ORBIT_URL_MARKER,
   buildOrbitCommand,
   buildPortlessLaunchSpec,
+  buildOrbitLocalUrl,
   buildOrbitRunArgs,
+  createOrbitAppPortDetector,
   extractOrbitOutput,
   sanitizeOrbitName,
   tokenizeOrbitCommand,
@@ -172,5 +174,33 @@ describe("extractOrbitOutput", () => {
       if (chunks > 100) throw new Error("orbit buffer never flushed");
     }
     expect(output).toBe(`ready\n${frame.repeat(512 * chunks)}`);
+  });
+});
+
+describe("createOrbitAppPortDetector", () => {
+  test("reads the assigned port from colored portless output once", () => {
+    const detect = createOrbitAppPortDetector();
+    expect(detect("\u001b[90m-- Proxy is running\u001b[39m\n")).toBeNull();
+    expect(detect("\u001b[32m-- Using port 4123\u001b[39m\n")).toBe(4123);
+    expect(detect("-- Using port 4999\n")).toBeNull();
+    expect(buildOrbitLocalUrl(4123)).toBe("http://localhost:4123");
+  });
+
+  test("handles a fixed port line split across chunks", () => {
+    const detect = createOrbitAppPortDetector();
+    expect(detect("\u001b[3")).toBeNull();
+    expect(detect("2m-- Using po")).toBeNull();
+    expect(detect("rt 3000 (fixed)\u001b[39m\n")).toBe(3000);
+  });
+
+  test("waits for the end of a port number split across chunks", () => {
+    const detect = createOrbitAppPortDetector();
+    expect(detect("-- Using port 41")).toBeNull();
+    expect(detect("69\n")).toBe(4169);
+  });
+
+  test("ignores app output that does not name a port", () => {
+    const detect = createOrbitAppPortDetector();
+    expect(detect("Using port fallback\nready on PORT\n")).toBeNull();
   });
 });
