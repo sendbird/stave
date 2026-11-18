@@ -3090,6 +3090,7 @@ interface WindowApi {
    * `batch` (`tars:batch`) previews, confirms, declines or restores one bulk
    * control or cleanup, and `batches` (`tars:batches`) reads the saved
    * records with their per-item outcomes.
+   * `suggest` (`tars:suggest`) generates read-only requests with saved Tars model settings.
    * `onChanged` pushes `tars:changed`
    * (`{ scope: "snapshot" | "conversation" }`).
    */

@@ -167,14 +167,13 @@ test.describe("Tars clear, retention and suggestions", () => {
   test("suggestions come from the work, fill the message box on a press or a key and never send", async ({ page }) => {
     await page.goto("/?stavePreview=tars&tray=true");
     const chips = composer(page).locator("[data-tars-suggestion]");
-    await expect(chips).toHaveCount(3);
+    await expect(chips).toHaveCount(1);
     await expect(composer(page).getByRole("list", { name: "Suggested requests" })).toBeVisible();
-    await expect(chips.nth(0)).toHaveText("What needs me?");
-    await expect(composer(page).locator('[data-tars-suggestion="resume"]')).toHaveText("Resume Verify the release candidate");
+    await expect(chips.nth(0)).toHaveText("What needs my attention?");
     const before = await view(page).locator("[data-tars-message]").count();
-    await composer(page).locator('[data-tars-suggestion="resume"]').focus();
+    await chips.first().focus();
     await page.keyboard.press("Enter");
-    await expect(editor(page)).toHaveText("Resume “Verify the release candidate”.");
+    await expect(editor(page)).toHaveText("Tell me which work needs my attention right now.");
     await expect(editor(page)).toBeFocused();
     await expect(view(page).locator("[data-tars-message]")).toHaveCount(before);
     // While the box holds words the chips step aside.
@@ -183,11 +182,11 @@ test.describe("Tars clear, retention and suggestions", () => {
     await editor(page).press("ControlOrMeta+A");
     await editor(page).press("Backspace");
     await expect(editor(page)).toHaveText("");
-    await expect(chips).toHaveCount(3);
+    await expect(chips).toHaveCount(1);
     const overflow = await composer(page).locator("[data-tars-suggestions]").evaluate((node) => node.scrollWidth - node.clientWidth);
     expect(overflow).toBeLessThanOrEqual(1);
     await chips.first().click();
-    await expect(editor(page)).toHaveText("What needs me right now, and what do you recommend for each?");
+    await expect(editor(page)).toHaveText("Tell me which work needs my attention right now.");
     await expect(view(page).locator("[data-tars-message]")).toHaveCount(before);
   });
 

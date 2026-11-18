@@ -736,18 +736,20 @@ observations do not start model calls.
 
 ### Suggested requests
 
-While the message box is empty, up to four suggestion chips sit above it,
-built from the work as Stave last read it, most useful first and at most one
-per piece of work: **What needs me?** when anything waits on you, how the work
-Tars just delegated is going, why blocked work stopped, **Resume** paused work,
-**Start … now** for queued work (or all of it), **Open a draft PR** or **Show
-the report** for work that completed in the last day, **What finished today?**
-when several did, and how running work is going. A long title is shortened on
-the chip; the words it inserts keep the whole title. Pressing a chip (or Enter
-on it) only puts its words in the message box and focuses it: nothing is sent
-until you send it, and the chips step aside while the box holds words. No chip
-is offered before the work was read, and ended work the tray cleared is not
-suggested.
+While the message box is empty, Tars uses its saved conversation provider,
+model and reasoning settings to generate up to four suggested requests about
+work Stave has read. This is a separate read-only turn with tools disabled.
+Generating, failure and a valid empty result are shown separately; fixed
+requests never replace a failed model response. Choose a Tars model first if
+none is saved. A failed generation offers **Try again**.
+
+The same facts, language and model settings reuse their result while the view
+is open; changing them requests a new generation. Responses for older facts
+are not shown. Closing and reopening the view can generate again.
+Pressing a chip only fills and focuses the message box with the model's prompt;
+nothing is sent until you send it. Chips step aside while the box holds words.
+Before work is read there are no chips, and cleared ended work is excluded.
+Bridges without generation support show a failure, never template suggestions.
 
 ## Clear the conversation and the panel
 

@@ -14,7 +14,7 @@ import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { sx } from "@/components/aui/utils/stylex";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { normalizeTarsClearScopes, type TarsClearRecord, type TarsClearScope, type TarsClearSource } from "@/lib/tars/clearing";
-import type { TarsSuggestion } from "@/lib/tars/suggestions";
+import type { TarsSuggestionsState } from "./use-tars-suggestions";
 import { tarsPublishCardKey } from "./TarsPublishCard";
 import { TarsRecordDetail, TarsRecordList, TarsRecordRow } from "./TarsRecord";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
@@ -186,21 +186,29 @@ export function TarsClearConversationButton({ count, work, busy, error, onClear 
 }
 
 /**
- * Suggested requests above the composer. A press puts its words in the message
- * box and focuses it; nothing is sent until the user sends it.
+ * Suggested requests above the composer, as Tars's model wrote them. A press
+ * puts its words in the message box and focuses it; nothing is sent until the
+ * user sends it. While the model writes, and when it wrote none or could not,
+ * one quiet line says so in the chips' place; no other words stand in for them.
  */
-export function TarsSuggestionChips({ items, onPick }: { items: readonly TarsSuggestion[]; onPick: (text: string) => void }) {
+export function TarsSuggestionChips({ state, onPick, onRetry }: { state: TarsSuggestionsState; onPick: (text: string) => void; onRetry?: () => void }) {
   const { t } = useTranslation(["shell"]);
-  if (!items.length) return null;
-  return <ul className={sx(clearStyles.chips)} aria-label={t("shell:tars.suggestions.label")} data-tars-suggestions={items.length}>
-    {items.map((item) => {
-      const values = { title: item.title ?? "", count: item.count };
-      const prompt = t(`shell:tars.suggestions.${item.kind}.prompt`, { ...values, title: item.fullTitle ?? "" });
-      return <li key={item.id} className={sx(clearStyles.chipItem)}>
-        <Button type="button" variant="secondary" size="xs" xstyle={clearStyles.chipButton} title={prompt} data-tars-suggestion={item.kind} onClick={() => onPick(prompt)}>
-          <span className={sx(clearStyles.chipLabel)}>{t(`shell:tars.suggestions.${item.kind}.label`, values)}</span>
-        </Button>
-      </li>;
-    })}
+  if (state.status === "off") return null;
+  if (state.status !== "ready" || !state.items.length) {
+    const note = state.status === "loading" ? t("shell:tars.suggestions.generating") : state.status === "ready" ? t("shell:tars.suggestions.empty")
+      : state.reason === "noSettings" ? t("shell:tars.suggestions.noSettings") : t("shell:tars.suggestions.failed");
+    const retry = state.status === "failed" && state.reason !== "noSettings" && onRetry;
+    return <div className={sx(clearStyles.chipStatus)} data-tars-suggestions-status={state.status === "failed" ? state.reason : state.status}>
+      <p role="status" aria-live="polite" className={sx(clearStyles.chipStatusText)}>{note}</p>
+      {retry ? <Button type="button" variant="ghost" size="2xs" onClick={retry}>{t("shell:tars.suggestions.retry")}</Button> : null}
+    </div>;
+  }
+  return <ul className={sx(clearStyles.chips)} aria-label={t("shell:tars.suggestions.label")} data-tars-suggestions={state.items.length} data-tars-suggestions-model={state.model}>
+    {state.items.map((item, index) => <li key={`${index}:${item.prompt}`} className={sx(clearStyles.chipItem)}>
+      <Button type="button" variant="secondary" size="xs" xstyle={clearStyles.chipButton} title={item.prompt} data-tars-suggestion={index} onClick={() => onPick(item.prompt)}>
+        {/* i18n-ignore: model-written chip text */}
+        <span className={sx(clearStyles.chipLabel)}>{item.label}</span>
+      </Button>
+    </li>)}
   </ul>;
 }

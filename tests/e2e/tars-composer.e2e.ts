@@ -13,6 +13,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     const composer = page.locator("[data-tars-composer]");
     const editor = composer.getByRole("textbox");
     await expect(editor).toBeEditable();
+    await expect(composer.locator("[data-tars-suggestion]")).not.toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
@@ -204,6 +205,7 @@ for (const inputEvent of ["paste", "drop"]) {
     const composer = page.locator("[data-tars-composer]");
     const editor = composer.getByRole("textbox");
     await expect(editor).toBeEditable();
+    await expect(composer.locator("[data-tars-suggestion]")).not.toHaveCount(0);
     await editor.evaluate((node, eventType) => {
       const transfer = new DataTransfer();
       transfer.items.add(new File(["Pasted source content"], "source.txt", { type: "text/plain" }));
@@ -367,6 +369,7 @@ for (const theme of ["light", "dark"]) {
     const editor = composer.getByRole("textbox");
     const form = composer.locator("form");
     await expect(editor).toBeEditable();
+    await expect(composer.locator("[data-tars-suggestion]")).not.toHaveCount(0);
     await page.evaluate(() => document.fonts.ready);
     await editor.fill("x".repeat(32_001));
     await expect(composer.locator('[data-tars-composer-error="tooLong"]')).toBeVisible();

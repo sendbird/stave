@@ -79,6 +79,8 @@ export const TARS_IPC = Object.freeze({
   scheduleToggle: "tars:schedule-toggle",
   /** Lists the schedules Tars created, as the Schedules service has them now. */
   schedules: "tars:schedules",
+  /** Asks Tars's saved reasoning model for suggested requests about the facts the window observed (`TarsSuggestInput`); changes no work. */
+  suggest: "tars:suggest",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
   changed: "tars:changed",
 });
@@ -644,6 +646,8 @@ export interface TarsBridgeApi {
   toggleSchedule?(input: TarsScheduleToggleInput): Promise<TarsScheduleResult>;
   listSchedules?(): Promise<TarsScheduleList>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
+  /** Suggested requests written by Tars's saved reasoning model; absent on bridges without it, which show no suggestions. */
+  suggest?(input: import("./suggestion-generation").TarsSuggestInput): Promise<import("./suggestion-generation").TarsSuggestResult>;
   /** Change notifications; browser previews may omit them and read on focus instead. Returns an unsubscribe. */
   onChanged?(listener: (event: TarsChangedEvent) => void): () => void;
 }

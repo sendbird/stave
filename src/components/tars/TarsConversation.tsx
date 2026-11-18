@@ -57,6 +57,10 @@ import type { TarsClearContext } from "./use-tars-clear";
 import { TarsScheduleProposal, TarsScheduleRecordLine, TarsScheduleRunLine } from "./TarsSchedule";
 import type { TarsScheduleContext } from "./use-tars-schedules";
 import type { TarsSuggestion } from "@/lib/tars/suggestions";
+import type { TarsSuggestionsState } from "./use-tars-suggestions";
+
+/** The composer's suggestions: the model's chips, their retry, and the facts they were written about. */
+export interface TarsConversationSuggestions { state: TarsSuggestionsState; facts: readonly Pick<TarsSuggestion, "kind">[]; retry?: () => void }
 import { useTarsNotificationFocus } from "./use-tars-notification-focus";
 
 export { TarsActionRecordLine } from "./TarsActionRecordLine";
@@ -261,8 +265,12 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   draftBridge?: Pick<TarsBridgeApi, "getDraft" | "saveDraft">;
   /** Clear proposals, clear records and their Undo; absent on bridges without clearing. */
   clear?: TarsClearContext;
-  /** Suggested requests shown above the composer while the message box is empty. */
-  suggestions?: readonly TarsSuggestion[];
+  /**
+   * Suggested requests shown above the composer while the message box is
+   * empty: what Tars's model wrote (`state`), its retry, and the observed facts
+   * it wrote about, which the start screen does not ask again.
+   */
+  suggestions?: TarsConversationSuggestions;
   /** Schedule cards, switch records and the runs schedules started; absent on bridges without schedules. */
   schedule?: TarsScheduleContext;
   /** Opens the task a scheduled run started. */
@@ -473,7 +481,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           onUndo={() => void clear.undo(clear.active!.requestId)} /></TarsRecordList> : null}
         {/* Nothing to show yet, or everything cleared: the start screen. It leaves out an example a chip above the composer already asks. */}
         {state.conversation && !timeline.some((item) => item.kind !== "clear")
-          ? <TarsStartScreen name={name} onExample={insertDraft} suggestions={!text.trim() && !composerDisabled ? suggestions : undefined} /> : null}
+          ? <TarsStartScreen name={name} onExample={insertDraft} suggestions={!text.trim() && !composerDisabled ? suggestions?.facts : undefined} /> : null}
         <TarsRecordOpenWorkContext value={openWork}>
         {/* The transcript, with the "while you were away" summary where the user left. */}
         <TarsAwayTranscript entries={timeline.map((item) => ({ id: item.id, at: item.at, node: nodeOf(item) }))} conversation={state.conversation}
@@ -495,7 +503,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
           onEmptyFocus={focusSettled} onDismiss={focusComposer} />
       </TarsRecordOpenWorkContext>
       {/* Suggestions only fill an empty message box; they never send. */}
-      {suggestions?.length && !text.trim() && !composerDisabled ? <TarsSuggestionChips items={suggestions} onPick={(words) => { setTarsDraftText(words); focusComposer(); }} /> : null}
+      {suggestions && !text.trim() && !composerDisabled ? <TarsSuggestionChips state={suggestions.state} onRetry={suggestions.retry} onPick={(words) => { setTarsDraftText(words); focusComposer(); }} /> : null}
       <div className={sx(composerTray.tray, dockStyles.tray)}>
       {composerStatus}
       <input ref={attached.picker} type="file" multiple hidden aria-label={t("shell:tars.conversation.attachments.select")} onChange={(event) => { void attached.add(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} />

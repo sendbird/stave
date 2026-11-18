@@ -310,6 +310,7 @@ export function TarsPreview() {
       saveConversation();
       return { record: structuredClone(record), snapshot: structuredClone(snapshot) };
     }
+    if (params.get("suggestions") !== "noSettings") conversation.settings ??= { providerId: "codex", model: "preview-model", maxTurns: 6 };
     const bridge: TarsBridgeApi = {
       ...(params.get("batch") === "true" ? createPreviewBatchBridge(snapshot, () => { for (const listener of changeListeners) listener({ scope: "conversation" }); }, { failOnce: params.get("batchFailure") === "once", missingWorkspace: params.get("batchMissing") === "true" }) : {}),
       undoAction: previewTarsActionUndo({ conversation, deliveryOutcome: params.get("withdrawal") === "pending" ? "pending" : params.get("withdrawal") === "started" ? "started" : undefined, getSnapshot: () => snapshot,
@@ -414,6 +415,14 @@ export function TarsPreview() {
         // As the host: a draft whose request is already a message was sent and is not saved again.
         if (draft && !conversation.messages.some((message) => message.requestId === draft.requestId)) sessionStorage.setItem(draftKey, JSON.stringify(draft));
         else sessionStorage.removeItem(draftKey);
+      },
+      // Explicit fixture output for the preview; this never calls or impersonates a provider.
+      suggest: async (input) => {
+        await new Promise((resolve) => setTimeout(resolve, Number(params.get("suggestionDelay") ?? 50)));
+        if (params.get("suggestions") === "failed") return { status: "failed", requestId: input.requestId, reason: "provider" };
+        if (!conversation.settings) return { status: "failed", requestId: input.requestId, reason: "noSettings" };
+        return { status: "generated", requestId: input.requestId, providerId: conversation.settings.providerId, model: conversation.settings.model,
+          suggestions: params.get("suggestions") === "empty" ? [] : [{ label: input.language === "ko" ? "지금 확인할 일은?" : "What needs my attention?", prompt: input.language === "ko" ? "지금 내 확인이 필요한 일을 알려 주세요." : "Tell me which work needs my attention right now." }] };
       },
       getConversation: async () => { syncAway(); return clearing.view(conversationView()); },
       configureConversation: async (input) => { conversation.settings = structuredClone(input); saveConversation(); return structuredClone(input); },

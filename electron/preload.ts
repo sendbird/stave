@@ -157,6 +157,7 @@ import { TarsUsageInputSchema, TarsUsageReportSchema } from "../src/lib/tars/usa
 import { SaveTarsComposerDraftInputSchema, TarsComposerDraftSchema } from "../src/lib/tars/composer-draft";
 import { TarsClearInputSchema, TarsClearRecordSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../src/lib/tars/clearing";
 import { TarsAwayStateSchema } from "../src/lib/tars/away-state";
+import { TarsSuggestInputSchema, TarsSuggestResultSchema } from "../src/lib/tars/suggestion-generation";
 import {
   TarsScheduleConfirmInputSchema, TarsScheduleListSchema, TarsSchedulePreviewInputSchema, TarsSchedulePreviewSchema, TarsScheduleResultSchema, TarsScheduleToggleInputSchema,
 } from "../src/lib/tars/schedules";
@@ -861,6 +862,7 @@ const tarsApi: TarsBridgeApi = {
   undoClear: async (input) => TarsClearRecordSchema.parse(await ipcRenderer.invoke(TARS_IPC.undoClear, TarsUndoClearInputSchema.parse(input))),
   configureView: async (input) => TarsViewSettingsSchema.parse(await ipcRenderer.invoke(TARS_IPC.configureView, TarsViewSettingsSchema.parse(input))),
   getAway: async () => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.getAway)),
+  suggest: async (input) => TarsSuggestResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.suggest, TarsSuggestInputSchema.parse(input))),
   saveAway: async (input) => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.saveAway, TarsAwayStateSchema.parse(input))),
   previewSchedule: async (input) => TarsSchedulePreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedulePreview, TarsSchedulePreviewInputSchema.parse(input))),
   confirmSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedule, TarsScheduleConfirmInputSchema.parse(input))),
