@@ -131,7 +131,7 @@ test("verified resultReady creates one follow-up which may propose publication i
   const message = f.conversations.list().find((entry) => entry.origin?.kind === "followUp")!;
   expect(message.origin).toMatchObject({ reason: "resultReady", responsibilityId: row.id });
   const prompt = buildTarsPlannerPrompt(message, testContext(f.responsibilities), []);
-  expect(prompt).toContain("You may propose publish after resultReady verification");
+  expect(prompt).toContain("You may propose publish for a resultReady result, under the publication rule above");
   expect(prompt).toContain("Never delegate:");
   expect(prompt).not.toContain("Never propose publish");
 });

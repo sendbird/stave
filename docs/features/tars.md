@@ -1027,7 +1027,9 @@ Otherwise a pull request or merge goal becomes **Result ready** with
 `resultUnverifiedRunId` set to that run instead of `resultVerifiedRunId`. It
 publishes like a verified result under the same autonomy policy, and its draft
 pull request body starts its verification section with **Not verified by
-Stave**. Accepting a result cannot stand in for a pull request, so blocking this
+Stave**. When the pull request was already open, its body is left as written and
+the same note is posted as a comment; a comment that cannot be posted leaves the
+publication unfinished. A merge goal completes on an observed merge either way. Accepting a result cannot stand in for a pull request, so blocking this
 work left only **Cancel work**. A report that leaves a required criterion unmet
 still blocks it. A result recorded for an earlier run, or a restored record that
 names no run, is never published.

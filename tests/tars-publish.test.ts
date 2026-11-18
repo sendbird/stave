@@ -27,7 +27,7 @@ function fakeRepository() {
   const state = {
     branch: HEAD, dirty: [] as string[], ahead: 1, remote: true as boolean,
     gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number } | null,
-    fail: { commit: 0, push: 0, create: 0 }, sha: SHA,
+    fail: { commit: 0, push: 0, create: 0, comment: 0 }, sha: SHA,
     commits: new Set<string>([SHA]),
   };
   const calls: Array<[string, string[]]> = [];
@@ -47,6 +47,10 @@ function fakeRepository() {
         if (state.fail.create > 0) { state.fail.create--; return no("GraphQL: was submitted too quickly"); }
         state.existing = { url: URL, number: 12 };
         return ok(`Creating draft pull request for ${HEAD} into main in example/web\n\n${URL}\n`);
+      }
+      if (args[0] === "pr" && args[1] === "comment") {
+        if (state.fail.comment > 0) { state.fail.comment--; return no("GraphQL: could not add the comment"); }
+        return ok(`${URL}#issuecomment-1\n`);
       }
       return no(`unexpected gh ${line}`);
     }
@@ -567,6 +571,30 @@ test("a verified continuation updates the same open PR, with no second create or
   expect(f.repo.commands("pr ready")).toHaveLength(0);
   expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ agentRunId: "continued-run", number: 12, branch: HEAD, watch: { fixRounds: 1 } });
   expect((await f.confirm(f.responsibilities.get(row.id)!)).record.reason).toBe("alreadyPublished");
+});
+
+test("a continuation Stave could not verify updates the open PR and says so in a comment, leaving its body alone", async () => {
+  const f = fixture();
+  let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+  row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+  expect((await f.confirm(row)).record.status).toBe("applied");
+  // The verified first publication wrote the body and needs no comment.
+  expect(f.repo.commands("pr comment")).toHaveLength(0);
+  row = f.responsibilities.get(row.id)!;
+  row = f.responsibilities.patch(row.id, row.revision, { state: "running", agentRunId: "continued-run" }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "resultReady", resultUnverifiedRunId: "continued-run" }, NOW);
+  // A comment that cannot be posted leaves the publication unfinished instead of updating the PR without the disclosure.
+  f.repo.state.fail.comment = 1;
+  expect((await f.confirm(row)).record.status).toBe("rejected");
+  row = f.responsibilities.get(row.id)!;
+  expect(row).toMatchObject({ state: "resultReady", publication: { state: "failed" } });
+  expect((await f.confirm(row)).record).toMatchObject({ status: "applied", number: 12, url: URL, existing: true });
+  expect(f.repo.commands("pr create")).toHaveLength(1);
+  const comments = f.repo.commands("pr comment").slice(1);
+  expect(comments).toHaveLength(1);
+  expect(comments[0]![1].slice(0, 3)).toEqual(["pr", "comment", "12"]);
+  expect(comments[0]![1][3]).toStartWith("--body=**Not verified by Stave.**");
+  expect(f.responsibilities.get(row.id)).toMatchObject({ state: "completed", publication: { agentRunId: "continued-run", number: 12 } });
 });
 
 test("an update refuses a closed original PR before pushing", async () => {

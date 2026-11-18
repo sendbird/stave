@@ -5,7 +5,7 @@ import {
 } from "../../src/lib/tars/publication";
 import { readWorkspaceRevision } from "./supervision/workspace-revision";
 import { revisionsMatch, type WorkspaceRevision } from "../../src/lib/agent-runs/verification-contract";
-import { buildTarsPublicationBody } from "../../src/lib/tars/publication-body";
+import { buildTarsPublicationBody, TARS_UNVERIFIED_NOTE } from "../../src/lib/tars/publication-body";
 import type { TarsReportModel } from "../../src/lib/tars/report-model";
 import type { TarsResponsibility } from "../../src/lib/tars/types";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore, type TarsProposalRef } from "../persistence/tars-conversation-store";
@@ -173,6 +173,8 @@ export const tarsPublishCommands = {
   // The commit the card published, by its SHA: a branch that moved after the commit step is not what gets pushed.
   push: (head: string, commit: string): string[] => ["push", "origin", `${commit}:refs/heads/${head}`],
   existing: (head: string): string[] => ["pr", "list", `--head=${head}`, "--state=open", "--json=number,url", "--limit=1"],
+  /** A comment on a pull request that is already open: its body was written for an earlier result and is not rewritten. */
+  note: (number: number, body: string): string[] => ["pr", "comment", String(number), `--body=${body}`],
   // `--flag=value`, so a title or body that starts with "-" can never read as another flag.
   create: (args: { base: string; head: string; title: string; body: string }): string[] =>
     ["pr", "create", "--draft", `--base=${args.base}`, `--head=${args.head}`, `--title=${args.title}`, `--body=${args.body}`],
@@ -256,6 +258,12 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
         fail("notVerified", "The verified HEAD changed. Verify the current work before publishing.");
       return sha.stdout.trim();
     };
+    // A pull request that was already open keeps its body, so a result Stave could not verify is disclosed in a comment.
+    const noteUnverified = async (number: number | null | undefined) => {
+      if (tarsResultStanding(row) !== "unverified" || !number) return;
+      const noted = await ports.run("gh", tarsPublishCommands.note(number, TARS_UNVERIFIED_NOTE), cwd);
+      if (!noted.ok) fail(ghMissing(noted) || ghSignedOut(noted) ? "ghUnavailable" : "publishFailed", diagnostic(noted, "gh pr comment failed."));
+    };
     try {
       const verifiedHead = await verify();
       if (step === "commit") {
@@ -283,6 +291,7 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
         try { live = JSON.parse(current.stdout); } catch { /* Fail closed below. */ }
         if (!current.ok || live.state !== "OPEN" || live.headRefName !== head || live.url !== openPr.url)
           fail("alreadyPublished", "The original pull request is no longer open on this branch.");
+        await noteUnverified(openPr.number);
         advance({ state: "opened", url: openPr.url, number: openPr.number, existing: true });
         return publication;
       }
@@ -302,6 +311,8 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
         existing = !created.ok;
         opened = { url: url!, number: tarsPullRequestNumber(url!) };
       }
+      // Found open, or created by someone else meanwhile: this publication did not write its body.
+      if (existing) await noteUnverified(opened.number);
       advance({ state: "opened", url: opened.url, number: opened.number, ...(existing ? { existing: true } : {}) });
       return publication;
     } catch (error) {
