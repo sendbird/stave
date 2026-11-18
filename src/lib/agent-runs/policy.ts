@@ -25,7 +25,7 @@ import { i18n } from "@/i18n/runtime";
  */
 import { resolveStageSignOff } from "@/lib/workflows/sign-off";
 import { unmetStageAcceptance } from "./acceptance";
-import { canFinishAfterReview, canFinishUnchangedWork } from "./review-finalization";
+import { canFinishAfterReview, canFinishUnchangedWork, reReviewFeedback, reReviewStageIndex } from "./review-finalization";
 import type { SignOff } from "@/lib/workflows/schema";
 import {
   clampReason,
@@ -181,7 +181,7 @@ export type AgentRunDecision =
   | { action: "mark-stuck"; detail: string }
   | { action: "execute-action"; stageIndex: number }
   | { action: "start-action-turn"; stageIndex: number; attempt: number }
-  | { action: "complete-stage"; next: "sign-off" | "start" | "finish"; skipReviewFix?: true; skipUnchangedReview?: true };
+  | { action: "complete-stage"; next: "sign-off" | "start" | "finish"; skipReviewFix?: true; skipUnchangedReview?: true; reReview?: true };
 
 export type AgentRunDecisionAction = AgentRunDecision["action"];
 
@@ -273,8 +273,26 @@ function completeStage(aggregate: AgentRunAggregate, record: AgentRunStageRecord
   }
   if (canFinishAfterReview(aggregate) && resolveAgentRunStageSignOff(agentRun, nextIndex) !== "ask")
     return { action: "complete-stage", next: "finish", skipReviewFix: true };
+  if (canReReviewFix(aggregate)) return { action: "complete-stage", next: "start", reReview: true };
   if (canSkipUnchangedReview(aggregate)) return { action: "complete-stage", next: "finish", skipUnchangedReview: true };
   return { action: "complete-stage", next: nextAfterCompletion(agentRun) };
+}
+
+/**
+ * The final repair changed the work its Reviewer asked changes to: the
+ * Reviewer checks the fix once more (`reReviewStageIndex`) unless that review
+ * asks the user first or has no attempts left; otherwise the run finishes.
+ */
+function canReReviewFix(aggregate: AgentRunAggregate): boolean {
+  const index = reReviewStageIndex(aggregate);
+  if (index === null || resolveAgentRunStageSignOff(aggregate.agentRun, index) === "ask") return false;
+  try {
+    enterStage({ aggregate, index });
+    return true;
+  } catch (error) {
+    if (!(error instanceof AgentRunCommandError) || error.code !== "attempt-limit") throw error;
+    return false;
+  }
 }
 
 /**
@@ -587,7 +605,7 @@ export function decideAgentRunAction(args: {
   }
   if (agentRun.state === "paused" && agentRun.pauseReason === "usage-limit") {
     const waiting = agentRun.usageLimit;
-    if (!waiting?.resumeAt || Date.parse(waiting.resumeAt) > now.getTime() || lead.activeTurn ||
+    if (!waiting || Date.parse(waiting.resumeAt ?? resolveUsageLimitRetryAt(new Date(agentRun.updatedAt))) > now.getTime() || lead.activeTurn ||
         lead.pendingApprovalCount || lead.pendingUserInputCount) return { action: "idle" };
     // A pooled run checks its whole pool in order: its own account first only
     // when it is first in the pool.
@@ -605,10 +623,9 @@ export function decideAgentRunAction(args: {
     if (!quota) return { action: "idle" };
     if (quota.status === "headroom") return { action: "resume" };
     // An unreadable usage window retries on a fixed interval instead of every
-    // minute past the old reset; a read without a reset time leaves the resume
-    // to the user.
+    // minute past the old reset. Missing reset times use the same bounded retry.
     const resetsAt = quota.status === "unavailable" ? waiting.resetsAt : quota.resetsAt ?? null;
-    const resumeAt = quota.status === "unavailable" ? resolveUsageLimitRetryAt(now) : resolveAgentRunUsageLimitResumeAt(resetsAt, now);
+    const resumeAt = quota.status === "unavailable" ? resolveUsageLimitRetryAt(now) : resolveAgentRunUsageLimitResumeAt(resetsAt, now) ?? resolveUsageLimitRetryAt(now);
     return { action: "pause", reason: "usage-limit", detail: "", usageLimit: { ...waiting, resetsAt, resumeAt } };
   }
   if (agentRun.state === "paused") return { action: "resume" };
@@ -623,12 +640,10 @@ export function decideAgentRunAction(args: {
   const last = observation.lastEndedTurn;
   if (last?.usageLimited && agentRun.usageLimit?.turnId !== last.turnId) {
     const resetsAt = last.usageLimited.resetsAt ?? null;
-    // With no reset time, a first usage read that failed reads again on the
-    // fixed interval; a read that reports no reset leaves the resume to the user.
-    const unreadable = observation.usageLimitResume?.status === "unavailable";
+    // Without a reset time, recheck at a fixed interval; only confirmed headroom resumes.
     const limit = {
       turnId: last.turnId, resetsAt,
-      resumeAt: resolveAgentRunUsageLimitResumeAt(resetsAt, now) ?? (unreadable ? resolveUsageLimitRetryAt(now) : null),
+      resumeAt: resolveAgentRunUsageLimitResumeAt(resetsAt, now) ?? resolveUsageLimitRetryAt(now),
       accountProfileId: last.usageLimited.accountProfileId, fingerprint: last.usageLimited.fingerprint,
     };
     const pooled = observation.accountPoolUsage;
@@ -930,6 +945,16 @@ export function applyAgentRunDecision(args: {
       };
       let change: AgentRunChange;
       try {
+        if (decision.reReview && canReReviewFix(aggregate)) {
+          const reviewIndex = reReviewStageIndex(aggregate)!;
+          const atReview = withAgentRun(withoutEventWait(agentRun, now), { currentStageIndex: reviewIndex }, now);
+          const review = enterStage({ aggregate: { agentRun: atReview, stages: replaceStageRecord(aggregate.stages, completed) }, index: reviewIndex,
+            feedback: reReviewFeedback(aggregate) });
+          return { agentRun: atReview, upserts: [completed, review], events: [
+            { kind: "stage-completed", idempotencyKey: null, detail: { stageId: record.stageId, attempt: record.attempt } },
+            { kind: "stage-retried", idempotencyKey: null, detail: { stageId: review.stageId, attempt: review.attempt, reason: "fix-re-review" } },
+          ] };
+        }
         if (decision.skipReviewFix && canFinishAfterReview(aggregate) && resolveAgentRunStageSignOff(agentRun, agentRun.currentStageIndex + 1) !== "ask") {
           const advanced = { ...aggregate, agentRun: withAgentRun(withoutEventWait(agentRun, now), { currentStageIndex: agentRun.currentStageIndex + 1 }, now) };
           const skipped = { ...enterStage({ aggregate: advanced, index: advanced.agentRun.currentStageIndex }), status: "skipped" as const,

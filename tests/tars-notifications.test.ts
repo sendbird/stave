@@ -106,7 +106,7 @@ test("a fact that disappears during insertion is resolved immediately after inse
 
 test("results, blockers and unverified completions carry the right target; duplicate blocked facts stay quiet", () => {
   const result = describeTarsNotifications(snapshot("resultReady", []))[0]!;
-  expect(result).toMatchObject({ kind: "tars.result_ready", id: "tars:blocked:goal:4", dedupeKey: "tars:blocked:goal:4" });
+  expect(result).toMatchObject({ kind: "tars.result_ready", id: "tars:result:goal:agent-run-1", dedupeKey: "tars:result:goal:agent-run-1" });
   expect(readTarsNotificationTarget(result)).toEqual({ responsibilityId: "goal" });
   const blocked = describeTarsNotifications(snapshot("blocked", []))[0]!;
   expect(blocked.kind).toBe("tars.blocked");
@@ -150,4 +150,34 @@ test("Fleet and the bell share one unread entry per signal, including snoozes", 
   expect(selectBellEntries(inbox, "unread").map((entry) => entry.id)).toEqual([notifications[0]!.id]);
   const snoozed = project([notifications[0]!.id]);
   expect(selectBellEntries(buildFleetInbox({ items: snoozed.items, snoozedItems: snoozed.snoozedItems, notifications }), "all")).toEqual([]);
+});
+
+test("a completed execution leaves one final Tars result per execution", () => {
+  const value = snapshot();
+  const row = tarsResponsibility({ state: "completed", agentRunId: "final-run" });
+  value.responsibilities = [row];
+  value.pendingDecisions = [];
+  const first = describeTarsNotifications(value);
+  expect(first).toHaveLength(1);
+  expect(first[0]).toMatchObject({ kind: "tars.result_ready", payload: { responsibilityId: row.id } });
+  expect(describeTarsNotifications(value)[0]?.id).toBe(first[0]?.id);
+  value.responsibilities = [{ ...row, agentRunId: "next-execution" }];
+  expect(describeTarsNotifications(value)[0]?.id).not.toBe(first[0]?.id);
+});
+
+
+test("completed history stays quiet on hydration; a live completion announces once", async () => {
+  const old = syncFixture(snapshot("completed", []));
+  await old.reconcile();
+  expect(old.inserted).toEqual([]);
+  const live = syncFixture(snapshot("running", []));
+  await live.reconcile();
+  live.snapshot(snapshot("resultReady", [])); await live.reconcile();
+  expect(live.inserted).toHaveLength(1);
+  live.snapshot(snapshot("completed", [])); await live.reconcile();
+  expect(live.inserted).toHaveLength(1);
+  const immediate = syncFixture(snapshot("running", []));
+  await immediate.reconcile();
+  immediate.snapshot(snapshot("completed", [])); await immediate.reconcile();
+  expect(immediate.inserted).toHaveLength(1);
 });

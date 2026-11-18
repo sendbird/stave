@@ -1,3 +1,4 @@
+import { manageStoredTarsNotification } from "./tars-notification-policy";
 import { TurnSnapshotStore, flushDeletedTurnSnapshotRefs } from "./turn-snapshot-store";
 import { TurnAdmissionStore } from "./turn-admission-store";
 import { archiveFleetTask } from "./fleet-task-archive";
@@ -50,7 +51,6 @@ import type {
   PersistenceWorkspaceShellLite,
   PersistenceWorkspaceShellSummary,
   PersistenceRepositoryRegistryEntry,
-  PersistenceNotificationCreateInput,
   PersistenceNotificationRecord,
   PersistenceTurnSummary,
   PersistenceTurnUsage,
@@ -1323,13 +1323,8 @@ export class SqliteStore {
     }));
   }
 
-  createNotification(args: {
-    notification: PersistenceNotificationCreateInput;
-  }): {
-    inserted: boolean;
-    notification: PersistenceNotificationRecord | null;
-  } {
-    return this.notifications.createNotification(args);
+  createNotification(args: Parameters<NotificationStore["createNotification"]>[0]) {
+    return this.notifications.createNotification({ notification: manageStoredTarsNotification(args.notification, this.tars, this.runLedger) });
   }
 
   listNotifications(args?: {

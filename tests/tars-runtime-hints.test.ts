@@ -53,7 +53,9 @@ test.each(["codex", "claude-code"] as const)("the %s account shown is the saved 
   for (const [saved, expected] of [[implicit, "system-default"], [{ ...implicit, runtimeHints: { [accountKey]: work } }, work]] as const) {
     const shown = tarsAccountSelection(saved, appSettings);
     expect(shown).toMatchObject({ accountId: expected, accountKey, runtimeOptions: { [accountKey]: expected } });
-    expect(buildTarsExecutionResources(saved).accounts).toEqual({ [accountKey]: expected });
+    // Both providers' accounts are captured so Automatic can compare their usage; the saved one is the one shown.
+    const otherKey = accountKey === "codexAccountProfileId" ? "claudeAccountProfileId" : "codexAccountProfileId";
+    expect(buildTarsExecutionResources(saved).accounts).toEqual({ [accountKey]: expected, [otherKey]: "system-default" });
     expect(reasoningAccount(saved)).toBe(expected);
   }
 });

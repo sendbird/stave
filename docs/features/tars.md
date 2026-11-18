@@ -23,6 +23,14 @@ Long record and Activity descriptions stay on one line with their full text on h
 
 ## Give Tars work from a source
 
+For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account, model constraints and shared turn budget. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
+
+
+Automatic execution reads usage for the captured Claude and Codex accounts before assigning new work. It prefers a provider with confirmed room when the current one is low, critical, exhausted or unknown; an unknown reading never counts as room. Explicit model pins and fixed-agent provider constraints stay in place. Each admitted Run keeps its provider and accounts, and refreshes missing or expired usage before starting another turn.
+
+One work owner implements, debugs and verifies a unit in the same task. Independent units may run in parallel; implementation, debugging and validation are not separate hand-offs for one unit. Changed files receive one independent review after Work, and only findings open the fix stage. Routine completion and internal Run updates from Tars-managed tasks and their descendants stay as read notification history without pop-ups or sounds. Tars announces the final result, a decision or a blocker. Direct approvals, questions and stage sign-offs still notify you; taking over a task restores its normal notifications.
+
+
 In **Issues**, choose **Ask Tars** on a GitHub, Jira or Crane issue to draft its
 title, link and a bounded body excerpt, with a mapped repository/workspace
 suggestion. Enable GitHub in **Settings > Integrations > Issues** after signing
@@ -90,7 +98,8 @@ access is unavailable. Stave has no Slack token flow.
    independent read-only **Review** on the provider that did not write them
    (the pinned provider and model when you fixed a model);
    the **Fix review findings** stage runs only when that review asks for
-   changes. The Reviewer confirms the reported evidence and runs only checks
+   changes. A fix that changed files returns once to the Reviewer for the fix
+   commits only, so the run ends on a revision an independent review passed. The Reviewer confirms the reported evidence and runs only checks
    covering the changed files when its read-only policy permits those commands.
    Claude reviewers may run the approved test, lint and typecheck scripts from
    `package.json`; other commands require existing permission. When no check
@@ -1924,3 +1933,5 @@ Say "clean up the finished work's workspaces" or use **Clean up finished work** 
 Explicitly requested branch deletion uses safe deletion only; it never forces a branch deletion. Permanent deletion applies only to workspaces already archived when the card was prepared. Branch deletion and permanent deletion cannot be undone. An interrupted destructive item is not automatically replayed; inspect its state in the cleanup center. For cleanup and cancel, a changed revision is skipped rather than expanding the confirmed scope.
 
 A batch that was executing when Stave stopped reads as interrupted: its record shows what ran and offers **Continue**, which runs the same frozen remaining items and re-checks each one. A failed archive counts as applied only when this batch made the archive; a workspace someone else archived meanwhile is reported as already archived and is not restored by this record's **Restore**. A restore whose branch was deleted is labelled read-only. Opening **Clean up finished work** again reuses the open preview; declining it removes it. Unconfirmed previews expire after a day, and at most 50 finished Done-lane records are kept; each sits in the conversation at the time it was prepared.
+
+Tars can continue a blocked independent review through the supervised stage path, preserving the current reviewer route, permissions and team budget. It does not substitute an implementation chat turn or skip review. Provider quota exhaustion waits for a saved reset reservation; with no reset time, usage is rechecked every five minutes and work resumes only after confirmed headroom. Manual pauses, takeovers, approvals and daily limits remain under user control.

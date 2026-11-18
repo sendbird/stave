@@ -68,7 +68,7 @@ export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowSt
       title: "Fix review findings", // i18n-ignore: canonical stage title, localized by stage-display.ts
       kind: "ai",
       skipIfReviewPassed: true,
-      instruction: "Fix each defect the review found at its cause and commit the fix, then verify the committed result the way you verified the work. If the review found none, report the stage complete without changing anything.",
+      instruction: "Fix each defect the review found at its cause and commit the fix, then verify the committed result the way you verified the work. Do not start your own review of the fix: when the fix changes files, the Reviewer checks it next. If the review found none, report the stage complete without changing anything.",
       doneWhen: "Every defect the review found is fixed and verified, or the review found none.",
     },
   ];

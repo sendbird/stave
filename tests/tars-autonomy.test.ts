@@ -39,7 +39,7 @@ const delegate = (title = "Repair search"): TarsDecisionAction => ({ kind: "dele
  * one in-memory database. Only the model's replies and the run port (what a
  * control does to the execution run) are simulated.
  */
-function fixture(settings: Partial<TarsConversationSettings> = {}, replies: TarsDecision[] = []) {
+function fixture(settings: Partial<TarsConversationSettings> = {}, replies: TarsDecision[] = [], options: { messageQueue?: boolean } = {}) {
   const database = new Database(":memory:");
   cleanup.push(() => { if (!database.closed) database.close(); });
   const conversations = new TarsConversationStore(database);
@@ -54,7 +54,8 @@ function fixture(settings: Partial<TarsConversationSettings> = {}, replies: Tars
     prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => null,
     startRun: async (row) => `run-${row.id}`, observe: async () => ({ state: "running", detail: null }),
     controlRun: async (_row, operation, autoExtendMaxTurns) => { runControls.push(operation); runCaps.push(autoExtendMaxTurns); },
-    respondTask: async (_row, request) => { runControls.push(request.operation); return "sent"; } });
+    respondTask: async (_row, request) => { runControls.push(request.operation); return "sent"; },
+    ...(options.messageQueue ? { messages: conversations } : {}) });
   const coordinator = createSecondaryRunCoordinator({
     getLedger: () => ({ getRunAggregate: ledger.getAggregate.bind(ledger), claimRunStep: ledger.claimStep.bind(ledger),
       markRunStepWaiting: ledger.markStepWaiting.bind(ledger), completeRunStep: ledger.completeStep.bind(ledger),
@@ -601,4 +602,31 @@ test("saved draft-publication permission reaches the publish boundary for either
     expect(refused.receipts[0]?.status).toBe("rejected");
     expect(publishes).toHaveLength(level !== "careful" && !never ? 1 : 0);
   }
+});
+
+test.each(["careful", "balanced", "handsOff"] as const)("%s handles only a complete ordinary question inside owned work", async autonomy => {
+  const f = fixture({ autonomy });
+  const row = f.responsibility("waiting", { pendingRequests: [{ kind: "question", ref: "ordinary", requestId: "request", messageId: "message",
+    taskId: "child", workspaceId: "child-ws", toolName: "request_user_input", summary: "Implementation question",
+    questions: [{ key: "q", question: "Use the existing index?", options: ["Yes", "No"] }] }] });
+  const action = { kind: "control" as const, responsibilityId: row.id, expectedRevision: row.revision, operation: "answer" as const,
+    input: { requestRef: "ordinary", answers: { q: "Use the existing index as requested." } } };
+  const { message, receipts } = await f.admit([action], { kind: "followUp", responsibilityId: row.id, eventKey: "ordinary-question", reason: "stageAsksUser", observedRevision: row.revision, summary: "Implementation question" });
+  expect(receipts[0]?.status).toBe(autonomy === "careful" ? "proposed" : "applied");
+  expect(f.runControls).toEqual(autonomy === "careful" ? [] : ["answer"]);
+  if (autonomy !== "careful") {
+    await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, f.ports);
+    expect(f.runControls).toEqual(["answer"]);
+    expect(f.conversations.listActions(10)[0]).toMatchObject({ source: "automatic", action: { operation: "answer" } });
+  }
+});
+
+test("a recoverable waiting helper receives guidance without parking it behind the busy lead", async () => {
+  const f = fixture({ autonomy: "balanced" }, [], { messageQueue: true });
+  const row = f.responsibility("waiting", { stageAsksUser: true, stageWait: { kind: "gate", gate: "acceptanceUnmet" }, waitingTaskId: "child-task", observedStage: "child-run/work#1:1" });
+  const { receipts } = await f.admit([{ kind: "control", responsibilityId: row.id, expectedRevision: row.revision, operation: "message", input: { text: "Complete the existing required regression check." } }],
+    { kind: "followUp", responsibilityId: row.id, eventKey: "helper-gate", reason: "stageAsksUser", observedRevision: row.revision, summary: "Helper check missing" });
+  expect(receipts[0]?.status).toBe("applied");
+  expect(f.runControls).toEqual(["message"]);
+  expect(f.conversations.listActions(10)[0]?.delivery).toBeUndefined();
 });

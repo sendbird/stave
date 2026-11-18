@@ -75,6 +75,16 @@ stages yourself, give the agent three stages (Agents → the agent →
    cannot, and its task halts.
 3. **Fix review findings**: fix each defect at its cause, run the workspace
    check, commit. Done when every defect is fixed and the check passes.
+   When the fix changed the reviewed commit, the run returns once to
+   **Review** (attempt 2), which checks only the fix commits against the
+   earlier findings. A passed re-review finishes the run and skips the second,
+   empty repair; findings get one more repair, then the run finishes without a
+   third review. The fix stage does not start its own review.
+
+A delegated run's earlier stage (a Debugger's reproduction, for example) may
+report a criterion its assignment names as unmet without halting: the
+criterion carries forward and the last stage must report it met. A criterion
+the stage adds itself must still be met where it is reported.
 
 The Reviewer runs on the other provider when it can and reports its findings
 as its result. An agent may always call the agents its own workflow names for
@@ -689,16 +699,12 @@ The host checks that same account when the reservation is due. Available usage
 resumes work; an exhausted account with a later reset re-arms the reservation.
 A failed usage read keeps the Run waiting and retries after five minutes.
 
-When neither the limit nor the account's usage reports a reset time because
-the usage read itself failed, the Run keeps waiting and reads usage again five
-minutes later. Only a usage read that works but reports no reset time leaves
-the reset unknown.
-
-Without a known reset time, the Run halts until you act: it reads
-**Halted · Usage limit** with the usage limit as the reason, moves the workspace to
-**Action required**, and sends one notification for that limited turn. Resume
-it with **Resume now** once usage is available. Manual resume also keeps the
-account, model, effort and accumulated counters.
+Without a known reset time, Stave checks the same account every five minutes
+and resumes only after confirmed headroom. Existing reservations without a
+resume time recover the same way after restart. Quota exhaustion detected
+before a turn starts also saves a reservation without spending a team turn.
+Manual pauses, takeovers and local daily limits still need the user's action.
+Manual resume keeps the account, model, effort and accumulated counters.
 
 The reservation survives an app restart. A due reservation is processed once,
 on the Run's own supervisor queue. Resume starts a continuation

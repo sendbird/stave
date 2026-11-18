@@ -635,8 +635,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
           } else if (row.agentRunId && isTarsTaskOperation(request.operation)) {
             if (!sent) {
               const message = request.operation === "message";
-              // Persist every message before dispatch, even when the task looks idle. Crash recovery uses its own turn identity.
-              queued = message && Boolean(ledger.queue && ports.messages);
+              // Lead messages use the delivery queue; helper recovery stays on its guarded delegated stage.
+              const helperRecovery = message && row.state === "waiting" && row.stageAsksUser && row.waitingTaskId && row.waitingTaskId !== row.taskId && row.stageWait?.kind !== "signOff" && !row.pendingRequests?.length;
+              queued = message && !helperRecovery && Boolean(ledger.queue && ports.messages);
               if (!queued) queued = await ports.respondTask(row, request, { canQueue: false, commandId: ledger.key,
                 queueBehind: message && ports.messages?.hasOpenDelivery(id) === true }) === "queued";
               if (!queued) sentEffects.add(ledger.key);

@@ -117,6 +117,10 @@ export function createAppStoreNotificationRuntime(args: {
       if (!result.inserted && (result.notification.kind.startsWith("agent_run.") || isTarsNotificationKind(result.notification.kind))) {
         return result.notification;
       }
+      if (result.notification.payload.tarsManaged === true) {
+        attentionSync.noteTurnOutcome(result.notification);
+        return result.notification;
+      }
       const unreadCount = get().notifications.filter(
         (item) => !item.readAt,
       ).length;

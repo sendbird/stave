@@ -1,3 +1,4 @@
+import { tarsOwnedQuestion } from "../../src/lib/tars/managed-recovery";
 import { admitTarsOpen } from "./tars-open";
 import { tarsAutoControlLedger } from "./tars-auto-control";
 import { tarsDefaultCommitSubject, tarsPublishProposalRequestId, type TarsPublishInput, type TarsPublishResult } from "../../src/lib/tars/publication";
@@ -56,6 +57,8 @@ export interface TarsDecisionPorts {
    * is not a built-in keeps its action pending and retryable, never rejected.
    */
   agentCatalogReady?: () => boolean;
+  /** Resolve fresh account usage before the transaction admits a new work unit. */
+  routeExecution?: (message: TarsMessage, agentId?: string) => Promise<ReturnType<typeof tarsExecutionTarget> & { runtimeHints?: TarsMessage["runtimeHints"] }>;
   /** The runtime's admitted control path, shared with direct clicks. */
   control: (request: TarsControlRequest, ledger: TarsControlLedger<TarsActionReceipt>) => Promise<TarsActionReceipt>;
   /**
@@ -153,7 +156,7 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
     const target = rules.length ? subject(action, registry) : { repositoryPath: row?.repositoryPath };
     const matches = rules.length ? matchTarsNeverRules(rules, { key, ...target }) : [];
     const run = key === "extend" && row?.agentRunId ? ports.readRunBudget?.(row.agentRunId) : null;
-    const context = { allowRules: saved?.allowRules, repositoryPath: target.repositoryPath, responsibility: row, extend: row && run ? { admittedMaxTurns: row.maxTurns, currentMaxTurns: run.maxTurns } : null };
+    const context = { ownedQuestion: action.kind === "control" && action.operation === "answer" && tarsOwnedQuestion(row, action.input?.requestRef), allowRules: saved?.allowRules, repositoryPath: target.repositoryPath, responsibility: row, extend: row && run ? { admittedMaxTurns: row.maxTurns, currentMaxTurns: run.maxTurns } : null };
     return { confirm: tarsActionDisposition({ key, level, origin, matches, context }) === "confirm", matches };
   };
 }
@@ -216,6 +219,8 @@ async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, ind
       const verdict = guard?.(action, registry);
       if (verdict?.confirm) throw new TarsWorkProposalHeld(verdict.matches);
     };
+    const executionRoute = action.kind === "delegate" && ports.routeExecution
+      ? await ports.routeExecution(message, action.agentId) : null;
     let workingChanges: TarsWorkingChanges | undefined;
     if (action.kind === "delegate" && message.includeWorkingChanges) {
       try { workingChanges = await workingChangesFor(action.workspaceId, hold); }
@@ -228,7 +233,7 @@ async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, ind
       if (action.kind === "delegate") {
         const target = resolveTarsWorkspace(action.workspaceId, registry);
         hold(registry);
-        const execution = tarsExecutionTarget(admitted);
+        const execution = executionRoute ?? tarsExecutionTarget(admitted);
         let agentId: string | undefined;
         if (action.agentId) {
           // Revoking an agent in settings wins over the copy saved with the message.
@@ -254,7 +259,7 @@ async function admitTarsWork(ports: TarsDecisionPorts, message: TarsMessage, ind
           ...(mandate ? { mandate } : {}),
           // Kept apart from the combined assignment, so the request view shows each as it was.
           request: tarsWorkRequestOf(admitted), delegatedInstruction: action.instruction,
-          ...(admitted.runtimeHints ? { runtimeHints: admitted.runtimeHints } : {}),
+          ...(executionRoute?.runtimeHints || admitted.runtimeHints ? { runtimeHints: executionRoute?.runtimeHints ?? admitted.runtimeHints } : {}),
           ...(agentId ? { agentId } : {}),
           ...(workingChanges ? { workingChanges } : {}),
           ...(attachments ? { attachments } : {}),
