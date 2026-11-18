@@ -4,7 +4,7 @@ import { createElement, isValidElement, type ReactElement, type ReactNode } from
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
 import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
-import { TarsAllowRulesProvider, TarsAllowRuleRecords, TarsAlwaysAllowButton, saveTarsAllowRule } from "../src/components/tars/TarsAllowRules";
+import { TarsAllowRulesProvider, TarsAllowRuleRecord, TarsAlwaysAllowButton, saveTarsAllowRule, useTarsAllowRecords } from "../src/components/tars/TarsAllowRules";
 import { TarsAutonomySettings } from "../src/components/tars/TarsAutonomySettings";
 import { TarsDecisionCard } from "../src/components/tars/TarsDecisionCard";
 import { TARS_ALWAYS_CONFIRMED, type TarsAllowRule } from "../src/lib/tars/autonomy";
@@ -31,7 +31,7 @@ test("a waiting card's Always allow handler saves its repository rule before app
     const answers: unknown[] = [];
     const card: { tree: ReactNode } = { tree: null };
     function Card() {
-      card.tree = TarsDecisionCard({ decision, onAnswer: (...input) => { expect(store.getSettings()?.allowRules).toEqual([rule]); answers.push(input); },
+      card.tree = TarsDecisionCard({ decision, onAnswer: (...input) => { expect(store.getSettings()?.allowRules).toMatchObject([rule]); answers.push(input); },
         // Only the repository target is read by this card.
         rowOf: () => ({ repositoryPath: rule.repositoryPath } as never) });
       return card.tree;
@@ -61,7 +61,8 @@ test("a failed save applies nothing; duplicate permission stays single and the m
   try {
     const store = new TarsConversationStore(db);
     for (let index = 0; index < 2; index++) await saveTarsAllowRule(store.getSettings() ?? SETTINGS, async (settings) => store.configure(settings), rule, () => applied++);
-    expect(store.getSettings()?.allowRules).toEqual([rule]);
+    expect(store.getSettings()?.allowRules).toMatchObject([rule]);
+    expect(store.getSettings()?.allowRules).toHaveLength(1);
   } finally { db.close(); }
 });
 
@@ -70,10 +71,17 @@ test("Undo removes only permission and settings Remove reports the remaining rul
   try {
     const store = new TarsConversationStore(db);
     const other: TarsAllowRule = { key: "publish", repositoryPath: null };
-    const settings = store.configure({ ...SETTINGS, allowRules: [rule, other] });
-    const records: { tree: ReactNode } = { tree: null };
-    function Records() { records.tree = TarsAllowRuleRecords(); return records.tree; }
+    const saved = { ...rule, savedAt: "2026-11-18T01:00:00.000Z" };
+    const settings = store.configure({ ...SETTINGS, allowRules: [saved, other] });
+    const records: { tree: ReactNode; listed: unknown[] } = { tree: null, listed: [] };
+    function Records() {
+      // Only a rule saved from a card has a transcript record; a Settings-made rule lives in Settings.
+      records.listed = useTarsAllowRecords();
+      records.tree = TarsAllowRuleRecord({ rule: saved });
+      return records.tree;
+    }
     const html = renderToStaticMarkup(createElement(TarsAllowRulesProvider, { settings, busy: false, configure: async (next) => store.configure(next), children: createElement(Records) }));
+    expect(records.listed).toEqual([saved]);
     expect(html).toContain("Always allowed: add turns to a task");
     expect(html).toContain("billing");
     const undo = elements(records.tree).filter((entry) => typeof entry.props.onClick === "function")[0]!;
