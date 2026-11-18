@@ -79,6 +79,14 @@ test("a pull request goal stays completed across a restart only when the work's 
   expect(store.get(unchanged.id)).toMatchObject({ state: "completed", unchangedRunId: "run-1" });
   expect(store.get(changed.id)!.state).toBe("resultReady");
   expect(store.get(continued.id)!.state).toBe("resultReady");
+  // An unverified result is recorded for one run and forgotten when execution resumes.
+  let reported = store.patch(changed.id, changed.revision, { resultVerifiedRunId: null, resultUnverifiedRunId: "run-1" }, NOW);
+  expect(isTarsPublishable(reported)).toBe(true);
+  db.close(); db = new Database(file); store = new TarsStore(db);
+  expect(isTarsPublishable(store.get(reported.id)!)).toBe(true);
+  reported = store.patch(reported.id, reported.revision, { state: "running" }, NOW);
+  expect(reported.resultUnverifiedRunId).toBeNull();
+  expect(isTarsPublishable(store.patch(reported.id, reported.revision, { state: "resultReady" }, NOW))).toBe(false);
   // Resuming execution forgets the unchanged run, so a later change is never completed on its strength.
   const resumed = store.patch(unchanged.id, unchanged.revision, { state: "running" }, NOW);
   expect(resumed.unchangedRunId).toBeNull();

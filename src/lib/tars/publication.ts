@@ -291,11 +291,23 @@ export function tarsPullRequestNumber(url: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-/** An open PR can receive a newly verified execution, on its original branch only. */
-export function tarsCanUpdatePublication(row: { state: string; agentRunId?: string | null; resultVerifiedRunId?: string | null;
+/**
+ * How the current run's ended result stands, or null when the row records none for it:
+ * `verified` by Stave, or `unverified` when the run reported a pull request or merge
+ * goal's work complete and Stave could not confirm it. Either may go to a draft pull
+ * request; an unverified one says so in its body. A row restored from an older record
+ * names no run and is neither.
+ */
+export function tarsResultStanding(row: { agentRunId?: string | null; resultVerifiedRunId?: string | null; resultUnverifiedRunId?: string | null }): "verified" | "unverified" | null {
+  if (!row.agentRunId) return null;
+  return row.resultVerifiedRunId === row.agentRunId ? "verified" : row.resultUnverifiedRunId === row.agentRunId ? "unverified" : null;
+}
+
+/** An open PR can receive a newly ended execution's result, on its original branch only. */
+export function tarsCanUpdatePublication(row: { state: string; agentRunId?: string | null; resultVerifiedRunId?: string | null; resultUnverifiedRunId?: string | null;
   publication?: TarsPublication; executionPending?: boolean }) {
   return Boolean(row.publication?.state === "opened" && row.publication.number && row.publication.url
     && !["closed", "merged"].includes(row.publication.watch?.stopped ?? "") && row.publication.agentRunId && row.agentRunId
-    && row.publication.agentRunId !== row.agentRunId && row.resultVerifiedRunId === row.agentRunId
+    && row.publication.agentRunId !== row.agentRunId && tarsResultStanding(row) !== null
     && row.state === "resultReady" && !row.executionPending);
 }

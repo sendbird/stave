@@ -29,7 +29,13 @@ function describeSource(source: TarsCriterionSource) {
   return null;
 }
 
-export function buildTarsPublicationBody(args: { title: string; report: ReportPart | null; source?: TarsPublishSource }): string {
+/** What a draft pull request says about a result the run reported complete and Stave could not verify. */
+// i18n-ignore: pull request text sent to GitHub
+export const TARS_UNVERIFIED_NOTE = "**Not verified by Stave.** The agent reported this work complete, but no check Stave ran and no independent review passed on the final revision. Review the change and its CI before relying on it.";
+
+export function buildTarsPublicationBody(args: { title: string; report: ReportPart | null; source?: TarsPublishSource;
+  /** The run reported the work complete, but no check Stave ran and no independent review passed on its final revision. */
+  unverified?: boolean }): string {
   const { report } = args;
   // i18n-ignore: pull request body sent to GitHub
   const lines = ["## Summary", "", inline(args.title), ""];
@@ -45,6 +51,7 @@ export function buildTarsPublicationBody(args: { title: string; report: ReportPa
   const evidence = report?.evidenceGroups.flatMap((group) => group.evidence.map((item) => ({ group, item }))) ?? [];
   // i18n-ignore: pull request body sent to GitHub
   lines.push("## Verification", "");
+  if (args.unverified) lines.push(TARS_UNVERIFIED_NOTE, "");
   if (evidence.length) {
     for (const { group, item } of evidence.slice(0, 40)) {
       const detail = item.evidence.command ? ` \`${item.evidence.command.replace(/`/g, "'").slice(0, 200)}\`` : "";

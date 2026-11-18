@@ -2193,7 +2193,7 @@
     },
     "followUp": {
       "line": {
-        "resultReady": "Tars follow-up · Result verified; next step: {{title}}",
+        "resultReady": "Tars follow-up · Result ready; next step: {{title}}",
         "blocked": "Tars follow-up · Work cannot continue: {{title}}",
         "unverifiedCompletion": "Tars follow-up · Reported done, not yet confirmed: {{title}}",
         "verificationFailed": "Tars follow-up · Completion checks incomplete: {{title}}",
@@ -2258,7 +2258,7 @@
       "step3Text": "Read the report and changes beside the conversation.",
       "detailsTitle": "More about running tasks",
       "examplesTitle": "Try a request",
-      "limit1": "Requested draft PRs open automatically after verification at Balanced or Hands-off. Other publication asks first unless you saved an allow rule. Tars never merges or deploys.",
+      "limit1": "Draft PRs for work with a PR goal open automatically at Balanced or Hands-off; one Stave could not verify says so in its description. Other publication asks first unless you saved an allow rule. Tars never merges or deploys.",
       "limit2": "Keep Stave open and this computer awake.",
       "limit3": "Tasks can run at the same time. Set a limit in Settings; 0 adds no task limit.",
       "limit4": "Work starts from the workspace branch. Turn on Include my working changes to include edits you haven't committed. Files ignored by Git are not copied.",
@@ -2318,7 +2318,7 @@
       },
       "reason": {
         "notOwned": "Tars does not hold this work.",
-        "notCompleted": "Only verified execution results can be published.",
+        "notCompleted": "Only an ended execution result can be published.",
         "notVerified": "The workspace must be clean and match the verified revision. Commit and verify the current work before publishing.",
         "stale": "The work changed since this card was shown. Open it again.",
         "noWorkspace": "The work's workspace is no longer available.",

@@ -351,6 +351,16 @@ test("observed merge completes only the verified matching execution's merge goal
 });
 
 
+test("an observed merge also completes a merge goal whose result Stave could not verify, never one recorded for another run", async () => {
+  const merge = (patch: Record<string, unknown>) => { const f = fixture(":memory:", "merge"); f.patch({ state: "resultReady", ...patch }); f.live.state = "MERGED"; return f; };
+  const unverified = merge({ resultVerifiedRunId: null, resultUnverifiedRunId: "run" });
+  await unverified.watcher.tick();
+  expect(unverified.get()).toMatchObject({ state: "completed", publication: { watch: { stopped: "merged" } } });
+  const other = merge({ resultVerifiedRunId: null, resultUnverifiedRunId: "earlier-run" });
+  await other.watcher.tick();
+  expect(other.get().state).toBe("resultReady");
+});
+
 test("a legacy stopped watch gains one actionable notice after restart", async () => {
   const f = fixture();
   f.patch({ publication: { ...f.get().publication!, checks: { state: "unavailable", failing: [], checkedAt: START, headSha: SHA },

@@ -1,4 +1,4 @@
-import { tarsCanUpdatePublication } from "./publication";
+import { tarsCanUpdatePublication, tarsResultStanding } from "./publication";
 import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
 import { z } from "zod";
 import type { TarsControlOperation, TarsResponsibility } from "./types";
@@ -94,7 +94,7 @@ export interface TarsActionContext {
   ownedQuestion?: boolean;
   allowRules?: readonly TarsAllowRule[];
   repositoryPath?: string | null;
-  responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> | null;
+  responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "resultUnverifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> | null;
   extend?: { admittedMaxTurns: number; currentMaxTurns: number; additionalTurns?: number } | null;
 }
 
@@ -115,10 +115,13 @@ export function tarsCanAutoExtend(budget: TarsActionContext["extend"]): boolean 
     && Math.min(currentMaxTurns + additionalTurns, AGENT_RUN_LIMITS.maxTurnsCeiling) <= admittedMaxTurns * TARS_AUTO_EXTEND_MULTIPLIER;
 }
 
-/** The original PR endpoint authorizes a draft PR only after host verification of this exact execution. */
+/**
+ * The PR endpoint authorizes a draft PR for this exact execution's ended result: one Stave verified, or one the
+ * run reported complete that Stave could not verify, whose pull request body says so (`tarsResultStanding`).
+ */
 export function tarsCanAutoPublish(row: TarsActionContext["responsibility"]): boolean {
   return Boolean(row && (row.completionGoal === "pullRequest" || row.completionGoal === "merge")
-    && row.state === "resultReady" && row.agentRunId && row.resultVerifiedRunId === row.agentRunId
+    && row.state === "resultReady" && tarsResultStanding(row) !== null
     && row.executionWorkspaceId && !row.executionPending && row.detailCode !== "acceptedWithoutVerification"
     && (row.publication?.state !== "opened" || tarsCanUpdatePublication(row)));
 }

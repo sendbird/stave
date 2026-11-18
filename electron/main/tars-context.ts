@@ -167,7 +167,7 @@ export function observeTarsContext(store: ObservationPorts,
     const instruction = row.delegatedInstruction ? excerpt(row.delegatedInstruction, TARS_INSTRUCTION_EXCERPT_CHARS) : null;
     const followUpScope = observedFollowUpScope(row, store);
     return { id: row.id, revision: row.revision, title: row.title, workspaceId: row.workspaceId, repositoryPath: row.repositoryPath,
-      state: row.state, completionGoal: row.completionGoal ?? "unspecified", detail: row.detail, taskId: row.taskId, executionWorkspaceId: row.executionWorkspaceId, agentRunId: row.agentRunId, resultVerifiedRunId: row.resultVerifiedRunId ?? null,
+      state: row.state, completionGoal: row.completionGoal ?? "unspecified", detail: row.detail, taskId: row.taskId, executionWorkspaceId: row.executionWorkspaceId, agentRunId: row.agentRunId, resultVerifiedRunId: row.resultVerifiedRunId ?? null, resultUnverifiedRunId: row.resultUnverifiedRunId ?? null,
       previousRunIds: row.previousRunIds ?? [],
       ...(followUpScope ? { followUpScope: excerpt(followUpScope, 500).text } : {}), priority: row.priority, createdAt: row.createdAt, updatedAt: row.updatedAt,
       // The user's message that admitted it, in `requests`; "notStored" when Stave has no copy of it.

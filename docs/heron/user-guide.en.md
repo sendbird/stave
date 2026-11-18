@@ -590,8 +590,11 @@ it needs your confirmation. Each action leaves a visible record. Resume and
 retry offer **Undo** to pause that execution; already sent instructions and
 consumed turns cannot be undone.
 Work that changes repository files ends at a draft PR unless you named another
-endpoint or said not to publish. A verified result with a PR or merge goal opens a
-**draft PR** automatically at Balanced or Hands-off. Other publication asks
+endpoint or said not to publish. A result with a PR or merge goal opens a
+**draft PR** automatically at Balanced or Hands-off. When no check Stave ran and
+no independent review passed on the final revision, the draft still opens and
+its description says **Not verified by Stave**, so you can judge it from its CI
+and review. Other publication asks
 "Open a PR?"; Careful always asks. The host rechecks the revision and branches,
 never pushes the default branch and never force-pushes. Tars never merges or
 deploys. Cancel, skip, accept completion, approve a tool request, hand back

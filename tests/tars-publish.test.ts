@@ -27,7 +27,7 @@ function fakeRepository() {
   const state = {
     branch: HEAD, dirty: [] as string[], ahead: 1, remote: true as boolean,
     gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number } | null,
-    fail: { commit: 0, push: 0, create: 0 }, sha: SHA,
+    fail: { commit: 0, push: 0, create: 0, comment: 0 }, sha: SHA,
     commits: new Set<string>([SHA]),
   };
   const calls: Array<[string, string[]]> = [];
@@ -47,6 +47,10 @@ function fakeRepository() {
         if (state.fail.create > 0) { state.fail.create--; return no("GraphQL: was submitted too quickly"); }
         state.existing = { url: URL, number: 12 };
         return ok(`Creating draft pull request for ${HEAD} into main in example/web\n\n${URL}\n`);
+      }
+      if (args[0] === "pr" && args[1] === "comment") {
+        if (state.fail.comment > 0) { state.fail.comment--; return no("GraphQL: could not add the comment"); }
+        return ok(`${URL}#issuecomment-1\n`);
       }
       return no(`unexpected gh ${line}`);
     }
@@ -134,6 +138,32 @@ describe("Tars goal publication boundary", () => {
     row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
     expect((await f.confirm(row)).record.status).toBe("applied");
     expect(f.responsibilities.get(row.id)).toMatchObject({ state: "resultReady", publication: { state: "opened", url: URL } });
+  });
+
+  test("a PR goal's result Stave could not verify publishes as a draft whose body says so", async () => {
+    const f = fixture();
+    let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    // What the runtime saves when the run reported the work complete without a Stave check or a passed review.
+    row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: null, resultUnverifiedRunId: row.agentRunId }, NOW);
+    expect((await f.publisher.preview({ responsibilityId: row.id })).reason).toBeNull();
+    expect((await f.publisher.preview({ responsibilityId: row.id })).body).toContain("**Not verified by Stave.**");
+    expect((await f.confirm(row)).record.status).toBe("applied");
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "completed", publication: { state: "opened", agentRunId: row.agentRunId, url: URL } });
+    const created = f.repo.calls.find(([command, args]) => command === "gh" && args[0] === "pr" && args[1] === "create")!;
+    expect(created[1]).toContain("--draft");
+    expect(created[1].join("\n")).toContain("**Not verified by Stave.** The agent reported this work complete, but no check Stave ran and no independent review passed on the final revision.");
+    // A verified result's body carries no such note.
+    const verified = fixture();
+    let other = verified.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    other = verified.responsibilities.patch(other.id, other.revision, { resultVerifiedRunId: other.agentRunId }, NOW);
+    expect((await verified.publisher.preview({ responsibilityId: other.id })).body).not.toContain("Not verified by Stave");
+  });
+
+  test("an unverified result recorded for an earlier run never publishes the current one", async () => {
+    const f = fixture(); let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    row = f.responsibilities.patch(row.id, row.revision, { resultUnverifiedRunId: "earlier-run" }, NOW);
+    expect((await f.confirm(row)).record).toMatchObject({ status: "rejected", reason: "notVerified" });
+    expect(f.repo.commands("push")).toHaveLength(0);
   });
 
   test("a restored execution without current verification cannot publish", async () => {
@@ -541,6 +571,30 @@ test("a verified continuation updates the same open PR, with no second create or
   expect(f.repo.commands("pr ready")).toHaveLength(0);
   expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ agentRunId: "continued-run", number: 12, branch: HEAD, watch: { fixRounds: 1 } });
   expect((await f.confirm(f.responsibilities.get(row.id)!)).record.reason).toBe("alreadyPublished");
+});
+
+test("a continuation Stave could not verify updates the open PR and says so in a comment, leaving its body alone", async () => {
+  const f = fixture();
+  let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+  row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+  expect((await f.confirm(row)).record.status).toBe("applied");
+  // The verified first publication wrote the body and needs no comment.
+  expect(f.repo.commands("pr comment")).toHaveLength(0);
+  row = f.responsibilities.get(row.id)!;
+  row = f.responsibilities.patch(row.id, row.revision, { state: "running", agentRunId: "continued-run" }, NOW);
+  row = f.responsibilities.patch(row.id, row.revision, { state: "resultReady", resultUnverifiedRunId: "continued-run" }, NOW);
+  // A comment that cannot be posted leaves the publication unfinished instead of updating the PR without the disclosure.
+  f.repo.state.fail.comment = 1;
+  expect((await f.confirm(row)).record.status).toBe("rejected");
+  row = f.responsibilities.get(row.id)!;
+  expect(row).toMatchObject({ state: "resultReady", publication: { state: "failed" } });
+  expect((await f.confirm(row)).record).toMatchObject({ status: "applied", number: 12, url: URL, existing: true });
+  expect(f.repo.commands("pr create")).toHaveLength(1);
+  const comments = f.repo.commands("pr comment").slice(1);
+  expect(comments).toHaveLength(1);
+  expect(comments[0]![1].slice(0, 3)).toEqual(["pr", "comment", "12"]);
+  expect(comments[0]![1][3]).toStartWith("--body=**Not verified by Stave.**");
+  expect(f.responsibilities.get(row.id)).toMatchObject({ state: "completed", publication: { agentRunId: "continued-run", number: 12 } });
 });
 
 test("an update refuses a closed original PR before pushing", async () => {

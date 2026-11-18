@@ -1,7 +1,7 @@
 import { readTarsPrFeedback } from "./tars-pr-feedback";
 import { parseTarsPrChecks, tarsPrWatchEpisode, TarsPrReviewInputSchema } from "../../src/lib/tars/pr-checks";
 import { parseTarsDecisionId } from "../../src/lib/tars/decisions";
-import type { TarsPublication } from "../../src/lib/tars/publication";
+import { tarsResultStanding, type TarsPublication } from "../../src/lib/tars/publication";
 import type { TarsResponsibility } from "../../src/lib/tars/types";
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsStore } from "../persistence/tars-store";
@@ -42,7 +42,7 @@ export function createTarsPrWatcher(ports: Ports) {
     const current = ports.responsibilities.get(row.id);
     // A publish or continuation that raced this read wins; never overwrite it with an old response.
     if (!current || current.revision !== row.revision) return;
-    ports.responsibilities.patch(row.id, current.revision, { publication, ...(publication.watch?.stopped === "merged" && row.completionGoal === "merge" && row.state === "resultReady" && row.resultVerifiedRunId === row.agentRunId && publication.agentRunId === row.agentRunId ? { state: "completed" as const } : {}) }, now());
+    ports.responsibilities.patch(row.id, current.revision, { publication, ...(publication.watch?.stopped === "merged" && row.completionGoal === "merge" && row.state === "resultReady" && tarsResultStanding(row) !== null && publication.agentRunId === row.agentRunId ? { state: "completed" as const } : {}) }, now());
   }
   async function poll() {
     for (const row of ports.responsibilities.snapshot().responsibilities) {

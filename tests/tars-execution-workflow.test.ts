@@ -208,6 +208,24 @@ describe("Tars completion over the conditional stages", () => {
     expect(tarsObservation(nothingChanged, ["Search works"], null, { completionGoal: "merge" }).state).toBe("resultReady");
   });
 
+  test("a PR or merge goal Stave could not verify goes on to its draft pull request instead of waiting to be cancelled", () => {
+    const work = record("work", { report: complete(), facts: facts("r2", { changedPaths: ["src/search.ts"] }) });
+    // The review still has findings on the final revision and no Stave check passed.
+    const detail = ended([work, reviewed("changes-requested"), skipped(FIX_REVIEW_STAGE_ID)]);
+    for (const completionGoal of ["pullRequest", "merge"] as const)
+      expect(tarsObservation(detail, ["Search works"], null, { completionGoal })).toEqual({ state: "resultReady", detail: null,
+        resultVerifiedRunId: null, resultUnverifiedRunId: "run", unchangedRunId: null });
+    // Work that ends in the workspace has no pull request to check it next: the user still decides.
+    for (const completionGoal of ["implementation", "design", "confirmation", undefined] as const)
+      expect(tarsObservation(detail, ["Search works"], null, { completionGoal })).toMatchObject(unverified);
+    // Verified work records no unverified run, and an incomplete report still blocks a PR goal.
+    expect(tarsObservation(ended([work, reviewed("passed"), skipped(FIX_REVIEW_STAGE_ID)]), ["Search works"], null, { completionGoal: "pullRequest" }))
+      .toMatchObject({ state: "resultReady", resultVerifiedRunId: "run", resultUnverifiedRunId: null });
+    expect(tarsObservation(detail, ["Search works", "Another criterion"], null, { completionGoal: "pullRequest" })).toMatchObject({ state: "blocked", detailCode: "incompleteReport" });
+    // After a hand-back, a verification that started before it is still stale.
+    expect(tarsObservation(detail, ["Search works"], at(30), { completionGoal: "pullRequest" })).toMatchObject(stale);
+  });
+
   test("changed work skipped past its review by the user still needs a Stave check", () => {
     const work = record("work", { report: complete(), facts: facts("r2", { changedPaths: ["src/search.ts"] }) });
     expect(observe(ended([work, skipped(REVIEW_STAGE_ID), skipped(FIX_REVIEW_STAGE_ID)]))).toMatchObject(unverified);
