@@ -2,11 +2,11 @@ import { expect, test } from "@playwright/test";
 
 /**
  * Screenshots the assistant took are attached under its reply as small,
- * numbered thumbnails, and one click opens a screenshot at its original pixel
- * size in a scrolling frame. The Preview's completed turn carries two Lens
+ * numbered thumbnails, and one click opens a screenshot in a lightbox that fits
+ * the whole image to the viewport. The Preview's completed turn carries two Lens
  * screenshot results (1280×800 and 900×1400).
  */
-test("reply screenshots show as numbered thumbnails that open at original size", async ({ page }) => {
+test("reply screenshots show as numbered thumbnails that open fitted in a lightbox", async ({ page }) => {
   await page.goto("/?stavePreview=agent-messages");
   await page.getByRole("button", { name: "Streaming" }).click();
 
@@ -27,17 +27,16 @@ test("reply screenshots show as numbered thumbnails that open at original size",
     expect(box!.height).toBeLessThanOrEqual(72.5);
   }
 
-  await strip.getByRole("button", { name: "Open Image 2 at original size" }).click();
+  await strip.getByRole("button", { name: "Open Image 2" }).click();
   const dialog = page.getByRole("dialog", { name: "Image 2" });
   await expect(dialog).toBeVisible();
-  const full = page.getByTestId("tool-image-full-frame").locator("img");
-  /* Wait for the open animation to settle before measuring. */
+  /* The whole image fits the viewport instead of overflowing at original size. */
+  const full = page.getByTestId("image-lightbox").locator("img");
+  const viewport = page.viewportSize()!;
   await expect
-    .poll(async () => (await full.boundingBox())?.width)
-    .toBeCloseTo(900, 0);
-  expect((await full.boundingBox())!.height).toBeCloseTo(1400, 0);
-  const scrolls = await page
-    .getByTestId("tool-image-full-frame")
-    .evaluate((frame) => frame.scrollHeight > frame.clientHeight);
-  expect(scrolls).toBe(true);
+    .poll(async () => (await full.boundingBox())?.height ?? Infinity)
+    .toBeLessThanOrEqual(viewport.height);
+  const box = (await full.boundingBox())!;
+  expect(box.width).toBeLessThanOrEqual(viewport.width);
+  expect(box.width / box.height).toBeCloseTo(900 / 1400, 1);
 });

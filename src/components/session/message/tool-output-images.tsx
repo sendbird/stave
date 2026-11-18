@@ -4,7 +4,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { Button as AuiButton } from "@/components/aui/components/Button";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import type { ReplyToolImage, ToolOutputImage } from "@/lib/tool-images/tool-images";
 
 type Loaded = { status: "loading" } | { status: "ready"; src: string } | { status: "missing" };
@@ -84,20 +84,20 @@ function ToolImageThumbnail(props: { image: ToolOutputImage; number: number; com
           <figcaption className={sx(styles.caption)}>{label}</figcaption>
         ) : null}
       </figure>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent xstyle={styles.dialog}>
-          <DialogTitle>{label}</DialogTitle>
-          {/* Original size: the frame scrolls instead of shrinking the image. */}
-          <div className={sx(styles.fullFrame)} data-testid="tool-image-full-frame">
-            <img src={loaded.src} alt={label} className={sx(styles.full)} />
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Fit to the viewport so the whole image is visible; zoom and pan
+          show the detail of a high-DPI screenshot. */}
+      <ImageLightbox
+        open={open}
+        imageSrc={loaded.src}
+        alt={label}
+        ariaLabel={label}
+        onClose={() => setOpen(false)}
+      />
     </>
   );
 }
 
-/** The images a tool call returned, as thumbnails that open full size. */
+/** The images a tool call returned, as thumbnails that open in a lightbox. */
 export function ToolOutputImages(props: { images: readonly ToolOutputImage[]; firstNumber?: number }) {
   if (props.images.length === 0) return null;
   const first = props.firstNumber ?? 1;
@@ -117,7 +117,7 @@ export function ToolOutputImages(props: { images: readonly ToolOutputImage[]; fi
 /**
  * The screenshots the assistant took during a reply, attached under it as
  * small numbered thumbnails ("Image 1", "Image 2"), in the order taken. The
- * reply refers to them by those numbers; a click opens one at original size.
+ * reply refers to them by those numbers; a click opens one in a lightbox.
  */
 export function ReplyToolImages(props: { images: readonly ReplyToolImage[] }) {
   useTranslation();
@@ -189,18 +189,5 @@ const styles = stylex.create({
   placeholder: {
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],
-  },
-  dialog: {
-    maxInlineSize: "min(92vw, 1400px)",
-    inlineSize: "auto",
-  },
-  fullFrame: {
-    maxBlockSize: "78vh",
-    maxInlineSize: "100%",
-    overflow: "auto",
-  },
-  full: {
-    display: "block",
-    maxInlineSize: "none",
   },
 });
