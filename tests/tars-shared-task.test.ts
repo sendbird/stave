@@ -187,6 +187,8 @@ function hostScenario(options: { goal: "design" | "pullRequest" | "merge"; verif
   contains?: boolean;
   /** \`gh\` or \`git\` fails (a timeout reads the same): which read throws. */
   fail?: "pullRequest" | "origin" | "contains";
+  /** Several pull requests the report links, each with what GitHub says of it; replaces \`pullRequest\`. */
+  pullRequests?: Record<string, unknown>[];
   /** What GitHub says of the same pull request on later looks, with the clock moved by \`afterMs\` first. */
   later?: { pullRequest: Record<string, unknown>; afterMs: number }[] }) {
   const source = `
@@ -223,7 +225,7 @@ function hostScenario(options: { goal: "design" | "pullRequest" | "merge"; verif
     const runtime = createHostTarsRuntime({ assignments, agentRuns: { get: async ({ agentRunId }) => {
       const aggregate = persistence.agentRuns.getAggregate(agentRunId);
       return { events: [], ...aggregate, stages: stages[agentRunId] ?? aggregate.stages, report: reports[agentRunId] ?? null };
-    } }, readPullRequest: async (cwd, url) => { reads.push(cwd + " " + url); if (options.fail === "pullRequest") throw new Error("gh timed out"); return pullRequest; },
+    } }, readPullRequest: async (cwd, url) => { reads.push(cwd + " " + url); if (options.fail === "pullRequest") throw new Error("gh timed out"); return options.pullRequests?.find((item) => item.url === url) ?? pullRequest; },
       workBranch: { origin: async () => { if (options.fail === "origin") throw new Error("git failed"); return options.origin === undefined ? "git@github.com:example/repo.git" : options.origin; },
         contains: async (cwd, branch, commit) => { reads.push("contains " + branch + " " + commit); if (options.fail === "contains") throw new Error("git failed"); return options.contains ?? true; } } });
     let pullRequest = options.pullRequest ?? null, clock = Date.now();
@@ -262,7 +264,7 @@ function hostScenario(options: { goal: "design" | "pullRequest" | "merge"; verif
     // The user's run completes with its own criteria and the pull request it reports.
     persistence.agentRuns.apply({ agentRun: { ...persistence.agentRuns.getAgentRun("user-run"), state: "completed", currentStageIndex: 2 }, upserts: [], events: [] }, new Date(end));
     reports["user-run"] = { outcome: "completed", endedAt: end, acceptanceCriteria: [{ text: "The PR is open.", status: "met" }],
-      links: [{ label: "PR #1002", url: "https://github.com/example/repo/pull/1002", source: "agent" }], leftBehind: [], evidence: [] };
+      links: (options.pullRequests ?? [{ url: "https://github.com/example/repo/pull/1002" }]).map((item) => ({ label: "PR", url: item.url, source: "agent" })), leftBehind: [], evidence: [] };
     if (options.verified) {
       // Stave read the workspace after the report and found nothing changed since the stage began.
       const revision = { status: "known", revision: "r1" };
@@ -320,7 +322,8 @@ describe("the host observes the user's run in the delegated task", () => {
   });
   test("the pull request the user's run opened to the requested base from the work's branch finishes the work, by the user", () => {
     // The remote may name the repository in another case, over ssh or https.
-    for (const origin of ["git@github.com:example/repo.git", "https://github.com/Example/Repo", "ssh://git@github.com/example/repo.git/"]) {
+    for (const origin of ["git@github.com:example/repo.git", "https://github.com/Example/Repo", "ssh://git@github.com/example/repo.git/",
+      "ssh://git@GitHub.com:22/example/repo", "https://token@github.com:443/example/repo.git"]) {
       const steps = hostScenario({ goal: "pullRequest", pullRequest: workPullRequest(), origin });
       expect(steps.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 }, resultVerifiedRunId: null });
       expect(steps.autoPublish).toBe(false);
@@ -338,6 +341,10 @@ describe("the host observes the user's run in the delegated task", () => {
       { goal: "pullRequest", pullRequest: workPullRequest({ url: "https://github.com/other/repo/pull/1002",
         headRepositoryOwner: { login: "other" } }) },
       { goal: "pullRequest", pullRequest: workPullRequest(), origin: "git@github.com:example/repo-fork.git" },
+      // The same owner and name on another host (a GitHub Enterprise origin, a github.com pull request) is another repository.
+      { goal: "pullRequest", pullRequest: workPullRequest(), origin: "git@git.company.com:example/repo.git" },
+      { goal: "pullRequest", pullRequest: workPullRequest(), origin: "https://git.company.com/example/repo.git" },
+      { goal: "pullRequest", pullRequest: workPullRequest({ url: "https://git.company.com/example/repo/pull/1002" }) },
       // The work's repository cannot be determined.
       { goal: "pullRequest", pullRequest: workPullRequest(), origin: null },
       { goal: "pullRequest", pullRequest: workPullRequest(), origin: "/srv/git/repo.git" },
@@ -354,6 +361,11 @@ describe("the host observes the user's run in the delegated task", () => {
       expect(steps.ended, JSON.stringify(options)).toMatchObject({ state: "blocked", detailCode: "userRunEnded", resultVerifiedRunId: null });
     }
   });
+  test("a GitHub Enterprise pull request finishes the work when the origin is on the same host", () => {
+    const steps = hostScenario({ goal: "pullRequest", origin: "ssh://git@git.company.com:2222/example/repo.git",
+      pullRequests: [workPullRequest({ url: "https://git.company.com/example/repo/pull/1002" })] });
+    expect(steps.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 } });
+  });
   test("an open pull request is read again for a merge goal, and only every few minutes", () => {
     const merged = workPullRequest({ state: "MERGED" });
     const steps = hostScenario({ goal: "merge", pullRequest: workPullRequest(), later: [{ pullRequest: merged, afterMs: 60_000 }, { pullRequest: merged, afterMs: 5 * 60_000 }] });
@@ -369,9 +381,11 @@ describe("the work's own repository and commits", () => {
   test("a remote names its repository over ssh or https, in any case; a local path names none", async () => {
     const { tarsRemoteRepository } = await import("../electron/host-service/tars-execution");
     for (const remote of ["git@github.com:Example/Repo.git", "ssh://git@github.com/example/repo.git", "ssh://git@github.com:22/example/repo",
-      "https://github.com/example/repo", "https://token@github.com/example/repo.git/", "https://github.com/example/repo/pull/7"])
-      expect(tarsRemoteRepository(remote), remote).toEqual({ owner: "example", name: "repo" });
-    for (const remote of ["/srv/git/repo.git", "file:///srv/example/repo", "../repo", "https://github.com/example", "https://github.com/a/b/c", ""])
+      "https://GitHub.com/example/repo", "https://token@github.com/example/repo.git/", "https://github.com:443/example/repo", "https://github.com/example/repo/pull/7"])
+      expect(tarsRemoteRepository(remote), remote).toEqual({ host: "github.com", owner: "example", name: "repo" });
+    for (const remote of ["git@git.company.com:example/repo.git", "ssh://git@git.company.com:2222/example/repo", "https://git.company.com/example/repo/pull/7"])
+      expect(tarsRemoteRepository(remote), remote).toEqual({ host: "git.company.com", owner: "example", name: "repo" });
+    for (const remote of ["/srv/git/repo.git", "file:///srv/example/repo", "../repo", "https://github.com/example", "https://github.com/a/b/c", "", "https:///example/repo", "git@:example/repo", "ssh://git@/example/repo"])
       expect(tarsRemoteRepository(remote), remote).toBeNull();
   });
   test("the work branch's commit is contained only in its own or a later commit, read with argument arrays", async () => {

@@ -407,24 +407,30 @@ export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report
 }
 
 const REPOSITORY_PART = /^[A-Za-z0-9_.-]+$/;
+const HOST = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
 
 /**
- * The owner and name of the repository a remote URL (ssh, scp-like or https)
- * or a pull request URL names, lowercased; null for anything else, such as a
- * local path.
+ * The host, owner and name of the repository a remote URL (ssh, scp-like or
+ * https, with optional user, port and `.git`) or a pull request URL names,
+ * lowercased; the port is not part of the host, so an ssh remote and an https
+ * pull request URL on one server name the same repository. Null when any part
+ * cannot be determined, such as for a local path.
  */
-export function tarsRemoteRepository(remote: string): { owner: string; name: string } | null {
+export function tarsRemoteRepository(remote: string): { host: string; owner: string; name: string } | null {
   const trimmed = remote.trim();
-  const pull = /^https:\/\/[^/]+\/([^/]+)\/([^/]+)\/pull\/\d+(?:[/?#]|$)/.exec(trimmed);
-  const match = pull ?? /^(?:[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?[^/]+\/|(?:[^@/:]+@)?[^/:]+:)([^/]+)\/([^/]+?)(?:\.git)?\/*$/i.exec(trimmed);
-  if (!match || !REPOSITORY_PART.test(match[1]!) || !REPOSITORY_PART.test(match[2]!) || match[2] === "." || match[2] === "..") return null;
-  return { owner: match[1]!.toLowerCase(), name: match[2]!.toLowerCase() };
+  const match = /^https:\/\/(?:[^@/]+@)?([^/:@]+)(?::\d+)?\/([^/]+)\/([^/]+)\/pull\/\d+(?:[/?#]|$)/i.exec(trimmed)
+    ?? /^(?:ssh|git\+ssh|ssh\+git|https?|git):\/\/(?:[^@/]+@)?([^/:@]+)(?::\d+)?\/([^/]+)\/([^/]+?)(?:\.git)?\/*$/i.exec(trimmed)
+    ?? /^(?:[^@/:]+@)?([^/:@]+):([^/]+)\/([^/]+?)(?:\.git)?\/*$/.exec(trimmed);
+  if (!match) return null;
+  const [host, owner, name] = [match[1]!.toLowerCase(), match[2]!, match[3]!];
+  if (!HOST.test(host) || !/[a-z]/.test(host) || !REPOSITORY_PART.test(owner) || !REPOSITORY_PART.test(name) || name === "." || name === "..") return null;
+  return { host, owner: owner.toLowerCase(), name: name.toLowerCase() };
 }
 
 /**
  * Whether a pull request is the one the work asks for, as far as its names
  * say: opened in the work's own repository (the execution workspace's
- * origin), from the work's branch of that same repository (not a fork's
+ * origin: same host, owner and name), from the work's branch of that same repository (not a fork's
  * branch of the same name), to the requested base. An origin that names no
  * repository never matches. Whether it carries the work's commits is read
  * separately against its head commit.
@@ -432,7 +438,7 @@ export function tarsRemoteRepository(remote: string): { owner: string; name: str
 export function isTarsWorkPullRequest(pullRequest: TarsUserPullRequest, work: { origin: string; branch: string; base: string }): boolean {
   const repository = tarsRemoteRepository(work.origin);
   const opened = tarsRemoteRepository(pullRequest.url);
-  if (!repository || !opened || opened.owner !== repository.owner || opened.name !== repository.name) return false;
+  if (!repository || !opened || opened.host !== repository.host || opened.owner !== repository.owner || opened.name !== repository.name) return false;
   return !pullRequest.isCrossRepository && pullRequest.headRepositoryOwner?.login.toLowerCase() === repository.owner
     && pullRequest.headRepository?.name.toLowerCase() === repository.name
     && pullRequest.baseRefName === work.base && pullRequest.headRefName === work.branch && /^[0-9a-f]{40,64}$/.test(pullRequest.headRefOid);
