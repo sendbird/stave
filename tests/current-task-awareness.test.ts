@@ -183,18 +183,45 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
       "Prompt Input Redesign | node 1:2 | https://www.figma.com/design/FILE123/Prompt?node-id=1-2 | Latest approved mock",
     );
     // The turn summary moved into its own first-turn-only part.
-    expect(information).not.toContain("Latest turn summary:");
+    expect(information).not.toContain(
+      workspaceInformation.turnSummary.workSummary,
+    );
 
     const turnSummary = contentBySourceId(
       parts,
       STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
     );
-    expect(turnSummary).toContain("Latest turn summary:");
+    expect(turnSummary).toContain("Latest turn summary for the current task:");
     expect(turnSummary).toContain(
       "Summarise the latest workspace activity in the Information panel. | Prepared the UI plan and identified the Information panel integration points.",
     );
   });
 
+  test.each([
+    ["previous-task", "Latest turn summary for another task in this workspace"],
+    ["", "Latest turn summary"],
+  ])("labels the recap by source ID '%s'", (sourceId, heading) => {
+    const workspaceInformation = createEmptyWorkspaceInformation();
+    workspaceInformation.turnSummary = {
+      turnId: "turn-1",
+      taskId: sourceId,
+      taskTitle: "Review changes",
+      generatedAt: "2026-04-10T00:00:00.000Z",
+      model: "model",
+      requestSummary: "Review the first change.",
+      workSummary: "Finished the review.",
+    };
+    const parts = buildCurrentTaskAwarenessRetrievedContextParts({
+      workspaceId: "workspace",
+      taskId: "current-task",
+      tasks: [createTask({ id: "current-task", title: "Review changes" })],
+      workspaceInformation,
+    });
+
+    expect(contentBySourceId(parts, STAVE_LATEST_TURN_SUMMARY_SOURCE_ID)).toBe(
+      `${heading}:\n- Review changes | Review the first change. | Finished the review.`,
+    );
+  });
 
   test("caps the Workspace Information body and points at the MCP tool for the rest", () => {
     const workspaceInformation = createEmptyWorkspaceInformation();
