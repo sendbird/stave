@@ -341,7 +341,7 @@ export function buildAgentRunBriefing(aggregate: AgentRunAggregate): AgentRunBri
       purpose: agentRun.workflow.purpose,
       constraints: agentRun.workflow.constraints?.trim() || null,
     },
-    assignment: agentRun.assignment,
+    assignment: agentRunTurnAssignment(agentRun),
     stages: agentRun.workflow.stages.map((stage, index) => ({
       position: index + 1,
       title: stage.title,

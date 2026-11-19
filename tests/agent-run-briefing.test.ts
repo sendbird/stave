@@ -9,6 +9,9 @@ import {
   agentRunPermissionRuntimeOptions,
 } from "../src/lib/agent-runs/briefing";
 import { extractStageFacts, parseDiffShortStat } from "../src/lib/agent-runs/facts";
+import { AGENT_RUN_LIMITS } from "../src/lib/agent-runs/domain";
+import { AgentRunInitialContextSchema } from "../src/lib/agent-runs/initial-context";
+import { MAX_PROVIDER_TEXT_FIELD_CHARS } from "../src/lib/file-context-sanitization";
 import { requestStageChanges } from "../src/lib/agent-runs/commands";
 import { applyChange, COMPLETE_REPORT, agentRunFixture } from "./fixtures/agent-run-fixtures";
 
@@ -59,6 +62,18 @@ describe("run briefing", () => {
     const prompt = compileAgentRunStagePrompt(applyChange(signOff, change));
     expect(prompt).toContain("## Attempt 2");
     expect(prompt).toContain("Export only the visible columns.");
+  });
+
+  test("the briefing an agent re-reads mid-run carries the full request, not the bounded history copy", () => {
+    const aggregate = atBuild();
+    const full = `${"x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars)} Finally, update the changelog.`;
+    const run = { ...aggregate, agentRun: { ...aggregate.agentRun, assignment: full.slice(0, AGENT_RUN_LIMITS.maxAssignmentChars), initialContext: { fullAssignment: full } } };
+    expect(buildAgentRunBriefing(run).assignment).toBe(full);
+  });
+
+  test("a full request is bounded at the limit a chat message has", () => {
+    expect(AgentRunInitialContextSchema.safeParse({ fullAssignment: "x".repeat(MAX_PROVIDER_TEXT_FIELD_CHARS) }).success).toBe(true);
+    expect(AgentRunInitialContextSchema.safeParse({ fullAssignment: "x".repeat(MAX_PROVIDER_TEXT_FIELD_CHARS + 1) }).success).toBe(false);
   });
 
   test("the briefing and the context part name the stage, never the run id", () => {

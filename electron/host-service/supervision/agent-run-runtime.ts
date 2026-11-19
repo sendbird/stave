@@ -2413,7 +2413,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:composer:${turnId}`, detail: adaptive.composerDecision });
       if (adaptive?.decision)
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:${adaptive.requestSequence ?? `reply-auto:${turnId}`}`, detail: adaptive.decision });
-      const browserRequested = agentRunBrowserRequested({ assignment: run.assignment, prompt, delegated: !!authority,
+      const browserRequested = agentRunBrowserRequested({ assignment: agentRunTurnAssignment(run), prompt, delegated: !!authority,
         events: store.listEventsByKind(run.id, ["turn-linked"]) });
       turnIdsFor(run.id).add(turnId);
       recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply", browserRequested } });

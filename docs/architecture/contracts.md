@@ -344,8 +344,9 @@ when supplied; turn limits do not guarantee dollars, cost savings or quality.
 
 File paths enter supervision as saved on-disk references. Inline images and
 rich context are captured with the Run. Assignments in Run history are bounded
-to 8,000 characters, with longer requests saved in initial context for the
-stage prompt. An idle queued assignment can start a Run using queue-time
+to 8,000 characters, with longer requests (up to the 500,000-character limit
+of a chat message) saved in initial context for the stage prompt and the run
+briefing. An idle queued assignment can start a Run using queue-time
 routing intent, removing only its accepted queue identity. Refusal keeps the
 queued assignment available. Active Runs and utility work keep their existing
 entry behavior.
