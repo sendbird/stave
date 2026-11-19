@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { buildTarsTray, tarsCardActions, tarsControlsFor, tarsPendingProposalKeys, tarsStageSegments, tarsStepCount, tarsTrayStatus } from "../src/lib/tars/tray-model";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
+import { addTarsCardCases } from "../src/dev/tars-preview/tars-card-fixtures";
+import { collectFleetTarsAttentionItems } from "@/lib/fleet/attention-projection";
+import { collectTarsAttention, countTarsWorkNeedingUser } from "../src/lib/tars/attention";
 import type { TarsResponsibility } from "../src/lib/tars/types";
 
 const start = new Date("2026-11-05T00:00:00.000Z");
@@ -9,7 +12,7 @@ const card = (model: ReturnType<typeof buildTarsTray>, id: string) =>
   [...model.lanes.needsYou, ...model.lanes.running, ...model.lanes.done].find((value) => value.row.id === id)!;
 
 describe("Tars tray read model", () => {
-  test("lanes and counts follow Fleet's attention rows, and the count is Fleet's row count", () => {
+  test("lanes follow Fleet's attention rows, and each lane's count is the cards it holds", () => {
     const f = buildTarsTrayFixtures(start);
     const model = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: f.attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
     expect(model.lanes.needsYou.map((value) => value.row.id)).toEqual([f.ids.release]);
@@ -18,15 +21,38 @@ describe("Tars tray read model", () => {
     // Each lane's count is the number its header shows; the in-progress lane holds the running fix and the work the user took over,
     // and only the fix counts as running (the navigation status's number).
     expect(model.counts).toEqual({ needsYou: 1, inProgress: 2, done: 1, running: 1 });
-    // A Fleet row on the task (not a Tars kind) also lands the work in needs you, and counts as one more row.
+    // A Fleet row on the task (not a Tars kind) also lands the work in needs you: one more card, so one more in the count.
     const signOff = { id: "agent-run-sign-off:run-billing", kind: "agent-run-sign-off", taskId: "task-billing", detail: "Stage 2 · Cause" };
     const both = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [...f.attentionItems, signOff], runs: f.runs, pendingDecisions: f.pendingDecisions });
     expect(both.counts.needsYou).toBe(2);
     expect(both.lanes.needsYou.map((value) => value.row.id)).toEqual([f.ids.release, f.ids.billing]);
     expect(card(both, f.ids.billing).attention.map((row) => row.item.kind)).toEqual(["agent-run-sign-off"]);
+    // A second row for the same work adds no card, so the count stays: the card's detail lists both rows.
+    const quiet = { id: "turn:turn-stalled:task-billing", kind: "turn-stalled", taskId: "task-billing" };
+    const twoRows = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [...f.attentionItems, signOff, quiet], runs: f.runs, pendingDecisions: f.pendingDecisions });
+    expect(card(twoRows, f.ids.billing).attention).toHaveLength(2);
+    expect(twoRows.counts.needsYou).toBe(2);
+    // A row that names work this window does not hold shows no card and is not counted.
+    const gone = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [{ id: "tars:decision:gone", kind: "tars-decision", tarsResponsibilityId: "not-here" }], runs: f.runs });
+    expect(gone.counts.needsYou).toBe(0);
     // Rows for work Tars does not own are not Tars's.
     const foreign = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [{ id: "x", kind: "approval", taskId: "someone-else" }], runs: f.runs });
     expect(foreign.counts.needsYou).toBe(0);
+  });
+
+  test("the needs-you count is the cards the lane shows, in the tray and in the sidebar, however many rows Fleet lists for one piece of work", () => {
+    // The preview's state cases: four pieces of work need the user, and Fleet lists six rows for them
+    // (two review rows for one running task; a question and the result review for one ready result).
+    const f = buildTarsTrayFixtures(start);
+    addTarsCardCases(f, start, false);
+    // Fleet's rows as the preview feeds them: the task rows as given, Tars's own from the snapshot.
+    const attentionItems = [...f.attentionItems.filter((item) => !item.kind.startsWith("tars-")), ...collectFleetTarsAttentionItems(collectTarsAttention(f))];
+    expect(attentionItems).toHaveLength(6);
+    const model = buildTarsTray({ responsibilities: f.responsibilities, attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
+    expect(model.lanes.needsYou.map((value) => value.row.id)).toEqual(["release", "card-helper", "card-signals", "card-question"]);
+    expect(model.lanes.needsYou.flatMap((value) => value.attention)).toHaveLength(6);
+    expect(model.counts).toMatchObject({ needsYou: 4, inProgress: model.lanes.running.length, done: model.lanes.done.length });
+    expect(countTarsWorkNeedingUser(attentionItems, f.responsibilities)).toBe(4);
   });
 
   test("a card shows its workspace branch once the workspace exists, and queued work does not infer a blocking responsibility", () => {

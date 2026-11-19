@@ -3,7 +3,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { sx } from "@/components/aui/utils/stylex";
 import { CountBadge } from "@/components/system/CountBadge";
-import { selectTarsAttentionRows } from "@/lib/tars/attention";
+import { countTarsWorkNeedingUser } from "@/lib/tars/attention";
 import { isTarsWorkRunning } from "@/lib/tars/live-progress";
 import { useFleetAttentionStore } from "@/store/fleet-attention-store";
 import { useTarsResponsibilities } from "@/store/tars-snapshot-store";
@@ -12,7 +12,7 @@ import { tarsLiveStyles as styles } from "./tars-live.styles";
 export interface TarsNavCounts {
   /** Work that actually runs now (never queued, paused, waiting or taken over). */
   running: number;
-  /** Fleet's rows for Tars work, the number the Tars tray and Fleet show. */
+  /** Tars work that needs the user: the cards in the tray's Needs you lane, the number its header shows. */
   needsYou: number;
 }
 
@@ -26,7 +26,7 @@ export function useTarsNavCounts(): TarsNavCounts {
   const items = useFleetAttentionStore((state) => state.snapshot.items);
   return useMemo(() => ({
     running: responsibilities.filter(isTarsWorkRunning).length,
-    needsYou: selectTarsAttentionRows(items, responsibilities).rows.length,
+    needsYou: countTarsWorkNeedingUser(items, responsibilities),
   }), [items, responsibilities]);
 }
 

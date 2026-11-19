@@ -97,15 +97,18 @@ describe("Tars tray UI", () => {
     expect(toggle(false)).not.toContain("aria-controls");
   });
 
-  test("the needs-you header says Fleet's row count, the indicator's number, even when one card holds several rows", () => {
+  test("the needs-you header counts the cards under it, the indicator's number, even when one card holds several rows", () => {
     const f = fixtures();
     const signOff = { id: "agent-run-sign-off:release", kind: "agent-run-sign-off", taskId: "task-release" };
     const model = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [...f.attentionItems, signOff], runs: f.runs, pendingDecisions: f.pendingDecisions });
     expect(model.lanes.needsYou).toHaveLength(1);
-    expect(model.counts.needsYou).toBe(2);
+    expect(model.lanes.needsYou[0]!.attention).toHaveLength(2);
+    expect(model.counts.needsYou).toBe(1);
     const html = renderToStaticMarkup(createElement(TarsTray, { grouped: false, model, actions: noActions }));
-    expect(html).toContain('data-tars-lane-count="2"');
-    expect(describeTarsTrayCounts(model.counts)).toContain("2 need you");
+    expect(html).toContain('data-tars-lane-count="1"');
+    expect(describeTarsTrayCounts(model.counts)).toContain("1 needs you");
+    // Both rows are in the one card's detail.
+    expect(html).toContain('data-tars-attention-list="2"');
   });
 
   test("Needs you and In progress are open, Done is folded, and every lane says its count", () => {

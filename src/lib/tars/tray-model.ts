@@ -124,10 +124,10 @@ export function tarsBranchOf(row: Pick<TarsResponsibility, "id" | "branchName" |
 const holdsActiveSlot = isTarsWorkRunning;
 
 /**
- * What the header indicator and the lane headers count, one number per lane.
- * `needsYou` counts Fleet's rows for Tars work (one card may hold several), so
- * the tray and Fleet show the same number; `inProgress` and `done` count the
- * cards in their lanes. `running` counts only work that is actually running,
+ * What the header indicator and the lane headers count, one number per lane:
+ * the cards the lane holds, so a header never says a number the user cannot
+ * count under it. A card in `needsYou` may hold several of Fleet's rows; its
+ * detail lists them. `running` counts only work that is actually running,
  * in any lane, never queued, paused, waiting or taken-over work; it is the
  * navigation status's number, not a lane's.
  */
@@ -224,7 +224,7 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   // Work that started leads its lane; queued work follows in the order it will start, so the cards a user reorders stay together.
   for (const lane of Object.values(lanes)) lane.sort((a, b) => (a.queue?.position ?? 0) - (b.queue?.position ?? 0));
   const counts: TarsTrayCounts = {
-    needsYou: rows.length,
+    needsYou: lanes.needsYou.length,
     inProgress: lanes.running.length,
     done: lanes.done.length,
     running: [...lanes.needsYou, ...lanes.running].filter((card) => holdsActiveSlot(card.row)).length,

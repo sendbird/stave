@@ -257,7 +257,8 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
     await done.click();
     await expect(done).toHaveAttribute("aria-expanded", "false");
 
-    // Retired proposals no longer move their work into Needs you. Lane counts follow Fleet's live attention.
+    // Retired proposals no longer move their work into Needs you. Lanes follow Fleet's live attention, and each header counts the cards under it:
+    // work with several of Fleet's rows is still one card.
     const lanes = await readHeads();
     const expected = await page.evaluate(async () => {
       const { useTarsSnapshotStore } = await import("/src/store/tars-snapshot-store.ts");
@@ -272,9 +273,11 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
         const id = item.tarsResponsibilityId ?? (item.taskId ? byTask.get(item.taskId) : undefined);
         return id ? [id] : [];
       });
-      return { needsYou: attention.length, running: live.filter((row) => !attention.includes(row.id)).length };
+      return { rows: attention.length, needsYou: rows.filter((row) => attention.includes(row.id)).length, running: live.filter((row) => !attention.includes(row.id)).length };
     });
+    expect(expected.rows).toBeGreaterThan(expected.needsYou);
     expect(lanes.find((head) => head.lane === "needsYou")!.count).toBe(expected.needsYou);
+    await expect(page.locator('[data-tars-tray-lane="needsYou"] [data-tars-card]')).toHaveCount(expected.needsYou);
     expect(lanes.find((head) => head.lane === "running")!.count).toBe(expected.running);
     expect(expected.running).toBeGreaterThan(0);
     await expect(page.locator('[data-tars-tray-lane="running"] [data-tars-card]')).toHaveCount(expected.running);

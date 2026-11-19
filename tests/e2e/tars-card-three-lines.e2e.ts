@@ -136,8 +136,20 @@ for (const lang of ["en", "ko"] as const) for (const density of ["regular", "com
     for (const title of await page.locator("[data-tars-card] [data-tars-card-title]").all()) await title.click();
     await expect(page.locator('[data-tars-card-open="false"]')).toHaveCount(0);
     // A chevron's box is wider than itself while it turns.
-    await page.waitForFunction(() => [...document.querySelectorAll("[data-tars-card-title] svg")].every((node) => node.getAnimations().every((animation) => animation.playState !== "running")));
+    await page.evaluate(() => Promise.all([...document.querySelectorAll("[data-tars-card-title] svg")].flatMap((node) => node.getAnimations().map((animation) => animation.finished))));
     expect((await overflow(page)).faults).toEqual([]);
+  });
+}
+
+for (const [lang, width] of [["ko", 390], ["en", 1440]] as const) {
+  test(`each lane's header counts the cards the lane shows, and the indicator says the same numbers · ${lang} · ${width}px`, async ({ page }) => {
+    // Fleet lists six rows for the four pieces of work that need the user here: two review rows for one task, a question and a result review for another.
+    const view = await openTray(page, `tray=true&live=true&cardStates=true&lang=${lang}`, width);
+    const lanes = await page.locator("[data-tars-tray-lane]").evaluateAll((nodes) => Object.fromEntries(nodes.filter((node) => node.getAttribute("data-tars-tray-lane") !== "outputs").map((node) => [
+      node.getAttribute("data-tars-tray-lane")!, { count: Number(node.querySelector("[data-tars-lane-count]")!.textContent), cards: node.querySelectorAll("[data-tars-card]").length }])));
+    expect(lanes).toEqual({ needsYou: { count: 4, cards: 4 }, running: { count: 4, cards: 4 }, done: { count: 1, cards: 1 } });
+    expect(await page.locator('[data-tars-tray-lane="needsYou"] [data-tars-attention]').count()).toBe(6);
+    await expect(view.locator("[data-tars-tray-indicator]")).toHaveText(lang === "ko" ? "확인 필요 4 · 진행 중 4 · 끝남 1" : "4 need you · 4 in progress · 1 done");
   });
 }
 

@@ -250,7 +250,7 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
   </ul>;
 }
 
-/** A project disclosure counts work cards (or outputs), independently of attention-row counts. */
+/** A project disclosure counts the work cards (or outputs) under it, as a lane header does. */
 function TarsProjectGroups<T>({ items, pathOf, projects, render }: {
   items: readonly T[]; pathOf: (item: T) => string | null | undefined; projects: readonly TarsTrayProject[]; render: (items: T[]) => ReactNode;
 }) {
