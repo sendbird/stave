@@ -62,11 +62,12 @@ export const outcomeRange = (args: readonly string[]): OutcomeRange =>
 const minutesBetween = (from: string, to: string) => Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 60_000));
 
 export function tarsOutcome(row: TarsOutcomeRow): TarsOutcome {
-  const result: TarsOutcome["result"] = row.publishedAt ? "pull-request"
+  // A failed unit never counts as reaching a pull request, whatever was recorded for it.
+  const result: TarsOutcome["result"] = row.state === "failed" ? "failed" : row.publishedAt ? "pull-request"
     : row.state === "completed" ? row.detailCode === "acceptedWithoutVerification" ? "accepted-unverified" : "completed"
-    : row.state === "cancelled" ? "cancelled" : row.state === "failed" ? "failed" : row.state === "takenOver" ? "taken-over" : "open";
+    : row.state === "cancelled" ? "cancelled" : row.state === "takenOver" ? "taken-over" : "open";
   // Ended work is timed to its run's last event: the row itself is updated again by later reads and controls.
-  const end = row.publishedAt ?? (result === "open" ? null : row.runEvents.at(-1)?.createdAt ?? row.updatedAt);
+  const end = result === "pull-request" ? row.publishedAt : result === "open" ? null : row.runEvents.at(-1)?.createdAt ?? row.updatedAt;
   return {
     title: row.title, result, minutes: end ? minutesBetween(row.createdAt, end) : null,
     leadTurns: row.runEvents.filter((event) => event.kind === "turn-started").length,

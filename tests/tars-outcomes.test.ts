@@ -124,6 +124,10 @@ test("the CLI reads a plain copy of a live database and limits work to the range
   }
 });
 
+test("a failed unit is a failure even when a pull request was recorded for it", () => {
+  expect(tarsOutcome(row({ state: "failed", publishedAt: at(30), runEvents: [event("agent-run-ended", 40)] }))).toMatchObject({ result: "failed", minutes: 40 });
+});
+
 test("date ranges are this machine's calendar days, or the exact instants given with an offset", () => {
   const dir = mkdtempSync(join(tmpdir(), "stave-outcomes-"));
   const file = join(dir, "stave.sqlite");

@@ -26,7 +26,7 @@ One row for each piece of work:
 
 | Column | Meaning |
 | --- | --- |
-| `result` | `pull-request` (a draft PR opened), `completed`, `accepted-unverified` (you accepted work Stave could not verify), `cancelled`, `failed`, `taken-over` or `open` |
+| `result` | `pull-request` (a draft PR opened; never for failed work), `completed`, `accepted-unverified` (you accepted work Stave could not verify), `cancelled`, `failed`, `taken-over` or `open` |
 | `minutes` | From the request to the draft PR. For other ended work, to its run's last event |
 | `leadTurns` | Turns the run's lead took |
 | `helperStarts` | Helper runs the lead started, the review included |
