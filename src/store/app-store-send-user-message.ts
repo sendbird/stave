@@ -5,7 +5,7 @@ import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
-import { collectTurnStartRetrievedContextParts, recordDeliveredDelegatedTaskAnswers } from "@/store/repository-memory-runtime";
+import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
 import type { DelegatedTaskAnswerRef } from "@/lib/runs/delegated-task-answers";
 import { takeMcpAppModelContextParts } from "@/lib/mcp-app/mcp-app-model-context";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
@@ -1273,7 +1273,6 @@ export function createSendUserMessageAction(args: {
       }
       // Same tick as the row insert: Auto's pending row hands straight over.
       endPendingAutoRoute({ taskId: resolvedTaskId, id: turnId });
-      recordDeliveredDelegatedTaskAnswers({ parentTaskId: resolvedTaskId, parentTurnId: turnId, answers: deliveredAnswers });
       endUsageLimitPauseOnTurnStart(get, resolvedTaskId, turnOrigin);
 
       const turnActivityStartedAt = Date.now();
@@ -1609,6 +1608,8 @@ export function createSendUserMessageAction(args: {
             recentRepositories: get().recentRepositories,
           }),
         }),
+        // Recorded as delivered by the host once the provider has the turn.
+        ...(deliveredAnswers.length > 0 ? { subagentAnswers: deliveredAnswers } : {}),
         onEvent: ({ event }) => providerTurnEventController.handleEvent(event),
       });
       return {

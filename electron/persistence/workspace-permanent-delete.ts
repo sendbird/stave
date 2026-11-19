@@ -18,6 +18,8 @@ export function deleteWorkspaceRelatedRows(db: Database.Database, workspaceId: s
     AND NOT EXISTS (SELECT 1 FROM turn_events other JOIN turns owner ON owner.id = other.turn_id
       WHERE other.payload_artifact_id = artifacts.id AND owner.workspace_id != ?)`).all(...params, workspaceId) as {id:string;relative_path:string}[];
   const agentScope = scope;
+  db.prepare(`DELETE FROM delegated_answer_tracking WHERE parent_task_id IN (SELECT origin_id FROM runs WHERE ${scope} AND origin_kind = 'task')`).run(...params);
+  db.prepare(`DELETE FROM delegated_answer_deliveries WHERE run_id IN (SELECT id FROM runs WHERE ${scope})`).run(...params);
   db.prepare(`DELETE FROM run_receipts WHERE run_id IN (SELECT id FROM runs WHERE ${scope})`).run(...params);
   db.prepare(`DELETE FROM run_steps WHERE run_id IN (SELECT id FROM runs WHERE ${scope})`).run(...params);
   db.prepare(`DELETE FROM runs WHERE ${scope}`).run(...params);

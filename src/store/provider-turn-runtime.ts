@@ -18,6 +18,7 @@ export function runProviderTurn(
     workspaceId?: string;
     cwd?: string;
     runtimeOptions?: ProviderTurnRequest["runtimeOptions"];
+    subagentAnswers?: ProviderTurnRequest["subagentAnswers"];
     onEvent: (args: { event: NormalizedProviderEvent }) => void;
   },
   dependencies?: {
@@ -66,6 +67,7 @@ export function runProviderTurn(
         workspaceId: args.workspaceId,
         cwd: args.cwd,
         runtimeOptions: args.runtimeOptions,
+        ...(args.subagentAnswers ? { subagentAnswers: args.subagentAnswers } : {}),
       })) {
         if (event.type === "done") {
           emittedDoneEvent = true;

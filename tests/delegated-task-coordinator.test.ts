@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { DelegatedAnswerStore } from "../electron/persistence/delegated-answer-store";
+import { recordDelegatedTaskAnswersDelivered } from "../src/lib/runs/delegated-task-answers";
 import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import {
   createDelegatedTaskCoordinator,
@@ -38,7 +40,7 @@ const IDLE_STATUS: TaskStatus = {
   latestTurnError: null,
 };
 
-function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
+function createLedgerPort(store: RunLedgerStore, delegatedAnswers?: DelegatedAnswerStore): DelegatedTaskLedgerPort {
   return {
     getRunAggregate: (args) => store.getAggregate(args),
     claimRunStep: (args) => store.claimStep(args),
@@ -49,7 +51,7 @@ function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
     interruptRunStep: (args) => store.interruptStep(args),
     setRunStepTarget: (args) => store.setStepTarget(args),
     listRunReceipts: (args) => store.listReceipts(args),
-    appendRunReceipts: (receipts) => store.appendReceipts(receipts),
+    ...(delegatedAnswers ? { delegatedAnswers } : {}),
     listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
     listActiveRunAggregatesByStepKind: (args) =>
       store.listActiveAggregatesByStepKind(args),
@@ -158,14 +160,17 @@ function createHarness(
     admissionWait?: Parameters<typeof createDelegatedTaskCoordinator>[0]["admissionWait"];
   } = {},
 ) {
-  const store = new RunLedgerStore(new Database(":memory:"));
+  const db = new Database(":memory:");
+  const store = new RunLedgerStore(db);
+  // Opened before any answer these tests record, as by a version that tracks them.
+  const delegatedAnswers = new DelegatedAnswerStore(db, { now: () => "2000-01-01T00:00:00.000Z" });
   const hostHarness = createHost(options);
   const recordedPolicies = new Map<string, DelegationPermissionPolicy>();
   const policyCalls: Array<Record<string, unknown>> = [];
   let clock = 0;
   const createCoordinator = () =>
     createDelegatedTaskCoordinator({
-      getLedger: () => createLedgerPort(store),
+      getLedger: () => createLedgerPort(store, delegatedAnswers),
       host: hostHarness.host,
       concurrencyLimit: options.concurrencyLimit ?? 3,
       readHead: options.readHead,
@@ -202,6 +207,7 @@ function createHarness(
     });
   return {
     store,
+    delegatedAnswers,
     policyCalls,
     coordinator: createCoordinator(),
     // A restart is a fresh coordinator over the same durable ledger: nothing of
@@ -1073,12 +1079,13 @@ describe("delegated task coordinator", () => {
     const parked = (await read())!;
     expect(parked).toMatchObject({ result: "ANSWER-A", resultTurnId: "turn-1" });
     expect(parked.resultAt).toBeDefined();
-    // What a parent turn reads and records through main, the renderer's path.
+    // What a parent turn reads through main, the renderer's path.
     let parentTurn = 0;
     const owedTexts = async () => {
       const owed = await harness.coordinator.collectAnswers({ parentTaskId: PARENT_TASK, lastTurnStartedAt: null });
-      await harness.coordinator.recordAnswersDelivered({ parentTaskId: PARENT_TASK, parentTurnId: `parent-turn-${++parentTurn}`,
-        answers: owed.answers.map(({ runId, sequence }) => ({ runId, sequence })) });
+      // The host records them once the parent turn reaches its provider.
+      recordDelegatedTaskAnswersDelivered({ delegatedAnswers: harness.delegatedAnswers }, { parentTaskId: PARENT_TASK, parentTurnId: `parent-turn-${++parentTurn}`,
+        answers: owed.answers.map(({ runId, sequence }) => ({ runId, sequence })), now: new Date().toISOString() });
       return owed.answers.map((answer) => `${answer.turnId}:${answer.text}`);
     };
     expect(await owedTexts()).toEqual(["turn-1:ANSWER-A"]);

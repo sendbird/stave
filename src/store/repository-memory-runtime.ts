@@ -31,7 +31,7 @@ export async function collectTurnStartRetrievedContextParts(args: {
   prompt: string;
   /** Children attached to this message are not repeated as receipts. */
   promptDraft?: PromptDraft;
-  /** Receives the subagent answers this turn carries, to record once the turn is committed. */
+  /** Receives the subagent answers this turn carries; the turn request hands them to the host, which records them once the provider has the turn. */
   deliveredAnswers?: DelegatedTaskAnswerRef[];
 }): Promise<CanonicalRetrievedContextPart[]> {
   const [delegatedTaskSummaries, owedAnswers, repositoryMemoryPart, handoffParts] = await Promise.all([
@@ -58,7 +58,7 @@ export async function collectTurnStartRetrievedContextParts(args: {
     parts.push(repositoryMemoryPart);
   }
   // A task that started subagents sees where they stand and the answers no
-  // earlier turn carried; the ones carried here are recorded by the caller.
+  // earlier turn carried; the ones carried here travel with the turn request.
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: delegatedTaskSummaries,
     answers: owedAnswers?.answers,
@@ -74,15 +74,6 @@ export async function collectTurnStartRetrievedContextParts(args: {
     parts.push(delegatedTaskReceiptsPart);
   }
   return parts;
-}
-
-/**
- * Record the subagent answers a committed turn carried, so no later turn
- * carries them again. Best effort: if it fails they come once more.
- */
-export function recordDeliveredDelegatedTaskAnswers(args: { parentTaskId: string; parentTurnId: string; answers: DelegatedTaskAnswerRef[] }) {
-  if (args.answers.length === 0) return;
-  void window.api?.runs?.recordDelegatedTaskAnswersDelivered?.(args).catch(() => undefined);
 }
 
 export async function recallRepositoryMemoryRetrievedContext(args: {

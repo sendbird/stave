@@ -72,6 +72,7 @@ import {
   type PersistedTurnStreamEvent,
 } from "./turn-event-payload";
 import { RunLedgerStore } from "./run-ledger-store";
+import { DelegatedAnswerStore } from "./delegated-answer-store";
 import {
   CraneJobBindingStore,
   type LocalCraneJobBinding,
@@ -200,6 +201,8 @@ export class SqliteStore {
   private readonly dbPath: string;
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
+  /** Which subagent answers each parent's turns carried; beside the run ledger, which it leaves as earlier versions write it. */
+  readonly delegatedAnswers: DelegatedAnswerStore;
   private craneJobBindings: CraneJobBindingStore;
   private trackerIssues: TrackerIssuesStore;
   private wakeUps: WakeUpStore;
@@ -288,6 +291,7 @@ export class SqliteStore {
     this.dailyUsage = new DailyUsageStore(this.db, this.usageStatistics);
     this.turnAdmission = new TurnAdmissionStore(this.db); this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
+    this.delegatedAnswers = new DelegatedAnswerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
     this.trackerIssues = new TrackerIssuesStore(this.db, {
       onUnreadableTaskRow: ({ source, taskRef }) =>
@@ -1788,7 +1792,6 @@ export class SqliteStore {
   listRunReceipts(args: Parameters<RunLedgerStore["listReceipts"]>[0]) {
     return this.runLedger.listReceipts(args);
   }
-  appendRunReceipts(receipts: Parameters<RunLedgerStore["appendReceipts"]>[0]) { this.runLedger.appendReceipts(receipts); }
 
   listRunAggregatesByOrigin(
     args: Parameters<RunLedgerStore["listAggregatesByOrigin"]>[0],

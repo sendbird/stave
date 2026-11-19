@@ -1157,6 +1157,8 @@ export interface ProviderTurnRequest {
   workspaceId?: string;
   cwd?: string;
   runtimeOptions?: ProviderRuntimeOptions;
+  /** Subagent answers the context carries; recorded as delivered once the turn reaches its provider. */
+  subagentAnswers?: import("@/lib/runs/delegated-task-answers").DelegatedTaskAnswerRef[];
 }
 
 /** A Stave guardrail an Agent-mode Claude turn can be set to stop for. */

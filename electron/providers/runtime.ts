@@ -778,11 +778,17 @@ export interface ProviderTurnAdmission {
 }
 let turnAdmission: ProviderTurnAdmission | null = null;
 export function setProviderTurnAdmission(admission: ProviderTurnAdmission | null) { turnAdmission = admission; }
+type ProviderTurnCommittedListener = (turn: { taskId: string; turnId: string; subagentAnswers: NonNullable<StreamTurnArgs["subagentAnswers"]> }) => void;
+let turnCommittedListener: ProviderTurnCommittedListener | undefined;
+/** Told once a turn that carries subagent answers is handed to its provider, after admission and policy; never for a refused turn. */
+export function setProviderTurnCommittedListener(listener: ProviderTurnCommittedListener | undefined) { turnCommittedListener = listener; }
 
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   // The composer's selection is read here once and never reaches a provider.
   const { composerSelection, ...sentOptions } = rawArgs.runtimeOptions ?? {};
-  rawArgs = { ...rawArgs, turnId: rawArgs.turnId ?? randomUUID(), ...(rawArgs.runtimeOptions ? { runtimeOptions: sentOptions } : {}) };
+  // So are the subagent answers its context carries: recorded once the provider has the turn.
+  const { subagentAnswers, ...unclaimedArgs } = rawArgs;
+  rawArgs = { ...unclaimedArgs, turnId: rawArgs.turnId ?? randomUUID(), ...(rawArgs.runtimeOptions ? { runtimeOptions: sentOptions } : {}) };
   const release = workspaceExecutionGate.acquire(rawArgs);
   let preparingPolicy = true;
   let admitted = false;
@@ -839,6 +845,10 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
       catch (error) { console.warn("[turn-snapshots] capture failed", { turnId: turnArgs.turnId, error: String(error) }); }
     }
     preparingPolicy = false;
+    if (subagentAnswers?.length && turnArgs.taskId) {
+      try { turnCommittedListener?.({ taskId: turnArgs.taskId, turnId: turnArgs.turnId!, subagentAnswers }); }
+      catch (error) { console.error("[provider-runtime] turn commit listener failed", { turnId: turnArgs.turnId, error: String(error) }); }
+    }
     return await runScopedProviderTurn(turnArgs, agentTurn, routeNote);
   } catch (error) {
     if (!preparingPolicy) throw error;

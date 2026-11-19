@@ -83,13 +83,19 @@ export function collectDelegatedTaskAnswersForTurn(args: { parentTaskId: string;
   }
 }
 
-/** Record the answers a saved host-started turn carried; on failure they come once more. */
-export function recordDelegatedTaskAnswersDeliveredForTurn(args: { parentTaskId: string; parentTurnId: string; answers: DelegatedTaskAnswerRef[] }) {
-  if (args.answers.length === 0) return;
+/**
+ * Record the subagent answers a turn carried, once the provider runtime has
+ * committed the turn (`setProviderTurnCommittedListener`), for turns started
+ * from the composer and by the host alike. A failed write is logged and the
+ * answers stay owed: the next turn carries them again, a rare duplicate
+ * rather than a lost answer.
+ */
+export function recordCommittedTurnAnswers(turn: { taskId: string; turnId: string; subagentAnswers: DelegatedTaskAnswerRef[] }) {
   try {
-    recordDelegatedTaskAnswersDelivered(ensureHostServicePersistenceReady(), { ...args, now: new Date().toISOString() });
+    recordDelegatedTaskAnswersDelivered(ensureHostServicePersistenceReady(),
+      { parentTaskId: turn.taskId, parentTurnId: turn.turnId, answers: turn.subagentAnswers, now: new Date().toISOString() });
   } catch (error) {
-    console.warn(`[stave-mcp] failed to record delivered subagent answers: ${String(error)}`);
+    console.error(`[delegated-task] could not record ${turn.subagentAnswers.length} subagent answers carried by turn ${turn.turnId}; the next turn carries them again: ${String(error)}`);
   }
 }
 

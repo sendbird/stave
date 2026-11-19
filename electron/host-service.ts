@@ -111,7 +111,7 @@ import { actTars } from "./host-service/tars-control";
 import { reprioritizeTars } from "./host-service/tars-queue";
 import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
-import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
+import { listTaskCompletionSignals, recordCommittedTurnAnswers } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
 import { getProviderAccountRegistry } from "./provider-accounts/registry";
 import { createHostConstrainedRouter } from "./host-service/supervision/agent-run-routing-host";
@@ -146,6 +146,7 @@ import {
   setProviderTurnAdmission,
   setAgentRunUserTurnResolver,
   setProviderDecisionAnsweredListener,
+  setProviderTurnCommittedListener,
 } from "./providers/runtime";
 import { prepareDelegatedAgentRun } from "./host-service/supervision/delegated-agent-run-host";
 import { handleMcpAppViewRequest } from "./providers/mcp-app-view-requests";
@@ -679,6 +680,8 @@ setTurnFileSnapshotCapture(async (args) => {
   await turnSnapshots().capture({workspaceId:args.workspaceId,taskId:args.taskId},args.turnId);
 });
 setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
+// A subagent answer counts as delivered once the turn carrying it reaches its provider.
+setProviderTurnCommittedListener(recordCommittedTurnAnswers);
 // The turn's record counts the time a decision waited on the user as waiting, not a stall.
 setProviderDecisionAnsweredListener((answer) => {
   try {

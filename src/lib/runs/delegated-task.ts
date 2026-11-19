@@ -432,6 +432,24 @@ export const DelegatedTaskSummarySchema = z
 export type DelegatedTaskSummary = z.infer<typeof DelegatedTaskSummarySchema>;
 
 /**
+ * The child turn that produced an answer: named in the receipt's key for a
+ * turn that ended waiting, and in the step's result reference for the turn
+ * that completed the current execution. Earlier answers of other shapes have
+ * none, and a read without a turn gets the child's latest answer.
+ */
+export function delegatedTaskAnswerTurnId(
+  receipt: Pick<RunReceiptRecord, "type" | "idempotencyKey" | "executionId">,
+  step: { executionId: string | null; resultArtifactRef: string | null },
+) {
+  // The ledger stores the transition's key with the receipt type appended.
+  const key = receipt.idempotencyKey.endsWith(`:${receipt.type}`) ? receipt.idempotencyKey.slice(0, -receipt.type.length - 1) : receipt.idempotencyKey;
+  const marker = key.lastIndexOf(":turn:");
+  if (key.startsWith("child:") && marker >= 0) return key.slice(marker + ":turn:".length) || null;
+  if (receipt.type !== "completed" || receipt.executionId !== step.executionId) return null;
+  return step.resultArtifactRef?.match(/\/turn\/([^/]+)$/)?.[1] ?? null;
+}
+
+/**
  * The receipt carrying the answer the latest settled turn of the current
  * execution recorded, if any; a failed step's answer counts too, such as a
  * stopped child's report.
@@ -606,7 +624,7 @@ export function toDelegatedTaskSummary(args: {
   step: RunStepRecord;
   acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
   /** `delegatedTaskResultReceipt`. */
-  resultReceipt?: Pick<RunReceiptRecord, "timestamp" | "detail"> | null;
+  resultReceipt?: Pick<RunReceiptRecord, "timestamp" | "detail" | "type" | "idempotencyKey" | "executionId"> | null;
   waitingReason?: string | null;
   /** `delegatedTaskWaitsForPerson`. */
   waitsForPerson?: boolean;
@@ -619,6 +637,7 @@ export function toDelegatedTaskSummary(args: {
   if (run.origin.kind !== "task" || !step.target) {
     return null;
   }
+  const resultTurnId = args.resultReceipt ? delegatedTaskAnswerTurnId(args.resultReceipt, step) : null;
   const delegationKey = extractDelegatedTaskDelegationKey({
     runId: run.id,
     parentTaskId: run.origin.id,
@@ -668,7 +687,7 @@ export function toDelegatedTaskSummary(args: {
     ...(args.resultReceipt?.detail?.responseText ? {
       result: args.resultReceipt.detail.responseText,
       resultAt: args.resultReceipt.timestamp,
-      ...(args.resultReceipt.detail.turnId ? { resultTurnId: args.resultReceipt.detail.turnId } : {}),
+      ...(resultTurnId ? { resultTurnId } : {}),
     } : {}),
     ...(args.waitsForPerson && step.status === "waiting" ? { waitsForPerson: true } : {}),
   });

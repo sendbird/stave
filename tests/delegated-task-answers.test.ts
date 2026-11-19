@@ -4,6 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { DelegatedAnswerStore } from "../electron/persistence/delegated-answer-store";
 import {
   buildDelegatedTaskRunId,
   buildDelegatedTaskStepId,
@@ -30,12 +31,17 @@ function at(minute: number, second = 0) {
   return new Date(Date.UTC(2026, 7, 10, 0, minute, second)).toISOString();
 }
 
-function port(store: RunLedgerStore): DelegatedTaskAnswerLedger {
-  return {
-    listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
-    listRunReceipts: (args) => store.listReceipts(args),
-    appendRunReceipts: (receipts) => store.appendReceipts(receipts),
-  };
+/** The run ledger and, beside it on the same database, the answer store this version first opened at `upgradedAt`. */
+class Ledger extends RunLedgerStore {
+  readonly delegatedAnswers: DelegatedAnswerStore;
+  constructor(readonly db: Database, upgradedAt = at(0)) {
+    super(db);
+    this.delegatedAnswers = new DelegatedAnswerStore(db, { now: () => upgradedAt });
+  }
+}
+
+function port(store: Ledger): DelegatedTaskAnswerLedger {
+  return { delegatedAnswers: store.delegatedAnswers };
 }
 
 function ids(key: string) {
@@ -65,15 +71,15 @@ function startChild(store: RunLedgerStore, key: string, now = at(0)) {
 function answer(store: RunLedgerStore, key: string, turnId: string, text: string, now: string) {
   const { runId, stepId } = ids(key);
   const result = store.markStepWaiting({ runId, stepId, executionId: `exec-${key}`, idempotencyKey: `child:exec-${key}:turn:${turnId}`,
-    detail: { code: "child-turn-completed", responseText: text, turnId }, reenter: true, now });
+    detail: { code: "child-turn-completed", responseText: text }, reenter: true, now });
   expect(result.accepted).toBe(true);
 }
 
-/** An answer recorded before this version: no delivery tracking on the receipt. */
-function legacyAnswer(store: RunLedgerStore, key: string, text: string, now: string) {
+/** A child whose one turn completed with an answer. */
+function completedChild(store: RunLedgerStore, key: string, text: string, now: string) {
   const { runId, stepId } = startChild(store, key, now);
-  store.appendReceipts([{ runId, stepId, type: "completed", executionId: `exec-${key}`, idempotencyKey: `legacy:${key}`, timestamp: now,
-    detail: { code: "child-turn-completed", responseText: text } }]);
+  store.completeStep({ runId, stepId, executionId: `exec-${key}`, idempotencyKey: `child:exec-${key}:completed`, resultArtifactRef: `stave://workspace/workspace-child/task/task-${key}/turn/t-${key}`,
+    detail: { code: "child-turn-completed", responseText: text }, now });
 }
 
 function summaries(store: RunLedgerStore) {
@@ -92,7 +98,7 @@ type Message = { role: string; startedAt?: string };
  * then record what it carried. `afterRead` runs between the read and the
  * commit, where the boundary race lives.
  */
-function parentTurn(store: RunLedgerStore, history: Message[], startedAt: string, options: { afterRead?: () => void; attached?: string[] } = {}) {
+function parentTurn(store: Ledger, history: Message[], startedAt: string, options: { afterRead?: () => void; attached?: string[] } = {}) {
   const owed = collectOwedDelegatedTaskAnswers(port(store), { parentTaskId: PARENT, lastTurnStartedAt: latestTurnStartedAt(history), now: startedAt });
   const delivered: DelegatedTaskAnswerRef[] = [];
   const part = buildDelegatedTaskReceiptsRetrievedContext({ children: summaries(store), answers: owed.answers, moreAnswers: owed.more, delivered,
@@ -108,7 +114,7 @@ const count = (content: string, label: string) => content.split(`    <${label}>`
 
 describe("owed subagent answers", () => {
   test("an answer deferred by the budget comes back although a newer message carries no record", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+    const store = new Ledger(new Database(":memory:"));
     for (let i = 0; i < 5; i += 1) { startChild(store, `k${i}`); answer(store, `k${i}`, `t${i}`, long(String(i)), at(i + 1)); }
     const history: Message[] = [];
     const first = parentTurn(store, history, at(10));
@@ -122,7 +128,7 @@ describe("owed subagent answers", () => {
   });
 
   test("an answer that lands after the read and before the turn's start is carried by the next turn", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+    const store = new Ledger(new Database(":memory:"));
     startChild(store, "late");
     const history: Message[] = [];
     // The turn reads at 10:00; the answer is recorded at 10:30; the turn's row says it started at 11:00.
@@ -133,7 +139,7 @@ describe("owed subagent answers", () => {
   });
 
   test("each answer of one child arrives exactly once across its follow-up turns", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+    const store = new Ledger(new Database(":memory:"));
     startChild(store, "docs");
     const history: Message[] = [];
     answer(store, "docs", "turn-1", "ANSWER-A", at(1));
@@ -157,14 +163,14 @@ describe("owed subagent answers", () => {
     const dir = mkdtempSync(path.join(tmpdir(), "stave-answers-")); dirs.push(dir);
     const file = path.join(dir, "ledger.db");
     let db = new Database(file);
-    let store = new RunLedgerStore(db);
+    let store = new Ledger(db);
     for (let i = 0; i < 6; i += 1) { startChild(store, `k${i}`); answer(store, `k${i}`, `t${i}`, long(String(i)), at(i + 1)); }
     const history: Message[] = [];
     const first = parentTurn(store, history, at(10));
     db.close();
     // Restart: a fresh ledger handle and only the newest message of the task in memory.
     db = new Database(file);
-    store = new RunLedgerStore(db);
+    store = new Ledger(db);
     const reloaded: Message[] = [history.at(-1)!];
     const second = parentTurn(store, reloaded, at(11));
     for (let i = 0; i < 6; i += 1) expect(count(first, String(i)) + count(second, String(i))).toBe(1);
@@ -173,12 +179,12 @@ describe("owed subagent answers", () => {
   });
 
   test("after an upgrade, thirty answers older than the last turn never replay", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
-    for (let i = 0; i < 30; i += 1) legacyAnswer(store, `old-${i}`, long(`old-${i}`), at(i));
-    // The task's newest saved turn started after all of them.
+    // The answers and the parent's last turn are from the earlier version; this one first opens the database at 50:00.
+    const store = new Ledger(new Database(":memory:"), at(50));
+    for (let i = 0; i < 30; i += 1) completedChild(store, `old-${i}`, long(`old-${i}`), at(i));
     const history: Message[] = [{ role: "user" }, { role: "assistant", startedAt: at(40) }];
     for (let turn = 0; turn < 3; turn += 1) {
-      const content = parentTurn(store, history, at(41 + turn));
+      const content = parentTurn(store, history, at(51 + turn));
       expect(content).not.toContain("xxxx");
       expect(content).not.toContain("result omitted");
       expect(content).not.toContain("New answers");
@@ -186,9 +192,9 @@ describe("owed subagent answers", () => {
   });
 
   test("after an upgrade, answers newer than the last turn are owed until carried, across turns", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
-    legacyAnswer(store, "seen", long("seen"), at(1));
-    for (let i = 0; i < 6; i += 1) legacyAnswer(store, `new-${i}`, long(`new-${i}`), at(10 + i));
+    const store = new Ledger(new Database(":memory:"), at(18));
+    completedChild(store, "seen", long("seen"), at(1));
+    for (let i = 0; i < 6; i += 1) completedChild(store, `new-${i}`, long(`new-${i}`), at(10 + i));
     const history: Message[] = [{ role: "assistant", startedAt: at(5) }];
     const contents = [at(20), at(21), at(22)].map((startedAt) => parentTurn(store, history, startedAt));
     expect(contents.join("")).not.toContain("<seen>");
@@ -196,8 +202,26 @@ describe("owed subagent answers", () => {
     expect(contents.map((content) => (content.match(/^ {4}<new-/gm) ?? []).length)).toEqual([4, 2, 0]);
   });
 
+  test("the upgrade cut runs once per parent and never settles an answer recorded after the upgrade", () => {
+    const store = new Ledger(new Database(":memory:"), at(10));
+    completedChild(store, "before", "BEFORE-UPGRADE", at(1));
+    // Recorded after the upgrade, then a parent turn starts that read nothing (its read failed).
+    completedChild(store, "after", "AFTER-UPGRADE", at(11));
+    const history: Message[] = [{ role: "assistant", startedAt: at(12) }];
+    const first = parentTurn(store, history, at(13));
+    expect(first).not.toContain("BEFORE-UPGRADE");
+    expect(first).toContain("    AFTER-UPGRADE");
+    // A later read with a newer turn start settles nothing more: an answer the cut left owed stays owed.
+    completedChild(store, "later", long("later"), at(14));
+    for (let i = 0; i < 4; i += 1) completedChild(store, `big-${i}`, long(`big-${i}`), at(14, i + 1));
+    const second = parentTurn(store, history, at(15));
+    const third = parentTurn(store, history, at(16));
+    expect(count(second, "later") + count(third, "later")).toBe(1);
+    for (let i = 0; i < 4; i += 1) expect(count(second, `big-${i}`) + count(third, `big-${i}`)).toBe(1);
+  });
+
   test("twelve long answers drain over turns in order with none lost or repeated", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+    const store = new Ledger(new Database(":memory:"));
     for (let i = 0; i < 12; i += 1) { startChild(store, `k${String(i).padStart(2, "0")}`); answer(store, `k${String(i).padStart(2, "0")}`, `t${i}`, long(String(i)), at(1, i)); }
     const history: Message[] = [];
     const seen: number[] = [];
@@ -212,7 +236,7 @@ describe("owed subagent answers", () => {
   });
 
   test("answers carried by a turn that was then interrupted count as delivered", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+    const store = new Ledger(new Database(":memory:"));
     startChild(store, "docs");
     answer(store, "docs", "turn-1", "ANSWER-A", at(1));
     const history: Message[] = [];
@@ -223,7 +247,7 @@ describe("owed subagent answers", () => {
   });
 
   test("an attached child's answer and a held composer review settle once", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+    const store = new Ledger(new Database(":memory:"));
     startChild(store, "docs");
     answer(store, "docs", "turn-1", "ATTACHED-ANSWER", at(1));
     startChild(store, "stave-review-20261004120000-a");
@@ -239,24 +263,62 @@ describe("owed subagent answers", () => {
     expect(later).not.toContain("held until");
   });
 
-  test("delivery records leave the child's step, order and summary unchanged, and ignore other parents", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+  test("delivery records leave the run ledger as earlier versions write it, and ignore other parents", () => {
+    const store = new Ledger(new Database(":memory:"));
     const { runId, stepId } = startChild(store, "docs");
     answer(store, "docs", "turn-1", "ANSWER-A", at(1));
     const before = store.getAggregate({ runId, stepId });
+    const receipts = store.listReceipts({ runId });
     const beforeSummary = summaries(store);
     parentTurn(store, [], at(2));
     expect(store.getAggregate({ runId, stepId })).toEqual(before);
+    expect(store.listReceipts({ runId })).toEqual(receipts);
     expect(summaries(store)).toEqual(beforeSummary);
-    const sequence = store.listReceipts({ runId }).find((receipt) => receipt.detail?.responseText)!.sequence;
+    const sequence = receipts.find((receipt) => receipt.detail?.responseText)!.sequence;
     recordDelegatedTaskAnswersDelivered(port(store), { parentTaskId: "other-parent", parentTurnId: "x", answers: [{ runId, sequence }], now: at(3) });
-    const deliveries = store.listReceipts({ runId }).filter((receipt) => receipt.type === "delivery");
-    expect(deliveries).toHaveLength(1);
-    expect(deliveries[0]!.detail).toEqual({ code: "delivered", parentTurnId: "parent-turn-2" });
+    expect(store.db.query("SELECT run_id, sequence, parent_turn_id FROM delegated_answer_deliveries").all())
+      .toEqual([{ run_id: runId, sequence, parent_turn_id: "parent-turn-2" }]);
+  });
+
+  test("with sixty children every answer arrives once, oldest first, from a bounded page", () => {
+    const store = new Ledger(new Database(":memory:"));
+    // The oldest children finished first and were updated least recently.
+    for (let i = 0; i < 60; i += 1) { const key = `k${String(i).padStart(2, "0")}`; startChild(store, key, at(0, i)); answer(store, key, "t", `SHORT-${String(i).padStart(2, "0")}`, at(1, i)); }
+    expect(store.delegatedAnswers.listOwed({ parentTaskId: PARENT, limit: 40 })).toMatchObject({ total: 60 });
+    expect(store.delegatedAnswers.listOwed({ parentTaskId: PARENT, limit: 40 }).rows).toHaveLength(40);
+    const history: Message[] = [];
+    const seen: string[] = [];
+    for (let turn = 0; turn < 3; turn += 1) for (const match of parentTurn(store, history, at(10 + turn)).matchAll(/^ {4}SHORT-(\d\d)$/gm)) seen.push(match[1]!);
+    expect(seen).toEqual(Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")));
+  });
+
+  test("an attached task settles only the answer that is its latest reply", () => {
+    const store = new Ledger(new Database(":memory:"));
+    startChild(store, "docs");
+    answer(store, "docs", "turn-1", "OLDER-ANSWER", at(1));
+    answer(store, "docs", "turn-2", "NEWER-ANSWER", at(2));
+    const history: Message[] = [];
+    const first = parentTurn(store, history, at(3), { attached: ["task-docs"] });
+    // The latest reply arrives with the attachment; the older answer is not in it, so it comes here.
+    expect(first).toContain("    OLDER-ANSWER");
+    expect(first).not.toContain("NEWER-ANSWER");
+    expect(first).toContain("result: attached to this message under Attached Stave Tasks");
+    const later = parentTurn(store, history, at(4));
+    expect(later).not.toContain("-ANSWER");
+    expect(later).not.toContain("attached to this message");
+  });
+
+  test("an attached task whose turn is running settles none of its answers", () => {
+    const store = new Ledger(new Database(":memory:"));
+    const { runId, stepId } = startChild(store, "docs");
+    answer(store, "docs", "turn-1", "EARLIER-ANSWER", at(1));
+    expect(store.resumeStep({ runId, stepId, executionId: "exec-docs", idempotencyKey: "follow-up", now: at(2) }).accepted).toBe(true);
+    const history: Message[] = [];
+    expect(parentTurn(store, history, at(3), { attached: ["task-docs"] })).toContain("    EARLIER-ANSWER");
   });
 
   test("a turn reads a bounded number of owed answers and counts the rest", () => {
-    const store = new RunLedgerStore(new Database(":memory:"));
+    const store = new Ledger(new Database(":memory:"));
     for (let i = 0; i < 45; i += 1) { const key = `k${String(i).padStart(2, "0")}`; startChild(store, key); answer(store, key, "t", `short ${i}`, at(1, i)); }
     const owed = collectOwedDelegatedTaskAnswers(port(store), { parentTaskId: PARENT, lastTurnStartedAt: null, now: at(2) });
     expect(owed.answers).toHaveLength(40);

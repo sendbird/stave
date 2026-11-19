@@ -1,6 +1,6 @@
 import { DelegationPermissionSettingsSchema } from "../../../src/lib/runs/delegation-policy";
 import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
-import { DelegatedTaskAnswersArgsSchema, DelegatedTaskAnswersDeliveredArgsSchema } from "../../../src/lib/runs/delegated-task-answers";
+import { DelegatedTaskAnswersArgsSchema } from "../../../src/lib/runs/delegated-task-answers";
 import { ipcMain } from "electron";
 import {
   SecondaryRunExecuteResponseSchema,
@@ -141,16 +141,10 @@ export function registerRunHandlers() {
     const args = DelegatedTaskListArgsSchema.safeParse(rawArgs);
     return args.success ? await getDelegatedTaskCoordinator().list(args.data) : [];
   });
-  // A parent turn's owed subagent answers, and the ones a committed turn carried.
+  // A parent turn's owed subagent answers; the host records the ones a turn carried once the turn is committed to its provider.
   ipcMain.handle("delegations:collect-answers", async (_event, rawArgs: unknown) => {
     const args = DelegatedTaskAnswersArgsSchema.safeParse(rawArgs);
     return args.success ? await getDelegatedTaskCoordinator().collectAnswers(args.data) : { answers: [], more: 0 };
-  });
-  ipcMain.handle("delegations:record-answers-delivered", async (_event, rawArgs: unknown) => {
-    const args = DelegatedTaskAnswersDeliveredArgsSchema.safeParse(rawArgs);
-    if (!args.success) return { ok: false };
-    await getDelegatedTaskCoordinator().recordAnswersDelivered(args.data);
-    return { ok: true };
   });
   ipcMain.handle("delegations:review-revision", async (_event, rawArgs: unknown) => {
     const args = ReviewRevisionArgsSchema.safeParse(rawArgs);

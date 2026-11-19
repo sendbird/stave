@@ -31,10 +31,12 @@ export function deleteTaskRelatedRows(db: Database.Database, args: { workspaceId
     .all(args.workspaceId, args.taskId, args.workspaceId, args.taskId) as {id:string;relative_path:string}[];
   const runs = db.prepare("SELECT id FROM runs WHERE (workspace_id = ? AND task_id = ? AND origin_kind != 'task') OR (origin_kind = 'task' AND origin_id = ?)").all(args.workspaceId, args.taskId, args.taskId) as { id: string }[];
   for (const run of runs) {
+    db.prepare("DELETE FROM delegated_answer_deliveries WHERE run_id = ?").run(run.id);
     db.prepare("DELETE FROM run_receipts WHERE run_id = ?").run(run.id);
     db.prepare("DELETE FROM run_steps WHERE run_id = ?").run(run.id);
     db.prepare("DELETE FROM runs WHERE id = ?").run(run.id);
   }
+  db.prepare("DELETE FROM delegated_answer_tracking WHERE parent_task_id = ?").run(args.taskId);
   // The parent owns a delegation ledger even after its child is removed.
   const parentRuns = db.prepare("SELECT id FROM runs WHERE workspace_id = ? AND task_id = ? AND origin_kind = 'task' AND origin_id != ?").all(args.workspaceId, args.taskId, args.taskId) as { id: string }[];
   for (const run of parentRuns) {

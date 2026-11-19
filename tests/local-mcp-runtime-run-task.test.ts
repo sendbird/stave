@@ -36,6 +36,7 @@ import {
 import { buildProviderTurnPrompt } from "@/lib/providers/provider-request-translators";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { DelegatedAnswerStore } from "../electron/persistence/delegated-answer-store";
 
 // Regression: the host-service local MCP `runTask` builds a pending provider
 // turn via `buildPendingProviderTurnState`, which requires `messageCountByTask`
@@ -116,6 +117,8 @@ let persistedProviderTimeoutMs: number | null = null;
 type UpsertedMessages = Record<string, Array<{ id: string; role?: string; content?: string }>>;
 // Set by a test: the next write `when` matches throws, as a write the other
 // process's commit invalidates does.
+// Set by a test: runs as the host records a turn, between its saved prompt and its provider start.
+let onBeginTurn: ((taskId: string) => void) | null = null;
 let failNextWrite: { message: string; when: (messagesByTask: UpsertedMessages) => boolean } | null = null;
 // Opt-in, as the real store reads the `turns` table: a refreshed session keeps
 // a workspace's running turns.
@@ -189,7 +192,8 @@ function loadFakeWorkspaceSnapshot(workspaceId: string) {
 }
 
 // A real ledger for the subagent answers a host-started parent turn reads and records.
-const answerLedger = new RunLedgerStore(new Database(":memory:"));
+const answerDb = new Database(":memory:");
+const answerLedger = new RunLedgerStore(answerDb);
 
 const fakeStore = {
   delegationPolicies: { loadSettings: () => persistedPermissionSettings, loadTaskAccounts: () => undefined },
@@ -251,7 +255,8 @@ const fakeStore = {
   // runtime falls back and logs a read failure on each run.
   listRunAggregatesByOrigin: (args: Parameters<RunLedgerStore["listAggregatesByOrigin"]>[0]) => answerLedger.listAggregatesByOrigin(args),
   listRunReceipts: (args: { runId: string }) => answerLedger.listReceipts(args),
-  appendRunReceipts: (receipts: Parameters<RunLedgerStore["appendReceipts"]>[0]) => answerLedger.appendReceipts(receipts),
+  // Opened before the answers these tests record, as by a version that tracks them.
+  delegatedAnswers: new DelegatedAnswerStore(answerDb, { now: () => "2025-12-31T00:00:00.000Z" }),
   // The ledger rows that own a task, which is how a delegated child's request
   // is traced back to the task the person is working in.
   listRunAggregatesByOwnedTask: ({ taskId }: { taskId: string }) =>
@@ -342,6 +347,7 @@ const fakeStore = {
       .slice(0, limit ?? 5),
   getTurnReceipt: (id: string) => persistedTurnsById.get(id)?.terminalReceipt ?? null,
   beginTurn: (turn: Omit<PersistedTurn, "createdAt" | "completedAt">) => {
+    onBeginTurn?.(turn.taskId);
     persistedTurnsById.set(turn.id, {
       ...turn,
       createdAt: new Date().toISOString(),
@@ -458,6 +464,8 @@ mock.module("../electron/host-service/persistence", () => ({
 
 const { providerRuntime } = await import("../electron/providers/runtime");
 const runtime = await import("../electron/host-service/local-mcp-runtime");
+const { taskControlGate } = await import("../electron/host-service/task-control-gate");
+const { recordCommittedTurnAnswers } = await import("../electron/host-service/delegated-task-signals");
 
 const originalStartTurnStream = providerRuntime.startTurnStream;
 const originalAbortTurn = providerRuntime.abortTurn;
@@ -477,6 +485,9 @@ beforeAll(() => {
   ) => {
     startTurnStreamCalls.push(params);
     startTurnStreamHandlers.push(handlers);
+    // The real runtime commits the turn to its provider here, which records the answers it carries.
+    const turn = params as { taskId?: string; turnId?: string; subagentAnswers?: Array<{ runId: string; sequence: number }> };
+    if (turn.subagentAnswers?.length && turn.taskId && turn.turnId) recordCommittedTurnAnswers({ taskId: turn.taskId, turnId: turn.turnId, subagentAnswers: turn.subagentAnswers });
     return { ok: true, streamId: `stream-${startTurnStreamCalls.length}` };
   }) as typeof providerRuntime.startTurnStream;
 });
@@ -492,6 +503,7 @@ afterAll(() => {
 
 afterEach(() => {
   failNextWrite = null;
+  onBeginTurn = null;
   acceptTaskDeltas = false;
   reportActiveTurns = false;
   persistedProviderTimeoutMs = null;
@@ -518,7 +530,8 @@ describe("local MCP runtime runTask", () => {
     expect(startTurnStreamCalls).toHaveLength(1);
   });
 
-  test("a host-started parent turn carries a subagent answer once, and not when its prompt could not be saved", async () => {
+  /** A parent task with one subagent answer it has not received; returns whether a started turn carried it. */
+  async function parentWithAnswer(text: string) {
     const { taskId } = await runtime.createIdleTask({ workspaceId: WORKSPACE_ID, title: "Parent", provider: "claude-code" });
     const now = "2026-01-01T00:00:00.000Z";
     const runId = buildDelegatedTaskRunId({ parentTaskId: taskId, delegationKey: "docs" });
@@ -528,22 +541,39 @@ describe("local MCP runtime runTask", () => {
       ownership: { repositoryPath: REPOSITORY_PATH, workspaceId: WORKSPACE_ID, taskId: "child-docs" }, policy: buildDelegatedTaskPolicy("detached"),
       provenance: { createdBy: "delegated-task-coordinator", schemaVersion: RUN_LEDGER_SCHEMA_VERSION }, now }),
     step, executionId: "exec-docs", idempotencyKey: "claim-docs", now });
-    answerLedger.markStepWaiting({ runId, stepId: step.id, executionId: "exec-docs", idempotencyKey: "turn-1", reenter: true, now,
-      detail: { code: "child-turn-completed", responseText: "HOST-PATH-ANSWER", turnId: "child-turn-1" } });
-    const answerIn = () => {
+    answerLedger.markStepWaiting({ runId, stepId: step.id, executionId: "exec-docs", idempotencyKey: "child:exec-docs:turn:child-turn-1", reenter: true, now,
+      detail: { code: "child-turn-completed", responseText: text } });
+    const carried = () => {
       const call = startTurnStreamCalls.at(-1) as { conversation: { contextParts: Array<{ sourceId?: string; content?: string }> } };
-      return call.conversation.contextParts.find((part) => part.sourceId === "stave:delegated-tasks")?.content?.includes("    HOST-PATH-ANSWER") ?? false;
+      return call.conversation.contextParts.find((part) => part.sourceId === "stave:delegated-tasks")?.content?.includes(`    ${text}`) ?? false;
     };
+    return { taskId, carried };
+  }
 
+  test("a host-started parent turn hands its subagent answer to the provider start once, and none when its prompt could not be saved", async () => {
+    const { taskId, carried } = await parentWithAnswer("HOST-PATH-ANSWER");
     failNextWrite = { message: "database is locked", when: writesUserRowOf(taskId) };
     await expect(runtime.runTask({ workspaceId: WORKSPACE_ID, taskId, prompt: "First" })).rejects.toThrow("database is locked");
     await runtime.runTask({ workspaceId: WORKSPACE_ID, taskId, prompt: "First" });
-    expect(answerIn()).toBe(true);
+    expect(carried()).toBe(true);
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({ subagentAnswers: [{ sequence: expect.any(Number) }] });
     const handler = startTurnStreamHandlers.at(-1);
     handler?.onEvent?.({ type: "done" });
     for (let attempt = 0; attempt < 40; attempt += 1) await Bun.sleep(0);
     await runtime.runTask({ workspaceId: WORKSPACE_ID, taskId, prompt: "Second" });
-    expect(answerIn()).toBe(false);
+    expect(carried()).toBe(false);
+    expect(startTurnStreamCalls.at(-1)).not.toHaveProperty("subagentAnswers");
+  });
+
+  test("a host-started turn refused before its provider start leaves its subagent answer owed", async () => {
+    const { taskId, carried } = await parentWithAnswer("REFUSED-PATH-ANSWER");
+    const calls = startTurnStreamCalls.length;
+    // Control of the task changes after the prompt is saved and before the provider start.
+    onBeginTurn = (id) => { if (id === taskId) { onBeginTurn = null; taskControlGate.beginTakeover(id)(); } };
+    await expect(runtime.runTask({ workspaceId: WORKSPACE_ID, taskId, prompt: "First" })).rejects.toThrow("Task control changed");
+    expect(startTurnStreamCalls).toHaveLength(calls);
+    await runtime.runTask({ workspaceId: WORKSPACE_ID, taskId, prompt: "Again" });
+    expect(carried()).toBe(true);
   });
 
   test("adding an idle task signals its workspace after the task is saved", async () => {

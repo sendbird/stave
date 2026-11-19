@@ -87,6 +87,12 @@ export interface StreamTurnArgs {
   workspaceId?: string;
   cwd?: string;
   runtimeOptions?: ProviderRuntimeOptions;
+  /**
+   * The subagent answers this turn's context carries for its task. The host
+   * records them as delivered once the turn is committed to its provider, and
+   * never passes them to one.
+   */
+  subagentAnswers?: import("../../src/lib/runs/delegated-task-answers").DelegatedTaskAnswerRef[];
 }
 
 /**

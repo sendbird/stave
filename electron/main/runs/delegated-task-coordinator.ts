@@ -56,7 +56,6 @@ import {
   createPendingRun,
   createPendingRunStep,
   RUN_LEDGER_SCHEMA_VERSION,
-  type RunReceiptDraft,
   type RunReceiptRecord,
   type RunRecord,
   type RunStepRecord,
@@ -66,9 +65,8 @@ import {
 import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-store";
 import {
   collectOwedDelegatedTaskAnswers,
-  recordDelegatedTaskAnswersDelivered,
   type DelegatedTaskAnswersArgs,
-  type DelegatedTaskAnswersDeliveredArgs,
+  type DelegatedTaskAnswerStore,
 } from "../../../src/lib/runs/delegated-task-answers";
 import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
 import type { WorkspaceRevision } from "../../../src/lib/agent-runs/verification-contract";
@@ -113,8 +111,8 @@ export interface DelegatedTaskLedgerPort {
     now: string;
   }): RunLedgerTransitionResult;
   listRunReceipts(args: { runId: string }): RunReceiptRecord[];
-  /** Facts about a run that do not move its step: what became of a subagent answer. */
-  appendRunReceipts(receipts: readonly RunReceiptDraft[]): void;
+  /** Which subagent answers the parent's turns carried. */
+  delegatedAnswers: DelegatedTaskAnswerStore;
   completeRunStep(args: {
     runId: string;
     stepId: string;
@@ -631,7 +629,7 @@ export function createDelegatedTaskCoordinator(
         stepId: args.stepId,
         executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
-        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText, turnId: args.turnId } : {}), ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}) },
+        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}), ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}) },
         reenter: true,
         now: timestamp,
       });
@@ -648,7 +646,7 @@ export function createDelegatedTaskCoordinator(
       }),
       detail: { code: "child-turn-completed", providerId: args.providerId,
         ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}),
-        ...(responseText ? { responseText, turnId: args.turnId } : {}),
+        ...(responseText ? { responseText } : {}),
         ...(args.reviewCompletedRevision ? { reviewCompletedRevision: args.reviewCompletedRevision } : {}) },
       now: timestamp,
     });
@@ -684,7 +682,7 @@ export function createDelegatedTaskCoordinator(
         idempotencyKey: `child:${args.executionId}:completed`,
         resultArtifactRef: buildDelegatedTaskArtifactRef({ workspaceId: args.target.workspaceId, taskId: args.target.taskId, turnId }),
         detail: { code: "child-agent-run-completed", agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}),
-          responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)), ...(turnId ? { turnId } : {}) }, now: now() });
+          responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)) }, now: now() });
     }
     if (completion.kind === "cancelled")
       return args.ledger.cancelRunStep({ runId: args.runId, stepId: args.stepId, expectedExecutionId: args.executionId,
@@ -2076,10 +2074,6 @@ export function createDelegatedTaskCoordinator(
       const ledger = await getLedger();
       await ensureReconciled(args.parentTaskId);
       return collectOwedDelegatedTaskAnswers(ledger, { ...args, now: now() });
-    },
-
-    async recordAnswersDelivered(args: DelegatedTaskAnswersDeliveredArgs) {
-      recordDelegatedTaskAnswersDelivered(await getLedger(), { ...args, now: now() });
     },
 
     stop: stopChild,
