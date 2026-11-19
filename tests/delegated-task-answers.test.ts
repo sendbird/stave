@@ -220,6 +220,36 @@ describe("owed subagent answers", () => {
     for (let i = 0; i < 4; i += 1) expect(count(second, `big-${i}`) + count(third, `big-${i}`)).toBe(1);
   });
 
+  test("a legacy parent with no turn start: the cut takes only answers finished before the upgrade, even those first seen with later ones", () => {
+    const store = new Ledger(new Database(":memory:"), at(10));
+    completedChild(store, "before", "BEFORE-UPGRADE", at(1));
+    // Finished after the upgrade and before the parent's first read, which sees both at once.
+    completedChild(store, "after", "AFTER-UPGRADE", at(11));
+    const history: Message[] = [{ role: "assistant" }];
+    expect(latestTurnStartedAt(history)).toBeNull();
+    const first = parentTurn(store, history, at(12));
+    expect(first).not.toContain("BEFORE-UPGRADE");
+    expect(first).toContain("    AFTER-UPGRADE");
+    expect(parentTurn(store, history, at(13))).not.toContain("UPGRADE");
+  });
+
+  test("the upgrade moment is recorded once per database, so reopening it later never widens the cut", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "stave-answers-")); dirs.push(dir);
+    const file = path.join(dir, "ledger.db");
+    let db = new Database(file);
+    new Ledger(db, at(10));
+    db.close();
+    // Later launches open the same database; an answer finished in between is owed to a parent never read before.
+    db = new Database(file);
+    let store = new Ledger(db, at(20));
+    completedChild(store, "between", "BETWEEN-LAUNCHES", at(15));
+    db.close();
+    db = new Database(file);
+    store = new Ledger(db, at(30));
+    expect(parentTurn(store, [], at(31))).toContain("    BETWEEN-LAUNCHES");
+    db.close();
+  });
+
   test("twelve long answers drain over turns in order with none lost or repeated", () => {
     const store = new Ledger(new Database(":memory:"));
     for (let i = 0; i < 12; i += 1) { startChild(store, `k${String(i).padStart(2, "0")}`); answer(store, `k${String(i).padStart(2, "0")}`, `t${i}`, long(String(i)), at(1, i)); }

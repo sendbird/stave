@@ -76,7 +76,11 @@ export class DelegatedAnswerStore {
    * answers recorded before this version first opened the database and no
    * later than `settledThrough` (the parent's latest turn start; null when
    * unknown) count as delivered, as the earlier rule had already given or
-   * dropped them. Answers recorded after the upgrade are never settled here.
+   * dropped them. Answers recorded after the upgrade are never settled here,
+   * even when the first read sees them: the upgrade moment is written once per
+   * database, in this constructor, which `SqliteStore` runs before its run
+   * ledger can write a receipt. `settledThrough` only narrows the cut, so an
+   * answer the earlier version had not yet given stays owed.
    */
   startTracking(args: { parentTaskId: string; settledThrough: string | null; now: string }) {
     this.db.transaction(() => {
