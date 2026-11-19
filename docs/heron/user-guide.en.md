@@ -158,7 +158,7 @@ When the work is done and the PR is merged, archive the workspace and, if you li
 | ------------------- | ----------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | Information panel   | Workspace   | Shared instructions, summary, todos, notes, memory, documents, PR, Jira, Slack and Figma links, custom fields. What you write here reaches this workspace's tasks as context |
 | Workspace documents | Workspace   | Plans and reports that agents write and revise, stored in `.stave/context/plans/` with every revision recorded                    |
-| Task panel          | Task        | **Activity**, **Progress**, **Subagents**, **Outputs** and **Handoff** tabs                                                       |
+| Task panel          | Task        | One screen: state, what you need to do, result, conditions still open, and a collapsed **Details** (activity, steps, subagents, outputs) |
 | Agent               | Whole app   | A saved worker with instructions, model, permissions and stages. Assigning one to a task starts a run                             |
 | Fleet View          | Whole app   | Where everything that needs you, across all workspaces, comes together                                                            |
 | Schedule            | Repository or task | Starts a new task, or wakes an existing one, at a set time                                                                 |
@@ -267,7 +267,7 @@ Tool output, reasoning, and folded tool groups load their bodies on first open a
 
 Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/queue-usage-limit.png)
 
-**Activity tab**: the Task panel's **Activity** tab lists the turn's steps. The **List | Timeline** switch draws the same turn on a time axis labelled in seconds or minutes (0s, 30s, 1m): the turn row with its tokens and cost, tool calls and subagents as bars, a **Now** line while it runs, and a **Slowest** tag on the longest step. Steps without a recorded time are listed under the axis instead. The **Agent tree** folds branch by branch and moves with the arrow keys. In the conversation, a tool call's arguments and output each have **Copy**, and long output scrolls inside a fixed height with a line count under it.
+**Task panel**: the right rail's Task panel is one screen. Its first line is the task's state, one of **Working**, **Waiting for you**, **Blocked**, **Finished** or **Stopped**. Below it: what you need to do (only while a question, approval or sign-off waits, with **Answer** or **Review request**), the result (the pull request, **Review changes** and **Show answer**) or why it stopped, and the completion conditions still open. **Details**, collapsed, list the turn's steps with the **Turn** picker, the run's stages, the subagents and the outputs; they open by themselves on a failure. Picking an earlier turn moves the state to that turn; **Back to latest** returns. The **Agent tree** folds branch by branch and moves with the arrow keys. In the conversation, a tool call's arguments and output each have **Copy**, and long output scrolls inside a fixed height with a line count under it.
 
 ## 4. Check the changes and open a PR
 
@@ -346,7 +346,7 @@ The Information panel, task context and the latest turn summary are attached to 
 - **Side question**: the **Side question** icon (a speech bubble with a question mark) beside Attach in the composer, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Conversation width**: **Settings > Chat > Layout > Conversation width** picks **Narrow**, **Default** or **Wide** for the messages and the message box in tasks and Tars. Each choice widens in steps as the conversation area gets wider, and a narrow area uses its full width. Code blocks keep to the message column and scroll sideways inside it; only a table whose columns need more room grows past the column, centred on it.
 - **Welcome back**: after you have been away for more than 15 minutes, a card in the conversation, right after the last message you had seen, lists what waits on you, each turn that finished and the last decision, one action each. **Got it** folds it into a one-line divider at the same place; click the divider to open it again.
-- **Handoff**: in Task panel > **Handoff**, fill the record with **Fill from this task** or **Ask the agent to update**. A provider receives this record first when it starts on or returns to the task. Lines that do not fit in a section's 2,000 characters stay listed under it with **Put back**.
+- **Handoff**: the Task panel no longer has a Handoff tab. A handoff record saved earlier is kept, and a provider still receives it first when it starts on or returns to the task.
 - **Enhance prompt**: the wand icon in the composer rewrites your request. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.
 - **Context meter**: in the composer, shows how full the conversation is and the tokens left. For Claude, **Composition** lists what fills it (system prompt, tools, MCP tools, memory files, skills and an estimated conversation); other providers report only the total. **Compact context** shortens a long conversation. Wide composers show used / limit tokens; narrow composers show the percentage. During compaction, the notice shows elapsed time when known; inactive restored messages stop counting.
 - **Macros**: in the composer toolbar, opens your saved macros with a search over name, `!slug` and description.
@@ -464,17 +464,17 @@ edge halted -> stopped dashed : stop
 | ----------------- | ---------------------------------------------------------------------------------- | ----------------------------------------- |
 | Running           | Working. A waiting reason such as PR checks or a usage limit may be shown; waiting uses no turns | Wait                         |
 | Needs your answer | A question or approval card is open, or the next stage waits for your sign-off     | Answer the card                           |
-| Paused            | You paused it, or you have taken control                                           | **Resume** in Task panel > Progress       |
+| Paused            | You paused it, or you have taken control                                           | **Resume** in Task panel > Details        |
 | Halted            | Blocked, recovery needed, wait expired, usage limit, or limit reached (earlier versions) | Continue with the run line buttons below  |
 | Completed         | The done-when conditions are met                                                   | Read the run report in Outputs            |
 | Stopped           | Cancelled, or ended with a reason card                                             | **Retry** or **Take control**             |
 
-A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Progress** shows what its turns spent: a cost for Claude, tokens for Codex.
+A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Details** shows what its turns spent: a cost for Claude, tokens for Codex.
 
 The run line above the composer shows the buttons that fit: **Retry**, **Resume**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model). On a run Tars holds, marked **Tars**, **Stop** (here, in the composer or with Esc) pauses the work in Tars instead of cancelling the run, and **Take control** is Tars's take over, which keeps the run paused for you.
-Task panel > **Progress** shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
+The Task panel's top shows the run's state and the **Done when** lines still open; its **Details** show **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
 Each done-when condition shows **Met · checked by Stave**, **Met · agent reported**, **Not met** or **Not verified**.
-Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agent-run-panel.png) · [Stage sign-off card](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/run-sign-off.png)
+Screens: [Run in the Task panel](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agent-run-panel.png) · [Stage sign-off card](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/run-sign-off.png)
 
 ## Hand off a goal and walk away
 
@@ -1083,14 +1083,14 @@ Ask to "clean up the finished work" or choose **Clean up finished work** in Done
 
 
 @page review | Hand off | Review and delegation | guide
-@lead Check changes yourself in Review mode, hand them to another model as an AI review, or let an agent create delegated tasks. Results gather in the Task panel's Outputs.
+@lead Check changes yourself in Review mode, hand them to another model as an AI review, or let an agent create delegated tasks. Results gather in the Task panel: its Result line, and Outputs under Details.
 
 | Method         | Where to start                                                            | Result                                                                |
 | -------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------------- |
 | Review mode    | The **Conversation / Review** switch, **Review** on a changed-files card, Cmd/Ctrl+Alt+R | Diff, line comments, **Sign off** or **Ask for changes** |
 | AI review      | **Request AI review** in the composer → **Start review**                  | A read-only child task reviews in one turn and returns a verdict      |
-| Delegated task | An agent creates a child task, or a stage names another agent             | Watch and stop it in Task panel > **Subagents**                       |
-| Outputs        | Task panel > **Outputs**                                                  | Saved answers, changed files, run reports. The **Unread** filter shows only new results |
+| Delegated task | An agent creates a child task, or a stage names another agent             | Watch and stop it in Task panel > Details > **Subagents**             |
+| Outputs        | Task panel > Details > **Outputs**                                        | Saved answers, changed files, run reports, newest first |
 
 Screens: [Review mode](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/review.png) · [Outputs](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/results.png)
 

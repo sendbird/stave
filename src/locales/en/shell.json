@@ -778,17 +778,7 @@
     "sourceControl": "Source Control",
     "information": "Information",
     "skills": "Skills",
-    "task": "Task",
-    "activity": "Activity",
-    "theLiveTurnStepByStep": "The live turn, step by step",
-    "progress": "Progress",
-    "theRunSStagesOrTheTaskSFlow": "The run's stages, or the task's flow",
-    "subagents": "Subagents",
-    "everyAgentTheTaskCalled": "Every agent the task called",
-    "results": "Outputs",
-    "eachRunSAnswerAndChangesToReview": "Saved answers and file changes from this task",
-    "handoff": "Handoff",
-    "handoffDescription": "What to know to carry this task on"
+    "task": "Task"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter queues, Tab steers",

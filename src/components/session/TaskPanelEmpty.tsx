@@ -5,7 +5,6 @@ import { vars } from "../aui/tokens/tokens.stylex";
 import { sx } from "../aui/utils/stylex";
 import { Button, Kbd, KbdGroup } from "@/components/ui";
 import { RightRailPanelHeader, RightRailPanelTitle } from "@/components/layout/RightRailPanelShell";
-import { TASK_PANEL_TABS } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 
 const IS_MAC =
@@ -14,9 +13,9 @@ const IS_MAC =
     (typeof navigator !== "undefined" && /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent)));
 
 /**
- * The Task panel with no task open. It names what each tab will show, why
- * none is available yet, and starts the thing that fills it: a new task in
- * the selected workspace, with the shortcut that does the same.
+ * The Task panel with no task open. It says why nothing shows yet and starts
+ * the thing that fills it: a new task in the selected workspace, with the
+ * shortcut that does the same.
  */
 export function TaskPanelEmpty(props: { hasWorkspace: boolean }) {
   useTranslation();
@@ -35,14 +34,6 @@ export function TaskPanelEmpty(props: { hasWorkspace: boolean }) {
               : i18n.t("session:taskPanelEmpty.taskPanelEmpty3")}
           </p>
         </div>
-        <ul className={sx(styles.list)} aria-label={i18n.t("session:taskPanelEmpty.ariaLabel")}>
-          {TASK_PANEL_TABS.map((tab, index) => (
-            <li key={tab.id} className={sx(styles.row, index > 0 && styles.rowDivided)}>
-              <span className={sx(styles.rowLabel)}>{tab.label}</span>
-              <span className={sx(styles.rowDescription)}>{tab.description}</span>
-            </li>
-          ))}
-        </ul>
         {props.hasWorkspace ? (
           <Button
             variant="outline"
@@ -85,37 +76,6 @@ const styles = stylex.create({
     fontSize: vars["--aui-font-size-caption"],
     lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
-  },
-  // One surface with hairlines between its rows, not a box per row.
-  list: {
-    borderColor: vars["--aui-color-border-subtle"],
-    borderRadius: vars["--aui-radius-control"],
-    borderStyle: "solid",
-    borderWidth: vars["--aui-border-width-hairline"],
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-  },
-  row: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-    paddingBlock: vars["--aui-space-8"],
-    paddingInline: vars["--aui-space-12"],
-  },
-  rowDivided: {
-    borderBlockStartColor: vars["--aui-color-border-subtle"],
-    borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars["--aui-border-width-hairline"],
-  },
-  rowLabel: {
-    color: vars["--aui-color-text"],
-    fontSize: vars["--aui-font-size-caption"],
-    fontWeight: vars["--aui-font-weight-medium"],
-  },
-  rowDescription: {
-    color: vars["--aui-color-text-muted"],
-    fontSize: vars["--aui-font-size-caption"],
   },
   action: { alignSelf: "flex-start" },
   shortcut: { marginInlineStart: vars["--aui-space-4"] },

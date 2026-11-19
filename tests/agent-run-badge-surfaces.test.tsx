@@ -9,7 +9,6 @@ import { FleetAgentRunStripView } from "../src/components/agent-runs/FleetAgentR
 import { TaskSupervisionMarks } from "../src/components/agent-runs/TaskSupervisionMarks";
 import { AgentActivity } from "../src/components/agents/AgentActivity";
 import { TaskPanelView } from "../src/components/session/TaskPanel";
-import { resolveProgressTabMark } from "../src/components/session/task-panel-marks";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import { hasAgentOrigin } from "../src/lib/agent-runs/agent-run";
 import {
@@ -18,6 +17,7 @@ import {
   formatAgentRunBadge,
   type AgentRunStatus,
 } from "../src/lib/agent-runs/agent-run-status";
+import { TASK_USER_STATE_LABELS, type TaskUserState } from "../src/lib/task-user-state";
 import { useAppStore } from "../src/store/app.store";
 import { agentRunTaskKey, useAgentRunsStore } from "../src/store/agent-runs-store";
 import { useFleetAgentRunsStore } from "../src/store/fleet-agent-runs-store";
@@ -25,9 +25,9 @@ import type { ApprovalPart, ChatMessage, UserInputPart } from "../src/types/chat
 import { agentRunDetail, agentRunFixture, patchCurrent } from "./fixtures/agent-run-fixtures";
 
 /*
- * Spec 7.1: the run line, the Task panel (its Progress tab mark and the Run
- * panel), the task's mark, the Fleet card, Agent activity and the result card
- * show the same badge for the same run. Every surface is fed the way the app
+ * Spec 7.1: the run line, the task's mark, the Fleet card, Agent activity and
+ * the result card show the same badge for the same run, and the Task panel
+ * states the one task state that badge maps to (`resolveTaskUserState`). Every surface is fed the way the app
  * feeds it: the run sits in the stores, its lead task's messages hold the
  * question and approval cards, and each surface derives Needs your answer
  * itself. The badge is read back from what each one draws.
@@ -108,7 +108,7 @@ function renderSurfaces(detail: AgentRunDetail, messages: ChatMessage[]) {
   return {
     bar: render(AgentRunBar, {}),
     taskPanel: render(TaskPanelView, {
-      workspaceId, taskId: leadTaskId, repositoryPath: null, managed: false, taskTitle: "Billing export", workspaceLabel: "main", agentRun: detail, tab: "progress", onTabChange: () => {},
+      workspaceId, taskId: leadTaskId, repositoryPath: null, managed: false, taskTitle: "Billing export", workspaceLabel: "main", agentRun: detail,
     }),
     sidebar: render(TaskSupervisionMarks, { taskId: leadTaskId }),
     // What FleetWorkspaceCard hands its strip: the same derivation over the lead task's messages.
@@ -125,18 +125,30 @@ function renderSurfaces(detail: AgentRunDetail, messages: ChatMessage[]) {
   };
 }
 
+/** The Task panel's one state for a run that wears `badge`. */
+const TASK_STATE_OF_BADGE: Record<AgentRunStatus["badge"], TaskUserState> = {
+  running: "working",
+  "needs-answer": "waiting",
+  paused: "blocked",
+  halted: "blocked",
+  completed: "finished",
+  stopped: "stopped",
+};
+
+function expectTaskState(html: string, status: AgentRunStatus) {
+  const state = TASK_STATE_OF_BADGE[status.badge];
+  expect(badgesIn(html, "data-task-state")).toEqual([state]);
+  expect(html).toContain(`>${TASK_USER_STATE_LABELS[state]}<`);
+}
+
 /** Every surface of an active run wears `status`. */
 function expectOneBadge(surfaces: ReturnType<typeof renderSurfaces>, status: AgentRunStatus) {
   const named = `${status.agentName}: ${formatAgentRunBadge(status)}`;
   // The line carries the badge as its state.
   expect(badgesIn(surfaces.bar, "data-state")[0]).toBe(status.badge);
-  for (const html of [surfaces.taskPanel, surfaces.sidebar, surfaces.fleet]) expect(badgesIn(html)).toEqual([status.badge]);
-  for (const html of [surfaces.taskPanel, surfaces.sidebar, surfaces.fleet]) expect(html).toContain(named);
-  // The Progress tab marks a run only when it waits on the user, in the same words.
-  const mark = resolveProgressTabMark(status);
-  const progressLabel = mark?.kind === "state" ? mark.label : null;
-  expect(progressLabel).toBe(status.badge === "needs-answer" || status.badge === "halted" ? formatAgentRunBadge(status) : null);
-  if (progressLabel) expect(surfaces.taskPanel).toContain(`title="${progressLabel}"`);
+  for (const html of [surfaces.sidebar, surfaces.fleet]) expect(badgesIn(html)).toEqual([status.badge]);
+  for (const html of [surfaces.sidebar, surfaces.fleet]) expect(html).toContain(named);
+  expectTaskState(surfaces.taskPanel, status);
   if (surfaces.activity !== null) expect(surfaces.activity).toContain(formatAgentRunBadge(status));
   // The result card stays away while the run is active: the bar owns its state.
   expect(surfaces.result).toBe("");
@@ -186,12 +198,12 @@ describe("one badge on every surface", () => {
       expect(formatAgentRunBadge(status)).toBe(words);
       const surfaces = renderSurfaces(runs.working, messages);
       expectOneBadge(surfaces, status);
-      for (const html of [surfaces.taskPanel, surfaces.sidebar, surfaces.fleet, surfaces.activity!]) expect(html).toContain(words);
+      for (const html of [surfaces.sidebar, surfaces.fleet, surfaces.activity!]) expect(html).toContain(words);
       expect(surfaces.bar).toContain(`data-state="${words === "실행 중" ? "running" : "needs-answer"}"`);
     }
   });
 
-  test("an ended run's panel and result card wear the same badge", () => {
+  test("an ended run's panel state and result card agree", () => {
     for (const [detail, label, card] of [
       [runs.ready, "Completed", "agent-run-result"],
       [runs.failed, "Stopped", "agent-run-reason"],
@@ -200,8 +212,7 @@ describe("one badge on every surface", () => {
       const status = describeAgentRunStatus(detail);
       expect(status.label).toBe(label);
       const surfaces = renderSurfaces(detail, []);
-      expect(badgesIn(surfaces.taskPanel)).toEqual([status.badge]);
-      expect(surfaces.taskPanel).toContain(`${status.agentName}: ${label}`);
+      expectTaskState(surfaces.taskPanel, status);
       if (card) {
         expect(surfaces.result).toContain(`data-testid="${card}"`);
         expect(surfaces.result).toContain(`aria-label="${label}: ${status.agentName}"`);
@@ -226,10 +237,10 @@ describe("one badge on every surface", () => {
       const status = describeAgentRunStatus(detail, agentRunDecisionOfMessages(messages));
       const surfaces = renderSurfaces(detail, messages);
       expect(badgesIn(surfaces.bar, "data-state")[0]).toBe(status.badge);
-      for (const html of [surfaces.taskPanel, surfaces.fleet, surfaces.sidebar]) expect(badgesIn(html)).toEqual([status.badge]);
+      for (const html of [surfaces.fleet, surfaces.sidebar]) expect(badgesIn(html)).toEqual([status.badge]);
+      expectTaskState(surfaces.taskPanel, status);
       // Plain progress names no state on the legacy line; every other badge does, in full.
       if (status.badge !== "running") expect(surfaces.bar).toContain(formatAgentRunBadge(status));
-      expect(surfaces.taskPanel).toContain(`>${status.label}<`);
       expect(surfaces.fleet).toContain(formatAgentRunBadge(status));
     }
     expect(describeAgentRunStatus(cases[1]![0], agentRunDecisionOfMessages(cases[1]![1])).badge).toBe("needs-answer");
@@ -273,9 +284,9 @@ for (const locale of ["en", "ko"] as const) {
     expect(formatAgentRunBadge(status)).toBe(locale === "en" ? "Halted · Limit reached" : "멈춤 · 한도 도달");
     const surfaces = renderSurfaces(detail, []);
     expectOneBadge(surfaces, status);
-    for (const html of [surfaces.bar, surfaces.taskPanel]) {
-      expect(html).toContain(locale === "en" ? ">Resume<" : ">재개<");
-      expect(html).not.toContain(locale === "en" ? "Extend" : "연장");
-    }
+    // Resume is on the run line, never Extend; the Task panel says why it is blocked.
+    expect(surfaces.bar).toContain(locale === "en" ? ">Resume<" : ">재개<");
+    for (const html of [surfaces.bar, surfaces.taskPanel]) expect(html).not.toContain(locale === "en" ? "Extend" : "연장");
+    expect(surfaces.taskPanel).toContain('data-task-state="blocked"');
   });
 }

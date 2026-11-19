@@ -14,22 +14,18 @@ import { ResultFileSnapshots } from "@/components/session/ResultFileSnapshots";
 import { RunTurnTranscript } from "@/components/session/RunTurnDialog";
 import type { ChatMessage } from "@/types/chat";
 
-test("run history opens as a filterable list with its purpose stated up front", () => {
+test("run history lists each run's output without review marks or a read filter", () => {
   const html = renderToStaticMarkup(
     createElement(TaskResultReviews, { workspaceId: "w", taskId: "t" }),
   );
-  expect(html).toContain("Saved outputs");
-  expect(html).toContain("Saved answers and reported file changes");
-  expect(html).toContain("All outputs");
-  expect(html).toContain("Unread");
-  expect(html).toMatch(/role="radio"[^>]*aria-checked="false"[^>]*>.*?Unread/);
-  expect(html).toMatch(/role="radio"[^>]*aria-checked="true"[^>]*>(?:(?!role="radio").)*All outputs/);
-  expect(html.indexOf("Unread")).toBeLessThan(html.indexOf("All outputs"));
-  expect(html).not.toContain("Current changes");
+  expect(html).not.toContain("Unread");
+  expect(html).not.toContain("All outputs");
+  expect(html).not.toContain('role="radio"');
+  expect(html).not.toContain("Expand an entry");
   expect(html).not.toContain("Mark read");
 });
 
-test("run history rows lead with the result before review metadata", () => {
+test("run history rows lead with the result, with no review mark", () => {
   const result: ResultReview = {
     id: "result-1",
     repositoryPath: "/tmp/project",
@@ -51,18 +47,14 @@ test("run history rows lead with the result before review metadata", () => {
       createElement(RunHistoryRow, {
         result,
         expanded: false,
-        busy: false,
-        disabled: false,
-        onReview: () => {},
         onFollowUp: () => {},
       }),
     ),
   );
 
   expect(html.indexOf(result.summary)).toBeLessThan(html.indexOf("Finished"));
-  expect(html.indexOf(result.summary)).toBeLessThan(
-    html.indexOf("Unread"),
-  );
+  expect(html).not.toContain("Unread");
+  expect(html).not.toContain("Reviewed");
 });
 
 test("the Subagents tab says what it lists before any subagent exists", () => {

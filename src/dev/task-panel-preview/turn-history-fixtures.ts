@@ -46,17 +46,23 @@ const FAILED_DIGEST: TurnDigest = {
   ],
 };
 
+/** `outcome=completed`: the newest turn finished instead of failing. */
+function newestTurnFinished() {
+  return new URLSearchParams(window.location.search).get("outcome") === "completed";
+}
+
 export function previewTurnHistory(taskId: string, plainTaskId: string): TurnHistoryEntry[] {
   if (taskId !== plainTaskId) return [];
+  const finished = newestTurnFinished();
   return [
     {
       id: "turn-plain-1",
       providerId: "claude-code",
       createdAt: "2026-09-29T08:50:00.000Z",
       completedAt: "2026-09-29T09:03:00.000Z",
-      outcome: "failed",
-      error: "Stream closed before the turn finished.",
-      digest: { entryCount: FAILED_DIGEST.entries.length, hasError: true, checks: "fail" },
+      outcome: finished ? "completed" : "failed",
+      error: finished ? null : "Stream closed before the turn finished.",
+      digest: finished ? null : { entryCount: FAILED_DIGEST.entries.length, hasError: true, checks: "fail" },
     },
     {
       id: "turn-plain-0",
@@ -95,7 +101,7 @@ export function stubTurnHistory(args: { plainTaskId: string; messages: readonly 
         const record: TurnRecord | null = turn
           ? {
               turn,
-              digest: turn.id === "turn-plain-1" ? FAILED_DIGEST : null,
+              digest: turn.id === "turn-plain-1" && turn.outcome === "failed" ? FAILED_DIGEST : null,
               prompt: turn.id === "turn-plain-1"
                 ? "Tighten the spacing of the settings sidebar and keep the keyboard order."
                 : "Look at the settings sidebar spacing and propose a change.",

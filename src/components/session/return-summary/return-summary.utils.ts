@@ -3,7 +3,6 @@ import { formatDuration } from "@/i18n/format";
 import type { FleetAttentionItem, FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { formatToolDisplayName } from "@/lib/providers/subagent-identity";
 import { describeToolOperationLabel } from "@/lib/providers/tool-activity";
-import type { TaskPanelTab } from "@/lib/right-rail-panels";
 import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import type {
   ReturnDecision,
@@ -13,12 +12,12 @@ import type {
 } from "@/lib/task-context/return-summary";
 
 /**
- * Where a row's action leads: a Task panel tab, the waiting request, the
+ * Where a row's action leads: the Task panel, the waiting request, the
  * approval or answer you gave (its message and request), a turn's reply in the
  * conversation, a side question or the composer.
  */
 export type ReturnLinkTarget =
-  | { kind: "tab"; tab: TaskPanelTab }
+  | { kind: "panel" }
   | { kind: "request" }
   | { kind: "decision"; messageId: string; requestId: string }
   | { kind: "message"; messageId: string }
@@ -62,7 +61,7 @@ interface ReturnStatus {
   text: string;
   detail: string | null;
   next: string | null;
-  action: { label: string; target: ReturnLinkTarget };
+  action: { label: string; target: ReturnLinkTarget } | null;
 }
 
 /** The task's most urgent attention item, from Fleet's shared snapshot. */
@@ -88,10 +87,9 @@ function describeDecision(decision: ReturnDecision): string {
     : i18n.t("session:returnSummary.decisionDenied", { tool: toolLabel(decision.toolName), description: decision.description });
 }
 
-function decisionLink(decision: ReturnDecision): NonNullable<ReturnRow["action"]> {
-  if (decision.kind === "record") {
-    return { label: i18n.t("session:returnSummary.linkHandoff"), target: { kind: "tab", tab: "handoff" } };
-  }
+/** A decision from the handoff record has no place of its own to show it. */
+function decisionLink(decision: ReturnDecision): ReturnRow["action"] {
+  if (decision.kind === "record") return null;
   return {
     label: i18n.t("session:returnSummary.linkShow"),
     target: { kind: "decision", messageId: decision.messageId, requestId: decision.requestId },
@@ -161,22 +159,23 @@ function describeAction(summary: ReturnSummary): Pick<ReturnStatus, "action" | "
     case "answer":
       return { next: null, action: action("session:returnSummary.actionRequest", { kind: "request" }) };
     case "review":
-      return { next: null, action: action("session:returnSummary.actionReview", { kind: "tab", tab: "results" }) };
+      return { next: null, action: action("session:returnSummary.actionReview", { kind: "panel" }) };
     case "inspect-failure":
-      return { next: null, action: action("session:returnSummary.actionFailure", { kind: "tab", tab: "activity" }) };
+      return { next: null, action: action("session:returnSummary.actionFailure", { kind: "panel" }) };
     case "check-stall":
-      return { next: null, action: action("session:returnSummary.actionStall", { kind: "tab", tab: "activity" }) };
+      return { next: null, action: action("session:returnSummary.actionStall", { kind: "panel" }) };
     case "open-run":
-      return { next: null, action: action("session:returnSummary.actionRun", { kind: "tab", tab: "progress" }) };
+      return { next: null, action: action("session:returnSummary.actionRun", { kind: "panel" }) };
     case "remaining":
-      return { next: next.text, action: action("session:returnSummary.actionHandoff", { kind: "tab", tab: "handoff" }) };
+      // The next step is told in the row; the handoff record has no screen to open.
+      return { next: next.text, action: null };
     case "wait":
       return { next: null, action: action("session:returnSummary.actionSideQuestion", { kind: "side-question" }) };
     default:
       // A wait with no action of its own (a pull request's state) is read in
-      // Activity, not answered in the composer.
+      // the Task panel, not answered in the composer.
       return summary.stop.kind === "need"
-        ? { next: null, action: action("session:returnSummary.actionStall", { kind: "tab", tab: "activity" }) }
+        ? { next: null, action: action("session:returnSummary.actionStall", { kind: "panel" }) }
         : { next: null, action: action("session:returnSummary.actionComposer", { kind: "composer" }) };
   }
 }
@@ -235,7 +234,7 @@ export function describeReturnSummary(summary: ReturnSummary, now: number): Retu
       state: null,
       title: i18n.t("session:returnSummary.labelNext"),
       detail: summary.next.text,
-      action: { label: i18n.t("session:returnSummary.actionHandoff"), target: { kind: "tab", tab: "handoff" } },
+      action: null,
       primary: false,
     });
   }

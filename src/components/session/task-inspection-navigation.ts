@@ -1,12 +1,8 @@
-import { taskPanelLayoutPatch, type TaskPanelTab } from "@/lib/right-rail-panels";
+import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 
-/** Open one task's Task panel on a tab, without a second tab-selection store. */
-export function openTaskInspection(
-  workspaceId: string,
-  taskId: string,
-  tab: TaskPanelTab,
-) {
+/** Open one task's Task panel, selecting the task first when it is not the active one. */
+export function openTaskInspection(workspaceId: string, taskId: string) {
   const state = useAppStore.getState();
   if (
     state.activeWorkspaceId !== workspaceId ||
@@ -14,5 +10,5 @@ export function openTaskInspection(
   )
     return;
   if (state.activeTaskId !== taskId) state.selectTask({ taskId });
-  useAppStore.getState().setLayout({ patch: taskPanelLayoutPatch(tab) });
+  useAppStore.getState().setLayout({ patch: taskPanelLayoutPatch() });
 }

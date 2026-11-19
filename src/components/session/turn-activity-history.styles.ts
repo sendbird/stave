@@ -29,24 +29,4 @@ export const turnActivityHistoryStyles = stylex.create({
     margin: 0,
     minWidth: 0,
   },
-  /* List | Timeline on the left, the timeline's legend on the right; the
-     legend wraps under the switch in a narrow rail. */
-  viewBar: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    columnGap: vars["--aui-space-12"],
-    rowGap: vars["--aui-space-4"],
-    minWidth: 0,
-    paddingBlockEnd: vars["--aui-space-8"],
-    paddingInline: vars["--aui-space-12"],
-  },
-  body: {
-    display: "flex",
-    flex: 1,
-    flexDirection: "column",
-    minHeight: 0,
-  },
 });

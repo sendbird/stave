@@ -95,9 +95,6 @@
     "pin": "고정",
     "splitRight": "오른쪽 분할",
     "splitDown": "아래쪽 분할",
-    "viewResults": "결과 보기",
-    "viewProgress": "진행 보기",
-    "viewSubagents": "하위 에이전트 보기",
     "checkBack": "다시 확인…",
     "takeOver": "직접 이어받기",
     "copyDebugInfo": "디버그 정보 복사",
@@ -113,7 +110,8 @@
     "closeToTheRight": "오른쪽 탭 닫기",
     "closeSaved": "저장된 탭 닫기",
     "closeCLISession": "CLI 세션 닫기",
-    "closeCLISessionTheUnderlyingProcess": "\"{{value1}}\" CLI 세션을 닫으시겠습니까? 프로세스가 종료됩니다."
+    "closeCLISessionTheUnderlyingProcess": "\"{{value1}}\" CLI 세션을 닫으시겠습니까? 프로세스가 종료됩니다.",
+    "openTaskPanel": "작업 패널 열기"
   },
   "editorTabActions": {
     "closeOtherTabs": "다른 탭 닫기",

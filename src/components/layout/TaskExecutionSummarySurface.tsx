@@ -605,13 +605,17 @@ export function TaskExecutionSummarySurface(args: {
   xstyle?: StyleXValue;
   /** Tiles another part of the host already states (e.g. elapsed in a header). */
   omitKeys?: readonly SummaryMetricDescriptor["key"][];
+  /** Leave out tiles with nothing reported rather than draw an empty cell (the Task panel). */
+  omitUnreported?: boolean;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   const showLatestActivity = args.showLatestActivity ?? true;
   const layout = args.layout ?? "shelf";
   const omit = new Set(args.omitKeys ?? []);
   const descriptors = buildMetricDescriptors(args.summary).filter(
-    (descriptor) => !omit.has(descriptor.key),
+    (descriptor) =>
+      !omit.has(descriptor.key) &&
+      !(args.omitUnreported && descriptor.provenance === "unavailable"),
   );
   // A grid that only says "Not reported" four times carries no information;
   // the tiles appear once the first fact lands.

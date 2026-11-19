@@ -164,8 +164,6 @@
     "agentRunSubagents": "하위 에이전트"
   },
   "agentRunSummary": {
-    "label": "사용량",
-    "detail": "아직 보고되지 않음",
     "label2": "사용량",
     "label3": "토큰",
     "detail2": "비용이 보고되지 않음",

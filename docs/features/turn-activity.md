@@ -7,7 +7,7 @@ tools, delegated tasks, todos, and elapsed time. While anything is in flight,
 a one-line summary sits on the **composer shelf** directly above the prompt
 input, with the queue of messages waiting to send beneath it. The details —
 every row the turn reported — open inline under that line, in a floating card
-over the chat, or in the **Activity** tab of the right rail's Task panel.
+over the chat, or in the right rail's Task panel, under **Details**.
 
 ## When To Use It
 
@@ -46,7 +46,7 @@ before using browser find or printing its contents.
    and **Stop**.
 2. Choose the chevron at the end of the line to unfold the turn's rows under
    it, and choose it again to fold them away.
-3. Choose the panel button beside it to open the Task panel on **Activity**.
+3. Choose the panel button beside it to open the Task panel.
 4. To change where the chevron opens the details, open **Settings → Chat** and
    pick **Open Run Details In**.
 
@@ -72,9 +72,9 @@ when there is no run, usage-limit pause, review or queued message to show.
 | Stopped at a usage limit | The usage-limit line: `Claude usage limit · resets 3:40 PM · in 1h 7m`, with **Resume at reset** and **Resume now**. See [When A Usage Limit Stops Work](#when-a-usage-limit-stops-work). |
 | A review runs in its own task | One line per review: `Reviewing · <model> · <elapsed>` with **View** and **Stop**, then `Review ready` with **Attach**, **View** and **Dismiss**. **View** shows the review's answer and activity in a dialog. It shows when the task is idle too. See [Review Tasks](review-tasks.md). |
 
-There is exactly one status line for a run. The Task panel's **Activity** tab
-lists the rows without repeating it, and its run header names only an ended
-run's outcome.
+There is exactly one status line for a run. The Task panel lists the rows
+under **Details** without repeating it; its own state line uses the same
+facts.
 
 ### Where The Details Open
 
@@ -87,8 +87,7 @@ input whichever you pick, and its panel button always opens the Task panel.
 - `Floating card`: the toggle shows or hides a draggable card over the chat.
   Drag it by its grip; the position is retained for the next session and kept
   reachable if the window is resized. The card's close button hides it again.
-- `Task panel`: there is no chevron; the panel button opens the Task panel's
-  **Activity** tab.
+- `Task panel`: there is no chevron; the panel button opens the Task panel.
 
 **Open Run Details** (off by default) opens the details when a run starts. A
 toggle during a run lasts until that run ends; the next run starts from the
@@ -235,40 +234,34 @@ The shelf reads the composer's own width, not the window's:
 
 ### The Task Panel
 
-The right rail's **Task** panel is the one place for the active task. A line
-under its tabs names that task and its workspace (the workspace's name, or its
-branch), so after you switch tasks, or move to an editor tab, the panel still
-says which task it describes. A long title or name is cut short; hover the line
-to read all of it. Its tabs:
+The right rail's **Task** panel is one screen for the active task, read top to
+bottom. A line under its title names the task and its workspace (the
+workspace's name, or its branch), so after you switch tasks, or move to an
+editor tab, the panel still says which task it describes. A long title or name
+is cut short; hover the line to read all of it.
 
-- **Activity**: the turn's rows — the current turn, or the last one once it
-  ends — under every placement, with a **Turn** picker for the task's earlier
-  turns. See [Earlier Turns](#earlier-turns). A **List | Timeline** switch
-  under the picker draws the same turn on a time axis; the list is the
-  default. See [Timeline View](#timeline-view). Under them, **Approvals in this
-  turn** counts the turn's permission requests by who allowed them (`1 allowed
-  by you · 1 allowed by a Stave rule · 1 allowed by the provider's mode ·
-  1 denied`); open it to list each request with who decided it and when. It
-  follows the turn the picker shows while that turn's messages are loaded, and
-  is absent when the turn asked for nothing. See
-  [Who decided each approval](provider-sandbox-and-approval.md#who-decided-each-approval).
-- **Progress**: the task's [agent run](agent-runs.md) while it has one — running,
-  paused or ended — and otherwise its flow (Request → Plan → Changes →
-  Verification → Pull request), with the task's wake-up under either.
-- **Subagents**: every agent the task called, in its turn or as a
-  [delegated task](delegated-tasks.md), with its state and answer.
-- **Outputs**: saved answers and reported file changes, one entry per ended execution.
-- **Handoff**: the task's handoff record — goal, approved decisions, verified
-  results, remaining work and cautions — sent ahead of the conversation when a
-  provider starts or comes back. See [Task Handoff Record](task-handoff-record.md).
+1. **State**: one line, one of five states — `Working`, `Waiting for you`,
+   `Blocked`, `Finished` or `Stopped`. One function decides it from the live
+   turn, an open question or approval, the [agent run](agent-runs.md) and how
+   the last turn ended, so the panel never shows a finished run next to a
+   failed turn. A turn's saved record decides how that turn ended.
+2. **What you need to do**: only while something waits on you — a question,
+   an approval or a stage sign-off — with the question and the action that
+   answers it (**Answer**, or **Review request**), which takes you to it in
+   the conversation.
+3. **Result**: once finished, the pull request, the files the turn changed
+   (**Review changes**) and **Show answer**, which jumps to the reply. When it
+   stopped, why; when blocked, why it cannot go on.
+4. **Still open**: the run's completion conditions that are not met or not
+   verified yet. Met ones are not repeated here.
+5. **Details**, collapsed: the activity (with the **Turn** picker), the steps
+   (the agent run's stages and reports, or a direct task's plan and flow, and
+   the task's wake-up), the subagents and the outputs.
 
-A tab can carry a small mark from data the app already holds: a dot on
-**Activity** while the turn runs or waits on you, a dot on **Progress** when the
-agent run needs you or is blocked, the number of running agents on **Subagents**
-(with how many wait on you, such as `2 · 1 needs you`), and
-the number of unchecked outputs on **Outputs**. The tab you choose is kept with
-the layout, so the panel reopens where you left it, and a task tab's context
-menu opens it straight to **Outputs**, **Progress** or **Subagents**.
+Details stay collapsed until you open them, except when the last work failed:
+then the panel opens Details on that failure. Picking an earlier turn in the
+**Turn** picker moves the state and result to that turn, under an
+`Earlier turn · <time>` title; **Back to latest** returns to the current one.
 
 The **Performance** tab of **Agents** compares runs across workspaces.
 See [Agent performance and task outputs](results.md) for the difference and examples.
@@ -290,8 +283,8 @@ never draws a second status:
   to-dos.
 - **Stop**, **Take control**, and **Retry** while a stage is stuck; a legacy
   run offers **Take over** and **Resume** instead.
-- The panel button opens **Progress**; the details toggle unfolds the current
-  turn's rows.
+- The panel button opens the Task panel; the details toggle unfolds the
+  current turn's rows.
 
 A stage that waits for your sign-off asks in its card above the shelf; the
 line says the run needs you without repeating the question.
@@ -334,31 +327,6 @@ changes.
   activity (or shows its call in the conversation); on a row without that,
   it folds or opens the branch. A row's message, interrupt and stop buttons
   join the Tab order only while that row has focus.
-
-### Timeline View
-
-**Timeline** draws the turn on one time axis, in the Activity tab's place for
-the steps:
-
-- The **Turn** row spans the whole turn and carries its tokens and cost, when
-  the provider reports them; providers report them for the turn, not for each
-  step. Under it are the reasoning passes, the tool calls, and the subagents
-  with the calls they made nested inside them, colored by kind (the legend
-  names them).
-- Time labels over the bars (for example 0s, 30s, 1m) mark the axis, with a
-  faint rule down every row at each one. The step adapts to the turn's length
-  so there are at most four labels.
-- While the turn runs, a **Now** line marks the present and running steps
-  reach it. The longest step is tagged **Slowest**.
-- Each bar starts and ends when the runtime saw the step start and finish.
-  Steps without such times — calls saved before Stave recorded them, or ones
-  that ended without a result — are listed under **N steps without a
-  reported time** instead of being placed on the axis.
-- Choosing a tool call shows it in the conversation. Rows with nested steps
-  fold, and **Collapse all** / **Expand all** fold every one.
-
-It works for the live turn, the last turn, and earlier turns opened from the
-picker. The choice lasts while the task stays open.
 
 ### Provider-Specific Detail
 
@@ -416,7 +384,7 @@ badge — instead of listing a row per run.
 
 ### The Last Turn
 
-When a turn ends, the Task panel's **Activity** tab keeps it on screen instead
+When a turn ends, the Task panel's Details keep it on screen instead
 of emptying. The header
 shows a `Last turn` marker and names the outcome — `Turn finished`, `Turn
 stopped`, or `Turn failed` — and the rows, agent tree, timings and metrics stay
@@ -434,7 +402,7 @@ exactly as the turn left them. The next turn replaces it.
 
 ### Earlier Turns
 
-The **Turn** picker at the top of the Activity tab lists the task's turns,
+The **Turn** picker at the top of the Task panel's Details lists the task's turns,
 newest first, each named by when it started and how it ended, with the request
 that started it (when that part of the conversation is loaded), the provider
 and the first characters of the turn's id. Type to search: the search matches
@@ -445,10 +413,11 @@ without interrupting the turn.
 
 - The running turn, and the last turn while Stave still holds it, open the
   activity described above.
-- Any other turn opens its record, marked `Earlier turn`. After a restart the
-  newest turn opens as a record, so the tab is not empty.
-- Choosing a turn keeps it on screen while you read; a new turn does not take
-  the tab away. The run line above the prompt still shows the new turn.
+- Any other turn opens its record, marked `Saved record`. After a restart the
+  newest turn opens as a record, so Details are not empty.
+- Choosing a turn keeps it on screen while you read, and the panel's state and
+  result follow it; a new turn does not take the panel away. The run line
+  above the prompt still shows the new turn.
 
 A turn's record has three parts:
 
@@ -488,10 +457,10 @@ The activity list ends with a six-tile metrics grid: `Elapsed`, `Changes`,
 `Verification`, `Usage`, `Agents`, and `Headroom`. `Headroom` combines the
 remaining context tokens and the account limit usage, so the grid divides
 evenly across the 2-, 3-, and 6-column layouts instead of leaving a stray tile.
-In the Task panel, the four outcome tiles (`Changes`, `Verification`, `Usage`,
-`Headroom`) sit on the rail floor instead of scrolling with the rows. They
-stay two-up while the rail is at least `24rem` wide, and stack one tile per
-row when it is narrower.
+In the Task panel, the outcome tiles (`Changes`, `Verification`, `Usage`,
+`Headroom`) sit under the rows, and a tile with nothing reported yet is left
+out rather than drawn empty. They stay two-up while the rail is at least
+`24rem` wide, and stack one tile per row when it is narrower.
 
 - A tone color marks a tile that needs attention: failed verification, a
   blocked agent, or low context or account headroom.
@@ -512,15 +481,16 @@ row when it is narrower.
 
 ### Read a turn back after it ends
 
-1. Open the Task panel's **Activity** tab.
-2. Let the turn finish. The list stays, headed `Last turn`.
+1. Open the Task panel and its **Details**.
+2. Let the turn finish. The state line says how it ended, and the list stays,
+   headed `Last turn`.
 3. Choose a row to open its details, then **Show in conversation** to jump to
    that step's input and output. A finished turn's steps open, and the step
    takes keyboard focus.
 
 ### Read an earlier turn after a restart
 
-1. Open the Task panel's **Activity** tab. After a restart the newest turn
+1. Open the Task panel and its **Details**. After a restart the newest turn
    opens as a record.
 2. Choose the **Turn** picker and pick a turn, or type part of its request,
    its id or the error it failed with.
@@ -555,8 +525,7 @@ row when it is narrower.
   reservations are saved and restored; Ask keeps restored queues held.
 - Each turn's record is saved with the turn in the app database: at most 64
   entries and 16 KB per turn. When a turn has more, retries and stalls give way
-  first, then model and account changes, then errors; the record says how many
-  entries were left out. Records last as long as the task: archiving a task
+  first, then model and account changes, then errors. Records last as long as the task: archiving a task
   keeps them, and deleting the task, or closing or removing its workspace,
   deletes them. Steps are not saved twice: they are read from the saved
   conversation when you open the record.
@@ -582,16 +551,13 @@ row when it is narrower.
   for the most recent turn, only for the last several tasks you ran one in, and
   only until the app is restarted. Earlier turns open as records: their steps
   carry the durations providers reported, and their agents are rows rather
-  than a tree. Their Timeline places tool calls by the start and end times
-  the runtime recorded; calls saved before those were recorded have none and
-  are listed instead, and an earlier turn's record keeps no reasoning passes or
-  token counts, so its Timeline shows neither.
+  than a tree.
 - The picker lists a task's latest 200 turns. A record lists up to 300 steps;
   the rest are in the conversation.
 - A turn you steered saves one reply per stretch. A record reads all of them,
   up to its latest 200 replies (and about 2 MB once shortened); when a long
-  turn has more, the earliest are left out and the record says how many, so
-  its last steps and todos are always there.
+  turn has more, the earliest are left out, so its last steps and todos are
+  always there.
 - A request shows in the picker only for turns whose reply is loaded in the
   conversation; older turns are named by time, and their record shows the
   request.

@@ -48,7 +48,7 @@
   **Settings → Keyboard & Commands → Shell Shortcut Chords**.
 - **Ask a side question** in the command palette.
 - The question button next to the **Turn** picker in the Task panel's
-  **Activity** tab.
+  **Details**.
 - The panel opens over whatever the task shows: its conversation, or
   [Review](review-mode.md), which stays open. Switching between the two keeps
   the panel open.

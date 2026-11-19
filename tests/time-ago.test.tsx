@@ -48,7 +48,7 @@ describe("a past event stamped ahead of the clock reads just now", () => {
       summary: "Done.", createdAt: new Date(Date.now() + AHEAD_MS).toISOString(), reviewedAt: null,
     };
     const html = renderToStaticMarkup(createElement(Accordion, {}, createElement(RunHistoryRow, {
-      result, expanded: false, busy: false, disabled: false, onReview: () => {}, onFollowUp: () => {},
+      result, expanded: false, onFollowUp: () => {},
     })));
     expect(html).toMatch(/<time[^>]*>just now<\/time>/);
   });

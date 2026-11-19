@@ -1,4 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/** The Task panel's outputs sit in its Details; open them unless already open. */
+async function openDetails(page: Page) {
+  const details = page.getByTestId("task-details");
+  if ((await details.getAttribute("open")) === null) await details.locator("summary").click();
+  await expect(details).toHaveAttribute("open", "");
+}
 
 const summary = "Tightened the row gaps to 8px and kept the keyboard order; typecheck and the focused tests pass.";
 
@@ -25,13 +32,12 @@ for (const lang of ["en", "ko"] as const) {
   });
 
   for (const theme of ["light", "dark"] as const) {
-    test(`task outputs: read, undo and draft-only follow-up (${lang}, ${theme}, 320px)`, async ({ page }, testInfo) => {
-      await page.goto(`/?stavePreview=task-panel&tab=results&panelWidth=320&lang=${lang}&theme=${theme}`);
+    test(`task outputs: read and draft-only follow-up, with no review marks (${lang}, ${theme}, 320px)`, async ({ page }, testInfo) => {
+      await page.goto(`/?stavePreview=task-panel&panelWidth=320&lang=${lang}&theme=${theme}`);
+      await openDetails(page);
       const outputs = page.getByRole("region", { name: ko ? "작업 산출물" : "Task outputs" });
-      await expect(page.getByRole("tab", { name: ko ? /^산출물/ : /^Outputs/ })).toHaveAttribute("aria-selected", "true");
-      await expect(outputs.getByRole("radio", { name: ko ? "전체 산출물" : "All outputs", exact: true })).toHaveAttribute("aria-checked", "true");
-      const check = outputs.getByRole("button", { name: ko ? "읽음 표시" : "Mark read", exact: true });
-      await expect(check).toBeHidden();
+      await expect(outputs.getByRole("radio")).toHaveCount(0);
+      await expect(outputs.getByRole("button", { name: ko ? "읽음 표시" : "Mark read", exact: true })).toHaveCount(0);
       await outputs.getByText(summary, { exact: true }).click();
       await expect(outputs.getByRole("button", { name: ko ? "실행 과정 보기" : "View execution", exact: true })).toBeVisible();
       await expect(outputs.getByRole("heading", { name: ko ? "최종 답변" : "Final answer", exact: true })).toBeVisible();
@@ -53,24 +59,15 @@ for (const lang of ["en", "ko"] as const) {
       expect(state.active).toBeFalsy();
       await expect(outputs.getByRole("status")).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`task-outputs-${lang}-${theme}.png`), fullPage: true, animations: "disabled" });
-      await check.click();
-      await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
-      await outputs.getByRole("button", { name: ko ? "안 읽음" : "Unread", exact: true }).click();
-      await expect(outputs.getByText(summary, { exact: true })).toHaveCount(0);
-      await outputs.getByRole("button", { name: ko ? "전체 산출물" : "All outputs", exact: true }).click();
-      await outputs.getByText(summary, { exact: true }).click();
-      await outputs.getByRole("button", { name: ko ? "안 읽음 표시" : "Mark unread", exact: true }).click();
-      await expect(check).toBeVisible();
-      const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("stave:result-reviews:v1") ?? "[]"));
-      expect(saved.find((row: { summary: string }) => row.summary === summary).reviewedAt).toBeNull();
       const frame = page.getByTestId("task-panel-frame");
       expect(await frame.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
     });
   }
 }
 
-test("auto-read outputs remain discoverable in the default history", async ({ page }) => {
-  await page.goto("/?stavePreview=task-panel&tab=results&panelWidth=320");
+test("auto-read outputs remain listed", async ({ page }) => {
+  await page.goto("/?stavePreview=task-panel&panelWidth=320");
+  await openDetails(page);
   const outputs = page.getByRole("region", { name: "Task outputs" });
   await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
   const marked = await page.evaluate(async () => {
@@ -93,10 +90,6 @@ test("auto-read outputs remain discoverable in the default history", async ({ pa
   });
   expect(marked).toBeGreaterThan(0);
   await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
-  await outputs.getByRole("button", { name: "Unread", exact: true }).click();
-  await expect(outputs.getByText(summary, { exact: true })).toHaveCount(0);
-  await outputs.getByRole("button", { name: "All outputs", exact: true }).click();
-  await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
 });
 
 test("overview empty and failure states explain the next action", async ({ page }) => {
@@ -110,7 +103,8 @@ test("overview empty and failure states explain the next action", async ({ page 
 });
 
 test("a finished agent report stays available behind its disclosure", async ({ page }) => {
-  await page.goto("/?stavePreview=task-panel&task=agent-run&tab=results&panelWidth=384");
+  await page.goto("/?stavePreview=task-panel&task=agent-run&panelWidth=384");
+  await openDetails(page);
   await expect(page.getByRole("region", { name: "Task outputs" })).toBeVisible();
   await page.evaluate(async () => {
     const { useAppStore } = await import("/src/store/app.store.ts");

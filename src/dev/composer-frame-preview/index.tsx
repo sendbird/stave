@@ -70,7 +70,6 @@ import { useComposerShelfQueue } from "@/components/session/composer-shelf/use-c
 import { TaskScopeProvider } from "@/components/session/task-scope-context";
 import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { TurnActivity } from "@/components/session/TurnActivity";
-import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import {
   CLAUDE_PROVIDER_MODE_PRESETS,
   buildClaudeProviderModeSettingsPatch,
@@ -710,8 +709,8 @@ export function ComposerFramePreviewApp() {
           </div>
         </div>
         {showPanel ? (
-          <aside className={sx(f.panel)} data-testid="preview-task-panel" aria-label="Task panel, Activity tab">
-            <TurnActivityPanel />
+          <aside className={sx(f.panel)} data-testid="preview-task-panel" aria-label="Task panel activity">
+            <TurnActivity host="panel" />
           </aside>
         ) : null}
         </div>

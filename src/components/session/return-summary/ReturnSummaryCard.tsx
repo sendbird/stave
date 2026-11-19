@@ -29,8 +29,8 @@ export const RETURN_ROW_LIMIT = 4;
 
 /** Go where a row's action points. */
 export function followReturnLink(target: ReturnLinkTarget, workspaceId: string, taskId: string) {
-  if (target.kind === "tab") {
-    openTaskInspection(workspaceId, taskId, target.tab);
+  if (target.kind === "panel") {
+    openTaskInspection(workspaceId, taskId);
   } else if (target.kind === "request") {
     void useAppStore.getState().focusTaskAttention({ taskId, workspaceId });
   } else if (target.kind === "decision") {

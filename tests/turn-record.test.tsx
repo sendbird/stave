@@ -174,18 +174,14 @@ describe("a turn's record", () => {
     expect(html).toContain("Fix the flaky test");
     expect(html).toContain("Retried 3 times");
     expect(html).toContain("1 of 2 checks failed");
-    expect(html).toContain("1 more entry was left out");
+    // The record's internal notes about what it left out stay off screen.
+    expect(html).not.toContain("left out");
     expect(html).toContain("Run command");
   });
 
-  test("a record that left out earlier replies of a long turn says so, in English and Korean", () => {
+  test("a record that left out earlier replies of a long turn does not say so", () => {
     const long = { ...record, omittedMessages: 4 };
-    expect(renderToStaticMarkup(createElement(TurnRecordBody, { record, taskId: "task-1" }))).not.toContain("earlier replies");
-    expect(renderToStaticMarkup(createElement(TurnRecordBody, { record: long, taskId: "task-1" })))
-      .toContain("4 earlier replies of this turn were left out");
-    applyAppLocale("ko");
-    expect(renderToStaticMarkup(createElement(TurnRecordBody, { record: long, taskId: "task-1" })))
-      .toContain("이 턴의 앞선 응답 4개");
+    expect(renderToStaticMarkup(createElement(TurnRecordBody, { record: long, taskId: "task-1" }))).not.toContain("earlier replies");
   });
 
   test("a turn from before digests says No record, in English and Korean", () => {

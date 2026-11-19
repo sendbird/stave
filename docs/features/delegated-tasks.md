@@ -47,7 +47,7 @@ the work should recur rather than be handed off once.
 
 ## Before You Start
 
-- The **Subagents** tab of the right rail's Task panel lists every subagent the
+- **Subagents**, under **Details** in the right rail's Task panel, lists every subagent the
   task called, durable or in-turn. Delegation requires the Stave Local MCP
   server (Settings → MCP → Local MCP Server).
 - The parent task's workspace must belong to a registered repository. A delegation
@@ -132,13 +132,13 @@ ordinary task, so a turn or agent run you start in it yourself (for example
 Stave did not start (a terminal CLI with your token) names the parent
 explicitly.
 
-The Subagents tab shows each subagent's agent (or model), what it is doing,
+The Subagents list shows each subagent's agent (or model), what it is doing,
 its state and how long it ran (still counting while it runs; a finished one also
 says when it ended, with the exact time on hover), folds its answer under the
 row, and offers View activity (its answer, assignment and tool calls in a dialog
 over the current task), Open transcript and Stop.
 
-Each state has one mark and one word, the same in the Subagents tab, the
+Each state has one mark and one word, the same in the Subagents list, the
 Agents block in Turn Activity and the agent tree:
 
 | State | Mark | Means |

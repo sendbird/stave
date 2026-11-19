@@ -47,7 +47,7 @@ export function openTaskAttention(item: FleetAttentionItem, taskId: string) {
   switch (taskAttentionDestination(item)) {
     case "pr":
       if (item.prUrl) void window.api?.shell?.openExternal?.({ url: item.prUrl });
-      else openTaskInspection(item.workspaceId, taskId, "progress");
+      else openTaskInspection(item.workspaceId, taskId);
       break;
     case "reviewStage":
       review.openReview(taskId, { kind: "stage", ...item.agentRunStage! });
@@ -64,7 +64,7 @@ export function openTaskAttention(item: FleetAttentionItem, taskId: string) {
       void state.focusTaskAttention({ workspaceId: item.workspaceId, taskId });
       break;
     case "progress":
-      openTaskInspection(item.workspaceId, taskId, "progress");
+      openTaskInspection(item.workspaceId, taskId);
       break;
   }
 }

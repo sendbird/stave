@@ -275,7 +275,7 @@ export function AgentRunBar(props: AgentRunBarProps) {
         busy,
         onTakeOver: () => void runCommand("takeOver", { agentRunId }),
         onResume: () => void runCommand("resume", { agentRunId }),
-        onOpenPanel: () => setLayout({ patch: taskPanelLayoutPatch("progress") }),
+        onOpenPanel: () => setLayout({ patch: taskPanelLayoutPatch() }),
       }}
     />
   );

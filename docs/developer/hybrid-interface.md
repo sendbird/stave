@@ -178,7 +178,7 @@ settings invalidate responses from the old configuration.
 
 The implementation owners are `ChatInput.tsx`, the `ai-elements/prompt-input*`
 and model selector components, `composer-workspace-bar.tsx`, `composer-shelf/`,
-`TurnActivity.tsx`, `TurnActivityPanel.tsx`, `TaskPanel.tsx`, and the workspace
+`TurnActivity.tsx`, `TaskPanel.tsx`, and the workspace
 pane host. Shared behavior and styles
 belong in the system layer; product-specific composition stays with these owners.
 Inspect existing task activity and collaboration projections together before

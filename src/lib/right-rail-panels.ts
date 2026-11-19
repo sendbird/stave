@@ -45,40 +45,10 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
   task: ClipboardList,
 };
 
-/**
- * The Task panel's tabs. One rail entry answers "what is this task doing,
- * what does it need from me, what did it produce": Activity is the live or
- * last turn, Progress is the agent run when the task has one and the flow
- * overview otherwise, Subagents (tab id `team`) is every agent it called,
- * Results is its run history, and Handoff is the record for whoever picks the
- * task up next.
- */
-export type TaskPanelTab = "activity" | "progress" | "team" | "results" | "handoff";
-
-export const TASK_PANEL_TABS: ReadonlyArray<{
-  id: TaskPanelTab;
-  label: string;
-  /** One line for the empty panel, which lists what each tab will show. */
-  description: string;
-}> = [
-  { id: "activity", get label() { return i18n.t("shell:rightRailPanels.activity"); }, get description() { return i18n.t("shell:rightRailPanels.theLiveTurnStepByStep"); } },
-  { id: "progress", get label() { return i18n.t("shell:rightRailPanels.progress"); }, get description() { return i18n.t("shell:rightRailPanels.theRunSStagesOrTheTaskSFlow"); } },
-  { id: "team", get label() { return i18n.t("shell:rightRailPanels.subagents"); }, get description() { return i18n.t("shell:rightRailPanels.everyAgentTheTaskCalled"); } },
-  { id: "results", get label() { return i18n.t("shell:rightRailPanels.results"); }, get description() { return i18n.t("shell:rightRailPanels.eachRunSAnswerAndChangesToReview"); } },
-  { id: "handoff", get label() { return i18n.t("shell:rightRailPanels.handoff"); }, get description() { return i18n.t("shell:rightRailPanels.handoffDescription"); } },
-];
-
-export const DEFAULT_TASK_PANEL_TAB: TaskPanelTab = "activity";
-
-export function isTaskPanelTab(value: unknown): value is TaskPanelTab {
-  return TASK_PANEL_TABS.some((tab) => tab.id === value);
-}
-
-/** The layout patch that opens the Task panel on one of its tabs. */
-export function taskPanelLayoutPatch(tab: TaskPanelTab) {
+/** The layout patch that opens the Task panel. */
+export function taskPanelLayoutPatch() {
   return {
     sidebarOverlayVisible: true,
     sidebarOverlayTab: "task",
-    taskPanelTab: tab,
   } as const;
 }

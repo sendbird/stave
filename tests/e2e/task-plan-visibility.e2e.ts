@@ -75,9 +75,10 @@ for (const width of [384, 760]) {
 }
 
 
-test("ordinary tasks expose their latest plan before the flow in Progress", async ({ page }) => {
-  await page.goto("/?stavePreview=task-panel&task=plain&tab=progress&panelWidth=384");
-  const panel = page.getByRole("tabpanel", { name: "Progress", exact: true });
+test("ordinary tasks expose their latest plan before the flow in the panel's Steps", async ({ page }) => {
+  // The direct task's last turn failed, so the panel opens Details on it.
+  await page.goto("/?stavePreview=task-panel&task=plain&panelWidth=384");
+  const panel = page.getByRole("region", { name: "Steps", exact: true });
   await expect(panel.getByRole("group", { name: "Plan", exact: true })).toBeVisible();
   const order = await panel.evaluate((element) => {
     const plan = element.querySelector('[data-aui-component="plan"], [role="group"]');

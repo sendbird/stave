@@ -180,7 +180,7 @@ draft PR → Watch checks → Ready for review.
   their integrated changes. A delegated helper's run is never reviewed this
   way; the run that called it decides. The workspace check, when there is one, gates the fix stage.
 - Each AI stage reports when it is done; the run card and the Task panel's
-  **Progress** show the stages only when there is more than one.
+  steps show the stages only when there is more than one.
 - A saved Agent's delegated task defaults to supervised completion: its frozen
   workflow runs with stage reports and bounded continuation, retaining delegated
   permissions and the selected model. Explicit one-turn consultations and
@@ -303,7 +303,7 @@ the agent in the file to use it. Duplicate a repository agent to edit a copy.
 
 ### Flow
 
-The **Progress** tab of the right rail's Task panel shows one task's flow while
+The steps in the right rail's Task panel (under **Details**) show one task's flow while
 the task has no [agent run](agent-runs.md); once it has one, the agent run takes that
 place. Every task has a base flow, drawn from records that already exist:
 

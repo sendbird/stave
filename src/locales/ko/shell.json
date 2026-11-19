@@ -774,17 +774,7 @@
     "sourceControl": "소스 제어",
     "information": "정보",
     "skills": "스킬",
-    "task": "작업",
-    "activity": "활동",
-    "theLiveTurnStepByStep": "진행 중인 턴을 단계별로 표시",
-    "progress": "진행",
-    "theRunSStagesOrTheTaskSFlow": "실행 단계 또는 작업 흐름",
-    "subagents": "하위 에이전트",
-    "everyAgentTheTaskCalled": "작업에서 호출한 모든 에이전트",
-    "results": "산출물",
-    "eachRunSAnswerAndChangesToReview": "이 작업의 저장된 답변과 파일 변경",
-    "handoff": "인계",
-    "handoffDescription": "이 작업을 이어받는 데 필요한 내용"
+    "task": "작업"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter로 대기열에 추가, Tab으로 방향 조정",

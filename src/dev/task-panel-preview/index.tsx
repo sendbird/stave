@@ -15,7 +15,6 @@ import {
 } from "@/lib/agent-runs/domain";
 import { createWorkflowFromStarter, findWorkflowStarter } from "@/dev/fixtures/legacy-workflow-starters";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
-import { isTaskPanelTab, type TaskPanelTab } from "@/lib/right-rail-panels";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
@@ -47,24 +46,24 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  *   saved answer, files and turn (tool calls included) Results renders.
  * - `task=agent-run`: a task run by an agent, with a live turn, a running
  *   subagent, a finished delegated review and a scheduled wake-up.
- * - `tab=activity|progress|team|results` picks the tab the panel opens on.
+ * - `outcome=completed` makes the direct task's newest saved turn finish
+ *   instead of fail, so the panel leads with its pull request and answer.
  * - `panelWidth=320|384` sets the frame width (default 320).
  * - `pending=approval|user_input` makes the live turn wait on the user.
- * - `placement=docked` keeps the activity list in the composer shelf, so the
- *   Activity tab shows its move-here notice instead of the list.
+ * - `placement=docked` keeps the turn's activity list in the composer shelf.
  * - `theme=dark` or `theme=<built-in theme id>` renders under that theme.
- * - `tab=handoff` shows the direct task's handoff record; `proposal=1` adds
- *   an agent reply that proposes an update.
+ * - `proposal=1` adds an agent reply that proposes a handoff record update.
  * - `side=empty|asking|answered|failed|thread` adds a conversation stand-in with the
  *   side question panel in that state.
  * - `return=idle|need` adds the stand-in with the direct task's return
  *   summary: back after its last turn, or with an approval waiting.
- * - The direct task has saved turns: Activity opens the newest as a record
- *   (failed, with a full digest) and the Turn picker lists an older turn
- *   from before records existed.
+ * - The direct task has saved turns: the newest failed (with a full digest),
+ *   so the panel reads Stopped and opens Details on that record, and the Turn
+ *   picker lists an older turn from before records existed.
  * - `stuck=1` (with `task=agent-run`) adds a delegated child that asks a
- *   question and one that failed, which the Subagents tab lists first, and
- *   in-turn subagents that wait on an approval and that failed. Retry is
+ *   question and one that failed, which the Subagents list shows first, and
+ *   in-turn subagents that wait on an approval and that failed (open Details
+ *   to see them). Retry is
  *   accepted without a ledger (`retry=refuse` refuses it) and recorded on
  *   `window.__staveSubagentRetries`.
  * - `shared=1` (with `stuck=1`) puts the asking and the failed child in
@@ -513,7 +512,7 @@ function liveTurnActivity(now: number, pending: string | null) {
   };
 }
 
-/** A finished delegated review with a Markdown answer, for the Subagents tab. */
+/** A finished delegated review with a Markdown answer, for the Subagents list. */
 const DELEGATED_REVIEW: DelegatedTaskSummary = {
   runId: "child-task:agent-run:review",
   stepId: "child-task:agent-run:review:turn",
@@ -669,7 +668,7 @@ function seedResultReviews() {
   window.localStorage.setItem(RESULT_REVIEW_STORAGE_KEY, JSON.stringify([...others, ...PLAIN_RESULTS]));
 }
 
-function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | null; placement: string | null }) {
+function seedStores(args: { task: string; pending: string | null; placement: string | null }) {
   const now = Date.now();
   const activeTaskId = args.task === "agent-run" ? AGENT_RUN_TASK_ID : PLAIN_TASK_ID;
   const store = useAppStore.getState();
@@ -761,7 +760,6 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
       ...store.layout,
       sidebarOverlayVisible: true,
       sidebarOverlayTab: "task",
-      taskPanelTab: args.tab,
     },
     settings: {
       ...store.settings,
@@ -849,8 +847,6 @@ export function TaskPanelPreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
   const task = params.get("task") === "agent-run" ? "agent-run" : "plain";
-  const requestedTab = params.get("tab");
-  const tab: TaskPanelTab = isTaskPanelTab(requestedTab) ? requestedTab : "activity";
   const requestedWidth = Number(params.get("panelWidth"));
   const panelWidth = Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : 320;
   const [seeded, setSeeded] = useState(false);
@@ -864,7 +860,7 @@ export function TaskPanelPreview() {
   const side = params.get("side");
   const returning = params.get("return");
   useLayoutEffect(() => {
-    seedStores({ task, tab, pending: params.get("pending"), placement: params.get("placement") });
+    seedStores({ task, pending: params.get("pending"), placement: params.get("placement") });
     if (returning) {
       const now = Date.now();
       useTaskReturnStore.setState({
@@ -897,7 +893,7 @@ export function TaskPanelPreview() {
       });
     }
     setSeeded(true);
-  }, [task, tab, side, returning]);
+  }, [task, side, returning]);
   return (
     <main className={sx(styles.page)}>
       <p className={sx(styles.caption)}>

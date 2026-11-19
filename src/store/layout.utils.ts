@@ -1,9 +1,6 @@
 import {
-  DEFAULT_TASK_PANEL_TAB,
-  isTaskPanelTab,
   RIGHT_RAIL_PANEL_IDS,
   type RightRailPanelId,
-  type TaskPanelTab,
 } from "@/lib/right-rail-panels";
 import type { EditorTab } from "@/types/chat";
 
@@ -16,8 +13,6 @@ export interface LayoutState {
   agentsListWidth: number;
   sidebarOverlayVisible: boolean;
   sidebarOverlayTab: RightRailPanelId;
-  /** The Task panel's tab; kept while the rail is closed, so it reopens there. */
-  taskPanelTab: TaskPanelTab;
   terminalDocked: boolean;
   editorDiffMode: boolean;
   editorMarkdownPreviewMode: boolean;
@@ -176,10 +171,7 @@ export function mergeLayoutPatch(args: {
 }
 
 export function normalizeLayoutState(layout: LayoutState): LayoutState {
-  const rail = normalizeRightRailSelection(
-    layout.sidebarOverlayTab,
-    layout.taskPanelTab,
-  );
+  const sidebarOverlayTab = normalizeRightRailSelection(layout.sidebarOverlayTab);
   return {
     workspaceSidebarWidth: normalizeWorkspaceSidebarWidth(layout.workspaceSidebarWidth),
     workspaceSidebarCollapsed: layout.workspaceSidebarCollapsed,
@@ -193,8 +185,7 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
     terminalDocked: layout.terminalDocked,
     editorDiffMode: layout.editorDiffMode,
     editorMarkdownPreviewMode: Boolean(layout.editorMarkdownPreviewMode),
-    sidebarOverlayTab: rail.sidebarOverlayTab,
-    taskPanelTab: rail.taskPanelTab,
+    sidebarOverlayTab,
     turnActivityFloatPos: normalizeTurnActivityFloatPos(
       layout.turnActivityFloatPos,
     ),
@@ -202,19 +193,13 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
 }
 
 /**
- * The rail panel and Task tab a saved or patched layout selects. A value that
- * names no panel falls back to Explorer.
+ * The rail panel a saved or patched layout selects. A value that names no
+ * panel falls back to Explorer.
  */
-export function normalizeRightRailSelection(
-  panel: unknown,
-  tab: unknown,
-): { sidebarOverlayTab: RightRailPanelId; taskPanelTab: TaskPanelTab } {
-  return {
-    sidebarOverlayTab: RIGHT_RAIL_PANEL_IDS.includes(panel as RightRailPanelId)
-      ? (panel as RightRailPanelId)
-      : "explorer",
-    taskPanelTab: isTaskPanelTab(tab) ? tab : DEFAULT_TASK_PANEL_TAB,
-  };
+export function normalizeRightRailSelection(panel: unknown): RightRailPanelId {
+  return RIGHT_RAIL_PANEL_IDS.includes(panel as RightRailPanelId)
+    ? (panel as RightRailPanelId)
+    : "explorer";
 }
 
 export function normalizeWorkspaceSidebarItemDisplayMode(
@@ -268,7 +253,7 @@ export function resolveEditorDiffMode(args: {
   return isDiffEditorTab(activeTab);
 }
 
-/** The layout a fresh install starts with: rail closed, Explorer and Activity selected. */
+/** The layout a fresh install starts with: rail closed, Explorer selected. */
 export function createDefaultLayoutState(): LayoutState {
   return {
     workspaceSidebarWidth: WORKSPACE_SIDEBAR_DEFAULT_WIDTH,
@@ -278,7 +263,6 @@ export function createDefaultLayoutState(): LayoutState {
     agentsListWidth: AGENTS_LIST_DEFAULT_WIDTH,
     sidebarOverlayVisible: false,
     sidebarOverlayTab: "explorer",
-    taskPanelTab: DEFAULT_TASK_PANEL_TAB,
     terminalDocked: false,
     editorDiffMode: false,
     editorMarkdownPreviewMode: false,
