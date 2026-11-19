@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { LEGACY_DEBUGGER_STAGES } from "@/dev/fixtures/legacy-workflow-starters";
 import { SUBAGENT_PRESETS } from "@/lib/agents/subagent-presets";
 import { compileNativeSubagents, buildNativeSubagentBriefing } from "@/lib/agents/native-subagents";
 import { AgentConfigListSchema, AgentConfigSchema, type AgentConfig } from "@/lib/agents/schema";
@@ -200,7 +201,14 @@ describe("compileAgent", () => {
     });
     expect(result.compiled.promptPreamble).toContain("# Agent: UI Maintainer");
     expect(result.compiled.promptPreamble).not.toContain("Work in these stages");
-    const staged = compileAgent({ snapshot: snapshotAgent(getBuiltinAgent("debugger")!), role: "delegate", providerId: "codex" });
+    const debuggerAgent = compileAgent({ snapshot: snapshotAgent(getBuiltinAgent("debugger")!), role: "delegate", providerId: "codex" });
+    if (!debuggerAgent.ok || debuggerAgent.compiled.role !== "delegate") throw new Error("expected delegated");
+    expect(debuggerAgent.compiled.promptPreamble).toContain("First, reproduce the problem before editing.");
+    expect(debuggerAgent.compiled.promptPreamble).toContain("Find the root cause with evidence.");
+    expect(debuggerAgent.compiled.promptPreamble).toContain("Repeat the original reproduction");
+    expect(debuggerAgent.compiled.promptPreamble).not.toContain("Work in these stages");
+
+    const staged = compileAgent({ snapshot: snapshotAgent({ ...customAgent(), workflow: LEGACY_DEBUGGER_STAGES }), role: "delegate", providerId: "codex" });
     if (!staged.ok || staged.compiled.role !== "delegate") throw new Error("expected delegated");
     expect(staged.compiled.promptPreamble).toContain("Work in these stages, in order:\n1. Reproduce:");
 

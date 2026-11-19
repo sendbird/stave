@@ -9,6 +9,8 @@ import { getAgentDisplayName, getAgentDisplayDescription } from "@/lib/agents/di
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { groupAgents } from "@/lib/agents/agents-view";
 import { matchAgents } from "@/lib/agents/selector-choice";
+import { LEGACY_DEBUGGER_STAGES } from "@/dev/fixtures/legacy-workflow-starters";
+import { buildAgentRunWorkflow } from "@/lib/agent-runs/agent-run";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { formatAge, STAGE_STATUS_PRESENTATION } from "@/lib/agent-runs/agent-run-view";
 import { PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE } from "@/lib/truncation-visibility";
@@ -27,8 +29,10 @@ describe("conversation locale presentation", () => {
     expect(getAgentDisplayDescription(agent)).not.toBe(description);
     expect(agent.name).toBe("Debugger");
     expect(agent.instructions).toBe(instructions);
-    expect(getStageDisplayTitle(agent.workflow![0]!)).toBe("재현");
-    expect(agent.workflow![0]!.title).toBe("Reproduce");
+    const work = buildAgentRunWorkflow({ agent, now: new Date(0) }).stages[0]!;
+    expect(getStageDisplayTitle(work)).toBe("작업");
+    expect(work.title).toBe("Work");
+    expect(getStageDisplayTitle(LEGACY_DEBUGGER_STAGES[0]!)).toBe("재현");
   });
 
   test("agent search matches translated labels, canonical aliases and identifiers", () => {

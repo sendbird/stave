@@ -1,4 +1,4 @@
-import { getBuiltinAgent } from "@/lib/agents/starters";
+import { LEGACY_DEBUGGER_STAGES } from "@/dev/fixtures/legacy-workflow-starters";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { createAgentRun, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
@@ -145,7 +145,7 @@ export function buildAgentRunFixtures(start: Date) {
     input: buildAgentRunStartInput({
       workspaceId: "preview-workspace",
       taskId: "preview-task",
-      agent: getBuiltinAgent("debugger")!,
+      agent: { name: "Debugger", permission: "auto", workflow: LEGACY_DEBUGGER_STAGES },
       assignment: "The export button throws on an empty invoice list.",
       now: start,
     }),

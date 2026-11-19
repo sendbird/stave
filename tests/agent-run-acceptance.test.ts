@@ -3,6 +3,7 @@ import { unmetStageAcceptance, unreportedStageCriteria } from "../src/lib/agent-
 import { currentStageRecord, createStageRecord, StageCompleteReportInputSchema } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction } from "../src/lib/agent-runs/policy";
 import { WorkflowSchema, WORKFLOW_LIMITS, MAX_WORKFLOW_STAGES, MAX_STAGE_ACCEPTANCE_CRITERIA } from "../src/lib/workflows/schema";
+import { BUILTIN_AGENT_WORKFLOWS } from "../src/lib/agents/builtin-workflows";
 import { COMPLETE_REPORT, AGENT_RUN_NOW, agentRunFixture, observe, patchCurrent, turn } from "./fixtures/agent-run-fixtures";
 
 const ai = (id: string) => ({ id, title: id, kind: "ai" as const, instruction: "Do this stage.", doneWhen: "This stage is done." });
@@ -80,27 +81,47 @@ test("a delegated run whose report leaves a criterion unmet ends for its parent 
   expect(decideAgentRunAction({ aggregate: met, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW })).toEqual({ action: "complete-stage", next: "finish" });
 });
 
-test("a delegated Debugger's reproduction reports the assignment's goal unmet and continues; its last stage still must meet it", () => {
-  // Recorded failure: a delegated Debugger (reproduce, cause, fix) stopped after one turn because its
-  // reproduction honestly reported the fix criterion unmet, and the parent had to delegate again.
+test("a run criterion first reported unmet in an intermediate stage only gates the final stage", () => {
   const goal = "Pasting one image adds exactly one attachment.";
-  const own = "Reproduction steps recorded.";
-  let aggregate = aggregateFor([ai("reproduce"), ai("cause"), ai("fix")]);
-  aggregate.agentRun.assignment = `Fix the duplicate paste. Exact criteria: 1) ${goal}`;
-  aggregate = patchCurrent(aggregate, { status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: own, status: "met" }, { text: goal, status: "unmet" }] } });
+  let aggregate = aggregateFor([ai("investigate"), ai("implement")]);
+  aggregate.agentRun.assignment = "Fix the duplicate paste.";
+  aggregate = patchCurrent(aggregate, { status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: goal, status: "unmet" }] } });
   const delegated = (current: typeof aggregate) => decideAgentRunAction({ aggregate: current, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
   expect(delegated(aggregate)).toEqual({ action: "complete-stage", next: "start" });
-  // A criterion the stage adds on its own, not named by the assignment, still must be met where it is reported.
-  const ownUnmet = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: own, status: "unmet" }, { text: goal, status: "unmet" }] } });
-  expect(delegated(ownUnmet)).toMatchObject({ action: "stop", reason: "acceptance-unmet", detail: expect.stringContaining(own) });
-  // The goal carries forward: the final stage leaving it unmet still ends the delegated run for its parent.
+
   aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed" };
-  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "cause", attempt: 1 }), status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
-  aggregate.agentRun.currentStageIndex = 2;
-  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "fix", attempt: 1 }), status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
+  aggregate.agentRun.currentStageIndex = 1;
+  const record = { ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "implement", attempt: 1 }), status: "running" as const };
+  aggregate.stages.push(record);
+  expect(unreportedStageCriteria(aggregate, record, {})).toEqual([goal]);
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: goal, status: "unverified" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
   expect(delegated(aggregate)).toMatchObject({ action: "stop", reason: "acceptance-unmet", detail: expect.stringContaining(goal) });
   aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: goal, status: "met" }] } });
   expect(delegated(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+});
+
+test("the stage before a Stave action settles the criteria it adds, as on main", () => {
+  // Shipper: a Validate report that leaves a required check unverified must not open and ready the PR.
+  const shipper = BUILTIN_AGENT_WORKFLOWS.shipper!;
+  const checks = "Required checks pass locally";
+  let aggregate = reported([...shipper], [{ text: checks, status: "unverified" }]);
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet", detail: expect.stringContaining(checks) });
+  expect(unreportedStageCriteria(aggregate, currentStageRecord(aggregate), {})).toEqual([]);
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "met" }] } });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
+
+  // A criterion an earlier stage recorded is not this stage's to settle, as on main; the run's last stage still must.
+  aggregate = aggregateFor([ai("investigate"), ai("build"), { id: "publish", title: "Publish", kind: "action", action: { type: "open-draft-pr" } }]);
+  aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "unverified" }] } };
+  aggregate.agentRun.currentStageIndex = 1;
+  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "build", attempt: 1 }), status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
+  expect(unreportedStageCriteria(aggregate, currentStageRecord(aggregate), {})).toEqual([]);
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
+  // A criterion this stage adds and leaves open holds the action.
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Preview builds", status: "unverified" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
 });
 
 test("a build stage can precede testing, but final integration cannot leave goal criteria unresolved", () => {

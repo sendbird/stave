@@ -62,15 +62,14 @@ describe("built-in agents", () => {
     expect(blankCustomAgent({ name: "Planner", takenIds: [] }).id).not.toBe("planner");
   });
 
-  test("Shipper, UI Polisher and Debugger follow a workflow; the rest run as one stage", () => {
-    expect(ORDER.filter((id) => getBuiltinAgent(id)!.workflow)).toEqual(["debugger", "ui-polisher", "shipper"]);
+  test("only Shipper defines a workflow, for publication actions", () => {
+    expect(ORDER.filter((id) => getBuiltinAgent(id)!.workflow)).toEqual(["shipper"]);
     expect(getBuiltinAgent("shipper")!.workflow!.map((stage) => stage.title)).toEqual([
       "Validate",
       "Open draft PR",
       "Watch checks",
       "Ready for review",
     ]);
-    for (const id of ["implementer", "researcher"]) expect(getBuiltinAgent(id)!.workflow).toBeUndefined();
   });
 });
 
@@ -91,7 +90,6 @@ describe("Supervisor", () => {
     expect(getBuiltinAgent("lead")!.tools.maxTurns).toBeUndefined();
     // The skip flags apply: no review of unchanged work, no fix stage after a passed review.
     expect(supervisor().reviewBeforeDone).toBe("behavior-changes");
-    expect(getBuiltinAgent("lead")!.reviewBeforeDone).toBe("off");
   });
 
   test("works like Lead: does small work itself and verifies in proportion to risk", () => {

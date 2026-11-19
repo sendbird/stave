@@ -112,7 +112,7 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
   was last used, and **Work** — its assignments with their state (**Preparing**,
   **Started**, **Couldn't start** or **Interrupted**) and a filter. While the
   agent runs a task (or for half an hour after the run ends) the row shows the
-  run's state and where it stands (`Cause 2/3`, or `Plan 3/5` for a one-stage
+  run's state and where it stands (`Review 2/3`, or `Plan 3/5` for a one-stage
   run); click a row to open its task.
 
 ### Editing an agent
@@ -138,11 +138,14 @@ A save blocked by an **Advanced** field opens **Advanced**.
 
 ### Workflow
 
-An agent's **Workflow** is the ordered stages a run of it follows. Without
-stages, a run is one stage that plans its own steps — Implementer, Researcher,
-Reviewer, Lead and Supervisor work this way. Debugger (Reproduce → Cause → Fix), UI
-Polisher (Reproduce → Fix → Report) and Shipper (Validate → Open draft PR →
-Watch checks → Ready for review) come with a workflow.
+An agent's **Workflow** is the ordered list of stages its run follows. By
+default, Implementer, Lead, Supervisor, Debugger and UI Polisher each own one
+**Work** stage, followed by independent review when they change files.
+Debugger reproduces the problem, finds its cause, fixes it and verifies the fix
+in the same stage. UI Polisher captures the defect, fixes it and reports the
+before-and-after evidence in the same stage. Researcher and Reviewer run a
+single read-only stage. Shipper uses a publication workflow: Validate → Open
+draft PR → Watch checks → Ready for review.
 
 - **Add stage**: an AI stage (blank or from a template) with an instruction
   and **Done when**, optionally done by another agent and pinned to a commit;
@@ -173,11 +176,9 @@ Watch checks → Ready for review) come with a workflow.
   review reports no findings, the workspace is unchanged and no required checks
   or sign-off remain, Stave skips the final repair stage and records why.
   Under **When behavior changes**, wording, formatting and comments receive a
-  brief correctness check. Lead is **Off**: it asks for reviews of the parts it hands out.
-  Supervisor keeps the default, so the result it integrated gets the same final
-  review as Implementer's. A
-  delegated helper's run is never reviewed this way; the run that called it
-  decides. The workspace check, when there is one, gates the fix stage.
+  brief correctness check. Lead and Supervisor get an independent review of
+  their integrated changes. A delegated helper's run is never reviewed this
+  way; the run that called it decides. The workspace check, when there is one, gates the fix stage.
 - Each AI stage reports when it is done; the run card and the Task panel's
   **Progress** show the stages only when there is more than one.
 - A saved Agent's delegated task defaults to supervised completion: its frozen

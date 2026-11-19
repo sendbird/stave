@@ -58,9 +58,18 @@ describe("stage prompt", () => {
   test("tells only the last stage which criteria it must still report met", () => {
     const rule = "This is the last stage. The run finishes only when your report marks met every required criterion this stage defines";
     expect(compileStagePrompt(input())).not.toContain(rule);
+    expect(compileStagePrompt(input({ stageIndex: 0, acceptanceCriteria: [] }))).toContain("assignment criteria at the end");
     const lastAi = slack.stages.findLastIndex((stage) => stage.kind === "ai");
     const twoStage = { ...slack, stages: [slack.stages[0]!, slack.stages[lastAi]!] };
     expect(compileStagePrompt(input({ workflow: twoStage, stageIndex: 1 }))).toContain(rule);
+    // The AI stage before a Stave action must settle the open criteria too.
+    const beforeAction = slack.stages.findIndex((stage, index) => stage.kind === "ai" && slack.stages[index + 1]?.kind === "action");
+    expect(beforeAction).toBeGreaterThanOrEqual(0);
+    expect(compileStagePrompt(input({ stageIndex: beforeAction }))).toContain("The next stage is a Stave action");
+    expect(compileStagePrompt(input())).not.toContain("The next stage is a Stave action");
+    // Any action counts, including watching checks without repairs.
+    const watchOnly = { ...slack, stages: [slack.stages[beforeAction]!, { id: "watch", title: "Watch", kind: "action" as const, action: { type: "watch-checks" as const, repairAttempts: 0 as const, timeoutMinutes: 30 } }] };
+    expect(compileStagePrompt(input({ workflow: watchOnly, stageIndex: 0 }))).toContain("The next stage is a Stave action");
     // A one-stage run can still report its own criteria and needs the same completion contract.
     expect(compileStagePrompt(input({ workflow: { ...slack, stages: [slack.stages[lastAi]!] }, stageIndex: 0, acceptanceCriteria: [] }))).toContain(rule);
   });

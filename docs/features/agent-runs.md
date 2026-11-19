@@ -2,11 +2,12 @@
 
 ## Summary
 
-When you assign work to an agent, Stave runs it stage by stage. An agent with
-a **workflow** follows its stages — asks the agent for each AI stage, opens the
-draft pull request, watches its checks, marks it ready — and stops only where
-its **Check in with me** setting says, or when something needs you. An agent
-without a workflow runs one stage that plans its own steps.
+When you assign work to an agent, one owner carries it through a **Work**
+stage. By default, Implementer, Lead, Supervisor, Debugger and UI Polisher get
+an independent review if they change files. A saved **workflow** defines its
+own stages, including any Stave actions such as opening a draft pull request
+or watching its checks. The run checks in at the points you choose under
+**Check in with me**, or when it needs you.
 
 The product calls one a **Run**; inside Stave the engine is called an *agent
 run* (`AgentRun`). The product shows the agent, its stages and its result.
@@ -90,16 +91,19 @@ stages yourself, give the agent three stages (Agents → the agent →
    empty repair; findings get one more repair, then the run finishes without a
    third review. The fix stage does not start its own review.
 
-A delegated run's earlier stage (a Debugger's reproduction, for example) may
-report a criterion its assignment names as unmet without halting: the
-criterion carries forward and the last stage must report it met. A criterion
-the stage adds itself must still be met where it is reported.
+The run checks the assignment's completion criteria at the end. Only an AI
+stage followed by another AI stage may leave criteria it adds unmet or
+unverified for later stages; it still must meet the requirements defined for
+it, including Stave workspace checks. An AI stage followed by any Stave action
+is judged as before carry-forward: it must report met every criterion it
+defines or adds, while criteria from a planning stage, recorded by an earlier
+stage or named in the assignment wait for the last stage, so a draft pull
+request can open first. A criterion an earlier stage met stands unless a later
+report or check reopens it.
 
 The Reviewer runs on the other provider when it can and reports its findings
-as its result. An agent may always call the agents its own workflow names for
-a stage, even when its **Can call** list leaves them out. A criterion an
-earlier stage met stands; the last stage must report met only what is still
-open, and its prompt says which.
+as its result. An agent may always call the agents its workflow names for
+a stage, even when its **Can call** list leaves them out.
 
 While a stage waits for another agent, the run reads **Running · Waiting ·
 Delegated work**. A delegated run that reports a required criterion unmet
@@ -126,10 +130,10 @@ its own provider.
 
 ## When To Use It
 
-- The work has a shape you repeat: reproduce, fix, verify; or validate, open a
-  pull request, get the checks green, request review. Give an agent that
-  workflow (Agents → an agent → **Workflow**) or use a built-in that has one
-  (Debugger, UI Polisher, Shipper).
+- For a fix or visual change, assign Debugger or UI Polisher. The agent
+  follows its procedure through verification in one Work stage. For a repeated
+  sequence that needs separate stages, define a workflow (Agents → the agent
+  → **Workflow**) or assign Shipper to validate and publish a finished change.
 - You want the task to keep moving while you do something else, and to be told
   only when it needs a decision.
 - For a one-off question or a small edit, send a normal message instead. For
@@ -152,7 +156,7 @@ its own provider.
    `Fix the billing table overflow on narrow screens.`, and send.
 3. The run starts at once. With more than one stage, the status line above the
    composer shows the stage track and the Task panel's **Progress** names the
-   workflow (`Workflow: Reproduce → Cause → Fix`) and lists each stage and its
+   workflow (`Workflow: Work → Review → Fix review findings`) and lists each stage and its
    report. A one-stage run shows the agent's own plan instead: its latest to-do
    list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5 · Now: Run
    the checks** on the status line and Fleet, between turns too. Until the
@@ -446,10 +450,9 @@ It interrupts an action script and prevents further source-control operations.
 A command already sent may finish; inspect any side effects before
 retrying. Resuming does not automatically replay an interrupted action.
 
-A primary write agent's implicit Work stage, and the last AI stage of the
-built-in Implementer, Debugger and UI Polisher workflows, require **Workspace
-checks pass** when the workspace has configured action scripts. Researcher,
-Reviewer, Lead and read-only agents do not get this default. With one action,
+The implicit Work stage of Implementer, Supervisor, Debugger and UI Polisher
+requires **Workspace checks pass** when the workspace has configured action
+scripts. Researcher, Reviewer, Lead and read-only agents do not get this default. With one action,
 that script is required; with several, all IDs are listed in sorted order and
 any one may satisfy the criterion (the default carries no `mode`). Script configuration currently has no
 verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on stage retry. A new run, including **Run again**, discards incoming hashes and binds the current host-resolved definitions. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.

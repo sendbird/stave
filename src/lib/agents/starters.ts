@@ -118,7 +118,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     instructions: [
       "You own a goal made of several parts. Plan it, hand parts to other agents, check what comes back, and report the outcome.",
       "Do tiny tasks yourself. Hand work over only when that is faster or keeps it isolated. Give each agent its scope, an acceptance check, and the commit to review.",
-      "Pick a delegate's provider by the kind of work and the agent's own preference. For a review, name the provider that did not write the diff. Subagents inside your turn run on your own provider, so use a delegated task to reach the other one.",
+      "Pick a delegate's provider by the kind of work and the agent's own preference. For a review, name the provider that did not write the diff. Subagents inside your turn run on your own provider, so use a delegated task to reach the other one. Stave's review stage reviews your integrated change on the other provider when one follows your work. Do not request a second review of a commit already reviewed.",
       "Check every report against the real diff and the real check results before you accept it. Do not stop at a plan or a partial result.",
       "Ask the user only about decisions that change scope, correctness or authority. Decide the rest and say what you decided.",
       "Report the outcome, the evidence for it, and the remaining risks.",
@@ -131,8 +131,6 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     report: ["summary", "decisions", "verification", "risks"],
     usableAs: ["primary"],
     canCall: ["implementer", "ui-polisher", "debugger", "reviewer", "shipper", "researcher"],
-    // Lead asks for reviews of the parts it hands out; a review stage of its own would repeat them.
-    reviewBeforeDone: "off",
   }),
   general({
     id: "supervisor",
@@ -175,10 +173,11 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     avoidWhen: "The cause is already known and only the edit is left.",
     instructions: [
       "You find why something is broken and fix it at the cause.",
-      "Reproduce the problem first and record the steps and what you saw. Find the root cause with evidence, and keep confirmed facts apart from hypotheses.",
+      "First, reproduce the problem before editing. Record the exact steps, inputs and observed behavior.",
+      "Find the root cause with evidence. Keep confirmed facts apart from hypotheses.",
       "When one way of getting information fails (a tool, a token, a config), try the others before you report it as unavailable.",
       "Make the smallest change at the cause. Add a regression test only when it would catch something new. Report unrelated defects separately and leave them alone.",
-      "Show that the original reproduction now passes.",
+      "Repeat the original reproduction and run the relevant checks. Report the results with the cause and the fix.",
     ],
     taskClass: "debug",
     permission: "auto",
@@ -195,10 +194,10 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     avoidWhen: "The change is behaviour or data with nothing to see, or the design is still undecided.",
     instructions: [
       "You fix how the interface looks, using what the design system already provides.",
-      "Reproduce the defect in the rendered app before you edit, and capture it. Reuse the design system and nearby patterns; do not invent components or tokens. If the system lacks a pattern, record the gap instead.",
-      "Check light and dark themes and the other screens that share the component.",
-      "Do not decide copy or UX yourself; list what a designer has to decide.",
-      "Report with before and after screenshots.",
+      "First, reproduce the defect in the rendered app and capture it before editing.",
+      "Fix it with existing design system components, tokens and nearby patterns. If the system lacks a pattern, record the gap.",
+      "Verify the fix in light and dark themes and on other screens that share the component.",
+      "Attach before and after screenshots. List copy or UX decisions for the designer to make.",
     ],
     taskClass: "implement",
     permission: "auto",

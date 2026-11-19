@@ -16,9 +16,8 @@ import { AgentRunStore } from "../electron/persistence/agent-run-store";
 import type { AgentRunStageGrant } from "../electron/providers/agent-run-grants";
 import type { PullRequestCheck } from "../src/lib/agent-runs/checks";
 import { currentStageRecord, EMPTY_STAGE_FACTS, listExternalEffectStages, type StageFacts } from "../src/lib/agent-runs/domain";
-import { createWorkflowFromStarter, findWorkflowStarter } from "../src/dev/fixtures/legacy-workflow-starters";
+import { createWorkflowFromStarter, findWorkflowStarter, LEGACY_DEBUGGER_STAGES } from "../src/dev/fixtures/legacy-workflow-starters";
 import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
-import { getBuiltinAgent } from "../src/lib/agents/starters";
 
 /*
  * Design scenarios A1, A4 and A5 end to end through the host runtime and the
@@ -316,14 +315,14 @@ describe("run scenarios", () => {
     expect(harness.runCalls[0]!.runtimeOptions).toMatchObject({ codexApprovalPolicy: "untrusted" });
   });
 
-  test("an agent with a three-stage workflow runs stage by stage, one report each", async () => {
+  test("an agent with a custom three-stage workflow runs stage by stage, one report each", async () => {
     const harness = scenarioHarness("claude-code");
-    const debuggerAgent = getBuiltinAgent("debugger")!;
+    const customAgent = { name: "Export troubleshooter", permission: "auto" as const, workflow: LEGACY_DEBUGGER_STAGES };
     const detail = await harness.runtime.startAgentRun(
       buildAgentRunStartInput({
         workspaceId: "ws-1",
         taskId: "task-1",
-        agent: debuggerAgent,
+        agent: customAgent,
         assignment: "The export button throws.",
         now: new Date(START),
       }),
@@ -333,7 +332,7 @@ describe("run scenarios", () => {
     await harness.runtime.requestTick();
     for (const stageId of ["reproduce", "cause", "fix"]) {
       expect(harness.current(agentRunId)).toMatchObject({ stageId, status: "running" });
-      expect(harness.runCalls.at(-1)!.prompt).toContain(`: ${debuggerAgent.workflow!.find((stage) => stage.id === stageId)!.title}`);
+      expect(harness.runCalls.at(-1)!.prompt).toContain(`: ${customAgent.workflow.find((stage) => stage.id === stageId)!.title}`);
       await report(harness, `Finished ${stageId}.`);
     }
     // Only when stuck: no sign-off between stages, and the run completes.
