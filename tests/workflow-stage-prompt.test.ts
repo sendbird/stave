@@ -67,6 +67,9 @@ describe("stage prompt", () => {
     expect(beforeAction).toBeGreaterThanOrEqual(0);
     expect(compileStagePrompt(input({ stageIndex: beforeAction }))).toContain("The next stage is a Stave action");
     expect(compileStagePrompt(input())).not.toContain("The next stage is a Stave action");
+    // Watching checks without repairs acts on nothing outside the workspace, so the stage before it carries criteria forward.
+    const watchOnly = { ...slack, stages: [slack.stages[beforeAction]!, { id: "watch", title: "Watch", kind: "action" as const, action: { type: "watch-checks" as const, repairAttempts: 0 as const, timeoutMinutes: 30 } }] };
+    expect(compileStagePrompt(input({ workflow: watchOnly, stageIndex: 0 }))).not.toContain("The next stage is a Stave action");
     // A one-stage run can still report its own criteria and needs the same completion contract.
     expect(compileStagePrompt(input({ workflow: { ...slack, stages: [slack.stages[lastAi]!] }, stageIndex: 0, acceptanceCriteria: [] }))).toContain(rule);
   });
