@@ -2045,7 +2045,7 @@ async function runTaskImpl(args: {
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
       ...(args.agentRunStage ? { agentRunStage: args.agentRunStage, managedTask: isExternallyManagedTask(task) } : {}), ...(args.freshSession ? { freshSession: true } : {}),
-      // Recorded as delivered only once the provider runtime commits the turn.
+      // Recorded as delivered only once the provider accepts the prompt.
       ...(owedAnswers.delivered.length > 0 ? { subagentAnswers: owedAnswers.delivered } : {}),
       runtimeOptions: capSpawnedTurnOptions({ providerId: provider, root: workspacePath, spawnedBy: args.spawnedBy, options: {
         ...(isExternallyManagedTask(task)

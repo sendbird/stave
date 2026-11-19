@@ -98,6 +98,17 @@ describe("project memory turn boundary", () => {
     expect((await turn("turn-2")).content).not.toContain("COMPOSER-PATH-ANSWER");
   });
 
+  test("a failed read of the owed answers carries and claims none, so they stay owed", async () => {
+    Object.defineProperty(globalThis, "window", { configurable: true, value: { api: { runs: {
+      listDelegatedTasks: async () => [],
+      collectDelegatedTaskAnswers: async () => { throw new Error("database is locked"); },
+    } } } });
+    const deliveredAnswers: DelegatedTaskAnswerRef[] = [];
+    const parts = await collectTurnStartRetrievedContextParts({ repositoryPath: null, parentTaskId: "parent", history: [], prompt: "next", deliveredAnswers });
+    expect(parts.some((part) => part.sourceId === "stave:delegated-tasks")).toBe(false);
+    expect(deliveredAnswers).toEqual([]);
+  });
+
   test("failed recall is omitted, and summary writes stay automatic", async () => {
     setApi({ recall: async () => { throw new Error("Database unavailable"); } });
     expect(await recallRepositoryMemoryRetrievedContext({ repositoryPath: "/tmp/project", history: [], prompt: "Investigate snapshots" })).toBeNull();
