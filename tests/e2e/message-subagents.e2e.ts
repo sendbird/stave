@@ -209,3 +209,64 @@ test("several subagents sit side by side, wrap on a narrow column and an open on
   expect(Math.abs(first.width - list.width)).toBeLessThanOrEqual(1);
   expect(second.y).toBeGreaterThan(first.y + first.height - 1);
 });
+
+test("a long card title wraps before the state tag instead of running under it", async ({ page }) => {
+  await page.goto("/?stavePreview=agent-messages");
+  await expect(page.getByRole("heading", { name: "Agent trace preview" })).toBeVisible();
+  await page.evaluate(async () => {
+    const resources = performance.getEntriesByType("resource");
+    const moduleUrl = (name: string) => resources.find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+    const React = (await import(moduleUrl("react"))).default;
+    const { createRoot } = (await import(moduleUrl("react-dom_client"))).default;
+    const { AssistantMessageBody } = await import("/src/components/session/message/assistant-trace.tsx");
+    const { TranscriptDelegationsProvider } = await import("/src/components/session/message/transcript-delegations-context.tsx");
+    const { StaveDesignProvider } = await import("/src/components/system/StaveDesignProvider.tsx");
+    const children = [0, 1, 2].map((index) => ({
+      runId: "run-1", parentTaskId: "parent", delegatedWorkspaceId: "workspace", providerId: "codex",
+      requestedModel: "gpt-6.2-sol", requestedEffort: "high", lifecycle: "one-turn", reason: null, attempt: 0,
+      createdAt: new Date(Date.now() - 84_000).toISOString(), updatedAt: "2026-01-01T00:00:00.000Z",
+      stepId: `s${index}`, delegationKey: `k${index}`, delegatedTaskId: `c${index}`, delegatedTurnId: `t${index}`,
+      phase: "completed", completedAt: new Date().toISOString(),
+    }));
+    window.api.runs = {
+      listDelegatedTasks: async () => children,
+      onDelegatedTasksChanged: () => () => {},
+    } as unknown as typeof window.api.runs;
+    document.getElementById("root")!.style.display = "none";
+    const host = document.createElement("div");
+    host.id = "results-harness";
+    host.style.cssText = "max-width:960px;padding:24px";
+    document.body.append(host);
+    const titles = ["WP-A: PR base check start, outcome metric (Sol)", "Codex review: power Tars shared task", "Codex review: run budget coordinator trial"];
+    const message = {
+      role: "assistant", providerId: "codex", turnId: "parent-turn", content: "",
+      parts: titles.map((title, index) => ({
+        type: "tool_use", toolName: "stave_delegate_task", toolUseId: `call-${index}`, state: "output-available",
+        input: JSON.stringify({ title, prompt: title }),
+        output: JSON.stringify({ delegation: { accepted: true, child: children[index] } }),
+      })),
+    };
+    createRoot(host).render(React.createElement(StaveDesignProvider, null,
+      React.createElement(TranscriptDelegationsProvider, { taskId: "parent" },
+        React.createElement(AssistantMessageBody, { message, taskId: "parent", messageId: "m1", streamingEnabled: false }))));
+  });
+  const rows = page.locator("#results-harness").getByTestId("message-subagents").getByTestId("exchange-row");
+  await expect(rows).toHaveCount(3);
+  for (const width of [1100, 760, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.evaluate(() => document.fonts.ready);
+    for (const row of await rows.all()) {
+      const gap = await row.evaluate((element) => {
+        const title = element.querySelector("h3")!;
+        const head = title.parentElement!.parentElement!;
+        const tag = head.lastElementChild!;
+        const range = document.createRange();
+        range.selectNodeContents(title);
+        const textRight = Math.max(...Array.from(range.getClientRects()).map((rect) => rect.right));
+        return { tag: tag.getBoundingClientRect().left - textRight, box: tag.getBoundingClientRect().left - title.getBoundingClientRect().right };
+      });
+      expect(gap.box).toBeGreaterThanOrEqual(0);
+      expect(gap.tag).toBeGreaterThanOrEqual(0);
+    }
+  }
+});
