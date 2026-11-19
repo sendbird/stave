@@ -53,7 +53,8 @@ describe("start screen examples", () => {
   test("Tars sets up no schedules: the planner is not offered the action, one it returns anyway is left out, and no example asks for it", () => {
     const planner = readFileSync(new URL("../electron/main/tars-planner.ts", import.meta.url), "utf8");
     expect(planner).not.toContain("{kind:'schedule'");
-    expect(planner).toContain("You cannot run work later or on a repeating schedule.");
+    // Nothing in the planner's instructions is about scheduling any more.
+    expect(planner).not.toMatch(/\bschedul/i);
     const decision = parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "schedule", operation: "list" }] }));
     expect(decision.actions).toEqual([]);
     expect(decision.dropped).toMatchObject([{ index: 0, kind: null, reason: "invalid" }]);
