@@ -215,8 +215,8 @@ Fixed or composer-pinned models bypass classification. Saved-Agent delegates and
 Agent runs use the same Decision setting within their admitted provider
 and model catalog, and so does your reply in a run: the route Auto picks for
 it is the run's recommendation for that turn. A run's recommendations still
-obey its [team limits](./agents.md#team-limits): model/effort pins and the
-shared turn budget always, and the two-change limit and two-turn cooldown
+obey its [team limits](./agents.md#team-limits): model/effort pins always,
+and the two-change limit and two-turn cooldown
 except for a step-up to a stronger model. Explicit resource requests take
 priority over automatic recommendations, and a model pinned in the composer
 takes priority over both. A classification that requires a model outside the

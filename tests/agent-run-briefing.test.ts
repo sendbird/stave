@@ -241,7 +241,8 @@ test("execution context includes current feedback without truncating role and bu
   const context = describeAgentRunExecutionContext(aggregate);
   expect(context).toContain("Check failed: expected export rows");
   expect(context).toContain("Preserve the public API");
-  expect(context).toContain("Remaining supervised turns");
+  // Turns are not a budget the agent rations: time and provider usage bound the run.
+  expect(context).not.toContain("Remaining supervised turns");
   aggregate.stages[1]!.detail = "x".repeat(20_000);
   expect(describeAgentRunExecutionContext(aggregate)).toContain("Respect fixed models, role access and spending limits");
 });

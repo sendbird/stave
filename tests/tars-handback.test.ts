@@ -152,12 +152,21 @@ test("verification that started before the hand-back cannot complete it, even if
 test("a hand-back whose resume is not allowed changes nothing in the run", async () => {
   const f = fixture();
   await f.act("takeover");
-  // The run is now held by its turn limit, which only its task can clear.
-  f.run.agentRun = { ...f.run.agentRun, state: "paused", pauseReason: "limit-reached" };
+  // The run is now held by a runtime change, which only its task can clear.
+  f.run.agentRun = { ...f.run.agentRun, state: "paused", pauseReason: "runtime-changed" };
   const before = structuredClone(f.run);
   expect(await f.act("handBack")).toMatchObject({ status: "rejected", reason: "runHeld" });
   expect(f.run).toEqual(before);
   expect(f.store.get(f.row.id)?.state).toBe("takenOver");
+  f.runtime.stop();
+});
+
+test("a hand-back of a run paused at the old turn limit continues it like Resume", async () => {
+  const f = fixture();
+  await f.act("takeover");
+  f.run.agentRun = { ...f.run.agentRun, state: "paused", pauseReason: "limit-reached" };
+  expect(await f.act("handBack")).toMatchObject({ status: "applied" });
+  expect(f.run.agentRun).toMatchObject({ state: "running", pauseReason: null });
   f.runtime.stop();
 });
 

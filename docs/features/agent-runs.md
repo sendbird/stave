@@ -39,14 +39,14 @@ send.
 | Situation | What the run does |
 |---|---|
 | The agent edits files or runs commands | The provider's classifier allows safe actions (Claude auto mode, Codex auto-review); only what it cannot decide asks you |
-| The run uses its turns | It halts on **Limit reached**; **Extend (+10 turns)** continues the same session |
+| The run takes many turns | It keeps going; a turn count never pauses it. Only a run that loops (200 turns without finishing) is stopped, with the reason |
 | The agent asks a question | The card stays until you answer, across app restarts; your answer continues the run once |
 | The agent says it is done | With a workspace check, done only when Stave's own check passes on the final work (**Met · checked by Stave**) |
 | The next step waits for pull request checks, a review or a time | The run waits without using turns and continues when it happens |
 | The subscription hits its usage limit | The run waits for the reset and continues on its own |
 
 **When it needs you**: the run reads **Needs your answer** (answer the card)
-or **Halted** with the reason (**Retry stage**, **Extend**, or **Take
+or **Halted** with the reason (**Retry stage**, **Resume**, or **Take
 control**). Fleet's **Action required** and a notification point to it. Every
 other state continues on its own.
 
@@ -124,9 +124,8 @@ the goal asks for one. It never pushes to the default branch, merges or
 releases without your request, and asks only about scope, correctness or
 authority. Stave reviews its committed result on the other provider only when
 the work changed files (Review before done: behavior changes), and skips the
-fix stage when that review passes. It runs on Auto with no preferred provider
-and a 60-turn shared budget; a fixed or pinned model would keep its helpers on
-its own provider.
+fix stage when that review passes. It runs on Auto with no preferred provider; a fixed or pinned model would keep
+its helpers on its own provider.
 
 ## When To Use It
 
@@ -192,10 +191,10 @@ When the next send will start an agent run, a line on the composer shelf says
 so before you send. It names the agent (for example **Send starts Lead**), then
 how far the run acts on its own (for example **Edits in auto mode**, **Read-only**
 or **Edits without asking**, the last in a warning colour), when it checks in
-with you, and its turn cap. When the draft carries attachments, the line says
+with you. When the draft carries attachments, the line says
 the run keeps them, or that it reads saved copies of files attached by path.
-On a narrow composer the turn cap goes first, then the check-in and the
-attachment note; **Details** keeps them.
+On a narrow composer the check-in and the attachment note go first; **Details**
+keeps them.
 
 **Details** adds only what the line does not say: what the permission covers
 and what still needs your sign-off, when the run counts as done (when that is
@@ -229,8 +228,8 @@ as **What this run does**, with these four parts:
   default check (one passing script) is named too.
 - **Checks with you**: the check-in level, the stages that ask first,
   questions it cannot settle (said separately unless it already checks in only
-  when stuck), and the turn limit (it pauses there until you extend it) and
-  usage limits.
+  when stuck), and that at a usage limit it waits for the reset and continues
+  on its own.
 
 ### Check in with me
 
@@ -292,9 +291,9 @@ that says what it stands on. Every word is in English and Korean.
 | **Running** | 실행 중 | A turn runs or is about to, or the Run waits between turns for an outside event or a usage reset | none; **Waiting · PR checks** (any event); **Waiting · Usage limit (resumes 3:05 PM)** |
 | **Needs your answer** | 답변 필요 | A question or an approval card is open, a stage sign-off included | **Question**, **Approval** |
 | **Paused** | 일시정지 | You paused the Run or took over; it has not ended | none; **Taken over** |
-| **Halted** | 멈춤 | Nothing continues on its own until you act; it has not ended | **Blocked** (a blocked or stuck stage), **Recovery needed** (the task or its runtime changed), **Wait expired**, **Usage limit** (no reset time), **Limit reached** |
+| **Halted** | 멈춤 | Nothing continues on its own until you act; it has not ended | **Blocked** (a blocked or stuck stage), **Recovery needed** (the task or its runtime changed), **Wait expired**, **Usage limit** (no reset time), **Limit reached** (only a run paused at the old turn limit before this version; **Resume** continues it) |
 | **Completed** | 완료 | The Run finished | none |
-| **Stopped** | 중지됨 | The Run ended before finishing: you stopped it, or Stave did because its deadline passed or the task became unavailable (the reason card says which) | none |
+| **Stopped** | 중지됨 | The Run ended before finishing: you stopped it, or Stave did because its deadline passed, the task became unavailable or it looped (the reason card says which) | none |
 
 Each badge has its own state color, set by the theme: Running and Needs your
 answer never share a color, even in themes whose accent and warning are the
@@ -628,18 +627,26 @@ sample limits and examples of when each screen helps.
   third retry fails too, the stage is **Stuck** with the provider's error;
   **Retry stage** once the provider is back. A usage limit is not a provider
   failure: it waits for the reset instead.
-- The turn limit comes from the agent's `tools.maxTurns`, or defaults to 30,
-  capped at 100. At the cap, unfinished work shows **Halted · Limit reached**
-  (**멈춤 · 한도 도달**). **Extend (+10 turns)** adds up to ten turns (at most
-  100 total) and continues the same session with its accumulated usage. A Run
-  that finishes on its last allowed turn still completes. At 100, Extend is
-  refused with an explanation. A [delegated](./delegated-tasks.md) Run still
-  ends at its cap: its parent reads a finished child, not a halted one.
-- An Agent run shares its turn limit with the helper Agents it calls
-  ([team limits](./agents.md#team-limits)). Your replies in the main run's
-  stages do not count; replies to a helper Agent do. When helpers use the
-  rest, the run halts with **Limit reached** the same way, and Extend raises
-  the shared limit too.
+- What ends or pauses a run that works on its own is time and provider usage,
+  not how many turns it took. A single turn can last hours, so a turn count
+  says little about progress. A run ends at its deadline when it has one
+  (**Stopped**, reason: deadline passed), and at a usage limit it waits for the
+  reset and continues. The agent's `tools.maxTurns` no longer bounds a run.
+- What still stops a run that makes no progress: a stage gets one reminder,
+  then it is **Stuck**; a provider failure retries three times, then the stage
+  is **Stuck**; a stage has at most 20 attempts; and a run, primary or
+  [delegated](./delegated-tasks.md), that takes 200 turns without finishing is
+  **Stopped** as a likely loop. The largest run recorded locally took 29 turns,
+  so a healthy run stays far below that. A report on that last turn still
+  completes. There is no count to extend.
+- A run paused at **Halted · Limit reached** (**멈춤 · 한도 도달**) by an
+  earlier version stays paused after the update, so it spends nothing by
+  itself. **Resume** continues it in the same session with its accumulated
+  usage, with no new turn allowance to choose.
+- An Agent run and the helper Agents it calls share the same 200-turn guard
+  ([team limits](./agents.md#team-limits)); a helper's own max turns no longer
+  stop it. Your replies in the main run's stages do not count; replies to a
+  helper Agent do.
 - **Spent** counts the turns the agent run started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache
@@ -769,8 +776,7 @@ finishing, the agent calls `stave_wait_for_event` and ends its turn. Shipper
 uses it after opening a draft pull request: it waits for the checks, fixes
 what fails, and waits again.
 
-- While it waits the Run stays running and starts no turns, so the wait spends
-  none of the turn budget. The run line and the Task panel read **Running ·
+- While it waits the Run stays running and starts no turns. The run line and the Task panel read **Running ·
   Waiting · PR checks** (or **PR review**, **Scheduled time**, **Delegated work**) with what
   it waits for and when it stops waiting; a delegated task is named by the
   saved Agent it runs as (**Waiting for Reviewer to finish**), never by its id.
@@ -821,7 +827,7 @@ what fails, and waits again.
     replaces it instead of waiting on it.
   - A merged or closed pull request ends a pull request wait as its event.
 - When the event comes, Stave starts the stage's next turn with what happened.
-  That turn counts against the Run's turn limit. The transcript divider reads
+  The transcript divider reads
   **Stage 1 · Work — woke on 2 failing checks**. The same event never wakes the
   Run twice: a failing check counts once per commit, a comment once. Each
   event is remembered with the repository and number of its pull request, so

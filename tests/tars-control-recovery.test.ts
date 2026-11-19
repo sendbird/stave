@@ -46,10 +46,10 @@ function fixture() {
       prepareTask: async () => { throw new Error("Must keep the existing task"); }, findRun: async () => null,
       startRun: async () => { throw new Error("Must not start initial execution"); }, observe: async () => observed,
       hasControlEffect: (row, key) => Boolean(row.agentRunId && tarsRunControlApplied(runs.listEventsByKind(row.agentRunId, ["control-applied"]), key)),
-      controlRun: async (row, operation, autoExtendMaxTurns, commandId) => {
+      controlRun: async (row, operation, commandId) => {
         calls.push(operation);
         await controlTarsRun(row, operation, { agentRuns: runRuntime, hasAssignment: () => true,
-          commandId, commandEvents: (id) => runs.listEventsByKind(id, ["control-applied"]), autoExtendMaxTurns,
+          commandId, commandEvents: (id) => runs.listEventsByKind(id, ["control-applied"]),
           readTask: async () => ({ activeTurnId: null }), readRun: (id) => runs.getAggregate(id)?.agentRun ?? null,
           linkedTurns: () => [], userTurnIds: () => [], abortTurn: () => {} });
       },
@@ -84,33 +84,36 @@ function fixture() {
   };
 }
 
-test("#3 a lost control receipt cannot extend twice after SQLite reopen and another limit pause", async () => {
+test("#3 a lost control receipt cannot resume an old turn-limit pause twice after SQLite reopen and another such pause", async () => {
   const f = fixture();
   const run = f.runs.getAggregate("original-run")!;
   f.runs.apply({ agentRun: { ...run.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 30 }, upserts: [], events: [] }, new Date(NOW));
+  // Tars shows a run paused at the old turn limit as waiting work.
+  f.store.patch(f.current().id, f.current().revision, { state: "waiting" }, NOW);
   const revision = f.current().revision;
   const apply = f.conversations.applyAction.bind(f.conversations);
   f.conversations.applyAction = () => { throw new TarsStorageBusyError(); };
-  await expect(f.click("extend", "one-extension", revision)).rejects.toThrow();
-  expect(f.runs.getAggregate("original-run")!.agentRun.maxTurns).toBe(40);
-  expect(f.conversations.getAction("one-extension")!.status).toBe("pending");
+  await expect(f.click("resume", "one-resume", revision)).rejects.toThrow();
+  expect(f.runs.getAggregate("original-run")!.agentRun).toMatchObject({ state: "running", pauseReason: null });
+  expect(f.conversations.getAction("one-resume")!.status).toBe("pending");
   f.conversations.applyAction = apply;
-  const extended = f.runs.getAggregate("original-run")!;
-  f.runs.apply({ agentRun: { ...extended.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 40 }, upserts: [], events: [] }, new Date(NOW));
+  const resumed = f.runs.getAggregate("original-run")!;
+  f.runs.apply({ agentRun: { ...resumed.agentRun, state: "paused", pauseReason: "limit-reached" }, upserts: [], events: [] }, new Date(NOW));
   await f.reopen();
-  expect((await f.click("extend", "one-extension", revision)).record.status).toBe("applied");
+  expect((await f.click("resume", "one-resume", revision)).record.status).toBe("applied");
   await f.runtime.drain(); await f.runRuntime.whenIdle();
-  expect(f.runs.getAggregate("original-run")!.agentRun.maxTurns).toBe(40);
+  // The replay settles the receipt; it does not resume the run a second time.
+  expect(f.runs.getAggregate("original-run")!.agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached" });
   expect(f.runs.listEventsByKind("original-run", ["control-applied"])).toHaveLength(1);
-  expect(f.calls).toEqual(["extend"]);
+  expect(f.calls).toEqual(["resume"]);
 });
 
-test("#3 a failed Run receipt write rolls back the budget mutation too", async () => {
+test("#3 a failed Run receipt write rolls back the resume too", async () => {
   const f = fixture(); const run = f.runs.getAggregate("original-run")!;
   f.runs.apply({ agentRun: { ...run.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 30 }, upserts: [], events: [] }, new Date(NOW));
   f.db.exec("CREATE TRIGGER fail_control_receipt BEFORE INSERT ON agent_run_events WHEN NEW.kind = 'control-applied' BEGIN SELECT RAISE(ABORT, 'receipt write failed'); END;");
-  await expect(withTarsRunCommand("atomic-extend", "extend", () => f.runRuntime.extend({ agentRunId: "original-run", additionalTurns: 10 }))).rejects.toThrow("receipt write failed");
-  expect(f.runs.getAggregate("original-run")!.agentRun.maxTurns).toBe(30);
+  await expect(withTarsRunCommand("atomic-resume", "resume", () => f.runRuntime.resume({ agentRunId: "original-run" }))).rejects.toThrow("receipt write failed");
+  expect(f.runs.getAggregate("original-run")!.agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached" });
   expect(f.runs.listEventsByKind("original-run", ["control-applied"])).toHaveLength(0);
 });
 

@@ -41,8 +41,18 @@ export const AGENT_RUN_LIMITS = Object.freeze({
   maxAssignmentChars: 8_000,
   maxReasonChars: 500,
   maxFeedbackChars: 2_000,
+  /**
+   * A run's saved `maxTurns`. Since time and provider usage became the budget
+   * it bounds nothing; it is still recorded so older rows and requests parse.
+   */
   defaultMaxTurns: 30,
   maxTurnsCeiling: 100,
+  /**
+   * The only turn count that ends a run: a guard against a run that loops,
+   * never a budget a person extends. The largest local run took 29 turns
+   * (978 runs), so a healthy run stays far below it.
+   */
+  safetyTurnCeiling: 200,
   maxStageAttempts: 20,
   /** Report revisions accepted per provider turn; the latest counts. */
   maxReportRevisions: 5,
@@ -172,10 +182,10 @@ export function isActiveAgentRunState(state: AgentRunState) {
 }
 
 /**
- * `paused-by-user`, `taken-over` and `wait-expired` are cleared by Resume (a
- * reply in the task also continues a `wait-expired` run). `limit-reached`
- * requires Extend. The other reasons
- * describe a condition the supervisor watches and clears on its own.
+ * `paused-by-user`, `taken-over`, `wait-expired` and `limit-reached` are
+ * cleared by Resume (a reply in the task also continues a `wait-expired` run).
+ * The other reasons describe a condition the supervisor watches and clears on
+ * its own.
  */
 export const AGENT_RUN_PAUSE_REASONS = [
   "paused-by-user",
@@ -185,7 +195,10 @@ export const AGENT_RUN_PAUSE_REASONS = [
   "usage-limit",
   /** The event the run waited for did not come before its wait ended (`event-wait.ts`). */
   "wait-expired",
-  /** The user adds turns with Extend; this pause never clears automatically. */
+  /**
+   * Only runs paused before turn counts stopped pausing a run carry it: they
+   * reached the old turn limit and wait for Resume. Nothing sets it now.
+   */
   "limit-reached",
 ] as const;
 export type AgentRunPauseReason = (typeof AGENT_RUN_PAUSE_REASONS)[number];
@@ -196,6 +209,7 @@ export function isAutomaticAgentRunPause(reason: AgentRunPauseReason) {
 
 export const AGENT_RUN_STOP_REASONS = [
   "task-unavailable",
+  /** The run reached `safetyTurnCeiling` (before, a delegated run's own turn cap). */
   "turn-cap-reached",
   /** A delegated run whose report left a required criterion unmet: it ends so its parent reads the result. */
   "acceptance-unmet",

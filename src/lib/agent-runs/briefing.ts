@@ -201,7 +201,6 @@ export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): 
     `Current stage: ${stage.title} (${stage.kind}), attempt ${record.attempt}, status ${record.status}.`,
     stage.kind === "ai" ? `Required outcome: ${stage.doneWhen}` : `Action: ${stage.action.type}`,
     ...(stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction) : []),
-    `Remaining supervised turns: ${Math.max(0, agentRun.maxTurns - agentRun.turnCount)}.`,
     ...(wait?.status === "waiting"
       ? [`Active event wait: ${wait.kind}${wait.target ? ` on ${wait.target}` : ""}, woke ${wait.wakes} of ${wait.maxWakes} times, expires ${wait.expiresAt}. Calling \`${AGENT_RUN_TOOL_NAMES.wait}\` again replaces it.`]
       : []),

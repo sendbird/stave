@@ -46,7 +46,7 @@ export function createHostResourceFreezer(args: {
     }
     return freezeAdaptivePolicy({ providerId, model: run.fingerprint.model,
       agent: args.taskAgent(run.leadTaskId), draft: authority ? null : routingIntent ?? args.draft(run.workspaceId, run.leadTaskId),
-      autoRouting: automatic, settings: args.settings(), maxTurns: run.maxTurns,
+      autoRouting: automatic, settings: args.settings(),
       exclusiveModels: exclusiveGatewayModels(args.profiles(), accounts ?? {
         claudeAccountProfileId: currentProviderAccountId("claude-code"), codexAccountProfileId: currentProviderAccountId("codex"),
       })[providerId], delegated: Boolean(authority), effort: authority?.effort,

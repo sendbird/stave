@@ -30,15 +30,16 @@ test("invalid fields reveal their category, and closing does not save a draft", 
   const sheet = page.getByRole("dialog");
   const work = sheet.getByRole("tab", { name: "Work", exact: true });
   const models = sheet.getByRole("tab", { name: "Models", exact: true });
-  const limit = sheet.getByRole("spinbutton", { name: "Turn limit per task, including helpers", exact: true });
+  // The Work category's number field: it accepts 0 and above, so -1 is invalid.
+  const limit = sheet.getByRole("spinbutton", { name: "Tasks running at once", exact: true });
   await work.click();
-  await limit.fill("0");
+  await limit.fill("-1");
   await models.click();
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(work).toHaveAttribute("aria-selected", "true");
   await expect(limit).toBeFocused();
   await expect(sheet).toBeVisible();
-  await limit.fill("12");
+  await limit.fill("3");
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(sheet).toHaveCount(0);
   await open.click();
@@ -50,7 +51,7 @@ test("invalid fields reveal their category, and closing does not save a draft", 
   await open.click();
   await expect(instructions).toHaveValue(saved);
   await work.click();
-  await expect(limit).toHaveValue("12");
+  await expect(limit).toHaveValue("3");
 });
 
 for (const lang of ["en", "ko"] as const) for (const theme of ["light", "dark"] as const) for (const density of ["regular", "compact"] as const) {

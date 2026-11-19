@@ -55,9 +55,9 @@ Treat these as operational signals. Incomplete cost coverage prevents a fair
 provider price comparison; different assignments and small samples also limit
 comparisons between agents.
 
-**Example:** An agent has 12 ended runs, 10 completions and two turn-cap stops.
-Its completion rate is about 83%. Inspect the stopped reports to see whether
-scope or turn limits need adjustment. Read the outputs and verification evidence
+**Example:** An agent has 12 ended runs, 10 completions and two runs stopped as
+likely loops. Its completion rate is about 83%. Inspect the stopped reports to
+see whether the scope or instructions need adjustment. Read the outputs and verification evidence
 before deciding that the ten completed assignments delivered good work.
 
 **Example:** An agent completes reliably but needs many follow-ups. Read recent

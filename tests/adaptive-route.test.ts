@@ -3,17 +3,16 @@ import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adapt
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import { readAdaptiveObservations, rememberAdaptiveCatalog, rememberAdaptiveQuota } from "../electron/providers/adaptive-observations";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
-import { constrainHelperResources, supportsAdaptiveEffort } from "../src/lib/agent-runs/resources";
+import { TEAM_LIMITS, constrainHelperResources, supportsAdaptiveEffort } from "../src/lib/agent-runs/resources";
 import { selectAdaptiveRoute } from "../src/lib/agent-runs/adaptive-route";
 import { createAgentRun, type AgentRunEvent } from "../src/lib/agent-runs/domain";
 import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
 
 const now = new Date("2026-10-09T00:00:00Z");
 const policy = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: { ...getBuiltinAgent("builder")!, model: { mode: "auto" } },
-  settings: null, maxTurns: 30, draft: { autoRouting: true } });
+  settings: null, draft: { autoRouting: true } });
 test("adaptive Gateway runs freeze only pinned models and reject an unpinned seed", () => {
-  const args = { providerId: "codex" as const, model: "openai/gpt-6-luna", agent: null, settings: null, maxTurns: 30,
-    draft: { autoRouting: true }, exclusiveModels: ["openai/gpt-6-luna", "moonshotai/kimi-k3"] };
+  const args = { providerId: "codex" as const, model: "openai/gpt-6-luna", agent: null, settings: null,     draft: { autoRouting: true }, exclusiveModels: ["openai/gpt-6-luna", "moonshotai/kimi-k3"] };
   expect(freezeAdaptivePolicy(args).allowedModels).toEqual(args.exclusiveModels);
   expect(() => freezeAdaptivePolicy({ ...args, model: "gpt-6.2-astra" })).toThrow("pinned");
 });
@@ -130,39 +129,36 @@ test("an explicit request outranks the automatic proposal and says so", () => {
   expect(selectAdaptiveRoute(policy, aggregate(1), [linked, pending], null, { model: "gpt-6-luna", rationale: "Low" })).toMatchObject({ model: "gpt-6.2-astra", cause: "request" });
 });
 test("explicit model and effort pins are frozen without taking a caller authority field", () => {
-  const p = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null, maxTurns: 100,
-    draft: { model: "gpt-6.2-astra", modelProviderId: "codex", codexReasoningEffort: "high" } });
+  const p = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null,     draft: { model: "gpt-6.2-astra", modelProviderId: "codex", codexReasoningEffort: "high" } });
   expect(p).toMatchObject({ allowedModels: ["gpt-6.2-astra"], modelLocked: true, effortLocked: true, initialEffort: "high" });
 });
 test("a composer pin wins over a fixed Agent model on its provider; another provider is refused at start", () => {
   const agent = { ...getBuiltinAgent("builder")!, model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-6.2-sol", effort: "high" as const } };
-  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent, settings: null, maxTurns: 30,
-    draft: { model: "gpt-6.2-astra", modelProviderId: "codex" } })).toMatchObject({ allowedModels: ["gpt-6.2-astra"], modelLocked: true });
-  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-astra", agent, settings: null, maxTurns: 30, draft: null }))
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent, settings: null,     draft: { model: "gpt-6.2-astra", modelProviderId: "codex" } })).toMatchObject({ allowedModels: ["gpt-6.2-astra"], modelLocked: true });
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-astra", agent, settings: null, draft: null }))
     .toMatchObject({ allowedModels: ["gpt-6.2-sol"], modelLocked: true, effortLocked: true, initialEffort: "high" });
   // A fixed Agent compiles for its own provider only, so a pin on another provider is refused before any turn.
-  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, maxTurns: 30,
-    draft: { model: "claude-opus-5-5", modelProviderId: "claude-code" } })).toThrow("another provider");
-  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, maxTurns: 30, draft: null }))
+  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null,     draft: { model: "claude-opus-5-5", modelProviderId: "claude-code" } })).toThrow("another provider");
+  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, draft: null }))
     .toThrow("another provider");
 });
 test("a helper of a run that froze the version 1 policy keeps version 1, so native subagents stay off for it", () => {
-  const child = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null, maxTurns: 30, delegated: true });
+  const child = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null, delegated: true });
   expect(constrainHelperResources({ ...policy, version: 1, concurrentHelpers: 2, totalHelpers: 4 }, child, "gpt-6.2-sol"))
     .toMatchObject({ version: 1, concurrentHelpers: 2, totalHelpers: 4 });
   expect(constrainHelperResources(policy, child, "gpt-6.2-sol").version).toBe(2);
 });
-test("the team budget is the run's max turns, and the helper limits come from Settings within their range", () => {
-  const freeze = (maxTurns: number, teamLimits?: { concurrentHelpers: number; totalHelpers: number }) => freezeAdaptivePolicy({ providerId: "codex",
-    model: "gpt-6.2-sol", agent: null, maxTurns, draft: null,
+test("the team shares the guard against loops, not a turn budget, and the helper limits come from Settings within their range", () => {
+  const freeze = (teamLimits?: { concurrentHelpers: number; totalHelpers: number }) => freezeAdaptivePolicy({ providerId: "codex",
+    model: "gpt-6.2-sol", agent: null, draft: null,
     settings: teamLimits ? { routing: { autoRoutingEnabled: false, autoRoutingProfile: undefined }, classifier: null, teamLimits } : null });
-  expect(freeze(100)).toMatchObject({ version: 2, teamTurns: 100, concurrentHelpers: 3, totalHelpers: 8, maxChanges: 2, cooldownTurns: 2 });
-  expect(freeze(45, { concurrentHelpers: 2, totalHelpers: 12 })).toMatchObject({ teamTurns: 45, concurrentHelpers: 2, totalHelpers: 12 });
+  expect(freeze()).toMatchObject({ version: 2, teamTurns: TEAM_LIMITS.maxTeamTurns, concurrentHelpers: 3, totalHelpers: 8, maxChanges: 2, cooldownTurns: 2 });
+  expect(freeze({ concurrentHelpers: 2, totalHelpers: 12 })).toMatchObject({ teamTurns: TEAM_LIMITS.maxTeamTurns, concurrentHelpers: 2, totalHelpers: 12 });
   // A hand-edited setting outside the range is clamped, never rejected.
-  expect(freeze(30, { concurrentHelpers: 40, totalHelpers: 0 })).toMatchObject({ concurrentHelpers: 6, totalHelpers: 1 });
+  expect(freeze({ concurrentHelpers: 40, totalHelpers: 0 })).toMatchObject({ concurrentHelpers: 6, totalHelpers: 1 });
 });
 test("a helper on another provider keeps its own catalog unless the parent's model is pinned", () => {
-  const claudeChild = freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent: null, settings: null, maxTurns: 30, delegated: true });
+  const claudeChild = freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent: null, settings: null, delegated: true });
   const constrained = constrainHelperResources(policy, claudeChild, "claude-opus-5-5");
   expect(constrained).toMatchObject({ providerId: "claude-code", teamTurns: policy.teamTurns, concurrentHelpers: policy.concurrentHelpers, totalHelpers: policy.totalHelpers });
   expect(constrained.allowedModels).toContain("claude-opus-5-5");
@@ -173,11 +169,10 @@ test("a helper on another provider keeps its own catalog unless the parent's mod
 test("the account selected when the Run was asked for wins over a draft pin and the request scope", () => {
   const selected = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
   const freeze = (accounts?: { claudeAccountProfileId?: string; codexAccountProfileId?: string }) =>
-    freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null, maxTurns: 30,
-      draft: { codexAccountProfileId: "draft-account" }, ...(accounts ? { accounts } : {}) });
+    freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null,       draft: { codexAccountProfileId: "draft-account" }, ...(accounts ? { accounts } : {}) });
   expect(freeze({ claudeAccountProfileId: "other", codexAccountProfileId: selected }).accountProfileId).toBe(selected);
   expect(freeze().accountProfileId).toBe("draft-account");
-  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null, maxTurns: 30 }).accountProfileId)
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null }).accountProfileId)
     .toBe("system-default");
 });
 test("a change is rejected during cooldown, after two changes, or outside the cached eligible catalog", () => {
@@ -224,13 +219,11 @@ test("a helper cannot silently clamp the root's locked effort on a smaller model
 });
 
 test("a retired pinned effort is refused rather than silently raised at admission", () => {
-  expect(() => freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null, maxTurns: 30,
-    draft: { codexReasoningEffort: "minimal" } })).toThrow("pinned effort");
+  expect(() => freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null,     draft: { codexReasoningEffort: "minimal" } })).toThrow("pinned effort");
 });
 
 test("Codex admission refuses an in-scale effort unsupported by the pinned model", () => {
-  expect(() => freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6-luna", agent: null, settings: null, maxTurns: 30,
-    draft: { model: "gpt-6-luna", codexReasoningEffort: "ultra" } })).toThrow("pinned effort");
+  expect(() => freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6-luna", agent: null, settings: null,     draft: { model: "gpt-6-luna", codexReasoningEffort: "ultra" } })).toThrow("pinned effort");
 });
 
 test("a model-only downshift cannot carry unsupported effort from an earlier decision", () => {
@@ -257,8 +250,8 @@ test("advertised model efforts override the static scale without silently changi
 
 
 test("a foreign model from task history cannot seed a Run policy", () => {
-  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "gpt-6.2-sol", agent: null, settings: null, maxTurns: 30 }))
+  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "gpt-6.2-sol", agent: null, settings: null }))
     .toThrow("starting model belongs to another provider");
-  expect(() => freezeAdaptivePolicy({ providerId: "codex", model: "claude-sonnet-5-5", agent: null, settings: null, maxTurns: 30 }))
+  expect(() => freezeAdaptivePolicy({ providerId: "codex", model: "claude-sonnet-5-5", agent: null, settings: null }))
     .toThrow("starting model belongs to another provider");
 });

@@ -40,7 +40,7 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (an in-turn subagent), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
 | Agent snapshot | The copy of an agent taken when work starts, with its content hash ("Version used"). Later edits never reach a run. |
 | Tars | The desktop-hosted personal representative. It persists responsibility ownership across repositories and commissions ordinary tasks and agent runs; it is not the saved Supervisor Agent or another provider executor. |
-| Responsibility | One outcome explicitly delegated to Tars, with required acceptance, source scope, priority, turn limit and stable execution references. It outlives its provider session. |
+| Responsibility | One outcome explicitly delegated to Tars, with required acceptance, source scope, priority and stable execution references. It outlives its provider session. |
 | Assign | Handing work to an agent as a task's main agent. Kickoff creates the worktree (or, for an agent that works in the current workspace, a task there) and records the agent before the first turn, which is sent like any composer turn. Code: `AgentAssignment`, recorded by `assign-runtime.ts`. |
 
 Lane names for workspace state are fixed and ordered:
@@ -210,7 +210,7 @@ a new wake-up on that task is refused.
 Tars's personal identity and responsibility queue are durable SQLite data.
 The host admits a responsibility only against a registered repository and
 source workspace. Each responsibility records its priority, required criteria,
-turn limit, isolated execution workspace, task and agent run. A saved identity
+isolated execution workspace, task and agent run. A saved identity
 or standing instruction grants no execution authority.
 
 The responsibility runtime selects queued work by explicit priority and then

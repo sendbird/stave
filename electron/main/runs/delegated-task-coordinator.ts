@@ -1661,6 +1661,7 @@ export function createDelegatedTaskCoordinator(
           ? { requestedPermissionProfile: legacyProfile }
           : {}),
         lifecycle: input.lifecycle ?? (input.agentConfigId ? "supervised" : "one-turn"),
+        // Ignored as a limit, kept as input: a call sent again stays the same request (`hashDelegatedTaskInput`).
         ...(input.maxTurns !== undefined ? { maxTurns: input.maxTurns } : {}),
         // A writer gets its own worktree; a read-only subagent, or work pinned
         // to the commit checked out here, runs in this workspace.

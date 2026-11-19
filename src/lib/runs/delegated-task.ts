@@ -148,7 +148,11 @@ export const DelegateTaskArgsSchema = z
      */
     requestedPermissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
     lifecycle: DelegatedTaskLifecycleSchema.optional(),
-    /** A smaller supervisor cap; applicable only to saved-Agent supervised work. */
+    /**
+     * Retired: a turn count no longer bounds supervised work. Still accepted,
+     * from stored requests and older tool calls, so the request hash and the
+     * run's duplicate check see the caller's original input.
+     */
     maxTurns: z.number().int().min(1).max(30).optional(),
     workspace: DelegatedTaskWorkspaceStrategySchema,
     /**
@@ -224,9 +228,9 @@ export const DelegateTaskToolInputSchema = z.object({
     "Optional reasoning-effort tier. Defaults to this task's effort when the child runs on the same provider, otherwise the automation default (`medium`). Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`).",
   ),
   lifecycle: DelegatedTaskLifecycleSchema.optional().describe(
-    "Omitted: saved-Agent assignments are supervised to accepted completion; model-only work is one-turn. Explicit `one-turn` ends after one turn; `detached` stays open for follow-ups. `supervised` requires agentConfigId, an assignment of at most 8000 characters, and permits at most 30 turns.",
+    "Omitted: saved-Agent assignments are supervised to accepted completion; model-only work is one-turn. Explicit `one-turn` ends after one turn; `detached` stays open for follow-ups. `supervised` requires agentConfigId and an assignment of at most 8000 characters; it runs until accepted completion, bounded by time and provider usage, not a turn count.",
   ),
-  maxTurns: z.number().int().min(1).max(30).optional().describe("Optional smaller turn cap for a supervised saved-Agent assignment."),
+  maxTurns: z.number().int().min(1).max(30).optional().describe("Ignored: supervised work has no turn limit. Accepted so an older call that passes it stays the same request."),
   workspace: z
     .union([
       z.object({ mode: z.literal("same-workspace") }),

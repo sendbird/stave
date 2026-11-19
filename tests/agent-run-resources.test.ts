@@ -22,31 +22,34 @@ function child(store: AgentRunStore, id: string, link: object, maxTurns = 30) {
 function drain(store: AgentRunStore, id: string) {
   let turns=0;while(store.consumeResourceTurn(id,`${id}-${turns}`,now))turns++;return turns;
 }
-test("helpers asking for the default 30 turns work at once, draw from one budget and leave the parent its turn", () => {
+test("helpers work at once, draw from the team's one loop guard, whatever the policy froze, and leave the parent its turn", () => {
   const s=setup();s.consumeResourceTurn("parent","p1",now);
   const a=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"a",executionId:"ea",requestedTurns:30,now})!;
   const b=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"b",executionId:"eb",requestedTurns:30,now})!;
   expect(a.capacity).toBe(2);expect(b.capacity).toBe(2);
-  expect(s.readResources("parent")).toMatchObject({spent:1,reserved:4,remaining:25,activeHelpers:2});
+  expect(s.readResources("parent")).toMatchObject({teamTurns:200,spent:1,reserved:4,remaining:195,activeHelpers:2});
   expect(()=>s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"c",executionId:"ec",requestedTurns:1,now})).toThrow("helper limit");
   child(s,"a",a.link);child(s,"b",b.link);
   // A draws past its start turns until one turn is left; B's held start turns stay B's.
-  expect(drain(s,"a")).toBe(26);
-  expect(s.readResources("parent")).toMatchObject({spent:27,reserved:2,remaining:1});
+  expect(drain(s,"a")).toBe(196);
+  expect(s.readResources("parent")).toMatchObject({spent:197,reserved:2,remaining:1});
   expect(drain(s,"b")).toBe(2);
-  expect(s.readResources("parent")).toMatchObject({spent:29,reserved:0,remaining:1});
+  expect(s.readResources("parent")).toMatchObject({spent:199,reserved:0,remaining:1});
   // The last turn is the parent's, to integrate once the helpers finish.
   expect(s.consumeResourceTurn("parent","p2",now)).toBe(false);
   s.releaseResourceReservation(a.link,now);s.releaseResourceReservation(b.link,now);
   expect(s.consumeResourceTurn("parent","p2",now)).toBe(true);
-  expect(s.readResources("parent")).toMatchObject({spent:30,remaining:0,activeHelpers:0});
+  expect(s.readResources("parent")).toMatchObject({spent:200,remaining:0,activeHelpers:0});
 });
-test("a helper drawing from the shared budget never passes its own max turns, replies included", () => {
+test("a helper's own saved max turns no longer stop it; only the team's guard does", () => {
   const s=setup();
   const a=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"a",executionId:"ea",requestedTurns:3,now})!;
   child(s,"a",a.link,3);
-  expect(drain(s,"a")).toBe(3);
-  expect(s.readResources("parent")).toMatchObject({spent:3,reserved:0,remaining:27,activeHelpers:1});
+  expect(s.helperTurnRefusal("a")).toBeNull();
+  // Everything but the parent's integration turn.
+  expect(drain(s,"a")).toBe(199);
+  expect(s.helperTurnRefusal("a")).toBe("shared-budget");
+  expect(s.readResources("parent")).toMatchObject({spent:199,reserved:0,remaining:1,activeHelpers:1});
 });
 test("exact child consumption and release survive store reconstruction without double charging", () => {
   const db=new Database(":memory:"),s=new AgentRunStore(db);create(s,"parent");
@@ -55,10 +58,10 @@ test("exact child consumption and release survive store reconstruction without d
   Object.assign(change.events[0]!,{idempotencyKey:"a:start",detail:{...change.events[0]!.detail,resources:policy,resourceLink:admission.link}});s.create(change,now);
   expect(s.consumeResourceTurn("a","a1",now)).toBe(true);
   const restarted=new AgentRunStore(db);expect(restarted.consumeResourceTurn("a","a1",now)).toBe(true);
-  expect(restarted.readResources("a")).toMatchObject({spent:1,reserved:1,remaining:28});
+  expect(restarted.readResources("a")).toMatchObject({spent:1,reserved:1,remaining:198});
   expect(()=>restarted.releaseResourceReservation({...admission.link,executionId:"stale"},now)).toThrow("stale");
   restarted.releaseResourceReservation(admission.link,now);restarted.releaseResourceReservation(admission.link,now);
-  expect(restarted.readResources("a")).toMatchObject({spent:1,reserved:0,remaining:29,helpersLaunched:1,activeHelpers:0});
+  expect(restarted.readResources("a")).toMatchObject({spent:1,reserved:0,remaining:199,helpersLaunched:1,activeHelpers:0});
   expect(restarted.consumeResourceTurn("a","a2",now)).toBe(false);
 });
 test("released helpers still count toward the cumulative launch ceiling", () => {

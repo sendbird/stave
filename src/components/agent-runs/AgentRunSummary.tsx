@@ -3,10 +3,8 @@ import { formatDuration, formatCost, formatTokenCount } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
-import { Meter } from "@/components/aui/components/Meter";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
-import { thresholdTone, type Tone } from "@/components/aui/utils/tone";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import type { AgentRun } from "@/lib/agent-runs/domain";
 import { describeAgentRunPermissions, explainAgentRunPermissions } from "@/lib/agent-runs/agent-run-view";
@@ -16,9 +14,6 @@ import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalo
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { ElapsedClock } from "./ElapsedClock";
 
-/** The share of its turn budget from which a run reads as near its limit. */
-const TURN_BUDGET_WARNING_SHARE = 0.8;
-
 const PERMISSION_ICONS: Record<AgentRun["consent"]["permissionMode"], LucideIcon> = {
   auto: Zap,
   guided: ShieldCheck,
@@ -26,7 +21,7 @@ const PERMISSION_ICONS: Record<AgentRun["consent"]["permissionMode"], LucideIcon
 };
 
 export interface AgentRunSummaryProps {
-  agentRun: Pick<AgentRun, "fingerprint" | "consent" | "turnCount" | "maxTurns" | "createdAt" | "updatedAt">;
+  agentRun: Pick<AgentRun, "fingerprint" | "consent" | "turnCount" | "createdAt" | "updatedAt">;
   usage: AgentRunUsage | null;
   /** Running agent runs count their time up to now; ended ones up to their end. */
   active: boolean;
@@ -42,13 +37,9 @@ export interface AgentRunSummaryProps {
 interface Metric {
   label: string;
   value: ReactNode;
-  unit?: string;
   detail: string | null;
   /** Said on hover: how the figure is counted. */
   title?: string;
-  tone?: Extract<Tone, "warning">;
-  /** 0..1, drawn as a thin budget bar under the value. */
-  meter?: number;
 }
 
 /** What the agent run spent: the cost when the provider reports one, tokens otherwise. */
@@ -76,8 +67,9 @@ export function describeRunModel(providerId: ProviderId, model: string): { name:
 
 /**
  * How an agent run runs, read at a glance: who runs it (the provider's mark, the
- * model's name, its permissions), then what it has used as figures — turns
- * against its budget, what it spent, and how long it has been going.
+ * model's name, its permissions), then what it has used as figures — turns,
+ * what it spent, and how long it has been going. Turns are a count, not a
+ * budget: time and provider usage bound a run.
  */
 export function AgentRunSummary(props: AgentRunSummaryProps) {
   useTranslation();
@@ -85,13 +77,6 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
   const providerId = agentRun.fingerprint.providerId as ProviderId;
   const permissionMode = agentRun.consent.permissionMode;
   const PermissionIcon = PERMISSION_ICONS[permissionMode];
-  // From 80% of the turn budget the run is near its limit.
-  const turnTone = thresholdTone(
-    agentRun.turnCount,
-    [{ from: Math.ceil(agentRun.maxTurns * TURN_BUDGET_WARNING_SHARE), tone: "warning" }],
-    "neutral",
-  );
-  const nearLimit = turnTone === "warning";
   const startedAt = Date.parse(agentRun.createdAt);
   const endedAt = Date.parse(agentRun.updatedAt);
   const { activeTime } = props;
@@ -102,10 +87,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
     {
       label: i18n.t("agentRuns:agentRunSummary.label4"),
       value: String(agentRun.turnCount),
-      unit: `/ ${agentRun.maxTurns}`,
       detail: null,
-      meter: agentRun.maxTurns > 0 ? Math.min(1, agentRun.turnCount / agentRun.maxTurns) : 0,
-      ...(turnTone === "warning" ? { tone: turnTone } : {}),
     },
     spendMetric(usage),
     activeTime
@@ -134,7 +116,6 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
   ];
 
   const notes = [
-    nearLimit && props.active ? i18n.t("agentRuns:agentRunSummary.extraCopy9", { value1: agentRun.maxTurns }) : null,
     unmeasured > 0
       ? i18n.t("agentRuns:agentRunSummary.extraCopy10", { value1: unmeasured, count: unmeasured })
       : null,
@@ -169,21 +150,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
           <div key={metric.label} className={sx(styles.metric)} title={metric.title}>
             <dt className={sx(styles.metricLabel)}>{metric.label}</dt>
             <dd className={sx(styles.metricBody)}>
-              <span className={sx(styles.metricValue, metric.tone === "warning" && styles.warning)}>
-                {metric.value}
-                {metric.unit ? <span className={sx(styles.metricUnit)}> {metric.unit}</span> : null}
-              </span>
-              {metric.meter !== undefined ? (
-                <Meter
-                  label={metric.label}
-                  showLabel={false}
-                  hideValue
-                  size="sm"
-                  tone={metric.tone === "warning" ? "warning" : "neutral"}
-                  value={Math.round(metric.meter * 100)}
-                  getAriaValueText={() => [metric.value, metric.unit].filter(Boolean).join(" ")}
-                />
-              ) : null}
+              <span className={sx(styles.metricValue)}>{metric.value}</span>
               {metric.detail ? <span className={sx(styles.metricDetail)}>{metric.detail}</span> : null}
             </dd>
           </div>
@@ -294,11 +261,6 @@ const styles = stylex.create({
     color: vars["--aui-color-text"],
     fontVariantNumeric: "tabular-nums",
   },
-  metricUnit: {
-    fontSize: vars["--aui-font-size-caption"],
-    fontWeight: vars["--aui-font-weight-regular"],
-    color: vars["--aui-color-text-muted"],
-  },
   // A detail wraps rather than cut its qualifier ("pauses not counted") in a narrow panel.
   metricDetail: {
     overflowWrap: "anywhere",
@@ -306,7 +268,6 @@ const styles = stylex.create({
     color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
-  warning: { color: vars["--aui-color-warning-text"] },
   notes: {
     display: "flex",
     flexDirection: "column",

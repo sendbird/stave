@@ -27,9 +27,10 @@ test(`an attached streaming reply stays partial until completion, with the run-s
   await expect(prompt).toHaveText("Use the investigation to fix the login flow");
   await expect(notice).toBeVisible();
   await page.getByRole("button", { name: "Remove attached task Research the login redirect bug" }).click();
-  // The send still starts a run; only the attachment item leaves, and the turn cap takes its place.
+  // The send still starts a run; only the attachment item leaves, and no turn cap takes its place.
   await expect(notice).not.toContainText("Keeps 1 attachment");
-  await expect(notice).toContainText("Up to 30 turns");
+  await expect(notice).toContainText("Send starts Implementer · Edits in auto mode · Asks only when stuck");
+  await expect(notice).not.toContainText("turns");
 });
 }
 

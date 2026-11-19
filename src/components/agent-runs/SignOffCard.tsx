@@ -12,7 +12,7 @@ import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { currentStageRecord, AGENT_RUN_LIMITS } from "@/lib/agent-runs/domain";
 import {
   describeSignOffAction,
-  describeTurnBudget,
+  describeTurnsUsed,
   projectAgentRunStages,
   summarizePreviousStage,
 } from "@/lib/agent-runs/agent-run-view";
@@ -67,7 +67,7 @@ export function SignOffCard(props: {
     .slice(0, detail.agentRun.currentStageIndex)
     .some((row) => row.stage.kind === "ai");
   const previousReport = previous?.record?.report;
-  const budget = describeTurnBudget(detail.agentRun);
+  const turns = describeTurnsUsed(detail.agentRun);
   const spent = describeUsageShort(detail.usage);
   return (
     <section
@@ -84,7 +84,7 @@ export function SignOffCard(props: {
             <p id={titleId} className={sx(styles.title)}>
               {describeSignOffQuestion(current.stage)}
             </p>
-            <span className={sx(styles.position, budget.nearLimit && styles.positionWarn)} title={i18n.t("agentRuns:signOffCard.title")}>{i18n.t("agentRuns:signOffCard.sentence7", { value1: current.index + 1, value2: rows.length, value3: budget.text, value4: spent ? ` · ${spent}` : "" })}</span>
+            <span className={sx(styles.position)} title={i18n.t("agentRuns:signOffCard.title")}>{i18n.t("agentRuns:signOffCard.sentence7", { value1: current.index + 1, value2: rows.length, value3: turns, value4: spent ? ` · ${spent}` : "" })}</span>
           </div>
           {summary ? <p className={sx(styles.summary)}>{summary}</p> : null}
           {previousReport?.outcome === "complete" ? (
@@ -221,7 +221,6 @@ const styles = stylex.create({
     color: vars["--aui-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
-  positionWarn: { color: vars["--aui-color-warning-text"] },
   summary: {
     margin: 0,
     fontSize: vars["--aui-font-size-caption"],

@@ -114,6 +114,8 @@ export const TarsControlReasonSchema = z.enum([
   "resumeFirst",
   // A task operation named a request no longer waiting in the task.
   "requestUnavailable",
+  // An extend proposal saved before runs stopped having a turn limit: closed, with Resume as the way on.
+  "noTurnLimit",
   // A message while a turn runs in the task: it is said in the task, or after the turn.
   "taskBusy",
 ]);
@@ -522,7 +524,19 @@ export function isTarsHoldableAction(action: { kind: string; operation?: string 
   return key !== null && key !== "show" && key !== "pause" && key !== "takeover" && key !== "deny";
 }
 
-export const TarsActionReceiptSchema = z.object({
+/**
+ * An `extend` (more turns) that 0.35.x held for the user's click. Runs have no
+ * turn limit now and nothing can confirm it, so it reads as closed with the
+ * Resume guidance instead of a proposal that waits forever.
+ */
+function closeRetiredExtend(value: unknown): unknown {
+  const receipt = value as { status?: unknown; action?: { kind?: unknown; operation?: unknown } } | null;
+  if (receipt?.status !== "proposed" || receipt.action?.kind !== "control" || receipt.action.operation !== "extend") return value;
+  // i18n-ignore: persisted diagnostic beside the coded reason, which the interface translates
+  return { ...receipt, status: "rejected", reason: "noTurnLimit", responsibilityId: null, error: "Runs no longer stop at a turn limit. Resume paused work instead." };
+}
+
+export const TarsActionReceiptSchema = z.preprocess(closeRetiredExtend, z.object({
   messageId: IdSchema,
   actionIndex: z.number().int().min(0).max(7),
   requestHash: z.string().regex(/^[a-f0-9]{64}$/),
@@ -556,7 +570,7 @@ export const TarsActionReceiptSchema = z.object({
         : receipt.responsibilityId === null && receipt.error !== null);
   // i18n-ignore: persisted-state integrity diagnostic, not user-facing copy
   if (!valid) context.addIssue({ code: "custom", message: "Receipt status and outcome fields disagree." });
-});
+}));
 export type TarsActionReceipt = z.infer<typeof TarsActionReceiptSchema>;
 
 export const TarsReceiptOutcomeSchema = z.discriminatedUnion("status", [
@@ -652,6 +666,12 @@ export const TarsMessageDeliverySchema = z.object({
   queuedAt: TimestampSchema,
   /** User withdrawal remains a dispatch hold until the exact execution outcome can be read. */
   withdrawRequestedAt: TimestampSchema.optional(),
+  /**
+   * Set when these words started a continuation Run of ended work: the result
+   * the work had ended with (`observedResult`, `?` when unknown). The brake on
+   * automatic continuations counts these starts (`automaticContinuationResults`).
+   */
+  continuedFrom: z.string().min(1).max(128).optional(),
   updatedAt: TimestampSchema,
 }).strict().superRefine((delivery, context) => {
   const settledOtherwise = delivery.status === "failed" || delivery.status === "cancelled";

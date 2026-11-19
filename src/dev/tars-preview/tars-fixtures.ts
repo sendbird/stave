@@ -10,7 +10,7 @@ import type { TarsTrayAttentionInput } from "@/lib/tars/tray-model";
 /**
  * Tars work for the tray preview and the render tests: a paused release check
  * whose resume waits for the user's Confirm (needs you), a three-stage fix on
- * its second stage with turns left and helpers working (running), work the
+ * its second stage with helpers working (running), work the
  * user took over (running, owned by you) and finished work whose run is no
  * longer loaded (done). Times count from `start`.
  */

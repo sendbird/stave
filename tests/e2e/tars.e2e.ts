@@ -95,7 +95,8 @@ test("global settings save once, survive reload and do not appear in the compose
   await sheet.getByRole("tab", { name: "Work", exact: true }).click();
   await expect(sheet.getByRole("spinbutton", { name: "Tasks running at once", exact: true })).toHaveValue("0");
   await sheet.getByRole("spinbutton", { name: "Tasks running at once", exact: true }).fill("48");
-  await sheet.getByRole("spinbutton", { name: "Turn limit per task, including helpers" }).fill("12");
+  // Runs have no turn limit, so the sheet offers no field for one.
+  await expect(sheet.getByRole("spinbutton")).toHaveCount(1);
   await sheet.getByRole("button", { name: "Save", exact: true }).click();
   await expect(sheet).toHaveCount(0);
   await send(page, "What needs attention?");
@@ -105,11 +106,11 @@ test("global settings save once, survive reload and do not appear in the compose
   await page.getByRole("button", { name: "Tars settings", exact: true }).click();
   await sheet.getByRole("tab", { name: "Work", exact: true }).click();
   await expect(sheet.getByRole("spinbutton", { name: "Tasks running at once", exact: true })).toHaveValue("48");
-  await expect(sheet.getByRole("spinbutton", { name: "Turn limit per task, including helpers" })).toHaveValue("12");
   await sheet.getByRole("tab", { name: "General", exact: true }).click();
   await expect(sheet.getByRole("textbox", { name: "Standing instructions", exact: true })).toHaveValue("Keep status reports concise.");
   const saved = await page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-conversation")!));
-  expect(saved.messages[0].maxTurns).toBe(12);
+  // The message sent after the save carries the saved settings.
+  expect(saved.messages[0].maxConcurrentResponsibilities).toBe(48);
 });
 
 test("receipts are accepted actions, not a claim that work is completed", async ({ page }) => {
@@ -559,7 +560,9 @@ test("the tray and a delegated flow show where work stands without adding transc
   const tray = page.getByRole("complementary");
   // The indicator says each lane's own number: the running fix and the work the user took over are both in progress.
   await expect(view.getByRole("button", { name: "1 needs you · 2 in progress · 1 done", exact: true })).toBeVisible();
-  await expect(tray.locator('[data-tars-card="billing"]')).toContainText("18 turns left · 2 helpers working");
+  // The card names who holds the work and its helpers; it counts no turns left.
+  await expect(tray.locator('[data-tars-card="billing"]')).toContainText("Owner: Tars · 2 helpers working");
+  await expect(tray.locator('[data-tars-card="billing"]')).not.toContainText("turns left");
   const flow = view.locator('[data-tars-flow="billing"]');
   await expect(flow).toContainText("1 of 3 stages done · Running");
   await flow.getByRole("button", { expanded: false }).click();
@@ -774,14 +777,14 @@ for (const lang of ["en", "ko"] as const) {
       : "Tars follow-up · Work cannot continue: Fix the flaky upload test");
     await expect(view.getByText("Judge what it needs next", { exact: false })).toHaveCount(0);
     await expect(view.locator('[data-tars-message="message-follow-up"]')).toContainText(korean ? "업로드 테스트가 CI에서 계속 실패해" : "The upload test still fails on CI");
-    // A change past the automatic follow-up limit says so once, in the conversation.
+    // Ended work Tars stopped continuing (its continuations kept ending with the same result) says so once, in the conversation.
     await expect(view.locator('[data-tars-follow-up-exhausted="follow-exhausted"]')).toContainText(korean
-      ? "자동 후속 확인 한도에 도달해 Tars가 Refresh the API reference 작업을 더 이상 자동으로 확인하지 않습니다." : "Tars stopped checking on Refresh the API reference automatically because it reached its limit for automatic follow-ups.");
+      ? "이어서 진행해도 계속 같은 결과로 끝나거나 자동 이어가기 한도에 이르러 Tars가 Refresh the API reference 작업을 더 이상 자동으로 이어가지 않습니다." : "Tars stopped continuing Refresh the API reference automatically because its continuations kept ending with the same result or reached their limit.");
     // The tray card says when Tars looks next, or that it stopped.
     const tray = page.getByRole("complementary");
     await expect(tray.locator('[data-tars-card="follow-waiting"] [data-tars-follow-up-state="nextCheck"]')).toContainText(korean ? "그 전에 변화가 없으면 Tars가" : "Tars checks again at");
-    await expect(tray.locator('[data-tars-card="follow-exhausted"] [data-tars-follow-up-state="exhausted"]')).toContainText(korean
-      ? "자동 후속 확인 한도에 도달해 Tars가 더 이상 자동으로 확인하지 않습니다." : "Tars stopped checking automatically because it reached its limit for automatic follow-ups.");
+    await expect(tray.locator('[data-tars-card="follow-exhausted"] [data-tars-follow-up-state="exhaustedResult"]')).toContainText(korean
+      ? "이어서 진행해도 계속 같은 결과로 끝나거나 자동 이어가기 한도에 이르러 Tars가 더 이상 자동으로 이어가지 않습니다." : "Tars stopped continuing this automatically because its continuations kept ending with the same result or reached their limit.");
   });
 }
 

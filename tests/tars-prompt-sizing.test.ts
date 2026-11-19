@@ -34,7 +34,7 @@ describe("Tars execution lead input budget", () => {
       expect(assembled).toContain("Do small or tightly coupled work yourself");
       expect(assembled).toContain("Required criteria must be met");
       expect(assembled).toContain("Permissions and pinned settings do not change");
-      before(assembled, TARS_EXECUTION_POLICY, "Remaining supervised turns:");
+      before(assembled, TARS_EXECUTION_POLICY, "Current stage:");
     }
     // Removing workflow duplication must keep authority on short reminder turns too.
     expect(fixture.first.agentInstructions + buildStageNudgePrompt(fixture.aggregate)).toContain(TARS_EXECUTION_POLICY);
@@ -71,7 +71,7 @@ describe("Tars execution lead input budget", () => {
     before(first.teamContext.content, '"instruction":', '"currentTurnKey":');
     const teamPrefix = first.teamContext.content.slice(0, first.teamContext.content.indexOf('"limits":'));
     expect(later.teamContext.content.startsWith(teamPrefix)).toBe(true);
-    before(first.runContext.content, "Before this turn ends", "Remaining supervised turns:");
+    before(first.runContext.content, "Before this turn ends", "Current stage:");
     before(later.runContext.content, "Respect fixed models", "Latest blocker:");
     // Measure ordering in the assembled provider text, not only the source templates.
     const assembled = first.agentInstructions + first.prompt;

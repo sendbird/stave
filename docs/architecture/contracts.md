@@ -199,12 +199,16 @@ Explicit `one-turn` and `detached` retain their contracts. The tool schema,
 renderer bridge input type, preload and `delegations:create` share this rule.
 Workflow stage delegation asks for supervision. A supervised prompt has the
 existing Run assignment limit of 8,000 characters; oversized work is refused,
-never truncated or downgraded. `maxTurns` accepts 1..30 and defaults to 30 per
-assignment. In a team the helper keeps this cap and draws turns past its held
-start turns from the root budget; neither cap is a money limit.
+never truncated or downgraded. A turn count bounds no run: a supervised child,
+like a primary run, ends or pauses on time (`expiresAt`) and provider usage,
+and stops with `turn-cap-reached` only at `AGENT_RUN_LIMITS.safetyTurnCeiling`
+(200), the guard against loops. `maxTurns` limits nothing; the tool still
+accepts it and keeps it in the request hash and the run's duplicate check, so a
+stored request or an older call that carries it is the same request when sent
+again (a finished delegation is not refused as `input-mismatch`).
 
 Before dispatch, the coordinator's accepted receipt records a deterministic
-supervisor id for the execution, its cap, frozen Agent hash and resolved
+supervisor id for the execution, its stored (inert) cap, frozen Agent hash and resolved
 delegation permission. Old rows without that id still use historical numeric
 lifecycle inference; their meaning is unchanged. A retry owns a new execution
 and supervisor id. The coordinator is the only ledger writer.
@@ -234,8 +238,8 @@ authority override; caller tools, permissions and secret bindings do not.
 The bounded public `agent-runs:reply` command targets an exact blocked/stuck
 delegated AI stage and dispatches through its existing supervisor. The child
 composer offers a reply form without taking managed control. A stale reply,
-active native turn, pause, missing reporting capability or exhausted turn cap
-is refused. Taking over the managed task stops its turn and releases control,
+active native turn, pause, missing reporting capability or a run at the loop
+guard is refused. Taking over the managed task stops its turn and releases control,
 then cancels its delegated Run while the takeover start gate is still held.
 A failed release does not preemptively cancel supervision, and retry cannot
 silently reclaim an interactive child. Only phase/reason changes write ledger
@@ -311,17 +315,19 @@ Absent, expired or empty effort lists use built-in support. A newly unsupported
 current or pinned effort blocks dispatch before consuming a turn; it is never
 silently lowered or counted as an accepted resource change.
 
-Atomic root admission counts parent-plus-child dispatch attempts up to the
-root's team turns. A person's stage reply in the root run is not counted; a
+Atomic root admission counts parent-plus-child dispatch attempts up to
+`TEAM_LIMITS.maxTeamTurns` (200), the team's shared guard against loops; the
+`teamTurns` a policy froze is no longer read. A person's stage reply in the root run is not counted; a
 delegated run's reply is. Starts that fail or have uncertain delivery are not
 refunded. Active and cumulative helper reservations follow the frozen helper
 limits (including failed preparation/retries). Reservation and release require
 exact root/child/execution identity. A reservation holds at most
 `TEAM_LIMITS.helperStartTurns` (2) start turns; each later child attempt draws
 one unit from the root budget at dispatch while more than the parent's one
-integration turn remains. A child's attempts, its replies included, never
-exceed its own `maxTurns`. A child that cannot take another attempt, on a
-dispatch or on a reply, stops with `turn-cap-reached`. Unused held turns return on exact settlement; spent attempts
+integration turn remains. A child's own `maxTurns` no longer limits it. A
+child that cannot take another attempt, on a dispatch or on a reply, stops
+with `turn-cap-reached`; a root whose team used the whole guard stops the same
+way instead of pausing. Unused held turns return on exact settlement; spent attempts
 stay spent. A root report predating final helper
 settlement requires a fresh AI integration turn/report. Budget exhaustion leaves
 unfinished work stuck or stopped, never accepted. Root cancellation cancels
@@ -340,7 +346,7 @@ provider/account and bounded to five minutes. Missing facts remain unknown;
 known quota exhaustion or an unavailable cached model blocks the turn without
 silently moving providers/accounts or substituting a pin. Refresh the ordinary
 provider state and retry after resolving that block. Billing is reported only
-when supplied; turn limits do not guarantee dollars, cost savings or quality.
+when supplied; the loop guard does not guarantee dollars, cost savings or quality.
 
 File paths enter supervision as saved on-disk references. Inline images and
 rich context are captured with the Run. Assignments in Run history are bounded
@@ -902,15 +908,14 @@ are `coalesced` or `superseded`; paused, taken-over and ended work never stands.
 One IMMEDIATE transaction then creates the message
 `followup:<event key>` with `origin: { kind: "followUp", eventKey,
 responsibilityId, reason, observedRevision, summary }` and settles the event
-`followedUp`, so a crash never creates two. Budget: once the automatic
-messages (`followUp` and `reask`) since the last user action reach
-`TARS_FOLLOW_UP_CAP` (20), independently of execution `maxTurns`, the event is saved `exhausted` and no model
-call starts; past `TARS_FOLLOW_UP_WINDOW_CAP` automatic messages in
-`TARS_FOLLOW_UP_WINDOW_MS`, events stay `pending` and the service sets one
-timer for when the window opens. The count restarts at the user's last action:
-a user-typed message or chosen reply, or a user-sourced row in `tars_action_records`
-(clicks, Confirm) or `tars_decision_answers`. Automatic controls and Tars-authored
-withdrawals never restart it. Right before the planner call
+`followedUp`, so a crash never creates two. Budget: past
+`TARS_FOLLOW_UP_WINDOW_CAP` automatic messages in `TARS_FOLLOW_UP_WINDOW_MS`,
+events stay `pending` and the service sets one timer for when the window opens.
+No count since the user's last action stops follow-ups: one per change, and
+only live work changes, so they end with the work. Nothing writes `exhausted`
+any more; events saved `exhausted` by an earlier version still render once
+until the user's next action (a user-typed message or chosen reply, or a
+user-sourced row in `tars_action_records` or `tars_decision_answers`). Right before the planner call
 (`supersedeStale` → `supersedeStaleTarsFollowUp`), a follow-up whose event no
 longer stands is cancelled and its event set `superseded`, with no model call.
 `applyTarsDecision` refuses, with reason `notByFollowUp` (allowed on every

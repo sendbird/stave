@@ -64,25 +64,24 @@ describe("Tars tray read model", () => {
     expect(card(stale, f.ids.release).attention[0]!.decision).toBeNull();
   });
 
-  test("stage progress, remaining turns and helpers come from the run; unknown values are null, never 0", () => {
+  test("stage progress and helpers come from the run; unknown values are null, never 0, and no turns-left figure is shown", () => {
     const f = buildTarsTrayFixtures(start);
     const model = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: f.attentionItems, runs: f.runs, pendingDecisions: f.pendingDecisions });
     const billing = card(model, f.ids.billing);
     expect(billing.progress).toMatchObject({ finished: 1, total: 3, current: { id: "cause", title: "Cause", status: "running", attempt: 2 } });
-    expect(billing.remainingTurns).toBe(18);
+    // Turns are not a budget: the card carries no turns-left figure.
+    expect(billing).not.toHaveProperty("remainingTurns");
     expect(billing.helpers).toBe(2);
     expect(billing.owner).toBe("tars");
     expect(billing.fleetTarget).toEqual({ workspaceId: "exec-billing", taskId: "task-billing" });
-    // No run read (pruned or not started): no progress, no turns, no helpers.
+    // No run read (pruned or not started): no progress, no helpers.
     const docs = card(model, f.ids.docs);
-    expect([docs.progress, docs.remainingTurns, docs.helpers]).toEqual([null, null, null]);
+    expect([docs.progress, docs.helpers]).toEqual([null, null]);
     // A host that does not report resources gives no helper count.
     const run = f.runs["run-billing"]!;
     const quiet = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [], runs: { [run.agentRun.id]: { ...run, resources: undefined } } });
     expect(card(quiet, f.ids.billing).helpers).toBeNull();
-    // An ended run has no remaining budget to show.
     const ended = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [], runs: { [run.agentRun.id]: { ...run, agentRun: { ...run.agentRun, state: "completed" } } } });
-    expect(card(ended, f.ids.billing).remainingTurns).toBeNull();
     expect(card(ended, f.ids.billing).progress?.current).toBeNull();
   });
 

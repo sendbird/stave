@@ -221,12 +221,15 @@ describe("AI stages", () => {
       reason: "resume-after-restart",
     });
     expect(currentStageRecord(resumed.next).nudged).toBe(false);
-    // It still counts against the turn cap.
+    // It still counts as a turn: past its saved max turns it continues; only the loop guard stops it.
     expect(resumed.next.agentRun.turnCount).toBe(2);
     const capped = patchCurrent(afterFirstTurn(), {});
     expect(
       decide({ ...capped, agentRun: { ...capped.agentRun, turnCount: capped.agentRun.maxTurns } }, observe({ lastEndedTurn: interrupted })),
-    ).toMatchObject({ action: "pause", reason: "limit-reached" });
+    ).toMatchObject({ action: "start-stage-turn", reason: "resume-after-restart" });
+    expect(
+      decide({ ...capped, agentRun: { ...capped.agentRun, turnCount: AGENT_RUN_LIMITS.safetyTurnCeiling } }, observe({ lastEndedTurn: interrupted })),
+    ).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
   });
 
   test("a passing provider failure retries after 30s, 2m and 5m without the reminder, then halts", () => {
@@ -300,13 +303,15 @@ describe("AI stages", () => {
     ).toMatchObject({ action: "block", reason: "reporting-unavailable" });
   });
 
-  test("the turn cap pauses before another turn, never before a completion", () => {
+  test("the loop guard stops before another turn, never before a completion, and a saved max turns pauses nothing", () => {
     const capped = agentRunFixture({ maxTurns: 1 });
     const started = step(capped).next;
     expect(started.agentRun.turnCount).toBe(1);
-    expect(decide(patchCurrent(started, {}), observe({ lastEndedTurn: turn() }))).toMatchObject({
-      action: "pause",
-      reason: "limit-reached",
+    expect(decide(patchCurrent(started, {}), observe({ lastEndedTurn: turn() }))).toMatchObject({ action: "nudge" });
+    const looping = { ...started, agentRun: { ...started.agentRun, turnCount: AGENT_RUN_LIMITS.safetyTurnCeiling } };
+    expect(decide(patchCurrent(looping, {}), observe({ lastEndedTurn: turn() }))).toMatchObject({
+      action: "stop",
+      reason: "turn-cap-reached",
     });
     expect(
       decide(patchCurrent(started, { report: COMPLETE_REPORT, reportRevision: 1 }), observe({ lastEndedTurn: turn() })),
@@ -373,7 +378,7 @@ describe("Stave action stages", () => {
     ).toMatchObject({ action: "mark-stuck" });
   });
 
-  test("an action that needs a turn gets one, counted against the turn cap", () => {
+  test("an action that needs a turn gets one, counted toward the loop guard", () => {
     const executing = step(atOpenDraftPr()).next;
     const needsTurn = {
       actionOutcome: {
@@ -388,9 +393,12 @@ describe("Stave action stages", () => {
     expect(repair.next.agentRun.turnCount).toBe(executing.agentRun.turnCount + 1);
     expect(currentStageRecord(repair.next).status).toBe("running");
 
-    const capped = { ...executing, agentRun: { ...executing.agentRun, turnCount: executing.agentRun.maxTurns } };
-    expect(decide(capped, observe(needsTurn))).toMatchObject({ action: "pause", reason: "limit-reached" });
-    // A delegated run ends at its cap, as before: its parent reads a finished child, not a paused one.
+    // Past its saved max turns the repair still runs.
+    const past = { ...executing, agentRun: { ...executing.agentRun, turnCount: executing.agentRun.maxTurns } };
+    expect(decide(past, observe(needsTurn))).toMatchObject({ action: "start-action-turn" });
+    // At the loop guard a primary run and a delegated run both end, never pause for more turns.
+    const capped = { ...executing, agentRun: { ...executing.agentRun, turnCount: AGENT_RUN_LIMITS.safetyTurnCeiling } };
+    expect(decide(capped, observe(needsTurn))).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
     expect(decide(capped, { ...observe(needsTurn), delegated: true })).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
     // A running repair turn keeps the action idle.
     expect(

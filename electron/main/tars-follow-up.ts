@@ -2,7 +2,7 @@ import { recordTarsPrNotice } from "./tars-pr-notice";
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsEventInbox } from "../persistence/tars-event-inbox";
 import type { TarsStore } from "../persistence/tars-store";
-import { TARS_FOLLOW_UP_CAP, TarsFollowUpReasonSchema, isTarsEventCurrent, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
+import { TARS_FOLLOW_UPS_WITHOUT_PROGRESS, TARS_RESULT_PROGRESS_PREFIX, tarsEndedResultBrake, TarsFollowUpReasonSchema, isTarsEventCurrent, tarsFollowUpProgress, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
 import { describeTarsDecisionForModel, parseTarsDecisionId, tarsReaskRequestId, type TarsDecisionView } from "../../src/lib/tars/decisions";
 import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
 import type { TarsMessage } from "../../src/lib/tars/conversation";
@@ -21,7 +21,7 @@ const FOLLOW_UP_TEXT: Readonly<Record<TarsFollowUpReason, string>> = Object.free
   unverifiedCompletion: "Automatic follow-up: delegated work reported it was done, but Stave could not confirm it. Judge what it needs next.",
   verificationFailed: "Automatic follow-up: delegated work ended, but its completion checks are incomplete or need to be repeated. Judge what it needs next.",
   stageAsksUser: "Automatic follow-up: owned work or a helper is waiting. First resolve ordinary task questions and recoverable work gates using the original mandate and available evidence. Ask the user only for missing authority, credentials, personal choices or an unresolved ambiguity; never grant a tool approval or stage sign-off.",
-  limitReached: "Automatic follow-up: delegated work paused at its execution turn limit. Judge whether extending its budget fits the original mandate and autonomy policy; propose extend when appropriate.",
+  limitReached: "Automatic follow-up: delegated work paused at a turn limit from before runs stopped having one, possibly days ago. Only the user's Resume continues it: judge whether continuing still fits the original mandate; propose resume, which waits for their confirmation, when it does.",
   waitExpired: "Automatic follow-up: delegated work is waiting, and no update arrived during the waiting period. Judge whether it needs the user or other work.",
 });
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
@@ -117,10 +117,13 @@ export function claimTarsMessage(ports: Pick<TarsFollowUpPorts, "events" | "conv
  * never starts two. If a message arrived since the projection was read, an
  * invalidated decision waits for the next pass instead of being judged on it.
  *
- * Budget: no follow-up once the automatic turns since the user's last action
- * reach `TARS_FOLLOW_UP_CAP` (the visible event is kept as `exhausted`), and
- * at most `TARS_FOLLOW_UP_WINDOW_CAP` per rolling window; past the cap the
- * events stay pending and `nextWindowAt` says when to look again.
+ * Budget: at most `TARS_FOLLOW_UP_WINDOW_CAP` per rolling window; past it the
+ * events stay pending and `nextWindowAt` says when to look again. No lifetime
+ * count stops them; progress does: after `TARS_FOLLOW_UPS_WITHOUT_PROGRESS`
+ * follow-ups that saw the work at the same progress (the same ask, or Runs
+ * that ended without a result that is new, `tarsEndedResultBrake`, which also
+ * caps ended work at `TARS_ENDED_FOLLOW_UPS_MAX` continuations), its next one
+ * is settled `exhausted` and left to the user until the work moves or the user acts.
  */
 export function admitTarsFollowUps(ports: TarsFollowUpPorts): { created: number; nextWindowAt: string | null } {
   const now = ports.now();
@@ -173,9 +176,16 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
       if (!chosen) return null;
       const noticeId = recordTarsPrNotice(ports.conversations, row!, chosen, now);
       if (noticeId) { ports.events.settle(chosen.key, "followedUp", now, noticeId); created++; return null; }
+      // Work that asks again, or whose continuations end with the same result, without progress since its
+      // last follow-ups goes to the user instead (`TARS_FOLLOW_UPS_WITHOUT_PROGRESS`).
+      const progress = chosen.kind === "decisionInvalidated" ? null : tarsFollowUpProgress(chosen.kind, row!);
+      if (progress && (progress.startsWith(TARS_RESULT_PROGRESS_PREFIX)
+        ? tarsEndedResultBrake(ports.events.endedResultsSinceUser(responsibilityId), progress)
+        : ports.events.followUpsWithoutProgress(responsibilityId, progress) >= TARS_FOLLOW_UPS_WITHOUT_PROGRESS)) {
+        ports.events.settle(chosen.key, "exhausted", now, null, progress);
+        return null;
+      }
       const gate = ports.events.gate(now);
-      // The durable exhausted event is rendered once in the conversation, with the message-to-continue recovery.
-      if (gate.usedTurns >= TARS_FOLLOW_UP_CAP) { ports.events.settle(chosen.key, "exhausted", now); return null; }
       if (gate.nextWindowAt) return gate.nextWindowAt;
       let messageId: string;
       if (chosen.kind === "decisionInvalidated") {
@@ -209,7 +219,7 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
           { kind: "followUp", eventKey: chosen.key, responsibilityId, reason, observedRevision: chosen.observedRevision, summary: summarize(row!),
             ...(stage ? { stage } : {}) }).id;
       }
-      ports.events.settle(chosen.key, "followedUp", now, messageId);
+      ports.events.settle(chosen.key, "followedUp", now, messageId, progress);
       created++;
       return null;
     });

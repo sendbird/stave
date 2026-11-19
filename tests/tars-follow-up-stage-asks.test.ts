@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { StageStatus } from "@/lib/agent-runs/domain";
-import { TARS_FOLLOW_UP_CAP, classifyTarsTransition, isTarsEventCurrent, isTarsStageAskingUser, tarsNextWaitCheck } from "@/lib/tars/events";
+import { TARS_FOLLOW_UPS_WITHOUT_PROGRESS, classifyTarsTransition, isTarsEventCurrent, isTarsStageAskingUser, tarsNextWaitCheck } from "@/lib/tars/events";
 import { tarsObservation } from "../electron/host-service/tars-execution";
 import { agentRunFixture } from "./fixtures/agent-run-fixtures";
 import { followUpFixture, minutes } from "./tars-follow-up-fixture";
@@ -137,20 +137,44 @@ describe("an immediate follow-up for a stage that asks the user", () => {
     expect(f.planner).toHaveLength(0);
     expect(eventsOf(f, row.id).map((event) => event.status)).toEqual(["superseded"]);
   });
+});
 
-  test("the independent follow-up cap records an asking episode as exhausted", async () => {
-    const f = fixture({ maxTurns: 1 }); f.service.start();
-    for (let index = 0; index < TARS_FOLLOW_UP_CAP; index++) {
-      const first = f.responsibility("running");
-      f.observations.set(first.id, asks()); await f.settle();
-      f.advance(minutes(61));
+describe("asks that repeat without progress", () => {
+  // Answering an ask can return the work to running while the same provider
+  // turn asks again: no Run turn is spent, so the run's turn guard never sees it.
+  const sameTurn = (detail?: string) => ({ ...asks(detail), runTurns: 4, runStage: "work#1" });
+
+  test("the same turn and stage asking again is answered twice, then handed to the user until something moves", async () => {
+    const f = fixture(); f.service.start();
+    const row = f.responsibility("running");
+    for (let round = 0; round < 4; round++) {
+      f.observations.set(row.id, sameTurn(`Which database, take ${round + 1}?`)); await f.settle();
+      if (round < 3) { f.observations.set(row.id, { state: "running", detail: null }); await f.settle(); }
     }
-    const second = f.responsibility("running");
-    f.observations.set(second.id, asks()); await f.settle();
-    expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
-    expect(eventsOf(f, second.id).map((event) => [event.kind, event.status])).toEqual([["stageAsksUser", "exhausted"]]);
-    await f.settle();
-    expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
-    expect(eventsOf(f, second.id)).toHaveLength(1);
+    expect(f.planner).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
+    const askStatuses = () => eventsOf(f, row.id).filter((event) => event.kind === "stageAsksUser").map((event) => event.status);
+    expect(askStatuses()).toEqual(["followedUp", "followedUp", "exhausted", "exhausted"]);
+    expect(f.service.getConversation().events?.filter((event) => event.status === "exhausted" && event.responsibilityId === row.id)).toHaveLength(2);
+    expect(f.responsibilities.snapshot().followUps.filter((state) => state.responsibilityId === row.id).map((state) => state.status)).toEqual(["exhausted"]);
+    // The ask is with the user now: hours of the same wait start nothing.
+    for (let tick = 0; tick < 12; tick++) { f.advance(minutes(15)); await f.settle(); }
+    expect(f.planner).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
+    expect(f.service.getConversation().events?.filter((event) => event.status === "exhausted" && event.responsibilityId === row.id)).toHaveLength(2);
+    // A Run turn spent since is progress: Tars judges the next ask again.
+    f.observations.set(row.id, { state: "running", detail: null }); await f.settle();
+    f.observations.set(row.id, { ...sameTurn(), runTurns: 5 }); await f.settle();
+    expect(f.planner).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS + 1);
+    expect(f.errors).toEqual([]);
+  });
+
+  test("asks that each follow a new turn or stage attempt keep their follow-ups", async () => {
+    const f = fixture(); f.service.start();
+    const row = f.responsibility("running");
+    for (let round = 0; round < 5; round++) {
+      f.observations.set(row.id, { ...asks(), runTurns: 4 + round, runStage: `work#${1 + (round >> 1)}` }); await f.settle();
+      f.observations.set(row.id, { state: "running", detail: null }); await f.settle();
+    }
+    expect(f.planner).toHaveLength(5);
+    expect(eventsOf(f, row.id).every((event) => event.status === "followedUp")).toBe(true);
   });
 });

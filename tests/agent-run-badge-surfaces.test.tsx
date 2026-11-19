@@ -266,13 +266,16 @@ describe("one badge on every surface", () => {
 
 
 for (const locale of ["en", "ko"] as const) {
-  test(`${locale}: limit pause wears Halted on every surface and offers Extend`, () => {
+  test(`${locale}: a run paused at the old turn limit wears Halted on every surface and offers Resume, never Extend`, () => {
     applyRuntimeLocale(locale);
     const detail: AgentRunDetail = { ...runs.working, agentRun: { ...runs.working.agentRun, state: "paused", pauseReason: "limit-reached", maxTurns: 1, turnCount: 1 } };
     const status = describeAgentRunStatus(detail);
     expect(formatAgentRunBadge(status)).toBe(locale === "en" ? "Halted · Limit reached" : "멈춤 · 한도 도달");
     const surfaces = renderSurfaces(detail, []);
     expectOneBadge(surfaces, status);
-    for (const html of [surfaces.bar, surfaces.taskPanel]) expect(html).toContain(locale === "en" ? "Extend (+10 turns)" : "연장 (+10턴)");
+    for (const html of [surfaces.bar, surfaces.taskPanel]) {
+      expect(html).toContain(locale === "en" ? ">Resume<" : ">재개<");
+      expect(html).not.toContain(locale === "en" ? "Extend" : "연장");
+    }
   });
 }

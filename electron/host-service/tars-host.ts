@@ -5,7 +5,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
-  tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
+  tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsRunResult, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
   tarsPullRequestReachesGoal, tarsReportedPullRequestUrls, tarsUserRunObservation, isTarsWorkPullRequest, type TarsUserPullRequest,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
@@ -313,8 +313,10 @@ export function createHostTarsRuntime(args: {
       assertTarsRun(row, detail.agentRun);
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "This task's agent assignment is unavailable.");
       // A run the user started in the task is only observed: never verified against Tars's criteria or made Tars's result.
-      const observation = isTarsObservingUserRun(row) ? tarsUserRunObservation(detail, row, await readUserPullRequest(row, detail))
+      const observed = isTarsObservingUserRun(row) ? tarsUserRunObservation(detail, row, await readUserPullRequest(row, detail))
         : tarsObservation(detail, tarsExecutionScope(row).acceptanceCriteria, row.reverifyAfter, row);
+      const runResult = tarsRunResult(detail, observed);
+      const observation = runResult ? { ...observed, runResult } : observed;
       // The requests themselves, bounded, so the user can answer them through Tars.
       const own = withRefs(snapshot.pendingRequests ?? [], row.executionWorkspaceId, row.taskId);
       const withRequests = (value: typeof observation, requests: readonly TarsPendingRequest[]) =>
@@ -388,12 +390,11 @@ export function createHostTarsRuntime(args: {
         throw error;
       }
     },
-    controlRun: (row, operation, autoExtendMaxTurns, commandId) => {
+    controlRun: (row, operation, commandId) => {
       const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (latest) assertTarsRun(row, latest);
       return controlTarsRun(row, operation, {
         commandId, commandEvents: (id) => persistence.agentRuns.listEventsByKind(id, ["control-applied"]),
-        autoExtendMaxTurns,
         agentRuns: args.agentRuns,
         hasAssignment: (row) => {
           const latest = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
@@ -412,6 +413,7 @@ export function createHostTarsRuntime(args: {
       });
     },
     messages: persistence.tarsConversations,
+    continuations: persistence.tars.events,
     /**
      * The same reply path as a message said at once, under the same ownership
      * checks, only once the task is free: no turn running, no approval or

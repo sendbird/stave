@@ -118,8 +118,11 @@ export function agentRunBadgeToWorkState(badge: AgentRunBadge): WorkState {
   return BADGE_LOOK[badge].mark.state;
 }
 
-/** What Retry does: ask the stage again, or start a new run from the assignment. */
-export type AgentRunRecovery = "retry-stage" | "new-run" | "extend";
+/**
+ * What recovers the run: ask the stage again, start a new run from the
+ * assignment, or resume a run halted at the old turn limit.
+ */
+export type AgentRunRecovery = "retry-stage" | "new-run" | "resume";
 
 export interface AgentRunStatus {
   badge: AgentRunBadge;
@@ -188,7 +191,8 @@ export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRu
           : make("halted", i18n.t("agentRuns:badge.usageLimit"), { reason: describeAgentRunUsageLimit(agentRun) });
       }
       case "limit-reached":
-        return make("halted", i18n.t("agentRuns:limit.reached"), { reason, recovery: "extend" });
+        // Only runs halted before turn counts stopped pausing a run; Resume continues them.
+        return make("halted", i18n.t("agentRuns:limit.reached"), { reason, recovery: "resume" });
       case "wait-expired":
         return make("halted", i18n.t("agentRuns:badge.waitExpired"), { reason });
       case "task-identity-changed":

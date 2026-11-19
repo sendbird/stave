@@ -273,6 +273,8 @@ export class TarsStore {
         merged.unchangedRunId = null;
         merged.resultUnverifiedRunId = null;
       }
+      // What a run ended with describes only the state observation saved it with.
+      if (patch.state && patch.state !== previous.state && !("observedResult" in patch)) delete merged.observedResult;
       if ("agentRunId" in patch && patch.agentRunId !== previous.agentRunId && previous.publication) {
         merged.publicationHistory = [...(previous.publicationHistory ?? []),
           { ...previous.publication, agentRunId: previous.publication.agentRunId ?? previous.agentRunId ?? undefined }];

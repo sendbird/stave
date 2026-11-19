@@ -183,7 +183,7 @@ function parseEach<Row, Value>(rows: Row[], parse: (row: Row) => Value, label: s
 }
 
 /** Why a helper of a team cannot start one more turn; see `AgentRunStore.helperTurnRefusal`. */
-export type HelperTurnRefusal = "own-cap" | "shared-budget" | "unavailable";
+export type HelperTurnRefusal = "shared-budget" | "unavailable";
 
 export class AgentRunStore {
   private readonly db: AgentRunDatabase;
@@ -638,8 +638,7 @@ export class AgentRunStore {
     const rootRunId = config.link?.rootRunId ?? agentRunId;
     const root = this.resourceConfig(rootRunId);
     if (!root || root.link) throw new Error("The resource root is missing or invalid.");
-    const snapshot = projectResourceBudget(rootRunId, root.policy, this.listEventsByKind(rootRunId, ["resource-budget"]),
-      this.getAgentRun(rootRunId)?.maxTurns);
+    const snapshot = projectResourceBudget(rootRunId, root.policy, this.listEventsByKind(rootRunId, ["resource-budget"]));
     if (config.link && !snapshot.reservations.some((row) => row.reservationId === config.link!.reservationId &&
         row.executionId === config.link!.executionId && row.childRunId === agentRunId))
       throw new Error("The child resource reservation does not match its Run.");
@@ -709,11 +708,11 @@ export class AgentRunStore {
   }
 
   /**
-   * Why a helper cannot start one more turn, or null when it can. `own-cap`:
-   * its turns, replies included (its turn count leaves them out), reached its
-   * own max turns. `shared-budget`: past its held start turns, only the
-   * parent's integration turn is left. `unavailable`: its parent is not
-   * running or its reservation is gone, which ends nothing by itself.
+   * Why a helper cannot start one more turn, or null when it can.
+   * `shared-budget`: past its held start turns, only the parent's integration
+   * turn is left of the team's guard against loops. `unavailable`: its parent
+   * is not running or its reservation is gone, which ends nothing by itself.
+   * A helper's own saved max turns no longer stop it.
    */
   helperTurnRefusal(agentRunId: string): HelperTurnRefusal | null {
     const link = this.resourceConfig(agentRunId)?.link;
@@ -722,7 +721,6 @@ export class AgentRunStore {
     const reservation = snapshot.reservations.find((row) => row.reservationId === link.reservationId);
     const own = this.getAgentRun(agentRunId), root = this.getAgentRun(snapshot.rootRunId);
     if (!reservation || reservation.released || !own || !root || root.state !== "running") return "unavailable";
-    if (reservation.consumed >= own.maxTurns) return "own-cap";
     return reservation.consumed < reservation.capacity || snapshot.remaining > snapshot.policy.parentReserve ? null : "shared-budget";
   }
 

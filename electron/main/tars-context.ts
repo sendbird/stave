@@ -191,7 +191,7 @@ export function observeTarsContext(store: ObservationPorts,
       // Requests waiting in the work's task or a helper's task; their text is the tool's own words, untrusted.
       ...(row.pendingRequests?.length ? { pendingRequests: row.pendingRequests.map(({ workspaceId: _workspace, ...request }) => request) } : {}),
       execution: owned ? { source: "persisted-agent-run", id: owned.id, state: owned.state, updatedAt: owned.updatedAt,
-        stopReason: owned.stopReason, pauseReason: owned.pauseReason ?? null, turns: { used: owned.turnCount, max: owned.maxTurns },
+        stopReason: owned.stopReason, pauseReason: owned.pauseReason ?? null, turns: { used: owned.turnCount },
         currentStage: owned.workflow.stages[owned.currentStageIndex]?.title.slice(0, 120) ?? null,
         // The user continued the work in its task: what they asked there, which the work now follows.
         ...(owned.workflow.id !== tarsWorkflowId(row.id) ? { startedInTaskByUser: true, assignmentExcerpt: excerpt(owned.assignment, 500).text } : {}) } : null };

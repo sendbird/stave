@@ -4,8 +4,8 @@ import type { TarsFollowUpState, TarsResponsibility } from "@/lib/tars/types";
 
 /**
  * Automatic follow-up for the preview and its e2e: blocked work Tars followed
- * up once, waiting work with its next check, and blocked work it did not
- * follow up because automatic turns reached the turn limit. Times count from `start`.
+ * up once, waiting work with its next check, and blocked work it stopped
+ * continuing because its continuations kept ending with the same result. Times count from `start`.
  */
 export function buildTarsFollowUpFixtures(start: Date, korean: boolean) {
   const at = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();

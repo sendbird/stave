@@ -37,10 +37,7 @@
   },
   "limit": {
     "reached": "Limit reached",
-    "extend": "Extend (+10 turns)",
-    "extendOnly": "Only a run halted at its turn limit can be extended.",
-    "ceiling": "The run already has the maximum of {{count}} turns.",
-    "invalidTurns": "Add a positive whole number of turns.",
+    "resume": "Resume",
     "notification": "Halted · Limit reached · {{agent}}"
   },
   "delegatedReply": {
@@ -176,7 +173,6 @@
     "label5": "Running for",
     "label6": "Ran for",
     "ariaLabel": "Run figures",
-    "extraCopy9": "Close to its {{value1}}-turn budget; the run halts there until you extend it.",
     "extraCopy10_one": "{{value1}} turn reported no usage, so the total may be low.",
     "extraCopy10_other": "{{value1}} turns reported no usage, so the total may be low.",
     "startedAt": "since {{time}}",
@@ -201,7 +197,7 @@
     "describeSignOffQuestion3": "Ready to watch the PR checks?",
     "describeSignOffQuestion4": "Ready to request review?",
     "describeSignOffQuestion5": "Ready to run “{{value1}}”?",
-    "title": "Turns this run has used of its limit",
+    "title": "Turns this run has used",
     "signOffCard": "Stage",
     "signOffCard3": "What should change? The last AI stage runs again with your note.",
     "signOffCard4": "Send and run again",
@@ -393,7 +389,7 @@
     "actionStageFields": "Repairs",
     "ariaLabel10": "Repair attempts",
     "label11": "None",
-    "actionStageFields2": "Each repair is an agent turn and counts toward the run's turn limit.",
+    "actionStageFields2": "Each repair is an agent turn.",
     "actionStageFields3": "Give up after",
     "ariaLabel11": "Checks timeout",
     "actionStageFields4": "A check still pending after this stops the run with a note.",
@@ -403,7 +399,7 @@
   },
   "agentRunStatus": {
     "taskUnavailable": "The task is no longer available.",
-    "turnCapReached": "The run used all its turns before it finished.",
+    "turnCapReached": "The run reached a turn ceiling before it finished.",
     "acceptanceUnmet": "The delegated run reported a required criterion unmet, so it ended for its parent to decide.",
     "expired": "The run took too long and expired.",
     "metVerified": "Met · checked by Stave",
@@ -455,7 +451,8 @@
     "describeSignOffAction3": "Start watching checks",
     "describeSignOffAction4": "Mark ready for review",
     "describeSignOffAction5": "Run “{{value1}}”",
-    "text9": "{{value1}} of {{value2}} turns",
+    "turnsUsed_one": "{{count}} turn",
+    "turnsUsed_other": "{{count}} turns",
     "describeTurnStart": "{{value1}} — reminder to report the stage",
     "describeTurnStart2": "{{value1}} — repair after checks failed",
     "describeTurnStart3": "{{value1}} — continuing after your reply",
@@ -539,7 +536,7 @@
   },
   "insights": {
     "stuckStage": "Stuck stage",
-    "turnCapReached": "Turn cap reached",
+    "turnCapReached": "Stopped as a likely loop",
     "acceptanceUnmet": "Criterion unmet",
     "expired": "Expired",
     "taskUnavailable": "Task unavailable",
@@ -597,7 +594,7 @@
     "extraCopy292": " · Now: {{value1}}"
   },
   "policy": {
-    "detail": "This run reached its limit of {{value1}} turns.",
+    "detail": "This run took {{value1}} turns without finishing, so Stave stopped it as a likely loop.",
     "detail2": "Stave's local tools are unreachable, so the agent could not report this stage. The run continues when they are back.",
     "detail3": "The agent ended two turns without reporting this stage.",
     "detail4": "The lead task no longer exists.",
@@ -608,8 +605,8 @@
     "extraCopy308": "The lead task's workspace is not loaded right now.",
     "extraCopy309": "The lead task now runs on {{value1}}, not {{value2}}.",
     "providerRetriesSpent": "The provider kept failing: {{count}} retries ended with “{{message}}”. Retry when the provider is back.",
-    "teamDetail": "This run and its helper Agents used all {{value1}} shared turns.",
-    "helperTeamDetail": "This helper used its start turns, and the team's shared turns ran out.",
+    "teamDetail": "This run and its helper Agents took {{value1}} turns together without finishing, so Stave stopped it as a likely loop.",
+    "helperTeamDetail": "This helper stopped because its team reached the turns at which Stave ends a likely loop.",
     "reviewPassed": "Skipped: the independent review passed, the workspace is unchanged, and no required verification remains.",
     "workUnchanged": "Skipped: the work changed no files, so there was no change for the independent review to check, and no required verification remains.",
     "publicationNeedsCurrentCheck": "Required workspace checks no longer verify the current files. Stave stopped before the next remote update. Restore the checked work before retrying, or start a new run to verify the changed work.",
@@ -893,25 +890,17 @@
     "presentationCopy524": "Stage \"{{v1}}\" is a Stave action and has no prompt."
   },
   "teamLimits": {
-    "usageTitle": "Team turns",
-    "available": "{{remaining}} of {{total}} left",
-    "sharedTurns": "Shared turn budget",
-    "used": "Used",
-    "reserved": "Reserved",
-    "remaining": "Available",
+    "usageTitle": "Helpers",
     "details": "Helper limits & policy",
     "working": "Helpers working",
     "called": "Helpers called",
     "ratio": "{{value}} / {{total}}",
-    "allAllocated": "All unused turns are reserved for helpers. Unused reservations return when helpers finish.",
-    "exhausted": "All shared turns used. Extend the run to continue.",
     "title": "Team limits",
-    "budget": "Shared turns: {{used}} of {{total}} used · {{reserved}} reserved for helpers · {{remaining}} left",
-    "helpers": "Helper Agents: {{active}} of {{concurrent}} working · {{launched}} of {{totalHelpers}} called",
     "route": "Provider: {{provider}} · model: {{model}} · effort: {{effort}}. At most 2 changes, with 2 turns between changes.",
     "pinned": "pinned",
     "eligible": "can change",
-    "boundary": "The budget counts this run's turns and its helper Agents' turns; a turn that fails to start still counts. Your replies in the main run's stages do not count; replies to a helper Agent do. A helper holds its first turns and draws the rest as it works, up to its own max turns, leaving one turn for the main run to integrate its results. When the budget runs out, the run halts at its limit and Extend adds turns. Billing is reported separately; missing cost stays unknown."
+    "boundary_one": "Helper Agents work until they finish, bounded by time and provider usage like the main run. Stave stops the team only if together it takes {{count}} turn, a sign of a loop; one turn stays for the main run to integrate results. Billing is reported separately; missing cost stays unknown.",
+    "boundary_other": "Helper Agents work until they finish, bounded by time and provider usage like the main run. Stave stops the team only if together it takes {{count}} turns, a sign of a loop; one turn stays for the main run to integrate results. Billing is reported separately; missing cost stays unknown."
   },
   "pullRequestWatch": {
     "stopUnreadable_one": "GitHub could not be read {{count}} time in a row, so this watch stopped. Last error: {{error}}",
@@ -1161,8 +1150,7 @@
       "whenStuck": "Only when it is stuck or needs an answer.",
       "asksBefore": "Asks you before: {{stages}}.",
       "questions": "Questions it cannot settle come to you.",
-      "stops_one": "Pauses after {{count}} turn until you extend it, and at a usage limit.",
-      "stops_other": "Pauses after {{count}} turns until you extend it, and at a usage limit."
+      "usage": "At a usage limit it waits for the reset and continues on its own."
     },
     "summary": {
       "permission": {
@@ -1176,8 +1164,6 @@
         "planAndPublishing": "Sign-off after planning and before publishing",
         "whenStuck": "Asks only when stuck"
       },
-      "turns_one": "Up to {{count}} turn",
-      "turns_other": "Up to {{count}} turns",
       "attachments_one": "Keeps {{count}} attachment",
       "attachments_other": "Keeps {{count}} attachments",
       "filePaths": "Reads saved copies of attached files"

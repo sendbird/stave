@@ -284,7 +284,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
         <span className={sx(styles.optionLabel)}>{confirmLabel(decision, option)}</span>
         <span className={sx(styles.keys)} aria-hidden="true"><Kbd size="sm">{index + 1}</Kbd>{recommended ? <Kbd size="sm">{t("shell:tars.decision.enterKey")}</Kbd> : null}</span>
       </AuiButton>
-      <TarsAlwaysAllowButton actionKey={option.kind === "control" ? option.control.operation : option.kind === "proposal" ? tarsActionKey(option.action) : null}
+      <TarsAlwaysAllowButton actionKey={option.kind === "control" ? tarsActionKey({ kind: "control", operation: option.control.operation }) : option.kind === "proposal" ? tarsActionKey(option.action) : null}
         repositoryPath={describeTarsDecisionTarget(decision, { rowOf, workspaceNameOf }).repositoryPath}
         workspaceId={option.kind === "proposal" && (option.action.kind === "delegate" || option.action.kind === "workspace") ? option.action.workspaceId : undefined}
         disabled={!answerable} onApply={() => choose(index, "click")} />

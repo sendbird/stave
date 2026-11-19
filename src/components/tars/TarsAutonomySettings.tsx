@@ -65,7 +65,7 @@ export function TarsAutonomySettings({ level, rules, disabled, onLevelChange, on
     event.preventDefault();
     add();
   };
-  const actions = (keys: readonly TarsActionKey[]) => keys.length ? formatList(keys.map((key) => level !== "careful" && (key === "extend" || key === "publish")
+  const actions = (keys: readonly TarsActionKey[]) => keys.length ? formatList(keys.map((key) => level !== "careful" && key === "publish"
     ? t(`shell:tars.autonomy.conditional.${key}`) : t(`shell:tars.autonomy.action.${key}`))) : t("shell:tars.autonomy.table.none");
   const rows: Array<{ id: "auto" | "confirm" | "always" | "never"; keys: readonly string[]; text: string }> = [
     { id: "auto", keys: table.auto, text: actions(table.auto) },

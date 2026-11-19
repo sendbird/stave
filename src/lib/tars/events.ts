@@ -11,16 +11,45 @@ export { TarsEventKindSchema, TarsFollowUpStateSchema, type TarsEventKind, type 
  * follow-up planner turn per episode. Nothing here starts a model call by itself.
  */
 
-/** At most this many automatic follow-ups start in any rolling window, across all responsibilities. */
+/**
+ * At most this many automatic follow-ups start in any rolling window, across
+ * all responsibilities. This time bound is the whole budget: each change gets
+ * one follow-up and only live work changes, so no count since the user's last
+ * action stops them.
+ */
 export const TARS_FOLLOW_UP_WINDOW_CAP = 6;
-/** Automatic judgments between real user actions, independent of any execution run's turn limit. */
-export const TARS_FOLLOW_UP_CAP = 20;
 export const TARS_FOLLOW_UP_WINDOW_MS = 60 * 60_000;
+/**
+ * Automatic follow-ups in a row that may see a work at the same progress
+ * (`tarsWorkProgress`). Waiting work: answering an ask can return it to
+ * running while the same provider turn asks again, which spends no Run turn.
+ * Ended work: a follow-up on a Run that ended (`TARS_ENDED_RESULT_EVENTS`)
+ * may start a new Run as a continuation, with a fresh turn guard; one that
+ * ends with the same result made no progress. The first follow-up acts; the
+ * second covers an attempt that fell short; a third time with nothing moved
+ * means Tars's automatic attempts do not help, so it goes to the user
+ * (`exhausted`) instead. CI and review follow-ups keep their own two rounds;
+ * the Run starts of every automatic continuation, theirs included, take from
+ * one count per work (`TarsEventInbox.automaticContinuationResults`).
+ */
+export const TARS_FOLLOW_UPS_WITHOUT_PROGRESS = 2;
+/**
+ * Automatic continuations of one piece of ended work between two user actions,
+ * whatever their results say. The result brake stops repeats after two (three
+ * for an alternation between two results, `tarsEndedResultBrake`); five leaves
+ * room for two real steps beyond that, stays below one hour's window
+ * (`TARS_FOLLOW_UP_WINDOW_CAP`) so one work never spends it alone, and keeps
+ * the count bounded even if a result fingerprint ever reads a change that is
+ * not one.
+ */
+export const TARS_ENDED_FOLLOW_UPS_MAX = 5;
 /** Processed events older than this are removed at startup; pending ones always stay. */
 export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Work that has waited this long without any change gets one follow-up for that wait. */
 export const TARS_WAIT_FOLLOW_UP_MS = 60 * 60_000;
 
+/** Follow-ups on a Run that ended; their progress is the result it ended with, compared only among themselves. */
+export const TARS_ENDED_RESULT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed"]);
 export const TARS_JUDGMENT_EVENTS: ReadonlySet<TarsEventKind> = new Set(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "decisionInvalidated", "ciFailed", "ciPassed", "ciUnavailable", "prChangesRequested", "prReviewNotice"]);
 /** The kinds an automatic follow-up message can carry; an invalidated decision keeps its own re-ask message. */
 export const TarsFollowUpReasonSchema = z.enum(["resultReady", "blocked", "unverifiedCompletion", "verificationFailed", "stageAsksUser", "limitReached", "waitExpired", "ciFailed", "ciPassed", "ciUnavailable", "prChangesRequested", "prReviewNotice"]);
@@ -31,7 +60,9 @@ export type TarsFollowUpReason = z.infer<typeof TarsFollowUpReasonSchema>;
  * `followedUp`: it started its follow-up (`messageId`). `coalesced`: a newer
  * event of the same responsibility covered it. `superseded`: the work moved on,
  * ended, was paused or taken over, or the user addressed this work. `exhausted`:
- * the separate automatic follow-up cap was reached; the event is a visible notice.
+ * Tars stopped following up because the work asked again without progress
+ * (`TARS_FOLLOW_UPS_WITHOUT_PROGRESS`), or, on older rows, because a count of
+ * automatic follow-ups stopped it; the event is a visible notice.
  */
 export const TarsEventStatusSchema = z.enum(["pending", "settled", "followedUp", "coalesced", "superseded", "exhausted"]);
 export type TarsEventStatus = z.infer<typeof TarsEventStatusSchema>;
@@ -56,6 +87,8 @@ export const TarsEventSchema = z.object({
    * start log the window prunes: it says this change actually reached Tars.
    */
   startedAt: z.iso.datetime().nullable().optional(),
+  /** The work's progress (`tarsWorkProgress`) when it was followed up; absent when it had none to compare or on older rows. */
+  progress: z.string().min(1).max(400).optional(),
   createdAt: z.iso.datetime(),
   processedAt: z.iso.datetime().nullable(),
 }).strict();
@@ -87,6 +120,80 @@ function blockedKind(row: Pick<TarsResponsibility, "detailCode">): TarsEventKind
  */
 export function isTarsStageAskingUser(row: Pick<TarsResponsibility, "state" | "stageAsksUser">) {
   return row.state === "waiting" && row.stageAsksUser === true;
+}
+
+/** Prefix of the progress of ended work (`tarsWorkProgress`), so it is compared only with other ended results. */
+export const TARS_RESULT_PROGRESS_PREFIX = "result:";
+
+/**
+ * Where work stands, for telling a repeat from progress. Waiting work: its
+ * run, Run turn and stage attempt (a helper's includes its report revision);
+ * a commit, a stage or a report comes from a turn or a stage attempt, so any
+ * of them changes this. Ended work: the result its Run ended with
+ * (`observedResult`), never the run id, so a continuation that ends the same
+ * way is no progress. Null when the row has nothing observed to compare.
+ */
+export function tarsWorkProgress(row: Pick<TarsResponsibility, "state" | "agentRunId" | "observedTurns" | "observedStage" | "observedResult">): string | null {
+  if (row.state === "resultReady" || row.state === "blocked" || row.state === "completed")
+    return row.observedResult ? `${TARS_RESULT_PROGRESS_PREFIX}${row.observedResult}` : null;
+  if (row.state !== "waiting" || row.observedTurns === undefined) return null;
+  return `${row.agentRunId ?? ""}|${row.observedTurns}|${row.observedStage ?? ""}`.slice(0, 400);
+}
+
+/**
+ * The progress a follow-up of this kind is compared by: the result for a Run
+ * that ended, the waiting position for waiting work. CI and review follow-ups
+ * on ended work keep their own two rounds, so they carry none.
+ */
+export function tarsFollowUpProgress(kind: TarsEventKind, row: Parameters<typeof tarsWorkProgress>[0]): string | null {
+  return TARS_ENDED_RESULT_EVENTS.has(kind) || row.state === "waiting" ? tarsWorkProgress(row) : null;
+}
+
+/** The parts of an ended result, in its fingerprint's order (`tarsRunResult`): outcome, workspace revision, review verdict, unmet criteria. */
+export const TARS_RESULT_PARTS = ["o", "r", "v", "u"] as const;
+const RESULT_FORMAT = /^o\.[0-9a-f]{8,32}\|r\.(?:[0-9a-f]{8,32}|\?)\|v\.(?:[0-9a-f]{8,32}|\?)\|u\.(?:[0-9a-f]{8,32}|\?)$/;
+
+/** The known parts of an ended result's fingerprint; a part read as `?` was not known and is left out. Null for anything else. */
+function resultParts(progress: string): Map<string, string> | null {
+  const result = progress.startsWith(TARS_RESULT_PROGRESS_PREFIX) ? progress.slice(TARS_RESULT_PROGRESS_PREFIX.length) : progress;
+  if (!RESULT_FORMAT.test(result)) return null;
+  return new Map(result.split("|").map((part) => part.split(".") as [string, string]).filter(([, value]) => value !== "?"));
+}
+
+/**
+ * Whether one ended result positively differs from another: some part known
+ * on both sides (a known revision, the outcome, verdict or unmet criteria)
+ * differs. A part one side could not read is never a change, so a revision
+ * read that alternates between known and unknown is no progress.
+ */
+export function tarsResultProgressed(next: string, previous: string): boolean {
+  const [a, b] = [resultParts(next), resultParts(previous)];
+  if (!a || !b) return false;
+  return [...a].some(([part, value]) => b.has(part) && b.get(part) !== value);
+}
+
+/**
+ * Whether the next follow-up on ended work goes to the user instead
+ * (`exhausted`), given the results of its earlier automatic follow-ups since
+ * the user last acted, oldest first. A result is new when it positively
+ * differs from every earlier one; repeats are counted from the last new
+ * result, so results alternating between two values (A/B/A/B) cannot reset
+ * the count. After `TARS_FOLLOW_UPS_WITHOUT_PROGRESS` follow-ups since the
+ * last new result, a result that is not new stops; after
+ * `TARS_ENDED_FOLLOW_UPS_MAX` follow-ups everything stops.
+ */
+export function tarsEndedResultBrake(previous: readonly string[], next: string): boolean {
+  if (previous.length >= TARS_ENDED_FOLLOW_UPS_MAX) return true;
+  const isNew = (result: string, earlier: readonly string[]) => earlier.every((item) => tarsResultProgressed(result, item));
+  if (isNew(next, previous)) return false;
+  let lastNew = 0;
+  previous.forEach((result, index) => { if (isNew(result, previous.slice(0, index))) lastNew = index; });
+  return previous.length - lastNew >= TARS_FOLLOW_UPS_WITHOUT_PROGRESS;
+}
+
+/** Which notice says a follow-up's state: Tars stopped continuing ended work (`exhaustedResult`) reads apart from a repeated ask. */
+export function tarsFollowUpNotice<S extends string>(state: { kind: TarsEventKind; status: S }): S | "exhaustedResult" {
+  return state.status === "exhausted" && TARS_ENDED_RESULT_EVENTS.has(state.kind) ? "exhaustedResult" : state.status;
 }
 
 type AskEpisodeFields = "state" | "stageAsksUser" | "observedTurns" | "observedStage";

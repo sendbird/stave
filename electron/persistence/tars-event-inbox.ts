@@ -1,11 +1,12 @@
 import {
-  TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UP_WINDOW_MS, TARS_JUDGMENT_EVENTS, TarsEventSchema, isTarsEventCurrent, tarsEventKey,
+  TARS_EVENT_RETENTION_MS, TARS_ENDED_FOLLOW_UPS_MAX, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UPS_WITHOUT_PROGRESS, TARS_RESULT_PROGRESS_PREFIX, TARS_FOLLOW_UP_WINDOW_MS, TARS_JUDGMENT_EVENTS, TarsEventSchema, isTarsEventCurrent, tarsEventKey,
   tarsNextWaitCheck, isTarsStageAskingUser, isTarsLimitReached,
   type TarsEvent, type TarsEventInput, type TarsEventStatus, type TarsFollowUpState,
 } from "../../src/lib/tars/events";
 import { TarsResponsibilitySchema, type TarsResponsibility } from "../../src/lib/tars/types";
 import type { TarsChangeSignal } from "./tars-changes";
 import { parseTarsDecisionId, tarsMessageTargets, TarsMessageTargetSchema } from "../../src/lib/tars/decisions";
+import { TarsActionRecordSchema } from "../../src/lib/tars/conversation";
 
 interface InboxDatabase {
   exec(sql: string): unknown;
@@ -17,11 +18,13 @@ interface InboxDatabase {
   transaction<T>(operation: () => T): { (): T; immediate(): T };
 }
 
-/** Messages Tars started by itself; both count against the window cap and the separate follow-up cap. */
+/** Messages Tars started by itself; both count against the window cap. */
 const AUTOMATIC_ORIGINS = "('followUp', 'reask')";
+/** Work that is no longer open: it ended, or the user took it over. Its events are history, not state. */
+const ENDED_STATES = "('completed', 'cancelled', 'takenOver')";
 
-/** When the follow-up window opens again (null: open now) and how many automatic turns ran since the user last spoke. */
-export interface TarsFollowUpGate { nextWindowAt: string | null; usedTurns: number }
+/** When the follow-up window opens again (null: open now). */
+export interface TarsFollowUpGate { nextWindowAt: string | null }
 
 /**
  * The durable event inbox on the connection both Tars stores use. Its key is
@@ -95,16 +98,17 @@ export class TarsEventInbox {
 
   /**
    * Whether the latest ask of this work is covered by its immediate
-   * follow-up: one that started its planner turn. A later ask is a new event,
-   * so the latest one is the current ask. Pending, queued, cancelled,
-   * coalesced or exhausted, the quiet wait still applies, so an asking stage
-   * is never left with neither rule.
+   * follow-up: one that started its planner turn, or handed to the user for
+   * asking again without progress. A later ask is a new event, so the latest
+   * one is the current ask. Pending, queued, cancelled or coalesced, the quiet
+   * wait still applies, so an asking stage is never left with neither rule.
    */
   askCovered(responsibilityId: string): boolean {
     const latest = this.read(this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND kind IN ('stageAsksUser', 'limitReached')
       ORDER BY rowid DESC LIMIT 1`).get(responsibilityId));
     // Only a follow-up that actually started counts; a merely queued one may still be cancelled.
-    return latest?.status === "followedUp" && Boolean(latest.startedAt);
+    // An ask handed to the user for repeating without progress is theirs: a quiet wait would only repeat the notice.
+    return latest?.status === "followedUp" && Boolean(latest.startedAt) || latest?.status === "exhausted" && Boolean(latest.progress);
   }
 
   /**
@@ -178,16 +182,77 @@ export class TarsEventInbox {
   }
 
   /** Settles a pending event once; anything else is returned unchanged, so a replay never rewrites an outcome. */
-  settle(key: string, status: Exclude<TarsEventStatus, "pending">, now: string, messageId: string | null = null): TarsEvent {
+  settle(key: string, status: Exclude<TarsEventStatus, "pending">, now: string, messageId: string | null = null, progress: string | null = null): TarsEvent {
     return this.write(() => {
       const current = this.get(key);
       if (!current) throw new Error("The event was not found.");
       if (current.status !== "pending") return current;
-      const next = TarsEventSchema.parse({ ...current, status, messageId, processedAt: now });
+      const next = TarsEventSchema.parse({ ...current, status, messageId, processedAt: now, ...(progress ? { progress } : {}) });
       this.db.prepare("UPDATE tars_events SET status = ?, body_json = ? WHERE event_key = ? AND status = 'pending'")
         .run(next.status, JSON.stringify(next), key);
       this.changes?.emit("snapshot", "conversation");
       return next;
+    });
+  }
+
+  /**
+   * How many of this work's latest follow-ups in a row saw it at this same
+   * progress since the user last addressed it; a follow-up at other progress
+   * (or one saved before progress was recorded) ends the count. For waiting
+   * work only; ended results are judged by `endedResultsSinceUser`.
+   */
+  followUpsWithoutProgress(responsibilityId: string, progress: string): number {
+    const latest = this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND status = 'followedUp'
+        ORDER BY rowid DESC LIMIT ?`).all(responsibilityId, TARS_FOLLOW_UPS_WITHOUT_PROGRESS).map((row) => this.read(row)!);
+    const count = latest.findIndex((event) => event.progress !== progress
+      || this.userAddressedSince(responsibilityId, event.processedAt ?? event.createdAt));
+    return count < 0 ? latest.length : count;
+  }
+
+  /**
+   * The results of this work's automatic follow-ups on ended Runs since the
+   * user last addressed it, oldest first (`tarsEndedResultBrake`); at most
+   * `TARS_ENDED_FOLLOW_UPS_MAX`, the most that can follow one user action.
+   * The asks, CI and review follow-ups of the continuations between them are
+   * not results, so they are not read.
+   */
+  endedResultsSinceUser(responsibilityId: string): string[] {
+    const latest = (this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND status = 'followedUp'
+      AND json_extract(body_json, '$.progress') LIKE ? ORDER BY rowid DESC LIMIT ?`)
+      .all(responsibilityId, `${TARS_RESULT_PROGRESS_PREFIX}%`, TARS_ENDED_FOLLOW_UPS_MAX)).map((row) => this.read(row)!);
+    const since = latest.findIndex((event) => this.userAddressedSince(responsibilityId, event.processedAt ?? event.createdAt));
+    return (since < 0 ? latest : latest.slice(0, since)).map((event) => event.progress!).reverse();
+  }
+
+  /**
+   * The results this work's automatic continuation Runs started from since the
+   * user last addressed it, oldest first (`tarsEndedResultBrake`); at most
+   * `TARS_ENDED_FOLLOW_UPS_MAX`. Every start of an automatic control counts,
+   * whatever proposed it and however many controls its answer held; a start
+   * the user confirmed is a user action, so the count starts again after it.
+   */
+  automaticContinuationResults(responsibilityId: string): string[] {
+    if (!this.messagesReady()) return [];
+    const starts = this.db.prepare(`SELECT body_json FROM tars_action_records WHERE json_extract(body_json, '$.action.responsibilityId') = ?
+      AND json_extract(body_json, '$.source') = 'automatic' AND json_extract(body_json, '$.delivery.continuedFrom') IS NOT NULL
+      ORDER BY json_extract(body_json, '$.delivery.updatedAt') DESC, rowid DESC LIMIT ?`).all(responsibilityId, TARS_ENDED_FOLLOW_UPS_MAX)
+      .map((row) => TarsActionRecordSchema.parse(JSON.parse((row as { body_json: string }).body_json)).delivery!);
+    const since = starts.findIndex((delivery) => this.userAddressedSince(responsibilityId, delivery.updatedAt));
+    return (since < 0 ? starts : starts.slice(0, since)).map((delivery) => delivery.continuedFrom!).reverse();
+  }
+
+  /**
+   * Tells the user once that Tars stopped continuing this ended work: an
+   * `exhausted` follow-up for its current revision, unless one already says so.
+   */
+  stopAutomaticContinuations(row: TarsResponsibility, now: string): void {
+    this.write(() => {
+      if (this.db.prepare(`SELECT 1 FROM tars_events WHERE responsibility_id = ? AND status = 'exhausted'
+        AND json_extract(body_json, '$.observedRevision') = ? LIMIT 1`).get(row.id, row.revision)) return;
+      const kind = row.state !== "blocked" ? "resultReady" : row.detailCode === "unverifiedCompletion" ? "unverifiedCompletion" : "verificationFailed";
+      const event = this.record({ kind, responsibilityId: row.id, episode: `continuations:${row.revision}`, observedRevision: row.revision,
+        observedState: row.state, attempt: row.agentRunId }, now);
+      if (event.status === "pending") this.settle(event.key, "exhausted", now);
     });
   }
 
@@ -225,26 +290,15 @@ export class TarsEventInbox {
     return times.reduce<string | null>((latest, at) => at && (!latest || at > latest) ? at : latest, null);
   }
 
-  /**
-   * The budget an automatic follow-up draws from: at most
-   * `TARS_FOLLOW_UP_WINDOW_CAP` in any rolling window, and the automatic
-   * turns since the user's last action (a typed message, a chosen answer, a
-   * Confirm or any control click), which restarts the count.
-   */
+  /** The budget an automatic follow-up draws from: at most `TARS_FOLLOW_UP_WINDOW_CAP` in any rolling window. */
   gate(now: string): TarsFollowUpGate {
-    if (!this.messagesReady()) return { nextWindowAt: null, usedTurns: 0 };
+    if (!this.messagesReady()) return { nextWindowAt: null };
     // The window counts planner starts, not message creation: a follow-up
     // queued long ago still counts when it starts. Queued ones count as
     // starting now, so admission never queues more than the window can start.
     const queued = Number((this.db.prepare(`SELECT COUNT(*) AS count FROM tars_messages
       WHERE state = 'queued' AND json_extract(body_json, '$.origin.kind') IN ${AUTOMATIC_ORIGINS}`).get() as { count: number }).count);
-    const nextWindowAt = this.windowOpening(now, queued);
-    const used = this.db.prepare(`SELECT COUNT(*) AS count FROM tars_messages
-      WHERE json_extract(body_json, '$.origin.kind') IN ${AUTOMATIC_ORIGINS} AND created_at > ?
-        AND rowid > COALESCE((SELECT MAX(rowid) FROM tars_messages
-          WHERE json_extract(body_json, '$.origin.kind') IS NULL OR json_extract(body_json, '$.origin.kind') = 'answer'), 0)`)
-      .get(this.lastUserClickAt() ?? "") as { count: number };
-    return { nextWindowAt, usedTurns: Number(used.count) };
+    return { nextWindowAt: this.windowOpening(now, queued) };
   }
 
   /** When the window has room for one more start, given `queued` more starting now; null when it has room now. */
@@ -308,16 +362,22 @@ export class TarsEventInbox {
       AND json_extract(body_json, '$.source') IN ('click', 'fleet', 'task', 'key', 'words', 'drag') LIMIT 1`).get(at, responsibilityId));
   }
 
-  /** Whether the user acted toward Tars in any way after this time; that restarts the automatic-turn count. */
+  /** Whether the user acted toward Tars in any way after this time; that clears an old exhaustion notice. */
   userActedSince(at: string): boolean {
     const click = this.lastUserClickAt();
     return (click !== null && click > at) || this.userSpokeSince(at);
   }
 
   /**
-   * Removes processed events older than `maxAgeMs`; pending ones always stay.
-   * A late duplicate of a removed event is recorded again and judged against
-   * the work's current revision, so it never brings back an old episode.
+   * Removes processed events older than `maxAgeMs` of work that is no longer
+   * open (`ENDED_STATES`) or no longer saved; pending ones always stay. The
+   * events of open work are its state, whatever their age: they hold the
+   * count that stops automatic follow-ups without progress
+   * (`endedResultsSinceUser`, `followUpsWithoutProgress`), the notice that
+   * Tars handed the work to the user, and the keys that keep an episode from
+   * being recorded again as new. A late duplicate of a removed event is
+   * recorded again and judged against the work's current revision, so it
+   * never brings back an old episode.
    */
   prune(now: string, maxAgeMs = TARS_EVENT_RETENTION_MS): number {
     const cutoff = new Date(Date.parse(now) - maxAgeMs).toISOString();
@@ -325,7 +385,9 @@ export class TarsEventInbox {
       // Starts older than the window no longer count against it.
       this.db.prepare("DELETE FROM tars_follow_up_starts WHERE started_at < ?")
         .run(new Date(Date.parse(now) - TARS_FOLLOW_UP_WINDOW_MS).toISOString());
-      return Number(this.db.prepare("DELETE FROM tars_events WHERE status <> 'pending' AND created_at < ?").run(cutoff).changes ?? 0);
+      return Number(this.db.prepare(`DELETE FROM tars_events WHERE status <> 'pending' AND created_at < ?
+        AND responsibility_id NOT IN (SELECT id FROM tars_responsibilities
+          WHERE json_extract(body_json, '$.state') NOT IN ${ENDED_STATES})`).run(cutoff).changes ?? 0);
     });
   }
 

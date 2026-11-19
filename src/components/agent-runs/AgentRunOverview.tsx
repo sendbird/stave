@@ -131,9 +131,9 @@ export function AgentRunOverview(props: {
             }}
           </ElapsedClock>
         </div>
-        {status.recovery === "extend" && actions.onExtend ? (
-          <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onExtend}>
-            {i18n.t("agentRuns:limit.extend")}
+        {status.recovery === "resume" && actions.onResume ? (
+          <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
+            {i18n.t("agentRuns:limit.resume")}
           </Button>
         ) : null}
         {/* Only a run with something to say about its wait keeps that clock running. */}

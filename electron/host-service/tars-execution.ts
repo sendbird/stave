@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { tarsSourceLinkGuidance } from "../../src/lib/tars/intake";
 import { tarsGoalReached } from "../../src/lib/tars/completion";
 import { tarsOwnerAgent } from "../../src/lib/tars/agents";
@@ -502,6 +503,34 @@ export function tarsUserRunObservation(detail: AgentRunDetail, goal: Pick<TarsRe
   const observed = tarsObservation(detail, undefined, null, goal);
   // i18n-ignore: persisted diagnostic; the interface translates the code
   return observed.state === "running" ? { ...observed, detail: "You continued this work in its task. Tars follows your run and acts on it only when you confirm.", detailCode: "followingUserRun" } : observed;
+}
+
+/**
+ * What an ended run ended with, for telling a continuation that changed the
+ * result from one that ended the same way (`tarsResultProgressed`), as four
+ * parts compared one by one: its outcome (state, code, stop reason, whether
+ * Stave verified it, the stage it ended on), that stage's workspace revision
+ * at its report (a new commit or edit changes it), the review verdict and
+ * which required criteria are not met. A part that could not be read (an
+ * unknown revision, a review without a verdict, no report) is `?` and never
+ * counts as a change. The run id is left out on purpose: every continuation
+ * has a new one. Null for a run that has not ended.
+ */
+export function tarsRunResult(detail: AgentRunDetail, observation: TarsExecutionObservation): string | null {
+  const run = detail.agentRun;
+  if (run.state !== "completed" && run.state !== "stopped") return null;
+  const final = tarsFinalStageRecord(detail);
+  const revision = final?.facts?.workspaceRevision;
+  const reviewStageId = run.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")?.id;
+  const review = reviewStageId ? latestStageRecord(detail.stages, reviewStageId) : undefined;
+  const part = (facts: unknown) => createHash("sha256").update(JSON.stringify(facts)).digest("hex").slice(0, 12);
+  const outcome = part([observation.state, observation.detailCode ?? "", run.stopReason ?? "",
+    observation.resultVerifiedRunId ? "verified" : observation.resultUnverifiedRunId ? "unverified" : "", final?.stageId ?? ""]);
+  const known = revision?.status === "known" ? part(revision.revision) : "?";
+  const verdict = !reviewStageId ? part("no review") : review?.report?.outcome === "complete" ? part(review.report.reviewVerdict ?? "") : "?";
+  const unmet = detail.report
+    ? part(detail.report.acceptanceCriteria.filter((item) => item.required !== false && item.status !== "met").map((item) => item.text).sort()) : "?";
+  return `o.${outcome}|r.${known}|v.${verdict}|u.${unmet}`;
 }
 
 /** The run's own current stage attempt as a responsibility records it (`activeStage`). */

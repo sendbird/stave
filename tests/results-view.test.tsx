@@ -54,7 +54,7 @@ describe("results page", () => {
   });
 
   test("reasons are listed with counts and the section disappears without any", () => {
-    expect(renderToStaticMarkup(createElement(Reasons, { summary: insights.summary }))).toContain("Turn cap reached");
+    expect(renderToStaticMarkup(createElement(Reasons, { summary: insights.summary }))).toContain("Stopped as a likely loop");
     expect(renderToStaticMarkup(createElement(Reasons, { summary: aggregateAgentRunInsights([sample("a")], 7).summary }))).toBe("");
   });
 

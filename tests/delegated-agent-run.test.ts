@@ -331,11 +331,30 @@ describe("supervised saved-Agent delegations", () => {
     await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
   });
 
-  test("a smaller turn limit fails the assignment rather than accepting the provider response", async () => {
-    const h = harness(), child = await h.start({ maxTurns: 1 });
-    h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
-    expect((await h.coordinator.get(child))?.phase).toBe("failed");
-    expect(h.runs.getAggregate(child.agentRunId!)?.agentRun.stopReason).toBe("turn-cap-reached");
+  for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a delegated run keeps working past a saved smaller turn limit and completes`, async () => {
+    const h = harness(providerId), child = await h.start({ maxTurns: 1 });
+    h.end("turn-1"); await h.runtime.requestTick();
+    // The reminder turn starts instead of ending the child at its saved limit of 1.
+    expect(h.calls).toHaveLength(2);
+    expect(h.runs.getAggregate(child.agentRunId!)?.agentRun).toMatchObject({ state: "running", stopReason: null, turnCount: 2, maxTurns: 1 });
+    await h.report("turn-2"); h.end("turn-2"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
+    expect(h.runs.getAggregate(child.agentRunId!)?.agentRun.state).toBe("completed");
+    expect((await h.coordinator.get(child))?.phase).toBe("completed");
+  });
+
+  test("an older tool call that still passes maxTurns names the same delegation when sent again, finished or not", async () => {
+    const h = harness();
+    // Saved before the update, with the caller's value in its request hash and run.
+    const saved = await h.start({ maxTurns: 1 });
+    const call = { prompt: "Review and verify the change.", provider: "codex", agentConfigId: agent.id, delegationKey: "assignment",
+      workspace: { mode: "same-workspace" }, access: "read-only", maxTurns: 1, wait: false };
+    const caller = { taskId: "parent", workspaceId: "ws" };
+    // The value is accepted and ignored: the same call is the same delegation, and the run is not stopped by it.
+    expect(await h.coordinator.delegateFromTool(call, caller)).toMatchObject({ accepted: true, child: { agentRunId: saved.agentRunId } });
+    expect(h.calls).toHaveLength(1);
+    await h.report("turn-1"); h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
+    expect((await h.coordinator.get(saved))?.phase).toBe("completed");
+    expect(await h.coordinator.delegateFromTool(call, caller)).toMatchObject({ accepted: true, child: { agentRunId: saved.agentRunId } });
     expect(h.calls).toHaveLength(1);
   });
 
@@ -539,7 +558,10 @@ describe("supervised saved-Agent delegations", () => {
   });
 
   test("retry owns a new supervisor and cannot borrow an old successful result", async () => {
-    const h = harness(), child = await h.start({ maxTurns: 1 });
+    const h = harness(), child = await h.start();
+    // The first attempt ends unsuccessfully: a required criterion was not met.
+    await h.runtime.reportStage({ agentRunKey: "turn-1", report: { summary: "The change is incomplete.",
+      acceptanceCriteria: [{ text: "Change verified", status: "unmet" }] } });
     h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
     const old = await h.runtime.get({ agentRunId: child.agentRunId! });
     const admitted = await h.coordinator.retry({ repositoryPath: "/tmp/stave", parentWorkspaceId: "ws", parentTaskId: "parent",
@@ -578,8 +600,8 @@ test("adaptive saved helpers share the parent budget while resource changes reta
   const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol" });
   const id = child.agentRunId!;
   expect(h.runs.resourceConfig(id)?.link?.rootRunId).toBe("root");
-  // The helper holds its start turns and keeps its own max turns; the rest of the budget stays shared.
-  expect(h.runs.readResources("root")).toMatchObject({ spent: 1, reserved: 1, helpersLaunched: 1, activeHelpers: 1, remaining: 28 });
+  // The helper holds its start turns; the rest of the team's guard against loops stays shared.
+  expect(h.runs.readResources("root")).toMatchObject({ spent: 1, reserved: 1, helpersLaunched: 1, activeHelpers: 1, remaining: 198 });
   expect(h.runs.getAggregate(id)?.agentRun.maxTurns).toBe(30);
   expect(h.runs.resourceConfig(id)?.policy).toMatchObject({ providerId: "codex", modelLocked: true, effortLocked: false });
   await h.runtime.requestResources({ agentRunKey: "turn-1", request: { effort: "high", reason: "capability-mismatch",
@@ -596,18 +618,18 @@ test("a helper past its start turns draws each further turn from the shared budg
   const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol" });
   const id = child.agentRunId!, at = new Date("2026-10-09T00:00:00Z");
   expect(h.runs.consumeResourceTurn(id, "second-held-turn", at)).toBe(true);
-  expect(h.runs.readResources("root")).toMatchObject({ spent: 2, reserved: 0, remaining: 28 });
+  expect(h.runs.readResources("root")).toMatchObject({ spent: 2, reserved: 0, remaining: 198 });
   h.end("turn-1"); await h.runtime.requestTick();
   expect(h.calls).toHaveLength(2);
-  expect(h.runs.readResources("root")).toMatchObject({ spent: 3, reserved: 0, remaining: 27, activeHelpers: 1 });
+  expect(h.runs.readResources("root")).toMatchObject({ spent: 3, reserved: 0, remaining: 197, activeHelpers: 1 });
   await h.coordinator.stop({ parentTaskId: "parent", delegationKey: "assignment" }); await h.coordinator.waitForInFlight();
 });
 
-test("a helper ends at its cap when only the parent's integration turn is left", async () => {
+test("a helper ends at the team's loop guard when only the parent's integration turn is left", async () => {
   const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol" });
   const id = child.agentRunId!, at = new Date("2026-10-09T00:00:00Z");
   expect(h.runs.consumeResourceTurn(id, "second-held-turn", at)).toBe(true);
-  for (let turn = 0; h.runs.consumeResourceTurn("root", `root-${turn}`, at); turn++) if (turn > 40) throw new Error("The parent was never refused.");
+  for (let turn = 0; h.runs.consumeResourceTurn("root", `root-${turn}`, at); turn++) if (turn > 400) throw new Error("The parent was never refused.");
   expect(h.runs.readResources("root")).toMatchObject({ remaining: 1, activeHelpers: 1 });
   h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
   expect(h.calls).toHaveLength(1);
@@ -618,19 +640,16 @@ test("a helper ends at its cap when only the parent's integration turn is left",
   expect(h.runs.consumeResourceTurn("root", "integrate", at)).toBe(true);
 });
 
-test("a blocked helper at its own max turns ends at its cap on a reply instead of drawing past it", async () => {
+test("a blocked helper past its saved max turns takes a reply instead of ending", async () => {
   const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol", maxTurns: 1 });
   const id = child.agentRunId!;
   await h.runtime.blockStage({ agentRunKey: "turn-1", block: { kind: "input", missing: "Select a target.", suggestedAction: "Reply in the child task." } });
   h.end("turn-1"); await h.runtime.requestTick();
   expect(h.runs.getAggregate(id)?.agentRun).toMatchObject({ state: "running", turnCount: 1, maxTurns: 1 });
-  expect(() => h.runtime.prepareUserTurn({ taskId: child.delegatedTaskId, workspaceId: "ws", providerId: "codex", turnId: "over-cap" })).toThrow("ended at its limit");
-  await h.coordinator.waitForInFlight();
-  expect(h.runs.getAggregate(id)?.agentRun).toMatchObject({ state: "stopped", stopReason: "turn-cap-reached" });
-  expect((await h.coordinator.get(child))?.phase).toBe("failed");
-  // One turn spent; the parent integrates with the rest of its budget.
-  expect(h.runs.readResources("root")).toMatchObject({ spent: 1, reserved: 0, activeHelpers: 0 });
-  expect(h.runs.consumeResourceTurn("root", "integrate", new Date("2026-10-09T00:00:00Z"))).toBe(true);
+  expect(h.runtime.prepareUserTurn({ taskId: child.delegatedTaskId, workspaceId: "ws", providerId: "codex", turnId: "past-saved-limit" })).not.toBeNull();
+  expect(h.runs.getAggregate(id)?.agentRun).toMatchObject({ state: "running", stopReason: null });
+  expect(h.runs.readResources("root")).toMatchObject({ spent: 2, activeHelpers: 1 });
+  await h.coordinator.stop({ parentTaskId: "parent", delegationKey: "assignment" }); await h.coordinator.waitForInFlight();
 });
 
 test("a paused parent refuses a helper's reply without ending the helper", async () => {
@@ -650,18 +669,19 @@ test("a paused parent refuses a helper's reply without ending the helper", async
   await h.coordinator.stop({ parentTaskId: "parent", delegationKey: "assignment" }); await h.coordinator.waitForInFlight();
 });
 
-test("the Reply control ends a blocked helper at its max turns instead of leaving it waiting", async () => {
-  const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol", maxTurns: 1 });
+for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: the Reply control continues a blocked helper past its saved max turns`, async () => {
+  const h = harness(providerId, { adaptive: true }), child = await h.start({ maxTurns: 1 });
   const id = child.agentRunId!;
   await h.runtime.blockStage({ agentRunKey: "turn-1", block: { kind: "input", missing: "Choose a target.", suggestedAction: "Reply in the child task." } });
   h.end("turn-1"); await h.runtime.requestTick();
   const record = (await h.runtime.get({ agentRunId: id })).stages[0]!;
-  await expect(h.runtime.reply({ agentRunId: id, stageId: record.stageId, attempt: record.attempt, feedback: "Use CSV." })).rejects.toThrow("ended");
-  await h.coordinator.waitForInFlight();
-  expect(h.runs.getAggregate(id)?.agentRun).toMatchObject({ state: "stopped", stopReason: "turn-cap-reached" });
-  expect((await h.coordinator.get(child))?.phase).toBe("failed");
+  await h.runtime.reply({ agentRunId: id, stageId: record.stageId, attempt: record.attempt, feedback: "Use CSV." });
+  await h.runtime.requestTick();
+  expect(h.calls).toHaveLength(2);
+  expect(h.runs.getAggregate(id)?.agentRun).toMatchObject({ state: "running", stopReason: null, turnCount: 2, maxTurns: 1 });
+  await h.report("turn-2"); h.end("turn-2"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
+  expect((await h.coordinator.get(child))?.phase).toBe("completed");
   expect(h.runs.readResources("root")).toMatchObject({ activeHelpers: 0, reserved: 0 });
-  expect(h.calls).toHaveLength(1);
 });
 
 test("a parent ending while idle child creation is pending cannot activate a zombie helper", async () => {

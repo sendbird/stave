@@ -52,8 +52,8 @@ test("owned responsibility and Run status are source/timestamp observations and 
   expect(observed.repositories[0]?.workspaces[0]?.available).toBe(false);
   expect(observed.responsibilities[0]).toMatchObject({ source: "persisted-personal-responsibility", state: "running", updatedAt: NOW,
     execution: { source: "persisted-agent-run", id: "owned-run", state: "paused", updatedAt: NOW,
-      // What the user's run commands (extend, retry, skip, sign off) are chosen from.
-      pauseReason: "limit-reached", turns: { used: 30, max: 30 }, currentStage: "Review" } });
+      // What the user's run commands (resume, retry, skip, sign off) are chosen from.
+      pauseReason: "limit-reached", turns: { used: 30 }, currentStage: "Review" } });
   expect(observed.responsibilities[0]?.execution).not.toHaveProperty("startedInTaskByUser");
   run = { ...run, id: "manual-replacement", state: "completed", assignment: "Implement it and open the PR.", workflow: { ...run.workflow, id: "user-workflow" } };
   // A newer run in the task is not presented as the work's until Tars follows it.

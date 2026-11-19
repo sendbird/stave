@@ -54,7 +54,6 @@ import type {
   AgentRunChangedEvent,
   AgentRunDetail,
   AgentRunIdArgs,
-  AgentRunExtendArgs,
   AgentRunInvokeResult,
   AgentRunListArgs,
   AgentRunNoteUserTurnArgs,
@@ -98,7 +97,6 @@ import {
   recordStageReport,
   requestStageChanges,
   resumeAgentRun,
-  extendAgentRun,
   retryStage,
   restartStageAndResume,
   signOffStage,
@@ -133,7 +131,7 @@ import {
 import {
   applyAgentRunDecision,
   decideAgentRunAction,
-  turnCapPause,
+  runawayTurnStop,
   type ActionOutcome,
   type AgentRunDecision,
   type AgentRunObservation,
@@ -468,7 +466,6 @@ export interface AgentRunRuntime {
   retryStage: (args: AgentRunStageRef, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   pause: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   resume: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
-  extend: (args: AgentRunExtendArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   takeOver: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
   /** Hands a taken-over run back: a fresh attempt of its started current stage, then resume, in one transition. */
   restartStageAndResume: (args: AgentRunIdArgs, guard?: (run: AgentRun) => void) => Promise<AgentRunDetail>;
@@ -1357,15 +1354,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   }
 
   /**
-   * A helper that cannot take another turn because it reached its own max
-   * turns (replies included) or only the parent's integration turn is left
-   * ends at its cap, as at its own max turns: its parent reads a finished
-   * child. A paused parent or a released reservation ends nothing here.
+   * A helper that cannot take another turn because only the parent's
+   * integration turn is left of the team's guard against loops ends there:
+   * its parent reads a finished child. A paused parent or a released
+   * reservation ends nothing here.
    */
   function stopHelperOutOfTurns(aggregate: AgentRunAggregate): boolean {
-    const refusal = store.helperTurnRefusal?.(aggregate.agentRun.id);
-    if (refusal !== "own-cap" && refusal !== "shared-budget") return false;
-    stopAtTurnCap(aggregate, refusal === "own-cap" ? i18n.t("agentRuns:policy.detail", { value1: aggregate.agentRun.maxTurns }) : i18n.t("agentRuns:policy.helperTeamDetail"));
+    if (store.helperTurnRefusal?.(aggregate.agentRun.id) !== "shared-budget") return false;
+    stopAtTurnCap(aggregate, i18n.t("agentRuns:policy.helperTeamDetail"));
     return true;
   }
 
@@ -1518,10 +1514,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
     const remainingBudget = resources ? store.readResources?.(agentRun.id) : null;
     if (remainingBudget && !resources?.link && remainingBudget.activeHelpers > 0 && remainingBudget.remaining <= remainingBudget.policy.parentReserve) return;
-    // Helpers spent the rest of a budget that follows max turns: halt at the limit, so Extend raises both.
-    if (remainingBudget && !resources?.link && remainingBudget.policy.version === 2 && remainingBudget.activeHelpers === 0 && remainingBudget.remaining < 1) {
-      applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "limit-reached",
-        detail: i18n.t("agentRuns:policy.teamDetail", { value1: remainingBudget.teamTurns }) } }));
+    // The team used its whole guard against loops: the run ends there, as at its own ceiling.
+    if (remainingBudget && !resources?.link && remainingBudget.activeHelpers === 0 && remainingBudget.remaining < 1) {
+      stopAtTurnCap(aggregate, i18n.t("agentRuns:policy.teamDetail", { value1: remainingBudget.teamTurns }));
       return;
     }
     const resetContinuation = agentRun.usageLimit && agentRun.pauseReason === null &&
@@ -1927,7 +1922,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const lastRelease = events.filter((event) => event.kind === "resource-budget" && event.detail.operation === "release").at(-1)?.sequence ?? 0;
         const lastReport = events.filter((event) => event.kind === "report" && event.detail.stageId === record.stageId && event.detail.attempt === record.attempt && event.detail.outcome === "complete").at(-1)?.sequence ?? 0;
         if (lastRelease > lastReport && workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind === "ai") {
-          const capped = turnCapPause(aggregate.agentRun, observation);
+          const capped = runawayTurnStop(aggregate.agentRun);
           if (capped) { applyChange(applyAgentRunDecision({ aggregate, decision: capped, now: now() })); return; }
           await startAgentRunTurn(aggregate, { action: "start-stage-turn", stageIndex: aggregate.agentRun.currentStageIndex, attempt: record.attempt, reason: "stage-start" },
             "stage-start", `${compileAgentRunStagePrompt(aggregate, deps.agentNames?.())}\nIntegrate the final helper outcomes, verify the complete assignment, then report this stage again. An earlier report predates those helper outcomes.`, true);
@@ -2404,7 +2399,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // shared budget leaves it out, so it is never refused for helpers' turns. The automatic turns
       // after it still count. A delegated run's reply comes through its parent and draws on the budget.
       if (resources?.link && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now())) {
-        if (stopHelperOutOfTurns(aggregate)) refuse("This helper has no turns left, so it ended at its limit; its parent continues with what it finished.");
+        if (stopHelperOutOfTurns(aggregate)) refuse("This helper's team reached the turns at which Stave ends a likely loop, so it ended; its parent continues with what it finished.");
         refuse("This helper cannot take the reply right now. Resume its parent run, or stop the helper.");
       }
       const agentRunStage = { agentRunId: run.id, stageId: record.stageId, attempt: record.attempt };
@@ -2708,10 +2703,11 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           workflowStageAt(agentRun, agentRun.currentStageIndex).kind !== "ai" || !["blocked", "stuck"].includes(record.status) ||
           !feedback || feedback.length > AGENT_RUN_LIMITS.maxFeedbackChars)
         refuse("Reply to an active blocked delegated AI stage with bounded guidance.");
-      // A blocked delegated run at its cap cannot continue: it ends there, so its parent reads a finished child.
-      if (agentRun.turnCount >= agentRun.maxTurns) {
-        stopAtTurnCap(aggregate, i18n.t("agentRuns:policy.detail", { value1: agentRun.maxTurns }));
-        refuse("The delegated Agent reached its turn limit and ended; its parent continues with what it finished. Retry with a new assignment to continue the work.");
+      // A blocked delegated run at the guard against loops cannot continue: it ends there, so its parent reads a finished child.
+      const runaway = runawayTurnStop(agentRun);
+      if (runaway?.action === "stop") {
+        stopAtTurnCap(aggregate, runaway.detail);
+        refuse("The delegated Agent reached Stave's turn ceiling for runs that loop and ended; its parent continues with what it finished. Retry with a new assignment to continue the work.");
       }
       const snapshot = await readSnapshot(agentRun);
       if (!snapshot.exists || snapshot.archived || snapshot.providerId !== agentRun.fingerprint.providerId)
@@ -2752,11 +2748,6 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         if (delegatedAuthority(aggregate.agentRun) && !delegatedRunActivated(aggregate.agentRun))
           refuse("Delegation admission did not finish. Stop or retry it from the parent task.");
         return resumeAgentRun({ aggregate, now: now() });
-      }),
-    extend: ({ agentRunId, additionalTurns }, guard) =>
-      command(agentRunId, (aggregate) => {
-        guard?.(aggregate.agentRun);
-        return extendAgentRun({ aggregate, additionalTurns, now: now() });
       }),
     takeOver: ({ agentRunId }, guard) => {
       guard?.(requireAggregate(agentRunId).agentRun);
@@ -2994,8 +2985,6 @@ function dispatch(runtime: AgentRunRuntime, action: HostAgentRunAction, args: un
       return runtime.pause(args as AgentRunIdArgs);
     case "resume":
       return runtime.resume(args as AgentRunIdArgs);
-    case "extend":
-      return runtime.extend(args as AgentRunExtendArgs);
     case "take-over":
       return runtime.takeOver(args as AgentRunIdArgs);
     case "accept-runtime":

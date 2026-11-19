@@ -133,11 +133,11 @@ export function buildAgentRunFixtures(start: Date) {
     {
       state: "stopped",
       stopReason: "turn-cap-reached",
-      reasonDetail: "The run used all 30 turns before it finished.",
-      turnCount: 30,
+      reasonDetail: "This run took 200 turns without finishing, so Stave stopped it as a likely loop.",
+      turnCount: 200,
       updatedAt: at(41),
     },
-    { status: "cancelled", endedAt: at(41), detail: "The run stopped at its turn limit." },
+    { status: "cancelled", endedAt: at(41), detail: "The run stopped as a likely loop." },
   );
   const stopped = detail({ state: "cancelled", updatedAt: at(9) }, { status: "cancelled", endedAt: at(9) });
   const staged = createAgentRun({

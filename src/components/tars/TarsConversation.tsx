@@ -1,6 +1,7 @@
 import { isTarsBatchAction } from "@/lib/tars/batch";
 import { TarsBatchProposal, TarsBatchRecordEntry, useTarsBatchRecords } from "./TarsBatchCard";
 import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
+import { tarsFollowUpNotice } from "@/lib/tars/events";
 import { TarsWorkSelection } from "./TarsWorkSelection";
 import { tarsSelectionStyles as selectionStyles } from "./tars-selection.styles";
 import { setTarsDraftTarget } from "@/store/tars-draft-store";
@@ -315,7 +316,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       .map((value) => ({ kind: "record" as const, id: `record:${value.requestId}`, at: value.createdAt, value })),
     // A card the user opened leaves its confirmation's outcome where it was confirmed.
     ...(publish?.records ?? []).map((value) => ({ kind: "publish" as const, id: `publish:${value.requestId}`, at: value.createdAt, value })),
-    // A change Tars did not follow up because automatic turns reached the turn limit says so once, where it happened.
+    // A change Tars did not follow up because it repeated without progress says so once, where it happened.
     ...(state.conversation?.events ?? []).filter((value) => value.status === "exhausted")
       .map((value) => ({ kind: "event" as const, id: `event:${value.key}`, at: value.processedAt ?? value.createdAt, value })),
     // A clear from a button (or a restored conversation clear) stays where it happened, with its Undo.
@@ -435,7 +436,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
       title={titleOf?.(item.value.responsibilityId)} onRetry={publish?.retryFor(item.value) ?? undefined} /> };
     if (item.kind === "record") return { record: <TarsActionRecordLine key={item.id} record={item.value} title={titleOf?.("responsibilityId" in item.value.action ? item.value.action.responsibilityId : "")} /> };
     if (item.kind === "event") return { record: <TarsRecordRow key={item.id} state="halted" data-tars-follow-up-exhausted={item.value.responsibilityId} at={item.at}
-      subject={t("shell:tars.followUp.exhausted", { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })} /> };
+      subject={t(`shell:tars.followUp.${tarsFollowUpNotice({ kind: item.value.kind, status: "exhausted" as const })}`, { title: titleOf?.(item.value.responsibilityId) ?? item.value.responsibilityId })} /> };
     // Stave's unverified-completion choice is a decision card where its blocked notice would be.
     const card = item.value.activity.detailCode === "unverifiedCompletion" ? unverifiedCard(item.value.activity) : undefined;
     // It pads like an exchange, so the gap above and below it is the transcript's one gap between entries.

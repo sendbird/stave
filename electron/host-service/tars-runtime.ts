@@ -15,7 +15,8 @@ import { isTarsObservingUserRun } from "../../src/lib/tars/ownership";
 import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError, TarsRunEndedError, TarsRunRefusedError } from "./tars-ownership";
 import type { TarsStore } from "../persistence/tars-store";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
-import { TARS_WAIT_FOLLOW_UP_MS } from "../../src/lib/tars/events";
+import { TARS_WAIT_FOLLOW_UP_MS, tarsEndedResultBrake } from "../../src/lib/tars/events";
+import type { TarsEventInbox } from "../persistence/tars-event-inbox";
 import { parseTarsConfirmationRequestId, type TarsActionRecord, type TarsControlReason, type TarsMessageDelivery } from "../../src/lib/tars/conversation";
 import {
   admitTarsControl, tarsActionLedger, tarsControlRejection, TarsControlRejection, TARS_CONTROL_STALE, TARS_GRANTING_OPERATIONS, TARS_STOPPING_OPERATIONS,
@@ -41,6 +42,8 @@ export interface TarsExecutionObservation {
   runTurns?: number;
   /** The run's current stage attempt (`stageId#attempt`), reported with a wait. */
   runStage?: string;
+  /** What an ended run ended with (`tarsRunResult`), without its run id; absent while it is going. */
+  runResult?: string;
   /** The helper's task when a helper of the run, not the run's own task, waits on the user. */
   waitingTaskId?: string;
   /** The run's own current stage attempt (`stageId#attempt`) while it is running or waiting. */
@@ -65,7 +68,7 @@ export interface TarsRuntimePorts {
    */
   followTaskRun?: (row: TarsResponsibility) => string | null;
   observe: (row: TarsResponsibility) => Promise<TarsExecutionObservation>;
-  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation, autoExtendMaxTurns?: number, commandId?: string) => Promise<void>;
+  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation, commandId?: string) => Promise<void>;
   hasControlEffect?: (row: TarsResponsibility, commandId: string) => boolean;
   controls?: TarsConversationStore;
   /** Live persisted setting: 0 or absent admits all independent responsibilities. */
@@ -91,6 +94,12 @@ export interface TarsRuntimePorts {
   deliverMessage?: (row: TarsResponsibility, text: string, turnId: string) => Promise<"sent" | "busy">;
   /** Reconcile or start one confirmed follow-up after completion, in the existing task only. */
   continueWork?: (row: TarsResponsibility, continuation: TarsContinuation, assertAdmitted?: () => void) => Promise<string | "busy">;
+  /**
+   * The brake on automatic continuations of ended work, read where such a Run
+   * would start: the results earlier automatic starts began from since the
+   * user's last action, and the notice that tells the user once it engaged.
+   */
+  continuations?: Pick<TarsEventInbox, "automaticContinuationResults" | "stopAutomaticContinuations">;
   /** Read-only exact continuation lookup. Null proves no matching new run was committed. */
   reconcileContinuation?: (row: TarsResponsibility, continuation: TarsContinuation) => Promise<string | null>;
   /**
@@ -283,7 +292,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       const observed = await ports.observe(initial);
       if (stopped || held.has(initial.id)) return;
       // Absent means a plain wait, so a stage that stopped asking clears the mark.
-      const { runTurns, runStage, waitingTaskId, activeStage, pendingRequests, stageWait, ...change } = observed;
+      const { runTurns, runStage, runResult, waitingTaskId, activeStage, pendingRequests, stageWait, ...change } = observed;
       const waiting = observed.state === "waiting";
       const going = waiting || observed.state === "running";
       const asks = waiting && observed.stageAsksUser === true;
@@ -294,6 +303,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         activeStage: going ? activeStage : undefined,
         pendingRequests: waiting && pendingRequests?.length ? pendingRequests : undefined,
         observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined,
+        observedResult: going ? undefined : runResult,
         waitingTaskId: waiting ? waitingTaskId : undefined }));
     } catch (error) {
       if (!isTarsStorageBusy(error)) {
@@ -463,6 +473,16 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         }
         queueWaits.delete(id);
         if (!row.taskId || !row.executionWorkspaceId || !row.agentRunId) throw new TarsOwnershipLostError("The execution location is unavailable.");
+        // Every automatic start takes from one count per work, whatever proposed it and however many controls its
+        // answer held (`tarsEndedResultBrake`); past it the start is refused and only the user starts the next one.
+        const continuedFrom = row.observedResult ?? "?";
+        if (record!.source === "automatic" && row.continuation?.requestId !== requestId && ports.continuations &&
+            tarsEndedResultBrake(ports.continuations.automaticContinuationResults(id), continuedFrom)) {
+          // i18n-ignore: persisted diagnostic; the interface translates the reason code
+          move(["queued", "delivering"], { status: "failed", reason: "notByFollowUp", error: "Tars stopped continuing this work automatically; only you can start the next continuation." });
+          ports.continuations.stopAutomaticContinuations(row, now());
+          return;
+        }
         const continuation = row.continuation?.requestId === requestId ? row.continuation
           : { requestId, previousRunId: row.agentRunId, previousInstruction: tarsExecutionScope(row).instruction, previousCriteria: tarsExecutionScope(row).acceptanceCriteria, text, requestedAt: now() };
         let uncertainStart = row.executionPending === true;
@@ -484,7 +504,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             if (withdrawal.requested(requestId)) return;
             if (existing) {
               row = patch(row, tarsContinuationRunPatch(row, continuation, existing));
-              move(["queued", "delivering"], { status: "delivered", agentRunId: existing }); return;
+              move(["queued", "delivering"], { status: "delivered", agentRunId: existing, continuedFrom }); return;
             }
             uncertainStart = false;
           }
@@ -498,13 +518,13 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         }
         // A persisted scope and the run's own identity reconcile a crash before this acknowledgement.
         row = patch(row, tarsContinuationRunPatch(row, continuation, runId));
-        move(["queued", "delivering"], { status: "delivered", agentRunId: runId });
+        move(["queued", "delivering"], { status: "delivered", agentRunId: runId, continuedFrom });
         return;
       }
       // The new run was saved but the delivery acknowledgement was lost: only a run this
       // continuation started is that evidence, never a run the user started in the task.
       if (!ended && row?.continuation?.requestId === requestId && row.agentRunId !== row.continuation.previousRunId && !isTarsObservingUserRun(row)) {
-        move(["queued", "delivering"], { status: "delivered", agentRunId: row.agentRunId! }); return;
+        move(["queued", "delivering"], { status: "delivered", agentRunId: row.agentRunId!, continuedFrom: "?" }); return;
       }
       if (delivery.status === "delivering") {
         const reached = reachedTask(requestId, delivery);
@@ -710,7 +730,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
               (!sent || TARS_STOPPING_OPERATIONS.has(request.operation)))
           {
             assertResetOwnership();
-            await ports.controlRun(row, request.operation as TarsRunControlOperation, request.autoExtendMaxTurns, ledger.key);
+            await ports.controlRun(row, request.operation as TarsRunControlOperation, ledger.key);
           }
         } catch (error) {
           // The run changed under the command because the user started one in the task: refused, never a transfer.

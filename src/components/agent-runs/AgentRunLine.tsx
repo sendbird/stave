@@ -208,9 +208,9 @@ export function AgentRunLineView(props: {
               <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
                 {i18n.t("agentRuns:agentRunLine.actions")}</Button>
             ) : null}
-            {status.recovery === "extend" && actions.onExtend ? (
-              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onExtend}>
-                {i18n.t("agentRuns:limit.extend")}
+            {status.recovery === "resume" && actions.onResume ? (
+              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
+                {i18n.t("agentRuns:limit.resume")}
               </Button>
             ) : null}
             {usagePaused && actions.onResume ? (

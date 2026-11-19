@@ -1,4 +1,3 @@
-import { TARS_EXTEND_TURNS } from "../../src/lib/tars/autonomy";
 import { WorkspacePreparationError } from "./workspace-preparation";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash } from "node:crypto";
@@ -40,7 +39,7 @@ export class TarsRunHeldError extends Error {
 }
 
 /** Pauses a hand-back may clear; the same set agent-run Resume accepts. */
-const HAND_BACK_CLEARABLE: ReadonlySet<AgentRunPauseReason> = new Set(["paused-by-user", "taken-over", "usage-limit", "wait-expired"]);
+const HAND_BACK_CLEARABLE: ReadonlySet<AgentRunPauseReason> = new Set(["paused-by-user", "taken-over", "usage-limit", "wait-expired", "limit-reached"]);
 
 /** The run refused a resume or run command in its current state; nothing changed. */
 export class TarsRunRefusedError extends Error {
@@ -129,9 +128,8 @@ export function assertTarsControl(row: TarsResponsibility, run: AgentRun): void 
 interface TarsControlPorts {
   commandId?: string;
   commandEvents?: (id: string) => AgentRunEvent[];
-  autoExtendMaxTurns?: number;
   agentRuns: Pick<import("./supervision/agent-run-runtime").AgentRunRuntime,
-    "get" | "pause" | "resume" | "cancel" | "takeOver" | "restartStageAndResume" | "extend" | "retryStage" | "skipStage" | "signOff">;
+    "get" | "pause" | "resume" | "cancel" | "takeOver" | "restartStageAndResume" | "retryStage" | "skipStage" | "signOff">;
   hasAssignment: (row: TarsResponsibility) => boolean;
   readTask: (args: { workspaceId: string; taskId: string }) => Promise<{ activeTurnId: string | null }>;
   readRun: (id: string) => AgentRun | null;
@@ -173,8 +171,6 @@ export async function controlTarsRun(
   const guard = (run: AgentRun) => {
     assertResetRun(run);
     assertTarsControl(row, run);
-    if (operation === "extend" && ports.autoExtendMaxTurns !== undefined && Math.min(run.maxTurns + TARS_EXTEND_TURNS, AGENT_RUN_LIMITS.maxTurnsCeiling) > ports.autoExtendMaxTurns)
-      throw new TarsRunRefusedError("Extending beyond twice the admitted turn budget needs your confirmation.");
     if (!ports.hasAssignment(row)) throw new Error("The task's agent assignment is unavailable.");
   };
   // Interrupt only a proven automatic turn that is active after a control applied.
@@ -200,13 +196,12 @@ export async function controlTarsRun(
     const agentRunId = row.agentRunId!;
     // The run's own command checks the stage state, exactly as when the user gives it in the task,
     // and the guard rechecks ownership inside the run's command queue.
-    if (operation === "extend") await invoke(operation, () => ports.agentRuns.extend({ agentRunId, additionalTurns: TARS_EXTEND_TURNS }, guard));
-    else {
-      // Only the attempt Tars observed at the revision the user confirmed: a later stage is never retried, skipped or signed off by it.
-      const record = currentStageRecord(detail);
-      if (!row.activeStage || row.activeStage !== `${record.stageId}#${record.attempt}`) throw new TarsStageChangedError();
-      await invoke(operation, () => ports.agentRuns[operation]({ agentRunId, stageId: record.stageId, attempt: record.attempt }, guard));
-    }
+    // Admission refuses a stored `extend`: runs no longer stop at a turn limit.
+    if (operation === "extend") throw new TarsRunRefusedError("Runs no longer stop at a turn limit. Resume paused work instead.");
+    // Only the attempt Tars observed at the revision the user confirmed: a later stage is never retried, skipped or signed off by it.
+    const record = currentStageRecord(detail);
+    if (!row.activeStage || row.activeStage !== `${record.stageId}#${record.attempt}`) throw new TarsStageChangedError();
+    await invoke(operation, () => ports.agentRuns[operation]({ agentRunId, stageId: record.stageId, attempt: record.attempt }, guard));
   } else if (operation === "handBack") {
     const reclaim = (current: AgentRun) => {
       assertTarsRun(row, current);

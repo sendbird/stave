@@ -1143,7 +1143,6 @@
     "provider": "Provider",
     "searchProviders": "Search providers",
     "noProviders": "No matching providers",
-    "maxTurns": "Turn limit per task, including helpers",
     "priority": "Priority (0–100, higher first)",
     "priorityValue": "Priority {{priority}}",
     "scope": "Tars may create isolated worktrees, execute, repair and review work within this goal. Publishing and external messages require a separate request.",
@@ -1262,7 +1261,7 @@
       "outOfScope": "Tars could not confirm which registered workspace this work belongs to.",
       "ownershipLost": "This task is now controlled elsewhere, so Tars cannot continue it. Continue it in its task.",
       "runEnded": "This work has already finished running, so Tars cannot continue it. Open its task to check the result, or cancel this work and ask for new work.",
-      "runHeld": "This task is paused by a condition such as its turn limit. Open the task to resolve it, then hand it back to Tars.",
+      "runHeld": "This task is paused by a condition such as a usage limit. Open the task to resolve it, then hand it back to Tars.",
       "storageBusy": "Stave was busy saving other changes, so nothing changed. Try again.",
       "unknown": "Tars could not do this. Check the work’s current state and try again.",
       "notAcceptable": "Only work whose completion Stave could not verify can be accepted as done.",
@@ -1273,6 +1272,7 @@
       "runRefused": "The work cannot do this right now. Open its task to see what it is waiting for.",
       "resumeFirst": "This work is paused. Resume it first, then try this again.",
       "requestUnavailable": "That request is no longer waiting in the task. Check the task, or ask Tars again.",
+      "noTurnLimit": "Runs no longer stop at a turn limit, so there is nothing to extend. If this work is paused, resume it.",
       "taskBusy": "The task is busy right now. Say it in the task directly, or ask again when it finishes."
     },
     "close": "Close Tars",
@@ -1591,8 +1591,6 @@
       "stageAttempt": "Stage {{current}} of {{total}} · {{title}}, attempt {{attempt}}",
       "stagesDone": "{{finished}} of {{total}} stages done",
       "progressLabel": "Stage progress",
-      "turnsLeft_one": "{{count}} turn left",
-      "turnsLeft_other": "{{count}} turns left",
       "helpers_one": "{{count}} helper working",
       "helpers_other": "{{count}} helpers working",
       "runPending": "Run details are not loaded yet.",
@@ -1671,7 +1669,8 @@
         "pending": "Tars will look at this change shortly.",
         "deferred": "Tars will look at this after {{time}}. It reached its hourly limit for automatic follow-ups.",
         "following": "Tars is looking at this change.",
-        "exhausted": "Tars stopped checking automatically because it reached its limit for automatic follow-ups. Send Tars a message to continue.",
+        "exhausted": "Tars stopped answering this automatically because it asked again without progress. Answer it in the task or send Tars a message.",
+        "exhaustedResult": "Tars stopped continuing this automatically because its continuations kept ending with the same result or reached their limit. Choose the next step here or send Tars a message.",
         "nextCheck": "Tars checks again at {{time}} if nothing changes before then."
       },
       "monitor": {
@@ -1822,11 +1821,11 @@
         "runtimeChanged": "Paused because the provider settings changed. Resume it to continue with the new settings.",
         "usageLimit": "Paused until the provider’s usage limit resets. It can continue after that.",
         "waitExpired": "Paused because what it was waiting for did not happen in time. Resume it, or tell Tars what to do.",
-        "limitReached": "The task reached its turn limit. Ask Tars to add turns, or continue in the task view."
+        "limitReached": "Paused at the turn limit of an earlier version. Resume it to continue."
       },
       "stopReason": {
         "taskUnavailable": "Stopped because its task is no longer available. Cancel this work and ask Tars again.",
-        "turnCapReached": "Stopped at its turn limit. Open the task to check the result.",
+        "turnCapReached": "Stopped as a likely loop after many turns without finishing. Open the task to check the result.",
         "acceptanceUnmet": "Stopped with some completion criteria unmet. Open the report to see what is missing.",
         "expired": "Stopped because it took too long. Open its task to check the result."
       },
@@ -2203,7 +2202,8 @@
         "prChangesRequested": "Review changes requested for {{title}}",
         "prReviewNotice": "Review received for {{title}}"
       },
-      "exhausted": "Tars stopped checking on {{title}} automatically because it reached its limit for automatic follow-ups. Send a message to continue.",
+      "exhausted": "Tars stopped answering {{title}} automatically because it asked again without progress. Answer it in the task or send Tars a message.",
+      "exhaustedResult": "Tars stopped continuing {{title}} automatically because its continuations kept ending with the same result or reached their limit. Choose the next step on the work or send Tars a message.",
       "superseded": "Tars skipped this follow-up because the work changed first."
     },
     "away": {
@@ -2553,7 +2553,6 @@
         "none": "Nothing"
       },
       "conditional": {
-        "extend": "add turns beyond the automatic cap or with an unknown budget",
         "publish": "publish without a verified PR or merge goal"
       },
       "action": {
@@ -2565,7 +2564,6 @@
         "takeover": "hand work over to you",
         "deny": "deny a tool request",
         "resume": "resume work",
-        "extend": "add turns to a task",
         "retryStage": "retry a stage",
         "handBack": "take back work you took over",
         "signOff": "approve a waiting stage",
@@ -2589,7 +2587,7 @@
         "spendMoney": "spend money",
         "contactOthers": "message other people"
       },
-      "footnote": "Balanced and Hands-off also apply to automatic follow-ups. Without a saved allow rule, extra turns beyond twice the original budget and publication without a verified PR goal ask first. Saved allow rules never bypass Never-do rules or actions that always need confirmation. Resume and retry offer Undo to pause the same run; instructions already sent cannot be undone.",
+      "footnote": "Balanced and Hands-off also apply to automatic follow-ups. Without a saved allow rule, publication without a verified PR goal asks first, and a run paused at an earlier version's turn limit always waits for your Resume. Saved allow rules never bypass Never-do rules or actions that always need confirmation. Resume and retry offer Undo to pause the same run; instructions already sent cannot be undone.",
       "never": {
         "title": "Never do",
         "hint": "Add rules for what Tars must avoid. Matching proposals require confirmation; rules do not automatically block actions.",
@@ -2764,7 +2762,6 @@
       "previous": "Previous waiting item",
       "next": "Next waiting item"
     },
-    "maxTurnsHint": "A turn is one request for an agent to work. The limit includes the lead agent and its helpers.",
     "settings": {
       "tabsLabel": "Tars settings categories",
       "general": "General",

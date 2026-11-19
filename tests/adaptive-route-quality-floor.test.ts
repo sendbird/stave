@@ -9,7 +9,7 @@ import { buildStarterProfile, resolveRoute } from "../src/lib/providers/auto-rou
 const now = new Date("2026-11-01T00:00:00Z");
 function fixture(providerId: "codex" | "claude-code", taskClass: "implement" | "review") {
   const [model, light] = providerId === "codex" ? ["gpt-6.2-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
-  const policy = freezeAdaptivePolicy({ providerId, model: model!, agent: { ...getBuiltinAgent("builder")!, model: { mode: "auto" } }, settings: null, maxTurns: 30, draft: { autoRouting: true } });
+  const policy = freezeAdaptivePolicy({ providerId, model: model!, agent: { ...getBuiltinAgent("builder")!, model: { mode: "auto" } }, settings: null, draft: { autoRouting: true } });
   const created = createAgentRun({ id: "r", input: buildAgentRunStartInput({ workspaceId: "ws", taskId: "t", agent: { name: "Agent" }, assignment: "Verify", now }), repositoryPath: "/tmp/repo", fingerprint: { providerId, model: model! }, now });
   const aggregate = { agentRun: { ...created.agentRun, turnCount: 3 }, stages: created.upserts };
   const event = (sequence: number, kind: AgentRunEvent["kind"], detail: Record<string, unknown>): AgentRunEvent => ({ id: `e${sequence}`, agentRunId: "r", sequence, kind, detail, createdAt: now.toISOString(), idempotencyKey: `k${sequence}` });
