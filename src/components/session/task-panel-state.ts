@@ -62,20 +62,28 @@ function latestAssistantMessage(messages: readonly ChatMessage[]) {
 }
 
 /**
- * The newest turn with no live one: the newest of the messages' turn and the
- * saved history's (newest first). Restored messages can stop at an earlier
- * turn than the history holds; a turn the history has not saved yet is newer
- * when it started later.
+ * The newest turn with no live one. The saved list (newest first) is the
+ * order of the task's turns: every turn is saved when it begins, so the list's
+ * first turn is the newest unless the list was read before the newest reply's
+ * turn began. Only two things say so, and neither is a clock: this session's
+ * own snapshot of that turn, or the conversation placing its reply after a
+ * listed turn's. A reply's optional start time decides nothing; without that
+ * evidence a turn the list does not hold (restored from before the list's
+ * turns, or copied from another task) is never taken as newer than it.
  */
-function latestSettledTurnId(messages: readonly ChatMessage[], history: readonly TurnHistoryEntry[] | null) {
-  const message = latestAssistantMessage(messages);
-  const saved = history?.[0] ?? null;
-  if (!message?.turnId || !saved) return message?.turnId ?? saved?.id ?? null;
-  const index = history!.findIndex((entry) => entry.id === message.turnId);
-  if (index >= 0) return index === 0 ? message.turnId : saved.id;
-  const savedAt = Date.parse(saved.createdAt);
-  const messageAt = message.startedAt ? Date.parse(message.startedAt) : Number.NaN;
-  return Number.isFinite(messageAt) && Number.isFinite(savedAt) && savedAt > messageAt ? saved.id : message.turnId;
+function latestSettledTurnId(
+  messages: readonly ChatMessage[],
+  history: readonly TurnHistoryEntry[] | null,
+  watchedTurnIds: ReadonlyArray<string | undefined>,
+) {
+  const turnId = latestAssistantMessage(messages)?.turnId ?? null;
+  const saved = history?.[0]?.id ?? null;
+  if (!turnId || !saved) return turnId ?? saved;
+  const listed = new Set(history!.map((entry) => entry.id));
+  if (listed.has(turnId)) return saved;
+  if (watchedTurnIds.includes(turnId)) return turnId;
+  const followsListedTurn = messages.some((message) => message.role === "assistant" && message.turnId && listed.has(message.turnId));
+  return followsListedTurn ? turnId : saved;
 }
 
 function lastAssistantOfTurn(messages: readonly ChatMessage[], turnId: string | null) {
@@ -239,7 +247,8 @@ export function buildTaskPanelStatus(args: {
   livePending?: ProviderTurnPendingInteraction | null;
 }): TaskPanelStatus {
   const { messages, history } = args;
-  const currentTurnId = args.liveTurnId ?? latestSettledTurnId(messages, history);
+  const currentTurnId = args.liveTurnId
+    ?? latestSettledTurnId(messages, history, [args.retained?.snapshot.turnId, args.activity?.turnId]);
   const past = args.selectedTurnId && args.selectedTurnId !== currentTurnId ? args.selectedTurnId : null;
   const turnId = past ?? currentTurnId;
   const entry = turnId ? history?.find((turn) => turn.id === turnId) ?? null : null;

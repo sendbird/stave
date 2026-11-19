@@ -319,6 +319,50 @@ test("F2: a newer saved turn than the restored messages decides, and its answer 
   expect(status({ messages: [REPLY], history: [turn("turn-2", "completed"), turn("turn-1", "completed")] }).turnId).toBe("turn-2");
 });
 
+test("the newest saved turn decides whether or not the restored reply carries a start time", () => {
+  // The restored reply is an older turn the list does not hold; the list's newest turn failed.
+  const later = { ...turn("turn-9", "failed", "Boom"), createdAt: "2026-09-29T11:00:00.000Z" };
+  const starts = [undefined, "2026-09-29T10:00:00.000Z", later.createdAt, "2026-09-29T12:00:00.000Z", "not a date"];
+  for (const startedAt of starts) {
+    const view = status({ messages: [{ ...REPLY, startedAt } as ChatMessage], history: [later] });
+    expect({ startedAt, turnId: view.turnId, state: view.status?.state, result: view.status?.result })
+      .toEqual({ startedAt, turnId: "turn-9", state: "stopped", result: null });
+  }
+});
+
+test("two turns that began at the same instant keep the saved list's order", () => {
+  // `turn()` gives every row the same createdAt: the list, newest first, is the order.
+  const sameInstant = { ...REPLY, startedAt: "2026-09-29T08:50:00.000Z" } as ChatMessage;
+  for (const reply of [REPLY, sameInstant]) {
+    const newer = status({ messages: [reply], history: [turn("turn-3", "failed", "Stream closed."), turn("turn-2", "completed")] });
+    expect(newer).toMatchObject({ turnId: "turn-3", status: { state: "stopped" } });
+    expect(status({ messages: [reply], history: [turn("turn-2", "completed"), turn("turn-1", "failed", "Boom")] }))
+      .toMatchObject({ turnId: "turn-2", status: { state: "finished" } });
+  }
+});
+
+test("a saved turn with no times at all still outranks an older restored reply", () => {
+  const untimed: TurnHistoryEntry = { ...turn("turn-9", "failed", "Boom"), createdAt: "", completedAt: null };
+  for (const startedAt of [undefined, "2026-09-29T10:00:00.000Z"]) {
+    const view = status({ messages: [{ ...REPLY, startedAt } as ChatMessage], history: [untimed] });
+    expect({ startedAt, turnId: view.turnId, state: view.status?.state, reason: view.status?.state === "stopped" ? view.status.reason : null })
+      .toEqual({ startedAt, turnId: "turn-9", state: "stopped", reason: "Boom" });
+  }
+});
+
+test("a list read before the newest turn began does not hide that turn, with or without its start time", () => {
+  const earlier = { ...REPLY, id: "a0", turnId: "turn-1", parts: [] } as ChatMessage;
+  const stale = [{ ...turn("turn-1", "failed", "Boom"), createdAt: "2026-09-29T11:00:00.000Z" }];
+  const retained = { snapshot: { turnId: "turn-2" }, outcome: "completed", retainedAt: 1 } as never;
+  for (const startedAt of [undefined, "2026-09-29T10:00:00.000Z", "2026-09-29T12:00:00.000Z"]) {
+    const reply = { ...REPLY, startedAt } as ChatMessage;
+    // The conversation places the reply after a listed turn's reply.
+    expect(status({ messages: [earlier, reply], history: stale })).toMatchObject({ turnId: "turn-2", status: { state: "finished" } });
+    // The listed turn left no reply, and this session watched the newest turn end.
+    expect(status({ messages: [reply], history: stale, retained })).toMatchObject({ turnId: "turn-2", status: { state: "finished" } });
+  }
+});
+
 test("F3: a run waiting for its usage reset waits on nobody and says when it resumes", () => {
   const detail = agentRun();
   detail.agentRun = {

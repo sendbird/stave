@@ -248,8 +248,10 @@ is cut short; hover the line to read all of it.
    state from the live turn, an open question or approval, the
    [agent run](agent-runs.md) and how the last turn ended, so the panel never
    shows a finished run next to a failed turn. With no live turn it follows the
-   newest turn of the conversation or the saved history, whichever is later; a
-   turn's saved record decides how that turn ended, else its own reply.
+   newest turn of the saved history, in the history's own order, or the
+   conversation's newest reply while the history has not caught up with it; a
+   reply's start time decides nothing. A turn's saved record decides how that
+   turn ended, else its own reply.
 2. **What you need to do**: only while something waits on you — a question,
    an approval or a stage sign-off — with the question and the action that
    answers it (**Answer**, or **Review request**), which takes you to that same
