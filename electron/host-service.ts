@@ -17,7 +17,7 @@ import { createTarsExecutionRouter } from "./host-service/tars-execution-routing
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
 import { readTeamProviderUsage } from "./host-service/supervision/provider-usage-context";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
-import { applyRuntimeLocale } from "../src/i18n/runtime";
+import { applyRuntimeLocale, i18n } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
 import { currentProviderAccountId, withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
@@ -111,7 +111,7 @@ import { actTars } from "./host-service/tars-control";
 import { reprioritizeTars } from "./host-service/tars-queue";
 import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
-import { listTaskCompletionSignals, recordCommittedTurnAnswers } from "./host-service/delegated-task-signals";
+import { listTaskCompletionSignals, listUnrecordableSubagentAnswers, recordCommittedTurnAnswers } from "./host-service/delegated-task-signals";
 import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
 import { getProviderAccountRegistry } from "./provider-accounts/registry";
 import { createHostConstrainedRouter } from "./host-service/supervision/agent-run-routing-host";
@@ -681,7 +681,18 @@ setTurnFileSnapshotCapture(async (args) => {
 });
 setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
 // A subagent answer counts as delivered once the turn carrying it reaches its provider.
-setProviderTurnCommittedListener(recordCommittedTurnAnswers);
+// One whose record keeps failing stops being resent, and the task says so once.
+setProviderTurnCommittedListener((turn) => {
+  const unrecordable = recordCommittedTurnAnswers(turn);
+  if (unrecordable.length === 0 || !turn.workspaceId) return;
+  void localMcpRuntime.notifySupervisorProblem({
+    workspaceId: turn.workspaceId,
+    taskId: turn.taskId,
+    body: i18n.t("notifications:subagentAnswersUnrecorded"),
+    payload: { source: "delegated-task", answers: unrecordable },
+    dedupeKey: `delegated-task.answers_unrecorded:${turn.turnId}`,
+  }).catch((error) => console.error("[delegated-task] unrecorded-answer warning failed", String(error)));
+});
 // The turn's record counts the time a decision waited on the user as waiting, not a stall.
 setProviderDecisionAnsweredListener((answer) => {
   try {
@@ -829,6 +840,8 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return resolveHostDelegationDefaults(args as Parameters<typeof resolveHostDelegationDefaults>[0]);
     case "resolve-delegation-strengths":
       return resolveHostDelegationStrengths();
+    case "list-unrecordable-subagent-answers":
+      return listUnrecordableSubagentAnswers({ parentTaskId: String((args as { parentTaskId?: unknown } | null)?.parentTaskId ?? "") });
     case "read-provider-usage":
       // The usage readings live in this process; a delegation's admission reads them here.
       return readTeamProviderUsage({ accounts: (args as { accounts?: ProviderAccountSelection } | null)?.accounts ?? {}, now: Date.now() });

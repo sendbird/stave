@@ -781,7 +781,7 @@ export interface ProviderTurnAdmission {
 }
 let turnAdmission: ProviderTurnAdmission | null = null;
 export function setProviderTurnAdmission(admission: ProviderTurnAdmission | null) { turnAdmission = admission; }
-type ProviderTurnCommittedListener = (turn: { taskId: string; turnId: string; subagentAnswers: NonNullable<StreamTurnArgs["subagentAnswers"]> }) => void;
+type ProviderTurnCommittedListener = (turn: { taskId: string; workspaceId?: string; turnId: string; subagentAnswers: NonNullable<StreamTurnArgs["subagentAnswers"]> }) => void;
 let turnCommittedListener: ProviderTurnCommittedListener | undefined;
 /** Told once the provider accepted the prompt of a turn that carries subagent answers; never for a turn refused or failed before that. */
 export function setProviderTurnCommittedListener(listener: ProviderTurnCommittedListener | undefined) { turnCommittedListener = listener; }
@@ -874,14 +874,14 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
  * alone), or a context without the Subagent results part.
  */
 function subagentAnswerCommit(turn: StreamTurnArgs, answers: StreamTurnArgs["subagentAnswers"]) {
-  const taskId = turn.taskId, turnId = turn.turnId;
+  const taskId = turn.taskId, turnId = turn.turnId, workspaceId = turn.workspaceId;
   if (!answers?.length || !taskId || !turnId || !turn.conversation || getProviderNativeSlashCommandInput(turn.conversation)) return undefined;
   if (!turn.conversation.contextParts.some((part) => part.type === "retrieved_context" && part.sourceId === SUBAGENT_RESULTS_SOURCE_ID)) return undefined;
   let committed = false;
   return () => {
     if (committed) return;
     committed = true;
-    try { turnCommittedListener?.({ taskId, turnId, subagentAnswers: answers }); }
+    try { turnCommittedListener?.({ taskId, ...(workspaceId ? { workspaceId } : {}), turnId, subagentAnswers: answers }); }
     catch (error) { console.error("[provider-runtime] turn commit listener failed", { turnId, error: String(error) }); }
   };
 }

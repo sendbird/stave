@@ -97,7 +97,10 @@ parent's next turn, each answer arrives. An answer counts as received once the
 provider accepts a parent turn that carried it, even if that turn is then
 stopped. A host turn still waiting for a turn slot when the app quits is saved
 with the answers it carries and records exactly those when it runs after the
-restart. A child attached to the message still brings its new answers under
+restart. If Stave cannot record that a turn carried an answer, the next turn
+carries it again; after three failed records in a row it stops resending that
+answer and tells you once on the task, and the answer stays readable in the
+Subagents tab. A child attached to the message still brings its new answers under
 **Subagent results**, because the attachment is read separately and may be
 empty. A composer review is addressed to the user: until the user attaches
 it, Subagent results count it without its answer, and it arrives whole in the

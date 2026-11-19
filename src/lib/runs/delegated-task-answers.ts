@@ -104,6 +104,18 @@ export function collectOwedDelegatedTaskAnswers(
 }
 
 /**
+ * The owed answers without the ones the host stopped carrying because their
+ * delivery could not be recorded (`listUnrecordableSubagentAnswers`). An
+ * unreadable list drops nothing: a rare duplicate rather than a lost answer.
+ */
+export function withoutUnrecordableAnswers(owed: OwedDelegatedTaskAnswers, unrecordable: unknown): OwedDelegatedTaskAnswers {
+  const parsed = z.array(DelegatedTaskAnswerRefSchema).safeParse(unrecordable);
+  if (!parsed.success || parsed.data.length === 0) return owed;
+  const skip = new Set(parsed.data.map((ref) => `${ref.runId}#${ref.sequence}`));
+  return { ...owed, answers: owed.answers.filter((answer) => !skip.has(`${answer.runId}#${answer.sequence}`)) };
+}
+
+/**
  * Record that a parent turn carried these answers. Called once the turn is
  * committed to its provider, so an answer counts as delivered from then on,
  * even if the turn is interrupted. Answers of other parents are ignored; a

@@ -67,7 +67,9 @@ const delegatedAnswers = {
 mock.module("../electron/host-service/persistence", () => ({ ensureHostServicePersistenceReady: () => ({ delegatedAnswers }) }));
 
 const { providerRuntime, setProviderTurnAdmission, setProviderTurnCommittedListener, setTaskAgentTurnResolver } = await import("../electron/providers/runtime");
-const { recordCommittedTurnAnswers } = await import("../electron/host-service/delegated-task-signals");
+const { MAX_FAILED_ANSWER_WRITES, collectDelegatedTaskAnswersForTurn, listUnrecordableSubagentAnswers, recordCommittedTurnAnswers } =
+  await import("../electron/host-service/delegated-task-signals");
+const { withoutUnrecordableAnswers } = await import("../src/lib/runs/delegated-task-answers");
 const { createHostTurnAdmission } = await import("../electron/host-service/turn-admission-host");
 setProviderTurnCommittedListener(recordCommittedTurnAnswers);
 
@@ -261,5 +263,40 @@ describe("subagent answers reach the ledger when their turn reaches its provider
     const { subagentAnswers } = await parentTurn("claude-code", "retry-turn");
     expect(subagentAnswers).toHaveLength(1);
     expect(owed()).toEqual([]);
+  });
+
+  test("a delivery record that keeps failing stops resending the answer after a few turns and warns once", async () => {
+    childAnswers();
+    const answer = owed()[0]!;
+    const ref = { runId: answer.runId, sequence: answer.sequence };
+    const warnings: unknown[][] = [];
+    setProviderTurnCommittedListener((turn) => { warnings.push(recordCommittedTurnAnswers(turn)); });
+    const original = console.error;
+    console.error = () => {};
+    try {
+      failWrites = true;
+      for (let turn = 1; turn <= MAX_FAILED_ANSWER_WRITES; turn += 1) {
+        // Both turn-start paths still carry it while it may yet be recorded.
+        expect(collectDelegatedTaskAnswersForTurn({ parentTaskId: PARENT, lastTurnStartedAt: null }).answers.map((owedAnswer) => owedAnswer.text)).toEqual([answer.text]);
+        await parentTurn("codex", `failing-turn-${turn}`, { subagentAnswers: [ref] });
+      }
+    } finally {
+      console.error = original;
+      setProviderTurnCommittedListener(recordCommittedTurnAnswers);
+    }
+    // One warning, naming only the answer, on the turn that crossed the limit.
+    expect(warnings).toEqual([[], [], [ref]]);
+    // Still owed in the ledger, but neither the host's nor the renderer's turn read carries it again.
+    expect(owed()).toHaveLength(1);
+    expect(collectDelegatedTaskAnswersForTurn({ parentTaskId: PARENT, lastTurnStartedAt: null }).answers).toEqual([]);
+    expect(listUnrecordableSubagentAnswers({ parentTaskId: PARENT })).toContainEqual(ref);
+    expect(listUnrecordableSubagentAnswers({ parentTaskId: "other-parent" })).toEqual([]);
+    expect(withoutUnrecordableAnswers({ answers: owed(), more: 0 }, listUnrecordableSubagentAnswers({ parentTaskId: PARENT })).answers).toEqual([]);
+    expect(withoutUnrecordableAnswers({ answers: owed(), more: 0 }, "unreadable").answers).toHaveLength(1);
+    // A later failure of the same answer does not warn again.
+    failWrites = true;
+    console.error = () => {};
+    try { expect(recordCommittedTurnAnswers({ taskId: PARENT, turnId: "again", subagentAnswers: [ref] })).toEqual([]); }
+    finally { console.error = original; }
   });
 });

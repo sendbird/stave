@@ -147,5 +147,6 @@
     "exhausted": "A turn that was waiting for a free slot could not start after Stave restarted, so it was dropped. Send it again if it still applies.",
     "taskMissing": "A turn that was waiting for a free slot when Stave quit was not started, because its task or workspace is gone.",
     "startFailed": "A turn that was waiting for a free slot when Stave quit could not start again. Send it again if it still applies."
-  }
+  },
+  "subagentAnswersUnrecorded": "Stave could not record that this task received some subagent answers, so it stopped sending them again. Read them in the Subagents tab."
 }

@@ -11,6 +11,7 @@
  */
 import {
   DELEGATED_TASK_LIST_LIMIT,
+  extractDelegatedTaskDelegationKey,
   delegatedTaskResultReceipt,
   delegatedTaskWaitingReason,
   delegatedTaskWaitsForPerson,
@@ -76,27 +77,56 @@ export function collectDelegatedTaskAnswersForTurn(args: { parentTaskId: string;
   const delivered: DelegatedTaskAnswerRef[] = [];
   try {
     const owed = collectOwedDelegatedTaskAnswers(ensureHostServicePersistenceReady(), { ...args, now: new Date().toISOString() });
-    return { answers: owed.answers, moreAnswers: owed.more, delivered };
+    return { answers: owed.answers.filter((answer) => !unrecordable.has(answerKey(answer))), moreAnswers: owed.more, delivered };
   } catch (error) {
     console.warn(`[stave-mcp] failed to read owed subagent answers: ${String(error)}`);
     return { answers: [], moreAnswers: 0, delivered };
   }
 }
 
+/** Consecutive failed delivery writes after which an answer is no longer carried. */
+export const MAX_FAILED_ANSWER_WRITES = 3;
+const failedWrites = new Map<string, number>();
+/** Answers whose delivery could not be recorded `MAX_FAILED_ANSWER_WRITES` times in a row: not carried again in this process. */
+const unrecordable = new Set<string>();
+const answerKey = (answer: DelegatedTaskAnswerRef) => `${answer.runId}#${answer.sequence}`;
+
 /**
  * Record the subagent answers a turn carried, once the provider runtime has
  * committed the turn (`setProviderTurnCommittedListener`), for turns started
  * from the composer and by the host alike. A failed write is logged and the
  * answers stay owed: the next turn carries them again, a rare duplicate
- * rather than a lost answer.
+ * rather than a lost answer. A store that keeps failing must not resend the
+ * same answers every turn: after `MAX_FAILED_ANSWER_WRITES` failed writes in
+ * a row an answer is no longer carried, and the answers that crossed that
+ * line now are returned for one warning.
  */
-export function recordCommittedTurnAnswers(turn: { taskId: string; turnId: string; subagentAnswers: DelegatedTaskAnswerRef[] }) {
+export function recordCommittedTurnAnswers(turn: { taskId: string; turnId: string; subagentAnswers: DelegatedTaskAnswerRef[] }): DelegatedTaskAnswerRef[] {
   try {
     recordDelegatedTaskAnswersDelivered(ensureHostServicePersistenceReady(),
       { parentTaskId: turn.taskId, parentTurnId: turn.turnId, answers: turn.subagentAnswers, now: new Date().toISOString() });
+    for (const answer of turn.subagentAnswers) failedWrites.delete(answerKey(answer));
+    return [];
   } catch (error) {
     console.error(`[delegated-task] could not record ${turn.subagentAnswers.length} subagent answers carried by turn ${turn.turnId}; the next turn carries them again: ${String(error)}`);
+    return turn.subagentAnswers.filter((answer) => {
+      const key = answerKey(answer);
+      const failures = (failedWrites.get(key) ?? 0) + 1;
+      failedWrites.set(key, failures);
+      if (failures < MAX_FAILED_ANSWER_WRITES || unrecordable.has(key)) return false;
+      unrecordable.add(key);
+      return true;
+    });
   }
+}
+
+/** The answers of a parent no longer carried because their delivery could not be recorded; the renderer's turn read drops them too. */
+export function listUnrecordableSubagentAnswers(args: { parentTaskId: string }): DelegatedTaskAnswerRef[] {
+  return [...unrecordable].flatMap((key) => {
+    const at = key.lastIndexOf("#");
+    const runId = key.slice(0, at);
+    return extractDelegatedTaskDelegationKey({ runId, parentTaskId: args.parentTaskId }) ? [{ runId, sequence: Number(key.slice(at + 1)) }] : [];
+  });
 }
 
 /**
