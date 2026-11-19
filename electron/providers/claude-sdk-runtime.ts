@@ -1715,15 +1715,8 @@ export class SubagentProgressTracker {
     const subagent = toolUseId ? this.subagents.get(toolUseId) : undefined;
     // A finished call's late progress revives nothing.
     if (!toolUseId || !subagent || !(subagent.pending || subagent.backgrounded)) return unresolved;
-    const ownerAgentId = subagent.pending
-      ? messageAgentId ?? this.toolUseIdToAgentId.get(toolUseId)
-      : messageAgentId;
-    return {
-      toolUseId,
-      ...about,
-      ...(ownerAgentId ? { ownerAgentId } : {}),
-      resolvedBy,
-    };
+    const ownerAgentId = subagent.pending ? messageAgentId ?? this.toolUseIdToAgentId.get(toolUseId) : messageAgentId;
+    return { toolUseId, ...about, ...(ownerAgentId ? { ownerAgentId } : {}), resolvedBy };
   }
 
   /** Subagent calls the id was reported for. */
@@ -1731,10 +1724,7 @@ export class SubagentProgressTracker {
     return this.matching((_, toolUseId) => idsByToolUseId.get(toolUseId)?.has(id) === true);
   }
 
-  /**
-   * A frame that names a run belongs only to a call that ran as that run, so an
-   * earlier run's late frame never reaches the resumed run's call.
-   */
+  /** A frame naming a run belongs only to a call of that run: an earlier run's late frame never reaches the resumed call. */
   private ofRun(toolUseIds: string[], runId: string | undefined): string[] {
     return runId ? toolUseIds.filter((toolUseId) => this.runIdsByToolUseId.get(toolUseId)?.has(runId) === true) : toolUseIds;
   }
@@ -1763,9 +1753,7 @@ export function buildClaudeSubagentProgressEvent(args: {
     toolUseId: args.resolution.toolUseId,
     content: args.summary,
     ...(args.resolution.agentId ? { agentId: args.resolution.agentId } : {}),
-    ...(args.resolution.ownerAgentId
-      ? { ownerAgentId: args.resolution.ownerAgentId }
-      : {}),
+    ...(args.resolution.ownerAgentId ? { ownerAgentId: args.resolution.ownerAgentId } : {}),
     ...(args.resolution.toolUseId ? { binding: "authoritative" as const } : {}),
   };
 }
