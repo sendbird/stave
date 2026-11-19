@@ -87,7 +87,7 @@ for (const lang of ["en", "ko"] as const) for (const theme of ["light", "dark"] 
   });
 }
 
-test("the state is one of the task's five words, in both languages, and only running work moves", async ({ page }) => {
+test("the state is one of the task's words, in both languages, and only running work moves", async ({ page }) => {
   for (const [lang, words] of [["en", { release: "Waiting for you", billing: "Working", "search-index": "Working", migration: "Blocked", docs: "Finished" }],
     ["ko", { release: "사용자 확인 대기 중", billing: "작업 중", "search-index": "작업 중", migration: "막힘", docs: "완료" }]] as const) {
     await openTray(page, `tray=true&live=true&queued=true&lang=${lang}`, 1440);
@@ -97,6 +97,52 @@ test("the state is one of the task's five words, in both languages, and only run
   }
   await expect(page.locator('[data-tars-card="billing"] [data-tars-card-state] [data-motion="moving"]')).toHaveCount(1);
   await expect(page.locator('[data-tars-card="search-index"] [data-tars-card-state] [data-motion="moving"]')).toHaveCount(0);
+});
+
+test("cases beyond the lanes read right: on hold, a helper's request, review-only rows, a question about a ready result, work being prepared", async ({ page }) => {
+  test.setTimeout(90_000);
+  const cases = [
+    { id: "card-hold", state: "on-hold", word: { en: "Waiting", ko: "대기 중" }, controls: ["title"] },
+    { id: "card-helper", state: "waiting", word: { en: "Waiting for you", ko: "사용자 확인 대기 중" }, controls: ["title", "openTask"] },
+    // A pull request ready to merge and a quiet turn are Fleet's review rows: the work still runs.
+    { id: "card-signals", state: "working", word: { en: "Working", ko: "작업 중" }, controls: ["title", "openTask"] },
+    { id: "card-question", state: "waiting", word: { en: "Waiting for you", ko: "사용자 확인 대기 중" }, controls: ["title", "answer"] },
+    { id: "card-preparing", state: "working", word: { en: "Working", ko: "작업 중" }, controls: ["title"] },
+  ] as const;
+  for (const lang of ["en", "ko"] as const) for (const width of [1440, 390] as const) {
+    await openTray(page, `tray=true&cardStates=true&lang=${lang}`, width);
+    for (const entry of cases) {
+      const card = page.locator(`[data-tars-card="${entry.id}"]`);
+      await expect(card, entry.id).toHaveAttribute("data-task-user-state", entry.state);
+      await expect(card.locator("[data-tars-card-state]"), entry.id).toHaveText(entry.word[lang]);
+      const shown = await measure(card);
+      expect(shown.rows, entry.id).toBe(3);
+      expect(shown.controls, entry.id).toEqual([...entry.controls]);
+      expect(shown.sentenceText.length, entry.id).toBeGreaterThan(0);
+      expect(shown.sentenceLines, entry.id).toBeLessThanOrEqual(2);
+      expect(shown.contained, entry.id).toBe(true);
+    }
+    if (lang !== "en") continue;
+    // On hold says when it resumes; a request and a question say themselves.
+    await expect(page.locator('[data-tars-card="card-hold"] [data-tars-card-sentence]')).toContainText("Waiting for usage reset at");
+    await expect(page.locator('[data-tars-card="card-helper"] [data-tars-card-sentence]')).toHaveText("Bash: bun run db:migrate --target invoices");
+    await expect(page.locator('[data-tars-card="card-question"] [data-tars-card-sentence]')).toHaveText("Tars asks: Should the saved card stay first on mobile too?");
+  }
+});
+
+test("Open task on a card that waits on a helper opens the helper's task in its workspace; the work's own task stays in the detail", async ({ page }) => {
+  await openTray(page, "tray=true&cardStates=true&lang=en", 1440);
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    useAppStore.setState({ focusTaskAttention: async (target: unknown) => { (window as unknown as { tarsOpened: unknown }).tarsOpened = target; } });
+  });
+  const opened = () => page.evaluate(() => (window as unknown as { tarsOpened?: { taskId: string; workspaceId: string } }).tarsOpened ?? null);
+  const card = page.locator('[data-tars-card="card-helper"]');
+  await card.locator('[data-tars-card-primary="openTask"]').click();
+  await expect.poll(opened).toMatchObject({ taskId: "task-card-helper-child", workspaceId: "exec-card-helper-child" });
+  await card.locator("[data-tars-card-title]").click();
+  await card.locator("[data-tars-card-detail]").getByRole("button", { name: "Open task", exact: true }).click();
+  await expect.poll(opened).toMatchObject({ taskId: "task-card-helper", workspaceId: "exec-card-helper" });
 });
 
 test("the title opens the detail by click and by keyboard, and everything that left the card is there", async ({ page }) => {
@@ -183,6 +229,24 @@ test("the composer's status line opens the Work tray on the running card, by key
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-tars-card="billing"]')).toBeVisible();
   await expect(page.locator('[data-tars-card="billing"] [data-tars-card-title]')).toBeFocused();
+});
+
+test("the status line reaches the running card inside a folded project group", async ({ page }) => {
+  await openTray(page, "tray=true&live=true&lang=en", 1440);
+  await page.locator("[data-tars-group-projects]").click();
+  const group = page.locator('[data-tars-tray-lane="running"] [data-tars-project]').filter({ has: page.locator('[data-tars-card="billing"]') });
+  const trigger = group.locator(":scope > button");
+  await trigger.click();
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
+  const title = page.locator('[data-tars-card="billing"] [data-tars-card-title]');
+  await expect(title).toBeHidden();
+  const status = page.locator("[data-tars-running-status]");
+  await status.focus();
+  await page.keyboard.press("Enter");
+  // The group opens with the lane, and focus lands on the card's title, never on a control the user cannot see.
+  await expect(trigger).toHaveAttribute("aria-expanded", "true");
+  await expect(title).toBeVisible();
+  await expect(title).toBeFocused();
 });
 
 for (const width of [1440, 390] as const) {

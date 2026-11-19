@@ -23,6 +23,7 @@ import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { useFleetFocusStore } from "@/store/fleet-focus-store";
 import { publishTarsSnapshot } from "@/store/tars-snapshot-store";
 import { buildTarsTrayFixtures } from "./tars-fixtures";
+import { addTarsCardCases } from "./tars-card-fixtures";
 import { buildTarsBriefFixtures } from "./tars-brief-fixtures";
 import { buildTarsSideViewFixtures } from "./tars-side-fixtures";
 import { buildTarsFollowUpFixtures } from "./tars-follow-up-fixtures";
@@ -101,6 +102,8 @@ export function TarsPreview() {
       const briefs = buildTarsBriefFixtures(new Date(now), params.get("lang") === "ko");
       for (const row of fixtures.responsibilities) if (briefs[row.id]) Object.assign(row, briefs[row.id]);
     }
+    // `cardStates=true`: work on hold, waiting on a helper's approval, running under review-only Fleet rows, asked about a ready result, and still being prepared (`tars-card-fixtures.ts`).
+    if (fixtures && params.get("cardStates") === "true") addTarsCardCases(fixtures, new Date(now), params.get("lang") === "ko");
     // `workingChanges=true`: the running fix started from the user's working changes; queued work asked for them but there were none.
     if (fixtures && params.get("workingChanges") === "true") for (const row of fixtures.responsibilities) {
       if (row.id === "billing") row.workingChanges = { kind: "snapshot", commit: "3fa9c1d2e4b5a6978877665544332211aabbccdd", ref: "refs/stave/tars/message-delegate/0f1e2d3c4b5a6978" };
@@ -200,7 +203,7 @@ export function TarsPreview() {
     const publishAttention = () => useFleetAttentionStore.setState({ snapshot: { ...EMPTY_FLEET_ATTENTION, queueStatus: "next",
       items: [...(fixtures?.attentionItems ?? []).filter((item) => !item.kind.startsWith("tars-")).map((item): FleetAttentionItem => ({
         id: item.id, kind: item.kind as string as FleetAttentionKind, priority: 0, repositoryPath: "/tmp/preview", repositoryName: "preview",
-        workspaceId: "exec-release", workspaceName: "Release check", taskId: item.taskId, createdAt: now, source: "live" })),
+        workspaceId: item.workspaceId ?? "exec-release", workspaceName: "Release check", taskId: item.taskId, createdAt: now, source: "live", ...(item.detail ? { detail: item.detail } : {}) })),
       ...collectFleetTarsAttentionItems(collectTarsAttention(snapshot))] } });
     publishAttention();
     if (fixtures || side) {
