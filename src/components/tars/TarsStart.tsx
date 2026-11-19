@@ -30,8 +30,10 @@ export const TarsStartContext = createContext<TarsStartInfo>(NO_INFO);
 
 /**
  * Opens a tray lane's section when it is folded, then focuses the work named
- * (its first control) or the lane's header. The tray may still be mounting
- * (the narrow popover), so it is looked for over a few frames.
+ * (its title, the card's first control) or the lane's header. Grouped by
+ * project, the work's group opens too, so focus never lands on a card the
+ * user cannot see. The tray may still be mounting (the narrow popover), so it
+ * is looked for over a few frames.
  */
 export function focusTarsTrayLane(lane: string, responsibilityId: string | null, frames = 12) {
   const section = document.querySelector<HTMLElement>(`[data-tars-tray-lane="${lane}"]`);
@@ -44,9 +46,14 @@ export function focusTarsTrayLane(lane: string, responsibilityId: string | null,
   // One frame on, a section that just opened has its cards.
   requestAnimationFrame(() => {
     const card = responsibilityId ? section.querySelector<HTMLElement>(`[data-tars-card="${CSS.escape(responsibilityId)}"]`) : null;
-    const target = card?.querySelector<HTMLElement>("button:not([disabled])") ?? trigger;
-    target.focus();
-    (card ?? section).scrollIntoView({ block: "nearest" });
+    const group = card?.closest("[data-tars-project]")?.querySelector<HTMLElement>(":scope > button[aria-expanded='false']");
+    group?.click();
+    const focus = () => {
+      (card?.querySelector<HTMLElement>("button:not([disabled])") ?? trigger).focus();
+      (card ?? section).scrollIntoView({ block: "nearest" });
+    };
+    // A group that just opened shows its cards one frame on.
+    if (group) requestAnimationFrame(focus); else focus();
   });
 }
 
