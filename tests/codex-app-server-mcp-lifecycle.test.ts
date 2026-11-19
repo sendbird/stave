@@ -1653,14 +1653,21 @@ describe("Codex worker activity identity mapping", () => {
     expect(collab.events[0]).not.toHaveProperty("parentToolUseId");
   });
 
-  test("a spawn with several receivers cannot attribute progress to the first", () => {
+  test("a spawn with several receivers cannot attribute progress to the first, yet answers their requests", () => {
     const mapper = createMapper();
     mapper.mapStarted({
       id: "spawn", type: "collabToolCall", tool: "spawn_agent",
       receiverThreadIds: ["thread-a", "thread-b"],
     });
     expect(mapper.agentIdForToolUseId("spawn")).toBeUndefined();
-    expect(mapper.ownsChildThread("thread-a")).toBe(false);
+    expect(mapper.mapForeignNotification({
+      method: "item/completed", threadId: "thread-a",
+      params: { item: { type: "agentMessage", phase: "commentary", text: "Working" } },
+    }).handled).toBe(false);
+    // Both children belong to this turn: a request they raise must not be dropped unanswered.
+    expect(mapper.ownsChildThread("thread-a")).toBe(true);
+    expect(mapper.ownsChildThread("thread-b")).toBe(true);
+    expect(mapper.ownsChildThread("thread-other")).toBe(false);
   });
 
   test("omits identity fields when a collab item names no child thread", () => {
