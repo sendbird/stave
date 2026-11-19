@@ -149,8 +149,9 @@ export const DelegateTaskArgsSchema = z
     requestedPermissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
     lifecycle: DelegatedTaskLifecycleSchema.optional(),
     /**
-     * Retired: a turn count no longer bounds supervised work. Still accepted so
-     * stored requests and their hashes parse; models are no longer offered it.
+     * Retired: a turn count no longer bounds supervised work. Still accepted,
+     * from stored requests and older tool calls, so the request hash and the
+     * run's duplicate check see the caller's original input.
      */
     maxTurns: z.number().int().min(1).max(30).optional(),
     workspace: DelegatedTaskWorkspaceStrategySchema,
@@ -229,6 +230,7 @@ export const DelegateTaskToolInputSchema = z.object({
   lifecycle: DelegatedTaskLifecycleSchema.optional().describe(
     "Omitted: saved-Agent assignments are supervised to accepted completion; model-only work is one-turn. Explicit `one-turn` ends after one turn; `detached` stays open for follow-ups. `supervised` requires agentConfigId and an assignment of at most 8000 characters; it runs until accepted completion, bounded by time and provider usage, not a turn count.",
   ),
+  maxTurns: z.number().int().min(1).max(30).optional().describe("Ignored: supervised work has no turn limit. Accepted so an older call that passes it stays the same request."),
   workspace: z
     .union([
       z.object({ mode: z.literal("same-workspace") }),

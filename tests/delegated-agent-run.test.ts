@@ -342,6 +342,22 @@ describe("supervised saved-Agent delegations", () => {
     expect((await h.coordinator.get(child))?.phase).toBe("completed");
   });
 
+  test("an older tool call that still passes maxTurns names the same delegation when sent again, finished or not", async () => {
+    const h = harness();
+    // Saved before the update, with the caller's value in its request hash and run.
+    const saved = await h.start({ maxTurns: 1 });
+    const call = { prompt: "Review and verify the change.", provider: "codex", agentConfigId: agent.id, delegationKey: "assignment",
+      workspace: { mode: "same-workspace" }, access: "read-only", maxTurns: 1, wait: false };
+    const caller = { taskId: "parent", workspaceId: "ws" };
+    // The value is accepted and ignored: the same call is the same delegation, and the run is not stopped by it.
+    expect(await h.coordinator.delegateFromTool(call, caller)).toMatchObject({ accepted: true, child: { agentRunId: saved.agentRunId } });
+    expect(h.calls).toHaveLength(1);
+    await h.report("turn-1"); h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
+    expect((await h.coordinator.get(saved))?.phase).toBe("completed");
+    expect(await h.coordinator.delegateFromTool(call, caller)).toMatchObject({ accepted: true, child: { agentRunId: saved.agentRunId } });
+    expect(h.calls).toHaveLength(1);
+  });
+
   test("a child that reports a criterion unmet ends, and its report still reaches the parent", async () => {
     const h = harness(), child = await h.start();
     await h.runtime.reportStage({ agentRunKey: "turn-1", report: {

@@ -202,8 +202,10 @@ existing Run assignment limit of 8,000 characters; oversized work is refused,
 never truncated or downgraded. A turn count bounds no run: a supervised child,
 like a primary run, ends or pauses on time (`expiresAt`) and provider usage,
 and stops with `turn-cap-reached` only at `AGENT_RUN_LIMITS.safetyTurnCeiling`
-(200), the guard against loops. `maxTurns` is no longer offered to models; a
-stored request that carries it still parses and its value is inert.
+(200), the guard against loops. `maxTurns` limits nothing; the tool still
+accepts it and keeps it in the request hash and the run's duplicate check, so a
+stored request or an older call that carries it is the same request when sent
+again (a finished delegation is not refused as `input-mismatch`).
 
 Before dispatch, the coordinator's accepted receipt records a deterministic
 supervisor id for the execution, its stored (inert) cap, frozen Agent hash and resolved
