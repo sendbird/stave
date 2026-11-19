@@ -123,8 +123,8 @@ describe("subagent results context", () => {
   test("a child attached to the message keeps its row but not a second copy of its answer", () => {
     const delivered: DelegatedTaskAnswerRef[] = [];
     const part = buildDelegatedTaskReceiptsRetrievedContext({
-      children: [summary({ delegationKey: "review" }), summary({ delegationKey: "other", delegatedTaskId: "child-2" })],
-      answers: [answer({ delegationKey: "review", text: "Attached answer." }), answer({ sequence: 4, delegationKey: "other", delegatedTaskId: "child-2", text: "Other answer." })],
+      children: [summary({ delegationKey: "review", resultAt: "2026-08-10T00:05:00.000Z" }), summary({ delegationKey: "other", delegatedTaskId: "child-2", runId: "child-task:parent-1:other" })],
+      answers: [answer({ delegationKey: "review", text: "Attached answer." }), answer({ runId: "child-task:parent-1:other", sequence: 4, delegationKey: "other", delegatedTaskId: "child-2", text: "Other answer." })],
       attachedTaskIds: new Set(["child-1"]),
       delivered,
     });
