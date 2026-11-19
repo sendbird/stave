@@ -5,6 +5,7 @@ import {
   resolveNextAutomationRunAt,
   normalizeAutomationState,
   pruneAutomationRuns,
+  applyAutomationTrustPolicyToRuntime,
   automationRuntimeToProviderOptions,
   AutomationUpsertInputSchema,
   AUTOMATION_WORKSPACE_MISSING_MESSAGE,
@@ -214,38 +215,19 @@ function createAutomationConfigHash(automation: AutomationSpec) {
 }
 
 function automationSpecToProviderOptions(automation: AutomationSpec) {
-  const options = automationRuntimeToProviderOptions(automation.runtime);
-  if (automation.trustPolicy === "workspace-trusted") {
-    return options;
-  }
-  if (automation.runtime.provider === "codex") {
+  const options = automationRuntimeToProviderOptions(
+    applyAutomationTrustPolicyToRuntime(automation.runtime, automation.trustPolicy),
+  );
+  if (automation.runtime.provider === "codex" && automation.trustPolicy === "unattended") {
     return {
       ...options,
-      ...(automation.trustPolicy === "unattended"
-        ? { codexAutoApproveStaveLocalMcpTools: true }
-        : {}),
-      codexApprovalPolicy:
-        automation.trustPolicy === "unattended" ? "never" : "untrusted",
+      // Use Codex's reviewer for external tool approvals. The provider adapter
+      // keeps the previous `never` behavior when auto-review is unavailable.
+      codexApprovalsReviewer: "auto_review",
+      codexAutoApproveStaveLocalMcpTools: true,
     } as const;
   }
-  // A scheduled run has nobody to answer an approval prompt, so an unattended
-  // Claude run gets a real bypass. `dontAsk` used to be wired here, but that
-  // mode *denies* every tool outside the Stave Local MCP allowlist, which broke
-  // Bash, file edits, and third-party MCP servers without ever surfacing why.
-  if (automation.trustPolicy === "unattended") {
-    return {
-      ...options,
-      claudePermissionMode: "bypassPermissions",
-      claudeAllowUnsandboxedCommands: options.claudeAllowUnsandboxedCommands,
-      claudeAllowDangerouslySkipPermissions: true,
-    } as const;
-  }
-  return {
-    ...options,
-    claudePermissionMode: "default",
-    claudeAllowUnsandboxedCommands: false,
-    claudeAllowDangerouslySkipPermissions: false,
-  } as const;
+  return options;
 }
 
 function normalizeProviderTimeoutMs(value: unknown) {

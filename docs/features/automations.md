@@ -190,8 +190,11 @@ Schedules expose a single permission control instead of the full per-provider
 permission matrix. The mode decides how much the run may do while nobody is
 watching.
 
-- `Auto`: no approval prompts. The run goes end to end. Use it for reports,
-  triage, and chores you already trust unattended.
+- `Auto`: use it for reports, triage, and chores you trust unattended. Codex
+  sends eligible approval requests to its automatic reviewer. The reviewer can
+  deny a request, and tools that still require a person can pause the run. If
+  the Codex runtime or its managed policy does not support automatic review,
+  Stave falls back to `never`, which denies actions that require approval.
 - `Guided`: sensitive provider actions take the strict approval path, so a run
   can pause and wait for you in its task. This is the default.
 - `Manual`: the guarded presets are skipped and the run uses the provider
@@ -199,9 +202,10 @@ watching.
   controls for permission mode, sandbox, file access, network access, and web
   search.
 
-The effective provider settings are always printed under the mode picker, and
-`Auto` and `Guided` write those settings into the saved specification, so the
-editor never shows a value the scheduler would silently discard.
+The requested provider settings are printed under the mode picker. Stave
+applies the selected preset at launch, including to schedules saved before
+the current preset settings. Codex reports a notice in the task when its
+automatic reviewer is unavailable.
 
 Information references are resolved from the latest persisted Information
 panel values of the schedule's workspace when a run starts. Renaming or updating an

@@ -338,8 +338,8 @@
       "modes": {
         "auto": {
           "label": "Auto",
-          "summary": "Runs fully unattended",
-          "description": "Runs every provider action, MCP tool, and Lens action without approval prompts, because nobody is watching a scheduled run. Lens Developer Mode must still be enabled in Settings > Browser > Lens."
+          "summary": "Runs with fewer approval prompts",
+          "description": "Codex uses automatic review when available. Some actions can still require your approval or be denied. Lens actions require Lens Developer Mode."
         },
         "guided": {
           "label": "Guided",

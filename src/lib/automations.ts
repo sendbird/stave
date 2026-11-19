@@ -700,9 +700,8 @@ export function automationPermissionModeToTrustPolicy(
 }
 
 /**
- * Mirrors the host runtime's trust-policy override so the saved runtime config
- * matches what a run actually executes with. Without this the editor would show
- * permission values the scheduler silently discards.
+ * Applies the preset both in the editor and at launch, including for schedules
+ * saved before the current preset settings.
  */
 export function applyAutomationTrustPolicyToRuntime(
   runtime: AutomationRuntimeConfig,
@@ -714,7 +713,7 @@ export function applyAutomationTrustPolicyToRuntime(
   if (runtime.provider === "codex") {
     return {
       ...runtime,
-      approvalPolicy: policy === "unattended" ? "never" : "untrusted",
+      approvalPolicy: policy === "unattended" ? "on-request" : "untrusted",
     };
   }
   // Unattended runs have no human to answer a prompt, so anything short of a

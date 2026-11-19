@@ -266,6 +266,7 @@ export function getAutomationTrustPolicyLabelKey(policy: AutomationTrustPolicy) 
  */
 export function formatAutomationRuntimePermissions(
   runtime: AutomationRuntimeConfig,
+  mode: AutomationPermissionMode,
   t: TFunction<["automation"]> = i18n.getFixedT(null, ["automation"]),
 ): string {
   const onOff = (value: boolean) =>
@@ -276,7 +277,7 @@ export function formatAutomationRuntimePermissions(
     );
   if (runtime.provider === "codex") {
     return t("automation:editor.permissions.summary.codex", {
-      approvals: runtime.approvalPolicy,
+      approvals: mode === "auto" ? "auto_review" : runtime.approvalPolicy,
       files: runtime.fileAccess,
       network: onOff(runtime.networkAccess),
       web: runtime.webSearch,
