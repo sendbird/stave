@@ -189,13 +189,13 @@ export function buildTaskPanelStatus(args: {
   const turnId = past ?? currentTurnId;
   const entry = turnId ? history?.find((turn) => turn.id === turnId) ?? null : null;
   const message = lastAssistantOfTurn(messages, turnId);
-  const ending = (entry ? historyEnding(entry) : null) ?? (past
-    ? null
-    : resolveTurnEnding({
-        message,
-        retained: args.retained?.snapshot.turnId === turnId ? args.retained : null,
-        activity: args.activity?.turnId === turnId ? args.activity : null,
-      }));
+  // Without a saved record, the turn's own message (and its retained or live
+  // snapshot) tells how it ended, for a past turn too.
+  const ending = (entry ? historyEnding(entry) : null) ?? resolveTurnEnding({
+    message,
+    retained: args.retained?.snapshot.turnId === turnId ? args.retained : null,
+    activity: args.activity?.turnId === turnId ? args.activity : null,
+  });
   const lastTurn = ending && !(turnId === args.liveTurnId)
     ? { ...ending, endedAt: entry?.completedAt ?? message?.completedAt ?? null }
     : null;

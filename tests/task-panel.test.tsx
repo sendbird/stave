@@ -339,3 +339,9 @@ test("F3: a run waiting for its usage reset waits on nobody and says when it res
   expect(html).not.toContain(">What you need to do<");
   expect(html).toContain(">Resumes on its own<");
 });
+
+test("F4: an earlier turn without a saved record ends as its own message says", () => {
+  const aborted: ChatMessage = { ...REPLY, id: "a0", turnId: "turn-1", parts: [], terminalStopReason: "user_abort" } as unknown as ChatMessage;
+  const view = status({ messages: [aborted, REPLY], history: [turn("turn-2", "completed")], selectedTurnId: "turn-1" });
+  expect(view).toMatchObject({ turnId: "turn-1", status: { state: "stopped", reason: "You stopped it." } });
+});
