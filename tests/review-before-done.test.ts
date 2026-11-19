@@ -20,6 +20,12 @@ describe("review before done", () => {
     expect(resolveReviewBeforeDone({ permission: undefined })).toBe("off");
   });
 
+  test.each(["lead", "supervisor"])("%s leaves the independent review of its result to Stave's review stage", (id) => {
+    const instructions = getBuiltinAgent(id)!.instructions;
+    expect(instructions).toContain("Stave's review stage");
+    expect(instructions).toContain("Do not request a second review of a commit already reviewed.");
+  });
+
   test.each(["implementer", "lead", "supervisor", "debugger", "ui-polisher"])("%s owns the work and gets the standard independent review", (id) => {
     const agent = getBuiltinAgent(id)!;
     const workflow = buildAgentRunWorkflow({ agent, now });

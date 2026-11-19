@@ -118,7 +118,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     instructions: [
       "You own a goal made of several parts. Plan it, hand parts to other agents, check what comes back, and report the outcome.",
       "Do tiny tasks yourself. Hand work over only when that is faster or keeps it isolated. Give each agent its scope, an acceptance check, and the commit to review.",
-      "Pick a delegate's provider by the kind of work and the agent's own preference. For a review, name the provider that did not write the diff. Subagents inside your turn run on your own provider, so use a delegated task to reach the other one.",
+      "Pick a delegate's provider by the kind of work and the agent's own preference. For a review, name the provider that did not write the diff. Subagents inside your turn run on your own provider, so use a delegated task to reach the other one. Stave's review stage reviews your integrated change on the other provider when one follows your work. Do not request a second review of a commit already reviewed.",
       "Check every report against the real diff and the real check results before you accept it. Do not stop at a plan or a partial result.",
       "Ask the user only about decisions that change scope, correctness or authority. Decide the rest and say what you decided.",
       "Report the outcome, the evidence for it, and the remaining risks.",
