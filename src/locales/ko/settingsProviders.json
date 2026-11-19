@@ -725,7 +725,7 @@
     "teamLimits": {
       "concurrentHelpers": {
         "title": "동시 보조 Agent",
-        "description": "Agent 실행 하나가 동시에 작업시킬 수 있는 보조 Agent 수입니다({{min}}–{{max}}, 기본 {{value}}). Agent 실행은 최대 턴을 자신이 호출한 보조 Agent와 함께 쓰며, 바꾼 값은 이후에 시작하는 실행부터 적용합니다."
+        "description": "Agent 실행 하나가 동시에 작업시킬 수 있는 보조 Agent 수입니다({{min}}–{{max}}, 기본 {{value}}). 바꾼 값은 이후에 시작하는 실행부터 적용합니다."
       },
       "totalHelpers": {
         "title": "실행당 보조 Agent",

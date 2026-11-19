@@ -231,3 +231,22 @@ test("an automatic follow-up may propose a retry or a sign-off, but never a skip
   expect(tarsFollowUpRefusal(ask("skipStage"), origin, responsibilities)).not.toBeNull();
   expect(tarsFollowUpRefusal(ask("retryStage"), origin, responsibilities)).toBeNull();
 });
+
+test("an extend proposal saved by 0.35.x reads as closed with the Resume guidance, not as waiting", async () => {
+  const { followUpFixture } = await import("./tars-follow-up-fixture");
+  const f = followUpFixture();
+  try {
+    const row = f.responsibility("waiting", { detail: "limit-reached", detailCode: "runPaused", detailParams: { reason: "limit-reached" } });
+    const message = f.conversations.create({ requestId: "old-extend", text: "Give it more turns." }, f.now());
+    const claimed = f.conversations.claim(message.id, message.revision, f.now());
+    const answered = f.conversations.answer(claimed.id, claimed.revision, { reply: "Extending it.",
+      actions: [{ kind: "control", responsibilityId: row.id, expectedRevision: row.revision, operation: "extend" }] }, f.now());
+    const pending = f.conversations.recordReceipt(answered.id, answered.revision, 0, answered.decision!.actions[0]!, f.now());
+    // As 0.35.x left it: held for the user's confirming click.
+    f.database.prepare("UPDATE tars_action_receipts SET body_json = ? WHERE message_id = ?")
+      .run(JSON.stringify({ ...pending, status: "proposed", revision: 2 }), answered.id);
+    const [receipt] = f.conversations.listReceipts(answered.id);
+    expect(receipt).toMatchObject({ status: "rejected", reason: "noTurnLimit", action: { operation: "extend" } });
+    expect(f.service.getConversation().receipts.filter((item) => item.messageId === answered.id).map((item) => item.status)).toEqual(["rejected"]);
+  } finally { await f.close(); }
+});

@@ -281,7 +281,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run panel checks", "Progress tab · Completed · workspace check met by setup alone", withPartlyPassedChecks(runs.ready), null],
           ["Agent run panel legacy checks", "Progress tab · legacy workflow run · workspace check met by setup alone", { ...withPartlyPassedChecks(runs.ready), agentRun: { ...withPartlyPassedChecks(runs.ready).agentRun, origin: undefined } }, null],
           ["Agent run panel all checks", "Progress tab · a check that needs every script · test still failing", withPartlyPassedChecks(runs.ready, "all"), null],
-          ["Agent run panel failed", "Progress tab · Stopped at its turn limit", runs.failed, null],
+          ["Agent run panel failed", "Progress tab · Stopped as a likely loop", runs.failed, null],
           ["Agent run panel stopped", "Progress tab · Stopped by you", runs.stopped, null],
         ] as const
       ).map(([id, label, detail, decision]) => (

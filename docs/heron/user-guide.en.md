@@ -594,9 +594,9 @@ outside this action.
 asks first, always asks and never does at the level you picked.
 **Careful** keeps confirmations for starting, reordering and continuing work.
 **Balanced** (default) and **Hands-off** immediately resume, retry, instruct
-Tars's own run and request changes, including in automatic follow-ups. Extra
-turns apply automatically only within twice the original task budget; exceeding
-it needs your confirmation. Each action leaves a visible record. Resume and
+Tars's own run and request changes, including in automatic follow-ups. Runs
+have no turn limit to extend; a run paused at the turn limit of an earlier
+version resumes only when you confirm. Each action leaves a visible record. Resume and
 retry offer **Undo** to pause that execution; already sent instructions and
 consumed turns cannot be undone.
 Work that changes repository files ends at a draft PR unless you named another

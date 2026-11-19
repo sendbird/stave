@@ -328,7 +328,8 @@ reports on the work.
   blocked or stuck stage, skip the current stage, sign off a stage waiting for
   your approval, or resume a run paused by a usage limit. Resume and retry
   apply at once at Balanced or Hands-off; skip and sign-off always need
-  confirmation. Runs have no turn limit to extend.
+  confirmation. Runs have no turn limit to extend; an extend proposal saved by
+  an earlier version shows as closed, with Resume as the way to continue.
 - Answer what waits in the work's task from your words: approve or deny a
   tool approval, answer a question the run asked, send your words to the run
   as your reply ("tell it to use the existing index"), or request changes on a

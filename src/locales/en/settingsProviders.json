@@ -726,7 +726,7 @@
     "teamLimits": {
       "concurrentHelpers": {
         "title": "Helper Agents at once",
-        "description": "How many helper Agents one Agent run can have working at the same time ({{min}}–{{max}}, default {{value}}). Every Agent run shares its max turns with the helpers it calls; a change applies to runs that start after it."
+        "description": "How many helper Agents one Agent run can have working at the same time ({{min}}–{{max}}, default {{value}}). A change applies to runs that start after it."
       },
       "totalHelpers": {
         "title": "Helper Agents per run",
