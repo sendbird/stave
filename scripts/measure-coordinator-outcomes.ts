@@ -14,21 +14,27 @@ import {
   type OutcomeRange, type TarsOutcomeRow,
 } from "./measure-tars-outcomes";
 
-const PULL_REQUEST_URL = /https:\/\/github\.com\/([^/\s"\\]+)\/([^/\s"\\]+)\/pull\/(\d+)/g;
+const PULL_REQUEST_URL = /https?:\/\/github\.com\/([^/\s"\\]+)\/([^/\s"\\]+)\/pull\/(\d+)/gi;
 
 type LedgerRun = { id: string; originId: string; workspaceId: string; taskId: string | null; projectPath: string; status: string;
   createdAt: string; updatedAt: string; completedAt: string | null };
 type Receipt = { type: string; createdAt: string; detail: Record<string, unknown> };
 type Assignment = { agent: string; createdAt: string; endedAt: string | null };
 
-/** `owner/name` of a GitHub repository, lower-cased, from a remote or pull request URL. */
+/** `owner/name` of a GitHub repository, lower-cased, from a remote URL or a pull request. */
 export function githubRepository(url: string): string | null {
   const match = /github\.com[:/]([^/\s]+)\/([^/\s]+?)(?:\.git)?(?:\/pull\/\d+)?\/?$/.exec(url.trim());
   return match ? `${match[1]}/${match[2]}`.toLowerCase() : null;
 }
 
-/** The pull request links in a text, as `https://github.com/owner/name/pull/N`. */
-const pullRequestLinks = (text: string) => [...text.matchAll(PULL_REQUEST_URL)].map((match) => match[0]);
+/**
+ * The pull requests a text links, each as its one identity however the link is
+ * written: host, owner and repository lower-cased and the number, as
+ * `github.com/owner/name/pull/N`. Letter case, `http`, a trailing slash or a
+ * suffix such as `/files` do not make another pull request.
+ */
+export const pullRequests = (text: string) =>
+  [...text.matchAll(PULL_REQUEST_URL)].map((match) => `github.com/${match[1]}/${match[2]}/pull/${Number(match[3])}`.toLowerCase());
 
 /** The repository the work ran in, from its `origin` remote; null when it cannot be read. */
 function originRepository(projectPath: string, cache: Map<string, string | null>): string | null {
@@ -102,7 +108,7 @@ function workspaceBranches(db: Database): Map<string, string> {
  * item of a completed stage report whose `ref` is the pull request and whose
  * label names `head <branch>`. A report without a time verifies nothing.
  */
-function verifiedPullRequests(db: Database, taskId: string): Array<{ url: string; head: string; at: number }> {
+function verifiedPullRequests(db: Database, taskId: string): Array<{ pullRequest: string; head: string; at: number }> {
   const reports = db.query(`SELECT s.report_json AS report FROM agent_run_stages s JOIN agent_runs r ON r.id = s.agent_run_id
     WHERE r.lead_task_id = ? AND s.report_json IS NOT NULL`).all(taskId) as Array<{ report: string }>;
   return reports.flatMap(({ report }) => {
@@ -110,9 +116,9 @@ function verifiedPullRequests(db: Database, taskId: string): Array<{ url: string
     const at = typeof parsed.reportedAt === "string" ? Date.parse(parsed.reportedAt) : Number.NaN;
     if (parsed.outcome !== "complete" || Number.isNaN(at)) return [];
     return (parsed.evidence ?? []).flatMap((item) => {
-      const url = typeof item.ref === "string" ? pullRequestLinks(item.ref)[0] : undefined;
+      const pullRequest = typeof item.ref === "string" ? pullRequests(item.ref)[0] : undefined;
       const head = typeof item.label === "string" ? /\bhead\s+`?([^\s`,;]+)/.exec(item.label)?.[1] : undefined;
-      return item.kind === "link" && url && head ? [{ url, head, at }] : [];
+      return item.kind === "link" && pullRequest && head ? [{ pullRequest, head, at }] : [];
     });
   });
 }
@@ -165,21 +171,21 @@ export function readCoordinatorRows(file: string, args: OutcomeRange & { coordin
         .filter((event) => Date.parse(event.createdAt) >= from && Date.parse(event.createdAt) < until);
       const reports = events.filter((event) => event.kind === "report")
         .map((event) => ({ createdAt: event.createdAt, ...(JSON.parse(event.detail) as { outcome?: unknown; summary?: unknown }) }));
-      // When the unit itself first gave each pull request's link.
+      // When the unit itself first gave each pull request's link, by the pull request's identity.
       const claims = new Map<string, string>();
-      for (const { url, createdAt } of writing ? [
+      for (const { id, createdAt } of writing ? [
         ...reports.filter((report) => report.outcome === "complete" && typeof report.summary === "string")
-          .flatMap((report) => pullRequestLinks(report.summary as string).map((url) => ({ url, createdAt: report.createdAt }))),
+          .flatMap((report) => pullRequests(report.summary as string).map((id) => ({ id, createdAt: report.createdAt }))),
         ...receipts.filter((receipt) => receipt.type === "completed")
-          .flatMap((receipt) => pullRequestLinks(JSON.stringify(receipt.detail)).map((url) => ({ url, createdAt: receipt.createdAt }))),
-      ] : []) if (!claims.has(url) || Date.parse(createdAt) < Date.parse(claims.get(url)!)) claims.set(url, createdAt);
+          .flatMap((receipt) => pullRequests(JSON.stringify(receipt.detail)).map((id) => ({ id, createdAt: receipt.createdAt }))),
+      ] : []) if (!claims.has(id) || Date.parse(createdAt) < Date.parse(claims.get(id)!)) claims.set(id, createdAt);
       return { accepted, writing, events, blocked: reports.at(-1)?.outcome === "blocked", claims };
     };
     const units = new Map(delegations.map((run) => [run, readUnit(run)]));
     // A pull request is one delegation's: the first, of any task, to give its link.
     const owner = new Map<string, { run: LedgerRun; at: number }>();
-    for (const [run, unit] of units) for (const [url, createdAt] of unit.claims)
-      if (!owner.has(url) || Date.parse(createdAt) < owner.get(url)!.at) owner.set(url, { run, at: Date.parse(createdAt) });
+    for (const [run, unit] of units) for (const [id, createdAt] of unit.claims)
+      if (!owner.has(id) || Date.parse(createdAt) < owner.get(id)!.at) owner.set(id, { run, at: Date.parse(createdAt) });
     const counted = delegations.flatMap((run) => {
       const assignment = inRange(run.createdAt, args) ? assignmentAt(assignments, run.originId, run.createdAt) : null;
       const unit = units.get(run)!;
@@ -199,8 +205,8 @@ export function readCoordinatorRows(file: string, args: OutcomeRange & { coordin
         if (!verifiedByTask.has(run.originId)) verifiedByTask.set(run.originId, verifiedPullRequests(db, run.originId));
         const verified = verifiedByTask.get(run.originId)!;
         const repository = originRepository(run.projectPath, origins);
-        publishedAt = [...unit.claims].filter(([url, createdAt]) => owner.get(url)!.run === run && repository !== null && githubRepository(url) === repository &&
-          verified.some((item) => item.url === url && item.head === branch && item.at >= Date.parse(createdAt) && item.at < assignment.until))
+        publishedAt = [...unit.claims].filter(([id, createdAt]) => owner.get(id)!.run === run && repository !== null && githubRepository(id) === repository &&
+          verified.some((item) => item.pullRequest === id && item.head === branch && item.at >= Date.parse(createdAt) && item.at < assignment.until))
           .map(([, createdAt]) => createdAt).sort()[0] ?? null;
       }
       const title = run.taskId ? (titleOf.get(`${run.workspaceId}:${run.taskId}`) as { title: string } | null)?.title : null;

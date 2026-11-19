@@ -3,7 +3,7 @@ import { Database } from "bun:sqlite";
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { githubRepository, readCoordinatorRows } from "../scripts/measure-coordinator-outcomes";
+import { githubRepository, pullRequests, readCoordinatorRows } from "../scripts/measure-coordinator-outcomes";
 import { summarizeTarsOutcomes, tarsOutcome } from "../scripts/measure-tars-outcomes";
 
 const at = (minutes: number) => new Date(Date.parse("2026-11-20T01:00:00.000Z") + minutes * 60_000).toISOString();
@@ -41,6 +41,8 @@ function fixture(dir: string) {
   assign("a3", "lead", "coord-2", -10);
   assign("a4", "coordinator-trial", "coord-2", 100);
   assign("a5", "lead", "coord-1", 200);
+  // A coordinator of its own for the units that write one pull request's link several ways.
+  assign("a6", "coordinator-links", "coord-3", -10);
   const workspaces: Array<{ id: string; name: string }> = [];
   let sequence = 0;
   /**
@@ -119,6 +121,15 @@ function fixture(dir: string) {
   unit("u2", { status: "completed", created: 45, ended: 70, followsUp: "u", events: [["turn-started", 46], ["report", 60, complete(`Pushed the fix to ${pr(25)}`)]] });
   // A PR only a later assignee of the coordinator's task verified, after the task stopped being the coordinator's.
   unit("y", { status: "completed", created: 100, ended: 130, events: [["report", 110, complete(`Draft ${pr(26)}`)]] });
+  // One PR whose link a follow-up writes with other letter case: v opened it, and the coordinator verified both spellings.
+  const links = { parent: "coord-3", status: "completed" };
+  unit("v", { ...links, ended: 40, events: [["turn-started", 1], ["report", 30, complete(`Opened draft PR ${pr(30)}`)]] });
+  unit("v2", { ...links, created: 45, ended: 70, followsUp: "v", events: [["report", 60, complete(`Pushed the fix to ${pr(30, "Acme/App")}`)]] });
+  // The same PR again with a trailing slash and a /files suffix.
+  unit("v3", { ...links, created: 75, ended: 90, followsUp: "v", events: [["report", 80, complete(`See ${pr(30)}/files and ${pr(30)}/`)]] });
+  // http first, https in the follow-up: w gave the link first.
+  unit("w", { ...links, ended: 40, events: [["turn-started", 1], ["report", 30, complete(`Opened draft PR ${pr(31).replace("https:", "http:")}`)]] });
+  unit("w2", { ...links, created: 45, ended: 70, followsUp: "w", events: [["report", 60, complete(`Pushed the fix to ${pr(31)}`)]] });
   // The coordinator's own completed report lists the PRs it verified, with the head branch it checked.
   db.run("INSERT INTO agent_runs VALUES ('coord-run', 'coord-1')");
   const verified = (url: string, head: string) => ({ kind: "link", ref: url, label: `Verified draft PR, head ${head}` });
@@ -130,7 +141,9 @@ function fixture(dir: string) {
   // A blocked report of the coordinator verifies nothing.
   stage("coord-run", 2, { outcome: "blocked", missing: "x", reportedAt: at(96), evidence: [verified(pr(14), "subagent-n")] });
   // Reports of the same tasks' other assignees: Lead on coord-2 before the coordinator, Lead on coord-1 after it.
-  db.run("INSERT INTO agent_runs VALUES ('lead-run-2', 'coord-2'), ('lead-run-1', 'coord-1')");
+  db.run("INSERT INTO agent_runs VALUES ('lead-run-2', 'coord-2'), ('lead-run-1', 'coord-1'), ('links-run', 'coord-3')");
+  stage("links-run", 1, { outcome: "complete", summary: "Units verified.", reportedAt: at(95), evidence: [verified(pr(30), "subagent-v"),
+    verified(pr(30, "Acme/App"), "subagent-v"), verified(`${pr(30)}/files`, "subagent-v"), verified(`${pr(31)}/`, "subagent-w")] });
   stage("lead-run-2", 1, { outcome: "complete", summary: "Verified.", reportedAt: at(60), evidence: [verified(pr(20), "subagent-q")] });
   stage("lead-run-1", 1, { outcome: "complete", summary: "Verified.", reportedAt: at(210), evidence: [verified(pr(26), "subagent-y")] });
   db.run("INSERT INTO app_state VALUES ('project_registry', ?)", [JSON.stringify([{ repositoryPath: repository, workspaces }])]);
@@ -180,11 +193,33 @@ test("measures the work a coordinator task delegated with the same outcome numbe
   }
 });
 
+test("counts a pull request once, for the delegation that first gave its link, however the link is written", () => {
+  const dir = mkdtempSync(join(tmpdir(), "stave-coordinator-"));
+  try {
+    const outcomes = readCoordinatorRows(fixture(dir), { coordinator: "coordinator-links", since: at(-60), until: null }).map(tarsOutcome);
+    expect(outcomes.map((outcome) => [outcome.title, outcome.result, outcome.minutes])).toEqual([
+      ["Unit v", "pull-request", 30],
+      ["Unit w", "pull-request", 30],
+      // The follow-ups, in the order they were delegated: none of them opened a pull request.
+      ["Unit v", "completed", 15],
+      ["Unit w", "completed", 15],
+      ["Unit v", "completed", 5],
+    ]);
+    expect(summarizeTarsOutcomes(outcomes)).toMatchObject({ total: 5, pullRequests: 2, completed: 3 });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("reads a GitHub repository from remote and pull request URLs", () => {
   expect(githubRepository("git@github.com:Acme/App.git\n")).toBe("acme/app");
   expect(githubRepository("https://github.com/acme/app")).toBe("acme/app");
   expect(githubRepository(pr(3))).toBe("acme/app");
   expect(githubRepository("https://gitlab.com/acme/app.git")).toBeNull();
+  // A pull request has one identity, and its repository reads from it.
+  expect(pullRequests(`${pr(3, "Acme/App")}/files, HTTP://GitHub.com/acme/app/pull/3/ and ${pr(4)}. https://gitlab.com/acme/app/pull/5`))
+    .toEqual(["github.com/acme/app/pull/3", "github.com/acme/app/pull/3", "github.com/acme/app/pull/4"]);
+  expect(githubRepository("github.com/acme/app/pull/3")).toBe("acme/app");
 });
 
 test("the CLI prints the coordinator's numbers next to Tars's for the same range", () => {
@@ -200,7 +235,7 @@ test("the CLI prints the coordinator's numbers next to Tars's for the same range
     // A coordinator that started nothing names the agents that did, so a wrong id is easy to fix.
     const missing = Bun.spawnSync([process.execPath, "scripts/measure-coordinator-outcomes.ts", file, "--coordinator=nobody"]);
     expect(missing.exitCode).toBe(0);
-    expect(missing.stdout.toString()).toContain("Agents whose tasks delegated work: coordinator-trial, lead.");
+    expect(missing.stdout.toString()).toContain("Agents whose tasks delegated work: coordinator-links, coordinator-trial, lead.");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

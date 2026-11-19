@@ -173,7 +173,9 @@ these hold:
 - The unit itself gave the link, in a completed stage report or in the answer
   it returned, and no earlier delegation gave that link first. A pull request
   counts once, for the delegation that opened it; work that continues it on a
-  reused branch is `completed`.
+  reused branch is `completed`. A link is the same pull request however it is
+  written: letter case, `http` or `https`, a trailing slash or a suffix such
+  as `/files` do not make another one.
 - A completed report of the coordinator's task lists the same link as verified
   with the unit's branch as head (step 7 of its instructions), and was written
   after the unit gave the link and before the task stopped running under the
