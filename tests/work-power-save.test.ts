@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { AgentRun } from "../src/lib/agent-runs/domain";
 import {
-  createWorkPowerSaveController, hasActivePowerWork, readPowerRun, trackWorkPowerSave, WORK_POWER_RESYNC_MS,
+  createWorkPowerSaveController, hasActivePowerWork, readPowerRun, trackWorkPowerSave, WORK_POWER_RESYNC_MS, WORK_POWER_TURNS_UNANSWERED_MS,
   type PowerRun, type PowerTurn, type WorkPowerSignals, type WorkPowerSnapshot,
 } from "../electron/main/work-power-save";
 
@@ -91,7 +91,7 @@ test("holds one app-suspension blocker across overlapping agent and Tars work, r
 /** A tracker over fake sources: the host answers each live-turn read with `host.turns`. */
 function harness(initial: { runs?: PowerRun[] } = {}) {
   const host: { turns: PowerTurn[] | "unreachable"; pulls: number } = { turns: [], pulls: 0 };
-  const state = { runs: initial.runs ?? [], runReads: 0, secretWaits: new Set<string>(), held: false, starts: 0, unsubscribed: 0 };
+  const state = { runs: initial.runs ?? [], runReads: 0, secretWaits: new Set<string>(), held: false, starts: 0, unsubscribed: 0, now: 1_000_000 };
   let signals!: WorkPowerSignals;
   let tick!: () => void;
   const stop = trackWorkPowerSave({
@@ -106,10 +106,104 @@ function harness(initial: { runs?: PowerRun[] } = {}) {
     },
     subscribe: (handlers) => { signals = handlers; return [() => { state.unsubscribed += 1; }]; },
     every: (callback, ms) => { expect(ms).toBe(WORK_POWER_RESYNC_MS); tick = callback; return () => { tick = () => {}; }; },
+    now: () => state.now,
   });
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-  return { host, state, signals: () => signals, tick: () => tick(), stop, settle };
+  /** One resync interval passes and its read settles. */
+  const resyncAfterInterval = async () => { state.now += WORK_POWER_RESYNC_MS; tick(); await settle(); };
+  return { host, state, signals: () => signals, tick: () => tick(), stop, settle, resyncAfterInterval };
 }
+
+/** A plain chat turn with no Run record, read once from a host that answers. */
+async function harnessHoldingPlainTurn() {
+  const h = harness();
+  h.signals().ready();
+  h.host.turns = [turn("t1")];
+  h.signals().turnsChanged();
+  await h.settle();
+  await h.settle();
+  expect(h.state.held).toBe(true);
+  return h;
+}
+
+test("one live-turn read that times out keeps a running chat turn's blocker while the host is alive", async () => {
+  const h = await harnessHoldingPlainTurn();
+  h.host.turns = "unreachable";
+  await h.resyncAfterInterval();
+  expect(h.state.held).toBe(true);
+  // A hint whose read fails too changes nothing either.
+  h.signals().turnsChanged();
+  await h.settle();
+  expect(h.state.held).toBe(true);
+  expect(h.state.starts).toBe(1);
+  h.stop();
+});
+
+test("the host exiting or being replaced drops the kept turns at once, failed reads or not", async () => {
+  const exited = await harnessHoldingPlainTurn();
+  exited.host.turns = "unreachable";
+  await exited.resyncAfterInterval();
+  expect(exited.state.held).toBe(true);
+  exited.signals().disconnected();
+  expect(exited.state.held).toBe(false);
+  exited.stop();
+  // A new handshake is a new host: the old one's turns are not carried into it.
+  const replaced = await harnessHoldingPlainTurn();
+  replaced.host.turns = "unreachable";
+  replaced.signals().ready();
+  await replaced.settle();
+  expect(replaced.state.held).toBe(false);
+  replaced.stop();
+});
+
+test("a connected host whose reads keep failing is unknown after the bound and stops holding the blocker", async () => {
+  const h = await harnessHoldingPlainTurn();
+  h.host.turns = "unreachable";
+  await h.resyncAfterInterval();
+  const failingSince = h.state.now;
+  expect(h.state.held).toBe(true);
+  // Every failed read inside the bound keeps the last answer.
+  while (h.state.now + WORK_POWER_RESYNC_MS - failingSince < WORK_POWER_TURNS_UNANSWERED_MS) {
+    await h.resyncAfterInterval();
+    expect(h.state.held).toBe(true);
+  }
+  await h.resyncAfterInterval();
+  expect(h.state.now - failingSince).toBe(WORK_POWER_TURNS_UNANSWERED_MS);
+  expect(h.host.pulls).toBe(5); // the handshake, the hint, then three failed resyncs
+  expect(h.state.held).toBe(false);
+  // It stays released while the reads keep failing.
+  await h.resyncAfterInterval();
+  expect(h.state.held).toBe(false);
+  h.stop();
+});
+
+test("the next answered read after a failed one is taken as it is", async () => {
+  const h = await harnessHoldingPlainTurn();
+  h.host.turns = "unreachable";
+  await h.resyncAfterInterval();
+  expect(h.state.held).toBe(true);
+  // The turn ended while the host could not answer: the answer releases it.
+  h.host.turns = [];
+  await h.resyncAfterInterval();
+  expect(h.state.held).toBe(false);
+  // An answer ends the failing stretch: a later one is timed from its own first failure,
+  // however long ago the earlier one began.
+  h.host.turns = [turn("t2")];
+  await h.resyncAfterInterval();
+  expect(h.state.held).toBe(true);
+  h.host.turns = "unreachable";
+  for (let failedFor = 0; failedFor < WORK_POWER_TURNS_UNANSWERED_MS; failedFor += WORK_POWER_RESYNC_MS) {
+    await h.resyncAfterInterval();
+    expect(h.state.held).toBe(true);
+  }
+  await h.resyncAfterInterval();
+  expect(h.state.held).toBe(false);
+  // A host released as unknown is held again once it answers with a running turn.
+  h.host.turns = [turn("t2")];
+  await h.resyncAfterInterval();
+  expect(h.state.held).toBe(true);
+  h.stop();
+});
 
 test("a dropped live-turn hint heals on the next resync in both directions", async () => {
   const h = harness();
@@ -156,7 +250,7 @@ test("a hint is only a reason to read again, and a turn change never re-reads ru
   h.stop();
 });
 
-test("a host restart or an unanswering host drops its turns instead of holding the Mac awake", async () => {
+test("a host restart drops its turns instead of holding the Mac awake", async () => {
   const h = harness();
   h.signals().ready();
   h.host.turns = [turn("t1")];
@@ -175,11 +269,6 @@ test("a host restart or an unanswering host drops its turns instead of holding t
   h.signals().ready();
   await h.settle();
   expect(h.state.held).toBe(true);
-  // A host that stops answering contributes nothing.
-  h.host.turns = "unreachable";
-  h.tick();
-  await h.settle();
-  expect(h.state.held).toBe(false);
   h.stop();
 });
 

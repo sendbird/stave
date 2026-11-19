@@ -4,7 +4,7 @@ import { invokeHostService, onHostServiceDisconnect, onHostServiceEvent, onHostS
 import { ensurePersistenceReadySync } from "./state";
 import { readPowerRun, trackWorkPowerSave } from "./work-power-save";
 
-/** A live-turn read is in-memory on the host; one that takes longer counts as unanswered. */
+/** A live-turn read is in-memory on the host; one that takes longer is a failed read, and the tracker keeps the last answer. */
 const LIVE_TURNS_READ_TIMEOUT_MS = 15_000;
 
 let stop: (() => void) | null = null;

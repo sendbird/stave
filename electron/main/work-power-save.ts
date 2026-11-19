@@ -110,6 +110,16 @@ export function createWorkPowerSaveController(blocker: {
  */
 export const WORK_POWER_RESYNC_MS = 60_000;
 
+/**
+ * How long a connected host's live-turn reads may keep failing or timing out
+ * before its turns stop counting: two resync intervals, so at least three
+ * reads in a row a minute apart. One slow answer under backlog must not drop
+ * a running turn's blocker; a host that leaves an in-memory read unanswered
+ * for this long is hung, what it runs is unknown, and it must not keep the
+ * Mac awake for good.
+ */
+export const WORK_POWER_TURNS_UNANSWERED_MS = 2 * WORK_POWER_RESYNC_MS;
+
 export interface WorkPowerSignals {
   /** A hint that the host's live turns changed: read them again. */
   turnsChanged: () => void;
@@ -123,8 +133,11 @@ export interface WorkPowerSignals {
 /**
  * Keeps the blocker in step with the facts, never with the signals alone:
  * live turns are pulled from the host on its handshake, on every hint and on
- * a periodic resync, so a lost hint or a host restart heals itself. A host
- * that disconnected or cannot answer contributes no turns.
+ * a periodic resync, so a lost hint or a host restart heals itself. Whether
+ * the host's turns still count follows the host, not one read: a failed read
+ * keeps the last answer while the host stays connected, a host that exits or
+ * is replaced takes its turns with it, and one whose reads have failed for
+ * `WORK_POWER_TURNS_UNANSWERED_MS` contributes none until it answers again.
  */
 export function trackWorkPowerSave(deps: {
   blocker: Parameters<typeof createWorkPowerSaveController>[0];
@@ -135,6 +148,7 @@ export function trackWorkPowerSave(deps: {
   pullTurns: () => Promise<ReadonlyArray<PowerTurn> | null>;
   subscribe: (signals: WorkPowerSignals) => Array<() => void>;
   every?: (callback: () => void, ms: number) => () => void;
+  now?: () => number;
 }) {
   const controller = createWorkPowerSaveController(deps.blocker);
   // Durable runs may hold before the host's first handshake; turns cannot exist yet.
@@ -145,6 +159,9 @@ export function trackWorkPowerSave(deps: {
   let runs = deps.readRuns();
   let tars = deps.readTars();
   let hostGeneration = 0;
+  const now = deps.now ?? Date.now;
+  /** When the connected host's reads began to fail; null while its latest read answered. */
+  let failingSince: number | null = null;
   let pulling = false;
   let pullAgain = false;
 
@@ -160,7 +177,13 @@ export function trackWorkPowerSave(deps: {
     void deps.pullTurns().catch(() => null).then((live) => {
       pulling = false;
       if (generation === hostGeneration) {
-        turns = live ?? [];
+        if (live) {
+          turns = live;
+          failingSince = null;
+        } else {
+          failingSince ??= now();
+          if (now() - failingSince >= WORK_POWER_TURNS_UNANSWERED_MS) turns = [];
+        }
         refresh();
       }
       if (pullAgain) { pullAgain = false; pull(); }
@@ -179,8 +202,8 @@ export function trackWorkPowerSave(deps: {
     runsChanged: () => { runs = deps.readRuns(); refresh(); },
     tarsChanged: () => { tars = deps.readTars(); refresh(); },
     secretsChanged: refresh,
-    ready: () => { connected = true; hostReady = true; hostGeneration += 1; turns = []; resync(); },
-    disconnected: () => { connected = false; hostReady = false; hostGeneration += 1; turns = []; controller.dispose(); },
+    ready: () => { connected = true; hostReady = true; hostGeneration += 1; turns = []; failingSince = null; resync(); },
+    disconnected: () => { connected = false; hostReady = false; hostGeneration += 1; turns = []; failingSince = null; controller.dispose(); },
   });
   const every = deps.every ?? ((callback, ms) => {
     const timer = setInterval(callback, ms);
