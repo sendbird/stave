@@ -52,8 +52,10 @@ other state continues on its own.
 **Your Mac stays awake for it**: while Stave has work it continues without
 you (a turn in progress, a running Run or Tars execution, or a Run waiting
 for a usage reset or an outside event), it keeps the Mac from idle sleep. Once
-everything left waits for you (an approval, a question, a sign-off, a blocked
-stage or a pause only you can lift), the Mac may sleep again. The display can
+everything left waits for you (an approval, a question, a secret request, a
+sign-off, a blocked stage or a pause only you can lift), the Mac may sleep
+again. A stage blocked only because Stave's reporting tool dropped still counts
+as unattended work: it restarts once the tool is back. The display can
 still turn off, and closing the lid can still put a Mac to sleep.
 
 ### Bigger goals

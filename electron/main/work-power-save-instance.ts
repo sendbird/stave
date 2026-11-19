@@ -1,31 +1,35 @@
 import { powerSaveBlocker } from "electron";
-import { onHostServiceDisconnect, onHostServiceEvent, onHostServiceReady } from "./host-service-client";
+import { getSecretRequestBroker, onSecretRequestsChanged } from "./browser/secret-request-service";
+import { invokeHostService, onHostServiceDisconnect, onHostServiceEvent, onHostServiceReady } from "./host-service-client";
 import { ensurePersistenceReadySync } from "./state";
-import { readPowerRun, trackWorkPowerSave, type PowerRun, type WorkPowerSnapshot } from "./work-power-save";
+import { readPowerRun, trackWorkPowerSave } from "./work-power-save";
+
+/** A live-turn read is in-memory on the host; one that takes longer counts as unanswered. */
+const LIVE_TURNS_READ_TIMEOUT_MS = 15_000;
 
 let stop: (() => void) | null = null;
 
-/** Main owns OS power policy; host changes trigger a fresh read of durable state. */
+/** Main owns OS power policy; each source is re-read on its own signal and on a periodic resync. */
 export function startWorkPowerSaveBlocker() {
   if (stop) return;
   const store = ensurePersistenceReadySync();
-  // Live turns exist only in the host process: the last list it sent, dropped with it.
-  let turns: WorkPowerSnapshot["turns"] = [];
   const dispose = trackWorkPowerSave({
     blocker: powerSaveBlocker,
-    read: () => ({
-      turns,
-      runs: store.agentRuns.listActiveAgentRuns().map((run) => readPowerRun(store.agentRuns, run.id)).filter((run): run is PowerRun => run !== null),
+    readRuns: () => store.agentRuns.listActiveAgentRuns().map((run) => readPowerRun(store.agentRuns, run)),
+    readTars: () => ({
       responsibilities: store.tars.snapshot().responsibilities,
       reasoning: store.tarsConversations.listInProgressIds().some((id) => store.tarsConversations.get(id)?.state === "reasoning"),
     }),
-    subscribe: ({ changed, ready, disconnected }) => [
-      onHostServiceEvent("provider.live-turns-changed", (live) => { turns = live.turns; changed(); }),
-      onHostServiceEvent("agent-run.changed", changed),
-      onHostServiceEvent("tars.changed", changed),
-      onHostServiceReady(ready),
-      onHostServiceDisconnect(() => { turns = []; disconnected(); }),
-      store.tarsConversations.onChange(changed),
+    readSecretWaitTurnIds: () => new Set(getSecretRequestBroker().list().map((request) => request.turnId)),
+    pullTurns: async () => (await invokeHostService("provider.list-live-turns", {}, { timeoutMs: LIVE_TURNS_READ_TIMEOUT_MS })).turns,
+    subscribe: (signals) => [
+      onHostServiceEvent("provider.live-turns-changed", signals.turnsChanged),
+      onHostServiceEvent("agent-run.changed", signals.runsChanged),
+      onHostServiceEvent("tars.changed", signals.tarsChanged),
+      onSecretRequestsChanged(signals.secretsChanged),
+      onHostServiceReady(signals.ready),
+      onHostServiceDisconnect(signals.disconnected),
+      store.tarsConversations.onChange(signals.tarsChanged),
     ],
   });
   stop = () => { dispose(); stop = null; };

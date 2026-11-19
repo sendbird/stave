@@ -60,6 +60,8 @@ describe("outbound change signals and backlog diagnostics", () => {
     // Dropping `tars.changed` left the Tars tray stale until something else changed.
     expect(outboundQueueLimitBytes({ type: "event", event: "tars.changed" }, 200)).toBe(HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES);
     expect(outboundQueueLimitBytes({ type: "event", event: "agent-run.changed" }, 200)).toBe(HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES);
+    // The idle-sleep blocker's live-turn hint: main also resyncs, but a hint should rarely be shed.
+    expect(outboundQueueLimitBytes({ type: "event", event: "provider.live-turns-changed" }, 200)).toBe(HOST_SERVICE_PROTOCOL_BUFFER_MAX_BYTES);
     expect(outboundQueueLimitBytes({ type: "event", event: "tars.changed" }, HOST_SERVICE_CHANGE_SIGNAL_MAX_BYTES + 1)).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
     expect(outboundQueueLimitBytes({ type: "event", event: "provider.stream-event" }, 200)).toBe(HOST_SERVICE_EVENT_QUEUE_MAX_BYTES);
   });

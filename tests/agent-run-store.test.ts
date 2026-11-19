@@ -141,6 +141,24 @@ describe("run store", () => {
     expect(store.getAggregate("agent-run-1")?.agentRun.turnCount).toBe(1);
   });
 
+  test("reads one stage's newest attempt and the newest event of given kinds without loading history", () => {
+    const change = startChange();
+    store.create(change, AGENT_RUN_NOW);
+    const stageId = change.upserts[0]!.stageId;
+    expect(store.getLatestStageRecord("agent-run-1", "missing-stage")).toBeNull();
+    store.apply({ agentRun: change.agentRun, events: [], upserts: [
+      { ...change.upserts[0]!, attempt: 2, status: "blocked", blockReason: "reporting-unavailable" },
+    ] }, AGENT_RUN_NOW);
+    expect(store.getLatestStageRecord("agent-run-1", stageId)).toMatchObject({ attempt: 2, status: "blocked", blockReason: "reporting-unavailable" });
+    const kinds = ["user-wait-started", "user-wait-ended"] as const;
+    expect(store.latestEventKind("agent-run-1", kinds)).toBeNull();
+    store.recordEvent("agent-run-1", { kind: "user-wait-started", idempotencyKey: null, detail: {} }, AGENT_RUN_NOW);
+    store.recordEvent("agent-run-1", { kind: "checks-observed", idempotencyKey: null, detail: {} }, AGENT_RUN_NOW);
+    expect(store.latestEventKind("agent-run-1", kinds)).toBe("user-wait-started");
+    store.recordEvent("agent-run-1", { kind: "user-wait-ended", idempotencyKey: null, detail: {} }, AGENT_RUN_NOW);
+    expect(store.latestEventKind("agent-run-1", kinds)).toBe("user-wait-ended");
+  });
+
   test("records a keyed event once, so a restart never repeats a Stave action", () => {
     store.create(startChange(), AGENT_RUN_NOW);
     const key = buildAgentRunActionKey({ agentRunId: "agent-run-1", stageId: "open-draft-pr", attempt: 1 });

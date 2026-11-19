@@ -633,14 +633,15 @@ function emitEvent<TEvent extends HostServiceEventName>(
   return writePromise;
 }
 
-// Main holds the idle-sleep blocker from this list (`work-power-save.ts`).
+// A hint only: main re-reads `provider.list-live-turns` for its idle-sleep
+// blocker (`work-power-save.ts`) and resyncs on its own if this is dropped.
 let liveTurnsChangeQueued = false;
 onProviderLiveTurnsChanged(() => {
   if (liveTurnsChangeQueued) return;
   liveTurnsChangeQueued = true;
   queueMicrotask(() => {
     liveTurnsChangeQueued = false;
-    void emitEvent("provider.live-turns-changed", providerRuntime.listLiveTurns()).catch(() => {});
+    void emitEvent("provider.live-turns-changed", {}).catch(() => {});
   });
 });
 

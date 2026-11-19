@@ -1,6 +1,12 @@
-import type { AgentRunAggregate, AgentRunEvent, AgentRunPauseReason, AgentRunState, StageStatus } from "../../src/lib/agent-runs/domain";
-import { latestStageRecord } from "../../src/lib/agent-runs/domain";
+import type { AgentRun, AgentRunEventKind, AgentRunPauseReason, AgentRunStageRecord, AgentRunState, StageBlockReason, StageStatus } from "../../src/lib/agent-runs/domain";
 import type { TarsState } from "../../src/lib/tars/types";
+
+/** One live host turn as the power rule reads it. */
+export interface PowerTurn {
+  turnId: string;
+  /** Held on an approval or a blocking question until a person answers. */
+  awaitingUser?: true;
+}
 
 /** One Agent Run as the power rule reads it. */
 export interface PowerRun {
@@ -11,15 +17,17 @@ export interface PowerRun {
    * or five minutes after the pause without one. A local daily stop has none.
    */
   usageLimit?: { resumeAt: string | null };
-  /** The current stage's latest status; null when the run has no record for it. */
-  stageStatus: StageStatus | null;
+  /** The current stage's latest attempt; null when the run has no record for it. */
+  stage: { status: StageStatus; blockReason: StageBlockReason | null } | null;
   /** The host's latest user-wait marker: an approval, question or sign-off is open. */
   waitingOnUser: boolean;
 }
 
 export interface WorkPowerSnapshot {
-  /** Every turn the host still runs; `awaitingUser` while it is held on an approval or question. */
-  turns: ReadonlyArray<{ awaitingUser?: true }>;
+  /** Every turn the host still runs. */
+  turns: ReadonlyArray<PowerTurn>;
+  /** Turns waiting on a `stave_request_secret` card only a person can answer. */
+  secretWaitTurnIds: ReadonlySet<string>;
   runs: ReadonlyArray<PowerRun>;
   responsibilities: ReadonlyArray<{ state: TarsState }>;
   reasoning: boolean;
@@ -27,6 +35,12 @@ export interface WorkPowerSnapshot {
 
 /** Stages that stand until a person signs off, unblocks or retries them. */
 const PERSON_STAGES: ReadonlySet<StageStatus> = new Set(["awaiting-sign-off", "blocked", "stuck"]);
+
+/** A stage blocked only because Local MCP reporting dropped restarts by itself once it is back. */
+function stageWaitsForPerson(stage: PowerRun["stage"]): boolean {
+  if (!stage || !PERSON_STAGES.has(stage.status)) return false;
+  return !(stage.status === "blocked" && stage.blockReason === "reporting-unavailable");
+}
 
 /**
  * A running run works now or waits for an outside event Stave watches (PR
@@ -37,7 +51,7 @@ const PERSON_STAGES: ReadonlySet<StageStatus> = new Set(["awaiting-sign-off", "b
 function runKeepsAwake(run: PowerRun): boolean {
   if (run.waitingOnUser) return false;
   if (run.state === "paused") return run.pauseReason === "usage-limit" && Boolean(run.usageLimit);
-  return run.state === "running" && !(run.stageStatus && PERSON_STAGES.has(run.stageStatus));
+  return run.state === "running" && !stageWaitsForPerson(run.stage);
 }
 
 /**
@@ -45,25 +59,27 @@ function runKeepsAwake(run: PowerRun): boolean {
  * without a person; work that only waits for a person lets it sleep.
  */
 export function hasActivePowerWork(snapshot: WorkPowerSnapshot): boolean {
-  return snapshot.reasoning || snapshot.turns.some((turn) => !turn.awaitingUser) || snapshot.runs.some(runKeepsAwake) ||
+  return snapshot.reasoning ||
+    snapshot.turns.some((turn) => !turn.awaitingUser && !snapshot.secretWaitTurnIds.has(turn.turnId)) ||
+    snapshot.runs.some(runKeepsAwake) ||
     snapshot.responsibilities.some((row) => row.state === "preparing" || row.state === "running");
 }
 
-/** Reads one active run's power facts from the run store. */
+const USER_WAIT_KINDS = ["user-wait-started", "user-wait-ended"] as const satisfies readonly AgentRunEventKind[];
+
+/** Reads one active run's power facts: its current stage's latest attempt and its latest user-wait marker. */
 export function readPowerRun(store: {
-  getAggregate: (id: string) => AgentRunAggregate | null;
-  listEventsByKind: (id: string, kinds: readonly ["user-wait-started", "user-wait-ended"]) => AgentRunEvent[];
-}, id: string): PowerRun | null {
-  const aggregate = store.getAggregate(id);
-  if (!aggregate) return null;
-  const { agentRun } = aggregate;
+  getLatestStageRecord: (id: string, stageId: string) => Pick<AgentRunStageRecord, "status" | "blockReason"> | null;
+  latestEventKind: (id: string, kinds: typeof USER_WAIT_KINDS) => AgentRunEventKind | null;
+}, agentRun: Pick<AgentRun, "id" | "state" | "pauseReason" | "usageLimit" | "currentStageIndex" | "workflow">): PowerRun {
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex];
+  const record = stage ? store.getLatestStageRecord(agentRun.id, stage.id) : null;
   return {
     state: agentRun.state,
     pauseReason: agentRun.pauseReason,
     ...(agentRun.usageLimit ? { usageLimit: { resumeAt: agentRun.usageLimit.resumeAt } } : {}),
-    stageStatus: stage ? latestStageRecord(aggregate.stages, stage.id)?.status ?? null : null,
-    waitingOnUser: store.listEventsByKind(id, ["user-wait-started", "user-wait-ended"]).at(-1)?.kind === "user-wait-started",
+    stage: record ? { status: record.status, blockReason: record.blockReason } : null,
+    waitingOnUser: store.latestEventKind(agentRun.id, USER_WAIT_KINDS) === "user-wait-started",
   };
 }
 
@@ -88,19 +104,95 @@ export function createWorkPowerSaveController(blocker: {
   };
 }
 
-/** Subscribe before the first read so startup and reconnect cannot miss an active run. */
+/**
+ * How often main re-reads every source on its own. A change signal the host
+ * dropped under backlog is repaired within this, well inside macOS idle sleep.
+ */
+export const WORK_POWER_RESYNC_MS = 60_000;
+
+export interface WorkPowerSignals {
+  /** A hint that the host's live turns changed: read them again. */
+  turnsChanged: () => void;
+  runsChanged: () => void;
+  tarsChanged: () => void;
+  secretsChanged: () => void;
+  ready: () => void;
+  disconnected: () => void;
+}
+
+/**
+ * Keeps the blocker in step with the facts, never with the signals alone:
+ * live turns are pulled from the host on its handshake, on every hint and on
+ * a periodic resync, so a lost hint or a host restart heals itself. A host
+ * that disconnected or cannot answer contributes no turns.
+ */
 export function trackWorkPowerSave(deps: {
   blocker: Parameters<typeof createWorkPowerSaveController>[0];
-  read: () => WorkPowerSnapshot;
-  subscribe: (handlers: { changed: () => void; ready: () => void; disconnected: () => void }) => Array<() => void>;
+  readRuns: () => ReadonlyArray<PowerRun>;
+  readTars: () => Pick<WorkPowerSnapshot, "responsibilities" | "reasoning">;
+  readSecretWaitTurnIds: () => ReadonlySet<string>;
+  /** The host's live turns; null or a rejection when it cannot answer. */
+  pullTurns: () => Promise<ReadonlyArray<PowerTurn> | null>;
+  subscribe: (signals: WorkPowerSignals) => Array<() => void>;
+  every?: (callback: () => void, ms: number) => () => void;
 }) {
   const controller = createWorkPowerSaveController(deps.blocker);
+  // Durable runs may hold before the host's first handshake; turns cannot exist yet.
   let connected = true;
-  const refresh = () => { if (connected) controller.update(deps.read()); };
-  const unsubscribes = deps.subscribe({ changed: refresh,
-    ready: () => { connected = true; refresh(); },
-    disconnected: () => { connected = false; controller.dispose(); },
+  let hostReady = false;
+  let stopped = false;
+  let turns: ReadonlyArray<PowerTurn> = [];
+  let runs = deps.readRuns();
+  let tars = deps.readTars();
+  let hostGeneration = 0;
+  let pulling = false;
+  let pullAgain = false;
+
+  const refresh = () => {
+    if (stopped || !connected) return;
+    controller.update({ turns, secretWaitTurnIds: deps.readSecretWaitTurnIds(), runs, ...tars });
+  };
+  const pull = () => {
+    if (stopped || !hostReady) return;
+    if (pulling) { pullAgain = true; return; }
+    pulling = true;
+    const generation = hostGeneration;
+    void deps.pullTurns().catch(() => null).then((live) => {
+      pulling = false;
+      if (generation === hostGeneration) {
+        turns = live ?? [];
+        refresh();
+      }
+      if (pullAgain) { pullAgain = false; pull(); }
+    });
+  };
+  const resync = () => {
+    if (stopped || !connected) return;
+    runs = deps.readRuns();
+    tars = deps.readTars();
+    refresh();
+    pull();
+  };
+
+  const unsubscribes = deps.subscribe({
+    turnsChanged: pull,
+    runsChanged: () => { runs = deps.readRuns(); refresh(); },
+    tarsChanged: () => { tars = deps.readTars(); refresh(); },
+    secretsChanged: refresh,
+    ready: () => { connected = true; hostReady = true; hostGeneration += 1; turns = []; resync(); },
+    disconnected: () => { connected = false; hostReady = false; hostGeneration += 1; turns = []; controller.dispose(); },
   });
+  const every = deps.every ?? ((callback, ms) => {
+    const timer = setInterval(callback, ms);
+    timer.unref?.();
+    return () => clearInterval(timer);
+  });
+  const stopResync = every(resync, WORK_POWER_RESYNC_MS);
   refresh();
-  return () => { connected = false; for (const unsubscribe of unsubscribes) unsubscribe(); controller.dispose(); };
+  return () => {
+    stopped = true;
+    stopResync();
+    for (const unsubscribe of unsubscribes) unsubscribe();
+    controller.dispose();
+  };
 }

@@ -586,6 +586,26 @@ export class AgentRunStore {
     return parseEach(rows, parseEventRow, "run event");
   }
 
+  /** The newest attempt of one stage, or null before its first attempt. */
+  getLatestStageRecord(agentRunId: string, stageId: string): AgentRunStageRecord | null {
+    const row = this.db
+      .prepare("SELECT * FROM agent_run_stages WHERE agent_run_id = ? AND stage_id = ? ORDER BY attempt DESC LIMIT 1")
+      .get(agentRunId, stageId) as AgentRunStageRow | null | undefined;
+    return row ? parseStageRow(row) : null;
+  }
+
+  /** The newest event kind among `kinds` for one agent run, or null when it has none. */
+  latestEventKind(agentRunId: string, kinds: readonly AgentRunEventKind[]): AgentRunEventKind | null {
+    if (kinds.length === 0) return null;
+    const row = this.db
+      .prepare(
+        `SELECT kind FROM agent_run_events WHERE agent_run_id = ? AND kind IN (${kinds.map(() => "?").join(", ")})
+         ORDER BY sequence DESC LIMIT 1`,
+      )
+      .get(agentRunId, ...kinds) as { kind: string } | null | undefined;
+    return row ? (row.kind as AgentRunEventKind) : null;
+  }
+
   /** The newest event sequence of one agent run, leaving out `excludedKinds`; 0 when there is none. */
   latestEventSequence(agentRunId: string, excludedKinds: readonly AgentRunEventKind[] = []): number {
     const excluded = excludedKinds.length ? ` AND kind NOT IN (${excludedKinds.map(() => "?").join(", ")})` : "";
