@@ -258,7 +258,10 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
   ]);
 }
 
-function buildLatestTurnSummaryLine(info: WorkspaceInformationState) {
+function buildLatestTurnSummary(
+  info: WorkspaceInformationState,
+  currentTaskId: string,
+) {
   if (!info.turnSummary) {
     return null;
   }
@@ -269,7 +272,19 @@ function buildLatestTurnSummaryLine(info: WorkspaceInformationState) {
   ]
     .filter((value) => value.trim().length > 0)
     .join(" | ");
-  return line.trim().length > 0 ? truncateText(line) : null;
+  if (!line) {
+    return null;
+  }
+  const sourceTaskId = info.turnSummary.taskId?.trim();
+  // i18n-ignore: model-facing context metadata
+  let heading = "Latest turn summary";
+  if (sourceTaskId) {
+    heading +=
+      sourceTaskId === currentTaskId
+        ? " for the current task"
+        : " for another task in this workspace";
+  }
+  return `${heading}:\n- ${truncateText(line)}`;
 }
 
 // The plan-directory, plan-file and document conventions are not repeated
@@ -369,8 +384,9 @@ export function buildCurrentTaskAwarenessRetrievedContextParts(
   const workspaceInformationLines = buildWorkspaceInformationDetailLines(
     args.workspaceInformation,
   );
-  const latestTurnSummary = buildLatestTurnSummaryLine(
+  const latestTurnSummary = buildLatestTurnSummary(
     args.workspaceInformation,
+    args.taskId,
   );
 
   const parts: CanonicalRetrievedContextPart[] = [
@@ -406,7 +422,7 @@ export function buildCurrentTaskAwarenessRetrievedContextParts(
       sourceId: STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
       // i18n-ignore: model-facing context metadata and instructions
       title: "Latest Turn Summary",
-      content: `Latest turn summary:\n- ${latestTurnSummary}`,
+      content: latestTurnSummary,
     });
   }
 

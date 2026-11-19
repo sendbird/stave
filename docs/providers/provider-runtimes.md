@@ -723,7 +723,7 @@ funnel `buildLegacyPromptFromCanonicalRequest` — rather than at each builder.
 | `stave:current-task-awareness` | Project/workspace/task identity, other visible tasks            | Every turn, deduplicated when unchanged |
 | `stave:workspace-guidance`     | Workspace conventions, token-budget guidance, handoff procedure | First turn only                         |
 | `stave:workspace-information`  | The Information panel dump                                      | Every turn, deduplicated when unchanged |
-| `stave:latest-turn-summary`    | The Information panel's latest-turn recap                       | First turn only                         |
+| `stave:latest-turn-summary`    | Latest-turn recap with task origin when known                   | First turn only                         |
 
 Rules:
 
