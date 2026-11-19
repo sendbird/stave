@@ -162,10 +162,9 @@ saving changes.
 ### One-Time Schedules
 
 A schedule can also run once, at one date and time, instead of on a cadence.
-The editor has no control to create one; they are set up by asking Tars
-("tomorrow at 3 pm look at this again", see [Tars](tars.md#schedule-work)) or
-by an agent through the Local MCP tools, which may set `runOnceAt` (an instant
-in UTC) on a schedule's spec.
+The editor has no control to create one; they are set up by an agent through
+the Local MCP tools, which may set `runOnceAt` (an instant in UTC) on a
+schedule's spec.
 
 - Its row and detail read `Once on <date and time>` in local time.
 - It runs once at that instant, then turns itself off. A run missed while
@@ -175,14 +174,6 @@ in UTC) on a schedule's spec.
 - A one-time schedule whose time has passed cannot be turned on: `Edit` it
   first. The editor shows when it runs and offers `Repeat on a cadence
   instead`, which removes the one-time date so the cadence controls apply.
-
-### Schedules Tars Set Up
-
-A schedule created by asking Tars is an ordinary start-a-task schedule in this
-list: it runs in the `Guided` permission mode, one run at a time, and you can
-edit, pause, run or delete it here. Once you edit its name, prompt, cadence,
-workspace or permission mode here, Tars treats it as yours and no longer
-changes, pauses or removes it; turning it on or off here does not.
 
 ### Permission Modes
 

@@ -37,7 +37,6 @@ import { buildTarsInsightsFixtures } from "./tars-insights-fixtures";
 import { buildTarsStartRepositoryFixtures } from "./tars-start-fixtures";
 import { TARS_IDENTITY_UNSAVED_AT } from "@/lib/tars/default-instructions";
 import { buildTarsAwayFixtures, createPreviewAwayBridge, syncTarsAwayPreview, TARS_AWAY_PREVIEW_GAP_MS } from "./tars-away-fixtures";
-import { createPreviewScheduleBridge } from "./tars-schedule-fixtures";
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
@@ -223,10 +222,7 @@ export function TarsPreview() {
     /** With the away fixtures, every read first brings the saved state up to what has happened by now. */
     const syncAway = () => { if (away) { snapshot = syncTarsAwayPreview(away.fixtures, Date.now(), conversation, snapshot); saveConversation(); publishAttention(); } };
     syncAway();
-    // `schedules=true`: Tars sets up schedules against the page's own clock, and a timer fires them. `schedules=mine` starts with one the user made in Schedules.
     const changeListeners = new Set<(event: { scope: "snapshot" | "conversation" }) => void>();
-    const scheduling = params.get("schedules") ? createPreviewScheduleBridge({ storageKey: `${conversationKey}-schedules`, korean: params.get("lang") === "ko",
-      mode: params.get("schedules")!, conversation, changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }) : null;
     const conversationView = (): TarsConversation => ({ ...structuredClone(conversation), messages: conversation.messages.map((message) => tarsMessageView(structuredClone(message))) });
     // Clearing as the host does it; `retentionDays=N` starts with another retention period than the default.
     const clearing = createPreviewClearBridge({ storageKey: `${conversationKey}-view`, now,
@@ -317,8 +313,6 @@ export function TarsPreview() {
         setSnapshot: (next) => { snapshot = next; publishTarsSnapshot(structuredClone(next)); },
         changed: () => { saveConversation(); for (const listener of changeListeners) listener({ scope: "conversation" }); } }),
       ...(publishing ? { previewPublish: publishing.previewPublish, publish: publishing.publish } : {}),
-      // A fired schedule is announced as the host announces it, so the conversation reads again without a click.
-      ...(scheduling ? { ...scheduling.bridge, onChanged: (listener) => { changeListeners.add(listener); return () => { changeListeners.delete(listener); }; } } : {}),
       onChanged: (listener) => { changeListeners.add(listener); return () => { changeListeners.delete(listener); }; },
       reprioritize: async (input) => reprioritize(input),
       ...away?.bridge,
@@ -463,8 +457,6 @@ export function TarsPreview() {
             decision.reply = korean ? "정리 카드를 띄웠습니다. 확인하면 화면에서만 정리되고 삭제되는 것은 없습니다." : "Here is the clear card. Confirming hides these from view; nothing is deleted.";
             decision.actions.push({ kind: "clear", scopes: [...scopes] });
           }
-          // Asking for scheduled work proposes it: the card waits for the user's confirmation, as the host's proposal does.
-          scheduling?.decide(input.text, decision);
           if (params.get("receipt")) decision.actions.push({ kind: "delegate", workspaceId: "preview-workspace", title: "Check the review", instruction: "Review the current work.", acceptanceCriteria: ["The review is complete."], priority: 50 });
           const proposal = params.get("proposal");
           if (proposal === "resume" || proposal === "cancel" || proposal === "handBack")
@@ -502,10 +494,10 @@ export function TarsPreview() {
           conversation.messages.push(message);
           const proposed = decision.actions[0];
           // The host's own policy decides what waits: the saved autonomy level, tightened by any "never do" rule that names the action or the repository.
-          const key = proposed && proposed.kind !== "schedule" ? tarsActionKey(proposed) : null;
+          const key = proposed ? tarsActionKey(proposed) : null;
           const matches = key ? matchTarsNeverRules(conversation.settings.neverDo, { key, repository: "preview", branches: [] }) : [];
           const held = proposed?.kind === "bulkControl" || proposed?.kind === "cleanup" || proposed?.kind === "ask" || (key !== null && tarsActionDisposition({ key, level: conversation.settings.autonomy, matches }) === "confirm");
-          if (proposed && proposed.kind !== "inspect") conversation.receipts.push(scheduling && proposed.kind === "schedule" ? scheduling.receiptFor(proposed, message.id, 0, createdAt) : held
+          if (proposed && proposed.kind !== "inspect") conversation.receipts.push(held
             // Held actions wait for a confirming click; a question waits for its answer.
             ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null,
               ...(matches.length ? { matchedRules: matches } : {}), revision: 1, createdAt, updatedAt: createdAt }
@@ -537,8 +529,6 @@ export function TarsPreview() {
       getReviewDiff: async () => structuredClone(side.diff), getReviewFileDiff: async ({ path }: { path: string }) => side.fileDiff(path) } } : {}) } as typeof window.api;
     // "Show in Fleet" leaves this preview's only surface; record where it would land.
     useFleetFocusStore.subscribe(({ request }) => { if (request) document.documentElement.dataset.previewFleetFocus = `${request.workspaceId}/${request.taskId}`; });
-    // "Open Schedules" leaves this preview's only surface too; record the surface it asks for.
-    useAppStore.subscribe((state) => { document.documentElement.dataset.previewSurface = state.activeAppSurface.kind; });
     const empty = params.get("noRepositories") === "true";
     // The view mounts on Tars; Close leaves it (the view unmounts) and the reopen button below brings it back, as returning from a workspace would.
     useAppStore.getState().openTars();

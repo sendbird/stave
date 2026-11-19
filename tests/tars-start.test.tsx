@@ -9,6 +9,7 @@ import { TarsStart, TarsStartContext, type TarsStartInfo } from "../src/componen
 import { TarsConversation } from "../src/components/tars/TarsConversation";
 import type { TarsConversationState } from "../src/components/tars/use-tars-conversation";
 import { TarsDecisionActionSchema } from "../src/lib/tars/conversation";
+import { parseTarsDecisionOutput } from "../electron/main/tars-planner";
 import {
   buildTarsStartCounts, buildTarsStartGroups, listTarsStartRepositories, TARS_START_EXAMPLES, TARS_START_GROUPS, TARS_START_REPOSITORIES_MAX,
 } from "../src/lib/tars/start";
@@ -25,7 +26,7 @@ function work(id: string, overrides: Partial<TarsResponsibility> = {}): TarsResp
 }
 const tray = (rows: TarsResponsibility[], attention: Array<{ id: string; kind: string; tarsResponsibilityId: string }> = []) =>
   buildTarsTray({ responsibilities: rows, attentionItems: attention, runs: {} });
-const info = (overrides: Partial<TarsStartInfo> = {}): TarsStartInfo => ({ counts: [], onOpenCount() {}, repositories: ["web"], canPublish: true, canClear: true, canSchedule: true, ...overrides });
+const info = (overrides: Partial<TarsStartInfo> = {}): TarsStartInfo => ({ counts: [], onOpenCount() {}, repositories: ["web"], canPublish: true, canClear: true, ...overrides });
 const render = (value: TarsStartInfo, suggestions?: readonly Pick<TarsSuggestion, "kind">[]) =>
   renderToStaticMarkup(createElement(TarsStart, { name: "Tars", info: value, suggestions, onExample() {} }));
 const examplesIn = (html: string) => [...html.matchAll(/data-tars-start-example="([^"]+)"/g)].map((match) => match[1]!);
@@ -36,7 +37,7 @@ afterEach(async () => { applyAppLocale("en"); await i18n.changeLanguage("en"); }
 describe("start screen examples", () => {
   test("name only action kinds the planner's schema and prompt support, and every kind has an example", () => {
     const schemaKinds = [...new Set(TarsDecisionActionSchema.options.flatMap(option => "options" in option ? option.options : [option]).map((option) => (option as unknown as { shape: { kind: { value: string } } }).shape.kind.value))];
-    expect(schemaKinds.sort()).toEqual(["ask", "bulkControl", "cleanup", "clear", "control", "delegate", "inspect", "open", "publish", "reprioritize", "schedule", "show", "withdraw", "workspace"].sort());
+    expect(schemaKinds.sort()).toEqual(["ask", "bulkControl", "cleanup", "clear", "control", "delegate", "inspect", "open", "publish", "reprioritize", "show", "withdraw", "workspace"].sort());
     const offered = new Set(TARS_START_EXAMPLES.map((example) => example.action));
     for (const kind of offered) if (kind !== "reply") expect(schemaKinds).toContain(kind);
     // Withdrawal and host inspection are internal planner actions, not user-started examples.
@@ -49,15 +50,25 @@ describe("start screen examples", () => {
     for (const example of TARS_START_EXAMPLES) expect(TARS_START_GROUPS).toContain(example.group);
   });
 
+  test("Tars sets up no schedules: the planner is not offered the action, one it returns anyway is left out, and no example asks for it", () => {
+    const planner = readFileSync(new URL("../electron/main/tars-planner.ts", import.meta.url), "utf8");
+    expect(planner).not.toContain("{kind:'schedule'");
+    expect(planner).toContain("You cannot run work later or on a repeating schedule.");
+    const decision = parseTarsDecisionOutput(JSON.stringify({ reply: "Confirm on the card.", actions: [{ kind: "schedule", operation: "list" }] }));
+    expect(decision.actions).toEqual([]);
+    expect(decision.dropped).toMatchObject([{ index: 0, kind: null, reason: "invalid" }]);
+    expect(TARS_START_GROUPS).not.toContain("schedule" as never);
+    expect(TARS_START_EXAMPLES.map((example) => example.id)).not.toContain("schedule" as never);
+    expect(en.tars).not.toHaveProperty("schedule");
+    expect(ko.tars).not.toHaveProperty("schedule");
+  });
+
   test("leave out what cannot be done now: work without a repository, publishing and clearing without their bridge", () => {
     const ids = (args: Parameters<typeof buildTarsStartGroups>[0]) => buildTarsStartGroups(args).flatMap((group) => group.examples.map((example) => example.id));
-    expect(ids({ repositories: 2, canPublish: true, canClear: true, canSchedule: true })).toEqual(TARS_START_EXAMPLES.map((example) => example.id));
+    expect(ids({ repositories: 2, canPublish: true, canClear: true })).toEqual(TARS_START_EXAMPLES.map((example) => example.id));
     const none = buildTarsStartGroups({ repositories: 0, canPublish: false, canClear: false });
     expect(none.map((group) => group.id)).toEqual(["steer", "answer", "show"]);
     expect(none.flatMap((group) => group.examples.map((example) => example.action))).not.toContain("delegate");
-    // A schedule needs a bridge that sets them up and somewhere to run.
-    expect(ids({ repositories: 2, canPublish: true, canClear: true })).not.toContain("schedule");
-    expect(ids({ repositories: 0, canPublish: true, canClear: true, canSchedule: true })).not.toContain("schedule");
     // Unknown repositories hide nothing; a known zero does.
     expect(ids({ repositories: null, canPublish: false, canClear: false })).toContain("delegate");
   });
@@ -68,7 +79,7 @@ describe("start screen examples", () => {
     expect(suggestions.map((entry) => entry.kind)).toEqual(["needsYou", "blocked", "report", "progress"]);
     const shown = examplesIn(render(info(), suggestions));
     for (const id of ["status", "options", "report"]) expect(shown).not.toContain(id);
-    expect(shown).toEqual(["delegate", "schedule", "bulkControl", "pause", "workspace", "queue", "answerWaiting", "changes", "openScreen", "publish", "clearConversation", "clearDone", "cleanup"]);
+    expect(shown).toEqual(["delegate", "bulkControl", "pause", "workspace", "queue", "answerWaiting", "changes", "openScreen", "publish", "clearConversation", "clearDone", "cleanup"]);
     // Without chips every example is back.
     expect(examplesIn(render(info()))).toEqual(TARS_START_EXAMPLES.map((example) => example.id));
     // No start example and chip put the same words in the message box.

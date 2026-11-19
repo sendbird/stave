@@ -28,7 +28,6 @@ import { tarsWorkAttachmentsOf } from "../../src/lib/tars/work-attachments";
 import { TARS_ASSIGNMENT_MAX_CHARS, type TarsWorkingChanges } from "../../src/lib/tars/types";
 import { tarsFollowUpRefusal } from "./tars-follow-up-admission";
 import { tarsPublishProposalRefusal } from "./tars-publish";
-import { tarsScheduleProposalRequestId, type TarsScheduleAction, type TarsScheduleReason } from "../../src/lib/tars/schedules";
 
 /** What admission asks the host to snapshot for a message that included the user's working changes. */
 export interface TarsWorkingChangesRequest {
@@ -70,12 +69,6 @@ export interface TarsDecisionPorts {
    * than silently started from the branch.
    */
   snapshotWorkingChanges?: (request: TarsWorkingChangesRequest) => Promise<TarsWorkingChanges>;
-  /**
-   * Why a schedule proposal cannot wait for the user's confirmation, or null
-   * (`createTarsScheduler().proposalRefusal`). Absent, this host sets up no
-   * schedules and every schedule change is refused.
-   */
-  scheduleRefusal?: (action: TarsScheduleAction, requestId: string) => Promise<{ reason: TarsScheduleReason; error: string } | null>;
   /** Current run budget, read from the host ledger rather than the planner's observation. */
   readRunBudget?: (agentRunId: string) => { maxTurns: number } | null;
   /** The same guarded draft publication path as a confirmed card. */
@@ -148,8 +141,7 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
     return { repositoryPath: row?.repositoryPath, repository: tarsRepositoryName(row?.repositoryPath), branches: [row?.branchName] };
   };
   return (action: TarsDecisionAction, registry?: PersistenceRepositoryRegistryEntry[]): { confirm: boolean; matches: TarsNeverRuleMatch[] } => {
-    // A schedule change is outside the level's table: it always waits for the user's confirmation on its card.
-    const key = action.kind === "schedule" ? null : tarsActionKey(action);
+    const key = tarsActionKey(action);
     if (!key) return { confirm: true, matches: [] };
     const row = "responsibilityId" in action ? ports.responsibilities.get(action.responsibilityId) : null;
     // Allow rules use an owned responsibility's path. Delegation and workspace edits
@@ -434,20 +426,6 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision, { status: "proposed" }, now()));
         continue;
       }
-      if (action.kind === "schedule") {
-        // Listing only opens the list beside the conversation: it changes nothing and belongs to no responsibility.
-        if (action.operation === "list") {
-          receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision, { status: "applied", responsibilityId: null }, now()));
-          continue;
-        }
-        // A schedule is never created, changed or removed from words: the proposal waits for the user's
-        // confirmation on its card, which checks everything again. One that could never apply is refused now.
-        const refusal = ports.scheduleRefusal ? await ports.scheduleRefusal(action, tarsScheduleProposalRequestId(message.id, index))
-          : { reason: "unknown" as const, error: "This host cannot set up schedules." };
-        receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
-          refusal ? { status: "rejected", ...refusal } : { status: "proposed" }, now()));
-        continue;
-      }
       if (action.kind === "delegate" || action.kind === "reprioritize") {
         receipts.push(await admitTarsWork(ports, message, index, action, workingChangesFor, {
           apply: (effect) => ports.conversations.applyReceipt(message.id, index, intent.revision, effect, now()),
@@ -493,7 +471,7 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
     throw isTarsStorageBusy(error) ? new TarsStorageBusyError() : error;
   } finally {
     // Retried applied receipts also wake the queue after a lost acknowledgement.
-    // An opened view or list changes no work, so it never wakes the queue.
-    if (receipts.some((receipt) => receipt.status === "applied" && receipt.action.kind !== "show" && receipt.action.kind !== "open" && receipt.action.kind !== "schedule" && receipt.action.kind !== "workspace")) ports.requestTick();
+    // An opened view changes no work, so it never wakes the queue.
+    if (receipts.some((receipt) => receipt.status === "applied" && receipt.action.kind !== "show" && receipt.action.kind !== "open" && receipt.action.kind !== "workspace")) ports.requestTick();
   }
 }

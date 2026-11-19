@@ -48,6 +48,19 @@
       "tests": [
         "tests/retired-task-checkpoints.test.ts"
       ]
+    },
+    {
+      "id": "drop-retired-tars-schedule-actions",
+      "description": "Tars schedules were removed after 0.35.2. Opening the Tars conversation removes the schedule actions saved replies carry, with their receipts; the reply's words and its other actions stay. The action left the conversation contract, so a reply that kept one could not be read and the whole conversation would fail to load. It reads first and writes only when it finds one. At expiry, delete the marked blocks and the listed test; a profile that skipped these releases and has such a reply cannot open its Tars conversation. The tars_schedules, tars_schedule_requests and tars_schedule_runs tables are left in place and nothing reads them.",
+      "introducedAfter": "0.35.2",
+      "removeInVersion": "0.38.0",
+      "files": [
+        "electron/persistence/retired-tars-schedule-actions.ts",
+        "electron/persistence/tars-conversation-store.ts"
+      ],
+      "tests": [
+        "tests/retired-tars-schedule-actions.test.ts"
+      ]
     }
   ]
 }

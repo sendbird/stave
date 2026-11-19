@@ -38,8 +38,7 @@ function useDescription(entry: TarsActivityEntry) {
     : action.kind === "reprioritize" ? t("shell:tars.record.reprioritize", { priority: action.priority })
     : action.kind === "ask" ? action.question
     : action.kind === "withdraw" ? t("shell:tars.decision.withdraw.lead")
-    : action.kind === "publish" ? t("shell:tars.record.publish")
-    : action.kind === "schedule" ? t(`shell:tars.schedule.operation.${action.operation}`) : t("shell:tars.record.clear");
+    : action.kind === "publish" ? t("shell:tars.record.publish") : t("shell:tars.record.clear");
   const status = content.status === "undone" ? t("shell:tars.record.undo.done")
     : content.status === "proposed" ? t("shell:tars.conversation.receipts.proposed")
     : t(`shell:tars.record.status.${content.status}`);

@@ -8,9 +8,9 @@ import { automationScheduleRow } from "@/lib/schedule-rows";
 import { automationToDraft } from "@/components/layout/automation-center/automation-center.utils";
 
 /**
- * One-time schedules, created under a caller's id, and the saved-state
- * listener, in the Schedules service itself: the real scheduler over an
- * in-memory state, with a fake clock, interval and task runner.
+ * One-time schedules, created under a caller's id, in the Schedules service
+ * itself: the real scheduler over an in-memory state, with a fake clock,
+ * interval and task runner.
  */
 
 const START = "2026-11-10T08:00:00.000Z";
@@ -27,7 +27,6 @@ function harness() {
   let now = new Date(START);
   let tick: (() => Promise<void>) | null = null;
   const runs: unknown[] = [];
-  const saved: AutomationState[] = [];
   let active = true;
   const runtime = createAutomationRuntime({
     persistence: { loadAutomationState: () => structuredClone(state), saveAutomationState: ({ state: next }) => { state = structuredClone(next); },
@@ -36,13 +35,12 @@ function harness() {
     getTaskStatus: async ({ workspaceId, taskId }) => ({ workspaceId, taskId, activeTurnId: active ? "turn-1" : null, latestTurnId: "turn-1",
       latestTurnCompletedAt: active ? null : now.toISOString(), latestTurnError: null, latestAssistantText: null, pendingApprovals: [], pendingUserInputs: [] }),
     getWorkspaceInformation: async () => { throw new Error("not used"); },
-    onStateSaved: (next) => { saved.push(next); },
     now: () => new Date(now),
     setInterval: ((callback: () => Promise<void>) => { tick = callback; return 1; }) as unknown as typeof globalThis.setInterval,
     clearInterval: (() => { tick = null; }) as typeof globalThis.clearInterval,
   });
   runtime.start();
-  return { runtime, runs, saved, state: () => state, setNow: (value: string) => { now = new Date(value); }, finish: () => { active = false; }, tick: async () => { await tick?.(); } };
+  return { runtime, runs, state: () => state, setNow: (value: string) => { now = new Date(value); }, finish: () => { active = false; }, tick: async () => { await tick?.(); } };
 }
 
 describe("one-time schedules in the Schedules service", () => {
@@ -127,29 +125,6 @@ describe("a schedule created under a caller's id", () => {
     // Without an id every create is a new schedule, as before.
     await h.runtime.create(input());
     expect(h.state().automations).toHaveLength(2);
-  });
-});
-
-describe("the saved-state listener", () => {
-  test("hears every committed change, and a listener that throws never stops the scheduler", async () => {
-    let state: AutomationState = createEmptyAutomationState();
-    const runtime = createAutomationRuntime({
-      persistence: { loadAutomationState: () => structuredClone(state), saveAutomationState: ({ state: next }) => { state = structuredClone(next); },
-        loadAutomationProviderTimeoutMs: () => null, saveAutomationProviderTimeoutMs: () => undefined, completeTurn: () => undefined },
-      runTask: async () => { throw new Error("not used"); }, getTaskStatus: async () => { throw new Error("not used"); },
-      getWorkspaceInformation: async () => { throw new Error("not used"); },
-      onStateSaved: () => { throw new Error("listener failed"); },
-    });
-    const error = console.error;
-    console.error = () => undefined;
-    try { expect(await runtime.create(input({ enabled: false }))).toMatchObject({ name: "Look at this again" }); }
-    finally { console.error = error; }
-    expect(state.automations).toHaveLength(1);
-
-    const h = harness();
-    const created = await h.runtime.create(input({ enabled: false }));
-    await h.runtime.setEnabled({ id: created.id, enabled: true });
-    expect(h.saved.map((entry) => entry.automations[0]?.enabled)).toEqual([false, true]);
   });
 });
 

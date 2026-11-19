@@ -792,7 +792,7 @@ export function AutomationEditor(props: {
           </section>
 
           {props.draft.runOnceAt !== undefined ? (
-            // A one-time schedule (one Tars or a Local MCP agent set up) has no cadence to edit: it says when it runs and offers to repeat instead.
+            // A one-time schedule (one a Local MCP agent set up) has no cadence to edit: it says when it runs and offers to repeat instead.
             <section className={sx(editorStyles.section)} data-automation-run-once="">
               <SectionHeading
                 title={tI18n("automation:automationEditor.when")}

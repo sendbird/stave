@@ -21,8 +21,6 @@ export function tarsFollowUpRefusal(action: TarsDecisionAction, origin: FollowUp
   if (action.kind === "publish") return null;
   // Clearing hides what the user may want to read; only their own words propose it.
   if (action.kind === "clear") return "An automatic follow-up cannot propose clearing; only the user's own request can.";
-  // A schedule makes work start by itself later; only the user's own words set one up, change one or list them.
-  if (action.kind === "schedule") return "An automatic follow-up cannot propose or change a schedule; only the user's own request can.";
   const ci = origin.reason === "ciFailed" && responsibilities.get(origin.responsibilityId)?.publication?.checks?.state === "failed";
   const review = origin.reason === "prChangesRequested";
   if (review && action.kind === "control") {

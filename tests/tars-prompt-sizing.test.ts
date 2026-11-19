@@ -85,7 +85,6 @@ test("planner keeps authority and catalog ahead of message and live inspection d
   const { planner, plannerContext, message, history } = fixture;
   before(planner, '"availableAgents":', '"currentMessage":');
   before(planner, '"preferences":', '"inspections":');
-  before(planner, '"availableAgents":', '"clock":');
   const final = buildTarsPlannerPrompt(message, { ...plannerContext, inspectionRound: 2 }, history);
   before(final, "The user set your autonomy level", "This is the FINAL round");
   expect(prefixLength(planner, final)).toBeGreaterThan(28_000);

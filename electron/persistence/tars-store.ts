@@ -25,7 +25,6 @@ import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { TarsEventInbox } from "./tars-event-inbox";
 import { classifyTarsTransition, type TarsEvent, type TarsEventInput } from "../../src/lib/tars/events";
 import { readTarsTrayCleared, TarsViewStore } from "./tars-view-store";
-import { TarsScheduleStore } from "./tars-schedule-store";
 import { TARS_IDENTITY_UNSAVED_AT } from "../../src/lib/tars/default-instructions";
 
 interface TarsDatabase {
@@ -55,8 +54,6 @@ export class TarsStore {
   readonly events: TarsEventInbox;
   /** Clears and view settings on this same connection; they report through this store's changes. */
   readonly view: TarsViewStore;
-  /** The schedules Tars created, their confirmations and their runs, on this same connection. */
-  readonly schedules: TarsScheduleStore;
   /** The clock the snapshot reads the follow-up window with; tests pass their own. */
   private readonly now: () => string;
 
@@ -88,7 +85,6 @@ export class TarsStore {
       .run(JSON.stringify({ id: "personal", name: "Tars", instructions: "", updatedAt: TARS_IDENTITY_UNSAVED_AT }));
     this.events = new TarsEventInbox(this.db, this.changes);
     this.view = new TarsViewStore(this.db, this.changes);
-    this.schedules = new TarsScheduleStore(this.db, this.changes);
   }
 
   /** Records an observation that is not a saved change (an expired wait); idempotent by its key. */

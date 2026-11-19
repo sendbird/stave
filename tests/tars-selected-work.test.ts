@@ -248,7 +248,6 @@ test("every action kind stays on the selected work or is refused before admissio
     [{ kind: "cleanup", scope: { kind: "ids", ids: [work.id, "other"] }, deleteBranches: false, permanentlyDeleteArchived: false }, "targetMismatch"],
     [{ kind: "cleanup", scope: { kind: "repository", repositoryPath: "/tmp/project" }, deleteBranches: false, permanentlyDeleteArchived: false }, "targetMismatch"],
     [{ kind: "clear", scopes: ["conversation"] }, "targetMismatch"],
-    [{ kind: "schedule", operation: "list" }, "targetMismatch"],
     [{ kind: "delegate", workspaceId: "source", title: "New", instruction: "Do it", acceptanceCriteria: ["Done"], priority: 50 }, "targetMismatch"],
     [{ kind: "withdraw", decisionId: "confirm:m1:0" }, null, pauseSelected],
     [{ kind: "withdraw", decisionId: "ask:m1:0" }, "targetMismatch", ask("other")],
@@ -276,9 +275,8 @@ test("the host keeps newer action kinds on the selected work and leaves unselect
       { kind: "workspace", workspaceId: "source", operation: "addTodo", text: "Check" },
       { kind: "bulkControl", operation: "pause", scope: { kind: "all" } },
       { kind: "cleanup", scope: { kind: "ids", ids: [row.id] }, deleteBranches: false, permanentlyDeleteArchived: false },
-      { kind: "clear", scopes: ["conversation"] },
-      { kind: "schedule", operation: "list" }])).toEqual([
-      ["applied", null], ["rejected", "targetMismatch"], ["rejected", "targetMismatch"], ["proposed", null], ["rejected", "targetMismatch"], ["rejected", "targetMismatch"],
+      { kind: "clear", scopes: ["conversation"] }])).toEqual([
+      ["applied", null], ["rejected", "targetMismatch"], ["rejected", "targetMismatch"], ["proposed", null], ["rejected", "targetMismatch"],
     ]);
     expect(await send("open-other", [{ kind: "open", target: "task", id: other.taskId! }])).toEqual([["rejected", "targetMismatch"]]);
     expect(await send("open-fleet", [{ kind: "open", target: "fleet" }])).toEqual([["rejected", "targetMismatch"]]);

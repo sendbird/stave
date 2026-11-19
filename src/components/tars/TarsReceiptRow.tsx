@@ -6,7 +6,6 @@ import { formatList } from "@/i18n/format";
 import type { TarsActionReceipt, TarsActionRecord } from "@/lib/tars/conversation";
 import { tarsControlReasonKey, tarsDelegateReasonKey } from "@/lib/tars/control-reasons";
 import { TarsPublishReasonSchema } from "@/lib/tars/publication";
-import { tarsScheduleReasonKey } from "@/lib/tars/schedule-view";
 import { TarsRecordChip, TarsRecordDetail, TarsRecordRow, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
 
 /** A receipt's refusal key: a translated code when the host gave one; null keeps its diagnostic. */
@@ -15,7 +14,6 @@ export function tarsReceiptRefusalKey(receipt: TarsActionReceipt) {
   if (selection.success) return `shell:tars.selection.refusal.${selection.data}` as const;
   // An automatic follow-up's refusal reads the same for every kind of action.
   if (receipt.action.kind === "publish") { const parsed = TarsPublishReasonSchema.safeParse(receipt.reason); return `shell:tars.publish.reason.${parsed.success ? parsed.data : "unknown"}` as const; }
-  if (receipt.action.kind === "schedule") return tarsScheduleReasonKey(receipt.reason);
   if (receipt.reason === "notByFollowUp" || receipt.action.kind === "control" || receipt.action.kind === "ask" || receipt.action.kind === "show" || receipt.action.kind === "open"
     || receipt.action.kind === "clear" || receipt.action.kind === "withdraw") return tarsControlReasonKey(receipt.reason);
   return receipt.action.kind === "delegate" ? tarsDelegateReasonKey(receipt.reason) : null;
@@ -28,7 +26,6 @@ export function tarsReceiptStatusKey(receipt: Pick<TarsActionReceipt, "status" |
   if (receipt.status !== "applied") return `shell:tars.conversation.receipts.${receipt.status}` as const;
   const { action } = receipt;
   if (action.kind === "workspace") return "shell:tars.conversation.receipts.appliedAction.workspace" as const;
-  if (action.kind === "schedule") return `shell:tars.conversation.receipts.appliedAction.${action.operation === "list" ? "scheduleList" : "schedule"}` as const;
   return `shell:tars.conversation.receipts.appliedAction.${action.kind === "control" ? action.operation : action.kind}` as const;
 }
 
@@ -59,7 +56,6 @@ export function TarsReceiptRow({ receipt, titleOf, agentNameOf, record, workspac
         : action.kind === "show" ? [t(`shell:tars.record.show.${action.view}`), null, work(action.responsibilityId)]
           : action.kind === "publish" ? [t("shell:tars.record.publish"), null, work(action.responsibilityId)]
             : action.kind === "clear" ? [t("shell:tars.record.clear"), formatList(action.scopes.map((scope) => t(`shell:tars.clear.scope.${scope}`))), null]
-            : action.kind === "schedule" ? [t(`shell:tars.schedule.operation.${action.operation}`), action.title ?? null, null]
             : action.kind === "cleanup" || action.kind === "bulkControl" ? [t("shell:tars.batch.entry"), null, null]
             : action.kind === "withdraw" ? [t("shell:tars.decision.withdraw.lead"), t(`shell:tars.decision.withdraw.subject.${action.decisionId.startsWith("ask:") ? "ask" : "confirm"}`), null]
               : [t("shell:tars.record.reprioritize", { priority: action.priority }), null, work(action.responsibilityId)];

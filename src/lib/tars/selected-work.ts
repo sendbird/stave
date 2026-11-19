@@ -12,8 +12,8 @@ export type TarsWorkTarget = z.infer<typeof TarsWorkTargetSchema>;
 export type TarsSelectedWork = Pick<TarsResponsibility, "id" | "taskId" | "executionWorkspaceId">;
 
 /**
- * Whether an action stays on the selected work. New work, schedules, clearing
- * and batch operations beyond that one item reach past it, so they never do.
+ * Whether an action stays on the selected work. New work, clearing and batch
+ * operations beyond that one item reach past it, so they never do.
  * `withdrawn` is the earlier decision a withdraw would close.
  */
 function staysOnSelectedWork(action: TarsDecisionAction, work: TarsSelectedWork, withdrawn: TarsDecisionAction | null): boolean {
@@ -30,7 +30,7 @@ function staysOnSelectedWork(action: TarsDecisionAction, work: TarsSelectedWork,
       return action.workspaceId === work.executionWorkspaceId;
     case "withdraw":
       return withdrawn !== null && withdrawn.kind !== "withdraw" && staysOnSelectedWork(withdrawn, work, null);
-    case "delegate": case "schedule": case "clear":
+    case "delegate": case "clear":
       return false;
   }
 }
