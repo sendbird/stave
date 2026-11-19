@@ -29,6 +29,7 @@ import {
   type StageStatus,
 } from "./domain";
 import { AGENT_RUN_PLAN_INSTRUCTION, hasAgentOrigin } from "./agent-run";
+import { agentRunTurnAssignment } from "./initial-context";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { currentEventWait, type AgentRunEventWait } from "./event-wait";
 import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckMode, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
@@ -221,7 +222,7 @@ export function compileAgentRunStagePrompt(
     ...(agentNames ? { agentNames } : {}),
     workflow: aggregate.agentRun.workflow,
     stageIndex: aggregate.agentRun.currentStageIndex,
-    assignment: aggregate.agentRun.assignment,
+    assignment: agentRunTurnAssignment(aggregate.agentRun),
     priorStages: collectPriorStageSummaries(aggregate),
     acceptanceCriteria: collectAcceptanceCriteria(aggregate),
     attempt: record.attempt,

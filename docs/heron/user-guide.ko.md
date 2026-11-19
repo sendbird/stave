@@ -432,6 +432,8 @@ edge run -> fleet dashed : 사람이 필요함
 워크플로가 없는 에이전트는 작업 단계 하나로 실행됩니다.
 단계는 AI 단계(지시와 완료 조건)이거나 Stave 동작입니다. Stave 동작은 초안 PR 열기(Open draft PR), 검사 감시(Watch checks), 리뷰 준비 전환(Ready for review), 스크립트 실행(Run script)입니다.
 
+에이전트 실행은 Claude 또는 Codex에서 시작합니다. 다른 프로바이더를 선택하면 초안을 유지하고 모델을 바꾸거나 채팅을 선택하라고 안내합니다. 긴 요청도 원문 전체를 실행에 보내고, 실행 기록의 작업 지시에는 처음 8,000자까지 저장합니다.
+
 ## 실행 상태
 
 ```diagram architecture "실행 배지 사이의 이동"

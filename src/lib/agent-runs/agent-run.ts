@@ -120,12 +120,17 @@ export function buildAgentRunStartInput(args: {
   const workflow = buildAgentRunWorkflow({ agent: args.agent, doneWhen: args.doneWhen, now: args.now });
   const authorizedEffectStageIds =
     workflow.checkIns === "when-stuck" ? workflow.stages.filter(stageHasExternalEffect).map((stage) => stage.id) : [];
+  const fullAssignment = args.assignment.trim();
+  const assignment = fullAssignment.slice(0, AGENT_RUN_LIMITS.maxAssignmentChars).trimEnd();
+  const initialContext = fullAssignment.length > AGENT_RUN_LIMITS.maxAssignmentChars
+    ? { ...args.initialContext, fullAssignment }
+    : args.initialContext;
   return {
     workspaceId: args.workspaceId,
     leadTaskId: args.taskId,
     workflow,
-    assignment: args.assignment.trim(),
-    ...(args.initialContext ? { initialContext: args.initialContext } : {}),
+    assignment,
+    ...(initialContext ? { initialContext } : {}),
     consent: { checkIns: workflow.checkIns, permissionMode: agentRunPermissionMode(args.agent.permission), authorizedEffectStageIds },
     origin: "agent",
     maxTurns: Math.min(args.agent.tools?.maxTurns ?? AGENT_RUN_LIMITS.defaultMaxTurns, AGENT_RUN_LIMITS.maxTurnsCeiling),
@@ -143,9 +148,10 @@ export function buildAgentRunAssignment(prompt: string, draft: Pick<PromptDraft,
 
 export type AgentPromptSendPlan =
   | { kind: "start-run" }
+  | { kind: "blocked"; reason: "provider" }
   | {
       kind: "plain-turn";
-      reason: "chat" | "run-active" | "turn-active" | "not-a-prompt" | "too-long" | "provider";
+      reason: "chat" | "run-active" | "turn-active" | "not-a-prompt";
     };
 
 /** The composer and send path count the same payload, including staged items. */
@@ -164,7 +170,7 @@ export function hasAgentPromptAttachments(
  *   continues after it ("a user turn always wins").
  * - Agent, a turn running, a queued item, a utility send: the composer's own
  *   queue and steer paths stay in charge.
- * - Agent, otherwise: start a run with the prompt as the assignment.
+ * - Agent, otherwise: start a run with the prompt or surface why it cannot start.
  */
 export function planAgentPromptSend(args: {
   taskRunsAsAgent: boolean;
@@ -209,9 +215,8 @@ export function planAgentPromptSendForFit(args: {
   }
   // Agent runs run on Claude and Codex tasks only.
   if (args.providerId !== "claude-code" && args.providerId !== "codex") {
-    return { kind: "plain-turn", reason: "provider" };
+    return { kind: "blocked", reason: "provider" };
   }
-  if (args.promptFit === "too-long") return { kind: "plain-turn", reason: "too-long" };
   return { kind: "start-run" };
 }
 

@@ -588,15 +588,17 @@ sample limits and examples of when each screen helps.
 
 ## Limitations And Advanced Options
 
-- Agent runs run on Claude and Codex tasks, one agent run per task at a time.
+- Agent runs use Claude or Codex, one run per task at a time. If the selected
+  model uses another provider, Stave keeps the draft and asks you to switch
+  models or choose Chat before sending.
+- Long requests reach the run in full. Run history keeps the first 8,000
+  characters as its assignment.
 - Before starting a run, Stave waits for its workspace changes to be saved and
   reads the current task state. If startup is refused or saving fails, the
   prompt is kept for retry and no ordinary turn is sent automatically.
-- When an Agent-mode message includes files, images or task/context attachments,
-  the composer explains before sending that it will run as a single turn and
-  automatic agent execution will not start. Attachments in staged prompt items
-  count too. Text-only Lens annotations keep the normal run path. Messages to an
-  already active run remain user turns that guide that run.
+- Saved file paths, images and context attachments can accompany a run,
+  including attachments in staged prompts. Messages to an active run remain
+  user turns that guide it.
 - An agent run uses the task's current model. If you change it, the agent run
   pauses until you accept the new runtime for the remaining stages.
 - Pull request stages use the GitHub CLI and watch every check reported for

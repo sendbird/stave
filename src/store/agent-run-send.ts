@@ -231,9 +231,9 @@ export function recoverUnsentAgentRunPrompt(
  * Decides synchronously whether this send starts an agent run, so a Chat send
  * keeps its synchronous path (the submitted draft is cleared before any await,
  * and a workspace switch cannot revive it). Returns null for a plain turn —
- * Chat, a run already active or starting, a turn running — or the start to
- * await (or a plain turn after hydration). The draft is cleared and drawn
- * as a pending row before the start is requested. A refused start restores the prompt and blocks the
+ * Chat, a run already active or starting, a turn running — or a start or refusal to await.
+ * The draft is cleared and drawn as a pending row before the start is requested.
+ * A refused start restores the prompt and blocks the
  * send, so work requested as a run never silently becomes a single turn.
  */
 export function prepareAgentRunForSend(
@@ -243,6 +243,7 @@ export function prepareAgentRunForSend(
   const agent = useAgentAssignmentsStore.getState().byTaskId[args.taskId];
   const activeBridge = bridge;
   const active = activeBridge?.activeAgentRun(args.workspaceId, args.taskId);
+  const assignment = buildAgentRunAssignment(args.prompt, args.promptDraft);
   const plan = planAgentPromptSend({
     taskRunsAsAgent: Boolean(agent),
     // A run still starting counts as active: its first prompt is on the way.
@@ -251,9 +252,16 @@ export function prepareAgentRunForSend(
     queued: args.queued,
     turnOrigin: args.turnOrigin,
     providerId: args.providerId,
-    prompt: buildAgentRunAssignment(args.prompt, args.promptDraft),
+    prompt: assignment,
   });
-  if (plan.kind !== "start-run" || !agent || !activeBridge) return null;
+  if (plan.kind === "plain-turn" || !agent) return null;
+  if (plan.kind === "blocked" || !activeBridge) return async () => {
+    const message = plan.kind === "blocked"
+      ? i18n.t("agentRuns:agentRunSend.unsupportedProvider")
+      : i18n.t("agentRuns:agentRunsStore.message");
+    toast.warning(i18n.t("agentRuns:agentRunSend.copy"), { description: message });
+    return { status: "blocked", message };
+  };
   const recoveryDraft: PromptDraft = structuredClone({ ...args.promptDraft, text: args.prompt });
   let submittedDraft: PromptDraft | undefined;
   if (!args.preservePromptDraft && !args.queued) {
@@ -298,7 +306,7 @@ export function prepareAgentRunForSend(
           taskId: args.taskId,
           agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns, permission: agent.agentPermission, tools: agent.agentTools,
             ...(agent.agentReviewBeforeDone ? { reviewBeforeDone: agent.agentReviewBeforeDone } : {}) },
-          assignment: buildAgentRunAssignment(args.prompt, args.promptDraft),
+          assignment,
           ...(args.resolveInitialContext ? { initialContext: await args.resolveInitialContext() } : {}),
           // The composer's pins as sent: the run freezes its team limits from them, not from a later edit.
           routingIntent: (() => {

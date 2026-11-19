@@ -1,8 +1,10 @@
 import { QuestionReplySchema } from "@/lib/question-reply";
 import { z } from "zod";
 
-/** A bounded snapshot captured at run start, replayed without resolving sources again. */
+/** A snapshot captured at run start, replayed without resolving sources again. */
 export const AgentRunInitialContextSchema = z.object({
+  /** The user request when it exceeds the assignment kept in Run history. */
+  fullAssignment: z.string().trim().min(1).optional(),
   questionReply: QuestionReplySchema.optional(),
   fileContexts: z.array(z.object({
     filePath: z.string().max(4096),
@@ -32,3 +34,7 @@ export const AgentRunInitialContextSchema = z.object({
 }).strict();
 
 export type AgentRunInitialContext = z.infer<typeof AgentRunInitialContextSchema>;
+
+export function agentRunTurnAssignment(run: { assignment: string; initialContext?: AgentRunInitialContext }): string {
+  return run.initialContext?.fullAssignment ?? run.assignment;
+}

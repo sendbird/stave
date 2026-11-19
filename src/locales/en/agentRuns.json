@@ -787,7 +787,8 @@
   "agentRunSend": {
     "copy": "The run did not start",
     "unsentReason": "The run ended before it started.",
-    "attachedFilePaths": "This Run inspects the attached file paths from disk under its existing permissions. Save editor changes first. Inline images and rich context attachments continue as a single turn."
+    "unsupportedProvider": "Agent runs need Claude or Codex. Switch models or choose Chat to send.",
+    "attachedFilePaths": "The run includes inline images and context attachments. Save any edits to attached files so the run can read them from disk."
   },
   "agentRunsStore": {
     "message": "Runs need the desktop app.",

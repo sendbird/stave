@@ -433,6 +433,8 @@ Fix | Fixes what the review found. A fix that changed files goes back to Review 
 An agent without a workflow runs a single Work stage.
 A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.
 
+An Agent send uses Claude or Codex. For another provider, Stave keeps the draft and asks you to switch models or choose Chat before sending. The run receives long requests in full and saves the first 8,000 characters as its assignment in Run history.
+
 ## Run states
 
 ```diagram architecture "Moving between run badges"

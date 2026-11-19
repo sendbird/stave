@@ -139,12 +139,9 @@ describe("agent run: send branching", () => {
     expect(planAgentPromptSend({ ...base, prompt: "   " }).kind).toBe("plain-turn");
   });
 
-  test("what a run cannot carry goes as a single turn", () => {
-    expect(planAgentPromptSend({ ...base, providerId: "cursor" })).toEqual({ kind: "plain-turn", reason: "provider" });
-    expect(planAgentPromptSend({ ...base, prompt: "x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars + 1) })).toEqual({
-      kind: "plain-turn",
-      reason: "too-long",
-    });
+  test("a long prompt still starts a run, and an unsupported provider blocks the send", () => {
+    expect(planAgentPromptSend({ ...base, providerId: "cursor" })).toEqual({ kind: "blocked", reason: "provider" });
+    expect(planAgentPromptSend({ ...base, prompt: "x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars + 1) })).toEqual({ kind: "start-run" });
   });
 });
 

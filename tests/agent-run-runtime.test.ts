@@ -3,7 +3,7 @@ import { workspaceScriptDefinitionHash } from "../electron/host-service/supervis
 import { currentProviderAccountId, withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { AgentRunListArgsSchema } from "../electron/main/ipc/agent-run-schemas";
+import { AgentRunListArgsSchema, AgentRunStartArgsSchema } from "../electron/main/ipc/agent-run-schemas";
 import { rememberAdaptiveCatalog, rememberAdaptiveQuota } from "../electron/providers/adaptive-observations";
 import type { AgentRunReplyComposer } from "../src/lib/agent-runs/adaptive-route";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
@@ -19,6 +19,7 @@ import type { AgentRunStageGrant } from "../electron/providers/agent-run-grants"
 import type { AgentRunChangedEvent } from "../src/lib/agent-runs/api";
 import { AGENT_RUN_CONTEXT_SOURCE_ID } from "../src/lib/agent-runs/briefing";
 import {
+  AGENT_RUN_LIMITS,
   createAgentRun,
   currentStageRecord,
   EMPTY_STAGE_FACTS,
@@ -859,6 +860,18 @@ describe("run runtime: failures and restarts", () => {
     await again.tick();
     expect(again.notifications).toEqual([]);
     expect(again.runCalls).toHaveLength(0);
+  });
+
+  test("the first supervised turn receives the full request while Run history keeps a bounded assignment", async () => {
+    const h = createHarness({ extra: { taskRunsAsAgent: () => true } });
+    const assignment = `${"x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars)} Do not lose the final instruction.`;
+    const start = buildAgentRunStartInput({
+      workspaceId: "ws-1", taskId: "task-1", agent: { name: "Implementer", checkIns: "when-stuck" }, assignment, now: new Date(START),
+    });
+    const id = await startedAgentRun(h, AgentRunStartArgsSchema.parse(start));
+    expect(h.aggregate(id).agentRun.assignment).toBe(assignment.slice(0, AGENT_RUN_LIMITS.maxAssignmentChars));
+    expect(h.runCalls[0]?.prompt).toContain(`## Assignment\n\n${assignment}`);
+    expect(h.runCalls[0]?.agentRunPrompt?.assignment).toBe(assignment);
   });
 
   test("a reply starting a Run keeps question provenance on its first turn only", async () => {
