@@ -184,9 +184,44 @@ starts one **Automatic follow-up** turn of its own to explain and advise. See
 [Automatic follow-up](#automatic-follow-up) for the exact rules.
 
 **Ownership.** Work Tars delegated is held by Tars and carries a **Tars**
-owner label in Fleet and on the task's run line. You can take it over at any
-time; from then on it is yours, Tars no longer watches or resumes it, and only
-an explicit **Hand back** returns it.
+owner label in Fleet and on the task's run line. You can continue in its task
+yourself (for example "implement it and open the PR"): the responsibility stays
+open and follows the task. On its next pass (within a few seconds) the work
+follows the run you started, which keeps your own permission; the work's state,
+report and outputs, including a pull request that run opened, follow it, and
+the earlier run stays in the work's history. This also applies after the work
+ended (completed or result ready). Tars only ever follows a run in the work's
+own task, in its execution workspace and repository.
+
+Tars **observes your run and does not act in it.** Everything Tars may do by
+itself was granted for the run it started: publishing for a pull request goal,
+answering ordinary questions, run controls (resume, extend, retry, message and
+the rest) and delivering queued follow-ups. None of it carries over to your
+run. If Tars thinks something should be done there, it asks on a decision card
+for that run, and only your confirmation applies it. A control is checked
+against the run and revision it was approved for just before it acts: when you
+started a newer run in the meantime it is refused and nothing happens. A
+follow-up waiting for Tars's run is never said to yours; it is marked not sent.
+Tars never treats its own check of your run as the goal reached. When your run
+produced what the goal asks for (a completed report; for a pull request goal, a
+pull request GitHub shows from the work's branch to the base Tars would
+publish to, both in the work's own repository (the execution workspace's
+`origin`: the same host, owner and name, so not a fork, another repository with
+the same branch names, or a repository of the same name on another GitHub
+server), whose head carries the branch's commits; merged, for a merge goal), the work is recorded as finished by you,
+with the pull request number, and the record says Tars did not verify it. Tars
+does not publish your run's work. Otherwise the work stays open and says your
+run ended without reaching the goal. When the repository cannot be determined
+or GitHub cannot be read, the work stays open. When the report links several
+pull requests, they are read newest mention first, at most ten, until one
+counts, so a closed or unrelated one never hides it; an open pull request is
+read again every few minutes until it is merged.
+
+Your explicit **Pause**, **Take over** and **Cancel** work as before. **Take
+over** (from the work's card, Fleet or the task), or releasing or changing the
+task's agent, makes the work yours; from then on Tars no longer watches or
+resumes it, and only an explicit **Hand back** returns it. Work you paused
+through Tars or cancelled is not followed.
 
 **Persistence and restart.** The conversation, settings, responsibilities,
 decisions and their records are saved. After a restart Tars reconnects to the
@@ -1591,8 +1626,10 @@ and never cancels its run:
 
 Once Tars has the work paused, **Stop** ends only your own in-flight turn: no
 Tars control is sent, nothing is recorded, and the paused run is kept. Tars
-holds a task through its own run: once Tars lost the task, a run you start
-there is yours everywhere (no **Tars** label, and Stop cancels it as before).
+holds a task through the work's run: a run you start there while Tars still
+holds the work becomes that run on Tars's next pass, which Tars then only
+observes (until then its controls act directly); once you took the work over, a run you start there is
+yours everywhere (no **Tars** label, and Stop cancels it as before).
 Before acting, a control reads ownership again, so it names the current
 revision and never misses newly delegated work. If ownership cannot be read
 and the last snapshot or the run's own Tars marker shows Tars holding the

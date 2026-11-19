@@ -214,11 +214,19 @@ export const TarsDetailCodeSchema = z.enum([
   "executionExists", "ownershipUnverified", "ownershipChanged", "taskUnavailable", "takenOverInTask",
   "admissionWithdrawn", "observationFailed", "unverifiedCompletion", "acceptedWithoutVerification", "workingChangesUnavailable",
   "runCancelled", "turnStartFailed", "dailyUsageLimit",
+  "followingUserRun", "userRunEnded", "finishedByUser",
 ]);
 export type TarsDetailCode = z.infer<typeof TarsDetailCodeSchema>;
 
-/** `reason`: the run's pause or stop reason for `runPaused` / `runStopped`, as the run records it. */
-export const TarsDetailParamsSchema = z.object({ reason: z.string().trim().min(1).max(80) }).strict();
+/**
+ * `reason`: the run's pause or stop reason for `runPaused` / `runStopped`, as
+ * the run records it. `pullRequest`: for `finishedByUser`, the number of the
+ * pull request Stave read as opened from the user's run.
+ */
+export const TarsDetailParamsSchema = z.object({
+  reason: z.string().trim().min(1).max(80).optional(),
+  pullRequest: z.number().int().min(1).optional(),
+}).strict();
 export type TarsDetailParams = z.infer<typeof TarsDetailParamsSchema>;
 
 /** Optional so rows saved before codes existed still parse; absent means free text. */
@@ -449,6 +457,12 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   executionPending: z.boolean().optional(),
   /** Earlier executions remain in the run store, including their reports and verification. */
   previousRunIds: z.array(IdSchema).optional(),
+  /**
+   * The run the user started in the work's task that the work then followed
+   * (`agentRunId` names it while the work observes it). Tars only observes
+   * such a run: every authority it holds was granted for the runs it started.
+   */
+  followedRunId: IdSchema.optional(),
   continuation: TarsContinuationSchema.optional(),
   /** Set by a hand-back: completion needs a final verification started at or after this time. */
   reverifyAfter: z.iso.datetime().nullable(),
@@ -527,7 +541,7 @@ export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   continuationFromRevision: true,
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
   priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
-  executionPending: true, resultVerifiedRunId: true, resultUnverifiedRunId: true, unchangedRunId: true, completionConfirmedAt: true, previousRunIds: true, continuation: true, publicationHistory: true,
+  executionPending: true, resultVerifiedRunId: true, resultUnverifiedRunId: true, unchangedRunId: true, completionConfirmedAt: true, previousRunIds: true, followedRunId: true, continuation: true, publicationHistory: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();
 export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSchema>;

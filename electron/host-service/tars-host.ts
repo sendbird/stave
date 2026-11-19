@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
+  tarsPullRequestReachesGoal, tarsReportedPullRequestUrls, tarsUserRunObservation, isTarsWorkPullRequest, type TarsUserPullRequest,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, TARS_OWNER_CALLABLE_AGENT_IDS, tarsAgentPublishes, tarsOwnerAgent } from "../../src/lib/tars/agents";
@@ -20,7 +21,7 @@ import { ensureHostServicePersistenceReady } from "./persistence";
 import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
 import {
-  assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
+  assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, tarsTaskRunToFollow, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
   TarsRunEndedError, TarsRunRefusedError, TarsStageChangedError, TarsTaskBusyError, tarsRunControlApplied, withTarsRunCommand,
 } from "./tars-ownership";
 import { isTarsStorageBusy } from "../persistence/tars-conversation-store";
@@ -33,18 +34,65 @@ import { runCommandArgs } from "../main/utils/command";
 import { hasTarsSnapshotCommit, releaseTarsWorkingChangesRef } from "./tars-working-changes";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 import { parseTarsRequestMessageId } from "../../src/lib/tars/brief";
+import { isTarsObservingUserRun } from "../../src/lib/tars/ownership";
+import { z } from "zod";
+
+/**
+ * How long a pull request read for the user's run stands before the next look,
+ * unless it found the pull request merged. With at most ten pull requests
+ * read per look (`tarsReportedPullRequestUrls`), that is at most 120 `gh`
+ * calls per user run per hour; a look usually ends at its first.
+ */
+const USER_PULL_REQUEST_RECHECK_MS = 5 * 60_000;
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
   assignments: AssignRuntime;
   /** Reports committed Tars writes so main can tell every renderer to read again. */
   emitChanged?: (event: TarsChangedEvent) => void;
+  /** Reads what GitHub says of a pull request (`readTarsPullRequest`); null when it cannot be read. */
+  readPullRequest?: (cwd: string, url: string) => Promise<TarsUserPullRequest | null>;
+  /** Reads the execution workspace's git facts (`tarsWorkBranch`); a failed read answers null or false. */
+  workBranch?: TarsWorkBranchReader;
 }) {
   const persistence = ensureHostServicePersistenceReady();
   if (args.emitChanged) {
     const notify = createTarsChangeBatcher((scope) => args.emitChanged!({ scope }));
     persistence.tars.onChange(notify);
     persistence.tarsConversations.onChange(notify);
+  }
+  const readPullRequest = args.readPullRequest ?? readTarsPullRequest;
+  const workBranch = args.workBranch ?? tarsWorkBranch;
+  const userPullRequests = new Map<string, { found: TarsUserPullRequest | null; at: number }>();
+  /**
+   * The pull request the user's ended run opened for the work: one its report
+   * links that GitHub says goes from the execution workspace's branch to the
+   * base Tars would publish to, both in the repository the workspace's origin
+   * names, and whose head carries the branch's commit. Read only for a pull
+   * request or merge goal; a repository that cannot be determined or a failed
+   * read finds none.
+   */
+  async function readUserPullRequest(row: TarsResponsibility, detail: { agentRun: { id: string; state: string }; report?: { links: { url: string }[] } | null }) {
+    if (detail.agentRun.state !== "completed" || (row.completionGoal !== "pullRequest" && row.completionGoal !== "merge")) return null;
+    const cached = userPullRequests.get(detail.agentRun.id);
+    if (cached && (cached.found?.state === "MERGED" || Date.now() - cached.at < USER_PULL_REQUEST_RECHECK_MS)) return cached.found;
+    const repository = (await tasks.listKnownRepositories()).find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath));
+    const execution = repository?.workspaces.find((workspace) => workspace.id === row.executionWorkspaceId);
+    const base = repository?.workspaces.find((workspace) => workspace.id === row.workspaceId)?.branch || repository?.defaultBranch || null;
+    let found: TarsUserPullRequest | null = null;
+    const urls = tarsReportedPullRequestUrls(detail as Parameters<typeof tarsReportedPullRequestUrls>[0]);
+    const origin = execution?.branch && base && urls.length ? await workBranch.origin(execution.path).catch(() => null) : null;
+    // Candidates are read newest mention first, one `gh` call each and at most
+    // ten per look, until one is the work's pull request in a state its goal
+    // asks for: a closed or unrelated one never hides the valid one after it.
+    if (execution?.branch && base && origin) for (const url of urls) {
+      const read = await readPullRequest(execution.path, url).catch(() => null);
+      if (!read || !tarsPullRequestReachesGoal(row.completionGoal, read.state)) continue;
+      if (!isTarsWorkPullRequest(read, { origin, branch: execution.branch, base })) continue;
+      if (await workBranch.contains(execution.path, execution.branch, read.headRefOid).catch(() => false)) { found = read; break; }
+    }
+    userPullRequests.set(detail.agentRun.id, { found, at: Date.now() });
+    return found;
   }
   function hasAssignment(row: TarsResponsibility) {
     return assertTarsAssignment(row, persistence.agentAssignments.getByTaskId(row.taskId!),
@@ -134,8 +182,8 @@ export function createHostTarsRuntime(args: {
     // i18n-ignore: durable model-facing scope identity, not a new user instruction
     workflow.purpose += `\nContinuation request: ${continuation.requestId}`;
     if (latest.id !== continuation.previousRunId) {
-      // Adopt only this exact scope, never an unrelated newer run on the same task.
-      assertTarsRun({ ...scope, agentRunId: latest.id }, latest);
+      // Adopt only this exact scope's own start, never an unrelated newer run on the same task.
+      assertTarsRun({ ...scope, agentRunId: null }, latest);
       if (latest.workflow.createdAt !== continuation.requestedAt || latest.workflow.purpose !== workflow.purpose) throw new TarsOwnershipLostError("Another execution owns this task.");
       return { task: null, scope, workflow, existingRunId: latest.id };
     }
@@ -223,6 +271,7 @@ export function createHostTarsRuntime(args: {
         ...(identity.instructions ? { standards: identity.instructions.slice(0, 8000) } : {}) });
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "The task's agent assignment was not recorded.");
     },
+    followTaskRun: (row) => tarsTaskRunToFollow(row, row.taskId ? persistence.agentRuns.getLatestAgentRunForTask(row.taskId) : null, hasAssignment),
     async findRun(row) {
       const run = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (run) assertTarsRun(row, run);
@@ -263,7 +312,9 @@ export function createHostTarsRuntime(args: {
       const detail = await args.agentRuns.get({ agentRunId: row.agentRunId });
       assertTarsRun(row, detail.agentRun);
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "This task's agent assignment is unavailable.");
-      const observation = tarsObservation(detail, tarsExecutionScope(row).acceptanceCriteria, row.reverifyAfter, row);
+      // A run the user started in the task is only observed: never verified against Tars's criteria or made Tars's result.
+      const observation = isTarsObservingUserRun(row) ? tarsUserRunObservation(detail, row, await readUserPullRequest(row, detail))
+        : tarsObservation(detail, tarsExecutionScope(row).acceptanceCriteria, row.reverifyAfter, row);
       // The requests themselves, bounded, so the user can answer them through Tars.
       const own = withRefs(snapshot.pendingRequests ?? [], row.executionWorkspaceId, row.taskId);
       const withRequests = (value: typeof observation, requests: readonly TarsPendingRequest[]) =>
@@ -436,6 +487,49 @@ export function createHostTarsRuntime(args: {
     onError: (error) => console.error("[tars] reconciliation failed", error),
   });
 }
+
+const TarsUserPullRequestSchema = z.object({ number: z.number().int().min(1), url: z.string().min(1).max(2_000), state: z.string().max(40),
+  baseRefName: z.string().max(300), headRefName: z.string().max(300), headRefOid: z.string().max(64), isCrossRepository: z.boolean(),
+  headRepository: z.object({ name: z.string().max(300) }).nullable(), headRepositoryOwner: z.object({ login: z.string().max(300) }).nullable() });
+
+/** Argument arrays only (`shell: false`) with prompts disabled; a timeout or failure reads as nothing found. */
+const TARS_READ_COMMAND_TIMEOUT_MS = 30_000;
+const readTarsCommand = (command: string, commandArgs: string[], cwd: string) => runCommandArgs({ command, commandArgs, cwd,
+  timeoutMs: TARS_READ_COMMAND_TIMEOUT_MS, env: { ...process.env, GH_PROMPT_DISABLED: "1", GIT_TERMINAL_PROMPT: "0" } });
+
+/** What GitHub says of one pull request, read in the work's execution workspace; null when it cannot be read. */
+async function readTarsPullRequest(cwd: string, url: string): Promise<TarsUserPullRequest | null> {
+  // The URL is a report link already checked to be an https pull request URL, so it is never read as an option.
+  if (!url.startsWith("https://")) return null;
+  const result = await readTarsCommand("gh", ["pr", "view", url,
+    "--json=number,url,state,baseRefName,headRefName,headRefOid,isCrossRepository,headRepository,headRepositoryOwner"], cwd);
+  if (!result.ok) return null;
+  try { return TarsUserPullRequestSchema.parse(JSON.parse(result.stdout ?? "")); } catch { return null; }
+}
+
+/** The execution workspace's git facts a user's pull request is checked against. */
+export interface TarsWorkBranchReader {
+  /** The workspace's `origin` remote URL; null when it cannot be read. */
+  origin(cwd: string): Promise<string | null>;
+  /** Whether `commit` is the work branch's commit or a descendant of it. */
+  contains(cwd: string, branch: string, commit: string): Promise<boolean>;
+}
+
+export const tarsWorkBranch: TarsWorkBranchReader = {
+  async origin(cwd) {
+    const result = await readTarsCommand("git", ["remote", "get-url", "origin"], cwd);
+    return result.ok && result.stdout?.trim() ? result.stdout.trim() : null;
+  },
+  async contains(cwd, branch, commit) {
+    if (!/^[0-9a-f]{40,64}$/.test(commit)) return false;
+    // A full ref name, so a branch name is never read as an option.
+    const head = await readTarsCommand("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`], cwd);
+    const sha = head.ok ? head.stdout?.trim() ?? "" : "";
+    if (!/^[0-9a-f]{40,64}$/.test(sha)) return false;
+    if (sha === commit) return true;
+    return (await readTarsCommand("git", ["merge-base", "--is-ancestor", sha, commit], cwd)).ok;
+  },
+};
 
 /** Long enough for commit hooks and a slow push; a command that hangs on a prompt still ends. */
 const TARS_PUBLISH_COMMAND_TIMEOUT_MS = 5 * 60_000;

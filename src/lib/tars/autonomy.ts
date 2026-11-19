@@ -1,5 +1,6 @@
 import { tarsCanUpdatePublication, tarsResultStanding } from "./publication";
 import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
+import { isTarsObservingUserRun } from "./ownership";
 import { z } from "zod";
 import type { TarsControlOperation, TarsResponsibility } from "./types";
 
@@ -94,7 +95,8 @@ export interface TarsActionContext {
   ownedQuestion?: boolean;
   allowRules?: readonly TarsAllowRule[];
   repositoryPath?: string | null;
-  responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "resultUnverifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> | null;
+  responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "resultUnverifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> &
+    Partial<Pick<TarsResponsibility, "followedRunId">> | null;
   extend?: { admittedMaxTurns: number; currentMaxTurns: number; additionalTurns?: number } | null;
 }
 
@@ -120,15 +122,21 @@ export function tarsCanAutoExtend(budget: TarsActionContext["extend"]): boolean 
  * run reported complete that Stave could not verify, whose pull request body says so (`tarsResultStanding`).
  */
 export function tarsCanAutoPublish(row: TarsActionContext["responsibility"]): boolean {
-  return Boolean(row && (row.completionGoal === "pullRequest" || row.completionGoal === "merge")
+  // The user's run is the user's work: no publication goal Tars was given covers it.
+  return Boolean(row && !isTarsObservingUserRun(row) && (row.completionGoal === "pullRequest" || row.completionGoal === "merge")
     && row.state === "resultReady" && tarsResultStanding(row) !== null
     && row.executionWorkspaceId && !row.executionPending && row.detailCode !== "acceptedWithoutVerification"
     && (row.publication?.state !== "opened" || tarsCanUpdatePublication(row)));
 }
 
-/** Both origins use the same policy; follow-up scope is separately enforced by host admission. Missing evidence asks first. */
+/**
+ * Both origins use the same policy; follow-up scope is separately enforced by host admission. Missing evidence asks first.
+ * On a run the user started in the work's task (`isTarsObservingUserRun`), Tars holds no authority: every act waits
+ * for the user's confirmation at every level and for every saved rule, except the user's own pause or takeover.
+ */
 export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | null | undefined,
-  _origin: TarsActionOrigin = "user", context: TarsActionContext = {}): TarsActionMode {
+  origin: TarsActionOrigin = "user", context: TarsActionContext = {}): TarsActionMode {
+  if (isTarsObservingUserRun(context.responsibility)) return origin === "user" && (key === "pause" || key === "takeover") ? "auto" : "confirm";
   const chosen = TarsAutonomyLevelSchema.safeParse(level).success ? level! : TARS_DEFAULT_AUTONOMY;
   if (key === "answer" && chosen !== "careful" && context.ownedQuestion) return "auto";
   if (TARS_ALWAYS_CONFIRMED.has(key)) return "confirm";

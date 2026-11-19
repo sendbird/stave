@@ -33,6 +33,9 @@ const DETAIL_KEYS = {
   workingChangesUnavailable: "shell:tars.detail.workingChangesUnavailable",
   runCancelled: "shell:tars.detail.runCancelled",
   turnStartFailed: "shell:tars.detail.turnStartFailed",
+  followingUserRun: "shell:tars.detail.followingUserRun",
+  userRunEnded: "shell:tars.detail.userRunEnded",
+  finishedByUser: "shell:tars.detail.finishedByUser",
 } as const satisfies Record<TarsDetailCode, I18nKey>;
 
 /** A run's own pause reason, more specific than the generic "paused" sentence. */
@@ -67,6 +70,8 @@ export function describeTarsResponsibilityDetail(row: TarsDetailFields): string 
   const code = TarsDetailCodeSchema.safeParse(row.detailCode);
   if (!code.success) return row.detail;
   const reason = row.detailParams?.reason;
+  const pullRequest = row.detailParams?.pullRequest;
+  if (code.data === "finishedByUser" && pullRequest) return i18n.t("shell:tars.detail.finishedByUserPullRequest", { number: pullRequest });
   const specific = code.data === "runPaused" ? reasonKey(PAUSE_REASON_KEYS, reason)
     : code.data === "runStopped" ? reasonKey(STOP_REASON_KEYS, reason) : null;
   return i18n.t(specific ?? DETAIL_KEYS[code.data]);

@@ -135,7 +135,8 @@ export class TarsStore {
     // Older completion records establish an execution result, not a requested goal.
     // Read conservatively without rewriting history or its idempotency hash.
     const external = saved.completionGoal === "pullRequest" || saved.completionGoal === "merge";
-    const accepted = !external && (saved.completionConfirmedAt || saved.detailCode === "acceptedWithoutVerification");
+    // Work the user finished in its task was judged against its goal when it was recorded (`tarsUserRunObservation`).
+    const accepted = saved.detailCode === "finishedByUser" || !external && (saved.completionConfirmedAt || saved.detailCode === "acceptedWithoutVerification");
     return saved.state === "completed" && !tarsGoalReached(saved) && !accepted ? { ...saved, state: "resultReady" } : saved;
   }
 

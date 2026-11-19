@@ -84,13 +84,39 @@ export function assertTarsAssignment(
   return true;
 }
 
-/** A same-task run is not necessarily the execution admitted for this responsibility. */
+/** Whether the run is in the delegated task, in its execution workspace and repository: never a run anywhere else. */
+function inDelegatedTask(row: TarsResponsibility, run: AgentRun) {
+  return Boolean(row.taskId && row.executionWorkspaceId) && run.leadTaskId === row.taskId && run.workspaceId === row.executionWorkspaceId &&
+    path.resolve(run.repositoryPath) === path.resolve(row.repositoryPath);
+}
+
+/**
+ * The work's run: always in the delegated task, its execution workspace and
+ * repository, and the run the responsibility saved (the one Tars started, or a
+ * newer one the user started in that task, `tarsTaskRunToFollow`, which Tars
+ * only observes: `isTarsObservingUserRun`).
+ * Before Tars saved its start (a lost acknowledgement), only a run its own
+ * start binding names (workflow and assignment) is Tars's.
+ */
 export function assertTarsRun(row: TarsResponsibility, run: AgentRun): void {
-  if (run.leadTaskId !== row.taskId || run.workspaceId !== row.executionWorkspaceId ||
-      path.resolve(run.repositoryPath) !== path.resolve(row.repositoryPath) ||
-      run.origin !== "agent" || run.workflow.id !== `tars-${row.id}` ||
-      run.assignment !== (row.continuation && run.id === row.continuation.previousRunId ? row.continuation.previousInstruction : tarsExecutionScope(row).instruction) || (row.agentRunId && row.agentRunId !== run.id))
+  if (!inDelegatedTask(row, run) || (row.agentRunId ? row.agentRunId !== run.id : run.origin !== "agent" || run.workflow.id !== `tars-${row.id}` ||
+      run.assignment !== (row.continuation && run.id === row.continuation.previousRunId ? row.continuation.previousInstruction : tarsExecutionScope(row).instruction)))
     throw new TarsOwnershipLostError("The owned run identity changed.");
+}
+
+/**
+ * The task's newest run when the user started it in the delegated task after
+ * the work's run, so the work follows it instead of losing track; null
+ * otherwise. Only that task in its own workspace and repository, only while
+ * the task still runs as Tars's assigned agent (releasing or reassigning it is
+ * the user taking the work), and never a run Tars started (its own start and
+ * continuations reconcile by their saved identity). The run keeps the
+ * permission the user started it with, and none of Tars's authority applies to it.
+ */
+export function tarsTaskRunToFollow(row: TarsResponsibility, latest: AgentRun | null, hasAssignment: (row: TarsResponsibility) => boolean): string | null {
+  if (!row.agentRunId || !latest || latest.id === row.agentRunId || row.previousRunIds?.includes(latest.id)) return null;
+  if (!inDelegatedTask(row, latest) || latest.workflow.id === `tars-${row.id}`) return null;
+  try { return hasAssignment(row) ? latest.id : null; } catch { return null; }
 }
 
 export function assertTarsControl(row: TarsResponsibility, run: AgentRun): void {

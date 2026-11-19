@@ -381,6 +381,129 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
   return { state: "running", detail: null };
 }
 
+/** What GitHub says of a pull request the user's run reports (`gh pr view`), as the host read it. */
+export interface TarsUserPullRequest {
+  number: number;
+  /** GitHub's own URL of the pull request, which names the repository it was opened in. */
+  url: string;
+  state: string;
+  baseRefName: string;
+  headRefName: string;
+  /** The commit the pull request's head points at. */
+  headRefOid: string;
+  /** True when the head branch lives in another repository (a fork). */
+  isCrossRepository: boolean;
+  headRepository: { name: string } | null;
+  headRepositoryOwner: { login: string } | null;
+}
+
+/** At most this many pull requests of one report are read on GitHub per look: one `gh` call each. */
+const TARS_REPORTED_PULL_REQUESTS_MAX = 10;
+
+/**
+ * The pull requests a run's report links, newest mention first: candidates the
+ * host reads on GitHub, never evidence by themselves. Each is listed once,
+ * however its link is written (letter case, or a suffix such as `/files`).
+ * The report lists a repeated link once, at its first mention, so the stages
+ * it is built from (same order: each stage's latest record, its action, then
+ * its artifacts) are read after it and a link's last mention decides.
+ */
+export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report"> & Partial<Pick<AgentRunDetail, "agentRun" | "stages">>): string[] {
+  if (!detail.report) return [];
+  const mentions = detail.report.links.map((link) => link.url);
+  for (const stage of detail.agentRun?.workflow.stages ?? []) {
+    const record = latestStageRecord(detail.stages ?? [], stage.id);
+    const action = record?.facts?.action;
+    if (action?.type === "open-draft-pr" || action?.type === "mark-pr-ready") mentions.push(action.prUrl);
+    if (record?.report?.outcome === "complete") mentions.push(...record.report.artifacts.map((artifact) => artifact.url));
+  }
+  const urls = new Map<string, string>();
+  for (const mention of mentions.reverse()) {
+    const url = /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?=[/?#]|$)/.exec(mention)?.[0];
+    if (url && !urls.has(url.toLowerCase())) urls.set(url.toLowerCase(), url);
+  }
+  return [...urls.values()].slice(0, TARS_REPORTED_PULL_REQUESTS_MAX);
+}
+
+/** Whether a pull request in this state is what the goal asks for: merged for a merge goal, open or merged otherwise. */
+export const tarsPullRequestReachesGoal = (goal: TarsResponsibility["completionGoal"], state: string) =>
+  goal === "merge" ? state === "MERGED" : state === "OPEN" || state === "MERGED";
+
+const REPOSITORY_PART = /^[A-Za-z0-9_.-]+$/;
+const HOST = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
+
+/**
+ * The host, owner and name of the repository a remote URL (ssh, scp-like or
+ * https, with optional user, port and `.git`) or a pull request URL names,
+ * lowercased; the port is not part of the host, so an ssh remote and an https
+ * pull request URL on one server name the same repository. Null when any part
+ * cannot be determined, such as for a local path.
+ */
+export function tarsRemoteRepository(remote: string): { host: string; owner: string; name: string } | null {
+  const trimmed = remote.trim();
+  const match = /^https:\/\/(?:[^@/]+@)?([^/:@]+)(?::\d+)?\/([^/]+)\/([^/]+)\/pull\/\d+(?:[/?#]|$)/i.exec(trimmed)
+    ?? /^(?:ssh|git\+ssh|ssh\+git|https?|git):\/\/(?:[^@/]+@)?([^/:@]+)(?::\d+)?\/([^/]+)\/([^/]+?)(?:\.git)?\/*$/i.exec(trimmed)
+    ?? /^(?:[^@/:]+@)?([^/:@]+):([^/]+)\/([^/]+?)(?:\.git)?\/*$/.exec(trimmed);
+  if (!match) return null;
+  const [host, owner, name] = [match[1]!.toLowerCase(), match[2]!, match[3]!];
+  if (!HOST.test(host) || !/[a-z]/.test(host) || !REPOSITORY_PART.test(owner) || !REPOSITORY_PART.test(name) || name === "." || name === "..") return null;
+  return { host, owner: owner.toLowerCase(), name: name.toLowerCase() };
+}
+
+/**
+ * Whether a pull request is the one the work asks for, as far as its names
+ * say: opened in the work's own repository (the execution workspace's
+ * origin: same host, owner and name), from the work's branch of that same repository (not a fork's
+ * branch of the same name), to the requested base. An origin that names no
+ * repository never matches. Whether it carries the work's commits is read
+ * separately against its head commit.
+ */
+export function isTarsWorkPullRequest(pullRequest: TarsUserPullRequest, work: { origin: string; branch: string; base: string }): boolean {
+  const repository = tarsRemoteRepository(work.origin);
+  const opened = tarsRemoteRepository(pullRequest.url);
+  if (!repository || !opened || opened.host !== repository.host || opened.owner !== repository.owner || opened.name !== repository.name) return false;
+  return !pullRequest.isCrossRepository && pullRequest.headRepositoryOwner?.login.toLowerCase() === repository.owner
+    && pullRequest.headRepository?.name.toLowerCase() === repository.name
+    && pullRequest.baseRefName === work.base && pullRequest.headRefName === work.branch && /^[0-9a-f]{40,64}$/.test(pullRequest.headRefOid);
+}
+
+/**
+ * A run the user started in the work's task, observed for the work. Tars
+ * holds no authority over it and never verifies it: its own acceptance
+ * criteria and verification are not applied, and its end never makes a result
+ * Tars could publish or complete. Running and waiting are said as observed.
+ * When it ends having produced what the work's goal asks for (for a pull
+ * request goal, `pullRequest`: one the host read open or merged from the
+ * work's branch to the requested base in the work's own repository, carrying
+ * the work's commits (`isTarsWorkPullRequest`); merged for a merge goal; otherwise a
+ * completed report), the work is finished by the user, which the record says
+ * without claiming Tars's verification. Otherwise the work stays open and
+ * says the user's run ended without reaching the goal.
+ */
+export function tarsUserRunObservation(detail: AgentRunDetail, goal: Pick<TarsResponsibility, "completionGoal">,
+  pullRequest: TarsUserPullRequest | null): TarsExecutionObservation {
+  const run = detail.agentRun;
+  if (run.state === "paused" && run.pauseReason === "taken-over") return { state: "takenOver", detail: run.reasonDetail ?? null };
+  if (run.state === "completed" || run.state === "cancelled" || run.state === "stopped") {
+    const external = goal.completionGoal === "pullRequest" || goal.completionGoal === "merge";
+    const finished = run.state === "completed" && (external
+      ? Boolean(pullRequest && tarsPullRequestReachesGoal(goal.completionGoal, pullRequest.state))
+      : detail.report?.outcome === "completed");
+    const unverified = { resultVerifiedRunId: null, resultUnverifiedRunId: null, unchangedRunId: null };
+    // i18n-ignore: persisted diagnostic; the interface translates the code
+    if (!finished) return { state: "blocked", detail: "Your run in this work's task ended without reaching the work's goal. Tars did not verify it.", detailCode: "userRunEnded", ...unverified };
+    return pullRequest && external
+      // i18n-ignore: persisted diagnostic; the interface translates the code
+      ? { state: "completed", detail: `You finished this work in its task: pull request #${pullRequest.number} (${pullRequest.url}) was opened from your run. Tars did not verify it.`,
+        detailCode: "finishedByUser", detailParams: { pullRequest: pullRequest.number }, ...unverified }
+      // i18n-ignore: persisted diagnostic; the interface translates the code
+      : { state: "completed", detail: "You finished this work in its task. Tars did not verify it.", detailCode: "finishedByUser", ...unverified };
+  }
+  const observed = tarsObservation(detail, undefined, null, goal);
+  // i18n-ignore: persisted diagnostic; the interface translates the code
+  return observed.state === "running" ? { ...observed, detail: "You continued this work in its task. Tars follows your run and acts on it only when you confirm.", detailCode: "followingUserRun" } : observed;
+}
+
 /** The run's own current stage attempt as a responsibility records it (`activeStage`). */
 export function tarsActiveStage(detail: Pick<AgentRunDetail, "agentRun" | "stages">): string {
   const record = currentStageRecord(detail);

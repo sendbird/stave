@@ -8,6 +8,7 @@ import { revisionsMatch, type WorkspaceRevision } from "../../src/lib/agent-runs
 import { buildTarsPublicationBody, TARS_UNVERIFIED_NOTE } from "../../src/lib/tars/publication-body";
 import type { TarsReportModel } from "../../src/lib/tars/report-model";
 import type { TarsResponsibility } from "../../src/lib/tars/types";
+import { isTarsObservingUserRun } from "../../src/lib/tars/ownership";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore, type TarsProposalRef } from "../persistence/tars-conversation-store";
 import type { TarsStore } from "../persistence/tars-store";
 
@@ -61,6 +62,8 @@ const refuse = (reason: TarsPublishReason, message: string): never => { throw ne
 export function admitTarsPublish(row: TarsResponsibility | null, request: { expectedRevision: number }): TarsResponsibility {
   if (!row) return refuse("notOwned", "The responsibility is not owned by the personal representative.");
   if (row.executionPending) refuse("inProgress", "A continuation is still being reconciled. Wait for its result.");
+  // No publication goal Tars was given covers a run the user started in the work's task.
+  if (isTarsObservingUserRun(row)) refuse("notOwned", "This is your own run in the work's task; Tars does not publish it. Publish it yourself if you want it.");
   if (row.state !== "completed" && row.state !== "resultReady") refuse("notCompleted", "Only verified execution results can be published.");
   if (row.state === "resultReady" && tarsResultStanding(row) === null)
     refuse("notVerified", "This restored result needs verification before publishing.");
