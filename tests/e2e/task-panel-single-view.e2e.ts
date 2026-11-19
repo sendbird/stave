@@ -10,6 +10,9 @@ import { expect, test, type Page } from "@playwright/test";
 const COPY = {
   en: {
     working: "Working",
+    onHold: "Waiting",
+    resumes: "Resumes on its own",
+    reviewRequest: "Review request",
     waiting: "Waiting for you",
     finished: "Finished",
     stopped: "Stopped",
@@ -25,6 +28,9 @@ const COPY = {
   },
   ko: {
     working: "작업 중",
+    onHold: "대기 중",
+    resumes: "자동으로 재개",
+    reviewRequest: "요청 보기",
     waiting: "사용자 확인 대기 중",
     finished: "완료",
     stopped: "중지됨",
@@ -91,10 +97,10 @@ for (const lang of ["en", "ko"] as const) {
     await expect(frame.getByRole("region", { name: copy.result })).toHaveCount(0);
     const details = frame.getByTestId("task-details");
     await expect(details).not.toHaveAttribute("open", "");
-    await expect(frame.getByText("bun test tests/users", { exact: false })).toBeHidden();
+    await expect(details.getByText("bun test tests/users", { exact: false })).toHaveCount(0);
     await details.locator("summary").click();
     await expect(details).toHaveAttribute("open", "");
-    await expect(frame.getByText("bun test tests/users", { exact: false }).first()).toBeVisible();
+    await expect(details.getByText("bun test tests/users", { exact: false }).first()).toBeVisible();
     // The run's stages are listed once: no badge row or stage track repeats the state.
     await expect(frame.getByTestId("agent-run-panel").locator("[data-stage-track]")).toHaveCount(0);
   });
@@ -116,5 +122,47 @@ for (const lang of ["en", "ko"] as const) {
     await frame.getByRole("button", { name: copy.latest }).click();
     await expect(frame.getByTestId("task-state-title")).toHaveCount(0);
     await expect(frame.getByTestId("task-state")).toContainText(copy.stopped);
+  });
+
+  test(`Working says on its line what the live turn runs now, cut to the rail (${lang})`, async ({ page }) => {
+    const frame = await open(page, `task=agent-run&lang=${lang}`);
+    const state = frame.getByTestId("task-state");
+    await expect(state).toContainText(copy.working);
+    await expect(state.getByTestId("task-state-activity")).toHaveText("Run command · bun test tests/users");
+    // One line: the words never wrap and never widen the rail.
+    const box = await state.boundingBox();
+    expect(box!.height).toBeLessThan(32);
+    expect(await frame.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  });
+
+  test(`a run waiting for its usage reset waits on nobody and says when it resumes (${lang})`, async ({ page }) => {
+    const frame = await open(page, `task=agent-run&run=usage-wait&lang=${lang}`);
+    const state = frame.getByTestId("task-state");
+    await expect(state).toHaveAttribute("data-task-state", "on-hold");
+    await expect(state).toContainText(copy.onHold);
+    await expect(state).not.toContainText(copy.working);
+    await expect(frame.getByRole("region", { name: copy.needs })).toHaveCount(0);
+    await expect(frame.getByRole("region", { name: copy.resumes })).toContainText(lang === "en" ? "Waiting for usage reset at" : "사용량 초기화를 기다립니다");
+  });
+
+  test(`an approval under an older open question shows and jumps to that approval (${lang})`, async ({ page }) => {
+    const frame = await open(page, `task=agent-run&older=question&lang=${lang}`);
+    const needs = frame.getByRole("region", { name: copy.needs });
+    await expect(needs).toContainText("Run the database migration");
+    await expect(needs).not.toContainText("Should /users keep returning every row");
+    await needs.getByRole("button", { name: copy.reviewRequest }).click();
+    const target = await page.evaluate(async () => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      return useAppStore.getState().focusTranscriptToolRequest?.decision ?? null;
+    });
+    expect(target).toEqual({ messageId: "ma1", requestId: "preview-live-approval" });
+  });
+
+  test(`restored messages that stop before the newest saved failure read Stopped (${lang})`, async ({ page }) => {
+    const frame = await open(page, `task=plain&restored=1&lang=${lang}`);
+    await expect(frame.getByTestId("task-state")).toContainText(copy.stopped);
+    const result = frame.getByRole("region", { name: copy.result });
+    await expect(result).toContainText("Stream closed before the turn finished.");
+    await expect(result.getByRole("button", { name: copy.showAnswer })).toHaveCount(0);
   });
 }

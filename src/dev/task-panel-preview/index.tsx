@@ -50,6 +50,12 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  *   instead of fail, so the panel leads with its pull request and answer.
  * - `panelWidth=320|384` sets the frame width (default 320).
  * - `pending=approval|user_input` makes the live turn wait on the user.
+ * - `older=question` (with `task=agent-run`) leaves an earlier turn's async
+ *   question open while the live turn asks for an approval.
+ * - `run=usage-wait` (with `task=agent-run`) pauses the run for a usage limit
+ *   that resets in two hours, with no live turn: the panel reads on hold.
+ * - `restored=1` restores the direct task's messages only up to its earlier
+ *   turn, while its saved history holds the newer one.
  * - `placement=docked` keeps the turn's activity list in the composer shelf.
  * - `theme=dark` or `theme=<built-in theme id>` renders under that theme.
  * - `proposal=1` adds an agent reply that proposes a handoff record update.
@@ -77,6 +83,10 @@ const params = new URLSearchParams(window.location.search);
 const STUCK = params.get("stuck") === "1";
 /** `shared=1|none|missing`: see above. */
 const SHARED = params.get("shared");
+/** `older=question`, `run=usage-wait`, `restored=1`: see above. */
+const OLDER_QUESTION = params.get("older") === "question";
+const USAGE_WAIT = params.get("run") === "usage-wait";
+const RESTORED = params.get("restored") === "1";
 const CHANGELOG_WORKSPACE_ID = "task-panel-preview-ws-changelog";
 const MIGRATE_WORKSPACE_ID = "task-panel-preview-ws-migrate";
 
@@ -322,6 +332,33 @@ const AGENT_RUN_MESSAGES: ChatMessage[] = [
   } as unknown as ChatMessage,
 ];
 
+/** `older=question`: an async question an earlier turn left open. */
+const OLDER_ASYNC_QUESTION = {
+  id: "ma0",
+  role: "assistant",
+  model: "claude-sonnet-5",
+  providerId: "claude-code",
+  content: "",
+  turnId: "turn-task-panel-0",
+  startedAt: "2026-09-29T10:01:00.000Z",
+  parts: [{
+    type: "user_input", toolName: "AskUserQuestion", requestId: "preview-older-question", state: "input-requested", delivery: "async",
+    questions: [{ question: "Should /users keep returning every row when no limit is sent?", header: "Default", options: [] }],
+  }],
+} as unknown as ChatMessage;
+
+/** `older=question`: the live turn's own approval card. */
+const LIVE_APPROVAL_PART = {
+  type: "approval", toolName: "Bash", description: "Run the database migration", input: "bun run migrate",
+  requestId: "preview-live-approval", state: "approval-requested",
+} as unknown as ChatMessage["parts"][number];
+
+function agentRunMessages(): ChatMessage[] {
+  if (!OLDER_QUESTION) return AGENT_RUN_MESSAGES;
+  const [user, live] = AGENT_RUN_MESSAGES;
+  return [user!, OLDER_ASYNC_QUESTION, { ...live!, parts: [...live!.parts, LIVE_APPROVAL_PART] }];
+}
+
 const AGENT_RUN_AGENT: TaskAgent = {
   assignmentId: "assignment-task-panel-1",
   agentConfigId: "implementer",
@@ -374,8 +411,26 @@ function agentRunDetail(): AgentRunDetail {
     ...patch,
   });
   const [first, second] = workflow.stages;
+  const resetsAt = new Date(Date.now() + 2 * 60 * 60_000).toISOString();
   return {
-    agentRun: { ...created.agentRun, currentStageIndex: 1, turnCount: 3 },
+    agentRun: {
+      ...created.agentRun,
+      currentStageIndex: 1,
+      turnCount: 3,
+      ...(USAGE_WAIT
+        ? {
+            state: "paused" as const,
+            pauseReason: "usage-limit" as const,
+            usageLimit: {
+              turnId: "turn-task-panel-1",
+              resetsAt,
+              resumeAt: new Date(Date.parse(resetsAt) + 60_000).toISOString(),
+              accountProfileId: "work-account",
+              fingerprint: { providerId: "claude-code" as const, model: "sonnet" },
+            },
+          }
+        : {}),
+    },
     stages: [
       record(first!.id, {
         status: "completed",
@@ -722,19 +777,21 @@ function seedStores(args: { task: string; pending: string | null; placement: str
     ],
     messagesByTask: {
       [PLAIN_TASK_ID]: [
-        ...PLAIN_MESSAGES,
+        ...(RESTORED ? PLAIN_MESSAGES.filter((message) => message.turnId !== "turn-plain-1" && message.id !== "u1") : PLAIN_MESSAGES),
         ...(params.get("proposal") === "1" ? [PREVIEW_HANDOFF_PROPOSAL] : []),
         ...(params.get("record") === "empty" ? [PREVIEW_ANSWERED_APPROVAL] : []),
       ],
-      [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES,
+      [AGENT_RUN_TASK_ID]: agentRunMessages(),
     },
     // The whole history is resident, so "Show the turn" reads it from here.
     messageCountByTask: {
       [PLAIN_TASK_ID]: PLAIN_MESSAGES.length,
       [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES.length,
     },
-    activeTurnIdsByTask: { [AGENT_RUN_TASK_ID]: "turn-task-panel-1" },
-    providerTurnActivityByTask: { [AGENT_RUN_TASK_ID]: liveTurnActivity(now, args.pending) },
+    activeTurnIdsByTask: USAGE_WAIT ? {} : { [AGENT_RUN_TASK_ID]: "turn-task-panel-1" },
+    providerTurnActivityByTask: USAGE_WAIT
+      ? {}
+      : { [AGENT_RUN_TASK_ID]: liveTurnActivity(now, OLDER_QUESTION ? "approval" : args.pending) },
     turnVerificationByWorkspace: {
       [WORKSPACE_ID]: {
         workspaceId: WORKSPACE_ID,
