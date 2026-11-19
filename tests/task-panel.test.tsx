@@ -270,6 +270,42 @@ test("the panel's run figures leave out the ones nothing reported instead of dra
 
 // Review E-fix: each case below failed before its fix.
 
+/** A question card an earlier turn left open, async so it never blocked that turn. */
+const OLD_ASYNC_QUESTION: ChatMessage = {
+  ...REPLY,
+  id: "a-old",
+  turnId: "turn-1",
+  parts: [{
+    type: "user_input", toolName: "AskUserQuestion", requestId: "q-old", state: "input-requested", delivery: "async",
+    questions: [{ question: "Which billing plan first?", header: "Plan", options: [] }],
+  }],
+} as unknown as ChatMessage;
+
+/** The live turn asks for an approval. */
+const LIVE_APPROVAL: ChatMessage = {
+  ...REPLY,
+  id: "a-live",
+  turnId: "turn-3",
+  terminalStopReason: undefined,
+  parts: [{
+    type: "approval", toolName: "Bash", requestId: "ap-live", state: "approval-requested", description: "Run bun run migrate",
+  }],
+} as unknown as ChatMessage;
+
+test("F1: the state, its words and the jump target come from the same request", () => {
+  const view = status({
+    messages: [OLD_ASYNC_QUESTION, REPLY, LIVE_APPROVAL],
+    liveTurnId: "turn-3",
+    activity: { turnId: "turn-3", pendingInteraction: "approval" } as never,
+  });
+  expect(view.status).toMatchObject({ state: "waiting", waitingOn: "approval" });
+  expect(view.request).toEqual({ messageId: "a-live", requestId: "ap-live", text: "Run bun run migrate" });
+  // With no live turn the older question leads, and so do its words.
+  const settled = status({ messages: [OLD_ASYNC_QUESTION, REPLY, { ...LIVE_APPROVAL, turnId: "turn-2" }] });
+  expect(settled.status).toMatchObject({ state: "waiting", waitingOn: "question" });
+  expect(settled.request?.requestId).toBe("q-old");
+});
+
 test("F3: a run waiting for its usage reset waits on nobody and says when it resumes", () => {
   const detail = agentRun();
   detail.agentRun = {

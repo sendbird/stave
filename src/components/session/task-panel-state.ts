@@ -1,6 +1,5 @@
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
-  agentRunDecisionOfMessages,
   describeAgentRunResult,
   type AgentRunDoneWhenLine,
 } from "@/lib/agent-runs/agent-run-status";
@@ -15,8 +14,8 @@ import {
   type TaskTurnEnding,
   type TaskUserStatus,
 } from "@/lib/task-user-state";
-import { findLatestPendingApproval, findLatestPendingUserInput } from "@/store/provider-message.utils";
-import type { ChatMessage } from "@/types/chat";
+import { findLatestPendingApprovalPart, findLatestPendingUserInputPart } from "@/store/provider-message.utils";
+import type { ChatMessage, UserInputPart } from "@/types/chat";
 
 /** The request that waits on the user, to show and to jump to. */
 export interface TaskPanelRequest {
@@ -73,23 +72,76 @@ function historyEnding(entry: TurnHistoryEntry): { ending: TaskTurnEnding; error
   return entry.outcome ? { ending: entry.outcome, error: entry.outcome === "failed" ? entry.error : null } : null;
 }
 
-function findRequest(messages: ChatMessage[]): TaskPanelRequest | null {
-  const question = findLatestPendingUserInput({ messages });
-  if (question) {
-    return {
-      messageId: question.messageId,
-      requestId: question.part.requestId,
-      text: question.part.questions[0]?.question ?? "",
-    };
+/**
+ * The open requests a task's messages hold: the newest question (async ones
+ * included) and approval anywhere, and the newest blocking question and
+ * approval of the live turn, which its `pendingInteraction` hint names.
+ */
+export interface TaskPendingRequests {
+  question: TaskPanelRequest | null;
+  approval: TaskPanelRequest | null;
+  liveQuestion: TaskPanelRequest | null;
+  liveApproval: TaskPanelRequest | null;
+}
+
+const NO_PENDING: TaskPendingRequests = { question: null, approval: null, liveQuestion: null, liveApproval: null };
+
+interface MessagePending {
+  question: TaskPanelRequest | null;
+  blockingQuestion: TaskPanelRequest | null;
+  approval: TaskPanelRequest | null;
+}
+
+/** Per message: the store keeps a message's identity until it changes. */
+const pendingByMessage = new WeakMap<ChatMessage, MessagePending>();
+
+function questionRequest(messageId: string, part: UserInputPart | undefined): TaskPanelRequest | null {
+  return part ? { messageId, requestId: part.requestId, text: part.questions[0]?.question ?? "" } : null;
+}
+
+function pendingOfMessage(message: ChatMessage): MessagePending {
+  const known = pendingByMessage.get(message);
+  if (known) return known;
+  const approval = findLatestPendingApprovalPart({ message });
+  const pending: MessagePending = {
+    question: questionRequest(message.id, findLatestPendingUserInputPart({ message })),
+    blockingQuestion: questionRequest(message.id, findLatestPendingUserInputPart({ message, blockingOnly: true })),
+    approval: approval
+      ? { messageId: message.id, requestId: approval.requestId, text: approval.description || approval.toolName }
+      : null,
+  };
+  pendingByMessage.set(message, pending);
+  return pending;
+}
+
+/** The open requests, newest first, as `findTaskPendingDecision` reads them. */
+export function findTaskPendingRequests(messages: readonly ChatMessage[], liveTurnId: string | null): TaskPendingRequests {
+  let found: TaskPendingRequests | null = null;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) continue;
+    const pending = pendingOfMessage(message);
+    if (!pending.question && !pending.approval) continue;
+    found ??= { ...NO_PENDING };
+    found.question ??= pending.question;
+    found.approval ??= pending.approval;
+    if (liveTurnId && message.turnId === liveTurnId) {
+      found.liveQuestion ??= pending.blockingQuestion;
+      found.liveApproval ??= pending.approval;
+    }
   }
-  const approval = findLatestPendingApproval({ messages });
-  if (approval) {
-    return {
-      messageId: approval.messageId,
-      requestId: approval.part.requestId,
-      text: approval.part.description || approval.part.toolName,
-    };
-  }
+  return found ?? NO_PENDING;
+}
+
+/**
+ * The request the state waits on: the live turn's own prompt when its hint
+ * names one, else the open card of the same kind, so the words and the jump
+ * target always belong to the state shown.
+ */
+function requestOfStatus(status: TaskUserStatus | null, pending: TaskPendingRequests): TaskPanelRequest | null {
+  if (status?.state !== "waiting") return null;
+  if (status.waitingOn === "approval") return pending.liveApproval ?? pending.approval;
+  if (status.waitingOn === "question") return pending.liveQuestion ?? pending.question;
   return null;
 }
 
@@ -111,6 +163,8 @@ export function buildTaskPanelStatus(args: {
   prInfo: WorkspacePrInfo | undefined;
   selectedTurnId: string | null;
   now: number;
+  /** The open requests (`findTaskPendingRequests`); read from `messages` when absent. */
+  pending?: TaskPendingRequests;
 }): TaskPanelStatus {
   const { messages, history } = args;
   const currentTurnId = args.liveTurnId ?? latestAssistantTurnId(messages) ?? history?.[0]?.id ?? null;
@@ -143,7 +197,9 @@ export function buildTaskPanelStatus(args: {
       focusDetails: false,
     };
   }
-  const decision = agentRunDecisionOfMessages(messages);
+  const pending = args.pending ?? findTaskPendingRequests(messages, args.liveTurnId);
+  // A question first, as `findTaskPendingDecision` reads it.
+  const decision = pending.question ? "question" : pending.approval ? "approval" : null;
   const run = args.agentRun ? describeAgentRunResult(args.agentRun, args.now, decision) : null;
   const pr = args.prInfo?.pr ?? null;
   const facts: TaskStateFacts = {
@@ -168,7 +224,7 @@ export function buildTaskPanelStatus(args: {
     turnId,
     pastTurnAt: null,
     focusDetails: status?.state === "stopped" && !stoppedByUser,
-    request: decision ? findRequest(messages) : null,
+    request: requestOfStatus(status, pending),
     remaining: run?.doneWhen.filter((line) => line.status === "unmet" || line.status === "unverified") ?? [],
   };
 }
