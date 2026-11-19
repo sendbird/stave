@@ -31,7 +31,7 @@ import {
   DELEGATED_TASK_RUN_KIND,
   DELEGATED_TASK_STEP_KIND,
   DELEGATED_TASK_STOPPED_REASON,
-  delegatedTaskResultText,
+  delegatedTaskResultReceipt,
   delegatedTaskWaitingReason,
   delegatedTaskWaitsForPerson,
   resolveDelegatedTaskWaitSeconds,
@@ -474,7 +474,7 @@ function summaryFromAggregate(
     acceptedReceipt: receipts.find(
       (receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt,
     ),
-    resultText: delegatedTaskResultText(receipts, aggregate.step),
+    resultReceipt: delegatedTaskResultReceipt(receipts, aggregate.step),
     waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
     waitsForPerson: delegatedTaskWaitsForPerson(receipts, aggregate.step),
   });
@@ -622,7 +622,7 @@ export function createDelegatedTaskCoordinator(
         stepId: args.stepId,
         executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
-        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}), ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}) },
+        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText, turnId: args.turnId } : {}), ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}) },
         reenter: true,
         now: timestamp,
       });
@@ -639,7 +639,7 @@ export function createDelegatedTaskCoordinator(
       }),
       detail: { code: "child-turn-completed", providerId: args.providerId,
         ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}),
-        ...(responseText ? { responseText } : {}),
+        ...(responseText ? { responseText, turnId: args.turnId } : {}),
         ...(args.reviewCompletedRevision ? { reviewCompletedRevision: args.reviewCompletedRevision } : {}) },
       now: timestamp,
     });
@@ -675,7 +675,7 @@ export function createDelegatedTaskCoordinator(
         idempotencyKey: `child:${args.executionId}:completed`,
         resultArtifactRef: buildDelegatedTaskArtifactRef({ workspaceId: args.target.workspaceId, taskId: args.target.taskId, turnId }),
         detail: { code: "child-agent-run-completed", agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}),
-          responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)) }, now: now() });
+          responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)), ...(turnId ? { turnId } : {}) }, now: now() });
     }
     if (completion.kind === "cancelled")
       return args.ledger.cancelRunStep({ runId: args.runId, stepId: args.stepId, expectedExecutionId: args.executionId,

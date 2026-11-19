@@ -11,7 +11,7 @@
  */
 import {
   DELEGATED_TASK_LIST_LIMIT,
-  delegatedTaskResultText,
+  delegatedTaskResultReceipt,
   delegatedTaskWaitingReason,
   delegatedTaskWaitsForPerson,
   isActiveDelegatedTaskPhase,
@@ -48,7 +48,7 @@ export function listDelegatedTaskSummaries(args: {
         const summary = toDelegatedTaskSummary({
           ...aggregate,
           acceptedReceipt: receipts.find((receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt),
-          resultText: delegatedTaskResultText(receipts, aggregate.step),
+          resultReceipt: delegatedTaskResultReceipt(receipts, aggregate.step),
           waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
           waitsForPerson: delegatedTaskWaitsForPerson(receipts, aggregate.step),
         });

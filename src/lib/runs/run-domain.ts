@@ -204,6 +204,8 @@ export const RunReceiptDetailSchema = z
     reviewCompletedRevision: WorkspaceRevisionSchema.optional(),
     /** A subagent turn's final answer, bounded, so the caller gets it without reading the child. */
     responseText: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
+    /** The child turn that produced `responseText`, so the answer keeps its identity when the step moves on. */
+    turnId: RunIdSchema.optional(),
   })
   .strict();
 export type RunReceiptDetail = z.infer<typeof RunReceiptDetailSchema>;
@@ -324,6 +326,7 @@ export function sanitizeRunReceiptDetail(
       ? candidate.expectedHead
       : undefined;
   const responseText = boundResponseText(candidate.responseText);
+  const turnId = RunIdSchema.safeParse(candidate.turnId);
   const reviewSourceRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewSourceRevision);
   const reviewCompletedRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewCompletedRevision);
   const routingDecision = RoutingDecisionObservationSchema.safeParse(candidate.routingDecision);
@@ -345,6 +348,7 @@ export function sanitizeRunReceiptDetail(
     ...(supervisorSequence.success && supervisorSequence.data !== undefined ? { supervisorSequence: supervisorSequence.data } : {}),
     ...(expectedHead ? { expectedHead } : {}),
     ...(responseText ? { responseText } : {}),
+    ...(responseText && turnId.success ? { turnId: turnId.data } : {}),
     ...(reviewSourceRevision.success ? { reviewSourceRevision: reviewSourceRevision.data } : {}),
     ...(reviewCompletedRevision.success ? { reviewCompletedRevision: reviewCompletedRevision.data } : {}),
     ...(routingDecision.success ? { routingDecision: routingDecision.data } : {}),

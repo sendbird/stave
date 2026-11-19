@@ -1056,6 +1056,42 @@ describe("delegated task coordinator", () => {
     ).toHaveLength(2);
   });
 
+  test("an answer keeps the turn that produced it while a follow-up runs and after a stop", async () => {
+    let calls = 0;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const harness = createHarness({ runTask: async (args) => {
+      const turnId = `turn-${++calls}`;
+      args.onStarted?.(turnId);
+      if (calls === 2) await held;
+      return { turnId, responseText: calls === 2 ? "ANSWER-B" : "ANSWER-A" };
+    } });
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const read = () => harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    const parked = (await read())!;
+    expect(parked).toMatchObject({ result: "ANSWER-A", resultTurnId: "turn-1" });
+    expect(parked.resultAt).toBeDefined();
+
+    await harness.coordinator.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "more", permissionProfile: "guided",
+      expected: { delegatedTaskId: parked.delegatedTaskId, delegatedWorkspaceId: parked.delegatedWorkspaceId, attempt: parked.attempt } });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const inFlight = (await read())!;
+    expect(inFlight.delegatedTurnId).toBe("turn-2");
+    expect(inFlight).toMatchObject({ result: "ANSWER-A", resultTurnId: "turn-1", resultAt: parked.resultAt });
+
+    release();
+    await harness.coordinator.waitForInFlight();
+    const answered = (await read())!;
+    expect(answered).toMatchObject({ result: "ANSWER-B", resultTurnId: "turn-2" });
+    expect(answered.resultAt! > parked.resultAt!).toBe(true);
+
+    await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+    const stopped = (await read())!;
+    expect(stopped.phase).toBe("cancelled");
+    expect(stopped).toMatchObject({ result: "ANSWER-B", resultTurnId: "turn-2", resultAt: answered.resultAt });
+  });
+
   test("detach releases the delegation stamp so the child re-enters ordinary listings", async () => {
     const harness = createHarness();
     await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
