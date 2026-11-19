@@ -404,11 +404,22 @@ const TARS_REPORTED_PULL_REQUESTS_MAX = 10;
  * The pull requests a run's report links, newest mention first: candidates the
  * host reads on GitHub, never evidence by themselves. Each is listed once,
  * however its link is written (letter case, or a suffix such as `/files`).
+ * The report lists a repeated link once, at its first mention, so the stages
+ * it is built from (same order: each stage's latest record, its action, then
+ * its artifacts) are read after it and a link's last mention decides.
  */
-export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report">): string[] {
+export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report"> & Partial<Pick<AgentRunDetail, "agentRun" | "stages">>): string[] {
+  if (!detail.report) return [];
+  const mentions = detail.report.links.map((link) => link.url);
+  for (const stage of detail.agentRun?.workflow.stages ?? []) {
+    const record = latestStageRecord(detail.stages ?? [], stage.id);
+    const action = record?.facts?.action;
+    if (action?.type === "open-draft-pr" || action?.type === "mark-pr-ready") mentions.push(action.prUrl);
+    if (record?.report?.outcome === "complete") mentions.push(...record.report.artifacts.map((artifact) => artifact.url));
+  }
   const urls = new Map<string, string>();
-  for (const link of [...detail.report?.links ?? []].reverse()) {
-    const url = /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?=[/?#]|$)/.exec(link.url)?.[0];
+  for (const mention of mentions.reverse()) {
+    const url = /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?=[/?#]|$)/.exec(mention)?.[0];
     if (url && !urls.has(url.toLowerCase())) urls.set(url.toLowerCase(), url);
   }
   return [...urls.values()].slice(0, TARS_REPORTED_PULL_REQUESTS_MAX);

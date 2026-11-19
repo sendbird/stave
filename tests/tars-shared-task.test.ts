@@ -189,6 +189,12 @@ function hostScenario(options: { goal: "design" | "pullRequest" | "merge"; verif
   fail?: "pullRequest" | "origin" | "contains";
   /** Several pull requests the report links, each with what GitHub says of it; replaces \`pullRequest\`. */
   pullRequests?: Record<string, unknown>[];
+  /**
+   * The pull request links each stage of the user's run reports, in stage order
+   * (work, review, fix-review); the report lists each distinct link once, at
+   * its first mention, as \`buildAgentRunReport\` does.
+   */
+  stageLinks?: string[][];
   /** What GitHub says of the same pull request on later looks, with the clock moved by \`afterMs\` first. */
   later?: { pullRequest: Record<string, unknown>; afterMs: number }[] }) {
   const source = `
@@ -265,6 +271,12 @@ function hostScenario(options: { goal: "design" | "pullRequest" | "merge"; verif
     persistence.agentRuns.apply({ agentRun: { ...persistence.agentRuns.getAgentRun("user-run"), state: "completed", currentStageIndex: 2 }, upserts: [], events: [] }, new Date(end));
     reports["user-run"] = { outcome: "completed", endedAt: end, acceptanceCriteria: [{ text: "The PR is open.", status: "met" }],
       links: (options.pullRequests ?? [{ url: "https://github.com/example/repo/pull/1002" }]).map((item) => ({ label: "PR", url: item.url, source: "agent" })), leftBehind: [], evidence: [] };
+    if (options.stageLinks) {
+      const record = (stageId, urls) => ({ ...createStageRecord({ agentRunId: "user-run", stageId, attempt: 1 }), status: "completed", startedAt: later, endedAt: end,
+        report: { outcome: "complete", summary: "Done.", decisions: [], evidence: [], artifacts: urls.map((url) => ({ label: "PR", url })), reportedAt: end, turnId: "turn" } });
+      stages["user-run"] = ["work", REVIEW_STAGE_ID, FIX_REVIEW_STAGE_ID].map((stageId, index) => record(stageId, options.stageLinks[index] ?? []));
+      reports["user-run"].links = [...new Set(options.stageLinks.flat())].map((url) => ({ label: "PR", url, source: "agent" }));
+    }
     if (options.verified) {
       // Stave read the workspace after the report and found nothing changed since the stage began.
       const revision = { status: "known", revision: "r1" };
@@ -395,6 +407,17 @@ describe("the host observes the user's run in the delegated task", () => {
     const beyond = hostScenario({ goal: "merge", pullRequests: [merged, ...Array.from({ length: 10 }, (_, index) => other(index + 1))] });
     expect(beyond.ended).toMatchObject({ state: "blocked", detailCode: "userRunEnded" });
     expect(gh(beyond)).toEqual([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+  });
+  test("a pull request mentioned again after ten others is read by its last mention", () => {
+    const url = (number: number) => `https://github.com/example/repo/pull/${number}`;
+    const other = (number: number) => workPullRequest({ number, url: url(number), state: "CLOSED" });
+    const merged = workPullRequest({ number: 1, url: url(1), state: "MERGED" });
+    const others = Array.from({ length: 10 }, (_, index) => index + 2);
+    const steps = hostScenario({ goal: "merge", pullRequests: [merged, ...others.map(other)],
+      stageLinks: [[url(1), ...others.slice(0, 5).map(url)], others.slice(5).map(url), [url(1)]] });
+    expect(steps.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1 } });
+    // Newest mention first: the repeated one is the first and only `gh` call.
+    expect(steps.reads.filter((read: string) => read.includes("/pull/")).map((read: string) => Number(read.split("/pull/")[1]))).toEqual([1]);
   });
   test("an open pull request is read again for a merge goal, and only every few minutes", () => {
     const merged = workPullRequest({ state: "MERGED" });
