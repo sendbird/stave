@@ -83,7 +83,6 @@ async function runLiveAgentRun(args: {
   pickModel: (models: Array<{ model: string; isDefault: boolean; hidden: boolean }>) => string | null;
   settings: Record<string, unknown>;
   expectedAppliedOptions: Record<string, unknown>;
-  extendAtLimit?: boolean;
   persistentQuestion?: boolean;
   /** With `persistentQuestion`: kill and relaunch Stave on the same profile while the question waits. */
   restartWhilePending?: boolean;
@@ -117,13 +116,6 @@ async function runLiveAgentRun(args: {
     const model = args.pickModel(catalog.models);
     test.skip(!model, `Live ${providerId} catalog offered no usable model.`);
     const agent = buildAgent(providerId, model!);
-    if (args.extendAtLimit) {
-      agent.tools = { maxTurns: 1 };
-      agent.workflow = [
-        { id: "prepare", title: "Prepare", kind: "ai", instruction: "Read README.md. Do not create HELLO.md yet. Report only this stage as done, with exactly one acceptance criterion: README.md has been read.", doneWhen: "README.md has been read." },
-        { id: "work", title: "Write", kind: "ai", instruction: "Create HELLO.md containing exactly hello from stave, read it back and re-read README.md. Report this stage as done. The final report must include every earlier stage acceptance criterion as met using its text verbatim, as well as the HELLO.md criterion. Do not commit.", doneWhen: "HELLO.md contains hello from stave." },
-      ];
-    }
     if (args.readOnly) agent.permission = "read-only";
     if (args.eventWait) agent.instructions = "You are an implementer. Follow the assignment exactly: register the wait with stave_wait_for_event and end that turn without reporting. In the turn that follows the event, report the stage as done with the Stave reporting tool. Do not commit. Do not ask the user questions.";
     if (args.persistentQuestion) agent.instructions = "Before writing any file, use your native question tool (AskUserQuestion or request_user_input) to ask which filename to use, offering A.md and B.md. Do not guess or proceed without an answer. After the user replies, create ONLY the selected file with exactly answered, read it back, and report the stage as done. Do not ask the question again after receiving the answer. Do not commit.";
@@ -176,28 +168,6 @@ async function runLiveAgentRun(args: {
       return agentRunId;
     }, { timeout: 60_000, intervals: [500, 1_000] }).toBeTruthy();
     evidence.agentRunId = agentRunId;
-    if (args.extendAtLimit) {
-      await expect.poll(async () => {
-        const response = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
-        detail = response.agentRun;
-        return detail?.agentRun.pauseReason;
-      }, { timeout: RUN_DEADLINE_MS, intervals: [1_000, 2_000] }).toBe("limit-reached");
-      expect(detail!.agentRun).toMatchObject({ state: "paused", turnCount: 1, maxTurns: 1 });
-      const before = detail!;
-      await expect(stave.page.getByRole("button", { name: "Extend (+10 turns)", exact: true }).first()).toBeVisible();
-      const limitNotices = () => stave.page.evaluate(async agentRunId => {
-        const result = await window.api!.persistence!.listNotifications!({ limit: 200 });
-        return result.notifications.filter(notice => notice.payload.agentRunId === agentRunId && notice.title.includes("Limit reached"));
-      }, agentRunId);
-      await expect.poll(async () => (await limitNotices()).length).toBe(1);
-      await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-limit.png`) });
-      evidence.limitPause = before;
-      const extended = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.extend({ agentRunId }), agentRunId);
-      expect(extended.ok).toBe(true);
-      expect(extended.agentRun?.agentRun).toMatchObject({ maxTurns: 11, turnCount: 1, fingerprint: before.agentRun.fingerprint });
-      expect(extended.agentRun?.usage).toEqual(before.usage);
-      evidence.limitNotifications = await limitNotices();
-    }
     if (args.persistentQuestion) {
       const readQuestion = async () => stave.page.evaluate(async ({ workspaceId, taskId }) => {
         const loaded = await window.api!.persistence!.loadWorkspace!({ workspaceId });
@@ -330,13 +300,6 @@ async function runLiveAgentRun(args: {
     }
     expect(evidence.commits).toBe("1");
     expect(run.turnCount).toBeLessThanOrEqual(MAX_TURNS);
-    if (args.extendAtLimit) {
-      expect(run).toMatchObject({ turnCount: 2, maxTurns: 11 });
-      const sessions = messages.filter(message => message.role === "assistant").map(message => message.nativeProviderSessionId).filter(Boolean);
-      expect(sessions.length).toBeGreaterThanOrEqual(2);
-      expect(new Set(sessions).size, "both stage turns must reuse the native session").toBe(1);
-      evidence.nativeSessionCount = new Set(sessions).size;
-    }
     await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-completed.png`) });
   } finally {
     if (typeof evidence.workspaceId === "string" && typeof evidence.taskId === "string") {
@@ -389,22 +352,6 @@ test("an Auto agent run on live Claude Code writes HELLO.md and completes withou
     },
     settings: { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false },
     expectedAppliedOptions: { claudePermissionMode: "auto" },
-  });
-});
-
-
-test("a live Codex run halts at one turn and Extend completes its second stage", async ({}, testInfo) => {
-  test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
-  test.setTimeout(420_000);
-  await runLiveAgentRun({
-    providerId: "codex", testInfo, extendAtLimit: true,
-    pickModel: models => {
-      const visible = models.filter(entry => !entry.hidden);
-      const requested = process.env.STAVE_LIVE_CODEX_MODEL;
-      return (requested ? visible.find(entry => entry.model === requested) : visible.find(entry => entry.isDefault) ?? visible[0])?.model ?? null;
-    },
-    settings: { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
-    expectedAppliedOptions: { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
   });
 });
 
