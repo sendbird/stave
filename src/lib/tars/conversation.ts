@@ -666,6 +666,12 @@ export const TarsMessageDeliverySchema = z.object({
   queuedAt: TimestampSchema,
   /** User withdrawal remains a dispatch hold until the exact execution outcome can be read. */
   withdrawRequestedAt: TimestampSchema.optional(),
+  /**
+   * Set when these words started a continuation Run of ended work: the result
+   * the work had ended with (`observedResult`, `?` when unknown). The brake on
+   * automatic continuations counts these starts (`automaticContinuationResults`).
+   */
+  continuedFrom: z.string().min(1).max(128).optional(),
   updatedAt: TimestampSchema,
 }).strict().superRefine((delivery, context) => {
   const settledOtherwise = delivery.status === "failed" || delivery.status === "cancelled";

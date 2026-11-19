@@ -27,7 +27,9 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
   /** The host's inspection reader; absent, every read is unavailable. */
   inspect?: TarsInspectionReader;
   /** Wires the delivery queue and a run port that starts a continuation of ended work as a new run (`continued`). */
-  continueWork?: boolean; } = {}) {
+  continueWork?: boolean;
+  /** The work's task always has a turn running, so queued words wait until its Run ends. */
+  taskBusy?: boolean; } = {}) {
   const database = new Database(options.filename ?? ":memory:");
   const conversations = new TarsConversationStore(database);
   if (!conversations.getSettings()) conversations.configure({ ...SETTINGS, maxTurns: options.maxTurns ?? SETTINGS.maxTurns });
@@ -41,7 +43,8 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
   const runControls: string[] = [];
   const errors: unknown[] = [];
   const continued: string[] = [];
-  const continuation = options.continueWork ? { messages: conversations, deliverMessage: async () => "sent" as const, hasUserTurn: () => false,
+  const continuation = options.continueWork ? { messages: conversations, continuations: responsibilities.events,
+    deliverMessage: async () => options.taskBusy ? "busy" as const : "sent" as const, hasUserTurn: () => false,
     // The new Run is observed running until a test says how it ends.
     continueWork: async (row: TarsResponsibility) => { continued.push(row.id); observations.set(row.id, { state: "running", detail: null });
       return `run-${row.id}-continued-${continued.length}`; } } : {};

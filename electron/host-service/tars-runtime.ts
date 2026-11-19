@@ -15,7 +15,8 @@ import { isTarsObservingUserRun } from "../../src/lib/tars/ownership";
 import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError, TarsRunEndedError, TarsRunRefusedError } from "./tars-ownership";
 import type { TarsStore } from "../persistence/tars-store";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
-import { TARS_WAIT_FOLLOW_UP_MS } from "../../src/lib/tars/events";
+import { TARS_WAIT_FOLLOW_UP_MS, tarsEndedResultBrake } from "../../src/lib/tars/events";
+import type { TarsEventInbox } from "../persistence/tars-event-inbox";
 import { parseTarsConfirmationRequestId, type TarsActionRecord, type TarsControlReason, type TarsMessageDelivery } from "../../src/lib/tars/conversation";
 import {
   admitTarsControl, tarsActionLedger, tarsControlRejection, TarsControlRejection, TARS_CONTROL_STALE, TARS_GRANTING_OPERATIONS, TARS_STOPPING_OPERATIONS,
@@ -93,6 +94,12 @@ export interface TarsRuntimePorts {
   deliverMessage?: (row: TarsResponsibility, text: string, turnId: string) => Promise<"sent" | "busy">;
   /** Reconcile or start one confirmed follow-up after completion, in the existing task only. */
   continueWork?: (row: TarsResponsibility, continuation: TarsContinuation, assertAdmitted?: () => void) => Promise<string | "busy">;
+  /**
+   * The brake on automatic continuations of ended work, read where such a Run
+   * would start: the results earlier automatic starts began from since the
+   * user's last action, and the notice that tells the user once it engaged.
+   */
+  continuations?: Pick<TarsEventInbox, "automaticContinuationResults" | "stopAutomaticContinuations">;
   /** Read-only exact continuation lookup. Null proves no matching new run was committed. */
   reconcileContinuation?: (row: TarsResponsibility, continuation: TarsContinuation) => Promise<string | null>;
   /**
@@ -466,6 +473,16 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         }
         queueWaits.delete(id);
         if (!row.taskId || !row.executionWorkspaceId || !row.agentRunId) throw new TarsOwnershipLostError("The execution location is unavailable.");
+        // Every automatic start takes from one count per work, whatever proposed it and however many controls its
+        // answer held (`tarsEndedResultBrake`); past it the start is refused and only the user starts the next one.
+        const continuedFrom = row.observedResult ?? "?";
+        if (record!.source === "automatic" && row.continuation?.requestId !== requestId && ports.continuations &&
+            tarsEndedResultBrake(ports.continuations.automaticContinuationResults(id), continuedFrom)) {
+          // i18n-ignore: persisted diagnostic; the interface translates the reason code
+          move(["queued", "delivering"], { status: "failed", reason: "notByFollowUp", error: "Tars stopped continuing this work automatically; only you can start the next continuation." });
+          ports.continuations.stopAutomaticContinuations(row, now());
+          return;
+        }
         const continuation = row.continuation?.requestId === requestId ? row.continuation
           : { requestId, previousRunId: row.agentRunId, previousInstruction: tarsExecutionScope(row).instruction, previousCriteria: tarsExecutionScope(row).acceptanceCriteria, text, requestedAt: now() };
         let uncertainStart = row.executionPending === true;
@@ -487,7 +504,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             if (withdrawal.requested(requestId)) return;
             if (existing) {
               row = patch(row, tarsContinuationRunPatch(row, continuation, existing));
-              move(["queued", "delivering"], { status: "delivered", agentRunId: existing }); return;
+              move(["queued", "delivering"], { status: "delivered", agentRunId: existing, continuedFrom }); return;
             }
             uncertainStart = false;
           }
@@ -501,13 +518,13 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         }
         // A persisted scope and the run's own identity reconcile a crash before this acknowledgement.
         row = patch(row, tarsContinuationRunPatch(row, continuation, runId));
-        move(["queued", "delivering"], { status: "delivered", agentRunId: runId });
+        move(["queued", "delivering"], { status: "delivered", agentRunId: runId, continuedFrom });
         return;
       }
       // The new run was saved but the delivery acknowledgement was lost: only a run this
       // continuation started is that evidence, never a run the user started in the task.
       if (!ended && row?.continuation?.requestId === requestId && row.agentRunId !== row.continuation.previousRunId && !isTarsObservingUserRun(row)) {
-        move(["queued", "delivering"], { status: "delivered", agentRunId: row.agentRunId! }); return;
+        move(["queued", "delivering"], { status: "delivered", agentRunId: row.agentRunId!, continuedFrom: "?" }); return;
       }
       if (delivery.status === "delivering") {
         const reached = reachedTask(requestId, delivery);

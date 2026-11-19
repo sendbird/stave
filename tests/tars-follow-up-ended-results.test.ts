@@ -10,6 +10,7 @@ import type { TarsExecutionObservation } from "../electron/host-service/tars-run
 import { tarsObservation, tarsRunResult } from "../electron/host-service/tars-execution";
 import { agentRunFixture } from "./fixtures/agent-run-fixtures";
 import { followUpFixture, minutes } from "./tars-follow-up-fixture";
+import { actTars } from "../electron/host-service/tars-control";
 
 // A follow-up on a Run that ended may start a new Run as a continuation, with
 // a fresh turn guard and a new run id. Only a change in what the Run ended
@@ -215,6 +216,101 @@ describe("continuations of ended work that end with the same result", () => {
     }
     expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted"]);
     expect(f.continued).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
+  });
+});
+
+/** Tars's answer: `count` messages on the ended work, each of which would start a continuation. */
+const messages = (f: F, id: string, count: number) => ({ reply: "Verifying it again.", actions: Array.from({ length: count }, (_, index) => ({
+  kind: "control" as const, responsibilityId: id, expectedRevision: f.responsibilities.get(id)!.revision, operation: "message" as const,
+  input: { text: `Run check ${index + 1} and report its evidence.` } })) });
+/** The Run ends with `result`; a follow-up that starts is answered with `reply`, or with nothing. */
+async function endWith(f: F, id: string, result: string, reply?: (f: F, id: string) => ReturnType<typeof messages>) {
+  f.advance(minutes(5));
+  f.observations.set(id, unverified(result));
+  f.runtime.requestTick(); await f.runtime.drain();
+  if (reply) f.replies.push(reply(f, id));
+  f.service.wake(); await f.service.whenIdle(); await f.runtime.drain();
+  f.replies.length = 0;
+  await startedContinuation(f);
+}
+const deliveries = (f: F, id: string) => f.conversations.listActions(1_000)
+  .filter((record) => record.action.kind === "control" && record.action.responsibilityId === id && record.delivery)
+  .map((record) => [record.source, record.delivery!.status, record.delivery!.reason]);
+
+describe("automatic continuation starts, whatever proposed them", () => {
+  // Reproduction: two follow-up answers with eight messages each, kept while
+  // the task's turn ran; once the Run ended, every message started a new Run,
+  // 16 in all, each ending with the same result.
+  test("two follow-up answers with eight messages each start at most two Runs without a change", async () => {
+    const f = fixture({ taskBusy: true }); f.service.start();
+    const row = f.responsibility("running");
+    for (const runTurns of [3, 4]) {
+      f.observations.set(row.id, { state: "waiting", detail: "Which suite?", stageAsksUser: true, runTurns, runStage: "work#1" });
+      f.runtime.requestTick(); await f.runtime.drain();
+      f.replies.push(messages(f, row.id, 8));
+      await f.settle();
+      f.replies.length = 0;
+    }
+    for (let round = 0; round < 18; round++) await endWith(f, row.id, SAME);
+    expect(f.continued).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
+    // One message per work in an automatic answer: the other seven of each are refused at once.
+    const answers = f.automatic().filter((message) => f.conversations.listReceipts(message.id).length);
+    expect(answers.map((answer) => f.conversations.listReceipts(answer.id).map((receipt) => receipt.status)))
+      .toEqual(Array(2).fill(["applied", ...Array(7).fill("rejected")]));
+    expect(f.errors).toEqual([]);
+  });
+
+  test("queued starts past the brake are refused where the Run would start, and the user is told once", async () => {
+    const f = fixture({ taskBusy: true }); f.service.start();
+    const row = f.responsibility("running");
+    // The user's message is answered with eight messages, kept while the turn runs; each would start a Run once the one before ended.
+    f.replies.push(messages(f, row.id, 8));
+    await f.send("Keep verifying it.");
+    for (let round = 0; round < 10; round++) await endWith(f, row.id, SAME);
+    expect(f.continued).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
+    expect(deliveries(f, row.id)).toEqual([...Array(2).fill(["automatic", "delivered", null]), ...Array(6).fill(["automatic", "failed", "notByFollowUp"])]);
+    const stops = f.responsibilities.events.listRecent(100).filter((event) => event.responsibilityId === row.id && event.status === "exhausted");
+    expect(stops).toHaveLength(1);
+    const followUps = f.responsibilities.snapshot().followUps.filter((state) => state.responsibilityId === row.id);
+    expect(tarsTrayFollowUp(f.responsibilities.get(row.id)!, followUps, f.now())).toEqual({ status: "exhaustedResult", at: null });
+    expect(f.errors).toEqual([]);
+  });
+
+  test("a start the user confirms is never braked and starts the count again", async () => {
+    const f = fixture({ taskBusy: true }); f.service.start();
+    const row = f.responsibility("running");
+    f.replies.push(messages(f, row.id, 4));
+    await f.send("Keep verifying it.");
+    for (let round = 0; round < 4; round++) await endWith(f, row.id, SAME);
+    expect(f.continued).toHaveLength(2);
+    // The user continues it from the work's card.
+    f.advance(minutes(5));
+    await actTars({ requestId: "user-continue", responsibilityId: row.id, expectedRevision: f.responsibilities.get(row.id)!.revision,
+      operation: "message", input: { text: "Run the integration suite." }, source: "click" }, { conversations: f.conversations, runtime: f.runtime, now: f.now });
+    await startedContinuation(f);
+    expect(f.continued).toHaveLength(3);
+    // Automatic starts count again from the user's: the next answer's continuation starts.
+    await endWith(f, row.id, SAME, (f, id) => messages(f, id, 1));
+    expect(f.continued).toHaveLength(4);
+    expect(f.errors).toEqual([]);
+  });
+
+  test("a restart keeps the count of automatic starts", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "tars-continuation-starts-"));
+    cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
+    const filename = path.join(dir, "state.sqlite");
+    const first = followUpFixture({ continueWork: true, taskBusy: true, filename }); first.service.start();
+    const row = first.responsibility("running");
+    first.replies.push(messages(first as F, row.id, 4));
+    await first.send("Keep verifying it.");
+    for (let round = 0; round < 2; round++) await endWith(first as F, row.id, SAME);
+    expect(first.continued).toHaveLength(2);
+    const advanced = Date.parse(first.now()) - Date.parse("2026-11-05T00:00:00.000Z");
+    await first.close();
+    const f = fixture({ taskBusy: true, filename }); f.advance(advanced); f.service.start();
+    await endWith(f, row.id, SAME);
+    expect(f.continued).toHaveLength(0);
+    expect(deliveries(f, row.id).map(([, status]) => status)).toEqual(["delivered", "delivered", "failed", "failed"]);
   });
 });
 

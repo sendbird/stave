@@ -86,6 +86,9 @@ class TarsWorkingChangesRejection extends Error {
   }
 }
 
+/** Controls that start a continuation Run when the work's execution has ended (`canContinueTarsControl`). */
+const CONTINUING: ReadonlySet<string> = new Set(["message", "requestChanges", "retryStage"]);
+
 function requireDecision(ports: TarsDecisionPorts, messageId: string, expectedRevision: number): TarsMessage {
   const message = ports.conversations.get(messageId);
   if (!message) throw new Error("The message was not found.");
@@ -451,9 +454,13 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
         continue;
       }
       if (action.kind === "control") {
-        if (message.origin?.kind === "followUp" && ["ciFailed", "prChangesRequested"].includes(message.origin.reason) && receipts.some((entry) => entry.action.kind === "control" && entry.action.operation === "message")) {
+        // An automatic answer continues each work at most once, however many messages it holds; CI and
+        // review answers continue only one work. The Run start itself is braked per work (`tarsEndedResultBrake`).
+        const ci = message.origin?.kind === "followUp" && ["ciFailed", "prChangesRequested"].includes(message.origin.reason);
+        if (message.origin?.kind === "followUp" && CONTINUING.has(action.operation) && receipts.some((entry) => entry.action.kind === "control" &&
+            CONTINUING.has(entry.action.operation) && (ci || entry.action.responsibilityId === action.responsibilityId))) {
           receipts.push(ports.conversations.settleReceipt(message.id, index, intent.revision,
-            { status: "rejected", reason: "notByFollowUp", error: "Only one CI continuation is allowed per head." }, now()));
+            { status: "rejected", reason: "notByFollowUp", error: "An automatic follow-up continues a work at most once." }, now()));
           continue;
         }
         // Words take the same admission, run control and atomic outcome as a click.

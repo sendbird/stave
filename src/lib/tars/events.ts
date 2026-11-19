@@ -28,7 +28,9 @@ export const TARS_FOLLOW_UP_WINDOW_MS = 60 * 60_000;
  * ends with the same result made no progress. The first follow-up acts; the
  * second covers an attempt that fell short; a third time with nothing moved
  * means Tars's automatic attempts do not help, so it goes to the user
- * (`exhausted`) instead. CI and review continuations keep their own two rounds.
+ * (`exhausted`) instead. CI and review follow-ups keep their own two rounds;
+ * the Run starts of every automatic continuation, theirs included, take from
+ * one count per work (`TarsEventInbox.automaticContinuationResults`).
  */
 export const TARS_FOLLOW_UPS_WITHOUT_PROGRESS = 2;
 /**

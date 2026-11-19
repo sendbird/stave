@@ -413,6 +413,7 @@ export function createHostTarsRuntime(args: {
       });
     },
     messages: persistence.tarsConversations,
+    continuations: persistence.tars.events,
     /**
      * The same reply path as a message said at once, under the same ownership
      * checks, only once the task is free: no turn running, no approval or

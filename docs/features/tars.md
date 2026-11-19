@@ -1687,14 +1687,17 @@ changes of the same work are combined into one. Follow-ups are limited:
   result or reached their limit, and the work's card says so and keeps its own next steps (accept,
   publish, cancel, or a message to Tars). Asks answered during those
   continuations do not restart the count; your action toward the work does.
-  The count is saved with the work and its changes, so a restart keeps it. At
-  most two automatic continuations of ended work start with the same result
-  (three when results alternate between two values), and never more than five
-  between two of your actions, whatever the results say; CI-fix and review
-  continuations keep their own two rounds each and do not restart this count,
-  so a piece of work starts at most seven automatic runs without a change in
-  result, and at most nine in any case. Careful already asks you before any
-  continuation.
+  The count is saved with the work and its changes, so a restart keeps it. It
+  is kept where a continuation Run starts, per piece of work: every automatic
+  start takes from it, whatever proposed it (a follow-up, a CI-fix or review
+  follow-up, or Tars's answer to your message) and however many messages one
+  answer held. An automatic follow-up answer continues each work at most once.
+  Once the brake engages, the messages still kept for that work are not sent
+  and the conversation and card say so once; a continuation you start
+  yourself is never braked and starts the count again. At most two automatic
+  runs of ended work start with the same result (three when results alternate
+  between two values), and never more than five between two of your actions,
+  whatever the results say. Careful already asks you before any continuation.
 - One follow-up
   counts once in the hourly limit even when it uses inspection rounds or
   transient retries (up to six provider attempts). A notice that Tars stopped

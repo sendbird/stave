@@ -6,6 +6,7 @@ import {
 import { TarsResponsibilitySchema, type TarsResponsibility } from "../../src/lib/tars/types";
 import type { TarsChangeSignal } from "./tars-changes";
 import { parseTarsDecisionId, tarsMessageTargets, TarsMessageTargetSchema } from "../../src/lib/tars/decisions";
+import { TarsActionRecordSchema } from "../../src/lib/tars/conversation";
 
 interface InboxDatabase {
   exec(sql: string): unknown;
@@ -221,6 +222,38 @@ export class TarsEventInbox {
       .all(responsibilityId, `${TARS_RESULT_PROGRESS_PREFIX}%`, TARS_ENDED_FOLLOW_UPS_MAX)).map((row) => this.read(row)!);
     const since = latest.findIndex((event) => this.userAddressedSince(responsibilityId, event.processedAt ?? event.createdAt));
     return (since < 0 ? latest : latest.slice(0, since)).map((event) => event.progress!).reverse();
+  }
+
+  /**
+   * The results this work's automatic continuation Runs started from since the
+   * user last addressed it, oldest first (`tarsEndedResultBrake`); at most
+   * `TARS_ENDED_FOLLOW_UPS_MAX`. Every start of an automatic control counts,
+   * whatever proposed it and however many controls its answer held; a start
+   * the user confirmed is a user action, so the count starts again after it.
+   */
+  automaticContinuationResults(responsibilityId: string): string[] {
+    if (!this.messagesReady()) return [];
+    const starts = this.db.prepare(`SELECT body_json FROM tars_action_records WHERE json_extract(body_json, '$.action.responsibilityId') = ?
+      AND json_extract(body_json, '$.source') = 'automatic' AND json_extract(body_json, '$.delivery.continuedFrom') IS NOT NULL
+      ORDER BY json_extract(body_json, '$.delivery.updatedAt') DESC, rowid DESC LIMIT ?`).all(responsibilityId, TARS_ENDED_FOLLOW_UPS_MAX)
+      .map((row) => TarsActionRecordSchema.parse(JSON.parse((row as { body_json: string }).body_json)).delivery!);
+    const since = starts.findIndex((delivery) => this.userAddressedSince(responsibilityId, delivery.updatedAt));
+    return (since < 0 ? starts : starts.slice(0, since)).map((delivery) => delivery.continuedFrom!).reverse();
+  }
+
+  /**
+   * Tells the user once that Tars stopped continuing this ended work: an
+   * `exhausted` follow-up for its current revision, unless one already says so.
+   */
+  stopAutomaticContinuations(row: TarsResponsibility, now: string): void {
+    this.write(() => {
+      if (this.db.prepare(`SELECT 1 FROM tars_events WHERE responsibility_id = ? AND status = 'exhausted'
+        AND json_extract(body_json, '$.observedRevision') = ? LIMIT 1`).get(row.id, row.revision)) return;
+      const kind = row.state !== "blocked" ? "resultReady" : row.detailCode === "unverifiedCompletion" ? "unverifiedCompletion" : "verificationFailed";
+      const event = this.record({ kind, responsibilityId: row.id, episode: `continuations:${row.revision}`, observedRevision: row.revision,
+        observedState: row.state, attempt: row.agentRunId }, now);
+      if (event.status === "pending") this.settle(event.key, "exhausted", now);
+    });
   }
 
   /** A started follow-up whose change stopped standing before its model call; it keeps its message id. */
