@@ -49,11 +49,17 @@ function readAssignments(db: Database): Map<string, Assignment[]> {
   return byTask;
 }
 
-/** The agent a task ran as at a moment: its newest assignment by then, unless that one had ended. */
-function agentAt(assignments: Map<string, Assignment[]>, taskId: string, at: string): string | null {
+/**
+ * The agent a task ran as at a moment, and until when: its newest assignment
+ * by then, unless that one had ended. It stops when it ends or the next begins.
+ */
+function assignmentAt(assignments: Map<string, Assignment[]>, taskId: string, at: string): { agent: string; until: number } | null {
   const time = Date.parse(at);
-  const current = (assignments.get(taskId) ?? []).filter((row) => Date.parse(row.createdAt) <= time).at(-1);
-  return current && !(current.endedAt && Date.parse(current.endedAt) <= time) ? current.agent : null;
+  const rows = assignments.get(taskId) ?? [];
+  const current = rows.filter((row) => Date.parse(row.createdAt) <= time).at(-1);
+  if (!current || (current.endedAt && Date.parse(current.endedAt) <= time)) return null;
+  const next = rows[rows.indexOf(current) + 1];
+  return { agent: current.agent, until: Math.min(current.endedAt ? Date.parse(current.endedAt) : Infinity, next ? Date.parse(next.createdAt) : Infinity) };
 }
 
 const readDelegations = (db: Database) => db.query(`SELECT id, origin_id AS originId, workspace_id AS workspaceId, task_id AS taskId,
@@ -64,7 +70,7 @@ const readDelegations = (db: Database) => db.query(`SELECT id, origin_id AS orig
 function delegatingAgents(db: Database, range: OutcomeRange): string[] {
   const assignments = readAssignments(db);
   return [...new Set(readDelegations(db).filter((run) => inRange(run.createdAt, range))
-    .map((run) => agentAt(assignments, run.originId, run.createdAt)).filter((agent): agent is string => agent !== null))].sort();
+    .map((run) => assignmentAt(assignments, run.originId, run.createdAt)?.agent).filter((agent): agent is string => agent !== undefined))].sort();
 }
 
 /** Whether the person took the child task over: it left the coordinator's control. */
@@ -91,25 +97,27 @@ function workspaceBranches(db: Database): Map<string, string> {
 }
 
 /**
- * The draft pull requests a coordinator task verified, by URL, with the head
- * branch it checked: a `link` evidence item of one of its completed stage
- * reports whose `ref` is the pull request and whose label names `head <branch>`.
+ * The draft pull requests the reports of a task's runs list as verified, each
+ * with the head branch checked and when it was reported: a `link` evidence
+ * item of a completed stage report whose `ref` is the pull request and whose
+ * label names `head <branch>`. A report without a time verifies nothing.
  */
-function verifiedPullRequests(db: Database, coordinatorTaskId: string): Map<string, Set<string>> {
-  const verified = new Map<string, Set<string>>();
+function verifiedPullRequests(db: Database, taskId: string): Array<{ url: string; head: string; at: number }> {
   const reports = db.query(`SELECT s.report_json AS report FROM agent_run_stages s JOIN agent_runs r ON r.id = s.agent_run_id
-    WHERE r.lead_task_id = ? AND s.report_json IS NOT NULL`).all(coordinatorTaskId) as Array<{ report: string }>;
-  for (const { report } of reports) {
-    const parsed = JSON.parse(report) as { outcome?: unknown; evidence?: Array<{ kind?: unknown; ref?: unknown; label?: unknown }> };
-    if (parsed.outcome !== "complete") continue;
-    for (const item of parsed.evidence ?? []) {
+    WHERE r.lead_task_id = ? AND s.report_json IS NOT NULL`).all(taskId) as Array<{ report: string }>;
+  return reports.flatMap(({ report }) => {
+    const parsed = JSON.parse(report) as { outcome?: unknown; reportedAt?: unknown; evidence?: Array<{ kind?: unknown; ref?: unknown; label?: unknown }> };
+    const at = typeof parsed.reportedAt === "string" ? Date.parse(parsed.reportedAt) : Number.NaN;
+    if (parsed.outcome !== "complete" || Number.isNaN(at)) return [];
+    return (parsed.evidence ?? []).flatMap((item) => {
       const url = typeof item.ref === "string" ? pullRequestLinks(item.ref)[0] : undefined;
       const head = typeof item.label === "string" ? /\bhead\s+`?([^\s`,;]+)/.exec(item.label)?.[1] : undefined;
-      if (item.kind === "link" && url && head) verified.set(url, new Set([...verified.get(url) ?? [], head]));
-    }
-  }
-  return verified;
+      return item.kind === "link" && url && head ? [{ url, head, at }] : [];
+    });
+  });
 }
+
+type UnitEvent = TarsOutcomeRow["runEvents"][number] & { detail: string };
 
 /**
  * One row per unit of work the coordinator delegated: a writing delegation on
@@ -117,61 +125,91 @@ function verifiedPullRequests(db: Database, coordinatorTaskId: string): Map<stri
  * consults (the reviews it asks for) are not units. The result maps onto
  * Tars's states.
  *
+ * Everything counted for a unit is its own. A follow-up delegation into the
+ * same child task keeps that task's agent run, so each of the run's events
+ * belongs to the delegation that was the task's newest when it happened.
+ *
  * A unit reached a pull request only when that pull request is the unit's own
- * and the coordinator checked it: the child gave its link in a completed stage
- * report or in the answer it returned, the coordinator's completed report lists
- * it as verified with the unit's branch as head, and it is in the repository
- * the work ran in. A failed unit, or one whose latest report is blocked, never
- * reached one, whatever links its reports quote.
+ * and the coordinator checked it afterwards: the unit gave its link in a
+ * completed stage report of its own or in the answer it returned, no earlier
+ * delegation gave that link first, a completed report the coordinator's task
+ * wrote after that, while it still ran under the assignment that delegated
+ * the unit, lists it as verified with the unit's branch as head, and it is in
+ * the repository the work ran in. A failed unit, one whose latest report is
+ * blocked, or one the person took over never reached one, whatever links its
+ * reports quote.
  */
 export function readCoordinatorRows(file: string, args: OutcomeRange & { coordinator: string }): TarsOutcomeRow[] {
   const db = openReadOnly(file);
   try {
     const assignments = readAssignments(db);
-    const runs = readDelegations(db).filter((run) => inRange(run.createdAt, args) && agentAt(assignments, run.originId, run.createdAt) === args.coordinator);
+    const delegations = readDelegations(db);
     const receiptsOf = db.query("SELECT receipt_type AS type, created_at AS createdAt, detail_json AS detail FROM run_receipts WHERE run_id = ? ORDER BY sequence");
-    const events = db.query("SELECT kind, json_extract(detail_json, '$.operation') AS operation, detail_json AS detail, created_at AS createdAt FROM agent_run_events WHERE agent_run_id = ? ORDER BY sequence");
+    const eventsOf = db.query(`SELECT kind, json_extract(detail_json, '$.operation') AS operation, json_extract(detail_json, '$.reason') AS reason,
+      detail_json AS detail, created_at AS createdAt FROM agent_run_events WHERE agent_run_id = ? ORDER BY sequence`);
     const titleOf = db.query("SELECT title FROM tasks WHERE id = ?");
-    const taken = takenOverTasks(db, runs.map((run) => run.workspaceId));
-    const branches = workspaceBranches(db);
-    const verifiedByTask = new Map<string, Map<string, Set<string>>>();
-    const origins = new Map<string, string | null>();
-    return runs.flatMap((run) => {
+    const byChildTask = new Map<string, LedgerRun[]>();
+    for (const run of delegations) if (run.taskId) byChildTask.set(`${run.workspaceId}\n${run.taskId}`, [...byChildTask.get(`${run.workspaceId}\n${run.taskId}`) ?? [], run]);
+    const readUnit = (run: LedgerRun) => {
       const receipts = (receiptsOf.all(run.id) as Array<{ type: string; createdAt: string; detail: string | null }>)
         .map((receipt): Receipt => ({ ...receipt, detail: receipt.detail ? JSON.parse(receipt.detail) : {} }));
       const accepted = receipts.filter((receipt) => receipt.type === "accepted");
-      if (accepted.length && accepted.every((receipt) => receipt.detail.access === "read-only")) return [];
+      const writing = !(accepted.length && accepted.every((receipt) => receipt.detail.access === "read-only"));
       // A retry is a new attempt, and a new agent run, of the same unit.
       const agentRunIds = [...new Set(accepted.map((receipt) => receipt.detail.agentRunId).filter((id): id is string => typeof id === "string"))];
-      const runEvents = agentRunIds.flatMap((id) => events.all(id) as Array<TarsOutcomeRow["runEvents"][number] & { detail: string }>);
-      const state = run.taskId && taken.has(run.taskId) ? "takenOver"
-        : run.status === "completed" || run.status === "cancelled" ? run.status
-        : run.status === "failed" || run.status === "interrupted" ? "failed" : "running";
-      const reports = runEvents.filter((event) => event.kind === "report")
+      const sameTask = byChildTask.get(`${run.workspaceId}\n${run.taskId}`) ?? [run];
+      const from = sameTask[0] === run ? -Infinity : Date.parse(run.createdAt);
+      const next = sameTask[sameTask.indexOf(run) + 1];
+      const until = next ? Date.parse(next.createdAt) : Infinity;
+      const events = agentRunIds.flatMap((id) => eventsOf.all(id) as UnitEvent[])
+        .filter((event) => Date.parse(event.createdAt) >= from && Date.parse(event.createdAt) < until);
+      const reports = events.filter((event) => event.kind === "report")
         .map((event) => ({ createdAt: event.createdAt, ...(JSON.parse(event.detail) as { outcome?: unknown; summary?: unknown }) }));
-      const blocked = reports.at(-1)?.outcome === "blocked";
-      const claimed = [
+      // When the unit itself first gave each pull request's link.
+      const claims = new Map<string, string>();
+      for (const { url, createdAt } of writing ? [
         ...reports.filter((report) => report.outcome === "complete" && typeof report.summary === "string")
           .flatMap((report) => pullRequestLinks(report.summary as string).map((url) => ({ url, createdAt: report.createdAt }))),
         ...receipts.filter((receipt) => receipt.type === "completed")
           .flatMap((receipt) => pullRequestLinks(JSON.stringify(receipt.detail)).map((url) => ({ url, createdAt: receipt.createdAt }))),
-      ];
+      ] : []) if (!claims.has(url) || Date.parse(createdAt) < Date.parse(claims.get(url)!)) claims.set(url, createdAt);
+      return { accepted, writing, events, blocked: reports.at(-1)?.outcome === "blocked", claims };
+    };
+    const units = new Map(delegations.map((run) => [run, readUnit(run)]));
+    // A pull request is one delegation's: the first, of any task, to give its link.
+    const owner = new Map<string, { run: LedgerRun; at: number }>();
+    for (const [run, unit] of units) for (const [url, createdAt] of unit.claims)
+      if (!owner.has(url) || Date.parse(createdAt) < owner.get(url)!.at) owner.set(url, { run, at: Date.parse(createdAt) });
+    const counted = delegations.flatMap((run) => {
+      const assignment = inRange(run.createdAt, args) ? assignmentAt(assignments, run.originId, run.createdAt) : null;
+      const unit = units.get(run)!;
+      return assignment?.agent === args.coordinator && unit.writing ? [{ run, unit, assignment }] : [];
+    });
+    const taken = takenOverTasks(db, counted.map(({ run }) => run.workspaceId));
+    const branches = workspaceBranches(db);
+    const verifiedByTask = new Map<string, ReturnType<typeof verifiedPullRequests>>();
+    const origins = new Map<string, string | null>();
+    return counted.map(({ run, unit, assignment }) => {
+      const state = run.taskId && taken.has(run.taskId) ? "takenOver"
+        : run.status === "completed" || run.status === "cancelled" ? run.status
+        : run.status === "failed" || run.status === "interrupted" ? "failed" : "running";
       let publishedAt: string | null = null;
       const branch = branches.get(run.workspaceId);
-      if (state !== "failed" && !blocked && claimed.length && branch) {
+      if (state !== "failed" && state !== "takenOver" && !unit.blocked && unit.claims.size && branch) {
         if (!verifiedByTask.has(run.originId)) verifiedByTask.set(run.originId, verifiedPullRequests(db, run.originId));
         const verified = verifiedByTask.get(run.originId)!;
         const repository = originRepository(run.projectPath, origins);
-        publishedAt = claimed.filter(({ url }) => verified.get(url)?.has(branch) && repository !== null && githubRepository(url) === repository)
-          .map(({ createdAt }) => createdAt).sort()[0] ?? null;
+        publishedAt = [...unit.claims].filter(([url, createdAt]) => owner.get(url)!.run === run && repository !== null && githubRepository(url) === repository &&
+          verified.some((item) => item.url === url && item.head === branch && item.at >= Date.parse(createdAt) && item.at < assignment.until))
+          .map(([, createdAt]) => createdAt).sort()[0] ?? null;
       }
       const title = run.taskId ? (titleOf.get(`${run.workspaceId}:${run.taskId}`) as { title: string } | null)?.title : null;
-      const agentId = accepted.map((receipt) => receipt.detail.agentConfigId).find((id): id is string => typeof id === "string") ?? null;
-      return [{
+      const agentId = unit.accepted.map((receipt) => receipt.detail.agentConfigId).find((id): id is string => typeof id === "string") ?? null;
+      return {
         title: title ?? run.taskId ?? run.id, createdAt: run.createdAt, updatedAt: run.completedAt ?? run.updatedAt, state,
         detailCode: null, goal: null, agentId, publishedAt, hasDecisionAnswer: false,
-        runEvents: runEvents.map(({ kind, operation, createdAt }) => ({ kind, operation, createdAt })),
-      }];
+        runEvents: unit.events.map(({ kind, operation, reason, createdAt }) => ({ kind, operation, reason, createdAt })),
+      };
     });
   } finally { db.close(); }
 }

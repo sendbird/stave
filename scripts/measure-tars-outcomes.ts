@@ -22,7 +22,8 @@ export interface TarsOutcomeRow {
   /** When Stave began watching the draft pull request's checks, which it does as soon as the pull request is open. */
   publishedAt: string | null;
   hasDecisionAnswer: boolean;
-  runEvents: ReadonlyArray<{ kind: string; operation: string | null; createdAt: string }>;
+  /** `reason` is a `paused` event's: `taken-over` when a person took the run over. */
+  runEvents: ReadonlyArray<{ kind: string; operation: string | null; reason?: string | null; createdAt: string }>;
 }
 
 export interface TarsOutcome {
@@ -62,10 +63,10 @@ export const outcomeRange = (args: readonly string[]): OutcomeRange =>
 const minutesBetween = (from: string, to: string) => Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 60_000));
 
 export function tarsOutcome(row: TarsOutcomeRow): TarsOutcome {
-  // A failed unit never counts as reaching a pull request, whatever was recorded for it.
-  const result: TarsOutcome["result"] = row.state === "failed" ? "failed" : row.publishedAt ? "pull-request"
+  // Failed work, and work a person took over, never counts as reaching a pull request, whatever was recorded for it.
+  const result: TarsOutcome["result"] = row.state === "failed" ? "failed" : row.state === "takenOver" ? "taken-over" : row.publishedAt ? "pull-request"
     : row.state === "completed" ? row.detailCode === "acceptedWithoutVerification" ? "accepted-unverified" : "completed"
-    : row.state === "cancelled" ? "cancelled" : row.state === "takenOver" ? "taken-over" : "open";
+    : row.state === "cancelled" ? "cancelled" : "open";
   // Ended work is timed to its run's last event: the row itself is updated again by later reads and controls.
   const end = result === "pull-request" ? row.publishedAt : result === "open" ? null : row.runEvents.at(-1)?.createdAt ?? row.updatedAt;
   return {
@@ -75,7 +76,9 @@ export function tarsOutcome(row: TarsOutcomeRow): TarsOutcome {
     helperStarts: row.runEvents.filter((event) => event.kind === "resource-budget" && event.operation === "reserve").length,
     waits: row.runEvents.filter((event) => event.kind === "wait-registered").length,
     agentId: row.agentId, goal: row.goal,
-    humanDecided: row.hasDecisionAnswer || row.runEvents.some((event) => event.kind === "sign-off"),
+    // Also work the person finished in its task, or took over and handed back: it did not end without them.
+    humanDecided: row.hasDecisionAnswer || row.detailCode === "finishedByUser" ||
+      row.runEvents.some((event) => event.kind === "sign-off" || (event.kind === "paused" && event.reason === "taken-over")),
   };
 }
 
@@ -167,7 +170,7 @@ export function readTarsRows(file: string, range: OutcomeRange): TarsOutcomeRow[
   try {
     const decided = readHumanDecisions(db);
     const rows = db.prepare("SELECT body_json FROM tars_responsibilities ORDER BY created_at").all() as Array<{ body_json: string }>;
-    const events = db.prepare("SELECT kind, json_extract(detail_json, '$.operation') AS operation, created_at AS createdAt FROM agent_run_events WHERE agent_run_id = ? ORDER BY sequence");
+    const events = db.prepare("SELECT kind, json_extract(detail_json, '$.operation') AS operation, json_extract(detail_json, '$.reason') AS reason, created_at AS createdAt FROM agent_run_events WHERE agent_run_id = ? ORDER BY sequence");
     const text = (value: unknown) => typeof value === "string" ? value : null;
     return rows.map((entry) => JSON.parse(entry.body_json) as Record<string, unknown>)
       .filter((body) => inRange(String(body.createdAt), range))

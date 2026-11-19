@@ -164,15 +164,29 @@ It prints each side's work and then both summaries with the definitions of
 [Tars Outcome Numbers](tars-outcomes.md). For the coordinator a unit is one
 writing delegation made while its task ran as `coordinator-trial`
 (`--coordinator=<agent id>` names another agent); a delegation the same task
-made before or after it ran as another agent is not counted. A unit reached a
-pull request only when all of these hold: the child gave the link in a
-completed stage report or in the answer it returned, the coordinator's
-completed report lists the same link as verified with the unit's branch as
-head (step 7 of its instructions), and the pull request is in the repository
-the work ran in (its `origin` remote). A failed unit, or one whose latest
-report is blocked, never reached one. The time to it is when the child first
-gave the link. When the coordinator started nothing in the range, the script
-names the agents that did.
+made before or after it ran as another agent is not counted. Everything
+counted for a unit is its own: when a follow-up delegation goes into the same
+child task, each turn, report and sign-off belongs to the delegation that was
+the newest when it happened. A unit reached a pull request only when all of
+these hold:
+
+- The unit itself gave the link, in a completed stage report or in the answer
+  it returned, and no earlier delegation gave that link first. A pull request
+  counts once, for the delegation that opened it; work that continues it on a
+  reused branch is `completed`.
+- A completed report of the coordinator's task lists the same link as verified
+  with the unit's branch as head (step 7 of its instructions), and was written
+  after the unit gave the link and before the task stopped running under the
+  assignment that delegated the unit. An earlier report, or one by another
+  agent the task ran as before or after, verifies nothing for the unit.
+- The pull request is in the repository the work ran in (its `origin` remote).
+
+A failed unit, one whose latest report is blocked, or one you took over never
+reached one: a taken-over unit is `taken-over` even with a verified pull
+request, and one you took over and handed back counts as `humanDecided`. The
+time to a pull request is when the unit first gave the link. When the
+coordinator started nothing in the range, the script names the agents that
+did.
 
 `--since` and `--until` take a calendar day of this machine's time zone
 (`--until=2026-11-27` in Seoul ends at Seoul midnight) or a time with an
@@ -209,8 +223,8 @@ week before deciding.
   see whether that check was right (draft, base, head); the note's PR links
   settle disagreements.
 - **Replies are not attributed.** Stave records your reply in a child task the
-  same way as a coordinator follow-up, so only sign-offs count as decisions in
-  the script. The note's "stepped in" column is the full count.
+  same way as a coordinator follow-up, so only sign-offs and takeovers count as
+  stepping in for the script. The note's "stepped in" column is the full count.
 - **Clock start.** Both clocks start after planning: when Tars took on the
   work, and when the coordinator delegated the unit.
 - **Not measured.** Correctness beyond your review, usage and cost, and the

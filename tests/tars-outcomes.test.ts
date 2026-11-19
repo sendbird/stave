@@ -124,6 +124,21 @@ test("the CLI reads a plain copy of a live database and limits work to the range
   }
 });
 
+test("work a person took over or finished is never an unattended pull request or completion", () => {
+  // Taken over after its draft PR opened: taken over, timed to its run's last event.
+  const taken = tarsOutcome(row({ state: "takenOver", publishedAt: at(30), runEvents: [event("turn-started", 1), event("agent-run-ended", 50)] }));
+  expect(taken).toMatchObject({ result: "taken-over", minutes: 50 });
+  // Taken over, handed back, then a PR: a PR, with a human decision.
+  const handedBack = tarsOutcome(row({ publishedAt: at(60), runEvents: [event("turn-started", 1), { ...event("paused", 10), reason: "taken-over" }, event("turn-started", 40)] }));
+  expect(handedBack).toMatchObject({ result: "pull-request", humanDecided: true });
+  // A pause that was not a takeover decides nothing.
+  expect(tarsOutcome(row({ publishedAt: at(60), runEvents: [{ ...event("paused", 10), reason: "usage-limit" }] })).humanDecided).toBe(false);
+  // Finished by the person in its task.
+  const finished = tarsOutcome(row({ detailCode: "finishedByUser", runEvents: [event("agent-run-ended", 20)] }));
+  expect(finished).toMatchObject({ result: "completed", humanDecided: true });
+  expect(summarizeTarsOutcomes([taken, handedBack, finished])).toMatchObject({ pullRequests: 1, completed: 1, takenOver: 1, humanDecided: 2, unattendedRate: 0 });
+});
+
 test("a failed unit is a failure even when a pull request was recorded for it", () => {
   expect(tarsOutcome(row({ state: "failed", publishedAt: at(30), runEvents: [event("agent-run-ended", 40)] }))).toMatchObject({ result: "failed", minutes: 40 });
 });

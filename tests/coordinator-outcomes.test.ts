@@ -43,22 +43,34 @@ function fixture(dir: string) {
   assign("a5", "lead", "coord-1", 200);
   const workspaces: Array<{ id: string; name: string }> = [];
   let sequence = 0;
+  /**
+   * One delegation. `workspace` reuses another unit's worktree, and so its
+   * branch, with a task of its own; `followsUp` is a later delegation into
+   * another unit's child task, which keeps that task's agent run.
+   */
   const unit = (id: string, args: { parent?: string; status: string; created?: number; ended?: number; access?: string;
-    events?: Array<[string, number, object?]>; reply?: string; controlMode?: string }) => {
+    events?: Array<[string, number, object?]>; reply?: string; controlMode?: string; workspace?: string; followsUp?: string }) => {
     const created = args.created ?? 0;
-    const workspace = `worktree:${id}`;
+    const workspace = `worktree:${args.followsUp ?? args.workspace ?? id}`;
+    const child = args.followsUp ?? id;
     db.run("INSERT INTO runs VALUES (?, 'delegated-task', 'task', ?, ?, ?, ?, ?, ?, ?, ?)", [`run-${id}`, args.parent ?? "coord-1", repository,
-      workspace, `task-${id}`, args.status, at(created), at(args.ended ?? created + 60), args.ended === undefined ? null : at(args.ended)]);
+      workspace, `task-${child}`, args.status, at(created), at(args.ended ?? created + 60), args.ended === undefined ? null : at(args.ended)]);
     db.run("INSERT INTO run_receipts VALUES (?, 'step', 1, 'accepted', ?, ?)", [`run-${id}`, at(created), JSON.stringify({
-      access: args.access ?? "inherit", ...(args.access === "read-only" ? {} : { agentConfigId: "implementer", agentRunId: `agent-${id}` }) })]);
+      access: args.access ?? "inherit", ...(args.access === "read-only" ? {} : { agentConfigId: "implementer", agentRunId: `agent-${child}` }) })]);
     if (args.reply !== undefined) {
       db.run("INSERT INTO run_receipts VALUES (?, 'step', 2, 'completed', ?, ?)", [`run-${id}`, at(args.ended ?? created + 60),
         JSON.stringify({ code: "child-turn-completed", responseText: args.reply })]);
     }
     for (const [kind, minutes, detail] of args.events ?? []) {
-      db.run("INSERT INTO agent_run_events VALUES (?, ?, ?, ?, ?)", [`agent-${id}`, sequence += 1, kind, JSON.stringify(detail ?? {}), at(minutes)]);
+      db.run("INSERT INTO agent_run_events VALUES (?, ?, ?, ?, ?)", [`agent-${child}`, sequence += 1, kind, JSON.stringify(detail ?? {}), at(minutes)]);
     }
+    if (args.followsUp) return;
     db.run("INSERT INTO tasks VALUES (?, ?, ?)", [`${workspace}:task-${id}`, workspace, `Unit ${id}`]);
+    if (args.workspace) {
+      db.run("UPDATE workspaces SET snapshot_json = json_insert(snapshot_json, '$.tasks[#]', json(?)) WHERE id = ?",
+        [JSON.stringify({ id: `task-${id}`, controlMode: args.controlMode ?? "managed" }), workspace]);
+      return;
+    }
     db.run("INSERT INTO workspaces VALUES (?, ?)", [workspace, JSON.stringify({ tasks: [{ id: `task-${id}`, controlMode: args.controlMode ?? "managed" }] })]);
     workspaces.push({ id: workspace, name: `subagent-${id}` });
   };
@@ -90,17 +102,37 @@ function fixture(dir: string) {
   unit("o", { status: "completed", ended: 30, events: [["report", 20, complete(`Draft ${pr(15)}`)]] });
   // Delegations of the reused tasks: only those made while the task ran as the coordinator count.
   unit("p", { parent: "coord-2", status: "completed", created: 110, ended: 140 });
-  unit("q", { parent: "coord-2", status: "completed", created: 50, ended: 80 });
+  // While coord-2 was Lead's, its delegation opened a PR on its branch, and Lead's own report verified it.
+  unit("q", { parent: "coord-2", status: "completed", created: 50, ended: 80, events: [["report", 55, complete(`Opened draft PR ${pr(20)}`)]] });
   unit("r", { status: "completed", created: 210, ended: 240 });
+  // A reused branch with an older report: the coordinator's later unit works in q's worktree and
+  // names the PR q opened. Lead's report, written before this unit existed, verifies nothing for it.
+  unit("s", { parent: "coord-2", status: "completed", created: 120, ended: 150, workspace: "q",
+    events: [["report", 130, complete(`Continued on draft PR ${pr(20)}`)]] });
+  // Work the person took over, with a PR of its own that the coordinator verified: taken over, not a PR reached unattended.
+  unit("t", { status: "completed", ended: 45, controlMode: "interactive", events: [["turn-started", 1], ["report", 20, complete(`Draft ${pr(23)}`)]] });
+  // Taken over and handed back before it reached its PR: a PR, but the person stepped in.
+  unit("x", { status: "completed", ended: 40, events: [["turn-started", 1], ["paused", 15, { reason: "taken-over" }], ["turn-started", 25],
+    ["report", 30, complete(`Draft ${pr(24)}`)]] });
+  // Two delegations in one child task with one PR: the first opened it, the follow-up pushed to it.
+  unit("u", { status: "completed", ended: 40, events: [["turn-started", 1], ["report", 30, complete(`Opened draft PR ${pr(25)}`)]] });
+  unit("u2", { status: "completed", created: 45, ended: 70, followsUp: "u", events: [["turn-started", 46], ["report", 60, complete(`Pushed the fix to ${pr(25)}`)]] });
+  // A PR only a later assignee of the coordinator's task verified, after the task stopped being the coordinator's.
+  unit("y", { status: "completed", created: 100, ended: 130, events: [["report", 110, complete(`Draft ${pr(26)}`)]] });
   // The coordinator's own completed report lists the PRs it verified, with the head branch it checked.
   db.run("INSERT INTO agent_runs VALUES ('coord-run', 'coord-1')");
   const verified = (url: string, head: string) => ({ kind: "link", ref: url, label: `Verified draft PR, head ${head}` });
-  db.run("INSERT INTO agent_run_stages VALUES ('coord-run', 'work', 1, ?)", [JSON.stringify({ outcome: "complete", summary: "Two units verified.",
+  const stage = (run: string, attempt: number, report: object) => db.run("INSERT INTO agent_run_stages VALUES (?, 'work', ?, ?)", [run, attempt, JSON.stringify(report)]);
+  stage("coord-run", 1, { outcome: "complete", summary: "Units verified.", reportedAt: at(95),
     evidence: [verified(pr(1), "subagent-a"), verified(pr(4), "subagent-d"), verified(pr(5), "subagent-e"), verified(pr(7, "other/lib"), "subagent-l"),
-      verified(pr(13), "subagent-m"), verified(pr(15), "subagent-a"), { kind: "check", label: "head subagent-n", command: "gh pr view" }] })]);
+      verified(pr(13), "subagent-m"), verified(pr(15), "subagent-a"), { kind: "check", label: "head subagent-n", command: "gh pr view" },
+      verified(pr(23), "subagent-t"), verified(pr(24), "subagent-x"), verified(pr(25), "subagent-u")] });
   // A blocked report of the coordinator verifies nothing.
-  db.run("INSERT INTO agent_run_stages VALUES ('coord-run', 'work', 2, ?)", [JSON.stringify({ outcome: "blocked", missing: "x",
-    evidence: [verified(pr(14), "subagent-n")] })]);
+  stage("coord-run", 2, { outcome: "blocked", missing: "x", reportedAt: at(96), evidence: [verified(pr(14), "subagent-n")] });
+  // Reports of the same tasks' other assignees: Lead on coord-2 before the coordinator, Lead on coord-1 after it.
+  db.run("INSERT INTO agent_runs VALUES ('lead-run-2', 'coord-2'), ('lead-run-1', 'coord-1')");
+  stage("lead-run-2", 1, { outcome: "complete", summary: "Verified.", reportedAt: at(60), evidence: [verified(pr(20), "subagent-q")] });
+  stage("lead-run-1", 1, { outcome: "complete", summary: "Verified.", reportedAt: at(210), evidence: [verified(pr(26), "subagent-y")] });
   db.run("INSERT INTO app_state VALUES ('project_registry', ?)", [JSON.stringify([{ repositoryPath: repository, workspaces }])]);
   db.run("INSERT INTO tars_responsibilities VALUES (?, ?)", [at(0), JSON.stringify({ id: "r1", title: "Tars work", createdAt: at(0), updatedAt: at(30),
     state: "completed", publication: { state: "opened", watch: { startedAt: at(120) } } })]);
@@ -126,10 +158,18 @@ test("measures the work a coordinator task delegated with the same outcome numbe
       ["Unit m", "open", null, false],
       ["Unit n", "completed", 20, false],
       ["Unit o", "completed", 20, false],
+      ["Unit t", "taken-over", 20, false],
+      ["Unit x", "pull-request", 30, true],
+      // The PR counts once, for the delegation that opened it; each keeps only its own turns.
+      ["Unit u", "pull-request", 30, false],
+      ["Unit u", "completed", 15, false],
+      ["Unit y", "completed", 10, false],
       ["Unit p", "completed", 30, false],
+      ["Unit s", "completed", 10, false],
     ]);
-    expect(summarizeTarsOutcomes(outcomes)).toMatchObject({ total: 13, pullRequests: 2, completed: 5, cancelled: 1, failed: 2, takenOver: 1,
-      open: 2, humanDecided: 1, unattendedRate: 55, medianMinutesToPullRequest: 65 });
+    expect(outcomes.filter((outcome) => outcome.title === "Unit u").map((outcome) => outcome.leadTurns)).toEqual([1, 1]);
+    expect(summarizeTarsOutcomes(outcomes)).toMatchObject({ total: 19, pullRequests: 4, completed: 8, cancelled: 1, failed: 2, takenOver: 2,
+      open: 2, humanDecided: 2, unattendedRate: 59, medianMinutesToPullRequest: 35 });
     // The end of the range is exclusive.
     expect(readCoordinatorRows(join(dir, "stave.sqlite"), { coordinator: "coordinator-trial", since: at(-60), until: at(0) })).toEqual([]);
     // Lead's delegations from the reused tasks are Lead's.
@@ -156,7 +196,7 @@ test("the CLI prints the coordinator's numbers next to Tars's for the same range
     const stdout = result.stdout.toString();
     const summary = JSON.parse(stdout.slice(stdout.lastIndexOf("\n{") + 1));
     expect(summary.tars).toMatchObject({ total: 1, pullRequests: 1, medianMinutesToPullRequest: 120 });
-    expect(summary.coordinator).toMatchObject({ total: 13, pullRequests: 2, failed: 2, unattendedRate: 55 });
+    expect(summary.coordinator).toMatchObject({ total: 19, pullRequests: 4, failed: 2, takenOver: 2, unattendedRate: 59 });
     // A coordinator that started nothing names the agents that did, so a wrong id is easy to fix.
     const missing = Bun.spawnSync([process.execPath, "scripts/measure-coordinator-outcomes.ts", file, "--coordinator=nobody"]);
     expect(missing.exitCode).toBe(0);
