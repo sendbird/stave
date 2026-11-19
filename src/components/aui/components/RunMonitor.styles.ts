@@ -65,9 +65,14 @@ export const runStyles = stylex.create({
     inlineSize: 28,
     placeItems: "center",
   },
+  // Host: one `minmax(0, 1fr)` column. An implicit `auto` track sizes to the
+  // widest min-content of its items (a non-wrapping meta such as the model
+  // identity), so it overflowed the shrunk column and the title ran under the
+  // state tag beside it.
   id: {
     display: "grid",
     flex: "1 1 auto",
+    gridTemplateColumns: "minmax(0, 1fr)",
     minInlineSize: 0,
   },
   // Wraps rather than truncating (upstream since F1/F7; the host already did):
