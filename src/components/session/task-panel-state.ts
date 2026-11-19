@@ -40,12 +40,29 @@ export interface TaskPanelStatus {
   focusDetails: boolean;
 }
 
-function latestAssistantTurnId(messages: readonly ChatMessage[]) {
+function latestAssistantMessage(messages: readonly ChatMessage[]) {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
-    if (message?.role === "assistant" && message.turnId) return message.turnId;
+    if (message?.role === "assistant" && message.turnId) return message;
   }
   return null;
+}
+
+/**
+ * The newest turn with no live one: the newest of the messages' turn and the
+ * saved history's (newest first). Restored messages can stop at an earlier
+ * turn than the history holds; a turn the history has not saved yet is newer
+ * when it started later.
+ */
+function latestSettledTurnId(messages: readonly ChatMessage[], history: readonly TurnHistoryEntry[] | null) {
+  const message = latestAssistantMessage(messages);
+  const saved = history?.[0] ?? null;
+  if (!message?.turnId || !saved) return message?.turnId ?? saved?.id ?? null;
+  const index = history!.findIndex((entry) => entry.id === message.turnId);
+  if (index >= 0) return index === 0 ? message.turnId : saved.id;
+  const savedAt = Date.parse(saved.createdAt);
+  const messageAt = message.startedAt ? Date.parse(message.startedAt) : Number.NaN;
+  return Number.isFinite(messageAt) && Number.isFinite(savedAt) && savedAt > messageAt ? saved.id : message.turnId;
 }
 
 function lastAssistantOfTurn(messages: readonly ChatMessage[], turnId: string | null) {
@@ -167,7 +184,7 @@ export function buildTaskPanelStatus(args: {
   pending?: TaskPendingRequests;
 }): TaskPanelStatus {
   const { messages, history } = args;
-  const currentTurnId = args.liveTurnId ?? latestAssistantTurnId(messages) ?? history?.[0]?.id ?? null;
+  const currentTurnId = args.liveTurnId ?? latestSettledTurnId(messages, history);
   const past = args.selectedTurnId && args.selectedTurnId !== currentTurnId ? args.selectedTurnId : null;
   const turnId = past ?? currentTurnId;
   const entry = turnId ? history?.find((turn) => turn.id === turnId) ?? null : null;

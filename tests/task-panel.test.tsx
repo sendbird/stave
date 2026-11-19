@@ -306,6 +306,19 @@ test("F1: the state, its words and the jump target come from the same request", 
   expect(settled.request?.requestId).toBe("q-old");
 });
 
+test("F2: a newer saved turn than the restored messages decides, and its answer is never an older turn's", () => {
+  const history = [turn("turn-3", "failed", "Stream closed."), turn("turn-2", "completed")];
+  const view = status({ messages: [REPLY], history });
+  expect(view.turnId).toBe("turn-3");
+  expect(view.status).toMatchObject({ state: "stopped", reason: "Stream closed.", result: null });
+  // The newest message turn missing from history: the later start wins.
+  const later = { ...turn("turn-9", "failed", "Boom"), createdAt: "2026-09-29T11:00:00.000Z" };
+  const timed = status({ messages: [{ ...REPLY, startedAt: "2026-09-29T10:00:00.000Z" } as ChatMessage], history: [later] });
+  expect(timed).toMatchObject({ turnId: "turn-9", status: { state: "stopped" } });
+  // The messages reach the newest saved turn: it still follows the messages.
+  expect(status({ messages: [REPLY], history: [turn("turn-2", "completed"), turn("turn-1", "completed")] }).turnId).toBe("turn-2");
+});
+
 test("F3: a run waiting for its usage reset waits on nobody and says when it resumes", () => {
   const detail = agentRun();
   detail.agentRun = {
