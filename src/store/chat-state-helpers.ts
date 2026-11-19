@@ -211,7 +211,7 @@ export function buildOutgoingUserMessage(args: {
 }
 
 export function buildPendingProviderTurnState(args: {
-  deliveredResultKeys?: string[];
+  deferredResultKeys?: string[];
   tasks: Task[];
   messagesByTask: Record<string, ChatMessage[]>;
   messageCountByTask: Record<string, number>;
@@ -271,9 +271,8 @@ export function buildPendingProviderTurnState(args: {
   });
 
   const assistantMessage: ChatMessage = {
-    ...(args.deliveredResultKeys?.length ? { deliveredResultKeys: args.deliveredResultKeys } : {}),
+    ...(args.deferredResultKeys?.length ? { deferredResultKeys: args.deferredResultKeys } : {}),
     id: assistantMessageId,
-    turnId: args.turnId,
     role: "assistant",
     model: args.activeModel,
     providerId: args.provider,

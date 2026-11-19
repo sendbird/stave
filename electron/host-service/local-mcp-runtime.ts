@@ -1901,10 +1901,11 @@ async function runTaskImpl(args: {
           ].join("\n"),
         }
       : null;
-  const deliveredResultKeys: string[] = [];
+  // Subagent states and the answers new to this task; deferred ones are recorded on the turn.
+  const deferredResultKeys: string[] = [];
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
-    history: existingHistory, deliveredResultKeys,
+    history: existingHistory, deferredResultKeys,
   });
   // Child-only rules: an agent run's stage turns keep delegating their stages.
   const delegationRules = delegatedTaskRulesFor({ parentTaskId: task.parentTaskId, agentRunStage: args.agentRunStage });
@@ -1976,7 +1977,7 @@ async function runTaskImpl(args: {
     ...(args.runtimeOptions
       ? { modelInfo: resolveTurnModelInfo({ providerId: provider, runtimeOptions: args.runtimeOptions }) }
       : {}),
-    content: args.prompt, deliveredResultKeys,
+    content: args.prompt, deferredResultKeys,
     questionReply: questionReply ?? args.initialContext?.questionReply,
     fileContexts: args.initialContext?.fileContexts,
     imageContexts: args.initialContext?.imageContexts,

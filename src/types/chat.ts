@@ -439,7 +439,8 @@ export interface AgentRunPromptProvenance {
 }
 
 export interface ChatMessage {
-  deliveredResultKeys?: string[];
+  /** Subagent answers this assistant turn could not fit; the next turn delivers them first. */
+  deferredResultKeys?: string[];
   questionReply?: QuestionReply;
   id: string;
   role: MessageRole;

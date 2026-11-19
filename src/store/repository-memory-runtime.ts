@@ -26,11 +26,11 @@ export async function collectTurnStartRetrievedContextParts(args: {
   providerSession?: ProviderSessionCursor | null;
   repositoryPath: string | null;
   parentTaskId: string;
-  history: readonly Pick<ChatMessage, "role" | "content" | "startedAt" | "deliveredResultKeys">[];
+  history: readonly Pick<ChatMessage, "role" | "content" | "startedAt" | "deferredResultKeys">[];
   prompt: string;
   /** Children attached to this message are not repeated as receipts. */
   promptDraft?: PromptDraft;
-  deliveredResultKeys?: string[];
+  deferredResultKeys?: string[];
 }): Promise<CanonicalRetrievedContextPart[]> {
   const [delegatedTaskSummaries, repositoryMemoryPart, handoffParts] = await Promise.all([
     window.api?.runs?.listDelegatedTasks?.({
@@ -51,11 +51,12 @@ export async function collectTurnStartRetrievedContextParts(args: {
   if (repositoryMemoryPart) {
     parts.push(repositoryMemoryPart);
   }
-  // Record only results included in the parent input.
+  // A task that started subagents sees where they stand and the answers new to
+  // it; answers that did not fit are recorded on this turn for the next one.
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: delegatedTaskSummaries,
     history: args.history,
-    deliveredResultKeys: args.deliveredResultKeys,
+    deferredResultKeys: args.deferredResultKeys,
     attachedTaskIds: new Set(
       (args.promptDraft ? getPromptDraftAttachments(args.promptDraft) : []).flatMap(
         (attachment) => (attachment.kind === "task-context" ? [attachment.taskId] : []),

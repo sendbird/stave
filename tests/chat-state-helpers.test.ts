@@ -41,12 +41,12 @@ const sharedArgs = {
   content: "hello",
 };
 
-test("preserves delivered result keys on the persisted parent turn", () => {
+test("preserves deferred result keys on the persisted parent turn", () => {
   const state = buildPendingProviderTurnState({
     ...sharedArgs, tasks: [task("parent")], taskId: "parent", messagesByTask: {},
-    messageCountByTask: {}, deliveredResultKeys: ["child-result"],
+    messageCountByTask: {}, deferredResultKeys: ["child-result"],
   });
-  expect(ChatMessageSchema.parse(state.messagesByTask.parent?.[1]).deliveredResultKeys).toEqual(["child-result"]);
+  expect(ChatMessageSchema.parse(state.messagesByTask.parent?.[1]).deferredResultKeys).toEqual(["child-result"]);
 });
 
 describe("resolveActiveTurnProviderId", () => {
