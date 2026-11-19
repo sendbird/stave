@@ -1347,6 +1347,8 @@ export interface HostServiceEventMap {
   "terminal.status": HostTerminalStatusEvent;
   "workspace-scripts.event": WorkspaceScriptEventEnvelope;
   "provider.stream-event": HostProviderStreamEventPayload;
+  /** Every turn the host still runs, after a turn starts, ends or starts or stops waiting on a person. */
+  "provider.live-turns-changed": ProviderLiveTurns;
   "local-mcp.workspace-information-updated": {
     workspaceId: string;
     workspaceInformation: WorkspaceInformationState;

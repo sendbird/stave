@@ -195,10 +195,12 @@ request that was interrupted is not run again automatically.
 
 **When it runs.** Tars works only while the Stave desktop app is running. It
 does not execute while Stave is closed or the computer is asleep; it catches up
-when Stave starts again. While agent runs or Tars executions are active, Stave
-holds an app-suspension blocker and releases it when idle; the display may turn
-off. A closed lid can still put a Mac to sleep. The browser-only development
-runtime has no Tars service.
+when Stave starts again. While a Tars execution or other unattended work runs
+or will continue on its own, Stave keeps the Mac from idle sleep; once
+everything left waits for you, it lets the Mac sleep
+([Agent Runs](agent-runs.md#hand-off-a-goal-and-leave-it)). The display may
+turn off, and a closed lid can still put a Mac to sleep. The browser-only
+development runtime has no Tars service.
 
 ## Edit workspace information
 
