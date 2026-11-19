@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { createHash } from "node:crypto";
-import { TARS_ENDED_FOLLOW_UPS_MAX, TARS_FOLLOW_UPS_WITHOUT_PROGRESS, tarsEndedResultBrake, tarsResultProgressed } from "@/lib/tars/events";
+import { TARS_ENDED_FOLLOW_UPS_MAX, TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UPS_WITHOUT_PROGRESS, tarsEndedResultBrake, tarsResultProgressed } from "@/lib/tars/events";
 import { tarsTrayFollowUp } from "@/lib/tars/tray-model";
 import type { TarsExecutionObservation } from "../electron/host-service/tars-runtime";
 import { tarsObservation, tarsRunResult } from "../electron/host-service/tars-execution";
@@ -151,6 +151,46 @@ describe("continuations of ended work that end with the same result", () => {
     expect(f.planner).toHaveLength(0);
     expect(f.continued).toHaveLength(0);
     expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted"]);
+  });
+
+  test("a restart after the retention period keeps the count of open work and removes that of ended work", async () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "tars-ended-results-"));
+    cleanup.push(() => rmSync(dir, { recursive: true, force: true }));
+    const filename = path.join(dir, "state.sqlite");
+    const first = followUpFixture({ continueWork: true, filename }); first.service.start();
+    // Two continuations with the same result, and the second one's Run is still open.
+    const open = first.responsibility("running");
+    for (let round = 0; round < 2; round++) await endRun(first, open.id, SAME);
+    first.advance(minutes(120));
+    // Work Tars already handed to the user, who has not acted.
+    const handed = first.responsibility("running");
+    for (let round = 0; round < 3; round++) await endRun(first, handed.id, SAME);
+    first.advance(minutes(120));
+    // Work that was continued once and then cancelled.
+    const ended = first.responsibility("running");
+    await endRun(first, ended.id, SAME);
+    first.responsibilities.patch(ended.id, first.responsibilities.get(ended.id)!.revision, { state: "cancelled" }, first.now());
+    expect(first.continued).toHaveLength(5);
+    expect(endedEvents(first, ended.id).map((event) => event.status)).toEqual(["followedUp"]);
+    // Nothing changes for longer than processed changes are kept, then Stave restarts.
+    first.advance(TARS_EVENT_RETENTION_MS + minutes(1));
+    const advanced = Date.parse(first.now()) - Date.parse("2026-11-05T00:00:00.000Z");
+    await first.close();
+    const f = fixture({ filename }); f.advance(advanced);
+    f.observations.set(open.id, { state: "running", detail: null });
+    f.observations.set(handed.id, unverified(SAME));
+    f.service.start(); await f.service.whenIdle();
+    // The open Run ends the same way a third time: still the user's decision, with no new Run.
+    await endRun(f, open.id, SAME);
+    expect(f.planner).toHaveLength(0);
+    expect(f.continued).toHaveLength(0);
+    expect(endedEvents(f, open.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted"]);
+    // The work handed to the user still says so.
+    expect(endedEvents(f, handed.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted"]);
+    expect(f.responsibilities.snapshot().followUps.filter((state) => state.responsibilityId === handed.id).map((state) => state.status)).toEqual(["exhausted"]);
+    // Ended work's changes are removed as before.
+    expect(endedEvents(f, ended.id)).toEqual([]);
+    expect(f.errors).toEqual([]);
   });
 
   test("Careful autonomy is unchanged: the follow-up only proposes the continuation", async () => {

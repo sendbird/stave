@@ -19,6 +19,8 @@ interface InboxDatabase {
 
 /** Messages Tars started by itself; both count against the window cap. */
 const AUTOMATIC_ORIGINS = "('followUp', 'reask')";
+/** Work that is no longer open: it ended, or the user took it over. Its events are history, not state. */
+const ENDED_STATES = "('completed', 'cancelled', 'takenOver')";
 
 /** When the follow-up window opens again (null: open now). */
 export interface TarsFollowUpGate { nextWindowAt: string | null }
@@ -334,9 +336,15 @@ export class TarsEventInbox {
   }
 
   /**
-   * Removes processed events older than `maxAgeMs`; pending ones always stay.
-   * A late duplicate of a removed event is recorded again and judged against
-   * the work's current revision, so it never brings back an old episode.
+   * Removes processed events older than `maxAgeMs` of work that is no longer
+   * open (`ENDED_STATES`) or no longer saved; pending ones always stay. The
+   * events of open work are its state, whatever their age: they hold the
+   * count that stops automatic follow-ups without progress
+   * (`endedResultsSinceUser`, `followUpsWithoutProgress`), the notice that
+   * Tars handed the work to the user, and the keys that keep an episode from
+   * being recorded again as new. A late duplicate of a removed event is
+   * recorded again and judged against the work's current revision, so it
+   * never brings back an old episode.
    */
   prune(now: string, maxAgeMs = TARS_EVENT_RETENTION_MS): number {
     const cutoff = new Date(Date.parse(now) - maxAgeMs).toISOString();
@@ -344,7 +352,9 @@ export class TarsEventInbox {
       // Starts older than the window no longer count against it.
       this.db.prepare("DELETE FROM tars_follow_up_starts WHERE started_at < ?")
         .run(new Date(Date.parse(now) - TARS_FOLLOW_UP_WINDOW_MS).toISOString());
-      return Number(this.db.prepare("DELETE FROM tars_events WHERE status <> 'pending' AND created_at < ?").run(cutoff).changes ?? 0);
+      return Number(this.db.prepare(`DELETE FROM tars_events WHERE status <> 'pending' AND created_at < ?
+        AND responsibility_id NOT IN (SELECT id FROM tars_responsibilities
+          WHERE json_extract(body_json, '$.state') NOT IN ${ENDED_STATES})`).run(cutoff).changes ?? 0);
     });
   }
 

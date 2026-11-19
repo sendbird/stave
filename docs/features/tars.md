@@ -1708,7 +1708,9 @@ A waiting card shows **Next check** with the time Tars follows up if nothing
 changes before then; it never shows a time that has passed, and shows nothing
 once that wait was followed up or when the run's stage asked you (that was
 followed up when it asked). Processed changes older than 30 days are removed
-when Stave starts; unprocessed ones are kept.
+when Stave starts, for work that is completed, cancelled or taken over;
+unprocessed ones, and those of work that is still open, are kept, so the
+count that stops automatic continuations survives any wait and restart.
 
 ## Settings and models
 
