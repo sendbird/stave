@@ -1,3 +1,19 @@
+## [0.35.3](https://github.com/sendbird/stave/compare/v0.35.2...v0.35.3) (2026-11-19)
+
+### Changes
+
+- The Task panel puts current state, required action and results on one screen. Tars cards show a summary and one main action, with stages and secondary controls in details.
+- Stave keeps macOS awake while unattended work can make progress, including ordinary Task turns. Runs use time and provider usage as their work budget, with repeat limits for automatic follow-ups that make no progress.
+- Built-in editing workflows default to one work owner and an independent review. Agent launch failures are surfaced instead of silently starting a plain turn.
+- Tars verifies a pull request's base and head commit before adopting it. It keeps observing a Task after you continue it yourself, while authority remains tied to the Run Tars started.
+- Completed subagent answers reach their parent without truncation or duplicate delivery. Live and replayed subagent progress appears only on the matching card.
+- General schedules support Codex native auto-review. Screenshots opened from replies fit the viewport, long subagent titles leave room for the state tag, and the workspace branch updates after an external checkout.
+- Tars schedules and unused saved-Agent learning suggestions, export and version-history screens were removed. General schedules and saved-Agent import remain available. A coordinator trial kit adds documentation and measurement tools for comparing the two approaches.
+
+### References
+
+- [PR #1008](https://github.com/sendbird/stave/pull/1008), [PR #1009](https://github.com/sendbird/stave/pull/1009), [PR #1010](https://github.com/sendbird/stave/pull/1010), [PR #1011](https://github.com/sendbird/stave/pull/1011), [PR #1012](https://github.com/sendbird/stave/pull/1012), [PR #1013](https://github.com/sendbird/stave/pull/1013), [PR #1014](https://github.com/sendbird/stave/pull/1014), [PR #1015](https://github.com/sendbird/stave/pull/1015), [PR #1016](https://github.com/sendbird/stave/pull/1016), [PR #1017](https://github.com/sendbird/stave/pull/1017), [PR #1018](https://github.com/sendbird/stave/pull/1018), [PR #1019](https://github.com/sendbird/stave/pull/1019), [PR #1020](https://github.com/sendbird/stave/pull/1020), [PR #1021](https://github.com/sendbird/stave/pull/1021), [PR #1022](https://github.com/sendbird/stave/pull/1022), [PR #1023](https://github.com/sendbird/stave/pull/1023)
+
 ## [0.35.2](https://github.com/sendbird/stave/compare/v0.35.1...v0.35.2) (2026-11-18)
 
 This patch release includes the 23 merged changes since 0.35.1.
