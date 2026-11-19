@@ -1,4 +1,11 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+/** Opens a work card's detail (its title is the disclosure), where everything but the card's three lines is. */
+async function openCardDetail(card: Locator) {
+  const title = card.locator("[data-tars-card-title]");
+  if (await title.getAttribute("aria-expanded") !== "true") await title.click();
+  await expect(card.locator("[data-tars-card-detail]")).toBeVisible();
+}
 
 const composer = (page: Page) => page.locator("[data-tars-composer]");
 const editor = (page: Page) => composer(page).getByRole("textbox");
@@ -117,9 +124,10 @@ test("receipts are accepted actions, not a claim that work is completed", async 
   await page.goto("/?stavePreview=tars&receipt=applied");
   await send(page, "Check the review");
   const message = page.locator("[data-tars-message]");
-  // An applied delegation reads as its flow, which states the work's own state, never "Completed" on acceptance.
-  await expect(message.locator('[data-tars-flow="preview-responsibility"] [data-tars-flow-summary]')).toHaveText("Running");
+  // An applied delegation reads as its flow, the record of what was handed over; its card says where the work stands, never "Completed" on acceptance.
+  await expect(message.locator('[data-tars-flow="preview-responsibility"]')).toBeVisible();
   await expect(message).not.toContainText("Completed");
+  await expect(page.locator('[data-tars-card="preview-responsibility"] [data-tars-card-state]')).toHaveText("Working");
 });
 
 test("global reply paths cannot open a file from the active workspace", async ({ page }) => {
@@ -179,7 +187,8 @@ test("a click in the tray appends a one-line action record, never a user message
   await expect(editor(page)).toBeEditable();
   // Wide enough to pin: the tray is already open beside the conversation.
   const panel = page.getByRole("complementary");
-  // Take over sits in the card's "More actions" menu; the same host path records it.
+  // Take over sits in the "More actions" menu of the card's detail; the same host path records it.
+  await openCardDetail(panel.locator("[data-tars-card]"));
   await panel.getByRole("button", { name: "More actions for Verify the release candidate across two repositories", exact: true }).click();
   await page.getByRole("menuitem", { name: "Take over", exact: true }).click();
   await expect(view.locator("[data-tars-action-record]")).toContainText(/Take over.*Applied/);
@@ -401,6 +410,7 @@ test("queued work moves with Do first, from its grip's keys and by dragging; eac
   await expect.poll(order).toEqual(["queue-auth", "queue-search", "queue-docs"]);
 
   // The last card offers Do first only; choosing it moves the card ahead of the one before it.
+  await openCardDetail(panel.locator('[data-tars-card="queue-docs"]'));
   await panel.getByRole("button", { name: `More actions for ${docs}`, exact: true }).click();
   await expect(page.getByRole("menuitem", { name: "Do later", exact: true })).toHaveCount(0);
   await page.getByRole("menuitem", { name: "Do first", exact: true }).click();
@@ -496,8 +506,11 @@ test("decision keys answer only while the card has focus; the composer keeps its
   const answered = view.locator('[data-tars-decision-state="answered"]');
   await expect(answered).toContainText(/Pause it now.*Answered/);
   await expect(answered.locator("[data-tars-record-source]")).toHaveAttribute("data-tars-record-source", "key");
-  // The pause went through the host's control path: the work is paused now.
-  await expect(page.getByRole("complementary")).toContainText("Paused");
+  // The pause went through the host's control path: the work is held now, and its card offers Resume.
+  const paused = page.getByRole("complementary").locator('[data-tars-card="preview-responsibility"]');
+  await expect(paused).toHaveAttribute("data-tars-state", "paused");
+  await expect(paused).toHaveAttribute("data-task-user-state", "blocked");
+  await expect(paused.locator('[data-tars-card-primary="resume"]')).toBeVisible();
   // Focus stays on the folded record instead of falling to the page.
   await expect(answered.locator('[data-tars-record-state][tabindex="-1"]')).toBeFocused();
 });
@@ -553,18 +566,22 @@ test("an unverified completion is a decision card: verification work goes to the
   await expect(view.locator('[data-tars-decision-state="answered"]')).toContainText(/Accept as done.*Answered/);
 });
 
-test("the tray and a delegated flow show where work stands without adding transcript rows", async ({ page }) => {
+test("the tray shows where work stands and a delegated flow keeps its record, without adding transcript rows", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/?stavePreview=tars&tray=true");
   const view = page.getByTestId("tars-view");
   const tray = page.getByRole("complementary");
   // The indicator says each lane's own number: the running fix and the work the user took over are both in progress.
   await expect(view.getByRole("button", { name: "1 needs you · 2 in progress · 1 done", exact: true })).toBeVisible();
-  // The card names who holds the work and its helpers; it counts no turns left.
-  await expect(tray.locator('[data-tars-card="billing"]')).toContainText("Owner: Tars · 2 helpers working");
-  await expect(tray.locator('[data-tars-card="billing"]')).not.toContainText("turns left");
+  const billing = tray.locator('[data-tars-card="billing"]');
+  await expect(billing).toHaveAttribute("data-task-user-state", "working");
+  await openCardDetail(billing);
+  // The detail names who holds the work and its helpers; it counts no turns left.
+  await expect(billing).toContainText("Owner: Tars · 2 helpers working");
+  await expect(billing).not.toContainText("turns left");
+  // The flow is the delegation's record: its title, with no stage count or state of its own.
   const flow = view.locator('[data-tars-flow="billing"]');
-  await expect(flow).toContainText("1 of 3 stages done · Running");
+  await expect(flow).toHaveText("Fix the billing export on empty invoice lists");
   await flow.getByRole("button", { expanded: false }).click();
   const stage = flow.locator('[data-tars-flow-stage="cause"]');
   await stage.focus();
@@ -578,7 +595,8 @@ test("the tray and a delegated flow show where work stands without adding transc
   await page.getByRole("menuitem", { name: "Show in Fleet", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-preview-fleet-focus", "exec-billing/task-billing");
   const release = tray.locator('[data-tars-card="release"]');
-  // Confirm takes Resume's place instead of sitting beside it.
+  // Confirm is the card's one action; Resume is not offered beside it, folded or in the detail.
+  await openCardDetail(release);
   await expect(release.getByRole("button", { name: "Resume", exact: true })).toHaveCount(0);
   await release.getByRole("button", { name: "Confirm resume", exact: true }).click();
   await expect(view.locator("[data-tars-action-record]")).toContainText(/Resume.*Applied/);
@@ -587,22 +605,36 @@ test("the tray and a delegated flow show where work stands without adding transc
 });
 
 for (const lang of ["en", "ko"]) for (const width of [1280, 420]) {
-  test(`card actions keep to one line in the ${width < 1088 ? "popover" : "pinned"} tray (${lang})`, async ({ page }) => {
+  test(`a card's state line and its detail's controls each keep to one line in the ${width < 1088 ? "popover" : "pinned"} tray (${lang})`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`/?stavePreview=tars&tray=true&lang=${lang}`);
     const view = page.getByTestId("tars-view");
     await page.evaluate(() => document.fonts.ready);
     if (width < 1088) await view.locator("[data-tars-tray-indicator]").click();
-    const rows = page.locator("[data-tars-card-actions]");
-    await expect(rows.first()).toBeVisible();
-    for (const row of await rows.all()) {
-      if (!(await row.isVisible())) continue;
-      const geometry = await row.evaluate((node) => ({ height: node.getBoundingClientRect().height,
-        control: Math.max(...[...node.querySelectorAll("button")].map((button) => button.getBoundingClientRect().height)),
-        buttons: node.querySelectorAll("button").length }));
-      expect(geometry.buttons).toBeLessThanOrEqual(3);
-      expect(geometry.height).toBeLessThanOrEqual(geometry.control + 1);
+    const cards = page.locator("[data-tars-card]");
+    await expect(cards.first()).toBeVisible();
+    let measured = 0;
+    for (const card of await cards.all()) {
+      if (!(await card.isVisible())) continue;
+      await openCardDetail(card);
+      // The state and the one action share a line; the detail's controls are one main control, Open task and one menu at most.
+      const geometry = await card.evaluate((node) => {
+        const line = node.querySelector("[data-tars-card-state]")!.parentElement!;
+        const row = node.querySelector("[data-tars-card-actions]");
+        const tallest = (root: Element) => Math.max(0, ...[...root.querySelectorAll("button, a")].map((button) => button.getBoundingClientRect().height));
+        return { line: line.getBoundingClientRect().height, lineControl: tallest(line), lineActions: line.querySelectorAll("button, a").length,
+          row: row ? { height: row.getBoundingClientRect().height, control: tallest(row), buttons: row.querySelectorAll("button").length } : null };
+      });
+      expect(geometry.lineActions).toBeLessThanOrEqual(1);
+      // One line: the small control's height (32px), which also holds the decision rung.
+      expect(geometry.line).toBeLessThanOrEqual(Math.max(geometry.lineControl, 32) + 1);
+      if (geometry.row) {
+        measured += 1;
+        expect(geometry.row.buttons).toBeLessThanOrEqual(3);
+        expect(geometry.row.height).toBeLessThanOrEqual(geometry.row.control + 1);
+      }
     }
+    expect(measured).toBeGreaterThan(0);
   });
 }
 
@@ -788,24 +820,26 @@ for (const lang of ["en", "ko"] as const) {
   });
 }
 
-test("a running card is a run monitor: current stage with a live clock, one segment per stage, the step count and its timeline", async ({ page }) => {
+test("a running card's detail shows its run: current stage with a live clock, one segment per stage, the step count and its timeline", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/?stavePreview=tars&tray=true");
   const view = page.getByTestId("tars-view");
-  const monitor = page.getByRole("complementary").locator('[data-tars-monitor="billing"]');
+  const card = page.getByRole("complementary").locator('[data-tars-card="billing"]');
+  await openCardDetail(card);
+  const monitor = card.locator('[data-tars-monitor="billing"]');
   await expect(monitor).toContainText("Now: Cause, attempt 2");
   const segments = monitor.locator("[data-run-segments] > li");
   await expect(monitor.locator("[data-run-segments]")).toHaveAttribute("data-run-segments", "done,now,pending");
   await expect(segments).toHaveCount(3);
   // The bare fraction is shown; what it counts is read in words and shown in its hint.
-  await expect(monitor.locator("[data-tars-monitor-count] [aria-hidden]")).toHaveText("2/3");
-  await expect(monitor.locator("[data-tars-monitor-count]")).toContainText("Stage 2 of 3");
+  await expect(card.locator("[data-tars-monitor-count] [aria-hidden]")).toHaveText("2/3");
+  await expect(card.locator("[data-tars-monitor-count]")).toContainText("Stage 2 of 3");
   const clock = monitor.getByRole("timer");
   await expect(clock).toHaveText(/^\d+m/);
   // Segments share one row and never wrap.
   const rows = await segments.evaluateAll((items) => new Set(items.map((item) => Math.round(item.getBoundingClientRect().top))).size);
   expect(rows).toBe(1);
-  const timeline = monitor.getByRole("button", { name: "Open the timeline for Fix the billing export on empty invoice lists", exact: true });
+  const timeline = card.getByRole("button", { name: "Open the timeline for Fix the billing export on empty invoice lists", exact: true });
   await timeline.click();
   await expect(view.locator('[data-tars-side-view="timeline"]')).toBeVisible();
   await page.keyboard.press("Escape");
@@ -955,7 +989,8 @@ test("queued work without a run shows the user's message, Tars's instruction and
   const tray = page.getByRole("complementary");
   const queued = tray.locator('[data-tars-card="queue-auth"]');
   await expect(queued).toHaveAttribute("data-tars-lane", "running");
-  // Queued: no task, no run and no timeline yet, but its request opens.
+  // Queued: no task, no run and no timeline yet, but its request opens from its detail.
+  await openCardDetail(queued);
   await expect(queued.getByRole("button", { name: "Open task", exact: true })).toHaveCount(0);
   await expect(queued.locator("[data-tars-monitor-timeline]")).toHaveCount(0);
   await queued.getByRole("button", { name: "Open task request for Rotate the staging auth keys" }).click();
@@ -988,6 +1023,7 @@ test("queued work without a run shows the user's message, Tars's instruction and
   // Other work never shows this one's texts: older work says its message was not saved and shows its whole saved instruction.
   await page.keyboard.press("Escape");
   await expect(side).toHaveCount(0);
+  await openCardDetail(tray.locator('[data-tars-card="queue-docs"]'));
   await tray.locator('[data-tars-card="queue-docs"]').getByRole("button", { name: /^Open task request for/ }).click();
   await expect(side.locator('[data-tars-brief-missing="request"]')).toContainText("This older work did not save your original message.");
   await expect(side.locator('[data-tars-brief-text="instruction-assignment"]')).toContainText("Update every example in docs/api/*.md");
@@ -1001,46 +1037,38 @@ test("queued work without a run shows the user's message, Tars's instruction and
   await expect(side.locator('[data-tars-brief-missing="request"]')).toBeVisible();
 });
 
-test("running work says what Stave observed in the tray, the flow, the composer band and the timeline", async ({ page }) => {
+test("running work says what Stave observed on its card and in the timeline; the conversation and the composer do not repeat it", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/?stavePreview=tars&tray=true&live=true");
   const view = page.getByTestId("tars-view");
-  const band = view.locator('[data-tars-running="billing"]');
-  // The composer band: only the running fix, its stage and the turn's current step, from the relayed turn.
-  await expect(view.locator("[data-tars-running]")).toHaveCount(1);
-  await expect(band).toContainText("Fix the billing export on empty invoice lists");
-  await expect(band).toContainText(/Stage 2 of 3 · .+, attempt 2/);
-  await expect(band.locator('[data-tars-live-freshness="live"]')).toContainText("Running the tests");
-  // The folded flow under the delegating message and the tray card say the same observation.
-  await expect(view.locator('[data-tars-flow="billing"] [data-tars-flow-live]')).toContainText("Running the tests");
+  // The card's sentence is the turn's current step, from the relayed turn; its detail lists the run's recent progress.
   const card = page.getByRole("complementary").locator('[data-tars-card="billing"]');
-  await expect(card.locator('[data-tars-live-freshness="live"]')).toContainText("Running the tests");
+  await expect(card.locator('[data-tars-card-sentence] [data-tars-live-freshness="live"]')).toContainText("Running the tests");
+  await openCardDetail(card);
   await expect(card.locator("[data-tars-recent-entry]")).toHaveCount(3);
-  // Paused and taken-over work gets no live line and no place in the band.
+  // The observation is said once: the detail does not repeat the card's sentence.
+  await expect(card.locator("[data-tars-live-line]")).toHaveCount(1);
+  // Taken-over work gets no live line.
   await expect(page.getByRole("complementary").locator('[data-tars-card="migration"] [data-tars-live-line]')).toHaveCount(0);
-  // Folded, the band is one summary line; unfolded, the rows below.
-  const toggle = view.locator("[data-tars-running-toggle]");
-  await expect(toggle).toHaveText("1 running now");
-  await expect(band).toBeHidden();
-  await toggle.click();
-  await expect(band).toBeVisible();
-  // The band's mark sits on its first line, and the band never overflows the composer.
+  // The flow under the delegating message and the composer's status line say nothing about the step.
+  await expect(view.locator('[data-tars-flow="billing"] [data-tars-live-line]')).toHaveCount(0);
+  const status = view.locator("[data-tars-running-status]");
+  await expect(status).toHaveText("1 running now");
+  await expect(view.locator("[data-tars-running-strip] [data-tars-live-line]")).toHaveCount(0);
+  // The status line never overflows the composer.
   await page.evaluate(() => document.fonts.ready);
   for (const width of [390, 1440]) {
     await page.setViewportSize({ width, height: 900 });
-    const geometry = await band.evaluate((node) => {
-      const mark = node.querySelector("[data-state]")!.getBoundingClientRect();
-      const title = node.querySelector("p")!.getBoundingClientRect();
+    const geometry = await status.evaluate((node) => {
       const composer = node.closest("[data-tars-composer]")!;
-      return { markCenter: mark.top + mark.height / 2, titleTop: title.top, titleBottom: title.bottom, scroll: composer.scrollWidth, client: composer.clientWidth };
+      return { scroll: composer.scrollWidth, client: composer.clientWidth };
     });
-    expect(geometry.markCenter).toBeGreaterThanOrEqual(geometry.titleTop);
-    expect(geometry.markCenter).toBeLessThanOrEqual(geometry.titleBottom);
     expect(geometry.scroll).toBeLessThanOrEqual(geometry.client + 1);
   }
-  // Its Timeline opens the side view on "Now", then the stage it is on, expanded.
+  // The card's Timeline opens the side view on "Now", then the stage it is on, expanded. (The pinned tray was rebuilt by the resize.)
   await page.setViewportSize({ width: 1280, height: 900 });
-  await band.getByRole("button", { name: "Open the timeline for Fix the billing export on empty invoice lists" }).click();
+  await openCardDetail(card);
+  await card.getByRole("button", { name: "Open the timeline for Fix the billing export on empty invoice lists" }).click();
   const now = view.locator("[data-tars-timeline-now]");
   await expect(now).toContainText("Running the tests");
   await expect(now.locator('[data-tars-state="running"]')).toBeVisible();
@@ -1048,15 +1076,13 @@ test("running work says what Stave observed in the tray, the flow, the composer 
   await expect(view.locator('[aria-controls="agent-run-stage-cause"]')).toHaveAttribute("aria-expanded", "true");
 });
 
-test("running work Stave has not observed for a while is marked out of date everywhere it shows", async ({ page }) => {
+test("running work Stave has not observed for a while is marked out of date on its card and in the composer's status line", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/?stavePreview=tars&tray=true&live=stale&lang=ko");
   const view = page.getByTestId("tars-view");
-  for (const scope of ['[data-tars-running="billing"]', '[data-tars-flow="billing"] [data-tars-flow-live]', '[data-tars-card="billing"]']) {
-    const stale = view.locator(`${scope} [data-tars-live-freshness="stale"]`).or(page.locator(`${scope} [data-tars-live-freshness="stale"]`)).first();
-    await expect(stale).toContainText("14분 동안 업데이트 없음 · 진행 정보가 오래됐을 수 있습니다");
-    await expect(stale).not.toContainText("테스트 실행 중");
-  }
-  // The folded composer band says so in its one summary line.
-  await expect(view.locator("[data-tars-running-toggle]")).toHaveText("지금 1개 실행 중·1개 최근 업데이트 없음");
+  const stale = page.locator('[data-tars-card="billing"] [data-tars-card-sentence] [data-tars-live-freshness="stale"]');
+  await expect(stale).toContainText("14분 동안 업데이트 없음 · 진행 정보가 오래됐을 수 있습니다");
+  await expect(stale).not.toContainText("테스트 실행 중");
+  // The composer's one status line says so too.
+  await expect(view.locator("[data-tars-running-status]")).toHaveText("지금 1개 실행 중·1개 최근 업데이트 없음");
 });

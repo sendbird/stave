@@ -1,0 +1,202 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+
+/**
+ * A Tars work card reads in three lines on the real components in the Tars
+ * preview: its title, one sentence, then its state with one action. Everything
+ * else is the card's detail, which the title opens. The same work's progress
+ * is not repeated in the conversation or above the composer.
+ */
+
+const POPOVER_BELOW = 1088;
+
+/** The cases, by fixture: `work` has a decision to confirm, running, queued and user-held work; `outputs` blocked work; `gallery` work finished with a pull request. */
+const CASES = [
+  { fixture: "tray=true&live=true&queued=true", id: "release", state: "waiting", primary: "confirm" },
+  { fixture: "tray=true&live=true&queued=true", id: "billing", state: "working", primary: "openTask" },
+  { fixture: "tray=true&live=true&queued=true", id: "search-index", state: "working", primary: "startNow" },
+  { fixture: "outputs=true", id: "search", state: "blocked", primary: "openReport" },
+  { fixture: "gallery=true", id: "docs", state: "finished", primary: "openPullRequest" },
+] as const;
+
+async function openTray(page: Page, query: string, width: number) {
+  await page.setViewportSize({ width, height: 900 });
+  await page.goto(`/?stavePreview=tars&${query}`);
+  const view = page.getByTestId("tars-view");
+  await expect(view.locator("[data-tars-tray-indicator]")).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  if (width < POPOVER_BELOW) await view.locator("[data-tars-tray-indicator]").click();
+  await expect(page.locator("[data-tars-tray]")).toBeVisible();
+  // Finished work sits in the folded Done lane.
+  const done = page.locator('[data-tars-lane-head="done"]');
+  if (await done.locator('[data-tars-lane-chevron="closed"]').count()) await done.locator("button[aria-expanded]").click();
+  return view;
+}
+
+/** What a folded card shows: its visible rows from top to bottom, and its visible controls. */
+async function measure(card: Locator) {
+  await card.scrollIntoViewIfNeeded();
+  return card.evaluate((node) => {
+    const visible = (element: Element) => element.checkVisibility() && element.getBoundingClientRect().height > 0;
+    const box = (element: Element) => element.getBoundingClientRect();
+    const rows = [...node.children].filter(visible).map((child) => ({ top: box(child).top, bottom: box(child).bottom }));
+    const title = node.querySelector("[data-tars-card-title]");
+    const sentence = node.querySelector("[data-tars-card-sentence]");
+    const state = node.querySelector("[data-tars-card-state]");
+    const primary = node.querySelector("[data-tars-card-primary]");
+    const controls = [...node.querySelectorAll("button, a")].filter(visible);
+    return {
+      rows: rows.length,
+      ordered: rows.every((row, index) => index === 0 || row.top >= rows[index - 1]!.bottom - 0.5),
+      controls: controls.map((control) => control.hasAttribute("data-tars-card-title") ? "title" : control.getAttribute("data-tars-card-primary") ?? control.getAttribute("data-tars-queue-grip") ?? "other"),
+      titleText: title?.textContent?.trim() ?? "",
+      sentenceText: sentence?.textContent?.trim() ?? "",
+      sentenceLines: sentence ? Math.round(box(sentence).height / Number.parseFloat(getComputedStyle(sentence.firstElementChild ?? sentence).lineHeight)) : 0,
+      stateText: state?.textContent?.trim() ?? "",
+      // The state and the one action share the third line.
+      sameLine: Boolean(state && primary) && Math.abs((box(state!).top + box(state!).bottom) / 2 - (box(primary!).top + box(primary!).bottom) / 2) <= 1.5,
+      contained: controls.every((control) => box(control).right <= box(node).right + 0.5 && box(control).left >= box(node).left - 0.5),
+      height: box(node).height,
+    };
+  });
+}
+
+for (const lang of ["en", "ko"] as const) for (const theme of ["light", "dark"] as const) for (const density of ["regular", "compact"] as const) for (const width of [1440, 390] as const) {
+  test(`every case reads in three lines · ${lang} · ${theme} · ${density} · ${width}px`, async ({ page }) => {
+    test.setTimeout(90_000);
+    let fixture = "";
+    for (const entry of CASES) {
+      // The gallery is checked once per language and width; its other switches change nothing a card reads.
+      if (entry.fixture === "gallery=true" && (theme === "dark" || density === "compact")) continue;
+      if (entry.fixture !== fixture) { fixture = entry.fixture; await openTray(page, `${fixture}&lang=${lang}&theme=${theme}&density=${density}`, width); }
+      const card = page.locator(`[data-tars-card="${entry.id}"]`);
+      await expect(card, entry.id).toBeVisible();
+      await expect(card, entry.id).toHaveAttribute("data-task-user-state", entry.state);
+      await expect(card.locator("[data-tars-card-detail]"), entry.id).toBeHidden();
+      const shown = await measure(card);
+      expect(shown.rows, entry.id).toBe(3);
+      expect(shown.ordered, entry.id).toBe(true);
+      // Exactly two controls: the title, which opens the detail, and the one action that fits the state.
+      expect(shown.controls, entry.id).toEqual(["title", entry.primary]);
+      expect(shown.titleText.length, entry.id).toBeGreaterThan(0);
+      expect(shown.sentenceText.length, entry.id).toBeGreaterThan(0);
+      expect(shown.sentenceLines, entry.id).toBeLessThanOrEqual(2);
+      expect(shown.stateText.length, entry.id).toBeGreaterThan(0);
+      expect(shown.sameLine, entry.id).toBe(true);
+      expect(shown.contained, entry.id).toBe(true);
+    }
+  });
+}
+
+test("the state is one of the task's five words, in both languages, and only running work moves", async ({ page }) => {
+  for (const [lang, words] of [["en", { release: "Waiting for you", billing: "Working", "search-index": "Working", migration: "Blocked", docs: "Finished" }],
+    ["ko", { release: "사용자 확인 대기 중", billing: "작업 중", "search-index": "작업 중", migration: "막힘", docs: "완료" }]] as const) {
+    await openTray(page, `tray=true&live=true&queued=true&lang=${lang}`, 1440);
+    for (const [id, word] of Object.entries(words)) await expect(page.locator(`[data-tars-card="${id}"] [data-tars-card-state]`), id).toHaveText(word);
+    // Tars's own state words are not on a folded card.
+    for (const id of Object.keys(words)) await expect(page.locator(`[data-tars-card="${id}"] [data-tars-state]`), id).toHaveCount(0);
+  }
+  await expect(page.locator('[data-tars-card="billing"] [data-tars-card-state] [data-motion="moving"]')).toHaveCount(1);
+  await expect(page.locator('[data-tars-card="search-index"] [data-tars-card-state] [data-motion="moving"]')).toHaveCount(0);
+});
+
+test("the title opens the detail by click and by keyboard, and everything that left the card is there", async ({ page }) => {
+  await openTray(page, "tray=true&live=true&queued=true&lang=en", 1440);
+  const card = page.locator('[data-tars-card="billing"]');
+  const title = card.locator("[data-tars-card-title]");
+  const detail = card.locator("[data-tars-card-detail]");
+  await expect(title).toHaveAttribute("aria-expanded", "false");
+  await title.focus();
+  await page.keyboard.press("Enter");
+  await expect(title).toHaveAttribute("aria-expanded", "true");
+  await expect(detail).toBeVisible();
+  expect(await title.getAttribute("aria-controls")).toBe(await detail.getAttribute("id"));
+  // Owner, helpers, branch, model, stages, the goal, recent progress and the secondary controls; no turns left.
+  await expect(detail.locator("[data-tars-facts]")).toHaveText("Owner: Tars · 2 helpers working");
+  await expect(detail.locator("[data-tars-branch]")).toBeVisible();
+  await expect(detail.locator("[data-tars-model-selection]")).toBeVisible();
+  await expect(detail.locator("[data-tars-monitor-step]")).toHaveText("Now: Cause, attempt 2");
+  await expect(detail.locator("[data-run-segments]")).toBeVisible();
+  await expect(detail.locator("[data-tars-monitor-count]")).toBeVisible();
+  await expect(detail.locator("[data-tars-goal]")).toBeVisible();
+  await expect(detail.locator("[data-tars-recent-progress]")).toBeVisible();
+  await expect(detail.locator('[data-tars-action="pause"]')).toBeVisible();
+  await expect(detail.locator("[data-tars-select-work]")).toBeVisible();
+  await expect(detail.locator("[data-tars-monitor-brief]")).toBeVisible();
+  await expect(detail.locator("[data-tars-monitor-timeline]")).toBeVisible();
+  // Take over and Cancel work stay one menu away.
+  await detail.locator("[data-tars-more-actions]").click();
+  await expect(page.getByRole("menuitem", { name: "Take over" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Cancel work" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  // The detail's controls stay inside the card, and the three lines stay on top.
+  const geometry = await card.evaluate((node) => {
+    const box = (element: Element) => element.getBoundingClientRect();
+    const detail = node.querySelector("[data-tars-card-detail]")!;
+    return { stateAbove: box(node.querySelector("[data-tars-card-state]")!).bottom <= box(detail).top + 0.5,
+      inside: [...detail.querySelectorAll("button")].every((button) => box(button).right <= box(node).right + 0.5) };
+  });
+  expect(geometry).toEqual({ stateAbove: true, inside: true });
+  await title.click();
+  await expect(detail).toBeHidden();
+  await expect(title).toHaveAttribute("aria-expanded", "false");
+});
+
+test("a queued card keeps its reorder grip on the state line and its queue moves in the detail", async ({ page }) => {
+  await openTray(page, "tray=true&queue=true&lang=en", 1440);
+  const card = page.locator('[data-tars-card="queue-search"]');
+  await expect(card).toHaveAttribute("data-task-user-state", "working");
+  const shown = await measure(card);
+  expect(shown.rows).toBe(3);
+  expect(shown.controls).toEqual(["title", "queue-search", "startNow"]);
+  await card.locator("[data-tars-card-title]").click();
+  await card.locator("[data-tars-more-actions]").click();
+  await expect(page.getByRole("menuitem", { name: "Do first" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Do later" })).toBeVisible();
+});
+
+test("a card's progress is not repeated in the conversation or above the composer", async ({ page }) => {
+  await openTray(page, "tray=true&live=true&lang=en", 1440);
+  const view = page.getByTestId("tars-view");
+  // The card is the one place that says what the running work is doing.
+  await expect(page.locator('[data-tars-card="billing"] [data-tars-card-sentence]')).toContainText("Running the tests");
+  // The conversation keeps the delegation as a record: its title, no state, stage count or live line.
+  const flow = view.locator('[data-tars-flow="billing"]');
+  await expect(flow).toBeVisible();
+  await expect(flow).toHaveText("Fix the billing export on empty invoice lists");
+  await expect(flow.locator("[data-tars-live-line], [data-state]")).toHaveCount(0);
+  // Above the composer, one status line; it lists no work.
+  const strip = view.locator("[data-tars-running-strip]");
+  await expect(strip).toHaveText("1 running now");
+  await expect(strip.locator("button")).toHaveCount(1);
+  await expect(strip.locator("[data-tars-live-line]")).toHaveCount(0);
+  expect(await view.getByText("Running the tests").count()).toBe(1);
+});
+
+test("the composer's status line opens the Work tray on the running card, by keyboard too", async ({ page }) => {
+  await openTray(page, "tray=true&live=true&lang=en", 1440);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto("/?stavePreview=tars&tray=true&live=true&lang=en");
+  const status = page.locator("[data-tars-running-status]");
+  await expect(status).toBeVisible();
+  await expect(page.locator("[data-tars-tray]")).toBeHidden();
+  await status.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator('[data-tars-card="billing"]')).toBeVisible();
+  await expect(page.locator('[data-tars-card="billing"] [data-tars-card-title]')).toBeFocused();
+});
+
+for (const width of [1440, 390] as const) {
+  test(`Answer on a card that waits on a question shows its decision card in the conversation · ${width}px`, async ({ page }) => {
+    await openTray(page, "decision=unverified&lang=en", width);
+    const card = page.locator('[data-tars-card="preview-responsibility"]');
+    await expect(card).toHaveAttribute("data-task-user-state", "waiting");
+    const answer = card.locator('[data-tars-card-primary="answer"]');
+    await expect(answer).toHaveText("Answer");
+    await answer.click();
+    // Narrow, the tray's popover closes so the card it leads to is in view.
+    if (width < POPOVER_BELOW) await expect(page.locator("[data-tars-tray]")).toBeHidden();
+    const dock = page.locator("[data-tars-decision-dock]");
+    await expect(dock).toBeVisible();
+    await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest("[data-tars-decision-dock]")))).toBe(true);
+  });
+}

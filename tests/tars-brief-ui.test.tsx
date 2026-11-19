@@ -6,7 +6,7 @@ import { TarsBriefPanel } from "../src/components/tars/TarsBriefPanel";
 import { TarsSideView } from "../src/components/tars/TarsSideView";
 import { TarsTrayCard, type TarsTrayActions } from "../src/components/tars/TarsTray";
 import { TarsFlowNodes } from "../src/components/tars/TarsFlowBlock";
-import { TarsRunMonitor } from "../src/components/tars/TarsRunMonitor";
+import { TarsWorkViews } from "../src/components/tars/TarsRunMonitor";
 import { acceptTarsBrief, type TarsBriefState } from "../src/components/tars/use-tars-brief";
 import { buildTarsBriefFixtures } from "../src/dev/tars-preview/tars-brief-fixtures";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
@@ -41,14 +41,12 @@ function capture(render: () => ReactNode) {
   const visit = (node: ReactNode): void => {
     if (Array.isArray(node)) { node.forEach(visit); return; }
     if (!isValidElement(node)) return;
-    const props = node.props as { children?: ReactNode; trailingActions?: ReactNode; onClick?: () => void; title?: string; "aria-label"?: string };
+    const props = node.props as { children?: ReactNode; onClick?: () => void; title?: string; "aria-label"?: string };
     const text = typeof props.children === "string" ? props.children : "";
     // A pressed button outside a DOM has no element to move focus from: hand it a stand-in.
     const event = { currentTarget: { closest: () => null } };
     if (props.onClick) handlers.push({ label: props["aria-label"] ?? props.title ?? text, onClick: () => (props.onClick as (value: unknown) => void)(event) });
     visit(props.children);
-    // A run monitor's footer links (its request and timeline) arrive as a prop.
-    visit(props.trailingActions);
   };
   visit(sink.tree);
   return { html, press: (label: string) => handlers.find((handler) => handler.label === label)!.onClick() };
@@ -174,7 +172,7 @@ describe("where the request view opens", () => {
     const card = cards.find((entry) => entry.row.id === row.id)!;
     expect(card.queue).not.toBeNull();
     expect(renderToStaticMarkup(createElement(TarsTrayCard, { card, actions }))).toContain(`data-tars-monitor-brief="${row.id}"`);
-    const view = capture(() => TarsRunMonitor({ row, onOpenSide: actions.onOpenSide }));
+    const view = capture(() => TarsWorkViews({ row, onOpenSide: actions.onOpenSide! }));
     view.press(`Open task request for ${row.title}`);
     expect(opened).toEqual([{ responsibilityId: row.id, kind: "brief" }]);
     for (const other of cards) expect(renderToStaticMarkup(createElement(TarsTrayCard, { card: other, actions }))).toContain(`data-tars-monitor-brief="${other.row.id}"`);

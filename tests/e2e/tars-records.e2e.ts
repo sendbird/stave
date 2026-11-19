@@ -112,6 +112,8 @@ test("control records wear their mark and a run of them shares one list", async 
   await page.goto("/?stavePreview=tars");
   const view = page.getByTestId("tars-view");
   const panel = page.getByRole("complementary");
+  // Take over is in the "More actions" menu of the card's detail, which the card's title opens.
+  await panel.locator("[data-tars-card-title]").click();
   await panel.getByRole("button", { name: "More actions for Verify the release candidate across two repositories", exact: true }).click();
   await page.getByRole("menuitem", { name: "Take over", exact: true }).click();
   const record = view.locator("[data-tars-action-record]");

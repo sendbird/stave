@@ -1,11 +1,12 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 /**
- * Geometry of the Tars tray cards and side views, on the real components in
- * the Tars preview: what needs the user is a label line over text that runs
- * the card's full width, the branch is header metadata that never pushes the
- * title under the state tag, the footer's view links stay at its end, and each
- * side view's sections sit on the AUI section rhythm. Every expected size is
+ * Geometry of the Tars tray cards' detail and the side views, on the real
+ * components in the Tars preview: what needs the user is a label line over
+ * text that runs the card's full width, the branch is one contained line
+ * under the owner, the detail's view links stay at its end, and each side
+ * view's sections sit on the AUI section rhythm. The folded card's three
+ * lines are measured in `tars-card-three-lines.e2e.ts`. Every expected size is
  * resolved from its AUI token in the page, never restated as a literal.
  */
 
@@ -57,10 +58,15 @@ async function openTray(page: Page, { fixture, lang, theme, width }: { fixture: 
   expect(await page.evaluate(() => [...document.fonts].filter((font) => font.status === "error").map((font) => font.family))).toEqual([]);
   if (width < POPOVER_BELOW) await view.locator("[data-tars-tray-indicator]").click();
   await expect(page.locator(`[data-tars-card="${fixture === "tray" ? "release" : "search"}"]`)).toBeVisible();
+  // The popover scales in; measure once it has settled.
+  await page.waitForFunction(() => {
+    const popup = document.querySelector("[data-tars-tray]")?.closest(".atelier-motion-dropdown");
+    return !popup || popup.getAnimations().every((animation) => animation.playState !== "running");
+  });
   return view;
 }
 
-/** Checks every visible card's header, attention well and footer; returns how many wells it measured. */
+/** Opens every visible card's detail and checks its title line, branch, attention well and closing row; returns how many wells it measured. */
 async function checkCards(page: Page) {
   const wellPad = await tokenPx(page, "--aui-space-12");
   const cardGap = await tokenPx(page, "--aui-space-12");
@@ -70,10 +76,13 @@ async function checkCards(page: Page) {
   for (const card of await cards.all()) {
     if (!(await card.isVisible())) continue;
     await card.scrollIntoViewIfNeeded();
+    const opener = card.locator("[data-tars-card-title]");
+    if (await opener.getAttribute("aria-expanded") !== "true") await opener.click();
+    await expect(card.locator("[data-tars-card-detail]")).toBeVisible();
     const geometry = await card.evaluate((node) => {
       const box = (element: Element) => element.getBoundingClientRect();
-      const title = node.querySelector("h3")!;
-      const tag = node.querySelector("[data-tars-state]")!;
+      const title = node.querySelector("[data-tars-card-title] span")!;
+      const chevron = node.querySelector("[data-tars-card-title] svg")!;
       const rows = [...node.querySelectorAll("[data-tars-attention]")].map((row) => {
         const [head, text] = [row.firstElementChild!, row.lastElementChild!];
         // A Tars decision is one marked line: its mark on the text's first line, the text running to the row's end or its risk tag.
@@ -92,18 +101,20 @@ async function checkCards(page: Page) {
       const views = node.querySelector("[data-tars-monitor-views]");
       return {
         cardGap: parseFloat(getComputedStyle(node.closest('ul')!).rowGap),
-        titleRight: box(title).right, tagLeft: box(tag).left,
+        titleRight: box(title).right, chevronLeft: box(chevron).left, chevronRight: box(chevron).right,
+        cardRight: box(node).right - Number.parseFloat(getComputedStyle(node).paddingRight),
         rows, listPad: list ? Number.parseFloat(getComputedStyle(list).paddingLeft) : null,
         branch: branch && facts ? { mono: getComputedStyle(branch.lastElementChild!).fontFamily.toLowerCase().includes("mono"),
           size: Number.parseFloat(getComputedStyle(branch.lastElementChild!).fontSize), factsSize: Number.parseFloat(getComputedStyle(facts).fontSize),
-          right: box(branch).right, columnRight: box(title.parentElement!).right } : null,
+          right: box(branch).right, columnRight: box(branch.parentElement!).right } : null,
         views: views ? { right: box(views).right, footRight: box(views.parentElement!).right - Number.parseFloat(getComputedStyle(views.parentElement!).paddingRight),
           heights: [...views.querySelectorAll('button')].map((button) => button.getBoundingClientRect().height) } : null,
       };
     });
     expect(Math.abs(geometry.cardGap - cardGap)).toBeLessThanOrEqual(0.5);
-    // The title wraps beside the state tag; nothing in the header widens its column under the tag.
-    expect(geometry.titleRight).toBeLessThanOrEqual(geometry.tagLeft + 0.5);
+    // The title wraps beside its chevron, which keeps to the card's end.
+    expect(geometry.titleRight).toBeLessThanOrEqual(geometry.chevronLeft + 0.5);
+    expect(geometry.chevronRight).toBeLessThanOrEqual(geometry.cardRight + 0.5);
     if (geometry.branch) {
       expect(geometry.branch.mono).toBe(true);
       expect(geometry.branch.size).toBeLessThanOrEqual(geometry.branch.factsSize + 0.01);
@@ -135,7 +146,7 @@ async function checkCards(page: Page) {
 }
 
 for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) for (const width of [1280, 390]) {
-  test(`tray cards: full-width attention text, header branch and footer views (${lang}/${theme}/${width})`, async ({ page }) => {
+  test(`tray card details: full-width attention text, contained branch and closing views (${lang}/${theme}/${width})`, async ({ page }) => {
     let wells = 0;
     for (const fixture of ["tray", "outputs"] as const) {
       await openTray(page, { fixture, lang, theme, width });
@@ -163,8 +174,8 @@ for (const lang of ["en", "ko"]) for (const width of [1280, 390]) {
   test(`side views put their sections on the section rhythm (${lang}/${width})`, async ({ page }) => {
     const view = await openTray(page, { fixture: "outputs", lang, theme: lang === "ko" ? "dark" : "light", width });
     const rhythm = await tokenPx(page, "--aui-space-24");
-    // The blocked card opens its report on what is unmet, from its Blocked line.
-    await page.locator('[data-tars-card="search"] [data-tars-attention="tars-blocked"] [data-tars-open-report="search"]').click();
+    // The blocked card's one action opens its report on what is unmet.
+    await page.locator('[data-tars-card="search"] [data-tars-card-primary="openReport"]').click();
     const side = view.locator("[data-tars-side-view]");
     await expect(side.locator(VIEW_ROOT.report)).toBeVisible();
     const switcher = side.locator("header button[aria-pressed]");
@@ -320,21 +331,26 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (con
 }
 
 for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) for (const width of [1440, 390]) {
-  test(`tray cards: one primary action, secondary actions on one rung, named menus and counters (${lang}/${theme}/${width})`, async ({ page }) => {
-    test.setTimeout(60_000);
+  test(`tray cards: one action beside the state, the detail's controls on one rung, named menus and counters (${lang}/${theme}/${width})`, async ({ page }) => {
+    test.setTimeout(90_000);
     await openGallery(page, { lang, theme, width });
     const [decision, secondary] = [await tokenPx(page, "--aui-control-height-sm"), await tokenPx(page, "--aui-control-height-xs")];
-    // Cards in a folded lane are out of layout; layout heights, so no entering transform skews them.
-    const cards = await page.locator("[data-tars-card-actions]").evaluateAll((groups) => groups.filter((group) => group.checkVisibility()).map((group) => ({
-      primaries: [...group.querySelectorAll<HTMLElement>("[data-tars-card-primary]")].map((node) => node.offsetHeight),
-      others: [...group.querySelectorAll<HTMLElement>("button:not([data-tars-card-primary])")].map((node) => ({ height: node.offsetHeight, name: node.getAttribute("aria-label") ?? node.textContent ?? "" })),
+    // Cards in a folded lane are out of layout. Every visible card opens its detail, where its other controls are.
+    for (const title of await page.locator("[data-tars-card-title]").all()) if (await title.isVisible()) await title.click();
+    // Layout heights, so no entering transform skews them.
+    const cards = await page.locator("[data-tars-card]").evaluateAll((nodes) => nodes.filter((node) => node.checkVisibility()).map((node) => ({
+      id: node.getAttribute("data-tars-card"), waiting: node.getAttribute("data-task-user-state") === "waiting",
+      primaries: [...node.querySelectorAll<HTMLElement>("[data-tars-card-primary]")].map((primary) => primary.offsetHeight),
+      others: [...node.querySelectorAll<HTMLElement>("[data-tars-card-actions] button")].map((button) => ({ height: button.offsetHeight, confirm: button.getAttribute("data-tars-action") === "confirm",
+        name: button.getAttribute("aria-label") ?? button.textContent ?? "" })),
     })));
     expect(cards.length).toBeGreaterThan(4);
     for (const card of cards) {
-      expect(card.primaries.length).toBeLessThanOrEqual(1);
-      for (const height of card.primaries) expect(Math.abs(height - decision)).toBeLessThanOrEqual(0.5);
+      // One action beside the state: the decision rung while it waits on the user, the in-surface rung otherwise.
+      expect(card.primaries.length, card.id!).toBeLessThanOrEqual(1);
+      for (const height of card.primaries) expect(Math.abs(height - (card.waiting ? decision : secondary)), card.id!).toBeLessThanOrEqual(0.5);
       for (const other of card.others) {
-        expect(Math.abs(other.height - secondary)).toBeLessThanOrEqual(0.5);
+        expect(Math.abs(other.height - (other.confirm ? decision : secondary)), card.id!).toBeLessThanOrEqual(0.5);
         expect(other.name.trim().length).toBeGreaterThan(0);
       }
     }
@@ -570,6 +586,8 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
       await page.evaluate(() => document.fonts.ready);
       if (width < 1088) await page.locator("[data-tars-tray-indicator]").click();
       const card = page.locator('[data-tars-card="billing"]');
+      // The model is in the card's detail, under its branch.
+      await card.locator("[data-tars-card-title]").click();
       const model = card.locator("[data-tars-model-selection]");
       await expect(model).toContainText("GPT-6.1 Sol");
       await expect(model).toContainText(" · ");

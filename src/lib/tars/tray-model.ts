@@ -242,11 +242,12 @@ export function tarsQueueMoves(queue: TarsTrayCard["queue"]): Array<"earlier" | 
 }
 
 /**
- * A card shows one main action beside Open task and folds the rest into one
- * menu. The main action is the state's own (pause, resume or hand back); a
- * waiting Tars proposal's Confirm takes its place, so the same control never
- * appears twice. Queued work's Do first and Do later lead the menu, Cancel
- * stays last.
+ * The controls in a card's detail: one main control beside Open task, the
+ * rest folded into one menu. The main control is the state's own (pause,
+ * resume or hand back); a waiting Tars proposal's Confirm takes its place, so
+ * the same control never appears twice. Queued work's Do first and Do later
+ * lead the menu, Cancel stays last. The one action beside the card's state is
+ * decided in `card-view.ts`.
  */
 export function tarsCardActions(card: Pick<TarsTrayCard, "controls" | "attention" | "fleetTarget"> & Partial<Pick<TarsTrayCard, "queue">>): { primary: TarsCardAction | null; more: TarsCardAction[] } {
   // An answer in the task (approve, answer, words) is confirmed only on the conversation card that shows it.
@@ -265,7 +266,7 @@ export function tarsCardActions(card: Pick<TarsTrayCard, "controls" | "attention
   return { primary, more };
 }
 
-/** How one stage reads in a run monitor's strip: done, the one running now, not reached, or stopped short. */
+/** How one stage reads in a card's stage strip: done, the one running now, not reached, or stopped short. */
 export type TarsStageSegment = "finished" | "current" | "pending" | "stopped";
 
 const STOPPED_STAGE: ReadonlySet<string> = new Set(["blocked", "stuck", "cancelled"]);
@@ -278,7 +279,7 @@ export function tarsStageSegments(progress: Pick<TarsRunProgress, "stages">): Ta
 }
 
 /**
- * The step count a run monitor shows: the stage it is on while active
+ * The step count a card's detail shows: the stage it is on while active
  * ("2/3"), otherwise the stages finished. Null when the workflow has no
  * stages, so an unknown count is never "0/0".
  */

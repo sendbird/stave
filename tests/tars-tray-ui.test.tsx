@@ -5,7 +5,7 @@ import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
 import { TarsCardActions, TarsTray, TarsTrayCard, TarsTrayStatusNote, TarsTrayToggle, describeTarsTrayCounts, type TarsTrayActions } from "../src/components/tars/TarsTray";
-import { TarsRunMonitor } from "../src/components/tars/TarsRunMonitor";
+import { TarsRunStages, TarsWorkViews } from "../src/components/tars/TarsRunMonitor";
 import type { TarsSideViewTarget } from "../src/lib/tars/side-view";
 import { TarsFlowBlock, TarsFlowNodes, TarsFlowStageNode } from "../src/components/tars/TarsFlowBlock";
 import { TarsConversation, TarsConversationMessage, type TarsFlowContext } from "../src/components/tars/TarsConversation";
@@ -108,24 +108,25 @@ describe("Tars tray UI", () => {
     expect(describeTarsTrayCounts(model.counts)).toContain("2 need you");
   });
 
-  test("Needs you and Running are open, Done is folded, and every lane says its count", () => {
+  test("Needs you and In progress are open, Done is folded, and every lane says its count", () => {
     const html = renderToStaticMarkup(createElement(TarsTray, { grouped: false, model: trayOf(fixtures()), actions: noActions }));
-    for (const label of ["Needs you", "Running", "Done"]) expect(html).toContain(label);
+    for (const label of ["Needs you", "In progress", "Done"]) expect(html).toContain(label);
     expect(html).toContain('data-tars-card="release"');
     expect(html).toContain('data-tars-card="billing"');
     expect(html).toContain('data-tars-card="migration"');
-    // Only the folded Done lane's panel is hidden, so its card stays out of the reading order until opened.
-    expect(html.match(/ hidden=""/g)?.length).toBe(1);
-    const hidden = html.indexOf(' hidden=""');
-    expect(hidden).toBeGreaterThan(html.indexOf('data-tars-tray-lane="done"'));
-    expect(html.indexOf('data-tars-card="docs"')).toBeGreaterThan(hidden);
+    // Of the lanes, only folded Done hides its panel, so its card stays out of the reading order until opened;
+    // every other hidden part is a card's own folded detail.
+    const hidden = [...html.matchAll(/<[^>]* hidden=""[^>]*>/g)].filter(([tag]) => !tag.includes("data-tars-card-detail"));
+    expect(hidden).toHaveLength(1);
+    expect(hidden[0]!.index!).toBeGreaterThan(html.indexOf('data-tars-tray-lane="done"'));
+    expect(html.indexOf('data-tars-card="docs"')).toBeGreaterThan(hidden[0]!.index!);
   });
 
-  test("a running card shows stage, progress and helpers from its run, never turns left", () => {
+  test("a running card's detail shows stage, progress and helpers from its run, never turns left", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
-    // The run monitor (AUI RunMonitor): the stage it is on, one labelled segment per stage and the step count; the state tag wears its mark.
+    // The run's stages (AUI RunMonitor's well and strip): the stage it is on, one labelled segment per stage and the step count.
     expect(html).toContain("Now: Cause, attempt 2");
     expect(html).toContain('data-run-segments="done,now,pending"');
     expect(html).toContain('data-tars-monitor="billing"');
@@ -170,7 +171,7 @@ describe("Tars tray UI", () => {
     expect(html).toContain("Tars decision waiting");
     expect(html).toContain("Tars proposes to resume this work.");
     const view = capture(() => TarsCardActions(props));
-    // Confirm takes Resume's place: the same control never shows twice, and the rest sits in the menu.
+    // In the detail's controls Confirm takes Resume's place: the same control never shows twice, and the rest sits in the menu.
     expect(view.labels).toEqual(["Confirm resume", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
     expect(view.html).not.toContain(">Resume<");
     expect(view.html).toContain('aria-label="More actions for Verify the release candidate"');
@@ -191,13 +192,18 @@ describe("Tars flow block", () => {
   const flowOf = (f: ReturnType<typeof fixtures>) => buildTarsFlow({ receipt: f.receipt,
     row: f.responsibilities.find((value) => value.id === f.ids.billing), run: f.runs["run-billing"] })!;
 
-  test("folded to one line with the stage count and state, in both languages", async () => {
+  test("folded, it is the work's title alone: where the work stands is its card's to say", async () => {
     const flow = flowOf(fixtures());
     const html = renderToStaticMarkup(createElement(TarsFlowBlock, { flow }));
-    expect(html).toContain("1 of 3 stages done · Running");
+    expect(html).toContain("Fix the billing export on empty invoice lists");
     expect(html).toContain('aria-expanded="false"');
     expect(html).not.toContain("data-tars-flow-nodes");
-    await inKorean(() => expect(renderToStaticMarkup(createElement(TarsFlowBlock, { flow }))).toContain("3단계 중 1단계 완료 · 실행 중"));
+    // No stage count, state word, state mark or live line: the transcript does not repeat the card.
+    for (const repeated of ["stages done", "Running", "data-state=", "data-tars-flow-summary", "data-tars-flow-live", "data-tars-live-line"]) expect(html).not.toContain(repeated);
+    await inKorean(() => {
+      const ko = renderToStaticMarkup(createElement(TarsFlowBlock, { flow }));
+      for (const repeated of ["단계 완료", "실행 중"]) expect(ko).not.toContain(repeated);
+    });
   });
 
   test("nodes run request → decision → stages → completion, and a stage opens its task in Fleet", () => {
@@ -273,20 +279,25 @@ describe("Tars flow block", () => {
   });
 });
 
-describe("run monitor", () => {
+describe("a card's run stages and views", () => {
   test("the timeline link opens the run's timeline at the stage it is on; no start time means no clock", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
     const opened: TarsSideViewTarget[] = [];
-    const { html, press } = capture(() => TarsRunMonitor({ row: card.row, progress: card.progress!, onOpenSide: (target) => opened.push(target) }));
+    const { html, press } = capture(() => TarsWorkViews({ row: card.row, progress: card.progress!, onOpenSide: (target) => opened.push(target) }));
     expect(html).toContain('data-tars-monitor-timeline="billing"');
     expect(html).toContain("Open the timeline for Fix the billing export on empty invoice lists");
     press("Open the timeline for Fix the billing export on empty invoice lists");
     expect(opened).toEqual([{ responsibilityId: "billing", kind: "timeline", focus: { stageId: "cause" } }]);
+    // Work without a read run still opens its request, and has no timeline to open.
+    const unread = renderToStaticMarkup(createElement(TarsWorkViews, { row: card.row, progress: null, onOpenSide() {} }));
+    expect(unread).toContain('data-tars-monitor-brief="billing"');
+    expect(unread).not.toContain("data-tars-monitor-timeline");
     const unstarted = { ...card.progress!, current: { ...card.progress!.current!, startedAt: null } };
-    const quiet = renderToStaticMarkup(createElement(TarsRunMonitor, { row: card.row, progress: unstarted }));
+    const quiet = renderToStaticMarkup(createElement(TarsRunStages, { row: card.row, progress: unstarted }));
     expect(quiet).not.toContain("data-tars-monitor-elapsed");
     expect(quiet).toContain("Now: Cause, attempt 2");
+    expect(renderToStaticMarkup(createElement(TarsRunStages, { row: card.row, progress: null }))).toBe("");
   });
 });
 
@@ -346,7 +357,7 @@ test("queued cards show capacity evidence or an explicitly unknown cause in both
 });
 
 describe("Tars tray card hierarchy", () => {
-  test("a decision sits in the card's well as one marked line: its text, no repeated label, after the run's status lines", () => {
+  test("a decision sits in the detail's well as one marked line: its text, no repeated label, after the run's status lines", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.needsYou[0]!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
@@ -354,12 +365,12 @@ describe("Tars tray card hierarchy", () => {
     expect(html).toMatch(/<li[^>]*data-tars-attention="tars-decision"[^>]*><span[^>]*><span aria-label="Tars decision waiting" data-tars-attention-mark=""[^>]*role="img"[^>]*>(?:(?!<\/li>).)*<span[^>]*>Tars proposes to resume this work\.<\/span><\/li>/);
     expect(html.split(">Tars decision waiting<").length).toBe(1);
     expect(html).toContain('data-tars-attention-list="1"');
-    // What the work waits on comes after what it is doing, right above the actions that answer it.
+    // What the work waits on comes after what it is doing, above the detail's controls.
     expect(html.indexOf("Paused by you")).toBeLessThan(html.indexOf("data-tars-attention-list"));
     expect(html.indexOf("data-tars-attention-list")).toBeLessThan(html.indexOf("data-tars-card-actions"));
   });
 
-  test("the branch is the header's second meta line, under the owner and facts, never a body row", () => {
+  test("the branch leads the detail under the owner and facts, never a body row", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
@@ -368,12 +379,12 @@ describe("Tars tray card hierarchy", () => {
     expect(card.branch).toBeTruthy();
     expect(facts).toBeGreaterThan(-1);
     expect(branch).toBeGreaterThan(facts);
-    // Still in the header: before the current-step well and the body.
+    // With the owner: before the current-step well and the detail's other rows.
     expect(branch).toBeLessThan(html.indexOf("data-tars-monitor-step"));
     expect(html).toContain(`title="${card.branch}"`);
   });
 
-  test("the footer's request and timeline are named icon buttons in one group at its end", () => {
+  test("the detail's request and timeline are named icon buttons in one group at its end", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: { ...noActions, onOpenSide() {} } }));
@@ -415,36 +426,37 @@ describe("Tars tray lanes and card actions", () => {
     expect(laneHeads(html).find((head) => head.lane === "needsYou")!.expanded).toBe("true");
   });
 
-  test("a card offers at most one primary action, a decision on the 32px rung; everything else is a 28px secondary action", () => {
+  test("a card shows exactly one action beside its state, a decision on the 28px rung; the detail's controls are 24px secondary actions", () => {
     const f = fixtures();
     const model = trayOf(f);
     for (const card of Object.values(model.lanes).flat()) {
+      const whole = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
+      expect(whole.match(/data-tars-card-primary=/g) ?? [], card.row.id).toHaveLength(1);
       const html = renderToStaticMarkup(createElement(TarsCardActions, { card, actions: noActions }));
-      const primaries = html.match(/data-tars-card-primary=""/g) ?? [];
-      expect(primaries.length).toBeLessThanOrEqual(1);
       const buttons = [...html.matchAll(/<button[^>]*>/g)].map(([tag]) => tag);
-      for (const tag of buttons) expect(tag).toContain(tag.includes("data-tars-card-primary") ? 'data-size="sm"' : 'data-size="xs"');
+      for (const tag of buttons) expect(tag).toContain(tag.includes('data-tars-action="confirm"') ? 'data-size="sm"' : 'data-size="xs"');
     }
-    // The paused card's proposal is its primary; its state control is not a second one.
+    // The paused card's proposal is its one action, filled; what waits on nobody is a quiet secondary control.
+    const releaseCard = renderToStaticMarkup(createElement(TarsTrayCard, { card: model.lanes.needsYou[0]!, actions: noActions }));
+    expect(releaseCard).toMatch(/data-tars-card-primary="confirm"[^>]*data-size="sm"[^>]*data-variant="primary"/);
+    const billingCard = renderToStaticMarkup(createElement(TarsTrayCard, { card: model.lanes.running.find((value) => value.row.id === f.ids.billing)!, actions: noActions }));
+    expect(billingCard).toMatch(/data-tars-card-primary="openTask"[^>]*data-size="xs"[^>]*data-variant="secondary"/);
     const release = renderToStaticMarkup(createElement(TarsCardActions, { card: model.lanes.needsYou[0]!, actions: noActions }));
-    expect(release).toMatch(/data-tars-card-primary=""[^>]*data-variant="primary"/);
-    // Running work without a proposal keeps Pause as a secondary action, beside Open task and in the same weight.
+    // Running work without a proposal keeps Pause in the detail, beside Open task and in the same weight.
     const billing = renderToStaticMarkup(createElement(TarsCardActions, { card: model.lanes.running.find((value) => value.row.id === f.ids.billing)!, actions: noActions }));
-    expect(billing).not.toContain("data-tars-card-primary");
     expect(billing).toMatch(/data-tars-action="pause"[^>]*data-size="xs"[^>]*data-variant="quiet"/);
     // The menu trigger is named and hinted.
     expect(release).toContain('aria-label="More actions for Verify the release candidate"');
     expect(release).toContain("data-base-ui-tooltip-trigger");
   });
 
-  test("a confirmation that cannot be undone is the card's primary action in the danger tone, with its tag in the well", () => {
+  test("a confirmation that cannot be undone is the card's one action in the danger tone, with its tag in the detail's well", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.needsYou[0]!;
     const entry = card.attention.find((value) => value.decision)!;
     const cancel = { ...card, attention: [{ ...entry, decision: { ...entry.decision!, operation: "cancel" as const } }] };
-    const actionsHtml = renderToStaticMarkup(createElement(TarsCardActions, { card: cancel, actions: noActions }));
-    expect(actionsHtml).toMatch(/data-tars-card-primary=""[^>]*data-size="sm"[^>]*data-tone="danger"/);
     const cardHtml = renderToStaticMarkup(createElement(TarsTrayCard, { card: cancel, actions: noActions }));
+    expect(cardHtml).toMatch(/data-tars-card-primary="confirm"[^>]*data-size="sm"[^>]*data-tone="danger"/);
     expect(cardHtml).toContain("data-tars-decision-risk-tag");
     expect(cardHtml).toContain("Can&#x27;t be undone");
   });

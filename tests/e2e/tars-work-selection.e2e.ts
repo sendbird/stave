@@ -71,6 +71,8 @@ test("card follow-up selects rather than sends and clear removes the target", as
   await page.goto("/?stavePreview=tars&outputs=true&tray=true");
   const composer = page.locator("[data-tars-composer]");
   await expect(composer.getByRole("textbox")).toBeEditable();
+  // Follow up is in the card's detail, which the card's title opens.
+  await page.locator('[data-tars-card="search"] [data-tars-card-title]').click();
   await page.locator('[data-tars-card="search"] [data-tars-select-work]').click();
   await expect(composer.locator("[data-tars-work-selection]")).toContainText("Speed up the search index rebuild");
   await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("stave-preview-draft") ?? "null")?.target)).toEqual({ responsibilityId: "search" });

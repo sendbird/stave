@@ -50,7 +50,7 @@ import { TarsSettings } from "./TarsSettings";
 import { TarsTray, TarsTrayGroupingButton, TarsTrayStatusNote, TarsTrayToggle, type TarsTrayActions } from "./TarsTray";
 import { useTarsPublish } from "./use-tars-publish";
 import { TarsPublishEntry } from "./TarsPublishEntry";
-import { TarsLiveLineFor, TarsRunningStrip } from "./TarsLiveProgress";
+import { TarsRunningStrip } from "./TarsLiveProgress";
 import { isTarsWorkRunning } from "@/lib/tars/live-progress";
 import { isTarsResponsibilityTerminal } from "@/lib/tars/attention";
 import { tarsControlFailureKey, tarsControlReasonKey } from "@/lib/tars/control-reasons";
@@ -199,10 +199,6 @@ function TarsViewContent() {
     },
     onShowInFleet: openFleetAt,
     onOpenSide: openSide,
-    liveFor: (responsibilityId) => {
-      const row = responsibilities.find((candidate) => candidate.id === responsibilityId);
-      return row && !isTarsResponsibilityTerminal(row) ? <TarsLiveLineFor row={row} run={tarsRunOf(row, runs)} /> : null;
-    },
   }), [openSide, responsibilities, runs]);
   // The work that actually runs now, oldest first, for the composer band; queued, paused and waiting work is not in it.
   const running = useMemo(() => responsibilities.filter(isTarsWorkRunning).sort((a, b) => a.createdAt.localeCompare(b.createdAt))
@@ -354,7 +350,7 @@ function TarsViewContent() {
     void api.updateIdentity({ name: snapshot.identity.name, instructions: t("shell:tars.instructionsDefault") }).then(publishTarsSnapshot).catch(() => undefined);
   }, [api, settingsRead, snapshot, t]);
   const trayActions: TarsTrayActions = { busy, onFollowUp: (row) => controller.current?.selectWork(row.id), onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
-    onOpenTask: (row) => void open(row), onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
+    onOpenTask: (row) => void open(row), onAnswer: (row) => { setTrayPopoverOpen(false); controller.current?.showDecision(row.id); }, onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
     ...(api?.reprioritize ? { onMove: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void moveInQueue(row, move, source) } : {}) };
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
@@ -370,6 +366,12 @@ function TarsViewContent() {
   // The newest opener, for a handler that outlives this render.
   const openTray = useRef(() => onTrayOpenChange(true));
   openTray.current = () => onTrayOpenChange(true);
+  // The composer's status line shows the first running card, in the lane it sits in (Needs you when it also waits on the user).
+  const showRunningWork = () => {
+    const id = running[0]?.row.id ?? null;
+    openTray.current();
+    focusTarsTrayLane(tray.lanes.needsYou.some((card) => card.row.id === id) ? "needsYou" : "running", id);
+  };
   // A start-screen count shows its lane in the tray, as the tray's own indicator would, and moves focus there.
   const startInfo = useMemo<TarsStartInfo>(() => ({ counts: startCounts, repositories: startRepositories, canPublish: publishing.available, canClear: clearing.available,
     onOpenCount: (count) => { openTray.current(); focusTarsTrayLane(count.lane, count.responsibilityId); } }),
@@ -423,7 +425,7 @@ function TarsViewContent() {
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} onDismissDecision={dismissDecision} controller={controller} sidePanel={pinned ? null : sideView}
         publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
-        composerStatus={<TarsRunningStrip items={running} onOpenSide={openSide} onShowAll={() => onTrayOpenChange(true)} />} /></TarsStartContext></TarsAllowRulesProvider>
+        composerStatus={<TarsRunningStrip items={running} onShowAll={showRunningWork} />} /></TarsStartContext></TarsAllowRulesProvider>
       </TarsResultProvider>
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}

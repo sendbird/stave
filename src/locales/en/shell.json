@@ -1655,6 +1655,9 @@
         "opensExternal": "Opens in your browser"
       },
       "openReport": "Open report",
+      "answer": "Answer",
+      "openPullRequest": "Open PR #{{number}}",
+      "openPullRequestUnnumbered": "Open PR",
       "followUp": {
         "pending": "Tars will look at this change shortly.",
         "deferred": "Tars will look at this after {{time}}. It reached its hourly limit for automatic follow-ups.",
@@ -1699,7 +1702,6 @@
     },
     "flow": {
       "label": "Work flow for {{title}}",
-      "summary": "{{finished}} of {{total}} stages done · {{state}}",
       "request": "Request",
       "criteria_one": "{{count}} completion criterion",
       "criteria_other": "{{count}} completion criteria",
@@ -1737,8 +1739,6 @@
       "noRecent": "No progress recorded yet.",
       "stripLabel_one": "{{count}} piece of work running",
       "stripLabel_other": "{{count}} pieces of work running",
-      "more_one": "{{count}} more running",
-      "more_other": "{{count}} more running",
       "stripSummary_one": "{{count}} running now",
       "stripSummary_other": "{{count}} running now",
       "stripStale_one": "{{count}} not updated recently",

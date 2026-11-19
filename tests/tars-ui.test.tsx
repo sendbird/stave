@@ -84,14 +84,18 @@ describe("Tars UI", () => {
     actions.openTars(); actions.closeTars(); expect(state.activeAppSurface.kind).toBe("workspace");
   });
   test("controls follow ownership: take over while Tars owns it, hand back after you took over", () => {
-    // One main action and Open task stay visible; the rest is in "More actions", Cancel last.
+    // In the detail's controls one main control and Open task stay visible; the rest is in "More actions", Cancel last.
     const running = renderRow(rowProps(row));
     expect(running.visible).toEqual(["Pause", "Open task"]);
     expect(running.labels).toEqual(["Pause", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
     expect(renderRow(rowProps({ ...row, state: "paused" })).labels).toEqual(["Resume", "Open task", "Take over", "Show in Fleet", "Cancel work"]);
     const owned = renderRow(rowProps({ ...row, state: "takenOver" }));
     expect(owned.labels).toEqual(["Hand back", "Open task", "Show in Fleet", "Cancel work"]);
-    expect(owned.html).toContain("Taken over");
+    // The card says it in the task's own state words and a sentence, not in a Tars state tag; its one action hands it back.
+    expect(owned.html).toContain('data-task-user-state="blocked"');
+    expect(owned.html).toContain("You took over this work. Hand it back to let Tars continue.");
+    expect(owned.html).toContain('data-tars-card-primary="handBack"');
+    expect(owned.html).not.toContain(">Taken over<");
     expect(owned.html).toContain("Owner: you");
     expect(renderRow(rowProps({ ...row, reverifyAfter: "2026-11-05T00:05:00.000Z" })).html).toContain("verify this work again");
   });

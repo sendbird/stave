@@ -87,15 +87,48 @@ export const tarsTrayStyles = stylex.create({
   /** Open, the leading chevron turns to point down at its lane (timing from `transition.transform`). */
   chevronOpen: { transform: "rotate(90deg)" },
   /**
-   * Each card is a lifted run object (AUI `RunMonitor`), so the lane stacks
-   * them on a gap instead of hairline rows. Cards share the section trigger's
-   * inline gutter, so titles, cards and the chevron column line up.
+   * Each card is a lifted run object (the AUI `RunMonitor` card surface), so
+   * the lane stacks them on a gap instead of hairline rows. Cards share the
+   * section trigger's inline gutter, so titles, cards and the chevron column line up.
    */
   cards: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"], minWidth: 0, margin: 0, paddingBlockStart: 0, paddingBlockEnd: vars["--aui-space-8"], paddingInline: vars["--aui-space-12"], listStyle: "none" },
   groupingIcon: { flexShrink: 0, inlineSize: vars["--aui-control-icon-size-md"], blockSize: vars["--aui-control-icon-size-md"] },
   projectTrigger: { display: "flex", alignItems: "center", justifyContent: "flex-start", gap: vars["--aui-space-8"], width: "100%", minWidth: 0, paddingInline: vars["--aui-space-12"] },
   projectName: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "start" },
   cardItem: { minWidth: 0 },
+  /**
+   * A work card reads in three lines on the run card's surface: its title,
+   * one sentence, then its state and one action. The rest of what Stave knows
+   * about the work is the card's detail, folded under them until asked for.
+   */
+  card: { gap: vars["--aui-space-4"], paddingBlockEnd: vars["--aui-space-12"] },
+  cardHeading: { margin: 0, minWidth: 0 },
+  /**
+   * Line one: the title is the detail's disclosure, so the whole line opens
+   * it. It wraps like the run card's title; the chevron keeps to the first line.
+   */
+  cardTitle: {
+    display: "flex", alignItems: "flex-start", justifyContent: "flex-start", gap: vars["--aui-space-8"], width: "100%", minWidth: 0,
+    paddingBlock: 0, paddingInline: 0, textAlign: "start", whiteSpace: "normal",
+    color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], lineHeight: vars["--aui-line-height-control"],
+  },
+  cardTitleText: { flex: 1, minWidth: 0, overflowWrap: "anywhere" },
+  cardChevronBox: { display: "flex", alignItems: "center", flexShrink: 0, height: vars["--aui-line-height-control"] },
+  /** Line two: one sentence at the 13px row, two lines at most; the detail has the full text. */
+  cardSentence: {
+    margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"],
+    overflowWrap: "anywhere", overflow: "hidden", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
+  },
+  /** Line three: the state leads, the one action closes the line. */
+  cardStateLine: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0, minHeight: vars["--aui-control-height-sm"], marginBlockStart: vars["--aui-space-4"] },
+  cardState: { flex: 1, minWidth: 0 },
+  cardPrimary: { flexShrink: 0 },
+  /** The detail under the three lines: the run card's own stack of rows. */
+  cardDetail: { display: "grid", gap: vars["--aui-space-8"], minWidth: 0, marginBlockStart: vars["--aui-space-8"] },
+  cardDetailHidden: { display: "none" },
+  /** The detail's last row: the secondary controls, then the step count and the work's views on the end. */
+  cardDetailFoot: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
+  cardDetailSpacer: { flex: "1 1 0", minWidth: 0 },
   /** A queued card is a drop target; its closest-edge indicator line anchors to it. */
   queuedItem: { position: "relative" },
   queuedItemDragging: { opacity: 0.5 },
@@ -175,9 +208,6 @@ export const tarsFlowStyles = stylex.create({
   root: { marginBlockStart: vars["--aui-space-4"] },
   summary: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--aui-space-8"], minWidth: 0 },
   summaryTitle: { color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"], overflowWrap: "anywhere" },
-  summaryState: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], fontVariantNumeric: "tabular-nums" },
-  /** The folded flow's live line: under the summary, on the trigger's text edge. */
-  live: { paddingInlineStart: `calc(${vars["--aui-space-8"]} + ${vars["--aui-control-icon-size-md"]} + ${vars["--aui-space-8"]})`, paddingInlineEnd: vars["--aui-space-8"], minWidth: 0 },
   nodes: { margin: 0, padding: 0, listStyle: "none" },
   /** Same inline pad as a stage button, so every node's text starts on one edge. */
   node: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], minWidth: 0, paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-4"] },

@@ -223,7 +223,8 @@ async function trayAndFlow(page: Page, id: string, testInfo: TestInfo, name: str
   const flow = view.locator(`[data-tars-flow="${id}"]`);
   const card = page.locator(`[data-tars-card="${id}"]`);
   const result = {
-    flowSummary: await flow.locator("[data-tars-flow-summary]").first().textContent({ timeout: 10_000 }).catch(() => null),
+    flowShown: await flow.first().isVisible({ timeout: 10_000 }).catch(() => false),
+    cardState: await card.first().getAttribute("data-task-user-state", { timeout: 10_000 }).catch(() => null),
     cardLane: await card.first().getAttribute("data-tars-lane", { timeout: 10_000 }).catch(() => null),
     cardText: (await card.first().innerText({ timeout: 5_000 }).catch(() => ""))?.slice(0, 600),
     attention: await page.locator("[data-tars-attention]").count(),
@@ -373,7 +374,7 @@ test("A: words — Tars delegates real work that completes only on verified evid
     check(expectations, "the frozen report lists every delegated criterion", end.row.acceptanceCriteria.every((text) => criteria.some((item) => item.text === text)),
       { delegated: end.row.acceptanceCriteria, report: criteria });
     const ui = await trayAndFlow(page, id, testInfo, "A");
-    check(expectations, "the flow block and tray reflect the completion", Boolean(ui.flowSummary) && ui.cardLane !== null && ui.outputs.includes("report"), ui);
+    check(expectations, "the flow block and tray reflect the completion", ui.flowShown && ui.cardState === "finished" && ui.cardLane !== null && ui.outputs.includes("report"), ui);
     const reportText = await openReport(page, testInfo, "A");
     check(expectations, "the report shows criteria with their sources", Boolean(reportText && end.row.acceptanceCriteria.every((text) => reportText.includes(text))
       && /Verified by Stave|Provider result|Agent reported/.test(reportText)), reportText?.slice(0, 3_000) ?? null);

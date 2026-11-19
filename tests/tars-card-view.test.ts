@@ -1,0 +1,123 @@
+import { describe, expect, test } from "bun:test";
+import { applyAppLocale } from "@/i18n";
+import { buildTarsSideViewFixtures } from "../src/dev/tars-preview/tars-side-fixtures";
+import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
+import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus } from "../src/lib/tars/card-view";
+import { buildTarsTray, type TarsTrayAttentionInput } from "../src/lib/tars/tray-model";
+import type { TarsPendingDecision, TarsResponsibility } from "../src/lib/tars/types";
+
+const start = new Date("2026-11-05T00:00:00.000Z");
+const can = { answer: true, report: true };
+
+/** One piece of work as its tray card, with the Fleet rows and decisions given. */
+function cardOf(row: TarsResponsibility, extra: { attention?: TarsTrayAttentionInput[]; decisions?: TarsPendingDecision[]; runs?: Parameters<typeof buildTarsTray>[0]["runs"] } = {}) {
+  const model = buildTarsTray({ responsibilities: [row], attentionItems: extra.attention ?? [], runs: extra.runs ?? {}, pendingDecisions: extra.decisions ?? [] });
+  return Object.values(model.lanes).flat()[0]!;
+}
+
+function read(row: TarsResponsibility, extra: Parameters<typeof cardOf>[1] = {}, openers = can) {
+  const card = cardOf(row, extra);
+  const status = tarsCardStatus(card);
+  return { state: status.state, waitingOn: status.waitingOn, sentence: describeTarsCardSentence(card, status), primary: tarsCardPrimary(card, status, openers) };
+}
+
+describe("a Tars work card's state, sentence and action", () => {
+  const tray = () => buildTarsTrayFixtures(start);
+  const billing = () => tray().responsibilities.find((row) => row.id === "billing")!;
+
+  test("running work is working: its sentence is what Stave observes live, its action opens the task", async () => {
+    await applyAppLocale("en");
+    const f = tray();
+    expect(read(billing(), { runs: f.runs })).toEqual({ state: "working", waitingOn: null, sentence: null, primary: { kind: "openTask" } });
+    // Before its task exists there is nothing to open.
+    expect(read({ ...billing(), state: "preparing", taskId: null, agentRunId: null }).primary).toBeNull();
+  });
+
+  test("queued work is working, says why it waits and offers Start now", async () => {
+    await applyAppLocale("en");
+    const queued: TarsResponsibility = { ...billing(), state: "queued", taskId: null, agentRunId: null, executionWorkspaceId: null, queueWait: { code: "capacity", active: 1, limit: 1 } };
+    expect(read(queued)).toEqual({ state: "working", waitingOn: null,
+      sentence: "Execution limit reached (1 active / 1 allowed). Starts when a slot is released.", primary: { kind: "control", operation: "startNow" } });
+  });
+
+  test("a proposal Tars waits to have confirmed is waiting for the user, whatever the run does", async () => {
+    await applyAppLocale("en");
+    const f = tray();
+    const release = f.responsibilities.find((row) => row.id === "release")!;
+    const view = read(release, { attention: f.attentionItems, decisions: f.pendingDecisions });
+    expect(view.state).toBe("waiting");
+    expect(view.waitingOn).toBe("approval");
+    expect(view.sentence).toBe("Tars proposes to resume this work.");
+    expect(view.primary).toEqual({ kind: "confirm", decision: { messageId: "message-plan", actionIndex: 1, responsibilityId: "release", operation: "resume", expectedRevision: 3 } });
+  });
+
+  test("a question Tars asks is answered in the conversation: the card says it and leads there", async () => {
+    await applyAppLocale("en");
+    const ask: TarsTrayAttentionInput = { id: "tars:decision:message-ask:0", kind: "tars-decision", detail: "Tars asks: which database should the export read?", tarsResponsibilityId: "billing", taskId: "task-billing" };
+    const view = read(billing(), { attention: [ask] });
+    expect(view).toEqual({ state: "waiting", waitingOn: "question", sentence: "Tars asks: which database should the export read?", primary: { kind: "answer" } });
+    // A view that cannot show the decision card opens the task instead.
+    expect(read(billing(), { attention: [ask] }, { answer: false, report: true }).primary).toEqual({ kind: "openTask" });
+  });
+
+  test("a request left open in the work's task waits on the user while the work runs, and is held while it is paused", async () => {
+    await applyAppLocale("en");
+    const approval: TarsTrayAttentionInput = { id: "approval:task-billing", kind: "approval", taskId: "task-billing", detail: "Run the database migration" };
+    expect(read(billing(), { attention: [approval] })).toEqual({ state: "waiting", waitingOn: "approval", sentence: "Run the database migration", primary: { kind: "openTask" } });
+    const paused = read({ ...billing(), state: "paused" }, { attention: [approval] });
+    expect(paused.state).toBe("blocked");
+    expect(paused.sentence).toBe("This work is paused. Resume it to continue.");
+    expect(paused.primary).toEqual({ kind: "control", operation: "resume" });
+    const signOff: TarsTrayAttentionInput = { id: "agent-run-sign-off:billing", kind: "agent-run-sign-off", taskId: "task-billing" };
+    expect(read(billing(), { attention: [signOff] })).toMatchObject({ state: "waiting", waitingOn: "sign-off", primary: { kind: "openTask" } });
+  });
+
+  test("blocked work says why and opens its report; without a side view it resumes", async () => {
+    await applyAppLocale("en");
+    const side = buildTarsSideViewFixtures(start);
+    const search = side.responsibilities.find((row) => row.id === "search")!;
+    const view = read(search, { runs: side.runs });
+    expect(view.state).toBe("blocked");
+    expect(view.sentence).toBe("Stopped with some completion criteria unmet. Open the report to see what is missing.");
+    expect(view.primary).toEqual({ kind: "openReport" });
+    expect(read(search, { runs: side.runs }, { answer: true, report: false }).primary).toEqual({ kind: "control", operation: "resume" });
+    // A task that stopped by itself blocks work Tars still counts as running.
+    const stalled: TarsTrayAttentionInput = { id: "turn-stalled:task-billing", kind: "turn-stalled", taskId: "task-billing", detail: "No activity for 12 minutes" };
+    expect(read(billing(), { attention: [stalled] })).toMatchObject({ state: "blocked", sentence: "No activity for 12 minutes", primary: { kind: "openTask" } });
+  });
+
+  test("work the user took over is held until handed back", async () => {
+    await applyAppLocale("en");
+    const migration = tray().responsibilities.find((row) => row.id === "migration")!;
+    expect(read(migration)).toEqual({ state: "blocked", waitingOn: null, sentence: "You took over this work. Hand it back to let Tars continue.", primary: { kind: "control", operation: "handBack" } });
+  });
+
+  test("a result waiting for the user's check is a sign-off that opens the report", async () => {
+    await applyAppLocale("en");
+    const side = buildTarsSideViewFixtures(start);
+    const checkout: TarsResponsibility = { ...side.responsibilities.find((row) => row.id === "checkout")!, state: "resultReady", completionGoal: "confirmation" };
+    const ready: TarsTrayAttentionInput = { id: `tars:blocked:${checkout.id}:${checkout.revision}`, kind: "tars-decision", tarsResponsibilityId: checkout.id, taskId: checkout.taskId ?? undefined, detail: "Result ready" };
+    const view = read(checkout, { attention: [ready], runs: side.runs });
+    expect(view).toEqual({ state: "waiting", waitingOn: "sign-off", sentence: "Execution result ready; confirm the endpoint before closing", primary: { kind: "openReport" } });
+    expect(read(checkout, { attention: [ready], runs: side.runs }, { answer: true, report: false }).primary).toEqual({ kind: "control", operation: "acceptCompletion" });
+  });
+
+  test("finished work leads to what came out: its pull request, else its report, else its task", async () => {
+    await applyAppLocale("en");
+    const side = buildTarsSideViewFixtures(start);
+    const checkout = side.responsibilities.find((row) => row.id === "checkout")!;
+    expect(read(checkout, { runs: side.runs })).toEqual({ state: "finished", waitingOn: null,
+      sentence: "Resolved both findings and reran the checks on the final revision.", primary: { kind: "openReport" } });
+    const published: TarsResponsibility = { ...checkout, publication: { state: "opened", failedStep: null, commit: "f00ba12", branch: "tars/checkout", base: "main",
+      commitMessage: "fix: show the saved card first", title: checkout.title, url: "https://example.com/acme/shop/pull/42", number: 42, error: null, reason: null, updatedAt: start.toISOString() } };
+    expect(read(published, { runs: side.runs })).toMatchObject({ state: "finished", sentence: "Draft PR #42 open", primary: { kind: "openPullRequest", url: "https://example.com/acme/shop/pull/42", number: 42 } });
+    // A run this window has not read has no report to open yet.
+    expect(read(checkout)).toMatchObject({ state: "finished", sentence: "Requested goal completed", primary: { kind: "openTask" } });
+  });
+
+  test("cancelled work is stopped and says so", async () => {
+    await applyAppLocale("en");
+    const cancelled: TarsResponsibility = { ...billing(), state: "cancelled", agentRunId: null, detail: "The run was cancelled.", detailCode: "runCancelled" };
+    expect(read(cancelled)).toEqual({ state: "stopped", waitingOn: null, sentence: "This work was cancelled. Changes already made stay.", primary: { kind: "openTask" } });
+  });
+});

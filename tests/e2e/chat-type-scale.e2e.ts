@@ -43,7 +43,7 @@ async function ownedText(page: Page) {
       if (heading) { headings.push({ level: Number(heading.tagName[1]), size }); continue; }
       if (node.closest("pre, code")) { code.push(size); continue; }
       const control = node.closest("button");
-      if (control && !control.closest("[data-tars-message-time], [data-tars-running-toggle]")) continue;
+      if (control && !control.closest("[data-tars-message-time], [data-tars-running-status]")) continue;
       text.push({ size, lineHeight: style.lineHeight, what: `${node.tagName.toLowerCase()}:${node.textContent!.trim().slice(0, 24)}` });
     }
     return { text, headings, code };
@@ -86,38 +86,28 @@ for (const lang of ["en", "ko"]) for (const theme of ["light", "dark"]) for (con
       await page.setViewportSize({ width, height: 900 });
       await page.goto(`/?stavePreview=tars&tray=true&live=true&lang=${lang}&theme=${theme}&density=${density}&messageFontSize=${font}`);
       const strip = page.locator("[data-tars-running-strip]");
-      const toggle = strip.locator("[data-tars-running-toggle]");
-      await expect(toggle).toBeVisible();
+      const status = strip.locator("[data-tars-running-status]");
+      await expect(status).toBeVisible();
       await page.evaluate(() => document.fonts.ready);
-      for (const expanded of [false, true]) {
-        if (expanded) {
-          await toggle.focus();
-          await page.keyboard.press("Enter");
-          await expect(strip.locator("[data-tars-running]")).toBeVisible();
-        }
-        const geometry = await strip.evaluate((node) => {
-          const tray = node.parentElement!, field = tray.querySelector("form")!, toggle = node.querySelector("[data-tars-running-toggle]")!;
-          const icon = toggle.querySelector("[data-aui-inline-disclosure-icon]")!, summary = toggle.lastElementChild!;
-          const box = node.getBoundingClientRect(), trayBox = tray.getBoundingClientRect(), fieldBox = field.getBoundingClientRect();
-          const buttonBox = toggle.getBoundingClientRect(), iconBox = icon.getBoundingClientRect(), textBox = summary.getBoundingClientRect();
-          const center = (r: DOMRect) => r.top + r.height / 2;
-          return { top: box.top - trayBox.top - parseFloat(getComputedStyle(tray).borderTopWidth),
-            bottom: fieldBox.top - box.bottom, gutter: parseFloat(getComputedStyle(tray).paddingTop),
-            bandCenter: center(buttonBox) - (trayBox.top + parseFloat(getComputedStyle(tray).borderTopWidth) + fieldBox.top) / 2,
-            iconCenter: center(iconBox) - center(buttonBox), textCenter: center(textBox) - center(buttonBox),
-            overflow: tray.scrollWidth - tray.clientWidth };
-        });
-        // The outer tray owns the gutter. Fractional font rounding may differ by at most one CSS pixel.
-        expect(Math.abs(geometry.top - geometry.gutter)).toBeLessThanOrEqual(1);
-        expect(Math.abs(geometry.bottom - geometry.gutter)).toBeLessThanOrEqual(1);
-        if (!expanded) expect(Math.abs(geometry.bandCenter)).toBeLessThanOrEqual(1);
-        expect(Math.abs(geometry.iconCenter)).toBeLessThanOrEqual(1);
-        expect(Math.abs(geometry.textCenter)).toBeLessThanOrEqual(1);
-        expect(geometry.overflow).toBeLessThanOrEqual(1);
-      }
-      await toggle.focus();
-      await page.keyboard.press("Space");
-      await expect(strip.locator("[data-tars-running]")).toBeHidden();
+      const geometry = await strip.evaluate((node) => {
+        const tray = node.parentElement!, field = tray.querySelector("form")!, status = node.querySelector("[data-tars-running-status]")!;
+        const icon = status.querySelector("[data-tars-running-mark]")!, summary = status.lastElementChild!;
+        const box = node.getBoundingClientRect(), trayBox = tray.getBoundingClientRect(), fieldBox = field.getBoundingClientRect();
+        const buttonBox = status.getBoundingClientRect(), iconBox = icon.getBoundingClientRect(), textBox = summary.getBoundingClientRect();
+        const center = (r: DOMRect) => r.top + r.height / 2;
+        return { top: box.top - trayBox.top - parseFloat(getComputedStyle(tray).borderTopWidth),
+          bottom: fieldBox.top - box.bottom, gutter: parseFloat(getComputedStyle(tray).paddingTop),
+          bandCenter: center(buttonBox) - (trayBox.top + parseFloat(getComputedStyle(tray).borderTopWidth) + fieldBox.top) / 2,
+          iconCenter: center(iconBox) - center(buttonBox), textCenter: center(textBox) - center(buttonBox),
+          overflow: tray.scrollWidth - tray.clientWidth };
+      });
+      // The outer tray owns the gutter. Fractional font rounding may differ by at most one CSS pixel.
+      expect(Math.abs(geometry.top - geometry.gutter)).toBeLessThanOrEqual(1);
+      expect(Math.abs(geometry.bottom - geometry.gutter)).toBeLessThanOrEqual(1);
+      expect(Math.abs(geometry.bandCenter)).toBeLessThanOrEqual(1);
+      expect(Math.abs(geometry.iconCenter)).toBeLessThanOrEqual(1);
+      expect(Math.abs(geometry.textCenter)).toBeLessThanOrEqual(1);
+      expect(geometry.overflow).toBeLessThanOrEqual(1);
     }
   });
 }
@@ -212,39 +202,32 @@ test("a long code line fades at the edge it continues past, and the keyboard rea
 });
 
 for (const { name, query } of [{ name: "en light", query: "" }, { name: "ko dark", query: "&lang=ko&theme=dark" }]) {
-  test(`the running strip folds to one line and unfolds with the keyboard: ${name}`, async ({ page }) => {
+  test(`the running status is one line that opens the Work tray with the keyboard: ${name}`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(`/?stavePreview=tars&tray=true&live=true${query}`);
     const strip = page.locator("[data-tars-running-strip]");
-    const toggle = strip.locator("[data-tars-running-toggle]");
-    await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(toggle).toHaveAccessibleName(query ? "지금 1개 실행 중" : "1 running now");
-    await expect(strip.locator("[data-tars-running]")).toBeHidden();
+    const status = strip.locator("[data-tars-running-status]");
+    await expect(status).toHaveAccessibleName(query ? "지금 1개 실행 중" : "1 running now");
+    // It lists no work: what each piece of work is doing is on its card.
+    await expect(strip.locator("[data-tars-live-line]")).toHaveCount(0);
+    await expect(strip.locator("button")).toHaveCount(1);
     await page.evaluate(() => document.fonts.ready);
-    // One line: the summary is the AUI small control height, nothing under it.
-    const folded = await strip.evaluate((node) => node.getBoundingClientRect().height);
-    expect(folded).toBeLessThanOrEqual(32 + 1);
-    await toggle.focus();
+    // One line: the status is the AUI small control height, nothing under it.
+    const height = await strip.evaluate((node) => node.getBoundingClientRect().height);
+    expect(height).toBeLessThanOrEqual(32 + 1);
+    await status.focus();
     await page.keyboard.press("Enter");
-    await expect(toggle).toHaveAttribute("aria-expanded", "true");
-    await expect(strip.locator("[data-tars-running]")).toBeVisible();
-    // The rows keep their controls and names, and the keyboard reaches them next.
-    await page.keyboard.press("Tab");
-    await expect(strip.locator("[data-tars-running-timeline]")).toBeFocused();
-    await toggle.focus();
-    await page.keyboard.press("Space");
-    await expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await expect(strip.locator("[data-tars-running]")).toBeHidden();
+    await expect(page.locator('[data-tars-card="billing"] [data-tars-card-title]')).toBeFocused();
   });
 }
 
-test("a folded strip names work that has gone quiet", async ({ page }) => {
+test("the running status names work that has gone quiet", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/?stavePreview=tars&tray=true&live=stale");
-  const toggle = page.locator("[data-tars-running-toggle]");
-  await expect(toggle.locator("[data-tars-running-stale]")).toHaveText("1 not updated recently");
-  await expect(toggle).toHaveAccessibleName("1 running now, 1 not updated recently");
+  const status = page.locator("[data-tars-running-status]");
+  await expect(status.locator("[data-tars-running-stale]")).toHaveText("1 not updated recently");
+  await expect(status).toHaveAccessibleName("1 running now, 1 not updated recently");
 });
 
 test("the message time has a 24px hit area above its line and moves nothing", async ({ page }) => {
