@@ -878,7 +878,8 @@ function applyTurnWorkEvents(args: {
       upsertItem({
         id: event.toolUseId,
         kind: currentItem.kind,
-        status: "running",
+        // A backgrounded subagent reports on its returned row; its call stays settled.
+        status: currentItem.status === "completed" || currentItem.status === "failed" ? currentItem.status : "running",
         title: currentItem.title,
         detail:
           progressMessages.at(-1) ??

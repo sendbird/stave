@@ -269,16 +269,20 @@ const STANDALONE_PROGRESS_PREFIX = "Subagent progress: ";
 function appendSubagentProgressToPart(args: {
   parts: MessagePart[];
   toolUseId: string | undefined;
-  /** A stored positional guess routes text only to the one running subagent row. */
-  guess: boolean;
+  /**
+   * A stored positional guess that names no subagent routes text only to the
+   * one running subagent row. A guess beside a reported task id names a
+   * subagent the guess was not matched by, so it reaches no row.
+   */
+  guess: "none" | "unnamed" | "named";
   content: string;
 }): MessagePart[] {
   const { parts, toolUseId, content } = args;
 
-  let targetIndex = toolUseId && !args.guess ? parts.findIndex(
+  let targetIndex = toolUseId && args.guess === "none" ? parts.findIndex(
     (part) => part.type === "tool_use" && part.toolUseId === toolUseId,
   ) : -1;
-  if (args.guess) {
+  if (args.guess === "unnamed") {
     const running = parts.flatMap((part, index) => part.type === "tool_use" && isSubagentToolName(part.toolName) &&
       (part.state === "input-streaming" || part.state === "input-available") ? [index] : []);
     const only = running.length === 1 ? running[0]! : -1;
@@ -668,7 +672,7 @@ function appendProviderEventContentToAssistant(args: {
     const updatedParts = appendSubagentProgressToPart({
       parts: message.parts,
       toolUseId,
-      guess: args.event.binding === "guess",
+      guess: args.event.binding !== "guess" ? "none" : args.event.agentId ? "named" : "unnamed",
       content,
     });
     return { ...message, parts: updatedParts, isStreaming: true };

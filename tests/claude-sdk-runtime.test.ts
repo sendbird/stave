@@ -42,6 +42,10 @@ import {
 } from "../electron/providers/claude-browser-instructions";
 import { RESERVED_ENV_VAR_NAMES } from "../src/lib/secrets/secrets";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { BridgeEvent } from "../electron/providers/types";
+import { replayProviderEventsToTaskState } from "../src/lib/session/provider-event-replay";
+import type { NormalizedProviderEvent } from "../src/lib/providers/provider.types";
+import type { ChatMessage, ToolUsePart } from "../src/types/chat";
 
 const workspaceRoot = "/workspace/stave";
 
@@ -2233,31 +2237,118 @@ describe("resolveClaudeDisallowedTools", () => {
 });
 
 describe("SubagentProgressTracker", () => {
-  test("requires an identity even with one pending Agent", () => {
-    const tracker = new SubagentProgressTracker();
+  const startAgent = (tracker: SubagentProgressTracker, toolUseId: string, subagentType = "general-purpose") =>
     tracker.trackEvent({
-      type: "tool",
-      toolName: "agent",
-      toolUseId: "toolu_1",
-      input: "{}",
-      state: "input-streaming",
+      type: "tool", toolUseId, toolName: "Agent", state: "input-streaming",
+      input: JSON.stringify({ subagent_type: subagentType, description: `work ${toolUseId}`, prompt: "go" }),
     });
-    expect(tracker.resolveToolUseId({})).toBeUndefined();
-  });
 
-  test("agent progress without ids belongs to the only running agent, other task progress does not", () => {
+  test("progress that names nothing belongs to the only running agent", () => {
     const tracker = new SubagentProgressTracker();
-    tracker.trackEvent({ type: "tool", toolUseId: "toolu_1", toolName: "Agent", input: "{}", state: "input-streaming" });
-    const agentProgress = { task_id: "agent_a", subagent_type: "general-purpose" };
-    expect(buildClaudeSubagentProgressEvent({ summary: "Reading callers", resolution: tracker.resolveProgress(agentProgress) })).toEqual({
+    startAgent(tracker, "toolu_1");
+    expect(buildClaudeSubagentProgressEvent({ summary: "Reading callers", resolution: tracker.resolveProgress({}) })).toEqual({
       type: "subagent_progress", toolUseId: "toolu_1", content: "Reading callers", binding: "authoritative",
     });
-    // A backgrounded MCP task reports progress too, without a subagent type.
-    expect(tracker.resolveToolUseId({ task_id: "mcp_task" })).toBeUndefined();
-    tracker.trackEvent({ type: "tool", toolUseId: "toolu_2", toolName: "Agent", input: "{}", state: "input-streaming" });
-    expect(tracker.resolveToolUseId(agentProgress)).toBeUndefined();
-    tracker.trackEvent({ type: "tool_result", tool_use_id: "toolu_1", output: "done" });
-    expect(tracker.resolveToolUseId(agentProgress)).toBe("toolu_2");
+  });
+
+  test("progress that names nothing stays unassigned while two agents run", () => {
+    const tracker = new SubagentProgressTracker();
+    startAgent(tracker, "toolu_1");
+    startAgent(tracker, "toolu_2");
+    expect(tracker.resolveProgress({})).toEqual({ resolvedBy: "unresolved" });
+  });
+
+  test("a name that matches no agent stays unassigned even with one running", () => {
+    const tracker = new SubagentProgressTracker();
+    startAgent(tracker, "toolu_1");
+    expect(tracker.resolveProgress({ task_id: "mcp_task" })).toEqual({ agentId: "mcp_task", resolvedBy: "unresolved" });
+    expect(tracker.resolveToolUseId({ task_id: "agent_x", subagent_type: "general-purpose" })).toBeUndefined();
+    expect(tracker.resolveToolUseId({ agent_id: "agent_x" })).toBeUndefined();
+    expect(tracker.resolveToolUseId({ tool_use_id: "toolu_x" })).toBeUndefined();
+    expect(tracker.resolveToolUseId({ subagent_type: "Explore" })).toBeUndefined();
+    expect(tracker.resolveToolUseId({ description: "other work" })).toBeUndefined();
+    // The running agent's own type and description name it.
+    expect(tracker.resolveToolUseId({ subagent_type: "general-purpose", description: "work toolu_1" })).toBe("toolu_1");
+  });
+
+  test("a task id reported at start routes that agent's progress, never a sibling's", () => {
+    const tracker = new SubagentProgressTracker();
+    startAgent(tracker, "toolu_a");
+    startAgent(tracker, "toolu_b");
+    tracker.processRawMessage({ type: "system", subtype: "task_started", task_id: "task_a", tool_use_id: "toolu_a", description: "work toolu_a" });
+    tracker.processRawMessage({ type: "system", subtype: "task_started", task_id: "task_b", tool_use_id: "toolu_b", description: "work toolu_b" });
+    expect(tracker.resolveProgress({ task_id: "task_a", subagent_type: "general-purpose" })).toEqual({
+      toolUseId: "toolu_a", agentId: "task_a", resolvedBy: "task_id",
+    });
+    expect(tracker.resolveToolUseId({ task_id: "task_b" })).toBe("toolu_b");
+  });
+
+  // Reproduction: A is moved to the background, its tool_result returns, then
+  // progress naming only A's task id and type arrives while B is the only
+  // pending agent. It used to land on B.
+  test("a backgrounded agent's progress never lands on the agent still running", () => {
+    const unregistered = new SubagentProgressTracker();
+    startAgent(unregistered, "toolu_a");
+    startAgent(unregistered, "toolu_b");
+    unregistered.trackEvent({ type: "tool_result", tool_use_id: "toolu_a", output: "Agent is running in the background." });
+    expect(unregistered.resolveProgress({ task_id: "task_a", subagent_type: "general-purpose" })).toEqual({
+      agentId: "task_a", resolvedBy: "unresolved",
+    });
+
+    const tracker = new SubagentProgressTracker();
+    startAgent(tracker, "toolu_a");
+    startAgent(tracker, "toolu_b");
+    tracker.processRawMessage({ type: "system", subtype: "task_started", task_id: "task_a", tool_use_id: "toolu_a", is_backgrounded: false });
+    tracker.processRawMessage({ type: "system", subtype: "task_updated", task_id: "task_a", patch: { is_backgrounded: true } });
+    tracker.trackEvent({ type: "tool_result", tool_use_id: "toolu_a", output: "Agent is running in the background." });
+    const progress = { task_id: "task_a", subagent_type: "general-purpose", description: "work toolu_a" };
+    expect(tracker.resolveProgress(progress)).toEqual({ toolUseId: "toolu_a", agentId: "task_a", resolvedBy: "task_id" });
+    // Once it settles, its late progress revives nothing and still is not B's.
+    tracker.processRawMessage({ type: "system", subtype: "task_notification", task_id: "task_a", status: "completed" });
+    expect(tracker.resolveProgress(progress)).toEqual({ agentId: "task_a", resolvedBy: "unresolved" });
+    // A finished agent's type and description match it, not the running one.
+    expect(tracker.resolveToolUseId({ subagent_type: "general-purpose", description: "work toolu_a" })).toBeUndefined();
+    // Same type, two agents: the type alone names neither.
+    expect(tracker.resolveToolUseId({ subagent_type: "general-purpose" })).toBeUndefined();
+    expect(tracker.resolveToolUseId({})).toBe("toolu_b");
+  });
+
+  test("live and replayed progress rows match for the background sequence", () => {
+    const tracker = new SubagentProgressTracker();
+    const events: NormalizedProviderEvent[] = [];
+    const emit = (event: BridgeEvent) => {
+      tracker.trackEvent(event);
+      events.push(event as NormalizedProviderEvent);
+    };
+    const agentInput = (id: string) => JSON.stringify({ subagent_type: "general-purpose", description: `work ${id}` });
+    emit({ type: "tool", toolUseId: "toolu_a", toolName: "Agent", input: agentInput("toolu_a"), state: "input-available" });
+    emit({ type: "tool", toolUseId: "toolu_b", toolName: "Agent", input: agentInput("toolu_b"), state: "input-available" });
+    tracker.processRawMessage({ type: "system", subtype: "task_started", task_id: "task_a", tool_use_id: "toolu_a", is_backgrounded: true });
+    emit({ type: "tool_result", tool_use_id: "toolu_a", output: "Agent is running in the background." });
+    for (const [summary, message] of [
+      ["A reads files", { task_id: "task_a", subagent_type: "general-purpose" }],
+      ["unknown task", { task_id: "task_z", subagent_type: "general-purpose" }],
+      ["B is alone", {}],
+    ] as const) {
+      emit(buildClaudeSubagentProgressEvent({ summary, resolution: tracker.resolveProgress(message) }));
+    }
+    const base = { taskId: "task-1", provider: "claude-code" as const, model: "claude-opus", turnId: "turn-1" };
+    const initial: ChatMessage[] = [{ id: "task-1-m-0", role: "user", model: "claude-opus", providerId: "claude-code", content: "go", parts: [] }];
+    const replayed = replayProviderEventsToTaskState({ ...base, messages: initial, events }).messages;
+    const live = events.reduce(
+      (messages, event) => replayProviderEventsToTaskState({ ...base, messages, events: [event] }).messages,
+      initial,
+    );
+    for (const messages of [replayed, live]) {
+      const parts = messages.at(-1)!.parts;
+      const row = (id: string) => parts.find((part): part is ToolUsePart => part.type === "tool_use" && part.toolUseId === id);
+      expect(row("toolu_a")?.progressMessages).toEqual(["A reads files"]);
+      expect(row("toolu_b")?.progressMessages).toEqual(["B is alone"]);
+      expect(parts.filter((part) => part.type === "system_event")).toEqual([
+        { type: "system_event", content: "Subagent progress: unknown task" },
+      ]);
+    }
+    expect(live.at(-1)!.parts).toEqual(replayed.at(-1)!.parts);
   });
 
   test("resolves progress from a tracked legacy Task tool event", () => {
@@ -2274,7 +2365,7 @@ describe("SubagentProgressTracker", () => {
       input: { agent_id: "legacy-task", tool_use_id: "toolu_task" },
     });
 
-    expect(tracker.resolveToolUseId({})).toBeUndefined();
+    expect(tracker.resolveToolUseId({})).toBe("toolu_task");
     expect(tracker.resolveToolUseId({ agent_id: "legacy-task" })).toBe(
       "toolu_task",
     );
@@ -2307,7 +2398,7 @@ describe("SubagentProgressTracker", () => {
       tool_use_id: "toolu_task",
       output: "done",
     });
-    expect(tracker.resolveToolUseId({})).toBeUndefined();
+    expect(tracker.resolveToolUseId({})).toBe("toolu_agent");
   });
 
   test("does not revive completed subagent work from late progress", () => {
@@ -2381,7 +2472,7 @@ describe("SubagentProgressTracker", () => {
       tool_use_id: "toolu_2",
       output: "done",
     });
-    expect(tracker.resolveToolUseId({})).toBeUndefined();
+    expect(tracker.resolveToolUseId({})).toBe("toolu_1");
   });
 
   test("ignores non-agent tool events", () => {

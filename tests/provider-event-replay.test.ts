@@ -930,6 +930,23 @@ describe("subagent progress integration", () => {
     expect(updated.parts).toHaveLength(2);
   });
 
+  test("a stored guess beside a reported task id reaches no row", () => {
+    // The old positional fallback put a backgrounded agent's progress on the
+    // one still running; its task id names a different subagent.
+    const message = createMessage({
+      parts: [
+        { type: "tool_use", toolUseId: "toolu_a", toolName: "Agent", input: "{}", state: "output-available" },
+        { type: "tool_use", toolUseId: "toolu_b", toolName: "Agent", input: "{}", state: "input-available" },
+      ],
+    });
+    const updated = appendProviderEventToAssistant({
+      message,
+      event: { type: "subagent_progress", toolUseId: "toolu_b", agentId: "task_a", binding: "guess", content: "A reads files" },
+    });
+    expect((updated.parts[1] as import("@/types/chat").ToolUsePart).progressMessages).toBeUndefined();
+    expect(updated.parts[2]).toEqual({ type: "system_event", content: "Subagent progress: A reads files" });
+  });
+
   test("unassigned progress is bounded like an agent row: dedupe and keep 6", () => {
     let message = createMessage({
       parts: [
