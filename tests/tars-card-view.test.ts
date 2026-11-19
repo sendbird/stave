@@ -116,7 +116,7 @@ describe("a Tars work card's state, sentence and action", () => {
     expect(read(billing(), { attention: [approval] })).toEqual({ state: "waiting", waitingOn: "approval", sentence: "Run the database migration",
       primary: { kind: "openTask", request: { taskId: "task-billing", workspaceId: "exec-billing" } } });
     const paused = read({ ...billing(), state: "paused" }, { attention: [approval] });
-    expect(paused.state).toBe("blocked");
+    expect(paused.state).toBe("on-hold");
     expect(paused.sentence).toBe("This work is paused. Resume it to continue.");
     expect(paused.primary).toEqual({ kind: "control", operation: "resume" });
     const signOff: TarsTrayAttentionInput = { id: "agent-run-sign-off:billing", kind: "agent-run-sign-off", taskId: "task-billing" };
@@ -178,6 +178,21 @@ describe("a Tars work card's state, sentence and action", () => {
     // A decision Tars itself asks about the work still waits on the user.
     const ask: TarsTrayAttentionInput = { id: "tars:decision:message-ask:0", kind: "tars-decision", detail: "Tars asks: should I pick this up again?", tarsResponsibilityId: migration.id };
     expect(read(migration, { attention: [ask] })).toMatchObject({ state: "waiting", waitingOn: "question", primary: { kind: "answer" } });
+  });
+
+  test("work paused on purpose waits in the neutral state like work taken over; a pause that went wrong is blocked", async () => {
+    await applyAppLocale("en");
+    const paused: TarsResponsibility = { ...billing(), state: "paused" };
+    expect(read(paused)).toEqual({ state: "on-hold", waitingOn: null, sentence: "This work is paused. Resume it to continue.", primary: { kind: "control", operation: "resume" } });
+    // The words saved with the pause are its sentence.
+    const release = tray().responsibilities.find((row) => row.id === "release")!;
+    expect(read(release)).toMatchObject({ state: "on-hold", sentence: "Paused by you while the staging deploy finishes.", primary: { kind: "control", operation: "resume" } });
+    // A stop in its task does not turn a chosen pause into a problem.
+    const failed: TarsTrayAttentionInput = { id: "turn:run-failed:exec-billing:task-billing:turn-1", kind: "run-failed", taskId: "task-billing", detail: "The provider returned an error." };
+    expect(read(paused, { attention: [failed] }).state).toBe("on-hold");
+    // A pause that ended with Tars no longer in charge says so, and that is a stop.
+    expect(read({ ...paused, detail: "ownership changed", detailCode: "ownershipChanged" })).toMatchObject({ state: "blocked",
+      sentence: "This task is now controlled elsewhere, so Tars cannot continue it. Continue it in its task.", primary: { kind: "control", operation: "resume" } });
   });
 
   test("a result waiting for the user's check is a sign-off that opens the report", async () => {

@@ -744,9 +744,9 @@ you, or what came out; and its state with one action. The state is one of six,
 the same words the Task panel uses: **Working** (it has started; only work
 that actually runs has the moving mark), **Waiting** (nothing is wrong and
 nobody has to act: it is queued, its workspace is being prepared, it waits for
-a usage reset, PR checks or a set time, or you took it over; the card says
-what it waits for), **Waiting for you**, **Blocked** (Tars could not finish
-it, it is paused, or it stopped on an error), **Finished** and **Stopped**. The one action fits the state: **Confirm
+a usage reset, PR checks or a set time, it is paused, or you took it over;
+the card says what it waits for), **Waiting for you**, **Blocked** (Tars could
+not finish it, or it stopped on an error), **Finished** and **Stopped**. The one action fits the state: **Confirm
 resume** and the like when Tars proposes something and waits for you,
 **Answer** when Tars asks a question (it shows the decision card above the
 message box), **Open task** when a question or an approval waits in a task

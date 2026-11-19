@@ -1141,9 +1141,9 @@ A work card in the tray reads in three lines:
 | State | When | Sentence | The one action |
 |---|---|---|---|
 | **Working** | The work has started and is in Tars's hands. Only work that actually runs wears the moving mark. | What Stave last observed ("Running the tests · updated just now"), else the stage in hand. | **Open task**. |
-| **Waiting** | Nothing is wrong and nobody has to act. The work has not started: it is queued, or its workspace is still being prepared. Or its run waits for a usage reset with a known time or the outside event it asked to be woken by (PR checks, a review, a set time, a helper finishing) and resumes on its own. Or you took the work over, which is your choice and not a stop. | What it waits for: for queued work, the scheduler's reason ("Execution limit reached (1 active / 1 allowed)…"); for work being prepared, "Preparing the workspace. The work starts once it is ready."; for a waiting run, when it resumes in the run's own words ("Waiting for usage reset at 3:00 PM…"); for work you took over, that you hold it. | None, except where you can end the wait: **Start now** for queued work, **Hand back** for work you took over. |
+| **Waiting** | Nothing is wrong and nobody has to act. The work has not started: it is queued, or its workspace is still being prepared. Or its run waits for a usage reset with a known time or the outside event it asked to be woken by (PR checks, a review, a set time, a helper finishing) and resumes on its own. Or the work is held by choice, which is not a stop: it was paused, or you took it over. | What it waits for: for queued work, the scheduler's reason ("Execution limit reached (1 active / 1 allowed)…"); for work being prepared, "Preparing the workspace. The work starts once it is ready."; for a waiting run, when it resumes in the run's own words ("Waiting for usage reset at 3:00 PM…"); for paused work, that it is paused (or the words saved with the pause); for work you took over, that you hold it. | None, except where you can end the wait: **Start now** for queued work, **Resume** for paused work, **Hand back** for work you took over. |
 | **Waiting for you** | Tars proposes a control, asks a question, or could not verify a reported completion; a question, an approval or a stage sign-off waits in the work's task or in a helper's task; a result waits for your check. | The proposal, the question or the request. | **Confirm …** for a proposal (danger tone when it cannot be undone); **Answer**, which shows the decision card above the message box; **Open task** for a request, which opens the task the request waits in (a helper's task when a helper asks); **Open report** for a result. |
-| **Blocked** | Tars could not finish the work, the work is paused, its task's turn failed, or its run's stage blocked or got stuck. | Why. | **Open report** for work Tars could not finish; **Resume** for paused work. |
+| **Blocked** | Tars could not finish the work, its task's turn failed, its run's stage blocked or got stuck, or a pause ended with Tars no longer in charge of the task. | Why. | **Open report** for work Tars could not finish; otherwise **Resume**. |
 | **Finished** | The work completed. | Its draft pull request, else the first sentence of the run's summary. | **Open PR #n**, else **Open report**, else **Open task**. |
 | **Stopped** | The work was cancelled. | Why. | **Open report**, else **Open task**. |
 
@@ -1165,8 +1165,8 @@ that went quiet while still active, a result to read) are listed in the
 card's detail and leave the state as it is. A question or a proposal from
 Tars comes before a result's check: while both wait, the card offers
 **Answer** or **Confirm …**, and **Open report** stays in the detail. While
-you hold work you took over, what Fleet lists for its task leaves the card as
-it is; a decision Tars asks about it still reads **Waiting for you**.
+work is paused or you hold it, what Fleet lists for its task leaves the card
+as it is; a decision Tars asks about it still reads **Waiting for you**.
 
 **The detail holds everything else.** Selecting the title (or Enter/Space on
 it) unfolds it under the three lines, and folds it again; folding is

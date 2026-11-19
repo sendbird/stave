@@ -509,7 +509,8 @@ test("decision keys answer only while the card has focus; the composer keeps its
   // The pause went through the host's control path: the work is held now, and its card offers Resume.
   const paused = page.getByRole("complementary").locator('[data-tars-card="preview-responsibility"]');
   await expect(paused).toHaveAttribute("data-tars-state", "paused");
-  await expect(paused).toHaveAttribute("data-task-user-state", "blocked");
+  // A pause the user chose is not a problem: the card waits in the neutral state.
+  await expect(paused).toHaveAttribute("data-task-user-state", "on-hold");
   await expect(paused.locator('[data-tars-card-primary="resume"]')).toBeVisible();
   // Focus stays on the folded record instead of falling to the page.
   await expect(answered.locator('[data-tars-record-state][tabindex="-1"]')).toBeFocused();
