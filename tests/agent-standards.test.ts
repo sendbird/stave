@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { describeAssignmentReceived } from "@/lib/agents/agents-view";
 import { compileAgent, snapshotAgent } from "@/lib/agents/compile";
 import { applyAgentToDelegation } from "@/lib/agents/delegate";
-import { exportAgentFile } from "@/lib/agents/export";
 import { duplicateAgent } from "@/lib/agents/library";
 import { taskAgentRuntimeOptions } from "@/lib/agents/runtime-options";
 import { compileNativeSubagents } from "@/lib/agents/native-subagents";
@@ -57,12 +56,10 @@ describe("my standards", () => {
     expect(delegated.ok && delegated.args.prompt).toContain(STANDARDS);
   });
 
-  test("are off by default, never exported, and empty text counts as off", () => {
+  test("are off by default, and empty text counts as off", () => {
     expect(activeStandards(normalizeMyStandards(undefined))).toBeUndefined();
     expect(activeStandards({ enabled: true, text: "   " })).toBeUndefined();
     expect(activeStandards({ enabled: false, text: STANDARDS })).toBeUndefined();
     expect(activeStandards({ enabled: true, text: STANDARDS })).toBe(STANDARDS);
-    const file = exportAgentFile(duplicateAgent(getBuiltinAgent("implementer")!, []), "claude-md");
-    expect(file.content).not.toContain("My standards");
   });
 });

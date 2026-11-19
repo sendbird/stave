@@ -97,33 +97,6 @@
     "preferredProviderNone": "선호 없음",
     "autoPermissionHint": "Auto 에이전트의 실행은 제공자의 분류기를 사용합니다. Claude는 Auto 모드로 실행하며 판단하지 못하거나 Auto를 사용할 수 없으면 승인을 요청하고, Codex는 사용할 수 있으면 auto-review를 사용합니다. 그 외 권한은 내 제공자 설정으로 실행하며, 읽기 전용은 읽기 전용으로 유지됩니다."
   },
-  "agentHistory": {
-    "revisionRow": "현재와 동일함",
-    "revisionRow2": "다른 항목: {{value1}}",
-    "revisionRow3": "지정됨",
-    "revisionRow4": "복원",
-    "agentHistory": "이전 버전이 없습니다. 저장할 때마다 교체되는 버전을 보관하며, 최대 보관 수:",
-    "agentHistory2": "현재",
-    "agentHistory3": "지정됨",
-    "sentence11": "이전 버전이 없습니다. 저장할 때마다 교체되는 버전을 최대 {{value1}}개 보관합니다."
-  },
-  "agentSuggestions": {
-    "suggestionCard": "수정 의견으로 학습한 시점",
-    "ariaLabel": "제안된 지침",
-    "suggestionCard3": "제안된 지침 표시",
-    "suggestionCard4": "닫기",
-    "suggestionCard5": "편집",
-    "suggestionCard6": "적용",
-    "label": "수정 의견으로 학습",
-    "ariaLabel2": "학습된 제안",
-    "agentSuggestions": "학습된 제안",
-    "agentSuggestions2": "아직 없습니다. 작업에서 에이전트의 답변을 수정하면 지침 변경 제안이 여기에 표시됩니다. 수정한 작업마다 유틸리티 모델 요청을 한 번 사용합니다.",
-    "agentSuggestions3": "학습이 꺼져 있습니다. 수정 의견을 검토하거나 변경을 제안하지 않습니다.",
-    "ariaLabel3": "학습된 제안",
-    "agentSuggestions4": "학습된 제안",
-    "learnedFromCorrection": "{{date}}의 수정 의견으로 학습했습니다.",
-    "learnedFromCorrectionStale": "{{date}}의 수정 의견으로 학습했습니다. 그 뒤 지침이 바뀌었으므로, 적용하면 이 버전으로 바뀝니다."
-  },
   "agentWorkflowField": {
     "agentWorkflowField": "단계를 직접 계획하는 하나의 단계로 실행합니다. 고정된 순서로 작업하려면 단계를 추가하세요.",
     "agentWorkflowField2": "확인 시점",
@@ -163,8 +136,6 @@
     "settingsTab5": "워크플로",
     "settingsTab7": "지침",
     "settingsTab8": "이 에이전트를 복제하여 변경하세요.",
-    "label": "설정",
-    "label2": "기록",
     "agentDetail": "지정…",
     "agentDetail2": "복제",
     "agentDetail3": "복제 후 편집",
@@ -237,23 +208,6 @@
     "footer4": "보관으로 대체",
     "title2": "사용 위치",
     "title3": "실행 중 또는 대기 중"
-  },
-  "exportAgent": {
-    "ariaLabel": "내보내기",
-    "exportAgent": "내보내기",
-    "exportAgent2": "Stave 밖에서 이 에이전트 사용",
-    "ariaLabel2": "내보내기 형식",
-    "exportAgent3": "파일 숨기기",
-    "exportAgent4": "파일 표시",
-    "exportAgent6": "저장소에 쓰기",
-    "exportAgent8": "파일을 쓰려면 워크스페이스를 여세요.",
-    "sentence17": "{{value1}} 파일 교체",
-    "sentence18": "파일에서 제외된 항목: {{value1}}.",
-    "sentence19": "{{value1}} 파일이 이미 있습니다. 교체하거나 파일을 표시하여 필요한 내용을 복사하세요.",
-    "sentence20": "{{value1}} 파일에 썼습니다. 에이전트를 저장소로 공유하려면 커밋하세요.",
-    "extraCopy34": "파일을 생성하지 못했습니다.",
-    "extraCopy35": "내보내는 동안 파일이 변경되었습니다. 다시 시도하세요.",
-    "extraCopy36": "파일에 쓰지 못했습니다."
   },
   "flowPanel": {
     "flowNodeRow": "타임라인",
@@ -388,10 +342,6 @@
     "message3": "초안에 이름이나 지침이 없습니다. 할 일을 더 자세히 설명하세요.",
     "message4": "올바른 에이전트 초안을 만들지 못했습니다. 다시 시도하거나 빈 항목으로 시작하세요."
   },
-  "export": {
-    "claudeMd": "Claude 에이전트 파일",
-    "codexToml": "Codex 에이전트 파일"
-  },
   "flowView": {
     "waiting": "대기 중",
     "running": "실행 중",
@@ -462,11 +412,6 @@
     "extraCopy378": "읽기 전용 에이전트는 현재 워크스페이스에서 작업합니다.",
     "extraCopy379": "{{value1}}에서 가져왔습니다."
   },
-  "learnedSuggestions": {
-    "message": "답변에 JSON 객체가 없습니다.",
-    "message2": "답변을 읽지 못했습니다.",
-    "message3": "답변에 요약이나 지침이 없습니다."
-  },
   "library": {
     "message": "사용 안 됨: {{value1}} 에이전트에 “{{value2}}” ID가 이미 있습니다. 파일의 에이전트 이름을 바꿔 사용하세요.",
     "description": "사용 조건 …",
@@ -483,25 +428,6 @@
   "repository": {
     "message": "읽지 않음: Stave는 저장소에서 처음 {{value1}}개의 에이전트 파일을 읽습니다.",
     "message2": "사용 안 됨: {{value1}} 파일에 “{{value2}}” ID의 에이전트가 이미 정의되어 있습니다."
-  },
-  "revisions": {
-    "name": "이름",
-    "description": "사용 조건",
-    "avoidWhen": "사용 제외 조건",
-    "instructions": "지침",
-    "skills": "스킬",
-    "model": "모델",
-    "tools": "도구 및 제한",
-    "permission": "권한",
-    "workspace": "작업 위치",
-    "usableAs": "사용 가능한 역할",
-    "canCall": "호출 가능",
-    "report": "보고서",
-    "appearance": "색과 아이콘",
-    "concurrency": "동시 실행 수",
-    "archived": "보관됨",
-    "renderFieldValue": "예",
-    "renderFieldValue2": "아니요"
   },
   "schema": {
     "primary": "주 에이전트",

@@ -1,6 +1,5 @@
 import { describe, expect, test } from "bun:test";
 import { getBuiltinAgent } from "@/lib/agents/starters";
-import { exportAgentFile } from "@/lib/agents/export";
 import { REVIEW_AGENT_ID, resolveReviewBeforeDone } from "@/lib/agents/review-before-done";
 import { buildAgentRunWorkflow } from "@/lib/agent-runs/agent-run";
 import { buildDelegatedAgentRunInput } from "@/lib/agent-runs/delegated-run";
@@ -82,10 +81,5 @@ describe("review before done", () => {
     const composed = buildAgentRunWorkflow({ agent: implementer(), now });
     const rerun = buildAgentRunWorkflow({ agent: { name: "Implementer", permission: "auto", workflow: composed.stages }, now });
     expect(rerun.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
-  });
-
-  test("an exported agent file lists a set review choice among the fields left out", () => {
-    expect(exportAgentFile({ ...implementer(), reviewBeforeDone: "always" }, "claude-md").leftOut).toContain("reviewBeforeDone");
-    expect(exportAgentFile(implementer(), "claude-md").leftOut).not.toContain("reviewBeforeDone");
   });
 });

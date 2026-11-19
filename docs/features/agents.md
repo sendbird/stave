@@ -21,8 +21,7 @@ get more autonomy than the task that delegated them.
 **Run overview → Run details** shows the Agent version captured for that turn,
 the permission source and whether instruction delivery was confirmed. The run's
 model remains the provider's reported model. Older turns without Agent evidence
-stay unspecified. History marks a saved version **Assigned** when an assignment
-references it; that label does not count completed turns.
+stay unspecified.
 
 ## When To Use It
 
@@ -115,7 +114,6 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
   agent runs a task (or for half an hour after the run ends) the row shows the
   run's state and where it stands (`Cause 2/3`, or `Plan 3/5` for a one-stage
   run); click a row to open its task.
-- **Settings** and **History** tabs. History is covered below.
 
 ### Editing an agent
 
@@ -125,7 +123,7 @@ the way:
 - **Profile**: name, colour, icon and **Use when**. **Icon** opens a grid of
   icons with a search field; **Initials** in the same grid goes back to the
   agent's initials. Colour and icon are independent, so changing one keeps the
-  other. A change to either is recorded in **History** as **Colour and icon**.
+  other.
 - **Instructions**: what the agent does on every task.
 - **Workflow**: the stages its runs follow (see below).
 - **How it runs**: the model (**Auto-routing** with an optional task class
@@ -137,35 +135,6 @@ the way:
 A field that fails a rule shows the reason inline (for example, a read-only
 agent cannot take a new worktree, and a tool cannot be both allowed and denied).
 A save blocked by an **Advanced** field opens **Advanced**.
-
-### History
-
-Every save that changes how a custom agent behaves keeps the version it
-replaced; the last 10 are listed newest first. Each row names the fields that
-differ from the agent now and shows **Ran** when a task used that exact
-version. **Restore** saves the old version as the current agent, so the version
-it replaces joins History and a restore can itself be undone. Archiving and
-concurrency changes are not new versions.
-
-### Learned suggestions
-
-When you correct a custom agent in one of its tasks (you write again after it
-answered), Stave asks the **Utility inference** model once whether the agent's
-instructions should change so the correction is not needed next time. If so,
-a suggestion appears on the agent's page with the change in one sentence:
-
-- **Apply** saves the suggested instructions like an edit, so the previous
-  instructions stay in History.
-- **Edit** lets you change the suggested instructions before applying them.
-- **Dismiss** drops the suggestion.
-
-Learning is on for new custom agents; turn **Learn from my corrections** off
-on an agent's page to stop it. Each corrected task uses at most one request,
-and an agent keeps at most three open suggestions. Only the task's messages
-from you and the agent are sent — no tool output, attachments or secrets — and
-the request runs read only. A suggestion written against instructions you have
-since changed says so; applying it replaces them. Built-in and repository
-agents do not learn.
 
 ### Workflow
 
@@ -216,12 +185,10 @@ Watch checks → Ready for review) come with a workflow.
   permissions and the selected model. Explicit one-turn consultations and
   detached work retain their existing lifecycles. In-turn subagents receive AI
   stages as instructions and remain scoped to the parent's turn.
-- Exported agent files leave the workflow and a set review choice out and say so.
 
 ### Deleting an agent
 
-**Delete** removes a custom agent from your settings, with its History and
-suggestions. Past assignments keep
+**Delete** removes a custom agent from your settings. Past assignments keep
 their own snapshot, so an agent's history still shows its name after it is gone.
 If another agent's workflow stage still names the agent, deletion is blocked and
 the dialog lists where — **Archive instead**, or remove those references first.
@@ -272,10 +239,9 @@ What you pick decides how the task runs:
   model of the provider is a pin.
 - The first send in Agent mode reads **Assign**; later sends read **Send**.
 - A choice applies from the next turn. Earlier turns keep the agent they ran
-  as, and each agent's History counts the turns it ran. Choosing another
-  agent is locked while a turn runs or waits for an answer, and a switch to an
-  agent with a wider permission asks first. Switching agents ends the run the
-  previous agent started.
+  as. Choosing another agent is locked while a turn runs or waits for an
+  answer, and a switch to an agent with a wider permission asks first.
+  Switching agents ends the run the previous agent started.
 - A task that runs as an agent calls other agents itself, as subagents.
 
 ### Usable as
@@ -298,8 +264,7 @@ level deep and their answers come back into the turn.
 may delegate to. **Any agent** (the default) sets no limit. **Only these
 agents** offers every active agent usable as a delegated task; checking none
 means the agent delegates to no one. A delegation to an agent outside the list
-is refused with the names it may call. Exported agent files leave **Can call**
-out.
+is refused with the names it may call.
 
 ### My standards
 
@@ -308,17 +273,7 @@ every agent you run — how you want code written, reviewed or reported. Turned
 on, they are added after each agent's instructions when you assign work,
 delegate to an agent or it runs as a subagent. A task keeps the standards it
 started with; **What it received** lists them as a source. They stay in your
-settings and are never written into an exported agent file.
-
-### Export
-
-**Export** in an agent's details shows the Claude or Codex agent file the agent
-becomes and the path it goes to. **Write to repository** writes it into the
-open workspace; when a file is already at that path, a second **Replace**
-press is needed. The file never carries a permission above the provider's
-default — an **Auto** agent is written without one — and fields the format has
-no place for are listed under **Not in the file**. Commit the file to share the
-agent with the team.
+settings.
 
 ### Agents from the repository
 
@@ -462,8 +417,7 @@ Fleet's search finds its tasks.
   delegation, and a rule that names a provider outranks it. The built-in
   Reviewer prefers the other provider, the same default the Review button
   offers; when that provider's CLI is not installed, the delegation stays on
-  the delegating task's provider. The preference is not written to exported Markdown or TOML agent
-  files and is listed among the fields left out.
+  the delegating task's provider.
 
 ## Team limits
 
@@ -543,7 +497,6 @@ No live cost or quality improvement is guaranteed by these containment limits.
 ## Limitations
 
 - Stave reads at most 50 agent files per repository.
-- Export writes Claude and Codex agent files only.
 - Hooks, inline MCP servers and approval-skipping modes in agent files are
   never imported.
 - A worktree is a separate checkout, not a sandbox.

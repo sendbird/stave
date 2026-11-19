@@ -9,7 +9,6 @@ import { getAgentDisplayName, getAgentDisplayDescription } from "@/lib/agents/di
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { groupAgents } from "@/lib/agents/agents-view";
 import { matchAgents } from "@/lib/agents/selector-choice";
-import { exportAgentFile } from "@/lib/agents/export";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { formatAge, STAGE_STATUS_PRESENTATION } from "@/lib/agent-runs/agent-run-view";
 import { PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE } from "@/lib/truncation-visibility";
@@ -17,10 +16,9 @@ import { PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE } from "@/lib/truncation-visibili
 afterEach(() => applyAppLocale("en"));
 
 describe("conversation locale presentation", () => {
-  test("builtin presentation changes without rewriting agent prompts or exported provider files", () => {
+  test("builtin presentation changes without rewriting agent prompts", () => {
     const agent = getBuiltinAgent("debugger")!;
     const instructions = agent.instructions;
-    const providerFile = exportAgentFile(agent, "claude-md").content;
     applyAppLocale("en");
     expect(getAgentDisplayName(agent)).toBe("Debugger");
     const description = getAgentDisplayDescription(agent);
@@ -29,7 +27,6 @@ describe("conversation locale presentation", () => {
     expect(getAgentDisplayDescription(agent)).not.toBe(description);
     expect(agent.name).toBe("Debugger");
     expect(agent.instructions).toBe(instructions);
-    expect(exportAgentFile(agent, "claude-md").content).toBe(providerFile);
     expect(getStageDisplayTitle(agent.workflow![0]!)).toBe("재현");
     expect(agent.workflow![0]!.title).toBe("Reproduce");
   });

@@ -409,7 +409,7 @@ edge run -> fleet dashed : needs a person
 Open **Agents** in the sidebar (Cmd/Ctrl+K then G). The tabs are **Agents**, **My standards** and **Performance**.
 Select **New agent**, use **Draft agent** to draft one from a description, then edit it.
 Agents come from three sources: built-in, custom, and from the repository (files such as `.claude/agents/`).
-The detail view offers **Assign…**, **Duplicate**, **Archive**, **Export** and **Write to repository**.
+The detail view offers **Assign…**, **Duplicate** and **Archive**.
 Screens: [Agents](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agents.png)
 
 Main settings under **How it runs**:

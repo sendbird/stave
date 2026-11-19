@@ -10,7 +10,6 @@ import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
 import { duplicateAgent } from "@/lib/agents/library";
-import { revisionContentHash } from "@/lib/agents/revisions";
 import { BUILTIN_AGENTS, getBuiltinAgent } from "@/lib/agents/starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
@@ -77,9 +76,6 @@ const PREVIEW_ASSIGNMENT_FAILED: AgentAssignment = {
   updatedAt: "2026-09-27T09:00:30.000Z",
 } as unknown as AgentAssignment;
 
-/** Set during seeding to the content hash of a seeded revision, so the History tab marks it "Ran". */
-let previewRanContentHash = "preview";
-
 function installBridgeStubs() {
   const api = ((window as { api?: Record<string, unknown> }).api ??= {});
   const folders = (directoryPath: string) => {
@@ -97,13 +93,6 @@ function installBridgeStubs() {
         ? { ok: true, content: REPOSITORY_FILES[args.filePath], revision: "1" }
         : { ok: false, content: "", revision: "", stderr: "missing" },
   };
-  const written: Record<string, string> = {};
-  (api.fs as Record<string, unknown>).createFile = async (args: { filePath: string }) =>
-    args.filePath in REPOSITORY_FILES || args.filePath in written ? { ok: false, alreadyExists: true } : ((written[args.filePath] = ""), { ok: true, revision: "0" });
-  (api.fs as Record<string, unknown>).writeFile = async (args: { filePath: string; content: string }) => {
-    written[args.filePath] = args.content;
-    return { ok: true, revision: "1" };
-  };
   const scripts = params.get("scripts");
   api.scripts = {
     ...(api.scripts as object | undefined),
@@ -119,7 +108,7 @@ function installBridgeStubs() {
       ok: true,
       value:
         args?.agentConfigId === "ui-maintainer"
-          ? [{ ...PREVIEW_ASSIGNMENT, agentContentHash: previewRanContentHash }, PREVIEW_ASSIGNMENT_FAILED]
+          ? [PREVIEW_ASSIGNMENT, PREVIEW_ASSIGNMENT_FAILED]
           : [],
     }),
     subscribeChanged: () => () => {},
@@ -184,11 +173,6 @@ export function AgentsPreview() {
       description: "Use for small UI fixes that must keep the design tokens and keyboard order.",
       appearance: { color: "violet" as const },
     };
-    // Two earlier versions, so History has rows and one is marked as having run
-    // (its content hash matches the preview assignment).
-    const olderVersion = { ...custom, description: "Use for UI tweaks.", instructions: "Keep the design tokens." };
-    const olderStill = { ...custom, name: "UI helper", instructions: "Help with UI." };
-    previewRanContentHash = revisionContentHash(olderVersion);
     useAppStore.getState().updateSettings({
       patch: {
         customAgents: [
@@ -210,12 +194,6 @@ export function AgentsPreview() {
             ],
           },
         ],
-        customAgentRevisions: {
-          "ui-maintainer": [
-            { savedAt: "2026-09-26T10:00:00.000Z", agent: olderVersion },
-            { savedAt: "2026-09-24T10:00:00.000Z", agent: olderStill },
-          ],
-        },
       },
     });
     useAppStore.setState({
@@ -224,7 +202,7 @@ export function AgentsPreview() {
       workspacePathById: { "preview-workspace": "/tmp/preview-repo" },
     } as never);
     const edit = params.get("edit");
-    if (edit === "1" || params.get("tab")) useAgentsViewStore.getState().selectAgent("ui-maintainer");
+    if (edit === "1") useAgentsViewStore.getState().selectAgent("ui-maintainer");
     else if (edit) useAgentsViewStore.getState().selectAgent(edit);
     if (params.get("new") === "1") useAgentsUiStore.getState().requestNewAgent();
     setSeeded(true);

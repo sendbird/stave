@@ -153,17 +153,6 @@ export const agentStyles = stylex.create({
   blankRow: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"] },
   advanced: { marginTop: vars["--aui-space-12"] },
 
-  /* History -------------------------------------------------------------- */
-  historyRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: vars["--aui-space-8"],
-    paddingBlock: vars["--aui-space-4"],
-  },
-  historyMain: { display: "flex", flexDirection: "column", gap: 0, flex: "1 1 auto", minWidth: 0 },
-  historyWhen: { fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-medium"] },
-  historyMeta: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flex: "0 0 auto" },
-
   /* Detail layout -------------------------------------------------------- */
   detail: { gap: vars["--aui-space-16"] },
   pane: { display: "flex", flexDirection: "column", gap: vars["--aui-space-16"] },
@@ -229,24 +218,4 @@ export const agentStyles = stylex.create({
     color: vars["--aui-color-text-muted"],
   },
   workWhen: { flex: "0 0 auto", fontSize: vars["--aui-font-size-caption"], color: vars["--aui-color-text-muted"] },
-
-  /* Learned suggestions: one line when there is nothing to review ---------- */
-  suggestionsLine: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minWidth: 0 },
-  suggestionsLineText: { flex: "1 1 auto", flexWrap: "wrap", minWidth: 0, overflowWrap: "anywhere" },
-  suggestionsLineTitle: { flex: "0 0 auto" },
-  suggestions: { display: "flex", flexDirection: "column", gap: vars["--aui-space-12"] },
-
-  /* Learned suggestions -------------------------------------------------- */
-  suggestion: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--aui-space-8"],
-    padding: vars["--aui-space-12"],
-    borderRadius: vars["--aui-radius-control"],
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: vars["--aui-color-border"],
-  },
-  suggestionHead: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"] },
-  suggestionActions: { display: "flex", justifyContent: "flex-end", gap: vars["--aui-space-8"] },
 });

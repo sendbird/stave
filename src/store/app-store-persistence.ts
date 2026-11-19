@@ -57,8 +57,6 @@ import { normalizeReviewTaskSettings } from "@/lib/reviews/review-task";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
-import { normalizeAgentRevisions } from "@/lib/agents/revisions";
-import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -456,9 +454,6 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.customAgents = restoredAgents.agents;
       state.settings.customAgentsUnreadable = restoredAgents.unreadable;
-      state.settings.customAgentRevisions = normalizeAgentRevisions(raw.customAgentRevisions);
-      state.settings.agentSuggestions = normalizeAgentSuggestions(raw.agentSuggestions);
-      state.settings.agentLearningDisabled = normalizeLearningDisabled(raw.agentLearningDisabled);
       state.settings.myStandards = normalizeMyStandards(raw.myStandards);
       state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
         raw.modelShortcutKeys,

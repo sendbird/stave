@@ -415,9 +415,6 @@
     "src/components/agents/FlowPanel.tsx": {
       "icon-metric": 2
     },
-    "src/components/agents/AgentSuggestions.tsx": {
-      "icon-metric": 1
-    },
     "src/components/agents/AgentIconChooser.tsx": {
       "icon-metric": 2
     },

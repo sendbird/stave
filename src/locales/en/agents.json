@@ -98,33 +98,6 @@
     "preferredProviderNone": "No preference",
     "autoPermissionHint": "An Auto agent's runs use the provider's classifier: Claude auto mode, which asks when it cannot decide or Auto is unavailable, or Codex auto-review when it is available. Every other permission runs on your own provider settings; Read only stays read only."
   },
-  "agentHistory": {
-    "revisionRow": "Same as now",
-    "revisionRow2": "Differs in {{value1}}",
-    "revisionRow3": "Assigned",
-    "revisionRow4": "Restore",
-    "agentHistory": "No earlier versions yet. Each save keeps the version it replaces, up to",
-    "agentHistory2": "Current",
-    "agentHistory3": "Assigned",
-    "sentence11": "No earlier versions yet. Each save keeps the version it replaces, up to {{value1}}."
-  },
-  "agentSuggestions": {
-    "suggestionCard": "Learned from a correction on",
-    "ariaLabel": "Suggested instructions",
-    "suggestionCard3": "Show the suggested instructions",
-    "suggestionCard4": "Dismiss",
-    "suggestionCard5": "Edit",
-    "suggestionCard6": "Apply",
-    "label": "Learn from my corrections",
-    "ariaLabel2": "Learned suggestions",
-    "agentSuggestions": "Learned suggestions",
-    "agentSuggestions2": "None yet. When you correct this agent in a task, a suggested change to its instructions appears here. Each corrected task uses one utility-model request.",
-    "agentSuggestions3": "Learning is off. Your corrections are not reviewed and nothing is suggested.",
-    "ariaLabel3": "Learned suggestions",
-    "agentSuggestions4": "Learned suggestions",
-    "learnedFromCorrection": "Learned from a correction on {{date}}.",
-    "learnedFromCorrectionStale": "Learned from a correction on {{date}}. The instructions changed since; applying replaces them with this version."
-  },
   "agentWorkflowField": {
     "agentWorkflowField": "Runs as one stage that plans its own steps. Add stages to work in a fixed order.",
     "agentWorkflowField2": "Check in with me",
@@ -164,8 +137,6 @@
     "settingsTab5": "Workflow",
     "settingsTab7": "Instructions",
     "settingsTab8": "Duplicate this agent to change it.",
-    "label": "Settings",
-    "label2": "History",
     "agentDetail": "Assign…",
     "agentDetail2": "Duplicate",
     "agentDetail3": "Duplicate and edit",
@@ -238,23 +209,6 @@
     "footer4": "Archive instead",
     "title2": "Used by",
     "title3": "Running or waiting"
-  },
-  "exportAgent": {
-    "ariaLabel": "Export",
-    "exportAgent": "Export",
-    "exportAgent2": "Use this agent outside Stave",
-    "ariaLabel2": "Export as",
-    "exportAgent3": "Hide file",
-    "exportAgent4": "Show file",
-    "exportAgent6": "Write to repository",
-    "exportAgent8": "Open a workspace to write the file.",
-    "sentence17": "Replace {{value1}}",
-    "sentence18": "Not in the file: {{value1}}.",
-    "sentence19": "{{value1}} already exists. Replace it, or show the file and copy what you need.",
-    "sentence20": "Wrote {{value1}}. Commit it to share the agent through the repository.",
-    "extraCopy34": "The file could not be created.",
-    "extraCopy35": "The file changed while exporting. Try again.",
-    "extraCopy36": "The file could not be written."
   },
   "flowPanel": {
     "flowNodeRow": "Timeline",
@@ -389,10 +343,6 @@
     "message3": "The draft had no name or instructions. Try describing the job in more detail.",
     "message4": "The draft did not make a valid agent. Try again or start blank."
   },
-  "export": {
-    "claudeMd": "Claude agent file",
-    "codexToml": "Codex agent file"
-  },
   "flowView": {
     "waiting": "Waiting",
     "running": "Running",
@@ -465,11 +415,6 @@
     "extraCopy378": "A read-only agent works in the current workspace.",
     "extraCopy379": "Imported from {{value1}}."
   },
-  "learnedSuggestions": {
-    "message": "No JSON object in the answer.",
-    "message2": "The answer could not be read.",
-    "message3": "The answer had no summary or instructions."
-  },
   "library": {
     "message": "Not used: a {{value1}} agent already has the id \"{{value2}}\". Rename the agent in the file to use it.",
     "description": "Use when …",
@@ -486,25 +431,6 @@
   "repository": {
     "message": "Not read: Stave reads the first {{value1}} agent files in a repository.",
     "message2": "Not used: {{value1}} already defines an agent with the id \"{{value2}}\"."
-  },
-  "revisions": {
-    "name": "Name",
-    "description": "Use when",
-    "avoidWhen": "Don't use when",
-    "instructions": "Instructions",
-    "skills": "Skills",
-    "model": "Model",
-    "tools": "Tools & limits",
-    "permission": "Permission",
-    "workspace": "Works in",
-    "usableAs": "Usable as",
-    "canCall": "Can call",
-    "report": "Report",
-    "appearance": "Colour and icon",
-    "concurrency": "Concurrency",
-    "archived": "Archived",
-    "renderFieldValue": "Yes",
-    "renderFieldValue2": "No"
   },
   "schema": {
     "primary": "Main agent",
