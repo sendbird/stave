@@ -102,7 +102,7 @@ test("a run criterion first reported unmet in an intermediate stage only gates t
   expect(delegated(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
 });
 
-test("the stage before a Stave action that acts outside the workspace settles the criteria it and earlier stages added", () => {
+test("the stage before a Stave action settles the criteria it adds, as on main", () => {
   // Shipper: a Validate report that leaves a required check unverified must not open and ready the PR.
   const shipper = BUILTIN_AGENT_WORKFLOWS.shipper!;
   const checks = "Required checks pass locally";
@@ -112,15 +112,16 @@ test("the stage before a Stave action that acts outside the workspace settles th
   aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "met" }] } });
   expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
 
-  // A criterion an earlier AI stage added and carried forward must be settled before the action, too.
+  // A criterion an earlier stage recorded is not this stage's to settle, as on main; the run's last stage still must.
   aggregate = aggregateFor([ai("investigate"), ai("build"), { id: "publish", title: "Publish", kind: "action", action: { type: "open-draft-pr" } }]);
   aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "unverified" }] } };
   aggregate.agentRun.currentStageIndex = 1;
   aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "build", attempt: 1 }), status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
-  expect(unreportedStageCriteria(aggregate, currentStageRecord(aggregate), {})).toEqual([checks]);
-  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
-  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "met" }] } });
+  expect(unreportedStageCriteria(aggregate, currentStageRecord(aggregate), {})).toEqual([]);
   expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
+  // A criterion this stage adds and leaves open holds the action.
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Preview builds", status: "unverified" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
 });
 
 test("a build stage can precede testing, but final integration cannot leave goal criteria unresolved", () => {

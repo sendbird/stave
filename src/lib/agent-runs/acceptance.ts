@@ -1,7 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import type { AiStage, WorkflowStage } from "@/lib/workflows/schema";
-import { stagePrecedesOutsideEffect, type AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
-import { latestStageRecord, workflowStageAt, type AgentRunAggregate, type AgentRunStageRecord, type CompleteStageReport } from "./domain";
+import { stageCarriesCriteriaForward, type AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
+import { type AgentRunAggregate, type AgentRunStageRecord, type CompleteStageReport } from "./domain";
 import { collectAcceptanceCriteria, inheritedWorkspaceCheckCriteria } from "./briefing";
 import { revisionsMatch } from "./verification-contract";
 import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckBlock, workspaceCheckMet, workspaceCheckMode } from "./workspace-check";
@@ -31,12 +31,10 @@ type RequiredReportCriterion = NonNullable<WorkflowStage["acceptanceCriteria"]>[
  * must settle, and the report's own required additions. Host checks among
  * them (`verification: "stave-check"`) are settled by Stave, not the report.
  *
- * Between AI stages, and before an action that changes nothing outside the
- * workspace, only the stage's own criteria gate it: the rest carry forward.
- * The stage directly before an action that acts outside the workspace is
- * judged as every non-final stage was before carry-forward, so publishing is
- * gated exactly as it was; the criteria earlier stages carried forward
- * instead of settling are due there.
+ * Only an AI stage followed by another AI stage is gated by its own criteria
+ * alone, and leaves the rest to later stages. Every other stage is judged
+ * exactly as before carry-forward, so each stage before an action gates it as
+ * it did.
  */
 function requiredAiStageCriteria(aggregate: AgentRunAggregate, record: AgentRunStageRecord, stage: AiStage): Map<string, RequiredReportCriterion> {
   const explicit = stage.acceptanceCriteria?.filter((criterion) => criterion.required !== false) ?? [];
@@ -45,7 +43,7 @@ function requiredAiStageCriteria(aggregate: AgentRunAggregate, record: AgentRunS
   if (stage.role === "plan") return required;
   const { workflow, currentStageIndex } = aggregate.agentRun;
   const finalStage = currentStageIndex === workflow.stages.length - 1;
-  if (!finalStage && !stagePrecedesOutsideEffect(workflow, currentStageIndex)) return required;
+  if (!finalStage && stageCarriesCriteriaForward(workflow, currentStageIndex)) return required;
 
   const inheritedCriteria = collectAcceptanceCriteria(aggregate);
   const optionalTexts = new Set([...inheritedCriteria, ...(stage.acceptanceCriteria ?? [])].filter((criterion) => criterion.required === false).map((criterion) => criterion.text.trim()));
@@ -77,47 +75,17 @@ function requiredAiStageCriteria(aggregate: AgentRunAggregate, record: AgentRunS
     return required;
   }
 
-  // Before an outside effect: the report's own required additions, except a
-  // criterion an earlier stage recorded or the assignment itself names (the
-  // run's goal: a Debugger's reproduction reports it honestly without having
-  // to settle it; the final stage still must mark it met).
+  // Before an action: the report's own required additions, except a criterion
+  // an earlier stage recorded or the assignment itself names (the run's goal:
+  // a Debugger's reproduction reports it honestly without having to settle
+  // it; the final stage still must mark it met).
   const assignment = aggregate.agentRun.assignment;
   const inheritedTexts = new Set(inheritedCriteria.map((criterion) => criterion.text.trim()));
   for (const criterion of report?.acceptanceCriteria ?? []) {
     const text = criterion.text.trim();
     if (criterion.required !== false && !required.has(text) && !optionalTexts.has(text) && !inheritedTexts.has(text) && !assignment.includes(text)) required.set(text, { text: criterion.text });
   }
-  for (const criterion of carriedForwardCriteria(aggregate)) {
-    const text = criterion.text.trim();
-    if (required.has(text)) continue;
-    const { status, ownCheck } = currentStatus(text, inheritedCriteria.find((entry) => entry.text.trim() === text)?.status ?? criterion.status);
-    if (status !== "met") required.set(text, ownCheck ? { ...ownCheck, required: true } : { text: criterion.text });
-  }
   return required;
-}
-
-/**
- * The required criteria that AI stages since the last outside effect added and
- * left open, which their stage would have had to settle without carry-forward:
- * not from a planning stage, not recorded by an earlier stage, not named in
- * the assignment, not optional.
- */
-function carriedForwardCriteria(aggregate: AgentRunAggregate): AcceptanceCriterion[] {
-  const { agentRun, stages } = aggregate;
-  const carried: AcceptanceCriterion[] = [];
-  for (let index = agentRun.currentStageIndex - 1; index >= 0 && !stagePrecedesOutsideEffect(agentRun.workflow, index); index -= 1) {
-    const stage = workflowStageAt(agentRun, index);
-    const report = latestStageRecord(stages, stage.id)?.report;
-    if (stage.kind !== "ai" || stage.role === "plan" || report?.outcome !== "complete") continue;
-    const earlier = collectAcceptanceCriteria({ ...aggregate, agentRun: { ...agentRun, currentStageIndex: index } });
-    const earlierTexts = new Set(earlier.map((criterion) => criterion.text.trim()));
-    const optionalTexts = new Set([...earlier, ...(stage.acceptanceCriteria ?? [])].filter((criterion) => criterion.required === false).map((criterion) => criterion.text.trim()));
-    for (const criterion of report.acceptanceCriteria ?? []) {
-      const text = criterion.text.trim();
-      if (criterion.required !== false && criterion.status !== "met" && !earlierTexts.has(text) && !optionalTexts.has(text) && !agentRun.assignment.includes(text)) carried.push(criterion);
-    }
-  }
-  return carried;
 }
 
 /**

@@ -435,8 +435,8 @@ stage. Debugger reproduces, diagnoses and verifies the fix in that stage. UI
 Polisher captures the defect, fixes it and records the visible result there.
 By default a change to files gets an independent review, with a fix stage
 for findings. The Run checks the assignment's completion criteria at the end.
-Before a Stave action that changes something outside the workspace, such as
-opening a pull request, the criteria the stages added must be met.
+Only an AI stage followed by another AI stage may leave criteria it adds for
+later stages. The stage before a Stave action must meet the criteria it adds.
 Each stage still reports its result and meets its own configured requirements.
 
 You can define stages for a custom agent. A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.

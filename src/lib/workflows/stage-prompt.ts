@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import type { AiStage, StaveAction, Workflow } from "./schema";
+import type { AiStage, Workflow } from "./schema";
 
 export const ACCEPTANCE_CRITERION_STATUSES = [
   "met",
@@ -17,23 +17,13 @@ export interface AcceptanceCriterion {
 }
 
 /**
- * Whether a Stave action changes something outside the workspace: it opens or
- * readies a pull request, runs a workspace script (such as a deployment), or
- * pushes check repairs. Watching checks without repairs changes nothing.
+ * Whether stage `index` leaves its open criteria to the next stage instead of
+ * settling them: only an AI stage followed by another AI stage does. A stage
+ * before any action is judged as before carry-forward, and the last stage
+ * settles everything.
  */
-export function actionActsOutsideWorkspace(action: StaveAction): boolean {
-  return action.type !== "watch-checks" || action.repairAttempts > 0;
-}
-
-/**
- * Whether stage `index` directly precedes a Stave action that acts outside the
- * workspace. Such a stage is judged exactly as before the single-owner
- * default: criteria an earlier stage carried forward instead of settling are
- * due here, everything else carries forward to the last stage.
- */
-export function stagePrecedesOutsideEffect(workflow: Pick<Workflow, "stages">, index: number): boolean {
-  const next = workflow.stages[index + 1];
-  return next?.kind === "action" && actionActsOutsideWorkspace(next.action);
+export function stageCarriesCriteriaForward(workflow: Pick<Workflow, "stages">, index: number): boolean {
+  return workflow.stages[index]?.kind === "ai" && workflow.stages[index + 1]?.kind === "ai";
 }
 
 export interface PriorStageSummary {
@@ -161,8 +151,8 @@ export function compileStagePrompt(input: StagePromptInput): string {
   // yet met is reported met in its own report (`unmetStageAcceptance`).
   const lastStageRule = stageIndex === workflow.stages.length - 1
     ? "This is the last stage. The run finishes only when your report marks met every required criterion this stage defines and every required criterion below that is not marked [met], each in its exact text. A criterion marked [met] stays met unless you report it otherwise. Optional criteria do not block completion; keep their actual status and required: false."
-    : stage.role !== "plan" && stagePrecedesOutsideEffect(workflow, stageIndex)
-      ? "The next stage is a Stave action that acts outside the workspace. It starts only when your report marks met every required criterion this stage defines or adds, and each required criterion an earlier stage added and left open since the last such action. Criteria from a planning stage or named in the assignment are settled at the end."
+    : stage.role !== "plan" && workflow.stages[stageIndex + 1]?.kind === "action"
+      ? "The next stage is a Stave action. It starts only when your report marks met every required criterion this stage defines or adds. Criteria an earlier stage recorded or the assignment names are settled at the end."
       : null;
   const criteria = acceptanceCriteria.length || lastStageRule
     ? section(
