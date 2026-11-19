@@ -142,8 +142,8 @@ for (const lang of ["en", "ko"] as const) for (const density of ["regular", "com
 }
 
 test("the state is one of the task's words, in both languages, and only running work moves", async ({ page }) => {
-  for (const [lang, words] of [["en", { release: "Waiting for you", billing: "Working", "search-index": "Waiting", migration: "Blocked", docs: "Finished" }],
-    ["ko", { release: "사용자 확인 대기 중", billing: "작업 중", "search-index": "대기 중", migration: "막힘", docs: "완료" }]] as const) {
+  for (const [lang, words] of [["en", { release: "Waiting for you", billing: "Working", "search-index": "Waiting", migration: "Waiting", docs: "Finished" }],
+    ["ko", { release: "사용자 확인 대기 중", billing: "작업 중", "search-index": "대기 중", migration: "대기 중", docs: "완료" }]] as const) {
     await openTray(page, `tray=true&live=true&queued=true&lang=${lang}`, 1440);
     for (const [id, word] of Object.entries(words)) await expect(page.locator(`[data-tars-card="${id}"] [data-tars-card-state]`), id).toHaveText(word);
     // Tars's own state words are not on a folded card.
@@ -151,6 +151,11 @@ test("the state is one of the task's words, in both languages, and only running 
   }
   await expect(page.locator('[data-tars-card="billing"] [data-tars-card-state] [data-motion="moving"]')).toHaveCount(1);
   await expect(page.locator('[data-tars-card="search-index"] [data-tars-card-state] [data-motion="moving"]')).toHaveCount(0);
+  // Work the user took over wears the neutral waiting mark, never the warning one, and keeps Hand back as its action.
+  const taken = page.locator('[data-tars-card="migration"]');
+  await expect(taken.locator('[data-tars-card-state] [data-state="waiting"]')).toHaveCount(1);
+  await expect(taken.locator('[data-tars-card-state] [data-state="halted"]')).toHaveCount(0);
+  await expect(taken.locator('[data-tars-card-primary="handBack"]')).toBeVisible();
 });
 
 test("cases beyond the lanes read right: on hold, a helper's request, review-only rows, a question about a ready result, work being prepared", async ({ page }) => {

@@ -32,18 +32,25 @@ type CardFacts = Pick<TarsTrayCard, "row" | "attention" | "controls" | "run">;
 const REQUEST_KINDS: ReadonlySet<string> = new Set(["user-input", "approval", "agent-run-sign-off"]);
 const HALT_KINDS: ReadonlySet<string> = new Set(["tars-blocked", "run-failed", "agent-run-blocked", "agent-run-stuck"]);
 
-/** Each Tars state as the run badge it stands for; queued, prepared and waiting work is still in Tars's hands. */
+/**
+ * Each Tars state as the run badge it stands for. Queued, prepared and waiting
+ * work is still in Tars's hands, and work the user took over is in theirs:
+ * none of them stopped, so each is a run that goes on (`standbyOf` says what
+ * the ones that do not run wait for).
+ */
 const BADGE_OF: Record<TarsResponsibility["state"], AgentRunBadge> = {
-  queued: "running", preparing: "running", running: "running", waiting: "running",
-  paused: "paused", takenOver: "paused", blocked: "halted", resultReady: "needs-answer", completed: "completed", cancelled: "stopped",
+  queued: "running", preparing: "running", running: "running", waiting: "running", takenOver: "running",
+  paused: "paused", blocked: "halted", resultReady: "needs-answer", completed: "completed", cancelled: "stopped",
 };
 
 function asksOf(card: Pick<TarsTrayCard, "row" | "attention">) {
-  const halt = card.attention.find((entry) => HALT_KINDS.has(entry.item.kind)) ?? null;
+  // While the user holds the work, what Fleet lists for its task is already theirs: it neither stops the work nor asks them anything new.
+  const rows = card.row.state === "takenOver" ? [] : card.attention;
+  const halt = rows.find((entry) => HALT_KINDS.has(entry.item.kind)) ?? null;
   // The row Stave adds for a result that is ready is said by the state itself (a sign-off); a decision Tars proposed or asked is still one, and comes first.
   const review = tarsStateSignalId(card.row);
   const tars = card.attention.find((entry) => entry.item.kind === "tars-decision" && entry.item.id !== review) ?? null;
-  const task = card.attention.find((entry) => REQUEST_KINDS.has(entry.item.kind)) ?? null;
+  const task = rows.find((entry) => REQUEST_KINDS.has(entry.item.kind)) ?? null;
   return { halt, tars, task };
 }
 
@@ -63,12 +70,14 @@ function holdOf(card: Pick<TarsTrayCard, "row" | "run">): string | null {
 }
 
 /**
- * Why work that has not started waits, when nobody has to act for it to
- * start: queued work waits for its turn (the scheduler's reason), and work
- * being prepared waits for its workspace until its run exists. Null for work
- * that started.
+ * Why work that does not run waits, when nothing is wrong with it and nobody
+ * is asked to act: queued work waits for its turn (the scheduler's reason),
+ * work being prepared waits for its workspace until its run exists, and work
+ * the user took over waits until they hand it back, which is their choice.
+ * Null for work in Tars's hands that started.
  */
-function notStartedOf(row: TarsResponsibility): string | null {
+function standbyOf(row: TarsResponsibility): string | null {
+  if (row.state === "takenOver") return describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.detail.pauseReason.takenOver");
   if (row.state === "queued") return describeTarsQueueWait(row);
   return row.state === "preparing" && !row.agentRunId ? i18n.t("shell:tars.detail.preparingWorkspace") : null;
 }
@@ -89,8 +98,8 @@ export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
   const { halt, tars, task } = asksOf(card);
   const taskAsk = !task ? null : task.item.kind === "approval" ? "approval" as const : "question" as const;
   const signOff = task?.item.kind === "agent-run-sign-off";
-  // Work that waits for nobody: it has not started yet, or its run resumes on its own.
-  const hold = halt ? null : notStartedOf(row) ?? holdOf(card);
+  // Work that waits with nothing wrong: it has not started, the user holds it, or its run resumes on its own.
+  const hold = halt ? null : standbyOf(row) ?? holdOf(card);
   const running = isTarsWorkRunning(row) && !halt && hold === null;
   const opened = row.publication?.state === "opened" && row.publication.url ? row.publication : null;
   return {
@@ -134,11 +143,10 @@ export function describeTarsCardSentence(card: CardFacts, status: TaskUserStatus
       if (row.state === "resultReady") return i18n.t(`shell:tars.goal.next.${tarsGoalNext(row)}`);
       return wordsOf(task) ?? i18n.t("shell:tars.detail.waitingForUser");
     case "blocked":
-      if (row.state === "takenOver") return describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.detail.pauseReason.takenOver");
       if (row.state === "paused") return describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.detail.runPaused");
       return describeTarsResponsibilityDetail(row) ?? wordsOf(halt) ?? i18n.t("shell:tars.tray.blockedDetail");
     case "on-hold":
-      // What it waits for: its turn, its workspace, or when its run resumes in the run's own words.
+      // What it waits for: its turn, its workspace, the user handing it back, or when its run resumes in the run's own words.
       return status.reason ?? describeTarsResponsibilityDetail(row);
     case "working":
       return isTarsWorkRunning(row) ? null : describeTarsResponsibilityDetail(row);
@@ -176,15 +184,18 @@ export function tarsTaskOpens(row: Pick<TarsResponsibility, "state" | "taskId" |
   return Boolean(row.taskId) && !(row.state === "preparing" && !row.agentRunId);
 }
 
-/** The controls that let held work go on, in the order they are offered. */
-const UNBLOCKING: readonly TarsControlOperation[] = ["resume", "handBack", "acceptCompletion"];
+/** The controls that let blocked work go on, in the order they are offered. */
+const UNBLOCKING: readonly TarsControlOperation[] = ["resume", "acceptCompletion"];
+/** The controls that end a wait nothing is wrong with: queued work starts ahead of its turn, work the user took over goes back to Tars. */
+const ENDS_WAIT: readonly TarsControlOperation[] = ["startNow", "handBack"];
 
 /**
  * The action that fits the state: answer what waits, read why blocked work
  * stopped or let paused work go on, look at running work, open what finished
- * work produced. Work on hold goes on by itself, so it offers nothing, except
- * queued work, which can start ahead of its turn. `can` says which openers
- * this view has; null when none applies.
+ * work produced. Work on hold goes on by itself, so it offers nothing, unless
+ * the user can end the wait: start queued work ahead of its turn, or hand
+ * back work they took over. `can` says which openers this view has; null when
+ * none applies.
  */
 export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { answer: boolean; report: boolean }): TarsCardPrimary | null {
   const { row } = card;
@@ -209,8 +220,10 @@ export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { 
       const operation = UNBLOCKING.find((candidate) => card.controls.includes(candidate));
       return operation ? { kind: "control", operation } : openTask;
     }
-    case "on-hold":
-      return card.controls.includes("startNow") ? { kind: "control", operation: "startNow" } : null;
+    case "on-hold": {
+      const operation = ENDS_WAIT.find((candidate) => card.controls.includes(candidate));
+      return operation ? { kind: "control", operation } : null;
+    }
     case "working":
       return openTask;
     case "finished": {

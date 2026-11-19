@@ -165,10 +165,19 @@ describe("a Tars work card's state, sentence and action", () => {
       "run-failed": "blocked", "agent-run-blocked": "blocked", "agent-run-stuck": "blocked" });
   });
 
-  test("work the user took over is held until handed back", async () => {
+  test("work the user took over waits for them in the neutral state: taking over is their choice, not a stop", async () => {
     await applyAppLocale("en");
     const migration = tray().responsibilities.find((row) => row.id === "migration")!;
-    expect(read(migration)).toEqual({ state: "blocked", waitingOn: null, sentence: "You took over this work. Hand it back to let Tars continue.", primary: { kind: "control", operation: "handBack" } });
+    const held = { state: "on-hold", waitingOn: null, sentence: "You took over this work. Hand it back to let Tars continue.", primary: { kind: "control", operation: "handBack" } } as const;
+    expect(read(migration)).toEqual(held);
+    // What Fleet lists for its task while the user holds it is theirs already: neither a request nor a stop changes the card.
+    const taken: TarsResponsibility = { ...migration, taskId: "task-migration" };
+    for (const kind of ["approval", "user-input", "run-failed", "agent-run-stuck"]) {
+      expect(read(taken, { attention: [{ id: `${kind}:task-migration`, kind, taskId: "task-migration", detail: `Fleet says ${kind}` }] }), kind).toEqual(held);
+    }
+    // A decision Tars itself asks about the work still waits on the user.
+    const ask: TarsTrayAttentionInput = { id: "tars:decision:message-ask:0", kind: "tars-decision", detail: "Tars asks: should I pick this up again?", tarsResponsibilityId: migration.id };
+    expect(read(migration, { attention: [ask] })).toMatchObject({ state: "waiting", waitingOn: "question", primary: { kind: "answer" } });
   });
 
   test("a result waiting for the user's check is a sign-off that opens the report", async () => {

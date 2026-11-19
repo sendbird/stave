@@ -92,7 +92,10 @@ describe("Tars UI", () => {
     const owned = renderRow(rowProps({ ...row, state: "takenOver" }));
     expect(owned.labels).toEqual(["Hand back", "Open task", "Show in Fleet", "Cancel work"]);
     // The card says it in the task's own state words and a sentence, not in a Tars state tag; its one action hands it back.
-    expect(owned.html).toContain('data-task-user-state="blocked"');
+    expect(owned.html).toContain('data-task-user-state="on-hold"');
+    // Taking over is the user's choice: the neutral waiting mark, never the warning one.
+    expect(owned.html).toContain('data-tars-card-state="on-hold"');
+    expect(owned.html).not.toContain(">Blocked<");
     expect(owned.html).toContain("You took over this work. Hand it back to let Tars continue.");
     expect(owned.html).toContain('data-tars-card-primary="handBack"');
     expect(owned.html).not.toContain(">Taken over<");
