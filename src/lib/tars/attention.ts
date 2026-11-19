@@ -39,6 +39,15 @@ export function tarsDecisionSignalId(decision: Pick<TarsPendingDecision, "kind" 
     : `tars:decision:${decision.messageId}:${decision.actionIndex}`;
 }
 
+/**
+ * The id of the row a responsibility's own state raises: it is blocked, or its
+ * result is ready for the user's check. Stave adds that row itself; a decision
+ * Tars proposed or asked has `tarsDecisionSignalId`.
+ */
+export function tarsStateSignalId(row: Pick<TarsResponsibility, "id" | "revision">) {
+  return `tars:blocked:${row.id}:${row.revision}`;
+}
+
 const TERMINAL = new Set<TarsResponsibility["state"]>(["completed", "cancelled"]);
 
 export function isTarsResponsibilityTerminal(row: Pick<TarsResponsibility, "state">) {
@@ -86,7 +95,7 @@ export function collectTarsAttention(
   // Work blocked on an unverified completion is said by its decision row: one fact, one row.
   const decided = new Set(decisions.filter((signal) => signal.prompt?.kind === "unverifiedCompletion").map((signal) => signal.responsibilityId));
   const blocked = snapshot.responsibilities.filter((row) => (row.state === "blocked" || row.state === "resultReady") && !decided.has(row.id)).map((row): TarsAttentionSignal => ({
-    id: `tars:blocked:${row.id}:${row.revision}`,
+    id: tarsStateSignalId(row),
     kind: row.state === "resultReady" ? "tars-decision" : "tars-blocked",
     ...(row.state === "resultReady" ? { prompt: { kind: "resultReady" as const } } : {}),
     ...place(row),

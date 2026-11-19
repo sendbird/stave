@@ -16,6 +16,7 @@ import { DailyLimitSettingsLink } from "@/components/usage/DailyLimits";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { normalizeExternalUrl, openExternalUrl } from "@/lib/external-links";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
+import { tarsStateSignalId } from "@/lib/tars/attention";
 import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus, type TarsCardPrimary } from "@/lib/tars/card-view";
 import { TARS_IRREVERSIBLE_OPERATIONS } from "@/lib/tars/conversation";
 import { describeTarsQueueWait, describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic, describeTarsWorkingChanges } from "@/lib/tars/detail";
@@ -45,8 +46,9 @@ const CONTROL_LABEL = {
 /** The kind badge and short text of one attention row; Tars's kinds get Tars's words. */
 function describeAttention(row: TarsResponsibility, entry: TarsTrayAttentionRow<TarsTrayAttentionInput>) {
   const { item, decision } = entry;
-  if (row.state === "resultReady") return { label: i18n.t("shell:tars.states.resultReady"), text: i18n.t("shell:tars.states.resultReady") };
   if (item.kind === "tars-decision") {
+    // The row Stave adds for a ready result says so; a decision Tars proposed or asked about that result keeps its own words.
+    if (item.id === tarsStateSignalId(row)) return { label: i18n.t("shell:tars.states.resultReady"), text: i18n.t("shell:tars.states.resultReady") };
     // A decision with several options is answered in the conversation; its row says what it asks.
     return { label: i18n.t("shell:tars.tray.attention.decision"), text: decision ? i18n.t(`shell:tars.tray.decision.${decision.operation}`)
       : item.detail?.trim() || i18n.t("shell:tars.tray.decision.answerInConversation") };

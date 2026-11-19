@@ -2,7 +2,7 @@ import type { AgentRunUsage } from "@/lib/agent-runs/usage";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
-import { collectTarsAttention, isTarsResponsibilityTerminal, selectTarsAttentionRows, tarsLaneOf, type TarsAttentionRowLike, type TarsLane } from "./attention";
+import { collectTarsAttention, isTarsResponsibilityTerminal, selectTarsAttentionRows, tarsLaneOf, tarsStateSignalId, type TarsAttentionRowLike, type TarsLane } from "./attention";
 import { projectTarsRunProgress, tarsFleetTarget, tarsRunOf, type TarsRunProgress } from "./flow-model";
 import { tarsConfirmationRequestId } from "./conversation";
 import { isTarsTaskOperation, type TarsControlOperation, type TarsFollowUpState, type TarsPendingDecision, type TarsResponsibility, type TarsSnapshot } from "./types";
@@ -179,13 +179,15 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   // A Fleet decision row carries the proposal's identity in its id; the snapshot holds the rest.
   const liveDecisions = collectTarsAttention({ responsibilities: [...responsibilities], pendingDecisions: args.pendingDecisions ?? [] })
     .filter((signal) => signal.decision);
+  const stateRows = new Set(responsibilities.map(tarsStateSignalId));
   const claimed = new Set<string>();
   const attentionByResponsibility = new Map<string, TarsTrayAttentionRow<T>[]>();
   for (const item of rows) {
     const responsibilityId = responsibilityOf(item, responsibilities);
     if (!responsibilityId) continue;
     let decision: TarsTrayDecision | null = null;
-    if (item.kind === "tars-decision") {
+    // The row Stave adds for a ready result proposes nothing, so it never takes a proposal's Confirm.
+    if (item.kind === "tars-decision" && !stateRows.has(item.id)) {
       const signal = liveDecisions.find((candidate) => candidate.id === item.id && !claimed.has(candidate.id))
         ?? liveDecisions.find((candidate) => candidate.responsibilityId === responsibilityId && !claimed.has(candidate.id));
       if (signal?.decision) {

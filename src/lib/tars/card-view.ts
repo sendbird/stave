@@ -1,6 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import { describeAgentRunStatus, type AgentRunBadge } from "@/lib/agent-runs/agent-run-status";
 import { resolveTaskUserState, type TaskStateFacts, type TaskUserStatus } from "@/lib/task-user-state";
+import { tarsStateSignalId } from "./attention";
 import { tarsGoalNext } from "./completion";
 import { tarsSummaryExcerpt } from "./completion-summary";
 import { describeTarsQueueWait, describeTarsResponsibilityDetail } from "./detail";
@@ -39,8 +40,9 @@ const BADGE_OF: Record<TarsResponsibility["state"], AgentRunBadge> = {
 
 function asksOf(card: Pick<TarsTrayCard, "row" | "attention">) {
   const halt = card.attention.find((entry) => HALT_KINDS.has(entry.item.kind)) ?? null;
-  // A result waiting for the user's check is a sign-off, said by the state itself.
-  const tars = card.row.state === "resultReady" ? null : card.attention.find((entry) => entry.item.kind === "tars-decision") ?? null;
+  // The row Stave adds for a result that is ready is said by the state itself (a sign-off); a decision Tars proposed or asked is still one, and comes first.
+  const review = tarsStateSignalId(card.row);
+  const tars = card.attention.find((entry) => entry.item.kind === "tars-decision" && entry.item.id !== review) ?? null;
   const task = card.attention.find((entry) => REQUEST_KINDS.has(entry.item.kind)) ?? null;
   return { halt, tars, task };
 }

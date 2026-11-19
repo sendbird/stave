@@ -2,9 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { applyAppLocale } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { FLEET_ATTENTION_TIER } from "@/lib/fleet/attention-projection";
+import { collectFleetTarsAttentionItems, FLEET_ATTENTION_TIER } from "@/lib/fleet/attention-projection";
 import { buildTarsSideViewFixtures } from "../src/dev/tars-preview/tars-side-fixtures";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
+import { collectTarsAttention, tarsStateSignalId } from "../src/lib/tars/attention";
 import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus } from "../src/lib/tars/card-view";
 import { buildTarsTray, type TarsTrayAttentionInput } from "../src/lib/tars/tray-model";
 import type { TarsPendingDecision, TarsResponsibility } from "../src/lib/tars/types";
@@ -154,6 +155,27 @@ describe("a Tars work card's state, sentence and action", () => {
     const view = read(checkout, { attention: [ready], runs: side.runs });
     expect(view).toEqual({ state: "waiting", waitingOn: "sign-off", sentence: "Execution result ready; confirm the endpoint before closing", primary: { kind: "openReport" } });
     expect(read(checkout, { attention: [ready], runs: side.runs }, { answer: true, report: false }).primary).toEqual({ kind: "control", operation: "acceptCompletion" });
+  });
+
+  test("a question Tars asks about a result that waits for a check is answered first", async () => {
+    await applyAppLocale("en");
+    const side = buildTarsSideViewFixtures(start);
+    const checkout: TarsResponsibility = { ...side.responsibilities.find((row) => row.id === "checkout")!, state: "resultReady", completionGoal: "confirmation" };
+    const decisions: TarsPendingDecision[] = [{ kind: "ask", responsibilityId: checkout.id, messageId: "message-ask", actionIndex: 0, operation: null,
+      expectedRevision: checkout.revision, proposedAt: start.toISOString(), question: "Should the saved card stay first on mobile too?", optionCount: 2 }];
+    // Fleet's own rows for the snapshot: the question, and the result review Stave adds for every result that is ready.
+    const attention = collectFleetTarsAttentionItems(collectTarsAttention({ responsibilities: [checkout], pendingDecisions: decisions }));
+    expect(attention.map((item) => item.id)).toEqual(["tars:decision:message-ask:0", tarsStateSignalId(checkout)]);
+    expect(read(checkout, { attention, decisions, runs: side.runs })).toEqual({ state: "waiting", waitingOn: "question",
+      sentence: "Tars asks: Should the saved card stay first on mobile too?", primary: { kind: "answer" } });
+    // A control Tars proposes for the same result keeps its Confirm, whichever row Fleet lists first.
+    const proposal: TarsPendingDecision[] = [{ responsibilityId: checkout.id, messageId: "message-plan", actionIndex: 0, operation: "acceptCompletion",
+      expectedRevision: checkout.revision, proposedAt: start.toISOString() }];
+    const rows = collectFleetTarsAttentionItems(collectTarsAttention({ responsibilities: [checkout], pendingDecisions: proposal }));
+    for (const order of [rows, [...rows].reverse()]) expect(read(checkout, { attention: order, decisions: proposal, runs: side.runs })).toMatchObject({ state: "waiting", waitingOn: "approval",
+      primary: { kind: "confirm", decision: { messageId: "message-plan", actionIndex: 0, operation: "acceptCompletion" } } });
+    // Once it is answered only the result review is left, which opens the report.
+    expect(read(checkout, { attention: attention.slice(1), runs: side.runs })).toMatchObject({ waitingOn: "sign-off", primary: { kind: "openReport" } });
   });
 
   test("finished work leads to what came out: its pull request, else its report, else its task", async () => {
