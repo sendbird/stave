@@ -136,7 +136,8 @@ const TASK_STATE_OF_BADGE: Record<AgentRunStatus["badge"], TaskUserState> = {
 };
 
 function expectTaskState(html: string, status: AgentRunStatus) {
-  const state = TASK_STATE_OF_BADGE[status.badge];
+  // A running run between turns (a usage reset, PR checks) needs nobody: on hold.
+  const state = status.waiting ? "on-hold" : TASK_STATE_OF_BADGE[status.badge];
   expect(badgesIn(html, "data-task-state")).toEqual([state]);
   expect(html).toContain(`>${TASK_USER_STATE_LABELS[state]}<`);
 }
