@@ -184,9 +184,19 @@ starts one **Automatic follow-up** turn of its own to explain and advise. See
 [Automatic follow-up](#automatic-follow-up) for the exact rules.
 
 **Ownership.** Work Tars delegated is held by Tars and carries a **Tars**
-owner label in Fleet and on the task's run line. You can take it over at any
-time; from then on it is yours, Tars no longer watches or resumes it, and only
-an explicit **Hand back** returns it.
+owner label in Fleet and on the task's run line. You and Tars can both talk to
+its task: when you open the task and continue there (for example "implement it
+and open the PR"), the run you start keeps your own permission and Tars stays
+responsible. On its next pass (within a few seconds) Tars supervises that run
+instead, and the work's state, report and outputs follow it, including a pull
+request the run opened; the earlier run stays in the work's history. This also
+applies after the work ended (completed or result ready). Tars only ever
+follows a run in the work's own task, in its execution workspace and
+repository. Removing Tars stays explicit: **Take over** (from the work's card,
+Fleet or the task), or releasing or changing the task's agent, makes the work
+yours; from then on Tars no longer watches or resumes it, and only an explicit
+**Hand back** returns it. Work you paused through Tars or cancelled is not
+followed.
 
 **Persistence and restart.** The conversation, settings, responsibilities,
 decisions and their records are saved. After a restart Tars reconnects to the
@@ -1589,8 +1599,10 @@ and never cancels its run:
 
 Once Tars has the work paused, **Stop** ends only your own in-flight turn: no
 Tars control is sent, nothing is recorded, and the paused run is kept. Tars
-holds a task through its own run: once Tars lost the task, a run you start
-there is yours everywhere (no **Tars** label, and Stop cancels it as before).
+holds a task through the run it supervises: a run you start there while Tars
+still holds the work becomes that run on Tars's next pass (until then its
+controls act directly); once you took the work over, a run you start there is
+yours everywhere (no **Tars** label, and Stop cancels it as before).
 Before acting, a control reads ownership again, so it names the current
 revision and never misses newly delegated work. If ownership cannot be read
 and the last snapshot or the run's own Tars marker shows Tars holding the
