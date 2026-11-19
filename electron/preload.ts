@@ -160,9 +160,6 @@ import { TarsClearInputSchema, TarsClearRecordSchema, TarsUndoClearInputSchema, 
 import { TarsAwayStateSchema } from "../src/lib/tars/away-state";
 import { TarsSuggestInputSchema, TarsSuggestResultSchema } from "../src/lib/tars/suggestion-generation";
 import {
-  TarsScheduleConfirmInputSchema, TarsScheduleListSchema, TarsSchedulePreviewInputSchema, TarsSchedulePreviewSchema, TarsScheduleResultSchema, TarsScheduleToggleInputSchema,
-} from "../src/lib/tars/schedules";
-import {
   AGENT_RUN_IPC,
   type AgentRunChangedEvent,
   type AgentRunsBridgeApi,
@@ -876,10 +873,6 @@ const tarsApi: TarsBridgeApi = {
   getAway: async () => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.getAway)),
   suggest: async (input) => TarsSuggestResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.suggest, TarsSuggestInputSchema.parse(input))),
   saveAway: async (input) => TarsAwayStateSchema.parse(await ipcRenderer.invoke(TARS_IPC.saveAway, TarsAwayStateSchema.parse(input))),
-  previewSchedule: async (input) => TarsSchedulePreviewSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedulePreview, TarsSchedulePreviewInputSchema.parse(input))),
-  confirmSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedule, TarsScheduleConfirmInputSchema.parse(input))),
-  toggleSchedule: async (input) => TarsScheduleResultSchema.parse(await ipcRenderer.invoke(TARS_IPC.scheduleToggle, TarsScheduleToggleInputSchema.parse(input))),
-  listSchedules: async () => TarsScheduleListSchema.parse(await ipcRenderer.invoke(TARS_IPC.schedules)),
   updateIdentity: async (input) => TarsSnapshotSchema.parse(await ipcRenderer.invoke(TARS_IPC.updateIdentity, UpdateTarsIdentityInputSchema.parse(input))),
   onChanged: (listener) => {
     tarsChangedSubscribers.add(listener);

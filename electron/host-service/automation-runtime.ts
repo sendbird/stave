@@ -117,12 +117,6 @@ interface AutomationRuntimeDependencies {
    * is gone fails before it starts a task. Without it (tests), neither check runs.
    */
   findWorkspace?: (workspaceId: string) => Promise<AutomationWorkspaceLocation | null>;
-  /**
-   * Called after every committed state change with the saved state, so an
-   * owner of some schedules (Tars) can record their runs. It must not throw
-   * into the scheduler; a failure is logged and the tick continues.
-   */
-  onStateSaved?: (state: AutomationState) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
   clearInterval?: typeof globalThis.clearInterval;
@@ -336,11 +330,6 @@ export function createAutomationRuntime(
       }
     }
     publishUnattendedAutomations(normalized);
-    try {
-      dependencies.onStateSaved?.(normalized);
-    } catch (error) {
-      console.error("[automations] state listener failed", error);
-    }
     return normalized;
   }
 

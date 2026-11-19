@@ -3,11 +3,11 @@ import type { ProviderRuntimeOptions } from "../../src/lib/providers/provider.ty
 
 /**
  * A provider turn that only writes text from what Stave put in its prompt
- * (`runtimeOptions.toolsDisabled`): the background turn summary, agent
- * drafting and instruction suggestions. Such a turn runs with no tool of any
- * kind and no MCP server, Stave's own included, the way the host read-only
- * prompt helpers do. Both runtimes also run it as a secondary read-only turn:
- * no bound secrets, no resumed session, approvals declined.
+ * (`runtimeOptions.toolsDisabled`): the background turn summary and agent
+ * drafting. Such a turn runs with no tool of any kind and no MCP server,
+ * Stave's own included, the way the host read-only prompt helpers do. Both
+ * runtimes also run it as a secondary read-only turn: no bound secrets, no
+ * resumed session, approvals declined.
  */
 export function isToolsDisabledTurn(
   runtimeOptions: Pick<ProviderRuntimeOptions, "toolsDisabled"> | null | undefined,

@@ -23,6 +23,7 @@ import { normalizeTarsClearScopes, type TarsClearScope } from "../../src/lib/tar
 import { TarsComposerDraftSchema, type TarsComposerDraft } from "../../src/lib/tars/composer-draft";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
 import { readLatestTarsControls, readMovedOnTarsMessages, readSettledTarsTargets } from "./tars-proposals";
+import { dropRetiredTarsScheduleActions } from "./retired-tars-schedule-actions";
 
 interface ConversationDatabase {
   exec(sql: string): unknown;
@@ -112,6 +113,9 @@ export class TarsConversationStore {
         PRIMARY KEY (batch_id, item_index)
       );
     `);
+    // temporary-migration: drop-retired-tars-schedule-actions
+    dropRetiredTarsScheduleActions(this.db);
+    // end temporary-migration: drop-retired-tars-schedule-actions
   }
 
   /**
@@ -299,9 +303,10 @@ export class TarsConversationStore {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) throw new Error("The work limit must be between 1 and 1000.");
   }
 
+  /** A retired position takes no receipt, so it is never waited for. */
   private pendingActionsSql() {
     return `m.state = 'answered'
-      AND json_array_length(m.body_json, '$.decision.actions') >
+      AND (SELECT COUNT(*) FROM json_each(m.body_json, '$.decision.actions') WHERE json_extract(value, '$.kind') IS NOT 'retired') >
         (SELECT COUNT(*) FROM tars_action_receipts r WHERE r.message_id = m.id
           AND json_extract(r.body_json, '$.status') IN ('applied', 'rejected', 'proposed'))`;
   }
@@ -495,6 +500,7 @@ export class TarsConversationStore {
         throw new Error("The message has no delegated decision to settle.");
       let controlsPending = false;
       for (const [index, action] of message.decision.actions.entries()) {
+        if (action.kind === "retired") continue;
         if (action.kind === "control") {
           const status = this.getReceipt(messageId, index)?.status;
           controlsPending ||= status === undefined || status === "pending";
@@ -1024,25 +1030,6 @@ export class TarsConversationStore {
       if (current.status !== "proposed") return current;
       return this.settleProposal(ref, { status: "rejected", error: outcome.error, reason: outcome.reason ?? null }, now);
     });
-  }
-
-  /**
-   * The schedule proposal a confirmation settles, in the caller's transaction
-   * (the schedule record's). A proposal that already settled is left as it is,
-   * so a retried confirmation changes nothing; any other action is refused.
-   */
-  settleScheduleProposal(ref: TarsProposalRef, outcome: { status: "applied" } | { status: "rejected"; error: string; reason: TarsActionReason }, now: string): TarsActionReceipt {
-    const current = this.getReceipt(ref.messageId, ref.actionIndex);
-    if (current?.action.kind !== "schedule") throw new Error("The schedule proposal was not found.");
-    if (current.status !== "proposed") return current;
-    const next = TarsActionReceiptSchema.parse({ ...current, status: outcome.status, responsibilityId: null,
-      error: outcome.status === "rejected" ? outcome.error : null, reason: outcome.status === "rejected" ? outcome.reason : null,
-      revision: current.revision + 1, updatedAt: now });
-    const result = this.db.prepare(`UPDATE tars_action_receipts SET revision = ?, body_json = ?
-      WHERE message_id = ? AND action_index = ? AND revision = ?`).run(next.revision, JSON.stringify(next), ref.messageId, ref.actionIndex, current.revision);
-    if (Number(result.changes ?? 0) !== 1) throw new Error("The action receipt changed. Refresh before trying again.");
-    this.changes.emit("conversation");
-    return next;
   }
 
   /** Only the confirming click moves a proposal on; it is never applied by the conversation itself. */

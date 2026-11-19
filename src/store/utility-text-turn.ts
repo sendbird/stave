@@ -1,8 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 /**
- * One read-only turn on the utility lane that returns the model's text. Shared
- * by the agent features that ask the model for a small JSON answer (drafting
- * an agent, suggesting an instruction change). No secrets, tools, MCP servers,
+ * One read-only turn on the utility lane that returns the model's text, for
+ * drafting an agent as a small JSON answer. No secrets, tools, MCP servers,
  * writes or network: `buildReadOnlyAuxRuntimeOptions` decides the runtime
  * options (`toolsDisabled`) and the lane's on/off switch in Settings is
  * honoured. The turn runs in the active workspace's folder, which the provider
@@ -40,19 +39,11 @@ function newTurnId(prefix: string): string {
     : `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/**
- * The workspace's folder: its recorded path, else the repository root for the
- * active or default workspace. A workspace whose folder is unknown has none,
- * so the turn never runs in another workspace's folder.
- */
+/** The active workspace's folder: its recorded path, else the repository root. */
 function resolveWorkspaceFolder(
-  state: Pick<ReturnType<typeof useAppStore.getState>, "workspacePathById" | "workspaceDefaultById" | "activeWorkspaceId" | "repositoryPath">,
-  workspaceId: string,
+  state: Pick<ReturnType<typeof useAppStore.getState>, "workspacePathById" | "activeWorkspaceId" | "repositoryPath">,
 ): string | null {
-  const recorded = state.workspacePathById[workspaceId];
-  if (recorded) return recorded;
-  const ownsRepositoryRoot = workspaceId === state.activeWorkspaceId || state.workspaceDefaultById[workspaceId] === true;
-  return ownsRepositoryRoot && state.repositoryPath ? state.repositoryPath : null;
+  return state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath || null;
 }
 
 const CANCELLED: UtilityTextResult = { ok: false, get message() { return i18n.t("notifications:utilityTextTurn.cancelled"); }, cancelled: true };
@@ -65,8 +56,6 @@ export async function runUtilityTextTurn(args: {
   prompt: string;
   turnIdPrefix: string;
   signal?: AbortSignal;
-  /** The workspace the turn is about; its folder is where the turn runs. Defaults to the active one. */
-  workspaceId?: string;
 }): Promise<UtilityTextResult> {
   const { signal } = args;
   if (signal?.aborted) return CANCELLED;
@@ -80,7 +69,7 @@ export async function runUtilityTextTurn(args: {
     shared: state.settings.auxiliaryInferenceDefault,
   });
   if (!lane.enabled) return { ok: false, message: i18n.t("notifications:utilityTextTurn.theUtilityModelIsTurnedOffInSettings") };
-  const cwd = resolveWorkspaceFolder(state, args.workspaceId ?? state.activeWorkspaceId);
+  const cwd = resolveWorkspaceFolder(state);
   if (!cwd) return { ok: false, message: i18n.t("notifications:utilityTextTurn.openAWorkspaceFirst") };
   const turnId = newTurnId(args.turnIdPrefix);
   const abort = () => void provider?.abortTurn?.({ turnId })?.catch(() => undefined);

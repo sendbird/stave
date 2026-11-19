@@ -503,7 +503,7 @@ export function computeNextAutomationRunAt(args: {
 }
 
 // i18n-ignore: host save error and MCP text; the window explains a passed one-time run itself
-export const AUTOMATION_RUN_ONCE_PASSED_MESSAGE =
+const AUTOMATION_RUN_ONCE_PASSED_MESSAGE =
   "This one-time schedule's time has already passed. Edit the schedule to choose a new time.";
 
 /**

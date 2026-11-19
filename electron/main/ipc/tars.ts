@@ -21,7 +21,6 @@ import { TarsAttachmentImageInputSchema } from "../../../src/lib/tars/attachment
 import { TarsClearInputSchema, TarsUndoClearInputSchema, TarsViewSettingsSchema } from "../../../src/lib/tars/clearing";
 import { TarsAwayStateSchema } from "../../../src/lib/tars/away-state";
 import { TarsSuggestInputSchema, TarsSuggestResultSchema } from "../../../src/lib/tars/suggestion-generation";
-import { TarsScheduleConfirmInputSchema, TarsSchedulePreviewInputSchema, TarsScheduleToggleInputSchema } from "../../../src/lib/tars/schedules";
 
 /** Only the interactive application can enroll responsibilities; no task MCP grant exposes this API. */
 export function registerTarsHandlers() {
@@ -92,17 +91,6 @@ export function registerTarsHandlers() {
     invokeHostService("tars.publish", TarsPublishInputSchema.parse(input)));
   ipcMain.handle(TARS_IPC.publishPreview, (_event, input: unknown) =>
     invokeHostService("tars.publish-preview", TarsPublishPreviewInputSchema.parse(input)));
-  // A schedule card's confirmation names its proposal only; the host reads the saved proposal and checks everything again.
-  ipcMain.handle(TARS_IPC.schedule, (_event, input: unknown) =>
-    invokeHostService("tars.schedule", TarsScheduleConfirmInputSchema.parse(input)));
-  ipcMain.handle(TARS_IPC.schedulePreview, (_event, input: unknown) =>
-    invokeHostService("tars.schedule-preview", TarsSchedulePreviewInputSchema.parse(input)));
-  ipcMain.handle(TARS_IPC.scheduleToggle, (_event, input: unknown) =>
-    invokeHostService("tars.schedule-toggle", TarsScheduleToggleInputSchema.parse(input)));
-  ipcMain.handle(TARS_IPC.schedules, (_event, input: unknown) => {
-    z.undefined().parse(input);
-    return invokeHostService("tars.schedules", undefined);
-  });
   ipcMain.handle(TARS_IPC.undoAction, (_event, input: unknown) =>
     invokeHostService("tars.undo-action", TarsUndoActionInputSchema.parse(input)));
   // A queue move from the tray takes the host's reprioritize admission; there is no direct priority write.

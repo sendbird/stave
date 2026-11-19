@@ -48,6 +48,19 @@
       "tests": [
         "tests/retired-task-checkpoints.test.ts"
       ]
+    },
+    {
+      "id": "drop-retired-tars-schedule-actions",
+      "description": "Tars schedules were removed after 0.35.2. Opening the Tars conversation retires the schedule actions saved replies carry: each becomes a `retired` position and its receipt is deleted; the reply's words and its other actions stay where they were, so an interrupted reply resumes on the receipts it already had. The action left the conversation contract, so a reply that kept one could not be read and the whole conversation would fail to load. It runs once per profile: the conversion creates the empty marker table tars_schedule_actions_retired in its own transaction, and later opens only look that table up. At expiry, delete the marked blocks and the listed test; a profile that skipped these releases and has such a reply cannot open its Tars conversation. The `retired` position stays in the conversation contract (converted replies carry it), as do the marker table and the tars_schedules, tars_schedule_requests and tars_schedule_runs tables, which nothing reads.",
+      "introducedAfter": "0.35.2",
+      "removeInVersion": "0.38.0",
+      "files": [
+        "electron/persistence/retired-tars-schedule-actions.ts",
+        "electron/persistence/tars-conversation-store.ts"
+      ],
+      "tests": [
+        "tests/retired-tars-schedule-actions.test.ts"
+      ]
     }
   ]
 }

@@ -6,9 +6,9 @@ import type { BridgeEvent } from "../electron/providers/types";
 
 /**
  * A background call that only writes text from content Stave passes in
- * (`runtimeOptions.toolsDisabled`: the turn summary, agent drafting,
- * instruction suggestions) runs through a full provider turn with no tool at
- * all. Claude's turn is captured at the SDK's `query`; Codex's at the
+ * (`runtimeOptions.toolsDisabled`: the turn summary, agent drafting)
+ * runs through a full provider turn with no tool at all. Claude's turn is
+ * captured at the SDK's `query`; Codex's at the
  * `thread/start` a stand-in App Server receives. Only the asserted fields are
  * handed to `expect`, so a failure never prints the account environment.
  */

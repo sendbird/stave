@@ -421,11 +421,8 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   </section>;
 }
 
-/**
- * Where a confirmation runs (repository, workspace), folded behind Details: it is there to check, not to read first.
- * Every confirmation card in the conversation folds its details this way; `kind` names the card in the rows' test ids.
- */
-export function TarsCardDetails({ rows, kind = "decision" }: { rows: readonly DetailRow[]; kind?: "decision" | "schedule" }) {
+/** Where a confirmation runs (repository, workspace), folded behind Details: it is there to check, not to read first. */
+function TarsCardDetails({ rows }: { rows: readonly DetailRow[] }) {
   const { t } = useTranslation(["shell"]);
   const [open, setOpen] = useState(false);
   return <CollapsibleRoot className={sx(inlineDisclosure.root, styles.details)} open={open} onOpenChange={setOpen} data-tars-decision-details={open ? "open" : "closed"}>
@@ -437,8 +434,8 @@ export function TarsCardDetails({ rows, kind = "decision" }: { rows: readonly De
     {/* Mounted while closed (AUI's eager panel), so in-page find still reaches the rows. */}
     <CollapsiblePanel keepMounted className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
       <div className={cx(sx(inlineDisclosure.body), "atelier-motion-panel-inner")}>
-        <dl className={sx(styles.rows)} aria-label={t("shell:tars.decision.card.details")} {...{ [`data-tars-${kind}-rows`]: rows.map((entry) => entry.key).join(",") }}>
-          {rows.map((entry) => <div key={entry.key} className={sx(styles.row)} {...{ [`data-tars-${kind}-row`]: entry.key }}>
+        <dl className={sx(styles.rows)} aria-label={t("shell:tars.decision.card.details")} data-tars-decision-rows={rows.map((entry) => entry.key).join(",")}>
+          {rows.map((entry) => <div key={entry.key} className={sx(styles.row)} data-tars-decision-row={entry.key}>
             <dt className={sx(styles.rowLabel)}>{entry.label}</dt>
             <dd className={sx(styles.rowValue)} title={entry.title}>{entry.value}</dd>
           </div>)}

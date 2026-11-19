@@ -705,9 +705,6 @@ Agent run and provider paths:
 - `electron/persistence/tars-event-inbox.ts`, `src/lib/tars/events.ts` and
   `electron/main/tars-follow-up.ts` — the event inbox and the automatic
   follow-up it may start (see below)
-- `src/lib/tars/schedules.ts`, `electron/host-service/tars-schedules.ts` and
-  `electron/persistence/tars-schedule-store.ts` — schedules Tars sets up (see
-  [Tars schedules](#tars-schedules))
 - `src/components/tars/` — renderer mirror and interactive controls
 - `src/lib/tars/ownership.ts`, `src/store/tars-snapshot-store.ts` and
   `src/store/tars-owned-control.ts` — which task or run an active
@@ -857,7 +854,7 @@ automatic re-asks (from the source message named by the invalidated decision ID)
 and reply-option answer messages retain the ID. Host decision admission
 (`tarsSelectedWorkRefusal`, checked once while a receipt is still pending) narrows
 a selected message to that responsibility. It refuses missing targets
-(`targetUnavailable`) and, as `targetMismatch`, delegation, schedules, clearing,
+(`targetUnavailable`) and, as `targetMismatch`, delegation, clearing,
 controls/views/publish/reprioritize/inspect of another responsibility, ask
 options whose effects reach another responsibility, `open` of anything but the
 selected task or execution workspace, `workspace` edits outside that execution
@@ -876,57 +873,6 @@ The renderer uses PromptInput's caret-aware `@` mention palette for host-owned
 selection options. Only an active mention opens candidates; selection consumes
 that token and saves its stable ID as a draft target. Card/report follow-ups use
 the same target store without submitting. There is no persistent selector.
-
-### Tars schedules
-
-Tars stores and runs no schedule itself. A schedule it sets up is an
-automation record of the Schedules service
-(`electron/host-service/automation-runtime.ts`), which keeps it, fires it and
-starts its task with its own guards. Tars adds the proposal, the record of
-which schedules it created, and the conversation's record of their runs.
-
-- `TarsScheduleActionSchema` (`src/lib/tars/schedules.ts`) is the planner's
-  `{kind:"schedule", operation}` action: `create`, `update`, `pause`,
-  `resume`, `remove` and `list`. `when` is deliberately loose; the host turns
-  it into a rule with `resolveTarsScheduleRule` (the service's
-  `AutomationScheduleSchema`, or one UTC instant) and refuses an impossible
-  one with a `TarsScheduleReason` instead of failing the reply.
-- `applyTarsDecision` settles a `list` as applied (it only opens the list) and
-  every change as `proposed`, or `rejected` with the reason
-  `createTarsScheduler().proposalRefusal` returns. `tarsFollowUpRefusal`
-  refuses every schedule action from an automatic follow-up.
-- `window.api.tars.previewSchedule` / `confirmSchedule` / `toggleSchedule` /
-  `listSchedules` (`tars:schedule-preview`, `tars:schedule`,
-  `tars:schedule-toggle`, `tars:schedules`) reach the host as
-  `tars.schedule-preview`, `tars.schedule`, `tars.schedule-toggle` and
-  `tars.schedules`. A confirmation carries only its proposal's request id
-  (`schedule:<message>:<index>`), `enable` for a new schedule and its source;
-  the host reads the action from the saved receipt.
-- `confirm` records the request in `tars_schedule_requests`
-  (`TarsScheduleRecordSchema`) before anything changes, then applies it through
-  the service and settles the record, the ownership row and the proposal's
-  receipt in one transaction. The request id is the retry identity. A new
-  schedule's id is derived from it (`tarsScheduleIdFor`) and passed to
-  `AutomationRuntime.create(input, { id })`, which returns the existing
-  schedule for a known id, so a retried or recovered create never makes a
-  second one.
-- `tars_schedules` (`TarsOwnedScheduleSchema`) holds the schedules Tars
-  created with the hash of the content it last saved
-  (`tarsScheduleContentKey`: name, request, workspace, rule, permission mode).
-  An id without a row is refused as `notTarsSchedule`; a row whose schedule is
-  gone as `scheduleGone`; a schedule whose content hash moved as
-  `editedElsewhere`. Turning a schedule on or off is not content.
-- Every schedule Tars saves has `trustPolicy: "review-required"` and
-  `maxConcurrentRuns: 1`; a new one is saved `enabled: false` unless the
-  confirmation carried `enable`.
-- `AutomationRuntimeDependencies.onStateSaved` hands every saved state to
-  `recordTarsScheduleRuns`, which upserts the `scheduled` runs of Tars's
-  schedules into `tars_schedule_runs` (`TarsScheduleRunSchema`, actor
-  `schedule`). `TarsConversation.schedules` and `scheduleRuns` carry the
-  records and the runs to the window.
-- `AutomationUpsertInput.runOnceAt` (optional, UTC) makes a schedule one-time:
-  `resolveNextAutomationRunAt` returns that instant, refuses one that has
-  passed, and a scheduled run turns the schedule off.
 
 ### Event inbox and automatic follow-up
 
@@ -1076,6 +1022,13 @@ control receipt after a failed delivery: it stays pending until the host's
 idempotent retry settles the run effect and the receipt together. Such an
 unresolved delivery is retried at a capped backoff until the host answers;
 later messages wait behind it in order.
+
+A saved reply names each action by its position: the receipt's `actionIndex`,
+delegated work's `tars-message:<message>:<index>` request ID and the
+`confirm:`/`ask:` decision IDs carry it. When Stave removes an action kind, the
+conversion of saved replies leaves `{ kind: "retired" }` in the action's place,
+so the positions after it do not move. A retired position is never planned (the
+planner's output drops it as invalid), admitted, given a receipt or waited for.
 
 A delegate action may name an agent (`agentId`). The conversation settings
 carry the saved agents the user allowed (`allowedAgentIds`; built-ins are

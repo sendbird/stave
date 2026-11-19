@@ -32,7 +32,7 @@ function planner(id: string, text: string, allowedActions: string[], requiredAct
     providerId: "codex", model: "eval-model", maxTurns: 6, reply: null, error: null, decision: null, createdAt: NOW, updatedAt: NOW });
   return { id, suite: "planner", allowedActions, requiredActions,
     prompt: buildTarsPlannerPrompt(message, { ...observed, cwd: "/tmp/eval-project", agents: { agents: [], omittedAgents: 0 },
-      clock: { utc: NOW, local: "2026-11-17T00:00", timezone: "UTC", weekday: 2 }, guard: { level: "careful", neverDo } }, []) };
+      guard: { level: "careful", neverDo } }, []) };
 }
 
 export function loadSuite(name: string): EvalCase[] {

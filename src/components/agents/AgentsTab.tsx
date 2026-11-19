@@ -7,7 +7,6 @@ import { Button } from "@/components/aui/components/Button";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Dialog } from "@/components/aui/components/Dialog";
 import { Select } from "@/components/aui/components/Select";
-import { Tabs } from "@/components/aui/components/Tabs";
 import { TextField } from "@/components/aui/components/TextField";
 import { sx } from "@/components/aui/utils/stylex";
 import { type AgentAssignment } from "@/lib/agents/assign";
@@ -26,17 +25,7 @@ import {
   upsertCustomAgent,
 } from "@/lib/agents/library";
 import { findAgentReferences } from "@/lib/agents/agent-references";
-import {
-  dropAgentRevisions,
-  pushAgentRevision,
-  type AgentRevision,
-} from "@/lib/agents/revisions";
 import type { AgentImportNote } from "@/lib/agents/import";
-import {
-  dropAgentSuggestions,
-  removeAgentSuggestion,
-  type AgentSuggestion,
-} from "@/lib/agents/learned-suggestions";
 import {
   AGENT_CHECK_IN_LABELS,
   AGENT_PERMISSION_LABELS,
@@ -51,37 +40,17 @@ import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useAppStore } from "@/store/app.store";
 import { useAgentsViewStore } from "@/store/agents-view-store";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
-import { ExportAgent } from "./ExportAgent";
 import { AgentAvatar } from "./AgentAvatar";
 import { AgentEditor } from "./AgentEditor";
 import { AgentActivity, useTarsWorkFilter } from "./AgentActivity";
-import { AgentHistory } from "./AgentHistory";
 import { AgentProfileHeader } from "./AgentProfileHeader";
 import { AgentsListResizeHandle, useAgentsListWidthStyle } from "./AgentsListResizeHandle";
-import { AgentSuggestions } from "./AgentSuggestions";
 import { DeleteAgentDialog } from "./DeleteAgentDialog";
 import { NewAgentDialog } from "./NewAgentDialog";
 import { agentStyles } from "./agents.styles";
 import { useRepositoryAgents } from "./useRepositoryAgents";
 
 const NO_NOTES: readonly AgentImportNote[] = [];
-const NO_REVISIONS: readonly AgentRevision[] = [];
-const NO_SUGGESTIONS: readonly AgentSuggestion[] = [];
-
-const AGENT_DETAIL_TABS = ["settings", "history"] as const;
-
-/**
- * The detail tab to open first. Defaults to Settings; the dev preview may
- * request History with `?tab=history` so a screenshot can
- * land straight on it. A stray value falls back to Settings.
- */
-function initialAgentDetailTab(): (typeof AGENT_DETAIL_TABS)[number] {
-  if (typeof window === "undefined") return "settings";
-  const requested = new URLSearchParams(window.location.search).get("tab");
-  return (AGENT_DETAIL_TABS as readonly string[]).includes(requested ?? "")
-    ? (requested as (typeof AGENT_DETAIL_TABS)[number])
-    : "settings";
-}
 
 /** Recent assignments of one agent, refreshed when the host reports a change. */
 function useAssignments(agentConfigId: string | null, excludeTars = false) {
@@ -190,38 +159,17 @@ export function ProviderSupport(props: { agent: AgentConfig }) {
 function AgentDetail(props: {
   agent: AgentConfig;
   notes: readonly AgentImportNote[];
-  rootPath: string | null;
-  revisions: readonly AgentRevision[];
   onDuplicate: () => void;
   onDelete: () => void;
   onSave: (agent: AgentConfig) => string | null;
-  onRestore: (agent: AgentConfig) => void;
 }) {
   useTranslation();
   const { agent } = props;
   const tarsWork = useTarsWorkFilter(agent.id);
   const assignments = useAssignments(agent.id, tarsWork.excludeTars);
   const editable = agent.source === "custom";
-  const storedSuggestions = useAppStore((state) => state.settings.agentSuggestions[agent.id]);
-  const suggestions = storedSuggestions ?? NO_SUGGESTIONS;
-  const learningDisabled = useAppStore((state) => state.settings.agentLearningDisabled);
-  const learning = !learningDisabled.includes(agent.id);
-  const dismissSuggestion = (suggestion: AgentSuggestion) => {
-    const state = useAppStore.getState();
-    state.updateSettings({
-      patch: { agentSuggestions: removeAgentSuggestion(state.settings.agentSuggestions, agent.id, suggestion.id) },
-    });
-  };
-  const setLearning = (on: boolean) => {
-    const current = useAppStore.getState().settings.agentLearningDisabled.filter((id) => id !== agent.id);
-    useAppStore.getState().updateSettings({ patch: { agentLearningDisabled: on ? current : [...current, agent.id] } });
-  };
-  const ranContentHashes = useMemo(
-    () => new Set(assignments.map((row) => row.agentContentHash)),
-    [assignments],
-  );
 
-  const settingsTab = (
+  const settings = (
     <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
       {editable ? (
         <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} embedded />
@@ -252,44 +200,10 @@ function AgentDetail(props: {
           </dl>
         </div>
       )}
-      {editable ? (
-        <AgentSuggestions
-          agent={agent}
-          suggestions={suggestions}
-          learning={learning}
-          onLearningChange={setLearning}
-          onApply={(suggestion, instructions) => {
-            if (!props.onSave({ ...agent, instructions })) dismissSuggestion(suggestion);
-          }}
-          onDismiss={dismissSuggestion}
-        />
-      ) : null}
       <ProviderSupport agent={agent} />
       <ImportNotes notes={props.notes} />
-      <ExportAgent agent={agent} rootPath={props.rootPath} />
     </div>
   );
-
-  // Only custom agents keep a history, so the others have nothing to tab between.
-  const tabs = editable
-    ? [
-        { value: "settings", label: i18n.t("agents:agentsTab.label"), content: settingsTab },
-        {
-          value: "history",
-          label: i18n.t("agents:agentsTab.label2"),
-          content: (
-            <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
-              <AgentHistory
-                agent={agent}
-                revisions={props.revisions}
-                ranContentHashes={ranContentHashes}
-                onRestore={props.onRestore}
-              />
-            </div>
-          ),
-        },
-      ]
-    : null;
 
   return (
     <div className={sx(styles.scroll)}>
@@ -323,7 +237,7 @@ function AgentDetail(props: {
           </div>
         </div>
         <AgentActivity assignments={assignments} tarsWork={tarsWork.toggle} />
-        {tabs ? <Tabs variant="line" options={tabs} defaultValue={initialAgentDetailTab()} /> : settingsTab}
+        {settings}
       </div>
     </div>
   );
@@ -359,7 +273,6 @@ function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: s
 export function AgentsTab() {
   useTranslation();
   const custom = useAppStore((state) => state.settings.customAgents);
-  const customAgentRevisions = useAppStore((state) => state.settings.customAgentRevisions);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
   const [newOpen, setNewOpen] = useState(false);
@@ -396,7 +309,6 @@ export function AgentsTab() {
 
   const save = (agent: AgentConfig): string | null => {
     const state = useAppStore.getState();
-    const previous = state.settings.customAgents.find((candidate) => candidate.id === agent.id) ?? null;
     try {
       updateSettings({ patch: { customAgents: upsertCustomAgent(state.settings.customAgents, agent) } });
     } catch (error) {
@@ -404,20 +316,6 @@ export function AgentsTab() {
     }
     const stored = useAppStore.getState().settings.customAgents.find((candidate) => candidate.id === agent.id);
     if (!stored) return i18n.t("agents:agentsTab.extraCopy29");
-    // A revision is only pushed when an existing agent's behaviour changed;
-    // creating one, or a no-op save, adds nothing (pushAgentRevision decides).
-    if (previous) {
-      const revisions = pushAgentRevision({
-        revisions: useAppStore.getState().settings.customAgentRevisions,
-        agentId: agent.id,
-        previous,
-        next: stored,
-        savedAt: new Date().toISOString(),
-      });
-      if (revisions !== useAppStore.getState().settings.customAgentRevisions) {
-        updateSettings({ patch: { customAgentRevisions: revisions } });
-      }
-    }
     return null;
   };
 
@@ -428,23 +326,8 @@ export function AgentsTab() {
 
   const remove = (agent: AgentConfig) => {
     const state = useAppStore.getState();
-    updateSettings({
-      patch: {
-        customAgents: removeCustomAgent(state.settings.customAgents, agent.id),
-        customAgentRevisions: dropAgentRevisions(state.settings.customAgentRevisions, agent.id),
-        agentSuggestions: dropAgentSuggestions(state.settings.agentSuggestions, agent.id),
-        agentLearningDisabled: state.settings.agentLearningDisabled.filter((id) => id !== agent.id),
-      },
-    });
+    updateSettings({ patch: { customAgents: removeCustomAgent(state.settings.customAgents, agent.id) } });
     if (selectedId === agent.id) setSelectedId(null);
-  };
-
-  // Restore saves an old version as the current agent. `save` pushes the
-  // version it replaces onto history, so a restore is itself recorded and can
-  // be undone by restoring again.
-  const restore = (revision: AgentConfig) => {
-    save(revision);
-    setSelectedId(revision.id);
   };
 
   const deleteReferences = useMemo(
@@ -576,12 +459,9 @@ export function AgentsTab() {
             key={selected.id}
             agent={selected}
             notes={selectedNotes}
-            rootPath={rootPath}
-            revisions={customAgentRevisions[selected.id] ?? NO_REVISIONS}
             onDuplicate={() => duplicate(selected)}
             onDelete={() => setDeleteTarget(selected)}
             onSave={save}
-            onRestore={restore}
           />
         </div>
       ) : null}

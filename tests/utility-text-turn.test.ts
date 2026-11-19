@@ -3,7 +3,7 @@ import { useAppStore } from "@/store/app.store";
 import { runUtilityTextTurn } from "@/store/utility-text-turn";
 
 /**
- * Agent drafting and instruction suggestions run one tool-less utility turn.
+ * Agent drafting runs one tool-less utility turn.
  * The provider runtime refuses a turn without an absolute workspace folder,
  * so the turn must carry one, and a refused or failed turn must read as a
  * failure, not as an empty answer.
@@ -50,17 +50,10 @@ describe("utility text turn", () => {
     expect(sent[0]?.cwd).toBe("/tmp/stave-repo");
   });
 
-  test("runs in the folder of the workspace it is about, not the one shown", async () => {
-    useAppStore.setState({ activeWorkspaceId: "b", workspacePathById: { a: "/tmp/stave-a", b: "/tmp/stave-b" }, repositoryPath: "/tmp/stave-repo" });
+  test("without a workspace folder or a repository it fails instead of running somewhere else", async () => {
+    useAppStore.setState({ activeWorkspaceId: "b", workspacePathById: { a: "/tmp/stave-a" }, repositoryPath: null });
     const sent = provider([{ type: "text", text: "ok" }]);
-    await runUtilityTextTurn({ prompt: "Suggest an instruction.", turnIdPrefix: "agent-learning", workspaceId: "a" });
-    expect(sent[0]?.cwd).toBe("/tmp/stave-a");
-  });
-
-  test("a workspace whose folder is unknown fails instead of running in another folder", async () => {
-    useAppStore.setState({ activeWorkspaceId: "b", workspacePathById: { b: "/tmp/stave-b" }, repositoryPath: "/tmp/stave-repo" });
-    const sent = provider([{ type: "text", text: "ok" }]);
-    const result = await runUtilityTextTurn({ prompt: "Suggest an instruction.", turnIdPrefix: "agent-learning", workspaceId: "gone" });
+    const result = await runUtilityTextTurn({ prompt: "Draft an agent.", turnIdPrefix: "agent-draft" });
     expect(result).toEqual({ ok: false, message: "Open a workspace first." });
     expect(sent).toHaveLength(0);
   });

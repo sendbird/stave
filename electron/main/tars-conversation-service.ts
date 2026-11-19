@@ -31,7 +31,7 @@ type Coordinator = ReturnType<typeof createSecondaryRunCoordinator>;
 interface ConversationPorts {
   conversations: TarsConversationStore;
   coordinator: Coordinator;
-  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "patch" | "events" | "view"> & Partial<Pick<TarsStore, "schedules">>;
+  responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "patch" | "events" | "view">;
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
   inspect?: TarsInspectionReader;
   applyDecision: (input: ApplyTarsDecisionInput) => Promise<unknown>;
@@ -172,7 +172,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
       await ports.applyDecision({ messageId: message.id, expectedRevision: message.revision });
       if (stopped) return;
       const settled = ports.conversations.listReceipts(message.id).filter((receipt) => receipt.status !== "pending");
-      if (settled.length !== message.decision!.actions.length) throw new Error("The saved decision did not settle.");
+      if (settled.length !== message.decision!.actions.filter((action) => action.kind !== "retired").length) throw new Error("The saved decision did not settle.");
     } catch (error) {
       if (stopped) return;
       // A lock failure left every unsettled intent pending and changed nothing.
@@ -581,8 +581,6 @@ export function createTarsConversationService(ports: ConversationPorts) {
         records: ports.conversations.listActions(limit), answers: ports.conversations.listAnswers(limit),
         events: ports.responsibilities.events.listRecent(activityLimit), publications: ports.conversations.listPublishes(limit),
         clears: view.listClears(active?.createdAt ?? null, limit), trayClears: view.listTrayClears(),
-        // Schedule confirmations and the runs Tars's schedules started, written by the host on the same file.
-        ...(ports.responsibilities.schedules ? { schedules: ports.responsibilities.schedules.listRecords(limit), scheduleRuns: ports.responsibilities.schedules.listRuns(limit) } : {}),
         view: { retentionDays: view.getSettings().retentionDays, clearedAt: active?.createdAt ?? null, clearRequestId: active?.requestId ?? null } };
       // A cleared conversation hides what came before, never what still needs the user.
       return TarsConversationSchema.parse(active ? filterTarsConversationView(conversation, { clearedAt: active.createdAt, inProgress: active.inProgress ?? [], keeps: clearKeeps().keeps }) : conversation);

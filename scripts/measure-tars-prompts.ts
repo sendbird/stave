@@ -44,7 +44,7 @@ export function tarsPromptFixture() {
         { repositoryPath: "/tmp/project", repositoryName: "Project", workspaces: [{ id: "source", name: "Main", updatedAt: NOW }] },
         { repositoryPath: "/tmp/docs", repositoryName: "Docs", workspaces: [{ id: "docs-source", name: "Docs main", updatedAt: NOW }] },
       ], loadWorkspaceShellSummary: () => null, agentRuns: { getLatestAgentRunForTask: () => null } }, NOW),
-      cwd: "/tmp/profile/representative", clock: { utc: NOW, timezone: "Asia/Seoul", local: "2026-11-12T09:00", weekday: 4 },
+      cwd: "/tmp/profile/representative",
       agents: tarsPlannerAgents({ agents: BUILTIN_AGENTS, allowedAgentIds: [], executionProviderId: "codex", executionModel: null }) };
     const message = (id: string, text: string): TarsMessage => ({ id, requestId: id, text, providerId: "codex", model: "gpt-6.1-sol", maxTurns: 16,
       state: "answered", revision: 2, reply: "I will verify the local result.", error: null, decision: { reply: "I will verify the local result.", actions: [] }, createdAt: NOW, updatedAt: NOW });

@@ -17,9 +17,6 @@ import { TARS_BRANCH_NAME_MAX_CHARS, TARS_BRANCH_SUFFIX_CHARS } from "./branch-n
 import { TarsPublicationSchema } from "./publication";
 import type { TarsAwayState } from "./away-state";
 import { TarsTrayClearedSchema, type TarsClearInput, type TarsClearRecord, type TarsUndoClearInput, type TarsViewSettings } from "./clearing";
-import type {
-  TarsScheduleConfirmInput, TarsScheduleList, TarsSchedulePreview, TarsSchedulePreviewInput, TarsScheduleResult, TarsScheduleToggleInput,
-} from "./schedules";
 
 /** The longest message the user can send Tars. */
 export const TARS_MESSAGE_MAX_CHARS = 32_000;
@@ -71,14 +68,6 @@ export const TARS_IPC = Object.freeze({
   saveAway: "tars:save-away",
   /** Reads what Tars's work spent in a period (`TarsUsageReport`); changes nothing. */
   getUsage: "tars:get-usage",
-  /** Confirms one schedule card: the host creates, changes, pauses, resumes or removes a schedule Tars set up. */
-  schedule: "tars:schedule",
-  /** Reads what a schedule card shows (what runs, where, when next); changes nothing. */
-  schedulePreview: "tars:schedule-preview",
-  /** The pause switch of a schedule Tars created. */
-  scheduleToggle: "tars:schedule-toggle",
-  /** Lists the schedules Tars created, as the Schedules service has them now. */
-  schedules: "tars:schedules",
   /** Asks Tars's saved reasoning model for suggested requests about the facts the window observed (`TarsSuggestInput`); changes no work. */
   suggest: "tars:suggest",
   /** Main → renderer: a `TarsChangedEvent`; surfaces read the named part again instead of polling. */
@@ -661,11 +650,6 @@ export interface TarsBridgeApi {
   getAway?(): Promise<TarsAwayState>;
   /** Saves it and returns what is saved now: the seen time never moves backward and a dismissed summary stays dismissed. */
   saveAway?(input: TarsAwayState): Promise<TarsAwayState>;
-  /** Schedules Tars sets up in Stave's Schedules service; absent on bridges that predate them, which show a schedule proposal as a plain line. */
-  previewSchedule?(input: TarsSchedulePreviewInput): Promise<TarsSchedulePreview>;
-  confirmSchedule?(input: TarsScheduleConfirmInput): Promise<TarsScheduleResult>;
-  toggleSchedule?(input: TarsScheduleToggleInput): Promise<TarsScheduleResult>;
-  listSchedules?(): Promise<TarsScheduleList>;
   updateIdentity(input: UpdateTarsIdentityInput): Promise<TarsSnapshot>;
   /** Suggested requests written by Tars's saved reasoning model; absent on bridges without it, which show no suggestions. */
   suggest?(input: import("./suggestion-generation").TarsSuggestInput): Promise<import("./suggestion-generation").TarsSuggestResult>;

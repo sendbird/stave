@@ -11,14 +11,14 @@ import type { TarsTrayModel } from "./tray-model";
 export type TarsStartActionKind = TarsDecisionAction["kind"] | "reply";
 
 /** What the examples are grouped by: something the user can ask Tars to do today. */
-export type TarsStartGroupId = "delegate" | "schedule" | "steer" | "answer" | "show" | "publish" | "clear";
+export type TarsStartGroupId = "delegate" | "steer" | "answer" | "show" | "publish" | "clear";
 
-/** What an example needs before it is offered: a registered repository, or a bridge that can publish, clear or set up schedules. */
-export type TarsStartRequirement = "repository" | "publish" | "clear" | "schedule";
+/** What an example needs before it is offered: a registered repository, or a bridge that can publish or clear. */
+export type TarsStartRequirement = "repository" | "publish" | "clear";
 
 export interface TarsStartExample {
   /** The copy key: `tars.start.examples.<id>.label` and `.prompt`. */
-  id: "bulkControl" | "cleanup" | "workspace" | "delegate" | "schedule" | "status" | "pause" | "queue" | "answerWaiting" | "options" | "report" | "changes" | "openScreen" | "publish" | "clearConversation" | "clearDone";
+  id: "bulkControl" | "cleanup" | "workspace" | "delegate" | "status" | "pause" | "queue" | "answerWaiting" | "options" | "report" | "changes" | "openScreen" | "publish" | "clearConversation" | "clearDone";
   group: TarsStartGroupId;
   action: TarsStartActionKind;
   requires?: TarsStartRequirement;
@@ -26,7 +26,7 @@ export interface TarsStartExample {
   covers?: readonly TarsSuggestionKind[];
 }
 
-export const TARS_START_GROUPS: readonly TarsStartGroupId[] = ["delegate", "schedule", "steer", "answer", "show", "publish", "clear"];
+export const TARS_START_GROUPS: readonly TarsStartGroupId[] = ["delegate", "steer", "answer", "show", "publish", "clear"];
 
 /**
  * Every example names the action kind it leads to, so the start screen offers
@@ -35,7 +35,6 @@ export const TARS_START_GROUPS: readonly TarsStartGroupId[] = ["delegate", "sche
  */
 export const TARS_START_EXAMPLES: readonly TarsStartExample[] = [
   { id: "delegate", group: "delegate", action: "delegate", requires: "repository" },
-  { id: "schedule", group: "schedule", action: "schedule", requires: "schedule" },
   { id: "status", group: "steer", action: "reply", covers: ["needsYou"] },
   { id: "bulkControl", group: "steer", action: "bulkControl", requires: "repository" },
   { id: "pause", group: "steer", action: "control" },
@@ -57,7 +56,7 @@ export interface TarsStartGroup { id: TarsStartGroupId; examples: TarsStartExamp
 /**
  * The examples to offer now, by group and in a fixed order. An example is left
  * out when what it needs is missing (no registered repository, a bridge that
- * cannot publish, clear or set up schedules) or when a suggestion chip already asks the same
+ * cannot publish or clear) or when a suggestion chip already asks the same
  * about real work; a group left with none is left out too.
  */
 export function buildTarsStartGroups(args: {
@@ -65,15 +64,12 @@ export function buildTarsStartGroups(args: {
   repositories: number | null;
   canPublish: boolean;
   canClear: boolean;
-  /** Whether the bridge can set up schedules, which also need a registered repository to run in. */
-  canSchedule?: boolean;
   /** The chips shown above the composer now. */
   suggestions?: readonly Pick<TarsSuggestion, "kind">[];
 }): TarsStartGroup[] {
   const chips = new Set((args.suggestions ?? []).map((entry) => entry.kind));
   const met = (requirement: TarsStartRequirement | undefined) => requirement === undefined
-    || (requirement === "repository" ? args.repositories !== 0 : requirement === "publish" ? args.canPublish
-      : requirement === "clear" ? args.canClear : Boolean(args.canSchedule) && args.repositories !== 0);
+    || (requirement === "repository" ? args.repositories !== 0 : requirement === "publish" ? args.canPublish : args.canClear);
   return TARS_START_GROUPS.map((id) => ({ id, examples: TARS_START_EXAMPLES.filter((example) => example.group === id && met(example.requires)
     && !example.covers?.some((kind) => chips.has(kind))) })).filter((group) => group.examples.length > 0);
 }

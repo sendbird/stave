@@ -5,6 +5,9 @@ import { AgentsTab, ProviderSupport } from "../src/components/agents/AgentsTab";
 import { describeAgent, describeProviderSupport, groupAgents } from "@/lib/agents/agents-view";
 import { duplicateAgent, listAgents } from "@/lib/agents/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
+import { defaultSettings } from "@/store/app-settings";
+import en from "../src/locales/en/agents.json";
+import ko from "../src/locales/ko/agents.json";
 
 describe("agents view", () => {
   test("a built-in agent reads in product words", () => {
@@ -36,6 +39,14 @@ describe("agents view", () => {
     ]);
   });
 
+  test("an agent keeps no version history, learned suggestions or export in settings or copy", () => {
+    for (const key of ["customAgentRevisions", "agentSuggestions", "agentLearningDisabled"]) expect(defaultSettings).not.toHaveProperty(key);
+    for (const key of ["agentHistory", "agentSuggestions", "learnedSuggestions", "revisions", "exportAgent", "export"]) {
+      expect(en).not.toHaveProperty(key);
+      expect(ko).not.toHaveProperty(key);
+    }
+  });
+
   test("the tab renders the list and an Assign button for the first agent", () => {
     const html = renderToStaticMarkup(createElement(AgentsTab));
     expect(html).toContain('data-testid="agents-tab"');
@@ -43,8 +54,8 @@ describe("agents view", () => {
     // The embedded Assign panel is gone; the detail offers Assign… which
     // opens Kickoff.
     expect(html).toContain("Assign…");
-    // A built-in that was never assigned has no Work list and no History to
-    // tab to: the page goes straight from the header to its settings.
+    // A built-in that was never assigned has no Work list: the page goes
+    // straight from the header to its settings.
     expect(html).not.toContain(">Work<");
     expect(html).not.toContain("Nothing assigned yet");
     expect(html).not.toContain("Recent work");
@@ -82,35 +93,6 @@ describe("agents view", () => {
     expect(html).toContain("1 assignment ·");
     expect(renderToStaticMarkup(createElement(AgentActivity, { assignments: [] }))).toBe("");
   });
-
-  test("learned suggestions show the summary and Apply, Edit and Dismiss", async () => {
-    const { AgentSuggestions } = await import("../src/components/agents/AgentSuggestions");
-    const agent = duplicateAgent(getBuiltinAgent("implementer")!, []);
-    const html = renderToStaticMarkup(
-      createElement(AgentSuggestions, {
-        agent,
-        learning: true,
-        onLearningChange: () => {},
-        onApply: () => {},
-        onDismiss: () => {},
-        suggestions: [
-          {
-            id: `${agent.id}:t1`,
-            agentConfigId: agent.id,
-            taskId: "t1",
-            createdAt: "2026-09-29T10:00:00.000Z",
-            summary: "Run the linter before reporting.",
-            instructions: `${agent.instructions}\nRun the linter before reporting.`,
-            basedOn: agent.instructions,
-          },
-        ],
-      }),
-    );
-    expect(html).toContain("Learned suggestions");
-    expect(html).toContain("Run the linter before reporting.");
-    for (const label of ["Apply", "Edit", "Dismiss", "Learn from my corrections"]) expect(html).toContain(label);
-    expect(html).not.toContain("instructions changed since");
-  });
 });
 
 describe("agent detail hierarchy", () => {
@@ -144,28 +126,6 @@ describe("agent detail hierarchy", () => {
     expect(html).not.toContain(">0<");
     expect(html).not.toContain("running");
     expect(html).not.toContain("need you");
-  });
-
-  test("learned suggestions are a single line with nothing to review", async () => {
-    const { AgentSuggestions } = await import("../src/components/agents/AgentSuggestions");
-    const agent = duplicateAgent(getBuiltinAgent("implementer")!, []);
-    const render = (learning: boolean) =>
-      renderToStaticMarkup(
-        createElement(AgentSuggestions, {
-          agent,
-          learning,
-          suggestions: [],
-          onLearningChange: () => {},
-          onApply: () => {},
-          onDismiss: () => {},
-        }),
-      );
-    const on = render(true);
-    expect(on).toContain("Learned suggestions");
-    expect(on).toContain("None yet.");
-    expect(on).toContain("Learn from my corrections");
-    expect(on).not.toContain("<ul");
-    expect(render(false)).toContain("Learning is off.");
   });
 });
 

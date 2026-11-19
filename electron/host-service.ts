@@ -109,7 +109,6 @@ import { createHostTarsPublisher, createHostTarsRuntime } from "./host-service/t
 import { applyTarsDecision, confirmTarsProposal, type TarsDecisionPorts } from "./host-service/tars-decisions";
 import { actTars } from "./host-service/tars-control";
 import { reprioritizeTars } from "./host-service/tars-queue";
-import { createTarsScheduler, recordTarsScheduleRuns } from "./host-service/tars-schedules";
 import { snapshotTarsWorkingChanges, tarsWorkingChangesRef, tarsWorkspacePath } from "./host-service/tars-working-changes";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
@@ -659,10 +658,6 @@ const automationRuntime = createAutomationRuntime({
   emitUnattendedAutomationsChanged: (payload) => {
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
-  // A run a Tars schedule started is recorded in Tars's conversation as started by that schedule.
-  onStateSaved: (state) => {
-    recordTarsScheduleRuns(ensureHostServicePersistenceReady().tars.schedules, state, new Date().toISOString());
-  },
 });
 const agentRunRuntime = createHostAgentRunRuntime({
   isQueuedTurn: turnId => hostTurnAdmission.isQueued(turnId),
@@ -771,14 +766,6 @@ const tarsRuntime = createHostTarsRuntime({
 });
 // Publishing runs beside the runtime's queue: a push never holds up observation or controls.
 const tarsPublisher = createHostTarsPublisher({ agentRuns: agentRunRuntime });
-// Schedules Tars sets up are the Schedules service's own records; this only admits and records what the user confirmed.
-const tarsScheduler = (() => {
-  const persistence = ensureHostServicePersistenceReady();
-  return createTarsScheduler({
-    schedules: persistence.tars.schedules, conversations: persistence.tarsConversations, automations: automationRuntime,
-    readRegistry: () => persistence.loadRepositoryRegistry(), findWorkspace: findAutomationWorkspace,
-  });
-})();
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
 });
@@ -2388,7 +2375,6 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         readRunBudget: (id) => persistence.agentRuns.getAggregate(id)?.agentRun ?? null,
         publish: (input) => tarsPublisher.publish(input),
         workspace: { read: id => persistence.workspaceInformation.read(id), write: (id, info, now) => persistence.workspaceInformation.write(id, info, now), changed: (workspaceId, workspaceInformation) => localMcpRuntime.emitWorkspaceInformationUpdate({ workspaceId, workspaceInformation }) },
-        scheduleRefusal: (action, requestId) => tarsScheduler.proposalRefusal(action, requestId),
         snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({
           workspacePath: tarsWorkspacePath(workspaceId, persistence.loadRepositoryRegistry()),
           ref: tarsWorkingChangesRef(messageId, workspaceId),
@@ -2424,18 +2410,6 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await tarsBatchRuntime.invoke(request.params)); return;
     case "tars.batches":
       await respond(request.id, tarsBatchRuntime.list()); return;
-    case "tars.schedule":
-      await respond(request.id, await tarsScheduler.confirm(request.params));
-      return;
-    case "tars.schedule-preview":
-      await respond(request.id, await tarsScheduler.preview(request.params));
-      return;
-    case "tars.schedule-toggle":
-      await respond(request.id, await tarsScheduler.toggle(request.params));
-      return;
-    case "tars.schedules":
-      await respond(request.id, await tarsScheduler.list());
-      return;
     case "tars.undo-action": {
       const persistence = ensureHostServicePersistenceReady();
       await respond(request.id, await undoTarsAction(request.params, {
@@ -2609,8 +2583,6 @@ async function main() {
   // Nothing publishes before this: an unfinished publication from before the restart becomes retryable.
   tarsPublisher.recover();
   tarsPublisher.watcher.start();
-  // A schedule confirmation interrupted by the restart settles under its own request id; nothing is created twice.
-  void tarsScheduler.recover();
 }
 
 

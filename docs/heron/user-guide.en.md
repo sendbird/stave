@@ -409,7 +409,7 @@ edge run -> fleet dashed : needs a person
 Open **Agents** in the sidebar (Cmd/Ctrl+K then G). The tabs are **Agents**, **My standards** and **Performance**.
 Select **New agent**, use **Draft agent** to draft one from a description, then edit it.
 Agents come from three sources: built-in, custom, and from the repository (files such as `.claude/agents/`).
-The detail view offers **Assign…**, **Duplicate**, **Archive**, **Export** and **Write to repository**.
+The detail view offers **Assign…**, **Duplicate** and **Archive**.
 Screens: [Agents](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agents.png)
 
 Main settings under **How it runs**:
@@ -581,7 +581,7 @@ Each edit leaves a receipt with **Undo**. Undo restores the saved prior informat
 and refuses if the panel changed afterward or the workspace moved out of its
 registered repository. Retrying does not duplicate the edit. Automatic follow-ups
 cannot make these edits. Creating fields or workspaces and reading/inspection are
-outside this action; scheduled work keeps its existing confirmation flow.
+outside this action.
 
 **How independently Tars acts** offers three levels.
 **Actions and confirmations** expands what Tars does on its own,
@@ -684,22 +684,8 @@ work. A card with nothing left to clear offers **Close**, so it does not come
 back after a restart. **Not now** also saves the dismissal, so the card stays closed
 after re-entry or restart.
 
-Ask Tars for work that should run later or repeat, such as "every weekday at
-9, check the release branch" or "tomorrow at 3 pm look at this again". Tars
-shows a schedule card with what will run and the next two runs in local time
-with the time zone, and its name and where it runs under **Details**; nothing
-is created until you confirm. A new
-schedule is saved paused: **Create** (Enter) keeps it paused, **Create and
-turn on** enables it to run at the shown times. It is a normal schedule in **Schedules**: each run
-starts a new task in that workspace in the Guided permission mode, one run at
-a time, and only while Stave is open. Each run leaves a record in the
-conversation marked as started by the schedule, and **Schedules** under the
-tray's lanes lists the ones Tars created with their next run, last outcome
-and a pause switch, plus **Open Schedules**. Tars changes, pauses, turns on
-or removes only schedules it created, each on its own card; one you made or
-edited in Schedules is yours, and Tars says so. A time that has passed, an
-interval under one minute and an unregistered workspace are refused with the
-reason.
+Tars starts work when you ask and cannot run it later or on a repeat. For
+that, create a schedule in **Schedules** (see [Automation](#automation)).
 
 While the message box is empty, Tars's saved conversation model generates up
 to four suggestions about your work in a separate read-only turn with tools
@@ -712,8 +698,8 @@ with the generated prompt; nothing is sent until you send it.
 An empty or cleared conversation shows a start screen: a greeting, **Right
 now** (how many pieces of work need you, are running and finished in the last
 day; each count opens its section of the work list), **Try asking** (example
-requests grouped by what Tars can do, from handing off and scheduling work to
-tidying up, which also only fill the message box)
+requests grouped by what Tars can do, from handing off work to tidying up,
+which also only fill the message box)
 and **Where Tars can work** (your registered repositories, or how to add one
 with **Open repository** in the sidebar).
 
@@ -1073,8 +1059,8 @@ notice and keeps your draft until you clear or replace the selection.
 focuses the composer without sending. **View result** opens its report. Drafts
 and selected work survive restart. Follow-up messages and structured reply
 choices keep the work's stable ID even when its title or status changes.
-While work is selected, Tars acts only on that work: new work, schedules,
-clearing and actions on other work are refused. Clear the selection before
+While work is selected, Tars acts only on that work: new work, clearing and
+actions on other work are refused. Clear the selection before
 requesting independent new work or acting on several work items. A follow-up
 for selected work, including completed work, continues it in its existing task
 with the usual confirmation and ownership checks; when that is refused, nothing
@@ -1145,7 +1131,7 @@ Screens: [Subagent results](https://github.com/sendbird/stave/blob/main/docs/scr
 | States       | On, Off (runs only from **Run now**)              | On, Paused, Stopped                                             |
 | Limits       | 1 to 8 concurrent runs (default 1)                | One per task. Claude and Codex only. Pauses while that task has an active agent run |
 
-Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**. A schedule set up by asking Tars is listed here too; it can also run once at a date and time, shown as **Once on …**, after which it turns itself off.
+Cmd/Ctrl+K then A also opens Schedules. Start-a-task schedules that an agent creates through MCP start Off; check them, then choose **Turn on**. A schedule an agent sets up can also run once at a date and time, shown as **Once on …**, after which it turns itself off.
 Screens: [Schedules](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/schedules.png)
 
 ## Fleet View

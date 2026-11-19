@@ -13,7 +13,6 @@ import { listAgents } from "../../src/lib/agents/library";
 import { tarsPlannerAgents } from "../../src/lib/tars/agents";
 import { tarsExecutionTarget } from "../../src/lib/tars/execution-resources";
 import { notifyTarsChanged } from "./tars-events";
-import { tarsPlannerClock } from "../../src/lib/tars/schedules";
 
 let instance: Promise<ReturnType<typeof createTarsConversationService>> | null = null;
 let stopping = false;
@@ -33,9 +32,7 @@ export function getTarsConversationService() {
       context: async (message) => {
         const execution = tarsExecutionTarget(message);
         const observedAt = new Date();
-        return { ...observeTarsContext(store, observedAt.toISOString(), message), cwd, clock: tarsPlannerClock(observedAt),
-          // The Schedules service lives in the host; an unreadable list is said to be unreadable, never empty.
-          schedules: await invokeHostService("tars.schedules", undefined).catch(() => null),
+        return { ...observeTarsContext(store, observedAt.toISOString(), message), cwd,
           agents: tarsPlannerAgents({ agents: listAgents({ custom: getCustomAgents(), activeOnly: true }),
             allowedAgentIds: message.allowedAgentIds ?? [], executionProviderId: execution.providerId, executionModel: execution.model }) };
       },
