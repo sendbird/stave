@@ -3,8 +3,12 @@ import { expect, test, type Page } from "@playwright/test";
 /** The Task panel's outputs sit in its Details; open them unless already open. */
 async function openDetails(page: Page) {
   const details = page.getByTestId("task-details");
-  if ((await details.getAttribute("open")) === null) await details.locator("summary").click();
-  await expect(details).toHaveAttribute("open", "");
+  // A task whose saved history ends in a failure opens Details by itself once
+  // the history loads; a click racing it would close them again.
+  await expect(async () => {
+    if ((await details.getAttribute("open")) === null) await details.locator("summary").click();
+    await expect(details).toHaveAttribute("open", "", { timeout: 1_000 });
+  }).toPass();
 }
 
 const summary = "Tightened the row gaps to 8px and kept the keyboard order; typecheck and the focused tests pass.";
@@ -57,7 +61,8 @@ for (const lang of ["en", "ko"] as const) {
       expect(state.draft).toContain("Keep my existing note.");
       expect(state.draft).toContain("Requested changes:");
       expect(state.active).toBeFalsy();
-      await expect(outputs.getByRole("status")).toBeVisible();
+      // The draft notice (an entry also keeps an empty live region of its own).
+      await expect(outputs.getByRole("status").filter({ hasText: /\S/ })).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`task-outputs-${lang}-${theme}.png`), fullPage: true, animations: "disabled" });
       const frame = page.getByTestId("task-panel-frame");
       expect(await frame.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
@@ -80,6 +85,8 @@ test("auto-read outputs remain listed", async ({ page }) => {
     const read = selectAutoReviewableResults({
       results: page.results,
       surface: { activeWorkspaceId: state.activeWorkspaceId!, visibleTaskId: state.activeTaskId!, windowFocused: true },
+      // The newest finished turn the task shows, as the Fleet dwell passes it.
+      latestResultTurnId: page.results[0]?.turnId ?? null,
       dwellStartedAtMs: nowMs - FLEET_RESULT_AUTO_REVIEW_DWELL_MS,
       nowMs,
     });

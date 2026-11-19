@@ -85,6 +85,48 @@ export function hasDurableResultReviewStore() {
   return typeof window.api?.persistence?.listResultReviews === "function";
 }
 
+/**
+ * The browser store's read (localStorage), as `listResultReviews` answers it
+ * without a desktop bridge; the dev previews serve their bridge stub from it.
+ */
+export function listBrowserResultReviews(input: ListResultReviewsArgs = {}): ResultReviewPage {
+  const args = ListResultReviewsArgsSchema.parse(input);
+  // Sort the complete history first: filtering unread rows before choosing a
+  // task's latest result would resurrect a failure after its successor is read.
+  let rows = fallbackRows().sort((a, b) => {
+    if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt ? -1 : 1;
+    return a.id === b.id ? 0 : a.id > b.id ? -1 : 1;
+  });
+  if (args.latestPerTask) {
+    const seenTasks = new Set<string>();
+    rows = rows.filter((row) => {
+      const taskKey = JSON.stringify([row.repositoryPath, row.workspaceId, row.taskId]);
+      if (seenTasks.has(taskKey)) return false;
+      seenTasks.add(taskKey);
+      return true;
+    });
+  }
+  rows = rows.filter(
+    (row) =>
+      (!args.workspaceIds || args.workspaceIds.includes(row.workspaceId)) &&
+      (!args.workspaceId || row.workspaceId === args.workspaceId) &&
+      (!args.taskId || row.taskId === args.taskId) &&
+      (!args.turnId || row.turnId === args.turnId) &&
+      (!args.pendingOnly || !row.reviewedAt),
+  );
+  const offset = args.offset ?? 0;
+  const results = rows.slice(offset, offset + (args.limit ?? 100)).map((row) => {
+    if (args.includeEvidence !== false) return row;
+    const { evidence: _evidence, ...summary } = row;
+    return summary;
+  });
+  return {
+    results,
+    total: rows.length,
+    hasMore: offset + results.length < rows.length,
+  };
+}
+
 export function listResultReviews(
   input: ListResultReviewsArgs = {},
 ): Promise<ResultReviewPage> {
@@ -106,40 +148,7 @@ export function listResultReviews(
         );
       return response;
     }
-    // Sort the complete history first: filtering unread rows before choosing a
-    // task's latest result would resurrect a failure after its successor is read.
-    let rows = fallbackRows().sort((a, b) => {
-      if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt ? -1 : 1;
-      return a.id === b.id ? 0 : a.id > b.id ? -1 : 1;
-    });
-    if (args.latestPerTask) {
-      const seenTasks = new Set<string>();
-      rows = rows.filter((row) => {
-        const taskKey = JSON.stringify([row.repositoryPath, row.workspaceId, row.taskId]);
-        if (seenTasks.has(taskKey)) return false;
-        seenTasks.add(taskKey);
-        return true;
-      });
-    }
-    rows = rows.filter(
-        (row) =>
-          (!args.workspaceIds || args.workspaceIds.includes(row.workspaceId)) &&
-          (!args.workspaceId || row.workspaceId === args.workspaceId) &&
-          (!args.taskId || row.taskId === args.taskId) &&
-          (!args.turnId || row.turnId === args.turnId) &&
-          (!args.pendingOnly || !row.reviewedAt),
-      );
-    const offset = args.offset ?? 0;
-    const results = rows.slice(offset, offset + (args.limit ?? 100)).map((row) => {
-      if (args.includeEvidence !== false) return row;
-      const { evidence: _evidence, ...summary } = row;
-      return summary;
-    });
-    return {
-      results,
-      total: rows.length,
-      hasMore: offset + results.length < rows.length,
-    };
+    return listBrowserResultReviews(args);
   })().finally(() => {
     if (reads.get(key) === pending) reads.delete(key);
   });
@@ -165,23 +174,7 @@ export async function setResultReviewed(
       );
     result = response.result;
   } else {
-    const rows = fallbackRows();
-    const index = rows.findIndex(
-      (row) => resultReviewKey(row) === resultReviewKey(args),
-    );
-    const current = rows[index];
-    if (!current)
-      throw new Error(
-        "This result could not be found. Refresh the result list.",
-      );
-    result = {
-      ...current,
-      reviewedAt: args.reviewed
-        ? (current.reviewedAt ?? new Date().toISOString())
-        : null,
-    };
-    rows[index] = result;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    result = setBrowserResultReviewed(args);
   }
   invalidateResultReviews();
   return result;
@@ -207,21 +200,7 @@ export async function setResultMarkedReviewed(
       throw new Error("The review mark was not saved. Retry.");
     result = response.result;
   } else {
-    const rows = fallbackRows();
-    const index = rows.findIndex(
-      (row) => resultReviewKey(row) === resultReviewKey(args),
-    );
-    const current = rows[index];
-    if (!current)
-      throw new Error(
-        "This result could not be found. Refresh the result list.",
-      );
-    const now = new Date().toISOString();
-    result = args.markedReviewed
-      ? { ...current, markedReviewedAt: current.markedReviewedAt ?? now, reviewedAt: current.reviewedAt ?? now }
-      : { ...current, markedReviewedAt: null };
-    rows[index] = result;
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+    result = setBrowserResultMarkedReviewed(args);
   }
   invalidateResultReviews();
   return result;
@@ -250,6 +229,46 @@ export async function setResultsReviewed(
     invalidateResultReviews();
     return response.updated;
   }
+  const updated = setBrowserResultsReviewed(args);
+  invalidateResultReviews();
+  return updated;
+}
+
+function updateBrowserRow(scope: SetResultReviewedArgs | SetResultMarkedReviewedArgs, change: (row: ResultReview) => ResultReview) {
+  const rows = fallbackRows();
+  const index = rows.findIndex((row) => resultReviewKey(row) === resultReviewKey(scope));
+  const current = rows[index];
+  if (!current)
+    throw new Error(
+      "This result could not be found. Refresh the result list.",
+    );
+  const result = change(current);
+  rows[index] = result;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  return result;
+}
+
+/** The browser store's writes, as the functions above make them without a desktop bridge. */
+export function setBrowserResultReviewed(input: SetResultReviewedArgs): ResultReview {
+  const args = SetResultReviewedArgsSchema.parse(input);
+  return updateBrowserRow(args, (current) => ({
+    ...current,
+    reviewedAt: args.reviewed
+      ? (current.reviewedAt ?? new Date().toISOString())
+      : null,
+  }));
+}
+
+export function setBrowserResultMarkedReviewed(input: SetResultMarkedReviewedArgs): ResultReview {
+  const args = SetResultMarkedReviewedArgsSchema.parse(input);
+  const now = new Date().toISOString();
+  return updateBrowserRow(args, (current) => args.markedReviewed
+    ? { ...current, markedReviewedAt: current.markedReviewedAt ?? now, reviewedAt: current.reviewedAt ?? now }
+    : { ...current, markedReviewedAt: null });
+}
+
+export function setBrowserResultsReviewed(input: SetResultsReviewedArgs): number {
+  const args = SetResultsReviewedArgsSchema.parse(input);
   const rows = fallbackRows();
   const wanted = new Set(args.scopes.map((scope) => resultReviewKey(scope)));
   let updated = 0;
@@ -263,6 +282,5 @@ export async function setResultsReviewed(
     return { ...row, reviewedAt };
   });
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  invalidateResultReviews();
   return updated;
 }

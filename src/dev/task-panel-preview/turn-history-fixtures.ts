@@ -6,6 +6,18 @@ import type {
   TurnRecord,
   TurnRecordMessage,
 } from "@/lib/providers/turn-history";
+import type {
+  ListResultReviewsArgs,
+  SetResultMarkedReviewedArgs,
+  SetResultReviewedArgs,
+  SetResultsReviewedArgs,
+} from "@/lib/reviews/result-review";
+import {
+  listBrowserResultReviews,
+  setBrowserResultMarkedReviewed,
+  setBrowserResultReviewed,
+  setBrowserResultsReviewed,
+} from "@/lib/reviews/result-review-client";
 import type { ChatMessage } from "@/types/chat";
 import {
   applyHandoffDraft,
@@ -82,7 +94,12 @@ function toRecordMessages(messages: readonly ChatMessage[], turnId: string): Tur
     .map((message) => ({ id: message.id, role: message.role, turnId, parts: message.parts }));
 }
 
-/** Install the two turn-history reads unless a real bridge provides them. */
+/**
+ * Install the two turn-history reads unless a real bridge provides them. A
+ * persistence bridge without the result reviews would make the Outputs list
+ * report its storage unavailable, so the stub serves them from the browser
+ * store the preview seeds, as the browser build reads them.
+ */
 export function stubTurnHistory(args: { plainTaskId: string; messages: readonly ChatMessage[] }) {
   const host = window as unknown as {
     api?: Record<string, unknown> & { persistence?: Record<string, unknown> };
@@ -96,6 +113,10 @@ export function stubTurnHistory(args: { plainTaskId: string; messages: readonly 
         ok: true,
         page: { turns: previewTurnHistory(request.taskId, args.plainTaskId), hasMore: false },
       }),
+      listResultReviews: async (request?: ListResultReviewsArgs) => ({ ok: true, ...listBrowserResultReviews(request) }),
+      setResultReviewed: async (request: SetResultReviewedArgs) => ({ ok: true, result: setBrowserResultReviewed(request) }),
+      setResultMarkedReviewed: async (request: SetResultMarkedReviewedArgs) => ({ ok: true, result: setBrowserResultMarkedReviewed(request) }),
+      setResultsReviewed: async (request: SetResultsReviewedArgs) => ({ ok: true, updated: setBrowserResultsReviewed(request) }),
       readTaskTurnRecord: async (request: ReadTaskTurnRecordArgs) => {
         const turn = previewTurnHistory(request.taskId, args.plainTaskId).find((entry) => entry.id === request.turnId);
         const record: TurnRecord | null = turn
