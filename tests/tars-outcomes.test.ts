@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { summarizeTarsOutcomes, tarsOutcome, type TarsOutcomeRow } from "../scripts/measure-tars-outcomes";
@@ -92,6 +92,33 @@ test("the CLI reads applied human answers and attributes them to the work they d
     const stdout = result.stdout.toString();
     const summary = JSON.parse(stdout.slice(stdout.lastIndexOf("\n{") + 1));
     expect(summary).toMatchObject({ pullRequests: 6, humanDecided: 3, unattendedRate: 50 });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the CLI reads a plain copy of a live database and limits work to the range", () => {
+  const dir = mkdtempSync(join(tmpdir(), "stave-outcomes-"));
+  const live = join(dir, "live.sqlite");
+  const copy = join(dir, "copy.sqlite");
+  try {
+    const db = new Database(live);
+    try {
+      // The app keeps its database in WAL mode; a copy of the file alone keeps that mode but no shared-memory file.
+      db.exec("PRAGMA journal_mode = WAL");
+      db.exec("CREATE TABLE tars_responsibilities (created_at TEXT, body_json TEXT); CREATE TABLE agent_run_events (agent_run_id TEXT, sequence INTEGER, kind TEXT, detail_json TEXT, created_at TEXT);");
+      for (const [id, minutes] of [["early", 0], ["late", 600]] as const) {
+        db.run("INSERT INTO tars_responsibilities VALUES (?, ?)", [at(minutes), JSON.stringify({ id, title: id, createdAt: at(minutes), updatedAt: at(minutes + 30), state: "cancelled" })]);
+      }
+    } finally {
+      db.close();
+    }
+    copyFileSync(live, copy);
+    const result = Bun.spawnSync([process.execPath, "scripts/measure-tars-outcomes.ts", copy, `--since=${at(0)}`, `--until=${at(600)}`]);
+    expect(result.stderr.toString()).toBe("");
+    expect(result.exitCode).toBe(0);
+    const stdout = result.stdout.toString();
+    expect(JSON.parse(stdout.slice(stdout.lastIndexOf("\n{") + 1))).toMatchObject({ total: 1, cancelled: 1 });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
