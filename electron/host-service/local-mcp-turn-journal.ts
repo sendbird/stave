@@ -236,12 +236,19 @@ export function projectTurnStatus(args: {
   )?.content;
   let text = answer(args.messages);
   // A reference may point behind the resident window after follow-up turns.
-  if (!text && args.targeted && args.turn && args.readOlderMessages) {
+  // Read back only until the turn's own rows or anything older; the receipt
+  // answers for a turn that left no message, or for history that cannot be read.
+  const turn = args.turn;
+  const reachedTurn = (page: typeof args.messages) => !!turn && page.some((message) =>
+    message.turnId === turn.id || (message.startedAt !== undefined && message.startedAt < turn.createdAt));
+  if (!text && args.targeted && turn && args.readOlderMessages && !reachedTurn(args.messages)) {
     let offset = args.messages.length;
     while (!text) {
-      const page = args.readOlderMessages(offset);
+      let page: typeof args.messages;
+      try { page = args.readOlderMessages(offset); } catch { break; }
       if (!page.length) break;
       text = answer(page);
+      if (reachedTurn(page)) break;
       offset += page.length;
     }
   }
