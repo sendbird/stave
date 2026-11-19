@@ -105,8 +105,8 @@ test("8: Tars claims cover execution commits, bounded rounds/retries and logical
   expect(docs).toContain("up to six provider attempts");
   const claims = docs.replace(/\s+/g, " ");
   expect(claims).toContain("One follow-up counts once in the hourly limit even when it uses inspection rounds or transient retries");
-  // No count of automatic turns since the user's last action stops follow-ups any more.
-  expect(claims).toContain("No count of automatic turns stops follow-ups");
+  // No lifetime count stops follow-ups any more; an ask repeated without progress does.
+  expect(claims).toContain("No lifetime count of automatic turns stops follow-ups; progress does.");
   expect(claims).not.toContain("cap of 20 automatic follow-ups");
 });
 
