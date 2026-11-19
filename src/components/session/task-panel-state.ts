@@ -7,7 +7,11 @@ import {
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import type { StageIdentity } from "@/lib/review/review-stage";
 import type { TurnHistoryEntry } from "@/lib/providers/turn-history";
-import type { ProviderTurnActivitySnapshot, RetainedTurnActivity } from "@/lib/providers/turn-status";
+import type {
+  ProviderTurnActivitySnapshot,
+  ProviderTurnPendingInteraction,
+  RetainedTurnActivity,
+} from "@/lib/providers/turn-status";
 import {
   resolveTaskUserState,
   resolveTurnEnding,
@@ -157,6 +161,27 @@ export function findTaskPendingRequests(messages: readonly ChatMessage[], liveTu
   return found ?? NO_PENDING;
 }
 
+const keyByMessages = new WeakMap<readonly ChatMessage[], { liveTurnId: string | null; key: string }>();
+
+/**
+ * The open requests as one string, for a store selector: a streaming turn's
+ * text deltas leave it equal, so the panel does not re-render on them. Read
+ * once per messages array (the store replaces it on change), and each message
+ * once per identity, so only the message that changed is read again.
+ */
+export function taskPendingRequestsKey(messages: readonly ChatMessage[], liveTurnId: string | null): string {
+  const known = keyByMessages.get(messages);
+  if (known && known.liveTurnId === liveTurnId) return known.key;
+  const pending = findTaskPendingRequests(messages, liveTurnId);
+  const key = pending === NO_PENDING ? "" : JSON.stringify(pending);
+  keyByMessages.set(messages, { liveTurnId, key });
+  return key;
+}
+
+export function parseTaskPendingRequests(key: string): TaskPendingRequests {
+  return key ? (JSON.parse(key) as TaskPendingRequests) : NO_PENDING;
+}
+
 /**
  * The request the state waits on: the live turn's own prompt when its hint
  * names one, else the open card of the same kind, so the words and the jump
@@ -189,26 +214,31 @@ export function buildTaskPanelStatus(args: {
   now: number;
   /** The open requests (`findTaskPendingRequests`); read from `messages` when absent. */
   pending?: TaskPendingRequests;
+  /** The live turn's prompt hint; read from `activity` when absent. */
+  livePending?: ProviderTurnPendingInteraction | null;
 }): TaskPanelStatus {
   const { messages, history } = args;
   const currentTurnId = args.liveTurnId ?? latestSettledTurnId(messages, history);
   const past = args.selectedTurnId && args.selectedTurnId !== currentTurnId ? args.selectedTurnId : null;
   const turnId = past ?? currentTurnId;
   const entry = turnId ? history?.find((turn) => turn.id === turnId) ?? null : null;
-  const message = lastAssistantOfTurn(messages, turnId);
+  // The live turn has not ended and shows no result: nothing in its messages
+  // is read while it streams.
+  const live = turnId !== null && turnId === args.liveTurnId;
+  const message = live ? null : lastAssistantOfTurn(messages, turnId);
   // Without a saved record, the turn's own message (and its retained or live
   // snapshot) tells how it ended, for a past turn too.
-  const ending = (entry ? historyEnding(entry) : null) ?? resolveTurnEnding({
+  const ending = live ? null : (entry ? historyEnding(entry) : null) ?? resolveTurnEnding({
     message,
     retained: args.retained?.snapshot.turnId === turnId ? args.retained : null,
     activity: args.activity?.turnId === turnId ? args.activity : null,
   });
-  const lastTurn = ending && !(turnId === args.liveTurnId)
+  const lastTurn = ending
     ? { ...ending, endedAt: entry?.completedAt ?? message?.completedAt ?? null }
     : null;
   const turnResult: TaskResult = {
     pullRequest: null,
-    changedFiles: changedFilesOfTurn(messages, turnId),
+    changedFiles: live ? 0 : changedFilesOfTurn(messages, turnId),
     answerMessageId: message?.id ?? null,
   };
   if (past) {
@@ -232,7 +262,11 @@ export function buildTaskPanelStatus(args: {
   const reviewStage = run?.changes && args.agentRun ? agentRunChangesStage(args.agentRun) : null;
   const facts: TaskStateFacts = {
     liveTurn: args.liveTurnId
-      ? { pendingInteraction: args.activity?.turnId === args.liveTurnId ? (args.activity.pendingInteraction ?? null) : null }
+      ? {
+          pendingInteraction: args.livePending !== undefined
+            ? args.livePending
+            : args.activity?.turnId === args.liveTurnId ? (args.activity.pendingInteraction ?? null) : null,
+        }
       : null,
     pendingDecision: decision,
     agentRun: run && args.agentRun

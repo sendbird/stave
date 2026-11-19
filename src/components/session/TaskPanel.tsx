@@ -25,10 +25,35 @@ import { SubagentsSection } from "./SubagentsSection";
 import { TaskPanelEmpty } from "./TaskPanelEmpty";
 import { TaskPanelSummary } from "./TaskPanelSummary";
 import { TurnActivityHistory, useTaskTurnHistory } from "./TurnActivityHistory";
-import { buildTaskPanelStatus } from "./task-panel-state";
+import {
+  buildTaskPanelStatus,
+  parseTaskPendingRequests,
+  taskPendingRequestsKey,
+} from "./task-panel-state";
+import type { ProviderTurnActivitySnapshot, RetainedTurnActivity } from "@/lib/providers/turn-status";
 import type { ChatMessage } from "@/types/chat";
 
 const NO_MESSAGES: ChatMessage[] = [];
+
+type TaskPanelSettled = readonly [ChatMessage[], ProviderTurnActivitySnapshot | null, RetainedTurnActivity | null];
+const NO_SETTLED: TaskPanelSettled = [NO_MESSAGES, null, null];
+
+/**
+ * What only a settled turn needs: the messages (its answer, files and ending)
+ * and its activity snapshots. While a turn runs and the panel follows it, it
+ * reads none of them, so a streaming turn's text deltas never re-render it;
+ * the open requests and the live turn's prompt come from their own selectors.
+ */
+export function selectTaskPanelSettled(taskId: string, followsSettledTurn: boolean) {
+  return (state: Pick<AppState, "messagesByTask" | "activeTurnIdsByTask" | "providerTurnActivityByTask" | "retainedTurnActivityByTask">): TaskPanelSettled =>
+    followsSettledTurn || !state.activeTurnIdsByTask[taskId]
+      ? [
+          state.messagesByTask[taskId] ?? NO_MESSAGES,
+          state.providerTurnActivityByTask[taskId] ?? null,
+          state.retainedTurnActivityByTask[taskId] ?? null,
+        ]
+      : NO_SETTLED;
+}
 
 /**
  * The right rail's Task panel, one screen read top to bottom: where the task
@@ -102,15 +127,21 @@ export function TaskPanelView(props: {
   const history = useTaskTurnHistory(workspaceId, taskId);
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState<boolean | null>(null);
-  const [messages, liveTurnId, activity, retained, prInfo] = useAppStore(
-    useShallow((state) => [
-      state.messagesByTask[taskId] ?? NO_MESSAGES,
-      state.activeTurnIdsByTask[taskId] ?? null,
-      state.providerTurnActivityByTask[taskId] ?? null,
-      state.retainedTurnActivityByTask[taskId] ?? null,
-      state.workspacePrInfoById[workspaceId],
-    ] as const),
+  const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? null);
+  const prInfo = useAppStore((state) => state.workspacePrInfoById[workspaceId]);
+  // Strings and a primitive: equal across text deltas, so they re-render nothing.
+  const pendingKey = useAppStore((state) =>
+    taskPendingRequestsKey(state.messagesByTask[taskId] ?? NO_MESSAGES, state.activeTurnIdsByTask[taskId] ?? null),
   );
+  const livePending = useAppStore((state) => {
+    const live = state.activeTurnIdsByTask[taskId];
+    const snapshot = state.providerTurnActivityByTask[taskId];
+    return live && snapshot?.turnId === live ? (snapshot.pendingInteraction ?? null) : null;
+  });
+  const [messages, activity, retained] = useAppStore(
+    useShallow(selectTaskPanelSettled(taskId, selectedTurnId !== null)),
+  );
+  const pending = useMemo(() => parseTaskPendingRequests(pendingKey), [pendingKey]);
   const now = useNow(Boolean(agentRun && isActiveAgentRunState(agentRun.agentRun.state)));
   const turns = history.state.status === "ready" ? history.state.data.turns : null;
   const view = useMemo(
@@ -124,10 +155,12 @@ export function TaskPanelView(props: {
       prInfo,
       selectedTurnId,
       now,
+      pending,
+      livePending,
     }),
     // The state's reasons and labels are translated.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [messages, liveTurnId, activity, retained, turns, agentRun, prInfo, selectedTurnId, now, i18n.language],
+    [messages, liveTurnId, activity, retained, turns, agentRun, prInfo, selectedTurnId, now, pending, livePending, i18n.language],
   );
   const open = detailsOpen ?? view.focusDetails;
   return (

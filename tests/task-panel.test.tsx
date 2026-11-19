@@ -362,3 +362,27 @@ test("F5: the files counted and the changes Review opens are the same scope", ()
   expect(plain.status?.result?.changedFiles).toBe(2);
   expect(plain.reviewStage).toBeNull();
 });
+
+test("F6: a streaming turn's text never makes the panel rescan the conversation", async () => {
+  const { selectTaskPanelSettled } = await import("@/components/session/TaskPanel");
+  const { taskPendingRequestsKey, findTaskPendingRequests } = await import("@/components/session/task-panel-state");
+  const streaming: ChatMessage = { ...LIVE_APPROVAL, parts: [{ type: "text", text: "Look" }] } as unknown as ChatMessage;
+  const before = [OLD_ASYNC_QUESTION, REPLY, streaming];
+  const after = [OLD_ASYNC_QUESTION, REPLY, { ...streaming, parts: [{ type: "text", text: "Looking at the router" }] } as unknown as ChatMessage];
+  // The open requests read the same after a text delta: nothing to re-render.
+  expect(taskPendingRequestsKey(after, "turn-3")).toBe(taskPendingRequestsKey(before, "turn-3"));
+  // While a turn runs, the panel reads no messages at all (one shared empty value).
+  const live = { messagesByTask: { [TASK_ID]: before }, activeTurnIdsByTask: { [TASK_ID]: "turn-3" }, providerTurnActivityByTask: {}, retainedTurnActivityByTask: {} };
+  const select = selectTaskPanelSettled(TASK_ID, false);
+  expect(select(live as never)).toBe(select({ ...live, messagesByTask: { [TASK_ID]: after } } as never));
+  // And the state is still decided: the live turn's approval, from the requests alone.
+  const untouchable = new Proxy([] as ChatMessage[], { get(target, key) { if (key === "length" || key === Symbol.iterator) throw new Error("rescanned"); return Reflect.get(target, key); } });
+  const view = status({
+    messages: untouchable,
+    liveTurnId: "turn-3",
+    livePending: "approval",
+    pending: findTaskPendingRequests([OLD_ASYNC_QUESTION, REPLY, LIVE_APPROVAL], "turn-3"),
+  });
+  expect(view.status).toMatchObject({ state: "waiting", waitingOn: "approval" });
+  expect(view.request?.requestId).toBe("ap-live");
+});
