@@ -250,7 +250,7 @@
     "eventLimit": "Change-request outcomes and follow-ups use retained events, up to 2,000 per run. A completed run without a recorded change request does not prove the work passed review.",
     "costLimit": "Reported spend includes failed and cancelled runs with known costs. Missing costs are excluded, so this is not a complete bill or a fair provider price comparison.",
     "emptyTitle": "No ended agent runs in this sample",
-    "emptyDescription": "Assign work to an agent from the composer or Agents, or try a different period. Ordinary chat answers are saved in the task’s Outputs tab.",
+    "emptyDescription": "Assign work to an agent from the composer or Agents, or try a different period. Ordinary chat answers are saved under Outputs in the Task panel’s Details.",
     "refresh": "Refresh agent performance",
     "reasonShare_one": "{{count}} of {{total}} runs, {{percent}}",
     "reasonShare_other": "{{count}} of {{total}} runs, {{percent}}"

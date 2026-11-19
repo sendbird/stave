@@ -240,18 +240,26 @@ workspace's name, or its branch), so after you switch tasks, or move to an
 editor tab, the panel still says which task it describes. A long title or name
 is cut short; hover the line to read all of it.
 
-1. **State**: one line, one of five states — `Working`, `Waiting for you`,
-   `Blocked`, `Finished` or `Stopped`. One function decides it from the live
-   turn, an open question or approval, the [agent run](agent-runs.md) and how
-   the last turn ended, so the panel never shows a finished run next to a
-   failed turn. A turn's saved record decides how that turn ended.
+1. **State**: one line, one of six states — `Working`, `Waiting` (an agent
+   run waits for a usage reset, PR checks or a set time, needs nobody and
+   resumes on its own), `Waiting for you`, `Blocked`, `Finished` or `Stopped`.
+   While it works, the same line adds the step the turn is running now, such
+   as `Run command · bun test`, cut short when long. One function decides the
+   state from the live turn, an open question or approval, the
+   [agent run](agent-runs.md) and how the last turn ended, so the panel never
+   shows a finished run next to a failed turn. With no live turn it follows the
+   newest turn of the conversation or the saved history, whichever is later; a
+   turn's saved record decides how that turn ended, else its own reply.
 2. **What you need to do**: only while something waits on you — a question,
    an approval or a stage sign-off — with the question and the action that
-   answers it (**Answer**, or **Review request**), which takes you to it in
-   the conversation.
-3. **Result**: once finished, the pull request, the files the turn changed
-   (**Review changes**) and **Show answer**, which jumps to the reply. When it
-   stopped, why; when blocked, why it cannot go on.
+   answers it (**Answer**, or **Review request**), which takes you to that same
+   request in the conversation.
+3. **Result**: once finished, the pull request, the files changed with
+   **Review changes**, and **Show answer**, which jumps to the turn's reply.
+   For an agent run the count is the run's reported diff and Review opens that
+   stage; otherwise it is the turn's own edits and Review opens the turn. When
+   it stopped, why; when blocked, why it cannot go on; while `Waiting`, what it
+   waits for and when it resumes.
 4. **Still open**: the run's completion conditions that are not met or not
    verified yet. Met ones are not repeated here.
 5. **Details**, collapsed: the activity (with the **Turn** picker), the steps
