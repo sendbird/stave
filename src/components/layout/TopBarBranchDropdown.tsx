@@ -115,9 +115,9 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     detectedCurrentBranch.workspaceId === activeWorkspaceId
       ? detectedCurrentBranch.branch
       : null;
-  const currentBranch = isDefaultWorkspace
-    ? (detectedActualBranch ?? activeWorkspaceBranch ?? null)
-    : (activeWorkspaceBranch ?? detectedActualBranch ?? null);
+  // The worktree's own HEAD wins over the cached store value: a checkout run
+  // outside the dropdown (terminal, agent) only shows up in the detected read.
+  const currentBranch = detectedActualBranch ?? activeWorkspaceBranch ?? null;
   const isDetachedCheckout = isDetachedHead(currentBranch);
   const currentBranchLabel = currentBranch
     ? formatBranchLabel(currentBranch)
@@ -200,6 +200,17 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         workspaceId: activeWorkspaceId,
         branch: result.current,
       });
+      if (
+        !isDefaultWorkspace &&
+        useAppStore.getState().workspaceBranchById[activeWorkspaceId] !==
+          result.current
+      ) {
+        // Sync the cache so every other branch surface follows the checkout.
+        setWorkspaceBranch({
+          workspaceId: activeWorkspaceId,
+          branch: result.current,
+        });
+      }
       setBranches(result.branches);
       setRemoteBranches(result.remoteBranches ?? []);
       setWorktreePathByBranch(result.worktreePathByBranch ?? {});
@@ -207,7 +218,13 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       // Branch detection is a background integrity check. The explicit menu
       // refresh path reports actionable errors.
     }
-  }, [activeWorkspaceId, hasWorkspaceContext, workspaceCwd]);
+  }, [
+    activeWorkspaceId,
+    hasWorkspaceContext,
+    isDefaultWorkspace,
+    setWorkspaceBranch,
+    workspaceCwd,
+  ]);
 
   useEffect(() => {
     branchRequestIdRef.current += 1;
@@ -248,7 +265,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   ]);
 
   useEffect(() => {
-    if (!hasWorkspaceContext || !isDefaultWorkspace) {
+    if (!hasWorkspaceContext) {
       return;
     }
     const refreshWhenVisible = () => {
@@ -263,7 +280,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       window.clearInterval(timer);
       window.removeEventListener("focus", refreshWhenVisible);
     };
-  }, [hasWorkspaceContext, isDefaultWorkspace, refreshDetectedBranch]);
+  }, [hasWorkspaceContext, refreshDetectedBranch]);
 
   useEffect(() => {
     if (!branchDrift) {

@@ -13,6 +13,7 @@ import {
   type WorkspaceSummary,
 } from "@/lib/db/workspaces.db";
 import { workspaceFsAdapter } from "@/lib/fs";
+import { DETACHED_HEAD_BRANCH } from "@/lib/source-control-branch-label";
 import {
   listRepositoryWorktrees,
   normalizeComparablePath,
@@ -1034,8 +1035,27 @@ export function createWorkspaceHydrationActions(args: {
       const newRows: WorkspaceSummary[] = [];
       const newBranchById: Record<string, string> = {};
       const newPathById: Record<string, string> = {};
+      // `workspaceBranchById` is a cache of each worktree's HEAD. A checkout run
+      // from the workspace terminal or by an agent changes HEAD without going
+      // through the branch dropdown, so re-read it for every known worktree.
+      const changedBranchById: Record<string, string> = {};
       for (const worktree of discoveredWorktrees) {
         const normalizedWorktreePath = normalizeComparablePath(worktree.path);
+        const knownWorkspaceId =
+          knownPathToId.get(normalizedWorktreePath) ??
+          (worktree.gitPath !== undefined
+            ? knownPathToId.get(normalizeComparablePath(worktree.gitPath))
+            : undefined);
+        const listedBranch =
+          worktree.branch ?? (worktree.detached ? DETACHED_HEAD_BRANCH : null);
+        if (
+          knownWorkspaceId &&
+          knownWorkspaceId !== defaultWorkspaceId &&
+          listedBranch &&
+          state.workspaceBranchById[knownWorkspaceId] !== listedBranch
+        ) {
+          changedBranchById[knownWorkspaceId] = listedBranch;
+        }
         if (
           !worktree.branch ||
           !normalizedWorktreePath ||
@@ -1118,7 +1138,11 @@ export function createWorkspaceHydrationActions(args: {
       }
 
       // Nothing changed – skip store update.
-      if (newRows.length === 0 && staleIds.length === 0) {
+      if (
+        newRows.length === 0 &&
+        staleIds.length === 0 &&
+        Object.keys(changedBranchById).length === 0
+      ) {
         return;
       }
 
@@ -1138,6 +1162,12 @@ export function createWorkspaceHydrationActions(args: {
 
         const nextBranch = {
           ...current.workspaceBranchById,
+          // Skip workspaces closed while this pass awaited Git.
+          ...Object.fromEntries(
+            Object.entries(changedBranchById).filter(([id]) =>
+              current.workspaces.some((ws) => ws.id === id),
+            ),
+          ),
           ...newBranchById,
         };
         const nextPath = { ...current.workspacePathById, ...newPathById };
