@@ -91,10 +91,12 @@ Either way, an answer that arrives later is part of the parent's next turn
 under **Subagent results**, once. A long answer is shortened with a reference
 to read the full turn. An answer that does not fit the turn arrives whole in
 the next one, oldest first. If several turns of one subagent end before the
-parent's next turn, each answer arrives. An answer counts as received once a
-parent turn that carried it reaches its provider, even if that turn is then
-stopped. A child attached to the message brings its latest reply that way; its
-other new answers still arrive under **Subagent results**.
+parent's next turn, each answer arrives. An answer counts as received once the
+provider accepts a parent turn that carried it, even if that turn is then
+stopped. A child attached to the message still brings its new answers under
+**Subagent results**, because the attachment is read separately and may be
+empty. An unattached composer review is announced there once and held until
+the user attaches it.
 
 ## Interface Walkthrough
 

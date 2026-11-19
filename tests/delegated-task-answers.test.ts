@@ -246,20 +246,20 @@ describe("owed subagent answers", () => {
     expect(parentTurn(store, history, at(4))).not.toContain("ANSWER-A");
   });
 
-  test("an attached child's answer and a held composer review settle once", () => {
+  test("an attached child's answer is carried in the results, so an attachment that could not be read loses nothing", () => {
     const store = new Ledger(new Database(":memory:"));
     startChild(store, "docs");
     answer(store, "docs", "turn-1", "ATTACHED-ANSWER", at(1));
     startChild(store, "stave-review-20261004120000-a");
     answer(store, "stave-review-20261004120000-a", "turn-1", "REVIEW-FINDINGS", at(2));
     const history: Message[] = [];
+    // The attachment's own read failed and put nothing in the prompt: the answer still arrives, once.
     const first = parentTurn(store, history, at(3), { attached: ["task-docs"] });
-    expect(first).toContain("result: attached to this message under Attached Stave Tasks");
+    expect(first).toContain("    ATTACHED-ANSWER");
     expect(first).toContain("result: held until the user attaches this review");
-    expect(first).not.toContain("ATTACHED-ANSWER");
     expect(first).not.toContain("REVIEW-FINDINGS");
     const later = parentTurn(store, history, at(4));
-    expect(later).not.toContain("attached to this message");
+    expect(later).not.toContain("ATTACHED-ANSWER");
     expect(later).not.toContain("held until");
   });
 
@@ -292,29 +292,17 @@ describe("owed subagent answers", () => {
     expect(seen).toEqual(Array.from({ length: 60 }, (_, i) => String(i).padStart(2, "0")));
   });
 
-  test("an attached task settles only the answer that is its latest reply", () => {
-    const store = new Ledger(new Database(":memory:"));
-    startChild(store, "docs");
-    answer(store, "docs", "turn-1", "OLDER-ANSWER", at(1));
-    answer(store, "docs", "turn-2", "NEWER-ANSWER", at(2));
-    const history: Message[] = [];
-    const first = parentTurn(store, history, at(3), { attached: ["task-docs"] });
-    // The latest reply arrives with the attachment; the older answer is not in it, so it comes here.
-    expect(first).toContain("    OLDER-ANSWER");
-    expect(first).not.toContain("NEWER-ANSWER");
-    expect(first).toContain("result: attached to this message under Attached Stave Tasks");
-    const later = parentTurn(store, history, at(4));
-    expect(later).not.toContain("-ANSWER");
-    expect(later).not.toContain("attached to this message");
-  });
-
-  test("an attached task whose turn is running settles none of its answers", () => {
+  test("every answer of an attached task arrives once, whatever the attachment held", () => {
     const store = new Ledger(new Database(":memory:"));
     const { runId, stepId } = startChild(store, "docs");
-    answer(store, "docs", "turn-1", "EARLIER-ANSWER", at(1));
-    expect(store.resumeStep({ runId, stepId, executionId: "exec-docs", idempotencyKey: "follow-up", now: at(2) }).accepted).toBe(true);
+    answer(store, "docs", "turn-1", "OLDER-ANSWER", at(1));
+    answer(store, "docs", "turn-2", "NEWER-ANSWER", at(2));
+    expect(store.resumeStep({ runId, stepId, executionId: "exec-docs", idempotencyKey: "follow-up", now: at(2, 30) }).accepted).toBe(true);
     const history: Message[] = [];
-    expect(parentTurn(store, history, at(3), { attached: ["task-docs"] })).toContain("    EARLIER-ANSWER");
+    const first = parentTurn(store, history, at(3), { attached: ["task-docs"] });
+    expect(first).toContain("    OLDER-ANSWER");
+    expect(first).toContain("    NEWER-ANSWER");
+    expect(parentTurn(store, history, at(4))).not.toContain("-ANSWER");
   });
 
   test("a turn reads a bounded number of owed answers and counts the rest", () => {

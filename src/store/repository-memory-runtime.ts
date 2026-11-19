@@ -29,7 +29,7 @@ export async function collectTurnStartRetrievedContextParts(args: {
   parentTaskId: string;
   history: readonly Pick<ChatMessage, "role" | "content" | "startedAt">[];
   prompt: string;
-  /** Children attached to this message are not repeated as receipts. */
+  /** Children attached to this message: an attached review is shared in full. */
   promptDraft?: PromptDraft;
   /** Receives the subagent answers this turn carries; the turn request hands them to the host, which records them once the provider has the turn. */
   deliveredAnswers?: DelegatedTaskAnswerRef[];

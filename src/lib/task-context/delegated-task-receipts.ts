@@ -41,10 +41,10 @@ function readAnswer(answer: DelegatedTaskAnswer) {
  * with a read reference; it is never cut to a fragment (only an answer longer
  * than the per-answer cap is shortened, with a reference). The answers this
  * turn settles are pushed to `delivered` for the caller to record once the
- * turn is committed: carried here, the newest answer of a task the user
- * attached to the message (the attachment always holds its latest reply), or a
- * review the user started from the composer, which is shared only when
- * attached and announced once.
+ * provider accepts the prompt: the ones carried here, and a review the user
+ * started from the composer, which is shared only when attached and otherwise
+ * announced once. An attached child's answer is carried here too: the
+ * attachment is read separately and can fail or be cut, so it never settles one.
  */
 export function buildDelegatedTaskReceiptsRetrievedContext(args: {
   children: DelegatedTaskSummary[];
@@ -52,6 +52,7 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
   /** Owed answers beyond the ones read for this turn. */
   moreAnswers?: number;
   delivered?: DelegatedTaskAnswerRef[];
+  /** Tasks attached to this message: a review among them is shared, not held. */
   attachedTaskIds?: ReadonlySet<string>;
 }): CanonicalRetrievedContextPart | null {
   if (args.children.length === 0 && !args.answers?.length) {
@@ -83,24 +84,10 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
   ]);
 
   const settle = (answer: DelegatedTaskAnswer) => args.delivered?.push({ runId: answer.runId, sequence: answer.sequence });
-  // An attached task brings at least its latest reply: only the answer that is
-  // that reply (the child's newest, while no turn of it runs) arrives through
-  // the attachment. Its other answers come here, so none is settled unseen.
-  const attachedAnswer = new Map<string, DelegatedTaskAnswer>();
-  for (const child of args.children) {
-    const turnRuns = child.phase === "pending" || child.phase === "running" || child.waitsForPerson;
-    if (!args.attachedTaskIds?.has(child.delegatedTaskId) || turnRuns) continue;
-    const latest = answers.find((answer) => answer.runId === child.runId && answer.at === child.resultAt);
-    if (latest) attachedAnswer.set(child.delegatedTaskId, latest);
-  }
   let resultBudget = MAX_RESULTS_TOTAL_CHARS;
   const answerLines = answers.flatMap((answer) => {
     const head = `- answer from subagent ${answer.delegationKey} (task ${answer.delegatedTaskId})`;
-    if (attachedAnswer.get(answer.delegatedTaskId) === answer) {
-      settle(answer);
-      return [head, "  result: attached to this message under Attached Stave Tasks"];
-    }
-    if (isReviewDelegation(answer)) {
+    if (isReviewDelegation(answer) && !args.attachedTaskIds?.has(answer.delegatedTaskId)) {
       settle(answer);
       return [head, "  result: held until the user attaches this review"];
     }

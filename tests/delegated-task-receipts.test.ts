@@ -120,19 +120,31 @@ describe("subagent results context", () => {
     expect(delivered).toEqual([{ runId: "child-task:parent-1:docs", sequence: 3 }, { runId: "child-task:parent-1:docs", sequence: 9 }]);
   });
 
-  test("a child attached to the message keeps its row but not a second copy of its answer", () => {
+  test("an attached child's answer is still carried here, since the attachment is read apart and may fail", () => {
     const delivered: DelegatedTaskAnswerRef[] = [];
     const part = buildDelegatedTaskReceiptsRetrievedContext({
-      children: [summary({ delegationKey: "review", resultAt: "2026-08-10T00:05:00.000Z" }), summary({ delegationKey: "other", delegatedTaskId: "child-2", runId: "child-task:parent-1:other" })],
-      answers: [answer({ delegationKey: "review", text: "Attached answer." }), answer({ runId: "child-task:parent-1:other", sequence: 4, delegationKey: "other", delegatedTaskId: "child-2", text: "Other answer." })],
+      children: [summary({ delegationKey: "docs", resultAt: "2026-08-10T00:05:00.000Z" }), summary({ delegationKey: "other", delegatedTaskId: "child-2", runId: "child-task:parent-1:other" })],
+      answers: [answer({ delegationKey: "docs", text: "Attached answer." }), answer({ runId: "child-task:parent-1:other", sequence: 4, delegationKey: "other", delegatedTaskId: "child-2", text: "Other answer." })],
       attachedTaskIds: new Set(["child-1"]),
       delivered,
     });
-    expect(part?.content).toContain("- subagent: review");
-    expect(part?.content).toContain("result: attached to this message under Attached Stave Tasks");
-    expect(part?.content).not.toContain("Attached answer.");
-    expect(part?.content).toContain("Other answer.");
+    expect(part?.content).toContain("    Attached answer.");
+    expect(part?.content).toContain("    Other answer.");
+    expect(part?.content).not.toContain("attached to this message");
     expect(delivered).toHaveLength(2);
+  });
+
+  test("an attached composer review is shared in full, not held", () => {
+    const delivered: DelegatedTaskAnswerRef[] = [];
+    const part = buildDelegatedTaskReceiptsRetrievedContext({
+      children: [summary({ delegationKey: "stave-review-20261004120000-a" })],
+      answers: [answer({ delegationKey: "stave-review-20261004120000-a", text: "Reviewer findings." })],
+      attachedTaskIds: new Set(["child-1"]),
+      delivered,
+    });
+    expect(part?.content).toContain("    Reviewer findings.");
+    expect(part?.content).not.toContain("held until");
+    expect(delivered).toHaveLength(1);
   });
 
   test("a composer review's answer is held until the user attaches it, and settles once announced", () => {
