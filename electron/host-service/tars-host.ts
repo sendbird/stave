@@ -43,6 +43,8 @@ import { z } from "zod";
  * look, that is at most 36 `gh` calls per user run per hour.
  */
 const USER_PULL_REQUEST_RECHECK_MS = 5 * 60_000;
+/** Which of several work pull requests the user's run reports counts: merged, then open, then any other. */
+const pullRequestRank = (state: string) => (state === "MERGED" ? 2 : state === "OPEN" ? 1 : 0);
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -81,10 +83,13 @@ export function createHostTarsRuntime(args: {
     let found: TarsUserPullRequest | null = null;
     const urls = tarsReportedPullRequestUrls(detail as Parameters<typeof tarsReportedPullRequestUrls>[0]);
     const origin = execution?.branch && base && urls.length ? await workBranch.origin(execution.path).catch(() => null) : null;
+    // Every linked candidate is read (at most three `gh` calls per look), so a
+    // closed one never hides the open or merged one after it; merged ranks first.
     if (execution?.branch && base && origin) for (const url of urls) {
       const read = await readPullRequest(execution.path, url).catch(() => null);
-      if (!read || !isTarsWorkPullRequest(read, { origin, branch: execution.branch, base })) continue;
-      if (await workBranch.contains(execution.path, execution.branch, read.headRefOid).catch(() => false)) { found = read; break; }
+      if (!read || (found && pullRequestRank(read.state) <= pullRequestRank(found.state))) continue;
+      if (!isTarsWorkPullRequest(read, { origin, branch: execution.branch, base })) continue;
+      if (await workBranch.contains(execution.path, execution.branch, read.headRefOid).catch(() => false)) found = read;
     }
     userPullRequests.set(detail.agentRun.id, { found, at: Date.now() });
     return found;

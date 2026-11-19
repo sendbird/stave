@@ -212,8 +212,10 @@ server), whose head carries the branch's commits; merged, for a merge goal), the
 with the pull request number, and the record says Tars did not verify it. Tars
 does not publish your run's work. Otherwise the work stays open and says your
 run ended without reaching the goal. When the repository cannot be determined
-or GitHub cannot be read, the work stays open; an open pull request is read
-again every few minutes until it is merged.
+or GitHub cannot be read, the work stays open. When the report links several
+pull requests, each (at most three) is read and a merged or open one counts
+even after a closed one; an open pull request is read again every few minutes
+until it is merged.
 
 Your explicit **Pause**, **Take over** and **Cancel** work as before. **Take
 over** (from the work's card, Fleet or the task), or releasing or changing the

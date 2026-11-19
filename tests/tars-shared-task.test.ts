@@ -366,6 +366,18 @@ describe("the host observes the user's run in the delegated task", () => {
       pullRequests: [workPullRequest({ url: "https://git.company.com/example/repo/pull/1002" })] });
     expect(steps.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 } });
   });
+  test("every pull request the report links is considered: a closed one never hides the valid one after it", () => {
+    const closed = workPullRequest({ number: 1001, url: "https://github.com/example/repo/pull/1001", state: "CLOSED" });
+    const merge = hostScenario({ goal: "merge", pullRequests: [closed, workPullRequest({ state: "OPEN", number: 1002 }),
+      workPullRequest({ number: 1003, url: "https://github.com/example/repo/pull/1003", state: "MERGED" })] });
+    expect(merge.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1003 } });
+    // At most three links are read on GitHub per look.
+    expect(merge.reads.filter((read: string) => read.includes("/pull/"))).toHaveLength(3);
+    const open = hostScenario({ goal: "pullRequest", pullRequests: [closed, workPullRequest()] });
+    expect(open.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 } });
+    // Only closed ones: the work stays open.
+    expect(hostScenario({ goal: "pullRequest", pullRequests: [closed] }).ended).toMatchObject({ state: "blocked", detailCode: "userRunEnded" });
+  });
   test("an open pull request is read again for a merge goal, and only every few minutes", () => {
     const merged = workPullRequest({ state: "MERGED" });
     const steps = hostScenario({ goal: "merge", pullRequest: workPullRequest(), later: [{ pullRequest: merged, afterMs: 60_000 }, { pullRequest: merged, afterMs: 5 * 60_000 }] });
