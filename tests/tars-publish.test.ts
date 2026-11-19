@@ -26,7 +26,7 @@ afterEach(() => { for (const database of databases.splice(0)) database.close(); 
 function fakeRepository() {
   const state = {
     branch: HEAD, dirty: [] as string[], ahead: 1, remote: true as boolean,
-    gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number } | null,
+    gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number; baseRefName: string; headRefOid: string } | null,
     fail: { commit: 0, push: 0, create: 0, comment: 0 }, sha: SHA,
     commits: new Set<string>([SHA]),
   };
@@ -41,11 +41,11 @@ function fakeRepository() {
       if (state.gh === "signedOut") return no("You are not logged into any GitHub hosts. Run gh auth login to authenticate.");
       if (args[0] === "repo") return state.gh === "notGitHub" ? no("none of the git remotes configured for this repository point to a known GitHub host")
         : ok(JSON.stringify({ nameWithOwner: "example/web", url: "https://github.com/example/web" }));
-      if (args[0] === "pr" && args[1] === "view") return ok(JSON.stringify({ state: state.existing ? "OPEN" : "CLOSED", headRefName: state.branch, url: state.existing?.url }));
-      if (args[0] === "pr" && args[1] === "list") return ok(JSON.stringify(state.existing ? [state.existing] : []));
+      if (args[0] === "pr" && args[1] === "view") return ok(JSON.stringify({ state: state.existing ? "OPEN" : "CLOSED", headRefName: state.branch, ...state.existing }));
+      if (args[0] === "pr" && args[1] === "list") return ok(JSON.stringify(state.existing ? [{ state: "OPEN", headRefName: state.branch, ...state.existing }] : []));
       if (args[0] === "pr" && args[1] === "create") {
         if (state.fail.create > 0) { state.fail.create--; return no("GraphQL: was submitted too quickly"); }
-        state.existing = { url: URL, number: 12 };
+        state.existing = { url: URL, number: 12, baseRefName: args.find((arg) => arg.startsWith("--base="))!.slice(7), headRefOid: state.sha };
         return ok(`Creating draft pull request for ${HEAD} into main in example/web\n\n${URL}\n`);
       }
       if (args[0] === "pr" && args[1] === "comment") {
@@ -289,11 +289,35 @@ describe("Tars publish steps", () => {
 
   test("records an existing pull request for the branch instead of opening another", async () => {
     const f = fixture();
-    f.repo.state.existing = { url: "https://github.com/example/web/pull/7", number: 7 };
+    f.repo.state.existing = { url: "https://github.com/example/web/pull/7", number: 7, baseRefName: "main", headRefOid: SHA };
     const row = f.completed();
     expect((await f.confirm(row)).record).toMatchObject({ status: "applied", url: "https://github.com/example/web/pull/7", number: 7, existing: true });
     expect(f.repo.commands("pr create")).toEqual([]);
     expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ state: "opened", existing: true, number: 7 });
+  });
+
+  test.each(["wrong base", "wrong commit"])("leaves an unrelated existing PR out of the result (%s)", async (mismatch) => {
+    const f = fixture();
+    const other = { url: "https://github.com/example/web/pull/7", number: 7, headRefName: HEAD,
+      baseRefName: mismatch === "wrong base" ? "release" : "main", headRefOid: mismatch === "wrong commit" ? "2".repeat(40) : SHA };
+    f.repo.state.existing = other;
+    const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    const verified = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.confirm(verified)).record).toMatchObject({ status: "applied", number: 12, url: URL });
+    expect(f.repo.commands("pr create")).toHaveLength(1);
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "completed", publication: { number: 12, base: "main", commit: SHA } });
+  });
+
+  test("an already-exists error does not prove the PR has the right base and commit", async () => {
+    const f = fixture();
+    const wrong = "https://github.com/example/web/pull/7";
+    const run = f.ports.run;
+    f.ports.run = async (command, args, cwd) => command === "gh" && args[1] === "create"
+      ? { ok: false, code: 1, stdout: "", stderr: `A pull request already exists: ${wrong}` } : run(command, args, cwd);
+    const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    const verified = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.confirm(verified)).record).toMatchObject({ status: "rejected", reason: "publishFailed" });
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "resultReady", publication: { state: "failed", url: null } });
   });
 
   test.each([["push", { push: 1 }, 0, 2, 1], ["pr", { create: 1 }, 0, 1, 2]] as const)(

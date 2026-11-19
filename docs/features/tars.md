@@ -1420,7 +1420,7 @@ exists, is clean, matches the full verified workspace revision, and has commits 
 own branch (never the base), and the repository has a GitHub `origin` that the
 GitHub CLI can reach. Then, in the execution workspace, it pushes the exact verified commit to the work's branch (never forced) and
 `gh pr create --draft` against the base, or records the pull request that
-already exists for the branch. Each step is saved on the work, so **Retry**
+already exists for the same base branch, head branch and verified commit. If Stave cannot verify that match, the PR goal stays unfinished. Each step is saved on the work, so **Retry**
 continues where it stopped, and a restart in the middle turns it into a
 retryable stop. The card folds to a record row such as "Draft PR #12 opened ·
 Show the saved card first at checkout · click" with **Open on GitHub**; the pull request becomes an output in the tray's **Outputs** and a link

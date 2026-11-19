@@ -158,21 +158,22 @@ async function inspect(row: TarsResponsibility, ports: TarsPublishPorts): Promis
     if (typeof parsed.url === "string" && /^https?:\/\/\S+$/.test(parsed.url)) facts.repositoryUrl = parsed.url.slice(0, 2_048);
   } catch { /* The repository resolved; its name stays the folder's. */ }
   if (row.publication?.number && row.publication.url) {
-    const current = await ports.run("gh", ["pr", "view", String(row.publication.number), "--json", "state,headRefName,url"], workspace.path);
-    try {
-      const live = JSON.parse(current.stdout);
-      if (!current.ok || live.state !== "OPEN" || live.headRefName !== facts.head || live.url !== row.publication.url)
-        stop("alreadyPublished", "The original pull request is no longer open on this branch.");
-    } catch { stop("alreadyPublished", "The original pull request could not be verified."); }
+    const current = await ports.run("gh", tarsPublishCommands.view(row.publication.number), workspace.path);
+    const live = current.ok ? parsePullRequest(current.stdout) : null;
+    if (live?.state !== "OPEN" || live.headRefName !== facts.head || live.baseRefName !== facts.base || live.url !== row.publication.url)
+      stop("alreadyPublished", "The original pull request is no longer open between the work's branch and its base branch.");
   }
   return facts;
 }
 
 /** The commands each step runs, as argument arrays: never a force push, always a draft, always the work's own base and head. */
+const PULL_REQUEST_FIELDS = "state,number,url,baseRefName,headRefName,headRefOid";
+
 export const tarsPublishCommands = {
   // The commit the card published, by its SHA: a branch that moved after the commit step is not what gets pushed.
   push: (head: string, commit: string): string[] => ["push", "origin", `${commit}:refs/heads/${head}`],
-  existing: (head: string): string[] => ["pr", "list", `--head=${head}`, "--state=open", "--json=number,url", "--limit=1"],
+  existing: (head: string, base: string): string[] => ["pr", "list", `--head=${head}`, `--base=${base}`, "--state=open", `--json=${PULL_REQUEST_FIELDS}`],
+  view: (number: number): string[] => ["pr", "view", String(number), `--json=${PULL_REQUEST_FIELDS}`],
   /** A comment on a pull request that is already open: its body was written for an earlier result and is not rewritten. */
   note: (number: number, body: string): string[] => ["pr", "comment", String(number), `--body=${body}`],
   // `--flag=value`, so a title or body that starts with "-" can never read as another flag.
@@ -180,13 +181,30 @@ export const tarsPublishCommands = {
     ["pr", "create", "--draft", `--base=${args.base}`, `--head=${args.head}`, `--title=${args.title}`, `--body=${args.body}`],
 };
 
-function parseExistingPullRequest(stdout: string): { url: string; number: number | null } | null {
+type LivePullRequest = { state?: string; number?: number; url?: string; baseRefName?: string; headRefName?: string; headRefOid?: string };
+
+function parsePullRequest(stdout: string): LivePullRequest | null {
+  try { return JSON.parse(stdout); } catch { return null; }
+}
+
+function matchingPullRequest(pr: LivePullRequest | null, base: string, head: string, commit: string) {
+  if (pr?.state !== "OPEN" || pr.baseRefName !== base || pr.headRefName !== head || pr.headRefOid !== commit ||
+      typeof pr.url !== "string" || !/^https?:\/\/\S+$/.test(pr.url)) return null;
+  const number = tarsPullRequestNumber(pr.url);
+  return number !== null && pr.number === number ? { url: pr.url, number } : null;
+}
+
+function findExistingPullRequest(stdout: string, base: string, head: string, commit: string) {
   try {
-    const list = JSON.parse(stdout) as Array<{ url?: unknown; number?: unknown }>;
-    const first = Array.isArray(list) ? list[0] : undefined;
-    if (!first || typeof first.url !== "string" || !/^https?:\/\/\S+$/.test(first.url)) return null;
-    return { url: first.url, number: typeof first.number === "number" ? first.number : tarsPullRequestNumber(first.url) };
-  } catch { return null; }
+    const rows = JSON.parse(stdout) as LivePullRequest[];
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        const match = matchingPullRequest(row, base, head, commit);
+        if (match) return match;
+      }
+    }
+  } catch { /* Fall through to the create path. */ }
+  return null;
 }
 
 function lastUrl(text: string) {
@@ -285,35 +303,42 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
         advance({ state: "pushed" });
         step = "pr";
       }
+      const verifyPullRequest = async (url: string) => {
+        const number = tarsPullRequestNumber(url);
+        if (number === null) return null;
+        const current = await ports.run("gh", tarsPublishCommands.view(number), cwd);
+        if (!current.ok && (ghMissing(current) || ghSignedOut(current)))
+          fail("ghUnavailable", diagnostic(current, "GitHub CLI is unavailable."));
+        const live = current.ok ? matchingPullRequest(parsePullRequest(current.stdout), base, head, verifiedHead) : null;
+        return live?.url === url ? live : null;
+      };
       if (openPr) {
-        const current = await ports.run("gh", ["pr", "view", String(openPr.number), "--json", "state,headRefName,url"], cwd);
-        let live: { state?: string; headRefName?: string; url?: string } = {};
-        try { live = JSON.parse(current.stdout); } catch { /* Fail closed below. */ }
-        if (!current.ok || live.state !== "OPEN" || live.headRefName !== head || live.url !== openPr.url)
-          fail("alreadyPublished", "The original pull request is no longer open on this branch.");
+        if (!await verifyPullRequest(openPr.url!))
+          fail("publishFailed", `The original pull request could not be verified against ${base} at the published commit.`);
         await noteUnverified(openPr.number);
         advance({ state: "opened", url: openPr.url, number: openPr.number, existing: true });
         return publication;
       }
-      const listed = await ports.run("gh", tarsPublishCommands.existing(head), cwd);
+      const listed = await ports.run("gh", tarsPublishCommands.existing(head, base), cwd);
       if (!listed.ok && (ghMissing(listed) || ghSignedOut(listed))) fail("ghUnavailable", diagnostic(listed, "GitHub CLI is unavailable."));
-      let opened = listed.ok ? parseExistingPullRequest(listed.stdout) : null;
+      let opened = listed.ok ? findExistingPullRequest(listed.stdout, base, head, verifiedHead) : null;
       let existing = opened !== null;
       if (!opened) {
         await verify();
         const body = buildTarsPublicationBody({ title: row.title, report, source: record.source, unverified: tarsResultStanding(row) === "unverified" });
         const created = await ports.run("gh", tarsPublishCommands.create({ base, head, title: record.title, body }), cwd);
         const url = lastUrl(created.ok ? created.stdout : `${created.stderr}\n${created.stdout}`);
-        // gh refuses a second pull request for the branch and names the one that exists.
+        // A duplicate-create error can name an existing PR, but that URL alone is not evidence.
         if (!created.ok && !(url && /already exists/i.test(created.stderr))) fail(ghMissing(created) || ghSignedOut(created) ? "ghUnavailable" : "publishFailed",
           diagnostic(created, "gh pr create failed."));
         if (!url) fail("publishFailed", "gh pr create did not print the pull request URL.");
         existing = !created.ok;
-        opened = { url: url!, number: tarsPullRequestNumber(url!) };
+        opened = await verifyPullRequest(url!);
+        if (!opened) fail("publishFailed", `Could not verify an open pull request from ${head} into ${base} at the published commit.`);
       }
       // Found open, or created by someone else meanwhile: this publication did not write its body.
-      if (existing) await noteUnverified(opened.number);
-      advance({ state: "opened", url: opened.url, number: opened.number, ...(existing ? { existing: true } : {}) });
+      if (existing) await noteUnverified(opened!.number);
+      advance({ state: "opened", url: opened!.url, number: opened!.number, ...(existing ? { existing: true } : {}) });
       return publication;
     } catch (error) {
       if (isTarsStorageBusy(error)) throw error;
