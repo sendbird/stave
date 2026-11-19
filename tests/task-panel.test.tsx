@@ -386,3 +386,33 @@ test("F6: a streaming turn's text never makes the panel rescan the conversation"
   expect(view.status).toMatchObject({ state: "waiting", waitingOn: "approval" });
   expect(view.request?.requestId).toBe("ap-live");
 });
+
+test("working says, on its line, what the live turn is doing now", async () => {
+  const { TaskPanelSummary } = await import("@/components/session/TaskPanelSummary");
+  const { describeTaskActivityNow } = await import("@/components/session/task-panel-state");
+  const item = (id: string, status: "running" | "completed", title: string, detail: string) => ({
+    id, kind: "tool", status, title, detail, progressMessages: [], startedAt: 1, updatedAt: status === "running" ? 3 : 4,
+  });
+  const activity = {
+    turnId: "turn-3", providerId: "claude-code", startedAt: 1, lastEventAt: 4, stalledAt: null, pendingInteraction: null,
+    workItemsById: { t1: item("t1", "completed", "Read file", "server/users.ts"), t2: item("t2", "running", "Run command", "bun test tests/users") },
+    orderedWorkItemIds: ["t1", "t2"],
+  } as never;
+  // The running step, not the one that finished last; only for the live turn.
+  const words = describeTaskActivityNow(activity, "turn-3");
+  expect(words).toBe("Run command · bun test tests/users");
+  expect(describeTaskActivityNow(activity, "turn-4")).toBeNull();
+  expect(describeTaskActivityNow({ ...(activity as object), completedAt: 5 } as never, "turn-3")).toBeNull();
+  const summary = (view: ReturnType<typeof status>, activityNow: string | null) => renderToStaticMarkup(createElement(TaskPanelSummary, {
+    workspaceId: WORKSPACE_ID, taskId: TASK_ID, view, activityNow, agentRun: undefined, onShowLatest: () => {},
+  }));
+  const working = status({ messages: [REPLY, { ...LIVE_APPROVAL, parts: [] }], liveTurnId: "turn-3" });
+  expect(working.status?.state).toBe("working");
+  const html = summary(working, words);
+  // One line: the state word, then the step, cut by the line's own ellipsis.
+  expect(html).toMatch(/data-testid="task-state"[^>]*>.*>Working<.*data-testid="task-state-activity" title="Run command · bun test tests\/users"[^>]*>Run command · bun test tests\/users<\/span><\/p>/s);
+  // Nothing running: just the state.
+  expect(summary(working, null)).not.toContain('data-testid="task-state-activity"');
+  // Only Working carries it.
+  expect(summary(status({}), words)).not.toContain('data-testid="task-state-activity"');
+});

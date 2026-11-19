@@ -30,6 +30,8 @@ export function TaskPanelSummary(props: {
   workspaceId: string;
   taskId: string;
   view: TaskPanelStatus;
+  /** What the live turn is doing now (`describeTaskActivityNow`), shown beside Working. */
+  activityNow?: string | null;
   agentRun: AgentRunDetail | undefined;
   onShowLatest: () => void;
 }) {
@@ -50,17 +52,25 @@ export function TaskPanelSummary(props: {
           </Button>
         </div>
       ) : null}
-      <p className={sx(styles.state)} data-testid="task-state" data-task-state={status?.state} role="status">
-        {status ? (
-          <StateMark
-            state={taskUserStateToWorkState(status)}
-            size="md"
-            showLabel
-            label={TASK_USER_STATE_LABELS[status.state]}
-          />
-        ) : (
-          <span className={sx(styles.muted)}>{i18n.t("session:taskPanel.notStarted")}</span>
-        )}
+      <p className={sx(styles.state)} data-testid="task-state" data-task-state={status?.state}>
+        {/* Only the state is announced; the step beside it changes too often to read out. */}
+        <span role="status" className={sx(styles.stateWord)}>
+          {status ? (
+            <StateMark
+              state={taskUserStateToWorkState(status)}
+              size="md"
+              showLabel
+              label={TASK_USER_STATE_LABELS[status.state]}
+            />
+          ) : (
+            <span className={sx(styles.muted)}>{i18n.t("session:taskPanel.notStarted")}</span>
+          )}
+        </span>
+        {status?.state === "working" && props.activityNow && !view.pastTurnAt ? (
+          <span className={sx(styles.activityNow)} data-testid="task-state-activity" title={props.activityNow}>
+            {props.activityNow}
+          </span>
+        ) : null}
       </p>
       {status?.state === "waiting" ? (
         <Section label={i18n.t("session:taskPanel.needsYou")}>
@@ -229,6 +239,18 @@ const styles = stylex.create({
     lineHeight: vars["--aui-line-height-normal"],
     margin: 0,
     minWidth: 0,
+  },
+  stateWord: { display: "flex", flexShrink: 0 },
+  // The live step, on the state's line: muted, and cut with an ellipsis.
+  activityNow: {
+    color: vars["--aui-color-text-muted"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-regular"],
+    marginInlineStart: vars["--aui-space-8"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   muted: { color: vars["--aui-color-text-muted"], fontWeight: vars["--aui-font-weight-regular"] },
   section: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },

@@ -10,8 +10,10 @@ import type { TurnHistoryEntry } from "@/lib/providers/turn-history";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnPendingInteraction,
+  ProviderTurnWorkItem,
   RetainedTurnActivity,
 } from "@/lib/providers/turn-status";
+import { i18n } from "@/i18n/runtime";
 import {
   resolveTaskUserState,
   resolveTurnEnding,
@@ -180,6 +182,25 @@ export function taskPendingRequestsKey(messages: readonly ChatMessage[], liveTur
 
 export function parseTaskPendingRequests(key: string): TaskPendingRequests {
   return key ? (JSON.parse(key) as TaskPendingRequests) : NO_PENDING;
+}
+
+/**
+ * What the live turn is doing now, in its running step's own words ("Run
+ * command · bun test"), from the activity it reported; null when no step runs.
+ */
+export function describeTaskActivityNow(
+  activity: ProviderTurnActivitySnapshot | null | undefined,
+  liveTurnId: string | null,
+): string | null {
+  if (!activity || !liveTurnId || activity.turnId !== liveTurnId || activity.completedAt != null) return null;
+  let current: ProviderTurnWorkItem | null = null;
+  for (const id of activity.orderedWorkItemIds) {
+    const item = activity.workItemsById[id];
+    if (item?.status === "running" && (!current || item.updatedAt >= current.updatedAt)) current = item;
+  }
+  if (!current) return null;
+  const detail = current.detail?.trim();
+  return detail ? i18n.t("fleet:taskActivity.withDetail", { label: current.title, detail }) : current.title;
 }
 
 /**

@@ -27,6 +27,7 @@ import { TaskPanelSummary } from "./TaskPanelSummary";
 import { TurnActivityHistory, useTaskTurnHistory } from "./TurnActivityHistory";
 import {
   buildTaskPanelStatus,
+  describeTaskActivityNow,
   parseTaskPendingRequests,
   taskPendingRequestsKey,
 } from "./task-panel-state";
@@ -138,6 +139,9 @@ export function TaskPanelView(props: {
     const snapshot = state.providerTurnActivityByTask[taskId];
     return live && snapshot?.turnId === live ? (snapshot.pendingInteraction ?? null) : null;
   });
+  const activityNow = useAppStore((state) =>
+    describeTaskActivityNow(state.providerTurnActivityByTask[taskId], state.activeTurnIdsByTask[taskId] ?? null),
+  );
   const [messages, activity, retained] = useAppStore(
     useShallow(selectTaskPanelSettled(taskId, selectedTurnId !== null)),
   );
@@ -187,6 +191,7 @@ export function TaskPanelView(props: {
           workspaceId={workspaceId}
           taskId={taskId}
           view={view}
+          activityNow={activityNow}
           agentRun={agentRun}
           onShowLatest={() => setSelectedTurnId(null)}
         />
