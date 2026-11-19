@@ -36,20 +36,36 @@ describe("a Tars work card's state, sentence and action", () => {
     expect(read(billing(), { runs: f.runs })).toEqual({ state: "working", waitingOn: null, sentence: null, primary: { kind: "openTask" } });
   });
 
-  test("work still being prepared offers no action: its task is named before it exists", async () => {
+  test("work still being prepared waits and says so; it offers no action, since its task is named before it exists", async () => {
     await applyAppLocale("en");
     // The host saves the task id, then prepares the workspace and creates the task (`tars-runtime.ts`).
     const preparing: TarsResponsibility = { ...billing(), state: "preparing", taskId: "tars-billing", executionWorkspaceId: null, agentRunId: null };
-    expect(read(preparing)).toMatchObject({ state: "working", primary: null });
-    // Once its run exists the task does too.
-    expect(read({ ...preparing, executionWorkspaceId: "exec-billing", agentRunId: "run-billing" }).primary).toEqual({ kind: "openTask" });
+    expect(read(preparing)).toEqual({ state: "on-hold", waitingOn: null, sentence: "Preparing the workspace. The work starts once it is ready.", primary: null });
+    // Once its run exists the work has started, and the task exists too.
+    expect(read({ ...preparing, executionWorkspaceId: "exec-billing", agentRunId: "run-billing" })).toMatchObject({ state: "working", primary: { kind: "openTask" } });
   });
 
-  test("queued work is working, says why it waits and offers Start now", async () => {
+  test("queued work waits for its turn: it says why and offers Start now", async () => {
     await applyAppLocale("en");
     const queued: TarsResponsibility = { ...billing(), state: "queued", taskId: null, agentRunId: null, executionWorkspaceId: null, queueWait: { code: "capacity", active: 1, limit: 1 } };
-    expect(read(queued)).toEqual({ state: "working", waitingOn: null,
+    expect(read(queued)).toEqual({ state: "on-hold", waitingOn: null,
       sentence: "Execution limit reached (1 active / 1 allowed). Starts when a slot is released.", primary: { kind: "control", operation: "startNow" } });
+    // Without a reason from the scheduler it still waits, and says the reason is not known.
+    expect(read({ ...queued, queueWait: undefined })).toMatchObject({ state: "on-hold", sentence: "The reason for waiting has not been confirmed." });
+  });
+
+  test("work that has not started never reads as working, whatever else Stave knows about it", async () => {
+    await applyAppLocale("en");
+    const f = tray();
+    for (const state of ["queued", "preparing"] as const) {
+      const waiting: TarsResponsibility = { ...billing(), state, agentRunId: null, executionWorkspaceId: null };
+      expect(read(waiting, { runs: f.runs }).state, state).toBe("on-hold");
+      // A request in its task still asks the user, and a stop still blocks it.
+      const approval: TarsTrayAttentionInput = { id: "approval:task-billing", kind: "approval", taskId: "task-billing", detail: "Run the database migration" };
+      expect(read(waiting, { attention: [approval] }).state, state).toBe("waiting");
+      const failed: TarsTrayAttentionInput = { id: "turn:run-failed:exec-billing:task-billing:turn-1", kind: "run-failed", taskId: "task-billing", detail: "The provider returned an error." };
+      expect(read(waiting, { attention: [failed] }), state).toMatchObject({ state: "blocked", sentence: "The provider returned an error." });
+    }
   });
 
   test("work whose run waits for a usage reset is on hold: it says when it resumes and asks for nothing", async () => {

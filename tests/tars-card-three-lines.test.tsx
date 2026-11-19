@@ -41,7 +41,7 @@ describe("a Tars work card reads in three lines", () => {
     const expected = {
       waiting: { state: "waiting", word: "Waiting for you", sentence: "Tars proposes to resume this work.", action: "Confirm resume" },
       running: { state: "working", word: "Working", sentence: "Now: Cause, attempt 2", action: "Open task" },
-      queued: { state: "working", word: "Working", sentence: "Execution limit reached (1 active / 1 allowed). Starts when a slot is released.", action: "Start now" },
+      queued: { state: "on-hold", word: "Waiting", sentence: "Execution limit reached (1 active / 1 allowed). Starts when a slot is released.", action: "Start now" },
       blocked: { state: "blocked", word: "Blocked", sentence: "Stopped with some completion criteria unmet. Open the report to see what is missing.", action: "Open report" },
       finished: { state: "finished", word: "Finished", sentence: "Draft PR #42 open", action: "Open PR #42" },
     } as const;
@@ -94,6 +94,10 @@ describe("a Tars work card reads in three lines", () => {
     const card = Object.values(buildTarsTray({ responsibilities: [preparing], attentionItems: [], runs: {} }).lanes).flat()[0]!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions }));
     expect(controls(folded(html)).length).toBe(1);
+    // It waits, and says for what: never "Working" over a sentence that says it has not started.
+    expect(html).toContain('data-task-user-state="on-hold"');
+    expect(folded(html)).toContain("Preparing the workspace. The work starts once it is ready.");
+    expect(folded(html)).not.toContain("The work has not started yet");
     expect(html).not.toContain(">Open task<");
     expect(html.slice(html.indexOf("data-tars-card-detail"))).toContain('data-tars-action="pause"');
   });

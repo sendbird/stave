@@ -1804,6 +1804,7 @@
       "admissionWithdrawn": "The work was paused or cancelled before its run started.",
       "observationFailed": "Tars could not check this work’s progress.",
       "preparationFailed": "Workspace preparation failed or timed out. Check its post-create command, then resume this work to retry.",
+      "preparingWorkspace": "Preparing the workspace. The work starts once it is ready.",
       "pauseReason": {
         "pausedByUser": "This work is paused. Resume it to continue.",
         "takenOver": "You took over this work. Hand it back to let Tars continue.",

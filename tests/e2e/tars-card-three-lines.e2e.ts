@@ -13,7 +13,7 @@ const POPOVER_BELOW = 1088;
 const CASES = [
   { fixture: "tray=true&live=true&queued=true", id: "release", state: "waiting", primary: "confirm" },
   { fixture: "tray=true&live=true&queued=true", id: "billing", state: "working", primary: "openTask" },
-  { fixture: "tray=true&live=true&queued=true", id: "search-index", state: "working", primary: "startNow" },
+  { fixture: "tray=true&live=true&queued=true", id: "search-index", state: "on-hold", primary: "startNow" },
   { fixture: "outputs=true", id: "search", state: "blocked", primary: "openReport" },
   { fixture: "gallery=true", id: "docs", state: "finished", primary: "openPullRequest" },
 ] as const;
@@ -142,8 +142,8 @@ for (const lang of ["en", "ko"] as const) for (const density of ["regular", "com
 }
 
 test("the state is one of the task's words, in both languages, and only running work moves", async ({ page }) => {
-  for (const [lang, words] of [["en", { release: "Waiting for you", billing: "Working", "search-index": "Working", migration: "Blocked", docs: "Finished" }],
-    ["ko", { release: "사용자 확인 대기 중", billing: "작업 중", "search-index": "작업 중", migration: "막힘", docs: "완료" }]] as const) {
+  for (const [lang, words] of [["en", { release: "Waiting for you", billing: "Working", "search-index": "Waiting", migration: "Blocked", docs: "Finished" }],
+    ["ko", { release: "사용자 확인 대기 중", billing: "작업 중", "search-index": "대기 중", migration: "막힘", docs: "완료" }]] as const) {
     await openTray(page, `tray=true&live=true&queued=true&lang=${lang}`, 1440);
     for (const [id, word] of Object.entries(words)) await expect(page.locator(`[data-tars-card="${id}"] [data-tars-card-state]`), id).toHaveText(word);
     // Tars's own state words are not on a folded card.
@@ -161,7 +161,8 @@ test("cases beyond the lanes read right: on hold, a helper's request, review-onl
     // A pull request ready to merge and a quiet turn are Fleet's review rows: the work still runs.
     { id: "card-signals", state: "working", word: { en: "Working", ko: "작업 중" }, controls: ["title", "openTask"] },
     { id: "card-question", state: "waiting", word: { en: "Waiting for you", ko: "사용자 확인 대기 중" }, controls: ["title", "answer"] },
-    { id: "card-preparing", state: "working", word: { en: "Working", ko: "작업 중" }, controls: ["title"] },
+    // Work that has not started waits, and says for what; it never reads as working.
+    { id: "card-preparing", state: "on-hold", word: { en: "Waiting", ko: "대기 중" }, controls: ["title"] },
   ] as const;
   for (const lang of ["en", "ko"] as const) for (const width of [1440, 390] as const) {
     await openTray(page, `tray=true&cardStates=true&lang=${lang}`, width);
@@ -181,6 +182,7 @@ test("cases beyond the lanes read right: on hold, a helper's request, review-onl
     await expect(page.locator('[data-tars-card="card-hold"] [data-tars-card-sentence]')).toContainText("Waiting for usage reset at");
     await expect(page.locator('[data-tars-card="card-helper"] [data-tars-card-sentence]')).toHaveText("Bash: bun run db:migrate --target invoices");
     await expect(page.locator('[data-tars-card="card-question"] [data-tars-card-sentence]')).toHaveText("Tars asks: Should the saved card stay first on mobile too?");
+    await expect(page.locator('[data-tars-card="card-preparing"] [data-tars-card-sentence]')).toHaveText("Preparing the workspace. The work starts once it is ready.");
   }
 });
 
@@ -244,7 +246,7 @@ test("the title opens the detail by click and by keyboard, and everything that l
 test("a queued card keeps its reorder grip on the state line and its queue moves in the detail", async ({ page }) => {
   await openTray(page, "tray=true&queue=true&lang=en", 1440);
   const card = page.locator('[data-tars-card="queue-search"]');
-  await expect(card).toHaveAttribute("data-task-user-state", "working");
+  await expect(card).toHaveAttribute("data-task-user-state", "on-hold");
   const shown = await measure(card);
   expect(shown.rows).toBe(3);
   expect(shown.controls).toEqual(["title", "queue-search", "startNow"]);

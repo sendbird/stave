@@ -32,7 +32,7 @@ type CardFacts = Pick<TarsTrayCard, "row" | "attention" | "controls" | "run">;
 const REQUEST_KINDS: ReadonlySet<string> = new Set(["user-input", "approval", "agent-run-sign-off"]);
 const HALT_KINDS: ReadonlySet<string> = new Set(["tars-blocked", "run-failed", "agent-run-blocked", "agent-run-stuck"]);
 
-/** Each Tars state as the run badge it stands for; queued and waiting work is still in Tars's hands. */
+/** Each Tars state as the run badge it stands for; queued, prepared and waiting work is still in Tars's hands. */
 const BADGE_OF: Record<TarsResponsibility["state"], AgentRunBadge> = {
   queued: "running", preparing: "running", running: "running", waiting: "running",
   paused: "paused", takenOver: "paused", blocked: "halted", resultReady: "needs-answer", completed: "completed", cancelled: "stopped",
@@ -62,6 +62,17 @@ function holdOf(card: Pick<TarsTrayCard, "row" | "run">): string | null {
   return status.waiting ? status.reason : null;
 }
 
+/**
+ * Why work that has not started waits, when nobody has to act for it to
+ * start: queued work waits for its turn (the scheduler's reason), and work
+ * being prepared waits for its workspace until its run exists. Null for work
+ * that started.
+ */
+function notStartedOf(row: TarsResponsibility): string | null {
+  if (row.state === "queued") return describeTarsQueueWait(row);
+  return row.state === "preparing" && !row.agentRunId ? i18n.t("shell:tars.detail.preparingWorkspace") : null;
+}
+
 /** The Fleet row's own words, when it has some. */
 function wordsOf(entry: TarsTrayAttentionRow<TarsTrayAttentionInput> | null) {
   return entry?.item.detail?.trim() || null;
@@ -78,7 +89,8 @@ export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
   const { halt, tars, task } = asksOf(card);
   const taskAsk = !task ? null : task.item.kind === "approval" ? "approval" as const : "question" as const;
   const signOff = task?.item.kind === "agent-run-sign-off";
-  const hold = halt ? null : holdOf(card);
+  // Work that waits for nobody: it has not started yet, or its run resumes on its own.
+  const hold = halt ? null : notStartedOf(row) ?? holdOf(card);
   const running = isTarsWorkRunning(row) && !halt && hold === null;
   const opened = row.publication?.state === "opened" && row.publication.url ? row.publication : null;
   return {
@@ -126,10 +138,9 @@ export function describeTarsCardSentence(card: CardFacts, status: TaskUserStatus
       if (row.state === "paused") return describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.detail.runPaused");
       return describeTarsResponsibilityDetail(row) ?? wordsOf(halt) ?? i18n.t("shell:tars.tray.blockedDetail");
     case "on-hold":
-      // When it resumes, in the run's own words.
+      // What it waits for: its turn, its workspace, or when its run resumes in the run's own words.
       return status.reason ?? describeTarsResponsibilityDetail(row);
     case "working":
-      if (row.state === "queued") return describeTarsQueueWait(row);
       return isTarsWorkRunning(row) ? null : describeTarsResponsibilityDetail(row);
     case "finished": {
       const pullRequest = status.result?.pullRequest;
@@ -170,10 +181,10 @@ const UNBLOCKING: readonly TarsControlOperation[] = ["resume", "handBack", "acce
 
 /**
  * The action that fits the state: answer what waits, read why blocked work
- * stopped or let paused work go on, start queued work or look at running
- * work, open what finished work produced. Work on hold resumes by itself, so
- * it offers nothing, and so does work still being prepared, which has no task
- * to open yet. `can` says which openers this view has; null when none applies.
+ * stopped or let paused work go on, look at running work, open what finished
+ * work produced. Work on hold goes on by itself, so it offers nothing, except
+ * queued work, which can start ahead of its turn. `can` says which openers
+ * this view has; null when none applies.
  */
 export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { answer: boolean; report: boolean }): TarsCardPrimary | null {
   const { row } = card;
@@ -199,9 +210,9 @@ export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { 
       return operation ? { kind: "control", operation } : openTask;
     }
     case "on-hold":
-      return null;
+      return card.controls.includes("startNow") ? { kind: "control", operation: "startNow" } : null;
     case "working":
-      return row.state === "queued" && card.controls.includes("startNow") ? { kind: "control", operation: "startNow" } : openTask;
+      return openTask;
     case "finished": {
       const pullRequest = status.result?.pullRequest;
       return pullRequest ? { kind: "openPullRequest", url: pullRequest.url, number: pullRequest.number ?? null } : openReport ?? openTask;
