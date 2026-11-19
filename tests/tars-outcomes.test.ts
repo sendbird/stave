@@ -123,3 +123,35 @@ test("the CLI reads a plain copy of a live database and limits work to the range
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test("date ranges are this machine's calendar days, or the exact instants given with an offset", () => {
+  const dir = mkdtempSync(join(tmpdir(), "stave-outcomes-"));
+  const file = join(dir, "stave.sqlite");
+  try {
+    const db = new Database(file);
+    try {
+      db.exec("CREATE TABLE tars_responsibilities (created_at TEXT, body_json TEXT); CREATE TABLE agent_run_events (agent_run_id TEXT, sequence INTEGER, kind TEXT, detail_json TEXT, created_at TEXT);");
+      // 14:59 and 15:00 UTC on 2026-11-26 are 23:59 on the 26th and 00:00 on the 27th in Seoul.
+      for (const [id, createdAt] of [["seoul-26th", "2026-11-26T14:59:00.000Z"], ["seoul-27th", "2026-11-26T15:00:00.000Z"]]) {
+        db.run("INSERT INTO tars_responsibilities VALUES (?, ?)", [createdAt, JSON.stringify({ id, title: id, createdAt, updatedAt: createdAt, state: "cancelled" })]);
+      }
+    } finally {
+      db.close();
+    }
+    const titles = (args: string[], tz: string) => {
+      const result = Bun.spawnSync([process.execPath, "scripts/measure-tars-outcomes.ts", file, ...args], { env: { ...process.env, TZ: tz } });
+      expect(result.exitCode).toBe(0);
+      return ["seoul-26th", "seoul-27th"].filter((id) => result.stdout.toString().includes(id));
+    };
+    expect(titles(["--since=2026-11-26", "--until=2026-11-27"], "Asia/Seoul")).toEqual(["seoul-26th"]);
+    expect(titles(["--since=2026-11-27"], "Asia/Seoul")).toEqual(["seoul-27th"]);
+    expect(titles(["--since=2026-11-26", "--until=2026-11-27"], "UTC")).toEqual(["seoul-26th", "seoul-27th"]);
+    // An explicit offset is the same instant on any machine.
+    expect(titles(["--until=2026-11-27T00:00+09:00"], "UTC")).toEqual(["seoul-26th"]);
+    const invalid = Bun.spawnSync([process.execPath, "scripts/measure-tars-outcomes.ts", file, "--since=next week"]);
+    expect(invalid.exitCode).not.toBe(0);
+    expect(invalid.stderr.toString()).toContain("Not a date: next week");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

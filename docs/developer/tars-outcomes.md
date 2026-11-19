@@ -12,6 +12,8 @@ bun scripts/measure-tars-outcomes.ts /path/to/a/copy/of/stave.sqlite
 
 Without a path it reads `~/Library/Application Support/stave/stave.sqlite`.
 `--since` includes work created from that time and `--until` stops before it.
+A bare date is that day's midnight in this machine's time zone; a time with an
+offset (`2026-11-24T00:00+09:00`) is that exact instant.
 To measure a copy, make it with
 `sqlite3 ~/Library/Application\ Support/stave/stave.sqlite ".backup /tmp/stave-copy.sqlite"`,
 which includes changes the app has not yet written back into the main file. A

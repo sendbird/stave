@@ -43,7 +43,21 @@ export const outcomeFile = (args: readonly string[]) =>
   args.find((arg) => !arg.startsWith("--")) ?? path.join(homedir(), "Library", "Application Support", "stave", "stave.sqlite");
 export const outcomeFlag = (args: readonly string[], name: string) =>
   args.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3) ?? null;
-export const outcomeRange = (args: readonly string[]): OutcomeRange => ({ since: outcomeFlag(args, "since"), until: outcomeFlag(args, "until") });
+/**
+ * A range bound as an instant. A bare date is that calendar day's midnight on
+ * this machine's clock, so `--until=2026-11-27` in Seoul closes at Seoul
+ * midnight; a date and time with an offset (`2026-11-27T00:00+09:00`) is that
+ * instant, and one without an offset is local time.
+ */
+export function rangeBound(value: string | null): string | null {
+  if (value === null) return null;
+  const day = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  const time = day ? new Date(Number(day[1]), Number(day[2]) - 1, Number(day[3])).getTime() : Date.parse(value);
+  if (Number.isNaN(time)) throw new Error(`Not a date: ${value}. Use 2026-11-20 or 2026-11-20T09:00+09:00.`);
+  return new Date(time).toISOString();
+}
+export const outcomeRange = (args: readonly string[]): OutcomeRange =>
+  ({ since: rangeBound(outcomeFlag(args, "since")), until: rangeBound(outcomeFlag(args, "until")) });
 
 const minutesBetween = (from: string, to: string) => Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 60_000));
 
@@ -125,8 +139,11 @@ function readHumanDecisions(db: Database): Set<string> {
 /** Created from `since` (inclusive) to `until` (exclusive); either end may be open. */
 export interface OutcomeRange { since: string | null; until: string | null }
 
-export const inRange = (createdAt: string, range: OutcomeRange) =>
-  (!range.since || createdAt >= range.since) && (!range.until || createdAt < range.until);
+/** Compares instants, not strings, so stored times and bounds may carry any offset. */
+export const inRange = (createdAt: string, range: OutcomeRange) => {
+  const time = Date.parse(createdAt);
+  return (!range.since || time >= Date.parse(range.since)) && (!range.until || time < Date.parse(range.until));
+};
 
 /**
  * Opens the database read only. The app keeps it in WAL mode, and a plain copy
