@@ -37,6 +37,10 @@ function fixture(dir: string) {
     db.run("INSERT INTO agent_assignments VALUES (?, ?, ?, '{}', ?)", [id, agent, task, at(minutes)]);
   assign("a1", "coordinator-trial", "coord-1", -10);
   assign("a2", "lead", "lead-1", -10);
+  // A task reused across agents: Lead first, then the coordinator; and coord-1 handed to Lead later.
+  assign("a3", "lead", "coord-2", -10);
+  assign("a4", "coordinator-trial", "coord-2", 100);
+  assign("a5", "lead", "coord-1", 200);
   const workspaces: Array<{ id: string; name: string }> = [];
   let sequence = 0;
   const unit = (id: string, args: { parent?: string; status: string; created?: number; ended?: number; access?: string;
@@ -84,6 +88,10 @@ function fixture(dir: string) {
   // A PR the coordinator never verified, and one it verified for another unit's branch.
   unit("n", { status: "completed", ended: 30, events: [["report", 20, complete(`Draft ${pr(14)}`)]] });
   unit("o", { status: "completed", ended: 30, events: [["report", 20, complete(`Draft ${pr(15)}`)]] });
+  // Delegations of the reused tasks: only those made while the task ran as the coordinator count.
+  unit("p", { parent: "coord-2", status: "completed", created: 110, ended: 140 });
+  unit("q", { parent: "coord-2", status: "completed", created: 50, ended: 80 });
+  unit("r", { status: "completed", created: 210, ended: 240 });
   // The coordinator's own completed report lists the PRs it verified, with the head branch it checked.
   db.run("INSERT INTO agent_runs VALUES ('coord-run', 'coord-1')");
   const verified = (url: string, head: string) => ({ kind: "link", ref: url, label: `Verified draft PR, head ${head}` });
@@ -118,11 +126,15 @@ test("measures the work a coordinator task delegated with the same outcome numbe
       ["Unit m", "open", null, false],
       ["Unit n", "completed", 20, false],
       ["Unit o", "completed", 20, false],
+      ["Unit p", "completed", 30, false],
     ]);
-    expect(summarizeTarsOutcomes(outcomes)).toMatchObject({ total: 12, pullRequests: 2, completed: 4, cancelled: 1, failed: 2, takenOver: 1,
-      open: 2, humanDecided: 1, unattendedRate: 50, medianMinutesToPullRequest: 65 });
+    expect(summarizeTarsOutcomes(outcomes)).toMatchObject({ total: 13, pullRequests: 2, completed: 5, cancelled: 1, failed: 2, takenOver: 1,
+      open: 2, humanDecided: 1, unattendedRate: 55, medianMinutesToPullRequest: 65 });
     // The end of the range is exclusive.
     expect(readCoordinatorRows(join(dir, "stave.sqlite"), { coordinator: "coordinator-trial", since: at(-60), until: at(0) })).toEqual([]);
+    // Lead's delegations from the reused tasks are Lead's.
+    expect(readCoordinatorRows(join(dir, "stave.sqlite"), { coordinator: "lead", since: at(-60), until: null }).map((row) => row.title))
+      .toEqual(["Unit h", "Unit q", "Unit r"]);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -144,7 +156,7 @@ test("the CLI prints the coordinator's numbers next to Tars's for the same range
     const stdout = result.stdout.toString();
     const summary = JSON.parse(stdout.slice(stdout.lastIndexOf("\n{") + 1));
     expect(summary.tars).toMatchObject({ total: 1, pullRequests: 1, medianMinutesToPullRequest: 120 });
-    expect(summary.coordinator).toMatchObject({ total: 12, pullRequests: 2, failed: 2, unattendedRate: 50 });
+    expect(summary.coordinator).toMatchObject({ total: 13, pullRequests: 2, failed: 2, unattendedRate: 55 });
     // A coordinator that started nothing names the agents that did, so a wrong id is easy to fix.
     const missing = Bun.spawnSync([process.execPath, "scripts/measure-coordinator-outcomes.ts", file, "--coordinator=nobody"]);
     expect(missing.exitCode).toBe(0);

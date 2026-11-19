@@ -19,6 +19,7 @@ const PULL_REQUEST_URL = /https:\/\/github\.com\/([^/\s"\\]+)\/([^/\s"\\]+)\/pul
 type LedgerRun = { id: string; originId: string; workspaceId: string; taskId: string | null; projectPath: string; status: string;
   createdAt: string; updatedAt: string; completedAt: string | null };
 type Receipt = { type: string; createdAt: string; detail: Record<string, unknown> };
+type Assignment = { agent: string; createdAt: string; endedAt: string | null };
 
 /** `owner/name` of a GitHub repository, lower-cased, from a remote or pull request URL. */
 export function githubRepository(url: string): string | null {
@@ -38,10 +39,21 @@ function originRepository(projectPath: string, cache: Map<string, string | null>
   return cache.get(projectPath)!;
 }
 
-/** The tasks that ran as the coordinator agent, from its assignments. */
-function coordinatorTaskIds(db: Database, coordinator: string): Set<string> {
-  const rows = db.query("SELECT task_id AS taskId FROM agent_assignments WHERE agent_config_id = ? AND task_id IS NOT NULL").all(coordinator) as Array<{ taskId: string }>;
-  return new Set(rows.map((row) => row.taskId));
+/** Every task's agent assignments, oldest first. */
+function readAssignments(db: Database): Map<string, Assignment[]> {
+  const rows = db.query(`SELECT task_id AS taskId, agent_config_id AS agent, created_at AS createdAt,
+    json_extract(body_json, '$.endedAt') AS endedAt FROM agent_assignments WHERE task_id IS NOT NULL ORDER BY created_at, rowid`)
+    .all() as Array<Assignment & { taskId: string }>;
+  const byTask = new Map<string, Assignment[]>();
+  for (const { taskId, ...row } of rows) byTask.set(taskId, [...byTask.get(taskId) ?? [], row]);
+  return byTask;
+}
+
+/** The agent a task ran as at a moment: its newest assignment by then, unless that one had ended. */
+function agentAt(assignments: Map<string, Assignment[]>, taskId: string, at: string): string | null {
+  const time = Date.parse(at);
+  const current = (assignments.get(taskId) ?? []).filter((row) => Date.parse(row.createdAt) <= time).at(-1);
+  return current && !(current.endedAt && Date.parse(current.endedAt) <= time) ? current.agent : null;
 }
 
 const readDelegations = (db: Database) => db.query(`SELECT id, origin_id AS originId, workspace_id AS workspaceId, task_id AS taskId,
@@ -50,9 +62,9 @@ const readDelegations = (db: Database) => db.query(`SELECT id, origin_id AS orig
 
 /** Agents whose tasks delegated work in the range, to name when the given coordinator started none. */
 function delegatingAgents(db: Database, range: OutcomeRange): string[] {
-  const rows = db.query(`SELECT DISTINCT a.agent_config_id AS agent, r.created_at AS createdAt FROM runs r
-    JOIN agent_assignments a ON a.task_id = r.origin_id WHERE r.kind = 'delegated-task'`).all() as Array<{ agent: string; createdAt: string }>;
-  return [...new Set(rows.filter((row) => inRange(row.createdAt, range)).map((row) => row.agent))].sort();
+  const assignments = readAssignments(db);
+  return [...new Set(readDelegations(db).filter((run) => inRange(run.createdAt, range))
+    .map((run) => agentAt(assignments, run.originId, run.createdAt)).filter((agent): agent is string => agent !== null))].sort();
 }
 
 /** Whether the person took the child task over: it left the coordinator's control. */
@@ -101,7 +113,7 @@ function verifiedPullRequests(db: Database, coordinatorTaskId: string): Map<stri
 
 /**
  * One row per unit of work the coordinator delegated: a writing delegation on
- * the run ledger whose origin is a coordinator task. Read-only
+ * the run ledger made while its origin task ran as the coordinator. Read-only
  * consults (the reviews it asks for) are not units. The result maps onto
  * Tars's states.
  *
@@ -115,8 +127,8 @@ function verifiedPullRequests(db: Database, coordinatorTaskId: string): Map<stri
 export function readCoordinatorRows(file: string, args: OutcomeRange & { coordinator: string }): TarsOutcomeRow[] {
   const db = openReadOnly(file);
   try {
-    const parents = coordinatorTaskIds(db, args.coordinator);
-    const runs = readDelegations(db).filter((run) => parents.has(run.originId) && inRange(run.createdAt, args));
+    const assignments = readAssignments(db);
+    const runs = readDelegations(db).filter((run) => inRange(run.createdAt, args) && agentAt(assignments, run.originId, run.createdAt) === args.coordinator);
     const receiptsOf = db.query("SELECT receipt_type AS type, created_at AS createdAt, detail_json AS detail FROM run_receipts WHERE run_id = ? ORDER BY sequence");
     const events = db.query("SELECT kind, json_extract(detail_json, '$.operation') AS operation, detail_json AS detail, created_at AS createdAt FROM agent_run_events WHERE agent_run_id = ? ORDER BY sequence");
     const titleOf = db.query("SELECT title FROM tasks WHERE id = ?");
