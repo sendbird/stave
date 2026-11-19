@@ -6,6 +6,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
+  tarsReportedPullRequestUrls, tarsUserRunObservation, type TarsUserPullRequest,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, TARS_OWNER_CALLABLE_AGENT_IDS, tarsAgentPublishes, tarsOwnerAgent } from "../../src/lib/tars/agents";
@@ -33,19 +34,47 @@ import { runCommandArgs } from "../main/utils/command";
 import { hasTarsSnapshotCommit, releaseTarsWorkingChangesRef } from "./tars-working-changes";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 import { parseTarsRequestMessageId } from "../../src/lib/tars/brief";
-import { tarsWorkflowId } from "../../src/lib/tars/ownership";
+import { isTarsObservingUserRun } from "../../src/lib/tars/ownership";
+import { z } from "zod";
+
+/** How long a pull request read that found none for the user's run stands before the next look. */
+const USER_PULL_REQUEST_RECHECK_MS = 5 * 60_000;
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
   assignments: AssignRuntime;
   /** Reports committed Tars writes so main can tell every renderer to read again. */
   emitChanged?: (event: TarsChangedEvent) => void;
+  /** Reads what GitHub says of a pull request (`readTarsPullRequest`); null when it cannot be read. */
+  readPullRequest?: (cwd: string, url: string) => Promise<TarsUserPullRequest | null>;
 }) {
   const persistence = ensureHostServicePersistenceReady();
   if (args.emitChanged) {
     const notify = createTarsChangeBatcher((scope) => args.emitChanged!({ scope }));
     persistence.tars.onChange(notify);
     persistence.tarsConversations.onChange(notify);
+  }
+  const readPullRequest = args.readPullRequest ?? readTarsPullRequest;
+  const userPullRequests = new Map<string, { found: TarsUserPullRequest | null; at: number }>();
+  /**
+   * The pull request the user's ended run opened for the work: one its report
+   * links that GitHub says goes from the execution workspace's branch to the
+   * base Tars would publish to. Read only for a pull request or merge goal.
+   */
+  async function readUserPullRequest(row: TarsResponsibility, detail: { agentRun: { id: string; state: string }; report?: { links: { url: string }[] } | null }) {
+    if (detail.agentRun.state !== "completed" || (row.completionGoal !== "pullRequest" && row.completionGoal !== "merge")) return null;
+    const cached = userPullRequests.get(detail.agentRun.id);
+    if (cached && (cached.found || Date.now() - cached.at < USER_PULL_REQUEST_RECHECK_MS)) return cached.found;
+    const repository = (await tasks.listKnownRepositories()).find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath));
+    const execution = repository?.workspaces.find((workspace) => workspace.id === row.executionWorkspaceId);
+    const base = repository?.workspaces.find((workspace) => workspace.id === row.workspaceId)?.branch || repository?.defaultBranch || null;
+    let found: TarsUserPullRequest | null = null;
+    if (execution?.branch && base) for (const url of tarsReportedPullRequestUrls(detail as Parameters<typeof tarsReportedPullRequestUrls>[0])) {
+      const read = await readPullRequest(execution.path, url).catch(() => null);
+      if (read && read.baseRefName === base && read.headRefName === execution.branch) { found = read; break; }
+    }
+    userPullRequests.set(detail.agentRun.id, { found, at: Date.now() });
+    return found;
   }
   function hasAssignment(row: TarsResponsibility) {
     return assertTarsAssignment(row, persistence.agentAssignments.getByTaskId(row.taskId!),
@@ -265,9 +294,9 @@ export function createHostTarsRuntime(args: {
       const detail = await args.agentRuns.get({ agentRunId: row.agentRunId });
       assertTarsRun(row, detail.agentRun);
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "This task's agent assignment is unavailable.");
-      // A run the user started in the task is judged by its own report; only Tars's own runs carry its criteria.
-      const startedByTars = detail.agentRun.workflow.id === tarsWorkflowId(row.id);
-      const observation = tarsObservation(detail, startedByTars ? tarsExecutionScope(row).acceptanceCriteria : undefined, row.reverifyAfter, row);
+      // A run the user started in the task is only observed: never verified against Tars's criteria or made Tars's result.
+      const observation = isTarsObservingUserRun(row) ? tarsUserRunObservation(detail, row, await readUserPullRequest(row, detail))
+        : tarsObservation(detail, tarsExecutionScope(row).acceptanceCriteria, row.reverifyAfter, row);
       // The requests themselves, bounded, so the user can answer them through Tars.
       const own = withRefs(snapshot.pendingRequests ?? [], row.executionWorkspaceId, row.taskId);
       const withRequests = (value: typeof observation, requests: readonly TarsPendingRequest[]) =>
@@ -439,6 +468,17 @@ export function createHostTarsRuntime(args: {
     readRequest: (messageId) => persistence.tarsConversations.workRequestOf(messageId),
     onError: (error) => console.error("[tars] reconciliation failed", error),
   });
+}
+
+const TarsUserPullRequestSchema = z.object({ number: z.number().int().min(1), url: z.string().min(1).max(2_000), state: z.string().max(40),
+  baseRefName: z.string().max(300), headRefName: z.string().max(300) });
+
+/** What GitHub says of one pull request, read in the work's execution workspace; null when it cannot be read. */
+async function readTarsPullRequest(cwd: string, url: string): Promise<TarsUserPullRequest | null> {
+  const result = await runCommandArgs({ command: "gh", commandArgs: ["pr", "view", url, "--json", "number,url,state,baseRefName,headRefName"], cwd,
+    timeoutMs: 30_000, env: { ...process.env, GH_PROMPT_DISABLED: "1" } });
+  if (!result.ok) return null;
+  try { return TarsUserPullRequestSchema.parse(JSON.parse(result.stdout ?? "")); } catch { return null; }
 }
 
 /** Long enough for commit hooks and a slow push; a command that hangs on a prompt still ends. */

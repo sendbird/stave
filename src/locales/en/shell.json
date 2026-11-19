@@ -1844,7 +1844,11 @@
       "runCancelled": "This work was cancelled. Changes already made stay.",
       "turnStartFailed": "The current stage could not start. Ask Tars to retry it, or open its task to check.",
       "diagnostic": "Technical details",
-      "dailyUsageLimit": "Daily limit reached. Change it in Settings > Providers, then resume."
+      "dailyUsageLimit": "Daily limit reached. Change it in Settings > Providers, then resume.",
+      "followingUserRun": "You continued this work in its task. Tars follows your run and acts on it only when you confirm.",
+      "userRunEnded": "Your run in this task ended without reaching the goal. Tars did not verify it. Continue in the task, or cancel this work.",
+      "finishedByUser": "You finished this work in its task. Tars did not verify it.",
+      "finishedByUserPullRequest": "You finished this work in its task: pull request #{{number}} was opened from your run. Tars did not verify it."
     },
     "messageFailure": {
       "interrupted": "Tars stopped before its reply was saved. Send the message again.",

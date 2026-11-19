@@ -9,8 +9,9 @@ export interface TarsOwnershipTarget {
   /**
    * The task's active agent run: its id, null when it has none, or left out
    * while unknown. When known, only the responsibility's own run is Tars's: a
-   * run you start in the task becomes its own once Tars follows it (its next
-   * pass), and until then that run's controls act directly.
+   * run you start in the task becomes the work's run once Tars follows it (its
+   * next pass), which Tars then only observes, and until then that run's
+   * controls act directly.
    */
   agentRunId?: string | null;
   /** That run's workflow id, which names the responsibility that started it. */
@@ -22,6 +23,17 @@ export interface TarsOwnershipTarget {
 /** The workflow id of a run Tars starts for a responsibility (`electron/host-service/tars-execution.ts`). */
 export function tarsWorkflowId(responsibilityId: string) {
   return `tars-${responsibilityId}`;
+}
+
+/**
+ * Whether the work's current run is one the user started in its task, which
+ * the work follows (`followedRunId`). Tars only observes such a run: no
+ * authority granted for a run Tars started (publishing, automatic answers,
+ * controls, queued follow-ups) applies to it, so anything Tars would do there
+ * waits for the user's confirmation, and its result is never Tars's verified one.
+ */
+export function isTarsObservingUserRun(row: Pick<TarsResponsibility, "agentRunId" | "followedRunId"> | null | undefined): boolean {
+  return Boolean(row?.agentRunId && row.followedRunId === row.agentRunId);
 }
 
 /** A run's own marker that Tars started it, readable without the Tars snapshot. */

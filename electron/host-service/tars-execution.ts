@@ -381,6 +381,56 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
   return { state: "running", detail: null };
 }
 
+/** What GitHub says of a pull request the user's run reports (`gh pr view`), as the host read it. */
+export interface TarsUserPullRequest {
+  number: number;
+  url: string;
+  state: string;
+  baseRefName: string;
+  headRefName: string;
+}
+
+/** A pull request link in a run's report: candidates the host reads on GitHub, never evidence by themselves. */
+export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report">): string[] {
+  return [...new Set((detail.report?.links ?? []).map((link) => link.url).filter((url) => /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?:[/?#]|$)/.test(url)))];
+}
+
+/**
+ * A run the user started in the work's task, observed for the work. Tars
+ * holds no authority over it and never verifies it: its own acceptance
+ * criteria and verification are not applied, and its end never makes a result
+ * Tars could publish or complete. Running and waiting are said as observed.
+ * When it ends having produced what the work's goal asks for (for a pull
+ * request goal, `pullRequest`: one the host read open or merged from the
+ * work's branch to the requested base; merged for a merge goal; otherwise a
+ * completed report), the work is finished by the user, which the record says
+ * without claiming Tars's verification. Otherwise the work stays open and
+ * says the user's run ended without reaching the goal.
+ */
+export function tarsUserRunObservation(detail: AgentRunDetail, goal: Pick<TarsResponsibility, "completionGoal">,
+  pullRequest: TarsUserPullRequest | null): TarsExecutionObservation {
+  const run = detail.agentRun;
+  if (run.state === "paused" && run.pauseReason === "taken-over") return { state: "takenOver", detail: run.reasonDetail ?? null };
+  if (run.state === "completed" || run.state === "cancelled" || run.state === "stopped") {
+    const external = goal.completionGoal === "pullRequest" || goal.completionGoal === "merge";
+    const finished = run.state === "completed" && (external
+      ? Boolean(pullRequest && (goal.completionGoal === "merge" ? pullRequest.state === "MERGED" : pullRequest.state === "OPEN" || pullRequest.state === "MERGED"))
+      : detail.report?.outcome === "completed");
+    const unverified = { resultVerifiedRunId: null, resultUnverifiedRunId: null, unchangedRunId: null };
+    // i18n-ignore: persisted diagnostic; the interface translates the code
+    if (!finished) return { state: "blocked", detail: "Your run in this work's task ended without reaching the work's goal. Tars did not verify it.", detailCode: "userRunEnded", ...unverified };
+    return pullRequest && external
+      // i18n-ignore: persisted diagnostic; the interface translates the code
+      ? { state: "completed", detail: `You finished this work in its task: pull request #${pullRequest.number} (${pullRequest.url}) was opened from your run. Tars did not verify it.`,
+        detailCode: "finishedByUser", detailParams: { pullRequest: pullRequest.number }, ...unverified }
+      // i18n-ignore: persisted diagnostic; the interface translates the code
+      : { state: "completed", detail: "You finished this work in its task. Tars did not verify it.", detailCode: "finishedByUser", ...unverified };
+  }
+  const observed = tarsObservation(detail, undefined, null, goal);
+  // i18n-ignore: persisted diagnostic; the interface translates the code
+  return observed.state === "running" ? { ...observed, detail: "You continued this work in its task. Tars follows your run and acts on it only when you confirm.", detailCode: "followingUserRun" } : observed;
+}
+
 /** The run's own current stage attempt as a responsibility records it (`activeStage`). */
 export function tarsActiveStage(detail: Pick<AgentRunDetail, "agentRun" | "stages">): string {
   const record = currentStageRecord(detail);

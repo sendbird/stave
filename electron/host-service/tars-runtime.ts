@@ -11,6 +11,7 @@ import {
   type TarsStageWait, type TarsWorkRequest, type TarsContinuation,
 } from "../../src/lib/tars/types";
 import { buildTarsBrief, resolveTarsWorkRequest, TarsBriefInputSchema } from "../../src/lib/tars/brief";
+import { isTarsObservingUserRun } from "../../src/lib/tars/ownership";
 import { tarsDetailFromError, TarsDetailError, TarsOwnershipLostError, TarsRunEndedError, TarsRunRefusedError } from "./tars-ownership";
 import type { TarsStore } from "../persistence/tars-store";
 import { isTarsStorageBusy, type TarsConversationStore } from "../persistence/tars-conversation-store";
@@ -59,8 +60,8 @@ export interface TarsRuntimePorts {
   findRun: (row: TarsResponsibility) => Promise<string | null>;
   startRun: (row: TarsResponsibility, assertAdmitted: () => void) => Promise<string>;
   /**
-   * The newer run the user started in the work's own task, which Tars then
-   * supervises instead (`tarsTaskRunToFollow`); null when there is none.
+   * The newer run the user started in the work's own task, which the work then
+   * follows and Tars only observes (`tarsTaskRunToFollow`); null when there is none.
    */
   followTaskRun?: (row: TarsResponsibility) => string | null;
   observe: (row: TarsResponsibility) => Promise<TarsExecutionObservation>;
@@ -181,13 +182,18 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
   }
   /**
    * A user's message in the work's task does not end Tars's responsibility:
-   * Tars supervises the run that message started from now on, and the earlier
+   * the work follows the run that message started from now on, and the earlier
    * run stays in the work's history. Observation then reads that run's state.
+   * Tars only observes it (`followedRunId`): nothing granted for its own run
+   * applies there. A follow-up saved for Tars's run that never started is no
+   * longer its scope; its words are refused unsaid (`deliveryEnded`).
    */
   function followTaskRun(row: TarsResponsibility) {
     const agentRunId = taskRunToFollow(row);
     if (!agentRunId) return row;
-    return patch(row, { agentRunId, previousRunIds: [...new Set([...(row.previousRunIds ?? []), row.agentRunId!])],
+    const unstarted = row.continuation?.previousRunId === row.agentRunId;
+    return patch(row, { agentRunId, followedRunId: agentRunId, previousRunIds: [...new Set([...(row.previousRunIds ?? []), row.agentRunId!])],
+      ...(unstarted ? { continuation: undefined } : {}),
       state: "running", detail: null, reverifyAfter: null, activeStage: undefined, pendingRequests: undefined,
       stageAsksUser: undefined, stageWait: undefined, observedTurns: undefined, observedStage: undefined, waitingTaskId: undefined });
   }
@@ -395,10 +401,15 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     if (!delivery.turnId) return false;
     try { return ports.hasUserTurn?.(delivery.agentRunId, delivery.turnId) ?? null; } catch { return null; }
   }
-  /** Why words for this run can never be said: the work ended or left Tars, or its run is not the one they were for. */
+  /**
+   * Why words for this run can never be said: the work ended or left Tars, or
+   * its run is not the one they were for. Words kept for an earlier run are
+   * never said to a run the user started in the task.
+   */
   function deliveryEnded(row: TarsResponsibility | null, delivery: TarsMessageDelivery): TarsControlReason | null {
     if (row?.state === "takenOver") return "takenOver";
-    if (!row || !row.agentRunId || (row.agentRunId !== delivery.agentRunId && !row.previousRunIds?.includes(delivery.agentRunId))) return "ownershipLost";
+    if (!row || !row.agentRunId || (row.agentRunId !== delivery.agentRunId &&
+      (isTarsObservingUserRun(row) || !row.previousRunIds?.includes(delivery.agentRunId)))) return "ownershipLost";
     return row.state === "cancelled" || hasEndedTarsExecution(row) && !ports.continueWork ? "ended" : null;
   }
   /** Cancels every open message of a work at once; one under way is recorded as said only if its own turn is there. */
@@ -490,8 +501,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         move(["queued", "delivering"], { status: "delivered", agentRunId: runId });
         return;
       }
-      // The new run was saved but the delivery acknowledgement was lost.
-      if (!ended && row?.continuation?.requestId === requestId && row.agentRunId !== row.continuation.previousRunId) {
+      // The new run was saved but the delivery acknowledgement was lost: only a run this
+      // continuation started is that evidence, never a run the user started in the task.
+      if (!ended && row?.continuation?.requestId === requestId && row.agentRunId !== row.continuation.previousRunId && !isTarsObservingUserRun(row)) {
         move(["queued", "delivering"], { status: "delivered", agentRunId: row.agentRunId! }); return;
       }
       if (delivery.status === "delivering") {
@@ -536,6 +548,19 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     } catch (error) {
       if (!isTarsStorageBusy(error)) ports.onError?.(error);
     }
+  }
+  /**
+   * A control applies only to the run and revision it was approved for. When
+   * the work's saved state changed, or the user started a newer run in its task
+   * (which the work then follows), it is refused as stale with no effect: the
+   * user decides again on what is there now.
+   */
+  function assertApprovedRun(row: TarsResponsibility) {
+    const latest = ports.store.get(row.id);
+    if (!latest || latest.revision !== row.revision || latest.agentRunId !== row.agentRunId) throw new TarsControlRejection("stale", TARS_CONTROL_STALE);
+    if (!taskRunToFollow(latest)) return;
+    followTaskRun(latest);
+    throw new TarsControlRejection("stale", TARS_CONTROL_STALE);
   }
   function requestTick() {
     if (scheduled || stopped) return;
@@ -633,8 +658,6 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         let row = sent ? current! : admitTarsControl(current, request, "dispatch");
         // Rechecked before the run is controlled: a proposal superseded while this waited is refused.
         if (!sent) ledger.admit?.();
-        // A control given before the next pass followed the user's run in the task acts on that run.
-        if (!sent) row = followTaskRun(row);
         // Taken before the run continues, so its fresh verification always starts after it.
         const handedBackAt = now();
         let ownershipLoss: TarsOwnershipLostError | null = null;
@@ -662,6 +685,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
               throw new TarsControlRejection("outOfScope", error instanceof Error ? error.message : "The registered scope could not be verified.");
             }
           }
+          // Immediately before the effect: the control applies only to the run and revision it was approved for.
+          if (!sent) assertApprovedRun(row);
           // Accepting completion settles the responsibility; the run has already ended.
           // Starting queued work has no run to control yet; a run found above is adopted below.
           // A task operation answers in the task once; a retry of the same request only records it.
@@ -688,6 +713,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
             await ports.controlRun(row, request.operation as TarsRunControlOperation, request.autoExtendMaxTurns, ledger.key);
           }
         } catch (error) {
+          // The run changed under the command because the user started one in the task: refused, never a transfer.
+          if (error instanceof TarsOwnershipLostError && !sent) assertApprovedRun(row);
           if (!(error instanceof TarsOwnershipLostError) || TARS_GRANTING_OPERATIONS.has(request.operation)) throw error;
           // Confirmed transfer relinquishes only this responsibility. Never send
           // a control to the new owner, and never treat a read failure as transfer.
