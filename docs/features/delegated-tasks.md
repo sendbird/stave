@@ -95,7 +95,9 @@ whole in the next one, oldest first, and the oldest goes even when it alone is
 larger than the turn's share. If several turns of one subagent end before the
 parent's next turn, each answer arrives. An answer counts as received once the
 provider accepts a parent turn that carried it, even if that turn is then
-stopped. A child attached to the message still brings its new answers under
+stopped. A host turn still waiting for a turn slot when the app quits is saved
+with the answers it carries and records exactly those when it runs after the
+restart. A child attached to the message still brings its new answers under
 **Subagent results**, because the attachment is read separately and may be
 empty. A composer review is addressed to the user: until the user attaches
 it, Subagent results count it without its answer, and it arrives whole in the

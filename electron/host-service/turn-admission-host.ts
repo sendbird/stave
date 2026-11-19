@@ -108,9 +108,10 @@ export function createHostTurnAdmission(store: SqliteStore, options: { now?: () 
       const id = args.turnId!;
       const { unattendedAutomation: _authorization, staveTurnGrants: _grants, agentRunStage: _stage, turnPolicy: _policy,
         managedTask: _managed, freshSession: _fresh, admissionPriority: _priority, executionPolicy: _execution, admissionOwner: _owner, ...safe } = args;
-      // Parse a projection: caller callbacks and in-memory capabilities never enter SQLite.
-      const { turnId, providerId, prompt, conversation, taskId, workspaceId, cwd, runtimeOptions } = safe;
-      const savedArgs = StreamTurnArgsSchema.parse({ turnId, providerId, prompt, conversation, taskId, workspaceId, cwd, runtimeOptions: { ...runtimeOptions, claudeAccountProfileId: runtimeOptions?.claudeAccountProfileId ?? currentProviderAccountId("claude-code"), codexAccountProfileId: runtimeOptions?.codexAccountProfileId ?? currentProviderAccountId("codex") } });
+      // Parse a projection: caller callbacks and in-memory capabilities never enter SQLite. The subagent
+      // answers the prompt carries are saved with it, so a start run again after a restart records exactly those.
+      const { turnId, providerId, prompt, conversation, taskId, workspaceId, cwd, runtimeOptions, subagentAnswers } = safe;
+      const savedArgs = StreamTurnArgsSchema.parse({ turnId, providerId, prompt, conversation, taskId, workspaceId, cwd, subagentAnswers, runtimeOptions: { ...runtimeOptions, claudeAccountProfileId: runtimeOptions?.claudeAccountProfileId ?? currentProviderAccountId("claude-code"), codexAccountProfileId: runtimeOptions?.codexAccountProfileId ?? currentProviderAccountId("codex") } });
       const priority = args.admissionPriority ?? (args.agentRunStage || args.unattendedAutomation ? "automatic" : "user");
       const previous = recovered.get(id);
       recoveryPending.delete(id);

@@ -798,7 +798,8 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   let routeNote: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote | undefined;
   try {
     if (!rawArgs.executionPolicy && turnAdmission) {
-      await turnAdmission.acquire({ ...rawArgs, runtimeOptions: { ...rawArgs.runtimeOptions, ...(composerSelection ? { composerSelection } : {}) } }, state => rawArgs.onEvent?.({ type: "turn_admission", ...state }));
+      // Admission saves the answers the turn carries, so a start it runs again after a restart records them.
+      await turnAdmission.acquire({ ...rawArgs, runtimeOptions: { ...rawArgs.runtimeOptions, ...(composerSelection ? { composerSelection } : {}) }, ...(subagentAnswers ? { subagentAnswers } : {}) }, state => rawArgs.onEvent?.({ type: "turn_admission", ...state }));
       admitted = true;
       // The terminal event frees the slot at once, whatever ended the turn
       // (timeout, abort, provider error, user stop), together with any

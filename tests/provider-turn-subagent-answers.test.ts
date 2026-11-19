@@ -68,6 +68,7 @@ mock.module("../electron/host-service/persistence", () => ({ ensureHostServicePe
 
 const { providerRuntime, setProviderTurnAdmission, setProviderTurnCommittedListener, setTaskAgentTurnResolver } = await import("../electron/providers/runtime");
 const { recordCommittedTurnAnswers } = await import("../electron/host-service/delegated-task-signals");
+const { createHostTurnAdmission } = await import("../electron/host-service/turn-admission-host");
 setProviderTurnCommittedListener(recordCommittedTurnAnswers);
 
 const runId = buildDelegatedTaskRunId({ parentTaskId: PARENT, delegationKey: "docs" });
@@ -210,6 +211,36 @@ describe("subagent answers reach the ledger when their turn reaches its provider
     await parentTurn("codex", "refused-turn");
     expect(providerTurns).toHaveLength(0);
     expect(owed()).toHaveLength(1);
+  });
+
+  test("a host turn queued in admission and run again after a restart records exactly the answers it carried", async () => {
+    childAnswers();
+    /** The admission rows on disk, as one boot leaves them for the next. */
+    const disk = (rows: unknown[] = []) => {
+      const store = { rows, turnAdmission: { read: () => store.rows, write: (next: unknown[]) => { store.rows = structuredClone(next); }, readRestored: () => [], writeRestored: () => {} },
+        delegationPolicies: { loadRouteSettings: () => ({ globalAgentTurnLimit: 1 }) } };
+      return store;
+    };
+    const before = disk();
+    const firstBoot = createHostTurnAdmission(before as never);
+    setProviderTurnAdmission(firstBoot.admission);
+    await firstBoot.admission.acquire({ turnId: "busy", taskId: "other-task", providerId: "codex", prompt: "Busy." }, () => {});
+    const subagentAnswers = owed().map(({ runId: id, sequence }) => ({ runId: id, sequence }));
+    void providerRuntime.startTurnStream({ turnId: "queued-turn", taskId: PARENT, workspaceId: "ws", providerId: "codex", prompt: "Next.", cwd: "/tmp/stave-subagent-answers",
+      conversation: conversation("Next."), subagentAnswers, admissionOwner: "host-task" }, { bufferEvents: true });
+    while (!firstBoot.isQueued("queued-turn") || before.rows.length < 2) await new Promise((resolve) => setTimeout(resolve, 1));
+    // The app stops here. The next boot reads the queued start from disk and runs it again.
+    const after = disk(structuredClone(before.rows));
+    firstBoot.admission.cancel("queued-turn");
+    const secondBoot = createHostTurnAdmission(after as never);
+    setProviderTurnAdmission(secondBoot.admission);
+    await secondBoot.recover({
+      taskExists: () => true, restore: () => false, failed: () => { throw new Error("the queued start was not run again"); },
+      start: (args) => new Promise<void>((resolve) => { providerRuntime.startTurnStream(args, { bufferEvents: true, onDone: () => resolve() }); }),
+    });
+    expect(providerTurns).toHaveLength(1);
+    expect(providerTurns[0]?.turnId).toBe("queued-turn");
+    expect(owed()).toEqual([]);
   });
 
   test("a failed delivery write is logged and the answers stay owed, so the next turn carries them again", async () => {
