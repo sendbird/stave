@@ -168,10 +168,10 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                   variant="secondary"
                   size="xs"
                   disabled={props.busy}
-                  onClick={() => void onCommand(agentRun.pauseReason === "limit-reached" ? "extend" : "resume", { agentRunId: agentRun.id })}
+                  onClick={() => void onCommand("resume", { agentRunId: agentRun.id })}
                 >
                   <Play aria-hidden />
-                  {i18n.t(agentRun.pauseReason === "limit-reached" ? "agentRuns:limit.extend" : "agentRuns:agentRunPanel.legacyWorkflowRunDetailView3")}</Button>
+                  {i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView3")}</Button>
               ) : null}
               <Tooltip>
                 <DropdownMenu

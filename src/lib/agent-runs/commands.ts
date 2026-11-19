@@ -296,8 +296,9 @@ export function pauseAgentRun(args: {
 }
 
 /**
- * Clears a pause the user chose. A pause the supervisor set clears on its own
- * once its condition lifts, so resuming one by hand is refused.
+ * Clears a pause the user chose, or the old turn-limit pause of a run halted
+ * before turn counts stopped pausing runs. A pause the supervisor set clears
+ * on its own once its condition lifts, so resuming one by hand is refused.
  */
 export function resumeAgentRun(args: {
   aggregate: AgentRunAggregate;
@@ -307,7 +308,7 @@ export function resumeAgentRun(args: {
   const { agentRun } = args.aggregate;
   if (agentRun.state === "running") return { agentRun, upserts: [], events: [] };
   if (agentRun.pauseReason !== "paused-by-user" && agentRun.pauseReason !== "taken-over" &&
-      agentRun.pauseReason !== "usage-limit" && agentRun.pauseReason !== "wait-expired") {
+      agentRun.pauseReason !== "usage-limit" && agentRun.pauseReason !== "wait-expired" && agentRun.pauseReason !== "limit-reached") {
     throw new AgentRunCommandError(
       "invalid-state",
       agentRun.reasonDetail ?? i18n.t("agentRuns:commands.extraCopy245"),
@@ -336,28 +337,6 @@ function resumeTransition(aggregate: AgentRunAggregate, now: Date): AgentRunChan
       { kind: "resumed", idempotencyKey: null, detail: {} },
     ],
   };
-}
-
-/** Adds capacity to a limit pause without resetting its session, stages or usage. */
-export function extendAgentRun(args: {
-  aggregate: AgentRunAggregate;
-  additionalTurns?: number;
-  now: Date;
-}): AgentRunChange {
-  const { agentRun } = args.aggregate;
-  if (agentRun.state !== "paused" || agentRun.pauseReason !== "limit-reached") {
-    throw new AgentRunCommandError("invalid-state", i18n.t("agentRuns:limit.extendOnly"));
-  }
-  if (agentRun.maxTurns >= AGENT_RUN_LIMITS.maxTurnsCeiling) {
-    throw new AgentRunCommandError("invalid-state", i18n.t("agentRuns:limit.ceiling", { count: AGENT_RUN_LIMITS.maxTurnsCeiling }));
-  }
-  const additionalTurns = args.additionalTurns ?? 10;
-  if (!Number.isSafeInteger(additionalTurns) || additionalTurns < 1) {
-    throw new AgentRunCommandError("invalid-state", i18n.t("agentRuns:limit.invalidTurns"));
-  }
-  return resumeTransition({ ...args.aggregate, agentRun: {
-    ...agentRun, maxTurns: Math.min(agentRun.maxTurns + additionalTurns, AGENT_RUN_LIMITS.maxTurnsCeiling),
-  } }, args.now);
 }
 
 /**

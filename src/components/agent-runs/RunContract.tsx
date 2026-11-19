@@ -10,7 +10,7 @@ import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.
 import { readyWorkspaceScripts, useWorkspaceScriptActions } from "@/components/workflows/useWorkspaceScriptActions";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { agentRunPromptFit, buildAgentRunAssignment, buildAgentRunStartInput, planAgentPromptSendForFit, type AgentRunPromptFit } from "@/lib/agent-runs/agent-run";
-import { AGENT_RUN_LIMITS, isActiveAgentRunState } from "@/lib/agent-runs/domain";
+import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { buildRunContract, buildRunContractSummary, confirmedApprovalsOfRun, type RunContract, type RunContractInput } from "@/lib/agent-runs/run-contract";
 import { defaultWorkspaceCheckApplies } from "@/lib/agent-runs/workspace-check";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
@@ -178,7 +178,6 @@ export const RunStartNotice = memo(function RunStartNotice(props: { taskId: stri
     codexAutoReview,
     workflow: start.workflow,
     authorizedEffectStageIds: start.consent.authorizedEffectStageIds,
-    maxTurns: start.maxTurns ?? AGENT_RUN_LIMITS.defaultMaxTurns,
     defaultCheck: {
       applies: defaultWorkspaceCheckApplies({ id: agent.agentConfigId, permission: agent.agentPermission, workflow: agent.agentWorkflow }),
       scriptIds,
@@ -197,7 +196,7 @@ export const RunStartNotice = memo(function RunStartNotice(props: { taskId: stri
     : props.attachments.context > 0
       ? i18n.t("session:agentAttachmentNotice.agentAttachmentNotice")
       : null;
-  const plain = [title, summary.permission.text, summary.checkIns, attachmentItem ?? summary.turns].join(" · ");
+  const plain = [title, summary.permission.text, summary.checkIns, attachmentItem].filter(Boolean).join(" · ");
   return (
     <div data-testid="run-contract-notice" data-details={open ? "open" : "closed"}>
       <div className={sx(shelfStyles.line)} role="group" aria-label={i18n.t("agentRuns:runContract.notice.ariaLabel")}>
@@ -210,11 +209,9 @@ export const RunStartNotice = memo(function RunStartNotice(props: { taskId: stri
           <span className={sx(summary.permission.warning && shelfStyles.caution)} data-testid="run-contract-notice-permission" data-warning={summary.permission.warning || undefined}>
             {summary.permission.text}
           </span>
-          {/* Narrow rows drop the turn cap first, then the check-in and attachments (Details keeps both); the title and permission stay. */}
+          {/* Narrow rows drop the check-in and attachments (Details keeps both); the title and permission stay. */}
           <span className={sx(styles.checkIns)}>{" · "}{summary.checkIns}</span>
-          {attachmentItem
-            ? <span className={sx(styles.checkIns)}>{" · "}{attachmentItem}</span>
-            : <span className={sx(styles.turns)}>{" · "}{summary.turns}</span>}
+          {attachmentItem ? <span className={sx(styles.checkIns)}>{" · "}{attachmentItem}</span> : null}
         </p>
         <span className={sx(shelfStyles.actions)}>
           <Button
@@ -281,13 +278,11 @@ export function RunHeaderContract(props: { detail: AgentRunDetail }) {
     confirmedApprovals,
     workflow: agentRun.workflow,
     authorizedEffectStageIds: agentRun.consent.authorizedEffectStageIds,
-    maxTurns: agentRun.maxTurns,
   });
   return <RunContractView title={i18n.t("agentRuns:runContract.header.title")} contract={contract} testId="run-contract-header" />;
 }
 
 /** The shelf row is the container (`shelfStyles.row`); these steps keep the title and permission readable. */
-const DROP_TURNS = "@container (max-width: 535px)";
 const DROP_CHECK_INS = "@container (max-width: 400px)";
 
 const styles = stylex.create({
@@ -305,6 +300,5 @@ const styles = stylex.create({
     paddingInlineEnd: vars["--aui-space-12"],
     paddingInlineStart: `calc(${vars["--aui-space-12"]} + 20px + ${vars["--aui-space-8"]})`,
   },
-  turns: { display: { default: "inline", [DROP_TURNS]: "none" } },
   checkIns: { display: { default: "inline", [DROP_CHECK_INS]: "none" } },
 });

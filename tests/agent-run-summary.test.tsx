@@ -13,7 +13,6 @@ function render(patch: Partial<AgentRunSummaryProps["agentRun"]> = {}, rest: Par
         fingerprint: { providerId: "claude-code", model: "claude-opus-5-5[1m]" },
         consent: { checkIns: "plan-and-publishing", permissionMode: "auto", authorizedEffectStageIds: [] },
         turnCount: 2,
-        maxTurns: 30,
         createdAt: START,
         updatedAt: START,
         ...patch,
@@ -32,7 +31,9 @@ test("the run reads as who runs it, then its figures", () => {
   expect(html).toContain("Claude Opus 5.5 (1M)");
   expect(html).toContain("Auto permissions");
   expect(html).toContain(">2<");
-  expect(html).toContain("/ 30");
+  // Turns are a count, never shown against a budget.
+  expect(html).not.toContain("/ 30");
+  expect(html).not.toContain('role="meter"');
   expect(html).toContain("$309.96");
   expect(html).toContain("3.7k tokens");
   expect(html).toContain("Running for");
@@ -49,7 +50,7 @@ test("a run on the user's own settings says so instead of Manual", () => {
   expect(html).not.toContain("Manual");
 });
 
-test("a provider that reports tokens only shows tokens, and a near budget explains the halt", () => {
+test("a provider that reports tokens only shows tokens, and many turns never read as a coming halt", () => {
   const html = render(
     { fingerprint: { providerId: "codex", model: "gpt-6-sol" } as never, turnCount: 25 },
     { usage: { turns: 25, measuredTurns: 25, inputTokens: 160_000, outputTokens: 9_400, costUsd: null } },
@@ -58,7 +59,9 @@ test("a provider that reports tokens only shows tokens, and a near budget explai
   expect(html).toContain("Codex");
   expect(html).toContain("Tokens");
   expect(html).toContain("No cost reported");
-  expect(html).toContain("Close to its 30-turn budget; the run halts there until you extend it.");
+  expect(html).toContain(">25<");
+  expect(html).not.toContain("budget");
+  expect(html).not.toContain("extend");
 });
 
 test("an ended run counts its time to its end, and aliases name their provider", () => {

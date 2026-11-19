@@ -60,7 +60,6 @@ function describeCompletedChange(row: AgentRunStageRow): string | null {
 export interface AgentRunBarActions {
   onTakeOver?: () => void;
   onResume?: () => void;
-  onExtend?: () => void;
   onOpenPanel?: () => void;
   busy?: boolean;
 }
@@ -151,7 +150,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
   const detailText = held ? describeCompletedChange(held) : showNow ? props.nowPhrase : line.detail;
   const age = held || showNow ? null : formatDuration(now - Date.parse(line.since));
   const paused = agentRun.state === "paused";
-  const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired");
+  const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired" || agentRun.pauseReason === "limit-reached");
   const elapsed = formatDuration(now - Date.parse(agentRun.createdAt));
   const stateInk = status.badge === "needs-answer" || status.badge === "halted" ? shelfStyles.labelWaiting : shelfStyles.strong;
 
@@ -212,11 +211,6 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
               >
                 {i18n.t("agentRuns:agentRunBar.actions")}</Button>
             </Tooltip>
-          ) : null}
-          {status.recovery === "extend" && actions.onExtend ? (
-            <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onExtend}>
-              {i18n.t("agentRuns:limit.extend")}
-            </Button>
           ) : null}
           {userPaused && actions.onResume ? (
             <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
@@ -281,7 +275,6 @@ export function AgentRunBar(props: AgentRunBarProps) {
         busy,
         onTakeOver: () => void runCommand("takeOver", { agentRunId }),
         onResume: () => void runCommand("resume", { agentRunId }),
-        onExtend: () => void runCommand("extend", { agentRunId }),
         onOpenPanel: () => setLayout({ patch: taskPanelLayoutPatch("progress") }),
       }}
     />

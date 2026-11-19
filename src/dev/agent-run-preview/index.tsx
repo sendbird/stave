@@ -27,6 +27,7 @@ import { buildAgentRunReport } from "@/lib/agent-runs/report";
 import { projectAgentRunActiveTime } from "@/lib/agent-runs/active-time";
 import type { AgentRunRouteObservation } from "@/lib/agent-runs/route-observation";
 import { createWorkflowFromStarter, findWorkflowStarter } from "@/dev/fixtures/legacy-workflow-starters";
+import { applyAppLocale } from "@/i18n";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { agentRunFleetDetails, AgentRunPreviewCases } from "./agent-run-cases";
@@ -283,6 +284,8 @@ export function AgentRunPreview() {
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
   }, [dark]);
+  // `lang=ko` renders the cases in Korean.
+  useLayoutEffect(() => { applyAppLocale(params.get("lang") ?? "en"); }, []);
   const now = Date.now();
   const actions = { onTakeOver: () => {}, onResume: () => {}, onOpenPanel: () => {} };
   useLayoutEffect(() => { if (params.get("only") !== "plan-visibility") seedFleetAgentRuns(); }, []);

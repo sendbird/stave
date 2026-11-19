@@ -142,7 +142,7 @@ describe("agent run result card", () => {
     const html = card(runs.failed);
     expect(html).toContain('data-testid="agent-run-reason"');
     expect(html).toContain("Stopped");
-    expect(html).toContain("The run used all 30 turns before it finished.");
+    expect(html).toContain("This run took 200 turns without finishing, so Stave stopped it as a likely loop.");
     expect(html).toContain("Retry");
     expect(html).toContain("Take control");
     expect(html).not.toContain("Ask for changes");
@@ -191,7 +191,7 @@ describe("agent run in the Progress tab", () => {
     expect(stuck).toContain("The tests have been pending for 20 minutes.");
     const failed = panel(runs.failed);
     expect(failed).toContain("Stopped");
-    expect(failed).toContain("The run used all 30 turns before it finished.");
+    expect(failed).toContain("This run took 200 turns without finishing, so Stave stopped it as a likely loop.");
     for (const html of [working, stuck, failed]) {
       expect(html).not.toContain(">Stop<");
       expect(html).not.toContain("Take control");

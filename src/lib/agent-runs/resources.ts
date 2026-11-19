@@ -26,16 +26,19 @@ export const AdaptiveRoutingIntentSchema = z.object({
 export type AdaptiveRoutingIntent = z.infer<typeof AdaptiveRoutingIntentSchema>;
 
 /**
- * The team limits every Agent run freezes when it starts: one turn budget the
- * parent and its helpers share (the run's max turns), how many helper Agents
- * it can call, and how often it may change model or effort. Settings holds the
- * helper limits; the rest is fixed.
+ * The team limits every Agent run freezes when it starts: how many helper
+ * Agents it can call and how often it may change model or effort. Settings
+ * holds the helper limits; the rest is fixed. The parent and its helpers also
+ * share one guard against loops (`maxTeamTurns`), which is not a budget.
  */
 export const TEAM_LIMITS = {
   concurrentHelpers: { default: 3, min: 1, max: 6 },
   totalHelpers: { default: 8, min: 1, max: 20 },
-  /** `AGENT_RUN_LIMITS.maxTurnsCeiling`; `domain.ts` imports this module, so the value is not imported back. */
-  maxTeamTurns: 100,
+  /**
+   * `AGENT_RUN_LIMITS.safetyTurnCeiling`, shared by the parent and its helpers;
+   * `domain.ts` imports this module, so the value is not imported back.
+   */
+  maxTeamTurns: 200,
   /**
    * Turns a helper holds when it starts: its first turn and one reminder.
    * Later turns draw from the shared budget as they start, so one helper never
@@ -52,10 +55,10 @@ export function clampTeamLimit(key: TeamLimitKey, value: unknown): number {
 }
 
 /**
- * Version 1 is the opt-in "Auto adjust" policy (30 shared turns, 2 / 4
- * helpers); runs that froze it keep those numbers. Version 2 is the default
- * policy of every Agent run: its budget follows the run's max turns, so
- * Extend raises both, and its helper limits come from Settings.
+ * Version 1 is the opt-in "Auto adjust" policy (2 / 4 helpers); runs that
+ * froze it keep those numbers. Version 2 is the default policy of every Agent
+ * run, with helper limits from Settings. The saved `teamTurns` of either no
+ * longer bounds the team: every team shares `maxTeamTurns`.
  */
 export const AdaptiveRunPolicySchema = z.object({
   version: z.union([z.literal(1), z.literal(2)]), profile: z.literal("balanced"),
@@ -136,7 +139,7 @@ export interface AgentResourceSnapshot {
   rootRunId: string;
   policy: AdaptiveRunPolicy;
   memberPolicy?: AdaptiveRunPolicy;
-  /** The shared budget now: the frozen one, or the root run's max turns once Extend raised them. */
+  /** The team's guard against loops, `TEAM_LIMITS.maxTeamTurns`, whatever the policy saved. */
   teamTurns: number;
   spent: number;
   reserved: number;
@@ -147,16 +150,13 @@ export interface AgentResourceSnapshot {
 }
 
 /**
- * The shared budget of a root run. A version 2 budget follows the run's max
- * turns, so Extend raises it; a version 1 budget stays as it was frozen.
+ * A projection of keyed Run events, never a second ledger or scheduler. A
+ * team's turns count against `maxTeamTurns` only, whatever its policy saved:
+ * runs that froze a smaller number before turn counts stopped bounding work
+ * continue too.
  */
-export function teamTurnBudget(policy: Pick<AdaptiveRunPolicy, "version" | "teamTurns">, rootMaxTurns?: number): number {
-  return policy.version === 2 && rootMaxTurns !== undefined ? Math.max(policy.teamTurns, Math.min(rootMaxTurns, TEAM_LIMITS.maxTeamTurns)) : policy.teamTurns;
-}
-
-/** A projection of keyed Run events, never a second ledger or scheduler. */
-export function projectResourceBudget(rootRunId: string, policy: AdaptiveRunPolicy, events: readonly AgentRunEvent[], rootMaxTurns?: number): AgentResourceSnapshot {
-  const teamTurns = teamTurnBudget(policy, rootMaxTurns);
+export function projectResourceBudget(rootRunId: string, policy: AdaptiveRunPolicy, events: readonly AgentRunEvent[]): AgentResourceSnapshot {
+  const teamTurns: number = TEAM_LIMITS.maxTeamTurns;
   let spent = 0;
   const reservations = new Map<string, ResourceReservation>(), seen = new Set<string>();
   for (const event of [...events].sort((a, b) => a.sequence - b.sequence)) {

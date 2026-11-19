@@ -334,12 +334,9 @@ export function summarizePreviousStage(row: AgentRunStageRow | undefined): strin
   return parts.join(" · ");
 }
 
-/** "5 of 40 turns", and whether the agent run is close to its turn limit. */
-export function describeTurnBudget(agentRun: Pick<AgentRun, "turnCount" | "maxTurns">) {
-  return {
-    text: i18n.t("agentRuns:agentRunView.text9", { value1: agentRun.turnCount, value2: agentRun.maxTurns }),
-    nearLimit: agentRun.turnCount >= Math.ceil(agentRun.maxTurns * 0.8),
-  };
+/** "5 turns": a count, never a budget; time and provider usage bound a run. */
+export function describeTurnsUsed(agentRun: Pick<AgentRun, "turnCount">): string {
+  return i18n.t("agentRuns:agentRunView.turnsUsed", { count: agentRun.turnCount });
 }
 
 export function describeCheckIns(agentRun: AgentRun) {

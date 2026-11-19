@@ -41,7 +41,7 @@ function startFor(agent: Parameters<typeof buildAgentRunStartInput>[0]["agent"])
   return buildAgentRunStartInput({ workspaceId: "ws", taskId: "task", agent, assignment: "", now: NOW });
 }
 function contractFor(start: ReturnType<typeof startFor>, patch: Partial<RunContractInput> = {}) {
-  return buildRunContract({ workspace, permission: null, workflow: start.workflow, authorizedEffectStageIds: start.consent.authorizedEffectStageIds, maxTurns: start.maxTurns!, ...patch });
+  return buildRunContract({ workspace, permission: null, workflow: start.workflow, authorizedEffectStageIds: start.consent.authorizedEffectStageIds, ...patch });
 }
 
 const shipWorkflow: NonNullable<Workflow["stages"]> = [
@@ -108,7 +108,7 @@ describe("run contract", () => {
     expect(contract.done).toContain("Stave also runs lint or test before it finishes; one passing script is enough.");
     expect(contract.comesBack).toEqual([
       "Only when it is stuck or needs an answer.",
-      "Pauses after 30 turns until you extend it, and at a usage limit.",
+      "At a usage limit it waits for the reset and continues on its own.",
     ]);
   });
 
@@ -243,25 +243,24 @@ describe("run contract", () => {
 describe("run-start line before a send", () => {
   const auto = startFor({ name: "Lead", workflow: undefined, checkIns: undefined, permission: "auto" });
 
-  test("the summary says how far the run acts alone, when it checks in and its turn cap", () => {
-    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "claude-code", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }))
-      .toEqual({ permission: { text: "Edits in auto mode", warning: false }, checkIns: "Asks only when stuck", turns: "Up to 30 turns" });
-    const manual = buildRunContractSummary({ workspace, permission: "manual", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 1 });
+  test("the summary says how far the run acts alone and when it checks in, with no turn cap", () => {
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "claude-code", workflow: auto.workflow, authorizedEffectStageIds: [] }))
+      .toEqual({ permission: { text: "Edits in auto mode", warning: false }, checkIns: "Asks only when stuck" });
+    const manual = buildRunContractSummary({ workspace, permission: "manual", workflow: auto.workflow, authorizedEffectStageIds: [] });
     expect(manual.permission).toEqual({ text: "Edits without asking", warning: true });
-    expect(manual.turns).toBe("Up to 1 turn");
-    expect(buildRunContractSummary({ workspace, permission: "read-only", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).permission)
+    expect(buildRunContractSummary({ workspace, permission: "read-only", workflow: auto.workflow, authorizedEffectStageIds: [] }).permission)
       .toEqual({ text: "Read-only", warning: false });
     // Codex without its reviewer runs with approvals off: said as a warning, like any edit without asking.
-    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "codex", codexAutoReview: false, workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).permission)
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "codex", codexAutoReview: false, workflow: auto.workflow, authorizedEffectStageIds: [] }).permission)
       .toEqual({ text: "Edits without asking", warning: true });
-    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "codex", codexAutoReview: true, workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).permission)
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "codex", codexAutoReview: true, workflow: auto.workflow, authorizedEffectStageIds: [] }).permission)
       .toEqual({ text: "Edits with Codex review", warning: false });
     const shipper = startFor({ name: "Shipper", workflow: shipWorkflow, checkIns: "plan-and-publishing", permission: "auto" });
-    expect(buildRunContractSummary({ workspace, permission: "auto", workflow: shipper.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).checkIns)
+    expect(buildRunContractSummary({ workspace, permission: "auto", workflow: shipper.workflow, authorizedEffectStageIds: [] }).checkIns)
       .toBe("Sign-off after planning and before publishing");
     applyAppLocale("ko");
-    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "claude-code", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }))
-      .toEqual({ permission: { text: "자동 모드로 편집", warning: false }, checkIns: "막힐 때만 질문", turns: "최대 30턴" });
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "claude-code", workflow: auto.workflow, authorizedEffectStageIds: [] }))
+      .toEqual({ permission: { text: "자동 모드로 편집", warning: false }, checkIns: "막힐 때만 질문" });
   });
 
   test("the draft is read as the send reads it: assignment length with paths, attachments across staged items", () => {
@@ -312,8 +311,10 @@ describe("run-start line before a send", () => {
       for (const label of ["Can do", "Attachments"]) expect(open).toContain(label);
       expect(open).toContain("Work → Review → Fix review findings");
       expect(open).not.toContain("The assignment is complete and verified.");
-      // Only what the line does not say: the workspace is the bar under the composer, the check-in and turn cap are the line.
-      for (const repeated of ["Works in", "billing-fix · main", "Checks with you", "Only when it is stuck", "Pauses after 30 turns"]) expect(open).not.toContain(repeated);
+      // Only what the line does not say: the workspace is the bar under the composer, the check-in is the line.
+      for (const repeated of ["Works in", "billing-fix · main", "Checks with you", "Only when it is stuck"]) expect(open).not.toContain(repeated);
+      // No turn cap anywhere: time and provider usage bound the run.
+      for (const html of [closed, open]) expect(html).not.toMatch(/Up to \d+ turns|Pauses after/);
       // A check-in that is not "only when stuck" leaves something the line does not say: where questions go.
       assignments.byTaskId = indexAssignmentsByTask([{ ...row, agent: { ...lead, checkIns: "every-stage", workflow: shipWorkflow } } as AgentAssignment]);
       const everyStage = render(true);
@@ -324,7 +325,7 @@ describe("run-start line before a send", () => {
       expect(everyStage).toContain("Checks with you");
       expect(everyStage).toContain("Questions it cannot settle come to you.");
       assignments.byTaskId = indexAssignmentsByTask([row]);
-      // Files attached by path are read from disk: the line says so instead of the turn cap.
+      // Files attached by path are read from disk: the line says so.
       expect(render(false, { filePaths: 1, context: 1 })).toContain("Reads saved copies of attached files");
       applyAppLocale("ko");
       // Named as the composer's agent selector names it, in every language.

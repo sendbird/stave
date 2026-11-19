@@ -15,7 +15,7 @@ import type { ProviderAccountSelection } from "../../../src/lib/providers/provid
  */
 export function freezeAdaptivePolicy(args: {
   providerId: AdaptiveRunPolicy["providerId"]; model: string; agent: AgentConfig | null;
-  draft?: PromptDraftRuntimeOverrides | null; settings: AgentRouteSettings | null; maxTurns: number;
+  draft?: PromptDraftRuntimeOverrides | null; settings: AgentRouteSettings | null;
   delegated?: boolean; effort?: string; modelPinned?: boolean; effortPinned?: boolean;
   /** Explicit Run admission intent, separate from the task's saved draft. */
   autoRouting?: boolean;
@@ -56,8 +56,8 @@ export function freezeAdaptivePolicy(args: {
     accountProfileId: (providerId === "codex" ? args.accounts?.codexAccountProfileId ?? draft?.codexAccountProfileId : args.accounts?.claudeAccountProfileId ?? draft?.claudeAccountProfileId) ?? currentProviderAccountId(providerId),
     allowedModels: modelLocked ? [model] : [...new Set([model, ...candidates.filter((id) => args.exclusiveModels !== undefined || getModelCapability({ model: id })?.providerId === providerId)])],
     modelLocked, effortLocked, initialEffort,
-    // The run's max turns are the whole team's: the parent and every helper.
-    teamTurns: Math.min(args.maxTurns, TEAM_LIMITS.maxTeamTurns),
+    // The whole team's guard against loops, never a budget: see `TEAM_LIMITS.maxTeamTurns`.
+    teamTurns: TEAM_LIMITS.maxTeamTurns,
     concurrentHelpers: clampTeamLimit("concurrentHelpers", args.settings?.teamLimits?.concurrentHelpers),
     totalHelpers: clampTeamLimit("totalHelpers", args.settings?.teamLimits?.totalHelpers),
     parentReserve: 1, maxChanges: 2, cooldownTurns: 2 });

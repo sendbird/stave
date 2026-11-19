@@ -20,7 +20,6 @@ export interface AgentRunActions {
   busy?: boolean;
   /** Resumes a usage-limit wait without changing account or model. */
   onResume?: () => void;
-  onExtend?: () => void;
   /** Ends the run and stops its turn. */
   onStop?: () => void;
   /** Ends the run and leaves the task in Chat, on the model the agent last used. */
@@ -56,7 +55,6 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
       busy,
       tarsOwned,
       onResume: () => void useAgentRunsStore.getState().runCommand("resume", { agentRunId: agentRun.id }),
-      onExtend: () => void useAgentRunsStore.getState().runCommand("extend", { agentRunId: agentRun.id }),
       // The store's Stop pauses a run Tars holds through Tars instead of cancelling it.
       onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId, cascade: true }),
       onTakeControl: () => {

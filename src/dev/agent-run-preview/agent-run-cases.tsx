@@ -24,7 +24,6 @@ import { AGENT_RUN_ASSIGNMENT, buildAgentRunFixtures } from "./agent-run-fixture
 const noop = (async () => ({ ok: true, agentRun: null })) as never;
 const runActions = {
   onResume: () => {},
-  onExtend: () => {},
   onStop: () => {},
   onTakeControl: () => {},
   onRetry: () => {},
@@ -125,11 +124,11 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
     updatedAt: new Date(now - 3 * 60_000).toISOString(), completedAt: new Date(now - 3 * 60_000).toISOString(),
   } as DelegatedTaskSummary];
   // An Extended run: 40 shared turns, one helper Agent still working.
-  const teamLimits: AgentRunDetail = { ...working.working, resources: { rootRunId: working.working.agentRun.id, teamTurns: 40,
+  const teamLimits: AgentRunDetail = { ...working.working, resources: { rootRunId: working.working.agentRun.id, teamTurns: 200,
     policy: { version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["claude-opus-5-5", "claude-sonnet-5-5"],
       modelLocked: false, effortLocked: false, initialEffort: "high", teamTurns: 30, concurrentHelpers: 3, totalHelpers: 8,
       parentReserve: 1, maxChanges: 2, cooldownTurns: 2 },
-    spent: 12, reserved: 9, remaining: 19, helpersLaunched: 2, activeHelpers: 1, reservations: [] } };
+    spent: 12, reserved: 2, remaining: 186, helpersLaunched: 2, activeHelpers: 1, reservations: [] } };
   const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
   const retryLayout = agentRunPromptLayout(resolveAgentRunPromptRow({
     text: prompt, turnId: "retry-preview", markedRun: runs.working.agentRun, detail: null,
@@ -190,7 +189,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run approval", "Composer · Needs your answer · approval", working.working, null, null, "approval"],
           ["Agent run paused", "Composer · Paused", working.paused, null, null, null],
           ["Agent run taken over", "Composer · Paused · taken over", working.takenOver, null, null, null],
-          ["Agent run limit reached", "Composer · Halted · Limit reached", limitReached, null, null, null],
+          ["Agent run limit reached", "Composer · Halted · Limit reached (paused by an earlier version; Resume)", limitReached, null, null, null],
           ["Agent run blocked", "Composer · Halted · blocked", working.blocked, null, null, null],
           ["Agent run stuck", "Composer · Halted · stuck (Retry)", working.stuck, null, null, null],
           ["Agent run usage unknown", "Composer · Halted · usage limit, reset unknown", working.usageUnknown, null, null, null],
@@ -261,15 +260,15 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <AgentRunResultCardView detail={withPartlyPassedChecks(runs.ready)} now={now} actions={runActions} />
       </section>
       <section className={sx(styles.case)} data-preview-case="Agent run failed">
-        <p className={sx(styles.caption)}>Conversation · reason card, stopped at its turn limit</p>
+        <p className={sx(styles.caption)}>Conversation · reason card, stopped as a likely loop</p>
         <AgentRunResultCardView detail={runs.failed} now={now} actions={runActions} />
       </section>
 
       {(
         [
-          ["Agent run panel limit reached", "Progress tab · Halted · Limit reached", limitReached, null],
+          ["Agent run panel limit reached", "Progress tab · Halted · Limit reached (paused by an earlier version; Resume)", limitReached, null],
           ["Agent run panel working", "Progress tab · Running", working.working, null],
-          ["Agent run panel team limits", "Progress tab · Running · team limits after Extend", teamLimits, null],
+          ["Agent run panel team limits", "Progress tab · Running · team limits", teamLimits, null],
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow, null],
           ["Agent run panel waiting", "Progress tab · Running · waiting for a usage reset", working.waiting, null],
           ["Agent run panel event wait", "Progress tab · Running · waiting for PR checks", working.eventWait, null],

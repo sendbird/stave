@@ -36,7 +36,6 @@ export interface RunContractInput {
   confirmedApprovals?: Pick<ProviderRuntimeOptions, "codexApprovalPolicy" | "codexApprovalsReviewer"> | null;
   workflow: Pick<Workflow, "stages" | "checkIns">;
   authorizedEffectStageIds: readonly string[];
-  maxTurns: number;
   /**
    * The default workspace check admission may add: whether it applies to this
    * agent, and the workspace's action scripts (null when they are unknown).
@@ -200,7 +199,7 @@ function describeComesBack(input: RunContractInput): string[] {
   if (asking.length) lines.push(i18n.t("agentRuns:runContract.comesBack.asksBefore", { stages: formatList(asking) }));
   // "Only when it is stuck or needs an answer" already says where questions go.
   if (input.workflow.checkIns !== "when-stuck") lines.push(i18n.t("agentRuns:runContract.comesBack.questions"));
-  lines.push(i18n.t("agentRuns:runContract.comesBack.stops", { count: input.maxTurns }));
+  lines.push(i18n.t("agentRuns:runContract.comesBack.usage"));
   return lines;
 }
 
@@ -210,13 +209,12 @@ export function buildRunContract(input: RunContractInput): RunContract {
 
 /**
  * The contract in one line, for the shelf before a send: how far the run acts
- * on its own, when it checks in and its turn cap. `warning` marks a run whose
+ * on its own and when it checks in. `warning` marks a run whose
  * edits and commands are not approved one by one.
  */
 export interface RunContractSummary {
   permission: { text: string; warning: boolean };
   checkIns: string;
-  turns: string;
 }
 
 const APPROVAL_SUMMARY_KEYS = {
@@ -239,6 +237,5 @@ export function buildRunContractSummary(input: RunContractInput): RunContractSum
   return {
     permission: { text: i18n.t(APPROVAL_SUMMARY_KEYS[kind]), warning: kind === "edits" || kind === "autoWithoutReviewer" || kind === "autoReviewOff" },
     checkIns: i18n.t(CHECK_IN_SUMMARY_KEYS[input.workflow.checkIns]),
-    turns: i18n.t("agentRuns:runContract.summary.turns", { count: input.maxTurns }),
   };
 }

@@ -50,7 +50,7 @@ describe("agent run state", () => {
     expect(describeAgentRunStatus(runs.failed)).toMatchObject({
       badge: "stopped",
       label: "Stopped",
-      reason: "The run used all 30 turns before it finished.",
+      reason: "This run took 200 turns without finishing, so Stave stopped it as a likely loop.",
       recovery: "new-run",
     });
   });

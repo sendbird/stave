@@ -2091,7 +2091,7 @@ describe("Agent run team limits", () => {
     const h = createHarness({ extra: { freezeResources: () => p, routeAgentTurn: async () => { throw new Error("Adaptive turns must not run the utility classifier"); } } });
     h.setSnapshot({ providerId, model: p.allowedModels[0]! });
     const id = await startedAgentRun(h, startInput({ origin: "agent" }));
-    expect((await h.runtime.get({ agentRunId: id })).resources).toMatchObject({ spent: 1, remaining: 29 });
+    expect((await h.runtime.get({ agentRunId: id })).resources).toMatchObject({ spent: 1, remaining: 199 });
     await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { model: p.allowedModels[1], reason: "capability-mismatch", rationale: "The linked turn diagnosed a capability gap", evidenceRefs: ["turn-1"] } });
     expect(h.runCalls).toHaveLength(1);
     expect(h.runCalls[0]!.fingerprint.model).toBe(p.allowedModels[0]!);
@@ -2252,16 +2252,17 @@ describe("Agent run team limits", () => {
     await h.runtime.retryStage({ agentRunId: id, stageId: "draft", attempt: 1 }); await h.tick();
     expect(h.store.listEventsByKind(id, ["resource-decision"])).toHaveLength(1);
   });
-  test("budget refusal prevents native dispatch and never reports completion, and a person's reply still continues", async () => {
+  test("a team that froze a one-turn budget keeps working past it, and a person's reply spends no shared turn", async () => {
     const h = createHarness({ extra: { freezeResources: () => policy("claude-code", { teamTurns: 1 }) } });
-    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 1 }));
     h.endTurn("turn-1"); await h.tick();
-    expect(h.runCalls).toHaveLength(1);
-    expect(h.current(id).status).toBe("stuck");
-    expect(h.aggregate(id).agentRun.state).toBe("running");
-    // A person's reply spends no shared turn, so the spent budget does not refuse it.
+    // The saved budget no longer refuses the reminder turn: only the shared guard against loops would.
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "running", pauseReason: null, turnCount: 2 });
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: AGENT_RUN_LIMITS.safetyTurnCeiling, spent: 2 });
+    h.endTurn("turn-2"); await h.tick();
     expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })).not.toBeNull();
-    expect(h.store.readResources(id)?.spent).toBe(1);
+    expect(h.store.readResources(id)?.spent).toBe(2);
   });
   test("a reply the run refused never continues the stage, counts as a reply or replays the stage prompt", async () => {
     const turns: AgentRunTurnRow[] = [];
@@ -2373,7 +2374,7 @@ describe("Agent run team limits", () => {
   });
 });
 
-test.each([false, true])("a parent report predating helper settlement requires a budgeted integration turn (at cap: %s)", async (atCap) => {
+test.each([false, true])("a parent report predating helper settlement requires an integration turn (past its saved max turns: %s)", async (atCap) => {
   const policy = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const,
     allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", teamTurns: 30,
     concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
@@ -2384,13 +2385,7 @@ test.each([false, true])("a parent report predating helper settlement requires a
   h.endTurn("turn-1"); h.setActiveDelegated(1); await h.tick();
   expect(h.runCalls).toHaveLength(1);
   h.store.releaseResourceReservation(reserved.link, new Date(START)); h.setActiveDelegated(0); await h.tick();
-  if (atCap) {
-    expect(h.runCalls).toHaveLength(1);
-    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 1 });
-    await h.runtime.extend({ agentRunId: id });
-    await h.runtime.resume({ agentRunId: id });
-    await h.tick();
-  }
+  // A saved max turns of 1 no longer pauses the run for a person before it integrates.
   expect(h.runCalls).toHaveLength(2);
   expect(h.runCalls[1]?.prompt).toContain("Integrate the final helper outcomes");
   expect(h.runCalls[1]?.agentRunStage).toMatchObject({ agentRunId: id, stageId: "draft", attempt: 1 });
@@ -2473,7 +2468,7 @@ describe("team limits by default", () => {
     const h = createHarness({ extra: { freezeResources: () => teamPolicy() } });
     h.setSnapshot({ activeTurnId: "old-native-turn" }); h.setActiveDelegated(1);
     const id = await startedAgentRun(h, startInput({ origin: "agent" }));
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 30, spent: 0, policy: { version: 2, concurrentHelpers: 3, totalHelpers: 8 } });
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: AGENT_RUN_LIMITS.safetyTurnCeiling, spent: 0, policy: { version: 2, concurrentHelpers: 3, totalHelpers: 8 } });
     expect(h.runCalls).toHaveLength(0);
     h.setSnapshot({ activeTurnId: null }); await h.tick();
     expect(h.runCalls).toHaveLength(1);
@@ -2499,26 +2494,23 @@ describe("team limits by default", () => {
     h.store.releaseResourceReservation(reservation.link, new Date(START));
   }
 
-  test("helpers' turns halt the run at its limit, and Extend raises it with the max turns", async () => {
+  test("helpers' turns past the old saved budget do not halt the run; the shared ceiling stops a team that loops", async () => {
     const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 3 }) } });
     const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 3 }));
-    spendHelperTurns(h, id, 1);
+    // Helpers took every shared turn but the main run's integration turn.
+    spendHelperTurns(h, id, AGENT_RUN_LIMITS.safetyTurnCeiling - 2);
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: AGENT_RUN_LIMITS.safetyTurnCeiling, spent: AGENT_RUN_LIMITS.safetyTurnCeiling - 1, remaining: 1 });
     await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
     h.endTurn("turn-1"); await h.tick(); await h.tick();
+    // The old saved budget of 3 is long gone; the run still takes its last turn instead of pausing.
     expect(h.runCalls).toHaveLength(2);
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 3, spent: 3, remaining: 0 });
     h.endTurn("turn-2"); await h.tick();
-    // The run's own turns are under its max turns; the helper's turn spent the shared rest.
-    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 2 });
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "stopped", stopReason: "turn-cap-reached", pauseReason: null });
+    expect(h.aggregate(id).agentRun.reasonDetail).toContain(String(AGENT_RUN_LIMITS.safetyTurnCeiling));
     expect(h.runCalls).toHaveLength(2);
-    await h.runtime.extend({ agentRunId: id });
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 13, remaining: 10 });
-    await h.tick();
-    expect(h.runCalls).toHaveLength(3);
-    expect(h.store.readResources(id)?.spent).toBe(4);
   });
 
-  test("a run blocked on a question on its last shared turn takes the person's answer", async () => {
+  test("a run blocked on a question on a saved one-turn budget takes the person's answer", async () => {
     const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 1 }) } });
     const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 1 }));
     await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Choose a storage policy", kind: "input" } });
@@ -2526,13 +2518,13 @@ describe("team limits by default", () => {
     expect(h.aggregate(id).agentRun.state).toBe("running");
     expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer" })).not.toBeNull();
     expect(h.aggregate(id).agentRun.state).toBe("running");
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 1, spent: 1, remaining: 0 });
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: AGENT_RUN_LIMITS.safetyTurnCeiling, spent: 1 });
   });
 
-  test("a version 1 run keeps its frozen budget after Extend", async () => {
+  test("a version 1 run's frozen budget no longer bounds it either", async () => {
     const h = createHarness({ extra: { freezeResources: () => teamPolicy({ version: 1, teamTurns: 2, concurrentHelpers: 2, totalHelpers: 4 }) } });
     const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 5 }));
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 2, remaining: 1 });
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: AGENT_RUN_LIMITS.safetyTurnCeiling, remaining: AGENT_RUN_LIMITS.safetyTurnCeiling - 1 });
   });
 });
 
@@ -2868,25 +2860,22 @@ test("a provider timeout retries the stage after a pause and keeps the reminder 
   expect(h.store.listEventsByKind(id, ["nudge"])).toHaveLength(1);
 });
 
-test("turn cap persists a pause; Extend keeps the task session, fingerprint and usage", async () => {
+test("a run halted at the old turn limit before the update resumes with Resume and keeps its session, fingerprint and usage", async () => {
   const harness = createHarness({ extra: { readTurnUsage: () => ({ completed: true, usage: { inputTokens: 12, outputTokens: 8, totalCostUsd: 0.2 } }) } });
   const id = await startedAgentRun(harness, startInput({ origin: "agent", maxTurns: 1 }));
   await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
   harness.endTurn("turn-1");
+  // What an earlier version saved at its turn limit, before the next stage started.
+  const saved = harness.store.getAggregate(id)!;
+  harness.store.apply({ agentRun: { ...saved.agentRun, state: "paused", pauseReason: "limit-reached", reasonDetail: "This run reached its limit of 1 turns." }, upserts: [], events: [] }, new Date(START));
   await harness.tick();
   const paused = await harness.runtime.get({ agentRunId: id });
+  // The update spends nothing by itself: the run waits for Resume.
   expect(paused.agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 1, maxTurns: 1 });
-  expect(harness.store.getAggregate(id)?.agentRun.pauseReason).toBe("limit-reached");
-  expect(paused.report).toBeNull();
-  const context = { repositoryPath: null, repositoryName: null, workspaceName: null, taskTitle: null };
-  const notices = new Set([describeAgentRunNotification(paused, context)?.dedupeKey]);
-  await harness.tick();
-  notices.add(describeAgentRunNotification(await harness.runtime.get({ agentRunId: id }), context)?.dedupeKey);
-  expect(notices.size).toBe(1);
-  expect(describeAgentRunNotification(paused, context)?.title).toBe("Halted · Limit reached · Runtime workflow");
   expect(harness.runCalls).toHaveLength(1);
-  expect(paused.events.filter(event => event.kind === "paused")).toHaveLength(1);
-  const resumed = await invokeAgentRunRuntime(harness.runtime, "extend", { agentRunId: id });
+  const context = { repositoryPath: null, repositoryName: null, workspaceName: null, taskTitle: null };
+  expect(describeAgentRunNotification(paused, context)?.title).toBe("Halted · Limit reached · Runtime workflow");
+  const resumed = await invokeAgentRunRuntime(harness.runtime, "resume", { agentRunId: id });
   expect(resumed).toMatchObject({ ok: true });
   if (!resumed.ok) throw new Error(resumed.message);
   expect((resumed.value as import("../src/lib/agent-runs/api").AgentRunDetail).usage).toEqual(paused.usage);
@@ -2896,8 +2885,8 @@ test("turn cap persists a pause; Extend keeps the task session, fingerprint and 
   expect(harness.runCalls[1]?.fingerprint).toEqual(harness.runCalls[0]?.fingerprint);
   expect(harness.runCalls[1]?.freshSession).toBeUndefined();
   const continued = await harness.runtime.get({ agentRunId: id });
-  expect(continued.agentRun).toMatchObject({ state: "running", pauseReason: null, turnCount: 2, maxTurns: 11 });
-  expect(continued.usage?.inputTokens).toBeGreaterThanOrEqual(paused.usage!.inputTokens);
+  // Past its saved max turns of 1, with no new allowance.
+  expect(continued.agentRun).toMatchObject({ state: "running", pauseReason: null, turnCount: 2, maxTurns: 1 });
   await harness.runtime.reportStage({ agentRunKey: "key-turn-2", report: COMPLETE });
   harness.endTurn("turn-2");
   await harness.tick();
