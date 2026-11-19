@@ -58,6 +58,11 @@ export interface TarsRuntimePorts {
   /** Reconciles ALL prior runs for this task, including terminal ones. */
   findRun: (row: TarsResponsibility) => Promise<string | null>;
   startRun: (row: TarsResponsibility, assertAdmitted: () => void) => Promise<string>;
+  /**
+   * The newer run the user started in the work's own task, which Tars then
+   * supervises instead (`tarsTaskRunToFollow`); null when there is none.
+   */
+  followTaskRun?: (row: TarsResponsibility) => string | null;
   observe: (row: TarsResponsibility) => Promise<TarsExecutionObservation>;
   controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation, autoExtendMaxTurns?: number, commandId?: string) => Promise<void>;
   hasControlEffect?: (row: TarsResponsibility, commandId: string) => boolean;
@@ -104,6 +109,12 @@ export interface TarsRuntimePorts {
 }
 
 const OWNED = new Set(["preparing", "running", "waiting", "blocked"]);
+/**
+ * Work whose task Tars still watches for a run the user starts there: work it
+ * holds, and ended work the user may continue in its task. Work the user took
+ * over, cancelled or paused through Tars is never followed.
+ */
+const FOLLOWS = new Set([...OWNED, "resultReady", "completed"]);
 /**
  * Controls that take the work from Tars or end it; a message still open for it
  * (queued, or under way and not confirmed said) is then cancelled with the
@@ -162,6 +173,23 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     const changed = Object.entries(value).some(([key, val]) =>
       JSON.stringify(row[key as keyof TarsResponsibility] ?? null) !== JSON.stringify(val ?? null));
     return changed ? ports.store.patch(row.id, row.revision, value, now(), options) : row;
+  }
+  /** The newer run the user started in the work's task, if Tars should follow it now; null otherwise. */
+  function taskRunToFollow(row: TarsResponsibility) {
+    if (!ports.followTaskRun || !row.agentRunId || !FOLLOWS.has(row.state) || row.executionPending || isTarsPublicationUnfinished(row.publication)) return null;
+    return ports.followTaskRun(row);
+  }
+  /**
+   * A user's message in the work's task does not end Tars's responsibility:
+   * Tars supervises the run that message started from now on, and the earlier
+   * run stays in the work's history. Observation then reads that run's state.
+   */
+  function followTaskRun(row: TarsResponsibility) {
+    const agentRunId = taskRunToFollow(row);
+    if (!agentRunId) return row;
+    return patch(row, { agentRunId, previousRunIds: [...new Set([...(row.previousRunIds ?? []), row.agentRunId!])],
+      state: "running", detail: null, reverifyAfter: null, activeStage: undefined, pendingRequests: undefined,
+      stageAsksUser: undefined, stageWait: undefined, observedTurns: undefined, observedStage: undefined, waitingTaskId: undefined });
   }
   /**
    * Work that waited a full interval without any saved change gets one
@@ -243,7 +271,9 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         if (agentRunId) initial = patch(initial, { agentRunId, state: "running", detail: null, executionPending: false }, { recovered: true });
         else initial = patch(initial, { executionPending: false });
       }
-      if (!initial.agentRunId || !OWNED.has(initial.state) || held.has(initial.id)) return;
+      if (held.has(initial.id)) return;
+      initial = followTaskRun(initial);
+      if (!initial.agentRunId || !OWNED.has(initial.state)) return;
       const observed = await ports.observe(initial);
       if (stopped || held.has(initial.id)) return;
       // Absent means a plain wait, so a stage that stopped asking clears the mark.
@@ -299,7 +329,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
     for (const row of rows) {
       if (operations.has(row.id) || held.has(row.id)) continue;
       if (!row.agentRunId && row.state !== "blocked") continue;
-      if (!OWNED.has(row.state)) continue;
+      if (!OWNED.has(row.state) && !taskRunToFollow(row)) continue;
       const before = JSON.stringify([row.state, row.agentRunId, row.executionPending]);
       void enqueue(row.id, () => reconcile(row)).catch((error) => ports.onError?.(error)).finally(() => {
         if (stopped) return;
@@ -407,6 +437,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         if (reached === null) return;
         if (reached) { move(["delivering"], { status: "delivered" }); saidDeliveries.delete(requestId); return; }
       }
+      // Words for work the user continued in its task go to the run the user started there.
+      if (row && !held.has(id) && !inflight.has(id)) row = followTaskRun(row);
       const ended = deliveryEnded(row, delivery);
       // Starting the same scope is recoverable by its saved identity, including a lost run-start acknowledgement.
       if (!ended && ports.continueWork && row && (hasEndedTarsExecution(row) ||
@@ -601,6 +633,8 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         let row = sent ? current! : admitTarsControl(current, request, "dispatch");
         // Rechecked before the run is controlled: a proposal superseded while this waited is refused.
         if (!sent) ledger.admit?.();
+        // A control given before the next pass followed the user's run in the task acts on that run.
+        if (!sent) row = followTaskRun(row);
         // Taken before the run continues, so its fresh verification always starts after it.
         const handedBackAt = now();
         let ownershipLoss: TarsOwnershipLostError | null = null;

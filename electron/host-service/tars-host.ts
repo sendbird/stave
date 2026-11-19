@@ -20,7 +20,7 @@ import { ensureHostServicePersistenceReady } from "./persistence";
 import * as tasks from "./local-mcp-runtime";
 import { createTarsRuntime } from "./tars-runtime";
 import {
-  assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
+  assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, tarsTaskRunToFollow, TarsDetailError, TarsOwnershipLostError, TarsRequestUnavailableError,
   TarsRunEndedError, TarsRunRefusedError, TarsStageChangedError, TarsTaskBusyError, tarsRunControlApplied, withTarsRunCommand,
 } from "./tars-ownership";
 import { isTarsStorageBusy } from "../persistence/tars-conversation-store";
@@ -33,6 +33,7 @@ import { runCommandArgs } from "../main/utils/command";
 import { hasTarsSnapshotCommit, releaseTarsWorkingChangesRef } from "./tars-working-changes";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 import { parseTarsRequestMessageId } from "../../src/lib/tars/brief";
+import { tarsWorkflowId } from "../../src/lib/tars/ownership";
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -134,8 +135,8 @@ export function createHostTarsRuntime(args: {
     // i18n-ignore: durable model-facing scope identity, not a new user instruction
     workflow.purpose += `\nContinuation request: ${continuation.requestId}`;
     if (latest.id !== continuation.previousRunId) {
-      // Adopt only this exact scope, never an unrelated newer run on the same task.
-      assertTarsRun({ ...scope, agentRunId: latest.id }, latest);
+      // Adopt only this exact scope's own start, never an unrelated newer run on the same task.
+      assertTarsRun({ ...scope, agentRunId: null }, latest);
       if (latest.workflow.createdAt !== continuation.requestedAt || latest.workflow.purpose !== workflow.purpose) throw new TarsOwnershipLostError("Another execution owns this task.");
       return { task: null, scope, workflow, existingRunId: latest.id };
     }
@@ -223,6 +224,7 @@ export function createHostTarsRuntime(args: {
         ...(identity.instructions ? { standards: identity.instructions.slice(0, 8000) } : {}) });
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "The task's agent assignment was not recorded.");
     },
+    followTaskRun: (row) => tarsTaskRunToFollow(row, row.taskId ? persistence.agentRuns.getLatestAgentRunForTask(row.taskId) : null, hasAssignment),
     async findRun(row) {
       const run = persistence.agentRuns.getLatestAgentRunForTask(row.taskId!);
       if (run) assertTarsRun(row, run);
@@ -263,7 +265,9 @@ export function createHostTarsRuntime(args: {
       const detail = await args.agentRuns.get({ agentRunId: row.agentRunId });
       assertTarsRun(row, detail.agentRun);
       if (!hasAssignment(row)) throw new TarsDetailError("assignmentUnavailable", "This task's agent assignment is unavailable.");
-      const observation = tarsObservation(detail, tarsExecutionScope(row).acceptanceCriteria, row.reverifyAfter, row);
+      // A run the user started in the task is judged by its own report; only Tars's own runs carry its criteria.
+      const startedByTars = detail.agentRun.workflow.id === tarsWorkflowId(row.id);
+      const observation = tarsObservation(detail, startedByTars ? tarsExecutionScope(row).acceptanceCriteria : undefined, row.reverifyAfter, row);
       // The requests themselves, bounded, so the user can answer them through Tars.
       const own = withRefs(snapshot.pendingRequests ?? [], row.executionWorkspaceId, row.taskId);
       const withRequests = (value: typeof observation, requests: readonly TarsPendingRequest[]) =>

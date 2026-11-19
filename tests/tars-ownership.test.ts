@@ -4,7 +4,7 @@ import { AgentAssignmentStore } from "../electron/persistence/agent-assignment-s
 import { AgentRunStore } from "../electron/persistence/agent-run-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import { createAssignRuntime } from "../electron/host-service/supervision/assign-runtime";
-import { assertTarsAssignment, assertTarsRun, controlTarsRun, TarsOwnershipLostError } from "../electron/host-service/tars-ownership";
+import { assertTarsAssignment, assertTarsControl, assertTarsRun, controlTarsRun, tarsTaskRunToFollow, TarsOwnershipLostError } from "../electron/host-service/tars-ownership";
 import { tarsExecutionAgentInstructions, tarsWorkflow } from "../electron/host-service/tars-execution";
 import { compileStagePrompt } from "../src/lib/workflows/stage-prompt";
 import { createAgentRun } from "../src/lib/agent-runs/domain";
@@ -61,7 +61,7 @@ describe("Tars persisted ownership", () => {
     expect(f.hasAssignment).toThrow("ownership changed");
     f.database.close();
   });
-  test("restart can reconcile its own terminal run but refuses a same-task user run", () => {
+  test("restart can reconcile its own terminal run; a run anywhere else is never Tars's", () => {
     const f = fixture();
     f.runs.apply({ agentRun: { ...f.change.agentRun, state: "completed" }, upserts: [], events: [] }, new Date(NOW));
     const restored = new AgentRunStore(f.database);
@@ -69,21 +69,67 @@ describe("Tars persisted ownership", () => {
     expect(restored.getLatestAgentRunForTask(f.row.taskId!)?.state).toBe("completed");
     expect(() => assertTarsRun(f.row, restored.getLatestAgentRunForTask(f.row.taskId!)!)).not.toThrow();
     const owned = f.change.agentRun;
-    for (const patch of [{ origin: "workflow" as const }, { workflow: { ...owned.workflow, id: "other" } },
-      { assignment: "Different goal" }, { workspaceId: "other" }, { id: "another-run" }]) {
+    // The supervised run is bound to the delegated task, its execution workspace and repository, and its saved id.
+    for (const patch of [{ leadTaskId: "another-task" }, { workspaceId: "other" }, { repositoryPath: "/tmp/other-repository" }, { id: "another-run" }]) {
       expect(() => assertTarsRun(f.row, { ...owned, ...patch })).toThrow("identity changed");
     }
+    // Before Tars saved its start (a lost acknowledgement), only its own start binding names the run.
+    for (const patch of [{ origin: "workflow" as const }, { workflow: { ...owned.workflow, id: "other" } }, { assignment: "Different goal" }]) {
+      expect(() => assertTarsRun({ ...f.row, agentRunId: null }, { ...owned, ...patch })).toThrow("identity changed");
+    }
+    expect(() => assertTarsRun({ ...f.row, agentRunId: null }, owned)).not.toThrow();
+    f.database.close();
+  });
+  test("a run the user starts in the delegated task is the one Tars supervises next", () => {
+    const f = fixture();
+    f.runs.apply({ agentRun: { ...f.change.agentRun, state: "completed" }, upserts: [], events: [] }, new Date(NOW));
+    const owned = f.change.agentRun;
+    const later = new Date(Date.parse(NOW) + 1000);
+    // The user continues in the task: a new run as the task's agent, with the user's own words and permission.
     const userRun = createAgentRun({ id: "user-run", input: {
       workspaceId: f.row.executionWorkspaceId!, leadTaskId: f.row.taskId!, origin: "agent",
-      workflow: { ...owned.workflow, id: "user-workflow" }, assignment: f.row.instruction,
-      consent: owned.consent,
-    }, repositoryPath: f.row.repositoryPath, fingerprint: owned.fingerprint, now: new Date(Date.parse(NOW) + 1000) });
-    f.runs.create(userRun, new Date(Date.parse(NOW) + 1000));
+      workflow: { ...owned.workflow, id: "user-workflow" }, assignment: "Implement it and open the PR.",
+      consent: { checkIns: "when-stuck", permissionMode: "manual", authorizedEffectStageIds: [] },
+    }, repositoryPath: f.row.repositoryPath, fingerprint: owned.fingerprint, now: later });
+    f.runs.create(userRun, later);
     const latest = new AgentRunStore(f.database).getLatestAgentRunForTask(f.row.taskId!)!;
     expect(latest.id).toBe("user-run");
-    // Lost acknowledgements have no saved run id, so the durable workflow binding must still reject it.
+    // Lost acknowledgements have no saved run id, so the durable workflow binding still rejects it as Tars's own start.
     expect(() => assertTarsRun({ ...f.row, agentRunId: null }, latest)).toThrow("identity changed");
+    // But it does not end Tars's responsibility: Tars follows it and supervises it from then on.
+    expect(tarsTaskRunToFollow(f.row, latest, f.hasAssignment)).toBe("user-run");
+    const following = { ...f.row, agentRunId: "user-run", previousRunIds: [owned.id] };
+    expect(() => assertTarsControl(following, latest)).not.toThrow();
+    // The run keeps the permission the user started it with; following it changes nothing on the run.
+    expect(new AgentRunStore(f.database).getAgentRun("user-run")?.consent.permissionMode).toBe("manual");
+    // Once followed, the run is not followed again, and earlier runs are history, never followed back.
+    expect(tarsTaskRunToFollow(following, latest, f.hasAssignment)).toBeNull();
+    expect(tarsTaskRunToFollow(following, { ...owned, state: "completed" }, f.hasAssignment)).toBeNull();
     f.database.close();
+  });
+  test("Tars never follows a run outside its delegated task, workspace or repository, or one it started itself", () => {
+    const f = fixture();
+    const owned = f.change.agentRun;
+    const userRun = { ...owned, id: "user-run", workflow: { ...owned.workflow, id: "user-workflow" }, assignment: "Mine" };
+    // The same task id in another workspace (another worktree's task) is never this work.
+    for (const elsewhere of [{ workspaceId: "other-workspace" }, { leadTaskId: "another-task" }, { repositoryPath: "/tmp/other-repository" }]) {
+      expect(tarsTaskRunToFollow(f.row, { ...userRun, ...elsewhere }, f.hasAssignment)).toBeNull();
+      expect(() => assertTarsRun({ ...f.row, agentRunId: "user-run" }, { ...userRun, ...elsewhere })).toThrow("identity changed");
+    }
+    // A run Tars started is reconciled by its own saved identity (start or continuation), never followed as the user's.
+    expect(tarsTaskRunToFollow(f.row, { ...userRun, workflow: owned.workflow }, f.hasAssignment)).toBeNull();
+    f.database.close();
+  });
+  test("a released or reassigned task is the user's: its run is not followed", () => {
+    const released = fixture();
+    const run = (f: ReturnType<typeof fixture>) => ({ ...f.change.agentRun, id: "user-run", workflow: { ...f.change.agentRun.workflow, id: "user-workflow" } });
+    released.assign.releaseTaskAgent(released.row.taskId!);
+    expect(tarsTaskRunToFollow(released.row, run(released), released.hasAssignment)).toBeNull();
+    const reassigned = fixture();
+    reassigned.assign.recordTaskAgent({ requestId: "human-reassignment", taskId: reassigned.row.taskId!, workspaceId: reassigned.row.executionWorkspaceId!,
+      repositoryPath: reassigned.row.repositoryPath, agent: getBuiltinAgent("reviewer")!, providerId: "codex", model: null, assignment: "Mine now" });
+    expect(tarsTaskRunToFollow(reassigned.row, run(reassigned), reassigned.hasAssignment)).toBeNull();
+    released.database.close(); reassigned.database.close();
   });
   test("review prompt reviews the committed work in the same workspace at a pinned commit", () => {
     const f = fixture();

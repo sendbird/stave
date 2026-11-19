@@ -42,10 +42,10 @@ test("owned responsibility and Run status are source/timestamp observations and 
   const db = new Database(":memory:"); const tars = new TarsStore(db);
   const initial = tars.create({ requestId: "owned", title: "Search", instruction: "Fix search", acceptanceCriteria: ["Verified"],
     workspaceId: "source", repositoryPath: "/tmp/project", providerId: "codex" }, NOW);
-  tars.patch(initial.id, initial.revision, { taskId: "owned-task", executionWorkspaceId: "execution", agentRunId: "owned-run", state: "running" }, NOW);
+  const owned = tars.patch(initial.id, initial.revision, { taskId: "owned-task", executionWorkspaceId: "execution", agentRunId: "owned-run", state: "running" }, NOW);
   let run = { id: "owned-run", workspaceId: "execution", repositoryPath: "/tmp/project", state: "paused", updatedAt: NOW, stopReason: null,
-    pauseReason: "limit-reached", turnCount: 30, maxTurns: 30, currentStageIndex: 1,
-    workflow: { stages: [{ title: "Work" }, { title: "Review" }] } } as unknown as AgentRun;
+    pauseReason: "limit-reached", turnCount: 30, maxTurns: 30, currentStageIndex: 1, assignment: "Fix search",
+    workflow: { id: `tars-${initial.id}`, stages: [{ title: "Work" }, { title: "Review" }] } } as unknown as AgentRun;
   const ports = { tars, loadRepositoryRegistry: () => REGISTRY, loadWorkspaceShellSummary: () => { throw new Error("Unavailable"); },
     agentRuns: { getLatestAgentRunForTask: () => run } };
   const observed = observeTarsContext(ports, NOW).observation;
@@ -54,8 +54,14 @@ test("owned responsibility and Run status are source/timestamp observations and 
     execution: { source: "persisted-agent-run", id: "owned-run", state: "paused", updatedAt: NOW,
       // What the user's run commands (extend, retry, skip, sign off) are chosen from.
       pauseReason: "limit-reached", turns: { used: 30, max: 30 }, currentStage: "Review" } });
-  run = { ...run, id: "manual-replacement", state: "completed" };
+  expect(observed.responsibilities[0]?.execution).not.toHaveProperty("startedInTaskByUser");
+  run = { ...run, id: "manual-replacement", state: "completed", assignment: "Implement it and open the PR.", workflow: { ...run.workflow, id: "user-workflow" } };
+  // A newer run in the task is not presented as the work's until Tars follows it.
   expect(observeTarsContext(ports, NOW).observation.responsibilities[0]?.execution).toBeNull();
+  // Once followed, the planner sees it as the run the user started in the task, with what the user asked there.
+  tars.patch(owned.id, owned.revision, { agentRunId: "manual-replacement", previousRunIds: ["owned-run"] }, NOW);
+  expect(observeTarsContext(ports, NOW).observation.responsibilities[0]?.execution).toMatchObject({ id: "manual-replacement", state: "completed",
+    startedInTaskByUser: true, assignmentExcerpt: "Implement it and open the PR." });
   expect(tars.listActivity()).toHaveLength(2); db.close();
 });
 

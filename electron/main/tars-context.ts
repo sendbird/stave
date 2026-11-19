@@ -6,6 +6,7 @@ import type { TarsResponsibility, TarsWorkRequest } from "../../src/lib/tars/typ
 import type { TarsMessage } from "../../src/lib/tars/conversation";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 import { tarsExecutionScope } from "../../src/lib/tars/continuation";
+import { tarsWorkflowId } from "../../src/lib/tars/ownership";
 
 const MAX_REPOSITORIES = TARS_PLANNER_MAX_REPOSITORIES;
 const MAX_WORKSPACES = 24;
@@ -161,7 +162,7 @@ export function observeTarsContext(store: ObservationPorts,
     let run: ReturnType<ObservationPorts["agentRuns"]["getLatestAgentRunForTask"]> = null;
     try { run = row.taskId ? store.agentRuns.getLatestAgentRunForTask(row.taskId) : null; }
     catch { /* Unknown execution is not evidence of idle or complete. */ }
-    // Never present a newer/manual task Run as this representative's owned execution.
+    // Only the run the work saved: the one Tars started, or the newer one the user started in its task, which Tars follows.
     const owned = run && run.id === row.agentRunId && run.workspaceId === row.executionWorkspaceId &&
       run.repositoryPath === row.repositoryPath ? run : null;
     const instruction = row.delegatedInstruction ? excerpt(row.delegatedInstruction, TARS_INSTRUCTION_EXCERPT_CHARS) : null;
@@ -191,7 +192,9 @@ export function observeTarsContext(store: ObservationPorts,
       ...(row.pendingRequests?.length ? { pendingRequests: row.pendingRequests.map(({ workspaceId: _workspace, ...request }) => request) } : {}),
       execution: owned ? { source: "persisted-agent-run", id: owned.id, state: owned.state, updatedAt: owned.updatedAt,
         stopReason: owned.stopReason, pauseReason: owned.pauseReason ?? null, turns: { used: owned.turnCount, max: owned.maxTurns },
-        currentStage: owned.workflow.stages[owned.currentStageIndex]?.title.slice(0, 120) ?? null } : null };
+        currentStage: owned.workflow.stages[owned.currentStageIndex]?.title.slice(0, 120) ?? null,
+        // The user continued the work in its task: what they asked there, which the work now follows.
+        ...(owned.workflow.id !== tarsWorkflowId(row.id) ? { startedInTaskByUser: true, assignmentExcerpt: excerpt(owned.assignment, 500).text } : {}) } : null };
   });
   return { snapshot, observation: { source: "local-persisted-snapshot", observedAt, repositories, responsibilities,
     requests: asked.requests, omittedRequests: asked.omitted,

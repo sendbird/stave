@@ -8,8 +8,9 @@ export interface TarsOwnershipTarget {
   taskId?: string | null;
   /**
    * The task's active agent run: its id, null when it has none, or left out
-   * while unknown. When known, only the responsibility's own run is Tars's;
-   * another run on the same task (yours, after Tars lost it) never is.
+   * while unknown. When known, only the responsibility's own run is Tars's: a
+   * run you start in the task becomes its own once Tars follows it (its next
+   * pass), and until then that run's controls act directly.
    */
   agentRunId?: string | null;
   /** That run's workflow id, which names the responsibility that started it. */
