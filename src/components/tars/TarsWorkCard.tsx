@@ -213,7 +213,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
         <span className={sx(styles.cardChevronBox)}><ChevronRight aria-hidden className={sx(styles.chevron, transition.transform, open && styles.chevronOpen)} /></span>
       </Button>
     </h3>
-    <div data-tars-card-sentence={said !== null ? "said" : liveSentence ? "live" : "stage"}>{sentence}</div>
+    <div className={sx(styles.cardSentenceSlot)} data-tars-card-sentence={said !== null ? "said" : liveSentence ? "live" : "stage"}>{sentence}</div>
     <div className={sx(styles.cardStateLine)}>
       {grip}
       {/* Only work that actually runs moves; queued or waiting work in Tars's hands keeps the settled mark. */}

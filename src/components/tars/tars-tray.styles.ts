@@ -114,6 +114,13 @@ export const tarsTrayStyles = stylex.create({
   },
   cardTitleText: { flex: 1, minWidth: 0, overflowWrap: "anywhere" },
   cardChevronBox: { display: "flex", alignItems: "center", flexShrink: 0, height: vars["--aui-line-height-control"] },
+  /**
+   * Line two's slot. The card is a grid, whose items are as wide as their
+   * longest unbroken line unless told otherwise; the live line is one such
+   * line, so the slot gives up its own minimum and the line ends in an
+   * ellipsis inside the card instead of widening it.
+   */
+  cardSentenceSlot: { minWidth: 0 },
   /** Line two: one sentence at the 13px row, two lines at most; the detail has the full text. */
   cardSentence: {
     margin: 0, minWidth: 0, color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"],

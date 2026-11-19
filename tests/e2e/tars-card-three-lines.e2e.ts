@@ -87,6 +87,60 @@ for (const lang of ["en", "ko"] as const) for (const theme of ["light", "dark"] 
   });
 }
 
+/** The narrowest width the Tars e2e suite covers (the app declares no minimum window width); the popover tray takes the view's width less its gutters there. */
+const NARROWEST = 360;
+
+/** Every card in the tray against the lane it sits in: nothing a card draws may pass the card's edge, and no card may pass its lane's. */
+async function overflow(page: Page) {
+  return page.evaluate(() => {
+    const box = (element: Element) => element.getBoundingClientRect();
+    const visible = (element: Element) => element.checkVisibility() && box(element).width > 0 && box(element).height > 0;
+    const tray = document.querySelector("[data-tars-tray]")!;
+    // The tray's scroll container: the pinned column's body or the popover's.
+    let scroller: Element = tray;
+    while (scroller.parentElement && getComputedStyle(scroller).overflowY !== "auto") scroller = scroller.parentElement;
+    const faults: string[] = [];
+    if (scroller.scrollWidth > scroller.clientWidth) faults.push(`tray scrolls sideways by ${scroller.scrollWidth - scroller.clientWidth}px`);
+    const cards = [...tray.querySelectorAll("[data-tars-card]")].filter(visible);
+    for (const card of cards) {
+      const id = card.getAttribute("data-tars-card")!;
+      const lane = card.closest("ul")!;
+      const inner = Number.parseFloat(getComputedStyle(lane).paddingInlineEnd);
+      if (box(card).right > box(lane).right - inner + 0.5 || box(card).left < box(lane).left - 0.5) faults.push(`${id}: the card passes its lane by ${Math.round(box(card).right - (box(lane).right - inner))}px`);
+      if (card.scrollWidth > card.clientWidth) faults.push(`${id}: content is ${card.scrollWidth - card.clientWidth}px wider than the card`);
+      // The title row keeps its chevron inside, the sentence its text, the state row its action; open, the detail keeps every control.
+      const parts: Array<[string, Element | null]> = [["chevron", card.querySelector("[data-tars-card-title] svg")], ["sentence", card.querySelector("[data-tars-card-sentence]")],
+        ["state", card.querySelector("[data-tars-card-state]")], ["action", card.querySelector("[data-tars-card-primary]")],
+        ...[...card.querySelectorAll("[data-tars-card-sentence] *, [data-tars-card-detail] button, [data-tars-card-detail] a, [data-tars-card-detail] p")].map((node): [string, Element] => ["part", node])];
+      const edge = box(card).right - Number.parseFloat(getComputedStyle(card).paddingInlineEnd);
+      for (const [name, part] of parts) {
+        if (part && visible(part) && box(part).right > edge + 0.5) faults.push(`${id}: ${name} "${(part.textContent ?? "").trim().slice(0, 24)}" passes the card's edge by ${Math.round(box(part).right - edge)}px`);
+      }
+      const sentence = card.querySelector("[data-tars-card-sentence]")!;
+      const lines = Math.round(box(sentence).height / Number.parseFloat(getComputedStyle(sentence.firstElementChild ?? sentence).lineHeight));
+      if (lines > 2) faults.push(`${id}: the sentence takes ${lines} lines`);
+    }
+    return { cards: cards.length, faults };
+  });
+}
+
+for (const lang of ["en", "ko"] as const) for (const density of ["regular", "compact"] as const) for (const width of [390, NARROWEST] as const) {
+  test(`every card stays inside its lane, folded and open · ${lang} · ${density} · ${width}px`, async ({ page }) => {
+    test.setTimeout(90_000);
+    // Every lane and every state rule at once; the running work under review rows carries the stale-progress line, the longest live sentence.
+    await openTray(page, `tray=true&live=true&queue=true&cardStates=true&lang=${lang}&density=${density}`, width);
+    await expect(page.locator('[data-tars-card="card-signals"] [data-tars-live-freshness="stale"]')).toBeVisible();
+    const folded = await overflow(page);
+    expect(folded.cards).toBeGreaterThanOrEqual(12);
+    expect(folded.faults).toEqual([]);
+    for (const title of await page.locator("[data-tars-card] [data-tars-card-title]").all()) await title.click();
+    await expect(page.locator('[data-tars-card-open="false"]')).toHaveCount(0);
+    // A chevron's box is wider than itself while it turns.
+    await page.waitForFunction(() => [...document.querySelectorAll("[data-tars-card-title] svg")].every((node) => node.getAnimations().every((animation) => animation.playState !== "running")));
+    expect((await overflow(page)).faults).toEqual([]);
+  });
+}
+
 test("the state is one of the task's words, in both languages, and only running work moves", async ({ page }) => {
   for (const [lang, words] of [["en", { release: "Waiting for you", billing: "Working", "search-index": "Working", migration: "Blocked", docs: "Finished" }],
     ["ko", { release: "사용자 확인 대기 중", billing: "작업 중", "search-index": "작업 중", migration: "막힘", docs: "완료" }]] as const) {
