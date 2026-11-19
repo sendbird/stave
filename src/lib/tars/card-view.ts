@@ -20,8 +20,16 @@ import { isTarsTaskOperation, type TarsControlOperation, type TarsResponsibility
 
 type CardFacts = Pick<TarsTrayCard, "row" | "attention" | "controls" | "run">;
 
-/** Fleet's kinds that say the work's task stopped by itself: a block, not a question. */
-const HALT_KINDS: ReadonlySet<string> = new Set(["tars-blocked", "run-failed", "turn-stalled", "agent-run-blocked", "agent-run-stuck"]);
+/**
+ * Fleet's kinds that reach the state. A request in the work's task asks the
+ * user (a question, an approval, a stage sign-off); a stop says the work
+ * cannot go on (Tars blocked it, its turn failed, its run's stage blocked or
+ * got stuck). Fleet's review rows (a turn that went quiet while still active,
+ * a pull request's status, a result to read) stop nothing and ask nothing, so
+ * they never change the state; the card's detail still lists them.
+ */
+const REQUEST_KINDS: ReadonlySet<string> = new Set(["user-input", "approval", "agent-run-sign-off"]);
+const HALT_KINDS: ReadonlySet<string> = new Set(["tars-blocked", "run-failed", "agent-run-blocked", "agent-run-stuck"]);
 
 /** Each Tars state as the run badge it stands for; queued and waiting work is still in Tars's hands. */
 const BADGE_OF: Record<TarsResponsibility["state"], AgentRunBadge> = {
@@ -31,10 +39,9 @@ const BADGE_OF: Record<TarsResponsibility["state"], AgentRunBadge> = {
 
 function asksOf(card: Pick<TarsTrayCard, "row" | "attention">) {
   const halt = card.attention.find((entry) => HALT_KINDS.has(entry.item.kind)) ?? null;
-  const asks = card.attention.filter((entry) => !HALT_KINDS.has(entry.item.kind));
   // A result waiting for the user's check is a sign-off, said by the state itself.
-  const tars = card.row.state === "resultReady" ? null : asks.find((entry) => entry.item.kind === "tars-decision") ?? null;
-  const task = asks.find((entry) => entry.item.kind !== "tars-decision") ?? null;
+  const tars = card.row.state === "resultReady" ? null : card.attention.find((entry) => entry.item.kind === "tars-decision") ?? null;
+  const task = card.attention.find((entry) => REQUEST_KINDS.has(entry.item.kind)) ?? null;
   return { halt, tars, task };
 }
 
@@ -62,7 +69,7 @@ function wordsOf(entry: TarsTrayAttentionRow<TarsTrayAttentionInput> | null) {
  * The work as `resolveTaskUserState` reads a task. A decision Tars itself
  * asks (a proposal to confirm, a question, an unverified completion) is the
  * live prompt, whatever the run does; a request left open in the work's task
- * is the task's pending decision; a row that says the task stopped is a halt.
+ * is the task's pending decision; a row that says the work stopped is a halt.
  */
 export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
   const { row } = card;

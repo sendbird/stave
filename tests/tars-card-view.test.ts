@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { applyAppLocale } from "@/i18n";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import { FLEET_ATTENTION_TIER } from "@/lib/fleet/attention-projection";
 import { buildTarsSideViewFixtures } from "../src/dev/tars-preview/tars-side-fixtures";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
 import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus } from "../src/lib/tars/card-view";
@@ -115,9 +116,28 @@ describe("a Tars work card's state, sentence and action", () => {
     expect(view.sentence).toBe("Stopped with some completion criteria unmet. Open the report to see what is missing.");
     expect(view.primary).toEqual({ kind: "openReport" });
     expect(read(search, { runs: side.runs }, { answer: true, report: false }).primary).toEqual({ kind: "control", operation: "resume" });
-    // A task that stopped by itself blocks work Tars still counts as running.
-    const stalled: TarsTrayAttentionInput = { id: "turn-stalled:task-billing", kind: "turn-stalled", taskId: "task-billing", detail: "No activity for 12 minutes" };
-    expect(read(billing(), { attention: [stalled] })).toMatchObject({ state: "blocked", sentence: "No activity for 12 minutes", primary: { kind: "openTask" } });
+    // A task whose turn failed blocks work Tars still counts as running.
+    const failed: TarsTrayAttentionInput = { id: "turn:run-failed:exec-billing:task-billing:turn-1", kind: "run-failed", taskId: "task-billing", detail: "The provider returned an error." };
+    expect(read(billing(), { attention: [failed] })).toMatchObject({ state: "blocked", sentence: "The provider returned an error.", primary: { kind: "openTask" } });
+  });
+
+  test("Fleet's review-only rows never change the state: only a real request or a real stop does", async () => {
+    await applyAppLocale("en");
+    const f = tray();
+    const row = (kind: string): TarsTrayAttentionInput => ({ id: `${kind}:task-billing`, kind, taskId: "task-billing", workspaceId: "exec-billing", detail: `Fleet says ${kind}` });
+    const working = read(billing(), { runs: f.runs });
+    // A pull request that is ready to merge asks nothing of running work, and a turn that went quiet is still active.
+    expect(read(billing(), { runs: f.runs, attention: [row("pr-ready-to-merge")] })).toEqual(working);
+    expect(read(billing(), { runs: f.runs, attention: [row("turn-stalled")] })).toEqual(working);
+    const seen: Record<string, string> = {};
+    for (const [kind, tier] of Object.entries(FLEET_ATTENTION_TIER)) {
+      if (kind.startsWith("tars-")) continue;
+      const view = read(billing(), { runs: f.runs, attention: [row(kind)] });
+      if (tier === "review") expect(view, kind).toEqual(working);
+      else seen[kind] = view.waitingOn ? `${view.state}:${view.waitingOn}` : view.state;
+    }
+    expect(seen).toEqual({ "user-input": "waiting:question", approval: "waiting:approval", "agent-run-sign-off": "waiting:sign-off",
+      "run-failed": "blocked", "agent-run-blocked": "blocked", "agent-run-stuck": "blocked" });
   });
 
   test("work the user took over is held until handed back", async () => {
