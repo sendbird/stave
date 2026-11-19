@@ -328,6 +328,14 @@ export const TarsDecisionActionSchema = z.discriminatedUnion("kind", [...TarsWor
 export type TarsDecisionAction = z.infer<typeof TarsDecisionActionSchema>;
 
 /**
+ * Holds the position of an action whose kind Stave removed. A saved reply
+ * keeps it because the actions after it are named by their position, in their
+ * receipts and request ids. Only a conversion of saved replies writes it: it
+ * is never planned, admitted, given a receipt or shown.
+ */
+const TarsRetiredActionSchema = z.object({ kind: z.literal("retired") }).strict();
+
+/**
  * An action the model returned that the host never saw: it did not match its
  * schema (`invalid`) or went past a per-reply limit (`overLimit`). The reply
  * and the valid actions are kept; `index` is its position in the model's
@@ -345,7 +353,7 @@ export type TarsDroppedAction = z.infer<typeof TarsDroppedActionSchema>;
 /** A proposal is not an execution receipt or an authorization grant. One reply asks at most one question. */
 export const TarsDecisionSchema = z.object({
   reply: z.string().max(TARS_REPLY_MAX_CHARS),
-  actions: z.array(TarsDecisionActionSchema).max(8)
+  actions: z.array(z.discriminatedUnion("kind", [...TarsDecisionActionSchema.options, TarsRetiredActionSchema])).max(8)
     // i18n-ignore: schema diagnostic, not user-facing copy
     .refine((actions) => actions.filter((action) => action.kind === "ask").length <= 1, "A reply asks at most one question.")
     // i18n-ignore: schema diagnostic, not user-facing copy

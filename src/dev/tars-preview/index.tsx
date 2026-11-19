@@ -497,7 +497,7 @@ export function TarsPreview() {
           const key = proposed ? tarsActionKey(proposed) : null;
           const matches = key ? matchTarsNeverRules(conversation.settings.neverDo, { key, repository: "preview", branches: [] }) : [];
           const held = proposed?.kind === "bulkControl" || proposed?.kind === "cleanup" || proposed?.kind === "ask" || (key !== null && tarsActionDisposition({ key, level: conversation.settings.autonomy, matches }) === "confirm");
-          if (proposed && proposed.kind !== "inspect") conversation.receipts.push(held
+          if (proposed && proposed.kind !== "inspect" && proposed.kind !== "retired") conversation.receipts.push(held
             // Held actions wait for a confirming click; a question waits for its answer.
             ? { messageId: message.id, actionIndex: 0, requestHash: "a".repeat(64), action: proposed, status: "proposed", responsibilityId: null, error: null, reason: null,
               ...(matches.length ? { matchedRules: matches } : {}), revision: 1, createdAt, updatedAt: createdAt }

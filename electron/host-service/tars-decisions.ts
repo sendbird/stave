@@ -329,7 +329,8 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
   try {
     for (const [index, action] of actions.entries()) {
       // Inspections are planner observations only; never enter work admission.
-      if (action.kind === "inspect") continue;
+      // A retired position only keeps the index of the actions after it.
+      if (action.kind === "inspect" || action.kind === "retired") continue;
       const intent = ports.conversations.recordReceipt(message.id, message.revision, index, action, now());
       if (intent.status !== "pending" && !(intent.status === "proposed" && action.kind === "publish")) { receipts.push(intent); continue; }
       // A selected message stays on its one existing work; judged once, when its receipt first settles.

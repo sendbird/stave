@@ -1020,6 +1020,13 @@ idempotent retry settles the run effect and the receipt together. Such an
 unresolved delivery is retried at a capped backoff until the host answers;
 later messages wait behind it in order.
 
+A saved reply names each action by its position: the receipt's `actionIndex`,
+delegated work's `tars-message:<message>:<index>` request ID and the
+`confirm:`/`ask:` decision IDs carry it. When Stave removes an action kind, the
+conversion of saved replies leaves `{ kind: "retired" }` in the action's place,
+so the positions after it do not move. A retired position is never planned (the
+planner's output drops it as invalid), admitted, given a receipt or waited for.
+
 A delegate action may name an agent (`agentId`). The conversation settings
 carry the saved agents the user allowed (`allowedAgentIds`; built-ins are
 always allowed) and an optional execution pin (`executionModel`); both are

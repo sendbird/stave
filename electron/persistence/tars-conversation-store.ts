@@ -303,9 +303,10 @@ export class TarsConversationStore {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1_000) throw new Error("The work limit must be between 1 and 1000.");
   }
 
+  /** A retired position takes no receipt, so it is never waited for. */
   private pendingActionsSql() {
     return `m.state = 'answered'
-      AND json_array_length(m.body_json, '$.decision.actions') >
+      AND (SELECT COUNT(*) FROM json_each(m.body_json, '$.decision.actions') WHERE json_extract(value, '$.kind') IS NOT 'retired') >
         (SELECT COUNT(*) FROM tars_action_receipts r WHERE r.message_id = m.id
           AND json_extract(r.body_json, '$.status') IN ('applied', 'rejected', 'proposed'))`;
   }
@@ -499,6 +500,7 @@ export class TarsConversationStore {
         throw new Error("The message has no delegated decision to settle.");
       let controlsPending = false;
       for (const [index, action] of message.decision.actions.entries()) {
+        if (action.kind === "retired") continue;
         if (action.kind === "control") {
           const status = this.getReceipt(messageId, index)?.status;
           controlsPending ||= status === undefined || status === "pending";

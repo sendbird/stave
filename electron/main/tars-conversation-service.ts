@@ -172,7 +172,7 @@ export function createTarsConversationService(ports: ConversationPorts) {
       await ports.applyDecision({ messageId: message.id, expectedRevision: message.revision });
       if (stopped) return;
       const settled = ports.conversations.listReceipts(message.id).filter((receipt) => receipt.status !== "pending");
-      if (settled.length !== message.decision!.actions.length) throw new Error("The saved decision did not settle.");
+      if (settled.length !== message.decision!.actions.filter((action) => action.kind !== "retired").length) throw new Error("The saved decision did not settle.");
     } catch (error) {
       if (stopped) return;
       // A lock failure left every unsettled intent pending and changed nothing.
