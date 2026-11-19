@@ -90,7 +90,9 @@ A writing subagent starts in its own worktree and the call returns at once.
 Either way, an answer that arrives later is part of the parent's next turn
 under **Subagent results**, once. A long answer is shortened with a reference
 to read the full turn. An answer that does not fit the turn arrives whole in
-the next one, oldest first.
+the next one, oldest first. If several turns of one subagent end before the
+parent's next turn, each answer arrives. An answer counts as received once a
+parent turn that carried it starts, even if that turn is stopped.
 
 ## Interface Walkthrough
 
@@ -401,6 +403,12 @@ Delegations live in the run ledger inside Stave's SQLite database, as a
   "reason": null
 }
 ```
+
+Each answer is a result receipt on the child's run. When a parent turn carries
+an answer, a `delivery` receipt naming the parent turn is added to the same run,
+so the parent's later turns skip it after a restart too. Answers recorded before
+this was tracked count as received when they are older than the parent's most
+recent turn.
 
 Set `STAVE_DELEGATED_TASK_CONCURRENCY` to change how many children one parent task
 may have running at once (default 3, maximum 16).
