@@ -79,6 +79,8 @@ async function checkCards(page: Page) {
     const opener = card.locator("[data-tars-card-title]");
     if (await opener.getAttribute("aria-expanded") !== "true") await opener.click();
     await expect(card.locator("[data-tars-card-detail]")).toBeVisible();
+    // The chevron's box is wider than itself while it turns, so it is measured once it has.
+    await card.locator("[data-tars-card-title] svg").evaluate((node) => Promise.all(node.getAnimations().map((animation) => animation.finished)));
     const geometry = await card.evaluate((node) => {
       const box = (element: Element) => element.getBoundingClientRect();
       const title = node.querySelector("[data-tars-card-title] span")!;
