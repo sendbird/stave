@@ -32,7 +32,9 @@ No gap blocks the trial. These limits shape the setup:
   implementers from editing. Deny only what no helper should do either.
 - **Tool limits on Codex.** Stave enforces a main agent's denied tools on
   Claude only. On Codex they are only instructions, so the coordinator prefers
-  Claude and starts from a Claude task.
+  Claude and starts from a Claude task. A routing rule that names Codex still
+  outranks the preference; check that each run started on Claude and note it
+  when it did not.
 - **A pinned model keeps the whole team on one provider.** A **Fixed** Agent
   model, or a model pinned in the composer, locks the run's model, and then
   every helper must stay on the run's provider
