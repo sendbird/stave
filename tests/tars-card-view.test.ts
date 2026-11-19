@@ -6,7 +6,8 @@ import { collectFleetTarsAttentionItems, FLEET_ATTENTION_TIER } from "@/lib/flee
 import { buildTarsSideViewFixtures } from "../src/dev/tars-preview/tars-side-fixtures";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
 import { collectTarsAttention, tarsStateSignalId } from "../src/lib/tars/attention";
-import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus } from "../src/lib/tars/card-view";
+import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus, tarsTaskStateFacts } from "../src/lib/tars/card-view";
+import { tarsRecordedChangeCount } from "../src/lib/tars/outputs-model";
 import { buildTarsTray, type TarsTrayAttentionInput } from "../src/lib/tars/tray-model";
 import type { TarsPendingDecision, TarsResponsibility } from "../src/lib/tars/types";
 
@@ -196,6 +197,24 @@ describe("a Tars work card's state, sentence and action", () => {
     expect(read(published, { runs: side.runs })).toMatchObject({ state: "finished", sentence: "Draft PR #42 open", primary: { kind: "openPullRequest", url: "https://example.com/acme/shop/pull/42", number: 42 } });
     // A run this window has not read has no report to open yet.
     expect(read(checkout)).toMatchObject({ state: "finished", sentence: "Requested goal completed", primary: { kind: "openTask" } });
+  });
+
+  test("a card that re-renders while its work streams never walks the run's stage records; what changed is counted once the work finished", async () => {
+    await applyAppLocale("en");
+    let reads = 0;
+    const watched = (run: AgentRunDetail) => new Proxy(run, { get: (target, key, receiver) => { if (key === "stages") reads += 1; return Reflect.get(target, key, receiver); } });
+    const running = cardOf(billing(), { runs: { "run-billing": watched(tray().runs["run-billing"]!) } });
+    reads = 0;
+    const status = tarsCardStatus(running);
+    describeTarsCardSentence(running, status);
+    tarsCardPrimary(running, status, can);
+    expect(status.state).toBe("working");
+    expect(reads).toBe(0);
+    // Finished work is where the count is read.
+    const side = buildTarsSideViewFixtures(start);
+    const checkout = cardOf(side.responsibilities.find((row) => row.id === "checkout")!, { runs: side.runs });
+    expect(tarsRecordedChangeCount(checkout.run!)).toBeGreaterThan(0);
+    expect(tarsTaskStateFacts(checkout).result?.changedFiles).toBe(tarsRecordedChangeCount(checkout.run!)!);
   });
 
   test("cancelled work is stopped and says so", async () => {

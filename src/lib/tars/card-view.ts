@@ -94,7 +94,8 @@ export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
     lastTurn: null,
     result: {
       pullRequest: opened ? { url: opened.url!, ...(opened.number ? { number: opened.number } : {}), title: opened.title } : null,
-      changedFiles: card.run ? tarsRecordedChangeCount(card.run) ?? 0 : 0,
+      // Only finished work shows a result. A card re-renders with every step its work streams, so nothing else walks the run's stage records for a count nobody reads.
+      changedFiles: card.run && row.state === "completed" ? tarsRecordedChangeCount(card.run) ?? 0 : 0,
       answerMessageId: null,
     },
   };
