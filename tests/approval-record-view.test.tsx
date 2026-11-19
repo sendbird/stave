@@ -5,7 +5,6 @@ import { applyAppLocale } from "@/i18n";
 import { APPROVAL_RECORD_LIST_LIMIT, ApprovalRecordView } from "../src/components/approvals/ApprovalRecord";
 import { ReviewInspector } from "../src/components/review/ReviewInspector";
 import { ToolApprovalCard } from "../src/components/session/ToolApprovalCard";
-import { TurnApprovalRecord } from "../src/components/session/TurnApprovalRecord";
 import { approvalsFromRunTurn, windowApprovals } from "../src/components/review/useReviewApprovals";
 import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
@@ -144,21 +143,6 @@ describe("approval record view", () => {
     expect(approvalsFromRunTurn({ status: "failed", message: "disk" }).status).toBe("error");
     const loaded = approvalsFromRunTurn({ status: "ready", messages: [message(runParts, { turnId: "turn-1" })] });
     expect(loaded.status === "ready" ? loaded.data?.map((entry) => entry.standing) : null).toEqual(["allowed-by-you", "allowed-by-provider", "allowed-by-rule", "denied-by-rule"]);
-  });
-
-  test("Activity folds the listed turn's approvals to their counts", () => {
-    const state = {
-      activeWorkspaceId: "ws-1",
-      activeTaskId: "task-1",
-      taskWorkspaceIdById: { "task-1": "ws-1" },
-      activeTurnIdsByTask: {},
-      messagesByTask: { "task-1": [message(runParts)] },
-    };
-    const markup = renderWithState(state, createElement(TurnApprovalRecord));
-    expect(markup).toContain('data-testid="turn-approval-record"');
-    expect(text(markup)).toContain("Approvals in this turn 1 allowed by you · 1 allowed by a Stave rule · 1 allowed by the provider · 1 denied");
-    expect(markup.match(/data-testid="approval-record-counts"/g)).toBeNull();
-    expect(renderWithState({ ...state, messagesByTask: { "task-1": [message([])] } }, createElement(TurnApprovalRecord))).toBe("");
   });
 
   test("a decided card names who decided and when, and a person's grant", () => {

@@ -12,12 +12,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ActionButton } from "@/components/system/ActionButton";
-import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { paneHost } from "@/components/panes/pane-host-controller";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
-import { setResultReviewed } from "@/lib/reviews/result-review-client";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import { useAppStore } from "@/store/app.store";
 import { ResultFileSnapshots } from "./ResultFileSnapshots";
@@ -33,7 +31,6 @@ import { appendWorkflowDraft } from "@/lib/collaboration/workflows";
 import { formatTimeAgo } from "@/components/layout/automation-center/automation-center.utils";
 
 const PAGE_SIZE = 20;
-type Filter = "all" | "pending";
 
 /**
  * The saved answer, files and run details of one run. Mounted only while its
@@ -139,9 +136,6 @@ function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
 export function RunHistoryRow(props: {
   result: ResultReview;
   expanded: boolean;
-  busy: boolean;
-  disabled: boolean;
-  onReview: () => void;
   onFollowUp: () => void;
 }) {
   useTranslation();
@@ -196,11 +190,6 @@ export function RunHistoryRow(props: {
                 >
                   {formatTimeAgo(result.createdAt)}
                 </time>
-                <span className={sx(styles.caption)}>
-                  {result.markedReviewedAt
-                    ? i18n.t("session:taskResultReviews.markedReviewed")
-                    : result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow3") : i18n.t("session:taskResultReviews.runHistoryRow4")}
-                </span>
               </span>
             </span>
           </span>
@@ -209,26 +198,11 @@ export function RunHistoryRow(props: {
       <AccordionContent mount="lazy" className={sx(styles.rowDetails)}>
         <RunEvidence result={result} onShowTurn={() => setTurnOpen(true)} />
         <div className={sx(styles.rowActions)}>
-          <ActionButton
-            size="xs"
-            weight="quiet"
-            loading={props.busy}
-            disabled={props.disabled}
-            onClick={props.onReview}
-            title={
-              result.reviewedAt
-                ? i18n.t("session:taskResultReviews.title")
-                : i18n.t("session:taskResultReviews.title2")
-            }
-          >
-            {result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow5") : i18n.t("session:taskResultReviews.runHistoryRow6")}
-          </ActionButton>
           <ActionButton size="xs" onClick={() => openTurnReview(result)}>
             {i18n.t("session:taskResultReviews.review")}</ActionButton>
           <ActionButton size="xs" onClick={props.onFollowUp}>
             {i18n.t("session:taskResultReviews.runHistoryRow7")}</ActionButton>
         </div>
-        <p className={sx(styles.caption)}>{i18n.t("session:taskResultReviews.runHistoryRow8")}</p>
       </AccordionContent>
       <RunTurnDialog
         open={turnOpen}
@@ -255,16 +229,17 @@ function TaskAgentRunReport(props: { workspaceId: string; taskId: string }) {
   ) : null;
 }
 
+/**
+ * Each run's saved answer and file changes, newest first, a page at a time,
+ * in the Task panel's Details.
+ */
 export function TaskResultReviews(props: {
   workspaceId: string;
   taskId: string;
 }) {
   useTranslation();
-  const [filter, setFilter] = useState<Filter>("all");
   const [offset, setOffset] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [saveError, setSaveError] = useState("");
   const [draftNotice, setDraftNotice] = useState("");
   const { page, loading, error, refresh } = useResultReviews({
     workspaceId: props.workspaceId,
@@ -272,49 +247,19 @@ export function TaskResultReviews(props: {
     limit: PAGE_SIZE,
     offset,
     includeEvidence: false,
-    ...(filter === "pending" ? { pendingOnly: true } : {}),
   });
   useEffect(() => {
     if (loading || error) return;
-    // Reviewing the last row may remove the page itself (21 pending -> 20).
     const lastOffset = Math.max(0, Math.ceil(page.total / PAGE_SIZE) - 1) * PAGE_SIZE;
     if (offset > lastOffset) setOffset(lastOffset);
   }, [error, loading, offset, page.total]);
   useEffect(() => {
-    // A row that paged or filtered out of view must not stay "expanded".
+    // A row that paged out of view must not stay "expanded".
     if (expandedId && !page.results.some((row) => row.id === expandedId)) {
       setExpandedId(null);
     }
   }, [expandedId, page.results]);
 
-  const changeFilter = (next: Filter) => {
-    if (next === filter) return;
-    setFilter(next);
-    setOffset(0);
-    setExpandedId(null);
-  };
-  const review = async (result: ResultReview) => {
-    if (busyId) return;
-    setBusyId(result.id);
-    setSaveError("");
-    try {
-      await setResultReviewed({
-        repositoryPath: result.repositoryPath,
-        workspaceId: result.workspaceId,
-        taskId: result.taskId,
-        turnId: result.turnId,
-        reviewed: !result.reviewedAt,
-      });
-    } catch (failure) {
-      setSaveError(
-        failure instanceof Error
-          ? failure.message
-          : i18n.t("session:taskResultReviews.extraCopy116"),
-      );
-    } finally {
-      setBusyId(null);
-    }
-  };
   const followUp = (result: ResultReview) => {
     const state = useAppStore.getState();
     if (
@@ -340,53 +285,21 @@ export function TaskResultReviews(props: {
 
   return (
     <section aria-label={i18n.t("session:taskResultReviews.ariaLabel")} className={sx(styles.panel)}>
-      <div className={sx(styles.header)}>
-        <h3 className={sx(styles.heading)}>{i18n.t("session:taskResultReviews.taskResultReviews")}</h3>
-        <p className={sx(styles.introduction)}>
-          {i18n.t("session:taskResultReviews.taskResultReviews2")}</p>
-      </div>
-      <div className={sx(styles.toolbar)} role="group" aria-label={i18n.t("session:taskResultReviews.ariaLabel2")}>
-        <SegmentedControl
-          aria-label={i18n.t("session:taskResultReviews.filterLabel")}
-          value={filter}
-          onValueChange={changeFilter}
-          options={[
-            { value: "pending", label: i18n.t("session:taskResultReviews.taskResultReviews3") },
-            { value: "all", label: i18n.t("session:taskResultReviews.taskResultReviews4") },
-          ]}
-        />
-        <span className={sx(styles.caption)} aria-live="polite">
-          {loading && page.total === 0
-            ? i18n.t("session:taskResultReviews.taskResultReviews5")
-            : error && page.total === 0
-              ? null // The body names the failure; "no outputs" would claim a read that never happened.
-              : page.total === 0
-              ? filter === "pending"
-                ? i18n.t("session:taskResultReviews.taskResultReviews6")
-                : i18n.t("session:taskResultReviews.taskResultReviews7")
-              : showPagination
-                ? i18n.t("session:taskResultReviews.taskResultReviews8", { value1: rangeStart, value2: rangeEnd, value3: page.total })
-                : i18n.t("session:taskResultReviews.runCount", { count: page.total })}
-        </span>
-      </div>
       <div className={sx(styles.body)}>
-        {error || saveError ? (
+        {error ? (
           <div className={sx(styles.alertRow)}>
             <p role="alert" className={sx(styles.error)}>
-              {error || saveError}
+              {error}
             </p>
-            {error ? (
-              <ActionButton size="xs" onClick={refresh}>
-                {i18n.t("session:taskResultReviews.taskResultReviews9")}</ActionButton>
-            ) : null}
+            <ActionButton size="xs" onClick={refresh}>
+              {i18n.t("session:taskResultReviews.taskResultReviews9")}</ActionButton>
           </div>
         ) : null}
+        {loading && page.total === 0 ? (
+          <p role="status" className={sx(styles.caption)}>{i18n.t("session:taskResultReviews.taskResultReviews5")}</p>
+        ) : null}
         {!loading && !error && page.total === 0 ? (
-          <p className={sx(styles.empty)}>
-            {filter === "pending"
-              ? i18n.t("session:taskResultReviews.taskResultReviews10")
-              : i18n.t("session:taskResultReviews.taskResultReviews11")}
-          </p>
+          <p className={sx(styles.empty)}>{i18n.t("session:taskResultReviews.taskResultReviews11")}</p>
         ) : null}
         <Accordion
           className={sx(styles.list)}
@@ -402,9 +315,6 @@ export function TaskResultReviews(props: {
               key={result.id}
               result={result}
               expanded={expandedId === result.id}
-              busy={busyId === result.id}
-              disabled={busyId !== null}
-              onReview={() => void review(result)}
               onFollowUp={() => followUp(result)}
             />
           ))}

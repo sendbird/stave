@@ -6,6 +6,18 @@ import type {
   TurnRecord,
   TurnRecordMessage,
 } from "@/lib/providers/turn-history";
+import type {
+  ListResultReviewsArgs,
+  SetResultMarkedReviewedArgs,
+  SetResultReviewedArgs,
+  SetResultsReviewedArgs,
+} from "@/lib/reviews/result-review";
+import {
+  listBrowserResultReviews,
+  setBrowserResultMarkedReviewed,
+  setBrowserResultReviewed,
+  setBrowserResultsReviewed,
+} from "@/lib/reviews/result-review-client";
 import type { ChatMessage } from "@/types/chat";
 import {
   applyHandoffDraft,
@@ -46,17 +58,23 @@ const FAILED_DIGEST: TurnDigest = {
   ],
 };
 
+/** `outcome=completed`: the newest turn finished instead of failing. */
+function newestTurnFinished() {
+  return new URLSearchParams(window.location.search).get("outcome") === "completed";
+}
+
 export function previewTurnHistory(taskId: string, plainTaskId: string): TurnHistoryEntry[] {
   if (taskId !== plainTaskId) return [];
+  const finished = newestTurnFinished();
   return [
     {
       id: "turn-plain-1",
       providerId: "claude-code",
       createdAt: "2026-09-29T08:50:00.000Z",
       completedAt: "2026-09-29T09:03:00.000Z",
-      outcome: "failed",
-      error: "Stream closed before the turn finished.",
-      digest: { entryCount: FAILED_DIGEST.entries.length, hasError: true, checks: "fail" },
+      outcome: finished ? "completed" : "failed",
+      error: finished ? null : "Stream closed before the turn finished.",
+      digest: finished ? null : { entryCount: FAILED_DIGEST.entries.length, hasError: true, checks: "fail" },
     },
     {
       id: "turn-plain-0",
@@ -76,7 +94,12 @@ function toRecordMessages(messages: readonly ChatMessage[], turnId: string): Tur
     .map((message) => ({ id: message.id, role: message.role, turnId, parts: message.parts }));
 }
 
-/** Install the two turn-history reads unless a real bridge provides them. */
+/**
+ * Install the two turn-history reads unless a real bridge provides them. A
+ * persistence bridge without the result reviews would make the Outputs list
+ * report its storage unavailable, so the stub serves them from the browser
+ * store the preview seeds, as the browser build reads them.
+ */
 export function stubTurnHistory(args: { plainTaskId: string; messages: readonly ChatMessage[] }) {
   const host = window as unknown as {
     api?: Record<string, unknown> & { persistence?: Record<string, unknown> };
@@ -90,12 +113,16 @@ export function stubTurnHistory(args: { plainTaskId: string; messages: readonly 
         ok: true,
         page: { turns: previewTurnHistory(request.taskId, args.plainTaskId), hasMore: false },
       }),
+      listResultReviews: async (request?: ListResultReviewsArgs) => ({ ok: true, ...listBrowserResultReviews(request) }),
+      setResultReviewed: async (request: SetResultReviewedArgs) => ({ ok: true, result: setBrowserResultReviewed(request) }),
+      setResultMarkedReviewed: async (request: SetResultMarkedReviewedArgs) => ({ ok: true, result: setBrowserResultMarkedReviewed(request) }),
+      setResultsReviewed: async (request: SetResultsReviewedArgs) => ({ ok: true, updated: setBrowserResultsReviewed(request) }),
       readTaskTurnRecord: async (request: ReadTaskTurnRecordArgs) => {
         const turn = previewTurnHistory(request.taskId, args.plainTaskId).find((entry) => entry.id === request.turnId);
         const record: TurnRecord | null = turn
           ? {
               turn,
-              digest: turn.id === "turn-plain-1" ? FAILED_DIGEST : null,
+              digest: turn.id === "turn-plain-1" && turn.outcome === "failed" ? FAILED_DIGEST : null,
               prompt: turn.id === "turn-plain-1"
                 ? "Tighten the spacing of the settings sidebar and keep the keyboard order."
                 : "Look at the settings sidebar spacing and propose a change.",

@@ -39,7 +39,7 @@ const formatClock = (iso: string) =>
   formatTime(new Date(iso), { hour: "2-digit", minute: "2-digit" });
 
 /**
- * An agent run in the Task panel's Progress tab: the agent and its state, the
+ * An agent run in the Task panel's Details: the agent and its state, the
  * Done when lines, the stages and their reports when the agent has a
  * workflow, the result once it is ready, and what the run used. A one-stage
  * run shows the agent's own plan as its steps instead of a stage list. Stop, Take control and Retry stay with the run bar
@@ -59,6 +59,8 @@ export function AgentRunOverview(props: {
   onShowTool?: (toolCallId: string) => void;
   /** The question or approval card the lead task holds open. */
   decision?: AgentRunDecision | null;
+  /** The Task panel states the run's state above: drop the badge row. */
+  stateShownAbove?: boolean;
 }) {
   useTranslation();
   const { detail, now, actions = {}, onCommand } = props;
@@ -114,23 +116,25 @@ export function AgentRunOverview(props: {
             </h2>
           </div>
         </div>
-        <div className={sx(styles.statusRow)}>
-          <Badge size="sm" tone={status.tone} xstyle={styles.badge}>
-            <StateMark state={status.mark.state} size="xs" motion="still" />
-            {status.label}
-          </Badge>
-          {/* How long reads to the second on its own clock; the panel keeps a slower one. */}
-          <ElapsedClock live={agentRunClockRunning(detail)} now={now}>
-            {(clock) => {
-              const statusText = describeStatus(clock);
-              return (
-                <span className={sx(styles.statusText)} title={statusText}>
-                  {statusText}
-                </span>
-              );
-            }}
-          </ElapsedClock>
-        </div>
+        {props.stateShownAbove ? null : (
+          <div className={sx(styles.statusRow)}>
+            <Badge size="sm" tone={status.tone} xstyle={styles.badge}>
+              <StateMark state={status.mark.state} size="xs" motion="still" />
+              {status.label}
+            </Badge>
+            {/* How long reads to the second on its own clock; the panel keeps a slower one. */}
+            <ElapsedClock live={agentRunClockRunning(detail)} now={now}>
+              {(clock) => {
+                const statusText = describeStatus(clock);
+                return (
+                  <span className={sx(styles.statusText)} title={statusText}>
+                    {statusText}
+                  </span>
+                );
+              }}
+            </ElapsedClock>
+          </div>
+        )}
         {status.recovery === "resume" && actions.onResume ? (
           <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
             {i18n.t("agentRuns:limit.resume")}

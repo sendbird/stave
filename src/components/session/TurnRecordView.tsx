@@ -23,8 +23,6 @@ import type { TurnRecord } from "@/lib/providers/turn-history";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { useAppStore } from "@/store/app.store";
 import { TurnActivityRow, TurnRestMark } from "./TurnActivity";
-import { TurnTraceTimeline } from "./TurnTraceTimeline";
-import { buildTurnTrace } from "./turn-trace.utils";
 import { turnActivityStyles as rowStyles } from "./turn-activity.styles";
 import { turnActivityStatusIconStyles as iconStyles } from "./turn-activity-status-icon.styles";
 import { describeRetainedTurnHeadline, formatTurnActivityElapsedSeconds } from "./turn-activity.utils";
@@ -48,8 +46,6 @@ export function TurnRecordView(props: {
   workspaceId: string;
   taskId: string;
   turnId: string;
-  /** `timeline` draws the steps on a time axis instead of listing them. */
-  view?: "list" | "timeline";
 }) {
   useTranslation();
   const { workspaceId, taskId, turnId } = props;
@@ -66,7 +62,7 @@ export function TurnRecordView(props: {
         isEmpty={(record) => record === null}
         emptyState={<p className={sx(styles.notice, styles.surface)}>{i18n.t("session:turnRecord.notFound")}</p>}
       >
-        {(record) => (record ? <TurnRecordBody record={record} taskId={taskId} view={props.view} /> : null)}
+        {(record) => (record ? <TurnRecordBody record={record} taskId={taskId} /> : null)}
       </AsyncBoundary>
     </div>
   );
@@ -75,7 +71,6 @@ export function TurnRecordView(props: {
 export function TurnRecordBody(props: {
   record: TurnRecord;
   taskId: string;
-  view?: "list" | "timeline";
 }) {
   useTranslation();
   const { record, taskId } = props;
@@ -141,23 +136,13 @@ export function TurnRecordBody(props: {
         ) : (
           <TurnRecordEntries record={record} />
         )}
-        {digest && digest.omitted > 0 ? (
-          <p className={sx(styles.notice)}>{i18n.t("session:turnRecord.omitted", { count: digest.omitted })}</p>
-        ) : null}
       </div>
       <div className={sx(styles.section)} data-testid="turn-record-steps">
         <h3 className={sx(styles.sectionHeading)}>
           {i18n.t("session:turnRecord.stepsHeading")}{" "}
           <span className={sx(styles.sectionNote)}>{i18n.t("session:turnRecord.stepsSource")}</span>
         </h3>
-        {record.omittedMessages ? (
-          <p className={sx(styles.notice)}>
-            {i18n.t("session:turnRecord.earlierReplies", { count: record.omittedMessages })}
-          </p>
-        ) : null}
-        {props.view === "timeline" ? (
-          <TurnRecordTimeline record={record} onSelectTool={onSelectTool} />
-        ) : steps.items.length === 0 ? (
+        {steps.items.length === 0 ? (
           <p className={sx(styles.notice)}>{i18n.t("session:turnRecord.noSteps")}</p>
         ) : (
           <div>
@@ -166,36 +151,9 @@ export function TurnRecordBody(props: {
             ))}
           </div>
         )}
-        {props.view !== "timeline" && steps.omitted > 0 ? (
-          <p className={sx(styles.notice)}>{i18n.t("session:turnRecord.moreSteps", { count: steps.omitted })}</p>
-        ) : null}
       </div>
     </section>
   );
-}
-
-/** A saved turn's steps on a time axis, from the times its calls recorded. */
-function TurnRecordTimeline(props: {
-  record: TurnRecord;
-  onSelectTool: (toolUseId: string) => void;
-}) {
-  useTranslation();
-  const { record } = props;
-  const trace = useMemo(() => {
-    const startedAt = Date.parse(record.turn.createdAt);
-    const completedAt = record.turn.completedAt ? Date.parse(record.turn.completedAt) : Number.NaN;
-    return buildTurnTrace({
-      messages: record.messages,
-      turnStartedAt: Number.isFinite(startedAt) ? startedAt : 0,
-      turnCompletedAt: Number.isFinite(completedAt) ? completedAt : null,
-      live: false,
-      now: Number.isFinite(completedAt) ? completedAt : startedAt,
-      failed: record.turn.outcome === "failed",
-    });
-    // Span names are translated.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, i18n.language]);
-  return <TurnTraceTimeline trace={trace} onSelectTool={props.onSelectTool} />;
 }
 
 function TurnRecordEntries(props: { record: TurnRecord }) {

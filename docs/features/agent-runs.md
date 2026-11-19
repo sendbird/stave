@@ -154,13 +154,13 @@ its helpers on its own provider.
 2. Type the outcome, for example
    `Fix the billing table overflow on narrow screens.`, and send.
 3. The run starts at once. With more than one stage, the status line above the
-   composer shows the stage track and the Task panel's **Progress** names the
+   composer shows the stage track and the Task panel's **Details** name the
    workflow (`Workflow: Work → Review → Fix review findings`) and lists each stage and its
    report. A one-stage run shows the agent's own plan instead: its latest to-do
    list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5 · Now: Run
    the checks** on the status line and Fleet, between turns too. Until the
    first plan arrives the line says **Planning…**. A single step counts.
-   **Progress** shows the plan with its count (`1 / 3`), marks the step in
+   The Task panel's Details show the plan with its count (`1 / 3`), marks the step in
    progress as the current one, and tells a screen reader only what changed
    after it first appears. It updates as the agent works and keeps the saved
    plan between turns; the report carries the final plan. Multi-step work uses
@@ -169,7 +169,7 @@ its helpers on its own provider.
 4. The shelf summarizes the task's subagents, for example **Implementer
    running · Reviewer done**, or **Reviewer needs you** when a delegated Agent
    waits for a person (a question, an approval, or its own run halted or
-   paused); open its task to answer. **Progress** and **Subagents** show their
+   paused); open its task to answer. The Task panel's steps and **Subagents** show their
    latest step or tool and a one-line result in plain text: a delegated Agent
    run's result is its last stage's outcome, and the full report stays on hover
    and in its task. Saved tool parts preserve these summaries after completed
@@ -283,8 +283,10 @@ cards and questions outside a Run keep their existing behavior.
 ### Run states
 
 A Run wears one of six badges, the same on the task's tab mark, the Fleet
-card, the Task panel's **Progress** tab and the run line, with a subtitle
-that says what it stands on. Every word is in English and Korean.
+card and the run line, with a subtitle that says what it stands on. The Task
+panel's state line reads the same badge as one of its five task states:
+Running is `Working`, Needs your answer is `Waiting for you`, Paused and
+Halted are `Blocked`, Completed is `Finished` and Stopped is `Stopped`. Every word is in English and Korean.
 
 | Badge | Korean | What it means | Subtitle |
 |---|---|---|---|
@@ -327,7 +329,7 @@ agent run is going, between its turns included (see
 - **Take over** pauses the agent run so your replies are your own; **Resume**
   hands the task back. A reply without Take over guides the current stage and
   the agent run carries on.
-- The panel button opens the Task panel's **Progress** tab; the details toggle
+- The panel button opens the Task panel; the details toggle
   unfolds the current turn's rows.
 
 ### Sign-off
@@ -351,11 +353,14 @@ the turns used of the limit and what the agent run has spent, such as
 
 ![The agent run in the Task panel: goal, state, stage track, acceptance criteria, the stage timeline, and the turns and spend](../screenshots/run-panel.png)
 
-The **Progress** tab of the right rail's Task panel, while the task has an
-agent run (a task without one shows its flow there):
+The right rail's Task panel, while the task has an agent run. Its top says
+where the run stands in one line, what you need to do when it waits on you,
+the result or why it stopped, and the **Done when** lines still not met or not
+verified (**Still open**). Its collapsed **Details** hold the steps (a task
+without a run shows its flow there):
 
-- The goal, the Run's badge and subtitle ([Run states](#run-states)), and
-  the stage track.
+- The goal and the run's commands. The state and progress are not repeated:
+  the panel's top line states them and the stage list below names each stage.
 - **Done when**: the acceptance criteria, each **Met · checked by Stave** (a
   workspace check Stave ran and saw pass on the final work), **Met · agent
   reported**, **Not met** or **Not verified**. A workspace check criterion
@@ -385,7 +390,7 @@ agent run (a task without one shows its flow there):
   A note says when a turn reported no usage.
 - The task's wake-up, the other thing that can start turns on the task.
 
-The task's subagents are in the **Subagents** tab next to it.
+The task's subagents are under **Subagents** in the same Details.
 
 ### Acceptance and check evidence
 
@@ -526,8 +531,8 @@ prepared.
 
 ### Agent run report
 
-When an agent run ends, its report is shown in the Task panel's **Progress** tab
-and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
+When an agent run ends, its report is shown in the Task panel's Details, under
+the run's steps and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
 starts collapsed so saved task answers stay easy to scan. The report contains
 outcome, figures (active time, stages, turns, verified evidence, what it spent), links,
 decisions, what is still open, what was left behind, any account-pool switches,
@@ -579,7 +584,8 @@ sample limits and examples of when each screen helps.
 
 ### Recover a stuck or blocked stage
 
-1. Open the Task panel's **Progress** tab; the stage says why it stopped.
+1. Open the Task panel: it reads `Blocked` and says why; its **Details** show
+   the stage.
 2. Answer the question in the task, or fix what it names.
 3. Click **Retry stage**, or **Skip stage** to move on.
 
@@ -782,7 +788,7 @@ what fails, and waits again.
   saved Agent it runs as (**Waiting for Reviewer to finish**), never by its id.
   The workspace stays **In progress**.
 - The waiting clock does not move, so the line says what does instead. The
-  composer line, the Fleet card and the Task panel's Progress tab show the
+  composer line, the Fleet card and the Task panel's run steps show the
   same things:
   - How long the Run has waited, read as Fleet reads any wait (**45s**, **6m 5s**). The count
     starts when the Run last settled into its wait, so a turn in between (your

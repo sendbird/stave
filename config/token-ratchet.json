@@ -797,10 +797,6 @@
       "control-metric": 2,
       "icon-metric": 4
     },
-    "src/components/session/TaskRunOverview.tsx": {
-      "icon-metric": 4,
-      "line-height": 1
-    },
     "src/components/session/chat-panel-file-blocks.styles.ts": {
       "icon-metric": 2
     },
@@ -822,11 +818,6 @@
     },
     "src/components/session/empty-splash.styles.ts": {
       "line-height": 1
-    },
-    "src/components/session/task-handoff-panel.styles.ts": {
-      "tracking": 1,
-      "line-height": 2,
-      "icon-metric": 2
     },
     "src/components/session/chat-input.styles.ts": {
       "tracking": 1

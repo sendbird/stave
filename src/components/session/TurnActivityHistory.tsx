@@ -1,16 +1,13 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { useAsync } from "@/components/aui/utils/async";
 import { sx } from "@/components/aui/utils/stylex";
 import { SearchablePicker } from "@/components/layout/settings-searchable-picker";
-import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { listTaskTurnHistory } from "@/lib/db/turn-history.db";
 import { useAppStore } from "@/store/app.store";
 import { TurnActivity } from "./TurnActivity";
-import { TurnApprovalRecord } from "./TurnApprovalRecord";
 import { TurnRecordView } from "./TurnRecordView";
-import { LiveTurnTraceTimeline, TurnTraceLegend } from "./TurnTraceTimeline";
 import { SideChatActivityButton } from "./side-chat/SideChatActivityButton";
 import {
   buildTurnPickerOptions,
@@ -20,29 +17,21 @@ import {
 import { turnActivityHistoryStyles as styles } from "./turn-activity-history.styles";
 
 /**
- * Activity with its turn picker. The live turn and the last finished one keep
- * the full activity view; any earlier turn, and the newest turn after a
- * restart, opens its saved record. The choice lasts while the task stays
- * open; a new turn does not take the panel away from a turn being read.
+ * The task's saved turns, newest first, read once per task and again in place
+ * whenever a turn starts or ends. The Task panel reads it for the state of the
+ * turn it follows and hands it to the turn picker below.
  */
-export function TurnActivityHistory(props: { workspaceId: string; taskId: string }) {
-  useTranslation();
-  const { workspaceId, taskId } = props;
-  const labelId = useId();
+export function useTaskTurnHistory(workspaceId: string, taskId: string) {
   const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? null);
   const retainedTurnId = useAppStore(
     (state) => state.retainedTurnActivityByTask[taskId]?.snapshot.turnId ?? null,
   );
-  const [selected, setSelected] = useState<string | null>(null);
-  // The list stays the default; the choice lasts while the task stays open.
-  const [activityView, setActivityView] = useState<"list" | "timeline">("list");
   const history = useAsync(
     () => listTaskTurnHistory({ workspaceId, taskId }),
     [workspaceId, taskId],
   );
   const { refresh } = history;
-  // A turn starting or ending changes the list. Refresh in place, keeping the
-  // current list on screen meanwhile.
+  // Keep the current list on screen while the refresh runs.
   const settledRef = useRef(false);
   useEffect(() => {
     if (!settledRef.current) {
@@ -51,6 +40,32 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
     }
     refresh();
   }, [liveTurnId, retainedTurnId, refresh]);
+  return history;
+}
+
+export type TaskTurnHistory = ReturnType<typeof useTaskTurnHistory>;
+
+/**
+ * The turn picker and the chosen turn: the live turn and the last finished
+ * one keep the full activity view; any earlier turn, and the newest turn after
+ * a restart, opens its saved record. The panel owns the choice, so its state
+ * line follows the turn picked here; a new turn does not take the panel away
+ * from a turn being read.
+ */
+export function TurnActivityHistory(props: {
+  workspaceId: string;
+  taskId: string;
+  history: TaskTurnHistory;
+  selected: string | null;
+  onSelect: (turnId: string | null) => void;
+}) {
+  useTranslation();
+  const { workspaceId, taskId, history } = props;
+  const labelId = useId();
+  const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? null);
+  const retainedTurnId = useAppStore(
+    (state) => state.retainedTurnActivityByTask[taskId]?.snapshot.turnId ?? null,
+  );
   const page = history.state.status === "ready" ? history.state.data : null;
   // Requests are read when the list arrives rather than on every streamed
   // message: the list refreshes whenever a turn starts or ends.
@@ -65,7 +80,7 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
     [page, liveTurnId, prompts, i18n.language],
   );
   const { view, shownTurnId } = resolveTurnHistoryView({
-    selected,
+    selected: props.selected,
     liveTurnId,
     retainedTurnId,
     latestTurnId: page?.turns[0]?.id ?? null,
@@ -84,7 +99,7 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
               <p role="alert" className={sx(styles.notice)}>
                 {i18n.t("session:turnHistory.readFailed")}
               </p>
-              <AuiButton variant="quiet" size="xs" onClick={refresh}>
+              <AuiButton variant="quiet" size="xs" onClick={history.refresh}>
                 {i18n.t("common:actions.retry")}
               </AuiButton>
             </>
@@ -94,7 +109,7 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
               value={shownTurnId ?? undefined}
               placeholder={i18n.t("session:turnHistory.placeholder")}
               options={options}
-              onSelect={setSelected}
+              onSelect={props.onSelect}
               searchPlaceholder={i18n.t("session:turnHistory.searchPlaceholder")}
               emptyText={i18n.t("session:turnHistory.empty")}
               loading={history.state.status === "pending"}
@@ -105,43 +120,11 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
           <SideChatActivityButton taskId={taskId} />
         </div>
       ) : null}
-      {shownTurnId ? (
-        <div className={sx(styles.viewBar)} data-testid="turn-activity-view-bar">
-          <SegmentedControl
-            aria-label={i18n.t("session:turnTrace.viewLabel")}
-            value={activityView}
-            onValueChange={setActivityView}
-            options={[
-              { value: "list", label: i18n.t("session:turnTrace.viewList"), testId: "turn-activity-view-list" },
-              { value: "timeline", label: i18n.t("session:turnTrace.viewTimeline"), testId: "turn-activity-view-timeline" },
-            ]}
-            testId="turn-activity-view"
-          />
-          {activityView === "timeline" ? (
-            <TurnTraceLegend live={view.kind !== "record" && Boolean(liveTurnId)} />
-          ) : null}
-        </div>
-      ) : null}
-      <div className={sx(styles.body)}>
-        {view.kind === "record" ? (
-          <TurnRecordView
-            key={view.turnId}
-            workspaceId={workspaceId}
-            taskId={taskId}
-            turnId={view.turnId}
-            view={activityView}
-          />
-        ) : (
-          <TurnActivity
-            host="panel"
-            listReplacement={
-              activityView === "timeline" ? <LiveTurnTraceTimeline taskId={taskId} /> : undefined
-            }
-          />
-        )}
-      </div>
-      {/* Under the list: the approval record of the turn shown. */}
-      <TurnApprovalRecord turnId={view.kind === "record" ? view.turnId : undefined} />
+      {view.kind === "record" ? (
+        <TurnRecordView key={view.turnId} workspaceId={workspaceId} taskId={taskId} turnId={view.turnId} />
+      ) : (
+        <TurnActivity host="panel" />
+      )}
     </>
   );
 }

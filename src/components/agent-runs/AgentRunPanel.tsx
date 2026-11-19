@@ -91,9 +91,15 @@ type AgentRunDetailViewProps = {
   agentActions?: AgentRunActions;
   /** The question or approval card the lead task holds open. */
   decision?: AgentRunDecision | null;
+  /**
+   * The Task panel already states the run's state on its top line: drop the
+   * badge row (and a legacy run's stage track), so the stage list below is
+   * the only other place the progress shows.
+   */
+  stateShownAbove?: boolean;
 };
 
-/** The agent run in the Progress tab: the stage list for a workflow, the agent and its result for a run. */
+/** The agent run in the Task panel's Details: the stage list for a workflow, the agent and its result for a run. */
 export function AgentRunDetailView(props: AgentRunDetailViewProps) {
   useTranslation();
   return hasAgentOrigin(props.detail.agentRun) ? (
@@ -106,6 +112,7 @@ export function AgentRunDetailView(props: AgentRunDetailViewProps) {
       failure={props.failure}
       onCommand={props.onCommand}
       onShowTool={props.onShowTool}
+      stateShownAbove={props.stateShownAbove}
     />
   ) : (
     <LegacyWorkflowRunDetailView {...props} />
@@ -204,30 +211,34 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
             </div>
           ) : null}
         </div>
-        <div className={sx(styles.statusRow)}>
-          <Badge size="sm" tone={badge.tone} xstyle={styles.badge}>
-            <StateMark state={badge.mark.state} size="xs" motion="still" />
-            {badge.label}
-          </Badge>
-          {/* The elapsed part reads to the second on its own clock; the panel keeps a slower one. */}
-          <ElapsedClock live={active} now={now}>
-            {(clock) => {
-              const statusText = describeStatus(clock);
-              return (
-                <span className={sx(styles.statusText)} title={statusText}>
-                  {statusText}
-                </span>
-              );
-            }}
-          </ElapsedClock>
-        </div>
-        {/* The track names the stage and the count; the Stages list below names them all. */}
-        <StageTrack
-          rows={rows}
-          size="md"
-          paused={agentRun.state === "paused"}
-          tone={agentRun.state === "stopped" ? "attention" : undefined}
-        />
+        {props.stateShownAbove ? null : (
+          <>
+            <div className={sx(styles.statusRow)}>
+              <Badge size="sm" tone={badge.tone} xstyle={styles.badge}>
+                <StateMark state={badge.mark.state} size="xs" motion="still" />
+                {badge.label}
+              </Badge>
+              {/* The elapsed part reads to the second on its own clock; the panel keeps a slower one. */}
+              <ElapsedClock live={active} now={now}>
+                {(clock) => {
+                  const statusText = describeStatus(clock);
+                  return (
+                    <span className={sx(styles.statusText)} title={statusText}>
+                      {statusText}
+                    </span>
+                  );
+                }}
+              </ElapsedClock>
+            </div>
+            {/* The track names the stage and the count; the Stages list below names them all. */}
+            <StageTrack
+              rows={rows}
+              size="md"
+              paused={agentRun.state === "paused"}
+              tone={agentRun.state === "stopped" ? "attention" : undefined}
+            />
+          </>
+        )}
         {agentRun.pauseReason === "runtime-changed" ? (
           <div className={sx(styles.callout, styles.calloutNeutral)}>
             <span>{agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView4")}</span>
@@ -329,9 +340,10 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
 }
 
 /**
- * The agent run in the Task panel's Progress tab, with the commands that steer
- * it. Shown only for a task that has an agent run; a task without one shows its
- * flow there instead; a run starts when work is assigned to an agent.
+ * The agent run in the Task panel's Details, with the commands that steer it.
+ * The panel's top line states the run's state, so the run reads without its
+ * badge. Shown only for a task that has an agent run; a task without one shows
+ * its flow there instead; a run starts when work is assigned to an agent.
  */
 export function AgentRunPanel(props: { taskId: string; detail: AgentRunDetail }) {
   useTranslation();
@@ -367,6 +379,7 @@ export function AgentRunPanel(props: { taskId: string; detail: AgentRunDetail })
       reportActions={reportActions}
       agentActions={agentActions}
       onShowTool={(toolUseId) => focusTranscriptTool({ taskId: props.taskId, toolUseId })}
+      stateShownAbove
     />
   );
 }

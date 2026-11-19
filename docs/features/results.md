@@ -1,7 +1,7 @@
 # Agent performance and task outputs
 
 Use the **Performance** tab of **Agents** to understand how delegated work has
-been going across workspaces. Use **Outputs** in a task's Task panel
+been going across workspaces. Use **Outputs** under **Details** in a task's Task panel
 to read that task's saved answers and file changes and choose a follow-up.
 These screens used to share the name **Results**. Their scope and purpose differ.
 
@@ -9,9 +9,9 @@ These screens used to share the name **Results**. Their scope and purpose differ
 | --- | --- | --- |
 | How often does an agent finish its assignment? | Agent performance | Completion rate, ended run count and stop reasons. |
 | What effort does delegation take? | Agent performance | Completion time, reported spend and follow-ups, together. |
-| What did this task produce? | Task → Outputs | Saved answer and reported file changes. |
-| Have I checked this answer, or do I want another change? | Task → Outputs | Check mark and Draft follow-up. |
-| What happened during execution? | Task → Activity, or View execution from an output | Prompt, tools and answer for the execution. |
+| What did this task produce? | Task panel → Result, or Details → Outputs | The pull request, changed files and answer; every saved answer and file change. |
+| Do I want another change? | Task panel → Details → Outputs | Draft follow-up. |
+| What happened during execution? | Task panel → Details → Activity, or View execution from an output | Prompt, tools and answer for the execution. |
 
 ## Agent performance
 
@@ -66,27 +66,23 @@ do not establish poor quality.
 
 ## Task outputs
 
-Open the task's **Task** panel and select **Outputs**. This history includes
+Open the task's **Task** panel, open **Details** and find **Outputs**. The
+panel's **Result** line already leads with the latest pull request, changed
+files and answer; Outputs keeps every execution. This history includes
 ordinary task executions, failed attempts and executions belonging to agent
 runs. A multi-turn agent run can produce several task outputs, so counts need
 not match the Agent performance screen.
 
-The default **Unchecked** filter shows saved outputs without a check mark.
-**All outputs** includes checked items. Each row leads with its answer summary,
-execution outcome, date and check state. Expand it to read:
+Outputs lists every saved output, newest first, with no read filter or check
+marks. Each row leads with its answer summary, execution outcome and date.
+Expand it to read:
 
 - The saved final answer, with a disclosure for long answers.
 - Reported file changes. Saved diffs describe the execution's end state; opening
   a file shows its current contents. Partial diffs or incomplete lists say so.
 - **View execution**, for the prompt, tool calls and full answer still retained.
 - **Model and routing details**, when the execution's provenance is needed.
-- **Mark read** or **Mark unread**, for personal tracking. These do not
-  change task status, approve a pull request or validate the answer. The read
-  mark persists separately from notifications. Fleet acknowledgements and
-  viewing the finished turn long enough can also mark it read.
-- **Review** opens [Review](review-mode.md) on this output's turn. An output
-  marked there with **Mark reviewed** shows **Reviewed**; the read mark alone
-  never makes an output reviewed.
+- **Review** opens [Review](review-mode.md) on this output's turn.
 - **Draft follow-up**, which appends a reference to this output to the current
   task's existing draft. Describe the changes and send the message yourself;
   selecting this action does not immediately send a request.

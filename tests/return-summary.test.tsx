@@ -88,8 +88,7 @@ describe("the return summary's facts", () => {
     expect(findLastDecision([user("u", 0, "hi")], null)).toBeNull();
   });
 
-  test("an approval a Stave rule or the provider's mode decided is not your decision", async () => {
-    const { collectGrantedApprovals } = await import("@/components/session/handoff-facts");
+  test("an approval a Stave rule or the provider's mode decided is not your decision", () => {
     const automatic = reply("auto", 80, [
       {
         type: "approval", toolName: "Edit", requestId: "r-auto", description: "Edit server/users.ts", state: "approval-responded",
@@ -103,7 +102,6 @@ describe("the return summary's facts", () => {
     const messages = [...MESSAGES, automatic];
     // The newest approval you answered is still a1's.
     expect(findLastDecision(messages, null)).toMatchObject({ kind: "approval", requestId: "r1" });
-    expect(collectGrantedApprovals(messages).map((approval) => approval.description)).toEqual(["Run the migration"]);
     // One you answered, recorded as yours, counts.
     const yours = reply("yours", 85, [{
       type: "approval", toolName: "Bash", requestId: "r-yours", description: "Deploy", state: "output-denied",
@@ -196,7 +194,8 @@ describe("the return summary's facts", () => {
       state: "ready",
       title: "Finished its last turn",
       detail: "Next: Add a filename prompt",
-      action: { target: { kind: "tab", tab: "handoff" } },
+      // The handoff record has no screen of its own, so its next step offers no link.
+      action: null,
       primary: false,
     });
     // With turns to list, the next step is a row of its own.
@@ -205,8 +204,8 @@ describe("the return summary's facts", () => {
       Date.parse(at(220)),
     );
     expect(withTurns.rows.map((row) => row.id)).toEqual(["turn:turn-a2", "turn:turn-a3", "next", "decision"]);
-    expect(withTurns.rows[2]).toMatchObject({ title: "Next", detail: "Add a filename prompt", action: { target: { tab: "handoff" } } });
-    // A pull request's wait is read in Activity, not answered in the composer.
+    expect(withTurns.rows[2]).toMatchObject({ title: "Next", detail: "Add a filename prompt", action: null });
+    // A pull request's wait is read in the Task panel, not answered in the composer.
     const prWait = describeReturnSummary(
       buildReturnSummary({
         messages: MESSAGES, record: null, running: false, baseline: caughtUp,
@@ -214,7 +213,7 @@ describe("the return summary's facts", () => {
       }),
       Date.parse(at(220)),
     );
-    expect(prWait.rows[0]).toMatchObject({ id: "status", action: { target: { kind: "tab", tab: "activity" } }, primary: true });
+    expect(prWait.rows[0]).toMatchObject({ id: "status", action: { target: { kind: "panel" } }, primary: true });
     const fresh = describeReturnSummary(
       buildReturnSummary({ messages: [user("u", 0, "hi")], record: null, need: null, running: true, baseline: caughtUp }),
       Date.parse(at(220)),

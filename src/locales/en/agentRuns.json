@@ -164,8 +164,6 @@
     "agentRunSubagents": "Subagents"
   },
   "agentRunSummary": {
-    "label": "Spent",
-    "detail": "Not reported yet",
     "label2": "Spent",
     "label3": "Tokens",
     "detail2": "No cost reported",
@@ -789,7 +787,7 @@
   },
   "agentRunsStore": {
     "message": "Runs need the desktop app.",
-    "message2": "Stave could not confirm that the run started. Check the task's Progress tab before trying again.",
+    "message2": "Stave could not confirm that the run started. Check the Task panel before trying again.",
     "message3": "Runs are unavailable here.",
     "message4": "The run request failed.",
     "message5": "The run request failed.",

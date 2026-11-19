@@ -510,18 +510,10 @@ function buildTabContextMenuItems(
     items.push({ label: i18n.t("panes:taskReading.markRead"), action: () => { void changeTaskReadState(store.activeWorkspaceId, surface.taskId, true); } });
     items.push({ label: i18n.t("panes:taskReading.markUnread"), action: () => { void changeTaskReadState(store.activeWorkspaceId, surface.taskId, false); } });
     items.push({
-      label: i18n.t("panes:workspacePaneHost.viewResults"),
-      action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "results"),
+      label: i18n.t("panes:workspacePaneHost.openTaskPanel"),
+      action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId),
     });
     if (!isManagedTask) {
-      items.push({
-        label: i18n.t("panes:workspacePaneHost.viewProgress"),
-        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "progress"),
-      });
-      items.push({
-        label: i18n.t("panes:workspacePaneHost.viewSubagents"),
-        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "team"),
-      });
       items.push({
         label: i18n.t("panes:workspacePaneHost.checkBack"),
         disabled: task?.provider !== "claude-code" && task?.provider !== "codex",

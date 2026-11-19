@@ -662,7 +662,7 @@ so a follow-up result such as a captured MCP App view does not move the end.
 The renderer stores them on the tool part as ISO strings and the work graph
 uses them instead of the time it folded the event. A call with no observed time
 (including every call saved before this) has none; nothing fills one in from
-another clock. The Activity tab's Timeline view reads these times.
+another clock. The turn trace (`TurnTraceTimeline`) reads these times.
 
 ## MCP App views
 

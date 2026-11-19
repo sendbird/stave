@@ -15,7 +15,6 @@ import {
 } from "@/lib/agent-runs/domain";
 import { createWorkflowFromStarter, findWorkflowStarter } from "@/dev/fixtures/legacy-workflow-starters";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
-import { isTaskPanelTab, type TaskPanelTab } from "@/lib/right-rail-panels";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
@@ -47,24 +46,30 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  *   saved answer, files and turn (tool calls included) Results renders.
  * - `task=agent-run`: a task run by an agent, with a live turn, a running
  *   subagent, a finished delegated review and a scheduled wake-up.
- * - `tab=activity|progress|team|results` picks the tab the panel opens on.
+ * - `outcome=completed` makes the direct task's newest saved turn finish
+ *   instead of fail, so the panel leads with its pull request and answer.
  * - `panelWidth=320|384` sets the frame width (default 320).
  * - `pending=approval|user_input` makes the live turn wait on the user.
- * - `placement=docked` keeps the activity list in the composer shelf, so the
- *   Activity tab shows its move-here notice instead of the list.
+ * - `older=question` (with `task=agent-run`) leaves an earlier turn's async
+ *   question open while the live turn asks for an approval.
+ * - `run=usage-wait` (with `task=agent-run`) pauses the run for a usage limit
+ *   that resets in two hours, with no live turn: the panel reads on hold.
+ * - `restored=1` restores the direct task's messages only up to its earlier
+ *   turn, while its saved history holds the newer one.
+ * - `placement=docked` keeps the turn's activity list in the composer shelf.
  * - `theme=dark` or `theme=<built-in theme id>` renders under that theme.
- * - `tab=handoff` shows the direct task's handoff record; `proposal=1` adds
- *   an agent reply that proposes an update.
+ * - `proposal=1` adds an agent reply that proposes a handoff record update.
  * - `side=empty|asking|answered|failed|thread` adds a conversation stand-in with the
  *   side question panel in that state.
  * - `return=idle|need` adds the stand-in with the direct task's return
  *   summary: back after its last turn, or with an approval waiting.
- * - The direct task has saved turns: Activity opens the newest as a record
- *   (failed, with a full digest) and the Turn picker lists an older turn
- *   from before records existed.
+ * - The direct task has saved turns: the newest failed (with a full digest),
+ *   so the panel reads Stopped and opens Details on that record, and the Turn
+ *   picker lists an older turn from before records existed.
  * - `stuck=1` (with `task=agent-run`) adds a delegated child that asks a
- *   question and one that failed, which the Subagents tab lists first, and
- *   in-turn subagents that wait on an approval and that failed. Retry is
+ *   question and one that failed, which the Subagents list shows first, and
+ *   in-turn subagents that wait on an approval and that failed (open Details
+ *   to see them). Retry is
  *   accepted without a ledger (`retry=refuse` refuses it) and recorded on
  *   `window.__staveSubagentRetries`.
  * - `shared=1` (with `stuck=1`) puts the asking and the failed child in
@@ -78,6 +83,10 @@ const params = new URLSearchParams(window.location.search);
 const STUCK = params.get("stuck") === "1";
 /** `shared=1|none|missing`: see above. */
 const SHARED = params.get("shared");
+/** `older=question`, `run=usage-wait`, `restored=1`: see above. */
+const OLDER_QUESTION = params.get("older") === "question";
+const USAGE_WAIT = params.get("run") === "usage-wait";
+const RESTORED = params.get("restored") === "1";
 const CHANGELOG_WORKSPACE_ID = "task-panel-preview-ws-changelog";
 const MIGRATE_WORKSPACE_ID = "task-panel-preview-ws-migrate";
 
@@ -323,6 +332,33 @@ const AGENT_RUN_MESSAGES: ChatMessage[] = [
   } as unknown as ChatMessage,
 ];
 
+/** `older=question`: an async question an earlier turn left open. */
+const OLDER_ASYNC_QUESTION = {
+  id: "ma0",
+  role: "assistant",
+  model: "claude-sonnet-5",
+  providerId: "claude-code",
+  content: "",
+  turnId: "turn-task-panel-0",
+  startedAt: "2026-09-29T10:01:00.000Z",
+  parts: [{
+    type: "user_input", toolName: "AskUserQuestion", requestId: "preview-older-question", state: "input-requested", delivery: "async",
+    questions: [{ question: "Should /users keep returning every row when no limit is sent?", header: "Default", options: [] }],
+  }],
+} as unknown as ChatMessage;
+
+/** `older=question`: the live turn's own approval card. */
+const LIVE_APPROVAL_PART = {
+  type: "approval", toolName: "Bash", description: "Run the database migration", input: "bun run migrate",
+  requestId: "preview-live-approval", state: "approval-requested",
+} as unknown as ChatMessage["parts"][number];
+
+function agentRunMessages(): ChatMessage[] {
+  if (!OLDER_QUESTION) return AGENT_RUN_MESSAGES;
+  const [user, live] = AGENT_RUN_MESSAGES;
+  return [user!, OLDER_ASYNC_QUESTION, { ...live!, parts: [...live!.parts, LIVE_APPROVAL_PART] }];
+}
+
 const AGENT_RUN_AGENT: TaskAgent = {
   assignmentId: "assignment-task-panel-1",
   agentConfigId: "implementer",
@@ -375,8 +411,26 @@ function agentRunDetail(): AgentRunDetail {
     ...patch,
   });
   const [first, second] = workflow.stages;
+  const resetsAt = new Date(Date.now() + 2 * 60 * 60_000).toISOString();
   return {
-    agentRun: { ...created.agentRun, currentStageIndex: 1, turnCount: 3 },
+    agentRun: {
+      ...created.agentRun,
+      currentStageIndex: 1,
+      turnCount: 3,
+      ...(USAGE_WAIT
+        ? {
+            state: "paused" as const,
+            pauseReason: "usage-limit" as const,
+            usageLimit: {
+              turnId: "turn-task-panel-1",
+              resetsAt,
+              resumeAt: new Date(Date.parse(resetsAt) + 60_000).toISOString(),
+              accountProfileId: "work-account",
+              fingerprint: { providerId: "claude-code" as const, model: "sonnet" },
+            },
+          }
+        : {}),
+    },
     stages: [
       record(first!.id, {
         status: "completed",
@@ -513,7 +567,7 @@ function liveTurnActivity(now: number, pending: string | null) {
   };
 }
 
-/** A finished delegated review with a Markdown answer, for the Subagents tab. */
+/** A finished delegated review with a Markdown answer, for the Subagents list. */
 const DELEGATED_REVIEW: DelegatedTaskSummary = {
   runId: "child-task:agent-run:review",
   stepId: "child-task:agent-run:review:turn",
@@ -669,7 +723,7 @@ function seedResultReviews() {
   window.localStorage.setItem(RESULT_REVIEW_STORAGE_KEY, JSON.stringify([...others, ...PLAIN_RESULTS]));
 }
 
-function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | null; placement: string | null }) {
+function seedStores(args: { task: string; pending: string | null; placement: string | null }) {
   const now = Date.now();
   const activeTaskId = args.task === "agent-run" ? AGENT_RUN_TASK_ID : PLAIN_TASK_ID;
   const store = useAppStore.getState();
@@ -723,19 +777,21 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
     ],
     messagesByTask: {
       [PLAIN_TASK_ID]: [
-        ...PLAIN_MESSAGES,
+        ...(RESTORED ? PLAIN_MESSAGES.filter((message) => message.turnId !== "turn-plain-1" && message.id !== "u1") : PLAIN_MESSAGES),
         ...(params.get("proposal") === "1" ? [PREVIEW_HANDOFF_PROPOSAL] : []),
         ...(params.get("record") === "empty" ? [PREVIEW_ANSWERED_APPROVAL] : []),
       ],
-      [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES,
+      [AGENT_RUN_TASK_ID]: agentRunMessages(),
     },
     // The whole history is resident, so "Show the turn" reads it from here.
     messageCountByTask: {
       [PLAIN_TASK_ID]: PLAIN_MESSAGES.length,
       [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES.length,
     },
-    activeTurnIdsByTask: { [AGENT_RUN_TASK_ID]: "turn-task-panel-1" },
-    providerTurnActivityByTask: { [AGENT_RUN_TASK_ID]: liveTurnActivity(now, args.pending) },
+    activeTurnIdsByTask: USAGE_WAIT ? {} : { [AGENT_RUN_TASK_ID]: "turn-task-panel-1" },
+    providerTurnActivityByTask: USAGE_WAIT
+      ? {}
+      : { [AGENT_RUN_TASK_ID]: liveTurnActivity(now, OLDER_QUESTION ? "approval" : args.pending) },
     turnVerificationByWorkspace: {
       [WORKSPACE_ID]: {
         workspaceId: WORKSPACE_ID,
@@ -761,7 +817,6 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
       ...store.layout,
       sidebarOverlayVisible: true,
       sidebarOverlayTab: "task",
-      taskPanelTab: args.tab,
     },
     settings: {
       ...store.settings,
@@ -849,8 +904,6 @@ export function TaskPanelPreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
   const task = params.get("task") === "agent-run" ? "agent-run" : "plain";
-  const requestedTab = params.get("tab");
-  const tab: TaskPanelTab = isTaskPanelTab(requestedTab) ? requestedTab : "activity";
   const requestedWidth = Number(params.get("panelWidth"));
   const panelWidth = Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : 320;
   const [seeded, setSeeded] = useState(false);
@@ -864,7 +917,7 @@ export function TaskPanelPreview() {
   const side = params.get("side");
   const returning = params.get("return");
   useLayoutEffect(() => {
-    seedStores({ task, tab, pending: params.get("pending"), placement: params.get("placement") });
+    seedStores({ task, pending: params.get("pending"), placement: params.get("placement") });
     if (returning) {
       const now = Date.now();
       useTaskReturnStore.setState({
@@ -897,7 +950,7 @@ export function TaskPanelPreview() {
       });
     }
     setSeeded(true);
-  }, [task, tab, side, returning]);
+  }, [task, side, returning]);
   return (
     <main className={sx(styles.page)}>
       <p className={sx(styles.caption)}>

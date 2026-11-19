@@ -1,15 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The Subagents tab with two delegated children in worktrees of their own
+ * The Task panel's Subagents (in Details) with two delegated children in worktrees of their own
  * (`shared=1`): the one writing the changelog and the failed migration both
  * changed `server/users.ts` and `tests/users.test.ts`; the finished review
  * worked in the parent's own workspace and is not compared.
  */
-function open(page: Page, args: { shared?: "1" | "none" | "missing"; lang?: "en" | "ko"; theme?: "light" | "dark"; width?: number } = {}) {
-  return page.goto(
-    `/?stavePreview=task-panel&task=agent-run&tab=team&stuck=1&shared=${args.shared ?? "1"}&panelWidth=${args.width ?? 560}&lang=${args.lang ?? "en"}&theme=${args.theme ?? "light"}`,
+async function open(page: Page, args: { shared?: "1" | "none" | "missing"; lang?: "en" | "ko"; theme?: "light" | "dark"; width?: number } = {}) {
+  await page.goto(
+    `/?stavePreview=task-panel&task=agent-run&stuck=1&shared=${args.shared ?? "1"}&panelWidth=${args.width ?? 560}&lang=${args.lang ?? "en"}&theme=${args.theme ?? "light"}`,
   );
+  await page.getByTestId("task-details").locator("summary").click();
 }
 
 const calls = (page: Page) => page.evaluate(() => (window as unknown as { __staveReviewDiffCalls?: Array<Record<string, unknown>> }).__staveReviewDiffCalls ?? []);

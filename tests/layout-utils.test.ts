@@ -31,7 +31,6 @@ function baseLayout(): LayoutState {
     agentsListWidth: AGENTS_LIST_DEFAULT_WIDTH,
     sidebarOverlayVisible: false,
     sidebarOverlayTab: "explorer",
-    taskPanelTab: "activity",
     terminalDocked: false,
     editorDiffMode: false,
     editorMarkdownPreviewMode: false,

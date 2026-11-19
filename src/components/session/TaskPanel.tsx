@@ -1,58 +1,68 @@
 import { TaskTurnPlan } from "./TaskTurnPlan";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { useCallback, useMemo } from "react";
+import { ChevronRight } from "lucide-react";
+import { useMemo, useState, type ReactNode } from "react";
+import { useShallow } from "zustand/react/shallow";
 import { vars } from "../aui/tokens/tokens.stylex";
 import { sx } from "../aui/utils/stylex";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StateMark } from "@/components/aui/components/StateMark";
-import { RightRailPanelHeader } from "@/components/layout/RightRailPanelShell";
+import { focusRing } from "../aui/recipes/focus-ring";
+import { RightRailPanelHeader, RightRailPanelTitle } from "@/components/layout/RightRailPanelShell";
 import { formatWorkQueueWorkspaceLabel } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { FlowPanel } from "@/components/agents/FlowPanel";
 import { AgentRunPanel } from "@/components/agent-runs/AgentRunPanel";
 import { WakeUpSection } from "@/components/agent-runs/WakeUpSection";
+import { useNow } from "@/components/agent-runs/useAgentRun";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
-import { describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
-import { useAgentRunDecision } from "@/components/agent-runs/useAgentRun";
-import { useResultReviews } from "@/lib/reviews/useResultReviews";
-import {
-  isTaskPanelTab,
-  RIGHT_RAIL_PANEL_TITLES,
-  TASK_PANEL_TABS,
-  type TaskPanelTab,
-} from "@/lib/right-rail-panels";
 import { untitledTaskTitle } from "@/lib/task-context/attached-task-context";
 import { isTaskManaged } from "@/lib/tasks";
-import { selectDelegationExchanges } from "@/lib/delegation/exchange";
-import { countSubagentList } from "@/lib/delegation/subagent-list";
-import { selectDelegatedTaskBlockedKinds } from "@/lib/runs/delegated-task-view";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useTaskAgentRun } from "@/store/agent-runs-store";
 import { TaskResultReviews } from "./TaskResultReviews";
-import { TaskHandoffPanel } from "./TaskHandoffPanel";
 import { SubagentsSection } from "./SubagentsSection";
 import { TaskPanelEmpty } from "./TaskPanelEmpty";
-import { TurnActivityPanel } from "./TurnActivityPanel";
-import { useDelegatedTasks } from "./useDelegatedTasks";
+import { TaskPanelSummary } from "./TaskPanelSummary";
+import { TurnActivityHistory, useTaskTurnHistory } from "./TurnActivityHistory";
 import {
-  resolveActivityTabMark,
-  resolveProgressTabMark,
-  resolveResultsTabMark,
-  resolveSubagentsTabMark,
-  type TaskTabMark,
-} from "./task-panel-marks";
+  buildTaskPanelStatus,
+  describeTaskActivityNow,
+  parseTaskPendingRequests,
+  taskPendingRequestsKey,
+} from "./task-panel-state";
+import type { ProviderTurnActivitySnapshot, RetainedTurnActivity } from "@/lib/providers/turn-status";
+import type { ChatMessage } from "@/types/chat";
+
+const NO_MESSAGES: ChatMessage[] = [];
+
+type TaskPanelSettled = readonly [ChatMessage[], ProviderTurnActivitySnapshot | null, RetainedTurnActivity | null];
+const NO_SETTLED: TaskPanelSettled = [NO_MESSAGES, null, null];
 
 /**
- * The right rail's Task panel: what the active task is doing, what it needs
- * from the user and what it produced, as four tabs. The selected tab is layout
- * state, so every opener names the tab it wants and a reopened rail returns to
- * the tab it left. The tabs sit in the rail's one panel bar (the shell is told
- * `ownHeader`), so the panel spends 46px on chrome instead of a title bar plus
- * a tab bar. A one-line caption under the bar names the task the tabs
- * describe and its workspace, so switching tasks, or to an editor tab, never
- * leaves the panel ambiguous.
+ * What only a settled turn needs: the messages (its answer, files and ending)
+ * and its activity snapshots. While a turn runs and the panel follows it, it
+ * reads none of them, so a streaming turn's text deltas never re-render it;
+ * the open requests and the live turn's prompt come from their own selectors.
+ */
+export function selectTaskPanelSettled(taskId: string, followsSettledTurn: boolean) {
+  return (state: Pick<AppState, "messagesByTask" | "activeTurnIdsByTask" | "providerTurnActivityByTask" | "retainedTurnActivityByTask">): TaskPanelSettled =>
+    followsSettledTurn || !state.activeTurnIdsByTask[taskId]
+      ? [
+          state.messagesByTask[taskId] ?? NO_MESSAGES,
+          state.providerTurnActivityByTask[taskId] ?? null,
+          state.retainedTurnActivityByTask[taskId] ?? null,
+        ]
+      : NO_SETTLED;
+}
+
+/**
+ * The right rail's Task panel, one screen read top to bottom: where the task
+ * stands (one line, from the one status function), what the user must do when
+ * something waits on them, the result or why it stopped, the conditions still
+ * open, then Details, collapsed, with the activity, steps, subagents and
+ * outputs. A caption under the bar names the task and its workspace, so
+ * switching tasks never leaves the panel ambiguous.
  */
 export function TaskPanel() {
   useTranslation();
@@ -63,18 +73,13 @@ export function TaskPanel() {
     state.tasks.find((item) => item.id === state.activeTaskId),
   );
   const workspaceLabel = useAppStore(selectTaskPanelWorkspaceLabel);
-  const tab = useAppStore((state) => state.layout.taskPanelTab);
-  const setLayout = useAppStore((state) => state.setLayout);
   const agentRun = useTaskAgentRun(workspaceId, taskId);
-  const handleTabChange = useCallback(
-    (next: TaskPanelTab) => setLayout({ patch: { taskPanelTab: next } }),
-    [setLayout],
-  );
   if (!workspaceId || !taskId || !task) {
     return <TaskPanelEmpty hasWorkspace={Boolean(workspaceId)} />;
   }
   return (
     <TaskPanelView
+      key={`${workspaceId}:${taskId}`}
       workspaceId={workspaceId}
       taskId={taskId}
       repositoryPath={repositoryPath}
@@ -82,8 +87,6 @@ export function TaskPanel() {
       taskTitle={untitledTaskTitle(task.title)}
       workspaceLabel={workspaceLabel}
       agentRun={agentRun}
-      tab={tab}
-      onTabChange={handleTabChange}
     />
   );
 }
@@ -104,9 +107,10 @@ export function selectTaskPanelWorkspaceLabel(
 }
 
 /**
- * The panel itself, free of the store so a test can render each tab. Only the
- * selected tab's view is mounted; each record view loads while it is on screen
- * and remounts when the task changes.
+ * The panel for one task. It owns the turn the panel follows: picking an
+ * earlier turn in Details moves the title and the state to that turn. Details
+ * start collapsed, except on a task whose last work failed, which opens on
+ * that failure.
  */
 export function TaskPanelView(props: {
   workspaceId: string;
@@ -118,45 +122,57 @@ export function TaskPanelView(props: {
   taskTitle: string;
   workspaceLabel: string;
   agentRun: AgentRunDetail | undefined;
-  tab: TaskPanelTab;
-  onTabChange: (tab: TaskPanelTab) => void;
 }) {
   useTranslation();
-  const { workspaceId, taskId, repositoryPath } = props;
-  const scopeKey = `${workspaceId}:${taskId}`;
+  const { workspaceId, taskId, repositoryPath, agentRun } = props;
+  const history = useTaskTurnHistory(workspaceId, taskId);
+  const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState<boolean | null>(null);
+  const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? null);
+  const prInfo = useAppStore((state) => state.workspacePrInfoById[workspaceId]);
+  // Strings and a primitive: equal across text deltas, so they re-render nothing.
+  const pendingKey = useAppStore((state) =>
+    taskPendingRequestsKey(state.messagesByTask[taskId] ?? NO_MESSAGES, state.activeTurnIdsByTask[taskId] ?? null),
+  );
+  const livePending = useAppStore((state) => {
+    const live = state.activeTurnIdsByTask[taskId];
+    const snapshot = state.providerTurnActivityByTask[taskId];
+    return live && snapshot?.turnId === live ? (snapshot.pendingInteraction ?? null) : null;
+  });
+  const activityNow = useAppStore((state) =>
+    describeTaskActivityNow(state.providerTurnActivityByTask[taskId], state.activeTurnIdsByTask[taskId] ?? null),
+  );
+  const [messages, activity, retained] = useAppStore(
+    useShallow(selectTaskPanelSettled(taskId, selectedTurnId !== null)),
+  );
+  const pending = useMemo(() => parseTaskPendingRequests(pendingKey), [pendingKey]);
+  const now = useNow(Boolean(agentRun && isActiveAgentRunState(agentRun.agentRun.state)));
+  const turns = history.state.status === "ready" ? history.state.data.turns : null;
+  const view = useMemo(
+    () => buildTaskPanelStatus({
+      messages,
+      liveTurnId,
+      activity,
+      retained,
+      history: turns,
+      agentRun,
+      prInfo,
+      selectedTurnId,
+      now,
+      pending,
+      livePending,
+    }),
+    // The state's reasons and labels are translated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [messages, liveTurnId, activity, retained, turns, agentRun, prInfo, selectedTurnId, now, pending, livePending, i18n.language],
+  );
+  const open = detailsOpen ?? view.focusDetails;
   return (
-    <Tabs
-      variant="line"
-      size="xs"
-      value={props.tab}
-      onValueChange={(value) => {
-        if (isTaskPanelTab(value)) props.onTabChange(value);
-      }}
-      xstyle={styles.tabs}
-    >
+    <div className={sx(styles.root)}>
       <RightRailPanelHeader>
-        <h2 className={sx(styles.srOnly)}>{RIGHT_RAIL_PANEL_TITLES.task}</h2>
-        <TabsList aria-label={i18n.t("session:taskPanel.ariaLabel")} xstyle={styles.tabList}>
-          {TASK_PANEL_TABS.map((item) => (
-            <TabsTrigger key={item.id} value={item.id} xstyle={styles.tab}>
-              {item.label}
-              <span className={sx(styles.markSlot)}>
-                <TaskTabMark
-                  tab={item.id}
-                  workspaceId={workspaceId}
-                  taskId={taskId}
-                  agentRun={props.agentRun}
-                />
-              </span>
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <RightRailPanelTitle panelId="task" />
       </RightRailPanelHeader>
       <div className={sx(styles.body)}>
-        {/*
-          Under the bar rather than above it: the bar lines up with the sidebar
-          and editor bars beside it, and every tab still opens on this line.
-        */}
         <p
           className={sx(styles.caption)}
           title={[props.taskTitle, props.workspaceLabel].filter(Boolean).join(" · ")}
@@ -171,190 +187,91 @@ export function TaskPanelView(props: {
             </>
           ) : null}
         </p>
-        <TabsContent value="activity" xstyle={[styles.panel, styles.panelFill]}>
-          <TurnActivityPanel />
-        </TabsContent>
-        <TabsContent value="progress" xstyle={[styles.panel, styles.panelScroll]}>
-          <div key={scopeKey} className={sx(styles.progress)}>
-            {props.agentRun ? (
-              <AgentRunPanel taskId={taskId} detail={props.agentRun} />
-            ) : (
-              <>
-                <TaskTurnPlan taskId={taskId} />
-                <FlowPanel
+        <TaskPanelSummary
+          workspaceId={workspaceId}
+          taskId={taskId}
+          view={view}
+          activityNow={activityNow}
+          agentRun={agentRun}
+          onShowLatest={() => setSelectedTurnId(null)}
+        />
+        <details
+          className={sx(styles.details)}
+          data-testid="task-details"
+          open={open}
+          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+        >
+          <summary className={sx(styles.detailsSummary, focusRing.ring)}>
+            <ChevronRight aria-hidden className={sx(styles.chevron, open && styles.chevronOpen)} />
+            {i18n.t("session:taskPanel.details")}
+          </summary>
+          {/* Mounted only while open: each part reads its own records. */}
+          {open ? (
+            <div className={sx(styles.detailsBody)}>
+              <DetailsPart label={i18n.t("session:taskPanel.activity")}>
+                <TurnActivityHistory
                   workspaceId={workspaceId}
                   taskId={taskId}
-                  repositoryPath={repositoryPath}
+                  history={history}
+                  selected={selectedTurnId}
+                  onSelect={setSelectedTurnId}
                 />
-              </>
-            )}
-            <WakeUpSection workspaceId={workspaceId} taskId={taskId} />
-          </div>
-        </TabsContent>
-        <TabsContent value="team" xstyle={[styles.panel, styles.panelScroll]}>
-          {repositoryPath ? (
-            <SubagentsSection
-              key={scopeKey}
-              workspaceId={workspaceId}
-              taskId={taskId}
-              repositoryPath={repositoryPath}
-              readOnly={props.managed}
-            />
-          ) : (
-            <p className={sx(styles.notice)}>
-              {i18n.t("session:taskPanel.taskPanelView")}</p>
-          )}
-        </TabsContent>
-        <TabsContent value="results" xstyle={[styles.panel, styles.panelScroll]}>
-          <TaskResultReviews key={scopeKey} workspaceId={workspaceId} taskId={taskId} />
-        </TabsContent>
-        <TabsContent value="handoff" xstyle={[styles.panel, styles.panelScroll]}>
-          <TaskHandoffPanel key={scopeKey} workspaceId={workspaceId} taskId={taskId} />
-        </TabsContent>
+              </DetailsPart>
+              <DetailsPart label={i18n.t("session:taskPanel.steps")} padded>
+                {agentRun ? (
+                  <AgentRunPanel taskId={taskId} detail={agentRun} />
+                ) : (
+                  <>
+                    <TaskTurnPlan taskId={taskId} />
+                    <FlowPanel workspaceId={workspaceId} taskId={taskId} repositoryPath={repositoryPath} />
+                  </>
+                )}
+                <WakeUpSection workspaceId={workspaceId} taskId={taskId} />
+              </DetailsPart>
+              <DetailsPart label={i18n.t("session:taskPanel.subagents")} padded>
+                {repositoryPath ? (
+                  <SubagentsSection
+                    workspaceId={workspaceId}
+                    taskId={taskId}
+                    repositoryPath={repositoryPath}
+                    readOnly={props.managed}
+                  />
+                ) : (
+                  <p className={sx(styles.notice)}>{i18n.t("session:taskPanel.taskPanelView")}</p>
+                )}
+              </DetailsPart>
+              <DetailsPart label={i18n.t("session:taskPanel.outputs")} padded>
+                <TaskResultReviews workspaceId={workspaceId} taskId={taskId} />
+              </DetailsPart>
+            </div>
+          ) : null}
+        </details>
       </div>
-    </Tabs>
+    </div>
   );
 }
 
-/*
- * Tab marks read data the app already holds for other surfaces — the turn's
- * pending interaction, the agent run's state, the work graph's running agents
- * and the task's unreviewed runs — one narrow subscription per tab, so a
- * change in one tab's mark re-renders that mark alone.
- */
-function TaskTabMark(props: {
-  tab: TaskPanelTab;
-  workspaceId: string;
-  taskId: string;
-  agentRun: AgentRunDetail | undefined;
-}) {
-  useTranslation();
-  switch (props.tab) {
-    case "activity":
-      return <ActivityMark taskId={props.taskId} />;
-    case "progress":
-      return <ProgressMark agentRun={props.agentRun} />;
-    case "team":
-      return <SubagentsMark taskId={props.taskId} />;
-    case "results":
-      return <ResultsMark workspaceId={props.workspaceId} taskId={props.taskId} />;
-    case "handoff":
-      return null;
-  }
-}
-
-function ActivityMark(props: { taskId: string }) {
-  useTranslation();
-  const running = useAppStore((state) =>
-    Boolean(state.activeTurnIdsByTask[props.taskId]),
-  );
-  const pending = useAppStore(
-    (state) =>
-      state.providerTurnActivityByTask[props.taskId]?.pendingInteraction ?? null,
-  );
-  return <Mark mark={resolveActivityTabMark({ running, pendingInteraction: pending })} />;
-}
-
-function ProgressMark(props: { agentRun: AgentRunDetail | undefined }) {
-  useTranslation();
-  const { agentRun } = props;
-  const active = Boolean(agentRun && isActiveAgentRunState(agentRun.agentRun.state));
-  const decision = useAgentRunDecision(active ? agentRun?.agentRun.leadTaskId : null);
-  if (!agentRun || !active) return null;
-  return <Mark mark={resolveProgressTabMark(describeAgentRunStatus(agentRun, decision))} />;
-}
-
-/*
- * The live turn's subagents and the task's delegated tasks, read from the same
- * listing the Subagents tab uses, so a child that waits on the user marks the
- * tab before anyone opens it.
- */
-function SubagentsMark(props: { taskId: string }) {
-  useTranslation();
-  const graph = useAppStore(
-    (state) =>
-      state.providerTurnActivityByTask[props.taskId]?.workGraph ??
-      state.retainedTurnActivityByTask[props.taskId]?.snapshot.workGraph ??
-      null,
-  );
-  const listing = useDelegatedTasks({ parentTaskId: props.taskId });
-  // The stable store array; blocked kinds are derived below, never in the selector.
-  const notifications = useAppStore((state) => state.notifications);
-  const counts = useMemo(() => {
-    const childBlockedByDelegationKey = selectDelegatedTaskBlockedKinds({
-      children: listing.children,
-      notifications,
-    });
-    return countSubagentList(
-      selectDelegationExchanges({
-        delegatedTasks: listing.children,
-        childBlockedByDelegationKey,
-        workGraph: graph,
-        includeSubagents: true,
-      }),
-    );
-  }, [graph, listing.children, notifications]);
-  return <Mark mark={resolveSubagentsTabMark(counts)} />;
-}
-
-function ResultsMark(props: { workspaceId: string; taskId: string }) {
-  useTranslation();
-  const { page } = useResultReviews({
-    workspaceId: props.workspaceId,
-    taskId: props.taskId,
-    pendingOnly: true,
-    includeEvidence: false,
-    limit: 1,
-  });
-  return <Mark mark={resolveResultsTabMark(page.total)} />;
-}
-
-/**
- * A state is its shared glyph, a quantity is a count. Both sit inline right
- * after the label, vertically centered on it.
- */
-function Mark(props: { mark: TaskTabMark | null }) {
-  useTranslation();
-  const { mark } = props;
-  if (!mark) return null;
-  if (mark.kind === "state") {
-    return (
-      <span title={mark.label} className={sx(styles.markGlyph)}>
-        <StateMark state={mark.state} size="xs" label={mark.label} />
-      </span>
-    );
-  }
+function DetailsPart(props: { label: string; padded?: boolean; children: ReactNode }) {
   return (
-    <span
-      role="img"
-      title={mark.label}
-      aria-label={mark.label}
-      className={sx(styles.count, mark.attention && styles.countAttention)}
-    >
-      {mark.text}
-    </span>
+    <section aria-label={props.label} className={sx(styles.part)}>
+      <h3 className={sx(styles.partLabel)}>{props.label}</h3>
+      <div className={sx(styles.partBody, props.padded && styles.partBodyPadded)}>{props.children}</div>
+    </section>
   );
 }
 
 const styles = stylex.create({
-  notice: {
-    margin: 0,
-    fontSize: vars["--aui-font-size-caption"],
-    lineHeight: vars["--aui-line-height-normal"],
-    color: vars["--aui-color-text-muted"],
-  },
-  // The root has exactly two children, the bar and the body that fills the
-  // rest (the rows the Tabs shim states too). The body stacks the caption
-  // over the selected tab's view, the only one mounted.
-  tabs: {
-    gap: 0,
-    gridTemplateColumns: "minmax(0, 1fr)",
-    gridTemplateRows: "auto minmax(0, 1fr)",
-    height: "100%",
+  root: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 },
+  // One scrolling column: the summary on top, then Details.
+  body: {
+    display: "flex",
+    flex: "1 1 0",
+    flexDirection: "column",
     minHeight: 0,
+    minWidth: 0,
+    overflowY: "auto",
   },
-  body: { display: "flex", flexDirection: "column", minHeight: 0, minWidth: 0 },
-  // One line, starting on the tab labels' edge. The workspace gives way
+  // One line, starting on the panel title's edge. The workspace gives way
   // first when the rail is narrow; the title keeps the room it can.
   caption: {
     alignItems: "baseline",
@@ -384,68 +301,51 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
   },
-  srOnly: {
-    blockSize: 1,
-    borderWidth: 0,
-    clip: "rect(0 0 0 0)",
-    clipPath: "inset(50%)",
-    inlineSize: 1,
-    insetBlockStart: 0,
-    insetInlineStart: 0,
-    margin: -1,
-    overflow: "hidden",
-    padding: 0,
-    position: "absolute",
-    whiteSpace: "nowrap",
+  notice: {
+    margin: 0,
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-normal"],
+    color: vars["--aui-color-text-muted"],
   },
-  // The list fills the bar's height and runs one hairline past it, so the
-  // active underline covers the bar's own rule. A rail narrower than the four
-  // labels scrolls the strip sideways instead of clipping Results.
-  tabList: {
-    borderRadius: 0,
-    boxShadow: "none",
-    gap: vars["--aui-space-16"],
-    marginBlockEnd: `calc(-1 * ${vars["--aui-border-width-hairline"]})`,
-    minWidth: 0,
-    overflowX: "auto",
-    overflowY: "hidden",
-    padding: 0,
-    scrollbarWidth: "none",
-  },
-  tab: { flex: "none", gap: vars["--aui-space-4"], paddingInline: 0 },
-  // A mark is a flex item of the tab, right after the label and centered on
-  // it. A tab without a mark drops the slot, so the tab's gap adds no
-  // trailing space and the active underline stays the label's width.
-  markSlot: {
-    alignItems: "center",
-    display: { default: "inline-flex", ":empty": "none" },
+  details: {
+    borderTopColor: vars["--aui-color-border-subtle"],
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--aui-border-width-hairline"],
     flexShrink: 0,
-    pointerEvents: "none",
   },
-  markGlyph: { display: "inline-flex" },
-  panel: { flex: "1 1 0", minHeight: 0, minWidth: 0 },
-  // Activity hosts the live list with its own scroll and floor; the record
-  // views scroll as one column. Their text starts on the tab labels' edge.
-  panelFill: { display: "flex", flexDirection: "column", overflow: "hidden" },
-  panelScroll: {
-    overflowY: "auto",
-    paddingBlock: vars["--aui-space-16"],
+  detailsSummary: {
+    alignItems: "center",
+    color: vars["--aui-color-text-muted"],
+    cursor: "pointer",
+    display: "flex",
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+    gap: vars["--aui-space-4"],
+    listStyle: "none",
+    paddingBlock: vars["--aui-space-8"],
     paddingInline: vars["--aui-space-12"],
   },
-  progress: { display: "flex", flexDirection: "column", gap: vars["--aui-space-20"] },
-  // A count is a figure, not a pill: in the accent ink, at the micro step,
-  // with tabular digits, so it reads as the tab's number and fits the gap.
-  count: {
-    color: vars["--aui-color-accent"],
-    fontSize: vars["--aui-font-size-micro"],
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--aui-font-weight-semibold"],
-    lineHeight: 1,
-    whiteSpace: "nowrap",
+  chevron: {
+    blockSize: vars["--aui-space-12"],
+    flexShrink: 0,
+    inlineSize: vars["--aui-space-12"],
+    transitionDuration: vars["--aui-motion-duration-fast"],
+    transitionProperty: "transform",
   },
-  // An ask in the needs-answer state's word color (as StateMark mixes it), so
-  // it reads apart from a plain count and keeps 4.5:1 on the panel.
-  countAttention: {
-    color: `color-mix(in oklab, ${vars["--aui-color-text"]} 45%, var(--state-needs-answer))`,
+  chevronOpen: { transform: "rotate(90deg)" },
+  detailsBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-16"], paddingBlockEnd: vars["--aui-space-16"] },
+  part: { display: "flex", flexDirection: "column", minWidth: 0 },
+  partLabel: {
+    color: vars["--aui-color-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-semibold"],
+    margin: 0,
+    paddingInline: vars["--aui-space-12"],
+  },
+  partBody: { display: "flex", flexDirection: "column", minWidth: 0 },
+  partBodyPadded: {
+    gap: vars["--aui-space-20"],
+    paddingBlockStart: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
   },
 });

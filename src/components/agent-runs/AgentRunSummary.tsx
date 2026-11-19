@@ -42,9 +42,12 @@ interface Metric {
   title?: string;
 }
 
-/** What the agent run spent: the cost when the provider reports one, tokens otherwise. */
-function spendMetric(usage: AgentRunUsage | null): Metric {
-  if (!usage || usage.measuredTurns === 0) return { label: i18n.t("agentRuns:agentRunSummary.label"), value: "—", detail: i18n.t("agentRuns:agentRunSummary.detail") };
+/**
+ * What the agent run spent: the cost when the provider reports one, tokens
+ * otherwise. Nothing reported yet is no figure, not an empty cell.
+ */
+function spendMetric(usage: AgentRunUsage | null): Metric | null {
+  if (!usage || usage.measuredTurns === 0) return null;
   const tokens = i18n.t("agentRuns:remaining.presentationCopy0", { v1: formatTokenCount(usage.inputTokens + usage.outputTokens) });
   return usage.costUsd !== null
     ? { label: i18n.t("agentRuns:agentRunSummary.label2"), value: formatCost(usage.costUsd), detail: tokens }
@@ -83,7 +86,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
   const unmeasured = usage ? usage.turns - usage.measuredTurns : 0;
   const model = describeRunModel(providerId, agentRun.fingerprint.model);
 
-  const metrics: Metric[] = [
+  const metrics = [
     {
       label: i18n.t("agentRuns:agentRunSummary.label4"),
       value: String(agentRun.turnCount),
@@ -113,7 +116,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
           ) : formatDuration(endedAt - startedAt),
           detail: i18n.t(props.active ? "agentRuns:agentRunSummary.startedAt" : "agentRuns:agentRunSummary.fromStartedAt", { time: props.formatClock(agentRun.createdAt) }),
         },
-  ];
+  ].filter((metric): metric is Metric => metric !== null);
 
   const notes = [
     unmeasured > 0
@@ -225,7 +228,9 @@ const styles = stylex.create({
   contextIcon: { width: 12, height: 12, flex: "0 0 auto", color: vars["--aui-color-text-subtle"] },
   metrics: {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    // One equal column per figure: a figure not reported yet leaves no empty cell.
+    gridAutoColumns: "minmax(0, 1fr)",
+    gridAutoFlow: "column",
     margin: 0,
     borderTopWidth: vars["--aui-border-width-hairline"],
     borderTopStyle: "solid",

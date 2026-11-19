@@ -99,9 +99,6 @@
     "pin": "Pin",
     "splitRight": "Split Right",
     "splitDown": "Split Down",
-    "viewResults": "View results",
-    "viewProgress": "View progress",
-    "viewSubagents": "View subagents",
     "checkBack": "Check back…",
     "takeOver": "Take Over",
     "copyDebugInfo": "Copy debug info",
@@ -117,7 +114,8 @@
     "closeToTheRight": "Close to the Right",
     "closeSaved": "Close Saved",
     "closeCLISession": "Close CLI Session",
-    "closeCLISessionTheUnderlyingProcess": "Close CLI session \"{{value1}}\"? The underlying process will be terminated."
+    "closeCLISessionTheUnderlyingProcess": "Close CLI session \"{{value1}}\"? The underlying process will be terminated.",
+    "openTaskPanel": "Open Task panel"
   },
   "editorTabActions": {
     "closeOtherTabs": "Close Other Tabs",

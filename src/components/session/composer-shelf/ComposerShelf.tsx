@@ -179,10 +179,9 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
         : null,
     [controls.detailToggle, controls.planOnly, open, setOpen],
   );
-  const agentRunHeads = runSource === "agentRun";
   const openPanel = useCallback(
-    () => setLayout({ patch: taskPanelLayoutPatch(agentRunHeads ? "progress" : "activity") }),
-    [agentRunHeads, setLayout],
+    () => setLayout({ patch: taskPanelLayoutPatch() }),
+    [setLayout],
   );
   const panel = useMemo<ShelfRunPanelButton | null>(
     () =>

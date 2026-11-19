@@ -5,7 +5,6 @@ import { Database } from "bun:sqlite";
 import { SqliteStore } from "../electron/persistence/sqlite-store";
 import { TaskHandoffStore } from "../electron/persistence/task-handoff-store";
 import { taskHandoffPreload } from "../electron/persistence/task-handoff-preload";
-import { findHandoffProposal, HandoffDraftFields, TaskHandoffEditor } from "@/components/session/TaskHandoffPanel";
 import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-request";
 import { buildProviderTurnPrompt } from "@/lib/providers/provider-request-translators";
 import {
@@ -146,69 +145,12 @@ describe("handoff record rules", () => {
     });
   });
 
-  test("a left-out line is shown, struck through with a label, and Put back adds it to the draft", () => {
-    const nearlyFull = `- ${"x".repeat(HANDOFF_SECTION_MAX_CHARS - 30)}`;
-    const dropped = "- Lint warns on the unused sidebarGap token in settings-sidebar.tsx";
-    const merged = mergeHandoffSuggestions({ ...EMPTY_DRAFT, cautions: nearlyFull }, { cautions: dropped });
-    expect(merged.changed).toEqual([]);
-    expect(merged.leftOut).toEqual({ cautions: [dropped] });
-    const render = (draft: HandoffDraft, leftOut: HandoffLeftOut) => renderToStaticMarkup(createElement(HandoffDraftFields, {
-      fieldId: "handoff", draft, reviewing: true, leftOut, onChange: () => {}, onPutBack: () => {},
-    }));
-    const listed = render(merged.draft, merged.leftOut);
-    expect(listed).toContain('data-handoff-left-out="cautions"');
-    expect(listed).toContain("1 line did not fit");
-    expect(listed).toContain("Cautions holds 2,000 characters");
-    // The strike is never the only cue: the line reads as left out.
-    expect(listed).toContain(`Left out: </span><s>${dropped}</s>`);
-    expect(listed).toContain(">Put back<");
-    // Put back: the line joins the draft and leaves the list; past the limit, the field says by how much.
-    const draft = { ...merged.draft, cautions: putBackHandoffLine(merged.draft.cautions, dropped) };
-    expect(draft.cautions).toBe(`${nearlyFull}\n${dropped}`);
-    const over = handoffSectionOverflow(draft.cautions);
-    expect(over).toBe(draft.cautions.length - HANDOFF_SECTION_MAX_CHARS);
-    const putBack = render(draft, combineHandoffLeftOut(merged.leftOut, {}, draft));
-    expect(putBack).not.toContain("data-handoff-left-out");
-    expect(putBack).toContain(`${over} characters over the 2,000-character limit. Shorten it to save.`);
-    expect(putBack).toContain('aria-invalid="true"');
-    // Trimmed back under the limit, the warning goes.
-    const trimmed = { ...draft, cautions: draft.cautions.slice(over + 2) };
-    expect(handoffSectionOverflow(trimmed.cautions)).toBe(0);
-    expect(render(trimmed, {})).not.toContain("over the 2,000-character limit");
-  });
-
   test("a second Fill keeps the lines still left out once and drops those that now fit", () => {
     const previous: HandoffLeftOut = { cautions: ["- a", "- b"] };
     expect(combineHandoffLeftOut(previous, { cautions: ["- b", "- c"], verified: ["- d"] }, { ...EMPTY_DRAFT, cautions: "- a" })).toEqual({
       cautions: ["- b", "- c"],
       verified: ["- d"],
     });
-  });
-
-  test("the Handoff tab says which sections had lines left out, in English and Korean", async () => {
-    const { describeHandoffLeftOut } = await import("@/components/session/TaskHandoffPanel");
-    const { applyAppLocale } = await import("@/i18n");
-    try {
-      expect(describeHandoffLeftOut({})).toBeNull();
-      applyAppLocale("en");
-      expect(describeHandoffLeftOut({ verified: ["- a"] })).toBe(
-        "1 line did not fit in Verified results and was left out. Each section holds up to 2,000 characters.",
-      );
-      expect(describeHandoffLeftOut({ verified: ["- a"], cautions: ["- b", "- c"] })).toBe(
-        "3 lines did not fit in Verified results and Cautions and were left out. Each section holds up to 2,000 characters.",
-      );
-      applyAppLocale("ko");
-      expect(describeHandoffLeftOut({ verified: ["- a"], cautions: ["- b", "- c"] })).toBe(
-        "검증된 결과 및 주의 사항에 들어가지 않아 3줄을 넣지 않았습니다. 섹션마다 최대 2,000자까지 담을 수 있습니다.",
-      );
-      const html = renderToStaticMarkup(createElement(HandoffDraftFields, {
-        fieldId: "handoff", draft: EMPTY_DRAFT, reviewing: false, leftOut: { cautions: ["- b", "- c"] }, onChange: () => {}, onPutBack: () => {},
-      }));
-      expect(html).toContain("2줄이 들어가지 못했습니다");
-      expect(html).toContain(">다시 넣기<");
-    } finally {
-      applyAppLocale("en");
-    }
   });
 
   test("an agent's proposal is read from its last fenced block; anything else is ignored", () => {
@@ -224,14 +166,6 @@ describe("handoff record rules", () => {
     expect(buildHandoffUpdateRequest(null)).toContain("```json\n{}\n```");
   });
 
-  test("a proposal shows until the record says it", () => {
-    const message = (id: string, content: string): ChatMessage =>
-      ({ id, role: "assistant", model: "m", providerId: "codex", content, parts: [] }) as ChatMessage;
-    const reply = "```" + HANDOFF_PROPOSAL_FENCE + "\n" + JSON.stringify({ goal: "Ship search" }) + "\n```";
-    expect(findHandoffProposal([message("m1", reply)], emptyHandoffRecord())).toMatchObject({ messageId: "m1", proposal: { goal: "Ship search" } });
-    const saved = applyHandoffDraft({ record: emptyHandoffRecord(), draft: { ...EMPTY_DRAFT, goal: "Ship search" }, at: AT });
-    expect(findHandoffProposal([message("m1", reply)], saved)).toBeNull();
-  });
 });
 
 describe("handoff record store", () => {
@@ -318,65 +252,6 @@ describe("handoff record store", () => {
   });
 });
 
-describe("saving while still typing", () => {
-  const KEY = "ws:typing-task";
-  const submitted: HandoffDraft = { ...EMPTY_DRAFT, goal: "Ship the export" };
-  const saved = applyHandoffDraft({ record: emptyHandoffRecord(), draft: submitted, at: AT });
-
-  /** A window whose save answers only when `answer` is called. */
-  function deferredSaveWindow() {
-    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
-    let answer: (response: unknown) => void = () => {};
-    Object.defineProperty(globalThis, "window", {
-      configurable: true,
-      value: { api: { persistence: { saveTaskHandoff: () => new Promise((resolve) => { answer = resolve; }) } } },
-    });
-    return {
-      answer: (response: unknown) => answer(response),
-      restore: () => {
-        if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
-        else Reflect.deleteProperty(globalThis, "window");
-      },
-    };
-  }
-
-  test("text typed after Save survives the save and stays in the editor on top of the saved record", async () => {
-    const { saveHandoffEdit } = await import("@/components/session/use-handoff-editor");
-    const { readHandoffDraft, writeHandoffDraft, clearHandoffDraft } = await import("@/components/session/handoff-draft");
-    const ipc = deferredSaveWindow();
-    try {
-      writeHandoffDraft(KEY, { draft: submitted, authors: { goal: "user" }, baseRevision: 0 });
-      const pending = saveHandoffEdit({ draftKey: KEY, workspaceId: "ws", taskId: "typing-task", baseRevision: 0, draft: submitted, authors: { goal: "user" } });
-      // The fields stay editable: the user keeps typing while the save is in flight.
-      writeHandoffDraft(KEY, { draft: { ...submitted, goal: "Ship the export and its docs" }, authors: { goal: "user" }, baseRevision: 0 });
-      ipc.answer({ ok: true, record: saved });
-      const result = await pending;
-      expect(result).toMatchObject({ outcome: "saved", record: { revision: 1 }, keep: { draft: { goal: "Ship the export and its docs" }, baseRevision: 1 } });
-      expect(readHandoffDraft(KEY)?.draft.goal).toBe("Ship the export and its docs");
-      // Saving from there is a save over the record just saved, not a conflict.
-      const keep = result.outcome === "saved" ? result.keep : null;
-      expect(keep && resolveHandoffCommit({ draft: keep.draft, baseRevision: keep.baseRevision, current: saved })).toBe("save");
-      clearHandoffDraft(KEY);
-    } finally {
-      ipc.restore();
-    }
-  });
-
-  test("with nothing typed meanwhile, the save ends editing", async () => {
-    const { saveHandoffEdit } = await import("@/components/session/use-handoff-editor");
-    const { writeHandoffDraft } = await import("@/components/session/handoff-draft");
-    const ipc = deferredSaveWindow();
-    try {
-      writeHandoffDraft(KEY, { draft: submitted, authors: { goal: "user" }, baseRevision: 0 });
-      const pending = saveHandoffEdit({ draftKey: KEY, workspaceId: "ws", taskId: "typing-task", baseRevision: 0, draft: submitted, authors: { goal: "user" } });
-      ipc.answer({ ok: true, record: saved });
-      expect(await pending).toMatchObject({ outcome: "saved", keep: null });
-    } finally {
-      ipc.restore();
-    }
-  });
-});
-
 describe("handoff record in the provider prompt", () => {
   const record: TaskHandoffRecord = applyHandoffDraft({
     record: emptyHandoffRecord(),
@@ -415,25 +290,5 @@ describe("handoff record in the provider prompt", () => {
 
   test("an empty record adds nothing", () => {
     expect(buildHandoffRecordContextPart(emptyHandoffRecord())).toBeNull();
-  });
-});
-
-describe("handoff panel", () => {
-  test("shows each section with who updated it, and empty ones as not written", () => {
-    const record = applyHandoffDraft({
-      record: emptyHandoffRecord(),
-      draft: { ...EMPTY_DRAFT, decisions: "- Keep the public API stable" },
-      authors: { decisions: "agent" },
-      at: new Date().toISOString(),
-    });
-    const html = renderToStaticMarkup(createElement(TaskHandoffEditor, {
-      draftKey: "ws:render", workspaceId: "ws", taskId: "render", record, onSaved: () => {},
-    }));
-    expect(html).toContain("Approved decisions");
-    expect(html).toContain("- Keep the public API stable");
-    expect(html).toContain("by the agent");
-    expect(html).toContain("Not written yet.");
-    expect(html).toContain("Fill from this task");
-    expect(html).toContain("Ask the agent to update");
   });
 });

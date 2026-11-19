@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { SubagentsList, type SubagentListItem } from "@/components/session/SubagentsList";
-import { resolveSubagentsTabMark } from "@/components/session/task-panel-marks";
 import { fromDelegatedTask, fromWorkGraphNode, type DelegationExchange } from "@/lib/delegation/exchange";
 import { countSubagentList, orderSubagentList, subagentNeedsUser } from "@/lib/delegation/subagent-list";
 import { selectTaskSubagents } from "@/lib/delegation/subagent-summary";
@@ -60,15 +59,6 @@ describe("subagent list order and counts", () => {
     const rows = sampleRows();
     expect(rows.filter(subagentNeedsUser).map((row) => row.ref.delegationKey)).toEqual(["writer", "migrate"]);
     expect(countSubagentList(rows)).toEqual({ needsYou: 2, running: 2, done: 1, failed: 1, stopped: 0 });
-  });
-
-  test("the tab mark says how many run and how many need you", () => {
-    expect(resolveSubagentsTabMark({ running: 0, needsYou: 0 })).toBeNull();
-    expect(resolveSubagentsTabMark({ running: 3, needsYou: 0 })).toEqual({ kind: "count", count: 3, text: "3", label: "3 running" });
-    expect(resolveSubagentsTabMark({ running: 3, needsYou: 1 })).toEqual({
-      kind: "count", count: 1, text: "3 · 1 needs you", label: "3 running, 1 needs you", attention: true,
-    });
-    expect(resolveSubagentsTabMark({ running: 0, needsYou: 2 })).toMatchObject({ text: "2 need you", label: "2 subagents need you" });
   });
 });
 
@@ -148,7 +138,6 @@ describe("a child waiting on the user", () => {
     expect(open.outcome.status).toBe("needs_user");
     expect(subagentNeedsUser(open)).toBe(true);
     expect(countSubagentList([open])).toMatchObject({ needsYou: 1, running: 0 });
-    expect(resolveSubagentsTabMark(countSubagentList([open]))).toMatchObject({ text: "1 needs you", attention: true });
     // Answered: back to running.
     const answered = fromWorkGraphNode(node, {
       providerId: "claude-code",

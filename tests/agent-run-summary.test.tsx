@@ -68,7 +68,7 @@ test("an ended run counts its time to its end, and aliases name their provider",
   const html = render({ updatedAt: new Date(Date.parse(START) + 34 * 60_000).toISOString() }, { active: false, usage: null });
   expect(html).toContain("Ran for");
   expect(html).toContain("34m");
-  expect(html).toContain("Not reported yet");
+  expect(html).not.toContain("Not reported yet");
   expect(describeRunModel("claude-code", "sonnet")).toEqual({ name: "Claude Sonnet", namesProvider: true });
   expect(describeRunModel("codex", "gpt-6-sol")).toEqual({ name: "GPT-6 Sol", namesProvider: false });
 });
@@ -101,4 +101,14 @@ test("a counting active span adds the time since it began, and an ended run read
   expect(ended).toContain(">21m<");
   expect(ended).toContain("from 6:46 PM · pauses not counted");
   expect(ended).toContain("It took 34m from start to end.");
+});
+
+test("a run with no usage reported yet shows no empty spend cell", () => {
+  const html = render({}, { usage: null });
+  expect(html).not.toContain("Spent");
+  expect(html).not.toContain("Not reported yet");
+  expect(html).not.toContain("—");
+  // The figures left are the turn count and the time.
+  expect(html).toContain(">2<");
+  expect(html).toContain("Running for");
 });
