@@ -4,6 +4,9 @@ interface RetiredTarsScheduleDatabase {
 }
 
 // temporary-migration: drop-retired-tars-schedule-actions
+/** This table existing says the conversion ran. It holds nothing. */
+const DONE = "tars_schedule_actions_retired";
+
 /**
  * Retires the `schedule` actions of the removed Tars schedules in saved
  * replies. The action is no longer in the conversation contract, so one left
@@ -14,14 +17,11 @@ interface RetiredTarsScheduleDatabase {
  * position in their receipts and request ids, so an interrupted reply resumes
  * on the receipts and work it already has.
  *
- * It reads first and writes only when it finds one, so it runs on every open
- * until the migration expires.
+ * It runs once per profile: the marker is created with the conversion, and
+ * every later open only looks the marker up.
  */
 export function dropRetiredTarsScheduleActions(db: RetiredTarsScheduleDatabase) {
-  const found = db.prepare(`SELECT
-    EXISTS (SELECT 1 FROM tars_action_receipts WHERE json_extract(body_json, '$.action.kind') = 'schedule')
-    OR EXISTS (SELECT 1 FROM tars_messages, json_each(tars_messages.body_json, '$.decision.actions') WHERE json_extract(value, '$.kind') = 'schedule') AS found`).get() as { found: number };
-  if (!found.found) return;
+  if (db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(DONE)) return;
   db.transaction(() => {
     db.prepare("DELETE FROM tars_action_receipts WHERE json_extract(body_json, '$.action.kind') = 'schedule'").run();
     const retire = db.prepare(`UPDATE tars_messages SET body_json = json_replace(body_json, ?, json('{"kind":"retired"}')) WHERE id = ?`);
@@ -30,6 +30,7 @@ export function dropRetiredTarsScheduleActions(db: RetiredTarsScheduleDatabase) 
       FROM tars_messages, json_each(tars_messages.body_json, '$.decision.actions') AS action
       WHERE json_extract(action.value, '$.kind') = 'schedule'`).all() as Array<{ id: string; path: string }>;
     for (const { id, path } of saved) retire.run(path, id);
+    db.prepare(`CREATE TABLE IF NOT EXISTS ${DONE} (id INTEGER PRIMARY KEY)`).run();
   }).immediate();
 }
 // end temporary-migration: drop-retired-tars-schedule-actions

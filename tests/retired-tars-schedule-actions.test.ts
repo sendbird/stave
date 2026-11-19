@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { applyTarsDecision } from "../electron/host-service/tars-decisions";
+import { dropRetiredTarsScheduleActions } from "../electron/persistence/retired-tars-schedule-actions";
 import { TarsConversationStore } from "../electron/persistence/tars-conversation-store";
 import { TarsStore } from "../electron/persistence/tars-store";
 import { TarsActionReceiptSchema, TarsMessageSchema } from "../src/lib/tars/conversation";
@@ -10,6 +11,8 @@ const NOW = "2026-11-12T09:00:00.000Z";
 /** A schedule action as a release with Tars schedules saved it. */
 const SCHEDULE = { kind: "schedule", operation: "create", title: "Release check", request: "Check the release branch.", workspaceId: "source",
   when: { kind: "recurring", every: 1, unit: "days", at: { hour: 9, minute: 0 } } };
+/** The profile as a release with Tars schedules left it: this release has not opened it yet. */
+const unopened = (database: Database) => database.exec("DROP TABLE IF EXISTS tars_schedule_actions_retired");
 const body = (database: Database, sql: string, ...params: string[]) => JSON.parse((database.query(sql).get(...params) as { body_json: string }).body_json);
 
 /**
@@ -49,6 +52,7 @@ function oldProfile() {
   // What the removed schedule store kept beside the conversation.
   database.exec(`CREATE TABLE tars_schedules (id TEXT PRIMARY KEY, request_id TEXT NOT NULL UNIQUE, state TEXT NOT NULL, created_at TEXT NOT NULL, body_json TEXT NOT NULL);
     INSERT INTO tars_schedules VALUES ('tars-1', 'schedule:mixed:0', 'active', '${NOW}', '{}');`);
+  unopened(database);
   return { database, mixed: mixed.id, listed: listed.id, plain: plain.id };
 }
 
@@ -98,6 +102,7 @@ describe("dropRetiredTarsScheduleActions", () => {
       WHERE message_id = ? AND action_index = ?`).run(index + 1, index + 1, message.id, index);
     database.query(`UPDATE tars_messages SET body_json = json_set(body_json, '$.decision.actions', json(?)) WHERE id = ?`)
       .run(JSON.stringify([SCHEDULE, clear, delegate]), message.id);
+    unopened(database);
 
     const conversations = new TarsConversationStore(database);
     const responsibilities = new TarsStore(database);
@@ -115,16 +120,15 @@ describe("dropRetiredTarsScheduleActions", () => {
     database.close();
   });
 
-  test("a second open writes nothing", () => {
-    const { database } = oldProfile();
+  test.each(["with nothing to convert", "converted"])("a later open of a profile %s reads no message or receipt, and writes nothing", (kind) => {
+    const database = kind === "converted" ? oldProfile().database : new Database(":memory:");
     new TarsConversationStore(database);
-    const rows = () => [database.query("SELECT id, revision, body_json FROM tars_messages ORDER BY id").all(),
-      database.query("SELECT message_id, action_index, body_json FROM tars_action_receipts ORDER BY message_id, action_index").all()];
-    const once = rows();
+    const statements: string[] = [];
     const changes = () => (database.query("SELECT total_changes() AS count").get() as { count: number }).count;
     const before = changes();
-    new TarsConversationStore(database);
-    expect(rows()).toEqual(once);
+    dropRetiredTarsScheduleActions({ prepare: (sql) => { statements.push(sql); return database.prepare(sql); },
+      transaction: (operation) => database.transaction(operation) });
+    expect(statements.filter((sql) => /tars_messages|tars_action_receipts/.test(sql))).toEqual([]);
     expect(changes()).toBe(before);
     database.close();
   });
