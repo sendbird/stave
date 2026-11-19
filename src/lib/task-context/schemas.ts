@@ -460,7 +460,6 @@ const DelegatedExecutionUsageSchema = z
   .strict();
 
 export const ChatMessageSchema = z.object({
-  deferredResultKeys: z.array(z.string()).optional(),
   id: z.string(),
   role: z.union([z.literal("user"), z.literal("assistant")]),
   model: z.string(),

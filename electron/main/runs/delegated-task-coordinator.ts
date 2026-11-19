@@ -56,6 +56,7 @@ import {
   createPendingRun,
   createPendingRunStep,
   RUN_LEDGER_SCHEMA_VERSION,
+  type RunReceiptDraft,
   type RunReceiptRecord,
   type RunRecord,
   type RunStepRecord,
@@ -63,6 +64,12 @@ import {
   boundResponseText,
 } from "../../../src/lib/runs/run-domain";
 import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-store";
+import {
+  collectOwedDelegatedTaskAnswers,
+  recordDelegatedTaskAnswersDelivered,
+  type DelegatedTaskAnswersArgs,
+  type DelegatedTaskAnswersDeliveredArgs,
+} from "../../../src/lib/runs/delegated-task-answers";
 import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
 import type { WorkspaceRevision } from "../../../src/lib/agent-runs/verification-contract";
 import { captureReviewRevision, reviewRevisionState } from "./review-workspace-revisions";
@@ -106,6 +113,8 @@ export interface DelegatedTaskLedgerPort {
     now: string;
   }): RunLedgerTransitionResult;
   listRunReceipts(args: { runId: string }): RunReceiptRecord[];
+  /** Facts about a run that do not move its step: what became of a subagent answer. */
+  appendRunReceipts(receipts: readonly RunReceiptDraft[]): void;
   completeRunStep(args: {
     runId: string;
     stepId: string;
@@ -2060,6 +2069,17 @@ export function createDelegatedTaskCoordinator(
             isActiveDelegatedTaskPhase(summary.phase),
         );
       return DelegatedTaskListSchema.parse(summaries);
+    },
+
+    /** The subagent answers no turn of this parent carried yet, oldest first. */
+    async collectAnswers(args: DelegatedTaskAnswersArgs) {
+      const ledger = await getLedger();
+      await ensureReconciled(args.parentTaskId);
+      return collectOwedDelegatedTaskAnswers(ledger, { ...args, now: now() });
+    },
+
+    async recordAnswersDelivered(args: DelegatedTaskAnswersDeliveredArgs) {
+      recordDelegatedTaskAnswersDelivered(await getLedger(), { ...args, now: now() });
     },
 
     stop: stopChild,

@@ -32,6 +32,8 @@ export const RunReceiptTypeSchema = z.enum([
   "failed",
   "cancelled",
   "interrupted",
+  /** What became of one subagent answer for the parent; see `delegated-task-answers.ts`. */
+  "delivery",
 ]);
 export type RunReceiptType = z.infer<typeof RunReceiptTypeSchema>;
 
@@ -206,6 +208,10 @@ export const RunReceiptDetailSchema = z
     responseText: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
     /** The child turn that produced `responseText`, so the answer keeps its identity when the step moves on. */
     turnId: RunIdSchema.optional(),
+    /** Set on every answer this version records: it is owed to the parent until a `delivery` receipt names it. */
+    deliveryTracked: z.literal(true).optional(),
+    /** On a `delivery` receipt: the parent turn whose context carried the answer. */
+    parentTurnId: RunIdSchema.optional(),
   })
   .strict();
 export type RunReceiptDetail = z.infer<typeof RunReceiptDetailSchema>;
@@ -347,7 +353,7 @@ export function sanitizeRunReceiptDetail(
     ...(supervisorMaxTurns.success && supervisorMaxTurns.data !== undefined ? { supervisorMaxTurns: supervisorMaxTurns.data } : {}),
     ...(supervisorSequence.success && supervisorSequence.data !== undefined ? { supervisorSequence: supervisorSequence.data } : {}),
     ...(expectedHead ? { expectedHead } : {}),
-    ...(responseText ? { responseText } : {}),
+    ...(responseText ? { responseText, deliveryTracked: true as const } : {}),
     ...(responseText && turnId.success ? { turnId: turnId.data } : {}),
     ...(reviewSourceRevision.success ? { reviewSourceRevision: reviewSourceRevision.data } : {}),
     ...(reviewCompletedRevision.success ? { reviewCompletedRevision: reviewCompletedRevision.data } : {}),

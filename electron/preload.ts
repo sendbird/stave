@@ -1178,6 +1178,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("delegations:create", args, context),
     listDelegatedTasks: (args: DelegatedTaskListArgs): Promise<DelegatedTaskList> =>
       ipcRenderer.invoke("delegations:list", args),
+    collectDelegatedTaskAnswers: (args: import("../src/lib/runs/delegated-task-answers").DelegatedTaskAnswersArgs): Promise<import("../src/lib/runs/delegated-task-answers").OwedDelegatedTaskAnswers> =>
+      ipcRenderer.invoke("delegations:collect-answers", args),
+    recordDelegatedTaskAnswersDelivered: (args: import("../src/lib/runs/delegated-task-answers").DelegatedTaskAnswersDeliveredArgs): Promise<{ ok: boolean }> =>
+      ipcRenderer.invoke("delegations:record-answers-delivered", args),
     getReviewRevision: (args: import("../src/lib/reviews/review-revision").ReviewRevisionArgs): Promise<import("../src/lib/reviews/review-revision").ReviewRevisionState | null> =>
       ipcRenderer.invoke("delegations:review-revision", args),
     followUpDelegatedTask: (

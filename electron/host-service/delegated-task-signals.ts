@@ -3,8 +3,8 @@
  * ledger rows the delegated-task surface shows.
  *
  * Used by:
- * - `electron/host-service/local-mcp-runtime.ts` (delegated-task receipts in
- *   a parent's turn context, and the wake-up completion feed)
+ * - `electron/host-service/local-mcp-runtime.ts` (delegated-task receipts and
+ *   owed answers in a parent's turn context, and the wake-up completion feed)
  * - `electron/host-service/supervision/agent-run-runtime.ts` (a stage cannot
  *   complete while work it delegated is still running), wired in
  *   `electron/host-service.ts`
@@ -25,6 +25,11 @@ import {
 import { taskCompletionSignalOf } from "../../src/lib/supervision/task-completion-signal";
 import type { DelegatedStallSignal } from "../../src/lib/agent-runs/event-wait-observe";
 import { ensureHostServicePersistenceReady } from "./persistence";
+import {
+  collectOwedDelegatedTaskAnswers,
+  recordDelegatedTaskAnswersDelivered,
+  type DelegatedTaskAnswerRef,
+} from "../../src/lib/runs/delegated-task-answers";
 
 /**
  * Delegated-task receipts for one parent, read straight from the ledger. Returns an
@@ -59,6 +64,32 @@ export function listDelegatedTaskSummaries(args: {
       `[stave-mcp] failed to read delegated task receipts: ${String(error)}`,
     );
     return [];
+  }
+}
+
+/**
+ * The answers a parent turn owes, read for one host-started turn, and the list
+ * the context builder fills with the ones the turn carries. Never throws: a
+ * failed read carries no answers this turn and they stay owed.
+ */
+export function collectDelegatedTaskAnswersForTurn(args: { parentTaskId: string; lastTurnStartedAt: string | null }) {
+  const delivered: DelegatedTaskAnswerRef[] = [];
+  try {
+    const owed = collectOwedDelegatedTaskAnswers(ensureHostServicePersistenceReady(), { ...args, now: new Date().toISOString() });
+    return { answers: owed.answers, moreAnswers: owed.more, delivered };
+  } catch (error) {
+    console.warn(`[stave-mcp] failed to read owed subagent answers: ${String(error)}`);
+    return { answers: [], moreAnswers: 0, delivered };
+  }
+}
+
+/** Record the answers a saved host-started turn carried; on failure they come once more. */
+export function recordDelegatedTaskAnswersDeliveredForTurn(args: { parentTaskId: string; parentTurnId: string; answers: DelegatedTaskAnswerRef[] }) {
+  if (args.answers.length === 0) return;
+  try {
+    recordDelegatedTaskAnswersDelivered(ensureHostServicePersistenceReady(), { ...args, now: new Date().toISOString() });
+  } catch (error) {
+    console.warn(`[stave-mcp] failed to record delivered subagent answers: ${String(error)}`);
   }
 }
 

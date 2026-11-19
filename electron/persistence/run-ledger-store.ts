@@ -11,6 +11,7 @@ import {
   RunRecordSchema,
   RunStepRecordSchema,
   RunStepTargetSchema,
+  type RunReceiptDraft,
   type RunReceiptRecord,
   type RunRecord,
   type RunStepKind,
@@ -726,6 +727,31 @@ export class RunLedgerStore {
         now: args.now,
       }),
     );
+  }
+
+  /**
+   * Append receipts that record a fact about a run without moving its step:
+   * status, `updatedAt` and ordering stay as they are. A replayed idempotency
+   * key is a no-op.
+   */
+  appendReceipts(receipts: readonly RunReceiptDraft[]) {
+    const tx = this.db.transaction(() => {
+      for (const receipt of receipts) {
+        const row = this.db
+          .prepare(`SELECT COALESCE(MAX(sequence), 0) AS sequence FROM run_receipts WHERE run_id = ?`)
+          .get(receipt.runId) as { sequence: number } | undefined;
+        const record = RunReceiptRecordSchema.parse({ ...receipt, sequence: Number(row?.sequence ?? 0) + 1 });
+        this.db
+          .prepare(
+            `INSERT OR IGNORE INTO run_receipts (run_id, step_id, sequence, receipt_type, execution_id, idempotency_key, created_at, detail_json)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .run(record.runId, record.stepId, record.sequence, record.type, record.executionId,
+            record.idempotencyKey, record.timestamp, record.detail ? JSON.stringify(record.detail) : null);
+      }
+    });
+    // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
+    tx.immediate();
   }
 
   listReceipts(args: { runId: string }): RunReceiptRecord[] {

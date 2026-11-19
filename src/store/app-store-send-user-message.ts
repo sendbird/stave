@@ -5,7 +5,8 @@ import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
-import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
+import { collectTurnStartRetrievedContextParts, recordDeliveredDelegatedTaskAnswers } from "@/store/repository-memory-runtime";
+import type { DelegatedTaskAnswerRef } from "@/lib/runs/delegated-task-answers";
 import { takeMcpAppModelContextParts } from "@/lib/mcp-app/mcp-app-model-context";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
@@ -1010,13 +1011,13 @@ export function createSendUserMessageAction(args: {
         ...freshSourceContexts,
       ];
       // ── Memory, subagent receipts, handoff record: cross-turn state from main ──
-      const deferredResultKeys: string[] = [];
+      const deliveredAnswers: DelegatedTaskAnswerRef[] = [];
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
           workspaceId: taskWorkspaceId, turnId, providerSession: providerSessionCursor,
           repositoryPath: state.repositoryPath,
           parentTaskId: resolvedTaskId,
-          history: latestHistory, deferredResultKeys,
+          history: latestHistory, deliveredAnswers,
           prompt: normalizedPrompt || promptContent,
           promptDraft,
         })),
@@ -1144,7 +1145,7 @@ export function createSendUserMessageAction(args: {
             provider,
             activeModel,
             modelInfo,
-            content: promptContent, deferredResultKeys,
+            content: promptContent,
             displayContent: promptDisplayContent,
             displayParts: promptDisplayParts,
             questionReply: promptDraft.questionReply,
@@ -1202,7 +1203,7 @@ export function createSendUserMessageAction(args: {
             provider,
             activeModel,
             modelInfo,
-            content: promptContent, deferredResultKeys,
+            content: promptContent,
             displayContent: promptDisplayContent,
             displayParts: promptDisplayParts,
             questionReply: promptDraft.questionReply,
@@ -1272,6 +1273,7 @@ export function createSendUserMessageAction(args: {
       }
       // Same tick as the row insert: Auto's pending row hands straight over.
       endPendingAutoRoute({ taskId: resolvedTaskId, id: turnId });
+      recordDeliveredDelegatedTaskAnswers({ parentTaskId: resolvedTaskId, parentTurnId: turnId, answers: deliveredAnswers });
       endUsageLimitPauseOnTurnStart(get, resolvedTaskId, turnOrigin);
 
       const turnActivityStartedAt = Date.now();

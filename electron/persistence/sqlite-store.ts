@@ -1788,6 +1788,7 @@ export class SqliteStore {
   listRunReceipts(args: Parameters<RunLedgerStore["listReceipts"]>[0]) {
     return this.runLedger.listReceipts(args);
   }
+  appendRunReceipts(receipts: Parameters<RunLedgerStore["appendReceipts"]>[0]) { this.runLedger.appendReceipts(receipts); }
 
   listRunAggregatesByOrigin(
     args: Parameters<RunLedgerStore["listAggregatesByOrigin"]>[0],

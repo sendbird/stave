@@ -49,11 +49,13 @@ const coordinatorInstanceSource = read(
  * see — so the channel names are compared as sets rather than trusted.
  */
 const DELEGATED_TASK_CHANNELS = [
+  "delegations:collect-answers",
   "delegations:create",
   "delegations:detach",
   "delegations:follow-up",
   "delegations:get-link",
   "delegations:list",
+  "delegations:record-answers-delivered",
   "delegations:retry",
   "delegations:review-revision",
   "delegations:stop",
@@ -79,6 +81,8 @@ describe("delegated task IPC chain", () => {
     for (const method of [
       "delegateTask",
       "listDelegatedTasks",
+      "collectDelegatedTaskAnswers",
+      "recordDelegatedTaskAnswersDelivered",
       "getReviewRevision",
       "followUpDelegatedTask",
       "retryDelegatedTask",

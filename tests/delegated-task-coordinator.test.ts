@@ -49,6 +49,7 @@ function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
     interruptRunStep: (args) => store.interruptStep(args),
     setRunStepTarget: (args) => store.setStepTarget(args),
     listRunReceipts: (args) => store.listReceipts(args),
+    appendRunReceipts: (receipts) => store.appendReceipts(receipts),
     listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
     listActiveRunAggregatesByStepKind: (args) =>
       store.listActiveAggregatesByStepKind(args),
@@ -1056,7 +1057,7 @@ describe("delegated task coordinator", () => {
     ).toHaveLength(2);
   });
 
-  test("an answer keeps the turn that produced it while a follow-up runs and after a stop", async () => {
+  test("an answer keeps the turn that produced it and reaches the parent once across a follow-up and a stop", async () => {
     let calls = 0;
     let release!: () => void;
     const held = new Promise<void>((resolve) => { release = resolve; });
@@ -1072,6 +1073,15 @@ describe("delegated task coordinator", () => {
     const parked = (await read())!;
     expect(parked).toMatchObject({ result: "ANSWER-A", resultTurnId: "turn-1" });
     expect(parked.resultAt).toBeDefined();
+    // What a parent turn reads and records through main, the renderer's path.
+    let parentTurn = 0;
+    const owedTexts = async () => {
+      const owed = await harness.coordinator.collectAnswers({ parentTaskId: PARENT_TASK, lastTurnStartedAt: null });
+      await harness.coordinator.recordAnswersDelivered({ parentTaskId: PARENT_TASK, parentTurnId: `parent-turn-${++parentTurn}`,
+        answers: owed.answers.map(({ runId, sequence }) => ({ runId, sequence })) });
+      return owed.answers.map((answer) => `${answer.turnId}:${answer.text}`);
+    };
+    expect(await owedTexts()).toEqual(["turn-1:ANSWER-A"]);
 
     await harness.coordinator.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "more", permissionProfile: "guided",
       expected: { delegatedTaskId: parked.delegatedTaskId, delegatedWorkspaceId: parked.delegatedWorkspaceId, attempt: parked.attempt } });
@@ -1079,17 +1089,20 @@ describe("delegated task coordinator", () => {
     const inFlight = (await read())!;
     expect(inFlight.delegatedTurnId).toBe("turn-2");
     expect(inFlight).toMatchObject({ result: "ANSWER-A", resultTurnId: "turn-1", resultAt: parked.resultAt });
+    expect(await owedTexts()).toEqual([]);
 
     release();
     await harness.coordinator.waitForInFlight();
     const answered = (await read())!;
     expect(answered).toMatchObject({ result: "ANSWER-B", resultTurnId: "turn-2" });
     expect(answered.resultAt! > parked.resultAt!).toBe(true);
+    expect(await owedTexts()).toEqual(["turn-2:ANSWER-B"]);
 
     await harness.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
     const stopped = (await read())!;
     expect(stopped.phase).toBe("cancelled");
     expect(stopped).toMatchObject({ result: "ANSWER-B", resultTurnId: "turn-2", resultAt: answered.resultAt });
+    expect(await owedTexts()).toEqual([]);
   });
 
   test("detach releases the delegation stamp so the child re-enters ordinary listings", async () => {

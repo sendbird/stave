@@ -29,13 +29,13 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
-import { listDelegatedTaskSummaries } from "./delegated-task-signals";
+import { collectDelegatedTaskAnswersForTurn, listDelegatedTaskSummaries, recordDelegatedTaskAnswersDeliveredForTurn } from "./delegated-task-signals";
 import { resolveReviewTurnNotification } from "./review-turn-notification";
 import {
   describeInteractionAttribution,
   publishesInteractionNotifications,
 } from "./delegated-attention";
-import { buildDelegatedTaskReceiptsRetrievedContext } from "../../src/lib/task-context/delegated-task-receipts";
+import { buildDelegatedTaskReceiptsRetrievedContext, latestTurnStartedAt } from "../../src/lib/task-context/delegated-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
 import { carryRendererOwnedShellFields } from "../persistence/task-turn-delta";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
@@ -1901,11 +1901,10 @@ async function runTaskImpl(args: {
           ].join("\n"),
         }
       : null;
-  // Subagent states and the answers new to this task; deferred ones are recorded on the turn.
-  const deferredResultKeys: string[] = [];
+  // Subagent states and the answers no earlier turn carried; the carried ones are recorded once the turn is saved.
+  const owedAnswers = collectDelegatedTaskAnswersForTurn({ parentTaskId: task.id, lastTurnStartedAt: latestTurnStartedAt(existingHistory) });
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
-    children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
-    history: existingHistory, deferredResultKeys,
+    children: listDelegatedTaskSummaries({ parentTaskId: task.id }), ...owedAnswers,
   });
   // Child-only rules: an agent run's stage turns keep delegating their stages.
   const delegationRules = delegatedTaskRulesFor({ parentTaskId: task.parentTaskId, agentRunStage: args.agentRunStage });
@@ -1977,7 +1976,7 @@ async function runTaskImpl(args: {
     ...(args.runtimeOptions
       ? { modelInfo: resolveTurnModelInfo({ providerId: provider, runtimeOptions: args.runtimeOptions }) }
       : {}),
-    content: args.prompt, deferredResultKeys,
+    content: args.prompt,
     questionReply: questionReply ?? args.initialContext?.questionReply,
     fileContexts: args.initialContext?.fileContexts,
     imageContexts: args.initialContext?.imageContexts,
@@ -2004,6 +2003,7 @@ async function runTaskImpl(args: {
     save: (turn) => queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName, session: turnSession, taskId: turn.taskId, rejectOnError: true,
       changedMessagesByTask: { [turn.taskId]: collectChangedMessages({ before: turn.messages, after: turnSession.messagesByTask[turn.taskId] ?? [] }) } }),
   });
+  recordDelegatedTaskAnswersDeliveredForTurn({ parentTaskId: task.id, parentTurnId: turnId, answers: owedAnswers.delivered });
 
   session = trimResidentTaskMessages({
     workspaceId: args.workspaceId,

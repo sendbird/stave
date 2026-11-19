@@ -41,14 +41,6 @@ const sharedArgs = {
   content: "hello",
 };
 
-test("preserves deferred result keys on the persisted parent turn", () => {
-  const state = buildPendingProviderTurnState({
-    ...sharedArgs, tasks: [task("parent")], taskId: "parent", messagesByTask: {},
-    messageCountByTask: {}, deferredResultKeys: ["child-result"],
-  });
-  expect(ChatMessageSchema.parse(state.messagesByTask.parent?.[1]).deferredResultKeys).toEqual(["child-result"]);
-});
-
 describe("resolveActiveTurnProviderId", () => {
   test("follows the running turn, not a selector switched mid-turn", () => {
     // The UI derives steer affordances from this too, so a provider switch
