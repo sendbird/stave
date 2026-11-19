@@ -103,7 +103,7 @@ export interface TarsActionContext {
   allowRules?: readonly TarsAllowRule[];
   repositoryPath?: string | null;
   responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "resultUnverifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> &
-    Partial<Pick<TarsResponsibility, "followedRunId">> | null;
+    Partial<Pick<TarsResponsibility, "followedRunId" | "detailParams">> | null;
 }
 
 export function tarsHasAllowRule(key: TarsActionKey, context: TarsActionContext): boolean {
@@ -133,6 +133,8 @@ export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | nu
   const chosen = TarsAutonomyLevelSchema.safeParse(level).success ? level! : TARS_DEFAULT_AUTONOMY;
   if (key === "answer" && chosen !== "careful" && context.ownedQuestion) return "auto";
   if (TARS_ALWAYS_CONFIRMED.has(key)) return "confirm";
+  // A run paused at the turn limit of an earlier version may have waited for days: only the user's own Resume continues it.
+  if (key === "resume" && context.responsibility?.detailCode === "runPaused" && context.responsibility.detailParams?.reason === "limit-reached") return "confirm";
   if (chosen !== "careful") {
     if (tarsHasAllowRule(key, context)) return "auto";
     if (REVERSIBLE_APPLIED.has(key)) return "auto";

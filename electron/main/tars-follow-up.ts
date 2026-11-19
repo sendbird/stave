@@ -21,7 +21,7 @@ const FOLLOW_UP_TEXT: Readonly<Record<TarsFollowUpReason, string>> = Object.free
   unverifiedCompletion: "Automatic follow-up: delegated work reported it was done, but Stave could not confirm it. Judge what it needs next.",
   verificationFailed: "Automatic follow-up: delegated work ended, but its completion checks are incomplete or need to be repeated. Judge what it needs next.",
   stageAsksUser: "Automatic follow-up: owned work or a helper is waiting. First resolve ordinary task questions and recoverable work gates using the original mandate and available evidence. Ask the user only for missing authority, credentials, personal choices or an unresolved ambiguity; never grant a tool approval or stage sign-off.",
-  limitReached: "Automatic follow-up: delegated work paused at a turn limit from before runs stopped having one. Judge whether continuing still fits the original mandate and autonomy policy; propose resume when it does.",
+  limitReached: "Automatic follow-up: delegated work paused at a turn limit from before runs stopped having one, possibly days ago. Only the user's Resume continues it: judge whether continuing still fits the original mandate; propose resume, which waits for their confirmation, when it does.",
   waitExpired: "Automatic follow-up: delegated work is waiting, and no update arrived during the waiting period. Judge whether it needs the user or other work.",
 });
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead

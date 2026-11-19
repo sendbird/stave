@@ -562,7 +562,7 @@ fit (for example, sign-off while no stage waits for it) is refused with
 | "Retry it" (**Retry stage**) | A blocked or stuck current stage starts a fresh attempt. |
 | "Skip this stage" (**Skip stage**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
 | "Approve it" (**Approve stage**) | A stage waiting for your sign-off starts. |
-| "Resume it" (**Resume**) | Also continues a run paused by a usage limit, an expired wait, or the old turn limit of an earlier version. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
+| "Resume it" (**Resume**) | Also continues a run paused by a usage limit, an expired wait, or the old turn limit of an earlier version; that last one always waits for your confirmation, at every autonomy level and over any always-allow rule. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
 
 None of these apply to work you took over, including a run you took over in
 its task before Tars noticed, or to work you paused through Tars: resume it
@@ -1580,7 +1580,7 @@ follow-up turn of Tars's own, so blocked work does not wait silently for you to
 ask:
 
 - the work became blocked,
-- its run is paused at the old turn limit of an earlier version (`limitReached`): Tars follows up immediately and may propose to resume it under the autonomy policy,
+- its run is paused at the old turn limit of an earlier version (`limitReached`): Tars follows up immediately and may propose to resume it, which always waits for your confirmation because the pause may be days old,
 - its run's own stage stopped while the run is still running: the stage
   blocked, got stuck or awaits your sign-off. A helper the run delegated to
   counts the same way when its stage stops, since the run waits for that

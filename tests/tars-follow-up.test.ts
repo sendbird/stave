@@ -184,3 +184,24 @@ test("a change the user already spoke about starts no follow-up", async () => {
     eventKey: tarsEventKey(eventsOf(f, row.id).at(-1)!) })]);
   expect(Date.parse(f.now()) - Date.parse(START)).toBe(minutes(2));
 });
+
+test("work paused at the old turn limit before the update is never resumed without the user's click, at any level or rule", async () => {
+  for (const autonomy of ["balanced", "handsOff"] as const) {
+    const f = fixture();
+    f.conversations.configure({ ...f.conversations.getSettings()!, autonomy, allowRules: [{ key: "resume", repositoryPath: null }] });
+    f.service.start();
+    const row = f.responsibility("running");
+    const limit = { state: "waiting" as const, detail: "limit-reached", detailCode: "runPaused" as const, detailParams: { reason: "limit-reached" }, runTurns: 30 };
+    f.observations.set(row.id, limit);
+    f.runtime.requestTick(); await f.runtime.drain();
+    const waiting = f.responsibilities.get(row.id)!;
+    f.replies.push({ reply: "It still fits the mandate; resuming.", actions: [{ kind: "control", responsibilityId: row.id, expectedRevision: waiting.revision, operation: "resume" }] });
+    await f.settle();
+    const [followUp] = f.automatic();
+    expect(followUp?.origin).toMatchObject({ kind: "followUp", reason: "limitReached" });
+    // Tars may only propose it: the card waits for the user's Resume.
+    expect(f.conversations.listReceipts(followUp!.id).map((receipt) => receipt.status)).toEqual(["proposed"]);
+    expect(f.runControls).toEqual([]);
+    expect(f.responsibilities.get(row.id)?.state).toBe("waiting");
+  }
+});
