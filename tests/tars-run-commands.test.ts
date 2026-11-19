@@ -8,7 +8,7 @@ import { controlTarsRun } from "../electron/host-service/tars-ownership";
 import { tarsFollowUpRefusal } from "../electron/host-service/tars-follow-up-admission";
 import { tarsObservation, tarsWorkflow, withTarsActiveStage } from "../electron/host-service/tars-execution";
 import {
-  extendAgentRun, pauseAgentRun, resumeAgentRun, retryStage, signOffStage, skipStage,
+  pauseAgentRun, resumeAgentRun, retryStage, signOffStage, skipStage,
 } from "../src/lib/agent-runs/commands";
 import { createAgentRun, createStageRecord, currentStageRecord, type AgentRunAggregate, type AgentRunChange } from "../src/lib/agent-runs/domain";
 import type { AgentRunDetail, AgentRunStageRef } from "../src/lib/agent-runs/api";
@@ -62,7 +62,6 @@ function fixture() {
     restartStageAndResume: command(() => { throw new Error("not used"); }),
     resume: command((aggregate) => resumeAgentRun({ aggregate, now: now() })),
     cancel: command(() => { throw new Error("not used"); }),
-    extend: async (_args: unknown, guard?: Guard) => { queued(guard); commands.push("extend"); apply(extendAgentRun({ aggregate: run, now: now() })); return detail(); },
     retryStage: staged("retryStage", (aggregate, expected) => retryStage({ aggregate, expected, now: now() })),
     skipStage: staged("skipStage", (aggregate, expected) => skipStage({ aggregate, expected, now: now() })),
     signOff: staged("signOff", (aggregate, expected) => signOffStage({ aggregate, expected, now: now() })) };
@@ -102,17 +101,19 @@ test("retrying a blocked stage through Tars starts a fresh attempt of the curren
   f.runtime.stop();
 });
 
-test("a run paused at its turn limit gets more turns through Tars, and plain resume is refused with the run's reason", async () => {
+test("a run paused at the old turn limit resumes through Tars without new turns, and a stored extend is refused", async () => {
   const f = fixture();
-  f.apply(pauseAgentRun({ aggregate: f.run, reason: "limit-reached", now: f.now() }));
+  f.apply(pauseAgentRun({ aggregate: f.run, reason: "limit-reached" as never, now: f.now() }));
   await f.tick();
   expect(f.current().state).toBe("waiting");
-  // Resume cannot clear a turn limit: the run refuses it and nothing changes.
-  expect(await f.act("resume")).toMatchObject({ status: "rejected", reason: "runRefused" });
+  // Nothing is left to extend: runs no longer stop at a turn limit.
+  expect(await f.act("extend")).toMatchObject({ status: "rejected", reason: "runRefused" });
   expect(f.run.agentRun.state).toBe("paused");
   const before = f.run.agentRun.maxTurns;
-  expect(await f.act("extend")).toMatchObject({ status: "applied" });
-  expect(f.run.agentRun).toMatchObject({ state: "running", maxTurns: before + 10 });
+  expect(await f.act("resume")).toMatchObject({ status: "applied" });
+  expect(f.run.agentRun).toMatchObject({ state: "running", pauseReason: null, maxTurns: before });
+  expect(f.commands).toEqual([]);
+  await f.tick();
   expect(f.current().state).toBe("running");
   f.runtime.stop();
 });
@@ -161,7 +162,7 @@ test("run commands never act on work the user holds", async () => {
   expect(f.commands).toEqual([]);
   f.apply(resumeAgentRun({ aggregate: f.run, now: f.now() }));
   await f.act("takeover");
-  for (const operation of ["extend", "retryStage", "skipStage", "signOff"] as const)
+  for (const operation of ["retryStage", "skipStage", "signOff"] as const)
     expect(await f.act(operation)).toMatchObject({ status: "rejected", reason: "takenOver" });
   expect(f.commands).toEqual([]);
   f.runtime.stop();
@@ -203,27 +204,27 @@ test("work the user paused through Tars refuses run commands until resumed, so a
   await f.tick();
   await f.act("pause");
   expect(f.current().state).toBe("paused");
-  for (const operation of ["extend", "retryStage", "skipStage", "signOff"] as const)
+  for (const operation of ["retryStage", "skipStage", "signOff"] as const)
     expect(await f.act(operation)).toMatchObject({ status: "rejected", reason: "resumeFirst" });
   expect(f.commands).toEqual([]);
   f.runtime.stop();
 });
 
 test("run commands wait for the user's Confirm when proposed from words; Start now applies like a queue change", () => {
-  for (const operation of ["extend", "retryStage", "skipStage", "signOff"] as const) expect(TARS_CONFIRMED_OPERATIONS.has(operation)).toBe(true);
+  for (const operation of ["retryStage", "skipStage", "signOff"] as const) expect(TARS_CONFIRMED_OPERATIONS.has(operation)).toBe(true);
   expect(TARS_CONFIRMED_OPERATIONS.has("startNow")).toBe(false);
   // Skipping drops planned work and cannot be undone: never a default answer.
   expect(TARS_IRREVERSIBLE_OPERATIONS.has("skipStage")).toBe(true);
   expect(TARS_IRREVERSIBLE_OPERATIONS.has("retryStage")).toBe(false);
 });
 
-test("an automatic follow-up may propose a retry, more turns or a sign-off, but never a skip or Start now", () => {
+test("an automatic follow-up may propose a retry or a sign-off, but never a skip, Start now or more turns", () => {
   const row = { state: "waiting", detailCode: null } as never;
   const responsibilities = { get: () => row };
   const origin = { kind: "followUp", responsibilityId: "r", observedRevision: 3, reason: "stageAsksUser", summary: "" } as never;
   const control = (operation: TarsControlOperation) => ({ kind: "control" as const, responsibilityId: "r", expectedRevision: 3, operation });
-  for (const operation of ["retryStage", "extend", "signOff"] as const) expect(tarsFollowUpRefusal(control(operation), origin, responsibilities)).toBeNull();
-  for (const operation of ["skipStage", "startNow"] as const) expect(tarsFollowUpRefusal(control(operation), origin, responsibilities)).not.toBeNull();
+  for (const operation of ["retryStage", "signOff"] as const) expect(tarsFollowUpRefusal(control(operation), origin, responsibilities)).toBeNull();
+  for (const operation of ["skipStage", "startNow", "extend"] as const) expect(tarsFollowUpRefusal(control(operation), origin, responsibilities)).not.toBeNull();
   // Not as an option of its question either: only the user's own words lead to a skip.
   const ask = (operation: TarsControlOperation) => ({ kind: "ask" as const, question: "What next?", options: [
     { label: "Do it", rationale: "Moves on.", effect: control(operation) }, { label: "Wait", rationale: "Keeps it.", effect: { kind: "reply" as const } }] });

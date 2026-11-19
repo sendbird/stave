@@ -11,10 +11,13 @@ export { TarsEventKindSchema, TarsFollowUpStateSchema, type TarsEventKind, type 
  * follow-up planner turn per episode. Nothing here starts a model call by itself.
  */
 
-/** At most this many automatic follow-ups start in any rolling window, across all responsibilities. */
+/**
+ * At most this many automatic follow-ups start in any rolling window, across
+ * all responsibilities. This time bound is the whole budget: each change gets
+ * one follow-up and only live work changes, so no count since the user's last
+ * action stops them.
+ */
 export const TARS_FOLLOW_UP_WINDOW_CAP = 6;
-/** Automatic judgments between real user actions, independent of any execution run's turn limit. */
-export const TARS_FOLLOW_UP_CAP = 20;
 export const TARS_FOLLOW_UP_WINDOW_MS = 60 * 60_000;
 /** Processed events older than this are removed at startup; pending ones always stay. */
 export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
@@ -31,7 +34,8 @@ export type TarsFollowUpReason = z.infer<typeof TarsFollowUpReasonSchema>;
  * `followedUp`: it started its follow-up (`messageId`). `coalesced`: a newer
  * event of the same responsibility covered it. `superseded`: the work moved on,
  * ended, was paused or taken over, or the user addressed this work. `exhausted`:
- * the separate automatic follow-up cap was reached; the event is a visible notice.
+ * only events recorded when a count of automatic follow-ups still stopped them;
+ * the event is a visible notice. Nothing records it now.
  */
 export const TarsEventStatusSchema = z.enum(["pending", "settled", "followedUp", "coalesced", "superseded", "exhausted"]);
 export type TarsEventStatus = z.infer<typeof TarsEventStatusSchema>;

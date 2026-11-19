@@ -2,7 +2,7 @@ import { recordTarsPrNotice } from "./tars-pr-notice";
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsEventInbox } from "../persistence/tars-event-inbox";
 import type { TarsStore } from "../persistence/tars-store";
-import { TARS_FOLLOW_UP_CAP, TarsFollowUpReasonSchema, isTarsEventCurrent, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
+import { TarsFollowUpReasonSchema, isTarsEventCurrent, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
 import { describeTarsDecisionForModel, parseTarsDecisionId, tarsReaskRequestId, type TarsDecisionView } from "../../src/lib/tars/decisions";
 import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
 import type { TarsMessage } from "../../src/lib/tars/conversation";
@@ -21,7 +21,7 @@ const FOLLOW_UP_TEXT: Readonly<Record<TarsFollowUpReason, string>> = Object.free
   unverifiedCompletion: "Automatic follow-up: delegated work reported it was done, but Stave could not confirm it. Judge what it needs next.",
   verificationFailed: "Automatic follow-up: delegated work ended, but its completion checks are incomplete or need to be repeated. Judge what it needs next.",
   stageAsksUser: "Automatic follow-up: owned work or a helper is waiting. First resolve ordinary task questions and recoverable work gates using the original mandate and available evidence. Ask the user only for missing authority, credentials, personal choices or an unresolved ambiguity; never grant a tool approval or stage sign-off.",
-  limitReached: "Automatic follow-up: delegated work paused at its execution turn limit. Judge whether extending its budget fits the original mandate and autonomy policy; propose extend when appropriate.",
+  limitReached: "Automatic follow-up: delegated work paused at a turn limit from before runs stopped having one. Judge whether continuing still fits the original mandate and autonomy policy; propose resume when it does.",
   waitExpired: "Automatic follow-up: delegated work is waiting, and no update arrived during the waiting period. Judge whether it needs the user or other work.",
 });
 // i18n-ignore: model-facing text of an automatic follow-up; the interface shows a translated line instead
@@ -117,10 +117,10 @@ export function claimTarsMessage(ports: Pick<TarsFollowUpPorts, "events" | "conv
  * never starts two. If a message arrived since the projection was read, an
  * invalidated decision waits for the next pass instead of being judged on it.
  *
- * Budget: no follow-up once the automatic turns since the user's last action
- * reach `TARS_FOLLOW_UP_CAP` (the visible event is kept as `exhausted`), and
- * at most `TARS_FOLLOW_UP_WINDOW_CAP` per rolling window; past the cap the
- * events stay pending and `nextWindowAt` says when to look again.
+ * Budget: at most `TARS_FOLLOW_UP_WINDOW_CAP` per rolling window; past it the
+ * events stay pending and `nextWindowAt` says when to look again. No count
+ * since the user's last action stops them: each change gets one follow-up, so
+ * they last as long as the work they follow, whose own time bound ends it.
  */
 export function admitTarsFollowUps(ports: TarsFollowUpPorts): { created: number; nextWindowAt: string | null } {
   const now = ports.now();
@@ -174,8 +174,6 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
       const noticeId = recordTarsPrNotice(ports.conversations, row!, chosen, now);
       if (noticeId) { ports.events.settle(chosen.key, "followedUp", now, noticeId); created++; return null; }
       const gate = ports.events.gate(now);
-      // The durable exhausted event is rendered once in the conversation, with the message-to-continue recovery.
-      if (gate.usedTurns >= TARS_FOLLOW_UP_CAP) { ports.events.settle(chosen.key, "exhausted", now); return null; }
       if (gate.nextWindowAt) return gate.nextWindowAt;
       let messageId: string;
       if (chosen.kind === "decisionInvalidated") {

@@ -1143,7 +1143,6 @@
     "provider": "Provider",
     "searchProviders": "Search providers",
     "noProviders": "No matching providers",
-    "maxTurns": "Turn limit per task, including helpers",
     "priority": "Priority (0–100, higher first)",
     "priorityValue": "Priority {{priority}}",
     "scope": "Tars may create isolated worktrees, execute, repair and review work within this goal. Publishing and external messages require a separate request.",
@@ -1591,8 +1590,6 @@
       "stageAttempt": "Stage {{current}} of {{total}} · {{title}}, attempt {{attempt}}",
       "stagesDone": "{{finished}} of {{total}} stages done",
       "progressLabel": "Stage progress",
-      "turnsLeft_one": "{{count}} turn left",
-      "turnsLeft_other": "{{count}} turns left",
       "helpers_one": "{{count}} helper working",
       "helpers_other": "{{count}} helpers working",
       "runPending": "Run details are not loaded yet.",
@@ -2553,7 +2550,6 @@
         "none": "Nothing"
       },
       "conditional": {
-        "extend": "add turns beyond the automatic cap or with an unknown budget",
         "publish": "publish without a verified PR or merge goal"
       },
       "action": {
@@ -2565,7 +2561,6 @@
         "takeover": "hand work over to you",
         "deny": "deny a tool request",
         "resume": "resume work",
-        "extend": "add turns to a task",
         "retryStage": "retry a stage",
         "handBack": "take back work you took over",
         "signOff": "approve a waiting stage",
@@ -2764,7 +2759,6 @@
       "previous": "Previous waiting item",
       "next": "Next waiting item"
     },
-    "maxTurnsHint": "A turn is one request for an agent to work. The limit includes the lead agent and its helpers.",
     "settings": {
       "tabsLabel": "Tars settings categories",
       "general": "General",

@@ -18,9 +18,9 @@ function elements(tree: ReactNode): ReactElement<Record<string, unknown>>[] {
   if (!isValidElement<Record<string, unknown>>(tree)) return [];
   return [tree, ...elements(tree.props.children as ReactNode), ...elements(tree.props.actions as ReactNode)];
 }
-const rule: TarsAllowRule = { key: "extend", repositoryPath: "/tmp/billing" };
+const rule: TarsAllowRule = { key: "retryStage", repositoryPath: "/tmp/billing" };
 const decision: TarsDecisionView = { id: "confirm:message:0", kind: "confirm", messageId: "message", actionIndex: 0, question: null,
-  targets: [{ responsibilityId: "work", expectedRevision: 2 }], options: [{ kind: "control", control: { responsibilityId: "work", expectedRevision: 2, operation: "extend" }, label: null, rationale: null }],
+  targets: [{ responsibilityId: "work", expectedRevision: 2 }], options: [{ kind: "control", control: { responsibilityId: "work", expectedRevision: 2, operation: "retryStage" }, label: null, rationale: null }],
   recommended: 0, state: "waiting", why: null, checked: true, answer: null, failure: null, latest: true, record: null, delivery: null,
   since: "2026-11-05T00:00:00.000Z", reask: false, reasked: false };
 
@@ -82,7 +82,7 @@ test("Undo removes only permission and settings Remove reports the remaining rul
     }
     const html = renderToStaticMarkup(createElement(TarsAllowRulesProvider, { settings, busy: false, configure: async (next) => store.configure(next), children: createElement(Records) }));
     expect(records.listed).toEqual([saved]);
-    expect(html).toContain("Always allowed: add turns to a task");
+    expect(html).toContain("Always allowed: retry a stage");
     expect(html).toContain("billing");
     const undo = elements(records.tree).filter((entry) => typeof entry.props.onClick === "function")[0]!;
     await (undo.props.onClick as () => Promise<void>)();
@@ -105,11 +105,11 @@ test("Careful, irreversible keys, missing repository and full rules do not offer
     { settings: { ...SETTINGS, ...overrides }, busy: false, configure: async (settings) => settings,
       children: createElement(TarsAlwaysAllowButton, { actionKey: key, repositoryPath, onApply: () => {} }) }));
   for (const key of TARS_ALWAYS_CONFIRMED) expect(render(key)).toBe("");
-  expect(render("extend", { autonomy: "careful" })).toBe("");
-  expect(render("extend", {}, null)).toBe("");
-  expect(render("extend", { allowRules: Array.from({ length: 24 }, (_, index) => ({ ...rule, repositoryPath: `/tmp/repo-${index}` })) })).toBe("");
+  expect(render("retryStage", { autonomy: "careful" })).toBe("");
+  expect(render("retryStage", {}, null)).toBe("");
+  expect(render("retryStage", { allowRules: Array.from({ length: 24 }, (_, index) => ({ ...rule, repositoryPath: `/tmp/repo-${index}` })) })).toBe("");
   applyAppLocale("ko"); await i18n.changeLanguage("ko");
-  expect(render("extend")).toContain("항상 허용");
+  expect(render("retryStage")).toContain("항상 허용");
   const html = renderToStaticMarkup(createElement(TarsAutonomySettings, { level: "balanced", rules: [], allowRules: [rule], onLevelChange: () => {}, onRulesChange: () => {}, onAllowRulesChange: () => {} }));
   expect(html).toContain("항상 허용한 동작"); expect(html).toContain("/tmp/billing"); expect(html).not.toContain("tars.autonomy.");
 });

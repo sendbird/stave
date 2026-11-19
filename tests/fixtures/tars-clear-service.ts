@@ -50,7 +50,7 @@ export function service(options: { filename?: string; start?: number; answer?: (
   const runtime = createTarsRuntime({ store: responsibilities, now, validateScope: async () => {},
     prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: options.findRun ?? (async () => null),
     startRun: async (entry) => `run-${entry.id}`, observe: async () => ({ state: "running", detail: null }),
-    controlRun: async (entry, operation, max, commandId) => { if (options.controlRun) await options.controlRun(entry, operation, max, commandId); controls.push([entry.id, operation]); } });
+    controlRun: async (entry, operation, commandId) => { if (options.controlRun) await options.controlRun(entry, operation, commandId); controls.push([entry.id, operation]); } });
   const controls: Array<[string, string]> = [];
   const coordinator = createSecondaryRunCoordinator({
     getLedger: () => ({ getRunAggregate: ledger.getAggregate.bind(ledger), claimRunStep: ledger.claimStep.bind(ledger),

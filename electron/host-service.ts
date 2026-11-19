@@ -2372,7 +2372,6 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
           read: accounts => getRateLimitsSnapshot({ runtimeOptions: accounts, providers: ["claude-code", "codex"], force: true, reason: "dispatch-guard" }) }),
         requestTick: () => tarsRuntime.requestTick(),
         control: (action, ledger) => tarsRuntime.act(action, ledger),
-        readRunBudget: (id) => persistence.agentRuns.getAggregate(id)?.agentRun ?? null,
         publish: (input) => tarsPublisher.publish(input),
         workspace: { read: id => persistence.workspaceInformation.read(id), write: (id, info, now) => persistence.workspaceInformation.write(id, info, now), changed: (workspaceId, workspaceInformation) => localMcpRuntime.emitWorkspaceInformationUpdate({ workspaceId, workspaceInformation }) },
         snapshotWorkingChanges: ({ workspaceId, messageId, date }) => snapshotTarsWorkingChanges({

@@ -91,8 +91,9 @@ describe("Tars settings agent allowlist", () => {
     // The model picker lists only Claude and Codex, so no line restates it; nor do the runtime limits the guide already states.
     expect(automatic).not.toContain("Delegated work uses Claude or Codex.");
     expect(automatic).not.toContain("Work continues while Stave is running");
-    expect(automatic).toContain("Turn limit per task, including helpers");
-    expect(automatic).toContain("A turn is one request for an agent to work.");
+    // Runs have no turn limit, so the sheet offers none.
+    expect(automatic).not.toContain("Turn limit per task, including helpers");
+    expect(automatic).not.toContain("A turn is one request for an agent to work.");
     // "Changes apply to new messages and work" is the sheet's description now, not one more paragraph in the form.
     expect(automatic).not.toContain("Changes apply to new messages and work");
     expect(automatic).toContain("These instructions guide Tars; they do not give it extra permissions.");

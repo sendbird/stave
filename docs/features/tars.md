@@ -23,7 +23,7 @@ Long record and Activity descriptions stay on one line with their full text on h
 
 ## Give Tars work from a source
 
-For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account, model constraints and shared turn budget. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
+For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account and model constraints. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
 
 
 Automatic execution reads usage for the captured Claude and Codex accounts before assigning new work. It prefers a provider with confirmed room when the current one is low, critical, exhausted or unknown; an unknown reading never counts as room. Explicit model pins and fixed-agent provider constraints stay in place. Each admitted Run keeps its provider and accounts, and refreshes missing or expired usage before starting another turn.
@@ -195,8 +195,8 @@ own task, in its execution workspace and repository.
 
 Tars **observes your run and does not act in it.** Everything Tars may do by
 itself was granted for the run it started: publishing for a pull request goal,
-answering ordinary questions, run controls (resume, extend, retry, message and
-the rest) and delivering queued follow-ups. None of it carries over to your
+answering ordinary questions, run controls (resume, retry, message and the
+rest) and delivering queued follow-ups. None of it carries over to your
 run. If Tars thinks something should be done there, it asks on a decision card
 for that run, and only your confirmation applies it. A control is checked
 against the run and revision it was approved for just before it acts: when you
@@ -324,11 +324,11 @@ reports on the work.
   **Do later**, or by dragging it in the tray. Start queued work at once,
   beside the work already running, from **Start now** or your words ("run it
   now", "대기 중인 거 강제로 실행해").
-- Do what you would do to the run in its task, from your words: give a run
-  paused at its turn limit more turns, retry a blocked or stuck stage, skip
-  the current stage, sign off a stage waiting for your approval, or resume a
-  run paused by a usage limit. Resume, retry and bounded extensions apply at
-  once at Balanced or Hands-off; skip and sign-off always need confirmation.
+- Do what you would do to the run in its task, from your words: retry a
+  blocked or stuck stage, skip the current stage, sign off a stage waiting for
+  your approval, or resume a run paused by a usage limit. Resume and retry
+  apply at once at Balanced or Hands-off; skip and sign-off always need
+  confirmation. Runs have no turn limit to extend.
 - Answer what waits in the work's task from your words: approve or deny a
   tool approval, answer a question the run asked, send your words to the run
   as your reply ("tell it to use the existing index"), or request changes on a
@@ -423,15 +423,16 @@ reports on the work.
   Cursor, Kiro and OpenCode are not supported.
 - **Agent allowlist.** Saved agents are usable only after you allow them in
   settings (none at first). The host still refuses an unsuitable one.
-- **Turn limit.** Every work unit gets the whole turn limit (default 60, 1 to
-  100); its run and its helpers share it. One message proposes at most 8
-  work units.
+- **No turn limit.** A work unit's run is bounded by time and provider usage,
+  not by a turn count; it stops only if it loops (200 turns without
+  finishing, shared with its helpers). One message proposes at most 8 work
+  units.
 - **Follow-up timing.** One follow-up per change. A running run whose stage
   stops to ask you is followed up at once; a plain wait (a paused run, a usage
   limit, a tool approval or question waiting in the task) only after an hour
-  without change. At most six follow-ups start per hour, and automatic turns
-  since your last user action toward Tars stop at a separate cap of 20,
-  independent of execution turn limits. Automatic controls and withdrawals do not restart the count. A
+  without change. At most six follow-ups start per hour; no count since your
+  last action stops them, so work that needs nothing from you is not left
+  waiting for your next message. A
   follow-up never starts new work, starts queued work now, pauses, takes over,
   hands back, skips a stage or accepts work as done.
 - **Answers in the task are once and yours.** Tars answers a tool approval
@@ -558,11 +559,10 @@ fit (for example, sign-off while no stage waits for it) is refused with
 
 | Ask | Effect on the run |
 |---|---|
-| "Give it more turns" (**Add turns**) | A run paused at its turn limit gets 10 more turns and continues. |
 | "Retry it" (**Retry stage**) | A blocked or stuck current stage starts a fresh attempt. |
 | "Skip this stage" (**Skip stage**) | The run moves past its current stage. It cannot be undone, so it is never the recommended choice. |
 | "Approve it" (**Approve stage**) | A stage waiting for your sign-off starts. |
-| "Resume it" (**Resume**) | Also continues a run paused by a usage limit or an expired wait. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
+| "Resume it" (**Resume**) | Also continues a run paused by a usage limit, an expired wait, or the old turn limit of an earlier version. Over a run whose stage waits for an answer, resume is refused: retry, skip or answer in the task instead. |
 
 None of these apply to work you took over, including a run you took over in
 its task before Tars noticed, or to work you paused through Tars: resume it
@@ -733,8 +733,7 @@ Accept it, cancel it, or ask Tars for new verification work.
 
 **Tars did not follow up.** It follows up once per change; plain waits wait an
 hour; at most six follow-ups start per hour (the card shows **Next check**);
-the automatic-turn counter pauses follow-ups at its cap of 20; nothing
-follows up while Stave is closed, for work you paused or took over, or for a
+nothing follows up while Stave is closed, for work you paused or took over, or for a
 change you already wrote about.
 
 **Stop paused the work instead of cancelling it.** That is intended while Tars
@@ -745,7 +744,7 @@ end.
 the work over first.
 
 **Hand back was refused.** The run already ended, is held for a reason only
-its task can clear (such as its turn limit), or the stage it would restart
+its task can clear, or the stage it would restart
 (the fix stage, or a review that may end the run) has no attempts left. Open the task, or cancel and ask for new work.
 
 **A message shows as interrupted after a restart.** Reasoning is never re-run
@@ -903,8 +902,9 @@ the one clear that also changes work: it cancels Tars's unfinished work.
 
 ## Delegation and execution
 
-Each work unit's run gets the configured turn limit and shares it with its
-supervised helpers. Local MCP must be
+Each work unit's run is bounded by time and provider usage, like any Agent
+run; it and its supervised helpers share only the guard against loops. Local
+MCP must be
 enabled for supervised runs to report their stages; when it is not, the run is
 not admitted and the responsibility is blocked.
 
@@ -1075,7 +1075,7 @@ candidate · click · Applied"; it is not shown as a message from you.
   isolated worktrees of the same repository. No portfolio cap is imposed unless
   **Settings → Concurrent responsibilities** is a positive integer; `0` (the
   default, including earlier saved settings without this field) adds no cap.
-  This is separate from the per-run turn budget and team helper limits.
+  This is separate from the team helper limits.
 - A configured cap counts running work, preparation and uncertain execution
   receipts. Waiting work yields its slot; admitted runs may resume when their
   own constraints clear. Lowering the cap does not interrupt admitted work.
@@ -1580,7 +1580,7 @@ follow-up turn of Tars's own, so blocked work does not wait silently for you to
 ask:
 
 - the work became blocked,
-- its run paused at its turn limit (`limitReached`): Tars follows up immediately and may propose an extension under the autonomy policy,
+- its run is paused at the old turn limit of an earlier version (`limitReached`): Tars follows up immediately and may propose to resume it under the autonomy policy,
 - its run's own stage stopped while the run is still running: the stage
   blocked, got stuck or awaits your sign-off. A helper the run delegated to
   counts the same way when its stage stops, since the run waits for that
@@ -1616,7 +1616,7 @@ line's mark on the record rail, so they read as one item Tars wrote by itself.
 It goes through the same queue as your messages: it is only added while none
 of your messages can start, and a follow-up still queued starts nothing once
 you have written to Tars about the change. It may ask a question, propose a
-resume, cancel, stage retry, more turns, instructions or sign-off when what
+resume, cancel, stage retry, instructions or sign-off when what
 it observed fits, or open a view. The autonomy policy decides which need
 confirmation. A verified resultReady execution can also offer or open its
 draft PR under the publication rule. It never proposes
@@ -1651,16 +1651,15 @@ changes of the same work are combined into one. Follow-ups are limited:
   them; inbox rows written by earlier development builds are not migrated.
   Past that, the change waits, and the work's tray card says when Tars looks
   next.
-- Automatic turns (follow-ups and re-asks) are counted since your last action
-  toward Tars: a message, an answer, a **Confirm** or any control click in
-  Tars, Fleet or the task. At the separate cap of 20 automatic follow-ups,
-  independent of execution turn limits, Tars stops and says so in the conversation and on the
-  card; your next action starts the count again. This count is separate from
-  the turns of delegated work, which it does not use up. One follow-up counts
-  as one automatic turn even when it uses inspection rounds or transient retries
-  (up to six provider attempts).
+- No count of automatic turns stops follow-ups. The hourly limit above is
+  their budget, each change gets one follow-up, and only work that is still
+  live changes, so follow-ups end with the work they follow. One follow-up
+  counts once in the hourly limit even when it uses inspection rounds or
+  transient retries (up to six provider attempts). A notice that Tars stopped
+  after 20 automatic follow-ups, recorded by an earlier version, stays in the
+  conversation until your next action.
 
-Automatic controls and Tars-authored withdrawals never reset this count. A stalled answer delivery explains its wait and releases later conversation messages within one minute, without resending an in-flight request; settlement wakes the queue. Storage contention keeps retrying at a capped delay until storage becomes available.
+A stalled answer delivery explains its wait and releases later conversation messages within one minute, without resending an in-flight request; settlement wakes the queue. Storage contention keeps retrying at a capped delay until storage becomes available.
 
 A waiting card shows **Next check** with the time Tars follows up if nothing
 changes before then; it never shows a time that has passed, and shows nothing
@@ -1673,11 +1672,10 @@ when Stave starts; unprocessed ones are kept.
 Open **Tars settings** in the conversation
 header to change the name, standing instructions, how long ended work stays in
 the panel, conversation model and account, execution model, the agents Tars may
-use and the turn limit per work unit. A turn is one request for an agent to
-work; the limit includes the lead agent and its helpers.
+use and how many responsibilities run at once.
 Until you change them, the conversation uses Codex when it is available
-(otherwise Claude Code) with that provider's model from your app settings, and
-a turn limit of 60; the first send saves these choices for the conversation.
+(otherwise Claude Code) with that provider's model from your app settings; the
+first send saves these choices for the conversation.
 Settings have three tabs: **General** (name, standing instructions and ended-work
 retention), **Models** (conversation model/account, execution model and allowed
 agents), and **Work** (autonomy, rules and work limits). Draft edits survive
@@ -1713,17 +1711,15 @@ Tars's next decision, without a restart.
 | --- | --- | --- |
 | Start requested work, reorder the queue, start queued work now | Confirm | Immediate |
 | Resume, retry a stage, instruct Tars's own run, request changes | Confirm | Immediate, including automatic follow-ups |
-| Extend the run's turn budget | Confirm | Immediate only up to twice the originally admitted `maxTurns`; otherwise confirm |
 | Publish a verified `resultReady` execution whose original goal is a PR or merge | Confirm | Push the verified commit to the execution branch and open a **draft** PR |
 | Publish other eligible results | Confirm | Confirm: "Open a PR?" |
 | Cancel, skip a stage, accept completion, approve a tool request, hand back authority, sign off, answer for the user, clear | Confirm | Confirm |
 | Pause, take over, deny a tool request | Immediate | Immediate |
 
-The extension cap uses the original task budget, not a repeatedly enlarged
-budget. Missing budget evidence asks first. Every automatic action leaves a
+Every automatic action leaves a
 visible receipt or activity record. Resume and retry offer **Undo** to pause
 the same execution; Undo does not rewind code already changed. Instructions
-already sent to a run and consumed turn budgets cannot be undone. Pending
+already sent to a run and the turns it took cannot be undone. Pending
 message delivery retains its existing withdrawal control.
 
 After execution verifies, an automatic follow-up may offer publication without
@@ -1872,8 +1868,7 @@ STAVE_TARS_LIVE_E2E=1 STAVE_TARS_LIVE_RESULTS=/tmp/tars-live.json \
 ```
 
 `STAVE_TARS_LIVE_CLAUDE_MODEL` picks the conversation and pinned execution
-model (default `claude-sonnet-5-5`); the turn limit is capped at 12 and each
-scenario at 25 minutes. Each scenario records every expectation with its
+model (default `claude-sonnet-5-5`); each scenario is capped at 25 minutes. Each scenario records every expectation with its
 evidence, turns, wall time and the run's recorded cost, appends that entry to
 `STAVE_TARS_LIVE_RESULTS`, then fails if any expectation failed.
 
@@ -1983,4 +1978,4 @@ Explicitly requested branch deletion uses safe deletion only; it never forces a 
 
 A batch that was executing when Stave stopped reads as interrupted: its record shows what ran and offers **Continue**, which runs the same frozen remaining items and re-checks each one. A failed archive counts as applied only when this batch made the archive; a workspace someone else archived meanwhile is reported as already archived and is not restored by this record's **Restore**. A restore whose branch was deleted is labelled read-only. Opening **Clean up finished work** again reuses the open preview; declining it removes it. Unconfirmed previews expire after a day, and at most 50 finished Done-lane records are kept; each sits in the conversation at the time it was prepared.
 
-Tars can continue a blocked independent review through the supervised stage path, preserving the current reviewer route, permissions and team budget. It does not substitute an implementation chat turn or skip review. Provider quota exhaustion waits for a saved reset reservation; with no reset time, usage is rechecked every five minutes and work resumes only after confirmed headroom. Manual pauses, takeovers, approvals and daily limits remain under user control.
+Tars can continue a blocked independent review through the supervised stage path, preserving the current reviewer route, permissions and team limits. It does not substitute an implementation chat turn or skip review. Provider quota exhaustion waits for a saved reset reservation; with no reset time, usage is rechecked every five minutes and work resumes only after confirmed headroom. Manual pauses, takeovers, approvals and daily limits remain under user control.

@@ -21,7 +21,7 @@ interface InboxDatabase {
 const AUTOMATIC_ORIGINS = "('followUp', 'reask')";
 
 /** When the follow-up window opens again (null: open now) and how many automatic turns ran since the user last spoke. */
-export interface TarsFollowUpGate { nextWindowAt: string | null; usedTurns: number }
+export interface TarsFollowUpGate { nextWindowAt: string | null }
 
 /**
  * The durable event inbox on the connection both Tars stores use. Its key is
@@ -225,26 +225,15 @@ export class TarsEventInbox {
     return times.reduce<string | null>((latest, at) => at && (!latest || at > latest) ? at : latest, null);
   }
 
-  /**
-   * The budget an automatic follow-up draws from: at most
-   * `TARS_FOLLOW_UP_WINDOW_CAP` in any rolling window, and the automatic
-   * turns since the user's last action (a typed message, a chosen answer, a
-   * Confirm or any control click), which restarts the count.
-   */
+  /** The budget an automatic follow-up draws from: at most `TARS_FOLLOW_UP_WINDOW_CAP` in any rolling window. */
   gate(now: string): TarsFollowUpGate {
-    if (!this.messagesReady()) return { nextWindowAt: null, usedTurns: 0 };
+    if (!this.messagesReady()) return { nextWindowAt: null };
     // The window counts planner starts, not message creation: a follow-up
     // queued long ago still counts when it starts. Queued ones count as
     // starting now, so admission never queues more than the window can start.
     const queued = Number((this.db.prepare(`SELECT COUNT(*) AS count FROM tars_messages
       WHERE state = 'queued' AND json_extract(body_json, '$.origin.kind') IN ${AUTOMATIC_ORIGINS}`).get() as { count: number }).count);
-    const nextWindowAt = this.windowOpening(now, queued);
-    const used = this.db.prepare(`SELECT COUNT(*) AS count FROM tars_messages
-      WHERE json_extract(body_json, '$.origin.kind') IN ${AUTOMATIC_ORIGINS} AND created_at > ?
-        AND rowid > COALESCE((SELECT MAX(rowid) FROM tars_messages
-          WHERE json_extract(body_json, '$.origin.kind') IS NULL OR json_extract(body_json, '$.origin.kind') = 'answer'), 0)`)
-      .get(this.lastUserClickAt() ?? "") as { count: number };
-    return { nextWindowAt, usedTurns: Number(used.count) };
+    return { nextWindowAt: this.windowOpening(now, queued) };
   }
 
   /** When the window has room for one more start, given `queued` more starting now; null when it has room now. */
@@ -308,7 +297,7 @@ export class TarsEventInbox {
       AND json_extract(body_json, '$.source') IN ('click', 'fleet', 'task', 'key', 'words', 'drag') LIMIT 1`).get(at, responsibilityId));
   }
 
-  /** Whether the user acted toward Tars in any way after this time; that restarts the automatic-turn count. */
+  /** Whether the user acted toward Tars in any way after this time; that clears an old exhaustion notice. */
   userActedSince(at: string): boolean {
     const click = this.lastUserClickAt();
     return (click !== null && click > at) || this.userSpokeSince(at);

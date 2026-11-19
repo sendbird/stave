@@ -14,10 +14,7 @@ import { isTarsPublicationUnfinished } from "../../src/lib/tars/publication";
 import { tarsControlInputProblem } from "../../src/lib/tars/types";
 import { AGENT_RUN_LIMITS, AgentRunCommandError } from "../../src/lib/agent-runs/domain";
 
-export type TarsControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation" | "input"> & {
-  /** Host-only automatic extension fence; never part of a renderer or model payload. */
-  autoExtendMaxTurns?: number;
-};
+export type TarsControlRequest = Pick<TarsControlAction, "responsibilityId" | "expectedRevision" | "operation" | "input">;
 
 /**
  * Where one control request settles: a message receipt or a click record. Both
@@ -120,7 +117,10 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
       }
       return row;
     }
-    case "extend": case "retryStage": case "skipStage": case "signOff":
+    case "extend":
+      // A stored proposal from when runs paused at a turn limit: nothing is left to extend.
+      return refuse("runRefused", "Runs no longer stop at a turn limit. Resume paused work instead.");
+    case "retryStage": case "skipStage": case "signOff":
       // The same commands the user gives the run in its task, on Tars's own run only.
       if (userOwned) refuse("takenOver", "You took over this work. Continue it in its task, or hand it back first.");
       // A command would move a run the user paused through Tars, and the paused row would no longer be observed.

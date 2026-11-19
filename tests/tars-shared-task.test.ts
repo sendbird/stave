@@ -88,11 +88,11 @@ describe("Tars and the user share a delegated task", () => {
     });
   }
   test("a control approved for Tars's run is refused with no effect once the user's run is in the task, never applied to it", async () => {
-    // Tars's run paused at its turn limit, and its card is still on screen when the user continues in the task.
+    // Tars's run paused at the old turn limit, and its card is still on screen when the user continues in the task.
     const f = fixture("waiting");
     const shown = f.store.patch(f.row.id, f.current().revision, { detail: "limit-reached", detailCode: "runPaused", detailParams: { reason: "limit-reached" } }, NOW);
     f.userContinues();
-    const record = await f.act(shown, "extend");
+    const record = await f.act(shown, "resume");
     expect(f.controlled).toEqual([]);
     expect(record).toMatchObject({ status: "rejected", reason: "stale" });
     // The work follows the user's run; the user can decide again on that run.
@@ -141,9 +141,8 @@ describe("Tars and the user share a delegated task", () => {
     for (const level of ["balanced", "handsOff"] as const)
       for (const origin of ["automatic", "user"] as const) {
         expect(tarsActionMode("answer", level, origin, { ownedQuestion: true, responsibility: row })).toBe("confirm");
-        for (const key of ["resume", "message", "retryStage", "requestChanges", "extend", "deny"] as const)
-          expect(tarsActionMode(key, level, origin, { responsibility: row, allowRules: [{ key, repositoryPath: null }],
-            extend: { admittedMaxTurns: 30, currentMaxTurns: 30 } })).toBe("confirm");
+        for (const key of ["resume", "message", "retryStage", "requestChanges", "deny"] as const)
+          expect(tarsActionMode(key, level, origin, { responsibility: row, allowRules: [{ key, repositoryPath: null }] })).toBe("confirm");
       }
     // The user's own explicit stop still applies at once.
     expect(tarsActionMode("pause", "balanced", "user", { responsibility: row })).toBe("auto");

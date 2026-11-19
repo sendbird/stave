@@ -1,5 +1,4 @@
 import { tarsCanUpdatePublication, tarsResultStanding } from "./publication";
-import { AGENT_RUN_LIMITS } from "../agent-runs/domain";
 import { isTarsObservingUserRun } from "./ownership";
 import { z } from "zod";
 import type { TarsControlOperation, TarsResponsibility } from "./types";
@@ -28,14 +27,14 @@ export const TarsNeverRulesSchema = z.array(z.string().trim().min(1).max(TARS_NE
   .refine((rules) => new Set(rules.map((rule) => rule.toLocaleLowerCase())).size === rules.length, "Each rule is listed once.");
 
 /**
- * Controls that return authority to Tars, give its run more room or end work.
+ * Controls that return authority to Tars, let its run continue or end work.
  * At the careful level a model-proposed one waits for the user's confirming
  * click; pause and takeover, which only reduce Tars's authority, apply at
  * once. `startNow` only changes when already admitted work starts, but careful
  * still asks before it.
  */
 export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set([
-  "resume", "handBack", "cancel", "acceptCompletion", "extend", "retryStage", "skipStage", "signOff",
+  "resume", "handBack", "cancel", "acceptCompletion", "retryStage", "skipStage", "signOff",
   // Answering for the user in the task: the card shows the exact request, answers or words first.
   "approve", "answer", "message", "requestChanges",
 ]);
@@ -45,11 +44,15 @@ export const TARS_CONFIRMED_OPERATIONS: ReadonlySet<TarsControlOperation> = new 
  */
 export const TARS_IRREVERSIBLE_OPERATIONS: ReadonlySet<TarsControlOperation> = new Set(["cancel", "acceptCompletion", "skipStage", "approve"]);
 
-/** Every act Tars can propose, by the name the policy table and Settings use. A question (`ask`) is never an act. */
+/**
+ * Every act Tars can propose, by the name the policy table and Settings use. A
+ * question (`ask`) is never an act. `extend` is gone: runs no longer stop at a
+ * turn limit, so a stored `extend` control maps to no key and waits to be refused.
+ */
 export const TARS_ACTION_KEYS = [
   "show", "workspaceEdit", "workspaceReplace",
   "delegate", "reprioritize", "startNow", "pause", "takeover", "deny",
-  "resume", "extend", "retryStage", "handBack", "signOff", "answer", "message", "requestChanges", "clear",
+  "resume", "retryStage", "handBack", "signOff", "answer", "message", "requestChanges", "clear",
   "cancel", "skipStage", "acceptCompletion", "approve", "publish",
 ] as const;
 export type TarsActionKey = (typeof TARS_ACTION_KEYS)[number];
@@ -63,7 +66,11 @@ export const TarsAllowRuleSchema = z.object({
   savedAt: z.string().datetime().optional(),
 }).strict();
 export type TarsAllowRule = z.infer<typeof TarsAllowRuleSchema>;
-export const TarsAllowRulesSchema = z.array(TarsAllowRuleSchema).max(TARS_ALLOW_RULES_MAX);
+/** A saved rule for a retired act (`extend`) is dropped on read rather than failing the whole settings row. */
+export const TarsAllowRulesSchema = z.preprocess(
+  (rules) => Array.isArray(rules) ? rules.filter((rule) => !(rule && typeof rule === "object" && (rule as { key?: unknown }).key === "extend")) : rules,
+  z.array(TarsAllowRuleSchema).max(TARS_ALLOW_RULES_MAX),
+);
 export function sameTarsAllowRule(left: TarsAllowRule, right: TarsAllowRule): boolean {
   return left.key === right.key && left.repositoryPath === right.repositoryPath;
 }
@@ -74,7 +81,7 @@ export type TarsActionMode = "auto" | "confirm";
 export type TarsActionOrigin = "user" | "automatic";
 
 /** User decisions at every level: irreversible effects, answers and transfers of authority. */
-export const TARS_ALWAYS_CONFIRMED: ReadonlySet<TarsActionKey> = new Set([...TARS_IRREVERSIBLE_OPERATIONS, "handBack", "signOff", "answer", "clear"]);
+export const TARS_ALWAYS_CONFIRMED: ReadonlySet<TarsActionKey> = new Set<TarsActionKey>([...TARS_IRREVERSIBLE_OPERATIONS as ReadonlySet<TarsActionKey>, "handBack", "signOff", "answer", "clear"]);
 /** `careful` adds a confirmation to these, which the default applies at once. */
 const CAREFUL_CONFIRMED: ReadonlySet<TarsActionKey> = new Set(["delegate", "reprioritize", "startNow", "workspaceReplace"]);
 /** Both automatic levels instruct or continue only work Tars already owns. */
@@ -97,24 +104,10 @@ export interface TarsActionContext {
   repositoryPath?: string | null;
   responsibility?: Pick<TarsResponsibility, "completionGoal" | "state" | "agentRunId" | "resultVerifiedRunId" | "resultUnverifiedRunId" | "executionPending" | "executionWorkspaceId" | "publication" | "detailCode"> &
     Partial<Pick<TarsResponsibility, "followedRunId">> | null;
-  extend?: { admittedMaxTurns: number; currentMaxTurns: number; additionalTurns?: number } | null;
 }
 
 export function tarsHasAllowRule(key: TarsActionKey, context: TarsActionContext): boolean {
   return Boolean(context.allowRules?.some((rule) => rule.key === key && (rule.repositoryPath === null || rule.repositoryPath === context.repositoryPath)));
-}
-
-/** One recovery allowance, bounded by twice the original budget, prevents repeated extensions from growing without limit. */
-export const TARS_AUTO_EXTEND_MULTIPLIER = 2;
-/** The run command adds ten turns, capped by its existing absolute ceiling. */
-export const TARS_EXTEND_TURNS = 10;
-
-export function tarsCanAutoExtend(budget: TarsActionContext["extend"]): boolean {
-  if (!budget) return false;
-  const { admittedMaxTurns, currentMaxTurns, additionalTurns = TARS_EXTEND_TURNS } = budget;
-  return [admittedMaxTurns, currentMaxTurns, additionalTurns].every((value) => Number.isSafeInteger(value) && value > 0)
-    && currentMaxTurns < AGENT_RUN_LIMITS.maxTurnsCeiling
-    && Math.min(currentMaxTurns + additionalTurns, AGENT_RUN_LIMITS.maxTurnsCeiling) <= admittedMaxTurns * TARS_AUTO_EXTEND_MULTIPLIER;
 }
 
 /**
@@ -143,7 +136,6 @@ export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | nu
   if (chosen !== "careful") {
     if (tarsHasAllowRule(key, context)) return "auto";
     if (REVERSIBLE_APPLIED.has(key)) return "auto";
-    if (key === "extend") return tarsCanAutoExtend(context.extend) ? "auto" : "confirm";
     if (key === "publish") return tarsCanAutoPublish(context.responsibility) ? "auto" : "confirm";
   }
   return chosen === "careful" && CAREFUL_CONFIRMED.has(key) ? "confirm" : defaultMode(key);
@@ -152,7 +144,7 @@ export function tarsActionMode(key: TarsActionKey, level: TarsAutonomyLevel | nu
 /** The policy key of a decision action; null for a question, which is never applied by itself. */
 export function tarsActionKey(action: { kind: string; operation?: string }): TarsActionKey | null {
   if (action.kind === "workspace") return ["replaceNotes", "removeTodo", "removeField", "removeResource"].includes(action.operation ?? "") ? "workspaceReplace" : "workspaceEdit";
-  if (action.kind === "control") return (action.operation ?? null) as TarsControlOperation | null;
+  if (action.kind === "control") return (TARS_ACTION_KEYS as readonly string[]).includes(action.operation ?? "") ? action.operation as TarsActionKey : null;
   return action.kind === "ask" ? null : (TARS_ACTION_KEYS as readonly string[]).includes(action.kind) ? action.kind as TarsActionKey : null;
 }
 
@@ -191,7 +183,6 @@ const ACTION_WORDS: Readonly<Partial<Record<TarsActionKey, readonly string[]>>> 
   reprioritize: ["priority", "reprioritize", "reorder", "우선순위"],
   startNow: ["start now", "바로 시작", "바로 실행"],
   resume: ["resume", "재개"],
-  extend: ["extend", "more turns", "more steps"],
   retryStage: ["retry", "재시도"],
   handBack: ["hand back", "돌려"],
   signOff: ["sign off", "sign-off", "사인오프"],

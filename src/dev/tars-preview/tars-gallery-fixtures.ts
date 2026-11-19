@@ -369,9 +369,9 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   }
   {
     const c = begin("E3", "Confirmation: refused by the host", "확인: 호스트가 거절함");
-    const action = control(billing, "extend", 1);
-    const { decisionId } = propose("g-e3", c.at(), `${c.label}: ${l("give the billing fix more turns.", "결제 수정에 턴을 더 줘.")}`,
-      l("Confirm below to add turns.", "아래에서 확인하시면 턴을 추가합니다."), [action]);
+    const action = control(billing, "retryStage", 1);
+    const { decisionId } = propose("g-e3", c.at(), `${c.label}: ${l("retry the billing fix's stage.", "결제 수정 단계를 다시 시도해.")}`,
+      l("Confirm below to retry the stage.", "아래에서 확인하시면 단계를 다시 시도합니다."), [action]);
     confirmAnswer(decisionId(), action, c.at(20), "click", { reason: "runHeld" });
   }
   {
@@ -420,8 +420,8 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
   waiting("F5", "Confirm cards: sign off or request changes", "확인 카드: 승인 또는 변경 요청", ["the settings migration wants my sign-off.", "설정 마이그레이션이 내 승인을 기다려."],
     ["Its design stage waits for you. Sign it off, or ask for the change below.", "설계 단계가 기다리고 있습니다. 승인하거나 아래 변경을 요청하세요."],
     [control(settingsStore, "signOff"), control(settingsStore, "requestChanges", settingsStore.revision, { text: l("Keep the old keys readable for one release.", "이전 키는 한 릴리스 동안 읽을 수 있게 둬.") })]);
-  waiting("F6", "Confirm card: add turns", "확인 카드: 턴 추가", ["the billing fix is near its turn limit.", "결제 수정이 턴 한도에 가까워."],
-    ["It has used most of its turns on the cause. Add turns so it can finish.", "원인을 찾느라 턴을 거의 다 썼습니다. 턴을 추가하면 마무리할 수 있습니다."], [control(billing, "extend")]);
+  waiting("F6", "Confirm card: resume", "확인 카드: 재개", ["the billing fix is paused.", "결제 수정이 멈췄어."],
+    ["It is paused from before the update. Resume it so it can finish.", "업데이트 전부터 멈춰 있습니다. 재개하면 마무리할 수 있습니다."], [control(billing, "resume")]);
   waiting("F7", "Approval card and a question card from one task", "한 작업의 승인 카드와 질문 카드", ["the Node upgrade is waiting on me.", "Node 업그레이드가 나를 기다리고 있어."],
     ["Its task waits for an approval and an answer.", "작업이 승인 하나와 답변 하나를 기다리고 있습니다."],
     [control(runtime, "approve", runtime.revision, { requestRef: "gallery-runtime-approval" }),
@@ -565,7 +565,7 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
     direct(migration, "takeover", "click");
     direct(migration, "handBack", "fleet");
     direct(webhook, "startNow", "click");
-    direct(billing, "extend", "task");
+    direct(billing, "retryStage", "task");
     direct(docs, "acceptCompletion", "key");
     direct(search, "retryStage", "words");
     direct(billing, "pause", "click", { status: "pending" });

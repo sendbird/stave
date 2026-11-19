@@ -39,8 +39,8 @@ function ownedFixture(timing: "before-read" | "queued", reason: AgentRunPauseRea
   });
   cleanups.push(() => native.stop());
   let queueChanges = 0;
-  const dispatch: NonNullable<Parameters<typeof service>[0]>["controlRun"] = async (entry, operation, max, commandId) => controlTarsRun(entry, operation, {
-    commandId, commandEvents: id => runs.listEventsByKind(id, ["control-applied"]), autoExtendMaxTurns: max,
+  const dispatch: NonNullable<Parameters<typeof service>[0]>["controlRun"] = async (entry, operation, commandId) => controlTarsRun(entry, operation, {
+    commandId, commandEvents: id => runs.listEventsByKind(id, ["control-applied"]),
     hasAssignment: () => true, readTask: async () => ({ activeTurnId: null }), readRun: () => current().agentRun,
     linkedTurns: () => [], userTurnIds: () => [], abortTurn: () => { throw new Error("No turn to abort"); },
     agentRuns: { ...native, cancel: (args, guard) => {
@@ -88,11 +88,11 @@ test("ordinary explicit Cancel still cancels a user-paused Run", async () => {
 test.each(["paused-by-user", "taken-over"] as const)("already applied reset Run command reconciles after a newer %s hold without cancelling twice", async reason => {
   const { work, dispatch, hold, current, runs } = ownedFixture("before-read", reason);
   const key = "click:clear-work:lost-ack:owned";
-  await dispatch!(work, "cancel", undefined, key);
+  await dispatch!(work, "cancel", key);
   expect(current().agentRun.state).toBe("cancelled");
   expect(runs.listEventsByKind(work.agentRunId!, ["control-applied"])).toHaveLength(1);
   hold();
-  await dispatch!(work, "cancel", undefined, key);
+  await dispatch!(work, "cancel", key);
   expect(current().agentRun).toMatchObject({ state: "paused", pauseReason: reason });
   expect(runs.listEventsByKind(work.agentRunId!, ["control-applied"])).toHaveLength(1);
 });

@@ -1137,7 +1137,6 @@
     "provider": "프로바이더",
     "searchProviders": "프로바이더 검색",
     "noProviders": "일치하는 프로바이더가 없습니다",
-    "maxTurns": "작업당 턴 한도(보조 에이전트 포함)",
     "priority": "우선순위 (0–100, 높을수록 먼저)",
     "priorityValue": "우선순위 {{priority}}",
     "scope": "이 목표 안에서 독립 워크트리 생성, 실행, 수정, 검수를 자동으로 진행합니다. 게시와 외부 메시지 전달은 별도 요청이 필요합니다.",
@@ -1575,7 +1574,6 @@
       "stageAttempt": "{{total}}단계 중 {{current}}단계 · {{title}}, {{attempt}}회 시도",
       "stagesDone": "{{total}}단계 중 {{finished}}단계 완료",
       "progressLabel": "단계 진행률",
-      "turnsLeft_other": "남은 턴 {{count}}",
       "helpers_other": "보조 에이전트 {{count}}개 작업 중",
       "runPending": "실행 세부 정보를 아직 불러오지 않았습니다.",
       "attention": {
@@ -2497,7 +2495,6 @@
         "none": "없음"
       },
       "conditional": {
-        "extend": "자동 한도를 넘기거나 예산을 확인할 수 없을 때 턴 늘리기",
         "publish": "검증된 PR·병합 목표가 없는 결과 게시하기"
       },
       "action": {
@@ -2509,7 +2506,6 @@
         "takeover": "작업을 사용자에게 넘기기",
         "deny": "도구 요청 거부",
         "resume": "작업 재개",
-        "extend": "작업의 턴 한도 늘리기",
         "retryStage": "단계 다시 시도",
         "handBack": "사용자가 가져간 작업 다시 맡기",
         "signOff": "대기 중인 단계 승인",
@@ -2697,7 +2693,6 @@
       "previous": "이전 대기 항목",
       "next": "다음 대기 항목"
     },
-    "maxTurnsHint": "턴은 에이전트에게 한 번 작업을 요청하는 단위입니다. 담당·보조 에이전트가 사용한 턴을 합산합니다.",
     "settings": {
       "tabsLabel": "Tars 설정 분류",
       "general": "기본",

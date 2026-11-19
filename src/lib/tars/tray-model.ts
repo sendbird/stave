@@ -96,8 +96,6 @@ export interface TarsTrayCard<T extends TarsTrayAttentionInput = TarsTrayAttenti
   progress: TarsRunProgress | null;
   /** The run as this window read it, for its recent progress; null until read. */
   run: AgentRunDetail | null;
-  /** Null unless the run is active and read: an unknown budget is not "0 left". */
-  remainingTurns: number | null;
   /** Helpers working now, from the run's resource ledger; null when the host did not report it. */
   helpers: number | null;
   attention: TarsTrayAttentionRow<T>[];
@@ -207,7 +205,6 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
       owner: row.state === "takenOver" ? "you" : "tars",
       progress: run ? projectTarsRunProgress(run) : null,
       run: run ?? null,
-      remainingTurns: live ? Math.max(0, live.agentRun.maxTurns - live.agentRun.turnCount) : null,
       helpers: live?.resources ? live.resources.activeHelpers : null,
       attention: attentionByResponsibility.get(row.id) ?? [],
       followUp: tarsTrayFollowUp(row, args.followUps ?? [], args.now),

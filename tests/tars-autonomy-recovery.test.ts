@@ -8,7 +8,7 @@ import { undoTarsAction } from "../electron/host-service/tars-action-undo";
 import { admitTarsFollowUps } from "../electron/main/tars-follow-up";
 import { buildTarsPlannerPrompt } from "../electron/main/tars-planner";
 import { canUndoTarsAction } from "../src/lib/tars/action-undo";
-import { tarsActionMode, TARS_AUTONOMY_LEVELS, tarsCanAutoExtend } from "../src/lib/tars/autonomy";
+import { tarsActionMode, TARS_AUTONOMY_LEVELS } from "../src/lib/tars/autonomy";
 import type { TarsDecisionAction, TarsMessageOrigin } from "../src/lib/tars/conversation";
 import type { TarsResponsibility } from "../src/lib/tars/types";
 import { REGISTRY, SETTINGS, testContext } from "./tars-test-context";
@@ -21,15 +21,15 @@ function fixture(level: typeof TARS_AUTONOMY_LEVELS[number] = "balanced") {
   const conversations = new TarsConversationStore(db), responsibilities = new TarsStore(db);
   conversations.configure({ ...SETTINGS, autonomy: level });
   const controls: string[] = [];
-  let budget = 30, count = 0;
+  let count = 0;
   const runtime = createTarsRuntime({ store: responsibilities, now: () => NOW, validateScope: async () => {},
     prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => null,
     startRun: async () => "run", observe: async () => ({ state: "running", detail: null }),
-    controlRun: async (_row, operation) => { controls.push(operation); if (operation === "extend") budget += 10; },
+    controlRun: async (_row, operation) => { controls.push(operation); },
     respondTask: async (_row, action) => { controls.push(action.operation); return "sent"; } });
   runtime.stop();
   const ports: TarsDecisionPorts = { conversations, responsibilities, readRegistry: () => REGISTRY,
-    requestTick: () => {}, now: () => NOW, readRunBudget: () => ({ maxTurns: budget }),
+    requestTick: () => {}, now: () => NOW,
     control: (action, ledger) => runtime.act(action, ledger) };
   const create = (patch: Partial<TarsResponsibility> = {}) => {
     const { completionGoal = "implementation", ...value } = patch;
@@ -49,19 +49,17 @@ function fixture(level: typeof TARS_AUTONOMY_LEVELS[number] = "balanced") {
   const undo = (requestId: string) => undoTarsAction({ requestId, expectedRevision: conversations.getAction(requestId)!.revision }, {
     conversations, responsibilities, readRegistry: () => REGISTRY, serialize: runtime.serializeUndo,
     control: (action, ledger) => runtime.act(action, ledger), now: () => NOW });
-  return { db, conversations, responsibilities, controls, runtime, ports, create, admit, undo, setBudget: (value: number) => { budget = value; } };
+  return { db, conversations, responsibilities, controls, runtime, ports, create, admit, undo };
 }
 
 for (const level of TARS_AUTONOMY_LEVELS) for (const origin of ["user", "automatic"] as const) {
-  test(`${level}/${origin}: extension reaches the fixed cap, then waits for a budget decision`, async () => {
-    const f = fixture(level); f.setBudget(50);
+  test(`${level}/${origin}: a proposal to extend a run is refused, since runs have no turn limit`, async () => {
+    const f = fixture(level);
     const row = f.create();
     const result = await f.admit({ kind: "control", responsibilityId: row.id, expectedRevision: row.revision, operation: "extend" }, origin === "automatic");
-    expect(result.receipts[0]?.status).toBe(level === "careful" ? "proposed" : "applied");
-    if (level === "careful") return;
-    const current = f.responsibilities.get(row.id)!;
-    expect((await f.admit({ kind: "control", responsibilityId: row.id, expectedRevision: current.revision, operation: "extend" }, origin === "automatic")).receipts[0]?.status).toBe("proposed");
-    expect(f.controls).toEqual(["extend"]);
+    // The user's words reach the host's refusal; a follow-up is refused earlier, as outside its scope.
+    expect(result.receipts[0]).toMatchObject({ status: "rejected", reason: origin === "automatic" ? "notByFollowUp" : "runRefused" });
+    expect(f.controls).toEqual([]);
   });
   test(`${level}/${origin}: only the verified original PR goal authorizes automatic publication`, () => {
     const row = fixture(level).create({ completionGoal: "pullRequest", state: "resultReady", resultVerifiedRunId: "run" });
@@ -81,14 +79,6 @@ for (const level of TARS_AUTONOMY_LEVELS) for (const origin of ["user", "automat
       expect(tarsActionMode("publish", level, origin, { responsibility: { ...unverified, ...patch } })).toBe("confirm");
   });
 }
-
-test("extension fails closed on unknown or invalid budgets and counts all previous extensions", () => {
-  for (const budget of [undefined, null, { admittedMaxTurns: 0, currentMaxTurns: 10 }, { admittedMaxTurns: 30, currentMaxTurns: NaN },
-    { admittedMaxTurns: 30, currentMaxTurns: 51 }, { admittedMaxTurns: 30, currentMaxTurns: 30, additionalTurns: 31 }]) expect(tarsCanAutoExtend(budget)).toBe(false);
-  expect(tarsCanAutoExtend({ admittedMaxTurns: 30, currentMaxTurns: 50 })).toBe(true);
-  expect(tarsCanAutoExtend({ admittedMaxTurns: 50, currentMaxTurns: 95 })).toBe(true);
-  expect(tarsCanAutoExtend({ admittedMaxTurns: 50, currentMaxTurns: 100 })).toBe(false);
-});
 
 for (const operation of ["resume", "retryStage", "message", "requestChanges"] as const) {
   test(`automatic ${operation} leaves a durable record; only continuation can be paused by Undo`, async () => {

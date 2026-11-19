@@ -121,7 +121,7 @@ describe("Tars tray UI", () => {
     expect(html.indexOf('data-tars-card="docs"')).toBeGreaterThan(hidden);
   });
 
-  test("a running card shows stage, progress, turns left and helpers from its run", () => {
+  test("a running card shows stage, progress and helpers from its run, never turns left", () => {
     const f = fixtures();
     const card = trayOf(f).lanes.running.find((value) => value.row.id === f.ids.billing)!;
     const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: noActions }));
@@ -132,7 +132,8 @@ describe("Tars tray UI", () => {
     expect(html).toContain('data-tars-monitor-count="2/3"');
     expect(html).toContain('aria-current="step"');
     expect(html).toContain('data-tars-progress="1/3"');
-    expect(html).toContain("Owner: Tars · 18 turns left · 2 helpers working");
+    expect(html).toContain("Owner: Tars · 2 helpers working");
+    expect(html).not.toContain("turns left");
     expect(html).toContain('data-tars-state="running"');
     expect(html).toContain('data-state="working"');
     // The fixture's stage start is a fixed past time: the clock shows a duration, never a zero placeholder.

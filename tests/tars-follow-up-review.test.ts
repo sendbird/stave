@@ -2,7 +2,7 @@ import { afterEach, expect, test } from "bun:test";
 import { actTars } from "../electron/host-service/tars-control";
 import { admitTarsFollowUps } from "../electron/main/tars-follow-up";
 import { tarsTrayFollowUp } from "../src/lib/tars/tray-model";
-import { TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_CAP, TARS_WAIT_FOLLOW_UP_MS } from "../src/lib/tars/events";
+import { TARS_EVENT_RETENTION_MS, TARS_WAIT_FOLLOW_UP_MS } from "../src/lib/tars/events";
 import type { TarsDecisionAction } from "../src/lib/tars/conversation";
 import type { TarsResponsibility } from "../src/lib/tars/types";
 import { followUpFixture, minutes } from "./tars-follow-up-fixture";
@@ -78,26 +78,6 @@ test("a follow-up whose change stopped standing before the model call is cancell
   expect(f.automatic().map((message) => message.state)).toEqual(["cancelled"]);
   expect(f.responsibilities.events.listRecent(5).map((event) => [event.kind, event.status])).toEqual([["blocked", "superseded"]]);
   expect(f.service.getConversation().messages.at(-1)?.origin?.kind).toBe("followUp");
-});
-
-test("any user action restarts the automatic-turn count: a control click as much as a typed message", async () => {
-  const f = fixture({ maxTurns: 1 }); f.service.start();
-  // Exhaust the independent follow-up cap, leaving room in the hourly window for recovery.
-  for (let index = 0; index < TARS_FOLLOW_UP_CAP; index++) {
-    f.responsibility("blocked", { detail: "Stuck." }); await f.settle();
-    f.advance(minutes(61));
-  }
-  const second = f.responsibility("blocked", { detail: "Stuck." }); await f.settle();
-  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
-  expect(f.responsibilities.snapshot().followUps).toEqual([{ responsibilityId: second.id, kind: "blocked", status: "exhausted", at: null }]);
-  f.advance(minutes(1));
-  const other = f.responsibility("running");
-  await click(f, other, "pause", "click-pause");
-  expect(f.responsibilities.snapshot().followUps).toEqual([]);
-  f.advance(minutes(1));
-  const third = f.responsibility("blocked", { detail: "Stuck." }); await f.settle();
-  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP + 1);
-  expect(f.automatic().at(-1)?.origin).toMatchObject({ responsibilityId: third.id });
 });
 
 test("the next check of waiting work is never shown in the past, nor once that wait was followed up", async () => {

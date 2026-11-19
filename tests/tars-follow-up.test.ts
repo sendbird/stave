@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { actTars } from "../electron/host-service/tars-control";
-import { tarsEventKey, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UP_CAP } from "../src/lib/tars/events";
+import { tarsEventKey, TARS_FOLLOW_UP_WINDOW_CAP } from "../src/lib/tars/events";
 import type { TarsDecisionAction } from "../src/lib/tars/conversation";
 import { followUpFixture, minutes, START } from "./tars-follow-up-fixture";
 
@@ -74,25 +74,17 @@ test("global cap: past the window cap events wait, the tray says until when, and
   expect(f.responsibilities.snapshot().followUps).toEqual([]);
 });
 
-test.each([1, 100])("automatic follow-ups have a separate cap and one visible exhaustion record (run maxTurns %s)", async (maxTurns) => {
-  const f = fixture({ maxTurns }); f.service.start();
-  for (let index = 0; index < TARS_FOLLOW_UP_CAP; index++) {
+test("overnight, follow-ups keep coming past the old cap of 20 without a user action, bounded by the hourly window", async () => {
+  const f = fixture({ maxTurns: 1 }); f.service.start();
+  const OLD_CAP = 20;
+  for (let index = 0; index < OLD_CAP + 5; index++) {
     f.responsibility("blocked", { detail: "Stuck." });
     await f.settle();
     f.advance(minutes(61));
   }
-  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
-  const exhausted = f.responsibility("blocked", { detail: "Still stuck." });
-  await f.settle();
-  expect(eventsOf(f, exhausted.id)).toEqual([expect.objectContaining({ status: "exhausted", messageId: null })]);
-  expect(f.service.getConversation().events?.filter((event) => event.status === "exhausted")).toHaveLength(1);
-  expect(f.responsibilities.snapshot().followUps).toContainEqual({ responsibilityId: exhausted.id, kind: "blocked", status: "exhausted", at: null });
-  f.advance(minutes(120)); await f.settle();
-  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
-  expect(f.service.getConversation().events?.filter((event) => event.status === "exhausted")).toHaveLength(1);
-  await f.send("Continue checking.");
-  f.responsibility("blocked", { detail: "A new change." }); await f.settle();
-  expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP + 2);
+  expect(f.planner).toHaveLength(OLD_CAP + 5);
+  expect(f.service.getConversation().events?.filter((event) => event.status === "exhausted") ?? []).toHaveLength(0);
+  expect(f.responsibilities.snapshot().followUps.filter((state) => state.status === "exhausted")).toEqual([]);
 });
 
 test("an event never resumes or reclaims work the user took over or paused", async () => {

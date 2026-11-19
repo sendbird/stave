@@ -103,10 +103,11 @@ test("8: Tars claims cover execution commits, bounded rounds/retries and logical
   expect(docs).not.toContain("Delegated work does not commit");
   expect(docs.replace(/\s+/g, " ")).toContain("Delegated work commits verified changes on its execution branch");
   expect(docs).toContain("up to six provider attempts");
-  expect(docs).toContain("one automatic turn even when it uses inspection rounds or transient retries");
   const claims = docs.replace(/\s+/g, " ");
-  expect(claims).toContain("At the separate cap of 20 automatic follow-ups, independent of execution turn limits");
-  expect(claims).toContain("Automatic controls and Tars-authored withdrawals never reset this count");
+  expect(claims).toContain("One follow-up counts once in the hourly limit even when it uses inspection rounds or transient retries");
+  // No count of automatic turns since the user's last action stops follow-ups any more.
+  expect(claims).toContain("No count of automatic turns stops follow-ups");
+  expect(claims).not.toContain("cap of 20 automatic follow-ups");
 });
 
 test("one work owner keeps implementation, debugging and verification; the workflow owns the single review", () => {

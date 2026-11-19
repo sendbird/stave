@@ -65,7 +65,7 @@ export interface TarsRuntimePorts {
    */
   followTaskRun?: (row: TarsResponsibility) => string | null;
   observe: (row: TarsResponsibility) => Promise<TarsExecutionObservation>;
-  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation, autoExtendMaxTurns?: number, commandId?: string) => Promise<void>;
+  controlRun: (row: TarsResponsibility, operation: TarsRunControlOperation, commandId?: string) => Promise<void>;
   hasControlEffect?: (row: TarsResponsibility, commandId: string) => boolean;
   controls?: TarsConversationStore;
   /** Live persisted setting: 0 or absent admits all independent responsibilities. */
@@ -710,7 +710,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
               (!sent || TARS_STOPPING_OPERATIONS.has(request.operation)))
           {
             assertResetOwnership();
-            await ports.controlRun(row, request.operation as TarsRunControlOperation, request.autoExtendMaxTurns, ledger.key);
+            await ports.controlRun(row, request.operation as TarsRunControlOperation, ledger.key);
           }
         } catch (error) {
           // The run changed under the command because the user started one in the task: refused, never a transfer.

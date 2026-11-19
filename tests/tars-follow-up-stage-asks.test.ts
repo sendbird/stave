@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import type { StageStatus } from "@/lib/agent-runs/domain";
-import { TARS_FOLLOW_UP_CAP, classifyTarsTransition, isTarsEventCurrent, isTarsStageAskingUser, tarsNextWaitCheck } from "@/lib/tars/events";
+import { classifyTarsTransition, isTarsEventCurrent, isTarsStageAskingUser, tarsNextWaitCheck } from "@/lib/tars/events";
 import { tarsObservation } from "../electron/host-service/tars-execution";
 import { agentRunFixture } from "./fixtures/agent-run-fixtures";
 import { followUpFixture, minutes } from "./tars-follow-up-fixture";
@@ -136,21 +136,5 @@ describe("an immediate follow-up for a stage that asks the user", () => {
     f.service.start(); await f.settle();
     expect(f.planner).toHaveLength(0);
     expect(eventsOf(f, row.id).map((event) => event.status)).toEqual(["superseded"]);
-  });
-
-  test("the independent follow-up cap records an asking episode as exhausted", async () => {
-    const f = fixture({ maxTurns: 1 }); f.service.start();
-    for (let index = 0; index < TARS_FOLLOW_UP_CAP; index++) {
-      const first = f.responsibility("running");
-      f.observations.set(first.id, asks()); await f.settle();
-      f.advance(minutes(61));
-    }
-    const second = f.responsibility("running");
-    f.observations.set(second.id, asks()); await f.settle();
-    expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
-    expect(eventsOf(f, second.id).map((event) => [event.kind, event.status])).toEqual([["stageAsksUser", "exhausted"]]);
-    await f.settle();
-    expect(f.planner).toHaveLength(TARS_FOLLOW_UP_CAP);
-    expect(eventsOf(f, second.id)).toHaveLength(1);
   });
 });

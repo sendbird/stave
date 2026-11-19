@@ -9,8 +9,8 @@ import type { PersistenceRepositoryRegistryEntry } from "../persistence/types";
 import { ApplyTarsDecisionInputSchema, ConfirmTarsProposalInputSchema } from "../../src/lib/tars/conversation";
 import type { TarsActionReason, TarsActionReceipt, TarsDecisionAction, TarsMessage } from "../../src/lib/tars/conversation";
 import {
-  matchTarsNeverRules, tarsHasAllowRule, tarsActionDisposition, tarsActionKey, tarsEffectiveAutonomy, tarsRepositoryName,
-  TARS_AUTO_EXTEND_MULTIPLIER, type TarsActionOrigin, type TarsNeverRuleMatch,
+  matchTarsNeverRules, tarsActionDisposition, tarsActionKey, tarsEffectiveAutonomy, tarsRepositoryName,
+  type TarsActionOrigin, type TarsNeverRuleMatch,
 } from "../../src/lib/tars/autonomy";
 import { isTarsWorkProposal, parseTarsDecisionId, type TarsWorkProposalAction } from "../../src/lib/tars/decisions";
 import { isTarsStorageBusy, TarsStorageBusyError, type TarsConversationStore } from "../persistence/tars-conversation-store";
@@ -70,7 +70,6 @@ export interface TarsDecisionPorts {
    */
   snapshotWorkingChanges?: (request: TarsWorkingChangesRequest) => Promise<TarsWorkingChanges>;
   /** Current run budget, read from the host ledger rather than the planner's observation. */
-  readRunBudget?: (agentRunId: string) => { maxTurns: number } | null;
   /** The same guarded draft publication path as a confirmed card. */
   publish?: (input: TarsPublishInput) => Promise<TarsPublishResult>;
   workspace?: TarsWorkspacePorts;
@@ -148,8 +147,7 @@ function tarsAdmissionGuard(ports: TarsDecisionPorts, message: TarsMessage) {
     // already default to auto; only never-do rules need their registry subject.
     const target = rules.length ? subject(action, registry) : { repositoryPath: row?.repositoryPath };
     const matches = rules.length ? matchTarsNeverRules(rules, { key, ...target }) : [];
-    const run = key === "extend" && row?.agentRunId ? ports.readRunBudget?.(row.agentRunId) : null;
-    const context = { ownedQuestion: action.kind === "control" && action.operation === "answer" && tarsOwnedQuestion(row, action.input?.requestRef), allowRules: saved?.allowRules, repositoryPath: target.repositoryPath, responsibility: row, extend: row && run ? { admittedMaxTurns: row.maxTurns, currentMaxTurns: run.maxTurns } : null };
+    const context = { ownedQuestion: action.kind === "control" && action.operation === "answer" && tarsOwnedQuestion(row, action.input?.requestRef), allowRules: saved?.allowRules, repositoryPath: target.repositoryPath, responsibility: row };
     return { confirm: tarsActionDisposition({ key, level, origin, matches, context }) === "confirm", matches };
   };
 }
@@ -459,9 +457,7 @@ export async function applyTarsDecision(rawInput: unknown, ports: TarsDecisionPo
           continue;
         }
         // Words take the same admission, run control and atomic outcome as a click.
-        const row = ports.responsibilities.get(action.responsibilityId);
-        const request = action.operation === "extend" && row && !tarsHasAllowRule("extend", { allowRules: ports.conversations.getSettings()?.allowRules, repositoryPath: row.repositoryPath }) ? { ...action, autoExtendMaxTurns: row.maxTurns * TARS_AUTO_EXTEND_MULTIPLIER } : action;
-        receipts.push(await ports.control(request, tarsAutoControlLedger(ports, message.id, index, intent.revision,
+        receipts.push(await ports.control(action, tarsAutoControlLedger(ports, message.id, index, intent.revision,
           action, now, () => !tarsAdmissionGuard(ports, message)(action).confirm)));
         continue;
       }
