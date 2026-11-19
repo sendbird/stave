@@ -91,9 +91,10 @@ stages yourself, give the agent three stages (Agents → the agent →
    empty repair; findings get one more repair, then the run finishes without a
    third review. The fix stage does not start its own review.
 
-The run checks the assignment's completion criteria at the end. Intermediate
-stage reports can record criteria as unmet or unverified and carry them
-forward. Requirements defined for the current stage, including Stave
+The run checks the assignment's completion criteria at the end, and before
+any Stave action, which acts outside the workspace: the stage before it must
+report every required criterion met. Between AI stages, reports can record
+criteria as unmet or unverified and carry them forward. Requirements defined for the current stage, including Stave
 workspace checks, still apply before that stage advances. A criterion an
 earlier stage met stands unless a later report or check reopens it.
 

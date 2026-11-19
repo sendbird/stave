@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { AiStage, WorkflowStage } from "@/lib/workflows/schema";
+import { stageSettlesRunCriteria } from "@/lib/workflows/stage-prompt";
 import type { AgentRunAggregate, AgentRunStageRecord, CompleteStageReport } from "./domain";
 import { collectAcceptanceCriteria, inheritedWorkspaceCheckCriteria } from "./briefing";
 import { revisionsMatch } from "./verification-contract";
@@ -26,16 +27,18 @@ type RequiredReportCriterion = NonNullable<WorkflowStage["acceptanceCriteria"]>[
 
 /**
  * The criteria an AI stage's complete report must mark met, keyed by trimmed
- * text: this stage's required criteria, the goal criteria the final stage
- * must settle, and the final report's own required additions. Host checks among
+ * text: this stage's required criteria and, at the last stage or before a
+ * Stave action, the goal criteria still open and the report's own required
+ * additions. Host checks among
  * them (`verification: "stave-check"`) are settled by Stave, not the report.
  */
 function requiredAiStageCriteria(aggregate: AgentRunAggregate, record: AgentRunStageRecord, stage: AiStage): Map<string, RequiredReportCriterion> {
   const explicit = stage.acceptanceCriteria?.filter((criterion) => criterion.required !== false) ?? [];
   const required = new Map<string, RequiredReportCriterion>(explicit.map((criterion) => [criterion.text.trim(), criterion]));
-  // Intermediate reports carry goal criteria forward, while the stage's own checks still gate it.
-  const finalStage = aggregate.agentRun.currentStageIndex === aggregate.agentRun.workflow.stages.length - 1;
-  if (!finalStage || stage.role === "plan") return required;
+  // Reports carry goal criteria forward to a later AI stage, while the stage's
+  // own checks still gate it. The last stage, and the stage before a Stave
+  // action (which acts outside the workspace), must settle them.
+  if (!stageSettlesRunCriteria(aggregate.agentRun.workflow, aggregate.agentRun.currentStageIndex) || stage.role === "plan") return required;
 
   const inheritedCriteria = collectAcceptanceCriteria(aggregate);
   const optionalTexts = new Set([...inheritedCriteria, ...(stage.acceptanceCriteria ?? [])].filter((criterion) => criterion.required === false).map((criterion) => criterion.text.trim()));

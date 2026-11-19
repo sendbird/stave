@@ -16,6 +16,17 @@ export interface AcceptanceCriterion {
   required?: boolean;
 }
 
+/**
+ * Whether stage `index` must settle every required criterion reported so far:
+ * the last stage, and the stage before a Stave action, which acts outside the
+ * workspace (pushes, opens or readies a pull request, runs a script). Between
+ * AI stages, criteria reported unmet or unverified carry forward.
+ */
+export function stageSettlesRunCriteria(workflow: Pick<Workflow, "stages">, index: number): boolean {
+  const next = workflow.stages[index + 1];
+  return !next || next.kind === "action";
+}
+
 export interface PriorStageSummary {
   title: string;
   summary: string;
@@ -137,11 +148,12 @@ export function compileStagePrompt(input: StagePromptInput): string {
       )
     : null;
 
-  // The last stage completes the run only when every required criterion not
-  // yet met is reported met in its own report (`unmetStageAcceptance`).
+  // The last stage, and the stage before a Stave action, advances only when
+  // every required criterion not yet met is reported met (`unmetStageAcceptance`).
+  const settleRule = "your report marks met every required criterion this stage defines and every required criterion below that is not marked [met], each in its exact text. A criterion marked [met] stays met unless you report it otherwise. Optional criteria do not block completion; keep their actual status and required: false.";
   const lastStageRule = stageIndex === workflow.stages.length - 1
-    ? "This is the last stage. The run finishes only when your report marks met every required criterion this stage defines and every required criterion below that is not marked [met], each in its exact text. A criterion marked [met] stays met unless you report it otherwise. Optional criteria do not block completion; keep their actual status and required: false."
-    : null;
+    ? `This is the last stage. The run finishes only when ${settleRule}`
+    : stageSettlesRunCriteria(workflow, stageIndex) ? `The next stage is a Stave action that acts outside the workspace. It starts only when ${settleRule}` : null;
   const criteria = acceptanceCriteria.length || lastStageRule
     ? section(
         "Acceptance criteria",

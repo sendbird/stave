@@ -3,6 +3,7 @@ import { unmetStageAcceptance, unreportedStageCriteria } from "../src/lib/agent-
 import { currentStageRecord, createStageRecord, StageCompleteReportInputSchema } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction } from "../src/lib/agent-runs/policy";
 import { WorkflowSchema, WORKFLOW_LIMITS, MAX_WORKFLOW_STAGES, MAX_STAGE_ACCEPTANCE_CRITERIA } from "../src/lib/workflows/schema";
+import { BUILTIN_AGENT_WORKFLOWS } from "../src/lib/agents/builtin-workflows";
 import { COMPLETE_REPORT, AGENT_RUN_NOW, agentRunFixture, observe, patchCurrent, turn } from "./fixtures/agent-run-fixtures";
 
 const ai = (id: string) => ({ id, title: id, kind: "ai" as const, instruction: "Do this stage.", doneWhen: "This stage is done." });
@@ -99,6 +100,27 @@ test("a run criterion first reported unmet in an intermediate stage only gates t
   expect(delegated(aggregate)).toMatchObject({ action: "stop", reason: "acceptance-unmet", detail: expect.stringContaining(goal) });
   aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: goal, status: "met" }] } });
   expect(delegated(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+});
+
+test("criteria carry forward only between AI stages: everything reported so far must be met before a Stave action", () => {
+  // Shipper: a Validate report that leaves a required check unverified must not open and ready the PR.
+  const shipper = BUILTIN_AGENT_WORKFLOWS.shipper!;
+  const checks = "Required checks pass locally";
+  let aggregate = reported([...shipper], [{ text: checks, status: "unverified" }]);
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet", detail: expect.stringContaining(checks) });
+  expect(unreportedStageCriteria(aggregate, currentStageRecord(aggregate), {})).toEqual([]);
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "met" }] } });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
+
+  // A criterion an earlier AI stage carried forward must be settled before the action, too.
+  aggregate = aggregateFor([ai("investigate"), ai("build"), { id: "publish", title: "Publish", kind: "action", action: { type: "open-draft-pr" } }]);
+  aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "unverified" }] } };
+  aggregate.agentRun.currentStageIndex = 1;
+  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "build", attempt: 1 }), status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
+  expect(unreportedStageCriteria(aggregate, currentStageRecord(aggregate), {})).toEqual([checks]);
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: checks, status: "met" }] } });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
 });
 
 test("a build stage can precede testing, but final integration cannot leave goal criteria unresolved", () => {
