@@ -1140,23 +1140,33 @@ A work card in the tray reads in three lines:
 
 | State | When | Sentence | The one action |
 |---|---|---|---|
-| **Working** | The work runs, is being prepared, or is queued. Only work that actually runs wears the moving mark. | What Stave last observed ("Running the tests · updated just now"), else the stage in hand; for queued work, why it waits. | **Open task**; **Start now** for queued work; none while the work is still being prepared. |
-| **Waiting** | The work's run waits for something nobody has to do: a usage reset with a known time, or the outside event it asked to be woken by (PR checks, a review, a set time, a helper finishing). It resumes on its own. | When it resumes, in the run's own words ("Waiting for usage reset at 3:00 PM…"). | None. |
+| **Working** | The work has started and is in Tars's hands. Only work that actually runs wears the moving mark. | What Stave last observed ("Running the tests · updated just now"), else the stage in hand. | **Open task**. |
+| **Waiting** | Nothing is wrong and nobody has to act. The work has not started: it is queued, or its workspace is still being prepared. Or its run waits for a usage reset with a known time or the outside event it asked to be woken by (PR checks, a review, a set time, a helper finishing) and resumes on its own. Or you took the work over, which is your choice and not a stop. | What it waits for: for queued work, the scheduler's reason ("Execution limit reached (1 active / 1 allowed)…"); for work being prepared, "Preparing the workspace. The work starts once it is ready."; for a waiting run, when it resumes in the run's own words ("Waiting for usage reset at 3:00 PM…"); for work you took over, that you hold it. | None, except where you can end the wait: **Start now** for queued work, **Hand back** for work you took over. |
 | **Waiting for you** | Tars proposes a control, asks a question, or could not verify a reported completion; a question, an approval or a stage sign-off waits in the work's task or in a helper's task; a result waits for your check. | The proposal, the question or the request. | **Confirm …** for a proposal (danger tone when it cannot be undone); **Answer**, which shows the decision card above the message box; **Open task** for a request, which opens the task the request waits in (a helper's task when a helper asks); **Open report** for a result. |
-| **Blocked** | Tars could not finish the work, the work is paused, you took it over, its task's turn failed, or its run's stage blocked or got stuck. | Why. | **Open report** for work Tars could not finish; **Resume** for paused work; **Hand back** for work you took over. |
+| **Blocked** | Tars could not finish the work, the work is paused, its task's turn failed, or its run's stage blocked or got stuck. | Why. | **Open report** for work Tars could not finish; **Resume** for paused work. |
 | **Finished** | The work completed. | Its draft pull request, else the first sentence of the run's summary. | **Open PR #n**, else **Open report**, else **Open task**. |
 | **Stopped** | The work was cancelled. | Why. | **Open report**, else **Open task**. |
 
-A card shows no action when none applies: work on hold needs nothing from
-you, and work still being prepared has no task to open yet (its detail then
-offers no **Open task** either).
+A card shows no action when none applies: work whose run resumes on its own
+needs nothing from you, and work still being prepared has no task to open yet
+(its detail then offers no **Open task** either). Work that has not started
+never reads **Working**, and a card never says "has not started" beside
+**Working**.
+
+A card never grows wider than the tray. Its title wraps beside the chevron,
+its sentence takes two lines at most (a live line such as "No update for 5m ·
+progress may be out of date" takes one and ends in an ellipsis when it is
+longer than the card), and the action stays inside the card on the state's
+line, down to a 360 px wide window in both languages and both densities.
 
 Only a real request and a real stop change the state. Fleet's review rows for
 the work's task (a pull request ready to merge or with failed checks, a turn
 that went quiet while still active, a result to read) are listed in the
 card's detail and leave the state as it is. A question or a proposal from
 Tars comes before a result's check: while both wait, the card offers
-**Answer** or **Confirm …**, and **Open report** stays in the detail.
+**Answer** or **Confirm …**, and **Open report** stays in the detail. While
+you hold work you took over, what Fleet lists for its task leaves the card as
+it is; a decision Tars asks about it still reads **Waiting for you**.
 
 **The detail holds everything else.** Selecting the title (or Enter/Space on
 it) unfolds it under the three lines, and folds it again; folding is
@@ -1194,6 +1204,10 @@ settles it). The side view's timeline and Agents keep Tars's finer state tag
 indicator uses the lanes' own names and the numbers their headers show
 ("16 need you · 2 in progress · 4 done · 7 outputs"), so the two never
 disagree: running work that needs you is in **Needs you** and counted there.
+Every header counts the cards under it. Work that Fleet lists several rows
+for (a question and the check of its result, or a pull request ready to merge
+and a quiet turn of one task) is one card and counts once; the card's detail
+lists each row. The sidebar's amber count is the same number.
 The sidebar's Tars entry still counts what is actually running. Each lane
 header keeps its place at the top of the tray while you scroll through it,
 with the chevron beside its name turned down while it is open; an empty lane
@@ -1301,7 +1315,7 @@ draft pull request Stave opened after you confirmed it, and the links the
 run's report recorded, which open in the browser. Each row shows its kind's
 icon, and at its end where it opens: a side-panel icon for the side view, an
 arrow for the browser. The header indicator adds the outputs count only when there is at
-least one; **Needs you** keeps counting Fleet's rows.
+least one; **Needs you** keeps counting its cards.
 
 An output or a card's **Request** opens the side view: one panel about one
 responsibility, with a switch between **Request**, **Report**, **Changes**,
@@ -1627,8 +1641,8 @@ ask:
   blocked, got stuck or awaits your sign-off. A helper the run delegated to
   counts the same way when its stage stops, since the run waits for that
   helper. Tars shows the work as waiting for you and follows up at once, not
-  after the quiet hour, and the tray's **Needs you** counts the helper's row
-  that Fleet shows. Tars tells apart what the stage waits for. Only a stage
+  after the quiet hour, and the work is in the tray's **Needs you** for the
+  helper's row that Fleet shows. Tars tells apart what the stage waits for. Only a stage
   whose agent blocked it for your input or permission asks you a question:
   Tars gets that question and the agent's suggested action in the agent's own
   words, and the line reads **Tars follow-up · Needs your answer or approval**. A

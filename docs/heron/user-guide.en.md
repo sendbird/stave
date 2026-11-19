@@ -733,18 +733,20 @@ applies immediately; it grants no permission and changes no work.
 The header shows where your work stands, such as "1 needs you · 2 in progress ·
 3 done", in the tray's own lane names and with the same numbers its lane
 headers show; running work that needs you is counted under **Needs you**.
+Each number is the cards in that lane: work with several things waiting on
+you is one card and counts once.
 Select it to open the work tray; on a wide window the tray stays open
 beside the conversation. The tray lists **Needs you**, **In progress** and **Done**
 (folded). A lane header stays at the top of the tray while you scroll its
 cards, and an empty lane stays folded to its header with 0. Each card reads in three lines:
 its title; one sentence saying what the work is doing now, what it needs from
 you, or what came out; and its state with one action. The state is one of six,
-the same words the Task panel uses: **Working** (it runs, is being prepared or
-is queued; only work that actually runs has the moving mark), **Waiting** (it
-waits for a usage reset, PR checks or a set time; nobody has to act, and the
-card says when it resumes), **Waiting for you**, **Blocked** (Tars could not
-finish it, it is paused, you took it over, or it stopped on an error),
-**Finished** and **Stopped**. The one action fits the state: **Confirm
+the same words the Task panel uses: **Working** (it has started; only work
+that actually runs has the moving mark), **Waiting** (nothing is wrong and
+nobody has to act: it is queued, its workspace is being prepared, it waits for
+a usage reset, PR checks or a set time, or you took it over; the card says
+what it waits for), **Waiting for you**, **Blocked** (Tars could not finish
+it, it is paused, or it stopped on an error), **Finished** and **Stopped**. The one action fits the state: **Confirm
 resume** and the like when Tars proposes something and waits for you,
 **Answer** when Tars asks a question (it shows the decision card above the
 message box), **Open task** when a question or an approval waits in a task
@@ -752,8 +754,9 @@ message box), **Open task** when a question or an approval waits in a task
 blocked work or a result to check, **Resume** for paused work, **Hand back**
 for work you took over, **Start now** for queued work, **Open task** for
 running work, and **Open PR #12** or **Open report** for finished work. A card
-that needs nothing from you shows no action: work that is waiting, and work
-still being prepared, whose task does not exist yet. A pull request that is
+that needs nothing from you shows no action: work that waits for a usage
+reset, PR checks or a set time, and work still being prepared, whose task
+does not exist yet. A pull request that is
 ready to merge or a turn that has been quiet for a while does not change the
 state; the card's detail lists it.
 Select a card's title (or press Enter or Space on it) to open its detail under
