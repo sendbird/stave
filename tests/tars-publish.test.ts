@@ -29,6 +29,8 @@ function fakeRepository() {
     gh: "ok" as "ok" | "missing" | "signedOut" | "notGitHub", existing: null as { url: string; number: number; baseRefName: string; headRefOid: string } | null,
     fail: { commit: 0, push: 0, create: 0, comment: 0 }, sha: SHA,
     commits: new Set<string>([SHA]),
+    /** GitHub moves an open PR's head to a pushed commit asynchronously: this many reads after a push still show the old one. */
+    staleReads: 0, pushed: null as string | null,
   };
   const calls: Array<[string, string[]]> = [];
   const ok = (stdout = ""): TarsCommandResult => ({ ok: true, code: 0, stdout, stderr: "" });
@@ -41,10 +43,17 @@ function fakeRepository() {
       if (state.gh === "signedOut") return no("You are not logged into any GitHub hosts. Run gh auth login to authenticate.");
       if (args[0] === "repo") return state.gh === "notGitHub" ? no("none of the git remotes configured for this repository point to a known GitHub host")
         : ok(JSON.stringify({ nameWithOwner: "example/web", url: "https://github.com/example/web" }));
+      if (args[0] === "pr" && (args[1] === "view" || args[1] === "list") && state.existing && state.pushed && state.existing.headRefOid !== state.pushed) {
+        if (state.staleReads > 0) state.staleReads--;
+        else state.existing = { ...state.existing, headRefOid: state.pushed };
+      }
       if (args[0] === "pr" && args[1] === "view") return ok(JSON.stringify({ state: state.existing ? "OPEN" : "CLOSED", headRefName: state.branch, ...state.existing }));
       if (args[0] === "pr" && args[1] === "list") return ok(JSON.stringify(state.existing ? [{ state: "OPEN", headRefName: state.branch, ...state.existing }] : []));
       if (args[0] === "pr" && args[1] === "create") {
         if (state.fail.create > 0) { state.fail.create--; return no("GraphQL: was submitted too quickly"); }
+        // GitHub allows one open pull request per head and base.
+        const base = args.find((arg) => arg.startsWith("--base="))!.slice(7);
+        if (state.existing?.baseRefName === base) return no(`a pull request for branch "${HEAD}" into branch "${base}" already exists:\n${state.existing.url}`);
         state.existing = { url: URL, number: 12, baseRefName: args.find((arg) => arg.startsWith("--base="))!.slice(7), headRefOid: state.sha };
         return ok(`Creating draft pull request for ${HEAD} into main in example/web\n\n${URL}\n`);
       }
@@ -73,6 +82,7 @@ function fakeRepository() {
     }
     if (args[0] === "push") {
       if (state.fail.push > 0) { state.fail.push--; return no("fatal: unable to access remote"); }
+      state.pushed = args.at(-1)!.split(":")[0]!;
       return ok();
     }
     return no(`unexpected git ${line}`);
@@ -88,7 +98,7 @@ function fixture(options: { workspace?: boolean; base?: string } = {}) {
   let clock = 0;
   const now = () => new Date(Date.parse(NOW) + (clock++) * 1_000).toISOString();
   const ports: TarsPublishPorts = {
-    conversations, responsibilities, run: repo.run, now,
+    conversations, responsibilities, run: repo.run, now, wait: async () => {},
     readRevision: async () => ({ status: "known", revision: repo.state.sha }),
     resolveWorkspace: async () => options.workspace === false ? null : { path: "/tmp/exec-checkout", base: options.base ?? "main", repositoryName: "web" },
     readReport: async () => ({ state: "frozen", publicationRevision: { status: "known", revision: SHA }, frozenAt: NOW, finalRevision: "f00ba12", outcome: "completed",
@@ -296,16 +306,40 @@ describe("Tars publish steps", () => {
     expect(f.responsibilities.get(row.id)?.publication).toMatchObject({ state: "opened", existing: true, number: 7 });
   });
 
-  test.each(["wrong base", "wrong commit"])("leaves an unrelated existing PR out of the result (%s)", async (mismatch) => {
+  test("leaves an existing PR into another base out of the result", async () => {
     const f = fixture();
-    const other = { url: "https://github.com/example/web/pull/7", number: 7, headRefName: HEAD,
-      baseRefName: mismatch === "wrong base" ? "release" : "main", headRefOid: mismatch === "wrong commit" ? "2".repeat(40) : SHA };
-    f.repo.state.existing = other;
+    f.repo.state.existing = { url: "https://github.com/example/web/pull/7", number: 7, baseRefName: "release", headRefOid: SHA };
     const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
     const verified = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
     expect((await f.confirm(verified)).record).toMatchObject({ status: "applied", number: 12, url: URL });
     expect(f.repo.commands("pr create")).toHaveLength(1);
     expect(f.responsibilities.get(row.id)).toMatchObject({ state: "completed", publication: { number: 12, base: "main", commit: SHA } });
+  });
+
+  test("an existing PR whose head catches up with the push shortly after is recorded, not reopened", async () => {
+    const f = fixture();
+    const stale = "2".repeat(40);
+    f.repo.state.existing = { url: "https://github.com/example/web/pull/7", number: 7, baseRefName: "main", headRefOid: stale };
+    // The list and the first view still show the old head; the re-read sees the pushed commit.
+    f.repo.state.staleReads = 2;
+    const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    const verified = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.confirm(verified)).record).toMatchObject({ status: "applied", number: 7, url: "https://github.com/example/web/pull/7", existing: true });
+    expect(f.repo.commands("pr create")).toHaveLength(1);
+    expect(f.repo.commands("pr view")).toHaveLength(2);
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "completed", publication: { state: "opened", number: 7, base: "main", commit: SHA } });
+  });
+
+  test("an existing PR whose head stays on another commit fails without completing the work", async () => {
+    const f = fixture();
+    f.repo.state.existing = { url: "https://github.com/example/web/pull/7", number: 7, baseRefName: "main", headRefOid: "2".repeat(40) };
+    f.repo.state.staleReads = Number.POSITIVE_INFINITY;
+    const row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+    const verified = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+    expect((await f.confirm(verified)).record).toMatchObject({ status: "rejected", reason: "publishFailed" });
+    // One bounded re-read, then it gives up.
+    expect(f.repo.commands("pr view")).toHaveLength(2);
+    expect(f.responsibilities.get(row.id)).toMatchObject({ state: "resultReady", publication: { state: "failed", failedStep: "pr", url: null } });
   });
 
   test("an already-exists error does not prove the PR has the right base and commit", async () => {

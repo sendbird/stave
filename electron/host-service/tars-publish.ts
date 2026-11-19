@@ -38,8 +38,13 @@ export interface TarsPublishPorts {
   readRevision?: (cwd: string) => Promise<WorkspaceRevision>;
   run: TarsPublishRunner;
   now?: () => string;
+  /** Waits before re-reading a pull request whose head has not caught up with the push yet. */
+  wait?: (ms: number) => Promise<void>;
   onError?: (error: unknown) => void;
 }
+
+/** GitHub moves an open pull request's head to a pushed commit asynchronously. */
+const PULL_REQUEST_HEAD_REFRESH_MS = 2_000;
 
 export class TarsPublishRejection extends Error {
   constructor(readonly reason: TarsPublishReason, message: string) { super(message); this.name = "TarsPublishRejection"; }
@@ -217,6 +222,7 @@ class TarsPublishStepFailure extends Error {
 
 export function createTarsPublisher(ports: TarsPublishPorts) {
   const now = ports.now ?? (() => new Date().toISOString());
+  const wait = ports.wait ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   // One publish per responsibility at a time; a repeated request id joins the running one.
   const inflight = new Map<string, { requestId: string; promise: Promise<TarsPublishResult> }>();
 
@@ -306,10 +312,19 @@ export function createTarsPublisher(ports: TarsPublishPorts) {
       const verifyPullRequest = async (url: string) => {
         const number = tarsPullRequestNumber(url);
         if (number === null) return null;
-        const current = await ports.run("gh", tarsPublishCommands.view(number), cwd);
-        if (!current.ok && (ghMissing(current) || ghSignedOut(current)))
-          fail("ghUnavailable", diagnostic(current, "GitHub CLI is unavailable."));
-        const live = current.ok ? matchingPullRequest(parsePullRequest(current.stdout), base, head, verifiedHead) : null;
+        const read = async () => {
+          const current = await ports.run("gh", tarsPublishCommands.view(number), cwd);
+          if (!current.ok && (ghMissing(current) || ghSignedOut(current)))
+            fail("ghUnavailable", diagnostic(current, "GitHub CLI is unavailable."));
+          return current.ok ? parsePullRequest(current.stdout) : null;
+        };
+        let pr = await read();
+        // Right pull request, head not yet at the pushed commit: re-read once before calling it the wrong commit.
+        if (pr && pr.headRefOid !== verifiedHead && matchingPullRequest({ ...pr, headRefOid: verifiedHead }, base, head, verifiedHead)) {
+          await wait(PULL_REQUEST_HEAD_REFRESH_MS);
+          pr = await read();
+        }
+        const live = matchingPullRequest(pr, base, head, verifiedHead);
         return live?.url === url ? live : null;
       };
       if (openPr) {
