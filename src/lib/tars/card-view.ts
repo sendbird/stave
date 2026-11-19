@@ -155,6 +155,15 @@ export type TarsCardPrimary =
   | { kind: "openReport" }
   | { kind: "openPullRequest"; url: string; number: number | null };
 
+/**
+ * Whether the work's task can be opened. Preparation names the task before it
+ * prepares the workspace and creates the task (`tars-runtime.ts`), so until
+ * the work's run exists that id leads nowhere.
+ */
+export function tarsTaskOpens(row: Pick<TarsResponsibility, "state" | "taskId" | "agentRunId">) {
+  return Boolean(row.taskId) && !(row.state === "preparing" && !row.agentRunId);
+}
+
 /** The controls that let held work go on, in the order they are offered. */
 const UNBLOCKING: readonly TarsControlOperation[] = ["resume", "handBack", "acceptCompletion"];
 
@@ -162,12 +171,12 @@ const UNBLOCKING: readonly TarsControlOperation[] = ["resume", "handBack", "acce
  * The action that fits the state: answer what waits, read why blocked work
  * stopped or let paused work go on, start queued work or look at running
  * work, open what finished work produced. Work on hold resumes by itself, so
- * it offers nothing. `can` says which openers this view has; null when none
- * applies.
+ * it offers nothing, and so does work still being prepared, which has no task
+ * to open yet. `can` says which openers this view has; null when none applies.
  */
 export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { answer: boolean; report: boolean }): TarsCardPrimary | null {
   const { row } = card;
-  const openTask: TarsCardPrimary | null = row.taskId ? { kind: "openTask" } : null;
+  const openTask: TarsCardPrimary | null = tarsTaskOpens(row) ? { kind: "openTask" } : null;
   // Ended work opens its report only once this window has read the run the report comes from.
   const ended = status.state === "finished" || status.state === "stopped";
   const openReport: TarsCardPrimary | null = can.report && row.agentRunId && (!ended || card.run) ? { kind: "openReport" } : null;

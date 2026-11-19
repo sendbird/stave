@@ -17,7 +17,7 @@ import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { normalizeExternalUrl, openExternalUrl } from "@/lib/external-links";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import { tarsStateSignalId } from "@/lib/tars/attention";
-import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus, type TarsCardPrimary } from "@/lib/tars/card-view";
+import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus, tarsTaskOpens, type TarsCardPrimary } from "@/lib/tars/card-view";
 import { TARS_IRREVERSIBLE_OPERATIONS } from "@/lib/tars/conversation";
 import { describeTarsQueueWait, describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic, describeTarsWorkingChanges } from "@/lib/tars/detail";
 import { isTarsWorkRunning } from "@/lib/tars/live-progress";
@@ -92,7 +92,7 @@ export function TarsCardActions({ card, actions, shown }: { card: TarsTrayCardMo
   // Queue moves need the host's move path; a bridge without it offers none.
   const more = offered.more.filter((action) => (action.kind !== "move" || actions.onMove) && !isShown(action, shown));
   // The work's own task stays in reach while the card's action opens a helper's.
-  const openTask = Boolean(row.taskId) && !(shown?.kind === "openTask" && (shown.request?.taskId ?? row.taskId) === row.taskId);
+  const openTask = tarsTaskOpens(row) && !(shown?.kind === "openTask" && (shown.request?.taskId ?? row.taskId) === row.taskId);
   const run = (action: TarsCardAction) => {
     if (action.kind === "fleet") { if (card.fleetTarget) actions.onShowInFleet(card.fleetTarget); return; }
     if (action.kind === "move") { actions.onMove?.(row, { direction: action.direction }, "click"); return; }

@@ -87,6 +87,17 @@ describe("a Tars work card reads in three lines", () => {
     expect(waitingInQueue.split(">Start now<").length - 1).toBe(1);
   });
 
+  test("work still being prepared offers Open task nowhere, and keeps Pause in its detail", async () => {
+    await applyAppLocale("en");
+    const tray = buildTarsTrayFixtures(start);
+    const preparing: TarsResponsibility = { ...tray.responsibilities.find((row) => row.id === "billing")!, state: "preparing", taskId: "tars-billing", executionWorkspaceId: null, agentRunId: null };
+    const card = Object.values(buildTarsTray({ responsibilities: [preparing], attentionItems: [], runs: {} }).lanes).flat()[0]!;
+    const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions }));
+    expect(controls(folded(html)).length).toBe(1);
+    expect(html).not.toContain(">Open task<");
+    expect(html.slice(html.indexOf("data-tars-card-detail"))).toContain('data-tars-action="pause"');
+  });
+
   test("the three lines read in Korean too", async () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     try {

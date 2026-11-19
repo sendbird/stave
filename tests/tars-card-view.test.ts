@@ -33,8 +33,15 @@ describe("a Tars work card's state, sentence and action", () => {
     await applyAppLocale("en");
     const f = tray();
     expect(read(billing(), { runs: f.runs })).toEqual({ state: "working", waitingOn: null, sentence: null, primary: { kind: "openTask" } });
-    // Before its task exists there is nothing to open.
-    expect(read({ ...billing(), state: "preparing", taskId: null, agentRunId: null }).primary).toBeNull();
+  });
+
+  test("work still being prepared offers no action: its task is named before it exists", async () => {
+    await applyAppLocale("en");
+    // The host saves the task id, then prepares the workspace and creates the task (`tars-runtime.ts`).
+    const preparing: TarsResponsibility = { ...billing(), state: "preparing", taskId: "tars-billing", executionWorkspaceId: null, agentRunId: null };
+    expect(read(preparing)).toMatchObject({ state: "working", primary: null });
+    // Once its run exists the task does too.
+    expect(read({ ...preparing, executionWorkspaceId: "exec-billing", agentRunId: "run-billing" }).primary).toEqual({ kind: "openTask" });
   });
 
   test("queued work is working, says why it waits and offers Start now", async () => {
