@@ -6,6 +6,7 @@ import { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
+import type { DelegatedTaskAnswerRef } from "@/lib/runs/delegated-task-answers";
 import { takeMcpAppModelContextParts } from "@/lib/mcp-app/mcp-app-model-context";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
@@ -1010,12 +1011,13 @@ export function createSendUserMessageAction(args: {
         ...freshSourceContexts,
       ];
       // ── Memory, subagent receipts, handoff record: cross-turn state from main ──
+      const deliveredAnswers: DelegatedTaskAnswerRef[] = [];
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
           workspaceId: taskWorkspaceId, turnId, providerSession: providerSessionCursor,
           repositoryPath: state.repositoryPath,
           parentTaskId: resolvedTaskId,
-          history: latestHistory,
+          history: latestHistory, deliveredAnswers,
           prompt: normalizedPrompt || promptContent,
           promptDraft,
         })),
@@ -1606,6 +1608,8 @@ export function createSendUserMessageAction(args: {
             recentRepositories: get().recentRepositories,
           }),
         }),
+        // Recorded as delivered by the host once the provider has the turn.
+        ...(deliveredAnswers.length > 0 ? { subagentAnswers: deliveredAnswers } : {}),
         onEvent: ({ event }) => providerTurnEventController.handleEvent(event),
       });
       return {

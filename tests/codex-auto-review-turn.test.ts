@@ -95,6 +95,7 @@ function startTurn(server: ReturnType<typeof fakeServer>, args: {
   agentRunId?: string;
   managedTask?: boolean;
   runtimeOptions?: ProviderRuntimeOptions;
+  onPromptAccepted?: () => void;
 }) {
   const events: BridgeEvent[] = [];
   const responders: {
@@ -108,6 +109,7 @@ function startTurn(server: ReturnType<typeof fakeServer>, args: {
     providerId: "codex", turnId: `stave-${args.taskId}`, cwd: server.cwd, taskId: args.taskId, prompt: "Work",
     ...(args.agentRunId ? { agentRunStage: { agentRunId: args.agentRunId, stageId: "work", attempt: 1 }, managedTask: args.managedTask } : {}),
     runtimeOptions: { codexBinaryPath: server.executable, ...(args.runtimeOptions ?? autoReview) },
+    ...(args.onPromptAccepted ? { onPromptAccepted: args.onPromptAccepted } : {}),
     registerAbort: (fn) => { responders.abort = fn; },
     registerApprovalResponder: (fn) => { responders.approval = fn; },
     registerUserInputResponder: (fn) => { responders.userInput = fn; },
@@ -412,4 +414,19 @@ test("a fallback decided before the turn is reported once the turn started, besi
   expect(appliedApprovals(turn.events)).toEqual([{ type: "approvals_applied", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }]);
   expect(appliedAfterStart(turn.events)).toBe(true);
   expect(fallbackNotices(turn.events)).toHaveLength(1);
+}, 10_000);
+
+// The host records a turn's subagent answers when Codex accepts turn/start, never for a refused one.
+test("the prompt counts as accepted once turn/start is acknowledged, and not when every turn/start is refused", async () => {
+  const accepted = fakeServer("0.162.1", { request: "none" });
+  const acceptedEvents: string[] = [];
+  const turn = startTurn(accepted, { taskId: "task-accepted-prompt", onPromptAccepted: () => acceptedEvents.push("accepted") });
+  await turn.work;
+  expect(acceptedEvents).toEqual(["accepted"]);
+  const refused = fakeServer("0.162.1", { request: "none", refuse: { method: "turn/start", when: "always" } });
+  const refusedEvents: string[] = [];
+  const refusedTurn = startTurn(refused, { taskId: "task-refused-prompt", onPromptAccepted: () => refusedEvents.push("accepted") });
+  await refusedTurn.work;
+  expect(stopReason(refusedTurn.events)).toBe("runtime_failure");
+  expect(refusedEvents).toEqual([]);
 }, 10_000);

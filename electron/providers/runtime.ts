@@ -35,9 +35,12 @@ import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type {
   BridgeEvent,
   ProviderResponderResult,
+  ProviderPromptAcceptance,
   ProviderRuntime,
   StreamTurnArgs,
 } from "./types";
+import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/provider-request-translators";
+import { SUBAGENT_RESULTS_SOURCE_ID } from "../../src/lib/providers/transport-bounds";
 import {
   getCodexSlashCommandCatalogDetail,
   listCodexSlashCommands,
@@ -778,18 +781,25 @@ export interface ProviderTurnAdmission {
 }
 let turnAdmission: ProviderTurnAdmission | null = null;
 export function setProviderTurnAdmission(admission: ProviderTurnAdmission | null) { turnAdmission = admission; }
+type ProviderTurnCommittedListener = (turn: { taskId: string; workspaceId?: string; turnId: string; subagentAnswers: NonNullable<StreamTurnArgs["subagentAnswers"]> }) => void;
+let turnCommittedListener: ProviderTurnCommittedListener | undefined;
+/** Told once the provider accepted the prompt of a turn that carries subagent answers; never for a turn refused or failed before that. */
+export function setProviderTurnCommittedListener(listener: ProviderTurnCommittedListener | undefined) { turnCommittedListener = listener; }
 
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   // The composer's selection is read here once and never reaches a provider.
   const { composerSelection, ...sentOptions } = rawArgs.runtimeOptions ?? {};
-  rawArgs = { ...rawArgs, turnId: rawArgs.turnId ?? randomUUID(), ...(rawArgs.runtimeOptions ? { runtimeOptions: sentOptions } : {}) };
+  // So are the subagent answers its context carries: recorded once the provider accepts the prompt.
+  const { subagentAnswers, ...unclaimedArgs } = rawArgs;
+  rawArgs = { ...unclaimedArgs, turnId: rawArgs.turnId ?? randomUUID(), ...(rawArgs.runtimeOptions ? { runtimeOptions: sentOptions } : {}) };
   const release = workspaceExecutionGate.acquire(rawArgs);
   let preparingPolicy = true;
   let admitted = false;
   let routeNote: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote | undefined;
   try {
     if (!rawArgs.executionPolicy && turnAdmission) {
-      await turnAdmission.acquire({ ...rawArgs, runtimeOptions: { ...rawArgs.runtimeOptions, ...(composerSelection ? { composerSelection } : {}) } }, state => rawArgs.onEvent?.({ type: "turn_admission", ...state }));
+      // Admission saves the answers the turn carries, so a start it runs again after a restart records them.
+      await turnAdmission.acquire({ ...rawArgs, runtimeOptions: { ...rawArgs.runtimeOptions, ...(composerSelection ? { composerSelection } : {}) }, ...(subagentAnswers ? { subagentAnswers } : {}) }, state => rawArgs.onEvent?.({ type: "turn_admission", ...state }));
       admitted = true;
       // The terminal event frees the slot at once, whatever ended the turn
       // (timeout, abort, provider error, user stop), together with any
@@ -839,7 +849,7 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
       catch (error) { console.warn("[turn-snapshots] capture failed", { turnId: turnArgs.turnId, error: String(error) }); }
     }
     preparingPolicy = false;
-    return await runScopedProviderTurn(turnArgs, agentTurn, routeNote);
+    return await runScopedProviderTurn({ ...turnArgs, onPromptAccepted: subagentAnswerCommit(turnArgs, subagentAnswers) }, agentTurn, routeNote);
   } catch (error) {
     if (!preparingPolicy) throw error;
     // Mandatory task policy cannot fail open or escape the stream's terminal contract.
@@ -857,8 +867,27 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   } finally { if (admitted) turnAdmission?.release(rawArgs.turnId!); release(); }
 }
 
+/**
+ * The hook a provider adapter calls when its provider accepted the prompt:
+ * only then are the turn's subagent answers recorded as delivered. None when
+ * the prompt cannot carry them: no conversation, a native slash command (sent
+ * alone), or a context without the Subagent results part.
+ */
+function subagentAnswerCommit(turn: StreamTurnArgs, answers: StreamTurnArgs["subagentAnswers"]) {
+  const taskId = turn.taskId, turnId = turn.turnId, workspaceId = turn.workspaceId;
+  if (!answers?.length || !taskId || !turnId || !turn.conversation || getProviderNativeSlashCommandInput(turn.conversation)) return undefined;
+  if (!turn.conversation.contextParts.some((part) => part.type === "retrieved_context" && part.sourceId === SUBAGENT_RESULTS_SOURCE_ID)) return undefined;
+  let committed = false;
+  return () => {
+    if (committed) return;
+    committed = true;
+    try { turnCommittedListener?.({ taskId, ...(workspaceId ? { workspaceId } : {}), turnId, subagentAnswers: answers }); }
+    catch (error) { console.error("[provider-runtime] turn commit listener failed", { turnId, error: String(error) }); }
+  };
+}
+
 async function runScopedProviderTurn(
-  args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
+  args: StreamTurnArgs & ProviderPromptAcceptance & { onEvent?: (event: BridgeEvent) => void },
   agentTurn?: TaskAgentTurn | null,
   routeNote?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote,
 ) {
@@ -872,7 +901,7 @@ async function runScopedProviderTurn(
 }
 
 async function runProviderTurnImpl(
-  args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
+  args: StreamTurnArgs & ProviderPromptAcceptance & { onEvent?: (event: BridgeEvent) => void },
   agentTurn?: TaskAgentTurn | null,
   routeNote?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote,
 ) {

@@ -24,6 +24,13 @@ const delegatedContexts: unknown[] = [];
 const providerRequests: unknown[] = [];
 let delegateResponse: DelegatedTaskActionResponse;
 let delegatedChildren: DelegatedTaskSummary[] = [];
+/** The parent's owed subagent answers, as the host's answer ledger returns them. */
+let owedAnswers: Array<Record<string, unknown>> = [];
+const REVIEW_ANSWER = {
+  runId: "child-task:task-main:stave-review-1", sequence: 3, delegationKey: "stave-review-20261004120000-a",
+  delegatedTaskId: "task-review", delegatedWorkspaceId: "ws-main", turnId: "turn-review",
+  at: "2026-10-04T12:05:00.000Z", text: "RECEIPT COPY OF THE FINDINGS",
+};
 
 const REVIEW_CHILD: DelegatedTaskSummary = {
   runId: "child-task:task-main:stave-review-1",
@@ -57,6 +64,7 @@ const REVIEW_CHILD: DelegatedTaskSummary = {
         return delegateResponse;
       },
       listDelegatedTasks: async () => delegatedChildren,
+      collectDelegatedTaskAnswers: async () => ({ answers: owedAnswers, more: 0 }),
     },
     provider: {
       startPushTurn: async (args: unknown) => {
@@ -187,6 +195,7 @@ beforeEach(() => {
   delegated.length = 0;
   providerRequests.length = 0;
   delegatedChildren = [];
+  owedAnswers = [];
   delegateResponse = {
     accepted: true,
     duplicate: false,
@@ -484,8 +493,9 @@ describe("bringing the result back", () => {
     expect(DelegateTaskArgsSchema.parse(delegated[0]).prompt).toContain('"id":"F1"');
   });
 
-  test("an unattached review stays out of the next turn", async () => {
+  test("an unattached review stays out of the next turn and stays owed", async () => {
     delegatedChildren = [REVIEW_CHILD];
+    owedAnswers = [REVIEW_ANSWER];
     useAppStore.getState().updatePromptDraft({ taskId: "task-main", patch: { text: "Continue" } });
 
     const result = await useAppStore.getState().sendUserMessage({
@@ -496,13 +506,15 @@ describe("bringing the result back", () => {
 
     expect(result.status).toBe("started");
     const request = JSON.stringify(providerRequests[0]);
-    expect(request).toContain("held until the user attaches this review");
+    expect(request).toContain("(1 review results wait until the user attaches them)");
     expect(request).not.toContain("RECEIPT COPY OF THE FINDINGS");
     expect(request).not.toContain("FULL FINDINGS");
+    expect(request).not.toContain("subagentAnswers");
   });
 
-  test("the sent turn carries the full review once, not again as a subagent receipt", async () => {
+  test("the turn the review is attached to carries it in the attachment and, whole, under Subagent results, and settles it", async () => {
     delegatedChildren = [REVIEW_CHILD];
+    owedAnswers = [REVIEW_ANSWER];
     attachReviewResultToDraft({ getState: useAppStore.getState, taskId: "task-main", child: REVIEW_CHILD });
     useAppStore.getState().updatePromptDraft({
       taskId: "task-main",
@@ -519,7 +531,7 @@ describe("bringing the result back", () => {
     const request = JSON.stringify(providerRequests[0]);
     expect(request).toContain("stave:attached-task-context");
     expect(request).toContain("FULL FINDINGS: the cache key ignores the locale.");
-    expect(request).toContain("attached to this message under Attached Stave Tasks");
-    expect(request).not.toContain("RECEIPT COPY OF THE FINDINGS");
+    expect(request).toContain("    RECEIPT COPY OF THE FINDINGS");
+    expect((providerRequests[0] as { subagentAnswers?: unknown }).subagentAnswers).toEqual([{ runId: REVIEW_ANSWER.runId, sequence: 3 }]);
   });
 });

@@ -29,13 +29,13 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
-import { listDelegatedTaskSummaries } from "./delegated-task-signals";
+import { collectDelegatedTaskAnswersForTurn, listDelegatedTaskSummaries } from "./delegated-task-signals";
 import { resolveReviewTurnNotification } from "./review-turn-notification";
 import {
   describeInteractionAttribution,
   publishesInteractionNotifications,
 } from "./delegated-attention";
-import { buildDelegatedTaskReceiptsRetrievedContext } from "../../src/lib/task-context/delegated-task-receipts";
+import { buildDelegatedTaskReceiptsRetrievedContext, latestTurnStartedAt } from "../../src/lib/task-context/delegated-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
 import { carryRendererOwnedShellFields } from "../persistence/task-turn-delta";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
@@ -1901,10 +1901,10 @@ async function runTaskImpl(args: {
           ].join("\n"),
         }
       : null;
-  // Subagent states and the answers that arrived since this task's last turn began.
+  // Subagent states and the answers no earlier turn carried; the turn hands the carried ones to its provider start.
+  const owedAnswers = collectDelegatedTaskAnswersForTurn({ parentTaskId: task.id, lastTurnStartedAt: latestTurnStartedAt(existingHistory) });
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
-    children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
-    resultsSince: ensureHostServicePersistenceReady().listTurns({ workspaceId: args.workspaceId, taskId: task.id, limit: 1 })[0]?.createdAt ?? null,
+    children: listDelegatedTaskSummaries({ parentTaskId: task.id }), ...owedAnswers,
   });
   // Child-only rules: an agent run's stage turns keep delegating their stages.
   const delegationRules = delegatedTaskRulesFor({ parentTaskId: task.parentTaskId, agentRunStage: args.agentRunStage });
@@ -2045,6 +2045,8 @@ async function runTaskImpl(args: {
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
       ...(args.agentRunStage ? { agentRunStage: args.agentRunStage, managedTask: isExternallyManagedTask(task) } : {}), ...(args.freshSession ? { freshSession: true } : {}),
+      // Recorded as delivered only once the provider accepts the prompt.
+      ...(owedAnswers.delivered.length > 0 ? { subagentAnswers: owedAnswers.delivered } : {}),
       runtimeOptions: capSpawnedTurnOptions({ providerId: provider, root: workspacePath, spawnedBy: args.spawnedBy, options: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({
@@ -2182,12 +2184,11 @@ export async function getTaskStatus(args: {
     turnId: args.turnId,
   });
   const latestTurn = recentTurns[0] ?? null;
-  const messages = decodeTaskMessages(
-    store.loadTaskMessagesPage({
-      workspaceId: args.workspaceId,
-      taskId: args.taskId,
-      limit: 120,
-    })?.messages ?? session.messagesByTask[args.taskId] ?? []);
+  const readPage = (offset: number) => store.loadTaskMessagesPage({
+    workspaceId: args.workspaceId, taskId: args.taskId, limit: 120, offset,
+  });
+  const recentPage = readPage(0);
+  const messages = decodeTaskMessages(recentPage?.messages ?? session.messagesByTask[task.id] ?? []);
 
   return {
     workspaceId: args.workspaceId,
@@ -2201,6 +2202,7 @@ export async function getTaskStatus(args: {
     messageCount: messages.length,
     ...projectTurnStatus({
       turn: latestTurn, messages, targeted: !!args.turnId,
+      readOlderMessages: recentPage?.hasMoreOlder && latestTurn?.completedAt ? (offset) => decodeTaskMessages(readPage(offset)?.messages ?? []) : undefined,
       memoryError: latestTurn ? terminalTurnErrorById.get(latestTurn.id) ?? null : null,
       readEvents: (turnId) => store.getStreamEvents({ turnId }),
     }),

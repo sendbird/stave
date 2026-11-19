@@ -343,11 +343,21 @@ function getRetrievedContextMaxBytes(args: {
   }
 }
 
+/**
+ * Subagent results travel whole or not at all: the request names the answers
+ * they carry (`subagentAnswers`), and the host records exactly those as
+ * delivered. The builder already bounds the part (20 rows, 8,000 answer
+ * characters), so it is never cut, only dropped, and its refs with it.
+ */
+export const SUBAGENT_RESULTS_SOURCE_ID = "stave:delegated-tasks";
+
 function getContextDropPriority(part: CanonicalContextPart) {
   if (part.type === "retrieved_context") {
     switch (part.sourceId) {
       case "stave:referenced-task-replies":
         return 4;
+      case SUBAGENT_RESULTS_SOURCE_ID:
+        return 5;
       case "stave:current-task-awareness":
       case "stave:workspace-guidance":
       case "stave:workspace-information":
@@ -392,6 +402,7 @@ function compactContextPart(args: {
         }),
       };
     case "retrieved_context":
+      if (args.part.sourceId === SUBAGENT_RESULTS_SOURCE_ID) return args.part;
       return {
         ...args.part,
         title: args.part.title

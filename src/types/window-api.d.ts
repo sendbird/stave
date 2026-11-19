@@ -264,6 +264,8 @@ interface WindowRunsApi {
     context?: import("@/lib/runs/delegated-task").DelegatedTaskRequestContext,
   ) => Promise<DelegatedTaskActionResponse>;
   listDelegatedTasks?: (args: DelegatedTaskListArgs) => Promise<DelegatedTaskList>;
+  /** Subagent answers no turn of the parent carried yet; see `delegated-task-answers.ts`. */
+  collectDelegatedTaskAnswers?: (args: import("@/lib/runs/delegated-task-answers").DelegatedTaskAnswersArgs) => Promise<import("@/lib/runs/delegated-task-answers").OwedDelegatedTaskAnswers>;
   getReviewRevision?: (args: import("@/lib/reviews/review-revision").ReviewRevisionArgs) => Promise<import("@/lib/reviews/review-revision").ReviewRevisionState | null>;
   followUpDelegatedTask?: (
     args: DelegatedTaskFollowUpArgs,

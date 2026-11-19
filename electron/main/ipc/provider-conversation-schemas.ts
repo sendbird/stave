@@ -1,9 +1,7 @@
 import { z } from "zod";
+import { DelegatedTaskAnswerRefsSchema } from "../../../src/lib/runs/delegated-task-answers";
 import { MAX_OPTION_PREVIEW_LENGTH } from "../../../src/lib/user-input-options";
-import {
-  ProviderIdSchema,
-  RuntimeOptionsSchema,
-} from "./provider-runtime-schemas";
+import { ProviderIdSchema, RuntimeOptionsSchema } from "./provider-runtime-schemas";
 
 const UserInputOptionSchema = z
   .object({
@@ -276,5 +274,6 @@ export const StreamTurnArgsSchema = z
     workspaceId: z.string().max(200).optional(),
     cwd: z.string().max(4096).optional(),
     runtimeOptions: RuntimeOptionsSchema,
+    subagentAnswers: DelegatedTaskAnswerRefsSchema.optional(),
   })
   .strict();

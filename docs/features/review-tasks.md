@@ -294,9 +294,12 @@ follow-up prompt attaches the findings only.
   is passed as data to evaluate rather than instructions.
 - **Attach** sends the review task's latest reply, up to 6,000 characters,
   keeping its beginning and end. Stave does not push the review into a turn
-  any other way: the task's Subagent results list it, but hold its answer
-  until you attach it. This is not a hard barrier; an agent that looks up its
-  subagents with the delegation tools can still read the answer.
+  any other way: until you attach it, the task's Subagent results list the
+  review but not its answer, and it stays owed. The message you attach it to
+  also carries the answer whole under Subagent results, once, so a reply the
+  attachment could not read still arrives. This is not a hard barrier; an
+  agent that looks up its subagents with the delegation tools can still read
+  the answer.
 - A **Latest reply** review receives that reply, up to 8,000 characters, and
   the request it answered, as data to evaluate rather than instructions.
 - A skill's instructions are included in the review prompt, up to 24,000

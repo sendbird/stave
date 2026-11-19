@@ -421,6 +421,10 @@ export const DelegatedTaskSummarySchema = z
     completedAt: z.string().datetime().nullable(),
     /** The subagent's final answer for its latest turn, bounded; absent until a turn ends. */
     result: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
+    /** When `result` was recorded; with `resultTurnId` it names that answer while the step moves on. */
+    resultAt: z.string().datetime().optional(),
+    /** The child turn that produced `result`; absent on answers recorded before turns were kept. */
+    resultTurnId: RunIdSchema.optional(),
     /** A supervised child whose run halted, paused or asked and waits for a person. */
     waitsForPerson: z.literal(true).optional(),
   })
@@ -428,18 +432,37 @@ export const DelegatedTaskSummarySchema = z
 export type DelegatedTaskSummary = z.infer<typeof DelegatedTaskSummarySchema>;
 
 /**
- * The answer the latest settled turn of the current execution recorded, if
- * any; a failed step's answer counts too, such as a stopped child's report.
+ * The child turn that produced an answer: named in the receipt's key for a
+ * turn that ended waiting, and in the step's result reference for the turn
+ * that completed the current execution. Earlier answers of other shapes have
+ * none, and a read without a turn gets the child's latest answer.
  */
-export function delegatedTaskResultText(
-  receipts: ReadonlyArray<Pick<RunReceiptRecord, "type" | "detail" | "executionId">>,
+export function delegatedTaskAnswerTurnId(
+  receipt: Pick<RunReceiptRecord, "type" | "idempotencyKey" | "executionId">,
+  step: { executionId: string | null; resultArtifactRef: string | null },
+) {
+  // The ledger stores the transition's key with the receipt type appended.
+  const key = receipt.idempotencyKey.endsWith(`:${receipt.type}`) ? receipt.idempotencyKey.slice(0, -receipt.type.length - 1) : receipt.idempotencyKey;
+  const marker = key.lastIndexOf(":turn:");
+  if (key.startsWith("child:") && marker >= 0) return key.slice(marker + ":turn:".length) || null;
+  if (receipt.type !== "completed" || receipt.executionId !== step.executionId) return null;
+  return step.resultArtifactRef?.match(/\/turn\/([^/]+)$/)?.[1] ?? null;
+}
+
+/**
+ * The receipt carrying the answer the latest settled turn of the current
+ * execution recorded, if any; a failed step's answer counts too, such as a
+ * stopped child's report.
+ */
+export function delegatedTaskResultReceipt<Receipt extends Pick<RunReceiptRecord, "type" | "detail" | "executionId">>(
+  receipts: ReadonlyArray<Receipt>,
   step: Pick<RunStepRecord, "executionId">,
-): string | null {
+): Receipt | null {
   for (let index = receipts.length - 1; index >= 0; index -= 1) {
     const receipt = receipts[index]!;
     if ((receipt.type === "completed" || receipt.type === "waiting" || receipt.type === "failed") &&
         receipt.executionId === step.executionId && receipt.detail?.responseText)
-      return receipt.detail.responseText;
+      return receipt;
   }
   return null;
 }
@@ -600,7 +623,8 @@ export function toDelegatedTaskSummary(args: {
   run: RunRecord;
   step: RunStepRecord;
   acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
-  resultText?: string | null;
+  /** `delegatedTaskResultReceipt`. */
+  resultReceipt?: Pick<RunReceiptRecord, "timestamp" | "detail" | "type" | "idempotencyKey" | "executionId"> | null;
   waitingReason?: string | null;
   /** `delegatedTaskWaitsForPerson`. */
   waitsForPerson?: boolean;
@@ -613,6 +637,7 @@ export function toDelegatedTaskSummary(args: {
   if (run.origin.kind !== "task" || !step.target) {
     return null;
   }
+  const resultTurnId = args.resultReceipt ? delegatedTaskAnswerTurnId(args.resultReceipt, step) : null;
   const delegationKey = extractDelegatedTaskDelegationKey({
     runId: run.id,
     parentTaskId: run.origin.id,
@@ -659,7 +684,11 @@ export function toDelegatedTaskSummary(args: {
     createdAt: run.createdAt,
     updatedAt: step.updatedAt,
     completedAt: step.completedAt,
-    ...(args.resultText ? { result: args.resultText } : {}),
+    ...(args.resultReceipt?.detail?.responseText ? {
+      result: args.resultReceipt.detail.responseText,
+      resultAt: args.resultReceipt.timestamp,
+      ...(resultTurnId ? { resultTurnId } : {}),
+    } : {}),
     ...(args.waitsForPerson && step.status === "waiting" ? { waitsForPerson: true } : {}),
   });
   return parsed.success ? parsed.data : null;

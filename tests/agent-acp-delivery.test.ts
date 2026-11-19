@@ -7,6 +7,7 @@ for (const providerId of ["cursor", "kiro"] as const) {
   test(`${providerId} Agent prefix follows actual fresh session after failed resume, including canonical input`, async () => {
     const observed: string[] = [];
     let acknowledged = 0;
+    let accepted = 0;
     const args = {
       providerId, prompt: "Raw user input", cwd: import.meta.dir,
       runtimeOptions: {
@@ -19,6 +20,7 @@ for (const providerId of ["cursor", "kiro"] as const) {
         observed.push(nativeSessionId); return "Saved Agent instructions";
       },
       acknowledgeTaskAgentPrompt: () => { acknowledged += 1; },
+      onPromptAccepted: () => { accepted += 1; },
       conversation: {
         target: { providerId, model: "auto" }, mode: "chat" as const, history: [], contextParts: [],
         input: { role: "user" as const, providerId: "user" as const, content: "Canonical user input",
@@ -33,5 +35,7 @@ for (const providerId of ["cursor", "kiro"] as const) {
     expect(text).not.toContain("Raw user input");
     expect(text.match(/Saved Agent instructions/g)).toHaveLength(1);
     expect(acknowledged).toBe(1);
+    // The host records the turn's subagent answers once the prompt was accepted.
+    expect(accepted).toBe(1);
   });
 }

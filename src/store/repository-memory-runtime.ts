@@ -1,6 +1,7 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import type { RepositoryMemoryFactInput } from "@/lib/repository-memory";
 import { buildDelegatedTaskReceiptsRetrievedContext, latestTurnStartedAt } from "@/lib/task-context/delegated-task-receipts";
+import type { DelegatedTaskAnswerRef } from "@/lib/runs/delegated-task-answers";
 import {
   buildRepositoryMemoryRetrievedContextPart,
   resolveRepositoryMemoryRecallQuery,
@@ -28,14 +29,20 @@ export async function collectTurnStartRetrievedContextParts(args: {
   parentTaskId: string;
   history: readonly Pick<ChatMessage, "role" | "content" | "startedAt">[];
   prompt: string;
-  /** Children attached to this message are not repeated as receipts. */
+  /** Children attached to this message: an attached review is shared in full. */
   promptDraft?: PromptDraft;
+  /** Receives the subagent answers this turn carries; the turn request hands them to the host, which records them once the provider has the turn. */
+  deliveredAnswers?: DelegatedTaskAnswerRef[];
 }): Promise<CanonicalRetrievedContextPart[]> {
-  const [delegatedTaskSummaries, repositoryMemoryPart, handoffParts] = await Promise.all([
+  const [delegatedTaskSummaries, owedAnswers, repositoryMemoryPart, handoffParts] = await Promise.all([
     window.api?.runs?.listDelegatedTasks?.({
       parentTaskId: args.parentTaskId,
       includeFinished: true,
     }) ?? Promise.resolve([]),
+    window.api?.runs?.collectDelegatedTaskAnswers?.({
+      parentTaskId: args.parentTaskId,
+      lastTurnStartedAt: latestTurnStartedAt(args.history),
+    }).catch(() => null) ?? Promise.resolve(null),
     recallRepositoryMemoryRetrievedContext(args),
     args.workspaceId
       ? collectTaskHandoffContextParts({
@@ -50,11 +57,13 @@ export async function collectTurnStartRetrievedContextParts(args: {
   if (repositoryMemoryPart) {
     parts.push(repositoryMemoryPart);
   }
-  // A task that started subagents sees where they stand, and the answers that
-  // arrived since its last turn, before its next turn.
+  // A task that started subagents sees where they stand and the answers no
+  // earlier turn carried; the ones carried here travel with the turn request.
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: delegatedTaskSummaries,
-    resultsSince: latestTurnStartedAt(args.history),
+    answers: owedAnswers?.answers,
+    moreAnswers: owedAnswers?.more,
+    delivered: args.deliveredAnswers,
     attachedTaskIds: new Set(
       (args.promptDraft ? getPromptDraftAttachments(args.promptDraft) : []).flatMap(
         (attachment) => (attachment.kind === "task-context" ? [attachment.taskId] : []),

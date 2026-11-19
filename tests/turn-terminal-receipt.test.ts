@@ -311,6 +311,44 @@ test("all shared failure and cancellation stop reasons preserve terminal outcome
   }
 });
 
+test("a targeted read stops at the turn's own messages and survives an unreadable older page", () => {
+  const { db, store } = harness();
+  store.saveStreamEvents({
+    turnId: "turn",
+    events: [
+      { sequence: 1, event: { type: "text", text: "receipt answer" } },
+      { sequence: 2, event: { type: "done", stop_reason: "error" } },
+    ],
+  });
+  store.completeTurn({ id: "turn" });
+  const turn = store.listTurns({ workspaceId: "workspace", taskId: "task" })[0]!;
+  const row = (id: string, turnId: string, startedAt: string) => ({
+    id, role: "assistant" as const, model: "model", providerId: "codex" as const,
+    content: "", isStreaming: false, parts: [], turnId, startedAt,
+  });
+  const before = new Date(Date.parse(turn.createdAt) - 60_000).toISOString();
+  const after = new Date(Date.parse(turn.createdAt) + 60_000).toISOString();
+  // The turn left no answer of its own; older pages hold only earlier turns.
+  const offsets: number[] = [];
+  const status = projectTurnStatus({
+    turn, messages: [row("later", "later", after)], targeted: true,
+    readOlderMessages: (offset) => {
+      offsets.push(offset);
+      return offset > 500 ? [] : [row(`own-${offset}`, offset === 1 ? "turn" : "earlier", offset === 1 ? turn.createdAt : before)];
+    },
+    memoryError: null, readEvents: () => [],
+  });
+  expect(offsets).toEqual([1]);
+  expect(status.latestAssistantText).toBe(turn.terminalReceipt?.responseText ?? null);
+  const unreadable = projectTurnStatus({
+    turn, messages: [row("later", "later", after)], targeted: true,
+    readOlderMessages: () => { throw new Error("Saved task history could not be decoded."); },
+    memoryError: null, readEvents: () => [],
+  });
+  expect(unreadable.latestAssistantText).toBe(turn.terminalReceipt?.responseText ?? null);
+  db.close();
+});
+
 test("status uses full exact-turn message ahead of bounded receipt and ignores earlier responses", () => {
   const { db, store } = harness();
   const fullText = "reply".repeat(5000);
@@ -344,6 +382,11 @@ test("status uses full exact-turn message ahead of bounded receipt and ignores e
       memoryError: "stale error",
       readEvents: (id) => store.getStreamEvents({ turnId: id }),
     });
+  expect(projectTurnStatus({
+    turn, messages: [{ ...message, turnId: "later" }], targeted: true,
+    readOlderMessages: (offset) => offset === 1 ? [message] : [],
+    memoryError: null, readEvents: () => [],
+  }).latestAssistantText).toBe(fullText);
   expect(project([message]).latestAssistantText).toBe(fullText);
   expect(project([message]).latestTurnError).toBeNull();
   expect(

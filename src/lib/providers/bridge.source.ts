@@ -7,6 +7,7 @@ import type {
 import {
   compactProviderTurnRequestForTransport,
   HOST_SERVICE_PROVIDER_REQUEST_RETRY_MAX_BYTES,
+  SUBAGENT_RESULTS_SOURCE_ID,
 } from "@/lib/providers/transport-bounds";
 
 type PushStreamPayload = {
@@ -77,6 +78,21 @@ function isHostServiceProtocolOverflowError(error: unknown) {
   );
 }
 
+/**
+ * The request names exactly the answers its Subagent results part carries.
+ * Compaction keeps that part whole or drops it (`SUBAGENT_RESULTS_SOURCE_ID`):
+ * a request that dropped it claims none, and they stay owed for a later turn.
+ */
+function claimCarriedSubagentAnswers<TRequest extends ProviderTurnRequest>(original: TRequest, sent: TRequest): TRequest {
+  if (!sent.subagentAnswers) return sent;
+  const results = (request: ProviderTurnRequest) => request.conversation?.contextParts.find((part) =>
+    part.type === "retrieved_context" && part.sourceId === SUBAGENT_RESULTS_SOURCE_ID);
+  const carried = results(sent);
+  if (carried && JSON.stringify(carried) === JSON.stringify(results(original))) return sent;
+  const { subagentAnswers: _dropped, ...rest } = sent;
+  return rest as TRequest;
+}
+
 async function invokeProviderRequestWithTransportFallback<TResult>(args: {
   method:
     | "provider.stream-turn"
@@ -87,10 +103,10 @@ async function invokeProviderRequestWithTransportFallback<TResult>(args: {
     request: ProviderTurnRequest & { providerId: ProviderId },
   ) => TResult | Promise<TResult>;
 }) {
-  const primaryRequest = compactProviderTurnRequestForTransport({
+  const primaryRequest = claimCarriedSubagentAnswers(args.request, compactProviderTurnRequestForTransport({
     method: args.method,
     request: args.request,
-  });
+  }));
 
   try {
     return await args.invoke(primaryRequest);
@@ -99,11 +115,11 @@ async function invokeProviderRequestWithTransportFallback<TResult>(args: {
       throw error;
     }
 
-    const fallbackRequest = compactProviderTurnRequestForTransport({
+    const fallbackRequest = claimCarriedSubagentAnswers(args.request, compactProviderTurnRequestForTransport({
       method: args.method,
       request: args.request,
       maxBytes: HOST_SERVICE_PROVIDER_REQUEST_RETRY_MAX_BYTES,
-    });
+    }));
 
     if (JSON.stringify(fallbackRequest) === JSON.stringify(primaryRequest)) {
       throw error;
@@ -209,6 +225,7 @@ async function* fromPolledStream(args: {
   workspaceId?: string;
   cwd?: string;
   runtimeOptions?: ProviderTurnRequest["runtimeOptions"];
+  subagentAnswers?: ProviderTurnRequest["subagentAnswers"];
 }) {
   const startStreamTurn = window.api?.provider?.startStreamTurn;
   const readStreamTurn = window.api?.provider?.readStreamTurn;
@@ -265,6 +282,7 @@ async function* fromPushStream(args: {
   workspaceId?: string;
   cwd?: string;
   runtimeOptions?: ProviderTurnRequest["runtimeOptions"];
+  subagentAnswers?: ProviderTurnRequest["subagentAnswers"];
 }) {
   const startPushTurn = window.api?.provider?.startPushTurn;
   const subscribeStreamEvents = window.api?.provider?.subscribeStreamEvents;
@@ -502,6 +520,7 @@ async function resolveBridgeStream(args: {
   workspaceId?: string;
   cwd?: string;
   runtimeOptions?: ProviderTurnRequest["runtimeOptions"];
+  subagentAnswers?: ProviderTurnRequest["subagentAnswers"];
 }): Promise<unknown[] | AsyncIterable<unknown> | null> {
   if (args.runtimeOptions?.chatStreamingEnabled === false) {
     const streamTurn = window.api?.provider?.streamTurn;
@@ -545,6 +564,7 @@ async function resolveBridgeStream(args: {
       workspaceId: args.workspaceId,
       cwd: args.cwd,
       runtimeOptions: args.runtimeOptions,
+      subagentAnswers: args.subagentAnswers,
     });
   }
 
@@ -560,6 +580,7 @@ async function resolveBridgeStream(args: {
       workspaceId: args.workspaceId,
       cwd: args.cwd,
       runtimeOptions: args.runtimeOptions,
+      subagentAnswers: args.subagentAnswers,
     });
   }
 
@@ -625,6 +646,7 @@ export function createBridgeProviderSource<TRawEvent>(args: {
         workspaceId: turnArgs.workspaceId,
         cwd: turnArgs.cwd,
         runtimeOptions: turnArgs.runtimeOptions,
+        subagentAnswers: turnArgs.subagentAnswers,
       });
 
       if (!source) {

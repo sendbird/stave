@@ -88,8 +88,23 @@ The agent calls `stave_delegate_task`. A read-only call waits for the answer
 (up to two minutes by default, three at most) and returns it as `child.result`.
 A writing subagent starts in its own worktree and the call returns at once.
 Either way, an answer that arrives later is part of the parent's next turn
-under **Subagent results**, so the agent never has to read the child task to
-collect it.
+under **Subagent results**, once, and whole. Stave keeps up to 4,000
+characters of an answer; a longer one arrives as that beginning with a
+reference to read the full turn. An answer that does not fit the turn arrives
+whole in the next one, oldest first, and the oldest goes even when it alone is
+larger than the turn's share. If several turns of one subagent end before the
+parent's next turn, each answer arrives. An answer counts as received once the
+provider accepts a parent turn that carried it, even if that turn is then
+stopped. A host turn still waiting for a turn slot when the app quits is saved
+with the answers it carries and records exactly those when it runs after the
+restart. If Stave cannot record that a turn carried an answer, the next turn
+carries it again; after three failed records in a row it stops resending that
+answer and tells you once on the task, and the answer stays readable in the
+Subagents tab. A child attached to the message still brings its new answers under
+**Subagent results**, because the attachment is read separately and may be
+empty. A composer review is addressed to the user: until the user attaches
+it, Subagent results count it without its answer, and it arrives whole in the
+message it is attached to.
 
 ## Interface Walkthrough
 
@@ -329,8 +344,7 @@ turns, which are pushed rather than polled.
 
 The agent can call `stave_list_delegated_tasks` for the same summary. It is also
 injected into the parent's context automatically before each of its turns as
-**Subagent results**, with the bounded answer of every subagent that finished
-since the previous turn, so an agent that delegated work never asks for it.
+**Subagent results**, with the answers that are new to the parent.
 
 ### Answer A Child's Question
 
@@ -401,6 +415,25 @@ Delegations live in the run ledger inside Stave's SQLite database, as a
   "reason": null
 }
 ```
+
+Each answer is a result receipt on the child's run. When the provider accepts
+the prompt of a parent turn that carries an answer (Claude's input queue takes
+it, Codex acknowledges `turn/start`, an ACP prompt returns), a delivery record
+naming the parent turn is written beside the run ledger
+(`electron/persistence/delegated-answer-store.ts`), so later turns skip it after
+a restart too. A turn refused or failed before that point (a control change, a
+cancelled queue slot, a policy refusal, no workspace folder, a provider that
+cannot start, a native slash command, which goes without context) records
+nothing, and a failed write is logged and leaves the answer owed, so it can
+come twice but is never lost. A request too large for the host transport keeps
+the Subagent results part whole or drops it with the answers it names, which
+then stay owed. Upgrade cut: on
+the first read for a parent, answers recorded before this version first opened
+the database and no later than the parent's latest turn start count as
+received, because the earlier version had already given them or dropped them
+for its budget; it runs once per parent and never touches answers recorded
+after the upgrade. The run ledger itself is unchanged, so earlier versions still
+read the database.
 
 Set `STAVE_DELEGATED_TASK_CONCURRENCY` to change how many children one parent task
 may have running at once (default 3, maximum 16).

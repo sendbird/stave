@@ -9,6 +9,7 @@ import { TrackerIssuesStore } from "../electron/persistence/tracker-issues-store
 import { WorkspaceDocumentStore } from "../electron/persistence/workspace-document-store";
 import { SqliteStore } from "../electron/persistence/sqlite-store";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { DelegatedAnswerStore } from "../electron/persistence/delegated-answer-store";
 import { AgentRunStore } from "../electron/persistence/agent-run-store";
 import { ResultReviewStore } from "../electron/persistence/result-review-store";
 import { FleetAttentionSnoozeStore } from "../electron/persistence/fleet-attention-snooze-store";
@@ -25,6 +26,7 @@ function setup() {
   (store as unknown as { bootstrap(): void }).bootstrap();
   const native = db as unknown as NativeDatabase.Database;
   new RunLedgerStore(db);
+  new DelegatedAnswerStore(db);
   new AgentRunStore(db);
   new ResultReviewStore(native);
   new FleetAttentionSnoozeStore(db);
@@ -46,13 +48,17 @@ describe("permanent task deletion with the real SQLite store", () => {
     db.exec(`INSERT INTO runs VALUES ('run','delegated-task','task','task','/tmp/project','workspace','task','completed','{}','{}','now','now','now',NULL);
       INSERT INTO run_steps VALUES ('step','run','delegated-task-turn',NULL,'[]','completed',1,'execution','claim','hash','result','now','now','now','now',NULL);
       INSERT INTO run_receipts VALUES ('run','step',1,'completed','execution','complete','now','{}');
+      INSERT INTO delegated_answer_deliveries VALUES ('run',1,'parent-turn','now');
+      INSERT INTO delegated_answer_tracking VALUES ('task','now');
       INSERT INTO fleet_attention_snoozes VALUES ('turn:result-ready:workspace:task:turn','workspace','tomorrow','now');
       INSERT INTO fleet_attention_snoozes VALUES ('turn:result-ready:workspace:task-other:turn','workspace','tomorrow','now');`);
     db.prepare("INSERT INTO result_reviews (id, project_path, project_name, workspace_id, workspace_name, task_id, task_title, turn_id, outcome, summary, created_at) VALUES ('result','/tmp/project','Project','workspace','Workspace','task','Task','turn','completed','Done','now')").run();
     db.prepare("INSERT INTO result_review_evidence VALUES (?, ?)").run(JSON.stringify(["/tmp/project", "workspace", "task", "turn"]), "{}");
     db.exec("INSERT INTO notifications (id,kind,title,body,workspace_id,task_id,payload_json,created_at) VALUES ('notice','task.turn_completed','Done','Done','workspace','task','{}','now')");
     store.removeTaskFromWorkspace(args);
-    for (const table of ["tasks", "runs", "run_steps", "run_receipts", "result_reviews", "result_review_evidence", "notifications"]) expect(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()).toEqual({ n: 0 });
+    for (const table of ["tasks", "runs", "run_steps", "run_receipts", "delegated_answer_deliveries", "result_reviews", "result_review_evidence", "notifications"]) expect(db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get()).toEqual({ n: 0 });
+    // Only the row recording when this version first opened the database stays.
+    expect(db.prepare("SELECT parent_task_id FROM delegated_answer_tracking").all()).toEqual([{ parent_task_id: "" }]);
     expect(db.prepare("SELECT attention_id FROM fleet_attention_snoozes").all()).toEqual([{ attention_id: "turn:result-ready:workspace:task-other:turn" }]);
     store.upsertWorkspace({ id: "workspace", name: "Workspace", snapshot });
     expect(store.loadWorkspaceShell({ workspaceId: "workspace" })?.tasks).toEqual([]);

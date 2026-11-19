@@ -31,7 +31,7 @@ import {
   DELEGATED_TASK_RUN_KIND,
   DELEGATED_TASK_STEP_KIND,
   DELEGATED_TASK_STOPPED_REASON,
-  delegatedTaskResultText,
+  delegatedTaskResultReceipt,
   delegatedTaskWaitingReason,
   delegatedTaskWaitsForPerson,
   resolveDelegatedTaskWaitSeconds,
@@ -63,6 +63,11 @@ import {
   boundResponseText,
 } from "../../../src/lib/runs/run-domain";
 import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-store";
+import {
+  collectOwedDelegatedTaskAnswers,
+  type DelegatedTaskAnswersArgs,
+  type DelegatedTaskAnswerStore,
+} from "../../../src/lib/runs/delegated-task-answers";
 import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
 import type { WorkspaceRevision } from "../../../src/lib/agent-runs/verification-contract";
 import { captureReviewRevision, reviewRevisionState } from "./review-workspace-revisions";
@@ -106,6 +111,8 @@ export interface DelegatedTaskLedgerPort {
     now: string;
   }): RunLedgerTransitionResult;
   listRunReceipts(args: { runId: string }): RunReceiptRecord[];
+  /** Which subagent answers the parent's turns carried. */
+  delegatedAnswers: DelegatedTaskAnswerStore;
   completeRunStep(args: {
     runId: string;
     stepId: string;
@@ -474,7 +481,7 @@ function summaryFromAggregate(
     acceptedReceipt: receipts.find(
       (receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt,
     ),
-    resultText: delegatedTaskResultText(receipts, aggregate.step),
+    resultReceipt: delegatedTaskResultReceipt(receipts, aggregate.step),
     waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
     waitsForPerson: delegatedTaskWaitsForPerson(receipts, aggregate.step),
   });
@@ -2060,6 +2067,13 @@ export function createDelegatedTaskCoordinator(
             isActiveDelegatedTaskPhase(summary.phase),
         );
       return DelegatedTaskListSchema.parse(summaries);
+    },
+
+    /** The subagent answers no turn of this parent carried yet, oldest first. */
+    async collectAnswers(args: DelegatedTaskAnswersArgs) {
+      const ledger = await getLedger();
+      await ensureReconciled(args.parentTaskId);
+      return collectOwedDelegatedTaskAnswers(ledger, { ...args, now: now() });
     },
 
     stop: stopChild,

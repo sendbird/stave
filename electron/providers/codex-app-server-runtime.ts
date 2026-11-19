@@ -1729,7 +1729,7 @@ export async function streamCodexWithAppServer(
       }) => ProviderResponderResult,
     ) => void;
     registerSteerResponder?: (responder: ProviderSteerResponder) => void;
-  },
+  } & import("./types").ProviderPromptAcceptance,
 ): Promise<BridgeEvent[] | null> {
   // A tool-less turn (`isToolsDisabledTurn`) is a secondary read-only turn too: MCP isolation, no Stave MCP.
   const toolsDisabled = isToolsDisabledTurn(args.runtimeOptions);
@@ -3258,7 +3258,7 @@ export async function streamCodexWithAppServer(
 
         appServerTurnId = turnResponse.turn.id;
         emitBridgeEvents(modelResolution.flush(appServerTurnId));
-        turnInput.commitRetrievedContextDedup();
+        turnInput.commitRetrievedContextDedup(); args.onPromptAccepted?.(); // The host records the subagent answers this prompt carries.
         emitBridgeEvent({
           type: "provider_turn",
           providerId: "codex",

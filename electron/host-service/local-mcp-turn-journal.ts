@@ -219,6 +219,7 @@ export function projectTurnStatus(args: {
   turn: import("../persistence/types").PersistenceTurnSummary | null;
   messages: import("../../src/types/chat").ChatMessage[];
   targeted: boolean;
+  readOlderMessages?: (offset: number) => import("../../src/types/chat").ChatMessage[];
   memoryError: string | null;
   readEvents: (turnId: string) => PersistedTurnStreamEvent[];
 }) {
@@ -229,6 +230,28 @@ export function projectTurnStatus(args: {
         events: args.turn.terminalReceipt ? [] : args.readEvents(args.turn.id),
       }
     : null;
+  const answer = (messages: typeof args.messages) => [...messages].reverse().find((message) =>
+    message.role === "assistant" && message.content.trim() &&
+    (!args.targeted || (args.turn && message.turnId === args.turn.id)),
+  )?.content;
+  let text = answer(args.messages);
+  // A reference may point behind the resident window after follow-up turns.
+  // Read back only until the turn's own rows or anything older; the receipt
+  // answers for a turn that left no message, or for history that cannot be read.
+  const turn = args.turn;
+  const reachedTurn = (page: typeof args.messages) => !!turn && page.some((message) =>
+    message.turnId === turn.id || (message.startedAt !== undefined && message.startedAt < turn.createdAt));
+  if (!text && args.targeted && turn && args.readOlderMessages && !reachedTurn(args.messages)) {
+    let offset = args.messages.length;
+    while (!text) {
+      let page: typeof args.messages;
+      try { page = args.readOlderMessages(offset); } catch { break; }
+      if (!page.length) break;
+      text = answer(page);
+      if (reachedTurn(page)) break;
+      offset += page.length;
+    }
+  }
   return {
     latestTurnError: result
       ? result.receipt?.completedAt
@@ -236,17 +259,6 @@ export function projectTurnStatus(args: {
         : (args.memoryError ?? resolveTargetedTurnError(result))
       : null,
     latestTurnOutcome: result ? resolveTargetedTurnOutcome(result) : null,
-    latestAssistantText:
-      [...args.messages]
-        .reverse()
-        .find(
-          (message) =>
-            message.role === "assistant" &&
-            message.content.trim().length > 0 &&
-            (!args.targeted || message.turnId === args.turn?.id),
-        )?.content ??
-      (args.targeted
-        ? (args.turn?.terminalReceipt?.responseText ?? null)
-        : null),
+    latestAssistantText: text ?? (args.targeted ? args.turn?.terminalReceipt?.responseText ?? null : null),
   };
 }

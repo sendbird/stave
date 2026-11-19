@@ -1112,6 +1112,7 @@ Review's **Diff comments** list opens each comment's line when selected. Remove 
 
 An AI review runs as a read-only child task in the same workspace for one turn, and returns approve, approve with changes, or request changes.
 Its progress shows on the shelf. When it is done, attach or view the result, run it again, or select **Check fixes** after fixing.
+The agent receives a review's answer only with the message you attach it to.
 
 ## Delegated tasks
 
@@ -1121,6 +1122,8 @@ The **Subagents** tab shows whether each is running, waiting, needs you, complet
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
+
+The parent receives each subagent answer once, including after a restart. Each answer arrives whole; one longer than 4,000 characters arrives as its beginning with a reference to the full answer. An answer that does not fit the turn arrives whole in the next one. An answer counts as received once the provider accepts a parent turn that carried it, even if you stop that turn; a turn that never started leaves it for the next turn. If Stave cannot record that the parent received an answer, it sends the answer again with the next turn; after three failed tries it stops, tells you once on the task, and you can read the answer in the **Subagents** tab.
 
 The calling message also shows **Subagent results** above the answer. Each subagent appears as a run monitor card, and several cards sit side by side, wrapping into rows in a narrow window. Progress appears on the card of the subagent it belongs to, including one moved to the background, and never on another card (a resumed subagent's card shows only that run's progress); progress that names none appears only while a single subagent runs. A running card shows its model, current work, observed time and reported history; a returned card shows a summary of the answer. Select **View result** to expand the original answer and execution details across the whole row, or **Collapse result** to close them. Unknown times and costs are omitted. The composer retains its compact summary. **Result received** means the child returned an answer, not that the parent verified or used it. **Open task** takes you to the child; if it is waiting on you, the button points to answering or reviewing approval there. While work runs, the trace header shows the latest active step on one line. When it ends, the header shows a short completion summary and the tool-call count on the right; expand it to read the full history. Questions remain visible outside the folded history.
 
