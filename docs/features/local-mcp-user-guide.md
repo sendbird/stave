@@ -127,7 +127,7 @@ If `Codex` auto-registration is enabled, Stave also keeps the current loopback U
    - `stave_register_repository`
    - `stave_create_workspace`
    - `stave_run_task`
-   - `stave_get_task`
+   - `stave_get_task` — `{ workspaceId, taskId, turnId? }`; `turnId` reads the answer of that turn instead of the latest
    - `stave_respond_user_input` when the task asks a question
 
 To clean up finished workspaces, use:
