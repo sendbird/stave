@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import type { AgentRunBadge } from "@/lib/agent-runs/agent-run-status";
+import { describeAgentRunStatus, type AgentRunBadge } from "@/lib/agent-runs/agent-run-status";
 import { resolveTaskUserState, type TaskStateFacts, type TaskUserStatus } from "@/lib/task-user-state";
 import { tarsGoalNext } from "./completion";
 import { tarsSummaryExcerpt } from "./completion-summary";
@@ -38,6 +38,21 @@ function asksOf(card: Pick<TarsTrayCard, "row" | "attention">) {
   return { halt, tars, task };
 }
 
+/**
+ * What the work's run waits for when nobody has to act: a usage reset with a
+ * known time, or the outside event it asked to be woken by. The run's own
+ * status words it, as on the Task panel; it is read only for a run that can
+ * be waiting, so running work never walks its stage records here. Null when
+ * the run works, needs someone, ended, or was not read by this window.
+ */
+function holdOf(card: Pick<TarsTrayCard, "row" | "run">): string | null {
+  const run = card.run?.agentRun;
+  if (!run || card.row.state === "queued" || BADGE_OF[card.row.state] !== "running") return null;
+  if (!(run.state === "paused" && run.pauseReason === "usage-limit") && run.eventWait?.status !== "waiting") return null;
+  const status = describeAgentRunStatus(card.run!);
+  return status.waiting ? status.reason : null;
+}
+
 /** The Fleet row's own words, when it has some. */
 function wordsOf(entry: TarsTrayAttentionRow<TarsTrayAttentionInput> | null) {
   return entry?.item.detail?.trim() || null;
@@ -54,7 +69,8 @@ export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
   const { halt, tars, task } = asksOf(card);
   const taskAsk = !task ? null : task.item.kind === "approval" ? "approval" as const : "question" as const;
   const signOff = task?.item.kind === "agent-run-sign-off";
-  const running = isTarsWorkRunning(row) && !halt;
+  const hold = halt ? null : holdOf(card);
+  const running = isTarsWorkRunning(row) && !halt && hold === null;
   const opened = row.publication?.state === "opened" && row.publication.url ? row.publication : null;
   return {
     liveTurn: tars ? { pendingInteraction: tars.decision ? "approval" : "user_input" }
@@ -62,7 +78,8 @@ export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
     pendingDecision: signOff ? null : taskAsk,
     agentRun: {
       badge: halt && BADGE_OF[row.state] === "running" ? "halted" : signOff && BADGE_OF[row.state] === "running" ? "needs-answer" : BADGE_OF[row.state],
-      reason: describeTarsResponsibilityDetail(row) ?? wordsOf(halt),
+      reason: hold ?? describeTarsResponsibilityDetail(row) ?? wordsOf(halt),
+      waiting: hold !== null,
       updatedAt: row.updatedAt,
     },
     lastTurn: null,
@@ -74,7 +91,7 @@ export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
   };
 }
 
-/** The card's state: one of the task's five user states. */
+/** The card's state: one of the task's user states. */
 export function tarsCardStatus(card: CardFacts): TaskUserStatus {
   // The facts always carry a run badge, so the state is never unknown.
   return resolveTaskUserState(tarsTaskStateFacts(card))!;
@@ -98,6 +115,9 @@ export function describeTarsCardSentence(card: CardFacts, status: TaskUserStatus
       if (row.state === "takenOver") return describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.detail.pauseReason.takenOver");
       if (row.state === "paused") return describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.detail.runPaused");
       return describeTarsResponsibilityDetail(row) ?? wordsOf(halt) ?? i18n.t("shell:tars.tray.blockedDetail");
+    case "on-hold":
+      // When it resumes, in the run's own words.
+      return status.reason ?? describeTarsResponsibilityDetail(row);
     case "working":
       if (row.state === "queued") return describeTarsQueueWait(row);
       return isTarsWorkRunning(row) ? null : describeTarsResponsibilityDetail(row);
@@ -131,8 +151,9 @@ const UNBLOCKING: readonly TarsControlOperation[] = ["resume", "handBack", "acce
 /**
  * The action that fits the state: answer what waits, read why blocked work
  * stopped or let paused work go on, start queued work or look at running
- * work, open what finished work produced. `can` says which openers this view
- * has; null when none applies.
+ * work, open what finished work produced. Work on hold resumes by itself, so
+ * it offers nothing. `can` says which openers this view has; null when none
+ * applies.
  */
 export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { answer: boolean; report: boolean }): TarsCardPrimary | null {
   const { row } = card;
@@ -155,6 +176,8 @@ export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { 
       const operation = UNBLOCKING.find((candidate) => card.controls.includes(candidate));
       return operation ? { kind: "control", operation } : openTask;
     }
+    case "on-hold":
+      return null;
     case "working":
       return row.state === "queued" && card.controls.includes("startNow") ? { kind: "control", operation: "startNow" } : openTask;
     case "finished": {

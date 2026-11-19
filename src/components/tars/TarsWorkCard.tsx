@@ -155,7 +155,7 @@ const CARD_RECENT_LIMIT = 3;
 /**
  * One piece of Tars work, in three lines: its title, one sentence (what it
  * does now, what it needs from the user, or what came out), then its state
- * (the task's five user states) with the one action that fits it. The title
+ * (the task's user states) with the one action that fits it. The title
  * is a disclosure: it opens the card's detail, which holds everything else
  * Stave knows about the work and every other control.
  */

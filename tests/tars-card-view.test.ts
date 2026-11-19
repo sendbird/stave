@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { applyAppLocale } from "@/i18n";
+import { formatDateTime } from "@/i18n/format";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { buildTarsSideViewFixtures } from "../src/dev/tars-preview/tars-side-fixtures";
 import { buildTarsTrayFixtures } from "../src/dev/tars-preview/tars-fixtures";
 import { describeTarsCardSentence, tarsCardPrimary, tarsCardStatus } from "../src/lib/tars/card-view";
@@ -38,6 +40,28 @@ describe("a Tars work card's state, sentence and action", () => {
     const queued: TarsResponsibility = { ...billing(), state: "queued", taskId: null, agentRunId: null, executionWorkspaceId: null, queueWait: { code: "capacity", active: 1, limit: 1 } };
     expect(read(queued)).toEqual({ state: "working", waitingOn: null,
       sentence: "Execution limit reached (1 active / 1 allowed). Starts when a slot is released.", primary: { kind: "control", operation: "startNow" } });
+  });
+
+  test("work whose run waits for a usage reset is on hold: it says when it resumes and asks for nothing", async () => {
+    await applyAppLocale("en");
+    const run = tray().runs["run-billing"]!;
+    const resetsAt = "2026-11-05T03:00:00.000Z";
+    const held: AgentRunDetail = { ...run, agentRun: { ...run.agentRun, state: "paused", pauseReason: "usage-limit",
+      usageLimit: { turnId: "turn-1", resetsAt, resumeAt: "2026-11-05T03:01:00.000Z", accountProfileId: "account", fingerprint: run.agentRun.fingerprint } } };
+    const waiting: TarsResponsibility = { ...billing(), state: "waiting", detail: "usage-limit", detailCode: "runPaused", detailParams: { reason: "usage-limit" } };
+    expect(read(waiting, { runs: { "run-billing": held } })).toEqual({ state: "on-hold", waitingOn: null,
+      sentence: `Waiting for usage reset at ${formatDateTime(resetsAt)}. Stave resumes after checking this account.`, primary: null });
+    // A request in the work's task still waits on the user while the run is held.
+    const approval: TarsTrayAttentionInput = { id: "approval:task-billing", kind: "approval", taskId: "task-billing", detail: "Run the database migration" };
+    expect(read(waiting, { runs: { "run-billing": held }, attention: [approval] }).state).toBe("waiting");
+    // A run that asked to be woken later is held the same way, though Tars still counts the work as running.
+    const at = "2026-11-05T04:00:00.000Z";
+    const timed: AgentRunDetail = { ...run, agentRun: { ...run.agentRun, eventWait: { id: "wait-1", kind: "time", target: null, at, stageId: "cause", attempt: 2, turnId: null,
+      registeredAt: start.toISOString(), since: start.toISOString(), expiresAt: at, maxWakes: 1, wakes: 0, status: "waiting", waitingSince: start.toISOString(), consumedKeys: [] } } };
+    expect(read(billing(), { runs: { "run-billing": timed } })).toMatchObject({ state: "on-hold", sentence: expect.stringContaining(formatDateTime(at)), primary: null });
+    // A reset nobody knows the time of does not resume on its own account.
+    const unknown: AgentRunDetail = { ...held, agentRun: { ...held.agentRun, usageLimit: { ...held.agentRun.usageLimit!, resetsAt: null, resumeAt: null } } };
+    expect(read(waiting, { runs: { "run-billing": unknown } }).state).not.toBe("on-hold");
   });
 
   test("a proposal Tars waits to have confirmed is waiting for the user, whatever the run does", async () => {
