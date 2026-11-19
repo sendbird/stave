@@ -433,6 +433,8 @@ Fix | Fixes what the review found. A fix that changed files goes back to Review 
 An agent without a workflow runs a single Work stage.
 A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.
 
+An Agent send uses Claude or Codex. For another provider, Stave keeps the draft and asks you to switch models or choose Chat before sending. The run receives long requests in full and saves the first 8,000 characters as its assignment in Run history.
+
 ## Run states
 
 ```diagram architecture "Moving between run badges"
@@ -521,7 +523,7 @@ Running work cards show the selected model and effort below the branch, for exam
 
 Beside the Work tray title, the **Group by project** icon adds folding project groups and card/output counts within each lane. Its tooltip names the option, and it highlights while on. Names come from registered projects or repository folders; missing ownership says **Unknown project**. Queued work keeps its order across all projects outside the groups. Drag and earlier/later actions still change that global queue. Clear and Undo apply to the whole lane. The grouping choice lasts while the tray is open.
 
-The Work tray and result report show the requested completion goal separately from an execution ending. A PR goal stays **Result ready** until Stave records that execution’s PR under the autonomy policy. A failed publish remains unfinished. A PR link does not confirm CI or merge; merge completion is not observed here. If the endpoint is unclear, confirm it before closing the goal. Older saved work without an endpoint keeps its history and appears as result ready until checked or explicitly accepted. For further edits, ask Tars to correct the same work (Careful asks you to confirm its message card). A completed or result-ready execution continues as a new run in the existing task, workspace and branch. The original goal, earlier reports, artifacts and PR links stay available; historical reports open their own execution. Each new run needs fresh verification; publication follows the autonomy policy. Follow-ups survive restart. Messages cannot restart paused, cancelled or taken-over work.
+The Work tray and result report show the requested completion goal separately from an execution ending. A PR goal stays **Result ready** until Stave records that execution’s PR under the autonomy policy. Stave reuses an open PR only when its base branch, head branch and commit match the publication. A failed publish remains unfinished. A PR link does not confirm CI or merge; merge completion is not observed here. If the endpoint is unclear, confirm it before closing the goal. Older saved work without an endpoint keeps its history and appears as result ready until checked or explicitly accepted. For further edits, ask Tars to correct the same work (Careful asks you to confirm its message card). A completed or result-ready execution continues as a new run in the existing task, workspace and branch. The original goal, earlier reports, artifacts and PR links stay available; historical reports open their own execution. Each new run needs fresh verification; publication follows the autonomy policy. Follow-ups survive restart. Messages cannot restart paused, cancelled or taken-over work.
 
 Open **Tars** in the sidebar to delegate an outcome across registered
 repositories. Unlike the saved Supervisor Agent, Tars keeps one personal

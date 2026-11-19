@@ -12,6 +12,7 @@ import {
   useFleetAgentRunsStore,
 } from "../src/store/fleet-agent-runs-store";
 import {
+  agentRunsStoreBridge,
   agentRunTaskKey,
   selectAgentRunFailure,
   selectAgentRunTurnDivider,
@@ -19,7 +20,7 @@ import {
 } from "../src/store/agent-runs-store";
 import { AGENT_RUN_NOW, agentRunDetail, agentRunEvent, agentRunFixture } from "./fixtures/agent-run-fixtures";
 
-import { startAgentRunForSend } from "../src/store/agent-run-send";
+import { registerAgentRunBridge, startAgentRunForSend } from "../src/store/agent-run-send";
 import { useAgentAssignmentsStore, type TaskAgent } from "../src/store/agent-assignments-store";
 
 const originalWindow = globalThis.window;
@@ -100,6 +101,8 @@ describe("run details in the renderer", () => {
     useAppStore.setState({ activeWorkspaceId: "ws-1" });
     useAgentAssignmentsStore.setState({ byTaskId: { "task-1": { agentConfigId: "implementer", agentName: "Implementer" } as TaskAgent } });
     useAgentRunsStore.setState({ loadedWorkspaceId: null });
+    // The store registers this bridge on import; another test file may have replaced it since.
+    registerAgentRunBridge(agentRunsStoreBridge);
     try {
       const loading = useAgentRunsStore.getState().loadWorkspace("ws-1");
       const result = await startAgentRunForSend({ set: (update) => useAppStore.setState(update),

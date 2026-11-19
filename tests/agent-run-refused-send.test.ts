@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
+import { AGENT_RUN_LIMITS } from "../src/lib/agent-runs/domain";
 import type { AgentRunCommandResponse, AgentRunStartArgs } from "../src/lib/agent-runs/api";
 import { useAgentAssignmentsStore, type TaskAgent } from "../src/store/agent-assignments-store";
 import { registerAgentRunBridge } from "../src/store/agent-run-send";
@@ -131,7 +132,8 @@ beforeEach(() => {
 afterEach(async () => {
   await flushPendingSnapshotPersists();
   cancelPendingAutoRouting(TASK_ID);
-  registerAgentRunBridge(null);
+  // Put back the agent runs store's own bridge, which the app store's import registered.
+  registerAgentRunBridge((await import("../src/store/agent-runs-store")).agentRunsStoreBridge);
   useAgentAssignmentsStore.setState({ byTaskId: {} });
   usePendingAutoRoutingStore.setState({ byTaskId: {} });
   (globalThis as { window?: unknown }).window = originalWindow;
@@ -297,4 +299,42 @@ test("leaving a workspace during hydration keeps its unsent prompt recoverable",
   expect(starts).toBe(0);
   expect(startedTurns).toBe(0);
   expect(store.getState().failedSendsByTask[TASK_ID]?.[0]?.text).toBe(PROMPT);
+});
+
+test("a long composer request starts a Run with a bounded record and the complete assignment", async () => {
+  const app = await seedStore();
+  const inputs: AgentRunStartArgs[] = [];
+  registerAgentRunBridge({
+    activeAgentRun: () => null,
+    start: async (input) => {
+      inputs.push(input);
+      return { ok: true, agentRun: { agentRun: { id: "long-run" } } as never };
+    },
+    cancel: async () => ({ ok: true, agentRun: null }),
+    watchFirstPrompt: () => {},
+  });
+  const prompt = `${"x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars)} Keep this final instruction.`;
+  app.getState().updatePromptDraft({ taskId: TASK_ID, patch: { text: prompt, runtimeOverrides: { autoRouting: false } } });
+  expect(await app.getState().sendUserMessage({ taskId: TASK_ID, content: prompt, turnOrigin: "conversation" }))
+    .toMatchObject({ status: "run-started" });
+  expect(inputs[0]?.assignment).toBe(prompt.slice(0, AGENT_RUN_LIMITS.maxAssignmentChars));
+  expect(inputs[0]?.initialContext?.fullAssignment).toBe(prompt);
+  expect(startedTurns).toBe(0);
+  expect(app.getState().promptDraftByTask[TASK_ID]?.text).toBe("");
+});
+
+test("an unsupported provider keeps the Agent draft and reports why it was not sent", async () => {
+  const app = await seedStore();
+  app.setState((state) => ({
+    tasks: state.tasks.map((task) => ({ ...task, provider: "cursor" })),
+    draftProvider: "cursor",
+  }));
+  app.getState().updatePromptDraft({ taskId: TASK_ID, patch: { runtimeOverrides: { autoRouting: false } } });
+  expect(await app.getState().sendUserMessage({ taskId: TASK_ID, content: PROMPT, turnOrigin: "conversation" })).toMatchObject({
+    status: "blocked",
+    message: "Agent runs need Claude or Codex. Switch models or choose Chat to send.",
+  });
+  expect(startedTurns).toBe(0);
+  expect(refuseStart).toBeNull();
+  expect(app.getState().promptDraftByTask[TASK_ID]?.text).toBe(PROMPT);
 });

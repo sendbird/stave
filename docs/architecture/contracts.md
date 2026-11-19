@@ -172,7 +172,8 @@ Role coverage is a separate lifecycle contract:
 | Role / entry | Continuation owner | Completion evidence today |
 | --- | --- | --- |
 | Assigned primary Agent admitted through the composer | Existing AgentRun supervisor and stage grants | Stage report/action result plus acceptance policy; an ended turn alone is insufficient |
-| Assigned primary Agent outside run admission (attachments, unsupported provider, utility/queue paths) | Normal task/turn dispatch | Native turn completion; do not infer an AgentRun acceptance loop from assignment alone |
+| Assigned primary Agent on an unsupported provider when starting a Run | Composer refuses the send and keeps the draft | No turn starts |
+| Assigned primary Agent in ordinary conversation or utility work during supervision | Normal task/turn dispatch | Native turn completion; an active Run retains its supervisor |
 | Saved Agent used as a delegated task | Omitted lifecycle selects the existing AgentRun supervisor; `task-agent-turn.ts` keeps the frozen `delegate` role | Supervised work requires a matching completed Run report. Explicit `one-turn` settles on provider completion; explicit `detached` waits for parent follow-up. Parent integration/acceptance remains separate |
 | In-turn helper | Parent turn and provider-native runtime, limited by `canCall` | Ephemeral returned content for the caller to assess; no independent durable restart/acceptance loop |
 
@@ -341,12 +342,14 @@ silently moving providers/accounts or substituting a pin. Refresh the ordinary
 provider state and retry after resolving that block. Billing is reported only
 when supplied; turn limits do not guarantee dollars, cost savings or quality.
 
-File-path-only attachments enter supervision as saved on-disk references;
-unsaved edits must be saved, and image paths remain image references. Inline
-images/rich contexts retain the visible single-turn exception. An idle queued
-assignment can start a Run using queue-time routing intent, removing only its
-accepted queue identity. Refusal keeps the queued assignment available. Active
-Runs, utility work and unsupported providers keep their existing entry behavior.
+File paths enter supervision as saved on-disk references. Inline images and
+rich context are captured with the Run. Assignments in Run history are bounded
+to 8,000 characters, with longer requests (up to the 500,000-character limit
+of a chat message) saved in initial context for the stage prompt and the run
+briefing. An idle queued assignment can start a Run using queue-time
+routing intent, removing only its accepted queue identity. Refusal keeps the
+queued assignment available. Active Runs and utility work keep their existing
+entry behavior.
 
 An Agent-origin Run freezes its team limits at admission and keeps the provider
 it started on; saved-Agent supervision keeps its admitted provider. A helper

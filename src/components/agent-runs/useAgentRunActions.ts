@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { agentRunTurnAssignment } from "@/lib/agent-runs/initial-context";
 import { useMemo } from "react";
 import { buildAgentRunStartInput, AGENT_RUN_DEFAULT_DONE_WHEN, AGENT_RUN_STAGE_ID } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -109,7 +110,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
                 // A run that was one Work stage stays one: review stages it ran are in `stages`.
                 ...(single ? { reviewBeforeDone: "off" as const } : {}),
               },
-              assignment: agentRun.assignment,
+              assignment: agentRunTurnAssignment(agentRun),
               doneWhen,
               // A new run: the accounts selected now, not the ones the last run kept.
               accounts,

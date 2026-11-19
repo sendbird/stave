@@ -155,6 +155,7 @@ import { AgentRunRouteSelectionSchema, projectAgentRunRoutes, type AgentRunRoute
 import { AGENT_RUN_CLOCK_EVENT_KINDS, projectAgentRunActiveTime, type AgentRunUserWaitReason } from "../../../src/lib/agent-runs/active-time";
 import { aggregateAgentRunInsights, countRunEvents, type AgentRunInsights } from "../../../src/lib/agent-runs/insights";
 import { agentRunEndCause, extractRunAssignment, hasAgentOrigin } from "../../../src/lib/agent-runs/agent-run";
+import { agentRunTurnAssignment } from "../../../src/lib/agent-runs/initial-context";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions, RateLimitsSnapshotResponse } from "../../../src/lib/providers/provider.types";
 import type { TurnTerminalReceipt } from "../../../src/lib/providers/turn-terminal-receipt";
 import type { AgentRunPromptProvenance } from "../../../src/types/chat";
@@ -1421,7 +1422,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     try {
       // The assignment is the work every turn of the run continues; the
       // classifier reads the task's recent history for continuity.
-      return await deps.routeAgentTurn({ agentRun, prompt: `${agentRun.assignment}\n\n${describeAgentRunExecutionContext(requireAggregate(agentRun.id))}`, signal });
+      return await deps.routeAgentTurn({ agentRun, prompt: `${agentRunTurnAssignment(agentRun)}\n\n${describeAgentRunExecutionContext(requireAggregate(agentRun.id))}`, signal });
     } catch (error) {
       signal.throwIfAborted();
       console.warn("[agent-runs] could not route an agent run turn; using the task's model", error, {
@@ -1462,10 +1463,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
    * file and image contexts, and a later turn carries neither.
    */
   function turnInitialContext(agentRun: AgentRun, isContinuation: boolean): AgentRunInitialContext | undefined {
-    const context = agentRun.initialContext;
-    if (!context?.attachmentSource) return context?.questionReply && isContinuation ? { ...context, questionReply: undefined } : context;
-    const { attachmentSource: source, ...rest } = context;
+    if (!agentRun.initialContext) return undefined;
+    const { fullAssignment: _assignment, attachmentSource: source, ...rest } = agentRun.initialContext;
     if (isContinuation) return rest.questionReply ? { ...rest, questionReply: undefined } : rest;
+    if (!source) return rest;
     // i18n-ignore: run diagnostic recorded with the turn that could not start
     if (!deps.resolveAttachmentSource) throw new Error("This host cannot read the attachments this run carries.");
     const read = deps.resolveAttachmentSource({ source, agentRun });
@@ -1498,6 +1499,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     requestedTurnId?: string,
   ) {
     const { agentRun } = aggregate;
+    const assignment = agentRunTurnAssignment(agentRun);
     const before = currentStageRecord(aggregate);
     // Routed before anything is recorded, so a slow classifier leaves no half-started turn.
     const delegation = delegatedAuthority(agentRun);
@@ -1550,7 +1552,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // A model pinned in the composer is not classified again: nothing automatic may replace it.
       const constrained = !resetContinuation && !initialDecision && !adaptive?.composerPin?.model && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
         workspaceId: agentRun.workspaceId, taskId: agentRun.leadTaskId, providerId: agentRun.fingerprint.providerId as "codex" | "claude-code",
-        prompt: actionPrompt ?? agentRun.assignment, model: adaptive?.model ?? agentRun.fingerprint.model,
+        prompt: actionPrompt ?? assignment, model: adaptive?.model ?? agentRun.fingerprint.model,
         effort: adaptive?.effort ?? delegation?.effort, modelPinned: resources?.policy.modelLocked ?? delegation?.modelPinned,
         effortPinned: resources?.policy.effortLocked ?? delegation?.effortPinned, accounts: runAccountOptions(agentRun, resources),
         autoRouting: resources?.policy.autoRouting,
@@ -1686,7 +1688,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     // lands. Only a linked prior turn makes this a continuation.
     const isContinuation = store.listEventsByKind(agentRun.id, ["turn-linked"])
       .some((event) => typeof event.detail.turnId === "string");
-    const browserRequested = agentRunBrowserRequested({ assignment: agentRun.assignment, delegated: !!delegation,
+    const browserRequested = agentRunBrowserRequested({ assignment, delegated: !!delegation,
       events: store.listEventsByKind(agentRun.id, ["turn-linked"]) });
     try {
       const resumedDelegatedEffort = AgentResourceRequestObjectSchema.shape.effort.safeParse(resumeEffort?.claudeEffort ?? resumeEffort?.codexReasoningEffort).data;
@@ -1717,7 +1719,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         ...(hasAgentOrigin(agentRun)
           ? { agentRunPrompt: {
               agentRunId: agentRun.id,
-              assignment: extractRunAssignment(prompt, agentRun.assignment),
+              assignment: extractRunAssignment(prompt, assignment),
               stageIndex: started.agentRun.currentStageIndex,
               isContinuation,
               stageId: identity.stageId,
@@ -2411,7 +2413,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:composer:${turnId}`, detail: adaptive.composerDecision });
       if (adaptive?.decision)
         recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:${adaptive.requestSequence ?? `reply-auto:${turnId}`}`, detail: adaptive.decision });
-      const browserRequested = agentRunBrowserRequested({ assignment: run.assignment, prompt, delegated: !!authority,
+      const browserRequested = agentRunBrowserRequested({ assignment: agentRunTurnAssignment(run), prompt, delegated: !!authority,
         events: store.listEventsByKind(run.id, ["turn-linked"]) });
       turnIdsFor(run.id).add(turnId);
       recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply", browserRequested } });

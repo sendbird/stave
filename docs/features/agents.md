@@ -538,6 +538,8 @@ payloads and explicitly attached task or Information panel context are captured
 once when the Run starts and retained through retries, continuations, and app
 restarts. Later changes to an attached task do not replace that captured context.
 An idle queued assignment starts supervision with its captured routing intent.
+Long requests reach the run in full. If the selected provider cannot start a
+run, Stave keeps the draft and tells you to switch models or choose Chat.
 No live cost or quality improvement is guaranteed by these containment limits.
 
 ## Limitations

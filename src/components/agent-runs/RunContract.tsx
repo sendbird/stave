@@ -91,9 +91,8 @@ export interface RunStartDraftAttachments {
 }
 
 /**
- * The draft as the run-start line reads it: whether its prompt can be an
- * assignment (measured on the assignment the send builds, file paths
- * included) and what it attaches, across staged prompt items too.
+ * The draft as the run-start line reads it, including what it attaches
+ * across staged prompt items.
  */
 export function describeRunStartDraft(draft: Pick<PromptDraft, "text" | "attachedFilePaths" | "attachments" | "promptBatch">): RunStartDraftAttachments & { promptFit: AgentRunPromptFit } {
   const batch = draft.promptBatch ?? [];
