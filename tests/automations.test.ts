@@ -311,7 +311,7 @@ describe("automation permission modes", () => {
     const codex = createDefaultAutomationRuntime("codex");
     expect(
       applyAutomationTrustPolicyToRuntime(codex, "unattended"),
-    ).toMatchObject({ approvalPolicy: "never" });
+    ).toMatchObject({ approvalPolicy: "on-request" });
     expect(
       applyAutomationTrustPolicyToRuntime(codex, "review-required"),
     ).toMatchObject({ approvalPolicy: "untrusted" });

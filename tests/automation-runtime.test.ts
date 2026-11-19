@@ -381,20 +381,32 @@ describe("automation host runtime", () => {
     );
   });
 
-  test("captures an immutable config hash and unattended trust policy", async () => {
+  test("sends an existing Auto schedule to Codex automatic review when due", async () => {
     const harness = createHarness();
+    harness.runtime.start();
+    await harness.tick();
     const automation = await harness.runtime.create(
       createInput({
+        enabled: true,
         trustPolicy: "unattended",
         runtime: {
           ...createDefaultAutomationRuntime("codex"),
-          approvalPolicy: "on-request",
+          // Existing Auto schedules stored never. They must work without resaving.
+          approvalPolicy: "never",
+          fileAccess: "read-only",
+          networkAccess: false,
         },
       }),
     );
-    const firstRun = await harness.runtime.runNow({ id: automation.id });
+    harness.setNow("2026-07-23T01:00:00.000Z");
+    await harness.tick();
 
-    expect(firstRun.trustPolicy).toBe("unattended");
+    const firstRun = (await harness.runtime.list()).runs[0]!;
+    expect(firstRun).toMatchObject({
+      automationId: automation.id,
+      trigger: "scheduled",
+      trustPolicy: "unattended",
+    });
     expect(firstRun.configHash).toMatch(/^[a-f0-9]{16}$/);
     expect(harness.getRunTaskCalls()[0]).toMatchObject({
       unattendedAutomation: {
@@ -402,10 +414,13 @@ describe("automation host runtime", () => {
       },
       runtimeOptions: {
         codexAutoApproveStaveLocalMcpTools: true,
-        codexApprovalPolicy: "never",
-        codexFileAccess: "workspace-write",
+        codexApprovalPolicy: "on-request",
+        codexApprovalsReviewer: "auto_review",
+        codexFileAccess: "read-only",
+        codexNetworkAccess: false,
       },
     });
+    harness.runtime.stop();
   });
 
   test("bypasses Claude approvals for unattended runs instead of denying tools", async () => {
@@ -532,6 +547,26 @@ describe("automation host runtime", () => {
     expect(runTaskCall.runtimeOptions).not.toHaveProperty(
       "codexAutoApproveStaveLocalMcpTools",
     );
+    expect(runTaskCall.runtimeOptions).not.toHaveProperty("codexApprovalsReviewer");
+  });
+
+  test("leaves a Codex schedule in Manual on its saved approval policy", async () => {
+    const harness = createHarness();
+    const automation = await harness.runtime.create(
+      createInput({
+        trustPolicy: "workspace-trusted",
+        runtime: { ...createDefaultAutomationRuntime("codex"), approvalPolicy: "never" },
+      }),
+    );
+
+    await harness.runtime.runNow({ id: automation.id });
+
+    const runTaskCall = harness.getRunTaskCalls()[0] as {
+      runtimeOptions: Record<string, unknown>;
+    };
+    expect(runTaskCall.runtimeOptions).toMatchObject({ codexApprovalPolicy: "never" });
+    expect(runTaskCall.runtimeOptions).not.toHaveProperty("codexApprovalsReviewer");
+    expect(runTaskCall.runtimeOptions).not.toHaveProperty("codexAutoApproveStaveLocalMcpTools");
   });
 
   test("lists Information references but excludes interactive browser state", async () => {

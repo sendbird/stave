@@ -404,7 +404,7 @@ function PermissionSection(props: {
   const { t: tI18n } = useTranslation(["automation"]);
   const { draft } = props;
   const mode = automationTrustPolicyToPermissionMode(draft.trustPolicy);
-  const runtime = draft.runtime;
+  const runtime = applyAutomationTrustPolicyToRuntime(draft.runtime, draft.trustPolicy);
 
   function selectMode(next: AutomationPermissionMode) {
     const trustPolicy = automationPermissionModeToTrustPolicy(next);
@@ -617,7 +617,7 @@ function PermissionSection(props: {
       ) : null}
 
       <p className={sx(editorStyles.permissionSummary)}>
-        {formatAutomationRuntimePermissions(runtime)}
+        {formatAutomationRuntimePermissions(runtime, mode)}
       </p>
     </section>
   );
