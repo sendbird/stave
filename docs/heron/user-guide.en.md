@@ -759,6 +759,10 @@ reset, PR checks or a set time, and work still being prepared, whose task
 does not exist yet. A pull request that is
 ready to merge or a turn that has been quiet for a while does not change the
 state; the card's detail lists it.
+Work you continued in its task keeps the state of your run and says whose run
+it is: **Working** with a sentence saying that you continued it and that Tars
+only follows your run, **Finished** with a note that Tars did not verify it,
+or **Blocked** with **Open task** when your run ended before the goal.
 Select a card's title (or press Enter or Space on it) to open its detail under
 the three lines; select it again to fold it. The detail holds the rest: the
 owner with the helpers working when Stave knows them, the

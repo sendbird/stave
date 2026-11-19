@@ -1168,6 +1168,16 @@ Tars comes before a result's check: while both wait, the card offers
 work is paused or you hold it, what Fleet lists for its task leaves the card
 as it is; a decision Tars asks about it still reads **Waiting for you**.
 
+Work you continued in its task (see **Ownership**) keeps the state its run
+has, and its sentence says whose run it is. While your run works the card
+reads **Working** and says that you continued the work and that Tars follows
+your run and acts on it only when you confirm; what Stave observed moves to
+the detail. When your run reached the goal the card reads **Finished** and
+says that you finished the work and Tars did not verify it, with the pull
+request number when your run opened one. When your run ended short of the
+goal the card reads **Blocked** and its action is **Open task**, where you
+continue: Tars checked nothing a report could show as unmet.
+
 **The detail holds everything else.** Selecting the title (or Enter/Space on
 it) unfolds it under the three lines, and folds it again; folding is
 view-only. It lists who holds the work with the helpers working and the

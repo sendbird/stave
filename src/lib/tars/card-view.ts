@@ -159,8 +159,11 @@ export function describeTarsCardSentence(card: CardFacts, status: TaskUserStatus
       // What it waits for: its turn, its workspace, the user handing it back or resuming it, or when its run resumes in the run's own words.
       return status.reason ?? describeTarsResponsibilityDetail(row);
     case "working":
-      return isTarsWorkRunning(row) ? null : describeTarsResponsibilityDetail(row);
+      // A run the user started in the work's task works like any other; what only its card can say is that Tars follows it and acts only on a confirmation.
+      return isTarsWorkRunning(row) && row.detailCode !== "followingUserRun" ? null : describeTarsResponsibilityDetail(row);
     case "finished": {
+      // Work the user finished in its task says so, and that Tars did not verify it, before a pull request Tars opened earlier.
+      if (row.detailCode === "finishedByUser") return describeTarsResponsibilityDetail(row);
       const pullRequest = status.result?.pullRequest;
       if (pullRequest) return pullRequest.number ? i18n.t("shell:tars.publish.status.opened", { number: pullRequest.number }) : i18n.t("shell:tars.publish.status.openedUnnumbered");
       const summary = card.run ? tarsSummaryExcerpt(projectTarsReport(row, card.run).summary ?? "") : "";
@@ -225,6 +228,8 @@ export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { 
       return request?.taskId ? { kind: "openTask", request: { taskId: request.taskId, workspaceId: request.workspaceId ?? row.executionWorkspaceId ?? row.workspaceId } } : openTask;
     }
     case "blocked": {
+      // A run the user started that ended short of the goal goes on where they left it: Tars checked nothing a report could show as unmet.
+      if (row.detailCode === "userRunEnded" && openTask) return openTask;
       // Work Tars could not finish is read before it is resumed: its report says what is unmet.
       if (row.state === "blocked" && openReport) return openReport;
       const operation = UNBLOCKING.find((candidate) => card.controls.includes(candidate));

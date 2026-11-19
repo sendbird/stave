@@ -102,6 +102,25 @@ describe("a Tars work card reads in three lines", () => {
     expect(html.slice(html.indexOf("data-tars-card-detail"))).toContain('data-tars-action="pause"');
   });
 
+  test("work the user continued in its task still reads in three lines, and says once whose run it is", async () => {
+    await applyAppLocale("en");
+    const tray = buildTarsTrayFixtures(start);
+    const billing = tray.responsibilities.find((row) => row.id === "billing")!;
+    const followed: TarsResponsibility = { ...billing, followedRunId: billing.agentRunId!, detailCode: "followingUserRun", detail: "The host's own English words." };
+    const card = Object.values(buildTarsTray({ responsibilities: [followed], attentionItems: [], runs: tray.runs }).lanes).flat()[0]!;
+    const html = renderToStaticMarkup(createElement(TarsTrayCard, { card, actions }));
+    const top = folded(html);
+    const sentence = "You continued this work in its task. Tars follows your run and acts on it only when you confirm.";
+    expect(html).toContain('data-task-user-state="working"');
+    expect(controls(top).length).toBe(2);
+    expect(top).toContain(`>${sentence}<`);
+    expect(top).toContain(">Open task<");
+    // The stage in hand gives the line to that sentence and stays in the detail's stages; the sentence is not said a second time there.
+    expect(top).not.toContain("Now: Cause");
+    expect(html.split(`>${sentence}<`).length - 1).toBe(1);
+    expect(html.slice(html.indexOf("data-tars-card-detail"))).toContain('data-run-segments="done,now,pending"');
+  });
+
   test("the three lines read in Korean too", async () => {
     applyAppLocale("ko"); await i18n.changeLanguage("ko");
     try {

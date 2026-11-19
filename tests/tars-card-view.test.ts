@@ -257,6 +257,30 @@ describe("a Tars work card's state, sentence and action", () => {
     expect(tarsTaskStateFacts(checkout).result?.changedFiles).toBe(tarsRecordedChangeCount(checkout.run!)!);
   });
 
+  test("work the user continued in its task keeps the run's state and says whose run it is", async () => {
+    await applyAppLocale("en");
+    const f = tray();
+    // The host marks the run the work followed (`followedRunId`) and saves the code for what it observed (`tarsUserRunObservation`).
+    const observed = (row: TarsResponsibility, code: NonNullable<TarsResponsibility["detailCode"]>): TarsResponsibility =>
+      ({ ...row, followedRunId: row.agentRunId!, detailCode: code, detail: "The host's own English words.", detailParams: null, resultVerifiedRunId: null, resultUnverifiedRunId: null });
+    // Running: the run works, so the card does; its sentence says the user drives it, which the live line cannot.
+    expect(read(observed(billing(), "followingUserRun"), { runs: f.runs })).toEqual({ state: "working", waitingOn: null,
+      sentence: "You continued this work in its task. Tars follows your run and acts on it only when you confirm.", primary: { kind: "openTask" } });
+    const side = buildTarsSideViewFixtures(start);
+    // Finished by the user: finished, and the sentence says Tars did not verify it, also over a pull request Tars had opened before.
+    const checkout = observed(side.responsibilities.find((row) => row.id === "checkout")!, "finishedByUser");
+    expect(read(checkout, { runs: side.runs })).toEqual({ state: "finished", waitingOn: null,
+      sentence: "You finished this work in its task. Tars did not verify it.", primary: { kind: "openReport" } });
+    expect(read({ ...checkout, detailParams: { pullRequest: 57 } }).sentence).toBe("You finished this work in its task: pull request #57 was opened from your run. Tars did not verify it.");
+    const published: TarsResponsibility = { ...checkout, publication: { state: "opened", failedStep: null, commit: "f00ba12", branch: "tars/checkout", base: "main",
+      commitMessage: "fix: show the saved card first", title: checkout.title, url: "https://example.com/acme/shop/pull/42", number: 42, error: null, reason: null, updatedAt: start.toISOString() } };
+    expect(read(published, { runs: side.runs })).toMatchObject({ state: "finished", sentence: "You finished this work in its task. Tars did not verify it.", primary: { kind: "openPullRequest", number: 42 } });
+    // The user's run ended short of the goal: blocked, and the card leads to the task its sentence says to continue in, not to a report Tars did not check.
+    const search = observed(side.responsibilities.find((row) => row.id === "search")!, "userRunEnded");
+    expect(read(search, { runs: side.runs })).toEqual({ state: "blocked", waitingOn: null,
+      sentence: "Your run in this task ended without reaching the goal. Tars did not verify it. Continue in the task, or cancel this work.", primary: { kind: "openTask" } });
+  });
+
   test("cancelled work is stopped and says so", async () => {
     await applyAppLocale("en");
     const cancelled: TarsResponsibility = { ...billing(), state: "cancelled", agentRunId: null, detail: "The run was cancelled.", detailCode: "runCancelled" };
