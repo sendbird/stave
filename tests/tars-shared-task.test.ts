@@ -180,7 +180,15 @@ describe("Tars and the user share a delegated task", () => {
  * gives the user's run a result Stave verified (unchanged work); `pullRequest`
  * is what GitHub says of the pull request the user's run reports.
  */
-function hostScenario(options: { goal: "design" | "pullRequest"; verified?: boolean; pullRequest?: Record<string, unknown> | null }) {
+function hostScenario(options: { goal: "design" | "pullRequest" | "merge"; verified?: boolean; pullRequest?: Record<string, unknown> | null;
+  /** The execution workspace's origin remote; null when it cannot be read. */
+  origin?: string | null;
+  /** Whether the pull request's head commit contains the work branch's commit. */
+  contains?: boolean;
+  /** \`gh\` or \`git\` fails (a timeout reads the same): which read throws. */
+  fail?: "pullRequest" | "origin" | "contains";
+  /** What GitHub says of the same pull request on later looks, with the clock moved by \`afterMs\` first. */
+  later?: { pullRequest: Record<string, unknown>; afterMs: number }[] }) {
   const source = `
     import { mock } from "bun:test";
     import { Database } from "bun:sqlite";
@@ -215,7 +223,11 @@ function hostScenario(options: { goal: "design" | "pullRequest"; verified?: bool
     const runtime = createHostTarsRuntime({ assignments, agentRuns: { get: async ({ agentRunId }) => {
       const aggregate = persistence.agentRuns.getAggregate(agentRunId);
       return { events: [], ...aggregate, stages: stages[agentRunId] ?? aggregate.stages, report: reports[agentRunId] ?? null };
-    } }, readPullRequest: async (cwd, url) => { reads.push(cwd + " " + url); return options.pullRequest ?? null; } });
+    } }, readPullRequest: async (cwd, url) => { reads.push(cwd + " " + url); if (options.fail === "pullRequest") throw new Error("gh timed out"); return pullRequest; },
+      workBranch: { origin: async () => { if (options.fail === "origin") throw new Error("git failed"); return options.origin === undefined ? "git@github.com:example/repo.git" : options.origin; },
+        contains: async (cwd, branch, commit) => { reads.push("contains " + branch + " " + commit); if (options.fail === "contains") throw new Error("git failed"); return options.contains ?? true; } } });
+    let pullRequest = options.pullRequest ?? null, clock = Date.now();
+    Date.now = () => clock;
     const consent = { checkIns: "when-stuck", permissionMode: "auto", authorizedEffectStageIds: [] };
     const run = (id, row, overrides, at) => {
       const change = createAgentRun({ id, input: { workspaceId: row.executionWorkspaceId, leadTaskId: row.taskId, origin: "agent",
@@ -262,6 +274,12 @@ function hostScenario(options: { goal: "design" | "pullRequest"; verified?: bool
     }
     await tick();
     steps.ended = persistence.tars.get(shared.id);
+    steps.later = [];
+    for (const look of options.later ?? []) {
+      pullRequest = look.pullRequest; clock += look.afterMs;
+      await tick();
+      steps.later.push(persistence.tars.get(shared.id));
+    }
     steps.autoPublish = tarsCanAutoPublish(steps.ended);
     steps.userConsent = persistence.agentRuns.getAgentRun("user-run").consent.permissionMode;
     steps.reads = reads;
@@ -271,6 +289,12 @@ function hostScenario(options: { goal: "design" | "pullRequest"; verified?: bool
   const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
   expect(result.exitCode, result.stderr.toString()).toBe(0);
   return JSON.parse(result.stdout.toString());
+}
+
+/** What GitHub says of the pull request from the work's branch in its own repository, changed by \`overrides\`. */
+function workPullRequest(overrides: Record<string, unknown> = {}) {
+  return { number: 1002, url: "https://github.com/example/repo/pull/1002", state: "OPEN", baseRefName: "main", headRefName: "tars/search",
+    headRefOid: "c".repeat(40), isCrossRepository: false, headRepository: { name: "repo" }, headRepositoryOwner: { login: "example" }, ...overrides };
 }
 
 describe("the host observes the user's run in the delegated task", () => {
@@ -288,17 +312,96 @@ describe("the host observes the user's run in the delegated task", () => {
     expect(steps.ended.completionConfirmedAt).toBeUndefined();
   });
   test("a pull request goal is not published for the user's run: without the requested pull request it stays open", () => {
-    for (const pullRequest of [null, { number: 1002, url: "https://github.com/example/repo/pull/1002", state: "OPEN", baseRefName: "release", headRefName: "tars/search" },
-      { number: 1002, url: "https://github.com/example/repo/pull/1002", state: "OPEN", baseRefName: "main", headRefName: "someone-else" }]) {
+    for (const pullRequest of [null, workPullRequest({ baseRefName: "release" }), workPullRequest({ headRefName: "someone-else" })]) {
       const steps = hostScenario({ goal: "pullRequest", pullRequest });
       expect(steps.ended).toMatchObject({ state: "blocked", detailCode: "userRunEnded", agentRunId: "user-run", resultUnverifiedRunId: null, resultVerifiedRunId: null });
       expect(steps.autoPublish).toBe(false);
     }
   });
   test("the pull request the user's run opened to the requested base from the work's branch finishes the work, by the user", () => {
-    const steps = hostScenario({ goal: "pullRequest", pullRequest: { number: 1002, url: "https://github.com/example/repo/pull/1002", state: "OPEN", baseRefName: "main", headRefName: "tars/search" } });
-    expect(steps.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 }, resultVerifiedRunId: null });
-    expect(steps.autoPublish).toBe(false);
-    expect(steps.reads).toEqual(["/tmp/tars-shared-repository/.stave/execution https://github.com/example/repo/pull/1002"]);
+    // The remote may name the repository in another case, over ssh or https.
+    for (const origin of ["git@github.com:example/repo.git", "https://github.com/Example/Repo", "ssh://git@github.com/example/repo.git/"]) {
+      const steps = hostScenario({ goal: "pullRequest", pullRequest: workPullRequest(), origin });
+      expect(steps.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 }, resultVerifiedRunId: null });
+      expect(steps.autoPublish).toBe(false);
+      expect(steps.reads).toEqual(["/tmp/tars-shared-repository/.stave/execution https://github.com/example/repo/pull/1002", "contains tars/search " + "c".repeat(40)]);
+    }
+  });
+  test("a pull request with the same branch names elsewhere never finishes the work", () => {
+    const denied: Parameters<typeof hostScenario>[0][] = [
+      // A fork's branch of the same name into this repository's base.
+      { goal: "pullRequest", pullRequest: workPullRequest({ isCrossRepository: true, headRepositoryOwner: { login: "someone" } }) },
+      // A cross-repository head that names this owner is still not this repository's branch.
+      { goal: "pullRequest", pullRequest: workPullRequest({ isCrossRepository: true }) },
+      { goal: "pullRequest", pullRequest: workPullRequest({ headRepository: null }) },
+      // An unrelated repository the user's report links to, with the same branch names.
+      { goal: "pullRequest", pullRequest: workPullRequest({ url: "https://github.com/other/repo/pull/1002",
+        headRepositoryOwner: { login: "other" } }) },
+      { goal: "pullRequest", pullRequest: workPullRequest(), origin: "git@github.com:example/repo-fork.git" },
+      // The work's repository cannot be determined.
+      { goal: "pullRequest", pullRequest: workPullRequest(), origin: null },
+      { goal: "pullRequest", pullRequest: workPullRequest(), origin: "/srv/git/repo.git" },
+      // The pull request does not carry the work's commits.
+      { goal: "pullRequest", pullRequest: workPullRequest(), contains: false },
+      { goal: "pullRequest", pullRequest: workPullRequest({ headRefOid: "" }) },
+      // A failed or timed-out read never completes the work.
+      { goal: "pullRequest", pullRequest: workPullRequest(), fail: "pullRequest" },
+      { goal: "pullRequest", pullRequest: workPullRequest(), fail: "origin" },
+      { goal: "pullRequest", pullRequest: workPullRequest(), fail: "contains" },
+    ];
+    for (const options of denied) {
+      const steps = hostScenario(options);
+      expect(steps.ended, JSON.stringify(options)).toMatchObject({ state: "blocked", detailCode: "userRunEnded", resultVerifiedRunId: null });
+    }
+  });
+  test("an open pull request is read again for a merge goal, and only every few minutes", () => {
+    const merged = workPullRequest({ state: "MERGED" });
+    const steps = hostScenario({ goal: "merge", pullRequest: workPullRequest(), later: [{ pullRequest: merged, afterMs: 60_000 }, { pullRequest: merged, afterMs: 5 * 60_000 }] });
+    expect(steps.ended).toMatchObject({ state: "blocked", detailCode: "userRunEnded" });
+    // Within the recheck interval GitHub is not asked again.
+    expect(steps.later[0]).toMatchObject({ state: "blocked", detailCode: "userRunEnded" });
+    expect(steps.later[1]).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 } });
+    expect(steps.reads.filter((read: string) => read.includes("/pull/"))).toHaveLength(2);
+  });
+});
+
+describe("the work's own repository and commits", () => {
+  test("a remote names its repository over ssh or https, in any case; a local path names none", async () => {
+    const { tarsRemoteRepository } = await import("../electron/host-service/tars-execution");
+    for (const remote of ["git@github.com:Example/Repo.git", "ssh://git@github.com/example/repo.git", "ssh://git@github.com:22/example/repo",
+      "https://github.com/example/repo", "https://token@github.com/example/repo.git/", "https://github.com/example/repo/pull/7"])
+      expect(tarsRemoteRepository(remote), remote).toEqual({ owner: "example", name: "repo" });
+    for (const remote of ["/srv/git/repo.git", "file:///srv/example/repo", "../repo", "https://github.com/example", "https://github.com/a/b/c", ""])
+      expect(tarsRemoteRepository(remote), remote).toBeNull();
+  });
+  test("the work branch's commit is contained only in its own or a later commit, read with argument arrays", async () => {
+    const { mkdtempSync, rmSync } = await import("node:fs");
+    const os = await import("node:os");
+    const { tarsWorkBranch } = await import("../electron/host-service/tars-host");
+    const dir = mkdtempSync(path.join(os.tmpdir(), "tars-work-branch-"));
+    const git = (...args: string[]) => Bun.spawnSync({ cmd: ["git", "-c", "user.name=t", "-c", "user.email=t@t", "-c", "commit.gpgsign=false", ...args], cwd: dir }).stdout.toString().trim();
+    try {
+      git("init", "-q", "-b", "main");
+      git("remote", "add", "origin", "git@github.com:example/repo.git");
+      git("commit", "-q", "--allow-empty", "-m", "base");
+      const base = git("rev-parse", "HEAD");
+      git("checkout", "-q", "-b", "tars/search");
+      git("commit", "-q", "--allow-empty", "-m", "work");
+      const work = git("rev-parse", "HEAD");
+      git("commit", "-q", "--allow-empty", "-m", "later");
+      const later = git("rev-parse", "HEAD");
+      git("checkout", "-q", "--detach");
+      git("branch", "-f", "tars/search", work);
+      expect(await tarsWorkBranch.origin(dir)).toBe("git@github.com:example/repo.git");
+      expect(await tarsWorkBranch.contains(dir, "tars/search", work)).toBe(true);
+      expect(await tarsWorkBranch.contains(dir, "tars/search", later)).toBe(true);
+      // Denied: a head without the work's commit, one GitHub has that is not here, a missing branch or a value that is no commit.
+      expect(await tarsWorkBranch.contains(dir, "tars/search", base)).toBe(false);
+      expect(await tarsWorkBranch.contains(dir, "tars/search", "d".repeat(40))).toBe(false);
+      expect(await tarsWorkBranch.contains(dir, "missing", work)).toBe(false);
+      expect(await tarsWorkBranch.contains(dir, "tars/search", "--all")).toBe(false);
+      git("remote", "remove", "origin");
+      expect(await tarsWorkBranch.origin(dir)).toBeNull();
+    } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 });

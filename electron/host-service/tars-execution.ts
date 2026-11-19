@@ -384,15 +384,58 @@ export function tarsObservation(detail: AgentRunDetail, expectedCriteria?: reado
 /** What GitHub says of a pull request the user's run reports (`gh pr view`), as the host read it. */
 export interface TarsUserPullRequest {
   number: number;
+  /** GitHub's own URL of the pull request, which names the repository it was opened in. */
   url: string;
   state: string;
   baseRefName: string;
   headRefName: string;
+  /** The commit the pull request's head points at. */
+  headRefOid: string;
+  /** True when the head branch lives in another repository (a fork). */
+  isCrossRepository: boolean;
+  headRepository: { name: string } | null;
+  headRepositoryOwner: { login: string } | null;
 }
+
+/** At most this many pull request links of one report are read on GitHub per look. */
+const TARS_REPORTED_PULL_REQUESTS_MAX = 3;
 
 /** A pull request link in a run's report: candidates the host reads on GitHub, never evidence by themselves. */
 export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report">): string[] {
-  return [...new Set((detail.report?.links ?? []).map((link) => link.url).filter((url) => /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?:[/?#]|$)/.test(url)))];
+  return [...new Set((detail.report?.links ?? []).map((link) => link.url).filter((url) => /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?:[/?#]|$)/.test(url)))]
+    .slice(0, TARS_REPORTED_PULL_REQUESTS_MAX);
+}
+
+const REPOSITORY_PART = /^[A-Za-z0-9_.-]+$/;
+
+/**
+ * The owner and name of the repository a remote URL (ssh, scp-like or https)
+ * or a pull request URL names, lowercased; null for anything else, such as a
+ * local path.
+ */
+export function tarsRemoteRepository(remote: string): { owner: string; name: string } | null {
+  const trimmed = remote.trim();
+  const pull = /^https:\/\/[^/]+\/([^/]+)\/([^/]+)\/pull\/\d+(?:[/?#]|$)/.exec(trimmed);
+  const match = pull ?? /^(?:[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?[^/]+\/|(?:[^@/:]+@)?[^/:]+:)([^/]+)\/([^/]+?)(?:\.git)?\/*$/i.exec(trimmed);
+  if (!match || !REPOSITORY_PART.test(match[1]!) || !REPOSITORY_PART.test(match[2]!) || match[2] === "." || match[2] === "..") return null;
+  return { owner: match[1]!.toLowerCase(), name: match[2]!.toLowerCase() };
+}
+
+/**
+ * Whether a pull request is the one the work asks for, as far as its names
+ * say: opened in the work's own repository (the execution workspace's
+ * origin), from the work's branch of that same repository (not a fork's
+ * branch of the same name), to the requested base. An origin that names no
+ * repository never matches. Whether it carries the work's commits is read
+ * separately against its head commit.
+ */
+export function isTarsWorkPullRequest(pullRequest: TarsUserPullRequest, work: { origin: string; branch: string; base: string }): boolean {
+  const repository = tarsRemoteRepository(work.origin);
+  const opened = tarsRemoteRepository(pullRequest.url);
+  if (!repository || !opened || opened.owner !== repository.owner || opened.name !== repository.name) return false;
+  return !pullRequest.isCrossRepository && pullRequest.headRepositoryOwner?.login.toLowerCase() === repository.owner
+    && pullRequest.headRepository?.name.toLowerCase() === repository.name
+    && pullRequest.baseRefName === work.base && pullRequest.headRefName === work.branch && /^[0-9a-f]{40,64}$/.test(pullRequest.headRefOid);
 }
 
 /**
@@ -402,7 +445,8 @@ export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report
  * Tars could publish or complete. Running and waiting are said as observed.
  * When it ends having produced what the work's goal asks for (for a pull
  * request goal, `pullRequest`: one the host read open or merged from the
- * work's branch to the requested base; merged for a merge goal; otherwise a
+ * work's branch to the requested base in the work's own repository, carrying
+ * the work's commits (`isTarsWorkPullRequest`); merged for a merge goal; otherwise a
  * completed report), the work is finished by the user, which the record says
  * without claiming Tars's verification. Otherwise the work stays open and
  * says the user's run ended without reaching the goal.

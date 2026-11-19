@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
-  tarsReportedPullRequestUrls, tarsUserRunObservation, type TarsUserPullRequest,
+  tarsReportedPullRequestUrls, tarsUserRunObservation, isTarsWorkPullRequest, type TarsUserPullRequest,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, TARS_OWNER_CALLABLE_AGENT_IDS, tarsAgentPublishes, tarsOwnerAgent } from "../../src/lib/tars/agents";
@@ -37,7 +37,11 @@ import { parseTarsRequestMessageId } from "../../src/lib/tars/brief";
 import { isTarsObservingUserRun } from "../../src/lib/tars/ownership";
 import { z } from "zod";
 
-/** How long a pull request read that found none for the user's run stands before the next look. */
+/**
+ * How long a pull request read for the user's run stands before the next look,
+ * unless it found the pull request merged. With at most three links read per
+ * look, that is at most 36 `gh` calls per user run per hour.
+ */
 const USER_PULL_REQUEST_RECHECK_MS = 5 * 60_000;
 
 export function createHostTarsRuntime(args: {
@@ -47,6 +51,8 @@ export function createHostTarsRuntime(args: {
   emitChanged?: (event: TarsChangedEvent) => void;
   /** Reads what GitHub says of a pull request (`readTarsPullRequest`); null when it cannot be read. */
   readPullRequest?: (cwd: string, url: string) => Promise<TarsUserPullRequest | null>;
+  /** Reads the execution workspace's git facts (`tarsWorkBranch`); a failed read answers null or false. */
+  workBranch?: TarsWorkBranchReader;
 }) {
   const persistence = ensureHostServicePersistenceReady();
   if (args.emitChanged) {
@@ -55,23 +61,30 @@ export function createHostTarsRuntime(args: {
     persistence.tarsConversations.onChange(notify);
   }
   const readPullRequest = args.readPullRequest ?? readTarsPullRequest;
+  const workBranch = args.workBranch ?? tarsWorkBranch;
   const userPullRequests = new Map<string, { found: TarsUserPullRequest | null; at: number }>();
   /**
    * The pull request the user's ended run opened for the work: one its report
    * links that GitHub says goes from the execution workspace's branch to the
-   * base Tars would publish to. Read only for a pull request or merge goal.
+   * base Tars would publish to, both in the repository the workspace's origin
+   * names, and whose head carries the branch's commit. Read only for a pull
+   * request or merge goal; a repository that cannot be determined or a failed
+   * read finds none.
    */
   async function readUserPullRequest(row: TarsResponsibility, detail: { agentRun: { id: string; state: string }; report?: { links: { url: string }[] } | null }) {
     if (detail.agentRun.state !== "completed" || (row.completionGoal !== "pullRequest" && row.completionGoal !== "merge")) return null;
     const cached = userPullRequests.get(detail.agentRun.id);
-    if (cached && (cached.found || Date.now() - cached.at < USER_PULL_REQUEST_RECHECK_MS)) return cached.found;
+    if (cached && (cached.found?.state === "MERGED" || Date.now() - cached.at < USER_PULL_REQUEST_RECHECK_MS)) return cached.found;
     const repository = (await tasks.listKnownRepositories()).find((item) => path.resolve(item.repositoryPath) === path.resolve(row.repositoryPath));
     const execution = repository?.workspaces.find((workspace) => workspace.id === row.executionWorkspaceId);
     const base = repository?.workspaces.find((workspace) => workspace.id === row.workspaceId)?.branch || repository?.defaultBranch || null;
     let found: TarsUserPullRequest | null = null;
-    if (execution?.branch && base) for (const url of tarsReportedPullRequestUrls(detail as Parameters<typeof tarsReportedPullRequestUrls>[0])) {
+    const urls = tarsReportedPullRequestUrls(detail as Parameters<typeof tarsReportedPullRequestUrls>[0]);
+    const origin = execution?.branch && base && urls.length ? await workBranch.origin(execution.path).catch(() => null) : null;
+    if (execution?.branch && base && origin) for (const url of urls) {
       const read = await readPullRequest(execution.path, url).catch(() => null);
-      if (read && read.baseRefName === base && read.headRefName === execution.branch) { found = read; break; }
+      if (!read || !isTarsWorkPullRequest(read, { origin, branch: execution.branch, base })) continue;
+      if (await workBranch.contains(execution.path, execution.branch, read.headRefOid).catch(() => false)) { found = read; break; }
     }
     userPullRequests.set(detail.agentRun.id, { found, at: Date.now() });
     return found;
@@ -471,15 +484,47 @@ export function createHostTarsRuntime(args: {
 }
 
 const TarsUserPullRequestSchema = z.object({ number: z.number().int().min(1), url: z.string().min(1).max(2_000), state: z.string().max(40),
-  baseRefName: z.string().max(300), headRefName: z.string().max(300) });
+  baseRefName: z.string().max(300), headRefName: z.string().max(300), headRefOid: z.string().max(64), isCrossRepository: z.boolean(),
+  headRepository: z.object({ name: z.string().max(300) }).nullable(), headRepositoryOwner: z.object({ login: z.string().max(300) }).nullable() });
+
+/** Argument arrays only (`shell: false`) with prompts disabled; a timeout or failure reads as nothing found. */
+const TARS_READ_COMMAND_TIMEOUT_MS = 30_000;
+const readTarsCommand = (command: string, commandArgs: string[], cwd: string) => runCommandArgs({ command, commandArgs, cwd,
+  timeoutMs: TARS_READ_COMMAND_TIMEOUT_MS, env: { ...process.env, GH_PROMPT_DISABLED: "1", GIT_TERMINAL_PROMPT: "0" } });
 
 /** What GitHub says of one pull request, read in the work's execution workspace; null when it cannot be read. */
 async function readTarsPullRequest(cwd: string, url: string): Promise<TarsUserPullRequest | null> {
-  const result = await runCommandArgs({ command: "gh", commandArgs: ["pr", "view", url, "--json", "number,url,state,baseRefName,headRefName"], cwd,
-    timeoutMs: 30_000, env: { ...process.env, GH_PROMPT_DISABLED: "1" } });
+  // The URL is a report link already checked to be an https pull request URL, so it is never read as an option.
+  if (!url.startsWith("https://")) return null;
+  const result = await readTarsCommand("gh", ["pr", "view", url,
+    "--json=number,url,state,baseRefName,headRefName,headRefOid,isCrossRepository,headRepository,headRepositoryOwner"], cwd);
   if (!result.ok) return null;
   try { return TarsUserPullRequestSchema.parse(JSON.parse(result.stdout ?? "")); } catch { return null; }
 }
+
+/** The execution workspace's git facts a user's pull request is checked against. */
+export interface TarsWorkBranchReader {
+  /** The workspace's `origin` remote URL; null when it cannot be read. */
+  origin(cwd: string): Promise<string | null>;
+  /** Whether `commit` is the work branch's commit or a descendant of it. */
+  contains(cwd: string, branch: string, commit: string): Promise<boolean>;
+}
+
+export const tarsWorkBranch: TarsWorkBranchReader = {
+  async origin(cwd) {
+    const result = await readTarsCommand("git", ["remote", "get-url", "origin"], cwd);
+    return result.ok && result.stdout?.trim() ? result.stdout.trim() : null;
+  },
+  async contains(cwd, branch, commit) {
+    if (!/^[0-9a-f]{40,64}$/.test(commit)) return false;
+    // A full ref name, so a branch name is never read as an option.
+    const head = await readTarsCommand("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`], cwd);
+    const sha = head.ok ? head.stdout?.trim() ?? "" : "";
+    if (!/^[0-9a-f]{40,64}$/.test(sha)) return false;
+    if (sha === commit) return true;
+    return (await readTarsCommand("git", ["merge-base", "--is-ancestor", sha, commit], cwd)).ok;
+  },
+};
 
 /** Long enough for commit hooks and a slow push; a command that hangs on a prompt still ends. */
 const TARS_PUBLISH_COMMAND_TIMEOUT_MS = 5 * 60_000;

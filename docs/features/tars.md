@@ -205,10 +205,14 @@ follow-up waiting for Tars's run is never said to yours; it is marked not sent.
 Tars never treats its own check of your run as the goal reached. When your run
 produced what the goal asks for (a completed report; for a pull request goal, a
 pull request GitHub shows from the work's branch to the base Tars would
-publish to; merged, for a merge goal), the work is recorded as finished by you,
+publish to, both in the work's own repository (the execution workspace's
+`origin`, not a fork or another repository with the same branch names), whose
+head carries the branch's commits; merged, for a merge goal), the work is recorded as finished by you,
 with the pull request number, and the record says Tars did not verify it. Tars
 does not publish your run's work. Otherwise the work stays open and says your
-run ended without reaching the goal.
+run ended without reaching the goal. When the repository cannot be determined
+or GitHub cannot be read, the work stays open; an open pull request is read
+again every few minutes until it is merged.
 
 Your explicit **Pause**, **Take over** and **Cancel** work as before. **Take
 over** (from the work's card, Fleet or the task), or releasing or changing the
