@@ -475,6 +475,13 @@ export const TarsResponsibilitySchema = CreateTarsResponsibilityInputSchema.exte
   /** The run's current stage attempt (`stageId#attempt`) when last observed waiting; part of an ask's identity. */
   observedStage: z.string().min(1).max(300).optional(),
   /**
+   * What the run ended with when last observed ended (`tarsRunResult`): its
+   * outcome, final workspace revision, review verdict and unmet required
+   * criteria, never its run id. A continuation that ends the same way made no
+   * progress, however new its run is.
+   */
+  observedResult: z.string().min(1).max(128).optional(),
+  /**
    * Set by observation while `waiting` because a helper of the run (a task the
    * run delegated to, at any depth) waits on the user rather than the run's
    * own task: that helper's task. Fleet shows the wait as rows on that task, so
@@ -529,7 +536,7 @@ export function tarsSnapshotForWindow<T extends { responsibilities: readonly Tar
 export const TarsResponsibilityPatchSchema = TarsResponsibilitySchema.pick({
   continuationFromRevision: true,
   state: true, detail: true, detailCode: true, detailParams: true, taskId: true, executionWorkspaceId: true, agentRunId: true,
-  priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, waitingTaskId: true, publication: true,
+  priority: true, reverifyAfter: true, stageAsksUser: true, stageWait: true, observedTurns: true, observedStage: true, observedResult: true, waitingTaskId: true, publication: true,
   executionPending: true, resultVerifiedRunId: true, resultUnverifiedRunId: true, unchangedRunId: true, completionConfirmedAt: true, previousRunIds: true, followedRunId: true, continuation: true, publicationHistory: true,
   activeStage: true, pendingRequests: true,
 }).partial().strict();

@@ -1670,6 +1670,7 @@
         "deferred": "Tars will look at this after {{time}}. It reached its hourly limit for automatic follow-ups.",
         "following": "Tars is looking at this change.",
         "exhausted": "Tars stopped answering this automatically because it asked again without progress. Answer it in the task or send Tars a message.",
+        "exhaustedResult": "Tars stopped continuing this automatically because its continuations kept ending with the same result. Choose the next step here or send Tars a message.",
         "nextCheck": "Tars checks again at {{time}} if nothing changes before then."
       },
       "monitor": {
@@ -2202,6 +2203,7 @@
         "prReviewNotice": "Review received for {{title}}"
       },
       "exhausted": "Tars stopped answering {{title}} automatically because it asked again without progress. Answer it in the task or send Tars a message.",
+      "exhaustedResult": "Tars stopped continuing {{title}} automatically because its continuations kept ending with the same result. Choose the next step on the work or send Tars a message.",
       "superseded": "Tars skipped this follow-up because the work changed first."
     },
     "away": {

@@ -1,5 +1,5 @@
 import {
-  TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UPS_WITHOUT_PROGRESS, TARS_FOLLOW_UP_WINDOW_MS, TARS_JUDGMENT_EVENTS, TarsEventSchema, isTarsEventCurrent, tarsEventKey,
+  TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UPS_WITHOUT_PROGRESS, TARS_RESULT_PROGRESS_PREFIX, TARS_FOLLOW_UP_WINDOW_MS, TARS_JUDGMENT_EVENTS, TarsEventSchema, isTarsEventCurrent, tarsEventKey,
   tarsNextWaitCheck, isTarsStageAskingUser, isTarsLimitReached,
   type TarsEvent, type TarsEventInput, type TarsEventStatus, type TarsFollowUpState,
 } from "../../src/lib/tars/events";
@@ -195,11 +195,18 @@ export class TarsEventInbox {
   /**
    * How many of this work's latest follow-ups in a row saw it at this same
    * progress since the user last addressed it; a follow-up at other progress
-   * (or one saved before progress was recorded) ends the count.
+   * (or one saved before progress was recorded) ends the count. An ended
+   * result is compared only with earlier ended results: the asks, CI and
+   * review follow-ups of the continuations between them are not a change in
+   * result, so they neither end nor add to its count.
    */
   followUpsWithoutProgress(responsibilityId: string, progress: string): number {
-    const latest = this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND status = 'followedUp'
-      ORDER BY rowid DESC LIMIT ?`).all(responsibilityId, TARS_FOLLOW_UPS_WITHOUT_PROGRESS).map((row) => this.read(row)!);
+    const ended = progress.startsWith(TARS_RESULT_PROGRESS_PREFIX);
+    const latest = (ended
+      ? this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND status = 'followedUp'
+        AND json_extract(body_json, '$.progress') LIKE ? ORDER BY rowid DESC LIMIT ?`).all(responsibilityId, `${TARS_RESULT_PROGRESS_PREFIX}%`, TARS_FOLLOW_UPS_WITHOUT_PROGRESS)
+      : this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND status = 'followedUp'
+        ORDER BY rowid DESC LIMIT ?`).all(responsibilityId, TARS_FOLLOW_UPS_WITHOUT_PROGRESS)).map((row) => this.read(row)!);
     const count = latest.findIndex((event) => event.progress !== progress
       || this.userAddressedSince(responsibilityId, event.processedAt ?? event.createdAt));
     return count < 0 ? latest.length : count;

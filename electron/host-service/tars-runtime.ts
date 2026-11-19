@@ -41,6 +41,8 @@ export interface TarsExecutionObservation {
   runTurns?: number;
   /** The run's current stage attempt (`stageId#attempt`), reported with a wait. */
   runStage?: string;
+  /** What an ended run ended with (`tarsRunResult`), without its run id; absent while it is going. */
+  runResult?: string;
   /** The helper's task when a helper of the run, not the run's own task, waits on the user. */
   waitingTaskId?: string;
   /** The run's own current stage attempt (`stageId#attempt`) while it is running or waiting. */
@@ -283,7 +285,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
       const observed = await ports.observe(initial);
       if (stopped || held.has(initial.id)) return;
       // Absent means a plain wait, so a stage that stopped asking clears the mark.
-      const { runTurns, runStage, waitingTaskId, activeStage, pendingRequests, stageWait, ...change } = observed;
+      const { runTurns, runStage, runResult, waitingTaskId, activeStage, pendingRequests, stageWait, ...change } = observed;
       const waiting = observed.state === "waiting";
       const going = waiting || observed.state === "running";
       const asks = waiting && observed.stageAsksUser === true;
@@ -294,6 +296,7 @@ export function createTarsRuntime(ports: TarsRuntimePorts) {
         activeStage: going ? activeStage : undefined,
         pendingRequests: waiting && pendingRequests?.length ? pendingRequests : undefined,
         observedTurns: waiting ? runTurns : undefined, observedStage: waiting ? runStage : undefined,
+        observedResult: going ? undefined : runResult,
         waitingTaskId: waiting ? waitingTaskId : undefined }));
     } catch (error) {
       if (!isTarsStorageBusy(error)) {

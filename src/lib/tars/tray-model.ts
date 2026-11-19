@@ -8,6 +8,7 @@ import { tarsConfirmationRequestId } from "./conversation";
 import { isTarsTaskOperation, type TarsControlOperation, type TarsFollowUpState, type TarsPendingDecision, type TarsResponsibility, type TarsSnapshot } from "./types";
 import { tarsQueueOf } from "./queue-order";
 import { isTarsWorkRunning } from "./live-progress";
+import { tarsFollowUpNotice } from "./events";
 
 /** The view width at which the tray stays open beside the conversation. */
 export const TARS_TRAY_PINNED_MIN_WIDTH = 1088;
@@ -67,7 +68,8 @@ export interface TarsTrayAttentionRow<T extends TarsTrayAttentionInput> {
  * following, exhausted, or the next check of waiting work. A next check whose
  * time has passed shows nothing: no further check is scheduled for it.
  */
-export interface TarsTrayFollowUp { status: TarsFollowUpState["status"]; at: string | null }
+/** `exhaustedResult`: Tars stopped continuing ended work whose continuations kept ending the same way (`tarsFollowUpNotice`). */
+export interface TarsTrayFollowUp { status: TarsFollowUpState["status"] | "exhaustedResult"; at: string | null }
 
 export function tarsTrayFollowUp(row: TarsResponsibility, followUps: readonly TarsFollowUpState[], now = new Date().toISOString()): TarsTrayFollowUp | null {
   if (isTarsResponsibilityTerminal(row)) return null;
@@ -75,7 +77,7 @@ export function tarsTrayFollowUp(row: TarsResponsibility, followUps: readonly Ta
   if (!state || (state.status === "nextCheck" && (!state.at || state.at <= now))) return null;
   // A window that already opened is not a wait: the follow-up is about to start.
   if (state.status === "deferred" && (!state.at || state.at <= now)) return { status: "pending", at: null };
-  return { status: state.status, at: state.at };
+  return { status: tarsFollowUpNotice(state), at: state.at };
 }
 
 /**

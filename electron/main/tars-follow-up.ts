@@ -2,7 +2,7 @@ import { recordTarsPrNotice } from "./tars-pr-notice";
 import type { TarsConversationStore } from "../persistence/tars-conversation-store";
 import type { TarsEventInbox } from "../persistence/tars-event-inbox";
 import type { TarsStore } from "../persistence/tars-store";
-import { TARS_FOLLOW_UPS_WITHOUT_PROGRESS, TarsFollowUpReasonSchema, isTarsEventCurrent, tarsWorkProgress, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
+import { TARS_FOLLOW_UPS_WITHOUT_PROGRESS, TarsFollowUpReasonSchema, isTarsEventCurrent, tarsFollowUpProgress, isTarsStageAskingUser, tarsFollowUpRequestId, type TarsEvent, type TarsFollowUpReason } from "../../src/lib/tars/events";
 import { describeTarsDecisionForModel, parseTarsDecisionId, tarsReaskRequestId, type TarsDecisionView } from "../../src/lib/tars/decisions";
 import type { TarsResponsibility, TarsStageWait } from "../../src/lib/tars/types";
 import type { TarsMessage } from "../../src/lib/tars/conversation";
@@ -120,7 +120,8 @@ export function claimTarsMessage(ports: Pick<TarsFollowUpPorts, "events" | "conv
  * Budget: at most `TARS_FOLLOW_UP_WINDOW_CAP` per rolling window; past it the
  * events stay pending and `nextWindowAt` says when to look again. No lifetime
  * count stops them; progress does: after `TARS_FOLLOW_UPS_WITHOUT_PROGRESS`
- * follow-ups that saw the work at the same progress, its next ask is settled
+ * follow-ups that saw the work at the same progress (the same ask, or a Run
+ * that ended with the same result as the one before), its next one is settled
  * `exhausted` and left to the user until the work moves or the user acts.
  */
 export function admitTarsFollowUps(ports: TarsFollowUpPorts): { created: number; nextWindowAt: string | null } {
@@ -174,8 +175,9 @@ function admitPage(ports: TarsFollowUpPorts, page: readonly TarsEvent[], now: st
       if (!chosen) return null;
       const noticeId = recordTarsPrNotice(ports.conversations, row!, chosen, now);
       if (noticeId) { ports.events.settle(chosen.key, "followedUp", now, noticeId); created++; return null; }
-      // Work that asks again without progress since its last follow-ups goes to the user instead (`TARS_FOLLOW_UPS_WITHOUT_PROGRESS`).
-      const progress = chosen.kind === "decisionInvalidated" ? null : tarsWorkProgress(row!);
+      // Work that asks again, or whose continuations end with the same result, without progress since its
+      // last follow-ups goes to the user instead (`TARS_FOLLOW_UPS_WITHOUT_PROGRESS`).
+      const progress = chosen.kind === "decisionInvalidated" ? null : tarsFollowUpProgress(chosen.kind, row!);
       if (progress && ports.events.followUpsWithoutProgress(responsibilityId, progress) >= TARS_FOLLOW_UPS_WITHOUT_PROGRESS) {
         ports.events.settle(chosen.key, "exhausted", now, null, progress);
         return null;

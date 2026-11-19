@@ -774,14 +774,14 @@ for (const lang of ["en", "ko"] as const) {
       : "Tars follow-up · Work cannot continue: Fix the flaky upload test");
     await expect(view.getByText("Judge what it needs next", { exact: false })).toHaveCount(0);
     await expect(view.locator('[data-tars-message="message-follow-up"]')).toContainText(korean ? "업로드 테스트가 CI에서 계속 실패해" : "The upload test still fails on CI");
-    // An ask Tars stopped answering (no progress since its last follow-ups) says so once, in the conversation.
+    // Ended work Tars stopped continuing (its continuations kept ending with the same result) says so once, in the conversation.
     await expect(view.locator('[data-tars-follow-up-exhausted="follow-exhausted"]')).toContainText(korean
-      ? "진전 없이 같은 질문이 반복되어 Tars가 Refresh the API reference 작업에 더 이상 자동으로 답하지 않습니다." : "Tars stopped answering Refresh the API reference automatically because it asked again without progress.");
+      ? "이어서 진행해도 계속 같은 결과로 끝나 Tars가 Refresh the API reference 작업을 더 이상 자동으로 이어가지 않습니다." : "Tars stopped continuing Refresh the API reference automatically because its continuations kept ending with the same result.");
     // The tray card says when Tars looks next, or that it stopped.
     const tray = page.getByRole("complementary");
     await expect(tray.locator('[data-tars-card="follow-waiting"] [data-tars-follow-up-state="nextCheck"]')).toContainText(korean ? "그 전에 변화가 없으면 Tars가" : "Tars checks again at");
-    await expect(tray.locator('[data-tars-card="follow-exhausted"] [data-tars-follow-up-state="exhausted"]')).toContainText(korean
-      ? "진전 없이 같은 질문이 반복되어 Tars가 더 이상 자동으로 답하지 않습니다." : "Tars stopped answering this automatically because it asked again without progress.");
+    await expect(tray.locator('[data-tars-card="follow-exhausted"] [data-tars-follow-up-state="exhaustedResult"]')).toContainText(korean
+      ? "이어서 진행해도 계속 같은 결과로 끝나 Tars가 더 이상 자동으로 이어가지 않습니다." : "Tars stopped continuing this automatically because its continuations kept ending with the same result.");
   });
 }
 

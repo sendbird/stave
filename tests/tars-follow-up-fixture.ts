@@ -25,7 +25,9 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
   /** Runs while the model is "thinking", for changes that race the planner. */
   duringPlanner?: () => Promise<void> | void;
   /** The host's inspection reader; absent, every read is unavailable. */
-  inspect?: TarsInspectionReader; } = {}) {
+  inspect?: TarsInspectionReader;
+  /** Wires the delivery queue and a run port that starts a continuation of ended work as a new run (`continued`). */
+  continueWork?: boolean; } = {}) {
   const database = new Database(options.filename ?? ":memory:");
   const conversations = new TarsConversationStore(database);
   if (!conversations.getSettings()) conversations.configure({ ...SETTINGS, maxTurns: options.maxTurns ?? SETTINGS.maxTurns });
@@ -38,7 +40,12 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
   const observations = new Map<string, TarsExecutionObservation>();
   const runControls: string[] = [];
   const errors: unknown[] = [];
-  const runtime = createTarsRuntime({ store: responsibilities, now, validateScope: async () => {},
+  const continued: string[] = [];
+  const continuation = options.continueWork ? { messages: conversations, deliverMessage: async () => "sent" as const, hasUserTurn: () => false,
+    // The new Run is observed running until a test says how it ends.
+    continueWork: async (row: TarsResponsibility) => { continued.push(row.id); observations.set(row.id, { state: "running", detail: null });
+      return `run-${row.id}-continued-${continued.length}`; } } : {};
+  const runtime = createTarsRuntime({ ...continuation, store: responsibilities, now, validateScope: async () => {},
     prepareWorkspace: async () => "execution", prepareTask: async () => {}, findRun: async () => null,
     startRun: async (row) => `run-${row.id}`,
     // Unless a test says otherwise, the run is observed as it was last saved: an unchanged observation.
@@ -88,7 +95,7 @@ export function followUpFixture(options: { filename?: string; maxTurns?: number;
     await service.whenIdle(); await runtime.drain();
     return message;
   };
-  return { database, conversations, responsibilities, runtime, service, planner, replies, observations, runControls, errors,
+  return { database, conversations, responsibilities, runtime, service, planner, replies, observations, runControls, errors, continued,
     responsibility, settle, automatic, send, now, advance: (ms: number) => { clock += ms; },
     close: async () => { runtime.stop(); await service.stop(); if (!database.closed) database.close(); } };
 }
