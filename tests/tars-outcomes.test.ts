@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { summarizeTarsOutcomes, tarsOutcome, type TarsOutcomeRow } from "../scripts/measure-tars-outcomes";
@@ -92,6 +92,84 @@ test("the CLI reads applied human answers and attributes them to the work they d
     const stdout = result.stdout.toString();
     const summary = JSON.parse(stdout.slice(stdout.lastIndexOf("\n{") + 1));
     expect(summary).toMatchObject({ pullRequests: 6, humanDecided: 3, unattendedRate: 50 });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the CLI reads a plain copy of a live database and limits work to the range", () => {
+  const dir = mkdtempSync(join(tmpdir(), "stave-outcomes-"));
+  const live = join(dir, "live.sqlite");
+  const copy = join(dir, "copy.sqlite");
+  try {
+    const db = new Database(live);
+    try {
+      // The app keeps its database in WAL mode; a copy of the file alone keeps that mode but no shared-memory file.
+      db.exec("PRAGMA journal_mode = WAL");
+      db.exec("CREATE TABLE tars_responsibilities (created_at TEXT, body_json TEXT); CREATE TABLE agent_run_events (agent_run_id TEXT, sequence INTEGER, kind TEXT, detail_json TEXT, created_at TEXT);");
+      for (const [id, minutes] of [["early", 0], ["late", 600]] as const) {
+        db.run("INSERT INTO tars_responsibilities VALUES (?, ?)", [at(minutes), JSON.stringify({ id, title: id, createdAt: at(minutes), updatedAt: at(minutes + 30), state: "cancelled" })]);
+      }
+    } finally {
+      db.close();
+    }
+    copyFileSync(live, copy);
+    const result = Bun.spawnSync([process.execPath, "scripts/measure-tars-outcomes.ts", copy, `--since=${at(0)}`, `--until=${at(600)}`]);
+    expect(result.stderr.toString()).toBe("");
+    expect(result.exitCode).toBe(0);
+    const stdout = result.stdout.toString();
+    expect(JSON.parse(stdout.slice(stdout.lastIndexOf("\n{") + 1))).toMatchObject({ total: 1, cancelled: 1 });
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("work a person took over or finished is never an unattended pull request or completion", () => {
+  // Taken over after its draft PR opened: taken over, timed to its run's last event.
+  const taken = tarsOutcome(row({ state: "takenOver", publishedAt: at(30), runEvents: [event("turn-started", 1), event("agent-run-ended", 50)] }));
+  expect(taken).toMatchObject({ result: "taken-over", minutes: 50 });
+  // Taken over, handed back, then a PR: a PR, with a human decision.
+  const handedBack = tarsOutcome(row({ publishedAt: at(60), runEvents: [event("turn-started", 1), { ...event("paused", 10), reason: "taken-over" }, event("turn-started", 40)] }));
+  expect(handedBack).toMatchObject({ result: "pull-request", humanDecided: true });
+  // A pause that was not a takeover decides nothing.
+  expect(tarsOutcome(row({ publishedAt: at(60), runEvents: [{ ...event("paused", 10), reason: "usage-limit" }] })).humanDecided).toBe(false);
+  // Finished by the person in its task.
+  const finished = tarsOutcome(row({ detailCode: "finishedByUser", runEvents: [event("agent-run-ended", 20)] }));
+  expect(finished).toMatchObject({ result: "completed", humanDecided: true });
+  expect(summarizeTarsOutcomes([taken, handedBack, finished])).toMatchObject({ pullRequests: 1, completed: 1, takenOver: 1, humanDecided: 2, unattendedRate: 0 });
+});
+
+test("a failed unit is a failure even when a pull request was recorded for it", () => {
+  expect(tarsOutcome(row({ state: "failed", publishedAt: at(30), runEvents: [event("agent-run-ended", 40)] }))).toMatchObject({ result: "failed", minutes: 40 });
+});
+
+test("date ranges are this machine's calendar days, or the exact instants given with an offset", () => {
+  const dir = mkdtempSync(join(tmpdir(), "stave-outcomes-"));
+  const file = join(dir, "stave.sqlite");
+  try {
+    const db = new Database(file);
+    try {
+      db.exec("CREATE TABLE tars_responsibilities (created_at TEXT, body_json TEXT); CREATE TABLE agent_run_events (agent_run_id TEXT, sequence INTEGER, kind TEXT, detail_json TEXT, created_at TEXT);");
+      // 14:59 and 15:00 UTC on 2026-11-26 are 23:59 on the 26th and 00:00 on the 27th in Seoul.
+      for (const [id, createdAt] of [["seoul-26th", "2026-11-26T14:59:00.000Z"], ["seoul-27th", "2026-11-26T15:00:00.000Z"]]) {
+        db.run("INSERT INTO tars_responsibilities VALUES (?, ?)", [createdAt, JSON.stringify({ id, title: id, createdAt, updatedAt: createdAt, state: "cancelled" })]);
+      }
+    } finally {
+      db.close();
+    }
+    const titles = (args: string[], tz: string) => {
+      const result = Bun.spawnSync([process.execPath, "scripts/measure-tars-outcomes.ts", file, ...args], { env: { ...process.env, TZ: tz } });
+      expect(result.exitCode).toBe(0);
+      return ["seoul-26th", "seoul-27th"].filter((id) => result.stdout.toString().includes(id));
+    };
+    expect(titles(["--since=2026-11-26", "--until=2026-11-27"], "Asia/Seoul")).toEqual(["seoul-26th"]);
+    expect(titles(["--since=2026-11-27"], "Asia/Seoul")).toEqual(["seoul-27th"]);
+    expect(titles(["--since=2026-11-26", "--until=2026-11-27"], "UTC")).toEqual(["seoul-26th", "seoul-27th"]);
+    // An explicit offset is the same instant on any machine.
+    expect(titles(["--until=2026-11-27T00:00+09:00"], "UTC")).toEqual(["seoul-26th"]);
+    const invalid = Bun.spawnSync([process.execPath, "scripts/measure-tars-outcomes.ts", file, "--since=next week"]);
+    expect(invalid.exitCode).not.toBe(0);
+    expect(invalid.stderr.toString()).toContain("Not a date: next week");
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

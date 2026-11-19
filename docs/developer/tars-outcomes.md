@@ -6,11 +6,19 @@ changes nothing.
 
 ```bash
 bun scripts/measure-tars-outcomes.ts
-bun scripts/measure-tars-outcomes.ts --since=2026-11-17
+bun scripts/measure-tars-outcomes.ts --since=2026-11-17 --until=2026-11-24
 bun scripts/measure-tars-outcomes.ts /path/to/a/copy/of/stave.sqlite
 ```
 
 Without a path it reads `~/Library/Application Support/stave/stave.sqlite`.
+`--since` includes work created from that time and `--until` stops before it.
+A bare date is that day's midnight in this machine's time zone; a time with an
+offset (`2026-11-24T00:00+09:00`) is that exact instant.
+To measure a copy, make it with
+`sqlite3 ~/Library/Application\ Support/stave/stave.sqlite ".backup /tmp/stave-copy.sqlite"`,
+which includes changes the app has not yet written back into the main file. A
+copy is opened as immutable, since the app's WAL mode would otherwise need a
+file a read-only reader cannot create.
 
 ## What It Prints
 
@@ -18,16 +26,20 @@ One row for each piece of work:
 
 | Column | Meaning |
 | --- | --- |
-| `result` | `pull-request` (a draft PR opened), `completed`, `accepted-unverified` (you accepted work Stave could not verify), `cancelled`, `taken-over` or `open` |
+| `result` | `pull-request` (a draft PR opened; never for failed work or work you took over), `completed`, `accepted-unverified` (you accepted work Stave could not verify), `cancelled`, `failed`, `taken-over` or `open` |
 | `minutes` | From the request to the draft PR. For other ended work, to its run's last event |
 | `leadTurns` | Turns the run's lead took |
 | `helperStarts` | Helper runs the lead started, the review included |
 | `waits` | Times the lead waited on a helper |
+| `humanDecided` | You stepped in on this work: a stage sign-off, an applied answer to a Tars question about it, a takeover of its run (also one you handed back), or you finished it yourself |
 
 Then a summary:
 
 - `unattendedRate`: the share of ended work that reached a pull request or a
-  verified completion. Work you accepted, cancelled or took over does not count.
+  verified completion without you stepping in. Work you accepted, cancelled,
+  took over (even with a pull request already open, or handed back later) or
+  finished yourself does not count.
+- `humanDecided`: how many pieces of work you stepped in on.
 - `medianMinutesToPullRequest`, `medianHelperStarts`, `medianLeadTurns`.
 
 ## How To Use It
@@ -38,6 +50,10 @@ after a fix).
 
 The numbers describe hand-offs and elapsed time. They do not say whether the
 result was correct.
+
+`bun scripts/measure-coordinator-outcomes.ts` prints the same numbers for work
+a coordinator task delegated, next to these, for the
+[coordinator trial](tars-coordinator-trial.md).
 
 ## Baseline
 

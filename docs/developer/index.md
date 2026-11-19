@@ -26,6 +26,11 @@ If you want to install and use the product, start with:
 - [Workspace integrity](../architecture/workspace-integrity.md)
 - [Provider runtimes](../providers/provider-runtimes.md)
 
+## Measuring Tars
+
+- [Tars outcome numbers](tars-outcomes.md)
+- [Coordinator trial](tars-coordinator-trial.md)
+
 ## UI And Site Notes
 
 - [shadcn preset](../ui/shadcn-preset.md)
