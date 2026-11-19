@@ -1134,20 +1134,29 @@ A work card in the tray reads in three lines:
 1. **The work's title.** It is also the control that opens the card's detail.
 2. **One sentence**: what the work is doing now, what it needs from you, or
    what came out.
-3. **The state and one action.** The state is one of the five every task uses,
+3. **The state and one action.** The state is one of the six every task uses,
    decided by the same rule as the Task panel (`resolveTaskUserState`), so a
    card has no state words of its own.
 
 | State | When | Sentence | The one action |
 |---|---|---|---|
-| **Working** | The work runs, is being prepared, waits on a helper or an outside event, or is queued. Only work that actually runs wears the moving mark. | What Stave last observed ("Running the tests · updated just now"), else the stage in hand; for queued work, why it waits. | **Open task**; **Start now** for queued work. |
-| **Waiting for you** | Tars proposes a control, asks a question, or could not verify a reported completion; a request waits in the work's task; a result waits for your check. | The proposal, the question or the request. | **Confirm …** for a proposal (danger tone when it cannot be undone); **Answer**, which shows the decision card above the message box; **Open task** for a request in the task; **Open report** for a result. |
-| **Blocked** | Tars could not finish the work, the work is paused, you took it over, or its task stopped by itself. | Why. | **Open report** for work Tars could not finish; **Resume** for paused work; **Hand back** for work you took over. |
+| **Working** | The work runs, is being prepared, or is queued. Only work that actually runs wears the moving mark. | What Stave last observed ("Running the tests · updated just now"), else the stage in hand; for queued work, why it waits. | **Open task**; **Start now** for queued work; none while the work is still being prepared. |
+| **Waiting** | The work's run waits for something nobody has to do: a usage reset with a known time, or the outside event it asked to be woken by (PR checks, a review, a set time, a helper finishing). It resumes on its own. | When it resumes, in the run's own words ("Waiting for usage reset at 3:00 PM…"). | None. |
+| **Waiting for you** | Tars proposes a control, asks a question, or could not verify a reported completion; a question, an approval or a stage sign-off waits in the work's task or in a helper's task; a result waits for your check. | The proposal, the question or the request. | **Confirm …** for a proposal (danger tone when it cannot be undone); **Answer**, which shows the decision card above the message box; **Open task** for a request, which opens the task the request waits in (a helper's task when a helper asks); **Open report** for a result. |
+| **Blocked** | Tars could not finish the work, the work is paused, you took it over, its task's turn failed, or its run's stage blocked or got stuck. | Why. | **Open report** for work Tars could not finish; **Resume** for paused work; **Hand back** for work you took over. |
 | **Finished** | The work completed. | Its draft pull request, else the first sentence of the run's summary. | **Open PR #n**, else **Open report**, else **Open task**. |
 | **Stopped** | The work was cancelled. | Why. | **Open report**, else **Open task**. |
 
-A card shows no action only when none applies yet (work being prepared whose
-task does not exist yet).
+A card shows no action when none applies: work on hold needs nothing from
+you, and work still being prepared has no task to open yet (its detail then
+offers no **Open task** either).
+
+Only a real request and a real stop change the state. Fleet's review rows for
+the work's task (a pull request ready to merge or with failed checks, a turn
+that went quiet while still active, a result to read) are listed in the
+card's detail and leave the state as it is. A question or a proposal from
+Tars comes before a result's check: while both wait, the card offers
+**Answer** or **Confirm …**, and **Open report** stays in the detail.
 
 **The detail holds everything else.** Selecting the title (or Enter/Space on
 it) unfolds it under the three lines, and folds it again; folding is
@@ -1178,7 +1187,7 @@ block, folded to the work's title) and its completion, block or cancel as a
 notice with its result; the composer keeps one status line. Neither repeats
 the card's stage, state or live line.
 
-**States never share a look.** Each of a card's five states has its own mark
+**States never share a look.** Each of a card's six states has its own mark
 and word, and running work alone wears the one moving mark (reduced motion
 settles it). The side view's timeline and Agents keep Tars's finer state tag
 (**Queued**, **Paused**, **Taken over** and so on). The header
@@ -1224,7 +1233,8 @@ from: only the newest notice of a piece of work carries its card and controls.
 **The composer band is one status line.** Above the message box, running work
 is one line: how many pieces run now, and how many of them Stave has not
 observed for a while ("2 running now · 1 not updated recently"). Selecting it
-(or Enter/Space) opens the Work tray on the running work's card.
+(or Enter/Space) opens the Work tray on the running work's card, opening its
+project group too when the tray is grouped by project.
 
 **Live progress is observed, never inferred.** On the work's card and at the
 top of the timeline, Tars says what it
