@@ -88,9 +88,11 @@ The agent calls `stave_delegate_task`. A read-only call waits for the answer
 (up to two minutes by default, three at most) and returns it as `child.result`.
 A writing subagent starts in its own worktree and the call returns at once.
 Either way, an answer that arrives later is part of the parent's next turn
-under **Subagent results**, once. A long answer is shortened with a reference
-to read the full turn. An answer that does not fit the turn arrives whole in
-the next one, oldest first. If several turns of one subagent end before the
+under **Subagent results**, once, and whole. Stave keeps up to 4,000
+characters of an answer; a longer one arrives as that beginning with a
+reference to read the full turn. An answer that does not fit the turn arrives
+whole in the next one, oldest first, and the oldest goes even when it alone is
+larger than the turn's share. If several turns of one subagent end before the
 parent's next turn, each answer arrives. An answer counts as received once the
 provider accepts a parent turn that carried it, even if that turn is then
 stopped. A child attached to the message still brings its new answers under

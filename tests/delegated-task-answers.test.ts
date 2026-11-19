@@ -198,8 +198,8 @@ describe("owed subagent answers", () => {
     const history: Message[] = [{ role: "assistant", startedAt: at(5) }];
     const contents = [at(20), at(21), at(22)].map((startedAt) => parentTurn(store, history, startedAt));
     expect(contents.join("")).not.toContain("<seen>");
-    // Four fit the first turn; the two deferred are not settled by the newer turn start.
-    expect(contents.map((content) => (content.match(/^ {4}<new-/gm) ?? []).length)).toEqual([4, 2, 0]);
+    // Three whole answers fit the first turn; the three deferred are not settled by the newer turn start.
+    expect(contents.map((content) => (content.match(/^ {4}<new-/gm) ?? []).length)).toEqual([3, 3, 0]);
   });
 
   test("the upgrade cut runs once per parent and never settles an answer recorded after the upgrade", () => {

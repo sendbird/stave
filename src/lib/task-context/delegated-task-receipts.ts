@@ -9,9 +9,9 @@ import type {
   DelegatedTaskAnswer,
   DelegatedTaskAnswerRef,
 } from "@/lib/runs/delegated-task-answers";
+import { RUN_RESPONSE_TEXT_MAX_CHARS } from "@/lib/runs/run-domain";
 
 const MAX_RENDERED_CHILDREN = 20;
-const MAX_RESULT_CHARS = 2_000;
 const MAX_RESULTS_TOTAL_CHARS = 8_000;
 
 function truncate(value: string, maxLength: number) {
@@ -38,9 +38,12 @@ function readAnswer(answer: DelegatedTaskAnswer) {
  * caller never has to read a child task to collect its result.
  *
  * `answers` are the owed answers from `collectOwedDelegatedTaskAnswers`,
- * oldest first. Each takes the shared budget whole or waits for a later turn
- * with a read reference; it is never cut to a fragment (only an answer longer
- * than the per-answer cap is shortened, with a reference).
+ * oldest first. Each is carried whole or waits for a later turn with a read
+ * reference; it is never cut. The oldest carried answer goes even when it
+ * alone exceeds the shared budget, so every turn makes progress. The hard
+ * size is the receipt bound (`RUN_RESPONSE_TEXT_MAX_CHARS`, applied when the
+ * answer is stored): an answer cut there goes as its stored head with a "too
+ * large, read it with stave_get_task" reference, and that is its delivery.
  *
  * The answers carried here are pushed to `delivered` for the caller to record
  * once the provider accepts the prompt; nothing else is. A review the user
@@ -88,6 +91,7 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
 
   const settle = (answer: DelegatedTaskAnswer) => args.delivered?.push({ runId: answer.runId, sequence: answer.sequence });
   let resultBudget = MAX_RESULTS_TOTAL_CHARS;
+  let carried = 0;
   let heldReviews = 0;
   const answerLines = answers.flatMap((answer) => {
     const head = `- answer from subagent ${answer.delegationKey} (task ${answer.delegatedTaskId})`;
@@ -95,17 +99,17 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
       heldReviews += 1;
       return [];
     }
-    if (Math.min(answer.text.length, MAX_RESULT_CHARS) > resultBudget) {
+    if (carried > 0 && answer.text.length > resultBudget) {
       return [`${head}: result omitted for now; ${readAnswer(answer)}`];
     }
-    const result = truncate(answer.text, MAX_RESULT_CHARS);
-    resultBudget -= result.length;
+    carried += 1;
+    resultBudget -= answer.text.length;
     settle(answer);
     return [
       head,
-      ...(result !== answer.text ? [`  result truncated; ${readAnswer(answer)}`] : []),
+      ...(isBoundedResponseText(answer.text) ? [`  result too large to keep whole, its head follows; ${readAnswer(answer)}`] : []),
       "  result:",
-      ...result.split("\n").map((line) => `    ${line}`),
+      ...answer.text.split("\n").map((line) => `    ${line}`),
     ];
   });
   const omitted = ordered.length - rendered.length;
@@ -127,6 +131,11 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
       ...(args.moreAnswers ? [`(${args.moreAnswers} more answers come in later turns)`] : []),
     ].join("\n"),
   };
+}
+
+/** A stored answer cut at the receipt bound (`boundResponseText`): only its head is in the ledger. */
+function isBoundedResponseText(text: string) {
+  return text.length === RUN_RESPONSE_TEXT_MAX_CHARS && text.endsWith("…");
 }
 
 /** The newest turn start in a task's history: the upgrade cut for answers recorded before delivery was tracked. */

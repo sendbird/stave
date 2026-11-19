@@ -105,19 +105,45 @@ describe("subagent results context", () => {
   });
 
 
-  test("renders each owed answer whole, bounded, with a reference when shortened", () => {
+  test("renders each owed answer whole, never cut, however close to the receipt bound", () => {
     const delivered: DelegatedTaskAnswerRef[] = [];
     const part = buildDelegatedTaskReceiptsRetrievedContext({
       children: [summary()],
-      answers: [answer({ text: "Found two bugs.\nBoth in parser.ts." }), answer({ sequence: 9, delegatedTaskId: "child-3", turnId: "turn-1", text: "x".repeat(3_000) })],
+      answers: [answer({ text: "Found two bugs.\nBoth in parser.ts." }), answer({ sequence: 9, delegatedTaskId: "child-3", turnId: "turn-1", text: "x".repeat(3_999) })],
       delivered,
     });
     expect(part?.title).toBe("Subagent results");
     expect(part?.content).toContain("    Found two bugs.\n    Both in parser.ts.");
-    expect(part?.content).toContain(`${"x".repeat(1_999)}…`);
-    expect(part?.content).not.toContain("x".repeat(2_001));
-    expect(part?.content).toContain('result truncated; read the full answer with stave_get_task({"workspaceId":"workspace-child","taskId":"child-3","turnId":"turn-1"})');
+    expect(part?.content).toContain(`    ${"x".repeat(3_999)}`);
+    expect(part?.content).not.toContain("…");
+    expect(part?.content).not.toContain("stave_get_task");
     expect(delivered).toEqual([{ runId: "child-task:parent-1:docs", sequence: 3 }, { runId: "child-task:parent-1:docs", sequence: 9 }]);
+  });
+
+  test("an answer cut when it was stored goes as its head with a too-large reference, and that is its delivery", () => {
+    const delivered: DelegatedTaskAnswerRef[] = [];
+    const stored = `${"y".repeat(3_999)}…`;
+    const content = buildDelegatedTaskReceiptsRetrievedContext({
+      children: [summary()],
+      answers: [answer({ delegatedTaskId: "child-3", turnId: "turn-1", text: stored })],
+      delivered,
+    })?.content ?? "";
+    expect(content).toContain(`    ${stored}`);
+    expect(content).toContain('result too large to keep whole, its head follows; read the full answer with stave_get_task({"workspaceId":"workspace-child","taskId":"child-3","turnId":"turn-1"})');
+    expect(delivered).toEqual([{ runId: "child-task:parent-1:docs", sequence: 3 }]);
+  });
+
+  test("an answer larger than the whole budget goes alone and whole; the next one waits", () => {
+    const delivered: DelegatedTaskAnswerRef[] = [];
+    const content = buildDelegatedTaskReceiptsRetrievedContext({
+      children: [],
+      answers: [answer({ text: "z".repeat(9_000) }), answer({ sequence: 4, delegatedTaskId: "child-4", text: "Small." })],
+      delivered,
+    })?.content ?? "";
+    expect(content).toContain(`    ${"z".repeat(9_000)}`);
+    expect(content).not.toContain("    Small.");
+    expect(content).toContain("result omitted for now");
+    expect(delivered.map((ref) => ref.sequence)).toEqual([3]);
   });
 
   test("an attached child's answer is still carried here, since the attachment is read apart and may fail", () => {
