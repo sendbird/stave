@@ -87,13 +87,23 @@ describe("a Tars work card's state, sentence and action", () => {
   test("a request left open in the work's task waits on the user while the work runs, and is held while it is paused", async () => {
     await applyAppLocale("en");
     const approval: TarsTrayAttentionInput = { id: "approval:task-billing", kind: "approval", taskId: "task-billing", detail: "Run the database migration" };
-    expect(read(billing(), { attention: [approval] })).toEqual({ state: "waiting", waitingOn: "approval", sentence: "Run the database migration", primary: { kind: "openTask" } });
+    expect(read(billing(), { attention: [approval] })).toEqual({ state: "waiting", waitingOn: "approval", sentence: "Run the database migration",
+      primary: { kind: "openTask", request: { taskId: "task-billing", workspaceId: "exec-billing" } } });
     const paused = read({ ...billing(), state: "paused" }, { attention: [approval] });
     expect(paused.state).toBe("blocked");
     expect(paused.sentence).toBe("This work is paused. Resume it to continue.");
     expect(paused.primary).toEqual({ kind: "control", operation: "resume" });
     const signOff: TarsTrayAttentionInput = { id: "agent-run-sign-off:billing", kind: "agent-run-sign-off", taskId: "task-billing" };
     expect(read(billing(), { attention: [signOff] })).toMatchObject({ state: "waiting", waitingOn: "sign-off", primary: { kind: "openTask" } });
+  });
+
+  test("a request that waits in a helper's task opens that task in its own workspace, not the work's task", async () => {
+    await applyAppLocale("en");
+    // The lead waits on a helper (`waitingTaskId`); Fleet's row for the approval sits on the helper's task, in the workspace the helper runs in.
+    const waiting: TarsResponsibility = { ...billing(), state: "waiting", detail: "A helper task is waiting for your input or approval.", detailCode: "waitingForUser", waitingTaskId: "task-helper" };
+    const approval: TarsTrayAttentionInput = { id: "interaction:approval:exec-helper:task-helper:request-1", kind: "approval", taskId: "task-helper", workspaceId: "exec-helper", detail: "Bash: run the database migration" };
+    expect(read(waiting, { attention: [approval] })).toEqual({ state: "waiting", waitingOn: "approval", sentence: "Bash: run the database migration",
+      primary: { kind: "openTask", request: { taskId: "task-helper", workspaceId: "exec-helper" } } });
   });
 
   test("blocked work says why and opens its report; without a side view it resumes", async () => {

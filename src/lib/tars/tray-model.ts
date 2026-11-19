@@ -45,6 +45,8 @@ export interface TarsTrayAttentionInput extends TarsAttentionRowLike {
   id: string;
   kind: string;
   detail?: string;
+  /** The workspace the row's task runs in; a helper's task may run in another than the work's. */
+  workspaceId?: string;
 }
 
 /** A proposed control waiting for the user's Confirm, at the revision it was proposed for. */

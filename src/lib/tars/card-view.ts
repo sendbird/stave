@@ -141,7 +141,8 @@ export type TarsCardPrimary =
   | { kind: "confirm"; decision: TarsTrayDecision }
   | { kind: "control"; operation: TarsControlOperation }
   | { kind: "answer" }
-  | { kind: "openTask" }
+  /** `request`: the task a request waits in (the work's own or a helper's) and the workspace it runs in; absent, the work's own task. */
+  | { kind: "openTask"; request?: { taskId: string; workspaceId: string } }
   | { kind: "openReport" }
   | { kind: "openPullRequest"; url: string; number: number | null };
 
@@ -168,7 +169,9 @@ export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { 
       if (proposal) return { kind: "confirm", decision: proposal };
       if (asksOf(card).tars) return can.answer ? { kind: "answer" } : openTask;
       if (row.state === "resultReady") return openReport ?? (card.controls.includes("acceptCompletion") ? { kind: "control", operation: "acceptCompletion" } : openTask);
-      return openTask;
+      // A request is answered where it waits: in its own task, which may be a helper's, in the workspace that task runs in.
+      const request = asksOf(card).task?.item;
+      return request?.taskId ? { kind: "openTask", request: { taskId: request.taskId, workspaceId: request.workspaceId ?? row.executionWorkspaceId ?? row.workspaceId } } : openTask;
     }
     case "blocked": {
       // Work Tars could not finish is read before it is resumed: its report says what is unmet.

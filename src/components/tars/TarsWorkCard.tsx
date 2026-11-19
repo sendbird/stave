@@ -89,7 +89,8 @@ export function TarsCardActions({ card, actions, shown }: { card: TarsTrayCardMo
   const primary = offered.primary && !isShown(offered.primary, shown) ? offered.primary : null;
   // Queue moves need the host's move path; a bridge without it offers none.
   const more = offered.more.filter((action) => (action.kind !== "move" || actions.onMove) && !isShown(action, shown));
-  const openTask = Boolean(row.taskId) && shown?.kind !== "openTask";
+  // The work's own task stays in reach while the card's action opens a helper's.
+  const openTask = Boolean(row.taskId) && !(shown?.kind === "openTask" && (shown.request?.taskId ?? row.taskId) === row.taskId);
   const run = (action: TarsCardAction) => {
     if (action.kind === "fleet") { if (card.fleetTarget) actions.onShowInFleet(card.fleetTarget); return; }
     if (action.kind === "move") { actions.onMove?.(row, { direction: action.direction }, "click"); return; }
@@ -135,7 +136,7 @@ export function TarsCardPrimaryAction({ row, primary, status, actions }: { row: 
     case "answer":
       return <Button {...look} xstyle={styles.cardPrimary} data-tars-card-primary="answer" onClick={() => actions.onAnswer?.(row)}>{t("shell:tars.tray.answer")}</Button>;
     case "openTask":
-      return <Button {...look} xstyle={styles.cardPrimary} data-tars-card-primary="openTask" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button>;
+      return <Button {...look} xstyle={styles.cardPrimary} data-tars-card-primary="openTask" onClick={() => actions.onOpenTask(row, primary.request)}>{t("shell:tars.openTask")}</Button>;
     case "openReport":
       // Blocked work and a result waiting for a check open on what is unmet.
       return <Button {...look} xstyle={styles.cardPrimary} data-tars-card-primary="openReport" data-tars-open-report={row.id}

@@ -39,7 +39,8 @@ export interface TarsTrayActions {
   onFollowUp?: (row: TarsResponsibility) => void;
   onAct: (row: TarsResponsibility, operation: TarsControlOperation) => void;
   onConfirm: (decision: TarsTrayDecision) => void;
-  onOpenTask: (row: TarsResponsibility) => void;
+  /** Opens the work's task, or the task a request waits in (`request`: a helper's task, in the workspace it runs in). */
+  onOpenTask: (row: TarsResponsibility, request?: { taskId: string; workspaceId: string }) => void;
   /** Shows the work's waiting decision card in the conversation, where it is answered; absent, such a card offers Open task. */
   onAnswer?: (row: TarsResponsibility) => void;
   onShowInFleet: (target: FleetFocusTarget) => void;

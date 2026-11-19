@@ -350,7 +350,7 @@ function TarsViewContent() {
     void api.updateIdentity({ name: snapshot.identity.name, instructions: t("shell:tars.instructionsDefault") }).then(publishTarsSnapshot).catch(() => undefined);
   }, [api, settingsRead, snapshot, t]);
   const trayActions: TarsTrayActions = { busy, onFollowUp: (row) => controller.current?.selectWork(row.id), onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
-    onOpenTask: (row) => void open(row), onAnswer: (row) => { setTrayPopoverOpen(false); controller.current?.showDecision(row.id); }, onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
+    onOpenTask: (row, request) => { if (request) openRequestTask({ responsibilityId: row.id, ...request }); else void open(row); }, onAnswer: (row) => { setTrayPopoverOpen(false); controller.current?.showDecision(row.id); }, onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
     ...(api?.reprioritize ? { onMove: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void moveInQueue(row, move, source) } : {}) };
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.
   const trayBody = trayStatus !== "ready" ? <TarsTrayStatusNote status={trayStatus} />
