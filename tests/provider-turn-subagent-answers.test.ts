@@ -1,28 +1,39 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import type { BridgeEvent, StreamTurnArgs } from "../electron/providers/types";
+import type { BridgeEvent, ProviderPromptAcceptance, StreamTurnArgs } from "../electron/providers/types";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { DelegatedAnswerStore } from "../electron/persistence/delegated-answer-store";
 import { buildDelegatedTaskRunId, buildDelegatedTaskStepId } from "../src/lib/runs/delegated-task";
 import { collectOwedDelegatedTaskAnswers } from "../src/lib/runs/delegated-task-answers";
 import { createPendingRun, createPendingRunStep, RUN_LEDGER_SCHEMA_VERSION } from "../src/lib/runs/run-domain";
 
-// A subagent answer counts as delivered when the provider runtime hands the
-// turn carrying it to a provider: for either provider, and never for a turn
-// refused before that point.
+// A subagent answer counts as delivered when the provider accepts the prompt
+// carrying it: for either provider, and never for a turn refused or failed
+// before that point.
 
 const PARENT = "task-1";
 const actualClaudeRuntime = await import("../electron/providers/claude-sdk-runtime");
 const actualCodexRuntime = await import("../electron/providers/codex-app-server-runtime");
 
 let providerTurns: StreamTurnArgs[] = [];
-/** Whether the answer was already recorded when the provider received the turn. */
+/** Whether the answer was still owed when the provider received the turn, and recorded once it accepted the prompt. */
 let recordedAtProviderStart: boolean[] = [];
+let recordedAtAcceptance: boolean[] = [];
+/** A provider that fails before it accepts the prompt (no binary, closed input, refused turn/start). */
+let refuseBeforeAcceptance = false;
 
-async function streamPrimary(args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void; registerAbort?: (aborter: () => void) => void }) {
+async function streamPrimary(args: StreamTurnArgs & ProviderPromptAcceptance & { onEvent?: (event: BridgeEvent) => void; registerAbort?: (aborter: () => void) => void }) {
   providerTurns.push(args);
   recordedAtProviderStart.push(owed().length === 0);
   args.registerAbort?.(() => {});
+  if (refuseBeforeAcceptance) {
+    const failed: BridgeEvent[] = [{ type: "error", message: "turn/start refused", recoverable: false }, { type: "done", stop_reason: "runtime_failure" }];
+    failed.forEach((event) => args.onEvent?.(event));
+    return failed;
+  }
+  args.onPromptAccepted?.();
+  args.onPromptAccepted?.();
+  recordedAtAcceptance.push(owed().length === 0);
   const events: BridgeEvent[] = [{ type: "done", stop_reason: "end_turn" }];
   events.forEach((event) => args.onEvent?.(event));
   return events;
@@ -65,7 +76,7 @@ let answerTurns = 0;
 
 /** A fresh answer from the child, owed to the parent. */
 function childAnswers() {
-  const now = `2026-08-10T00:0${answerTurns}:30.000Z`;
+  const now = new Date(Date.UTC(2026, 7, 10, 0, answerTurns, 30)).toISOString();
   if (answerTurns === 0) {
     ledger.claimStep({ run: createPendingRun({ id: runId, kind: "delegated-task", origin: { kind: "task", id: PARENT },
       ownership: { repositoryPath: "/tmp/stave", workspaceId: "ws", taskId: "child" },
@@ -85,12 +96,21 @@ function owed() {
   return collectOwedDelegatedTaskAnswers({ delegatedAnswers: realAnswers }, { parentTaskId: PARENT, lastTurnStartedAt: null, now: "2026-08-10T01:00:00.000Z" }).answers;
 }
 
+function conversation(input: string): NonNullable<StreamTurnArgs["conversation"]> {
+  return {
+    target: { providerId: "codex" }, mode: "chat", history: [],
+    input: { role: "user", providerId: "user", content: input, parts: [{ type: "text", text: input }] },
+    contextParts: [{ type: "retrieved_context", sourceId: "stave:delegated-tasks", title: "Subagent results", content: owed().map((answer) => answer.text).join("\n") }],
+  } as NonNullable<StreamTurnArgs["conversation"]>;
+}
+
 /** A parent turn that carries every owed answer, started as the composer and the host both start one. */
-async function parentTurn(providerId: StreamTurnArgs["providerId"], turnId: string) {
+async function parentTurn(providerId: StreamTurnArgs["providerId"], turnId: string, overrides: Partial<StreamTurnArgs> = {}) {
   const subagentAnswers = owed().map(({ runId: id, sequence }) => ({ runId: id, sequence }));
   let resolveDone = () => {};
   const done = new Promise<void>((resolve) => { resolveDone = resolve; });
-  const started = providerRuntime.startTurnStream({ turnId, taskId: PARENT, providerId, prompt: "Next.", cwd: "/tmp/stave-subagent-answers", subagentAnswers },
+  const started = providerRuntime.startTurnStream({ turnId, taskId: PARENT, providerId, prompt: "Next.", cwd: "/tmp/stave-subagent-answers",
+    conversation: conversation("Next."), subagentAnswers, ...overrides },
     { bufferEvents: true, onDone: resolveDone });
   await done;
   return { started, subagentAnswers };
@@ -102,18 +122,21 @@ afterEach(() => {
   setProviderTurnAdmission(null);
   setTaskAgentTurnResolver(null);
   failWrites = false;
+  refuseBeforeAcceptance = false;
   providerTurns = [];
   recordedAtProviderStart = [];
+  recordedAtAcceptance = [];
   providerRuntime.cleanupTask({ taskId: PARENT });
 });
 
 describe("subagent answers reach the ledger when their turn reaches its provider", () => {
   for (const providerId of ["claude-code", "codex"] as const) {
-    test(`${providerId}: a committed turn settles exactly what it carried, before the provider runs, and keeps the refs from the provider`, async () => {
+    test(`${providerId}: a turn settles exactly what it carried once its provider accepts the prompt, and keeps the refs from the provider`, async () => {
       childAnswers();
       const { subagentAnswers } = await parentTurn(providerId, `${providerId}-turn`);
       expect(subagentAnswers).toHaveLength(1);
-      expect(recordedAtProviderStart).toEqual([true]);
+      expect(recordedAtProviderStart).toEqual([false]);
+      expect(recordedAtAcceptance).toEqual([true]);
       expect(providerTurns[0]).not.toHaveProperty("subagentAnswers");
       expect(owed()).toEqual([]);
     });
@@ -128,6 +151,57 @@ describe("subagent answers reach the ledger when their turn reaches its provider
     setProviderTurnAdmission(null);
     await parentTurn("codex", "next-turn");
     expect(owed()).toEqual([]);
+  });
+
+  // Every early exit between the turn request and the provider call: none settles.
+  for (const [label, overrides] of [
+    ["has no working folder", { cwd: undefined }],
+    ["has a relative working folder", { cwd: "relative/path" }],
+  ] as const) {
+    for (const providerId of ["claude-code", "codex"] as const) {
+      test(`${providerId}: a turn refused because it ${label} settles nothing`, async () => {
+        childAnswers();
+        await parentTurn(providerId, `no-cwd-${providerId}-${label}`, overrides);
+        expect(providerTurns).toHaveLength(0);
+        expect(owed()).toHaveLength(1);
+        await parentTurn(providerId, `next-${providerId}-${label}`);
+        expect(owed()).toEqual([]);
+      });
+    }
+  }
+
+  test("a tool-less turn a provider cannot run settles nothing", async () => {
+    childAnswers();
+    await parentTurn("cursor", "toolless-cursor", { runtimeOptions: { toolsDisabled: true } as StreamTurnArgs["runtimeOptions"] });
+    expect(providerTurns).toHaveLength(0);
+    expect(owed()).toHaveLength(1);
+  });
+
+  for (const providerId of ["claude-code", "codex"] as const) {
+    test(`${providerId}: a provider that fails before it accepts the prompt settles nothing`, async () => {
+      childAnswers();
+      refuseBeforeAcceptance = true;
+      await parentTurn(providerId, `refused-start-${providerId}`);
+      expect(providerTurns).toHaveLength(1);
+      expect(owed()).toHaveLength(1);
+      refuseBeforeAcceptance = false;
+      await parentTurn(providerId, `accepted-${providerId}`);
+      expect(owed()).toEqual([]);
+    });
+
+    test(`${providerId}: a native slash command carries no context and settles nothing`, async () => {
+      childAnswers();
+      await parentTurn(providerId, `slash-${providerId}`, { prompt: "/compact", conversation: conversation("/compact") });
+      expect(providerTurns).toHaveLength(1);
+      expect(owed()).toHaveLength(1);
+    });
+  }
+
+  test("a turn whose context lost the Subagent results part settles nothing", async () => {
+    childAnswers();
+    await parentTurn("codex", "no-results-part", { conversation: { ...conversation("Next."), contextParts: [] } });
+    expect(providerTurns).toHaveLength(1);
+    expect(owed()).toHaveLength(1);
   });
 
   test("a turn whose task policy cannot be applied settles nothing", async () => {

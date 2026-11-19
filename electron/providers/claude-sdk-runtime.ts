@@ -55,6 +55,7 @@ import type {
   BridgeEvent,
   ProviderResponderResult,
   ProviderSteerResponder,
+  ProviderPromptAcceptance,
   StreamTurnArgs,
 } from "./types";
 import {
@@ -3085,7 +3086,7 @@ export async function streamClaudeWithSdk(
       }) => ProviderResponderResult,
     ) => void;
     registerSteerResponder?: (responder: ProviderSteerResponder) => void;
-  },
+  } & ProviderPromptAcceptance,
 ): Promise<BridgeEvent[] | null> {
   const taskKey = providerAccountKey("claude-code", args.taskId ?? "default");
   const previousRun = activeRunByTask.get(taskKey) ?? Promise.resolve();
@@ -3797,6 +3798,7 @@ export async function streamClaudeWithSdk(
       }
       if (accepted && !isProviderNativeSlashCommandInput(providerPrompt)) {
         retrievedContextDedup.commit();
+        args.onPromptAccepted?.();
       }
     }
     args.registerSteerResponder?.(async ({ text }) => {

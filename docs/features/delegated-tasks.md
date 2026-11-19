@@ -406,13 +406,16 @@ Delegations live in the run ledger inside Stave's SQLite database, as a
 }
 ```
 
-Each answer is a result receipt on the child's run. When the provider runtime
-hands a parent turn that carries an answer to its provider, a delivery record
+Each answer is a result receipt on the child's run. When the provider accepts
+the prompt of a parent turn that carries an answer (Claude's input queue takes
+it, Codex acknowledges `turn/start`, an ACP prompt returns), a delivery record
 naming the parent turn is written beside the run ledger
 (`electron/persistence/delegated-answer-store.ts`), so later turns skip it after
-a restart too. A turn refused before that point (a control change, a cancelled
-queue slot, a policy refusal) records nothing, and a failed write is logged and
-leaves the answer owed, so it can come twice but is never lost. Upgrade cut: on
+a restart too. A turn refused or failed before that point (a control change, a
+cancelled queue slot, a policy refusal, no workspace folder, a provider that
+cannot start, a native slash command, which goes without context) records
+nothing, and a failed write is logged and leaves the answer owed, so it can
+come twice but is never lost. Upgrade cut: on
 the first read for a parent, answers recorded before this version first opened
 the database and no later than the parent's latest turn start count as
 received, because the earlier version had already given them or dropped them

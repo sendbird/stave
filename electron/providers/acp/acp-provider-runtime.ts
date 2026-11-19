@@ -20,6 +20,7 @@ import type {
   BridgeEvent,
   ProviderResponderResult,
   ProviderSteerResponder,
+  ProviderPromptAcceptance,
   StreamTurnArgs,
 } from "../types";
 import { AcpEventMapper } from "./acp-event-mapper";
@@ -187,7 +188,7 @@ export interface AcpProviderRuntimeProfile {
   }) => AcpProviderExtensionRuntime;
 }
 
-export type AcpProviderStreamTurnArgs = StreamTurnArgs & {
+export type AcpProviderStreamTurnArgs = StreamTurnArgs & ProviderPromptAcceptance & {
   /** Host-only policy hook, after the actual resume/new-session decision. */
   prepareTaskAgentPrompt?: (nativeSessionId: string, resumed: boolean) => string | null;
   acknowledgeTaskAgentPrompt?: () => void;
@@ -935,6 +936,7 @@ export async function streamAcpProviderTurn(args: {
       promptInFlight = false;
     }
     retrievedContextDedup.commit();
+    turn.onPromptAccepted?.();
     if (!abortRequested) turn.acknowledgeTaskAgentPrompt?.();
     const promptUsage =
       normalizeAcpPromptUsage(result.usage) ??

@@ -89,10 +89,19 @@ export interface StreamTurnArgs {
   runtimeOptions?: ProviderRuntimeOptions;
   /**
    * The subagent answers this turn's context carries for its task. The host
-   * records them as delivered once the turn is committed to its provider, and
-   * never passes them to one.
+   * records them as delivered once the provider accepts the turn's prompt
+   * (`ProviderPromptAcceptance`), and never passes them to one.
    */
   subagentAnswers?: import("../../src/lib/runs/delegated-task-answers").DelegatedTaskAnswerRef[];
+}
+
+/**
+ * Host-only hook a provider adapter calls once, at the point its provider has
+ * accepted the turn's prompt (the same point it commits retrieved-context
+ * dedup). Never called for a turn refused or failed before that point.
+ */
+export interface ProviderPromptAcceptance {
+  onPromptAccepted?: () => void;
 }
 
 /**
