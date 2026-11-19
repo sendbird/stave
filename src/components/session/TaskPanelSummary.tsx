@@ -12,6 +12,8 @@ import { AgentRunDoneWhen } from "@/components/agent-runs/AgentRunDoneWhen";
 import { describeSignOffQuestion } from "@/components/agent-runs/SignOffCard";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { openExternalUrl } from "@/lib/external-links";
+import type { ReviewScope } from "@/lib/review/review-scope";
+import type { StageIdentity } from "@/lib/review/review-stage";
 import { TASK_USER_STATE_LABELS, taskUserStateToWorkState, type TaskResult } from "@/lib/task-user-state";
 import { useAppStore } from "@/store/app.store";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
@@ -80,7 +82,7 @@ export function TaskPanelSummary(props: {
       ) : null}
       {status?.state === "finished" && status.result ? (
         <Section label={i18n.t("session:taskPanel.result")}>
-          <ResultLinks taskId={taskId} turnId={view.turnId} result={status.result} />
+          <ResultLinks taskId={taskId} turnId={view.turnId} reviewStage={view.reviewStage} result={status.result} />
         </Section>
       ) : null}
       {status?.state === "on-hold" ? (
@@ -132,10 +134,14 @@ function goToRequest(args: { workspaceId: string; taskId: string; request: TaskP
   }
 }
 
-function ResultLinks(props: { taskId: string; turnId: string | null; result: TaskResult }) {
+function ResultLinks(props: { taskId: string; turnId: string | null; reviewStage: StageIdentity | null; result: TaskResult }) {
   useTranslation();
-  const { result, taskId, turnId } = props;
+  const { result, taskId, turnId, reviewStage } = props;
   const pr = result.pullRequest;
+  // The scope the file count was read from: the run's stage, else the turn.
+  const reviewScope: ReviewScope | null = reviewStage
+    ? { kind: "stage", ...reviewStage }
+    : turnId ? { kind: "turn", taskId, turnId } : null;
   return (
     <ul className={sx(styles.links)}>
       {pr ? (
@@ -159,12 +165,12 @@ function ResultLinks(props: { taskId: string; turnId: string | null; result: Tas
       {result.changedFiles > 0 ? (
         <li className={sx(styles.linkRow)}>
           <span className={sx(styles.text)}>{i18n.t("session:taskPanel.changedFiles", { count: result.changedFiles })}</span>
-          {turnId ? (
+          {reviewScope ? (
             <Button
               variant="link"
               size="2xs"
               xstyle={styles.inlineAction}
-              onClick={() => useTaskReviewModeStore.getState().openReview(taskId, { kind: "turn", taskId, turnId })}
+              onClick={() => useTaskReviewModeStore.getState().openReview(taskId, reviewScope)}
             >
               {i18n.t("session:taskPanel.reviewChanges")}
             </Button>

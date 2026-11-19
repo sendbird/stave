@@ -1,9 +1,11 @@
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
+  agentRunChangesStage,
   describeAgentRunResult,
   type AgentRunDoneWhenLine,
 } from "@/lib/agent-runs/agent-run-status";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
+import type { StageIdentity } from "@/lib/review/review-stage";
 import type { TurnHistoryEntry } from "@/lib/providers/turn-history";
 import type { ProviderTurnActivitySnapshot, RetainedTurnActivity } from "@/lib/providers/turn-status";
 import {
@@ -38,6 +40,11 @@ export interface TaskPanelStatus {
   remaining: AgentRunDoneWhenLine[];
   /** The current work stopped on its own (not by the user): Details open on it. */
   focusDetails: boolean;
+  /**
+   * The run stage whose diff the result's file count is, for Review changes;
+   * null when the count is the followed turn's own edits (the turn's review).
+   */
+  reviewStage: StageIdentity | null;
 }
 
 function latestAssistantMessage(messages: readonly ChatMessage[]) {
@@ -212,6 +219,7 @@ export function buildTaskPanelStatus(args: {
       request: null,
       remaining: [],
       focusDetails: false,
+      reviewStage: null,
     };
   }
   const pending = args.pending ?? findTaskPendingRequests(messages, args.liveTurnId);
@@ -219,6 +227,9 @@ export function buildTaskPanelStatus(args: {
   const decision = pending.question ? "question" : pending.approval ? "approval" : null;
   const run = args.agentRun ? describeAgentRunResult(args.agentRun, args.now, decision) : null;
   const pr = args.prInfo?.pr ?? null;
+  // The run's count is its report stage's diff: Review opens that stage, so
+  // the number and the files shown agree. Without one, the turn's own edits.
+  const reviewStage = run?.changes && args.agentRun ? agentRunChangesStage(args.agentRun) : null;
   const facts: TaskStateFacts = {
     liveTurn: args.liveTurnId
       ? { pendingInteraction: args.activity?.turnId === args.liveTurnId ? (args.activity.pendingInteraction ?? null) : null }
@@ -230,7 +241,7 @@ export function buildTaskPanelStatus(args: {
     lastTurn,
     result: {
       pullRequest: run?.pullRequest ?? (pr ? { url: pr.url, number: pr.number, title: pr.title } : null),
-      changedFiles: run?.changes?.files ?? turnResult.changedFiles,
+      changedFiles: reviewStage && run?.changes ? run.changes.files : turnResult.changedFiles,
       answerMessageId: turnResult.answerMessageId,
     },
   };
@@ -241,6 +252,7 @@ export function buildTaskPanelStatus(args: {
     turnId,
     pastTurnAt: null,
     focusDetails: status?.state === "stopped" && !stoppedByUser,
+    reviewStage,
     request: requestOfStatus(status, pending),
     remaining: run?.doneWhen.filter((line) => line.status === "unmet" || line.status === "unverified") ?? [],
   };

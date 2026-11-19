@@ -458,6 +458,18 @@ export function describeAgentRunChanges(detail: AgentRunDetail): AgentRunChanges
     : null;
 }
 
+/**
+ * The stage whose observed diff `describeAgentRunChanges` counts, to open in
+ * Review on the same files; null when there is no diff or no start commit to
+ * diff from.
+ */
+export function agentRunChangesStage(detail: AgentRunDetail): { agentRunId: string; stageId: string; attempt: number } | null {
+  const { record } = reportOf(detail);
+  return record?.facts?.diff && record.startHeadSha
+    ? { agentRunId: detail.agentRun.id, stageId: record.stageId, attempt: record.attempt }
+    : null;
+}
+
 export interface AgentRunPullRequestLink {
   url: string;
   number: number;

@@ -345,3 +345,20 @@ test("F4: an earlier turn without a saved record ends as its own message says", 
   const view = status({ messages: [aborted, REPLY], history: [turn("turn-2", "completed")], selectedTurnId: "turn-1" });
   expect(view).toMatchObject({ turnId: "turn-1", status: { state: "stopped", reason: "You stopped it." } });
 });
+
+test("F5: the files counted and the changes Review opens are the same scope", () => {
+  const base = agentRun();
+  const ai = base.agentRun.workflow.stages.filter((stage) => stage.kind === "ai").at(-1)!;
+  const record = {
+    ...base.stages[0]!, stageId: ai.id, attempt: 1, status: "completed", startHeadSha: "abc123",
+    facts: { diff: { filesChanged: 4, insertions: 10, deletions: 2 } },
+  };
+  const detail = { ...base, agentRun: { ...base.agentRun, state: "completed" }, stages: [...base.stages.filter((row) => row.stageId !== ai.id), record] } as never as AgentRunDetail;
+  const view = status({ history: [turn("turn-2", "completed")], agentRun: detail });
+  expect(view.status?.result?.changedFiles).toBe(4);
+  expect(view.reviewStage).toEqual({ agentRunId: base.agentRun.id, stageId: ai.id, attempt: 1 });
+  // Without a run, the turn's own files and the turn's review.
+  const plain = status({ history: [turn("turn-2", "completed")] });
+  expect(plain.status?.result?.changedFiles).toBe(2);
+  expect(plain.reviewStage).toBeNull();
+});
