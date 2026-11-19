@@ -1,6 +1,6 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import type { RepositoryMemoryFactInput } from "@/lib/repository-memory";
-import { buildDelegatedTaskReceiptsRetrievedContext, latestTurnStartedAt } from "@/lib/task-context/delegated-task-receipts";
+import { buildDelegatedTaskReceiptsRetrievedContext } from "@/lib/task-context/delegated-task-receipts";
 import {
   buildRepositoryMemoryRetrievedContextPart,
   resolveRepositoryMemoryRecallQuery,
@@ -26,10 +26,11 @@ export async function collectTurnStartRetrievedContextParts(args: {
   providerSession?: ProviderSessionCursor | null;
   repositoryPath: string | null;
   parentTaskId: string;
-  history: readonly Pick<ChatMessage, "role" | "content" | "startedAt">[];
+  history: readonly Pick<ChatMessage, "role" | "content" | "startedAt" | "deliveredResultKeys">[];
   prompt: string;
   /** Children attached to this message are not repeated as receipts. */
   promptDraft?: PromptDraft;
+  deliveredResultKeys?: string[];
 }): Promise<CanonicalRetrievedContextPart[]> {
   const [delegatedTaskSummaries, repositoryMemoryPart, handoffParts] = await Promise.all([
     window.api?.runs?.listDelegatedTasks?.({
@@ -50,11 +51,11 @@ export async function collectTurnStartRetrievedContextParts(args: {
   if (repositoryMemoryPart) {
     parts.push(repositoryMemoryPart);
   }
-  // A task that started subagents sees where they stand, and the answers that
-  // arrived since its last turn, before its next turn.
+  // Record only results included in the parent input.
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: delegatedTaskSummaries,
-    resultsSince: latestTurnStartedAt(args.history),
+    history: args.history,
+    deliveredResultKeys: args.deliveredResultKeys,
     attachedTaskIds: new Set(
       (args.promptDraft ? getPromptDraftAttachments(args.promptDraft) : []).flatMap(
         (attachment) => (attachment.kind === "task-context" ? [attachment.taskId] : []),

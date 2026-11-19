@@ -794,14 +794,16 @@ function createToolServer(options?: {
       description: "Read the current persisted task state from Stave.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
+        turnId: z.string().min(1).optional().describe("Read the answer from this specific turn."),
         taskId: z.string().min(1).describe("Task id."),
       },
     },
-    async ({ workspaceId, taskId }) =>
+    async ({ workspaceId, taskId, turnId }) =>
       toStructuredResult({
         task: await getTaskStatus({
           workspaceId,
           taskId,
+          turnId,
         }),
       }),
   );

@@ -1901,10 +1901,10 @@ async function runTaskImpl(args: {
           ].join("\n"),
         }
       : null;
-  // Subagent states and the answers that arrived since this task's last turn began.
+  const deliveredResultKeys: string[] = [];
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
-    resultsSince: ensureHostServicePersistenceReady().listTurns({ workspaceId: args.workspaceId, taskId: task.id, limit: 1 })[0]?.createdAt ?? null,
+    history: existingHistory, deliveredResultKeys,
   });
   // Child-only rules: an agent run's stage turns keep delegating their stages.
   const delegationRules = delegatedTaskRulesFor({ parentTaskId: task.parentTaskId, agentRunStage: args.agentRunStage });
@@ -1976,7 +1976,7 @@ async function runTaskImpl(args: {
     ...(args.runtimeOptions
       ? { modelInfo: resolveTurnModelInfo({ providerId: provider, runtimeOptions: args.runtimeOptions }) }
       : {}),
-    content: args.prompt,
+    content: args.prompt, deliveredResultKeys,
     questionReply: questionReply ?? args.initialContext?.questionReply,
     fileContexts: args.initialContext?.fileContexts,
     imageContexts: args.initialContext?.imageContexts,
@@ -2182,12 +2182,11 @@ export async function getTaskStatus(args: {
     turnId: args.turnId,
   });
   const latestTurn = recentTurns[0] ?? null;
-  const messages = decodeTaskMessages(
-    store.loadTaskMessagesPage({
-      workspaceId: args.workspaceId,
-      taskId: args.taskId,
-      limit: 120,
-    })?.messages ?? session.messagesByTask[args.taskId] ?? []);
+  const readPage = (offset: number) => store.loadTaskMessagesPage({
+    workspaceId: args.workspaceId, taskId: args.taskId, limit: 120, offset,
+  });
+  const recentPage = readPage(0);
+  const messages = decodeTaskMessages(recentPage?.messages ?? session.messagesByTask[task.id] ?? []);
 
   return {
     workspaceId: args.workspaceId,
@@ -2201,6 +2200,7 @@ export async function getTaskStatus(args: {
     messageCount: messages.length,
     ...projectTurnStatus({
       turn: latestTurn, messages, targeted: !!args.turnId,
+      readOlderMessages: recentPage?.hasMoreOlder && latestTurn?.completedAt ? (offset) => decodeTaskMessages(readPage(offset)?.messages ?? []) : undefined,
       memoryError: latestTurn ? terminalTurnErrorById.get(latestTurn.id) ?? null : null,
       readEvents: (turnId) => store.getStreamEvents({ turnId }),
     }),

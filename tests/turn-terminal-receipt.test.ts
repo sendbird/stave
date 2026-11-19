@@ -344,6 +344,11 @@ test("status uses full exact-turn message ahead of bounded receipt and ignores e
       memoryError: "stale error",
       readEvents: (id) => store.getStreamEvents({ turnId: id }),
     });
+  expect(projectTurnStatus({
+    turn, messages: [{ ...message, turnId: "later" }], targeted: true,
+    readOlderMessages: (offset) => offset === 1 ? [message] : [],
+    memoryError: null, readEvents: () => [],
+  }).latestAssistantText).toBe(fullText);
   expect(project([message]).latestAssistantText).toBe(fullText);
   expect(project([message]).latestTurnError).toBeNull();
   expect(

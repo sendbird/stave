@@ -1009,13 +1009,13 @@ export function createSendUserMessageAction(args: {
         }),
         ...freshSourceContexts,
       ];
-      // ── Memory, subagent receipts, handoff record: cross-turn state from main ──
+      const deliveredResultKeys: string[] = [];
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
           workspaceId: taskWorkspaceId, turnId, providerSession: providerSessionCursor,
           repositoryPath: state.repositoryPath,
           parentTaskId: resolvedTaskId,
-          history: latestHistory,
+          history: latestHistory, deliveredResultKeys,
           prompt: normalizedPrompt || promptContent,
           promptDraft,
         })),
@@ -1143,7 +1143,7 @@ export function createSendUserMessageAction(args: {
             provider,
             activeModel,
             modelInfo,
-            content: promptContent,
+            content: promptContent, deliveredResultKeys,
             displayContent: promptDisplayContent,
             displayParts: promptDisplayParts,
             questionReply: promptDraft.questionReply,
@@ -1201,7 +1201,7 @@ export function createSendUserMessageAction(args: {
             provider,
             activeModel,
             modelInfo,
-            content: promptContent,
+            content: promptContent, deliveredResultKeys,
             displayContent: promptDisplayContent,
             displayParts: promptDisplayParts,
             questionReply: promptDraft.questionReply,

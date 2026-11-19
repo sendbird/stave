@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildDelegatedTaskReceiptsRetrievedContext, latestTurnStartedAt } from "../src/lib/task-context/delegated-task-receipts";
+import { buildDelegatedTaskReceiptsRetrievedContext } from "../src/lib/task-context/delegated-task-receipts";
 import type { DelegatedTaskSummary } from "../src/lib/runs/delegated-task";
 
 function summary(overrides: Partial<DelegatedTaskSummary> = {}): DelegatedTaskSummary {
@@ -105,7 +105,7 @@ describe("subagent results context", () => {
 
   test("includes each answer that arrived since the last turn, bounded, and omits seen ones", () => {
     const part = buildDelegatedTaskReceiptsRetrievedContext({
-      resultsSince: "2026-08-10T00:04:00.000Z",
+      history: [{ deliveredResultKeys: [JSON.stringify(["child-2", "turn-1", "2026-08-10T00:01:00.000Z"])] }],
       children: [
         summary({ delegationKey: "new", result: "Found two bugs.\nBoth in parser.ts." }),
         summary({ delegationKey: "seen", delegatedTaskId: "child-2", updatedAt: "2026-08-10T00:01:00.000Z", result: "Old answer." }),
@@ -142,10 +142,37 @@ describe("subagent results context", () => {
     expect(part?.content).not.toContain("Reviewer findings.");
   });
 
-  test("the results cut-off is the newest assistant turn start", () => {
-    expect(latestTurnStartedAt([
-      { role: "assistant", startedAt: "a" }, { role: "user" }, { role: "assistant", startedAt: "b" }, { role: "user" },
-    ])).toBe("b");
-    expect(latestTurnStartedAt([{ role: "user" }])).toBeNull();
+  test("a single leftover character cannot acknowledge an ellipsis as an answer", () => {
+    const children = [2000, 2000, 2000, 1999, 20].map((length, index) =>
+      summary({ delegatedTaskId: String(index), result: "x".repeat(length) }));
+    const deliveredResultKeys: string[] = [];
+    const part = buildDelegatedTaskReceiptsRetrievedContext({ children, deliveredResultKeys });
+    expect(deliveredResultKeys).toHaveLength(4);
+    expect(part?.content).toContain("result omitted");
+  });
+
+  test("a result outside the row limit still has a stable read reference", () => {
+    const children = Array.from({ length: 20 }, (_, i) =>
+      summary({ delegatedTaskId: String(i), phase: "running" }));
+    children.push(summary({ result: "Finished answer" }));
+    const deliveredResultKeys: string[] = [];
+    const part = buildDelegatedTaskReceiptsRetrievedContext({ children, deliveredResultKeys });
+    expect(part?.content.match(/^- subagent:/gm)).toHaveLength(20);
+    expect(part?.content).toContain('result omitted; read the full answer with stave_get_task({"workspaceId":"workspace-child","taskId":"child-1","turnId":"turn-1"})');
+    expect(deliveredResultKeys).toHaveLength(0);
+  });
+
+  test("only delivered previews consume a receipt, so the fifth answer arrives next turn", () => {
+    const children = Array.from({ length: 5 }, (_, i) => summary({
+      delegatedTaskId: `child-${i}`, delegatedTurnId: `turn-${i}`, result: String(i).repeat(2_100),
+    }));
+    const deliveredResultKeys: string[] = [];
+    const first = buildDelegatedTaskReceiptsRetrievedContext({ children, deliveredResultKeys });
+    expect(first?.content).toContain("result truncated");
+    expect(first?.content).toContain('result omitted; read the full answer with stave_get_task({"workspaceId":"workspace-child","taskId":"child-4","turnId":"turn-4"})');
+    expect(deliveredResultKeys).toHaveLength(4);
+    const second = buildDelegatedTaskReceiptsRetrievedContext({ children, history: [{ deliveredResultKeys }] });
+    expect(second?.content).toContain("4".repeat(1_999));
+    expect(second?.content).not.toContain("0".repeat(1_999));
   });
 });

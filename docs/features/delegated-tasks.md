@@ -88,8 +88,7 @@ The agent calls `stave_delegate_task`. A read-only call waits for the answer
 (up to two minutes by default, three at most) and returns it as `child.result`.
 A writing subagent starts in its own worktree and the call returns at once.
 Either way, an answer that arrives later is part of the parent's next turn
-under **Subagent results**, so the agent never has to read the child task to
-collect it.
+under **Subagent results**. A shortened or omitted answer includes a reference to read the full turn. Omitted answers stay eligible for the next turn.
 
 ## Interface Walkthrough
 
@@ -329,8 +328,7 @@ turns, which are pushed rather than polled.
 
 The agent can call `stave_list_delegated_tasks` for the same summary. It is also
 injected into the parent's context automatically before each of its turns as
-**Subagent results**, with the bounded answer of every subagent that finished
-since the previous turn, so an agent that delegated work never asks for it.
+**Subagent results**, with previews of answers the parent has yet to receive.
 
 ### Answer A Child's Question
 

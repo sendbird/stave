@@ -219,6 +219,7 @@ export function projectTurnStatus(args: {
   turn: import("../persistence/types").PersistenceTurnSummary | null;
   messages: import("../../src/types/chat").ChatMessage[];
   targeted: boolean;
+  readOlderMessages?: (offset: number) => import("../../src/types/chat").ChatMessage[];
   memoryError: string | null;
   readEvents: (turnId: string) => PersistedTurnStreamEvent[];
 }) {
@@ -229,6 +230,21 @@ export function projectTurnStatus(args: {
         events: args.turn.terminalReceipt ? [] : args.readEvents(args.turn.id),
       }
     : null;
+  const answer = (messages: typeof args.messages) => [...messages].reverse().find((message) =>
+    message.role === "assistant" && message.content.trim() &&
+    (!args.targeted || (args.turn && message.turnId === args.turn.id)),
+  )?.content;
+  let text = answer(args.messages);
+  // A reference may point behind the resident window after follow-up turns.
+  if (!text && args.targeted && args.turn && args.readOlderMessages) {
+    let offset = args.messages.length;
+    while (!text) {
+      const page = args.readOlderMessages(offset);
+      if (!page.length) break;
+      text = answer(page);
+      offset += page.length;
+    }
+  }
   return {
     latestTurnError: result
       ? result.receipt?.completedAt
@@ -236,17 +252,6 @@ export function projectTurnStatus(args: {
         : (args.memoryError ?? resolveTargetedTurnError(result))
       : null,
     latestTurnOutcome: result ? resolveTargetedTurnOutcome(result) : null,
-    latestAssistantText:
-      [...args.messages]
-        .reverse()
-        .find(
-          (message) =>
-            message.role === "assistant" &&
-            message.content.trim().length > 0 &&
-            (!args.targeted || message.turnId === args.turn?.id),
-        )?.content ??
-      (args.targeted
-        ? (args.turn?.terminalReceipt?.responseText ?? null)
-        : null),
+    latestAssistantText: text ?? (args.targeted ? args.turn?.terminalReceipt?.responseText ?? null : null),
   };
 }

@@ -439,6 +439,7 @@ export interface AgentRunPromptProvenance {
 }
 
 export interface ChatMessage {
+  deliveredResultKeys?: string[];
   questionReply?: QuestionReply;
   id: string;
   role: MessageRole;
