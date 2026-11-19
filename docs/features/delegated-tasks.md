@@ -92,7 +92,9 @@ under **Subagent results**, once. A long answer is shortened with a reference
 to read the full turn. An answer that does not fit the turn arrives whole in
 the next one, oldest first. If several turns of one subagent end before the
 parent's next turn, each answer arrives. An answer counts as received once a
-parent turn that carried it starts, even if that turn is stopped.
+parent turn that carried it reaches its provider, even if that turn is then
+stopped. A child attached to the message brings its latest reply that way; its
+other new answers still arrive under **Subagent results**.
 
 ## Interface Walkthrough
 
@@ -404,11 +406,19 @@ Delegations live in the run ledger inside Stave's SQLite database, as a
 }
 ```
 
-Each answer is a result receipt on the child's run. When a parent turn carries
-an answer, a `delivery` receipt naming the parent turn is added to the same run,
-so the parent's later turns skip it after a restart too. Answers recorded before
-this was tracked count as received when they are older than the parent's most
-recent turn.
+Each answer is a result receipt on the child's run. When the provider runtime
+hands a parent turn that carries an answer to its provider, a delivery record
+naming the parent turn is written beside the run ledger
+(`electron/persistence/delegated-answer-store.ts`), so later turns skip it after
+a restart too. A turn refused before that point (a control change, a cancelled
+queue slot, a policy refusal) records nothing, and a failed write is logged and
+leaves the answer owed, so it can come twice but is never lost. Upgrade cut: on
+the first read for a parent, answers recorded before this version first opened
+the database and no later than the parent's latest turn start count as
+received, because the earlier version had already given them or dropped them
+for its budget; it runs once per parent and never touches answers recorded
+after the upgrade. The run ledger itself is unchanged, so earlier versions still
+read the database.
 
 Set `STAVE_DELEGATED_TASK_CONCURRENCY` to change how many children one parent task
 may have running at once (default 3, maximum 16).
