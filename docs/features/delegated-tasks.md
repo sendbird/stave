@@ -95,8 +95,9 @@ parent's next turn, each answer arrives. An answer counts as received once the
 provider accepts a parent turn that carried it, even if that turn is then
 stopped. A child attached to the message still brings its new answers under
 **Subagent results**, because the attachment is read separately and may be
-empty. An unattached composer review is announced there once and held until
-the user attaches it.
+empty. A composer review is addressed to the user: until the user attaches
+it, Subagent results count it without its answer, and it arrives whole in the
+message it is attached to.
 
 ## Interface Walkthrough
 

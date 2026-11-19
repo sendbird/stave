@@ -280,17 +280,38 @@ describe("owed subagent answers", () => {
     const store = new Ledger(new Database(":memory:"));
     startChild(store, "docs");
     answer(store, "docs", "turn-1", "ATTACHED-ANSWER", at(1));
-    startChild(store, "stave-review-20261004120000-a");
-    answer(store, "stave-review-20261004120000-a", "turn-1", "REVIEW-FINDINGS", at(2));
     const history: Message[] = [];
     // The attachment's own read failed and put nothing in the prompt: the answer still arrives, once.
-    const first = parentTurn(store, history, at(3), { attached: ["task-docs"] });
-    expect(first).toContain("    ATTACHED-ANSWER");
-    expect(first).toContain("result: held until the user attaches this review");
-    expect(first).not.toContain("REVIEW-FINDINGS");
-    const later = parentTurn(store, history, at(4));
-    expect(later).not.toContain("ATTACHED-ANSWER");
-    expect(later).not.toContain("held until");
+    expect(parentTurn(store, history, at(3), { attached: ["task-docs"] })).toContain("    ATTACHED-ANSWER");
+    expect(parentTurn(store, history, at(4))).not.toContain("ATTACHED-ANSWER");
+  });
+
+  test("a composer review stays owed without its text until the user attaches it, then arrives whole once", () => {
+    const store = new Ledger(new Database(":memory:"));
+    startChild(store, "stave-review-20261004120000-a");
+    answer(store, "stave-review-20261004120000-a", "turn-1", "REVIEW-FINDINGS", at(1));
+    const history: Message[] = [];
+    for (const minute of [2, 3]) {
+      const unattached = parentTurn(store, history, at(minute));
+      expect(unattached).not.toContain("REVIEW-FINDINGS");
+      expect(unattached).toContain("(1 review results wait until the user attaches them)");
+    }
+    expect(parentTurn(store, history, at(4), { attached: ["task-stave-review-20261004120000-a"] })).toContain("    REVIEW-FINDINGS");
+    const later = parentTurn(store, history, at(5), { attached: ["task-stave-review-20261004120000-a"] });
+    expect(later).not.toContain("REVIEW-FINDINGS");
+    expect(later).not.toContain("review results wait");
+  });
+
+  test("unattached composer reviews never fill the page ahead of answers a turn can carry", () => {
+    const store = new Ledger(new Database(":memory:"));
+    for (let i = 0; i < 41; i += 1) { const key = `stave-review-2026100412${String(i).padStart(4, "0")}-a`; startChild(store, key); answer(store, key, "t", `REVIEW-${i}`, at(1, i)); }
+    startChild(store, "docs");
+    answer(store, "docs", "turn-1", "DOCS-ANSWER", at(2));
+    const history: Message[] = [];
+    const first = parentTurn(store, history, at(3));
+    expect(first).toContain("    DOCS-ANSWER");
+    expect(first).not.toContain("REVIEW-");
+    expect(parentTurn(store, history, at(4))).not.toContain("DOCS-ANSWER");
   });
 
   test("delivery records leave the run ledger as earlier versions write it, and ignore other parents", () => {

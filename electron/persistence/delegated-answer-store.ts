@@ -4,6 +4,7 @@ import {
   type RunReceiptRecord,
   type RunStepTarget,
 } from "../../src/lib/runs/run-domain";
+import { REVIEW_DELEGATION_KEY_PREFIX, buildDelegatedTaskRunId } from "../../src/lib/runs/delegated-task";
 
 /**
  * Which subagent answers a parent's turns have carried, kept beside the run
@@ -97,14 +98,20 @@ export class DelegatedAnswerStore {
     }).immediate();
   }
 
-  /** The parent's answers no turn carried, oldest first, at most `limit`, and how many there are. */
+  /**
+   * The parent's answers no turn carried, oldest first, at most `limit`, and
+   * how many there are. Composer reviews come after the other answers: one
+   * stays owed until the user attaches it, so unattached reviews must never
+   * fill the page ahead of answers a turn can carry.
+   */
   listOwed(args: { parentTaskId: string; limit: number }): { rows: OwedDelegatedAnswerRow[]; total: number } {
+    const reviewRunIdPrefix = buildDelegatedTaskRunId({ parentTaskId: args.parentTaskId, delegationKey: REVIEW_DELEGATION_KEY_PREFIX });
     const rows = this.db.prepare(`
       SELECT receipt.*, step.target_json, step.execution_id AS step_execution_id, step.result_artifact_ref
       ${answersOfParent(OWED)} AND ${UNSETTLED}
-      ORDER BY receipt.created_at ASC, receipt.run_id ASC, receipt.sequence ASC
+      ORDER BY substr(receipt.run_id, 1, length(?)) = ? ASC, receipt.created_at ASC, receipt.run_id ASC, receipt.sequence ASC
       LIMIT ?
-    `).all(args.parentTaskId, args.limit) as Array<Record<string, unknown>>;
+    `).all(args.parentTaskId, reviewRunIdPrefix, reviewRunIdPrefix, args.limit) as Array<Record<string, unknown>>;
     const total = rows.length < args.limit ? rows.length : Number((this.db.prepare(`
       SELECT COUNT(*) AS total ${answersOfParent(OWED)} AND ${UNSETTLED}
     `).get(args.parentTaskId) as { total: number }).total);

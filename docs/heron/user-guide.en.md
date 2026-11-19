@@ -1112,6 +1112,7 @@ Review's **Diff comments** list opens each comment's line when selected. Remove 
 
 An AI review runs as a read-only child task in the same workspace for one turn, and returns approve, approve with changes, or request changes.
 Its progress shows on the shelf. When it is done, attach or view the result, run it again, or select **Check fixes** after fixing.
+The agent receives a review's answer only with the message you attach it to.
 
 ## Delegated tasks
 

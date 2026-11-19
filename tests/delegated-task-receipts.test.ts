@@ -147,16 +147,16 @@ describe("subagent results context", () => {
     expect(delivered).toHaveLength(1);
   });
 
-  test("a composer review's answer is held until the user attaches it, and settles once announced", () => {
+  test("an unattached composer review is addressed to the user: no text, not settled, only counted", () => {
     const delivered: DelegatedTaskAnswerRef[] = [];
     const part = buildDelegatedTaskReceiptsRetrievedContext({
       children: [summary({ delegationKey: "stave-review-20261004120000-a" })],
       answers: [answer({ delegationKey: "stave-review-20261004120000-a", text: "Reviewer findings." })],
       delivered,
     });
-    expect(part?.content).toContain("result: held until the user attaches this review");
     expect(part?.content).not.toContain("Reviewer findings.");
-    expect(delivered).toHaveLength(1);
+    expect(part?.content).toContain("(1 review results wait until the user attaches them)");
+    expect(delivered).toHaveLength(0);
   });
 
   test("an answer the shared budget cannot take whole waits with a reference, never as a fragment", () => {

@@ -40,11 +40,13 @@ function readAnswer(answer: DelegatedTaskAnswer) {
  * `answers` are the owed answers from `collectOwedDelegatedTaskAnswers`,
  * oldest first. Each takes the shared budget whole or waits for a later turn
  * with a read reference; it is never cut to a fragment (only an answer longer
- * than the per-answer cap is shortened, with a reference). The answers this
- * turn settles are pushed to `delivered` for the caller to record once the
- * provider accepts the prompt: the ones carried here, and a review the user
- * started from the composer, which is shared only when attached and otherwise
- * announced once. An attached child's answer is carried here too: the
+ * than the per-answer cap is shortened, with a reference).
+ *
+ * The answers carried here are pushed to `delivered` for the caller to record
+ * once the provider accepts the prompt; nothing else is. A review the user
+ * started from the composer is addressed to the user: it is carried (and
+ * settled) only in a turn the user attached it to, and otherwise stays owed
+ * without its text. An attached child's answer is carried here too: the
  * attachment is read separately and can fail or be cut, so it never settles one.
  */
 export function buildDelegatedTaskReceiptsRetrievedContext(args: {
@@ -86,11 +88,12 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
 
   const settle = (answer: DelegatedTaskAnswer) => args.delivered?.push({ runId: answer.runId, sequence: answer.sequence });
   let resultBudget = MAX_RESULTS_TOTAL_CHARS;
+  let heldReviews = 0;
   const answerLines = answers.flatMap((answer) => {
     const head = `- answer from subagent ${answer.delegationKey} (task ${answer.delegatedTaskId})`;
     if (isReviewDelegation(answer) && !args.attachedTaskIds?.has(answer.delegatedTaskId)) {
-      settle(answer);
-      return [head, "  result: held until the user attaches this review"];
+      heldReviews += 1;
+      return [];
     }
     if (Math.min(answer.text.length, MAX_RESULT_CHARS) > resultBudget) {
       return [`${head}: result omitted for now; ${readAnswer(answer)}`];
@@ -120,6 +123,7 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
       ...rows,
       ...(omitted > 0 ? [`(${omitted} older subagents omitted)`] : []),
       ...(answerLines.length > 0 ? ["", "New answers, oldest first:", ...answerLines] : []),
+      ...(heldReviews > 0 ? [`(${heldReviews} review results wait until the user attaches them)`] : []),
       ...(args.moreAnswers ? [`(${args.moreAnswers} more answers come in later turns)`] : []),
     ].join("\n"),
   };
