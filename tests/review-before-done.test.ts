@@ -11,16 +11,21 @@ const now = new Date("2026-10-15T00:00:00.000Z");
 const implementer = () => getBuiltinAgent("implementer")!;
 
 describe("review before done", () => {
-  test("an agent that edits files reviews behavior changes by default; read-only agents, workflows, Lead and bare names do not", () => {
+  test("an agent that edits files reviews behavior changes by default; read-only agents, workflows and bare names do not", () => {
     expect(resolveReviewBeforeDone(implementer())).toBe("behavior-changes");
     expect(resolveReviewBeforeDone({ ...implementer(), reviewBeforeDone: "always" })).toBe("always");
     expect(resolveReviewBeforeDone({ ...implementer(), reviewBeforeDone: "off" })).toBe("off");
     expect(resolveReviewBeforeDone(getBuiltinAgent(REVIEW_AGENT_ID)!)).toBe("off");
-    expect(resolveReviewBeforeDone(getBuiltinAgent("lead")!)).toBe("off");
-    // Supervisor integrates its helpers' work itself, so its result gets the same final review as Implementer's.
-    expect(resolveReviewBeforeDone(getBuiltinAgent("supervisor")!)).toBe("behavior-changes");
-    expect(resolveReviewBeforeDone(getBuiltinAgent("debugger")!)).toBe("off");
+    expect(resolveReviewBeforeDone(getBuiltinAgent("shipper")!)).toBe("off");
     expect(resolveReviewBeforeDone({ permission: undefined })).toBe("off");
+  });
+
+  test.each(["implementer", "lead", "supervisor", "debugger", "ui-polisher"])("%s owns the work and gets the standard independent review", (id) => {
+    const agent = getBuiltinAgent(id)!;
+    const workflow = buildAgentRunWorkflow({ agent, now });
+    expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
+    expect(workflow.stages[1]).toMatchObject({ agentConfigId: REVIEW_AGENT_ID, pinCommit: true, skipIfWorkUnchanged: true });
+    expect(workflow.stages[2]).toMatchObject({ skipIfReviewPassed: true });
   });
 
   test("a run of such an agent commits its work, then the Reviewer reviews that commit and the agent fixes what it found", () => {
@@ -58,7 +63,7 @@ describe("review before done", () => {
     const off = buildAgentRunWorkflow({ agent: { ...implementer(), reviewBeforeDone: "off" }, now });
     expect(off.stages.map((stage) => stage.id)).toEqual(["work"]);
     expect(off.stages[0]?.kind === "ai" ? off.stages[0].instruction : "").not.toContain("commit");
-    expect(buildAgentRunWorkflow({ agent: getBuiltinAgent("debugger")!, now }).stages.map((stage) => stage.id)).not.toContain("review");
+    expect(buildAgentRunWorkflow({ agent: getBuiltinAgent("shipper")!, now }).stages.map((stage) => stage.id)).not.toContain("review");
     const helper = buildDelegatedAgentRunInput({ agent: implementer(), now, start: {
       agentRunId: "run-child", workspaceId: "ws", taskId: "child", title: "Fix", prompt: "Fix the export.", maxTurns: 10, model: "sonnet",
       authority: { parentTaskId: "parent", executionId: "exec", agentConfigId: "implementer", agentContentHash: "hash",

@@ -310,8 +310,7 @@ describe("run-start line before a send", () => {
       expect(open).toContain('aria-expanded="true"');
       expect(open).toContain("Keeps 2 attachments");
       for (const label of ["Can do", "Attachments"]) expect(open).toContain(label);
-      // Lead's condition is the default, so there is no Done when row; a stated condition or checks would show one.
-      expect(open).not.toContain("Done when");
+      expect(open).toContain("Work → Review → Fix review findings");
       expect(open).not.toContain("The assignment is complete and verified.");
       // Only what the line does not say: the workspace is the bar under the composer, the check-in and turn cap are the line.
       for (const repeated of ["Works in", "billing-fix · main", "Checks with you", "Only when it is stuck", "Pauses after 30 turns"]) expect(open).not.toContain(repeated);

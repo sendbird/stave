@@ -38,10 +38,10 @@ export interface StagePromptInput {
 
 // i18n-ignore: model-facing stage reporting contract
 const REPORTING_CONTRACT = [
-  "Before you end this turn, call `stave_report_stage` with a short summary, the decisions you made and why, the evidence you gathered, and the status of each acceptance criterion. If you cannot finish this stage, call `stave_block_stage` instead and name exactly what is missing.",
+  "Before you end this turn, call `stave_report_stage` with a short summary, the decisions you made and why, the evidence you gathered, and the status of the criteria you evaluated. If you cannot finish this stage, call `stave_block_stage` instead and name exactly what is missing.",
   "Never report unverified work as complete. Mark a criterion you could not check as unverified, and cite the commands and tool calls you ran. When this stage requires final checks, run them yourself as lead in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured. Rerun helper checks: their results are not this lead turn's verification. Skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. Provider results may lack an exit code or a workspace revision; use a successful Stave script check of unchanged work for current verification.",
-  "Stave matches each reported criterion to its stage criterion by exact text: copy every criterion's text below into `text` unchanged, and put evidence and caveats in `evidence`, never in `text`.",
-  "Required criteria must be met to fulfill the assignment. Label additional, optional checks with required: false and their actual status; do not downgrade user requirements or stage requirements to optional.",
+  "Copy each reported criterion's exact text. Put evidence and caveats in `evidence`.",
+  "Required criteria must be met: stage criteria before advancing, assignment criteria at the end. Label additional, optional checks with required: false and their actual status; do not downgrade user requirements or stage requirements to optional.",
   "Do only this stage. Stave starts the next stage after your report, so do not begin later stages in this turn.",
 ].join("\n\n");
 

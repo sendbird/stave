@@ -1,58 +1,7 @@
 import type { AgentWorkflow } from "./schema";
 
-/**
- * The workflows of the built-in agents that work in stages. A run of one of
- * these agents follows its stages, reporting each; every other built-in runs
- * as one "Work" stage. Implementer, Researcher, Reviewer, Lead and Supervisor
- * stay single stage on purpose: they plan their own steps inside the work.
- */
+/** Shipper's publication workflow uses Stave actions to manage the pull request. */
 export const BUILTIN_AGENT_WORKFLOWS: Readonly<Record<string, AgentWorkflow>> = {
-  debugger: [
-    {
-      id: "reproduce",
-      title: "Reproduce" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
-      kind: "ai",
-      instruction: "Reproduce the problem. Record the exact steps, the inputs and what you observed. Change nothing yet.",
-      doneWhen: "The steps and the observed behaviour are recorded.",
-    },
-    {
-      id: "cause",
-      title: "Cause" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
-      kind: "ai",
-      instruction: "Find the root cause. Show the evidence for it and keep confirmed facts apart from hypotheses.",
-      doneWhen: "The root cause is shown with evidence, apart from hypotheses.",
-    },
-    {
-      id: "fix",
-      title: "Fix" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
-      kind: "ai",
-      instruction: "Make the smallest change at the cause, then run the reproduction again and the checks that cover it.",
-      doneWhen: "The reproduction now passes and the relevant checks pass.",
-    },
-  ],
-  "ui-polisher": [
-    {
-      id: "reproduce",
-      title: "Reproduce" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
-      kind: "ai",
-      instruction: "Open the screen in the rendered app and capture the defect before you edit anything.",
-      doneWhen: "The defect is captured in the rendered app.",
-    },
-    {
-      id: "fix",
-      title: "Fix" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
-      kind: "ai",
-      instruction: "Fix the defect with the existing components and tokens. Check light and dark themes and a sibling screen that shares the component.",
-      doneWhen: "The fix uses existing components and tokens, and both themes and a sibling screen look right.",
-    },
-    {
-      id: "report",
-      title: "Report" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
-      kind: "ai",
-      instruction: "Attach before and after screenshots and list what a designer still has to decide.",
-      doneWhen: "Before and after screenshots are attached.",
-    },
-  ],
   shipper: [
     {
       id: "validate",

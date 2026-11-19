@@ -14,6 +14,31 @@ import {
   type Workflow,
 } from "@/lib/workflows/schema";
 
+/** A historical Debugger run for previews and tests of saved multi-stage workflows. */
+export const LEGACY_DEBUGGER_STAGES: AiStage[] = [
+  {
+    id: "reproduce",
+    title: "Reproduce" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
+    kind: "ai",
+    instruction: "Reproduce the problem. Record the exact steps, the inputs and what you observed. Change nothing yet.",
+    doneWhen: "The steps and the observed behaviour are recorded.",
+  },
+  {
+    id: "cause",
+    title: "Cause" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
+    kind: "ai",
+    instruction: "Find the root cause. Show the evidence for it and keep confirmed facts apart from hypotheses.",
+    doneWhen: "The root cause is shown with evidence, apart from hypotheses.",
+  },
+  {
+    id: "fix",
+    title: "Fix" /* i18n-ignore: model-facing built-in workflow stage name; localized by UI helper */,
+    kind: "ai",
+    instruction: "Make the smallest change at the cause, then run the reproduction again and the checks that cover it.",
+    doneWhen: "The reproduction now passes and the relevant checks pass.",
+  },
+];
+
 /** A workflow without the identity it receives when the user adds it. */
 export type WorkflowTemplate = Omit<Workflow, "id" | "createdAt" | "updatedAt">;
 

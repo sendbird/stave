@@ -80,24 +80,22 @@ test("a delegated run whose report leaves a criterion unmet ends for its parent 
   expect(decideAgentRunAction({ aggregate: met, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW })).toEqual({ action: "complete-stage", next: "finish" });
 });
 
-test("a delegated Debugger's reproduction reports the assignment's goal unmet and continues; its last stage still must meet it", () => {
-  // Recorded failure: a delegated Debugger (reproduce, cause, fix) stopped after one turn because its
-  // reproduction honestly reported the fix criterion unmet, and the parent had to delegate again.
+test("a run criterion first reported unmet in an intermediate stage only gates the final stage", () => {
   const goal = "Pasting one image adds exactly one attachment.";
-  const own = "Reproduction steps recorded.";
-  let aggregate = aggregateFor([ai("reproduce"), ai("cause"), ai("fix")]);
-  aggregate.agentRun.assignment = `Fix the duplicate paste. Exact criteria: 1) ${goal}`;
-  aggregate = patchCurrent(aggregate, { status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: own, status: "met" }, { text: goal, status: "unmet" }] } });
+  let aggregate = aggregateFor([ai("investigate"), ai("implement")]);
+  aggregate.agentRun.assignment = "Fix the duplicate paste.";
+  aggregate = patchCurrent(aggregate, { status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: goal, status: "unmet" }] } });
   const delegated = (current: typeof aggregate) => decideAgentRunAction({ aggregate: current, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
   expect(delegated(aggregate)).toEqual({ action: "complete-stage", next: "start" });
-  // A criterion the stage adds on its own, not named by the assignment, still must be met where it is reported.
-  const ownUnmet = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: own, status: "unmet" }, { text: goal, status: "unmet" }] } });
-  expect(delegated(ownUnmet)).toMatchObject({ action: "stop", reason: "acceptance-unmet", detail: expect.stringContaining(own) });
-  // The goal carries forward: the final stage leaving it unmet still ends the delegated run for its parent.
+
   aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed" };
-  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "cause", attempt: 1 }), status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
-  aggregate.agentRun.currentStageIndex = 2;
-  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "fix", attempt: 1 }), status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
+  aggregate.agentRun.currentStageIndex = 1;
+  const record = { ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "implement", attempt: 1 }), status: "running" as const };
+  aggregate.stages.push(record);
+  expect(unreportedStageCriteria(aggregate, record, {})).toEqual([goal]);
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: goal, status: "unverified" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
   expect(delegated(aggregate)).toMatchObject({ action: "stop", reason: "acceptance-unmet", detail: expect.stringContaining(goal) });
   aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: goal, status: "met" }] } });
   expect(delegated(aggregate)).toEqual({ action: "complete-stage", next: "finish" });

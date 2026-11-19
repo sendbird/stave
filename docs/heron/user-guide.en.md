@@ -430,8 +430,14 @@ Fix | Fixes what the review found. A fix that changed files goes back to Review 
 @caption Work that changed no files ends without the review stages.
 ```
 
-An agent without a workflow runs a single Work stage.
-A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.
+Implementer, Lead, Supervisor, Debugger and UI Polisher each own a single Work
+stage. Debugger reproduces, diagnoses and verifies the fix in that stage. UI
+Polisher captures the defect, fixes it and records the visible result there.
+By default a change to files gets an independent review, with a fix stage
+for findings. The Run checks the assignment's completion criteria at the end.
+Each stage still reports its result and meets its own configured requirements.
+
+You can define stages for a custom agent. A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.
 
 An Agent send uses Claude or Codex. For another provider, Stave keeps the draft and asks you to switch models or choose Chat before sending. The run receives long requests in full and saves the first 8,000 characters as its assignment in Run history.
 
@@ -472,7 +478,7 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 1. In the agent's **How it runs**, set the permission to **Auto**.
 2. Add a check command (for example `bun run typecheck && bun test`) in **Settings > Projects > Workspace Tools**. A run that changed files ends only when Stave runs this command itself and it passes.
-3. If you want, turn on **Review before done**, or build Work, Review and Fix stages yourself.
+3. Keep **Review before done** at **When behavior changes** to review file changes, or choose your own stages in a custom workflow.
 4. Turn on **Settings > MCP > Local MCP Server**, and run `gh auth login` if you use PR stages.
 5. In the agent's detail view select **Assign…**, write the outcome and how to prove it, pick **Where**, and assign. Picking the agent in the composer and sending also works.
 6. Walk away. The run handles safe approvals, waits for PR checks and reviews, and waits for usage resets on its own.

@@ -1,5 +1,5 @@
 import { TarsWorkActionSchema } from "@/lib/tars/conversation";
-import { getBuiltinAgent } from "@/lib/agents/starters";
+import { LEGACY_DEBUGGER_STAGES } from "@/dev/fixtures/legacy-workflow-starters";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { createAgentRun, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
@@ -37,7 +37,7 @@ export function buildTarsTrayFixtures(start: Date) {
 
   const created = createAgentRun({
     id: billing.agentRunId!,
-    input: buildAgentRunStartInput({ workspaceId: billing.executionWorkspaceId!, taskId: billing.taskId!, agent: getBuiltinAgent("debugger")!,
+    input: buildAgentRunStartInput({ workspaceId: billing.executionWorkspaceId!, taskId: billing.taskId!, agent: { name: "Debugger", permission: "auto", workflow: LEGACY_DEBUGGER_STAGES },
       assignment: billing.title, now: start }),
     repositoryPath: billing.repositoryPath,
     fingerprint: { providerId: "codex", model: "gpt-5.5" },
