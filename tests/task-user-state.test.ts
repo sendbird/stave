@@ -14,8 +14,8 @@ const facts = (patch: Partial<TaskStateFacts>): TaskStateFacts => ({ ...NONE, ..
 const RESULT = { pullRequest: { url: "https://github.com/o/r/pull/128", number: 128 }, changedFiles: 2, answerMessageId: "a1" };
 
 describe("resolveTaskUserState", () => {
-  test("has exactly five states, each with a word and a glyph", () => {
-    expect([...TASK_USER_STATES]).toEqual(["working", "waiting", "blocked", "finished", "stopped"]);
+  test("has exactly six states, each with a word and a glyph", () => {
+    expect([...TASK_USER_STATES]).toEqual(["working", "on-hold", "waiting", "blocked", "finished", "stopped"]);
     for (const state of TASK_USER_STATES) {
       expect(TASK_USER_STATE_LABELS[state].length).toBeGreaterThan(0);
       expect(taskUserStateToWorkState({ state, waitingOn: null })).toBeTruthy();
@@ -27,25 +27,25 @@ describe("resolveTaskUserState", () => {
   });
 
   test("whatever waits on the user comes first, even under a running turn or run", () => {
-    const running = { badge: "running" as const, reason: null, updatedAt: null };
+    const running = { badge: "running" as const, waiting: false, reason: null, updatedAt: null };
     expect(resolveTaskUserState(facts({ liveTurn: { pendingInteraction: "user_input" }, agentRun: running }))).toMatchObject({ state: "waiting", waitingOn: "question" });
     expect(resolveTaskUserState(facts({ liveTurn: { pendingInteraction: "approval" } }))).toMatchObject({ state: "waiting", waitingOn: "approval" });
     // An async question outlives its turn: the messages still hold it.
     expect(resolveTaskUserState(facts({ pendingDecision: "question" }))).toMatchObject({ state: "waiting", waitingOn: "question" });
-    expect(resolveTaskUserState(facts({ agentRun: { badge: "needs-answer", reason: null, updatedAt: null } }))).toMatchObject({ state: "waiting", waitingOn: "sign-off" });
+    expect(resolveTaskUserState(facts({ agentRun: { badge: "needs-answer", waiting: false, reason: null, updatedAt: null } }))).toMatchObject({ state: "waiting", waitingOn: "sign-off" });
   });
 
   test("a paused or halted run holds the task over a card it left open; a live turn's own prompt still asks", () => {
-    const paused = { badge: "paused" as const, reason: "You took over.", updatedAt: null };
+    const paused = { badge: "paused" as const, waiting: false, reason: "You took over.", updatedAt: null };
     expect(resolveTaskUserState(facts({ agentRun: paused, pendingDecision: "approval" }))).toMatchObject({ state: "blocked", reason: "You took over." });
     expect(resolveTaskUserState(facts({ agentRun: paused, pendingDecision: "approval", liveTurn: { pendingInteraction: "approval" } }))).toMatchObject({ state: "waiting", waitingOn: "approval" });
   });
 
   test("a live turn or a running run is working; a halted or paused run is blocked with its reason", () => {
     expect(resolveTaskUserState(facts({ liveTurn: { pendingInteraction: null } }))?.state).toBe("working");
-    expect(resolveTaskUserState(facts({ agentRun: { badge: "running", reason: null, updatedAt: null } }))?.state).toBe("working");
-    expect(resolveTaskUserState(facts({ agentRun: { badge: "halted", reason: "Turn limit reached", updatedAt: null } }))).toMatchObject({ state: "blocked", reason: "Turn limit reached" });
-    expect(resolveTaskUserState(facts({ agentRun: { badge: "paused", reason: "Paused by you", updatedAt: null } }))?.state).toBe("blocked");
+    expect(resolveTaskUserState(facts({ agentRun: { badge: "running", waiting: false, reason: null, updatedAt: null } }))?.state).toBe("working");
+    expect(resolveTaskUserState(facts({ agentRun: { badge: "halted", waiting: false, reason: "Turn limit reached", updatedAt: null } }))).toMatchObject({ state: "blocked", reason: "Turn limit reached" });
+    expect(resolveTaskUserState(facts({ agentRun: { badge: "paused", waiting: false, reason: "Paused by you", updatedAt: null } }))?.state).toBe("blocked");
   });
 
   test("a finished turn carries its result; a failed one carries its error, never both", () => {
@@ -61,15 +61,15 @@ describe("resolveTaskUserState", () => {
   });
 
   test("an ended run and the last turn: whichever changed last decides", () => {
-    const completedRun = { badge: "completed" as const, reason: null, updatedAt: "2026-09-29T10:00:00.000Z" };
+    const completedRun = { badge: "completed" as const, waiting: false, reason: null, updatedAt: "2026-09-29T10:00:00.000Z" };
     const laterFailure = { ending: "failed" as const, error: "Boom", endedAt: "2026-09-29T11:00:00.000Z" };
     expect(resolveTaskUserState(facts({ agentRun: completedRun, lastTurn: laterFailure }))?.state).toBe("stopped");
     const earlierFailure = { ...laterFailure, endedAt: "2026-09-29T09:00:00.000Z" };
     expect(resolveTaskUserState(facts({ agentRun: completedRun, lastTurn: earlierFailure, result: RESULT }))).toMatchObject({ state: "finished", result: RESULT });
-    const stoppedRun = { badge: "stopped" as const, reason: "Acceptance unmet", updatedAt: "2026-09-29T10:00:00.000Z" };
+    const stoppedRun = { badge: "stopped" as const, waiting: false, reason: "Acceptance unmet", updatedAt: "2026-09-29T10:00:00.000Z" };
     expect(resolveTaskUserState(facts({ agentRun: stoppedRun, lastTurn: earlierFailure }))).toMatchObject({ state: "stopped", reason: "Acceptance unmet" });
     // An active run always speaks, whatever the last turn did.
-    expect(resolveTaskUserState(facts({ agentRun: { badge: "running", reason: null, updatedAt: "2026-09-29T08:00:00.000Z" }, lastTurn: laterFailure }))?.state).toBe("working");
+    expect(resolveTaskUserState(facts({ agentRun: { badge: "running", waiting: false, reason: null, updatedAt: "2026-09-29T08:00:00.000Z" }, lastTurn: laterFailure }))?.state).toBe("working");
   });
 
   test("waiting wears the question or the approval glyph", () => {
@@ -100,5 +100,16 @@ describe("resolveTurnEnding", () => {
     expect(resolveTurnEnding({ message: { terminalStopReason: "stop_sequence" }, retained: null, activity: null })?.ending).toBe("unknown");
     expect(resolveTurnEnding({ message: {}, retained: null, activity: null })?.ending).toBe("unknown");
     expect(resolveTurnEnding({ message: null, retained: null, activity: null })).toBeNull();
+  });
+});
+
+describe("E-fix: a run waiting for a reset or an event", () => {
+  test("waits on nobody: on hold with what it waits for, not working and not waiting for you", () => {
+    const run = { badge: "running" as const, waiting: true, reason: "Waiting for usage reset at 3:00 PM.", updatedAt: null };
+    expect(resolveTaskUserState(facts({ agentRun: run }))).toEqual({ state: "on-hold", waitingOn: null, reason: "Waiting for usage reset at 3:00 PM.", result: null });
+    expect(taskUserStateToWorkState({ state: "on-hold", waitingOn: null })).toBe("waiting");
+    // A question still asks first; a live turn still works.
+    expect(resolveTaskUserState(facts({ agentRun: run, pendingDecision: "question" }))?.state).toBe("waiting");
+    expect(resolveTaskUserState(facts({ agentRun: run, liveTurn: { pendingInteraction: null } }))?.state).toBe("working");
   });
 });

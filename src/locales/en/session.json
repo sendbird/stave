@@ -444,6 +444,7 @@
     "reviewRequest": "Review request",
     "result": "Result",
     "reason": "Why it cannot go on",
+    "resumes": "Resumes on its own",
     "noReason": "No reason was reported.",
     "remaining": "Still open",
     "pullRequestNumber": "Pull request #{{number}}",
@@ -1399,6 +1400,7 @@
   },
   "taskState": {
     "working": "Working",
+    "onHold": "Waiting",
     "waiting": "Waiting for you",
     "blocked": "Blocked",
     "finished": "Finished",

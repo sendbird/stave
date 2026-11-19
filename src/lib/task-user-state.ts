@@ -9,9 +9,11 @@ import {
 import type { ChatMessage } from "@/types/chat";
 
 /**
- * Where a task stands for the person who gave it, in five states and no more:
+ * Where a task stands for the person who gave it, in six states and no more:
  *
  * - `working`: something is running and nothing waits on the user;
+ * - `on-hold`: an agent run waits between turns for something nobody has to
+ *   do (a usage reset, PR checks, a scheduled time) and resumes on its own;
  * - `waiting`: a question, an approval or a stage sign-off waits on the user;
  * - `blocked`: nothing runs and it cannot go on until someone acts (a halted
  *   or paused agent run);
@@ -22,7 +24,7 @@ import type { ChatMessage } from "@/types/chat";
  * surfaces never disagree about the same task. The Task panel reads only this;
  * other surfaces (the Tars card, Fleet) can adopt it without a new vocabulary.
  */
-export const TASK_USER_STATES = ["working", "waiting", "blocked", "finished", "stopped"] as const;
+export const TASK_USER_STATES = ["working", "on-hold", "waiting", "blocked", "finished", "stopped"] as const;
 export type TaskUserState = (typeof TASK_USER_STATES)[number];
 
 /** What waits on the user while the task is `waiting`. */
@@ -52,8 +54,12 @@ export interface TaskStateFacts {
   liveTurn: { pendingInteraction: string | null } | null;
   /** A question or approval the task's messages hold unanswered, async questions included. */
   pendingDecision: "question" | "approval" | null;
-  /** The task's agent run as `describeAgentRunStatus` words it, and when it last changed. */
-  agentRun: (Pick<AgentRunStatus, "badge" | "reason"> & { updatedAt: string | null }) | null;
+  /**
+   * The task's agent run as `describeAgentRunStatus` words it, and when it last
+   * changed. `waiting` is a running run between turns until an outside event or
+   * a usage reset; its `reason` says what it waits for and when it resumes.
+   */
+  agentRun: (Pick<AgentRunStatus, "badge" | "reason" | "waiting"> & { updatedAt: string | null }) | null;
   /** How the latest turn ended, once it has. */
   lastTurn: { ending: TaskTurnEnding; error: string | null; endedAt: string | null } | null;
   /** What the work produced, shown once it finished. */
@@ -64,7 +70,7 @@ export interface TaskUserStatus {
   state: TaskUserState;
   /** Set only while `waiting`. */
   waitingOn: TaskWaitingOn | null;
-  /** Why it is `blocked` or `stopped`, when known. */
+  /** Why it is `blocked` or `stopped`, or what an `on-hold` run waits for, when known. */
   reason: string | null;
   /** Set only once `finished`, and only when it produced something. */
   result: TaskResult | null;
@@ -116,7 +122,7 @@ export function resolveTaskUserState(facts: TaskStateFacts): TaskUserStatus | nu
   if (run && (runActive || !turn || laterOrEqual(run.updatedAt, turn.endedAt))) {
     switch (run.badge) {
       case "running":
-        return status("working");
+        return run.waiting ? status("on-hold", { reason: run.reason }) : status("working");
       case "halted":
       case "paused":
         return status("blocked", { reason: run.reason });
@@ -176,6 +182,7 @@ export function resolveTurnEnding(args: {
 /** Each state's word. */
 export const TASK_USER_STATE_LABELS: Record<TaskUserState, string> = {
   get working() { return i18n.t("session:taskState.working"); },
+  get "on-hold"() { return i18n.t("session:taskState.onHold"); },
   get waiting() { return i18n.t("session:taskState.waiting"); },
   get blocked() { return i18n.t("session:taskState.blocked"); },
   get finished() { return i18n.t("session:taskState.finished"); },
@@ -187,6 +194,8 @@ export function taskUserStateToWorkState(value: Pick<TaskUserStatus, "state" | "
   switch (value.state) {
     case "working":
       return "working";
+    case "on-hold":
+      return "waiting";
     case "waiting":
       return value.waitingOn === "question" ? "needs-you" : "approval";
     case "blocked":

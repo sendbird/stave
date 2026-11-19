@@ -435,6 +435,7 @@
     "reviewRequest": "요청 보기",
     "result": "결과",
     "reason": "계속할 수 없는 이유",
+    "resumes": "자동으로 재개",
     "noReason": "보고된 이유가 없습니다.",
     "remaining": "남은 조건",
     "pullRequestNumber": "풀 리퀘스트 #{{number}}",
@@ -1338,6 +1339,7 @@
   },
   "taskState": {
     "working": "작업 중",
+    "onHold": "대기 중",
     "waiting": "사용자 확인 대기 중",
     "blocked": "막힘",
     "finished": "완료",

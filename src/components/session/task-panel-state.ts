@@ -152,7 +152,7 @@ export function buildTaskPanelStatus(args: {
       : null,
     pendingDecision: decision,
     agentRun: run && args.agentRun
-      ? { badge: run.status.badge, reason: run.status.reason, updatedAt: args.agentRun.agentRun.updatedAt }
+      ? { badge: run.status.badge, waiting: run.status.waiting, reason: run.status.reason, updatedAt: args.agentRun.agentRun.updatedAt }
       : null,
     lastTurn,
     result: {

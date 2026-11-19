@@ -267,3 +267,26 @@ test("the panel's run figures leave out the ones nothing reported instead of dra
   expect(panel).not.toContain("Not reported");
   expect(panel).toContain("1 file");
 });
+
+// Review E-fix: each case below failed before its fix.
+
+test("F3: a run waiting for its usage reset waits on nobody and says when it resumes", () => {
+  const detail = agentRun();
+  detail.agentRun = {
+    ...detail.agentRun,
+    state: "paused",
+    pauseReason: "usage-limit",
+    usageLimit: {
+      turnId: "turn-2", resetsAt: "2026-09-29T15:00:00.000Z", resumeAt: "2026-09-29T15:01:00.000Z",
+      accountProfileId: "work", fingerprint: { providerId: "claude-code", model: "sonnet" },
+    },
+  } as AgentRunDetail["agentRun"];
+  const view = status({ messages: [], agentRun: detail });
+  expect(view.status?.state).toBe("on-hold");
+  expect(view.status?.reason).toContain("Waiting for usage reset at");
+  const html = render({ agentRun: detail });
+  expect(html).toContain('data-task-state="on-hold"');
+  expect(html).not.toContain(">Working<");
+  expect(html).not.toContain(">What you need to do<");
+  expect(html).toContain(">Resumes on its own<");
+});

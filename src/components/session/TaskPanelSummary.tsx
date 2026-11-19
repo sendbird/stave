@@ -20,7 +20,8 @@ import type { TaskPanelStatus } from "./task-panel-state";
 /**
  * The top of the Task panel, top to bottom: the state on one line, what the
  * user must do (only while something waits on them), the result or why it
- * stopped, and the conditions still open. Everything here comes from one
+ * stopped (or, on hold, what it waits for and when it resumes), and the
+ * conditions still open. Everything here comes from one
  * `TaskPanelStatus`, so no two lines can disagree.
  */
 export function TaskPanelSummary(props: {
@@ -80,6 +81,11 @@ export function TaskPanelSummary(props: {
       {status?.state === "finished" && status.result ? (
         <Section label={i18n.t("session:taskPanel.result")}>
           <ResultLinks taskId={taskId} turnId={view.turnId} result={status.result} />
+        </Section>
+      ) : null}
+      {status?.state === "on-hold" ? (
+        <Section label={i18n.t("session:taskPanel.resumes")}>
+          <p className={sx(styles.text)}>{status.reason || i18n.t("session:taskPanel.noReason")}</p>
         </Section>
       ) : null}
       {status?.state === "stopped" || status?.state === "blocked" ? (
