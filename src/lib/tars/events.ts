@@ -19,6 +19,15 @@ export { TarsEventKindSchema, TarsFollowUpStateSchema, type TarsEventKind, type 
  */
 export const TARS_FOLLOW_UP_WINDOW_CAP = 6;
 export const TARS_FOLLOW_UP_WINDOW_MS = 60 * 60_000;
+/**
+ * Automatic follow-ups in a row that may see a waiting work at the same
+ * progress (same run, Run turn and stage attempt or report). Answering an ask
+ * can return the work to running while the same provider turn asks again,
+ * which spends no Run turn. The first follow-up answers; the second covers an
+ * answer that was incomplete; a third ask with nothing moved means Tars's
+ * answers do not help, so it goes to the user (`exhausted`) instead.
+ */
+export const TARS_FOLLOW_UPS_WITHOUT_PROGRESS = 2;
 /** Processed events older than this are removed at startup; pending ones always stay. */
 export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Work that has waited this long without any change gets one follow-up for that wait. */
@@ -34,8 +43,9 @@ export type TarsFollowUpReason = z.infer<typeof TarsFollowUpReasonSchema>;
  * `followedUp`: it started its follow-up (`messageId`). `coalesced`: a newer
  * event of the same responsibility covered it. `superseded`: the work moved on,
  * ended, was paused or taken over, or the user addressed this work. `exhausted`:
- * only events recorded when a count of automatic follow-ups still stopped them;
- * the event is a visible notice. Nothing records it now.
+ * Tars stopped following up because the work asked again without progress
+ * (`TARS_FOLLOW_UPS_WITHOUT_PROGRESS`), or, on older rows, because a count of
+ * automatic follow-ups stopped it; the event is a visible notice.
  */
 export const TarsEventStatusSchema = z.enum(["pending", "settled", "followedUp", "coalesced", "superseded", "exhausted"]);
 export type TarsEventStatus = z.infer<typeof TarsEventStatusSchema>;
@@ -60,6 +70,8 @@ export const TarsEventSchema = z.object({
    * start log the window prunes: it says this change actually reached Tars.
    */
   startedAt: z.iso.datetime().nullable().optional(),
+  /** The work's progress (`tarsWorkProgress`) when it was followed up; absent when it had none to compare or on older rows. */
+  progress: z.string().min(1).max(400).optional(),
   createdAt: z.iso.datetime(),
   processedAt: z.iso.datetime().nullable(),
 }).strict();
@@ -91,6 +103,17 @@ function blockedKind(row: Pick<TarsResponsibility, "detailCode">): TarsEventKind
  */
 export function isTarsStageAskingUser(row: Pick<TarsResponsibility, "state" | "stageAsksUser">) {
   return row.state === "waiting" && row.stageAsksUser === true;
+}
+
+/**
+ * Where waiting work stands, for telling a repeated ask from progress: its
+ * run, Run turn and stage attempt (a helper's includes its report revision).
+ * A commit, a stage or a report comes from a turn or a stage attempt, so any
+ * of them changes this. Null when the row has no observed turn to compare.
+ */
+export function tarsWorkProgress(row: Pick<TarsResponsibility, "state" | "agentRunId" | "observedTurns" | "observedStage">): string | null {
+  if (row.state !== "waiting" || row.observedTurns === undefined) return null;
+  return `${row.agentRunId ?? ""}|${row.observedTurns}|${row.observedStage ?? ""}`.slice(0, 400);
 }
 
 type AskEpisodeFields = "state" | "stageAsksUser" | "observedTurns" | "observedStage";

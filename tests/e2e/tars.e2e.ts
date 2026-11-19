@@ -774,14 +774,14 @@ for (const lang of ["en", "ko"] as const) {
       : "Tars follow-up · Work cannot continue: Fix the flaky upload test");
     await expect(view.getByText("Judge what it needs next", { exact: false })).toHaveCount(0);
     await expect(view.locator('[data-tars-message="message-follow-up"]')).toContainText(korean ? "업로드 테스트가 CI에서 계속 실패해" : "The upload test still fails on CI");
-    // A change past the automatic follow-up limit says so once, in the conversation.
+    // An ask Tars stopped answering (no progress since its last follow-ups) says so once, in the conversation.
     await expect(view.locator('[data-tars-follow-up-exhausted="follow-exhausted"]')).toContainText(korean
-      ? "자동 후속 확인 한도에 도달해 Tars가 Refresh the API reference 작업을 더 이상 자동으로 확인하지 않습니다." : "Tars stopped checking on Refresh the API reference automatically because it reached its limit for automatic follow-ups.");
+      ? "진전 없이 같은 질문이 반복되어 Tars가 Refresh the API reference 작업에 더 이상 자동으로 답하지 않습니다." : "Tars stopped answering Refresh the API reference automatically because it asked again without progress.");
     // The tray card says when Tars looks next, or that it stopped.
     const tray = page.getByRole("complementary");
     await expect(tray.locator('[data-tars-card="follow-waiting"] [data-tars-follow-up-state="nextCheck"]')).toContainText(korean ? "그 전에 변화가 없으면 Tars가" : "Tars checks again at");
     await expect(tray.locator('[data-tars-card="follow-exhausted"] [data-tars-follow-up-state="exhausted"]')).toContainText(korean
-      ? "자동 후속 확인 한도에 도달해 Tars가 더 이상 자동으로 확인하지 않습니다." : "Tars stopped checking automatically because it reached its limit for automatic follow-ups.");
+      ? "진전 없이 같은 질문이 반복되어 Tars가 더 이상 자동으로 답하지 않습니다." : "Tars stopped answering this automatically because it asked again without progress.");
   });
 }
 

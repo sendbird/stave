@@ -583,8 +583,8 @@ export type TarsEventKind = z.infer<typeof TarsEventKindSchema>;
  * What the tray shows about Tars's next look at a responsibility:
  * `pending`, an event about to be followed up; `deferred`, one waiting for
  * the next follow-up window (`at`); `following`, a follow-up queued or
- * reasoning; `exhausted`, none started because automatic turns reached the
- * turn limit; `nextCheck`, waiting work's one follow-up at `at` if nothing changes.
+ * reasoning; `exhausted`, none started because the work asked again without
+ * progress (`TARS_FOLLOW_UPS_WITHOUT_PROGRESS`); `nextCheck`, waiting work's one follow-up at `at` if nothing changes.
  */
 export const TarsFollowUpStateSchema = z.object({
   responsibilityId: IdSchema,

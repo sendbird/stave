@@ -1,5 +1,5 @@
 import {
-  TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UP_WINDOW_MS, TARS_JUDGMENT_EVENTS, TarsEventSchema, isTarsEventCurrent, tarsEventKey,
+  TARS_EVENT_RETENTION_MS, TARS_FOLLOW_UP_WINDOW_CAP, TARS_FOLLOW_UPS_WITHOUT_PROGRESS, TARS_FOLLOW_UP_WINDOW_MS, TARS_JUDGMENT_EVENTS, TarsEventSchema, isTarsEventCurrent, tarsEventKey,
   tarsNextWaitCheck, isTarsStageAskingUser, isTarsLimitReached,
   type TarsEvent, type TarsEventInput, type TarsEventStatus, type TarsFollowUpState,
 } from "../../src/lib/tars/events";
@@ -17,10 +17,10 @@ interface InboxDatabase {
   transaction<T>(operation: () => T): { (): T; immediate(): T };
 }
 
-/** Messages Tars started by itself; both count against the window cap and the separate follow-up cap. */
+/** Messages Tars started by itself; both count against the window cap. */
 const AUTOMATIC_ORIGINS = "('followUp', 'reask')";
 
-/** When the follow-up window opens again (null: open now) and how many automatic turns ran since the user last spoke. */
+/** When the follow-up window opens again (null: open now). */
 export interface TarsFollowUpGate { nextWindowAt: string | null }
 
 /**
@@ -95,16 +95,17 @@ export class TarsEventInbox {
 
   /**
    * Whether the latest ask of this work is covered by its immediate
-   * follow-up: one that started its planner turn. A later ask is a new event,
-   * so the latest one is the current ask. Pending, queued, cancelled,
-   * coalesced or exhausted, the quiet wait still applies, so an asking stage
-   * is never left with neither rule.
+   * follow-up: one that started its planner turn, or handed to the user for
+   * asking again without progress. A later ask is a new event, so the latest
+   * one is the current ask. Pending, queued, cancelled or coalesced, the quiet
+   * wait still applies, so an asking stage is never left with neither rule.
    */
   askCovered(responsibilityId: string): boolean {
     const latest = this.read(this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND kind IN ('stageAsksUser', 'limitReached')
       ORDER BY rowid DESC LIMIT 1`).get(responsibilityId));
     // Only a follow-up that actually started counts; a merely queued one may still be cancelled.
-    return latest?.status === "followedUp" && Boolean(latest.startedAt);
+    // An ask handed to the user for repeating without progress is theirs: a quiet wait would only repeat the notice.
+    return latest?.status === "followedUp" && Boolean(latest.startedAt) || latest?.status === "exhausted" && Boolean(latest.progress);
   }
 
   /**
@@ -178,17 +179,30 @@ export class TarsEventInbox {
   }
 
   /** Settles a pending event once; anything else is returned unchanged, so a replay never rewrites an outcome. */
-  settle(key: string, status: Exclude<TarsEventStatus, "pending">, now: string, messageId: string | null = null): TarsEvent {
+  settle(key: string, status: Exclude<TarsEventStatus, "pending">, now: string, messageId: string | null = null, progress: string | null = null): TarsEvent {
     return this.write(() => {
       const current = this.get(key);
       if (!current) throw new Error("The event was not found.");
       if (current.status !== "pending") return current;
-      const next = TarsEventSchema.parse({ ...current, status, messageId, processedAt: now });
+      const next = TarsEventSchema.parse({ ...current, status, messageId, processedAt: now, ...(progress ? { progress } : {}) });
       this.db.prepare("UPDATE tars_events SET status = ?, body_json = ? WHERE event_key = ? AND status = 'pending'")
         .run(next.status, JSON.stringify(next), key);
       this.changes?.emit("snapshot", "conversation");
       return next;
     });
+  }
+
+  /**
+   * How many of this work's latest follow-ups in a row saw it at this same
+   * progress since the user last addressed it; a follow-up at other progress
+   * (or one saved before progress was recorded) ends the count.
+   */
+  followUpsWithoutProgress(responsibilityId: string, progress: string): number {
+    const latest = this.db.prepare(`SELECT body_json FROM tars_events WHERE responsibility_id = ? AND status = 'followedUp'
+      ORDER BY rowid DESC LIMIT ?`).all(responsibilityId, TARS_FOLLOW_UPS_WITHOUT_PROGRESS).map((row) => this.read(row)!);
+    const count = latest.findIndex((event) => event.progress !== progress
+      || this.userAddressedSince(responsibilityId, event.processedAt ?? event.createdAt));
+    return count < 0 ? latest.length : count;
   }
 
   /** A started follow-up whose change stopped standing before its model call; it keeps its message id. */

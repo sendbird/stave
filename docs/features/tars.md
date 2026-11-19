@@ -1651,13 +1651,21 @@ changes of the same work are combined into one. Follow-ups are limited:
   them; inbox rows written by earlier development builds are not migrated.
   Past that, the change waits, and the work's tray card says when Tars looks
   next.
-- No count of automatic turns stops follow-ups. The hourly limit above is
-  their budget, each change gets one follow-up, and only work that is still
-  live changes, so follow-ups end with the work they follow. One follow-up
+- No lifetime count of automatic turns stops follow-ups; progress does.
+  Answering an ask can return the work to running while the same provider
+  turn asks again, which spends no run turn. So when the work's last two
+  follow-ups saw it at the same progress (same run, run turn and stage
+  attempt; a helper's also its report revision) and it asks again, Tars does
+  not answer: the ask is recorded as stopped, the conversation and tray say
+  Tars stopped answering it, and no quiet-wait follow-up repeats the notice.
+  A new run turn, stage attempt or report, or your action toward the work,
+  starts the count again. Two allows one retry of an answer that was
+  incomplete; a third ask with nothing moved means Tars's answers do not
+  help. One follow-up
   counts once in the hourly limit even when it uses inspection rounds or
   transient retries (up to six provider attempts). A notice that Tars stopped
-  after 20 automatic follow-ups, recorded by an earlier version, stays in the
-  conversation until your next action.
+  after 20 automatic follow-ups, recorded by an earlier version, shows with the
+  same text and stays in the conversation until your next action.
 
 A stalled answer delivery explains its wait and releases later conversation messages within one minute, without resending an in-flight request; settlement wakes the queue. Storage contention keeps retrying at a capped delay until storage becomes available.
 

@@ -1028,7 +1028,7 @@ ask, propose a resume or cancel that waits for your confirmation, change a
 queued priority or open a view. It never starts work by itself (it asks you
 instead), never pauses, takes over or accepts work as done, and proposes
 nothing about work you paused, took over or that ended. Each change gets one
-follow-up; at most six start per hour, and no count since your last message stops them, so work that needs nothing from you does not wait for your next action. A run paused at the old turn limit of an earlier version gets an immediate follow-up and may be resumed under the autonomy policy. Unrelated messages leave other work's questions open. A stalled answer delivery explains its wait and releases later conversation messages within one minute; it is not sent twice, and settlement wakes the queue. Storage contention retries automatically at a capped delay.
+follow-up; at most six start per hour, and no count since your last message stops them, so work that needs nothing from you does not wait for your next action. If work asks again after two follow-ups without any progress in between (no new run turn, stage attempt or report), Tars stops answering it, says so in the conversation and leaves the question to you until the work moves or you act. A run paused at the old turn limit of an earlier version gets an immediate follow-up and may be resumed under the autonomy policy. Unrelated messages leave other work's questions open. A stalled answer delivery explains its wait and releases later conversation messages within one minute; it is not sent twice, and settlement wakes the queue. Storage contention retries automatically at a capped delay.
 A tray card shows when Tars looks next, such
 as **Next check** on waiting work.
 
