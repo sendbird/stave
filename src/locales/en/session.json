@@ -1480,5 +1480,13 @@
       "captureFailed": "the files could not be saved when the turn started",
       "workspaceUnavailable": "the workspace folder was unavailable when the turn started"
     }
+  },
+  "taskState": {
+    "working": "Working",
+    "waiting": "Waiting for you",
+    "blocked": "Blocked",
+    "finished": "Finished",
+    "stopped": "Stopped",
+    "stoppedByYou": "You stopped it."
   }
 }

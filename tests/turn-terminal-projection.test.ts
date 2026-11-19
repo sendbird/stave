@@ -10,7 +10,7 @@ import {
 import { repositoryLocalMcpTaskTurnActivityEvent } from "@/lib/local-mcp/task-turn-update";
 import { createEmptyWorkspaceState } from "@/store/workspace-session-state";
 import { applyHostTaskTurnSync } from "@/store/host-task-turn-sync";
-import { resolveRunStatus } from "@/components/session/TaskRunOverview";
+import { resolveTaskUserState, resolveTurnEnding } from "@/lib/task-user-state";
 import { classifyTaskStatus } from "@/lib/fleet/task-status";
 import { ChatMessageSchema } from "@/lib/task-context/schemas";
 import {
@@ -88,6 +88,16 @@ const cases: Array<{ label: string; events: NormalizedProviderEvent[]; outcome: 
   },
 ];
 
+/** The Task panel's one state for a task whose last turn ended so. */
+function panelState(args: Parameters<typeof resolveTurnEnding>[0]) {
+  const ending = resolveTurnEnding(args);
+  return resolveTaskUserState({
+    liveTurn: null, pendingDecision: null, agentRun: null, result: null,
+    lastTurn: ending ? { ...ending, endedAt: null } : null,
+  })?.state ?? null;
+}
+const PANEL_STATE: Record<string, string> = { Completed: "finished", Failed: "stopped", Stopped: "stopped" };
+
 for (const provider of ["claude-code", "codex", "cursor", "kiro"] as const) {
   for (const fixture of cases) {
     test(`${provider} ${fixture.label}: durable host and direct renderer agree`, () => {
@@ -108,7 +118,7 @@ for (const provider of ["claude-code", "codex", "cursor", "kiro"] as const) {
       const message = ChatMessageSchema.parse(JSON.parse(JSON.stringify(replayed.messages.at(-1)!)));
       expect(message.terminalReceipt?.outcome).toBe(fixture.outcome);
       expect(message.terminalReceipt?.responseText).toBeNull();
-      expect(resolveRunStatus({ activeTurnId: null, activity: null, retained: null, message }).label).toBe(fixture.status);
+      expect(panelState({ activity: null, retained: null, message })).toBe(PANEL_STATE[fixture.status]!);
       expect(classifyTaskStatus({ task, messages: [message] })).toBe(fixture.fleet);
       const session = {
         ...createEmptyWorkspaceState(), tasks: [task],
@@ -146,7 +156,7 @@ for (const provider of ["claude-code", "codex", "cursor", "kiro"] as const) {
       });
       const retained = synced.statePatch.retainedTurnActivityByTask?.task;
       expect(retained?.outcome).toBe(fixture.outcome === "cancelled" ? "stopped" : fixture.outcome);
-      expect(resolveRunStatus({ activeTurnId: null, activity: null, retained: retained ?? null, message: projectedSession.messagesByTask.task![0]! }).label).toBe(fixture.status);
+      expect(panelState({ activity: null, retained: retained ?? null, message: projectedSession.messagesByTask.task![0]! })).toBe(PANEL_STATE[fixture.status]!);
     });
   }
 }
@@ -162,7 +172,9 @@ test("joining a historical done-only turn without a receipt preserves unknown", 
     taskId: "task", snapshot: reduced.retiredSnapshot,
   });
   expect(retained.task?.outcome).toBe("unknown");
-  expect(resolveRunStatus({ activeTurnId: null, activity: null, retained: null, message: replayed.messages.at(-1)! }).label).toBe("Ended");
+  // An ending nobody reported reads as finished, never as a failure.
+  expect(resolveTurnEnding({ activity: null, retained: null, message: replayed.messages.at(-1)! })?.ending).toBe("unknown");
+  expect(panelState({ activity: null, retained: null, message: replayed.messages.at(-1)! })).toBe("finished");
 });
 
 test("new live empty completion fails in Activity and cannot be rewritten after cancellation", () => {
