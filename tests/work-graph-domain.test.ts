@@ -439,6 +439,9 @@ describe("work graph tolerates late, duplicate, and partial events", () => {
       toolEvent({ toolUseId: "toolu_a" }),
       toolEvent({ toolUseId: "toolu_b" }),
     ]);
+    expect(reduceAll(spawned, [{
+      type: "subagent_progress", toolUseId: "toolu_b", binding: "guess", content: "Unknown",
+    }])).toBe(spawned);
     const guessed = reduceAll(spawned, [
       {
         type: "subagent_progress",

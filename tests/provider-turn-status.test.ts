@@ -812,6 +812,10 @@ describe("provider turn status helpers", () => {
           content: "Reading session resolver",
         },
         {
+          type: "subagent_progress", toolUseId: "agent-1", binding: "guess",
+          content: "Unrelated worker",
+        },
+        {
           type: "tool_progress",
           toolUseId: "agent-1",
           toolName: "Agent",
@@ -853,6 +857,19 @@ describe("provider turn status helpers", () => {
       status: "completed",
       detail: "Lifecycle review complete",
       updatedAt: 3000,
+    });
+    // A backgrounded agent keeps reporting on its returned row; the row stays settled.
+    const backgrounded = applyProviderTurnActivityEvents({
+      activityByTask: completed,
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      now: 4000,
+      events: [{ type: "subagent_progress", toolUseId: "agent-1", content: "Still reading in the background" }],
+    });
+    expect(backgrounded["task-1"]?.workItemsById["agent-1"]).toMatchObject({
+      status: "completed",
+      detail: "Still reading in the background",
     });
   });
 

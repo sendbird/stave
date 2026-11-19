@@ -191,6 +191,9 @@ export function createCodexWorkerActivityMapper(args: {
   // sibling.
   const toolIdByChildThreadId = new Map<string, string>();
   const childThreadIdByToolId = new Map<string, string>();
+  // Threads a spawn with several receivers started: this turn's children, so
+  // their requests are answered here, but no single row may claim them.
+  const unattributedChildThreadIds = new Set<string>();
   const startedForeignToolIds = new Set<string>();
   const foreignToolOutputById = new Map<string, string>();
 
@@ -199,6 +202,10 @@ export function createCodexWorkerActivityMapper(args: {
     const previousToolUseId = toolIdByChildThreadId.get(childThreadId);
     if (previousToolUseId && previousToolUseId !== toolUseId) {
       childThreadIdByToolId.delete(previousToolUseId);
+    }
+    const previousChildId = childThreadIdByToolId.get(toolUseId);
+    if (previousChildId && previousChildId !== childThreadId) {
+      toolIdByChildThreadId.delete(previousChildId);
     }
     toolIdByChildThreadId.set(childThreadId, toolUseId);
     childThreadIdByToolId.set(toolUseId, childThreadId);
@@ -225,14 +232,16 @@ export function createCodexWorkerActivityMapper(args: {
   function buildCollabIdentity(item: CollabToolCallItem) {
     const newThreadId =
       typeof item.newThreadId === "string" ? item.newThreadId.trim() : "";
-    const spawnedThreadId = item.tool === "spawnAgent" || item.tool === "spawn_agent"
-      ? item.receiverThreadIds?.[0]?.trim() ?? "" : "";
+    const isSpawn = item.tool === "spawnAgent" || item.tool === "spawn_agent";
+    const receivers = isSpawn ? (item.receiverThreadIds ?? []).map((id) => id.trim()).filter(Boolean) : [];
+    if (receivers.length > 1) receivers.forEach((id) => unattributedChildThreadIds.add(id));
+    const spawnedThreadId = receivers.length === 1 ? receivers[0]! : "";
     return { agentId: newThreadId || spawnedThreadId, parentToolUseId: "" };
   }
 
   return {
     ownsChildThread(threadId: string) {
-      return toolIdByChildThreadId.has(threadId);
+      return toolIdByChildThreadId.has(threadId) || unattributedChildThreadIds.has(threadId);
     },
 
     /**

@@ -881,7 +881,11 @@ describe("subagent progress integration", () => {
     expect(part2.progressMessages).toBeUndefined();
   });
 
-  test("appends to last active Agent when toolUseId is not provided", () => {
+  test.each([
+    { type: "subagent_progress", content: "Compiling" },
+    { type: "subagent_progress", toolUseId: "unknown", content: "Compiling" },
+    { type: "subagent_progress", toolUseId: "toolu_2", binding: "guess", content: "Compiling" },
+  ] as const)("keeps uncertain progress off both active agents (%j)", (event) => {
     const message = createMessage({
       parts: [
         {
@@ -889,7 +893,7 @@ describe("subagent progress integration", () => {
           toolUseId: "toolu_1",
           toolName: "agent",
           input: "{}",
-          state: "output-available",
+          state: "input-available",
         },
         {
           type: "tool_use",
@@ -902,12 +906,60 @@ describe("subagent progress integration", () => {
     });
     const updated = appendProviderEventToAssistant({
       message,
-      event: { type: "subagent_progress", content: "Compiling" },
+      event,
     });
     const part1 = updated.parts[0] as import("@/types/chat").ToolUsePart;
     const part2 = updated.parts[1] as import("@/types/chat").ToolUsePart;
     expect(part1.progressMessages).toBeUndefined();
-    expect(part2.progressMessages).toEqual(["Compiling"]);
+    expect(part2.progressMessages).toBeUndefined();
+    expect(updated.parts[2]).toEqual({ type: "system_event", content: "Subagent progress: Compiling" });
+  });
+
+  test("a stored positional guess still reaches the only running agent", () => {
+    const message = createMessage({
+      parts: [
+        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "output-available" },
+        { type: "tool_use", toolUseId: "toolu_2", toolName: "agent", input: "{}", state: "input-available" },
+      ],
+    });
+    const updated = appendProviderEventToAssistant({
+      message,
+      event: { type: "subagent_progress", toolUseId: "toolu_2", binding: "guess", content: "Compiling" },
+    });
+    expect((updated.parts[1] as import("@/types/chat").ToolUsePart).progressMessages).toEqual(["Compiling"]);
+    expect(updated.parts).toHaveLength(2);
+  });
+
+  test("a stored guess beside a reported task id reaches no row", () => {
+    // The old positional fallback put a backgrounded agent's progress on the
+    // one still running; its task id names a different subagent.
+    const message = createMessage({
+      parts: [
+        { type: "tool_use", toolUseId: "toolu_a", toolName: "Agent", input: "{}", state: "output-available" },
+        { type: "tool_use", toolUseId: "toolu_b", toolName: "Agent", input: "{}", state: "input-available" },
+      ],
+    });
+    const updated = appendProviderEventToAssistant({
+      message,
+      event: { type: "subagent_progress", toolUseId: "toolu_b", agentId: "task_a", binding: "guess", content: "A reads files" },
+    });
+    expect((updated.parts[1] as import("@/types/chat").ToolUsePart).progressMessages).toBeUndefined();
+    expect(updated.parts[2]).toEqual({ type: "system_event", content: "Subagent progress: A reads files" });
+  });
+
+  test("unassigned progress is bounded like an agent row: dedupe and keep 6", () => {
+    let message = createMessage({
+      parts: [
+        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "input-available" },
+        { type: "tool_use", toolUseId: "toolu_2", toolName: "agent", input: "{}", state: "input-available" },
+      ],
+    });
+    for (const content of ["Same", "Same", ...Array.from({ length: 20 }, (_, i) => `Step ${i}`)]) {
+      message = appendProviderEventToAssistant({ message, event: { type: "subagent_progress", content } });
+    }
+    const standalone = message.parts.filter((part) => part.type === "system_event");
+    expect(standalone).toHaveLength(6);
+    expect(standalone.at(-1)).toEqual({ type: "system_event", content: "Subagent progress: Step 19" });
   });
 
   test("accumulates multiple progress messages on the same agent", () => {
@@ -1005,7 +1057,7 @@ describe("subagent progress integration", () => {
     });
   });
 
-  test("migrates legacy 'Subagent progress:' system events into Agent tool parts", () => {
+  test("keeps legacy progress with no owner unattributed", () => {
     const message = createMessage({
       parts: [
         {
@@ -1025,7 +1077,8 @@ describe("subagent progress integration", () => {
       },
     });
     const part = updated.parts[0] as import("@/types/chat").ToolUsePart;
-    expect(part.progressMessages).toEqual(["Reading CONVENTIONS.md"]);
+    expect(part.progressMessages).toBeUndefined();
+    expect(updated.parts[1]?.type).toBe("system_event");
   });
 });
 

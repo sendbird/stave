@@ -1161,7 +1161,7 @@ export function reduceWorkGraphEvent(
           });
       const key = event.agentId
         ? providerAgentNodeKey(bound.providerId, event.agentId)
-        : event.toolUseId
+        : isGuess ? undefined : event.toolUseId
           ? bound.nodeKeyBySpawnToolUseId[event.toolUseId]
           : resolveOwnerKey(bound, event);
       // A tool-use id with no spawn mapping and no agent id names no worker.

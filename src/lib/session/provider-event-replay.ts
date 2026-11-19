@@ -12,7 +12,7 @@ import {
   rememberProviderSession,
 } from "@/lib/providers/provider-sessions";
 import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
-import { appendWorkProgressMessage } from "@/lib/providers/subagent-identity";
+import { appendWorkProgressMessage, isSubagentToolName } from "@/lib/providers/subagent-identity";
 import { recordAutomaticApprovalDecision } from "@/lib/approvals/approval-record";
 import { withConfirmedApprovals } from "@/lib/agents/turn-provenance";
 import type {
@@ -204,12 +204,6 @@ function createUserInputPart(args: {
   });
 }
 
-function isAgentToolPart(part: MessagePart): part is ToolUsePart {
-  return (
-    part.type === "tool_use" && part.toolName.trim().toLowerCase() === "agent"
-  );
-}
-
 function finalizeTrailingThinkingPart(args: {
   parts: MessagePart[];
   completedAt?: string;
@@ -270,62 +264,42 @@ function upsertDelegatedUsage(args: {
   return next;
 }
 
-/**
- * Append a progress message to the matching Agent tool_use part.
- *
- * Resolution:
- *  1. If `toolUseId` is provided, find the exact ToolUsePart.
- *  2. Otherwise, find the last Agent tool_use that has not completed yet.
- *  3. If no active Agent exists, fall back to the last Agent in the array.
- */
+const STANDALONE_PROGRESS_PREFIX = "Subagent progress: ";
+
 function appendSubagentProgressToPart(args: {
   parts: MessagePart[];
   toolUseId: string | undefined;
+  /**
+   * A stored positional guess that names no subagent routes text only to the
+   * one running subagent row. A guess beside a reported task id names a
+   * subagent the guess was not matched by, so it reaches no row.
+   */
+  guess: "none" | "unnamed" | "named";
   content: string;
 }): MessagePart[] {
   const { parts, toolUseId, content } = args;
 
-  let targetIndex = -1;
-
-  // 1. Try exact match by toolUseId
-  if (toolUseId) {
-    targetIndex = parts.findIndex(
-      (p) => p.type === "tool_use" && p.toolUseId === toolUseId,
-    );
-  }
-
-  // 2. Fallback: last active (non-completed) Agent tool_use
-  if (targetIndex === -1) {
-    for (let i = parts.length - 1; i >= 0; i -= 1) {
-      const p = parts[i]!;
-      if (
-        isAgentToolPart(p) &&
-        (p.state === "input-streaming" || p.state === "input-available")
-      ) {
-        targetIndex = i;
-        break;
-      }
-    }
-  }
-
-  // 3. Fallback: last Agent tool_use regardless of state
-  if (targetIndex === -1) {
-    for (let i = parts.length - 1; i >= 0; i -= 1) {
-      if (isAgentToolPart(parts[i]!)) {
-        targetIndex = i;
-        break;
-      }
-    }
+  let targetIndex = toolUseId && args.guess === "none" ? parts.findIndex(
+    (part) => part.type === "tool_use" && part.toolUseId === toolUseId,
+  ) : -1;
+  if (args.guess === "unnamed") {
+    const running = parts.flatMap((part, index) => part.type === "tool_use" && isSubagentToolName(part.toolName) &&
+      (part.state === "input-streaming" || part.state === "input-available") ? [index] : []);
+    const only = running.length === 1 ? running[0]! : -1;
+    if (only !== -1 && (parts[only] as ToolUsePart).toolUseId === toolUseId) targetIndex = only;
   }
 
   if (targetIndex === -1) {
-    // No Agent tool_use found — degrade to a standalone system_event part.
+    // No row owns it: keep it standalone, bounded like an agent row's progress.
+    const indexes = parts.flatMap((part, index) => part.type === "system_event" &&
+      part.content.startsWith(STANDALONE_PROGRESS_PREFIX) ? [index] : []);
+    const lines = indexes.map((index) => (parts[index] as { content: string }).content.slice(STANDALONE_PROGRESS_PREFIX.length));
+    const kept = appendWorkProgressMessage(lines, content);
+    if (kept === lines) return parts;
+    const dropped = new Set(indexes.slice(0, lines.length + 1 - kept.length));
     return [
-      ...parts,
-      {
-        type: "system_event" as const,
-        content: `Subagent progress: ${content}`,
-      },
+      ...parts.filter((_, index) => !dropped.has(index)),
+      { type: "system_event" as const, content: `${STANDALONE_PROGRESS_PREFIX}${kept.at(-1)!}` },
     ];
   }
 
@@ -698,29 +672,10 @@ function appendProviderEventContentToAssistant(args: {
     const updatedParts = appendSubagentProgressToPart({
       parts: message.parts,
       toolUseId,
+      guess: args.event.binding !== "guess" ? "none" : args.event.agentId ? "named" : "unnamed",
       content,
     });
     return { ...message, parts: updatedParts, isStreaming: true };
-  }
-
-  // Legacy: system events carrying "Subagent progress:" prefix from older stored
-  // events are back-compat migrated into the matching Agent tool part.
-  if (
-    args.event.type === "system" &&
-    args.event.content.trimStart().startsWith("Subagent progress:")
-  ) {
-    const stripped = args.event.content
-      .trimStart()
-      .slice("Subagent progress:".length)
-      .trim();
-    if (stripped) {
-      const updatedParts = appendSubagentProgressToPart({
-        parts: message.parts,
-        toolUseId: undefined,
-        content: stripped,
-      });
-      return { ...message, parts: updatedParts, isStreaming: true };
-    }
   }
 
   if (args.event.type === "tool_progress") {
@@ -1146,7 +1101,7 @@ export function replayProviderEventsToTaskState(args: {
 
     // A tool started before a steer still owns its later updates and result.
     const toolUseId = event.type === "tool_result" ? event.tool_use_id
-      : event.type === "tool_progress" || event.type === "tool" || event.type === "subagent_progress" ? event.toolUseId : undefined;
+      : event.type === "tool_progress" || event.type === "tool" || (event.type === "subagent_progress" && event.binding !== "guess") ? event.toolUseId : undefined;
     const reverseOwnerIndex = toolUseId ? [...current].reverse().findIndex((message) =>
       message.role === "assistant" && (!args.turnId || message.turnId === args.turnId) &&
       message.parts.some((part) => part.type === "tool_use" && part.toolUseId === toolUseId),
