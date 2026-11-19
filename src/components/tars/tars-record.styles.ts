@@ -212,8 +212,8 @@ export const tarsRecordStyles = stylex.create({
 
 /**
  * A delegation's folded flow (`TarsFlowBlock`) on the same rail as the
- * records beside it: its glyph in the mark column, its words at the record
- * size on the rail's text column, and its live line on that column too. The
+ * records beside it: its glyph in the mark column and its words at the record
+ * size on the rail's text column. The
  * trigger starts on the column's edge with no leading pad, so its glyph is
  * in the mark column and its box (and hover fill) never leaves the column.
  */
@@ -222,11 +222,5 @@ export const tarsFlowRailStyles = stylex.create({
   trigger: {
     paddingInlineStart: 0, paddingBlock: vars["--aui-space-4"], minBlockSize: 0,
     fontSize: "inherit", lineHeight: "inherit",
-  },
-  summaryState: { fontSize: "inherit" },
-  // The live line under the summary reads the record's size too (`tarsLiveStyles.line` takes these two).
-  live: {
-    paddingInlineStart: `calc(${MARK_SLOT} + ${vars["--aui-space-8"]})`, paddingInlineEnd: 0,
-    "--tars-live-size": RECORD_TEXT, "--tars-live-leading": chatType["--chat-type-secondary-leading"],
   },
 });

@@ -77,8 +77,6 @@ export interface TarsFlowContext {
   onShowInFleet: (target: FleetFocusTarget) => void;
   /** Opens a flow node's part of the side view. */
   onOpenSide?: (target: TarsSideViewTarget) => void;
-  /** The work's live line under its folded flow: what Stave observed, and how current it is. */
-  liveFor?: (responsibilityId: string) => ReactNode;
 }
 
 /** What the view asks of the conversation: put text in the composer, or answer a decision from outside the transcript. */
@@ -86,6 +84,8 @@ export interface TarsConversationController {
   /** Adds text to the draft (after what is there) and focuses the composer; nothing is sent. */
   insert: (text: string) => void;
   selectWork: (responsibilityId: string) => void;
+  /** Shows the work's waiting decision card above the composer and moves focus to it; the composer takes focus when none waits. */
+  showDecision: (responsibilityId: string) => void;
   answer: TarsDecisionAnswerHandler;
   focusComposer: () => void;
 }
@@ -195,8 +195,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
     ...receipts.filter(receipt => isTarsBatchAction(receipt.action) && receipt.status !== "rejected").map(receipt => isTarsBatchAction(receipt.action) ? <TarsBatchProposal key={`batch:${receipt.actionIndex}`} action={receipt.action} receipt={receipt} /> : null),
     ...(clear ? [...clearViews.values()].map((view) => <TarsClearProposal key={`clear:${view.actionIndex}`} view={view} clear={clear} />) : []),
     ...flowed.map(({ receipt, flow }) => flow
-      ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide}
-        live={flows?.liveFor?.(flow.responsibilityId)} /> : null),
+      ? <TarsFlowBlock key={`flow:${receipt.actionIndex}`} flow={flow} agentNameOf={agentNameOf} onShowInFleet={flows?.onShowInFleet} onOpenSide={flows?.onOpenSide} /> : null),
   ];
   return <div className={sx(chrome.exchange)} data-tars-message={message.id} data-tars-message-origin={origin?.kind}>
     {head
@@ -388,6 +387,10 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   useImperativeHandle(controller, () => ({
     insert: insertDraft,
     selectWork: (responsibilityId) => { setTarsDraftTarget({ responsibilityId }); focusComposer(); },
+    showDecision: (responsibilityId) => {
+      const waiting = decisions.find((view) => view.state === "waiting" && view.targets.some((target) => target.responsibilityId === responsibilityId));
+      if (waiting && dockRef.current) dockRef.current.show(waiting.id); else focusComposer();
+    },
     answer, focusComposer,
   }));
   /** The composer's send, also what Retry runs after a send that failed: the same draft is the same request. */

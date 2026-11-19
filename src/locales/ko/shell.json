@@ -1637,6 +1637,9 @@
         "opensExternal": "브라우저에서 열림"
       },
       "openReport": "보고서 열기",
+      "answer": "답변하기",
+      "openPullRequest": "PR #{{number}} 열기",
+      "openPullRequestUnnumbered": "PR 열기",
       "followUp": {
         "pending": "Tars가 곧 이 변화를 살펴봅니다.",
         "deferred": "자동 후속 확인의 시간당 한도에 도달해 {{time}} 이후에 살펴봅니다.",
@@ -1681,7 +1684,6 @@
     },
     "flow": {
       "label": "{{title}} 작업 흐름",
-      "summary": "{{total}}단계 중 {{finished}}단계 완료 · {{state}}",
       "request": "요청",
       "criteria_other": "완료 기준 {{count}}개",
       "decision": "Tars 결정",
@@ -1717,7 +1719,6 @@
       "recent": "최근 진행",
       "noRecent": "아직 기록된 진행이 없습니다.",
       "stripLabel_other": "실행 중인 작업 {{count}}개",
-      "more_other": "실행 중 {{count}}개 더 보기",
       "stripSummary_other": "지금 {{count}}개 실행 중",
       "stripStale_other": "{{count}}개 최근 업데이트 없음",
       "stripSummaryWithStale_other": "지금 {{count}}개 실행 중, {{stale}}개 최근 업데이트 없음",
@@ -1780,6 +1781,7 @@
       "admissionWithdrawn": "실행이 시작되기 전에 작업이 일시 정지되거나 취소되었습니다.",
       "observationFailed": "Tars가 이 작업의 진행 상황을 확인하지 못했습니다.",
       "preparationFailed": "워크스페이스 준비에 실패했거나 제한 시간을 넘겼습니다. 생성 후 실행 명령을 확인한 뒤 작업을 재개해 다시 시도하세요.",
+      "preparingWorkspace": "워크스페이스를 준비하고 있습니다. 준비되면 작업을 시작합니다.",
       "pauseReason": {
         "pausedByUser": "작업이 일시 정지되었습니다. 계속하려면 재개하세요.",
         "takenOver": "이 작업을 직접 맡았습니다. Tars가 이어서 하려면 다시 맡기세요.",

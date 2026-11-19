@@ -1,10 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-/** The composer band starts folded to its summary; its rows (and their Timeline buttons) show once unfolded. */
-async function unfoldRunningStrip(view: Locator) {
-  const toggle = view.locator("[data-tars-running-toggle]");
-  if (await toggle.getAttribute("aria-expanded") !== "true") await toggle.click();
-  await expect(toggle).toHaveAttribute("aria-expanded", "true");
+/** Opens the running work's timeline from its card: the composer's status line opens the tray on that card, whose detail holds Timeline. */
+async function openRunTimeline(page: Page, view: Locator) {
+  await view.locator("[data-tars-running-status]").click();
+  const card = page.locator('[data-tars-card="billing"]');
+  const title = card.locator("[data-tars-card-title]");
+  await expect(title).toBeVisible();
+  if (await title.getAttribute("aria-expanded") !== "true") await title.click();
+  await card.locator("[data-tars-monitor-timeline]").click();
 }
 
 for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (const density of ["regular", "compact"]) {
@@ -17,7 +20,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
     await page.evaluate(() => document.fonts.ready);
     for (const width of [390, 1440]) {
       await page.setViewportSize({ width, height: 900 });
-      // Suggestions (shown above the composer while the message box is empty), then the folded running-work summary, come before the editor in keyboard order; the summary's rows stay out of it until unfolded.
+      // Suggestions (shown above the composer while the message box is empty), then the running-work status line, come before the editor in keyboard order.
       // Keyboard order starts at the first suggestion: what precedes it (the start screen, and the transcript's scroll button when it overflows) is the transcript's.
       // While the box holds words there are no suggestions, and the start screen's last example is what precedes the composer.
       const chips = composer.locator("[data-tars-suggestion]");
@@ -28,7 +31,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) for (con
         await expect(chips.nth(index)).toBeFocused();
       }
       await page.keyboard.press("Tab");
-      await expect(composer.locator("[data-tars-running-toggle]")).toBeFocused();
+      await expect(composer.locator("[data-tars-running-status]")).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(editor).toBeFocused();
       await editor.fill(lang === "ko" ? "줄바꿈과 포커스를 확인하는 긴 메시지입니다. ".repeat(6) : "Verify wrapping and keyboard focus across the whole composer. ".repeat(6));
@@ -413,8 +416,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
           bar: { top: bar.top, height: bar.height }, rem: parseFloat(getComputedStyle(document.documentElement).fontSize) };
       });
       expect(before.tray).toBe(26 * before.rem);
-      await unfoldRunningStrip(view);
-      await view.locator("[data-tars-running-timeline]").first().click();
+      await openRunTimeline(page, view);
       const side = view.locator('[data-tars-side-view="timeline"]');
       await expect(side).toHaveAttribute("data-tars-side-placement", "column");
       const after = await side.evaluate((node) => {
@@ -440,7 +442,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
         .map((element) => parseFloat(getComputedStyle(element).fontSize)));
       expect(sizes.length).toBeGreaterThan(1);
       expect(new Set(sizes)).toEqual(new Set([13]));
-      const band = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-strip] p, [data-tars-running-strip] [data-tars-live-line]")]
+      const band = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-status], [data-tars-running-status] span")]
         .map((element) => parseFloat(getComputedStyle(element).fontSize)));
       expect(band.length).toBeGreaterThan(1);
       expect(new Set(band)).toEqual(new Set([14]));
@@ -449,8 +451,7 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
     }
     // Narrow: the view sits above the composer under its own bar, and the page itself never scrolls to show it.
     await page.setViewportSize({ width: 390, height: 900 });
-    await unfoldRunningStrip(view);
-    await view.locator("[data-tars-running-timeline]").first().click();
+    await openRunTimeline(page, view);
     const inline = view.locator('[data-tars-side-view="timeline"]');
     await expect(inline).toHaveAttribute("data-tars-side-placement", "inline");
     const narrow = await inline.evaluate((node) => {

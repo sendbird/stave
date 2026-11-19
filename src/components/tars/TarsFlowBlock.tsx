@@ -1,7 +1,7 @@
 import { Tooltip } from "@/components/aui/components/Tooltip";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Ellipsis, Workflow } from "lucide-react";
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Button } from "@/components/ui";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
@@ -26,7 +26,6 @@ import type { FleetFocusTarget } from "@/store/fleet-focus-store";
 import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { TarsRecordDetail, TarsRecordRow, TarsWorkChip, type TarsRecordState } from "./TarsRecord";
 import { TarsResultCard, useTarsResult } from "./TarsResultCard";
-import { TarsWorkMark } from "./TarsRunMonitor";
 import { tarsFlowStyles as styles } from "./tars-tray.styles";
 import { tarsFlowRailStyles as rail } from "./tars-record.styles";
 
@@ -47,14 +46,6 @@ function StageMarker({ status }: { status: StageStatus }) {
 /** A node that is not a stage (the request, Tars's decision, the completion) in the same vocabulary. */
 function NodeMarker({ state }: { state: WorkState }) {
   return <StateMark state={state} motion="still" />;
-}
-
-/** "1 of 3 stages done · Running"; the state alone while the run is unread. */
-export function describeTarsFlowSummary(flow: TarsFlow) {
-  const state = flow.state ? i18n.t(`shell:tars.states.${flow.state}`) : i18n.t("shell:tars.conversation.receipts.appliedAction.delegate");
-  return flow.progress && flow.progress.total > 0
-    ? i18n.t("shell:tars.flow.summary", { finished: flow.progress.finished, total: flow.progress.total, state })
-    : state;
 }
 
 /**
@@ -169,15 +160,15 @@ export function TarsFlowNodes({ flow, agentNameOf, onShowInFleet, onOpenSide }: 
 }
 
 /**
- * A delegated responsibility's flow under the Tars message that started it.
- * Folded to one line by default; it updates in place from the snapshot and the
- * run, so live progress never adds transcript rows. The summary wears the
- * state's mark (moving only while the work runs), and `live`, the work's live
- * line, stays visible under it while folded.
+ * A delegated responsibility's flow under the Tars message that started it:
+ * the record of what was handed over. Folded, it is the work's title alone;
+ * where the work stands now is its card's to say (the Work tray), so the
+ * transcript never repeats live progress. Unfolded, it lists the request,
+ * Tars's decision, each stage and the completion, which open in the side view.
  */
-export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, defaultOpen = false, live }: {
+export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, defaultOpen = false }: {
   flow: TarsFlow; agentNameOf?: (agentId: string) => string | undefined; onShowInFleet?: (target: FleetFocusTarget) => void;
-  onOpenSide?: (target: TarsSideViewTarget) => void; defaultOpen?: boolean; live?: ReactNode;
+  onOpenSide?: (target: TarsSideViewTarget) => void; defaultOpen?: boolean;
 }) {
   const { t } = useTranslation(["shell"]);
   const [open, setOpen] = useState(defaultOpen);
@@ -187,13 +178,8 @@ export function TarsFlowBlock({ flow, agentNameOf, onShowInFleet, onOpenSide, de
     <CollapsibleTrigger className={cx(sx(inlineDisclosure.trigger, inlineDisclosure.triggerIntrinsic, open && inlineDisclosure.triggerOpen,
       transition.colors, focusRing.ring, rail.trigger), "atelier-inline-disclosure-trigger")}>
       <InlineDisclosureIcon open={open}><Workflow size={controlIconSizes.md} /></InlineDisclosureIcon>
-      <span className={sx(styles.summary)}>
-        <span className={sx(styles.summaryTitle)}>{flow.title}</span>
-        <span className={sx(styles.summaryState, rail.summaryState)} data-tars-flow-summary="" data-tars-flow-state={flow.state ?? undefined}>
-          {flow.state ? <TarsWorkMark state={flow.state} /> : null}{describeTarsFlowSummary(flow)}</span>
-      </span>
+      <span className={sx(styles.summary)}><span className={sx(styles.summaryTitle)}>{flow.title}</span></span>
     </CollapsibleTrigger>
-    {live ? <div className={sx(styles.live, rail.live)} data-tars-flow-live="">{live}</div> : null}
     <CollapsiblePanel className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
       <div className={cx(sx(inlineDisclosure.body), "atelier-motion-panel-inner")}>
         <TarsFlowNodes flow={flow} agentNameOf={agentNameOf} onShowInFleet={onShowInFleet} onOpenSide={onOpenSide} />

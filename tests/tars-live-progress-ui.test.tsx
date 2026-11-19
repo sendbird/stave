@@ -158,17 +158,6 @@ describe("Tars live progress UI", () => {
     expect(message("queued")).not.toContain('data-motion="moving"');
   });
 
-  test("the folded flow wears the work's state mark and keeps its live line in view", async () => {
-    await applyAppLocale("en");
-    const { f, row, run } = fixture();
-    const flow = buildTarsFlow({ receipt: f.receipt, row, run })!;
-    const html = renderToStaticMarkup(createElement(TarsFlowBlock, { flow, live: createElement("p", { "data-live-probe": "" }, "Running the tests") }));
-    expect(html).toContain('data-tars-flow-state="running"');
-    expect(html).toContain('data-motion="moving"');
-    expect(html).toContain("data-tars-flow-live");
-    expect(html).toContain("data-live-probe");
-  });
-
   test("recent progress lists the run's entries with their age; nothing when the run recorded none", async () => {
     await applyAppLocale("en");
     const entries = [{ id: "e2", at: new Date(msAt(9)).toISOString(), text: "Cause retried, attempt 2", tone: "neutral" as const },
@@ -182,24 +171,27 @@ describe("Tars live progress UI", () => {
     expect(renderToStaticMarkup(createElement(TarsRecentProgress, { entries: [], now: msAt(10) }))).toBe("");
   });
 
-  test("the composer band lists only what runs, with its stage and a timeline link, and counts the rest", async () => {
+  test("the composer band is one status line that counts what runs and opens the Work tray; it never lists the work again", async () => {
     await applyAppLocale("en");
     const { row, run } = fixture();
     expect(renderToStaticMarkup(createElement(TarsRunningStrip, { items: [] }))).toBe("");
-    const opened: TarsSideViewTarget[] = [];
-    const element = createElement(TarsRunningStrip, { items: [{ row, run }], onOpenSide: (target: TarsSideViewTarget) => opened.push(target) });
-    const html = renderToStaticMarkup(element);
+    let shown = 0;
+    const html = renderToStaticMarkup(createElement(TarsRunningStrip, { items: [{ row, run }], onShowAll: () => { shown += 1; } }));
     expect(html).toContain('data-tars-running-strip="1"');
-    expect(html).toContain("Fix the billing export on empty invoice lists");
-    expect(html).toMatch(/Stage 2 of 3 · [^<]+, attempt 2/);
-    expect(html).toContain('data-tars-live-stage="2/3"');
-    expect(html).toContain("data-tars-running-timeline");
+    expect(html).toContain("1 running now");
+    expect(html).toMatch(/<button[^>]*data-tars-running-status=""/);
+    // The card says what the work is doing: no title, stage, live line or timeline link here.
+    for (const repeated of ["Fix the billing export on empty invoice lists", "Stage 2 of 3", "data-tars-live-line", "data-tars-running-timeline", 'data-tars-running="']) expect(html).not.toContain(repeated);
     const three = [{ row, run }, { row: { ...row, id: "b" }, run }, { row: { ...row, id: "c" }, run }];
     const crowded = renderToStaticMarkup(createElement(TarsRunningStrip, { items: three, onShowAll() {} }));
-    expect(crowded.match(/data-tars-running="/g)).toHaveLength(2);
-    expect(crowded).toContain("1 more running");
+    expect(crowded).toContain("3 running now");
+    expect(crowded.match(/<button/g)).toHaveLength(1);
+    // Without a tray to open, the line is plain text.
+    const plain = renderToStaticMarkup(createElement(TarsRunningStrip, { items: [{ row, run }] }));
+    expect(plain).not.toContain("<button");
+    expect(plain).toContain("1 running now");
     // Rendering opens nothing; only a press does.
-    expect(opened).toHaveLength(0);
+    expect(shown).toBe(0);
   });
 
   test("the timeline leads with where the run stands and its recent progress", async () => {

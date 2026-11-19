@@ -1,14 +1,18 @@
-import type { ReactNode } from "react";
 import { ChartNoAxesGantt, ScrollText } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { Button } from "@/components/ui";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
-import { RunMonitor, type RunMonitorSegment } from "@/components/aui/components/RunMonitor";
+import { Loader } from "@/components/aui/components/Loader";
+import { runStyles, type RunMonitorSegment } from "@/components/aui/components/RunMonitor";
+import { ProgressStrip } from "@/components/aui/components/RunMonitor.parts";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { VisuallyHidden } from "@/components/aui/components/VisuallyHidden";
-import { AgentTextSwap } from "@/components/aui/components/agent-motion";
+import { AgentHighlight, AgentTextSwap } from "@/components/aui/components/agent-motion";
+import { isLiveRunState } from "@/components/aui/components/ToolRun.parts";
+import { agentMotion } from "@/components/aui/recipes/agent-motion";
+import { textShimmer } from "@/components/aui/recipes/text-shimmer";
 import type { AgentStepState } from "@/components/aui/components/agent-state";
 import type { WorkState } from "@/components/aui/components/state-vocabulary";
 import { sx } from "@/components/aui/utils/stylex";
@@ -68,66 +72,77 @@ export function TarsStateTag({ state }: { state: TarsState }) {
 }
 
 /**
- * One piece of Tars work as the design system's run object (AUI `RunMonitor`):
- * the stage it is on with a live elapsed clock in the "now" well, one labelled
- * segment per stage, the step count, and links to what the work was handed
- * (its request) and to the run's timeline. A value
- * the run did not record (a start time, the stage count) is left out, never
- * shown as zero. The caller adds its own rows (`children`) and controls
- * (`actions`); every control still goes through the view's host path.
+ * The run's stages inside a work card's detail, in the design system's run
+ * vocabulary (AUI `RunMonitor`'s well and strip): the stage it is on with a
+ * live elapsed clock in the "now" well, then one labelled segment per stage.
+ * A value the run did not record (a start time, the stage count) is left out,
+ * never shown as zero; work without a read run shows nothing.
  */
-export function TarsRunMonitor({ row, progress, meta, actions, children, onOpenSide, ...data }: {
-  row: Pick<TarsResponsibility, "id" | "title" | "state">;
-  progress?: TarsRunProgress | null;
-  meta?: ReactNode;
-  actions?: ReactNode;
-  children?: ReactNode;
-  onOpenSide?: (target: TarsSideViewTarget) => void;
-} & { [key: `data-${string}`]: string | undefined }) {
+export function TarsRunStages({ row, progress }: { row: Pick<TarsResponsibility, "id" | "title" | "state">; progress?: TarsRunProgress | null }) {
   const { t } = useTranslation(["shell"]);
   const staged = progress && progress.total > 0 ? progress : null;
   const current = staged?.current ?? null;
   const started = current?.startedAt ? Date.parse(current.startedAt) : Number.NaN;
-  const live = Number.isFinite(started);
-  const now = useNow(live);
-  const count = staged ? tarsStepCount(staged) : null;
+  const timed = Number.isFinite(started);
+  const now = useNow(timed);
+  if (!staged) return null;
+  const live = isLiveRunState(RUN_STATE_OF[row.state]);
   const step = current
     ? current.attempt > 1 ? t("shell:tars.tray.monitor.currentAttempt", { title: current.title, attempt: current.attempt }) : t("shell:tars.tray.monitor.current", { title: current.title })
     : null;
-  const segments = staged ? tarsStageSegments(staged) : [];
-  // The work's views close the footer as icon buttons named by their tooltip, so a card's actions keep to one line
-  // beside a confirmation, Open task, the menu and the step count, in either language. Each keeps its full accessible name.
-  // What the work was handed is readable in every state, before its run exists too.
-  const brief = onOpenSide ? <Tooltip content={t("shell:tars.tray.monitor.brief")}>
-    <Button variant="ghost" size="icon-xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
-      onClick={() => onOpenSide({ responsibilityId: row.id, kind: "brief" })}><ScrollText aria-hidden /></Button>
-  </Tooltip> : null;
-  const timeline = onOpenSide && staged ? <Tooltip content={t("shell:tars.tray.monitor.timeline")}>
-    <Button variant="ghost" size="icon-xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
-      onClick={() => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(current ? { focus: { stageId: current.id } } : {}) })}><ChartNoAxesGantt aria-hidden /></Button>
-  </Tooltip> : null;
-  return <RunMonitor {...data} data-tars-monitor={staged ? row.id : undefined} title={row.title} meta={meta}
-    status={RUN_STATE_OF[row.state]} workState={WORK_STATE_OF[row.state]} statusLabel={t(`shell:tars.states.${row.state}`)} statusTag={<TarsStateTag state={row.state} />}
-    current={step ? {
-      key: current ? `${current.id}:${current.attempt}` : undefined,
-      label: <span data-tars-monitor-step="">{step}</span>,
-      elapsed: live ? <ElapsedClock live now={now}>{(clock) => {
+  const stepKey = current ? `${current.id}:${current.attempt}` : undefined;
+  const segments = tarsStageSegments(staged);
+  return <div className={sx(styles.stages)} data-tars-monitor={row.id} data-run-status={RUN_STATE_OF[row.state]}>
+    {step ? <div className={sx(runStyles.well, runStyles.now, agentMotion.layerHost)}>
+      {/* A new live step is highlighted once; a settled one stays still. */}
+      {live ? <AgentHighlight highlightKey={stepKey} /> : null}
+      {live ? <span aria-hidden className={sx(runStyles.nowMark)}><Loader aria-hidden size="xs" tone="inherit" variant="spinner" /></span>
+        : <span aria-hidden className={sx(runStyles.nowMarkSettled)}><StateMark motion="still" size="sm" state={WORK_STATE_OF[row.state]} /></span>}
+      <span className={sx(runStyles.nowText)}>
+        <AgentTextSwap swapKey={stepKey} truncate xstyle={live ? textShimmer.sweep : undefined}><span data-tars-monitor-step="">{step}</span></AgentTextSwap>
+      </span>
+      {timed ? <span className={sx(runStyles.clock)}><ElapsedClock live now={now}>{(clock) => {
         const duration = formatDuration(clock - started);
         return <span role="timer" aria-label={t("shell:tars.tray.monitor.elapsedLabel", { duration })} data-tars-monitor-elapsed="">{duration}</span>;
-      }}</ElapsedClock> : undefined,
-    } : undefined}
-    progress={staged ? {
+      }}</ElapsedClock></span> : null}
+    </div> : null}
+    <ProgressStrip live={live} progress={{
       completed: staged.finished, total: staged.total,
       stripLabel: t("shell:tars.tray.monitor.stagesLabel", { title: row.title }),
       segments: staged.stages.map((stage, index) => ({ state: SEGMENT_OF[segments[index]!], label: t(`shell:tars.tray.monitor.segment.${segments[index]!}`, { title: stage.title }) })),
-      // The bare "2/3" says what it counts in its hint on hover and, read aloud, in words.
-      label: count ? <Tooltip content={t("shell:tars.tray.monitor.stepCountLabel", count)}>
-        <span className={sx(styles.count)} data-tars-monitor-count={`${count.position}/${count.total}`}>
-          <span aria-hidden>{t("shell:tars.tray.monitor.stepCount", count)}</span><VisuallyHidden>{t("shell:tars.tray.monitor.stepCountLabel", count)}</VisuallyHidden>
-        </span></Tooltip>
-        : t("shell:tars.tray.stagesDone", { finished: staged.finished, total: staged.total }),
-    } : undefined}
-    actions={actions} trailingActions={brief || timeline ? <span className={sx(styles.views)} data-tars-monitor-views="">{brief}{timeline}</span> : undefined}>
-    {children}
-  </RunMonitor>;
+    }} />
+  </div>;
+}
+
+/** The bare "2/3" of a staged run: what it counts is in its hint on hover and, read aloud, in words. Nothing for work without stages. */
+export function TarsStepCount({ progress }: { progress?: TarsRunProgress | null }) {
+  const { t } = useTranslation(["shell"]);
+  const count = progress && progress.total > 0 ? tarsStepCount(progress) : null;
+  if (!count) return null;
+  return <Tooltip content={t("shell:tars.tray.monitor.stepCountLabel", count)}>
+    <span className={sx(styles.count)} data-tars-monitor-count={`${count.position}/${count.total}`}>
+      <span aria-hidden>{t("shell:tars.tray.monitor.stepCount", count)}</span><VisuallyHidden>{t("shell:tars.tray.monitor.stepCountLabel", count)}</VisuallyHidden>
+    </span></Tooltip>;
+}
+
+/**
+ * The work's views as icon buttons named by their tooltip: what the work was
+ * handed (its request), readable in every state and before its run exists,
+ * and the run's timeline once it has stages. Each keeps its full accessible name.
+ */
+export function TarsWorkViews({ row, progress, onOpenSide }: {
+  row: Pick<TarsResponsibility, "id" | "title">; progress?: TarsRunProgress | null; onOpenSide: (target: TarsSideViewTarget) => void;
+}) {
+  const { t } = useTranslation(["shell"]);
+  const current = progress && progress.total > 0 ? progress.current : null;
+  return <span className={sx(styles.views)} data-tars-monitor-views="">
+    <Tooltip content={t("shell:tars.tray.monitor.brief")}>
+      <Button variant="ghost" size="icon-xs" aria-label={t("shell:tars.tray.monitor.briefLabel", { title: row.title })} data-tars-monitor-brief={row.id}
+        onClick={() => onOpenSide({ responsibilityId: row.id, kind: "brief" })}><ScrollText aria-hidden /></Button>
+    </Tooltip>
+    {progress && progress.total > 0 ? <Tooltip content={t("shell:tars.tray.monitor.timeline")}>
+      <Button variant="ghost" size="icon-xs" aria-label={t("shell:tars.tray.monitor.timelineLabel", { title: row.title })} data-tars-monitor-timeline={row.id}
+        onClick={() => onOpenSide({ responsibilityId: row.id, kind: "timeline", ...(current ? { focus: { stageId: current.id } } : {}) })}><ChartNoAxesGantt aria-hidden /></Button>
+    </Tooltip> : null}
+  </span>;
 }

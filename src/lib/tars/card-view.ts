@@ -1,0 +1,251 @@
+import { i18n } from "@/i18n/runtime";
+import { describeAgentRunStatus, type AgentRunBadge } from "@/lib/agent-runs/agent-run-status";
+import { resolveTaskUserState, type TaskStateFacts, type TaskUserStatus } from "@/lib/task-user-state";
+import { tarsStateSignalId } from "./attention";
+import { tarsGoalNext } from "./completion";
+import { tarsSummaryExcerpt } from "./completion-summary";
+import { describeTarsQueueWait, describeTarsResponsibilityDetail } from "./detail";
+import { isTarsWorkRunning } from "./live-progress";
+import { tarsRecordedChangeCount } from "./outputs-model";
+import { projectTarsReport } from "./report-model";
+import type { TarsTrayAttentionInput, TarsTrayAttentionRow, TarsTrayCard, TarsTrayDecision } from "./tray-model";
+import { isTarsTaskOperation, type TarsControlOperation, type TarsResponsibility } from "./types";
+
+/**
+ * A Tars work card reads in three lines: the work's title, one sentence, and
+ * the state with one action. This file decides the last two from what the
+ * tray already knows about the work. The state is the task's user state
+ * (`resolveTaskUserState`): Tars's own states and Fleet's rows are translated
+ * into that function's facts here, so the card has no state words of its own.
+ */
+
+type CardFacts = Pick<TarsTrayCard, "row" | "attention" | "controls" | "run">;
+
+/**
+ * Fleet's kinds that reach the state. A request in the work's task asks the
+ * user (a question, an approval, a stage sign-off); a stop says the work
+ * cannot go on (Tars blocked it, its turn failed, its run's stage blocked or
+ * got stuck). Fleet's review rows (a turn that went quiet while still active,
+ * a pull request's status, a result to read) stop nothing and ask nothing, so
+ * they never change the state; the card's detail still lists them.
+ */
+const REQUEST_KINDS: ReadonlySet<string> = new Set(["user-input", "approval", "agent-run-sign-off"]);
+const HALT_KINDS: ReadonlySet<string> = new Set(["tars-blocked", "run-failed", "agent-run-blocked", "agent-run-stuck"]);
+
+/**
+ * Each Tars state as the run badge it stands for. Queued, prepared and waiting
+ * work is still in Tars's hands, and work the user took over is in theirs:
+ * none of them stopped, so each is a run that goes on (`standbyOf` says what
+ * the ones that do not run wait for). A pause is a held run unless it was
+ * chosen (`heldByChoice`).
+ */
+const BADGE_OF: Record<TarsResponsibility["state"], AgentRunBadge> = {
+  queued: "running", preparing: "running", running: "running", waiting: "running", takenOver: "running",
+  paused: "paused", blocked: "halted", resultReady: "needs-answer", completed: "completed", cancelled: "stopped",
+};
+
+/**
+ * Work that stands still because someone chose so: the user took it over, or
+ * it was paused. Neither is a problem. A pause that ended with something
+ * wrong (Tars lost the task while pausing) carries a detail code, and is a stop.
+ */
+function heldByChoice(row: Pick<TarsResponsibility, "state" | "detailCode">) {
+  return row.state === "takenOver" || (row.state === "paused" && !row.detailCode);
+}
+
+function asksOf(card: Pick<TarsTrayCard, "row" | "attention">) {
+  // While work is held by choice, what Fleet lists for its task neither stops it nor asks anything new: it goes on when the user says.
+  const rows = heldByChoice(card.row) ? [] : card.attention;
+  const halt = rows.find((entry) => HALT_KINDS.has(entry.item.kind)) ?? null;
+  // The row Stave adds for a result that is ready is said by the state itself (a sign-off); a decision Tars proposed or asked is still one, and comes first.
+  const review = tarsStateSignalId(card.row);
+  const tars = card.attention.find((entry) => entry.item.kind === "tars-decision" && entry.item.id !== review) ?? null;
+  const task = rows.find((entry) => REQUEST_KINDS.has(entry.item.kind)) ?? null;
+  return { halt, tars, task };
+}
+
+/**
+ * What the work's run waits for when nobody has to act: a usage reset with a
+ * known time, or the outside event it asked to be woken by. The run's own
+ * status words it, as on the Task panel; it is read only for a run that can
+ * be waiting, so running work never walks its stage records here. Null when
+ * the run works, needs someone, ended, or was not read by this window.
+ */
+function holdOf(card: Pick<TarsTrayCard, "row" | "run">): string | null {
+  const run = card.run?.agentRun;
+  if (!run || card.row.state === "queued" || BADGE_OF[card.row.state] !== "running") return null;
+  if (!(run.state === "paused" && run.pauseReason === "usage-limit") && run.eventWait?.status !== "waiting") return null;
+  const status = describeAgentRunStatus(card.run!);
+  return status.waiting ? status.reason : null;
+}
+
+/**
+ * Why work that does not run waits, when nothing is wrong with it and nobody
+ * is asked to act: queued work waits for its turn (the scheduler's reason),
+ * work being prepared waits for its workspace until its run exists, and work
+ * held by choice waits until the user hands it back or resumes it. Null for
+ * work in Tars's hands that started.
+ */
+function standbyOf(row: TarsResponsibility): string | null {
+  if (heldByChoice(row)) return describeTarsResponsibilityDetail(row) ?? i18n.t(row.state === "paused" ? "shell:tars.detail.runPaused" : "shell:tars.detail.pauseReason.takenOver");
+  if (row.state === "queued") return describeTarsQueueWait(row);
+  return row.state === "preparing" && !row.agentRunId ? i18n.t("shell:tars.detail.preparingWorkspace") : null;
+}
+
+/** The Fleet row's own words, when it has some. */
+function wordsOf(entry: TarsTrayAttentionRow<TarsTrayAttentionInput> | null) {
+  return entry?.item.detail?.trim() || null;
+}
+
+/**
+ * The work as `resolveTaskUserState` reads a task. A decision Tars itself
+ * asks (a proposal to confirm, a question, an unverified completion) is the
+ * live prompt, whatever the run does; a request left open in the work's task
+ * is the task's pending decision; a row that says the work stopped is a halt.
+ */
+export function tarsTaskStateFacts(card: CardFacts): TaskStateFacts {
+  const { row } = card;
+  const { halt, tars, task } = asksOf(card);
+  const taskAsk = !task ? null : task.item.kind === "approval" ? "approval" as const : "question" as const;
+  const signOff = task?.item.kind === "agent-run-sign-off";
+  // Work that waits with nothing wrong: it has not started, it is held by choice, or its run resumes on its own.
+  const hold = halt ? null : standbyOf(row) ?? holdOf(card);
+  const badge = heldByChoice(row) ? "running" : BADGE_OF[row.state];
+  const running = isTarsWorkRunning(row) && !halt && hold === null;
+  const opened = row.publication?.state === "opened" && row.publication.url ? row.publication : null;
+  return {
+    liveTurn: tars ? { pendingInteraction: tars.decision ? "approval" : "user_input" }
+      : running ? { pendingInteraction: signOff ? null : taskAsk === "approval" ? "approval" : taskAsk ? "user_input" : null } : null,
+    pendingDecision: signOff ? null : taskAsk,
+    agentRun: {
+      badge: halt && badge === "running" ? "halted" : signOff && badge === "running" ? "needs-answer" : badge,
+      reason: hold ?? describeTarsResponsibilityDetail(row) ?? wordsOf(halt),
+      waiting: hold !== null,
+      updatedAt: row.updatedAt,
+    },
+    lastTurn: null,
+    result: {
+      pullRequest: opened ? { url: opened.url!, ...(opened.number ? { number: opened.number } : {}), title: opened.title } : null,
+      // Only finished work shows a result. A card re-renders with every step its work streams, so nothing else walks the run's stage records for a count nobody reads.
+      changedFiles: card.run && row.state === "completed" ? tarsRecordedChangeCount(card.run) ?? 0 : 0,
+      answerMessageId: null,
+    },
+  };
+}
+
+/** The card's state: one of the task's user states. */
+export function tarsCardStatus(card: CardFacts): TaskUserStatus {
+  // The facts always carry a run badge, so the state is never unknown.
+  return resolveTaskUserState(tarsTaskStateFacts(card))!;
+}
+
+/**
+ * The card's one sentence: what the work needs from the user, why it stands
+ * still, or what came out. Null for work in progress whose words are what
+ * Stave observes live (the card then shows its live line or the stage in hand).
+ */
+export function describeTarsCardSentence(card: CardFacts, status: TaskUserStatus): string | null {
+  const { row } = card;
+  const { halt, tars, task } = asksOf(card);
+  switch (status.state) {
+    case "waiting":
+      if (tars?.decision) return i18n.t(`shell:tars.tray.decision.${tars.decision.operation}`);
+      if (tars) return wordsOf(tars) ?? i18n.t("shell:tars.tray.decision.answerInConversation");
+      if (row.state === "resultReady") return i18n.t(`shell:tars.goal.next.${tarsGoalNext(row)}`);
+      return wordsOf(task) ?? i18n.t("shell:tars.detail.waitingForUser");
+    case "blocked":
+      return describeTarsResponsibilityDetail(row) ?? wordsOf(halt) ?? i18n.t("shell:tars.tray.blockedDetail");
+    case "on-hold":
+      // What it waits for: its turn, its workspace, the user handing it back or resuming it, or when its run resumes in the run's own words.
+      return status.reason ?? describeTarsResponsibilityDetail(row);
+    case "working":
+      // A run the user started in the work's task works like any other; what only its card can say is that Tars follows it and acts only on a confirmation.
+      return isTarsWorkRunning(row) && row.detailCode !== "followingUserRun" ? null : describeTarsResponsibilityDetail(row);
+    case "finished": {
+      // Work the user finished in its task says so, and that Tars did not verify it, before a pull request Tars opened earlier.
+      if (row.detailCode === "finishedByUser") return describeTarsResponsibilityDetail(row);
+      const pullRequest = status.result?.pullRequest;
+      if (pullRequest) return pullRequest.number ? i18n.t("shell:tars.publish.status.opened", { number: pullRequest.number }) : i18n.t("shell:tars.publish.status.openedUnnumbered");
+      const summary = card.run ? tarsSummaryExcerpt(projectTarsReport(row, card.run).summary ?? "") : "";
+      return describeTarsResponsibilityDetail(row) ?? (summary || i18n.t("shell:tars.goal.next.complete"));
+    }
+    case "stopped":
+      return describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.detail.runCancelled");
+  }
+}
+
+/**
+ * The one action a card shows beside its state. Confirm and a control go
+ * through the host's own paths; the rest only open something: the decision in
+ * the conversation, the work's task, its report, or its pull request.
+ */
+export type TarsCardPrimary =
+  | { kind: "confirm"; decision: TarsTrayDecision }
+  | { kind: "control"; operation: TarsControlOperation }
+  | { kind: "answer" }
+  /** `request`: the task a request waits in (the work's own or a helper's) and the workspace it runs in; absent, the work's own task. */
+  | { kind: "openTask"; request?: { taskId: string; workspaceId: string } }
+  | { kind: "openReport" }
+  | { kind: "openPullRequest"; url: string; number: number | null };
+
+/**
+ * Whether the work's task can be opened. Preparation names the task before it
+ * prepares the workspace and creates the task (`tars-runtime.ts`), so until
+ * the work's run exists that id leads nowhere.
+ */
+export function tarsTaskOpens(row: Pick<TarsResponsibility, "state" | "taskId" | "agentRunId">) {
+  return Boolean(row.taskId) && !(row.state === "preparing" && !row.agentRunId);
+}
+
+/** The controls that let blocked work go on, in the order they are offered. */
+const UNBLOCKING: readonly TarsControlOperation[] = ["resume", "acceptCompletion"];
+/** The controls that end a wait nothing is wrong with: queued work starts ahead of its turn, paused work resumes, work the user took over goes back to Tars. */
+const ENDS_WAIT: readonly TarsControlOperation[] = ["startNow", "resume", "handBack"];
+
+/**
+ * The action that fits the state: answer what waits, read why blocked work
+ * stopped or let paused work go on, look at running work, open what finished
+ * work produced. Work on hold goes on by itself, so it offers nothing, unless
+ * the user can end the wait: start queued work ahead of its turn, resume work
+ * that was paused, or hand back work they took over. `can` says which openers this view has; null when
+ * none applies.
+ */
+export function tarsCardPrimary(card: CardFacts, status: TaskUserStatus, can: { answer: boolean; report: boolean }): TarsCardPrimary | null {
+  const { row } = card;
+  const openTask: TarsCardPrimary | null = tarsTaskOpens(row) ? { kind: "openTask" } : null;
+  // Ended work opens its report only once this window has read the run the report comes from.
+  const ended = status.state === "finished" || status.state === "stopped";
+  const openReport: TarsCardPrimary | null = can.report && row.agentRunId && (!ended || card.run) ? { kind: "openReport" } : null;
+  switch (status.state) {
+    case "waiting": {
+      // An answer in the task (approve, answer, words) is confirmed only on the conversation card that shows it.
+      const proposal = card.attention.find((entry) => entry.decision && !isTarsTaskOperation(entry.decision.operation))?.decision;
+      if (proposal) return { kind: "confirm", decision: proposal };
+      if (asksOf(card).tars) return can.answer ? { kind: "answer" } : openTask;
+      if (row.state === "resultReady") return openReport ?? (card.controls.includes("acceptCompletion") ? { kind: "control", operation: "acceptCompletion" } : openTask);
+      // A request is answered where it waits: in its own task, which may be a helper's, in the workspace that task runs in.
+      const request = asksOf(card).task?.item;
+      return request?.taskId ? { kind: "openTask", request: { taskId: request.taskId, workspaceId: request.workspaceId ?? row.executionWorkspaceId ?? row.workspaceId } } : openTask;
+    }
+    case "blocked": {
+      // A run the user started that ended short of the goal goes on where they left it: Tars checked nothing a report could show as unmet.
+      if (row.detailCode === "userRunEnded" && openTask) return openTask;
+      // Work Tars could not finish is read before it is resumed: its report says what is unmet.
+      if (row.state === "blocked" && openReport) return openReport;
+      const operation = UNBLOCKING.find((candidate) => card.controls.includes(candidate));
+      return operation ? { kind: "control", operation } : openTask;
+    }
+    case "on-hold": {
+      const operation = ENDS_WAIT.find((candidate) => card.controls.includes(candidate));
+      return operation ? { kind: "control", operation } : null;
+    }
+    case "working":
+      return openTask;
+    case "finished": {
+      const pullRequest = status.result?.pullRequest;
+      return pullRequest ? { kind: "openPullRequest", url: pullRequest.url, number: pullRequest.number ?? null } : openReport ?? openTask;
+    }
+    case "stopped":
+      return openReport ?? openTask;
+  }
+}

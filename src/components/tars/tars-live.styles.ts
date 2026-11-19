@@ -2,30 +2,20 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { chatType } from "@/components/ai-elements/chat-type.stylex";
 
-/**
- * The live line's size and leading. Elsewhere (tray card, flow block,
- * timeline) it is the 13px interface row; the composer band publishes the
- * conversation scale's secondary step instead, so its lines follow the chat
- * font size with the rest of the conversation.
- */
-const LIVE_SIZE = "--tars-live-size";
-const LIVE_LEADING = "--tars-live-leading";
-const LINE_SIZE = `var(${LIVE_SIZE}, ${vars["--aui-font-size-row"]})`;
-const LINE_LEADING = `var(${LIVE_LEADING}, ${vars["--aui-line-height-control"]})`;
 const SECONDARY = chatType["--chat-type-secondary"];
 const SECONDARY_LEADING = chatType["--chat-type-secondary-leading"];
 
 /**
- * The live progress lines every Tars surface shares (tray card, flow block,
- * composer band, timeline): what the run is doing, how current that is, and
- * its recent progress. AUI tokens only; every line is the 13px interface row
+ * The live progress lines Tars's surfaces share (the work card, the timeline,
+ * the composer's status line): what the run is doing, how current that is,
+ * and its recent progress. AUI tokens only; every line is the 13px interface row
  * (AUI #809 S2) on its 20px line, as the rest of Tars's secondary text.
  */
 export const tarsLiveStyles = stylex.create({
   /** One status line: the activity, then how long ago it was observed. */
   line: {
     display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0, margin: 0,
-    color: vars["--aui-color-text-muted"], fontSize: LINE_SIZE, lineHeight: LINE_LEADING,
+    color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-row"], lineHeight: vars["--aui-line-height-control"],
   },
   /** Progress Stave has not observed for a while says so in the warning ink, never in the running color. */
   lineStale: { color: vars["--aui-color-warning-text"] },
@@ -47,17 +37,31 @@ export const tarsLiveStyles = stylex.create({
   recentAge: { flexShrink: 0, color: vars["--aui-color-text-muted"], fontVariantNumeric: "tabular-nums" },
 
   /**
-   * The composer band's running work. Folded, one summary line (the AUI inline
-   * disclosure trigger); unfolded, one block per running piece of work under
-   * it. Its text is the conversation scale's secondary step.
+   * The composer band's status line: how much work runs now, as one quiet
+   * row that opens the Work tray. Its text is the conversation scale's
+   * secondary step.
    */
   stripSection: {
     display: "flex", flexDirection: "column", minWidth: 0,
     // Match the tray's top gutter below the status band, before the raised input.
     marginBlockEnd: vars["--aui-space-4"],
-    [LIVE_SIZE]: SECONDARY, [LIVE_LEADING]: SECONDARY_LEADING,
   },
-  stripToggle: { fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
+  /** The line itself: the mark, then the words, on the small control's height at the conversation's secondary step. */
+  stripStatus: {
+    display: "flex", alignItems: "center", justifyContent: "flex-start", gap: vars["--aui-space-8"], minWidth: 0, margin: 0,
+    width: "fit-content", maxWidth: "100%", minHeight: vars["--aui-control-height-sm"],
+    paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-8"],
+    color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING, fontWeight: vars["--aui-font-weight-regular"], textAlign: "start",
+  },
+  /** As the tray's opener it is a quiet control: the hover wash under ink that stays put. */
+  stripOpener: {
+    borderRadius: vars["--aui-radius-control"],
+    backgroundColor: {
+      default: "transparent",
+      "@media (hover: hover) and (pointer: fine)": { default: "transparent", ":hover": vars["--aui-color-overlay-hover"], ":active": vars["--aui-color-overlay-pressed"] },
+    },
+  },
+  stripMark: { display: "inline-flex", alignItems: "center", flexShrink: 0 },
   stripSummary: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0 },
   stripCount: { flexShrink: 0, color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"] },
   /** Work that has gone quiet is named in the warning ink, never the running color. */
@@ -65,18 +69,6 @@ export const tarsLiveStyles = stylex.create({
     display: "inline-flex", alignItems: "center", gap: vars["--aui-space-4"], minWidth: 0,
     overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: vars["--aui-color-warning-text"],
   },
-  strip: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, margin: 0, listStyle: "none",
-    paddingBlock: vars["--aui-space-4"], paddingInline: vars["--aui-space-8"] },
-  stripRow: { display: "flex", alignItems: "flex-start", gap: vars["--aui-space-8"], minWidth: 0 },
-  stripMark: { flexShrink: 0, marginBlockStart: vars["--aui-space-2"] },
-  stripBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-2"], flex: 1, minWidth: 0 },
-  stripHead: { display: "flex", alignItems: "baseline", gap: vars["--aui-space-8"], minWidth: 0, margin: 0,
-    fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
-  stripTitle: { flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-    color: vars["--aui-color-text"], fontWeight: vars["--aui-font-weight-medium"] },
-  stripStage: { flexShrink: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: vars["--aui-color-text-muted"] },
-  stripActions: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], flexShrink: 0 },
-  stripMore: { margin: 0, color: vars["--aui-color-text-muted"], fontSize: SECONDARY, lineHeight: SECONDARY_LEADING },
 
   /** The timeline's "Now" section: where the run stands before its stage history. */
   now: { display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], minWidth: 0 },

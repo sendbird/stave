@@ -39,6 +39,15 @@ export function tarsDecisionSignalId(decision: Pick<TarsPendingDecision, "kind" 
     : `tars:decision:${decision.messageId}:${decision.actionIndex}`;
 }
 
+/**
+ * The id of the row a responsibility's own state raises: it is blocked, or its
+ * result is ready for the user's check. Stave adds that row itself; a decision
+ * Tars proposed or asked has `tarsDecisionSignalId`.
+ */
+export function tarsStateSignalId(row: Pick<TarsResponsibility, "id" | "revision">) {
+  return `tars:blocked:${row.id}:${row.revision}`;
+}
+
 const TERMINAL = new Set<TarsResponsibility["state"]>(["completed", "cancelled"]);
 
 export function isTarsResponsibilityTerminal(row: Pick<TarsResponsibility, "state">) {
@@ -86,7 +95,7 @@ export function collectTarsAttention(
   // Work blocked on an unverified completion is said by its decision row: one fact, one row.
   const decided = new Set(decisions.filter((signal) => signal.prompt?.kind === "unverifiedCompletion").map((signal) => signal.responsibilityId));
   const blocked = snapshot.responsibilities.filter((row) => (row.state === "blocked" || row.state === "resultReady") && !decided.has(row.id)).map((row): TarsAttentionSignal => ({
-    id: `tars:blocked:${row.id}:${row.revision}`,
+    id: tarsStateSignalId(row),
     kind: row.state === "resultReady" ? "tars-decision" : "tars-blocked",
     ...(row.state === "resultReady" ? { prompt: { kind: "resultReady" as const } } : {}),
     ...place(row),
@@ -117,8 +126,8 @@ export interface TarsAttentionRowLike {
 /**
  * The attention rows that belong to Tars-owned work, and the responsibilities
  * they point at: rows on the work's own task, and while the work waits on a
- * helper (`waitingTaskId`), rows on that helper's task. The tray's "needs
- * you" count is `rows.length`, read from the same projection Fleet shows.
+ * helper (`waitingTaskId`), rows on that helper's task. The tray reads the
+ * same projection Fleet shows, so the two agree about which work needs the user.
  */
 export function selectTarsAttentionRows<T extends TarsAttentionRowLike>(
   items: readonly T[],
@@ -139,4 +148,15 @@ export function selectTarsAttentionRows<T extends TarsAttentionRowLike>(
     responsibilityIds.add(id);
   }
   return { rows, responsibilityIds };
+}
+
+/**
+ * How many pieces of Tars work need the user: the cards the tray's "needs
+ * you" lane holds, one per piece of work however many rows Fleet lists for it
+ * (a card's detail lists its rows). The lane header, the tray's indicator and
+ * the sidebar's Tars entry all say this number.
+ */
+export function countTarsWorkNeedingUser(items: readonly TarsAttentionRowLike[], responsibilities: readonly TarsResponsibility[]): number {
+  const { responsibilityIds } = selectTarsAttentionRows(items, responsibilities);
+  return responsibilities.filter((row) => responsibilityIds.has(row.id)).length;
 }

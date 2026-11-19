@@ -2,7 +2,7 @@ import type { AgentRunUsage } from "@/lib/agent-runs/usage";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
-import { collectTarsAttention, isTarsResponsibilityTerminal, selectTarsAttentionRows, tarsLaneOf, type TarsAttentionRowLike, type TarsLane } from "./attention";
+import { collectTarsAttention, isTarsResponsibilityTerminal, selectTarsAttentionRows, tarsLaneOf, tarsStateSignalId, type TarsAttentionRowLike, type TarsLane } from "./attention";
 import { projectTarsRunProgress, tarsFleetTarget, tarsRunOf, type TarsRunProgress } from "./flow-model";
 import { tarsConfirmationRequestId } from "./conversation";
 import { isTarsTaskOperation, type TarsControlOperation, type TarsFollowUpState, type TarsPendingDecision, type TarsResponsibility, type TarsSnapshot } from "./types";
@@ -45,6 +45,8 @@ export interface TarsTrayAttentionInput extends TarsAttentionRowLike {
   id: string;
   kind: string;
   detail?: string;
+  /** The workspace the row's task runs in; a helper's task may run in another than the work's. */
+  workspaceId?: string;
 }
 
 /** A proposed control waiting for the user's Confirm, at the revision it was proposed for. */
@@ -122,10 +124,10 @@ export function tarsBranchOf(row: Pick<TarsResponsibility, "id" | "branchName" |
 const holdsActiveSlot = isTarsWorkRunning;
 
 /**
- * What the header indicator and the lane headers count, one number per lane.
- * `needsYou` counts Fleet's rows for Tars work (one card may hold several), so
- * the tray and Fleet show the same number; `inProgress` and `done` count the
- * cards in their lanes. `running` counts only work that is actually running,
+ * What the header indicator and the lane headers count, one number per lane:
+ * the cards the lane holds, so a header never says a number the user cannot
+ * count under it. A card in `needsYou` may hold several of Fleet's rows; its
+ * detail lists them. `running` counts only work that is actually running,
  * in any lane, never queued, paused, waiting or taken-over work; it is the
  * navigation status's number, not a lane's.
  */
@@ -177,13 +179,15 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   // A Fleet decision row carries the proposal's identity in its id; the snapshot holds the rest.
   const liveDecisions = collectTarsAttention({ responsibilities: [...responsibilities], pendingDecisions: args.pendingDecisions ?? [] })
     .filter((signal) => signal.decision);
+  const stateRows = new Set(responsibilities.map(tarsStateSignalId));
   const claimed = new Set<string>();
   const attentionByResponsibility = new Map<string, TarsTrayAttentionRow<T>[]>();
   for (const item of rows) {
     const responsibilityId = responsibilityOf(item, responsibilities);
     if (!responsibilityId) continue;
     let decision: TarsTrayDecision | null = null;
-    if (item.kind === "tars-decision") {
+    // The row Stave adds for a ready result proposes nothing, so it never takes a proposal's Confirm.
+    if (item.kind === "tars-decision" && !stateRows.has(item.id)) {
       const signal = liveDecisions.find((candidate) => candidate.id === item.id && !claimed.has(candidate.id))
         ?? liveDecisions.find((candidate) => candidate.responsibilityId === responsibilityId && !claimed.has(candidate.id));
       if (signal?.decision) {
@@ -220,7 +224,7 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
   // Work that started leads its lane; queued work follows in the order it will start, so the cards a user reorders stay together.
   for (const lane of Object.values(lanes)) lane.sort((a, b) => (a.queue?.position ?? 0) - (b.queue?.position ?? 0));
   const counts: TarsTrayCounts = {
-    needsYou: rows.length,
+    needsYou: lanes.needsYou.length,
     inProgress: lanes.running.length,
     done: lanes.done.length,
     running: [...lanes.needsYou, ...lanes.running].filter((card) => holdsActiveSlot(card.row)).length,
@@ -242,11 +246,12 @@ export function tarsQueueMoves(queue: TarsTrayCard["queue"]): Array<"earlier" | 
 }
 
 /**
- * A card shows one main action beside Open task and folds the rest into one
- * menu. The main action is the state's own (pause, resume or hand back); a
- * waiting Tars proposal's Confirm takes its place, so the same control never
- * appears twice. Queued work's Do first and Do later lead the menu, Cancel
- * stays last.
+ * The controls in a card's detail: one main control beside Open task, the
+ * rest folded into one menu. The main control is the state's own (pause,
+ * resume or hand back); a waiting Tars proposal's Confirm takes its place, so
+ * the same control never appears twice. Queued work's Do first and Do later
+ * lead the menu, Cancel stays last. The one action beside the card's state is
+ * decided in `card-view.ts`.
  */
 export function tarsCardActions(card: Pick<TarsTrayCard, "controls" | "attention" | "fleetTarget"> & Partial<Pick<TarsTrayCard, "queue">>): { primary: TarsCardAction | null; more: TarsCardAction[] } {
   // An answer in the task (approve, answer, words) is confirmed only on the conversation card that shows it.
@@ -265,7 +270,7 @@ export function tarsCardActions(card: Pick<TarsTrayCard, "controls" | "attention
   return { primary, more };
 }
 
-/** How one stage reads in a run monitor's strip: done, the one running now, not reached, or stopped short. */
+/** How one stage reads in a card's stage strip: done, the one running now, not reached, or stopped short. */
 export type TarsStageSegment = "finished" | "current" | "pending" | "stopped";
 
 const STOPPED_STAGE: ReadonlySet<string> = new Set(["blocked", "stuck", "cancelled"]);
@@ -278,7 +283,7 @@ export function tarsStageSegments(progress: Pick<TarsRunProgress, "stages">): Ta
 }
 
 /**
- * The step count a run monitor shows: the stage it is on while active
+ * The step count a card's detail shows: the stage it is on while active
  * ("2/3"), otherwise the stages finished. Null when the workflow has no
  * stages, so an unknown count is never "0/0".
  */

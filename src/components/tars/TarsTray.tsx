@@ -1,17 +1,12 @@
 import { TarsCleanupEntry } from "./TarsBatchCard";
-import { DailyLimitSettingsLink } from "@/components/usage/DailyLimits";
 import { ReportArtifactLink } from "@/components/agent-runs/ReportArtifactLink";
 import { isLocalPreviewUrl, savedHtmlReference } from "@/lib/agent-runs/artifacts";
-import { TarsGoalSummary } from "./TarsGoalSummary";
 import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
-import { ArrowUpRight, ChevronRight, Ellipsis, FileDiff, FileText, FolderTree, GitBranch, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
+import { ArrowUpRight, ChevronRight, FileDiff, FileText, FolderTree, GitPullRequest, GripVertical, Link2, PanelRight, SearchCheck, type LucideIcon } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button, ExternalAnchor } from "@/components/ui";
 import { Accordion } from "@/components/aui/components/Accordion";
-import { Badge } from "@/components/aui/components/Badge";
-import { DropdownMenu } from "@/components/aui/components/DropdownMenu";
 import { Popover } from "@/components/aui/components/Popover";
-import { runStyles } from "@/components/aui/components/RunMonitor";
 import { StatusDot } from "@/components/aui/components/StatusDot";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { Toggle } from "@/components/aui/components/Toggle";
@@ -20,35 +15,23 @@ import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
-import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { TarsLane } from "@/lib/tars/attention";
-import { describeTarsQueueWait, describeTarsResponsibilityDetail, describeTarsResponsibilityDiagnostic, describeTarsWorkingChanges } from "@/lib/tars/detail";
-import { describeUsageShort } from "@/lib/agent-runs/usage";
-import { TARS_IRREVERSIBLE_OPERATIONS, type TarsQueueMove, type TarsQueueMoveSource } from "@/lib/tars/conversation";
+import type { TarsQueueMove, TarsQueueMoveSource } from "@/lib/tars/conversation";
 import { tarsQueueDropMove } from "@/lib/tars/queue-order";
 import { SortableDropIndicator, useSortableListMonitor, useSortableRow } from "@/hooks/use-sortable-list";
-import { formatDateTime } from "@/i18n/format";
-import { tarsCardActions, tarsQueueMoves, type TarsCardAction, type TarsTrayAttentionInput, type TarsTrayAttentionRow, type TarsTrayCard as TarsTrayCardModel, type TarsTrayDecision, type TarsTrayModel, type TarsTrayStatus } from "@/lib/tars/tray-model";
+import { tarsQueueMoves, type TarsTrayCard as TarsTrayCardModel, type TarsTrayDecision, type TarsTrayModel, type TarsTrayStatus } from "@/lib/tars/tray-model";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
-import { describeTarsModelSelection } from "@/lib/tars/model-selection";
-import { isTarsWorkRunning } from "@/lib/tars/live-progress";
 import type { TarsOutput } from "@/lib/tars/outputs-model";
 import type { TarsSideViewKind, TarsSideViewTarget } from "@/lib/tars/side-view";
 import type { FleetFocusTarget } from "@/store/fleet-focus-store";
-import { agentRunStyles } from "@/components/agent-runs/agent-runs.styles";
-import { TarsDiagnosticDetail } from "./TarsDiagnosticDetail";
 import { tarsTrayStyles as styles } from "./tars-tray.styles";
-import { tarsMonitorStyles as monitorStyles } from "./tars-monitor.styles";
-import { TarsRunMonitor } from "./TarsRunMonitor";
-import { TarsLiveLine, TarsRecentProgress, tarsLiveLineShows } from "./TarsLiveProgress";
-import { useTarsLiveProgress } from "./use-tars-live-progress";
-import { TarsPublishEntry } from "./TarsPublishEntry";
-import { isTarsPublishable } from "@/lib/tars/publish-model";
+import { TarsTrayCard } from "./TarsWorkCard";
 import { useAppStore } from "@/store/app.store";
 import { groupTarsTrayItems, type TarsTrayProject } from "@/lib/tars/tray-projects";
 import { tarsClearStyles as clearStyles } from "./tars-clear.styles";
 
 export { stateTone } from "./TarsRunMonitor";
+export { TarsCardActions, TarsTrayCard } from "./TarsWorkCard";
 
 /** Every tray control goes through the view's host action path; opening and folding are view-only. */
 export interface TarsTrayActions {
@@ -56,9 +39,12 @@ export interface TarsTrayActions {
   onFollowUp?: (row: TarsResponsibility) => void;
   onAct: (row: TarsResponsibility, operation: TarsControlOperation) => void;
   onConfirm: (decision: TarsTrayDecision) => void;
-  onOpenTask: (row: TarsResponsibility) => void;
+  /** Opens the work's task, or the task a request waits in (`request`: a helper's task, in the workspace it runs in). */
+  onOpenTask: (row: TarsResponsibility, request?: { taskId: string; workspaceId: string }) => void;
+  /** Shows the work's waiting decision card in the conversation, where it is answered; absent, such a card offers Open task. */
+  onAnswer?: (row: TarsResponsibility) => void;
   onShowInFleet: (target: FleetFocusTarget) => void;
-  /** Opens the side view; absent where there is none (a blocked card then has no report link). */
+  /** Opens the side view; absent where there is none (a card then has no report, request or timeline link). */
   onOpenSide?: (target: TarsSideViewTarget) => void;
   /** Opens completed work's publish confirmation card; absent on bridges without publishing. */
   onPublish?: (row: TarsResponsibility) => void;
@@ -117,13 +103,6 @@ type TarsTrayLaneId = TarsLane | "outputs";
 /** Done work is folded until asked for; what waits, what runs and what it produced stays in view, unless the lane is empty. */
 const OPEN_LANES: readonly TarsTrayLaneId[] = ["needsYou", "running", "outputs"];
 
-const CONTROL_LABEL = {
-  pause: "shell:tars.pause", resume: "shell:tars.resume", takeover: "shell:tars.takeOver", handBack: "shell:tars.handBack", cancel: "shell:tars.cancel",
-  acceptCompletion: "shell:tars.acceptCompletion", startNow: "shell:tars.startNow", extend: "shell:tars.extend",
-  retryStage: "shell:tars.retryStage", skipStage: "shell:tars.skipStage", signOff: "shell:tars.signOff",
-  approve: "shell:tars.approve", deny: "shell:tars.deny", answer: "shell:tars.answer", message: "shell:tars.message", requestChanges: "shell:tars.requestChanges",
-} as const satisfies Record<TarsControlOperation, string>;
-
 /**
  * "16 need you · 2 in progress · 4 done · 7 outputs": the lanes' own names and
  * the numbers their headers show (`tarsTrayLaneCount`), each part only when it
@@ -181,173 +160,11 @@ export function TarsTrayToggle({ pinned, counts, status = "ready", outputs = 0, 
   </Popover>;
 }
 
-/** The kind badge and short text of one attention row; Tars's kinds get Tars's words. */
-function describeAttention(row: TarsResponsibility, entry: TarsTrayAttentionRow<TarsTrayAttentionInput>) {
-  const { item, decision } = entry;
-  if (row.state === "resultReady") return { label: i18n.t("shell:tars.states.resultReady"), text: i18n.t("shell:tars.states.resultReady") };
-  if (item.kind === "tars-decision") {
-    // A decision with several options is answered in the conversation; its row says what it asks.
-    return { label: i18n.t("shell:tars.tray.attention.decision"), text: decision ? i18n.t(`shell:tars.tray.decision.${decision.operation}`)
-      : item.detail?.trim() || i18n.t("shell:tars.tray.decision.answerInConversation") };
-  }
-  if (item.kind === "tars-blocked") {
-    return { label: i18n.t("shell:tars.tray.attention.blocked"), text: describeTarsResponsibilityDetail(row) ?? i18n.t("shell:tars.tray.blockedDetail") };
-  }
-  const label = (FLEET_ATTENTION_KIND_LABEL as Readonly<Record<string, string | undefined>>)[item.kind];
-  return { label: label ?? i18n.t("shell:tars.tray.attention.other"), text: item.detail?.trim() || null };
-}
-
-/** What an action is called: its control, the proposal it confirms, the Fleet row, or a queue move. */
-function actionLabel(action: TarsCardAction) {
-  if (action.kind === "fleet") return i18n.t("shell:tars.tray.showInFleet");
-  if (action.kind === "confirm") return i18n.t(`shell:tars.tray.confirm.${action.decision.operation}`);
-  if (action.kind === "move") return i18n.t(action.direction === "earlier" ? "shell:tars.tray.moveEarlier" : "shell:tars.tray.moveLater");
-  return i18n.t(CONTROL_LABEL[action.operation]);
-}
-
 /**
- * A card's actions keep to one line: at most one primary action, then the
- * secondary ones, then one menu with the rest. The primary action is a Tars
- * proposal waiting for the user's Confirm, on the AUI decision rung; one that
- * cannot be undone wears the danger tone, as on its decision card. The state's
- * own control (pause, resume, hand back) and Open task are 28px secondary
- * actions of one weight. Every control still goes through the view's host
- * action path.
- */
-export function TarsCardActions({ card, actions, grip }: { card: TarsTrayCardModel; actions: TarsTrayActions; grip?: ReactNode }) {
-  const { t } = useTranslation(["shell"]);
-  const { row } = card;
-  const offered = tarsCardActions(card);
-  const primary = offered.primary;
-  // Queue moves need the host's move path; a bridge without it offers none.
-  const more = offered.more.filter((action) => action.kind !== "move" || actions.onMove);
-  const run = (action: TarsCardAction) => {
-    if (action.kind === "fleet") { if (card.fleetTarget) actions.onShowInFleet(card.fleetTarget); return; }
-    if (action.kind === "move") { actions.onMove?.(row, { direction: action.direction }, "click"); return; }
-    if (action.kind === "confirm") actions.onConfirm(action.decision);
-    else actions.onAct(row, action.operation);
-  };
-  if (!primary && !row.taskId && !more.length && !grip) return null;
-  const decision = primary?.kind === "confirm" ? primary : null;
-  const moreLabel = t("shell:tars.tray.moreActions", { title: row.title });
-  return <div className={sx(styles.actions)} role="group" aria-label={t("shell:tars.tray.controls", { title: row.title })} data-tars-card-actions="">
-    {grip}
-    {decision ? <Button variant={TARS_IRREVERSIBLE_OPERATIONS.has(decision.decision.operation) ? "destructive" : "default"} size="sm" disabled={actions.busy}
-      data-tars-action="confirm" data-tars-card-primary="" onClick={() => run(decision)}>{actionLabel(decision)}</Button> : null}
-    {primary && !decision ? <Button variant="ghost" size="xs" disabled={actions.busy}
-      data-tars-action={primary.kind === "control" ? primary.operation : primary.kind} onClick={() => run(primary)}>{actionLabel(primary)}</Button> : null}
-    {row.taskId ? <Button variant="ghost" size="xs" onClick={() => actions.onOpenTask(row)}>{t("shell:tars.openTask")}</Button> : null}
-    {more.length ? <DropdownMenu placement="bottom-end"
-      trigger={<Ellipsis aria-hidden />}
-      // The menu's trigger is also the hint's trigger: the hint names it on hover and keyboard focus.
-      triggerProps={{ render: (props) => <Tooltip content={t("shell:tars.tray.moreActionsHint")}>
-        <Button {...props} variant="ghost" size="icon-xs" aria-label={moreLabel} data-tars-more-actions={row.id} />
-      </Tooltip> }}
-      groups={[{ items: more.map((action) => ({ label: actionLabel(action), tone: action.kind === "control" && action.operation === "cancel" ? "danger" as const : "neutral" as const,
-        disabled: action.kind !== "fleet" && actions.busy, onSelect: () => run(action) })) }]} /> : null}
-  </div>;
-}
-
-/** How many of the run's recent changes a card lists; the timeline has the rest. */
-const CARD_RECENT_LIMIT = 3;
-
-export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel; actions: TarsTrayActions; grip?: ReactNode }) {
-  const { t } = useTranslation(["shell"]);
-  const { row, progress } = card;
-  const terminal = card.lane === "done";
-  const modelSelection = describeTarsModelSelection(row, card.run);
-  // What Stave observed: the turn's activity, how current it is, and the run's last few changes.
-  const { live, now } = useTarsLiveProgress(row, card.run, { recentLimit: CARD_RECENT_LIMIT });
-  const detail = describeTarsResponsibilityDetail(row);
-  const queueWait = describeTarsQueueWait(row);
-  // The run's own words behind a translated line, folded; the report keeps them for blocked work too.
-  const diagnostic = describeTarsResponsibilityDiagnostic(row);
-  const workingChanges = describeTarsWorkingChanges(row);
-  // Who holds it, then what the run reported; an unknown helper count is left out, never "0".
-  const facts = [
-    t(card.owner === "you" ? "shell:tars.tray.owner.you" : "shell:tars.tray.owner.tars"),
-    card.helpers !== null && card.helpers > 0 ? t("shell:tars.tray.helpers", { count: card.helpers }) : null,
-    describeUsageShort(card.usage),
-  ].filter((fact): fact is string => Boolean(fact));
-  const staged = progress && progress.total > 0;
-  const { primary, more } = tarsCardActions(card);
-  const hasActions = Boolean(primary || row.taskId || more.length || grip);
-  // A blocked row in the attention well already says the block's reason; the card does not say it twice.
-  const blockedEntry = card.attention.find((entry) => entry.item.kind === "tars-blocked");
-  const detailInAttention = Boolean(blockedEntry);
-  // A blocked card leads to what is unmet: from the end of the well's Blocked line when there is one, else under the card's lines.
-  const report = (row.state === "blocked" || row.state === "resultReady") && actions.onOpenSide ? <Button variant="ghost" size="xs" data-tars-open-report={row.id}
-    onClick={() => actions.onOpenSide!({ responsibilityId: row.id, kind: "report", focus: { unmet: true } })}>
-    <FileText aria-hidden />{t("shell:tars.tray.openReport")}</Button> : null;
-  // Status first, then what needs the user right above the actions that answer it; identity (owner, branch) is the header's.
-  const body = [
-    row.detailCode === "dailyUsageLimit" || row.detailCode === "runPaused" && row.detailParams?.reason === "usage-limit" ? <DailyLimitSettingsLink key="daily-limit" /> : null,
-    <TarsGoalSummary key="goal" row={row} />,
-    queueWait ? <p key="waiting" className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{queueWait}</p> : null,
-    !staged && !terminal && row.agentRunId && !live.running ? <p key="pending" className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null,
-    tarsLiveLineShows(row, live) ? <TarsLiveLine key="live" row={row} live={live} now={now} /> : null,
-    !terminal && live.recent.length ? <TarsRecentProgress key="recent" entries={live.recent} now={now} title compact /> : null,
-    detail && !detailInAttention ? <p key="detail" className={sx(styles.meta)}>{detail}</p> : null,
-    diagnostic ? <TarsDiagnosticDetail key="diagnostic" text={diagnostic} /> : null,
-    row.reverifyAfter && !terminal ? <p key="reverify" className={sx(styles.meta)}>{t("shell:tars.reverify")}</p> : null,
-    workingChanges ? <p key="workingChanges" className={sx(styles.meta)} data-tars-working-changes={row.workingChanges!.kind}>{workingChanges}</p> : null,
-    card.followUp ? <p key="followUp" className={sx(styles.meta)} data-tars-follow-up-state={card.followUp.status}>
-      {t(`shell:tars.tray.followUp.${card.followUp.status}`, { time: card.followUp.at ? formatDateTime(card.followUp.at) : "" })}</p> : null,
-    // What the work waits on is "now", so it sits in the run object's recessed well (AUI RunMonitor's decision well):
-    // each item says what kind of wait it is on a short label line, then its text across the card's full width.
-    card.attention.length ? <ul key="attention" className={sx(runStyles.well, styles.attention)} data-tars-attention-list={card.attention.length}>
-      {card.attention.map((entry) => {
-        const { label, text } = describeAttention(row, entry);
-        const irreversible = entry.decision && TARS_IRREVERSIBLE_OPERATIONS.has(entry.decision.operation)
-          ? <Badge size="sm" tone="danger" variant="outlined" xstyle={styles.attentionEnd} data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null;
-        // A Tars decision's text already says what Tars proposes, so the row keeps one named mark instead of repeating a label.
-        if (entry.item.kind === "tars-decision") {
-          return <li key={entry.item.id} className={sx(styles.attentionRow, styles.attentionInline)} data-tars-attention={entry.item.kind}>
-            <span className={sx(styles.attentionMarkBox)}><StatusDot tone="warning" size="sm" aria-label={label} xstyle={monitorStyles.attentionMark} data-tars-attention-mark="" /></span>
-            {text ? <span className={sx(styles.attentionText, styles.attentionInlineText)}>{text}</span> : null}
-            {irreversible}
-          </li>;
-        }
-        // One state tag per card: what needs the user reads as a marked label, not a second tag.
-        return <li key={entry.item.id} className={sx(styles.attentionRow)} data-tars-attention={entry.item.kind}>
-          <span className={sx(styles.attentionHead)}>
-            <StatusDot tone="warning" size="sm" xstyle={monitorStyles.attentionMark} />
-            <span className={sx(monitorStyles.attentionLabel)}>{label}</span>
-            {irreversible}
-            {report && entry === blockedEntry ? <span className={sx(styles.attentionEnd)}>{report}</span> : null}
-          </span>
-          {text ? <span className={sx(styles.attentionText)}>{text}</span> : null}
-        </li>;
-      })}
-    </ul> : null,
-    report && !blockedEntry ? <div key="report" className={sx(styles.actions)}>{report}</div> : null,
-    // Follow up selects this work for the next message; nothing is sent.
-    actions.onFollowUp ? <div key="followUpRequest" className={sx(styles.actions)}><Button variant="ghost" size="xs" data-tars-select-work={row.id}
-      onClick={() => actions.onFollowUp!(row)}>{t("shell:tars.selection.followUp")}</Button></div> : null,
-    // Completed work leads to its draft pull request: the link once open, else the button that opens its confirmation card.
-    (row.publication || ((row.state === "completed" || row.state === "resultReady") && actions.onPublish && isTarsPublishable(row))) ? <div key="publish" className={sx(styles.actions)} data-tars-card-publish="">
-      <TarsPublishEntry row={row} onPublish={actions.onPublish} />
-    </div> : null,
-  ].filter(Boolean);
-  // The card is the design system's run object; its footer holds the card's actions, the step count and the timeline link.
-  return <TarsRunMonitor row={row} progress={progress} onOpenSide={actions.onOpenSide} data-tars-card={row.id} data-tars-lane={card.lane}
-    data-tars-progress={staged ? `${progress.finished}/${progress.total}` : undefined}
-    meta={<>
-      <span data-tars-facts="">{facts.join(" · ")}</span>
-      {/* Where the work happens is identity, so it sits with the owner: an identifier in the mono face at the meta line's size. */}
-      {card.branch ? <span className={sx(styles.branch)} data-tars-branch={card.branch} title={card.branch}>
-        <GitBranch aria-hidden className={sx(styles.branchIcon)} /><span className={sx(agentRunStyles.visuallyHidden)}>{t("shell:tars.tray.branch")}</span>
-        <span className={sx(styles.branchName)}>{card.branch}</span></span> : null}
-      {isTarsWorkRunning(row) ? <span data-tars-model-selection="" title={t("shell:tars.tray.modelSelection")}>{modelSelection ?? t("shell:tars.tray.modelPending")}</span> : null}
-    </>} actions={hasActions ? <TarsCardActions card={card} actions={actions} grip={grip} /> : undefined}>
-    {body.length ? body : null}
-  </TarsRunMonitor>;
-}
-
-/**
- * A queued card in the queue's drag-and-drop list. Its grip is the drag
- * handle and, focused, the keyboard handle: Alt+ArrowUp and Alt+ArrowDown
- * do what Do first and Do later in its menu do.
+ * A queued card in the queue's drag-and-drop list. Its grip, leading the
+ * card's state line, is the drag handle and, focused, the keyboard handle:
+ * Alt+ArrowUp and Alt+ArrowDown do what Do first and Do later in its detail's
+ * menu do.
  */
 function TarsQueuedCardItem({ card, actions, sortable }: { card: TarsTrayCardModel; actions: TarsTrayActions; sortable: boolean }) {
   const { t } = useTranslation(["shell"]);
@@ -433,7 +250,7 @@ export function TarsOutputList({ outputs, onOpenSide }: { outputs: readonly Tars
   </ul>;
 }
 
-/** A project disclosure counts work cards (or outputs), independently of attention-row counts. */
+/** A project disclosure counts the work cards (or outputs) under it, as a lane header does. */
 function TarsProjectGroups<T>({ items, pathOf, projects, render }: {
   items: readonly T[]; pathOf: (item: T) => string | null | undefined; projects: readonly TarsTrayProject[]; render: (items: T[]) => ReactNode;
 }) {

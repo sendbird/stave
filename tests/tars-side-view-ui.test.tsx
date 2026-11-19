@@ -4,6 +4,9 @@ import { createElement, isValidElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale, i18n } from "@/i18n";
 import { TarsTrayCard, TarsOutputList, describeTarsTrayCounts, type TarsTrayActions } from "../src/components/tars/TarsTray";
+import { TarsCardPrimaryAction } from "../src/components/tars/TarsWorkCard";
+import { tarsCardPrimary, tarsCardStatus } from "../src/lib/tars/card-view";
+import type { TarsTrayCard as TarsTrayCardModel } from "../src/lib/tars/tray-model";
 import { TarsFlowStageNode, tarsFlowStageTarget } from "../src/components/tars/TarsFlowBlock";
 import { TarsBlockedNextSteps } from "../src/components/tars/TarsBlockedNextSteps";
 import { TarsReportPanel, describeTarsCriterionSource, describeTarsEvidenceRevision } from "../src/components/tars/TarsReportPanel";
@@ -52,8 +55,15 @@ function actionsRecording() {
   return { actions, opened, acted, fleet };
 }
 
+/** The card's one action as the card renders it, so a test can press it without a DOM. */
+function primaryOf(card: TarsTrayCardModel, actions: TarsTrayActions) {
+  const status = tarsCardStatus(card);
+  const primary = tarsCardPrimary(card, status, { answer: Boolean(actions.onAnswer), report: Boolean(actions.onOpenSide) })!;
+  return capture(() => TarsCardPrimaryAction({ row: card.row, primary, status, actions }));
+}
+
 describe("blocked work navigation (A6)", () => {
-  test("a blocked tray card shows its reason and opens the report on its unmet criteria", async () => {
+  test("a blocked tray card says its reason and its one action opens the report on its unmet criteria", async () => {
     await applyAppLocale("en");
     const f = fixtures();
     const tray = buildTarsTray({ responsibilities: f.responsibilities, attentionItems: [], runs: f.runs });
@@ -61,13 +71,14 @@ describe("blocked work navigation (A6)", () => {
     const { actions, opened } = actionsRecording();
     const view = capture(() => TarsTrayCard({ card, actions }));
     expect(view.html).toContain("Stopped with some completion criteria unmet. Open the report to see what is missing.");
-    view.press("Open report");
+    primaryOf(card, actions).press("Open report");
     expect(opened).toEqual([{ responsibilityId: "search", kind: "report", focus: { unmet: true } }]);
+    expect(view.html).toContain('data-tars-card-primary="openReport"');
     // Without a side view (Fleet's own surfaces), the card has no report link.
     expect(renderToStaticMarkup(createElement(TarsTrayCard, { card, actions: { ...actions, onOpenSide: undefined } }))).not.toContain("data-tars-open-report");
   });
 
-  test("with a Blocked row in its well, the card says the reason once and opens the report from the end of that row", async () => {
+  test("with a Blocked row in its well, the reason is the card's sentence and the well's line, and the report opens from the card's one action only", async () => {
     await applyAppLocale("en");
     const f = fixtures();
     const search = f.responsibilities.find((row) => row.id === "search")!;
@@ -76,10 +87,14 @@ describe("blocked work navigation (A6)", () => {
     const card = Object.values(tray.lanes).flat().find((entry) => entry.row.id === "search")!;
     const { actions, opened } = actionsRecording();
     const view = capture(() => TarsTrayCard({ card, actions }));
-    expect(view.html.split("Stopped with some completion criteria unmet. Open the report to see what is missing.").length - 1).toBe(1);
-    expect(view.html).toMatch(/data-tars-attention="tars-blocked"(?:(?!<\/li>).)*data-tars-open-report="search"/);
+    // Once as the folded card's sentence (and its hover title), once in the detail's well; never as a third plain line.
+    const reason = "Stopped with some completion criteria unmet. Open the report to see what is missing.";
+    const detail = view.html.slice(view.html.indexOf("data-tars-card-detail"));
+    expect(detail.split(reason).length - 1).toBe(1);
+    expect(detail).toMatch(new RegExp(`data-tars-attention="tars-blocked"(?:(?!</li>).)*${reason.replace(/[.]/g, "\\.")}`));
     expect(view.html.split("data-tars-open-report=").length - 1).toBe(1);
-    view.press("Open report");
+    expect(view.html).toMatch(/data-tars-card-primary="openReport"[^>]*data-tars-open-report="search"/);
+    primaryOf(card, actions).press("Open report");
     expect(opened).toEqual([{ responsibilityId: "search", kind: "report", focus: { unmet: true } }]);
   });
 
