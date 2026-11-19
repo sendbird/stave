@@ -881,7 +881,11 @@ describe("subagent progress integration", () => {
     expect(part2.progressMessages).toBeUndefined();
   });
 
-  test("appends to last active Agent when toolUseId is not provided", () => {
+  test.each([
+    { type: "subagent_progress", content: "Compiling" },
+    { type: "subagent_progress", toolUseId: "unknown", content: "Compiling" },
+    { type: "subagent_progress", toolUseId: "toolu_2", binding: "guess", content: "Compiling" },
+  ] as const)("keeps uncertain progress off both active agents (%j)", (event) => {
     const message = createMessage({
       parts: [
         {
@@ -889,7 +893,7 @@ describe("subagent progress integration", () => {
           toolUseId: "toolu_1",
           toolName: "agent",
           input: "{}",
-          state: "output-available",
+          state: "input-available",
         },
         {
           type: "tool_use",
@@ -902,12 +906,13 @@ describe("subagent progress integration", () => {
     });
     const updated = appendProviderEventToAssistant({
       message,
-      event: { type: "subagent_progress", content: "Compiling" },
+      event,
     });
     const part1 = updated.parts[0] as import("@/types/chat").ToolUsePart;
     const part2 = updated.parts[1] as import("@/types/chat").ToolUsePart;
     expect(part1.progressMessages).toBeUndefined();
-    expect(part2.progressMessages).toEqual(["Compiling"]);
+    expect(part2.progressMessages).toBeUndefined();
+    expect(updated.parts[2]).toEqual({ type: "system_event", content: "Subagent progress: Compiling" });
   });
 
   test("accumulates multiple progress messages on the same agent", () => {
@@ -1005,7 +1010,7 @@ describe("subagent progress integration", () => {
     });
   });
 
-  test("migrates legacy 'Subagent progress:' system events into Agent tool parts", () => {
+  test("keeps legacy progress with no owner unattributed", () => {
     const message = createMessage({
       parts: [
         {
@@ -1025,7 +1030,8 @@ describe("subagent progress integration", () => {
       },
     });
     const part = updated.parts[0] as import("@/types/chat").ToolUsePart;
-    expect(part.progressMessages).toEqual(["Reading CONVENTIONS.md"]);
+    expect(part.progressMessages).toBeUndefined();
+    expect(updated.parts[1]?.type).toBe("system_event");
   });
 });
 

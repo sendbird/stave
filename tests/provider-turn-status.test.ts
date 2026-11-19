@@ -812,6 +812,10 @@ describe("provider turn status helpers", () => {
           content: "Reading session resolver",
         },
         {
+          type: "subagent_progress", toolUseId: "agent-1", binding: "guess",
+          content: "Unrelated worker",
+        },
+        {
           type: "tool_progress",
           toolUseId: "agent-1",
           toolName: "Agent",

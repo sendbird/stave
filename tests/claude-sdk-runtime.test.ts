@@ -2233,7 +2233,7 @@ describe("resolveClaudeDisallowedTools", () => {
 });
 
 describe("SubagentProgressTracker", () => {
-  test("resolves toolUseId from tracked Agent tool events (positional fallback)", () => {
+  test("requires an identity even with one pending Agent", () => {
     const tracker = new SubagentProgressTracker();
     tracker.trackEvent({
       type: "tool",
@@ -2242,7 +2242,7 @@ describe("SubagentProgressTracker", () => {
       input: "{}",
       state: "input-streaming",
     });
-    expect(tracker.resolveToolUseId({})).toBe("toolu_1");
+    expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
   test("resolves progress from a tracked legacy Task tool event", () => {
@@ -2259,7 +2259,7 @@ describe("SubagentProgressTracker", () => {
       input: { agent_id: "legacy-task", tool_use_id: "toolu_task" },
     });
 
-    expect(tracker.resolveToolUseId({})).toBe("toolu_task");
+    expect(tracker.resolveToolUseId({})).toBeUndefined();
     expect(tracker.resolveToolUseId({ agent_id: "legacy-task" })).toBe(
       "toolu_task",
     );
@@ -2285,14 +2285,14 @@ describe("SubagentProgressTracker", () => {
     expect(tracker.resolveToolUseId({ tool_use_id: "toolu_agent" })).toBe(
       "toolu_agent",
     );
-    expect(tracker.resolveToolUseId({})).toBe("toolu_task");
+    expect(tracker.resolveToolUseId({})).toBeUndefined();
 
     tracker.trackEvent({
       type: "tool_result",
       tool_use_id: "toolu_task",
       output: "done",
     });
-    expect(tracker.resolveToolUseId({})).toBe("toolu_agent");
+    expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
   test("does not revive completed subagent work from late progress", () => {
@@ -2326,7 +2326,7 @@ describe("SubagentProgressTracker", () => {
     expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
-  test("returns the most recent active Agent when multiple are pending", () => {
+  test("leaves unidentified progress unassigned when multiple agents are pending", () => {
     const tracker = new SubagentProgressTracker();
     tracker.trackEvent({
       type: "tool",
@@ -2342,7 +2342,7 @@ describe("SubagentProgressTracker", () => {
       input: "{}",
       state: "input-streaming",
     });
-    expect(tracker.resolveToolUseId({})).toBe("toolu_2");
+    expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
   test("removes completed agents from tracking", () => {
@@ -2366,7 +2366,7 @@ describe("SubagentProgressTracker", () => {
       tool_use_id: "toolu_2",
       output: "done",
     });
-    expect(tracker.resolveToolUseId({})).toBe("toolu_1");
+    expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
   test("ignores non-agent tool events", () => {
@@ -2413,6 +2413,11 @@ describe("SubagentProgressTracker", () => {
     expect(tracker.resolveToolUseId({ agent_id: "A" })).toBe("toolu_1");
     // Progress from agent B resolves to toolu_2
     expect(tracker.resolveToolUseId({ agent_id: "B" })).toBe("toolu_2");
+    tracker.processRawMessage({
+      type: "hook_started", input: { agent_id: "A", tool_use_id: "toolu_2" },
+    });
+    expect(tracker.resolveToolUseId({ agent_id: "A" })).toBeUndefined();
+
   });
 
   test("uses direct tool_use_id on progress message when available", () => {
@@ -2443,11 +2448,7 @@ describe("SubagentProgressTracker", () => {
     expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
-  test("a positional-fallback match crosses the event boundary as a guess", () => {
-    // `resolvedBy` does not travel on the wire, so without the binding marker
-    // a guessed tool_use_id emitted next to the message's real task_id reads
-    // downstream as an authoritative spawn↔identity pair — which is exactly
-    // how the work graph cross-wired two concurrent Tasks.
+  test("an unmatched task id crosses the event boundary without a guessed call", () => {
     const tracker = new SubagentProgressTracker();
     tracker.trackEvent({
       type: "tool",
@@ -2464,16 +2465,15 @@ describe("SubagentProgressTracker", () => {
       state: "input-streaming",
     });
 
-    const guessed = buildClaudeSubagentProgressEvent({
+    const uncorrelated = buildClaudeSubagentProgressEvent({
       summary: "Reading callers",
       resolution: tracker.resolveProgress({ task_id: "agent_a" }),
     });
-    expect(guessed).toEqual({
+    expect(uncorrelated).toEqual({
       type: "subagent_progress",
-      toolUseId: "toolu_b",
+      toolUseId: undefined,
       content: "Reading callers",
       agentId: "agent_a",
-      binding: "guess",
     });
 
     const direct = buildClaudeSubagentProgressEvent({

@@ -863,7 +863,7 @@ function applyTurnWorkEvents(args: {
       continue;
     }
 
-    if (event.type === "subagent_progress" && event.toolUseId) {
+    if (event.type === "subagent_progress" && event.toolUseId && event.binding !== "guess") {
       const currentItem = workItemsById[event.toolUseId];
       // The work graph owns the complete agent roster. If this flat-tail row
       // was pruned (or never existed), recreating it from progress alone loses

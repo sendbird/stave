@@ -200,6 +200,10 @@ export function createCodexWorkerActivityMapper(args: {
     if (previousToolUseId && previousToolUseId !== toolUseId) {
       childThreadIdByToolId.delete(previousToolUseId);
     }
+    const previousChildId = childThreadIdByToolId.get(toolUseId);
+    if (previousChildId && previousChildId !== childThreadId) {
+      toolIdByChildThreadId.delete(previousChildId);
+    }
     toolIdByChildThreadId.set(childThreadId, toolUseId);
     childThreadIdByToolId.set(toolUseId, childThreadId);
   }
@@ -225,8 +229,9 @@ export function createCodexWorkerActivityMapper(args: {
   function buildCollabIdentity(item: CollabToolCallItem) {
     const newThreadId =
       typeof item.newThreadId === "string" ? item.newThreadId.trim() : "";
-    const spawnedThreadId = item.tool === "spawnAgent" || item.tool === "spawn_agent"
-      ? item.receiverThreadIds?.[0]?.trim() ?? "" : "";
+    const isSpawn = item.tool === "spawnAgent" || item.tool === "spawn_agent";
+    const spawnedThreadId = isSpawn && item.receiverThreadIds?.length === 1
+      ? item.receiverThreadIds[0]?.trim() ?? "" : "";
     return { agentId: newThreadId || spawnedThreadId, parentToolUseId: "" };
   }
 

@@ -204,12 +204,6 @@ function createUserInputPart(args: {
   });
 }
 
-function isAgentToolPart(part: MessagePart): part is ToolUsePart {
-  return (
-    part.type === "tool_use" && part.toolName.trim().toLowerCase() === "agent"
-  );
-}
-
 function finalizeTrailingThinkingPart(args: {
   parts: MessagePart[];
   completedAt?: string;
@@ -270,14 +264,6 @@ function upsertDelegatedUsage(args: {
   return next;
 }
 
-/**
- * Append a progress message to the matching Agent tool_use part.
- *
- * Resolution:
- *  1. If `toolUseId` is provided, find the exact ToolUsePart.
- *  2. Otherwise, find the last Agent tool_use that has not completed yet.
- *  3. If no active Agent exists, fall back to the last Agent in the array.
- */
 function appendSubagentProgressToPart(args: {
   parts: MessagePart[];
   toolUseId: string | undefined;
@@ -285,38 +271,9 @@ function appendSubagentProgressToPart(args: {
 }): MessagePart[] {
   const { parts, toolUseId, content } = args;
 
-  let targetIndex = -1;
-
-  // 1. Try exact match by toolUseId
-  if (toolUseId) {
-    targetIndex = parts.findIndex(
-      (p) => p.type === "tool_use" && p.toolUseId === toolUseId,
-    );
-  }
-
-  // 2. Fallback: last active (non-completed) Agent tool_use
-  if (targetIndex === -1) {
-    for (let i = parts.length - 1; i >= 0; i -= 1) {
-      const p = parts[i]!;
-      if (
-        isAgentToolPart(p) &&
-        (p.state === "input-streaming" || p.state === "input-available")
-      ) {
-        targetIndex = i;
-        break;
-      }
-    }
-  }
-
-  // 3. Fallback: last Agent tool_use regardless of state
-  if (targetIndex === -1) {
-    for (let i = parts.length - 1; i >= 0; i -= 1) {
-      if (isAgentToolPart(parts[i]!)) {
-        targetIndex = i;
-        break;
-      }
-    }
-  }
+  const targetIndex = toolUseId ? parts.findIndex(
+    (part) => part.type === "tool_use" && part.toolUseId === toolUseId,
+  ) : -1;
 
   if (targetIndex === -1) {
     // No Agent tool_use found — degrade to a standalone system_event part.
@@ -697,30 +654,10 @@ function appendProviderEventContentToAssistant(args: {
     const { toolUseId, content } = args.event;
     const updatedParts = appendSubagentProgressToPart({
       parts: message.parts,
-      toolUseId,
+      toolUseId: args.event.binding === "guess" ? undefined : toolUseId,
       content,
     });
     return { ...message, parts: updatedParts, isStreaming: true };
-  }
-
-  // Legacy: system events carrying "Subagent progress:" prefix from older stored
-  // events are back-compat migrated into the matching Agent tool part.
-  if (
-    args.event.type === "system" &&
-    args.event.content.trimStart().startsWith("Subagent progress:")
-  ) {
-    const stripped = args.event.content
-      .trimStart()
-      .slice("Subagent progress:".length)
-      .trim();
-    if (stripped) {
-      const updatedParts = appendSubagentProgressToPart({
-        parts: message.parts,
-        toolUseId: undefined,
-        content: stripped,
-      });
-      return { ...message, parts: updatedParts, isStreaming: true };
-    }
   }
 
   if (args.event.type === "tool_progress") {
@@ -1146,7 +1083,7 @@ export function replayProviderEventsToTaskState(args: {
 
     // A tool started before a steer still owns its later updates and result.
     const toolUseId = event.type === "tool_result" ? event.tool_use_id
-      : event.type === "tool_progress" || event.type === "tool" || event.type === "subagent_progress" ? event.toolUseId : undefined;
+      : event.type === "tool_progress" || event.type === "tool" || (event.type === "subagent_progress" && event.binding !== "guess") ? event.toolUseId : undefined;
     const reverseOwnerIndex = toolUseId ? [...current].reverse().findIndex((message) =>
       message.role === "assistant" && (!args.turnId || message.turnId === args.turnId) &&
       message.parts.some((part) => part.type === "tool_use" && part.toolUseId === toolUseId),

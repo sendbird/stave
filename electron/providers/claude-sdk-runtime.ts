@@ -1521,44 +1521,21 @@ function isClaudeSubagentToolName(name: string): boolean {
   return normalizedToolName === "agent" || normalizedToolName === "task";
 }
 
-/**
- * How a task_progress message was matched to a subagent tool call.
- *
- * `positional_fallback` is a heuristic guess, not an identity: consumers must
- * not promote it into an id the provider never reported.
- */
-export type SubagentProgressResolvedBy =
-  "tool_use_id" | "agent_id" | "positional_fallback" | "unresolved";
+export type SubagentProgressResolvedBy = "tool_use_id" | "agent_id" | "unresolved";
 
 export type SubagentProgressResolution = {
   /** Subagent tool_use_id the progress belongs to, when one could be found. */
   toolUseId?: string;
-  /**
-   * Identity of the subagent this progress is *about*, taken verbatim from the
-   * message's `task_id`. Directly reported by the provider, so it survives even
-   * a positional-fallback tool_use_id match.
-   */
+  /** Subagent the SDK reports in task_id. */
   agentId?: string;
-  /**
-   * Identity of the subagent the correlated tool call ran *inside*, from hook
-   * metadata. Points up, not down. Never set from a positional-fallback match,
-   * because attaching hook identity to a guessed tool_use_id would invent an
-   * association the provider never reported.
-   */
+  /** Hook-reported agent inside which the tool call ran. */
   ownerAgentId?: string;
   resolvedBy: SubagentProgressResolvedBy;
 };
 
 export class SubagentProgressTracker {
-  /**
-   * Hook `agent_id` → toolUseId. Claude's hook `agent_id` names the subagent a
-   * tool call ran *inside*, so this is an owner relationship, not a spawn one.
-   */
-  private readonly agentIdToToolUseId = new Map<string, string>();
-  /** Reverse of `agentIdToToolUseId`: toolUseId → owning hook `agent_id`. */
   private readonly toolUseIdToAgentId = new Map<string, string>();
-  /** Ordered list of subagent tool_use_ids that have not received a result. */
-  private readonly pendingSubagentToolUseIds: string[] = [];
+  private readonly pendingSubagentToolUseIds = new Set<string>();
 
   /**
    * Call for every BridgeEvent that is about to be emitted so the tracker can
@@ -1570,35 +1547,11 @@ export class SubagentProgressTracker {
       isClaudeSubagentToolName(event.toolName) &&
       event.toolUseId
     ) {
-      if (!this.pendingSubagentToolUseIds.includes(event.toolUseId)) {
-        this.pendingSubagentToolUseIds.push(event.toolUseId);
-      }
+      this.pendingSubagentToolUseIds.add(event.toolUseId);
     }
     if (event.type === "tool_result") {
-      for (
-        let index = this.pendingSubagentToolUseIds.length - 1;
-        index >= 0;
-        index -= 1
-      ) {
-        if (this.pendingSubagentToolUseIds[index] === event.tool_use_id) {
-          this.pendingSubagentToolUseIds.splice(index, 1);
-        }
-      }
-      for (const [agentId, toolUseId] of this.agentIdToToolUseId) {
-        if (toolUseId === event.tool_use_id) {
-          this.forgetAgentId(agentId);
-        }
-      }
+      this.pendingSubagentToolUseIds.delete(event.tool_use_id);
       this.toolUseIdToAgentId.delete(event.tool_use_id);
-    }
-  }
-
-  /** Drop both directions of an agent_id association. */
-  private forgetAgentId(agentId: string): void {
-    const toolUseId = this.agentIdToToolUseId.get(agentId);
-    this.agentIdToToolUseId.delete(agentId);
-    if (toolUseId && this.toolUseIdToAgentId.get(toolUseId) === agentId) {
-      this.toolUseIdToAgentId.delete(toolUseId);
     }
   }
 
@@ -1628,7 +1581,6 @@ export class SubagentProgressTracker {
       extractStringField(input, "tool_use_id");
 
     if (agentId && toolUseId) {
-      this.agentIdToToolUseId.set(agentId, toolUseId);
       this.toolUseIdToAgentId.set(toolUseId, agentId);
     }
   }
@@ -1646,21 +1598,6 @@ export class SubagentProgressTracker {
     return this.toolUseIdToAgentId.get(toolUseId);
   }
 
-  /**
-   * Given a raw task_progress SDK message, determine which subagent tool_use_id
-   * the progress belongs to, and how confidently.
-   *
-   * Resolution order:
-   *  1. Direct `tool_use_id` field on the progress message
-   *  2. `agent_id` field mapped through hook metadata
-   *  3. Most recently started active Agent or Task (positional heuristic)
-   *
-   * `agentId` comes from the message's own `task_id` and is independent of that
-   * order: it is directly reported, so it stands even behind a positional
-   * match. `ownerAgentId` is hook-derived and only accompanies 1 and 2, because
-   * the positional heuristic is a guess and must not be laundered into an
-   * identity.
-   */
   resolveProgress(
     progressMessage: Record<string, unknown>,
   ): SubagentProgressResolution {
@@ -1671,7 +1608,7 @@ export class SubagentProgressTracker {
     const about = taskAgentId ? { agentId: taskAgentId } : {};
     if (
       directToolUseId &&
-      this.pendingSubagentToolUseIds.includes(directToolUseId)
+      this.pendingSubagentToolUseIds.has(directToolUseId)
     ) {
       const ownerAgentId =
         messageAgentId ?? this.toolUseIdToAgentId.get(directToolUseId);
@@ -1683,29 +1620,15 @@ export class SubagentProgressTracker {
       };
     }
 
-    if (messageAgentId) {
-      const mapped = this.agentIdToToolUseId.get(messageAgentId);
-      if (mapped && this.pendingSubagentToolUseIds.includes(mapped)) {
-        return {
-          toolUseId: mapped,
-          ...about,
-          ownerAgentId: messageAgentId,
-          resolvedBy: "agent_id",
-        };
+    if (!directToolUseId && messageAgentId) {
+      const matches = [...this.pendingSubagentToolUseIds].filter(
+        (id) => this.toolUseIdToAgentId.get(id) === messageAgentId,
+      );
+      if (matches.length === 1) {
+        return { toolUseId: matches[0], ...about, ownerAgentId: messageAgentId, resolvedBy: "agent_id" };
       }
-      this.forgetAgentId(messageAgentId);
     }
-
-    // Fallback: last pending Agent or legacy Task tool_use_id. Positional, so
-    // it never yields an ownerAgentId.
-    const fallbackToolUseId = this.pendingSubagentToolUseIds.at(-1);
-    return fallbackToolUseId
-      ? {
-          toolUseId: fallbackToolUseId,
-          ...about,
-          resolvedBy: "positional_fallback",
-        }
-      : { ...about, resolvedBy: "unresolved" };
+    return { ...about, resolvedBy: "unresolved" };
   }
 
   /**
@@ -1719,19 +1642,6 @@ export class SubagentProgressTracker {
   }
 }
 
-/**
- * Build the normalized `subagent_progress` event for a resolved task_progress
- * message. Each id is carried only when the provider actually reported it:
- * `agentId` from the message's `task_id`, `ownerAgentId` from hook metadata for
- * a non-guessed tool_use_id match.
- *
- * The resolution's confidence crosses the event boundary as `binding`, because
- * withholding `ownerAgentId` alone is not enough: a positional-fallback
- * `toolUseId` emitted next to the message's real `task_id` still reads
- * downstream as "this call spawned this agent", and the work graph would bind
- * the guess permanently. `binding: "guess"` lets consumers route the text
- * without ever treating the correlation as identity.
- */
 export function buildClaudeSubagentProgressEvent(args: {
   summary: string;
   resolution: SubagentProgressResolution;
@@ -1744,14 +1654,7 @@ export function buildClaudeSubagentProgressEvent(args: {
     ...(args.resolution.ownerAgentId
       ? { ownerAgentId: args.resolution.ownerAgentId }
       : {}),
-    ...(args.resolution.toolUseId
-      ? {
-          binding:
-            args.resolution.resolvedBy === "positional_fallback"
-              ? ("guess" as const)
-              : ("authoritative" as const),
-        }
-      : {}),
+    ...(args.resolution.toolUseId ? { binding: "authoritative" as const } : {}),
   };
 }
 
@@ -3933,9 +3836,6 @@ export async function streamClaudeWithSdk(
       if (sysMsg.type === "system" && sysMsg.subtype === "task_progress") {
         const summary = sysMsg.summary?.trim();
         if (summary) {
-          // agentId comes from the message's own task_id; ownerAgentId is
-          // omitted when the tool_use_id came from the positional fallback,
-          // since a guessed correlation must not become an identity.
           const progressEvent = buildClaudeSubagentProgressEvent({
             summary,
             resolution: subagentTracker.resolveProgress(
