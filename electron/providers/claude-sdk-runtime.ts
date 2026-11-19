@@ -1565,7 +1565,8 @@ function parseToolInputRecord(input: string): Record<string, unknown> | null {
  * description) is matched by the strongest name it carries, against every
  * subagent of this turn, including finished and backgrounded ones. A name that
  * matches no call, or matches a finished call, stays unassigned. Only progress
- * that names nothing may go to the one running subagent.
+ * that names nothing may go to the one running subagent. Progress that names a
+ * run (`run_id`) also must come from the run its call ran as.
  */
 export class SubagentProgressTracker {
   private readonly toolUseIdToAgentId = new Map<string, string>();
@@ -1573,6 +1574,8 @@ export class SubagentProgressTracker {
   /** Every id a call was named by, kept after it finishes: tool_use_id → ids. */
   private readonly taskIdsByToolUseId = new Map<string, Set<string>>();
   private readonly agentIdsByToolUseId = new Map<string, Set<string>>();
+  /** The run a call's subagent ran as: a resumed subagent keeps its task id and gets a new run id. */
+  private readonly runIdsByToolUseId = new Map<string, Set<string>>();
 
   /**
    * Call for every BridgeEvent that is about to be emitted so the tracker can
@@ -1641,8 +1644,10 @@ export class SubagentProgressTracker {
     const taskId = extractStringField(message, "task_id");
     if (!taskId) return;
     const toolUseId = extractStringField(message, "tool_use_id");
+    const runId = extractStringField(message, "run_id");
     if (toolUseId) addId(this.taskIdsByToolUseId, toolUseId, taskId);
-    const [owner] = this.named(this.taskIdsByToolUseId, taskId);
+    if (toolUseId && runId) addId(this.runIdsByToolUseId, toolUseId, runId);
+    const [owner] = this.ofRun(this.named(this.taskIdsByToolUseId, taskId), runId);
     const subagent = owner ? this.subagents.get(owner) : undefined;
     if (!subagent) return;
     const patch = typeof message.patch === "object" && message.patch !== null
@@ -1676,6 +1681,7 @@ export class SubagentProgressTracker {
     const taskAgentId = extractStringField(progressMessage, "task_id");
     const subagentType = extractStringField(progressMessage, "subagent_type");
     const description = extractStringField(progressMessage, "description");
+    const runId = extractStringField(progressMessage, "run_id");
     const about = taskAgentId ? { agentId: taskAgentId } : {};
     const unresolved: SubagentProgressResolution = { ...about, resolvedBy: "unresolved" };
 
@@ -1687,20 +1693,21 @@ export class SubagentProgressTracker {
       candidates = this.subagents.has(directToolUseId) ? [directToolUseId] : [];
       resolvedBy = "tool_use_id";
       if (taskAgentId && candidates.length === 1) addId(this.taskIdsByToolUseId, directToolUseId, taskAgentId);
+      if (runId && candidates.length === 1) addId(this.runIdsByToolUseId, directToolUseId, runId);
     } else if (messageAgentId) {
-      candidates = this.named(this.agentIdsByToolUseId, messageAgentId);
+      candidates = this.ofRun(this.named(this.agentIdsByToolUseId, messageAgentId), runId);
       resolvedBy = "agent_id";
     } else if (taskAgentId) {
-      candidates = this.named(this.taskIdsByToolUseId, taskAgentId);
+      candidates = this.ofRun(this.named(this.taskIdsByToolUseId, taskAgentId), runId);
       resolvedBy = "task_id";
     } else if (subagentType || description) {
-      candidates = this.matching((subagent) =>
+      candidates = this.ofRun(this.matching((subagent) =>
         (!subagentType || subagent.subagentType === subagentType) &&
-        (!description || subagent.description === description));
+        (!description || subagent.description === description)), runId);
       resolvedBy = "subagent";
     } else {
       // Names nothing: only the one running subagent can own it.
-      const running = this.matching((subagent) => subagent.pending);
+      const running = this.ofRun(this.matching((subagent) => subagent.pending), runId);
       return running.length === 1 ? { toolUseId: running[0], resolvedBy: "only_pending" } : unresolved;
     }
 
@@ -1722,6 +1729,14 @@ export class SubagentProgressTracker {
   /** Subagent calls the id was reported for. */
   private named(idsByToolUseId: Map<string, Set<string>>, id: string): string[] {
     return this.matching((_, toolUseId) => idsByToolUseId.get(toolUseId)?.has(id) === true);
+  }
+
+  /**
+   * A frame that names a run belongs only to a call that ran as that run, so an
+   * earlier run's late frame never reaches the resumed run's call.
+   */
+  private ofRun(toolUseIds: string[], runId: string | undefined): string[] {
+    return runId ? toolUseIds.filter((toolUseId) => this.runIdsByToolUseId.get(toolUseId)?.has(runId) === true) : toolUseIds;
   }
 
   private matching(predicate: (subagent: TrackedSubagent, toolUseId: string) => boolean): string[] {
