@@ -6,7 +6,7 @@ import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import {
   tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
-  tarsReportedPullRequestUrls, tarsUserRunObservation, isTarsWorkPullRequest, type TarsUserPullRequest,
+  tarsPullRequestReachesGoal, tarsReportedPullRequestUrls, tarsUserRunObservation, isTarsWorkPullRequest, type TarsUserPullRequest,
 } from "./tars-execution";
 import { DelegatedAgentRunAuthoritySchema } from "../../src/lib/agent-runs/delegated-run";
 import { TARS_EXECUTION_AGENT_ID, TARS_OWNER_CALLABLE_AGENT_IDS, tarsAgentPublishes, tarsOwnerAgent } from "../../src/lib/tars/agents";
@@ -39,12 +39,11 @@ import { z } from "zod";
 
 /**
  * How long a pull request read for the user's run stands before the next look,
- * unless it found the pull request merged. With at most three links read per
- * look, that is at most 36 `gh` calls per user run per hour.
+ * unless it found the pull request merged. With at most ten pull requests
+ * read per look (`tarsReportedPullRequestUrls`), that is at most 120 `gh`
+ * calls per user run per hour; a look usually ends at its first.
  */
 const USER_PULL_REQUEST_RECHECK_MS = 5 * 60_000;
-/** Which of several work pull requests the user's run reports counts: merged, then open, then any other. */
-const pullRequestRank = (state: string) => (state === "MERGED" ? 2 : state === "OPEN" ? 1 : 0);
 
 export function createHostTarsRuntime(args: {
   agentRuns: AgentRunRuntime;
@@ -83,13 +82,14 @@ export function createHostTarsRuntime(args: {
     let found: TarsUserPullRequest | null = null;
     const urls = tarsReportedPullRequestUrls(detail as Parameters<typeof tarsReportedPullRequestUrls>[0]);
     const origin = execution?.branch && base && urls.length ? await workBranch.origin(execution.path).catch(() => null) : null;
-    // Every linked candidate is read (at most three `gh` calls per look), so a
-    // closed one never hides the open or merged one after it; merged ranks first.
+    // Candidates are read newest mention first, one `gh` call each and at most
+    // ten per look, until one is the work's pull request in a state its goal
+    // asks for: a closed or unrelated one never hides the valid one after it.
     if (execution?.branch && base && origin) for (const url of urls) {
       const read = await readPullRequest(execution.path, url).catch(() => null);
-      if (!read || (found && pullRequestRank(read.state) <= pullRequestRank(found.state))) continue;
+      if (!read || !tarsPullRequestReachesGoal(row.completionGoal, read.state)) continue;
       if (!isTarsWorkPullRequest(read, { origin, branch: execution.branch, base })) continue;
-      if (await workBranch.contains(execution.path, execution.branch, read.headRefOid).catch(() => false)) found = read;
+      if (await workBranch.contains(execution.path, execution.branch, read.headRefOid).catch(() => false)) { found = read; break; }
     }
     userPullRequests.set(detail.agentRun.id, { found, at: Date.now() });
     return found;

@@ -371,12 +371,30 @@ describe("the host observes the user's run in the delegated task", () => {
     const merge = hostScenario({ goal: "merge", pullRequests: [closed, workPullRequest({ state: "OPEN", number: 1002 }),
       workPullRequest({ number: 1003, url: "https://github.com/example/repo/pull/1003", state: "MERGED" })] });
     expect(merge.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1003 } });
-    // At most three links are read on GitHub per look.
-    expect(merge.reads.filter((read: string) => read.includes("/pull/"))).toHaveLength(3);
+    // The newest mention is read first and the first valid one ends the look.
+    expect(merge.reads.filter((read: string) => read.includes("/pull/"))).toEqual(["/tmp/tars-shared-repository/.stave/execution https://github.com/example/repo/pull/1003"]);
     const open = hostScenario({ goal: "pullRequest", pullRequests: [closed, workPullRequest()] });
     expect(open.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1002 } });
     // Only closed ones: the work stays open.
     expect(hostScenario({ goal: "pullRequest", pullRequests: [closed] }).ended).toMatchObject({ state: "blocked", detailCode: "userRunEnded" });
+  });
+  test("up to ten distinct pull requests are read per look, newest mention first, until one is valid", () => {
+    const other = (number: number) => workPullRequest({ number, url: `https://github.com/example/repo/pull/${number}`, state: "CLOSED" });
+    const merged = workPullRequest({ number: 1003, url: "https://github.com/example/repo/pull/1003", state: "MERGED" });
+    const gh = (steps: { reads: string[] }) => steps.reads.filter((read) => read.includes("/pull/")).map((read) => Number(read.split("/pull/")[1]));
+    // The valid merged pull request is the fourth link.
+    const fourth = hostScenario({ goal: "merge", pullRequests: [other(1), other(2), other(3), merged] });
+    expect(fourth.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1003 } });
+    expect(gh(fourth)).toEqual([1003]);
+    // The oldest of four, and written three ways: every other one is read once before it.
+    const oldest = hostScenario({ goal: "merge", pullRequests: [merged, other(1), other(2), other(3),
+      { ...other(3), url: "https://github.com/Example/Repo/pull/3/files" }, { ...other(3), url: "https://github.com/example/repo/pull/3/" }] });
+    expect(oldest.ended).toMatchObject({ state: "completed", detailCode: "finishedByUser", detailParams: { pullRequest: 1003 } });
+    expect(gh(oldest)).toEqual([3, 2, 1, 1003]);
+    // An eleventh distinct candidate is not read: at most ten `gh` calls per look.
+    const beyond = hostScenario({ goal: "merge", pullRequests: [merged, ...Array.from({ length: 10 }, (_, index) => other(index + 1))] });
+    expect(beyond.ended).toMatchObject({ state: "blocked", detailCode: "userRunEnded" });
+    expect(gh(beyond)).toEqual([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
   });
   test("an open pull request is read again for a merge goal, and only every few minutes", () => {
     const merged = workPullRequest({ state: "MERGED" });

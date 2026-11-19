@@ -397,14 +397,26 @@ export interface TarsUserPullRequest {
   headRepositoryOwner: { login: string } | null;
 }
 
-/** At most this many pull request links of one report are read on GitHub per look. */
-const TARS_REPORTED_PULL_REQUESTS_MAX = 3;
+/** At most this many pull requests of one report are read on GitHub per look: one `gh` call each. */
+const TARS_REPORTED_PULL_REQUESTS_MAX = 10;
 
-/** A pull request link in a run's report: candidates the host reads on GitHub, never evidence by themselves. */
+/**
+ * The pull requests a run's report links, newest mention first: candidates the
+ * host reads on GitHub, never evidence by themselves. Each is listed once,
+ * however its link is written (letter case, or a suffix such as `/files`).
+ */
 export function tarsReportedPullRequestUrls(detail: Pick<AgentRunDetail, "report">): string[] {
-  return [...new Set((detail.report?.links ?? []).map((link) => link.url).filter((url) => /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?:[/?#]|$)/.test(url)))]
-    .slice(0, TARS_REPORTED_PULL_REQUESTS_MAX);
+  const urls = new Map<string, string>();
+  for (const link of [...detail.report?.links ?? []].reverse()) {
+    const url = /^https:\/\/[^/]+\/[^/]+\/[^/]+\/pull\/\d+(?=[/?#]|$)/.exec(link.url)?.[0];
+    if (url && !urls.has(url.toLowerCase())) urls.set(url.toLowerCase(), url);
+  }
+  return [...urls.values()].slice(0, TARS_REPORTED_PULL_REQUESTS_MAX);
 }
+
+/** Whether a pull request in this state is what the goal asks for: merged for a merge goal, open or merged otherwise. */
+export const tarsPullRequestReachesGoal = (goal: TarsResponsibility["completionGoal"], state: string) =>
+  goal === "merge" ? state === "MERGED" : state === "OPEN" || state === "MERGED";
 
 const REPOSITORY_PART = /^[A-Za-z0-9_.-]+$/;
 const HOST = /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/;
@@ -464,7 +476,7 @@ export function tarsUserRunObservation(detail: AgentRunDetail, goal: Pick<TarsRe
   if (run.state === "completed" || run.state === "cancelled" || run.state === "stopped") {
     const external = goal.completionGoal === "pullRequest" || goal.completionGoal === "merge";
     const finished = run.state === "completed" && (external
-      ? Boolean(pullRequest && (goal.completionGoal === "merge" ? pullRequest.state === "MERGED" : pullRequest.state === "OPEN" || pullRequest.state === "MERGED"))
+      ? Boolean(pullRequest && tarsPullRequestReachesGoal(goal.completionGoal, pullRequest.state))
       : detail.report?.outcome === "completed");
     const unverified = { resultVerifiedRunId: null, resultUnverifiedRunId: null, unchangedRunId: null };
     // i18n-ignore: persisted diagnostic; the interface translates the code
