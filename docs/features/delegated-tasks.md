@@ -14,7 +14,7 @@ The message that launched a subagent shows **Subagent results** outside its coll
 trace summary. Its heading shows the number of subagents. Each subagent is an Atelier UI
 run monitor card, and several cards sit side by side, wrapping into rows when the column is
 narrow. A live card shows its identity, current work with its observed duration, and reported
-history. Progress without a confirmed owner stays off individual agent rows. A returned result or failure shows a preview with any observed duration. Select
+history. Progress that names no agent shows on the only running agent; while several run, it stays off their rows. A returned result or failure shows a preview with any observed duration. Select
 **View result** to read the original answer and execution details; the open card takes the
 whole row.
 Unknown durations and costs are omitted. Reported history is narration, not a count of
