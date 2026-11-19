@@ -7,6 +7,8 @@
 import { Database } from "bun:sqlite";
 import { homedir } from "node:os";
 import path from "node:path";
+import { isTarsDecisionClosure, type TarsActionReceipt, type TarsDecisionAnswer, type TarsMessage } from "../src/lib/tars/conversation";
+import { parseTarsDecisionId, tarsDecisionTargets } from "../src/lib/tars/decisions";
 
 export interface TarsOutcomeRow {
   title: string;
@@ -18,6 +20,7 @@ export interface TarsOutcomeRow {
   agentId: string | null;
   /** When Stave began watching the draft pull request's checks, which it does as soon as the pull request is open. */
   publishedAt: string | null;
+  hasDecisionAnswer: boolean;
   runEvents: ReadonlyArray<{ kind: string; operation: string | null; createdAt: string }>;
 }
 
@@ -32,6 +35,7 @@ export interface TarsOutcome {
   waits: number;
   agentId: string | null;
   goal: string | null;
+  humanDecided: boolean;
 }
 
 const minutesBetween = (from: string, to: string) => Math.max(0, Math.round((Date.parse(to) - Date.parse(from)) / 60_000));
@@ -49,6 +53,7 @@ export function tarsOutcome(row: TarsOutcomeRow): TarsOutcome {
     helperStarts: row.runEvents.filter((event) => event.kind === "resource-budget" && event.operation === "reserve").length,
     waits: row.runEvents.filter((event) => event.kind === "wait-registered").length,
     agentId: row.agentId, goal: row.goal,
+    humanDecided: row.hasDecisionAnswer || row.runEvents.some((event) => event.kind === "sign-off"),
   };
 }
 
@@ -62,11 +67,12 @@ const median = (values: readonly number[]) => {
 export function summarizeTarsOutcomes(outcomes: readonly TarsOutcome[]) {
   const count = (result: TarsOutcome["result"]) => outcomes.filter((outcome) => outcome.result === result).length;
   const ended = outcomes.filter((outcome) => outcome.result !== "open");
-  // Work that reached its result without the user accepting, cancelling or taking it over.
-  const unattended = count("pull-request") + count("completed");
+  const unattended = ended.filter((outcome) => !outcome.humanDecided &&
+    (outcome.result === "pull-request" || outcome.result === "completed")).length;
   return {
     total: outcomes.length, pullRequests: count("pull-request"), completed: count("completed"), acceptedUnverified: count("accepted-unverified"),
     cancelled: count("cancelled"), takenOver: count("taken-over"), open: count("open"),
+    humanDecided: outcomes.filter((outcome) => outcome.humanDecided).length,
     unattendedRate: ended.length ? Math.round((unattended / ended.length) * 100) : null,
     medianMinutesToPullRequest: median(outcomes.filter((outcome) => outcome.result === "pull-request").map((outcome) => outcome.minutes!)),
     medianHelperStarts: median(ended.map((outcome) => outcome.helperStarts)),
@@ -74,9 +80,45 @@ export function summarizeTarsOutcomes(outcomes: readonly TarsOutcome[]) {
   };
 }
 
+function readHumanDecisions(db: Database): Set<string> {
+  const decided = new Set<string>();
+  // A database from before decision answers were recorded still has Run events.
+  if (!db.query("SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = 'tars_decision_answers'").get()) return decided;
+  const answers = db.query("SELECT body_json FROM tars_decision_answers WHERE status = 'applied'").all() as Array<{ body_json: string }>;
+  const receipts = db.query("SELECT body_json FROM tars_action_receipts WHERE message_id = ? AND action_index = ?");
+  const messages = db.query("SELECT body_json FROM tars_messages WHERE id = ?");
+  const read = <T>(row: unknown): T | undefined => row ? JSON.parse((row as { body_json: string }).body_json) : undefined;
+  for (const { body_json } of answers) {
+    const answer = JSON.parse(body_json) as TarsDecisionAnswer;
+    if (answer.source === "tars" || isTarsDecisionClosure(answer)) continue;
+    if ("responsibilityId" in answer.effect) {
+      decided.add(answer.effect.responsibilityId);
+      continue;
+    }
+    const decision = parseTarsDecisionId(answer.decisionId);
+    if (!decision || decision.kind === "unverifiedCompletion") continue;
+    const receipt = read<TarsActionReceipt>(receipts.get(decision.messageId, decision.actionIndex));
+    if (answer.effect.kind === "proposal" && receipt?.responsibilityId) {
+      decided.add(receipt.responsibilityId);
+      continue;
+    }
+    if (answer.effect.kind !== "reply") continue;
+    // A conversational reply belongs to explicitly selected work, the work
+    // the question followed up on, or an unambiguous target of its options.
+    const message = read<TarsMessage>(messages.get(decision.messageId));
+    const targets = receipt ? tarsDecisionTargets(receipt) : [];
+    const id = message?.target?.responsibilityId ??
+      (message?.origin?.kind === "followUp" ? message.origin.responsibilityId : undefined) ??
+      (targets.length === 1 ? targets[0] : undefined);
+    if (id) decided.add(id);
+  }
+  return decided;
+}
+
 function readRows(file: string, since: string | null): TarsOutcomeRow[] {
   const db = new Database(file, { readonly: true });
   try {
+    const decided = readHumanDecisions(db);
     const rows = db.prepare("SELECT body_json FROM tars_responsibilities ORDER BY created_at").all() as Array<{ body_json: string }>;
     const events = db.prepare("SELECT kind, json_extract(detail_json, '$.operation') AS operation, created_at AS createdAt FROM agent_run_events WHERE agent_run_id = ? ORDER BY sequence");
     const text = (value: unknown) => typeof value === "string" ? value : null;
@@ -89,6 +131,7 @@ function readRows(file: string, since: string | null): TarsOutcomeRow[] {
           title: text(body.title) ?? "", createdAt: String(body.createdAt), updatedAt: String(body.updatedAt), state: String(body.state),
           detailCode: text(body.detailCode), goal: text(body.completionGoal), agentId: text(body.agentId),
           publishedAt: publication?.state === "opened" ? text(publication.watch?.startedAt) : null,
+          hasDecisionAnswer: typeof body.id === "string" && decided.has(body.id),
           runEvents: runIds.flatMap((id) => events.all(id) as TarsOutcomeRow["runEvents"][number][]),
         };
       });
