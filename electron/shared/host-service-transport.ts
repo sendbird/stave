@@ -38,6 +38,7 @@ export const HOST_SERVICE_EVENT_QUEUE_MAX_BYTES = 2 * 1024 * 1024;
 export const HOST_SERVICE_CHANGE_SIGNAL_EVENTS: ReadonlySet<string> = new Set([
   "tars.changed", "agent-run.changed", "agent.changed", "wake-up.changed", "workspace.cleanup-changed",
   "local-mcp.task-turn-updated", "local-mcp.workspace-information-updated", "automation.unattended-authorizations-changed",
+  "provider.live-turns-changed",
 ]);
 /** A change signal larger than this is bulk data, not a signal, and keeps the event cap. */
 export const HOST_SERVICE_CHANGE_SIGNAL_MAX_BYTES = 64 * 1024;

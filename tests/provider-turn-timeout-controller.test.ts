@@ -206,4 +206,25 @@ describe("createTurnTimeoutController", () => {
     expect(fired).toBe(true);
     controller.dispose();
   });
+
+  test("reports only when the turn starts or stops waiting on any user decision", () => {
+    let changes = 0;
+    const controller = createTurnTimeoutController({ timeoutMs: 60_000, onTimeout: () => {}, onDecisionWaitChange: () => { changes += 1; } });
+    controller.pausePhase({ phase: ADVISOR_CONSULT_PAUSE_PHASE });
+    expect(changes).toBe(0);
+    controller.pauseForDecision({ key: "approval-1" });
+    controller.pauseForDecision({ key: "question-2" });
+    controller.pauseForDecision({ key: "approval-1" });
+    expect(changes).toBe(1);
+    controller.resumeAfterDecision({ key: "approval-1" });
+    controller.resumeAfterDecision({ key: "unknown" });
+    expect(changes).toBe(1);
+    controller.resumeAfterDecision({ key: "question-2" });
+    expect(changes).toBe(2);
+    controller.pauseForDecision({ key: "approval-3" });
+    controller.resumeAllDecisions();
+    controller.resumeAllDecisions();
+    expect(changes).toBe(4);
+    controller.dispose();
+  });
 });

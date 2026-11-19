@@ -31,6 +31,7 @@ import {
   dropBufferedBridgeEvents,
 } from "./provider-buffering";
 import { getProviderConnectedToolStatus } from "./connected-tool-status";
+import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -157,6 +158,18 @@ let completedStreamExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 const activeTurnPromises = new Map<string, Promise<void>>();
 let lastCompletedLifecycleSnapshot: ProviderTurnLifecycleSnapshot | null = null;
 
+const liveTurnListeners = new Set<() => void>();
+
+/** Called after a turn starts or ends, or starts or stops waiting on a user decision. */
+export function onProviderLiveTurnsChanged(listener: () => void) {
+  liveTurnListeners.add(listener);
+  return () => { liveTurnListeners.delete(listener); };
+}
+
+function notifyLiveTurnsChanged() {
+  for (const listener of liveTurnListeners) listener();
+}
+
 export function getProviderRuntimeLifecycleSnapshot() {
   return {
     activeSessionCount: activeSessions.size,
@@ -177,6 +190,7 @@ function upsertActiveSession(args: {
   timeoutController?: TurnTimeoutController;
 }) {
   const current = activeSessions.get(args.turnId);
+  if (!current) queueMicrotask(notifyLiveTurnsChanged);
   activeSessions.set(args.turnId, {
     turnId: args.turnId,
     providerId: args.providerId,
@@ -218,21 +232,24 @@ function abortActive(args: { turnId: string }) {
     return false;
   }
   aborter();
-  activeSessions.delete(args.turnId);
+  if (activeSessions.delete(args.turnId)) notifyLiveTurnsChanged();
   return true;
 }
 
 function clearActiveTurnState(args: { turnId: string }) {
-  activeSessions.delete(args.turnId);
+  if (activeSessions.delete(args.turnId)) notifyLiveTurnsChanged();
 }
 
 /** When this host process booted; turns created earlier died with the previous host. */
 const HOST_PROCESS_STARTED_AT = Math.floor(performance.timeOrigin);
 
-/** Every turn this host still runs, including an aborted one that is still settling. */
+/**
+ * Every turn this host still runs, including an aborted one that is still
+ * settling. `awaitingUser` marks a turn held on an approval or a blocking question.
+ */
 function listLiveTurns() {
-  const turns: Array<{ turnId: string; providerId: string; taskId?: string }> = summarizeActiveTurns()
-    .map(({ turnId, providerId, taskId }) => ({ turnId, providerId, ...(taskId ? { taskId } : {}) }));
+  const turns: ProviderLiveTurns["turns"] = summarizeActiveTurns()
+    .map(({ turnId, providerId, taskId, awaitingUser }) => ({ turnId, providerId, ...(taskId ? { taskId } : {}), ...(awaitingUser ? { awaitingUser } : {}) }));
   for (const turnId of activeTurnPromises.keys()) {
     if (!activeSessions.has(turnId)) turns.push({ turnId, providerId: "unknown" });
   }
@@ -244,6 +261,7 @@ function summarizeActiveTurns() {
     turnId: session.turnId,
     providerId: session.providerId,
     taskId: session.taskId,
+    awaitingUser: session.timeoutController?.pausedDecisionKeys.length ? true as const : undefined,
   }));
 }
 
@@ -475,6 +493,7 @@ function clearActiveTaskSessions(args: { taskId: string }) {
     }
     session.abort?.();
     activeSessions.delete(turnId);
+    notifyLiveTurnsChanged();
   }
 }
 
@@ -526,6 +545,8 @@ function clearActiveTaskSessions(args: { taskId: string }) {
 export function createTurnTimeoutController(args: {
   timeoutMs: number;
   onTimeout: () => void;
+  /** Called when the turn starts or stops waiting on any user decision. */
+  onDecisionWaitChange?: () => void;
 }): TurnTimeoutController {
   let remainingMs = args.timeoutMs;
   let handle: NodeJS.Timeout | null = null;
@@ -563,6 +584,9 @@ export function createTurnTimeoutController(args: {
   };
 
   const isPaused = () => pausedDecisionKeys.size > 0 || pausedPhases.size > 0;
+  const reportDecisionWait = (wasWaiting: boolean) => {
+    if (wasWaiting !== pausedDecisionKeys.size > 0) args.onDecisionWaitChange?.();
+  };
 
   /**
    * Apply the timer side effect for a pause-set transition. Called after every
@@ -595,8 +619,10 @@ export function createTurnTimeoutController(args: {
       return;
     }
     const wasPaused = isPaused();
+    const wasWaiting = pausedDecisionKeys.size > 0;
     pausedDecisionKeys.add(key);
     syncTimerToPauseState(wasPaused);
+    reportDecisionWait(wasWaiting);
   };
 
   const resumeAfterDecision = (options?: { key?: string }) => {
@@ -604,6 +630,7 @@ export function createTurnTimeoutController(args: {
       return;
     }
     const wasPaused = isPaused();
+    const wasWaiting = pausedDecisionKeys.size > 0;
     if (options?.key !== undefined) {
       if (!pausedDecisionKeys.delete(options.key)) {
         // Unknown or already-resumed decision: never release a pause that
@@ -620,6 +647,7 @@ export function createTurnTimeoutController(args: {
       pausedDecisionKeys.delete(anonymousKey);
     }
     syncTimerToPauseState(wasPaused);
+    reportDecisionWait(wasWaiting);
   };
 
   const resumeAllDecisions = () => {
@@ -629,6 +657,7 @@ export function createTurnTimeoutController(args: {
     const wasPaused = isPaused();
     pausedDecisionKeys.clear();
     syncTimerToPauseState(wasPaused);
+    reportDecisionWait(true);
   };
 
   const pausePhase = (options: { phase: string }) => {
@@ -934,6 +963,7 @@ async function runProviderTurnImpl(
     onTimeout: () => {
       abortActive({ turnId });
     },
+    onDecisionWaitChange: notifyLiveTurnsChanged,
   });
   upsertActiveSession({
     turnId,
@@ -1351,7 +1381,7 @@ export const providerRuntime: ProviderRuntime = {
           session.done = true;
           session.updatedAt = Date.now();
           clearActiveTurnState({ turnId });
-          activeTurnPromises.delete(turnId);
+          if (activeTurnPromises.delete(turnId)) notifyLiveTurnsChanged();
           if (!shouldBufferForPolling) {
             activeStreams.delete(streamId);
           }

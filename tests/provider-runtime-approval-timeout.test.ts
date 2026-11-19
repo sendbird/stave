@@ -105,7 +105,7 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   }),
 }));
 
-const { providerRuntime, setProviderDecisionAnsweredListener } = await import("../electron/providers/runtime");
+const { onProviderLiveTurnsChanged, providerRuntime, setProviderDecisionAnsweredListener } = await import("../electron/providers/runtime");
 
 afterEach(async () => {
   setProviderDecisionAnsweredListener(null);
@@ -124,6 +124,9 @@ describe("providerRuntime pausable turn timeout", () => {
     const turnId = "turn-pausable-approval";
     const events: Array<{ type: string }> = [];
     let doneSeen = false;
+    // What the host sends main for the idle-sleep blocker, read at each change.
+    const liveTurnChanges: Array<Array<{ turnId: string; awaitingUser?: true }>> = [];
+    const stopListening = onProviderLiveTurnsChanged(() => { liveTurnChanges.push(providerRuntime.listLiveTurns().turns); });
 
     const started = providerRuntime.startTurnStream(
       {
@@ -153,6 +156,9 @@ describe("providerRuntime pausable turn timeout", () => {
     await sleep(150);
     expect(events.some((event) => event.type === "approval")).toBe(true);
     expect(doneSeen).toBe(false);
+    // A turn held on an approval is live but waits for a person.
+    expect(providerRuntime.listLiveTurns().turns).toEqual([expect.objectContaining({ turnId, awaitingUser: true })]);
+    expect(liveTurnChanges.at(-1)).toEqual([expect.objectContaining({ turnId, awaitingUser: true })]);
 
     // User approves — this should resume the timer AND satisfy the pending
     // approval, unblocking the mocked stream so it can emit done.
@@ -169,8 +175,13 @@ describe("providerRuntime pausable turn timeout", () => {
     // The turn's record learns when the user answered, to tell waiting from a stall.
     expect(answered).toEqual([{ turnId, requestId: "approval-req-1" }]);
 
+    expect(liveTurnChanges.at(-1)).toEqual([expect.not.objectContaining({ awaitingUser: true })]);
+
     // Give the stream a moment to finish.
     await sleep(50);
     expect(doneSeen).toBe(true);
+    expect(providerRuntime.listLiveTurns().turns).toEqual([]);
+    expect(liveTurnChanges.at(-1)).toEqual([]);
+    stopListening();
   });
 });

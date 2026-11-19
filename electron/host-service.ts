@@ -1,7 +1,7 @@
 import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
 import { TurnSnapshotService } from "./host-service/turn-snapshots";
 import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../src/lib/turn-snapshots";
-import { setTurnFileSnapshotCapture } from "./providers/runtime";
+import { onProviderLiveTurnsChanged, setTurnFileSnapshotCapture } from "./providers/runtime";
 import { createHostTurnAdmission } from "./host-service/turn-admission-host";
 import { createQueuedTurnRecoveryHandlers } from "./host-service/turn-admission-recovery";
 import { TurnAdmissionWaitResultSchema } from "./host-service/turn-admission";
@@ -632,6 +632,18 @@ function emitEvent<TEvent extends HostServiceEventName>(
   });
   return writePromise;
 }
+
+// A hint only: main re-reads `provider.list-live-turns` for its idle-sleep
+// blocker (`work-power-save.ts`) and resyncs on its own if this is dropped.
+let liveTurnsChangeQueued = false;
+onProviderLiveTurnsChanged(() => {
+  if (liveTurnsChangeQueued) return;
+  liveTurnsChangeQueued = true;
+  queueMicrotask(() => {
+    liveTurnsChangeQueued = false;
+    void emitEvent("provider.live-turns-changed", {}).catch(() => {});
+  });
+});
 
 const terminalRuntime = createTerminalRuntime({
   emitEvent,

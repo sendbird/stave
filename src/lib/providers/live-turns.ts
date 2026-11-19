@@ -13,6 +13,8 @@ export const ProviderLiveTurnsResultSchema = z.discriminatedUnion("ok", [
       turnId: z.string().min(1),
       taskId: z.string().min(1).optional(),
       providerId: z.string().min(1),
+      /** Held on an approval or a blocking question until a person answers. */
+      awaitingUser: z.literal(true).optional(),
     })).max(10_000),
   }),
   z.object({ ok: z.literal(false), message: z.string().optional() }),
