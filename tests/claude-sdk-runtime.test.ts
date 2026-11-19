@@ -2245,6 +2245,21 @@ describe("SubagentProgressTracker", () => {
     expect(tracker.resolveToolUseId({})).toBeUndefined();
   });
 
+  test("agent progress without ids belongs to the only running agent, other task progress does not", () => {
+    const tracker = new SubagentProgressTracker();
+    tracker.trackEvent({ type: "tool", toolUseId: "toolu_1", toolName: "Agent", input: "{}", state: "input-streaming" });
+    const agentProgress = { task_id: "agent_a", subagent_type: "general-purpose" };
+    expect(buildClaudeSubagentProgressEvent({ summary: "Reading callers", resolution: tracker.resolveProgress(agentProgress) })).toEqual({
+      type: "subagent_progress", toolUseId: "toolu_1", content: "Reading callers", binding: "authoritative",
+    });
+    // A backgrounded MCP task reports progress too, without a subagent type.
+    expect(tracker.resolveToolUseId({ task_id: "mcp_task" })).toBeUndefined();
+    tracker.trackEvent({ type: "tool", toolUseId: "toolu_2", toolName: "Agent", input: "{}", state: "input-streaming" });
+    expect(tracker.resolveToolUseId(agentProgress)).toBeUndefined();
+    tracker.trackEvent({ type: "tool_result", tool_use_id: "toolu_1", output: "done" });
+    expect(tracker.resolveToolUseId(agentProgress)).toBe("toolu_2");
+  });
+
   test("resolves progress from a tracked legacy Task tool event", () => {
     const tracker = new SubagentProgressTracker();
     tracker.trackEvent({

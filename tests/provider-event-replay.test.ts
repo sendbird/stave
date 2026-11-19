@@ -915,6 +915,36 @@ describe("subagent progress integration", () => {
     expect(updated.parts[2]).toEqual({ type: "system_event", content: "Subagent progress: Compiling" });
   });
 
+  test("a stored positional guess still reaches the only running agent", () => {
+    const message = createMessage({
+      parts: [
+        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "output-available" },
+        { type: "tool_use", toolUseId: "toolu_2", toolName: "agent", input: "{}", state: "input-available" },
+      ],
+    });
+    const updated = appendProviderEventToAssistant({
+      message,
+      event: { type: "subagent_progress", toolUseId: "toolu_2", binding: "guess", content: "Compiling" },
+    });
+    expect((updated.parts[1] as import("@/types/chat").ToolUsePart).progressMessages).toEqual(["Compiling"]);
+    expect(updated.parts).toHaveLength(2);
+  });
+
+  test("unassigned progress is bounded like an agent row: dedupe and keep 6", () => {
+    let message = createMessage({
+      parts: [
+        { type: "tool_use", toolUseId: "toolu_1", toolName: "agent", input: "{}", state: "input-available" },
+        { type: "tool_use", toolUseId: "toolu_2", toolName: "agent", input: "{}", state: "input-available" },
+      ],
+    });
+    for (const content of ["Same", "Same", ...Array.from({ length: 20 }, (_, i) => `Step ${i}`)]) {
+      message = appendProviderEventToAssistant({ message, event: { type: "subagent_progress", content } });
+    }
+    const standalone = message.parts.filter((part) => part.type === "system_event");
+    expect(standalone).toHaveLength(6);
+    expect(standalone.at(-1)).toEqual({ type: "system_event", content: "Subagent progress: Step 19" });
+  });
+
   test("accumulates multiple progress messages on the same agent", () => {
     let message = createMessage({
       parts: [

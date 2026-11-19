@@ -12,7 +12,7 @@ import {
   rememberProviderSession,
 } from "@/lib/providers/provider-sessions";
 import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
-import { appendWorkProgressMessage } from "@/lib/providers/subagent-identity";
+import { appendWorkProgressMessage, isSubagentToolName } from "@/lib/providers/subagent-identity";
 import { recordAutomaticApprovalDecision } from "@/lib/approvals/approval-record";
 import { withConfirmedApprovals } from "@/lib/agents/turn-provenance";
 import type {
@@ -264,25 +264,38 @@ function upsertDelegatedUsage(args: {
   return next;
 }
 
+const STANDALONE_PROGRESS_PREFIX = "Subagent progress: ";
+
 function appendSubagentProgressToPart(args: {
   parts: MessagePart[];
   toolUseId: string | undefined;
+  /** A stored positional guess routes text only to the one running subagent row. */
+  guess: boolean;
   content: string;
 }): MessagePart[] {
   const { parts, toolUseId, content } = args;
 
-  const targetIndex = toolUseId ? parts.findIndex(
+  let targetIndex = toolUseId && !args.guess ? parts.findIndex(
     (part) => part.type === "tool_use" && part.toolUseId === toolUseId,
   ) : -1;
+  if (args.guess) {
+    const running = parts.flatMap((part, index) => part.type === "tool_use" && isSubagentToolName(part.toolName) &&
+      (part.state === "input-streaming" || part.state === "input-available") ? [index] : []);
+    const only = running.length === 1 ? running[0]! : -1;
+    if (only !== -1 && (parts[only] as ToolUsePart).toolUseId === toolUseId) targetIndex = only;
+  }
 
   if (targetIndex === -1) {
-    // No Agent tool_use found — degrade to a standalone system_event part.
+    // No row owns it: keep it standalone, bounded like an agent row's progress.
+    const indexes = parts.flatMap((part, index) => part.type === "system_event" &&
+      part.content.startsWith(STANDALONE_PROGRESS_PREFIX) ? [index] : []);
+    const lines = indexes.map((index) => (parts[index] as { content: string }).content.slice(STANDALONE_PROGRESS_PREFIX.length));
+    const kept = appendWorkProgressMessage(lines, content);
+    if (kept === lines) return parts;
+    const dropped = new Set(indexes.slice(0, lines.length + 1 - kept.length));
     return [
-      ...parts,
-      {
-        type: "system_event" as const,
-        content: `Subagent progress: ${content}`,
-      },
+      ...parts.filter((_, index) => !dropped.has(index)),
+      { type: "system_event" as const, content: `${STANDALONE_PROGRESS_PREFIX}${kept.at(-1)!}` },
     ];
   }
 
@@ -654,7 +667,8 @@ function appendProviderEventContentToAssistant(args: {
     const { toolUseId, content } = args.event;
     const updatedParts = appendSubagentProgressToPart({
       parts: message.parts,
-      toolUseId: args.event.binding === "guess" ? undefined : toolUseId,
+      toolUseId,
+      guess: args.event.binding === "guess",
       content,
     });
     return { ...message, parts: updatedParts, isStreaming: true };

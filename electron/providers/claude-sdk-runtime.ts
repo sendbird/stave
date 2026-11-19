@@ -1521,7 +1521,7 @@ function isClaudeSubagentToolName(name: string): boolean {
   return normalizedToolName === "agent" || normalizedToolName === "task";
 }
 
-export type SubagentProgressResolvedBy = "tool_use_id" | "agent_id" | "unresolved";
+export type SubagentProgressResolvedBy = "tool_use_id" | "agent_id" | "only_pending" | "unresolved";
 
 export type SubagentProgressResolution = {
   /** Subagent tool_use_id the progress belongs to, when one could be found. */
@@ -1627,6 +1627,14 @@ export class SubagentProgressTracker {
       if (matches.length === 1) {
         return { toolUseId: matches[0], ...about, ownerAgentId: messageAgentId, resolvedBy: "agent_id" };
       }
+    }
+    // Subagent progress with no ids while exactly one Agent runs can only be
+    // that Agent's. It routes the text to the row but names no identity, so
+    // `task_id` is not bound to the call. Other task kinds (a backgrounded MCP
+    // task) carry no subagent type and stay unassigned.
+    const only = this.pendingSubagentToolUseIds.size === 1 ? [...this.pendingSubagentToolUseIds][0] : undefined;
+    if (!directToolUseId && !messageAgentId && only && extractStringField(progressMessage, "subagent_type")) {
+      return { toolUseId: only, resolvedBy: "only_pending" };
     }
     return { ...about, resolvedBy: "unresolved" };
   }
