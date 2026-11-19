@@ -40,6 +40,7 @@ import type {
   StreamTurnArgs,
 } from "./types";
 import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/provider-request-translators";
+import { SUBAGENT_RESULTS_SOURCE_ID } from "../../src/lib/providers/transport-bounds";
 import {
   getCodexSlashCommandCatalogDetail,
   listCodexSlashCommands,
@@ -874,7 +875,7 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
 function subagentAnswerCommit(turn: StreamTurnArgs, answers: StreamTurnArgs["subagentAnswers"]) {
   const taskId = turn.taskId, turnId = turn.turnId;
   if (!answers?.length || !taskId || !turnId || !turn.conversation || getProviderNativeSlashCommandInput(turn.conversation)) return undefined;
-  if (!turn.conversation.contextParts.some((part) => part.type === "retrieved_context" && part.sourceId === "stave:delegated-tasks")) return undefined;
+  if (!turn.conversation.contextParts.some((part) => part.type === "retrieved_context" && part.sourceId === SUBAGENT_RESULTS_SOURCE_ID)) return undefined;
   let committed = false;
   return () => {
     if (committed) return;

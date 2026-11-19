@@ -1,4 +1,5 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
+import { SUBAGENT_RESULTS_SOURCE_ID } from "@/lib/providers/transport-bounds";
 import { isReviewDelegation } from "@/lib/reviews/review-task";
 import {
   isActiveDelegatedTaskPhase,
@@ -108,7 +109,7 @@ export function buildDelegatedTaskReceiptsRetrievedContext(args: {
 
   return {
     type: "retrieved_context",
-    sourceId: "stave:delegated-tasks",
+    sourceId: SUBAGENT_RESULTS_SOURCE_ID,
     // i18n-ignore: model-facing context metadata and instructions
     title: "Subagent results",
     content: [

@@ -417,7 +417,9 @@ a restart too. A turn refused or failed before that point (a control change, a
 cancelled queue slot, a policy refusal, no workspace folder, a provider that
 cannot start, a native slash command, which goes without context) records
 nothing, and a failed write is logged and leaves the answer owed, so it can
-come twice but is never lost. Upgrade cut: on
+come twice but is never lost. A request too large for the host transport keeps
+the Subagent results part whole or drops it with the answers it names, which
+then stay owed. Upgrade cut: on
 the first read for a parent, answers recorded before this version first opened
 the database and no later than the parent's latest turn start count as
 received, because the earlier version had already given them or dropped them

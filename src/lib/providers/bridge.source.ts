@@ -7,6 +7,7 @@ import type {
 import {
   compactProviderTurnRequestForTransport,
   HOST_SERVICE_PROVIDER_REQUEST_RETRY_MAX_BYTES,
+  SUBAGENT_RESULTS_SOURCE_ID,
 } from "@/lib/providers/transport-bounds";
 
 type PushStreamPayload = {
@@ -78,13 +79,14 @@ function isHostServiceProtocolOverflowError(error: unknown) {
 }
 
 /**
- * A request shrunk to fit the transport may have lost the subagent results
- * part; then it does not claim those answers, which stay owed for a later turn.
+ * The request names exactly the answers its Subagent results part carries.
+ * Compaction keeps that part whole or drops it (`SUBAGENT_RESULTS_SOURCE_ID`):
+ * a request that dropped it claims none, and they stay owed for a later turn.
  */
 function claimCarriedSubagentAnswers<TRequest extends ProviderTurnRequest>(original: TRequest, sent: TRequest): TRequest {
   if (!sent.subagentAnswers) return sent;
   const results = (request: ProviderTurnRequest) => request.conversation?.contextParts.find((part) =>
-    part.type === "retrieved_context" && part.sourceId === "stave:delegated-tasks");
+    part.type === "retrieved_context" && part.sourceId === SUBAGENT_RESULTS_SOURCE_ID);
   const carried = results(sent);
   if (carried && JSON.stringify(carried) === JSON.stringify(results(original))) return sent;
   const { subagentAnswers: _dropped, ...rest } = sent;
