@@ -435,7 +435,7 @@ reports on the work.
   last action stops them, so work that needs nothing from you is not left
   waiting for your next message. Progress does: a repeated ask, or ended work
   whose automatic continuations keep ending with the same result, goes to you
-  after two follow-ups. A
+  after two follow-ups, and ended work after five continuations in any case. A
   follow-up never starts new work, starts queued work now, pauses, takes over,
   hands back, skips a stage or accepts work as done.
 - **Answers in the task are once and yours.** Tars answers a tool approval
@@ -738,8 +738,9 @@ Accept it, cancel it, or ask Tars for new verification work.
 hour; at most six follow-ups start per hour (the card shows **Next check**);
 nothing follows up while Stave is closed, for work you paused or took over, or for a
 change you already wrote about. After two follow-ups that saw nothing change (the
-same ask, or continuations that ended with the same result) the decision is
-yours; the conversation and the work's card say so.
+same ask, or continuations that ended with the same result), or after five
+continuations of ended work since your last action, the decision is yours; the
+conversation and the work's card say so.
 
 **Stop paused the work instead of cancelling it.** That is intended while Tars
 holds the work. Take it over or cancel the responsibility if you want it to
@@ -1671,21 +1672,28 @@ changes of the same work are combined into one. Follow-ups are limited:
   without verification Stave could confirm, or with checks incomplete). In
   Balanced and Hands-off, Tars's follow-up may continue it at once as a new
   run, which gets its own 200-turn guard and a new run id, so the run id is
-  never progress there. Progress is a change in what the run ended with: its
-  outcome (state, code, whether Stave verified it), the stage it ended on and
-  that stage's workspace revision at its report (a new commit or edit changes
-  it), the review verdict, and which required criteria are unmet. When two
-  automatic continuations in a row ended with the same result as the one
-  before, Tars does not follow up the third: the conversation says Tars stopped
+  never progress there. Progress is a change Stave actually observed in what
+  the run ended with: its outcome (state, code, whether Stave verified it, the
+  stage it ended on), that stage's workspace revision at its report (a new
+  commit or edit changes it), the review verdict, or which required criteria
+  are unmet. A part Stave could not read (an unknown revision, a review without
+  a verdict, a missing report) is never a change, so a revision read that
+  alternates between known and unknown does not restart the count. A result is
+  new only when it differs from every result since your last action, and
+  repeats are counted from the last new one, so results alternating between two
+  values stop too. When two automatic continuations since the last new result
+  ended without a new result, Tars does not follow up the next one: the conversation says Tars stopped
   continuing the work because its continuations kept ending with the same
-  result, and the work's card says so and keeps its own next steps (accept,
+  result or reached their limit, and the work's card says so and keeps its own next steps (accept,
   publish, cancel, or a message to Tars). Asks answered during those
   continuations do not restart the count; your action toward the work does.
   The count is saved with the work and its changes, so a restart keeps it. At
-  most two automatic continuations of ended work start without a change in
-  result; CI-fix and review continuations keep their own two rounds each and
-  do not restart this count, so a piece of work starts at most six automatic
-  runs without any change in result. Careful already asks you before any
+  most two automatic continuations of ended work start with the same result
+  (three when results alternate between two values), and never more than five
+  between two of your actions, whatever the results say; CI-fix and review
+  continuations keep their own two rounds each and do not restart this count,
+  so a piece of work starts at most seven automatic runs without a change in
+  result, and at most nine in any case. Careful already asks you before any
   continuation.
 - One follow-up
   counts once in the hourly limit even when it uses inspection rounds or

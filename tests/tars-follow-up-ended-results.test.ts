@@ -3,7 +3,8 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { TARS_FOLLOW_UPS_WITHOUT_PROGRESS } from "@/lib/tars/events";
+import { createHash } from "node:crypto";
+import { TARS_ENDED_FOLLOW_UPS_MAX, TARS_FOLLOW_UPS_WITHOUT_PROGRESS, tarsEndedResultBrake, tarsResultProgressed } from "@/lib/tars/events";
 import { tarsTrayFollowUp } from "@/lib/tars/tray-model";
 import type { TarsExecutionObservation } from "../electron/host-service/tars-runtime";
 import { tarsObservation, tarsRunResult } from "../electron/host-service/tars-execution";
@@ -23,6 +24,15 @@ function fixture(options: Parameters<typeof followUpFixture>[0] = {}) {
   return f;
 }
 type F = ReturnType<typeof fixture>;
+
+const hex = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, 12);
+/**
+ * An ended result as `tarsRunResult` writes it: the same unverified outcome,
+ * verdict and unmet criteria at workspace revision `revision` (null: the
+ * revision could not be read), or another outcome.
+ */
+const fingerprint = (revision: string | null, outcome = "unverified") => `o.${hex(outcome)}|r.${revision === null ? "?" : hex(revision)}|v.${hex("none")}|u.${hex("[]")}`;
+const SAME = fingerprint("rev-1");
 
 /** A Run that reported its criteria met without evidence Stave could confirm, at a workspace result `result`. */
 const unverified = (result: string): TarsExecutionObservation => ({ state: "blocked", detailCode: "unverifiedCompletion", runResult: result,
@@ -57,7 +67,7 @@ describe("continuations of ended work that end with the same result", () => {
   test("stop after two automatic continuations and hand the decision to the user", async () => {
     const f = fixture(); f.service.start();
     const row = f.responsibility("running");
-    for (let round = 0; round < 5; round++) await endRun(f, row.id, "same-unverified-result");
+    for (let round = 0; round < 5; round++) await endRun(f, row.id, SAME);
     // The first follow-up continues; the second covers a continuation that fell short; the third time goes to the user.
     expect(f.planner).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
     expect(f.continued).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
@@ -74,16 +84,43 @@ describe("continuations of ended work that end with the same result", () => {
   test("a continuation that produced a new commit is progress and keeps its follow-up", async () => {
     const f = fixture(); f.service.start();
     const row = f.responsibility("running");
-    for (let round = 0; round < 5; round++) await endRun(f, row.id, `commit-${round}`);
+    for (let round = 0; round < 5; round++) await endRun(f, row.id, fingerprint(`commit-${round}`));
     expect(f.planner).toHaveLength(5);
     expect(f.continued).toHaveLength(5);
     expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(Array(5).fill("followedUp"));
   });
 
+  test("a revision read that alternates between known and unknown is no progress: it stops after two", async () => {
+    const f = fixture(); f.service.start();
+    const row = f.responsibility("running");
+    for (let round = 0; round < 6; round++) await endRun(f, row.id, round % 2 ? fingerprint(null) : SAME);
+    expect(f.continued).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
+    expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted"]);
+  });
+
+  test("results alternating between two values cannot escape the count", async () => {
+    const f = fixture(); f.service.start();
+    const row = f.responsibility("running");
+    for (let round = 0; round < 8; round++) await endRun(f, row.id, fingerprint(round % 2 ? "rev-b" : "rev-a"));
+    // A, then B (new), then A again (a repeat counted from B): the next repeat goes to the user.
+    expect(f.continued).toHaveLength(3);
+    expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "followedUp", "exhausted"]);
+  });
+
+  test("past the ceiling between user actions, even new results go to the user", async () => {
+    const f = fixture(); f.service.start();
+    const row = f.responsibility("running");
+    for (let round = 0; round < TARS_ENDED_FOLLOW_UPS_MAX + 2; round++) await endRun(f, row.id, fingerprint(`commit-${round}`));
+    expect(f.continued).toHaveLength(TARS_ENDED_FOLLOW_UPS_MAX);
+    expect(endedEvents(f, row.id).map((event) => event.status)).toEqual([...Array(TARS_ENDED_FOLLOW_UPS_MAX).fill("followedUp"), "exhausted"]);
+    const followUps = f.responsibilities.snapshot().followUps.filter((state) => state.responsibilityId === row.id);
+    expect(tarsTrayFollowUp(f.responsibilities.get(row.id)!, followUps, f.now())).toEqual({ status: "exhaustedResult", at: null });
+  });
+
   test("a user action on the work resets the count", async () => {
     const f = fixture(); f.service.start();
     const row = f.responsibility("running");
-    for (let round = 0; round < 3; round++) await endRun(f, row.id, "same-unverified-result");
+    for (let round = 0; round < 3; round++) await endRun(f, row.id, SAME);
     expect(f.continued).toHaveLength(2);
     // The user asks Tars to keep going on this work: that is their decision, so the count starts again.
     f.replies.push({ reply: "Continuing it.", actions: [{ kind: "control", responsibilityId: row.id, expectedRevision: f.responsibilities.get(row.id)!.revision,
@@ -93,7 +130,7 @@ describe("continuations of ended work that end with the same result", () => {
     await startedContinuation(f);
     expect(f.continued).toHaveLength(3);
     const planned = f.planner.length;
-    for (let round = 0; round < 3; round++) await endRun(f, row.id, "same-unverified-result");
+    for (let round = 0; round < 3; round++) await endRun(f, row.id, SAME);
     expect(f.planner.length - planned).toBe(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
     expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted", "followedUp", "followedUp", "exhausted"]);
   });
@@ -104,12 +141,13 @@ describe("continuations of ended work that end with the same result", () => {
     const filename = path.join(dir, "state.sqlite");
     const first = followUpFixture({ continueWork: true, filename }); first.service.start();
     const row = first.responsibility("running");
-    for (let round = 0; round < 2; round++) await endRun(first, row.id, "same-unverified-result");
+    // The revision read alternates between known and unknown; neither is a change.
+    for (let round = 0; round < 2; round++) await endRun(first, row.id, round % 2 ? fingerprint(null) : SAME);
     expect(first.continued).toHaveLength(2);
     const advanced = Date.parse(first.now()) - Date.parse("2026-11-05T00:00:00.000Z");
     await first.close();
     const f = fixture({ filename }); f.advance(advanced); f.service.start();
-    await endRun(f, row.id, "same-unverified-result");
+    await endRun(f, row.id, SAME);
     expect(f.planner).toHaveLength(0);
     expect(f.continued).toHaveLength(0);
     expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted"]);
@@ -119,7 +157,7 @@ describe("continuations of ended work that end with the same result", () => {
     const f = fixture(); f.service.start();
     f.conversations.configure({ ...f.conversations.getSettings()!, autonomy: "careful" });
     const row = f.responsibility("running");
-    await endRun(f, row.id, "same-unverified-result");
+    await endRun(f, row.id, SAME);
     expect(f.planner).toHaveLength(1);
     expect(f.continued).toHaveLength(0);
     expect(f.conversations.listReceipts(f.automatic().at(-1)!.id).map((receipt) => receipt.status)).toEqual(["proposed"]);
@@ -133,7 +171,7 @@ describe("continuations of ended work that end with the same result", () => {
       // The continuation's new Run asks; Tars answers it; then the Run ends with the same result as before.
       f.observations.set(row.id, { state: "waiting", detail: "Which suite?", stageAsksUser: true, runTurns: 3, runStage: "work#1" });
       await f.settle();
-      await endRun(f, row.id, "same-unverified-result");
+      await endRun(f, row.id, SAME);
     }
     expect(endedEvents(f, row.id).map((event) => event.status)).toEqual(["followedUp", "followedUp", "exhausted"]);
     expect(f.continued).toHaveLength(TARS_FOLLOW_UPS_WITHOUT_PROGRESS);
@@ -156,5 +194,29 @@ describe("what a Run ended with", () => {
     const stopped = { ...ended("rev-a"), agentRun: { ...ended("rev-a").agentRun, state: "stopped", stopReason: "turn-cap-reached" } } as AgentRunDetail;
     expect(result(stopped)).not.toBe(result(ended("rev-a")));
     expect(tarsRunResult({ ...base, agentRun: { ...base.agentRun, state: "running" } } as AgentRunDetail, { state: "running", detail: null })).toBeNull();
+  });
+
+  test("an unknown revision is no change against a known one; a different known revision or outcome is", () => {
+    const unknown = { ...ended("rev-a"), stages: ended("rev-a").stages.map((stage) => stage.stageId === finalStage
+      ? { ...stage, facts: { ...stage.facts, workspaceRevision: { status: "unknown" } } } : stage) } as AgentRunDetail;
+    expect(result(unknown)).toContain("|r.?|");
+    expect(tarsResultProgressed(result(unknown)!, result(ended("rev-a"))!)).toBe(false);
+    expect(tarsResultProgressed(result(ended("rev-a"))!, result(unknown)!)).toBe(false);
+    expect(tarsResultProgressed(result(ended("rev-b"))!, result(ended("rev-a"))!)).toBe(true);
+    const stopped = { ...ended("rev-a"), agentRun: { ...ended("rev-a").agentRun, state: "stopped", stopReason: "turn-cap-reached" } } as AgentRunDetail;
+    expect(tarsResultProgressed(result(stopped)!, result(unknown)!)).toBe(true);
+    // Something that is not a result fingerprint is never progress.
+    expect(tarsResultProgressed("result:anything", result(ended("rev-a"))!)).toBe(false);
+  });
+
+  test("the brake counts repeats from the last new result and stops at the ceiling", () => {
+    const [a, b, c, u] = [fingerprint("a"), fingerprint("b"), fingerprint("c"), fingerprint(null)];
+    expect(tarsEndedResultBrake([], a)).toBe(false);
+    expect(tarsEndedResultBrake([a], a)).toBe(false);
+    expect(tarsEndedResultBrake([a, a], a)).toBe(true);
+    expect(tarsEndedResultBrake([a, u], a)).toBe(true);
+    expect(tarsEndedResultBrake([a, b, a], b)).toBe(true);
+    expect(tarsEndedResultBrake([a, b, a], c)).toBe(false);
+    expect(tarsEndedResultBrake([a, b, c, fingerprint("d"), fingerprint("e")], fingerprint("f"))).toBe(true);
   });
 });

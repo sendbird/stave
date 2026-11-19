@@ -31,6 +31,16 @@ export const TARS_FOLLOW_UP_WINDOW_MS = 60 * 60_000;
  * (`exhausted`) instead. CI and review continuations keep their own two rounds.
  */
 export const TARS_FOLLOW_UPS_WITHOUT_PROGRESS = 2;
+/**
+ * Automatic continuations of one piece of ended work between two user actions,
+ * whatever their results say. The result brake stops repeats after two (three
+ * for an alternation between two results, `tarsEndedResultBrake`); five leaves
+ * room for two real steps beyond that, stays below one hour's window
+ * (`TARS_FOLLOW_UP_WINDOW_CAP`) so one work never spends it alone, and keeps
+ * the count bounded even if a result fingerprint ever reads a change that is
+ * not one.
+ */
+export const TARS_ENDED_FOLLOW_UPS_MAX = 5;
 /** Processed events older than this are removed at startup; pending ones always stay. */
 export const TARS_EVENT_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Work that has waited this long without any change gets one follow-up for that wait. */
@@ -135,6 +145,48 @@ export function tarsWorkProgress(row: Pick<TarsResponsibility, "state" | "agentR
  */
 export function tarsFollowUpProgress(kind: TarsEventKind, row: Parameters<typeof tarsWorkProgress>[0]): string | null {
   return TARS_ENDED_RESULT_EVENTS.has(kind) || row.state === "waiting" ? tarsWorkProgress(row) : null;
+}
+
+/** The parts of an ended result, in its fingerprint's order (`tarsRunResult`): outcome, workspace revision, review verdict, unmet criteria. */
+export const TARS_RESULT_PARTS = ["o", "r", "v", "u"] as const;
+const RESULT_FORMAT = /^o\.[0-9a-f]{8,32}\|r\.(?:[0-9a-f]{8,32}|\?)\|v\.(?:[0-9a-f]{8,32}|\?)\|u\.(?:[0-9a-f]{8,32}|\?)$/;
+
+/** The known parts of an ended result's fingerprint; a part read as `?` was not known and is left out. Null for anything else. */
+function resultParts(progress: string): Map<string, string> | null {
+  const result = progress.startsWith(TARS_RESULT_PROGRESS_PREFIX) ? progress.slice(TARS_RESULT_PROGRESS_PREFIX.length) : progress;
+  if (!RESULT_FORMAT.test(result)) return null;
+  return new Map(result.split("|").map((part) => part.split(".") as [string, string]).filter(([, value]) => value !== "?"));
+}
+
+/**
+ * Whether one ended result positively differs from another: some part known
+ * on both sides (a known revision, the outcome, verdict or unmet criteria)
+ * differs. A part one side could not read is never a change, so a revision
+ * read that alternates between known and unknown is no progress.
+ */
+export function tarsResultProgressed(next: string, previous: string): boolean {
+  const [a, b] = [resultParts(next), resultParts(previous)];
+  if (!a || !b) return false;
+  return [...a].some(([part, value]) => b.has(part) && b.get(part) !== value);
+}
+
+/**
+ * Whether the next follow-up on ended work goes to the user instead
+ * (`exhausted`), given the results of its earlier automatic follow-ups since
+ * the user last acted, oldest first. A result is new when it positively
+ * differs from every earlier one; repeats are counted from the last new
+ * result, so results alternating between two values (A/B/A/B) cannot reset
+ * the count. After `TARS_FOLLOW_UPS_WITHOUT_PROGRESS` follow-ups since the
+ * last new result, a result that is not new stops; after
+ * `TARS_ENDED_FOLLOW_UPS_MAX` follow-ups everything stops.
+ */
+export function tarsEndedResultBrake(previous: readonly string[], next: string): boolean {
+  if (previous.length >= TARS_ENDED_FOLLOW_UPS_MAX) return true;
+  const isNew = (result: string, earlier: readonly string[]) => earlier.every((item) => tarsResultProgressed(result, item));
+  if (isNew(next, previous)) return false;
+  let lastNew = 0;
+  previous.forEach((result, index) => { if (isNew(result, previous.slice(0, index))) lastNew = index; });
+  return previous.length - lastNew >= TARS_FOLLOW_UPS_WITHOUT_PROGRESS;
 }
 
 /** Which notice says a follow-up's state: Tars stopped continuing ended work (`exhaustedResult`) reads apart from a repeated ask. */
