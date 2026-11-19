@@ -425,17 +425,19 @@ Fleet's search finds its tasks.
 Every Agent run on a Claude or Codex task starts with team limits; there is
 nothing to turn on. The Run panel's **Team limits** section shows them.
 
-- **Shared turns.** The Agent's max turns (30 by default, up to 100) are the
-  whole team's: the run's own turns and the turns of the helper Agents it
-  calls count, and a turn that fails to start still counts. Your replies in
-  the run's stages do not; replies you send to a helper Agent's task do. When they run out the run halts with **Limit reached**;
-  **Extend** adds turns, and the shared budget grows with them.
+- **No turn budget.** Time and provider usage bound the team, as they bound
+  the run. The run and its helpers share one guard against loops: when their
+  turns together reach 200 without the run finishing, Stave stops it as a
+  likely loop. The run's own turns and its helpers' turns count, and a turn
+  that fails to start still counts. Your replies in the run's stages do not;
+  replies you send to a helper Agent's task do. Neither the Agent's max turns
+  nor a helper's own max turns stop a run; the Agent's max turns still apply
+  when Claude runs it as a native subagent inside one turn.
 - **Helpers draw as they work.** A helper holds its first two turns when it
-  starts and takes each later turn from the shared budget as it starts, up to
-  its own max turns (its replies included). Helpers therefore work side by side instead of the first
-  one holding the rest. One turn always stays free so the run can integrate
-  their results; a helper that would need it ends at its limit, and the run
-  reads what it finished.
+  starts and takes each later turn from the shared guard as it starts, so
+  helpers work side by side instead of the first one holding the rest. One
+  turn always stays free so the run can integrate their results; a helper that
+  would need it ends, and the run reads what it finished.
 - **Provider usage.** Every turn also reads each provider's account usage
   (Claude and Codex) for the accounts the run and its helpers use, from the
   last reading Stave already holds; nothing is read for it. A provider is
@@ -454,7 +456,7 @@ nothing to turn on. The Run panel's **Team limits** section shows them.
   in total. Change both in **Settings → Providers → Delegated tasks**; a run keeps the
   numbers it started with. These count saved Agents that work to completion
   (supervised delegations). One-turn and detached helpers, and in-turn native
-  subagents, do not draw on the shared turns.
+  subagents, do not count toward the shared guard.
 - **Model and effort.** An Agent whose model is **Auto** may change model or
   effort as the work needs it. A step-up to a stronger model or more effort
   happens as soon as the work needs it; other changes are limited to two per
@@ -484,8 +486,9 @@ acceptance criteria; a report written before they finished is not enough.
 Reported billing is separate from these limits; an unknown cost stays unknown.
 
 Runs that started on Stave 0.27.0 with the composer's former **Auto adjust**
-option keep the limits they started with: 30 shared turns, 2 helpers at once,
-4 in total, helpers on the run's provider, and no in-turn native subagents.
+option keep the limits they started with: 2 helpers at once, 4 in total,
+helpers on the run's provider, and no in-turn native subagents. Their saved
+30 shared turns no longer stop them.
 
 Saved file paths can accompany a supervised assignment, including image
 paths. Save editor changes first: the Run reads the on-disk files. Inline image

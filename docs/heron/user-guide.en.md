@@ -465,13 +465,13 @@ edge halted -> stopped dashed : stop
 | Running           | Working. A waiting reason such as PR checks or a usage limit may be shown; waiting uses no turns | Wait                         |
 | Needs your answer | A question or approval card is open, or the next stage waits for your sign-off     | Answer the card                           |
 | Paused            | You paused it, or you have taken control                                           | **Resume** in Task panel > Progress       |
-| Halted            | Blocked, recovery needed, wait expired, usage limit, or limit reached              | Continue with the run line buttons below  |
+| Halted            | Blocked, recovery needed, wait expired, usage limit, or limit reached (earlier versions) | Continue with the run line buttons below  |
 | Completed         | The done-when conditions are met                                                   | Read the run report in Outputs            |
 | Stopped           | Cancelled, or ended with a reason card                                             | **Retry** or **Take control**             |
 
 A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Progress** shows what its turns spent: a cost for Claude, tokens for Codex.
 
-The run line above the composer shows the buttons that fit: **Retry**, **Extend (+10 turns)**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model). On a run Tars holds, marked **Tars**, **Stop** (here, in the composer or with Esc) pauses the work in Tars instead of cancelling the run, and **Take control** is Tars's take over, which keeps the run paused for you.
+The run line above the composer shows the buttons that fit: **Retry**, **Resume**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model). On a run Tars holds, marked **Tars**, **Stop** (here, in the composer or with Esc) pauses the work in Tars instead of cancelling the run, and **Take control** is Tars's take over, which keeps the run paused for you.
 Task panel > **Progress** shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
 Each done-when condition shows **Met · checked by Stave**, **Met · agent reported**, **Not met** or **Not verified**.
 Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agent-run-panel.png) · [Stage sign-off card](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/run-sign-off.png)
@@ -489,7 +489,7 @@ Screens: [Progress tab](https://github.com/sendbird/stave/blob/main/docs/screens
 
 ## Keep responsibilities with Tars
 
-For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account, model constraints and shared turn budget. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
+For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account and model constraints. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
 
 You can continue a task Tars delegated yourself (for example "implement it and open the PR"). The work stays open and follows the task: within a few seconds it follows the run you started, which keeps your own permission, and the work's state, report and outputs, including a PR that run opened, follow it. This also works after the work ended. Tars follows only runs in that task, in its own workspace and repository. Tars observes your run and does not act in it: it does not answer its questions, control it, send it queued follow-ups or publish its work by itself. If something should be done there, Tars asks on a card and only your confirmation applies it; a control approved before you started a newer run is refused without effect. When your run produces what the goal asks for (for a PR goal, a PR in the work's own repository from the work's branch to its base, carrying its commits), the work is recorded as finished by you, without Tars's verification; otherwise it stays open. **Pause**, **Take over** (or **Take control** in the task) and **Cancel** work as before; releasing or changing the task's agent also removes Tars.
 
@@ -506,7 +506,7 @@ In a Markdown editor's **More** menu, **Ask Tars** attaches the current document
 
 Tars keeps status replies to four short lines: Done, Not working, Needs you and Next, omitting empty items. Results show a one-line headline; open Full summary for the original text, criteria, evidence and diagnostics. Long record lines show their full text on hover.
 
-While Stave has work it continues without you (a turn in progress, a running agent run or Tars execution, or a run waiting for a usage reset or an outside event such as pull request checks), it keeps the Mac from idle sleep. Once everything left waits for you (an approval, a question, a secret request, a sign-off or a pause only you can lift), the Mac may sleep again. The screen may turn off; a closed lid can still put a Mac to sleep. New Tars work defaults to a shared 60-turn budget for the lead and helpers; your saved explicit limit stays in effect. The lead integrates changes, commits them and runs final checks itself in the reporting turn, using Stave workspace check scripts when configured. Helpers must not push or open pull requests.
+While Stave has work it continues without you (a turn in progress, a running agent run or Tars execution, or a run waiting for a usage reset or an outside event such as pull request checks), it keeps the Mac from idle sleep. Once everything left waits for you (an approval, a question, a secret request, a sign-off or a pause only you can lift), the Mac may sleep again. The screen may turn off; a closed lid can still put a Mac to sleep. Unattended work ends on time and provider usage, not a turn count: a run, a delegated helper or Tars work keeps going through long turns and waits for a usage reset on its own. Stave stops a run only if it loops (200 turns without finishing, shared with its helpers). The lead integrates changes, commits them and runs final checks itself in the reporting turn, using Stave workspace check scripts when configured. Helpers must not push or open pull requests.
 
 Tars can read a responsibility’s report, changes, recent execution conversation, recorded checks and pull request state before answering about it. A status line names what it is reading. It can make up to two additional reading rounds per message; large results are excerpts, and missing evidence stays unknown. Opening a view for you remains separate from reading it. If Stave closes before an answer is saved, the message is marked interrupted and does not automatically run again.
 
@@ -566,8 +566,6 @@ can run on the other provider. Pin a
 model only when every step and its review should stay on it. With a pinned
 model, helpers may still use app-wide Auto to select effort within that model
 unless effort is pinned too. Tars runs work only on Claude or Codex.
-
-A turn is one request for an agent to work. The turn limit includes the lead agent and its helpers.
 
 **Standing instructions** start with a short default in your app language for a
 profile that has never used Tars. Empty saved instructions also open with the
@@ -738,7 +736,7 @@ headers show; running work that needs you is counted under **Needs you**.
 Select it to open the work tray; on a wide window the tray stays open
 beside the conversation. The tray lists **Needs you**, **In progress** and **Done**
 (folded). A lane header stays at the top of the tray while you scroll its
-cards, and an empty lane stays folded to its header with 0. Each card shows its title, a state tag, the owner, the turns left and
+cards, and an empty lane stays folded to its header with 0. Each card shows its title, a state tag, the owner,
 helpers working when Stave knows them, and what waits on you. State tags never
 share a color: running work alone is blue with the only moving mark, blocked
 work is amber, completed work green, and queued, waiting, paused and taken-over
@@ -1007,8 +1005,7 @@ is slow never delays another work's start, words or pause. **Settings → Concur
 **0**, which adds no limit. Set a positive number to bound admissions; lowering
 it leaves existing runs running. **Start now** explicitly bypasses this admission
 limit for the selected queued work. Waiting work yields its slot and admitted runs
-may resume when their constraints clear. This setting is separate from the turn
-budget. Queued cards show the observed active count and limit or a database
+may resume when their constraints clear. Queued cards show the observed active count and limit or a database
 lock being retried. If the cause has not been observed, they say it has not
 been confirmed. Provider/account limits and task ownership still apply.
 Other execution preferences guide newly admitted work without changing an
@@ -1031,9 +1028,8 @@ ask, propose a resume or cancel that waits for your confirmation, change a
 queued priority or open a view. It never starts work by itself (it asks you
 instead), never pauses, takes over or accepts work as done, and proposes
 nothing about work you paused, took over or that ended. Each change gets one
-follow-up; at most six start per hour, and each counts as one turn toward the
-separate cap of 20, counted since your last message, answer or click toward Tars; execution limits are independent and automatic actions never reset this count. A turn-limit pause gets an immediate follow-up under the autonomy policy. Unrelated messages leave other work's questions open. A stalled answer delivery explains its wait and releases later conversation messages within one minute; it is not sent twice, and settlement wakes the queue. Storage contention retries automatically at a capped delay.
-When the limit is used up, Tars says so and waits for you. A tray card shows when Tars looks next, such
+follow-up; at most six start per hour, and no count since your last message stops them, so work that needs nothing from you does not wait for your next action. A run paused at the old turn limit of an earlier version gets an immediate follow-up and may be resumed under the autonomy policy. Unrelated messages leave other work's questions open. A stalled answer delivery explains its wait and releases later conversation messages within one minute; it is not sent twice, and settlement wakes the queue. Storage contention retries automatically at a capped delay.
+A tray card shows when Tars looks next, such
 as **Next check** on waiting work.
 
 Work continues while Stave runs and is reconciled after restart. It does not
@@ -1268,7 +1264,7 @@ macOS uses Cmd; Windows and Linux use Ctrl. See the full list with Cmd/Ctrl+/.
 | All right-panel buttons are disabled       | Open a repository first                                                                     |
 | The AI does not know your notes or links   | Turn on **Settings > MCP > Local MCP Server**                                               |
 | An agent run stops at every approval       | Check that the permission under the agent's **How it runs** is Auto                         |
-| A run is halted with limit reached         | Select **Extend (+10 turns)** on the run line                                               |
+| A run is halted with limit reached         | Select **Resume** on the run line (only runs paused by an earlier version show this)        |
 | Stopped by a usage limit                   | **Resume at reset** or **Resume now**. With several accounts, turn on the run's account pool |
 | Create PR or the PR status is missing      | Run `gh auth login` in a terminal                                                           |
 | A closed task tab is gone from the list    | Closing is not archiving. Reopen it from Task History                                       |
