@@ -132,7 +132,8 @@ beforeEach(() => {
 afterEach(async () => {
   await flushPendingSnapshotPersists();
   cancelPendingAutoRouting(TASK_ID);
-  registerAgentRunBridge(null);
+  // Put back the agent runs store's own bridge, which the app store's import registered.
+  registerAgentRunBridge((await import("../src/store/agent-runs-store")).agentRunsStoreBridge);
   useAgentAssignmentsStore.setState({ byTaskId: {} });
   usePendingAutoRoutingStore.setState({ byTaskId: {} });
   (globalThis as { window?: unknown }).window = originalWindow;

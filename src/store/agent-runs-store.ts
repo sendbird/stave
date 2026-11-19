@@ -28,7 +28,7 @@ import { isActiveAgentRunState, latestStageRecord, type AgentRun } from "@/lib/a
 import { buildAgentRunTurnDividers, isOlderAgentRunDetail } from "@/lib/agent-runs/agent-run-view";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { describeAgentRunStatus, resolveAgentRunFirstPrompt } from "@/lib/agent-runs/agent-run-status";
-import { registerAgentRunBridge } from "@/store/agent-run-send";
+import { registerAgentRunBridge, type AgentRunBridge } from "@/store/agent-run-send";
 import { reportTarsOwnedOutcome, routeTarsOwnedIntent } from "@/store/tars-owned-control";
 import { tarsTaskTarget } from "@/lib/tars/ownership";
 import { useAppStore } from "@/store/app.store";
@@ -317,7 +317,7 @@ export const useAgentRunsStore = create<AgentRunsState>()((set, get) => {
 });
 
 /** The send path and Stop reach agent runs through this bridge (`agent-run-send.ts`). */
-registerAgentRunBridge({
+export const agentRunsStoreBridge: AgentRunBridge = {
   activeAgentRun: (workspaceId, taskId) => {
     const state = useAgentRunsStore.getState();
     if (state.loadedWorkspaceId !== workspaceId) return undefined;
@@ -367,7 +367,8 @@ registerAgentRunBridge({
     const stopAgentRuns = useAgentRunsStore.subscribe(check);
     check();
   },
-});
+};
+registerAgentRunBridge(agentRunsStoreBridge);
 
 /** The task's agent run detail, or undefined. Returns the stored reference. */
 export function useTaskAgentRun(workspaceId: string, taskId: string): AgentRunDetail | undefined {
