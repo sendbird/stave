@@ -400,6 +400,9 @@ export interface AppState
   }>;
   closeWorkspace: (args: {
     workspaceId: string;
+    /** The user confirmed a manual archive that preserves local work. */
+    preserveLocalWork?: boolean;
+    keepWorktree?: boolean;
     /** Bulk cleanup must stop if the workspace becomes active or awaits input. */
     onlyIfInactive?: boolean;
   }) => Promise<void>;

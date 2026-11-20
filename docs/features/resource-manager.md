@@ -63,8 +63,9 @@ shift-click or **Select all ready**, then choose **Archive**, **Delete
 permanently**, **Delete branches**, or **Restore**. Results include skipped
 items and their reasons; one failure does not cancel the rest. Archive has Undo.
 
-Archive removes a clean managed worktree and preserves its branch and all
-conversation history. It removes the workspace from the sidebar and Fleet.
+Manual archive removes a managed worktree and preserves its branch, including
+local-only commits, and all conversation history. It removes the workspace
+from the sidebar and Fleet.
 Restore recreates the worktree when the branch exists. With no saved changes,
 a missing branch opens read-only history and offers to create a new workspace with a draft based on
 that history. Archiving a linked workspace removes only its saved link and
@@ -75,11 +76,17 @@ it uses the observed dependency link and the current repository initialization
 command. The Archived shelf reads saved records without running
 repository inspections.
 
-For a dirty managed worktree with no other blockers, select its row and choose
-**Archive**. The confirmation offers **Save uncommitted changes and archive**,
-off by default. Choosing it preserves staged changes, unstaged changes and
-untracked files on a hidden archive reference without moving the branch. Ignored
-files are excluded. **Saved changes** marks the archived row. Restore recreates
+The sidebar's **Archive** confirmation includes saving uncommitted changes.
+In the cleanup center, select the workspace and turn on **Save uncommitted
+changes and archive** in the confirmation. This preserves staged changes,
+unstaged changes and untracked files on a hidden local Git reference.
+Git-ignored files and unfinished Git operations prevent worktree removal
+in both manual flows. Stave can remove its own dependency symlink.
+If removal is blocked, review the reason, show the worktree folder and retry,
+or choose **Archive and keep files on disk** when available. Restoring a
+retained checkout reopens the same files. Restore it before trying to remove
+its worktree again.
+**Saved changes** marks the archived row. Restore recreates
 those files and the staged state; if the destination already contains files,
 it stops and reports a conflict rather than overwriting them. Saving must succeed
 before the checkout is removed. Permanent deletion also removes the saved

@@ -1,4 +1,4 @@
-import { saveWorkspaceChanges, clearSavedWorkspaceChanges, applySavedWorkspaceChanges, deleteSavedWorkspaceChanges, discardPartialSavedWorkspaceChanges } from "./workspace-archive-snapshot";
+import { saveWorkspaceChanges, clearSavedWorkspaceChanges, applySavedWorkspaceChanges, assertWorkspaceArchiveFilesSafe, deleteSavedWorkspaceChanges, discardPartialSavedWorkspaceChanges } from "./workspace-archive-snapshot";
 import { existsSync, realpathSync } from "node:fs";
 import { workspaceRunningCleanupBlockers } from "./workspace-cleanup-running";
 import { lstat, readdir, symlink } from "node:fs/promises";
@@ -109,6 +109,7 @@ export function createWorkspaceCleanupRuntime(ports: {
       if (selectedRepository && repository.activeWorkspaceId === row.id) reasons.push("currentWorkspace");
     }
     if ((row.archived || action === "delete" || action === "removeWorktree" || action === "deleteBranch") && (store.listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree || repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)))) reasons.push("externalWorktree");
+    if (row.keptWorktree && existsSync(row.path) && (action === "delete" || action === "removeWorktree")) reasons.push("keptWorktree");
     if (!row.branchOnly && workspaceExecutionGate.isBusy({ workspaceId: row.id, workspacePath: row.path })) reasons.push("runningTurn");
     if (!row.branchOnly) reasons.push(...workspaceRunningCleanupBlockers(store, row.id));
     if (ports.hasTerminals(row.id)) reasons.push("terminalOpen");
@@ -170,7 +171,7 @@ export function createWorkspaceCleanupRuntime(ports: {
       }
       const status = await git(row.path, ["status", "--porcelain", "--untracked-files=all"]);
       if (!status.ok) blockers.push("checksUnavailable");
-      else if (worktreeStatusHasMeaningfulChanges(status.stdout)) blockers.push("changedFiles");
+      else if (!row.keptWorktree && worktreeStatusHasMeaningfulChanges(status.stdout)) blockers.push("changedFiles");
     }
     const inactiveDays = row.lastActive ? Math.floor((now() - Date.parse(row.lastActive)) / DAY) : 0;
     if (inactiveDays > 0) reasons.push(`inactive:${inactiveDays}`);
@@ -189,7 +190,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     }
     let bytes: number | null = null;
     if (scanDisk && row.path && existsSync(row.path)) { try { bytes = await workspaceDiskBytes(row.path); } catch { /* Size is informational. */ } }
-    return { ...row, canSaveChanges: !linked && !row.archived && !row.branchOnly && blockers.includes("changedFiles") && blockers.every(blocker => blocker === "changedFiles"), blockers: [...new Set(blockers)], reasons, bytes, branchDeletable };
+    return { ...row, canSaveChanges: !linked && !row.archived && !row.branchOnly && blockers.includes("changedFiles") && blockers.every(blocker => blocker === "changedFiles" || blocker === "unpushedCommits"), blockers: [...new Set(blockers)], reasons, bytes, branchDeletable };
   }
   async function list(scanDisk = false, checkPr = false, target?: { id: string; repositoryPath: string }) {
     const store = ports.store();
@@ -201,7 +202,7 @@ export function createWorkspaceCleanupRuntime(ports: {
       for (const workspace of repository.workspaces) rows.push({ ...base, id: workspace.id, name: workspace.name, path: repository.workspacePathById[workspace.id] ?? "", branch: repository.workspaceBranchById[workspace.id] ?? "", archived: false, readOnly: false, branchOnly: false, archivedAt: null, lastActive: repository.workspaceLastActiveAtById?.[workspace.id] ?? workspace.updatedAt });
       for (const archive of store.listArchivedWorkspacesPersistence({ repositoryPath: repository.repositoryPath })) {
         owned.add(archive.branch);
-        rows.push({ ...base, id: archive.workspaceId, name: archive.name, path: archive.path, branch: archive.branch, archived: true, savedChanges: Boolean(archive.savedChangesRef), readOnly: archive.readOnly, branchOnly: false, archivedAt: archive.archivedAt, lastActive: archive.archivedAt });
+        rows.push({ ...base, id: archive.workspaceId, name: archive.name, path: archive.path, branch: archive.branch, archived: true, savedChanges: Boolean(archive.savedChangesRef), keptWorktree: Boolean(archive.creationOptions?.keepWorktree && existsSync(archive.path)), readOnly: archive.readOnly, branchOnly: false, archivedAt: archive.archivedAt, lastActive: archive.archivedAt });
       }
       const [branches, mergedBranches] = await Promise.all([
         git(repository.repositoryPath, ["for-each-ref", "--format=%(refname:short)%09%(upstream:track)", "refs/heads"]),
@@ -297,11 +298,11 @@ export function createWorkspaceCleanupRuntime(ports: {
           if (branchExists) {
             if (savedRef) await applySavedWorkspaceChanges(row.path, savedRef);
             if (options?.linkedWorktree) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, options.linkedSymlinkNames ?? []);
-            if (!options?.linkedWorktree && options?.useRootNodeModulesSymlink) {
+            if (!row.keptWorktree && !options?.linkedWorktree && options?.useRootNodeModulesSymlink) {
               try { await lstat(join(row.path, "node_modules")); }
               catch { try { await symlink(join(row.repositoryPath, "node_modules"), join(row.path, "node_modules")); } catch { throw new Error("dependencyLinkFailed"); } }
             }
-            if (!savedRef && !options?.linkedWorktree && options?.initCommand) {
+            if (!row.keptWorktree && !savedRef && !options?.linkedWorktree && options?.initCommand) {
               ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "preparing", command: options.initCommand });
               try { await runWorkspacePreparation({ command: options.initCommand, cwd: row.path }); }
               catch { ports.changed?.({ workspaceId: row.id, repositoryPath: row.repositoryPath, stage: "preparationFailed", command: options.initCommand }); throw new Error("workspacePreparationFailed"); }
@@ -325,10 +326,15 @@ export function createWorkspaceCleanupRuntime(ports: {
       } else {
         if (args.action === "removeWorktree" && !row.archived) throw new Error("notArchived");
         if (args.action === "archive" && (row.archived || row.branchOnly)) throw new Error("notActiveWorkspace");
-        const saving = args.action === "archive" && args.saveChanges === true && row.canSaveChanges === true;
-        if (args.saveChanges && !saving) throw new Error("savedChangesUnavailable");
-        // Force is allowed only for the explicit permanent-delete branch choice.
-        const blockers = [...row.blockers, ...hostBlockers(row, args.action)].filter(blocker => !(blocker === "unpushedCommits" && args.forceDeleteBranch && args.action === "delete") && !(saving && blocker === "changedFiles"));
+        const preserveLocalWork = args.action === "archive" && args.preserveLocalWork === true && !automatic && !args.deleteBranch && !args.forceDeleteBranch;
+        const keepWorktree = args.keepWorktree === true;
+        if (keepWorktree && (!preserveLocalWork || args.saveChanges)) throw new Error("notActiveWorkspace");
+        const willSave = (current: WorkspaceCleanupRow) => args.action === "archive" && args.saveChanges === true && current.canSaveChanges === true;
+        if (args.saveChanges && !willSave(row) && !preserveLocalWork) throw new Error("savedChangesUnavailable");
+        const remainingBlockers = (current: WorkspaceCleanupRow, blockers: string[]) => blockers.filter(blocker =>
+          !(blocker === "unpushedCommits" && (preserveLocalWork || (args.forceDeleteBranch && args.action === "delete"))) &&
+          !(blocker === "changedFiles" && (keepWorktree || willSave(current))));
+        const blockers = remainingBlockers(row, [...new Set([...row.blockers, ...hostBlockers(row, args.action)])]);
         if (blockers.length) throw new Error(blockers.join(","));
         if (args.action === "deleteBranch" && !row.branchOnly) throw new Error("branchHasWorkspace");
         if (args.action === "deleteBranch" || args.deleteBranch) {
@@ -337,16 +343,18 @@ export function createWorkspaceCleanupRuntime(ports: {
         }
         const apply = async () => {
           const fresh = await inspect(row, false, false, args.action);
-          if (saving && !fresh.canSaveChanges) throw new Error("savedChangesUnavailable");
-          const freshBlockers = fresh.blockers.filter(blocker => !(blocker === "unpushedCommits" && args.forceDeleteBranch && args.action === "delete") && !(saving && blocker === "changedFiles"));
+          if (!preserveLocalWork && willSave(row) && !willSave(fresh)) throw new Error("savedChangesUnavailable");
+          const freshBlockers = remainingBlockers(fresh, fresh.blockers);
           if (freshBlockers.length) throw new Error(freshBlockers.join(","));
           const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath)!;
           const linked = repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)) || ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree;
           const linkedSymlinkNames = linked ? await listWorkspaceShelfLinks(row.repositoryPath, row.path) : [];
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
+          const checkArchiveFiles = preserveLocalWork && !keepWorktree && !linked && existsSync(row.path);
+          if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path, row.repositoryPath);
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
-          const saved = saving ? await saveWorkspaceChanges(row.path) : undefined;
+          const saved = willSave(fresh) ? await saveWorkspaceChanges(row.path) : undefined;
           const savedRef = saved?.ref;
           try {
             if (createArchive) {
@@ -354,7 +362,7 @@ export function createWorkspaceCleanupRuntime(ports: {
               let dependencyLink = false;
               try { dependencyLink = (await lstat(join(row.path, "node_modules"))).isSymbolicLink(); } catch { /* No dependency link. */ }
               try { ports.store().archiveWorkspacePersistence({ workspaceId: row.id, repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, name: row.name, savedChangesRef: savedRef,
-                creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked), ...(linked ? { linkedSymlinkNames } : {}) } }); }
+                creationOptions: { ...(original ?? { useRootNodeModulesSymlink: dependencyLink, initCommand: repository.newWorkspaceInitCommand }), linkedWorktree: Boolean(linked), ...(linked ? { linkedSymlinkNames } : {}), ...(keepWorktree ? { keepWorktree: true } : {}) } }); }
               catch (error) {
                 if (savedRef) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
                 throw error;
@@ -366,7 +374,8 @@ export function createWorkspaceCleanupRuntime(ports: {
             try {
               if (saved) await clearSavedWorkspaceChanges(row.path, saved, () => { savedStateCleared = true; });
               if (linked && args.action === "archive") await removeWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
-              if (!linked && !row.branchOnly && existsSync(row.path)) {
+              if (!keepWorktree && !linked && !row.branchOnly && existsSync(row.path)) {
+                if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path, row.repositoryPath);
                 const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
                 if (!removed.ok) throw new Error("worktreeRemoveFailed");
               }
@@ -443,7 +452,7 @@ export function createWorkspaceCleanupRuntime(ports: {
         const archive = !row.archived && (mergedDue
           || (policy.inactive.enabled && age >= policy.inactive.value)
           || (policy.maximum.enabled && (activeByRepo.get(row.repositoryPath) ?? 0) > policy.maximum.value && age >= 1));
-        const remove = row.archived && policy.archived.enabled && age >= policy.archived.value && existsSync(row.path);
+        const remove = row.archived && !row.keptWorktree && policy.archived.enabled && age >= policy.archived.value && existsSync(row.path);
         if (!archive && !remove) continue;
         const result = await act({ action: archive ? "archive" : "removeWorktree", workspaceId: row.id, repositoryPath: row.repositoryPath }, true);
         results.push(result);

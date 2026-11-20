@@ -2,6 +2,7 @@ import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
 import { refreshWorkspaceCleanupRegistry } from "@/store/workspace-cleanup-sync";
 import { WorkspaceArchivedHistory } from "./WorkspaceArchivedHistory";
+import { WorkspaceArchiveRecovery } from "./WorkspaceArchiveRecovery";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
 import { Button, Input } from "@/components/ui";
@@ -18,10 +19,16 @@ import { notifyWorkspaceCleanupChanged, OPEN_WORKSPACE_CLEANUP_EVENT } from "./w
 type Snapshot = Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
 const rowKey = (row: Pick<WorkspaceCleanupRow, "repositoryPath" | "id">) => `${row.repositoryPath}\n${row.id}`;
 const ready = (row: WorkspaceCleanupRow) => row.blockers.length === 0;
-const canSaveChanges = (row: WorkspaceCleanupRow) => Boolean(row.canSaveChanges && !row.archived && !row.branchOnly && row.blockers.length === 1 && row.blockers[0] === "changedFiles");
-const selectable = (row: WorkspaceCleanupRow) => ready(row) || canSaveChanges(row);
+const canArchive = (row: WorkspaceCleanupRow) => !row.archived && !row.branchOnly && row.blockers.every(
+  blocker => blocker === "unpushedCommits" || (blocker === "changedFiles" && row.canSaveChanges),
+);
+const canSaveChanges = (row: WorkspaceCleanupRow) => canArchive(row) && row.canSaveChanges === true && row.blockers.includes("changedFiles");
+const canRestore = (row: WorkspaceCleanupRow) => row.archived && row.blockers.every(
+  blocker => blocker === "unpushedCommits" || blocker === "externalWorktree",
+);
+const selectable = (row: WorkspaceCleanupRow) => ready(row) || canArchive(row) || canRestore(row);
 /** Archived rows whose checkout was removed have no disk usage to report. */
-const withoutWorktree = (row: WorkspaceCleanupRow) => row.archived && !row.bytes;
+const withoutWorktree = (row: WorkspaceCleanupRow) => row.archived && !row.keptWorktree && !row.bytes;
 const REVERSIBLE_ACTIONS = ["archive", "restore"] as const;
 const DESTRUCTIVE_ACTIONS = ["delete", "deleteBranch"] as const;
 
@@ -70,6 +77,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   const [forceDeleteBranch, setForceDeleteBranch] = useState(false);
   const cancelRef = useRef<HTMLButtonElement>(null);
   const knownNames = useRef(new Map<string, string>());
+  const archiveRequests = useRef(new Map<string, WorkspaceCleanupActArgs>());
   const anchor = useRef<string | null>(null);
   const generation = useRef(0);
   const refresh = useCallback(async (scanDisk = false) => {
@@ -117,9 +125,17 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     });
     anchor.current = key;
   };
-  const actionRows = (action: WorkspaceCleanupActArgs["action"]) => selectedRows.filter((row) => (action === "archive" || ready(row)) && (action === "restore" ? row.archived : action === "deleteBranch" ? row.branchOnly && row.branchDeletable : action === "archive" ? !row.archived && !row.branchOnly : !row.branchOnly));
-  const act = async (action: WorkspaceCleanupActArgs["action"], targets: WorkspaceCleanupActArgs[] = actionRows(action).map((row) => ({ action, workspaceId: row.id, repositoryPath: row.repositoryPath, deleteBranch, forceDeleteBranch, ...(action === "archive" && canSaveChanges(row) ? { saveChanges } : {}) }))) => {
-    setBusy(true); setConfirming(null); setResults([]);
+  const actionRows = (action: WorkspaceCleanupActArgs["action"]) => selectedRows.filter((row) => {
+    if (action === "archive") return canArchive(row);
+    if (action === "restore") return canRestore(row);
+    return ready(row) && (action === "deleteBranch" ? row.branchOnly && row.branchDeletable : !row.branchOnly && !row.keptWorktree);
+  });
+  const act = async (action: WorkspaceCleanupActArgs["action"], targets: WorkspaceCleanupActArgs[] = actionRows(action).map((row) => ({
+    action, workspaceId: row.id, repositoryPath: row.repositoryPath,
+    ...(action === "archive" ? { preserveLocalWork: true, saveChanges: canSaveChanges(row) && saveChanges } : { deleteBranch, forceDeleteBranch }),
+  })), retry = false) => {
+    setBusy(true); setConfirming(null);
+    if (!retry) { setResults([]); archiveRequests.current.clear(); }
     const finished: WorkspaceCleanupResult[] = [];
     const archived: WorkspaceCleanupActArgs[] = [];
     for (const target of targets) {
@@ -127,10 +143,14 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       try { const api = window.api?.workspaceCleanup; if (!api) throw new Error(); result = await runWorkspaceCleanupAction(api, target); }
       catch { result = { ok: false, action: target.action, workspaceId: target.workspaceId, reason: "unavailable" }; }
       finished.push(result);
+      if (target.action === "archive" && !result.ok) archiveRequests.current.set(result.workspaceId, target);
+      else archiveRequests.current.delete(result.workspaceId);
       if (result.ok && result.readOnly) setHistory({ workspaceId: target.workspaceId, repositoryPath: target.repositoryPath });
       if (result.ok && target.action === "archive") archived.push({ action: "restore", workspaceId: target.workspaceId, repositoryPath: target.repositoryPath });
     }
-    setResults(finished); setUndo(archived); setSelected(new Set());
+    setResults(previous => retry ? [...previous.filter(result => !finished.some(item => item.workspaceId === result.workspaceId)), ...finished] : finished);
+    setUndo(previous => retry ? [...previous, ...archived] : archived);
+    setSelected(new Set());
     setMessage(t("cleanupCenter.summary", { done: finished.filter((r) => r.ok).length, skipped: finished.filter((r) => !r.ok).length }));
     try { await refreshWorkspaceCleanupRegistry(); } catch { setMessage(t("cleanupCenter.unavailable")); }
     notifyWorkspaceCleanupChanged();
@@ -146,7 +166,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     const key = rowKey(row);
     const blocked = !selectable(row);
     const reasonId = `cleanup-reason-${encodeURIComponent(key)}`;
-    const reasonLine = row.blockers.length ? row.blockers.map(reasonText).join(" · ") : row.reasons.length ? row.reasons.map(reasonText).join(" · ") : t("cleanupDialog.row.ready");
+    const reasonLine = row.blockers.length ? row.blockers.map(reasonText).join(" · ") : row.keptWorktree ? t("cleanupCenter.worktreeKept") : row.reasons.length ? row.reasons.map(reasonText).join(" · ") : t("cleanupDialog.row.ready");
     const identity = <>
       <span className={sx(styles.truncate)}>{row.name}{row.archived ? ` · ${t("cleanupCenter.archived")}` : ""}{row.savedChanges ? ` · ${t("cleanupCenter.savedChanges")}` : ""}</span>
       <span className={sx(styles.muted, styles.truncate)}>{row.branch} · {row.path}</span>
@@ -180,7 +200,22 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         </div> : null)}
       </div>
       {message && <p role="status" className={sx(styles.status)}>{message}{undo.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act("restore", undo)}>{t("cleanupCenter.undo")}</Button>}</p>}
-      {results.some((result) => !result.ok) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok).map((result, index) => <p className={sx(styles.status)} key={index}>{workspaceName(result)} · {reasonText(result.reason ?? "unavailable")}</p>)}</div>}
+      {results.some((result) => !result.ok) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok).map((result, index) => {
+        const target = archiveRequests.current.get(result.workspaceId);
+        const reason = result.reason ?? "unavailable";
+        if (!target) return <p className={sx(styles.status)} key={index}>{workspaceName(result)} · {reasonText(reason)}</p>;
+        const row = data?.rows.find(item => item.id === target.workspaceId && item.repositoryPath === target.repositoryPath);
+        return <div key={result.workspaceId}>
+          <p className={sx(styles.status)}>{workspaceName(result)}</p>
+          <WorkspaceArchiveRecovery
+            reason={reason}
+            path={row?.path}
+            busy={busy}
+            retry={() => { void act("archive", [target], true); }}
+            keep={() => { void act("archive", [{ ...target, keepWorktree: true, saveChanges: false }], true); }}
+          />
+        </div>;
+      })}</div>}
       <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>{data?.recent.map((item, index) => <div key={index} className={sx(styles.toolbar)}><span className={sx(styles.muted)}>{formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {workspaceName(item)} · {item.ok ? t("cleanupCenter.completed") : reasonText(item.reason ?? "unavailable")}</span>{item.ok && (item.action === "archive" || item.action === "removeWorktree") && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}</div>)}</div></details>
     </DialogContent>
   </Dialog><Dialog open={confirming !== null} onOpenChange={(next) => { if (!next) setConfirming(null); }}>

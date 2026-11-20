@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { isManagedWorkspaceDependencyLink } from "./workspace-linked-shelf";
 import {
   attachGraphRefs,
   parseGraphLog,
@@ -2534,8 +2535,7 @@ export async function removeWorkspaceLifecycleWorktree(repositoryPath: string, w
   const dependencyLink = `${workspacePath}/node_modules`;
   let linkTarget: string | null = null;
   try {
-    if ((await fs.lstat(dependencyLink)).isSymbolicLink()
-      && await fs.realpath(dependencyLink) === await fs.realpath(`${repositoryPath}/node_modules`)) {
+    if (await isManagedWorkspaceDependencyLink(repositoryPath, workspacePath)) {
       linkTarget = await fs.readlink(dependencyLink);
       await fs.unlink(dependencyLink);
     }

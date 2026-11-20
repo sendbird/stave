@@ -650,16 +650,17 @@ describe("resolveWorkspaceRowBranch", () => {
 });
 
 describe("buildWorkspaceArchiveDialogCopy", () => {
-  test("keeps the branch and history for a managed worktree", () => {
+  test("explains how local work is kept before removing a managed worktree", () => {
     const copy = buildWorkspaceArchiveDialogCopy({
       workspaceName: "fix/archive",
       isLinkedWorktree: false,
     });
 
     expect(copy.canDeleteBranch).toBe(false);
-    expect(copy.description).toBe(
-      'Archive workspace "fix/archive"? The clean worktree is removed. The branch, tasks, messages and history are kept. Restore it from Archived or Clean up workspaces.',
-    );
+    expect(copy.description).toContain('Archive workspace "fix/archive"?');
+    expect(copy.description).toContain("saves any uncommitted changes before removing the worktree");
+    expect(copy.description).toContain("including local commits");
+    expect(copy.description).toContain("Restore it");
   });
 
   test("withholds branch deletion for an imported linked worktree", () => {

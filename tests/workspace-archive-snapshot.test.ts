@@ -24,6 +24,8 @@ test("saved changes survive real Git and SQLite archive lifecycle", () => {
 test("saved change IPC payloads remain strict", () => {
   const valid = { action: "archive", workspaceId: "work", repositoryPath: "/tmp/repository", saveChanges: true };
   expect(WorkspaceCleanupActArgsSchema.safeParse(valid).success).toBe(true);
+  expect(WorkspaceCleanupActArgsSchema.safeParse({ ...valid, preserveLocalWork: true }).success).toBe(true);
+  expect(WorkspaceCleanupActArgsSchema.safeParse({ ...valid, preserveLocalWork: "true" }).success).toBe(false);
   expect(WorkspaceCleanupActArgsSchema.safeParse({ ...valid, saveChanges: "true" }).success).toBe(false);
   expect(WorkspaceCleanupActArgsSchema.safeParse({ ...valid, force: true }).success).toBe(false);
   const row = { id: "work", repositoryPath: "/tmp/repository", repositoryName: "Repository", name: "Work", path: "/tmp/work", branch: "work", archived: true, branchOnly: false, readOnly: false, archivedAt: null, lastActive: null, blockers: [], reasons: [], bytes: null, branchDeletable: false, savedChanges: true, canSaveChanges: false };

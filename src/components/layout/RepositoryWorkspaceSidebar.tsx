@@ -1,6 +1,5 @@
 import { SidebarVirtualList } from "./SidebarVirtualList";
-import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
-import { toast } from "@/lib/notifications/toast";
+import { WorkspaceArchiveRecovery } from "./WorkspaceArchiveRecovery";
 import { ArchivedWorkspaceShelf } from "./ArchivedWorkspaceShelf";
 import { openWorkspaceCleanup } from "./workspace-cleanup-events";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
@@ -166,6 +165,7 @@ export function RepositoryWorkspaceSidebar(args: {
   const [closingWorkspaceId, setClosingWorkspaceId] = useState<string | null>(
     null,
   );
+  const [archiveError, setArchiveError] = useState<string | null>(null);
   const [
     currentRepositoryPath,
     currentRepositoryName,
@@ -701,6 +701,15 @@ export function RepositoryWorkspaceSidebar(args: {
       },
     });
   }
+
+  const archiveSelectedWorkspace = (keepWorktree = false) => {
+    if (!workspaceToClose) return;
+    setClosingWorkspaceId(workspaceToClose.id);
+    void closeWorkspace({ workspaceId: workspaceToClose.id, preserveLocalWork: true, keepWorktree })
+      .then(() => setWorkspaceToClose(null), (error: unknown) => {
+        setArchiveError(error instanceof Error ? error.message : "cleanupFailed");
+      }).finally(() => setClosingWorkspaceId(null));
+  };
 
   return (
     <>
@@ -1707,9 +1716,10 @@ export function RepositoryWorkspaceSidebar(args: {
                                                     }
                                                     canArchiveWorkspace={canArchiveWorkspace}
                                                     closingWorkspaceId={closingWorkspaceId}
-                                                    onArchive={() =>
-                                                      setWorkspaceToClose({ id: workspace.id, name: workspace.name })
-                                                    }
+                                                    onArchive={() => {
+                                                      setArchiveError(null);
+                                                      setWorkspaceToClose({ id: workspace.id, name: workspace.name });
+                                                    }}
                                                     onRename={renameWorkspace}
                                                   />
                                                 </div>
@@ -1819,26 +1829,23 @@ export function RepositoryWorkspaceSidebar(args: {
         open={Boolean(workspaceToClose)}
         title={tI18n("workspace:repositoryWorkspaceSidebar.archiveWorkspace")}
         description={archiveDialogCopy?.description ?? ""}
-        confirmLabel={tI18n("workspace:repositoryWorkspaceSidebar.archive")}
+        confirmLabel={tI18n(archiveError ? "workspace:cleanupCenter.retryArchive" : "workspace:repositoryWorkspaceSidebar.archive")}
+        defaultFocus={archiveError ? "cancel" : "confirm"}
         loading={closingWorkspaceId !== null}
         onCancel={() => {
           setWorkspaceToClose(null);
         }}
-        onConfirm={() => {
-          if (!workspaceToClose) {
-            return;
-          }
-          setClosingWorkspaceId(workspaceToClose.id);
-          void closeWorkspace({
-            workspaceId: workspaceToClose.id,
-          }).catch((error: unknown) => {
-            toast.error(tI18n("workspace:cleanupCenter.archiveRefusedWithReason", { reason: workspaceCleanupReasonText(error instanceof Error ? error.message : "cleanupFailed") }));
-          }).finally(() => {
-            setClosingWorkspaceId(null);
-            setWorkspaceToClose(null);
-          });
-        }}
-      />
+        onConfirm={() => archiveSelectedWorkspace()}
+      >
+        {archiveError && workspaceToClose && (
+          <WorkspaceArchiveRecovery
+            reason={archiveError}
+            path={workspacePathById[workspaceToClose.id]}
+            busy={closingWorkspaceId !== null}
+            keep={() => archiveSelectedWorkspace(true)}
+          />
+        )}
+      </ConfirmDialog>
       <CreateWorkspaceDialog
         open={createWorkspaceOpen}
         activeBranch={activeWorkspaceBranch}
