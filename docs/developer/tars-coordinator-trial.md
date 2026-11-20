@@ -21,10 +21,11 @@ as a saved Agent on Claude or Codex with the Local MCP server on.
 No gap blocks the trial. These limits shape the setup:
 
 - **Team limits.** Each run of the coordinator has 3 helper Agents at once, 8
-  in total, and one shared turn budget that its helpers draw from (see
-  [Team limits](../features/agents.md#team-limits)). The definition below
-  raises max turns to 100. A request that needs more units than that becomes
-  a second request.
+  in total. Time and provider usage bound unattended work, with an internal
+  shared ceiling to stop loops (see [Team limits](../features/agents.md#team-limits)).
+  The Agent's **Max turns** setting does not change those Run limits. Split a
+  request that needs more helpers into separate runs and record it as one
+  request in the trial note.
 - **Denied tools pass to helpers.** A Claude Agent's denied tools become the
   turn's denied tools, and a same-provider helper inherits them
   (`electron/providers/runtime.ts`, `resolveDelegationPermissionPolicy`).
@@ -64,7 +65,6 @@ Create it once (about a minute):
 | How it runs → Permission | Auto |
 | How it runs → Works in | Current workspace |
 | Advanced → Denied tools | `Bash(gh pr merge:*)`, `Bash(gh pr ready:*)`, `Bash(gh release:*)`, `Bash(git push --force:*)`, `Bash(git push -f:*)` |
-| Advanced → Max turns | 100 |
 | Advanced → Usable as | Main agent |
 | Advanced → Can call | Implementer, Debugger, UI Polisher, Reviewer, Researcher |
 
@@ -134,9 +134,13 @@ and this call for the review (an owner that ran on Claude, commit `3f9c2a1…`):
 
 ## Trial protocol
 
-**Before the week.** Note the Stave version and the starting date. Do not
-change Tars, the coordinator's definition or the helper limits during the
-week. Fix a broken coordinator instruction only between weeks, and note it.
+**Before the week.** On the installed macOS release, use a disposable local
+repository and an Auto Claude coordinator to delegate one read-only review to
+Codex at a known commit. Check the child's provider and commit, the result in
+the parent, and that the saved result still opens after restarting Stave.
+This check needs no pull request or remote write. Once it passes, record the
+Stave version and starting date. Keep Tars, the coordinator's definition and
+the helper limits stable during the week. Record any corrections between weeks.
 
 **What goes to which.** Hand out new work in arrival order, alternating: the
 first request to Tars, the next to the coordinator, and so on. Both work in the
@@ -145,13 +149,13 @@ fix, a release). Aim for at least 8 requests on each side.
 
 **What to record.** Keep one line per request in a plain note:
 
-| Date | Side | Request | Units | PR links | You stepped in? Why | Result after your review |
-| --- | --- | --- | --- | --- | --- | --- |
+| Date | Side | Request | Units | PR links or verification | Time to first PR | You stepped in? Why | Result after your review |
+| --- | --- | --- | --- | --- | --- | --- | --- |
 
 "Stepped in" covers any reply you wrote in a child task, a question you
-answered, work you stopped or took over, and a step you did by hand. "Result
-after your review" is `right`, `needed rework` or `wrong`, judged from the
-pull request itself.
+answered, work you stopped or took over, and a step you did by hand. Measure
+time from submitting the request to its first PR. "Result after your review"
+is `right`, `needed rework` or `wrong`, judged from the PR or verified output.
 
 **Measure** at the end of the week, on a copy of the database:
 
@@ -197,14 +201,18 @@ offset (`2026-11-27T00:00+09:00`); the end is exclusive.
 **Decision rule.** Replace the planner with the coordinator only when all of
 these hold:
 
-1. The coordinator's units reached a pull request or a verified completion
-   without you (`unattendedRate`, checked against the note's "stepped in"
-   column) more often than Tars's, by at least two requests' worth.
+1. The coordinator completes a greater share of user requests without you.
+   Count each request once, including unfinished requests in the denominator.
+   Count it as completed unattended when every required unit reached a PR or
+   verified completion and you did not step in. Use the note for both sides.
+   For a balanced trial, require at least two more successful requests. If
+   the groups have different sizes, compare their rates and require a gap of
+   at least two successes on the smaller group’s denominator.
 2. No coordinator unit broke a hard rule: a merge, a pull request marked ready,
    a force push, a write in its own workspace, or a pull request reported as
    checked that was not a draft on the agreed base at the owner's commit.
 3. Your review found no more `needed rework` or `wrong` results than for Tars.
-4. Median time to a pull request is not more than half again Tars's.
+4. The median request-to-first-PR time in the note is at most 1.5 times Tars's.
 
 Keep the planner when the coordinator is equal or worse on 1 or 3, or breaks a
 rule in 2. Better numbers within one or two requests are noise: run a second
@@ -218,7 +226,8 @@ week before deciding.
   hard request can decide a side.
 - **Different units.** Tars counts a request it took on; the coordinator
   counts each unit it delegated, and may split one request into several. The
-  note's per-request lines compare like with like.
+  note's per-request lines drive the decision. Use the script's unit-level
+  totals, including `unattendedRate`, to investigate those results.
 - **Different evidence of a pull request.** Tars records the pull request it
   opened and watched; for the coordinator the script reads the link the child
   gave and the coordinator's own record that it checked it. The script cannot
