@@ -21,9 +21,8 @@ const accent14 = `color-mix(in srgb, ${vars["--aui-color-accent"]} 14%, transpar
 
 /**
  * The sidebar's hover-reveal beat: the project mark trading places with its
- * chevron, the row actions sliding in and the count yielding to them (the
- * lead's padding opens in one step; it is layout). They were authored as a bare
- * `transitionDuration` literal with NO timing function, which means they ran on
+ * chevron, the workspace row actions sliding in and the count yielding to them.
+ * They used a bare `transitionDuration` without a timing function and ran on
  * the UA's `ease` rather than the house curve — the sidebar was the one surface
  * in the app whose hovers accelerated differently from every button beside it —
  * and with no `prefers-reduced-motion` arm at all, so the transform halves kept
@@ -79,13 +78,12 @@ const REPOSITORY_MARK_SCALE = "--staveProjectRowMarkScale";
 const REPOSITORY_MARK_OPACITY = "--staveProjectRowMarkOpacity";
 const REPOSITORY_CHEVRON_SCALE = "--staveProjectRowChevronScale";
 const REPOSITORY_CHEVRON_OPACITY = "--staveProjectRowChevronOpacity";
-const REPOSITORY_ROW_OPEN = "--staveProjectRowOpen";
-const REPOSITORY_COUNT_OPACITY = "--staveProjectRowCountOpacity";
-const REPOSITORY_COUNT_SHIFT = "--staveProjectRowCountShift";
-const REPOSITORY_COUNT_EVENTS = "--staveProjectRowCountEvents";
+const REPOSITORY_COUNT_DISPLAY = "--staveProjectRowCountDisplay";
 const REPOSITORY_ACTIONS_OPACITY = "--staveProjectRowActionsOpacity";
-const REPOSITORY_ACTIONS_SHIFT = "--staveProjectRowActionsShift";
 const REPOSITORY_ACTIONS_EVENTS = "--staveProjectRowActionsEvents";
+const REPOSITORY_ACTIONS_SIZE = "--staveProjectRowActionsSize";
+const REPOSITORY_ACTIONS_CLIP = "--staveProjectRowActionsClip";
+const REPOSITORY_MENU_OPEN = ':has([aria-haspopup="menu"][aria-expanded="true"])';
 
 export const repositorySidebarStyles = stylex.create({
   /* ---------------------------------------------------------------- labels */
@@ -729,7 +727,6 @@ export const repositorySidebarStyles = stylex.create({
   repositoryHeaderRow: { alignItems: "center", display: "flex", gap: vars["--aui-space-4"] },
 
   repositoryRow: {
-    [REPOSITORY_ROW_OPEN]: { default: "0", ":hover": "1", ":focus-within": "1" },
     [REPOSITORY_MARK_SCALE]: {
       default: "1",
       ":hover": "0.75",
@@ -750,35 +747,35 @@ export const repositorySidebarStyles = stylex.create({
       ":hover": "1",
       ":focus-within": "1",
     },
-    [REPOSITORY_COUNT_OPACITY]: {
-      default: "1",
-      ":hover": "0",
-      ":focus-within": "0",
-    },
-    [REPOSITORY_COUNT_SHIFT]: {
-      default: "0px",
-      ":hover": "0.25rem",
-      ":focus-within": "0.25rem",
-    },
-    [REPOSITORY_COUNT_EVENTS]: {
-      default: "auto",
+    [REPOSITORY_COUNT_DISPLAY]: {
+      default: "flex",
       ":hover": "none",
       ":focus-within": "none",
+      [REPOSITORY_MENU_OPEN]: "none",
     },
     [REPOSITORY_ACTIONS_OPACITY]: {
       default: "0",
       ":hover": "1",
       ":focus-within": "1",
-    },
-    [REPOSITORY_ACTIONS_SHIFT]: {
-      default: "0.25rem",
-      ":hover": "0px",
-      ":focus-within": "0px",
+      [REPOSITORY_MENU_OPEN]: "1",
     },
     [REPOSITORY_ACTIONS_EVENTS]: {
       default: "none",
       ":hover": "auto",
       ":focus-within": "auto",
+      [REPOSITORY_MENU_OPEN]: "auto",
+    },
+    [REPOSITORY_ACTIONS_SIZE]: {
+      default: "0px",
+      ":hover": "max-content",
+      ":focus-within": "max-content",
+      [REPOSITORY_MENU_OPEN]: "max-content",
+    },
+    [REPOSITORY_ACTIONS_CLIP]: {
+      default: "inset(0)",
+      ":hover": "none",
+      ":focus-within": "none",
+      [REPOSITORY_MENU_OPEN]: "none",
     },
     alignItems: "center",
     backgroundColor: {
@@ -790,8 +787,10 @@ export const repositorySidebarStyles = stylex.create({
     color: { default: vars["--aui-color-text-muted"], ":hover": vars["--aui-color-text"] },
     display: "flex",
     flex: 1,
+    flexWrap: "wrap",
     fontSize: vars["--aui-font-size-body"],
-    gap: vars["--aui-space-8"],
+    columnGap: vars["--aui-space-8"],
+    rowGap: vars["--aui-space-4"],
     minWidth: 0,
     paddingBlock: vars["--aui-space-4"],
     paddingInline: vars["--aui-space-8"],
@@ -841,26 +840,18 @@ export const repositorySidebarStyles = stylex.create({
   repositoryChevronOpen: {
     transform: `rotate(90deg) scale(var(${REPOSITORY_CHEVRON_SCALE}, 0.75))`,
   },
-  repositoryLead: {
+  // Keep the blocking alert and the actions on the same line. The whole
+  // group can wrap as soon as it would crowd out the project name.
+  repositoryTrailing: {
     alignItems: "center",
     display: "flex",
-    flex: 1,
-    gap: vars["--aui-space-8"],
-    minWidth: 0,
-    position: "relative",
-    // The room it opens for the hover actions arrives in one step: padding
-    // is layout, and animating it re-wrapped the project name every frame.
-  },
-  /* Hover reserves room for the absolutely positioned row actions; a pinned
-     attention alert needs its own slot beyond them. */
-  repositoryLeadPinned: {
-    paddingInlineEnd: `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 7.75rem)`,
-  },
-  repositoryLeadDefault: {
-    paddingInlineEnd: `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 5.75rem)`,
+    flexShrink: 0,
+    gap: `calc(var(${REPOSITORY_ACTIONS_OPACITY}, 0) * ${vars["--aui-space-4"]})`,
+    marginInlineStart: "auto",
+    maxInlineSize: "100%",
   },
   repositoryName: {
-    flex: 1,
+    flex: `1 1 ${vars["--aui-space-32"]}`,
     fontWeight: vars["--aui-font-weight-medium"],
     minWidth: 0,
     overflow: "hidden",
@@ -871,14 +862,9 @@ export const repositorySidebarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    marginInlineStart: "auto",
-    ...revealMotion,
-    transitionProperty: "opacity, transform",
   },
   repositoryCountSlotYields: {
-    opacity: `var(${REPOSITORY_COUNT_OPACITY}, 1)`,
-    pointerEvents: `var(${REPOSITORY_COUNT_EVENTS}, auto)`,
-    transform: `translateX(var(${REPOSITORY_COUNT_SHIFT}, 0px))`,
+    display: `var(${REPOSITORY_COUNT_DISPLAY}, flex)`,
   },
   // A figure in a fixed, end-aligned slot rather than a boxed pill: the
   // count is secondary text, and one width keeps every name's edge still.
@@ -896,21 +882,20 @@ export const repositorySidebarStyles = stylex.create({
   },
   repositoryActions: {
     alignItems: "center",
+    clipPath: `var(${REPOSITORY_ACTIONS_CLIP}, inset(0))`,
     display: "flex",
-    flexShrink: 0,
-    gap: 2,
-    insetBlockStart: "50%",
-    insetInlineEnd: 0,
+    gap: vars["--aui-space-2"],
+    inlineSize: `var(${REPOSITORY_ACTIONS_SIZE}, 0px)`,
+    minInlineSize: 0,
     opacity: `var(${REPOSITORY_ACTIONS_OPACITY}, 0)`,
     pointerEvents: `var(${REPOSITORY_ACTIONS_EVENTS}, none)`,
-    position: "absolute",
-    transform: `translateY(-50%) translateX(var(${REPOSITORY_ACTIONS_SHIFT}, 0.25rem))`,
     ...revealMotion,
-    transitionProperty: "opacity, transform",
+    transitionProperty: "opacity",
   },
   repositoryActionButton: {
     borderRadius: vars["--aui-radius-control"],
     height: 28,
+    minInlineSize: vars["--aui-control-height-2xs"],
     padding: 0,
     width: 28,
   },

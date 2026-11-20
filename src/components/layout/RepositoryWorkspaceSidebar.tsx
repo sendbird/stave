@@ -1217,36 +1217,13 @@ export function RepositoryWorkspaceSidebar(args: {
                                         : tI18n("workspace:repositoryWorkspaceSidebar.collapseRepository")}
                                     </TooltipContent>
                                   </Tooltip>
-                                  <div
-                                    className={sx(
-                                      repositorySidebarStyles.repositoryLead,
-                                      // The row actions are absolutely positioned at the inline
-                                      // end, so hovering reserves room for them. An attention
-                                      // alert stays visible through that hover (unlike the count
-                                      // badge it replaces), so it needs its own slot reserved
-                                      // beyond the actions or the two would overlap.
-                                      repositoryAlertPinnedOnHover
-                                        ? repositorySidebarStyles.repositoryLeadPinned
-                                        : repositorySidebarStyles.repositoryLeadDefault,
-                                    )}
-                                  >
-                                    <span
-                                      className={sx(
-                                        repositorySidebarStyles.repositoryName,
-                                      )}
-                                    >
-                                      {repository.repositoryName}
-                                    </span>
+                                  <span className={sx(repositorySidebarStyles.repositoryName)}>
+                                    {repository.repositoryName}
+                                  </span>
+                                  <div className={sx(repositorySidebarStyles.repositoryTrailing)}>
                                     <div
                                       className={sx(
                                         repositorySidebarStyles.repositoryCountSlot,
-                                        // The workspace count is decorative, so it yields to the
-                                        // row actions on hover. An attention alert must not: the
-                                        // moment you reach for the row is exactly when you need to
-                                        // see that something inside it is blocked, and fading the
-                                        // slot would also make its tooltip unreachable. The row
-                                        // reserves hover padding, so the alert stays clear of the
-                                        // absolutely positioned actions.
                                         !repositoryAlertPinnedOnHover &&
                                           repositorySidebarStyles.repositoryCountSlotYields,
                                       )}
@@ -1359,7 +1336,25 @@ export function RepositoryWorkspaceSidebar(args: {
                                         <TooltipContent side="top">
                                           {tI18n("workspace:repositoryWorkspaceSidebar.refreshWorkspaces")}</TooltipContent>
                                       </Tooltip>
-                                      <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" aria-label={tI18n("workspace:cleanupCenter.title")} />}>⋯</DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={openWorkspaceCleanup}>{tI18n("workspace:cleanupCenter.title")}</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger
+                                          render={
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              xstyle={repositorySidebarStyles.repositoryActionButton}
+                                              aria-label={tI18n("workspace:cleanupCenter.title")}
+                                            />
+                                          }
+                                        >
+                                          ⋯
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent>
+                                          <DropdownMenuItem onSelect={openWorkspaceCleanup}>
+                                            {tI18n("workspace:cleanupCenter.title")}
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                       <Tooltip>
                                         <TooltipTrigger
                                           render={
