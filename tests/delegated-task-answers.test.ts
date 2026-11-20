@@ -99,7 +99,7 @@ type Message = { role: string; startedAt?: string };
  * commit, where the boundary race lives.
  */
 function parentTurn(store: Ledger, history: Message[], startedAt: string, options: { afterRead?: () => void; attached?: string[] } = {}) {
-  const owed = collectOwedDelegatedTaskAnswers(port(store), { parentTaskId: PARENT, lastTurnStartedAt: latestTurnStartedAt(history), now: startedAt });
+  const owed = collectOwedDelegatedTaskAnswers(port(store), { parentTaskId: PARENT, lastTurnStartedAt: latestTurnStartedAt(history), attachedTaskIds: options.attached, now: startedAt });
   const delivered: DelegatedTaskAnswerRef[] = [];
   const part = buildDelegatedTaskReceiptsRetrievedContext({ children: summaries(store), answers: owed.answers, moreAnswers: owed.more, delivered,
     ...(options.attached ? { attachedTaskIds: new Set(options.attached) } : {}) });
@@ -312,6 +312,23 @@ describe("owed subagent answers", () => {
     expect(first).toContain("    DOCS-ANSWER");
     expect(first).not.toContain("REVIEW-");
     expect(parentTurn(store, history, at(4))).not.toContain("DOCS-ANSWER");
+  });
+
+  test("an explicitly attached review behind a full page is carried once", () => {
+    const store = new Ledger(new Database(":memory:"));
+    const reviews = Array.from({ length: 41 }, (_, i) => `stave-review-2026100412${String(i).padStart(4, "0")}-a`);
+    for (const [i, key] of reviews.entries()) {
+      startChild(store, key);
+      answer(store, key, "t", `REVIEW-${i}`, at(1, i));
+    }
+    const history: Message[] = [];
+    expect(parentTurn(store, history, at(3))).not.toContain("    REVIEW-");
+    const attached = [`task-${reviews[40]}`];
+    const content = parentTurn(store, history, at(4), { attached });
+    expect(content.match(/^    REVIEW-.*$/gm)).toEqual(["    REVIEW-40"]);
+    expect(parentTurn(store, history, at(5), { attached })).not.toContain("    REVIEW-");
+    expect(store.delegatedAnswers.listOwed({ parentTaskId: PARENT, limit: 50 }).total).toBe(40);
+    store.db.close();
   });
 
   test("delivery records leave the run ledger as earlier versions write it, and ignore other parents", () => {

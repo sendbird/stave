@@ -59,6 +59,8 @@ export const DelegatedTaskAnswersArgsSchema = z
     parentTaskId: z.string().trim().min(1).max(150),
     /** When the parent's most recent turn started; the upgrade cut for answers older than this version. */
     lastTurnStartedAt: z.string().datetime().nullable(),
+    /** Composer reviews explicitly attached to this turn are eligible before the read limit. */
+    attachedTaskIds: z.array(RunIdSchema).max(DELEGATED_TASK_ANSWER_READ_LIMIT).optional(),
   })
   .strict();
 export type DelegatedTaskAnswersArgs = z.infer<typeof DelegatedTaskAnswersArgsSchema>;
@@ -66,7 +68,7 @@ export type DelegatedTaskAnswersArgs = z.infer<typeof DelegatedTaskAnswersArgsSc
 /** `DelegatedAnswerStore` in `electron/persistence/delegated-answer-store.ts`. */
 export interface DelegatedTaskAnswerStore {
   startTracking(args: { parentTaskId: string; settledThrough: string | null; now: string }): void;
-  listOwed(args: { parentTaskId: string; limit: number }): {
+  listOwed(args: { parentTaskId: string; limit: number; attachedTaskIds?: readonly string[] }): {
     rows: Array<{ receipt: RunReceiptRecord; target: RunStepTarget; stepExecutionId: string | null; resultArtifactRef: string | null }>;
     total: number;
   };
@@ -79,8 +81,8 @@ export interface DelegatedTaskAnswerLedger {
 
 /**
  * The answers a parent's subagents finished that no parent turn has carried,
- * oldest first: one bounded page selected in the database, so nothing already
- * delivered is read into memory and no answer waits behind newer children.
+ * as a bounded page selected in the database. Attached reviews come first,
+ * and older receipts come first within each group.
  * The first read for a parent applies the upgrade cut.
  */
 export function collectOwedDelegatedTaskAnswers(
@@ -88,7 +90,9 @@ export function collectOwedDelegatedTaskAnswers(
   args: DelegatedTaskAnswersArgs & { now: string },
 ): OwedDelegatedTaskAnswers {
   ledger.delegatedAnswers.startTracking({ parentTaskId: args.parentTaskId, settledThrough: args.lastTurnStartedAt, now: args.now });
-  const owed = ledger.delegatedAnswers.listOwed({ parentTaskId: args.parentTaskId, limit: DELEGATED_TASK_ANSWER_READ_LIMIT });
+  const owed = ledger.delegatedAnswers.listOwed({
+    parentTaskId: args.parentTaskId, limit: DELEGATED_TASK_ANSWER_READ_LIMIT, attachedTaskIds: args.attachedTaskIds,
+  });
   const answers = owed.rows.flatMap(({ receipt, target, stepExecutionId, resultArtifactRef }): DelegatedTaskAnswer[] => {
     const delegationKey = extractDelegatedTaskDelegationKey({ runId: receipt.runId, parentTaskId: args.parentTaskId });
     const text = receipt.detail?.responseText;

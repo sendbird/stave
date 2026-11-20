@@ -38,7 +38,7 @@ function readAnswer(answer: DelegatedTaskAnswer) {
  * caller never has to read a child task to collect its result.
  *
  * `answers` are the owed answers from `collectOwedDelegatedTaskAnswers`,
- * oldest first. Each is carried whole or waits for a later turn with a read
+ * in delivery order. Each is carried whole or waits for a later turn with a read
  * reference; it is never cut. The oldest carried answer goes even when it
  * alone exceeds the shared budget, so every turn makes progress. The hard
  * size is the receipt bound (`RUN_RESPONSE_TEXT_MAX_CHARS`, applied when the

@@ -99,19 +99,22 @@ export class DelegatedAnswerStore {
   }
 
   /**
-   * The parent's answers no turn carried, oldest first, at most `limit`, and
-   * how many there are. Composer reviews come after the other answers: one
-   * stays owed until the user attaches it, so unattached reviews must never
-   * fill the page ahead of answers a turn can carry.
+   * The bounded page starts with explicitly attached composer reviews, then
+   * ordinary answers, then reviews the user has not attached. Within each
+   * group, older receipts come first.
    */
-  listOwed(args: { parentTaskId: string; limit: number }): { rows: OwedDelegatedAnswerRow[]; total: number } {
+  listOwed(args: { parentTaskId: string; limit: number; attachedTaskIds?: readonly string[] }): { rows: OwedDelegatedAnswerRow[]; total: number } {
     const reviewRunIdPrefix = buildDelegatedTaskRunId({ parentTaskId: args.parentTaskId, delegationKey: REVIEW_DELEGATION_KEY_PREFIX });
     const rows = this.db.prepare(`
       SELECT receipt.*, step.target_json, step.execution_id AS step_execution_id, step.result_artifact_ref
       ${answersOfParent(OWED)} AND ${UNSETTLED}
-      ORDER BY substr(receipt.run_id, 1, length(?)) = ? ASC, receipt.created_at ASC, receipt.run_id ASC, receipt.sequence ASC
+      ORDER BY CASE
+        WHEN substr(receipt.run_id, 1, length(?)) != ? THEN 1
+        WHEN json_extract(step.target_json, '$.taskId') IN (SELECT value FROM json_each(?)) THEN 0
+        ELSE 2
+      END, receipt.created_at ASC, receipt.run_id ASC, receipt.sequence ASC
       LIMIT ?
-    `).all(args.parentTaskId, reviewRunIdPrefix, reviewRunIdPrefix, args.limit) as Array<Record<string, unknown>>;
+    `).all(args.parentTaskId, reviewRunIdPrefix, reviewRunIdPrefix, JSON.stringify(args.attachedTaskIds ?? []), args.limit) as Array<Record<string, unknown>>;
     const total = rows.length < args.limit ? rows.length : Number((this.db.prepare(`
       SELECT COUNT(*) AS total ${answersOfParent(OWED)} AND ${UNSETTLED}
     `).get(args.parentTaskId) as { total: number }).total);
