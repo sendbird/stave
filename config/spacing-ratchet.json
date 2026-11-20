@@ -1,7 +1,7 @@
 {
   "version": 2,
   "description": "Existing literal spacing declarations. New or changed declarations must use AUI space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
-  "total": 683,
+  "total": 680,
   "files": {
     "src/components/agent-runs/AgentRunSummary.tsx": {
       "styles.identityText.gap = 2": 1,
@@ -505,9 +505,6 @@
       "repositorySidebarStyles.viewToggle.padding = 2": 1,
       "repositorySidebarStyles.searchInput.paddingInlineEnd = 28": 1,
       "repositorySidebarStyles.searchInput.paddingInlineStart = 28": 1,
-      "repositorySidebarStyles.repositoryLeadPinned.paddingInlineEnd = `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 7.75rem)`": 1,
-      "repositorySidebarStyles.repositoryLeadDefault.paddingInlineEnd = `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 5.75rem)`": 1,
-      "repositorySidebarStyles.repositoryActions.gap = 2": 1,
       "repositorySidebarStyles.workspaceList.paddingBlockStart = 2": 1
     },
     "src/components/layout/resource-dashboard.styles.ts": {
