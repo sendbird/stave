@@ -102,3 +102,17 @@ export function shouldCloseCancelledCliLaunch(args: {
 }) {
   return !args.liveTabKeys.has(args.tabKey);
 }
+
+/**
+ * Whether the CLI ended its own conversation (`/quit`, Ctrl-D, an error exit)
+ * rather than being stopped from outside. A self-exit reports an exit code and
+ * no signal. A signal means something killed the process, and -1 is the host's
+ * marker for a session Stave closed itself (restart, folder change), so both
+ * leave the conversation resumable.
+ */
+export function isCliSessionSelfExit(info: {
+  exitCode: number;
+  signal?: number;
+}) {
+  return info.exitCode >= 0 && !info.signal;
+}

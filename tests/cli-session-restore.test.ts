@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   attachCliSessionAtRendererSize,
+  isCliSessionSelfExit,
   shouldCloseCancelledCliLaunch,
   type CliSessionAttachResult,
 } from "@/components/layout/cli-session-restore";
@@ -144,5 +145,17 @@ describe("shouldCloseCancelledCliLaunch", () => {
         liveTabKeys: new Set(["worktree:abc:cli-2"]),
       }),
     ).toBe(true);
+  });
+});
+
+describe("isCliSessionSelfExit", () => {
+  test("a CLI that quits on its own ended its conversation", () => {
+    expect(isCliSessionSelfExit({ exitCode: 0 })).toBe(true);
+    expect(isCliSessionSelfExit({ exitCode: 1, signal: 0 })).toBe(true);
+  });
+
+  test("a killed process or a session Stave closed stays resumable", () => {
+    expect(isCliSessionSelfExit({ exitCode: 0, signal: 15 })).toBe(false);
+    expect(isCliSessionSelfExit({ exitCode: -1 })).toBe(false);
   });
 });
