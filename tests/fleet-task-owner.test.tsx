@@ -50,6 +50,11 @@ describe("who owns a Fleet task", () => {
     expect(ownerOf("task-1", { responsibilities: [tarsResponsibility({ state: "takenOver" })] })).toBe("agentRun");
   });
 
+  test("a run that Tars observes is attributed to you even while it is active", () => {
+    const responsibilities = [tarsResponsibility({ agentRunId: "user-run", followedRunId: "user-run", taskId: "task-2" })];
+    expect(ownerOf("task-2", { responsibilities })).toBe("you");
+  });
+
   test("an unread source is never guessed as you", () => {
     expect(ownerOf("task-3", { runs: {}, runsLoaded: false })).toBeNull();
     expect(ownerOf("task-3", { responsibilities: [], tarsKnown: false })).toBeNull();

@@ -463,7 +463,7 @@ async function openApp(page, locale, scenario = {}) {
     await useAppStore.getState().switchWorkspace({ workspaceId: data.ids.login });
     // The "Welcome back" summary reads the seeded clock as days away.
     const { useTaskReturnStore } = await import("/src/store/task-return-store.ts");
-    useTaskReturnStore.getState().dismiss(data.taskId);
+    useTaskReturnStore.getState().setCollapsed(data.taskId, true);
   }, payload);
   if (scenario.approval) {
     await page.evaluate(async (taskId) => {

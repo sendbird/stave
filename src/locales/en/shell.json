@@ -1527,6 +1527,9 @@
     },
     "owner": {
       "label": "Tars",
+      "observing": "Tars observing",
+      "observingHint": "You started this run. Tars observes it and records the controls you use through Tars.",
+      "observingTakeControlHint": "Pause your run and stop Tars from following the work.",
       "title": "Tars owns this work. Stopping or taking it over goes through Tars and is recorded in its conversation.",
       "withModel": "Tars · {{model}}",
       "fleetHint": "Tars owns this work. Pause and Take over go through Tars and are recorded in its conversation.",
@@ -1575,7 +1578,8 @@
       },
       "owner": {
         "tars": "Owner: Tars",
-        "you": "Owner: you"
+        "you": "Owner: you",
+        "observed": "Owner: you · Tars observing"
       },
       "stage": "Stage {{current}} of {{total}} · {{title}}",
       "stageAttempt": "Stage {{current}} of {{total}} · {{title}}, attempt {{attempt}}",

@@ -159,6 +159,10 @@ export function TarsPreview() {
       snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.state === "completed" || row.state === "cancelled" ? { ...row, updatedAt: ended } : row) };
     }
     // `start=true`: completed work ended just now by the real clock (the view counts "finished today" from it), so the start screen has some.
+    if (params.get("observed") === "true") {
+      snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) =>
+        row.id === "search" && row.agentRunId ? { ...row, followedRunId: row.agentRunId, detailCode: "userRunEnded", detailParams: null } : row) };
+    }
     if (params.get("start") === "true" && !sessionStorage.getItem(identityKey)) {
       const ended = new Date().toISOString();
       snapshot = { ...snapshot, responsibilities: snapshot.responsibilities.map((row) => row.state === "completed" ? { ...row, updatedAt: ended } : row) };

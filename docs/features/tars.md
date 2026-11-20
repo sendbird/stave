@@ -1176,7 +1176,9 @@ the detail. When your run reached the goal the card reads **Finished** and
 says that you finished the work and Tars did not verify it, with the pull
 request number when your run opened one. When your run ended short of the
 goal the card reads **Blocked** and its action is **Open task**, where you
-continue: Tars checked nothing a report could show as unmet.
+continue, or expand the card to **Cancel work**. The detail identifies you
+as the owner of the run Tars followed. Fleet lists the task under **You**,
+and the run's badge says **Tars observing**.
 
 **The detail holds everything else.** Selecting the title (or Enter/Space on
 it) unfolds it under the three lines, and folds it again; folding is

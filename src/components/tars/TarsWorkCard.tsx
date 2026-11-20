@@ -193,7 +193,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
   const workingChanges = describeTarsWorkingChanges(row);
   // Who holds it, then what the run reported; an unknown helper count is left out, never "0".
   const facts = [
-    t(card.owner === "you" ? "shell:tars.tray.owner.you" : "shell:tars.tray.owner.tars"),
+    t(`shell:tars.tray.owner.${card.owner}`),
     card.helpers !== null && card.helpers > 0 ? t("shell:tars.tray.helpers", { count: card.helpers }) : null,
     describeUsageShort(card.usage),
   ].filter((fact): fact is string => Boolean(fact));

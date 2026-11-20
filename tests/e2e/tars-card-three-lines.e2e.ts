@@ -337,3 +337,19 @@ for (const width of [1440, 390] as const) {
     await expect.poll(() => page.evaluate(() => Boolean(document.activeElement?.closest("[data-tars-decision-dock]")))).toBe(true);
   });
 }
+
+test("an ended user run offers task navigation and cancellation in both tray layouts", async ({ page }) => {
+  for (const { lang, theme, density, width, owner } of [
+    { lang: "en", theme: "light", density: "regular", width: 1440, owner: "Owner: you · Tars observing" },
+    { lang: "ko", theme: "dark", density: "compact", width: 390, owner: "담당: 나 · Tars 관찰 중" },
+  ]) {
+    await openTray(page, `outputs=true&observed=true&lang=${lang}&theme=${theme}&density=${density}`, width);
+    const card = page.locator('[data-tars-card="search"]');
+    await expect(card.locator('[data-tars-card-primary="openTask"]')).toBeVisible();
+    await card.locator("[data-tars-card-title]").click();
+    const detail = card.locator("[data-tars-card-detail]");
+    await expect(detail).toContainText(owner);
+    await expect(detail.locator('[data-tars-action="cancel"]')).toBeVisible();
+    await expect(detail.locator('[data-tars-action="resume"], [data-tars-action="takeover"]')).toHaveCount(0);
+  }
+});

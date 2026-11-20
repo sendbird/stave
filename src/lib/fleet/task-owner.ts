@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { findActiveTaskRun, findTarsResponsibility, tarsTaskTarget } from "@/lib/tars/ownership";
+import { findActiveTaskRun, findTarsResponsibility, isTarsObservingUserRun, tarsTaskTarget } from "@/lib/tars/ownership";
 import type { TarsResponsibility } from "@/lib/tars/types";
 
 /**
@@ -45,7 +45,8 @@ export function resolveFleetTaskOwner(
   sources: FleetTaskOwnerSources,
 ): FleetTaskOwner | null {
   const run = findActiveTaskRun(sources.runs, task.workspaceId, task.taskId) ?? (sources.runsLoaded ? null : undefined);
-  if (findTarsResponsibility(sources.responsibilities, tarsTaskTarget(task.taskId, task.workspaceId, run))) return "tars";
+  const responsibility = findTarsResponsibility(sources.responsibilities, tarsTaskTarget(task.taskId, task.workspaceId, run));
+  if (responsibility) return isTarsObservingUserRun(responsibility) ? "you" : "tars";
   if (!sources.tarsKnown) return null;
   if (run) return "agentRun";
   return run === null ? "you" : null;

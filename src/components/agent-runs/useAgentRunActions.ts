@@ -29,6 +29,7 @@ export interface AgentRunActions {
   onOpenPullRequest?: (url: string) => void;
   /** An active Tars responsibility holds this run: Stop pauses it and Take control is Tars's takeover. */
   tarsOwned?: boolean;
+  tarsObservingUserRun?: boolean;
 }
 
 /**
@@ -43,7 +44,9 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
   const agentRunId = detail?.agentRun.id ?? "";
   const busy = useAgentRunsStore((state) => Boolean(state.pendingByAgentRun[agentRunId]));
   const target = detail ? tarsTaskTarget(detail.agentRun.leadTaskId, detail.agentRun.workspaceId, detail) : {};
-  const tarsOwned = useTarsOwner(target) !== null;
+  const tarsOwner = useTarsOwner(target);
+  const tarsOwned = tarsOwner !== null;
+  const tarsObservingUserRun = tarsOwner?.observingUserRun ?? false;
   useTarsSnapshotRefresh(Boolean(detail));
   return useMemo(() => {
     if (!detail) return {};
@@ -54,6 +57,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
     return {
       busy,
       tarsOwned,
+      tarsObservingUserRun,
       onResume: () => void useAgentRunsStore.getState().runCommand("resume", { agentRunId: agentRun.id }),
       // The store's Stop pauses a run Tars holds through Tars instead of cancelling it.
       onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId, cascade: true }),
@@ -121,5 +125,5 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
       },
       onOpenPullRequest: (url) => void openExternalUrl({ url }),
     };
-  }, [busy, detail, tarsOwned]);
+  }, [busy, detail, tarsOwned, tarsObservingUserRun]);
 }
