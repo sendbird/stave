@@ -1,3 +1,19 @@
+## [0.35.4](https://github.com/sendbird/stave/compare/v0.35.3...v0.35.4) (2026-11-20)
+
+### Changes
+
+- Tars identifies user-started runs it is observing. If a run ends before reaching its goal, the card lets you open the task or cancel the work.
+- Reviews you attach to a message are prioritized over older pending reviews. Stave records delivery after the provider accepts the turn.
+- Queued follow-ups continue in the original task after a background turn finishes, even if you switch projects.
+- Reopening a standalone terminal after its CLI exits starts a fresh conversation. Stave can still resume sessions it stopped for a restart or account switch.
+- When a worktree cannot be removed during archiving, you can retry, open the folder, or archive the workspace and keep its checkout for restore.
+- Project alerts and sidebar actions stay clear of each other on narrow rows.
+- The coordinator trial compares both approaches per user request and documents an installed-app smoke check.
+
+### References
+
+- [PR #1025](https://github.com/sendbird/stave/pull/1025), [PR #1026](https://github.com/sendbird/stave/pull/1026), [PR #1027](https://github.com/sendbird/stave/pull/1027), [PR #1028](https://github.com/sendbird/stave/pull/1028), [PR #1029](https://github.com/sendbird/stave/pull/1029)
+
 ## [0.35.3](https://github.com/sendbird/stave/compare/v0.35.2...v0.35.3) (2026-11-19)
 
 ### Changes
