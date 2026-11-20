@@ -88,6 +88,27 @@ test("Restart after session exit creates a fresh conversation", async ({ page })
   expect((await calls(page)).filter((call) => call.startsWith("create:"))).toEqual(["create:system-default:fresh", "create:system-default:fresh"]);
 });
 
+for (const provider of ["claude-code", "codex"]) {
+  test(`${provider}: quitting the CLI forgets the conversation without relaunching it`, async ({ page }) => {
+    await open(page, `?provider=${provider}`);
+    await expect.poll(() => calls(page)).toContain("attach:session-1");
+    const nativeSessionId = (id: string) =>
+      page.evaluate((tabId) => (window as any).cliFixture.state().nativeSessionIdByTab[tabId], id);
+    await expect.poll(() => nativeSessionId(provider)).toBe("native-session-1");
+
+    await page.evaluate(() => (window as any).cliFixture.exit());
+    await expect(page.getByRole("status").filter({ hasText: "Session exited" })).toBeVisible();
+    await expect.poll(() => nativeSessionId(provider)).toBeUndefined();
+    // Persisted too, so relaunching Stave starts a new conversation.
+    const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem("stave:standalone-cli") ?? "{}"));
+    expect(persisted.state?.nativeSessionIdByTab?.[provider]).toBeUndefined();
+    // Forgetting the id rebuilds the tab, which must not relaunch the CLI the user just quit.
+    await page.waitForTimeout(300);
+    expect((await calls(page)).filter((call) => call.startsWith("create:"))).toEqual(["create:system-default:fresh"]);
+    await expect(page.getByRole("status").filter({ hasText: "Session exited" })).toBeVisible();
+  });
+}
+
 test("failed close does not attach the old account or launch a new one", async ({ page }) => {
   await open(page, "?close-error");
   await expect.poll(() => calls(page)).toContain("attach:session-1");

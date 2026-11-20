@@ -14,6 +14,7 @@ import {
 } from "react";
 import {
   attachCliSessionAtRendererSize,
+  isCliSessionSelfExit,
   shouldCloseCancelledCliLaunch,
 } from "@/components/layout/cli-session-restore";
 import {
@@ -118,6 +119,12 @@ export interface UseCliSessionManagerArgs<
   terminalRevision: number;
   /** How long to ask the host for a tab's native session id; 30 seconds when omitted. */
   resumeInfoPollingPlan?: (tab: TTab) => CliResumeInfoPollingPlan;
+  /**
+   * Drop a tab's native session id when its CLI quits on its own (`/quit`), so
+   * the next launch starts a new conversation instead of resuming the one the
+   * user just ended.
+   */
+  forgetNativeSessionOnSelfExit?: boolean;
 }
 
 export interface UseCliSessionManagerReturn {
@@ -136,6 +143,10 @@ export function useCliSessionManager<
   useTranslation();
   const terminalControllerRef = useRef(args.terminalController);
   const resumeInfoPollingPlanRef = useRef(args.resumeInfoPollingPlan);
+  const forgetNativeSessionOnSelfExit = args.forgetNativeSessionOnSelfExit ?? false;
+  const tabsRef = useRef(args.tabs);
+  const getTabKeyRef = useRef(args.getTabKey);
+  const setTabNativeSessionRef = useRef(args.setTabNativeSession);
 
   useEffect(() => {
     terminalControllerRef.current = args.terminalController;
@@ -145,6 +156,12 @@ export function useCliSessionManager<
     resumeInfoPollingPlanRef.current = args.resumeInfoPollingPlan;
   }, [args.resumeInfoPollingPlan]);
 
+  useEffect(() => {
+    tabsRef.current = args.tabs;
+    getTabKeyRef.current = args.getTabKey;
+    setTabNativeSessionRef.current = args.setTabNativeSession;
+  }, [args.tabs, args.getTabKey, args.setTabNativeSession]);
+
   const launchQueueRef = useRef(createCliSessionLaunchQueue());
   const sessionIdByTabKeyRef = useRef<Record<string, string>>({});
   const tabKeyBySessionIdRef = useRef<Record<string, string>>({});
@@ -152,6 +169,10 @@ export function useCliSessionManager<
   const writeInFlightBySessionRef = useRef<Record<string, boolean>>({});
   const flushScheduledBySessionRef = useRef<Record<string, boolean>>({});
   const exitedByTabKeyRef = useRef<Record<string, SessionExitInfo>>({});
+  // Forgetting an active tab's native session id rebuilds the tab and reruns
+  // the bootstrap effect, which would relaunch the CLI the user just quit. That
+  // one rerun is skipped so the exit banner stays until Restart or re-entry.
+  const skipRelaunchTabKeysRef = useRef(new Set<string>());
   const lastResizeBySessionRef = useRef<
     Record<string, { cols: number; rows: number }>
   >({});
@@ -515,8 +536,26 @@ export function useCliSessionManager<
         terminalControllerRef.current.write(exitMessage);
         setSessionExited({ exitCode, signal });
       }
+
+      if (
+        forgetNativeSessionOnSelfExit &&
+        isCliSessionSelfExit({ exitCode, signal })
+      ) {
+        const tab = tabsRef.current.find(
+          (candidate) => getTabKeyRef.current(candidate) === tabKey,
+        );
+        if (tab?.nativeSessionId?.trim()) {
+          if (activeTabKeyRef.current === tabKey) {
+            skipRelaunchTabKeysRef.current.add(tabKey);
+          }
+          setTabNativeSessionRef.current({
+            tabId: tab.id,
+            nativeSessionId: undefined,
+          });
+        }
+      }
     });
-  }, [clearSessionRegistration]);
+  }, [clearSessionRegistration, forgetNativeSessionOnSelfExit]);
 
   useEffect(() => {
     if (!supportsPushTerminalOutput) {
@@ -765,6 +804,11 @@ export function useCliSessionManager<
   }, [activeSessionId, activeTabKey, args.activeTab, rememberNativeSessionId]);
 
   useEffect(() => {
+    // Consumed before the readiness guard so a skip can never outlive the
+    // rerun it was registered for.
+    if (activeTabKey && skipRelaunchTabKeysRef.current.delete(activeTabKey)) {
+      return;
+    }
     if (
       !args.activeTab ||
       !activeTabKey ||
@@ -943,14 +987,26 @@ export function useCliSessionManager<
             return;
           }
         } else if (slotState.state === "exited") {
-          exitedByTabKeyRef.current[tabKey] = {
+          const exitInfo = {
             exitCode: slotState.exitCode ?? -1,
             signal: slotState.signal,
           };
-          setSessionExited({
-            exitCode: slotState.exitCode ?? -1,
-            signal: slotState.signal,
-          });
+          exitedByTabKeyRef.current[tabKey] = exitInfo;
+          setSessionExited(exitInfo);
+          // The exit event was missed (the renderer reloaded while the CLI
+          // quit), so forget the conversation here and show the exit banner.
+          if (
+            forgetNativeSessionOnSelfExit &&
+            isCliSessionSelfExit(exitInfo) &&
+            activeTab.nativeSessionId?.trim()
+          ) {
+            skipRelaunchTabKeysRef.current.add(tabKey);
+            setTabNativeSessionRef.current({
+              tabId: activeTab.id,
+              nativeSessionId: undefined,
+            });
+            return;
+          }
         }
       }
 
@@ -1036,6 +1092,7 @@ export function useCliSessionManager<
     args.terminalReady,
     args.terminalRevision,
     clearSessionRegistration,
+    forgetNativeSessionOnSelfExit,
     handleTerminalResize,
     registerSession,
     rememberNativeSessionId,
@@ -1065,6 +1122,7 @@ export function useCliSessionManager<
       });
       delete exitedByTabKeyRef.current[tabKey];
       delete transcriptByTabKeyRef.current[tabKey];
+      skipRelaunchTabKeysRef.current.delete(tabKey);
       setBridgeErrorForTabKey(setBridgeErrorByTabKey, tabKey, "");
       scheduleTranscriptFlush();
     }

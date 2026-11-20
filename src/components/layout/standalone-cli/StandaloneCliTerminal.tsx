@@ -353,6 +353,9 @@ export function StandaloneCliTerminal(props: {
     terminalReady: terminalInstance.ready,
     terminalRevision: terminalInstance.revision,
     resumeInfoPollingPlan: standaloneResumeInfoPollingPlan,
+    // A conversation the user ended with `/quit` stays ended: reopening the
+    // tab or relaunching Stave starts a new one instead of resuming it.
+    forgetNativeSessionOnSelfExit: true,
   });
 
   // A running CLI cannot change accounts, so the switch is a restart under the
