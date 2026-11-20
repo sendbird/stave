@@ -1381,14 +1381,20 @@ saved artifacts as local-only and omits their app-specific URI.
 Open **Clean up workspaces** from the command palette, a repository menu or
 the Fleet header. Review all repositories, suggested workspaces and branches,
 blockers and optional disk sizes. Select rows to archive, restore or delete.
-Archive removes a clean worktree while preserving its branch and history; use
-Undo or the Repositories view's Archived shelf to restore it. Without saved
+Manual archive removes a managed worktree while preserving its branch, local
+commits and history. Use Undo in the cleanup center or the Repositories view's
+Archived shelf to restore it. Without saved
 changes, a missing branch opens history read-only and can seed a new workspace draft.
 
-A dirty managed worktree with no other blockers can be selected for **Archive**.
-In confirmation, turn on **Save uncommitted changes and archive**; it starts off.
-Staged, unstaged and untracked files are saved without moving the branch; ignored
-files are excluded. **Saved changes** marks these archives. Restore brings back
+You can also choose **Archive** from a workspace's sidebar menu. Confirming
+there saves any uncommitted changes before removing the worktree. In the cleanup
+center, turn on **Save uncommitted changes and archive** in the confirmation.
+Staged, unstaged and untracked files are saved without moving the branch.
+Git-ignored files and unfinished Git operations prevent worktree removal.
+When removal is blocked, you can show the worktree folder and retry or choose
+**Archive and keep files on disk** when offered. Restore reopens those same
+files. Restore the workspace before trying to remove a retained worktree.
+**Saved changes** marks these archives. Restore brings back
 the files and staged state, stopping with a conflict if files already occupy the
 destination. A failed save leaves the worktree in place. Permanent deletion
 removes the saved reference. Saved archives can recreate a deleted branch and

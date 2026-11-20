@@ -36,6 +36,21 @@ async function main() {
     store.saveRepositoryRegistry({ repositories: [{ repositoryPath: repo, repositoryName: "Repository", lastOpenedAt: "2026-01-01", defaultBranch: "main", workspaces: [{ id: "base", name: "Default", updatedAt: "2026-01-01" }, { id: "feature", name: "Feature", updatedAt: "2026-01-01" }], activeWorkspaceId: "base", workspacePathById: { base: repo, feature: path }, workspaceBranchById: { base: "main", feature: "feature" }, workspaceDefaultById: { base: true, feature: false } }] });
     const runtime = createWorkspaceCleanupRuntime({ store: () => store!, hasTerminals: () => false, pr: async () => ({ ok: true, pr: null, stderr: "" }) });
     const act = (action: "archive" | "restore" | "delete", saveChanges = false) => runtime.act({ action, workspaceId: "feature", repositoryPath: repo, ...(saveChanges ? { saveChanges: true } : {}) });
+    const manualArchive = () => runtime.act({ action: "archive", workspaceId: "feature", repositoryPath: repo, preserveLocalWork: true, saveChanges: true });
+    const keepArchive = () => runtime.act({ action: "archive", workspaceId: "feature", repositoryPath: repo, preserveLocalWork: true, keepWorktree: true });
+    for (const flag of ["assume-unchanged", "skip-worktree"]) {
+      git(path, "update-index", `--${flag}`, "tracked");
+      writeFileSync(join(path, "tracked"), "keep hidden changes\n");
+      assert.equal((await manualArchive()).reason, "hiddenChanges");
+      assert.equal((await keepArchive()).ok, true);
+      assert.equal((await runtime.list()).rows.find(row => row.id === "feature")?.keptWorktree, true);
+      assert.equal((await act("delete")).reason, "keptWorktree");
+      assert.equal((await runtime.act({ action: "removeWorktree", workspaceId: "feature", repositoryPath: repo })).reason, "keptWorktree");
+      assert.equal((await act("restore")).ok, true);
+      assert.equal(readFileSync(join(path, "tracked"), "utf8"), "keep hidden changes\n");
+      git(path, "update-index", `--no-${flag}`, "tracked");
+      git(path, "restore", "tracked");
+    }
     const dirty = () => {
       writeFileSync(join(path, "tracked"), "staged\n"); git(path, "add", "tracked");
       writeFileSync(join(path, "tracked"), "unstaged\r\nbytes\n");
@@ -53,7 +68,7 @@ async function main() {
     assert.equal((await act("archive")).ok, false, "Default archive still blocks changed files");
     assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.canSaveChanges, true, JSON.stringify((await runtime.list()).rows));
     // A failed durable save must leave the full checkout and active registry intact.
-    const archive = store.archiveWorkspacePersistence.bind(store);
+    let archive = store.archiveWorkspacePersistence.bind(store);
     store.archiveWorkspacePersistence = () => { throw new Error("fixtureSaveFailure"); };
     assert.equal((await act("archive", true)).ok, false);
     store.archiveWorkspacePersistence = archive;
@@ -86,13 +101,49 @@ async function main() {
     assert.equal(git(path, "show", ":tracked"), index);
     assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
     git(repo, "worktree", "unlock", path);
-    writeFileSync(join(path, "ignored"), "excluded");
-    const archived = await act("archive", true);
+    writeFileSync(join(path, "ignored"), "private working data");
+    const ignored = await manualArchive();
+    assert.equal(ignored.reason, "ignoredFiles");
+    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "private working data");
+    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
+    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+    assert.equal((await keepArchive()).ok, true);
+    store.close(); store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
+    archive = store.archiveWorkspacePersistence.bind(store);
+    assert.equal((await act("restore")).ok, true);
+    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "private working data");
+    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
+    rmSync(join(path, "ignored"));
+
+    store.archiveWorkspacePersistence = args => { const record = archive(args); writeFileSync(join(path, "ignored"), "late private data"); return record; };
+    const lateIgnored = await manualArchive();
+    store.archiveWorkspacePersistence = archive;
+    assert.equal(lateIgnored.reason, "ignoredFiles");
+    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "late private data");
+    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
+    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+    rmSync(join(path, "ignored"));
+
+    const mergeHead = git(path, "rev-parse", "--path-format=absolute", "--git-path", "MERGE_HEAD").trim();
+    writeFileSync(mergeHead, branch);
+    assert.equal((await manualArchive()).reason, "gitOperationInProgress");
+    assert.equal(readFileSync(mergeHead, "utf8"), branch);
+    rmSync(mergeHead);
+
+    const localCommit = git(repo, "-c", "user.name=Test", "-c", "user.email=test@example.test", "-c", "commit.gpgsign=false",
+      "commit-tree", "-p", branch.trim(), "-m", "test: local-only commit", `${branch.trim()}^{tree}`);
+    git(repo, "update-ref", "refs/heads/feature", localCommit.trim());
+    assert.match((await act("archive", true)).reason ?? "", /unpushedCommits/, "The strict path keeps rejecting local-only commits");
+    const request = { action: "archive", workspaceId: "feature", repositoryPath: repo, preserveLocalWork: true, saveChanges: true } as const;
+    assert.match((await runtime.act({ ...request, deleteBranch: true })).reason ?? "", /unpushedCommits/);
+    assert.match((await runtime.act(request, true)).reason ?? "", /unpushedCommits/);
+    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
+    const archived = await manualArchive();
     assert.equal(archived.ok, true, JSON.stringify(archived));
     assert.equal(existsSync(path), false);
     const ref = store.listArchivedWorkspacesPersistence()[0]!.savedChangesRef!;
     assert.match(ref, /^refs\/stave\/archives\//);
-    assert.equal(git(repo, "rev-parse", "refs/heads/feature"), branch);
+    assert.equal(git(repo, "rev-parse", "refs/heads/feature"), localCommit);
     assert.ok(!git(repo, "ls-tree", "-r", "--name-only", ref).split("\n").includes("ignored"));
     assert.equal(git(repo, "cat-file", "-p", `${ref}:payload.ptr`), "pointer:large payload\n", "Capture stores the clean-filtered pointer");
     assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.savedChanges, true);
@@ -111,20 +162,20 @@ async function main() {
       assert.ok(!git(repo, "worktree", "list", "--porcelain").includes(path), "No worktree remains registered");
     };
     const identity = ["-c", "user.name=Test", "-c", "user.email=test@example.test", "-c", "commit.gpgsign=false"];
-    const moved = git(repo, ...identity, "commit-tree", "-p", branch.trim(), "-m", "test: moved", `${branch.trim()}^{tree}`).trim();
+    const moved = git(repo, ...identity, "commit-tree", "-p", localCommit.trim(), "-m", "test: moved", `${localCommit.trim()}^{tree}`).trim();
     git(repo, "update-ref", "refs/heads/feature", moved);
     const branchMoved = await act("restore");
     assert.equal(branchMoved.ok, false);
     assert.equal(branchMoved.reason, "savedChangesRestoreBranchMoved");
     archivedIntact();
-    git(repo, "update-ref", "refs/heads/feature", branch.trim());
+    git(repo, "update-ref", "refs/heads/feature", localCommit.trim());
     // Apply fails after the worktree is created; the restore rolls back so a retry can run.
     writeFileSync(marker, "");
     const applyFailed = await act("restore");
     assert.equal(applyFailed.ok, false);
     assert.equal(applyFailed.reason, "savedChangesRestoreGitFailed");
     archivedIntact();
-    assert.equal(git(repo, "rev-parse", "refs/heads/feature"), branch);
+    assert.equal(git(repo, "rev-parse", "refs/heads/feature"), localCommit);
     git(repo, "branch", "-D", "feature");
     const recreatedFailed = await act("restore");
     assert.equal(recreatedFailed.reason, "savedChangesRestoreGitFailed");
@@ -155,7 +206,7 @@ async function main() {
     assert.equal(git(repo, "rev-parse", "--verify", "--quiet", ref).trim().length, 40, "Blocked ref deletion is deferred");
     rmSync(lock);
     assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
-    assert.equal(git(repo, "rev-parse", "refs/heads/feature"), branch);
+    assert.equal(git(repo, "rev-parse", "refs/heads/feature"), localCommit);
     assert.equal(readFileSync(join(path, "payload.ptr"), "utf8"), "large payload\n", "Restore applies the smudge filter");
     assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
     assert.equal(git(path, "show", ":tracked"), index);
@@ -167,8 +218,9 @@ async function main() {
     assert.equal(git(path, "show", ":index-only"), "staged only\n");
     assert.equal(readlinkSync(join(path, "untracked-link")), "tracked");
     assert.equal(statSync(join(path, "executable")).mode & 0o111, 0o111);
-    const again = await act("archive", true); assert.equal(again.ok, true, JSON.stringify(again));
+    const again = await manualArchive(); assert.equal(again.ok, true, JSON.stringify(again));
     const deletedRef = store.listArchivedWorkspacesPersistence()[0]!.savedChangesRef!;
+    git(repo, "push", "origin", "feature");
     const deleted = await act("delete"); assert.equal(deleted.ok, true, JSON.stringify(deleted));
     assert.equal(git(repo, "for-each-ref", "--format=%(refname)", deletedRef), "");
     assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" }), null);

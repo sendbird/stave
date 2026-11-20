@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { copyFile, lstat, mkdtemp, rm, stat, unlink, utimes } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { isManagedWorkspaceDependencyLink } from "./workspace-linked-shelf";
 
 async function git(cwd: string, args: string[], index?: string): Promise<Buffer> {
   return new Promise((resolve, reject) => execFile("git", args, {
@@ -14,6 +15,31 @@ const text = async (cwd: string, args: string[], index?: string) => (await git(c
 const entries = async (cwd: string, args: string[], index?: string) => (await git(cwd, args, index)).toString().split("\0").filter(Boolean);
 const identity = ["-c", "user.name=Archive", "-c", "user.email=archive@localhost", "-c", "commit.gpgsign=false"];
 const validRef = (ref: string) => /^refs\/stave\/archives\/[a-f0-9-]{36}$/.test(ref);
+
+/** Git can remove ignored files without force, so check for data the snapshot cannot restore. */
+export async function assertWorkspaceArchiveFilesSafe(cwd: string, repositoryPath: string) {
+  const gitDir = (await git(cwd, ["rev-parse", "--absolute-git-dir"]).catch(() => {
+    throw new Error("checksUnavailable");
+  })).toString().replace(/\n$/, "");
+  const operationMarkers = ["MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "sequencer", "rebase-merge", "rebase-apply", "BISECT_START"];
+  const entryExists = async (path: string) => {
+    try { await lstat(path); return true; }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
+      throw new Error("checksUnavailable");
+    }
+  };
+  const inProgress = await Promise.all(operationMarkers.map(marker => entryExists(join(gitDir, marker))));
+  if (inProgress.some(Boolean)) throw new Error("gitOperationInProgress");
+  const indexEntries = await entries(cwd, ["ls-files", "-v", "-z"]).catch(() => { throw new Error("checksUnavailable"); });
+  for (const entry of indexEntries) {
+    if (/^[Sa-z] /.test(entry) && (entry.includes("\uFFFD") || await entryExists(join(cwd, entry.slice(2))))) throw new Error("hiddenChanges");
+  }
+  const ignored = await entries(cwd, ["ls-files", "--others", "--ignored", "--exclude-standard", "--directory", "-z"]).catch(() => { throw new Error("checksUnavailable"); });
+  if (!ignored.length) return;
+  if (ignored.length === 1 && ignored[0] === "node_modules" && await isManagedWorkspaceDependencyLink(repositoryPath, cwd)) return;
+  throw new Error("ignoredFiles");
+}
 
 /** A saved ref plus the temporary index that captured it; dispose on every path. */
 export interface SavedWorkspaceChanges {

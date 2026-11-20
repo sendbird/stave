@@ -101,10 +101,12 @@ describe("workspace integrity regressions", () => {
 
   test("archiving the current workspace saves the switched selection before the host checks it", async () => {
     const events: string[] = [];
+    const archiveOptions: unknown[] = [];
     let savedActiveWorkspaceId = "current";
     let pendingActiveWorkspaceId = "current";
-    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage(), api: { workspaceCleanup: { act: async () => {
+    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage(), api: { workspaceCleanup: { act: async (options: unknown) => {
       events.push(`archive:${savedActiveWorkspaceId}`);
+      archiveOptions.push(options);
       // The host reads the saved registry, not the renderer's in-memory state.
       return savedActiveWorkspaceId === "current" ? { ok: false, workspaceId: "current", action: "archive", reason: "currentWorkspace" } : { ok: true, workspaceId: "current", action: "archive", reason: null };
     } } } };
@@ -128,8 +130,9 @@ describe("workspace integrity regressions", () => {
         useAppStore.setState({ activeWorkspaceId: workspaceId });
       },
     });
-    await useAppStore.getState().closeWorkspace({ workspaceId: "current" });
+    await useAppStore.getState().closeWorkspace({ workspaceId: "current", preserveLocalWork: true });
     expect(events.slice(0, 3)).toEqual(["switch:base", "save", "archive:base"]);
+    expect(archiveOptions).toEqual([{ action: "archive", workspaceId: "current", repositoryPath: REPOSITORY_PATH, preserveLocalWork: true, saveChanges: true }]);
     expect(useAppStore.getState().activeWorkspaceId).toBe("base");
     expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["base"]);
   });

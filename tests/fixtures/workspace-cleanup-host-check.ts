@@ -1,7 +1,7 @@
 import type { GitHubPrPayload } from "../../src/lib/pr-status";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, symlinkSync, existsSync, writeFileSync, rmSync, renameSync } from "node:fs";
+import { mkdtempSync, mkdirSync, symlinkSync, existsSync, readFileSync, writeFileSync, rmSync, renameSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteStore } from "../../electron/persistence/sqlite-store";
@@ -167,8 +167,18 @@ try {
   assert.ok((await featureBlockers()).includes("unpushedCommits"), "A PR head that does not contain the local tip stays protected");
   prHeads.set("feature", pushedTip);
   assert.equal((await featureBlockers()).includes("unpushedCommits"), false, "The PR head proves the commits were pushed");
-  git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", "test: committed after the pull request");
+  writeFileSync(join(path, "local-only.txt"), "keep this commit");
+  git(path, "add", "--", "local-only.txt");
+  git(path, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "-m", "test: committed after the pull request");
   assert.ok((await featureBlockers()).includes("unpushedCommits"), "A commit after the PR head stays protected");
+  const localTip = git(path, "rev-parse", "HEAD").trim();
+  const manualArchive = await act("archive", { preserveLocalWork: true, saveChanges: true });
+  assert.equal(manualArchive.ok, true, JSON.stringify(manualArchive));
+  assert.equal(existsSync(path), false);
+  assert.equal(store.listArchivedWorkspacesPersistence()[0]?.savedChangesRef, undefined, "A clean checkout needs no snapshot");
+  assert.equal(git(repo, "rev-parse", "refs/heads/feature").trim(), localTip);
+  assert.equal((await act("restore")).ok, true);
+  assert.equal(readFileSync(join(path, "local-only.txt"), "utf8"), "keep this commit");
   git(path, "reset", "--hard", "main");
   prHeads.delete("feature");
   // Denied permanent branch deletion keeps both history and checkout.

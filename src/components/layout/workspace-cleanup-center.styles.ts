@@ -5,6 +5,7 @@ export const cleanupStyles = stylex.create({
   dialog: { width: "min(68rem, 94vw)", maxWidth: "94vw", maxHeight: "90vh", display: "flex", flexDirection: "column", gap: vars["--aui-space-12"] },
   toolbar: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars["--aui-space-8"], flexWrap: "wrap" },
   actions: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], flexWrap: "wrap" },
+  archiveRecovery: { display: "grid", gap: vars["--aui-space-8"] },
   // Dialog footer alignment (trailing edge); the wider gap separates the reversible and destructive groups.
   // The row keeps its height while every action is hidden so the list does not jump on first selection.
   footer: { display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: vars["--aui-space-16"], minBlockSize: vars["--aui-control-height-sm"] },

@@ -201,18 +201,7 @@ test("archived shelf reads cheap records once across workspace edits and dedupli
 
 for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {
   test(`dirty archive requires explicit save and labels the saved state ${lang} ${theme}`, async ({ page }) => {
-    await page.goto(`/?stavePreview=command-palette&cleanupPreview=1&lang=${lang}&theme=${theme}`);
-    await page.waitForFunction(() => Boolean(window.api?.workspaceCleanup));
-    await page.evaluate(() => {
-      const api = window.api!.workspaceCleanup;
-      const list = api.list.bind(api);
-      api.list = async (args) => {
-        const snapshot = await list(args);
-        const row = snapshot.rows.find(item => item.id === "cleanup-dirty")!;
-        Object.assign(row, { canSaveChanges: true });
-        return snapshot;
-      };
-    });
+    await page.goto(`/?stavePreview=command-palette&cleanupPreview=1&cleanupSavePreview=1&lang=${lang}&theme=${theme}`);
     const label = lang === "en" ? "Clean up workspaces" : "워크스페이스 정리";
     await page.locator("input[data-slot=command-input]").fill(label);
     await page.getByText(label, { exact: true }).click();
@@ -243,11 +232,46 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {
     }
     await confirm.click();
     await expect(row).toContainText(lang === "en" ? "Saved changes" : "저장된 변경 사항");
-    await page.getByRole("button", { name: lang === "en" ? "Undo archive" : "보관 실행 취소", exact: true }).click();
+    await row.getByRole("checkbox").click();
+    const restore = page.getByRole("button", { name: lang === "en" ? "Restore (1)" : "복원 (1)", exact: true });
+    await expect(page.locator("[data-cleanup-footer]").getByRole("button")).toHaveCount(1);
+    await restore.click();
     await expect(row).not.toContainText(lang === "en" ? "Saved changes" : "저장된 변경 사항");
   });
 }
 
+
+for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {
+  test(`archive offers a retry and lets the user keep the worktree ${lang} ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 768 });
+    await page.goto(`/?stavePreview=command-palette&cleanupPreview=1&cleanupRecoveryPreview=1&lang=${lang}&theme=${theme}`);
+    const pick = (en: string, ko: string) => lang === "en" ? en : ko;
+    const label = pick("Clean up workspaces", "워크스페이스 정리");
+    await page.locator("input[data-slot=command-input]").fill(label);
+    await page.getByText(label, { exact: true }).click();
+    const row = page.getByTestId("cleanup-row-cleanup-one");
+    await row.getByRole("checkbox").click();
+    await page.getByRole("button", { name: pick("Archive (1)", "보관 (1)"), exact: true }).click();
+    await page.getByRole("button", { name: pick("Confirm action", "작업 확인"), exact: true }).click();
+    const retry = page.getByRole("button", { name: pick("Retry archive", "보관 다시 시도"), exact: true });
+    const keep = page.getByRole("button", { name: pick("Archive and keep files on disk", "파일을 디스크에 남기고 보관"), exact: true });
+    await expect(retry).toBeVisible();
+    await retry.click();
+    await expect(keep).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const bounds = await keep.evaluate(button => ({
+      button: button.getBoundingClientRect().right,
+      dialog: button.closest('[role="dialog"]')!.getBoundingClientRect().right,
+    }));
+    expect(bounds.button).toBeLessThanOrEqual(bounds.dialog);
+    await keep.click();
+    await expect(row).toContainText(pick("Worktree kept on disk", "워크트리를 디스크에 유지함"));
+    await row.getByRole("checkbox").click();
+    await expect(page.locator("[data-cleanup-footer]").getByRole("button")).toHaveCount(1);
+    await page.getByRole("button", { name: pick("Restore (1)", "복원 (1)"), exact: true }).click();
+    await expect(row).not.toContainText(pick("Worktree kept on disk", "워크트리를 디스크에 유지함"));
+  });
+}
 
 test("dirty archive stays unavailable while a turn or run is active", async ({ page }) => {
   for (const blocker of ["runningTurn", "runningRun"]) {

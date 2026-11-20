@@ -204,7 +204,7 @@ export function createWorkspaceManagementActions(args: {
   } = args;
 
   return {
-    closeWorkspace: async ({ workspaceId, onlyIfInactive = false }) => {
+    closeWorkspace: async ({ workspaceId, onlyIfInactive = false, preserveLocalWork = false, keepWorktree = false }) => {
       const state = get();
       const workspace = state.workspaces.find(
         (item) => item.id === workspaceId,
@@ -241,7 +241,10 @@ export function createWorkspaceManagementActions(args: {
         // still name this workspace current and refuse the archive.
         await get().flushRepositoryRegistry();
       }
-      const result = await runWorkspaceCleanupAction(cleanup, { action: "archive", workspaceId, repositoryPath });
+      const result = await runWorkspaceCleanupAction(cleanup, {
+        action: "archive", workspaceId, repositoryPath,
+        ...(preserveLocalWork ? { preserveLocalWork: true, ...(keepWorktree ? { keepWorktree: true } : { saveChanges: true }) } : {}),
+      });
       if (!result.ok) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
       // Pick the replacement active workspace, ignoring the one being archived.
       const nextWorkspace =

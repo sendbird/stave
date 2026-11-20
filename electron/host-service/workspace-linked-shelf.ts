@@ -26,6 +26,10 @@ async function pointsTo(path: string, target: string): Promise<boolean> {
   catch { return false; }
 }
 
+export function isManagedWorkspaceDependencyLink(repositoryPath: string, workspacePath: string): Promise<boolean> {
+  return pointsTo(join(workspacePath, "node_modules"), join(repositoryPath, "node_modules"));
+}
+
 /** Capture only verified symlinks in the repository's owned link directory. */
 export async function listWorkspaceShelfLinks(repositoryPath: string, workspacePath: string): Promise<string[]> {
   const root = await shelfRoot(repositoryPath);

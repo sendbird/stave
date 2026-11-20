@@ -73,8 +73,13 @@ no branch is available, only the label appears.
 
 ### Archived shelf
 
-Archives created with **Save uncommitted changes and archive** retain staged,
-unstaged and untracked files. Open **Clean up workspaces** to see the **Saved
+Choose **Archive** from the workspace's sidebar menu to remove its managed
+worktree while retaining the branch, including local commits. Confirming the
+archive saves staged, unstaged and untracked files so they can be restored.
+Git-ignored files and unfinished Git operations block worktree removal.
+When that happens, the confirmation stays open so you can show the worktree
+folder, retry, or archive while keeping its files on disk.
+Open **Clean up workspaces** to see the **Saved
 changes** marker and restore them. Restore refuses occupied destinations;
 permanent deletion removes the saved archive reference. A saved archive can
 recreate its deleted branch and skips initialization commands during restore.
