@@ -11,6 +11,7 @@ function sessionWithQueue(
 ): WorkspaceSessionState {
   return {
     activeTurnIdsByTask: {},
+    activeTurnIdsByTask: {},
     promptDraftByTask: {
       "task-1": {
         text: "",

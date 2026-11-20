@@ -1,6 +1,7 @@
 import { createRestartContinuationActions } from "@/store/app-store-restart-continuation-actions";
 import { emptyRestartRecovery } from "@/store/restart-continuation";
 import { createTaskMessagePageLoader } from "@/store/task-message-page-loader";
+import type { ReloadRefreshedWorkspaceTasks } from "@/store/app-store-workspace-action-types";
 import { i18n } from "@/i18n/runtime";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
@@ -689,6 +690,25 @@ export const useAppStore = create<AppState>()(
       createAppStoreNotificationRuntime({ set, get, scheduleProviderTurnStallTimer });
 
     const loadTaskMessagesIntoSession = createTaskMessagePageLoader({ set, get, attentionSync });
+    const reloadRefreshedWorkspaceTasks: ReloadRefreshedWorkspaceTasks = (
+      workspaceId,
+      refresh,
+    ) => {
+      for (const { taskId, turnId, resumeQueue } of refresh.endedTurns) {
+        if (!resumeQueue) continue;
+        const session = getWorkspaceSessionForState({ state: get(), workspaceId });
+        const messages = session?.messagesByTask[taskId] ?? [];
+        if (session?.activeTurnIdsByTask[taskId] || messages.at(-1)?.turnId !== turnId) {
+          continue;
+        }
+        clearProviderTurnStallTimer(taskId);
+        attentionSync.syncTaskInteractions({ taskId, messages, endedTurnId: turnId });
+        settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, { workspaceId, taskId });
+      }
+      for (const taskId of refresh.refreshedTaskIds) {
+        void loadTaskMessagesIntoSession({ workspaceId, taskId, mode: "latest" });
+      }
+    };
 
     const hydrateWorkspaceMessagesInBackground = (args: {
       workspaceId: string;
@@ -954,6 +974,7 @@ export const useAppStore = create<AppState>()(
       loadTaskMessagesIntoSession,
       hydrateWorkspaceMessagesInBackground,
       refreshWorkspaceFilesInBackground,
+      reloadRefreshedWorkspaceTasks,
     });
     const workspaceCreateActions = createWorkspaceCreateActions({
       set,
@@ -975,6 +996,7 @@ export const useAppStore = create<AppState>()(
       loadTaskMessagesIntoSession,
       hydrateWorkspaceMessagesInBackground,
       refreshWorkspaceFilesInBackground,
+      reloadRefreshedWorkspaceTasks,
     });
     return {
       hasHydratedWorkspaces: false,
@@ -1144,12 +1166,29 @@ export const useAppStore = create<AppState>()(
         }
       },
       syncHostTaskTurn: async (update) => {
+        const getActiveTurnId = (state: AppState) =>
+          getWorkspaceSessionForState({ state, workspaceId: update.workspaceId })
+            ?.activeTurnIdsByTask[update.taskId];
+        const turnBeforeRead = getActiveTurnId(get());
         const loaded = await loadHostTaskTurn(update);
         if (!loaded) {
           return;
         }
+        const state = get();
+        const currentTurnId = getActiveTurnId(state);
+        // A late host update can complete after a queued renderer turn is
+        // already running, including while the persistence reads above wait.
+        if (
+          currentTurnId &&
+          currentTurnId !== update.turnId &&
+          (currentTurnId !== turnBeforeRead ||
+            currentTurnId === loaded.persistedActiveTurnId ||
+            currentTurnId !== state.hostOwnedTurnIdsByTask[update.taskId])
+        ) {
+          return;
+        }
         const syncResult = applyHostTaskTurnSync({
-          state: get(),
+          state,
           loaded,
           update,
         });
@@ -1160,7 +1199,7 @@ export const useAppStore = create<AppState>()(
             turnId: update.turnId,
             lastEventAt: Date.now(),
           });
-        } else {
+        } else if (!syncResult.syncedSession.activeTurnIdsByTask[update.taskId]) {
           clearProviderTurnStallTimer(update.taskId);
         }
         attentionSync.syncTaskInteractions({
@@ -1179,8 +1218,13 @@ export const useAppStore = create<AppState>()(
           void get().hydrateNotifications();
         }
         if (syncResult.turnSettled) {
+          const done = update.activityEvents?.findLast((event) => event.type === "done");
           settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
             workspaceId: update.workspaceId, taskId: update.taskId,
+            providerId: update.providerId, model: update.model,
+            done: update.terminalReceipt?.outcome === "cancelled"
+              ? { type: "done", stop_reason: "cancelled" }
+              : done ?? { type: "done", stop_reason: update.terminalReceipt?.stopReason ?? undefined },
           });
         }
       },
@@ -1208,7 +1252,6 @@ export const useAppStore = create<AppState>()(
         emptyPromptDraft: EMPTY_PROMPT_DRAFT,
         resolveTaskRuntimeTarget,
         incrementWorkspaceSnapshotVersion,
-        findTaskById,
         recordTurnFileEdits,
         runScriptHookInBackground,
         clearProviderTurnStallTimer,

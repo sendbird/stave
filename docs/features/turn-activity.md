@@ -124,6 +124,11 @@ A message sent while a turn runs waits in the queue line under the run line:
 response now (or **Send** when no turn is running). A queued message that will
 go to another model than the composer's says `as <model>`.
 
+When the turn finishes, the next queued message sends in its original task.
+You can switch to another task, workspace, or project while it waits. Stave
+also sends the next message if it recovers the completed turn and its reply
+when refreshing the workspace. A stopped turn leaves its messages queued.
+
 Choose the chevron to open the queue, in the order it sends:
 
 - Hover or focus a row for **Steer**, **Send**, **Edit** and **Delete**. Edit

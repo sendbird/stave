@@ -2,6 +2,12 @@ import type { PersistedTurnSummary } from "@/lib/db/turns.db";
 import type { WorkspaceShell } from "@/lib/db/workspaces.db";
 import type { ScriptTrigger } from "@/lib/workspace-scripts";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
+import type { StaleCachedWorkspaceRefresh } from "@/store/workspace-cache-freshness";
+
+export type ReloadRefreshedWorkspaceTasks = (
+  workspaceId: string,
+  refresh: StaleCachedWorkspaceRefresh,
+) => void;
 
 export interface LoadedWorkspaceShellState {
   shell: WorkspaceShell | null;

@@ -119,9 +119,8 @@ import {
 } from "@/store/workspace-session-state";
 import {
   resolveRepositoryBasePrompt,
-  resolveRepositoryForWorkspaceId,
+  resolveTaskTurnWorkspaceContext,
   resolveWorkspaceName,
-  resolveTaskWorkspaceContext,
 } from "@/store/repository.utils";
 import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 import {
@@ -220,7 +219,6 @@ export function createSendUserMessageAction(args: {
   incrementWorkspaceSnapshotVersion: (
     state: Pick<AppState, "workspaceSnapshotVersion">,
   ) => number;
-  findTaskById: (state: Pick<AppState, "tasks">, taskId: string) => Task | null;
   recordTurnFileEdits: (turnId: string) => void;
   runScriptHookInBackground: (args: {
     workspaceId: string;
@@ -260,7 +258,6 @@ export function createSendUserMessageAction(args: {
     emptyPromptDraft: EMPTY_PROMPT_DRAFT,
     resolveTaskRuntimeTarget,
     incrementWorkspaceSnapshotVersion,
-    findTaskById,
     recordTurnFileEdits,
     runScriptHookInBackground,
     clearProviderTurnStallTimer,
@@ -374,28 +371,23 @@ export function createSendUserMessageAction(args: {
       task = seededTask;
     }
     if (!task || !runtimeTarget) return { status: "blocked" } satisfies SendUserMessageResult;
-    if (isTaskManaged(findTaskById(state, resolvedTaskId))) return { status: "blocked" } satisfies SendUserMessageResult;
+    if (isTaskManaged(task)) return { status: "blocked" } satisfies SendUserMessageResult;
     let provider =
       providerOverride ??
       task?.provider ??
       state.draftProvider ??
       "claude-code";
-    const { workspaceId: taskWorkspaceId, cwd: workspaceCwd } =
-      resolveTaskWorkspaceContext({
-        taskId: resolvedTaskId,
-        activeWorkspaceId: state.activeWorkspaceId,
-        taskWorkspaceIdById: state.taskWorkspaceIdById,
-        workspacePathById: state.workspacePathById,
-        workspaceDefaultById: state.workspaceDefaultById,
-        repositoryPath: state.repositoryPath,
-      });
+    const taskWorkspaceId = runtimeTarget.workspaceId;
     if (!taskWorkspaceId) {
       return { status: "blocked" } satisfies SendUserMessageResult;
     }
-    // `resolveTaskWorkspaceContext` deliberately returns no cwd when the
-    // task's workspace has no known path, so the turn cannot borrow another
-    // workspace's folder. Stop the send here: dispatching without a cwd
-    // would run the task wherever the host process happens to live.
+    const taskWorkspace = resolveTaskTurnWorkspaceContext({
+      state,
+      workspaceId: taskWorkspaceId,
+      taskId: resolvedTaskId,
+    });
+    const workspaceCwd = taskWorkspace.cwd;
+    // A missing workspace folder must never fall through to a host default.
     if (!workspaceCwd) {
       const message =
         i18n.t("notifications:appStoreSendUserMessage.thisTaskSWorkspaceFolderCouldNotBeResolvedSoTheTurnWouldRunOutsideTheWorkspaceReopenO");
@@ -408,17 +400,10 @@ export function createSendUserMessageAction(args: {
         message,
       } satisfies SendUserMessageResult;
     }
-    const taskWorkspaceSession =
-      getWorkspaceSessionForState({
-        state,
-        workspaceId: taskWorkspaceId,
-      }) ?? runtimeTarget.session;
+    const taskWorkspaceSession = runtimeTarget.session;
     // Settings scope: model, effort and permission defaults come from the
     // task's project when it overrides them; explicit draft choices still win.
-    const taskRepositoryPath =
-      resolveRepositoryForWorkspaceId({ state, workspaceId: taskWorkspaceId })
-        ?.repositoryPath ?? state.repositoryPath;
-    const turnSettings = selectEffectiveSettings(state, taskRepositoryPath);
+    const turnSettings = selectEffectiveSettings(state, taskWorkspace.repositoryPath);
     const existingHistory =
       taskWorkspaceSession.messagesByTask[resolvedTaskId] ?? [];
     // A steer that declines the pending approvals may pass: the steer branch
@@ -939,10 +924,6 @@ export function createSendUserMessageAction(args: {
         providerId: provider,
         accountProfileId: selectedProviderAccount(provider, turnAccounts),
       });
-      const taskWorkspaceSummary =
-        state.workspaces.find(
-          (workspace) => workspace.id === taskWorkspaceId,
-        ) ?? null;
       const taskWorkspaceTasks = latestWorkspaceSession.tasks;
       let taskWorkspaceInformation =
         latestWorkspaceSession.workspaceInformation;
@@ -953,7 +934,7 @@ export function createSendUserMessageAction(args: {
       // before the turn context is built, so this turn's injected context
       // already includes them. Dedup is keyed on canonical identity (e.g.
       // Jira issue key), not the raw URL, so re-sent links are no-ops.
-      if (!state.workspaceDefaultById[taskWorkspaceId]) {
+      if (!taskWorkspace.isDefault) {
         const detectedPromptResources =
           detectWorkspaceResourcesInText(promptContent);
         if (detectedPromptResources.length > 0) {
@@ -999,11 +980,11 @@ export function createSendUserMessageAction(args: {
       const retrievedContextParts: CanonicalRetrievedContextPart[] = [
         ...buildCurrentTaskAwarenessRetrievedContextParts({
           workspaceId: taskWorkspaceId,
-          workspaceName: taskWorkspaceSummary?.name ?? null,
-          workspacePath: workspaceCwd ?? null,
-          workspaceBranch: state.workspaceBranchById[taskWorkspaceId] ?? null,
-          repositoryName: state.repositoryName,
-          repositoryPath: state.repositoryPath,
+          workspaceName: taskWorkspace.workspaceName,
+          workspacePath: workspaceCwd,
+          workspaceBranch: taskWorkspace.workspaceBranch,
+          repositoryName: taskWorkspace.repositoryName,
+          repositoryPath: taskWorkspace.repositoryPath,
           taskId: resolvedTaskId,
           tasks: taskWorkspaceTasks,
           workspaceInformation: taskWorkspaceInformation,
@@ -1015,7 +996,7 @@ export function createSendUserMessageAction(args: {
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
           workspaceId: taskWorkspaceId, turnId, providerSession: providerSessionCursor,
-          repositoryPath: state.repositoryPath,
+          repositoryPath: taskWorkspace.repositoryPath,
           parentTaskId: resolvedTaskId,
           history: latestHistory, deliveredAnswers,
           prompt: normalizedPrompt || promptContent,
@@ -1062,7 +1043,7 @@ export function createSendUserMessageAction(args: {
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({
-        settings: selectEffectiveSettings(get(), taskRepositoryPath),
+        settings: selectEffectiveSettings(get(), taskWorkspace.repositoryPath),
         providerId: provider,
         model: activeModel,
       });
@@ -1367,12 +1348,10 @@ export function createSendUserMessageAction(args: {
               ...turnActivityPatch,
             });
           }
-          if (
-            !turnStillActive ||
-            pendingEvents.some((event) => event.type === "done")
-          ) {
+          const done = pendingEvents.findLast((event) => event.type === "done");
+          if (turnStillActive && done) {
             clearProviderTurnStallTimer(resolvedTaskId);
-          } else {
+          } else if (turnStillActive) {
             const nextActivity = nextTurnActivityByTask[resolvedTaskId];
             if (nextActivity) {
               scheduleProviderTurnStallTimer({
@@ -1550,6 +1529,7 @@ export function createSendUserMessageAction(args: {
             settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
               workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
               providerId: provider, model: activeModel, accountProfileId: selectedProviderAccount(provider, turnAccounts), turnOrigin,
+              done,
             });
             maybeStartProviderBrowserFallbackTurn(get, {
               taskId: resolvedTaskId,
@@ -1604,7 +1584,7 @@ export function createSendUserMessageAction(args: {
           runtimeOptions: { ...providerRuntimeOptions,
             composerSelection: resolveComposerSelection({ provider, runtimeOverrides: promptDraft.runtimeOverrides, decision: autoRoutingDecision }) },
           repositoryBasePrompt: resolveRepositoryBasePrompt({
-            repositoryPath: get().repositoryPath,
+            repositoryPath: taskWorkspace.repositoryPath,
             recentRepositories: get().recentRepositories,
           }),
         }),

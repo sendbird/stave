@@ -1116,6 +1116,57 @@ export function resolveTaskWorkspaceContext(args: {
   };
 }
 
+/** Use the workspace that owns the task, including when its project is in the background. */
+export function resolveTaskTurnWorkspaceContext(args: {
+  state: Pick<
+    RecentRepositoryState,
+    | "activeWorkspaceId"
+    | "workspaces"
+    | "workspacePathById"
+    | "workspaceBranchById"
+    | "workspaceDefaultById"
+  > & {
+    repositoryPath: string | null;
+    repositoryName: string | null;
+    recentRepositories: RecentRepositoryState[];
+    taskWorkspaceIdById: Record<string, string>;
+  };
+  workspaceId: string;
+  taskId: string;
+}) {
+  const { state, workspaceId } = args;
+  const currentWorkspace = findWorkspaceById({
+    workspaceId,
+    workspaces: state.workspaces,
+  });
+  const isCurrentProject =
+    Boolean(currentWorkspace) ||
+    workspaceId === state.activeWorkspaceId ||
+    workspaceId in state.workspacePathById;
+  const recent = isCurrentProject
+    ? null
+    : findRecentRepositoryWorkspaceById({
+        workspaceId,
+        recentRepositories: state.recentRepositories,
+      });
+  const project = isCurrentProject ? state : recent?.project;
+  const isDefault = project?.workspaceDefaultById[workspaceId] === true;
+  const allowLegacyRoot =
+    workspaceId === state.activeWorkspaceId &&
+    state.taskWorkspaceIdById[args.taskId] === undefined;
+  const repositoryPath = project?.repositoryPath ?? null;
+  return {
+    cwd:
+      project?.workspacePathById[workspaceId]?.trim() ||
+      (isDefault || allowLegacyRoot ? repositoryPath?.trim() : undefined),
+    isDefault,
+    workspaceName: (currentWorkspace ?? recent?.workspace)?.name ?? null,
+    workspaceBranch: project?.workspaceBranchById[workspaceId] ?? null,
+    repositoryName: project?.repositoryName ?? null,
+    repositoryPath,
+  };
+}
+
 export function cloneRecentRepositoryState(
   repository: RecentRepositoryState,
 ): RecentRepositoryState {
