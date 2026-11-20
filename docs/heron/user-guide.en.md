@@ -762,7 +762,9 @@ state; the card's detail lists it.
 Work you continued in its task keeps the state of your run and says whose run
 it is: **Working** with a sentence saying that you continued it and that Tars
 only follows your run, **Finished** with a note that Tars did not verify it,
-or **Blocked** with **Open task** when your run ended before the goal.
+or **Blocked** with **Open task** when your run ended before the goal. The
+expanded card offers **Cancel work** and identifies you as the owner. The
+run's badge says **Tars observing**, and Fleet lists the task under **You**.
 Select a card's title (or press Enter or Space on it) to open its detail under
 the three lines; select it again to fold it. The detail holds the rest: the
 owner with the helpers working when Stave knows them, the

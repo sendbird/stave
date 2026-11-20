@@ -16,6 +16,7 @@ import { buildDelegatedTaskPolicy, buildDelegatedTaskRunId, buildDelegatedTaskSt
 import { createPendingRun, createPendingRunStep, RUN_LEDGER_SCHEMA_VERSION } from "../src/lib/runs/run-domain";
 import { buildCanonicalConversationRequest, buildLegacyPromptFromCanonicalRequest } from "../src/lib/providers/canonical-request";
 import { StreamTurnArgsSchema } from "../electron/main/ipc/schemas";
+import { createTaskContextAttachment } from "../src/lib/task-context/attached-task-context";
 import { resolveRepositoryMemoryRecallQuery } from "../src/lib/task-context/repository-memory";
 
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
@@ -47,12 +48,12 @@ describe("project memory turn boundary", () => {
     }
   });
 
-  test("a composer turn hands its subagent answers to the host with the turn request, unless the transport cut them", async () => {
+  test("a composer turn hands its attached review answer to the host with the turn request, unless the transport cut them", async () => {
     const db = new Database(":memory:");
     const ledger = new RunLedgerStore(db);
     const port = { delegatedAnswers: new DelegatedAnswerStore(db, { now: () => "2026-08-10T00:00:00.000Z" }) };
     const now = "2026-08-10T00:01:00.000Z";
-    const runId = buildDelegatedTaskRunId({ parentTaskId: "parent", delegationKey: "docs" });
+    const runId = buildDelegatedTaskRunId({ parentTaskId: "parent", delegationKey: "stave-review-composer" });
     const step = createPendingRunStep({ id: buildDelegatedTaskStepId(runId), runId, kind: "delegated-task-turn",
       target: { taskId: "child", workspaceId: "ws", turnId: null, providerId: "claude-code" }, dependencyIds: [], inputHash: "e".repeat(64), now });
     ledger.claimStep({ run: createPendingRun({ id: runId, kind: "delegated-task", origin: { kind: "task", id: "parent" },
@@ -62,10 +63,15 @@ describe("project memory turn boundary", () => {
       detail: { code: "child-turn-completed", responseText: "COMPOSER-PATH-ANSWER" } });
     // Main's answer channel and the host's provider start, behind the schemas they parse with.
     let sent: ReturnType<typeof StreamTurnArgsSchema.parse> | null = null;
+    const attachment = createTaskContextAttachment({ taskId: "child", workspaceId: "ws", title: "Review" });
     Object.defineProperty(globalThis, "window", { configurable: true, value: { api: {
       runs: {
         listDelegatedTasks: async () => [],
-        collectDelegatedTaskAnswers: async (args: unknown) => collectOwedDelegatedTaskAnswers(port, { ...DelegatedTaskAnswersArgsSchema.parse(args), now }),
+        collectDelegatedTaskAnswers: async (args: unknown) => {
+          const parsed = DelegatedTaskAnswersArgsSchema.parse(args);
+          expect(parsed.attachedTaskIds).toEqual(["child"]);
+          return collectOwedDelegatedTaskAnswers(port, { ...parsed, now });
+        },
       },
       provider: {
         subscribeStreamEvents: () => () => undefined,
@@ -79,7 +85,10 @@ describe("project memory turn boundary", () => {
     } } });
     const turn = async (turnId: string, pad = "") => {
       const deliveredAnswers: DelegatedTaskAnswerRef[] = [];
-      const parts = await collectTurnStartRetrievedContextParts({ repositoryPath: null, parentTaskId: "parent", history: [], prompt: "next", deliveredAnswers });
+      const parts = await collectTurnStartRetrievedContextParts({
+        repositoryPath: null, parentTaskId: "parent", history: [], prompt: "next", deliveredAnswers,
+        promptDraft: { text: "next", attachedFilePaths: [], attachments: [attachment] },
+      });
       const contextParts = parts.map((part) => (part.sourceId === "stave:delegated-tasks" ? { ...part, content: part.content + pad } : part));
       const conversation = buildCanonicalConversationRequest({ providerId: "claude-code", model: "m", userInput: "next", history: [], retrievedContextParts: contextParts });
       const done = new Promise<void>((resolve) => runProviderTurn({ turnId, provider: "claude-code", prompt: "next", conversation, taskId: "parent", runtimeOptions: {},

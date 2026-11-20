@@ -639,7 +639,7 @@ export function FleetTaskControlPanel(args: {
             {tI18n("fleet:fleetTaskControlPanel.reviewActivityAnswerRequestsOrDirectThe")}</p> : null}
         </div>
         <div className={sx(styles.headerActions)}>
-          {tarsOwner ? <TarsOwnerBadge /> : null}
+          {tarsOwner ? <TarsOwnerBadge observingUserRun={tarsOwner.observingUserRun} /> : null}
           {!args.interactionOnly ? <Button
             type="button"
             size="sm"
@@ -816,7 +816,7 @@ export function FleetTaskControlPanel(args: {
       {(activeTurnId || tarsOwner) && !args.interactionOnly ? (
         <div className={sx(styles.turnFooter)}>
           <div className={sx(styles.headerText)}>
-            {tarsOwner ? <p className={sx(styles.turnText)}>{tI18n("shell:tars.owner.fleetHint")}</p> : null}
+            {tarsOwner ? <p className={sx(styles.turnText)}>{tI18n(tarsOwner.observingUserRun ? "shell:tars.owner.observingHint" : "shell:tars.owner.fleetHint")}</p> : null}
             {activeTurnId ? <p className={sx(styles.turnText)}>
               <Trans t={tI18n} i18nKey="fleet:fleetTaskControlPanel.activeTurn" values={{ id: activeTurnId.slice(0, 8) }} components={{ turn: <span className={sx(styles.turnId)} /> }} />
             </p> : null}

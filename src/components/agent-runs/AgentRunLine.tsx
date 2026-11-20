@@ -203,7 +203,7 @@ export function AgentRunLineView(props: {
         }
         actions={
           <>
-            {actions.tarsOwned ? <TarsOwnerBadge /> : null}
+            {actions.tarsOwned ? <TarsOwnerBadge observingUserRun={actions.tarsObservingUserRun} /> : null}
             {status.recovery === "retry-stage" && actions.onRetry ? (
               <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
                 {i18n.t("agentRuns:agentRunLine.actions")}</Button>
@@ -230,7 +230,7 @@ export function AgentRunLineView(props: {
                 {i18n.t("agentRuns:agentRunLine.actions2")}</Button>
             ) : null}
             {actions.onTakeControl ? (
-              <Tooltip content={i18n.t(actions.tarsOwned ? TARS_TAKE_CONTROL_HINT : TAKE_CONTROL_HINT)}>
+              <Tooltip content={i18n.t(actions.tarsObservingUserRun ? "shell:tars.owner.observingTakeControlHint" : actions.tarsOwned ? TARS_TAKE_CONTROL_HINT : TAKE_CONTROL_HINT)}>
                 <Button
                   variant="quiet"
                   size="xs"

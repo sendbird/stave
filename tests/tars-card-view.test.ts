@@ -277,6 +277,8 @@ describe("a Tars work card's state, sentence and action", () => {
     expect(read(published, { runs: side.runs })).toMatchObject({ state: "finished", sentence: "You finished this work in its task. Tars did not verify it.", primary: { kind: "openPullRequest", number: 42 } });
     // The user's run ended short of the goal: blocked, and the card leads to the task its sentence says to continue in, not to a report Tars did not check.
     const search = observed(side.responsibilities.find((row) => row.id === "search")!, "userRunEnded");
+    expect(cardOf(search, { runs: side.runs })).toMatchObject({ owner: "observed", controls: ["cancel"] });
+    expect(cardOf(billing(), { runs: f.runs }).owner).toBe("tars");
     expect(read(search, { runs: side.runs })).toEqual({ state: "blocked", waitingOn: null,
       sentence: "Your run in this task ended without reaching the goal. Tars did not verify it. Continue in the task, or cancel this work.", primary: { kind: "openTask" } });
   });

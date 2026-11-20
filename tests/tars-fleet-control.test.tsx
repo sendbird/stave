@@ -116,7 +116,7 @@ describe("Tars ownership resolver", () => {
   const snapshot = { responsibilities: [responsibility()] };
   test("owned: a task or its own run resolves to the responsibility id and revision", () => {
     expect(resolveTarsOwner(snapshot, { taskId: "task-1", workspaceId: "ws-1" }))
-      .toEqual({ responsibilityId: "goal", revision: 4, state: "running", title: "Verified result" });
+      .toEqual({ responsibilityId: "goal", revision: 4, state: "running", title: "Verified result", observingUserRun: false });
     expect(resolveTarsOwner(snapshot, { agentRunId: "agent-run-1" })?.responsibilityId).toBe("goal");
     // The snapshot's own row, so a store selector stays stable.
     expect(findTarsResponsibility(snapshot.responsibilities, { taskId: "task-1" })).toBe(snapshot.responsibilities[0]!);
@@ -405,6 +405,7 @@ describe("task view run controls on Tars-owned work", () => {
     const detail = agentRunDetail(agentRunFixture());
     const line = (actions: AgentRunActions) => renderToStaticMarkup(createElement(AgentRunLineView, { detail, nowPhrase: null, now: Date.parse(AT), reducedMotion: true, actions }));
     expect(line({ onStop() {}, onTakeControl() {}, tarsOwned: true })).toContain("data-tars-owner");
+    expect(line({ onStop() {}, onTakeControl() {}, tarsOwned: true, tarsObservingUserRun: true })).toContain("Tars observing");
     expect(line({ onStop() {}, onTakeControl() {} })).not.toContain("data-tars-owner");
   });
 });

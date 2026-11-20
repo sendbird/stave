@@ -6,6 +6,7 @@ import {
   buildRepositoryMemoryRetrievedContextPart,
   resolveRepositoryMemoryRecallQuery,
 } from "@/lib/task-context/repository-memory";
+import { DELEGATED_TASK_ANSWER_READ_LIMIT } from "@/lib/runs/delegated-task-answers";
 import { getPromptDraftAttachments } from "@/store/prompt-draft-context";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { collectTaskHandoffContextParts } from "@/lib/db/task-handoff.db";
@@ -34,6 +35,10 @@ export async function collectTurnStartRetrievedContextParts(args: {
   /** Receives the subagent answers this turn carries; the turn request hands them to the host, which records them once the provider has the turn. */
   deliveredAnswers?: DelegatedTaskAnswerRef[];
 }): Promise<CanonicalRetrievedContextPart[]> {
+  const attachmentIds = (args.promptDraft ? getPromptDraftAttachments(args.promptDraft) : []).flatMap(
+    (attachment) => (attachment.kind === "task-context" ? [attachment.taskId] : []),
+  );
+  const attachedTaskIds = new Set(attachmentIds);
   const [delegatedTaskSummaries, owedAnswers, repositoryMemoryPart, handoffParts] = await Promise.all([
     window.api?.runs?.listDelegatedTasks?.({
       parentTaskId: args.parentTaskId,
@@ -42,6 +47,7 @@ export async function collectTurnStartRetrievedContextParts(args: {
     window.api?.runs?.collectDelegatedTaskAnswers?.({
       parentTaskId: args.parentTaskId,
       lastTurnStartedAt: latestTurnStartedAt(args.history),
+      ...(attachedTaskIds.size ? { attachedTaskIds: [...attachedTaskIds].slice(0, DELEGATED_TASK_ANSWER_READ_LIMIT) } : {}),
     }).catch(() => null) ?? Promise.resolve(null),
     recallRepositoryMemoryRetrievedContext(args),
     args.workspaceId
@@ -64,11 +70,7 @@ export async function collectTurnStartRetrievedContextParts(args: {
     answers: owedAnswers?.answers,
     moreAnswers: owedAnswers?.more,
     delivered: args.deliveredAnswers,
-    attachedTaskIds: new Set(
-      (args.promptDraft ? getPromptDraftAttachments(args.promptDraft) : []).flatMap(
-        (attachment) => (attachment.kind === "task-context" ? [attachment.taskId] : []),
-      ),
-    ),
+    attachedTaskIds,
   });
   if (delegatedTaskReceiptsPart) {
     parts.push(delegatedTaskReceiptsPart);

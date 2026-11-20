@@ -9,6 +9,7 @@ import { isTarsTaskOperation, type TarsControlOperation, type TarsFollowUpState,
 import { tarsQueueOf } from "./queue-order";
 import { isTarsWorkRunning } from "./live-progress";
 import { tarsFollowUpNotice } from "./events";
+import { isTarsObservingUserRun } from "./ownership";
 
 /** The view width at which the tray stays open beside the conversation. */
 export const TARS_TRAY_PINNED_MIN_WIDTH = 1088;
@@ -95,7 +96,7 @@ export interface TarsTrayCard<T extends TarsTrayAttentionInput = TarsTrayAttenti
   row: TarsResponsibility;
   lane: TarsLane;
   /** Who holds the work now: Tars, or the user after a take-over. */
-  owner: "tars" | "you";
+  owner: "tars" | "you" | "observed";
   /** Null until this window has read the run. */
   progress: TarsRunProgress | null;
   /** The run as this window read it, for its recent progress; null until read. */
@@ -149,6 +150,7 @@ export function tarsControlsFor(row: Pick<TarsResponsibility, "state" | "detailC
   if (isTarsResponsibilityTerminal(row)) return [];
   if (row.state === "resultReady") return row.completionGoal === "pullRequest" || row.completionGoal === "merge" ? ["cancel"] : ["acceptCompletion", "cancel"];
   if (row.state === "takenOver") return ["handBack", "cancel"];
+  if (row.state === "blocked" && row.detailCode === "userRunEnded") return ["cancel"];
   // The run ended reporting success Stave could not verify: only the user's decision is left.
   if (row.state === "blocked" && row.detailCode === "unverifiedCompletion") return row.completionGoal === "pullRequest" || row.completionGoal === "merge" ? ["cancel"] : ["acceptCompletion", "cancel"];
   if (row.state === "queued") return ["startNow", "pause", "takeover", "cancel"];
@@ -208,7 +210,7 @@ export function buildTarsTray<T extends TarsTrayAttentionInput>(args: {
     lanes[lane].push({
       row,
       lane,
-      owner: row.state === "takenOver" ? "you" : "tars",
+      owner: row.state === "takenOver" ? "you" : isTarsObservingUserRun(row) ? "observed" : "tars",
       progress: run ? projectTarsRunProgress(run) : null,
       run: run ?? null,
       helpers: live?.resources ? live.resources.activeHelpers : null,

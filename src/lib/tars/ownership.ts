@@ -47,6 +47,7 @@ export interface TarsOwner {
   revision: number;
   state: TarsState;
   title: string;
+  observingUserRun: boolean;
 }
 
 /** An intent another surface expresses about the work: stop it, continue it, or make it yours. */
@@ -108,7 +109,7 @@ export function findTarsResponsibility(
 }
 
 export function toTarsOwner(row: TarsResponsibility | null): TarsOwner | null {
-  return row ? { responsibilityId: row.id, revision: row.revision, state: row.state, title: row.title } : null;
+  return row ? { responsibilityId: row.id, revision: row.revision, state: row.state, title: row.title, observingUserRun: isTarsObservingUserRun(row) } : null;
 }
 
 /** Whether an active Tars responsibility owns this task or run, with the id and revision to control it. */

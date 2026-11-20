@@ -1516,6 +1516,9 @@
     },
     "owner": {
       "label": "Tars",
+      "observing": "Tars 관찰 중",
+      "observingHint": "직접 시작한 실행입니다. Tars는 실행을 지켜보고 Tars를 통해 적용한 조작을 기록합니다.",
+      "observingTakeControlHint": "내 실행을 일시 정지하고 Tars가 작업을 따라가지 않도록 합니다.",
       "title": "Tars가 맡은 작업입니다. 멈추거나 직접 맡으면 Tars를 거쳐 Tars 대화에 기록됩니다.",
       "withModel": "Tars · {{model}}",
       "fleetHint": "Tars가 맡은 작업입니다. 일시 정지와 직접 맡기는 Tars를 거쳐 Tars 대화에 기록됩니다.",
@@ -1559,7 +1562,8 @@
       },
       "owner": {
         "tars": "담당: Tars",
-        "you": "담당: 나"
+        "you": "담당: 나",
+        "observed": "담당: 나 · Tars 관찰 중"
       },
       "stage": "{{total}}단계 중 {{current}}단계 · {{title}}",
       "stageAttempt": "{{total}}단계 중 {{current}}단계 · {{title}}, {{attempt}}회 시도",
