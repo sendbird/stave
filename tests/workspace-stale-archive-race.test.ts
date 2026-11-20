@@ -26,7 +26,7 @@ test("stale refresh skips an archive completed after its state snapshot", async 
         return { ok: true, stdout: execFileSync("/bin/sh", ["-c", command], { cwd: root, encoding: "utf8" }), stderr: "" };
       } },
     } } });
-    const actions = createWorkspaceHydrationActions({ get: () => state, set: () => {}, loadTaskMessagesIntoSession: async () => {}, hydrateWorkspaceMessagesInBackground: () => {}, refreshWorkspaceFilesInBackground: () => {} });
+    const actions = createWorkspaceHydrationActions({ get: () => state, set: () => {}, loadTaskMessagesIntoSession: async () => {}, hydrateWorkspaceMessagesInBackground: () => {}, refreshWorkspaceFilesInBackground: () => {}, reloadRefreshedWorkspaceTasks: () => {} });
     await actions.refreshWorkspaces();
     expect(archived).toBe(true);
     expect(closes).toBe(0);

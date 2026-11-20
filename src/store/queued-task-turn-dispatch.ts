@@ -41,7 +41,7 @@ interface QueuedTaskTurnActions {
 }
 
 /** Statuses that mean a turn actually took ownership of the queued item. */
-const STARTED_SEND_STATUSES = new Set(["started", "steered"]);
+const STARTED_SEND_STATUSES = new Set(["started", "steered", "run-started"]);
 
 export function createQueuedTaskTurnDispatcher(args: {
   getSession: (workspaceId: string) => WorkspaceSessionState | null;
@@ -97,8 +97,9 @@ export function createQueuedTaskTurnDispatcher(args: {
       return;
     }
 
-    const queuedPromptDraft =
-      args.getSession(target.workspaceId)?.promptDraftByTask[target.taskId];
+    const session = args.getSession(target.workspaceId);
+    if (session?.activeTurnIdsByTask[target.taskId]) return;
+    const queuedPromptDraft = session?.promptDraftByTask[target.taskId];
     const queuedTurns = queuedPromptDraft?.queuedTurns ?? [];
 
     let nextQueuedTurn: (typeof queuedTurns)[number] | undefined;

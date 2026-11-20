@@ -29,6 +29,16 @@ rows.
 
 ## Paused Work And Queue Recovery
 
+Turn completion drains the queue in the task's owning workspace session. A
+background follow-up uses that workspace's working directory and project
+context even when another project is open.
+
+When a workspace switch or refresh observes the completion before the stream
+does, it can also drain the queue. Recovery requires a successful terminal
+receipt and the final persisted reply for that exact turn. A receipt whose
+reply is still missing leaves the stream eligible to settle the turn. Older
+completion updates cannot clear a newer renderer-owned turn.
+
 Queued follow-ups remain in `promptDraftByTask`, including their attachments
 and captured runtime choices. `task-work-pause.ts` distinguishes entries from
 the previous renderer session by `queuedAt`; `queued-task-turn-dispatch.ts`

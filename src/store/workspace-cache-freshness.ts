@@ -1,10 +1,12 @@
-import { listActiveWorkspaceTurns } from "@/lib/db/turns.db";
-import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
+import { listActiveWorkspaceTurns, listTaskTurns } from "@/lib/db/turns.db";
+import { loadTaskMessagesPage, loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
 import {
   clearProviderTurnActivity,
   type ProviderTurnActivitySnapshot,
 } from "@/lib/providers/turn-status";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
+import { TASK_MESSAGES_PAGE_SIZE } from "@/store/task-message-loading";
+import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
 
 /**
  * Tasks a cached runtime session knows whose persisted message count is higher
@@ -34,8 +36,8 @@ export function findStaleCachedTaskIds(args: {
 export interface StaleCachedWorkspaceRefresh {
   session: WorkspaceSessionState;
   refreshedTaskIds: string[];
-  /** Cached turns of refreshed tasks that had already ended in persistence. */
-  endedTurns: Array<{ taskId: string; turnId: string }>;
+  /** Ended cached turns. Only a verified completion with its final reply may resume the queue. */
+  endedTurns: Array<{ taskId: string; turnId: string; resumeQueue?: true }>;
 }
 
 /**
@@ -69,7 +71,8 @@ export function resetStaleCachedTasks(args: {
       endedTurns.push({ taskId, turnId });
     }
     messagesByTask[taskId] = [];
-    messageCountByTask[taskId] = args.persistedMessageCountByTask[taskId] ?? 0;
+    messageCountByTask[taskId] =
+      args.persistedMessageCountByTask[taskId] ?? cached.messageCountByTask[taskId] ?? 0;
     activeTurnIdsByTask[taskId] = undefined;
   }
   return {
@@ -105,8 +108,13 @@ export function resolveLatestCachedWorkspace(args: {
     return { session: latestCache, refresh };
   }
   const refreshedTaskIds = refresh.refreshedTaskIds.filter((taskId) => {
+    // A local completion may already have sent the next item. Keep that
+    // live transcript even if the task is idle again by the time we merge.
     const latestTurnId = latestCache.activeTurnIdsByTask[taskId];
-    return !latestTurnId || latestTurnId === readCache?.activeTurnIdsByTask[taskId];
+    return (
+      (!latestTurnId || latestTurnId === readCache?.activeTurnIdsByTask[taskId]) &&
+      latestCache.messagesByTask[taskId] === readCache?.messagesByTask[taskId]
+    );
   });
   if (refreshedTaskIds.length === 0) {
     return {
@@ -118,7 +126,7 @@ export function resolveLatestCachedWorkspace(args: {
   const messageCountByTask = { ...latestCache.messageCountByTask };
   const activeTurnIdsByTask = { ...latestCache.activeTurnIdsByTask };
   for (const taskId of refreshedTaskIds) {
-    messagesByTask[taskId] = [];
+    messagesByTask[taskId] = refresh.session.messagesByTask[taskId] ?? [];
     messageCountByTask[taskId] = refresh.session.messageCountByTask[taskId] ?? 0;
     activeTurnIdsByTask[taskId] = undefined;
   }
@@ -153,9 +161,8 @@ export function clearEndedTurnActivity(args: {
 
 /**
  * Checks a cached session against the persisted shell summary (one small read)
- * and resets the tasks that fell behind. Returns null when the cache is
- * current or a read fails: this only adds a reload, it never blocks a
- * workspace from opening.
+ * and resets the tasks that fell behind or adopts completed queued turns.
+ * Returns null when the cache is current or a read fails.
  */
 export async function refreshStaleCachedWorkspace(args: {
   workspaceId: string;
@@ -170,14 +177,47 @@ export async function refreshStaleCachedWorkspace(args: {
       workspaceId: args.workspaceId,
     });
     const persistedMessageCountByTask = summary?.messageCountByTask ?? {};
-    const staleTaskIds = findStaleCachedTaskIds({
+    const staleTaskIds = new Set(findStaleCachedTaskIds({
       cachedWorkspaceState: cached,
       persistedMessageCountByTask,
-    });
-    if (staleTaskIds.length === 0) {
+    }));
+    // Completion can update an existing assistant row in place. A message
+    // count comparison alone will miss it.
+    const queuedActiveTasks = cached.tasks.filter(({ id }) =>
+      cached.activeTurnIdsByTask[id] && cached.promptDraftByTask[id]?.queuedTurns?.length,
+    );
+    const completedQueuePages = new Map<string, Awaited<ReturnType<typeof loadTaskMessagesPage>>>();
+    await Promise.all(queuedActiveTasks.map(async ({ id: taskId }) => {
+      const [latest] = await listTaskTurns({ workspaceId: args.workspaceId, taskId, limit: 1 })
+        .catch(() => []);
+      if (
+        !latest || latest.id !== cached.activeTurnIdsByTask[taskId] ||
+        latest.workspaceId !== args.workspaceId || latest.taskId !== taskId ||
+        !latest.completedAt || !latest.terminalReceipt?.doneObserved ||
+        latest.terminalReceipt.outcome !== "completed"
+      ) {
+        return;
+      }
+      const page = await loadTaskMessagesPage({
+        workspaceId: args.workspaceId, taskId, limit: TASK_MESSAGES_PAGE_SIZE,
+      }).catch(() => null);
+      const last = page?.messages.at(-1);
+      if (
+        !page || last?.role !== "assistant" || last.turnId !== latest.id ||
+        !last.completedAt || !last.terminalReceipt?.doneObserved
+      ) {
+        // The receipt can reach SQLite before the final reply is saved.
+        // Keep the live turn so a late stream completion can still apply.
+        staleTaskIds.delete(taskId);
+        return;
+      }
+      completedQueuePages.set(taskId, page);
+      staleTaskIds.add(taskId);
+    }));
+    if (staleTaskIds.size === 0) {
       return null;
     }
-    const needsTurnCheck = staleTaskIds.some(
+    const needsTurnCheck = [...staleTaskIds].some(
       (taskId) => cached.activeTurnIdsByTask[taskId],
     );
     const liveTurnIds = new Set(
@@ -189,12 +229,24 @@ export async function refreshStaleCachedWorkspace(args: {
     );
     const refreshed = resetStaleCachedTasks({
       cachedWorkspaceState: cached,
-      staleTaskIds,
+      staleTaskIds: [...staleTaskIds],
       persistedMessageCountByTask,
       liveTurnIds,
     });
     if (refreshed.refreshedTaskIds.length === 0) {
       return null;
+    }
+    for (const ended of refreshed.endedTurns) {
+      const page = completedQueuePages.get(ended.taskId);
+      if (page) {
+        ended.resumeQueue = true;
+        refreshed.session.messagesByTask[ended.taskId] = trimPersistedMessageWindow({
+          messages: page.messages,
+        });
+        refreshed.session.messageCountByTask[ended.taskId] = Math.max(
+          page.totalCount, page.messages.length,
+        );
+      }
     }
     console.warn("[workspace] cached tasks are behind persistence; reloading them", {
       workspaceId: args.workspaceId,

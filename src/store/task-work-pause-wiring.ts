@@ -1,11 +1,13 @@
-import { findUsageLimitStop } from "@/lib/providers/usage-limit-stop";
-import type { ProviderId } from "@/lib/providers/provider.types";
+import { findUsageLimitStop, findUsageLimitStopInEvents } from "@/lib/providers/usage-limit-stop";
+import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provider.types";
+import { classifyProviderTurnStopReason } from "@/lib/providers/turn-stop-reason";
 import type { AppState } from "@/store/app-store.types";
 import type {
   QueuedTurnAutoDispatchHold,
   QueuedTurnBlockedResult,
 } from "@/store/queued-task-turn-dispatch";
 import { resolveQueuedTurnPauseHold } from "@/store/task-work-pause";
+import { USER_STOPPED_TURN_REASONS } from "@/store/provider-message.utils";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 
 /**
@@ -77,32 +79,38 @@ export function settleTaskQueueAfterTurn(
     accountProfileId?: string;
     model?: string;
     turnOrigin?: "conversation" | "utility";
+    done?: Extract<NormalizedProviderEvent, { type: "done" }>;
   },
 ) {
   const session = getWorkspaceSessionForState({
     state: get(),
     workspaceId: turn.workspaceId,
   });
-  const messages = session?.messagesByTask[turn.taskId];
+  if (!session || session.activeTurnIdsByTask[turn.taskId]) return;
+  const stopReason = turn.done?.stop_reason?.trim().toLowerCase() ?? "";
+  if (classifyProviderTurnStopReason(stopReason) === "cancelled") return;
+  const messages = session.messagesByTask[turn.taskId];
   const last = messages?.at(-1);
   const recorded = last?.role === "assistant" ? last : undefined;
   const providerId =
     (recorded?.providerId !== "user" ? recorded?.providerId : undefined) ?? turn.providerId ??
-    session?.tasks.find((task) => task.id === turn.taskId)?.provider;
+    session.tasks.find((task) => task.id === turn.taskId)?.provider;
+  const terminalLimit = turn.done ? findUsageLimitStopInEvents([turn.done]) : null;
   if (
     turn.turnOrigin !== "utility" &&
     providerId &&
-    findUsageLimitStop(messages)
+    (terminalLimit || findUsageLimitStop(messages))
   ) {
     get().pauseTaskForUsageLimit({
       taskId: turn.taskId,
       workspaceId: turn.workspaceId,
       providerId,
-      accountProfileId: recorded?.nativeAccountProfileId ?? turn.accountProfileId,
+      accountProfileId: terminalLimit?.accountProfileId ?? recorded?.nativeAccountProfileId ?? turn.accountProfileId,
       model: recorded?.model || turn.model,
       stoppedTurn: true,
     });
   }
+  if (USER_STOPPED_TURN_REASONS.includes(stopReason)) return;
   dispatchNextQueuedTaskTurn({
     workspaceId: turn.workspaceId,
     taskId: turn.taskId,

@@ -18,6 +18,7 @@ import type {
   LoadTaskMessagesIntoSession,
   LoadWorkspaceShellStateFromPersistence,
   RefreshWorkspaceFilesInBackground,
+  ReloadRefreshedWorkspaceTasks,
 } from "@/store/app-store-workspace-action-types";
 import { resolveEditorDiffMode } from "@/store/layout.utils";
 import {
@@ -190,6 +191,7 @@ export function createWorkspaceManagementActions(args: {
   loadTaskMessagesIntoSession: LoadTaskMessagesIntoSession;
   hydrateWorkspaceMessagesInBackground: HydrateWorkspaceMessagesInBackground;
   refreshWorkspaceFilesInBackground: RefreshWorkspaceFilesInBackground;
+  reloadRefreshedWorkspaceTasks: ReloadRefreshedWorkspaceTasks;
 }): WorkspaceManagementActions {
   const {
     set,
@@ -198,6 +200,7 @@ export function createWorkspaceManagementActions(args: {
     loadTaskMessagesIntoSession,
     hydrateWorkspaceMessagesInBackground,
     refreshWorkspaceFilesInBackground,
+    reloadRefreshedWorkspaceTasks,
   } = args;
 
   return {
@@ -674,10 +677,8 @@ export function createWorkspaceManagementActions(args: {
         workspacePath,
         switchMetricToken,
       });
-      if (!preferLoadedWorkspaceState) {
-        for (const taskId of appliedCacheRefresh?.refreshedTaskIds ?? []) {
-          void loadTaskMessagesIntoSession({ workspaceId, taskId, mode: "latest" });
-        }
+      if (!preferLoadedWorkspaceState && appliedCacheRefresh) {
+        reloadRefreshedWorkspaceTasks(workspaceId, appliedCacheRefresh);
       }
       if (resolvedWorkspaceShellState) {
         if (

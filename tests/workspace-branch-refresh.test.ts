@@ -32,7 +32,7 @@ async function refreshWithCheckout(checkout: (git: (...args: string[]) => string
     const actions = createWorkspaceHydrationActions({
       get: () => state,
       set: (update: unknown) => { state = { ...state, ...(typeof update === "function" ? update(state) : update) }; },
-      loadTaskMessagesIntoSession: async () => {}, hydrateWorkspaceMessagesInBackground: () => {}, refreshWorkspaceFilesInBackground: () => {},
+      loadTaskMessagesIntoSession: async () => {}, hydrateWorkspaceMessagesInBackground: () => {}, refreshWorkspaceFilesInBackground: () => {}, reloadRefreshedWorkspaceTasks: () => {},
     } as never);
     await actions.refreshWorkspaces();
     return state.workspaceBranchById;

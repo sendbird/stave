@@ -24,6 +24,7 @@ import type {
   HydrateWorkspaceMessagesInBackground,
   LoadTaskMessagesIntoSession,
   RefreshWorkspaceFilesInBackground,
+  ReloadRefreshedWorkspaceTasks,
 } from "@/store/app-store-workspace-action-types";
 import {
   beginWorkspaceIdentityRequest,
@@ -282,6 +283,7 @@ export function createWorkspaceHydrationActions(args: {
   loadTaskMessagesIntoSession: LoadTaskMessagesIntoSession;
   hydrateWorkspaceMessagesInBackground: HydrateWorkspaceMessagesInBackground;
   refreshWorkspaceFilesInBackground: RefreshWorkspaceFilesInBackground;
+  reloadRefreshedWorkspaceTasks: ReloadRefreshedWorkspaceTasks;
 }): WorkspaceHydrationActions {
   const {
     set,
@@ -289,6 +291,7 @@ export function createWorkspaceHydrationActions(args: {
     loadTaskMessagesIntoSession,
     hydrateWorkspaceMessagesInBackground,
     refreshWorkspaceFilesInBackground,
+    reloadRefreshedWorkspaceTasks,
   } = args;
 
   return {
@@ -939,12 +942,8 @@ export function createWorkspaceHydrationActions(args: {
       ) {
         return;
       }
-      for (const taskId of appliedCacheRefresh?.refreshedTaskIds ?? []) {
-        void loadTaskMessagesIntoSession({
-          workspaceId: preferredWorkspaceId,
-          taskId,
-          mode: "latest",
-        });
+      if (!preferLoadedWorkspaceState && appliedCacheRefresh) {
+        reloadRefreshedWorkspaceTasks(preferredWorkspaceId, appliedCacheRefresh);
       }
       if (
         loadedWorkspaceShellState &&

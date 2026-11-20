@@ -8,6 +8,7 @@ import type { PromptDraft } from "@/types/chat";
 
 function buildSessionWithDraft(draft: PromptDraft | undefined) {
   return {
+    activeTurnIdsByTask: {},
     promptDraftByTask: draft ? { "task-1": draft } : {},
   } as unknown as WorkspaceSessionState;
 }
@@ -25,6 +26,51 @@ function buildQueuedTurn(id: string, content: string, queuedAt: string) {
 const TARGET = { workspaceId: "ws-1", taskId: "task-1" };
 
 describe("queued task turn dispatcher", () => {
+  test("leaves the queue alone when a previous completion arrives during a newer turn", () => {
+    const session = buildSessionWithDraft({
+      text: "", attachedFilePaths: [], attachments: [],
+      queuedTurns: [buildQueuedTurn("queued", "Next", "2026-08-01T00:00:00.000Z")],
+    });
+    session.activeTurnIdsByTask[TARGET.taskId] = "newer-turn";
+    const sent: string[] = [];
+    const dispatch = createQueuedTaskTurnDispatcher({
+      getSession: () => session,
+      getActions: () => ({ sendUserMessage: ({ queuedTurnId }) => sent.push(queuedTurnId) }),
+      getAutoDispatchHold: () => undefined,
+    });
+
+    dispatch(TARGET);
+    expect(sent).toEqual([]);
+  });
+
+  test("treats a started agent run as ownership of the queued prompt", async () => {
+    const [first, second] = [
+      buildQueuedTurn("first", "Start a run", "2026-08-01T00:00:00.000Z"),
+      buildQueuedTurn("second", "Follow up", "2026-08-01T00:00:01.000Z"),
+    ];
+    const draft: PromptDraft = {
+      text: "", attachedFilePaths: [], attachments: [], queuedTurns: [first, second],
+    };
+    const sent: string[] = [];
+    const dispatch = createQueuedTaskTurnDispatcher({
+      getSession: () => buildSessionWithDraft(draft),
+      getActions: () => ({
+        sendUserMessage: async ({ queuedTurnId }) => {
+          sent.push(queuedTurnId);
+          draft.queuedTurns = [second];
+          return { status: "run-started" };
+        },
+      }),
+      getAutoDispatchHold: () => undefined,
+    });
+
+    dispatch(TARGET);
+    dispatch(TARGET);
+    await Promise.resolve();
+    expect(sent).toEqual(["first"]);
+    expect(draft.queuedTurns).toEqual([second]);
+  });
+
   test("dispatches the queue head through the queued-turn path so its stored provider/model apply", () => {
     const sent: Array<{
       taskId: string;
