@@ -346,6 +346,7 @@ export interface AutoRoutingDecision {
 }
 
 export interface AutoRoutingDecisionRecord {
+  turnId?: string;
   decision: AutoRoutingDecision;
   resolvedAt: string;
   /** First 120 characters of the prompt the decision was made for. */
@@ -357,11 +358,13 @@ export const AUTO_ROUTING_PROMPT_PREVIEW_MAX_CHARS = 120;
 export function buildAutoRoutingDecisionRecord(args: {
   decision: AutoRoutingDecision;
   prompt: string;
+  turnId?: string;
   resolvedAt?: string;
 }): AutoRoutingDecisionRecord {
   const preview = args.prompt.replace(/\s+/g, " ").trim();
   return {
     decision: args.decision,
+    ...(args.turnId ? { turnId: args.turnId } : {}),
     resolvedAt: args.resolvedAt ?? new Date().toISOString(),
     promptPreview:
       preview.length > AUTO_ROUTING_PROMPT_PREVIEW_MAX_CHARS

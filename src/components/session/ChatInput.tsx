@@ -24,11 +24,11 @@ import {
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
-import {
-  STANCE_LABELS,
-  formatResolvedRouteLabel,
-} from "@/lib/providers/auto-routing-profile";
+import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
+import { getTurnModelInfoLabel } from "@/lib/providers/turn-model-info";
 import { formatAutoRoutingSignalSummary } from "@/lib/routing/auto-routing";
+import { isRoutedDecision } from "@/components/auto-routing";
+import { findComposerAutoRoute } from "./turn-route-trace";
 import { toast } from "@/components/ui";
 import { buildCommandPaletteItems } from "@/lib/commands";
 import {
@@ -281,8 +281,25 @@ function BaseChatInput() {
   const autoRoutingStance = useAppStore(
     (state) => state.settings.autoRoutingProfile.stance,
   );
-  const autoRoutingDecisionRecord = useAppStore(
-    (state) => state.autoRoutingDecisionByTask[activeTaskId] ?? null,
+  const [autoRoutingDecisionRecord, routedProvider, routedModel, routedModelInfo, routedResolution] = useAppStore(
+    useShallow((state) => {
+      if (!autoRoutingEnabled) return [null, undefined, undefined, undefined, undefined] as const;
+      const record = state.autoRoutingDecisionByTask[activeTaskId];
+      const routedRecord = isRoutedDecision(record) ? record : null;
+      const route = findComposerAutoRoute(
+        state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES,
+        activeTaskId,
+        state.activeTurnIdsByTask[activeTaskId],
+        routedRecord?.turnId,
+      );
+      return [
+        route?.turnId && route.turnId === routedRecord?.turnId ? routedRecord : null,
+        route?.providerId,
+        route?.model,
+        route?.modelInfo,
+        route?.resolution,
+      ] as const;
+    }),
   );
   const providerSelectionTarget = activeTaskId || "draft:session";
   const activeModel =
@@ -515,21 +532,18 @@ function BaseChatInput() {
         available: autoRoutingEnabled,
         stanceLabel: STANCE_LABELS[autoRoutingStance],
         pending: autoRoutePending,
-        routed:
-          autoRoutingEnabled &&
-          autoRoutingDecisionRecord &&
-          autoRoutingDecisionRecord.decision.source !== "disabled" &&
-          autoRoutingDecisionRecord.decision.source !== "manual"
-            ? {
-                label: formatResolvedRouteLabel({
-                  model: autoRoutingDecisionRecord.decision.model,
-                  effort:
-                    autoRoutingDecisionRecord.decision.claudeEffort ??
-                    autoRoutingDecisionRecord.decision.codexReasoningEffort,
-                }),
-                description: `${autoRoutingDecisionRecord.decision.ruleReason} — ${formatAutoRoutingSignalSummary(autoRoutingDecisionRecord.decision.signals)}`,
-              }
-            : null,
+        routed: routedModel && routedProvider
+          ? {
+              label: getTurnModelInfoLabel({
+                model: routedModel,
+                providerId: routedProvider,
+                modelInfo: routedModelInfo ? { ...routedModelInfo, fastMode: false } : undefined,
+              }).replace(/^Claude /, ""),
+              description: autoRoutingDecisionRecord
+                ? `${autoRoutingDecisionRecord.decision.ruleReason} — ${formatAutoRoutingSignalSummary(autoRoutingDecisionRecord.decision.signals)}`
+                : routedResolution?.ruleReason || routedResolution?.rationale,
+            }
+          : null,
       }),
     [
       activeProvider,
@@ -537,6 +551,10 @@ function BaseChatInput() {
       autoRoutingDecisionRecord,
       autoRoutingEnabled,
       autoRoutingStance,
+      routedProvider,
+      routedModel,
+      routedModelInfo,
+      routedResolution,
       i18n.language,
     ],
   );

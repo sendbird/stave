@@ -62,6 +62,8 @@ import { createRoutingHostHarness } from "./fixtures/agent-run-routing-host";
 import { buildAgentRouteSettings } from "../src/store/agent-route-settings-sync";
 import { defaultSettings } from "../src/store/app-settings";
 
+import { describeTarsModelSelection } from "../src/lib/tars/model-selection";
+
 const START = "2026-09-26T10:00:00.000Z";
 
 function workflow(stages: WorkflowStage[], overrides: Partial<Workflow> = {}): Workflow {
@@ -2150,6 +2152,48 @@ describe("Agent run team limits", () => {
     reblocked.h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "reply-2", providerId });
     expect(reblocked.h.store.listEventsByKind(reblocked.id, ["resource-decision"])).toHaveLength(2);
   });
+  test("a linked user reply records its admitted effort on the Tars work card", async () => {
+    const model = "gpt-6.2-sol";
+    const turns: AgentRunTurnRow[] = [];
+    const h = createHarness({ turns, extra: {
+      freezeResources: () => policy("codex"),
+      routeConstrainedTurn: async () => ({
+        route: "auto", rationale: "standard", fingerprint: { providerId: "codex", model },
+        runtimeOptions: { codexReasoningEffort: "medium" },
+        selection: { version: 1, source: "heuristic", previous: { providerId: "codex", model },
+          selected: { providerId: "codex", model }, requestedEffort: "medium", effortSource: "auto",
+          inputs: { quota: "not-provided", catalog: "frozen", availability: "not-provided" } },
+      }),
+      readTurnUsage: ({ turnId }) => {
+        const turn = turns.find((candidate) => candidate.id === turnId);
+        return turn ? { completed: Boolean(turn.completedAt), usage: null } : null;
+      },
+      readObservedTurnEnding: () => "completed",
+    } });
+    h.setSnapshot({ providerId: "codex", model });
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+    const card = { state: "running" as const, agentRunId: id };
+    expect(describeTarsModelSelection(card, await h.runtime.get({ agentRunId: id }))).toBe("GPT-6.2 Sol · Medium");
+    await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: {
+      effort: "high", reason: "capability-mismatch", rationale: "Review requires more reasoning", evidenceRefs: ["turn-1"],
+    } });
+    h.endTurn("turn-1");
+    const turnId = "reply-1";
+    h.userTurn(turnId);
+    const args = { taskId: "task-1", workspaceId: "ws-1", turnId, providerId: "codex",
+      composer: { model: "auto", effortPinned: false, requestedModel: model, requestedEffort: "medium" } satisfies AgentRunReplyComposer };
+    const reply = h.runtime.prepareUserTurn(args);
+    expect(reply?.runtimeOptions).toMatchObject({ model, codexReasoningEffort: "high" });
+    expect(reply?.routeNote).toEqual({ model });
+    h.runtime.prepareUserTurn(args);
+    const detail = await h.runtime.get({ agentRunId: id });
+    expect(detail.routing?.map((route) => [route.turnId, route.latestInAttempt])).toEqual([
+      ["turn-1", false], [turnId, true],
+    ]);
+    expect(describeTarsModelSelection(card, detail)).toBe("GPT-6.2 Sol · High");
+    await h.runtime.cancel({ agentRunId: id });
+  });
+
   for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a reply follows a composer pin and weighs the composer's Auto pick`, async () => {
     const [strong, light] = providerId === "codex" ? ["gpt-6.2-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
     const p = policy(providerId, { allowedModels: [strong, light] });
@@ -2174,7 +2218,7 @@ describe("Agent run team limits", () => {
     const auto = await setup();
     const stepped = reply(auto.h, "reply-1", { model: "auto", effortPinned: false, requestedModel: strong, rationale: "implement, medium complexity → standard" });
     expect(stepped?.runtimeOptions?.model).toBe(strong);
-    expect(stepped?.routeNote).toBeUndefined();
+    expect(stepped?.routeNote).toEqual({ model: strong });
     expect(auto.h.store.listEventsByKind(auto.id, ["resource-decision"]).at(-1)?.detail).toMatchObject({ automatic: true, accepted: true, model: strong });
     // Auto steps back down on the next reply: the placement and the step-up spent both changes, so the
     // stronger model stays, and the route line says why.

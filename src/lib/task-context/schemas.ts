@@ -4,7 +4,7 @@ import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 import { AgentTurnProvenanceSchema } from "@/lib/agents/turn-provenance";
-import { ModelExecutionSchema } from "@/lib/providers/model-execution";
+import { ModelExecutionSchema, TurnModelInfoSchema } from "@/lib/providers/model-execution";
 import {
   PersistedLensAnnotationSchema,
   LENS_CAPTURE_LIMITS,
@@ -478,21 +478,7 @@ export const ChatMessageSchema = z.object({
   modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
   modelExecution: ModelExecutionSchema.optional().catch(undefined),
   agentProvenance: AgentTurnProvenanceSchema.optional().catch(undefined),
-  modelInfo: z
-    .object({
-      effort: z.union([
-        z.literal("minimal"),
-        z.literal("low"),
-        z.literal("medium"),
-        z.literal("high"),
-        z.literal("xhigh"),
-        z.literal("max"),
-        z.literal("ultra"),
-      ]),
-      fastMode: z.boolean().optional(),
-    })
-    .strict()
-    .optional(),
+  modelInfo: TurnModelInfoSchema.optional(),
   content: z.string(),
   displayContent: z.string().optional(),
   questionReply: QuestionReplySchema.optional(),

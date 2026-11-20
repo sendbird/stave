@@ -899,6 +899,7 @@ export function createSendUserMessageAction(args: {
         const record = buildAutoRoutingDecisionRecord({
           decision: autoRoutingDecision,
           prompt: promptContent,
+          turnId,
         });
         set((current) => ({
           autoRoutingDecisionByTask: {

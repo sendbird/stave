@@ -2,7 +2,7 @@ import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { APPROVAL_RISKS, ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
 import { CODEX_APPROVAL_POLICIES, CODEX_APPROVALS_REVIEWERS } from "@/lib/providers/codex-runtime-options";
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
-import { ModelExecutionSchema } from "./model-execution";
+import { ModelExecutionSchema, TurnModelInfoSchema } from "./model-execution";
 import { AgentRunRouteCauseSchema, AutoRoutingModelResolutionSchema } from "./model-resolution";
 import { z } from "zod";
 import type { NormalizedProviderEvent } from "./provider.types";
@@ -319,6 +319,7 @@ const ModelResolvedEventSchema = z.object({
   type: z.literal("model_resolved"),
   resolvedProviderId: ProviderIdSchema,
   resolvedModel: z.string(),
+  modelInfo: TurnModelInfoSchema.optional(),
   modelResolution: AutoRoutingModelResolutionSchema.optional(),
   modelExecution: ModelExecutionSchema.optional(),
   agentRunRoute: z.object({ cause: AgentRunRouteCauseSchema }).strict().optional(),

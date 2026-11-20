@@ -1080,7 +1080,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                   disabled={args.disabled}
                   aria-label={
                     args.value.isAuto
-                      ? i18n.t("composer:modelEffortSelector.ariaLabel10", { value1: getAgentDisplayName(agent) })
+                      ? i18n.t("composer:modelEffortSelector.ariaLabel10", { value1: getAgentDisplayName(agent), value2: displayLabel })
                       : i18n.t("composer:modelEffortSelector.ariaLabel11", { value1: displayLabel, value2: args.agents.route === "pinned" ? i18n.t("composer:modelEffortSelector.extraCopy54") : i18n.t("composer:modelEffortSelector.extraCopy55"), value3: getAgentDisplayName(agent), value4: selectedEffortLabel
                             ? i18n.t("composer:modelEffortSelector.extraCopy57", { value1: selectedEffortLabel })
                             : "" })
@@ -1133,7 +1133,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 disabled={args.disabled}
                 aria-label={
                   args.value.isAuto
-                    ? i18n.t("composer:modelEffortSelector.ariaLabel12")
+                    ? i18n.t("composer:modelEffortSelector.ariaLabel12", { value1: displayLabel })
                     : i18n.t("composer:modelEffortSelector.ariaLabel13", { value1: displayLabel, value2: selectedEffortLabel
                           ? i18n.t("composer:modelEffortSelector.extraCopy57", { value1: selectedEffortLabel })
                           : "" })

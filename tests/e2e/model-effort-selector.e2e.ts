@@ -964,3 +964,97 @@ test("pins the effort column header while the model grid scrolls", async ({
     path: testInfo.outputPath("model-effort-header-pinned.png"),
   });
 });
+
+test("shows the latest Auto model and effort from the task's turns", async ({ page }) => {
+  await seedWorkspace(page);
+  await page.goto("/");
+  const trigger = page.getByRole("button", { name: /^Model:/ });
+  await expect(trigger).toBeVisible();
+
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { buildAutoRoutingDecisionRecord, resolveAutoRoutingDecision } =
+      await import("/src/lib/routing/auto-routing.ts");
+    const { buildAutoRoutingModelResolution } = await import("/src/store/auto-routing-dispatch.ts");
+    const decision = {
+      ...await resolveAutoRoutingDecision({
+        settings: useAppStore.getState().settings,
+        runtimeOverrides: { autoRouting: true },
+        currentProviderId: "codex",
+        currentModel: "gpt-6-luna",
+        prompt: "Fix a typo",
+        history: [],
+      }),
+      providerId: "codex" as const,
+      model: "gpt-6-luna",
+      codexReasoningEffort: "medium" as const,
+      source: "heuristic" as const,
+    };
+    useAppStore.setState((state) => {
+      const taskId = state.activeTaskId;
+      const turnId = "auto-first";
+      return {
+        promptDraftByTask: {
+          ...state.promptDraftByTask,
+          [taskId]: { text: "", attachedFilePaths: [], attachments: [], runtimeOverrides: { autoRouting: true } },
+        },
+        autoRoutingDecisionByTask: {
+          [taskId]: buildAutoRoutingDecisionRecord({ decision, prompt: "Fix a typo", turnId }),
+        },
+        messagesByTask: {
+          [taskId]: [
+            {
+              id: "first-answer", role: "assistant", turnId, providerId: "codex",
+              model: decision.model, modelInfo: { effort: "medium", fastMode: false },
+              modelResolution: buildAutoRoutingModelResolution({ decision, provider: "codex", model: decision.model }) ?? undefined,
+              content: "Fixed the typo.", parts: [],
+            },
+          ],
+        },
+      };
+    });
+  });
+  await expect(trigger).toHaveText(/Auto → GPT-6[- ]Luna · Medium/);
+
+  // The host starts the next Agent turn without a renderer routing decision.
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { buildPendingProviderTurnState } = await import("/src/store/chat-state-helpers.ts");
+    useAppStore.setState((state) => buildPendingProviderTurnState({
+      ...state,
+      taskId: state.activeTaskId,
+      taskWorkspaceId: state.activeWorkspaceId,
+      turnId: "auto-continuation",
+      provider: "codex",
+      activeModel: "gpt-6.2-sol",
+      modelInfo: { effort: "high", fastMode: false },
+      agentRunPrompt: { agentRunId: "lead-run", assignment: null, isContinuation: true },
+      content: "Continue the verification.",
+    }));
+  });
+  await expect(trigger).toHaveText(/Auto → GPT-6\.2[- ]Sol · High/);
+  await expect(trigger).toHaveAccessibleName(/Auto → GPT-6\.2[- ]Sol · High/);
+
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { buildSteeredUserMessageState } = await import("/src/store/chat-state-helpers.ts");
+    useAppStore.setState((state) => buildSteeredUserMessageState({
+      ...state,
+      taskId: state.activeTaskId,
+      provider: "codex",
+      activeModel: "gpt-6.2-sol",
+      steeredIntoTurnId: "auto-continuation",
+      clientMessageId: "steer",
+      content: "Also check the fallback.",
+      turnStillActive: true,
+    }));
+  });
+  await expect(trigger).toHaveText(/Auto → GPT-6\.2[- ]Sol · High/);
+
+  // The saved turn can supply the label without the live decision cache.
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    useAppStore.setState({ activeTurnIdsByTask: {}, autoRoutingDecisionByTask: {} });
+  });
+  await expect(trigger).toHaveText(/Auto → GPT-6\.2[- ]Sol · High/);
+});

@@ -1,3 +1,4 @@
+import { resolveTurnModelInfo } from "../../src/lib/providers/turn-model-info";
 import { describeNativeProviderAvailability } from "./provider-availability";
 import { providerAccountEventMapper } from "../provider-accounts/events";
 import { currentProviderAccountId, withProviderAccountScope, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
@@ -909,8 +910,17 @@ async function runProviderTurnImpl(
     onEvent: args.onEvent,
   });
   if (agentTurn) lifecycle.emit({ type: "agent_provenance", provenance: agentTurn.provenance });
-  // The Agent run chose another model than the composer sent: the reply's route line shows what runs.
-  if (routeNote) lifecycle.emit({ type: "model_resolved", resolvedProviderId: args.providerId, resolvedModel: routeNote.model, agentRunRoute: { cause: routeNote.cause } });
+  if (routeNote) {
+    const runtimeOptions = args.runtimeOptions ?? {};
+    const modelInfo = resolveTurnModelInfo({ providerId: args.providerId, runtimeOptions });
+    lifecycle.emit({
+      type: "model_resolved",
+      resolvedProviderId: args.providerId,
+      resolvedModel: runtimeOptions.model ?? routeNote.model,
+      ...(modelInfo ? { modelInfo } : {}),
+      ...(routeNote.cause ? { agentRunRoute: { cause: routeNote.cause } } : {}),
+    });
+  }
   const finishLifecycle = (
     reason: "completed" | "runtime_failure" | "user_abort",
   ) => {

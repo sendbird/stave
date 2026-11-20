@@ -9,6 +9,17 @@ export function buildMessageId(args: {
   count: number;
   turnId?: string;
 }) {
-  const position = `${args.taskId}-m-${args.count + 1}`;
+  const position = `${messageIdPrefix(args.taskId)}${args.count + 1}`;
   return args.turnId ? `${position}-${args.turnId}` : position;
+}
+
+function messageIdPrefix(taskId: string) {
+  return `${taskId}-m-`;
+}
+
+/** A pending row carries its turn in its durable id before the first event arrives. */
+export function readMessageIdTurnId(args: { taskId: string; id: string }) {
+  const prefix = messageIdPrefix(args.taskId);
+  if (!args.id.startsWith(prefix)) return undefined;
+  return /^\d+-(.+)$/.exec(args.id.slice(prefix.length))?.[1];
 }

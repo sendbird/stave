@@ -274,9 +274,12 @@ Other utility calls and primary sessions keep their existing behavior.
 The composer shows three preferences. A task that runs as an
 [agent](agents.md) offers them in the agent's model segment too, and picking
 one keeps the agent. The composer button names the preference, such as
-`Auto · Balanced`, and after a routed turn the model and effort it used, such
-as `Auto → Opus 5.5 · Medium`. It shows no effort setting of its own, because
-Auto chooses the effort on every turn.
+`Auto · Balanced`, until it has a model to show for the turn. It then uses the
+model and effort recorded on the current turn or the latest reply when idle,
+such as `Auto → Opus 5.5 · Medium`. This includes turns started automatically
+by an Agent Run and replies reloaded from the transcript. Steering keeps the
+model and effort of the running turn. When a reply resumes an Agent Run, the
+composer and transcript reflect the effort the Run applies to that reply.
 
 Settings → Models → Auto (Model Router) shows, in order: the enable switch and preference, with a
 notice while Auto is off; **Routing decision model**, with the **Model

@@ -2411,12 +2411,25 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const browserRequested = agentRunBrowserRequested({ assignment: agentRunTurnAssignment(run), prompt, delegated: !!authority,
         events: store.listEventsByKind(run.id, ["turn-linked"]) });
       turnIdsFor(run.id).add(turnId);
-      recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply", browserRequested } });
+      const routeSelection = adaptive && resources ? {
+        version: 1, source: "adaptive",
+        previous: { providerId: resources.policy.providerId, model: selection?.requestedModel || adaptive.model },
+        selected: { providerId: resources.policy.providerId, model: adaptive.model },
+        requestedEffort: adaptive.effort, effortSource: "adaptive",
+        inputs: { quota: observed?.quota ? "cached" : "not-provided", catalog: replyCatalog ? "cached" : "frozen",
+          availability: observed?.quota || observed?.catalog ? "cached" : "not-provided" },
+      } satisfies AgentRunRouteSelection : undefined;
+      recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: {
+        ...agentRunStage, turnId, reason: "user-reply", browserRequested, ...(routeSelection ? { routeSelection } : {}),
+      } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
       const accountOptions = resources && replyAccount ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: replyAccount } : { claudeAccountProfileId: replyAccount }) : {};
-      // Only a model the composer did not pin can differ from what runs; an effort-only pin still lets Auto pick the model.
-      const routeNote: AgentRunReplyRouteNote | undefined = adaptive && selection && selection.model !== "pinned" && selection.requestedModel && adaptive.model !== selection.requestedModel
-        ? { model: adaptive.model, cause: adaptive.cause ?? "route" } : undefined;
+      // Refresh the transcript even when the Run changed only the effort.
+      const routeNote: AgentRunReplyRouteNote | undefined = adaptive ? {
+        model: adaptive.model,
+        ...(selection && selection.model !== "pinned" && selection.requestedModel && adaptive.model !== selection.requestedModel
+          ? { cause: adaptive.cause ?? "route" } : {}),
+      } : undefined;
       return { agentRunStage, managedTask: authority != null, runtimeOptionsMode: authority ? "delegation" : "routing", ...(routeNote ? { routeNote } : {}), ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
         providerId: run.fingerprint.providerId, model: adaptive?.model ?? run.fingerprint.model, effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? authority.effort), permissionPolicy: authority.permissionPolicy,
       }) } } : { runtimeOptions: { ...accountOptions,

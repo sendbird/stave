@@ -313,3 +313,40 @@ for (const providerId of ["claude-code", "codex"] as const) {
     expect(events).not.toContainEqual(expect.objectContaining({ type: "error" }));
   });
 }
+
+for (const [providerId, model] of [["codex", "gpt-6.2-sol"], ["claude-code", "claude-opus-5-5"]] as const) {
+  test(`${providerId}: an effort-only Run change reaches the persisted reply and survives a provider model update`, async () => {
+    const { NormalizedProviderEventSchema } = await import("../src/lib/providers/schemas");
+    const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
+    const { ChatMessageSchema } = await import("../src/lib/task-context/schemas");
+    const effortKey = providerId === "codex" ? "codexReasoningEffort" : "claudeEffort";
+    setAgentRunUserTurnResolver(() => ({
+      agentRunStage: STAGE,
+      runtimeOptionsMode: "routing",
+      runtimeOptions: { model, [effortKey]: "high" },
+      context: { type: "retrieved_context", sourceId: "stage", content: "Continue" },
+      routeNote: { model },
+    }));
+    const turnId = "admitted-effort";
+    const events: BridgeEvent[] = [];
+    await new Promise<void>((resolve) => {
+      providerRuntime.startTurnStream({
+        turnId, taskId: "task-1", cwd: TEST_WORKSPACE_CWD, providerId, prompt: "Continue",
+        conversation: { mode: "chat", history: [], contextParts: [] },
+        runtimeOptions: { model, [effortKey]: "medium", composerSelection: { model: "auto", effortPinned: false } },
+      }, { onEvent: (event) => events.push(event), onDone: resolve });
+    });
+    expect(primaryTurns.at(-1)?.runtimeOptions?.[effortKey]).toBe("high");
+    const resolved = NormalizedProviderEventSchema.parse(events.find((event) => event.type === "model_resolved"));
+    expect(resolved).toMatchObject({ type: "model_resolved", resolvedModel: model, modelInfo: { effort: "high" } });
+    const { messages } = replayProviderEventsToTaskState({
+      taskId: "task-1", turnId, provider: providerId, model,
+      messages: [{ id: "assistant", role: "assistant", turnId, providerId, model, content: "Working", parts: [],
+        modelInfo: { effort: "medium" }, isStreaming: true }],
+      events: [resolved, { type: "model_resolved", resolvedModel: "runtime-fallback", resolvedProviderId: providerId }],
+    });
+    expect(ChatMessageSchema.parse(JSON.parse(JSON.stringify(messages.at(-1))))).toMatchObject({
+      model: "runtime-fallback", modelInfo: { effort: "high" },
+    });
+  });
+}

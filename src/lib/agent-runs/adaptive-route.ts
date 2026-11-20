@@ -32,10 +32,10 @@ export interface AgentRunReplyComposer {
   minimumTier?: RouteTier;
 }
 
-/** The model a reply ran on when it is not the one the composer sent, and why. */
+/** The model selected for a Run reply, with a reason when it displaces Auto's pick. */
 export interface AgentRunReplyRouteNote {
   model: string;
-  cause: AgentRunRouteCause;
+  cause?: AgentRunRouteCause;
 }
 
 const EFFORTS = ["low", "medium", "high", "xhigh", "max", "ultra"];

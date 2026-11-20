@@ -15,7 +15,7 @@ import type {
   ProviderSteerTurnRequest,
   ProviderSteerTurnResponse,
 } from "../../src/lib/providers/provider.types";
-import type { UserInputQuestion } from "../../src/types/chat";
+import type { TurnModelInfo, UserInputQuestion } from "../../src/types/chat";
 import type {
   ConnectedToolStatusRequest,
   ConnectedToolStatusResponse,
@@ -380,6 +380,7 @@ export type BridgeEvent =
       type: "model_resolved";
       resolvedProviderId: ProviderId;
       resolvedModel: string;
+      modelInfo?: TurnModelInfo;
       modelExecution?: ModelExecution;
       /** An Agent run reply ran on this model instead of the one the composer sent. */
       agentRunRoute?: { cause: import("../../src/lib/providers/provider.types").AgentRunRouteCause };

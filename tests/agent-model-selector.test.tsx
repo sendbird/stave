@@ -90,12 +90,12 @@ describe("the selector trigger", () => {
     const html = await renderSelector({ agents: agentsProp(), auto: true });
     expect(html).toContain('data-agent-segments="true"');
     expect(html).toContain('aria-label="Agent: Implementer. Open the model and agent selector."');
-    expect(html).toContain('aria-label="Model: Stave Auto. Implementer chooses the model for each turn."');
+    expect(html).toContain('aria-label="Model: Auto · Balanced. Implementer chooses the model for each turn."');
     expect(html).toContain('data-agent-route="auto"');
     // No effort while Stave Auto chooses; no Pinned.
     expect(html).not.toContain("Pinned");
     expect(html).not.toContain("Effort:");
-    expect(html.indexOf("Agent: Implementer")).toBeLessThan(html.indexOf("Model: Stave Auto"));
+    expect(html.indexOf("Agent: Implementer")).toBeLessThan(html.indexOf("Model: Auto · Balanced"));
   });
 
   test("Stave Auto shows no effort even though the composer passes one: Auto picks it on every turn", async () => {

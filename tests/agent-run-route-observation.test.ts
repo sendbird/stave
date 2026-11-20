@@ -65,6 +65,15 @@ describe("route observation evidence", () => {
     expect(project([start, linked, interrupted])[0]?.turnOutcome).toBe("interrupted");
   });
 
+  test("a legacy user reply with no selection supersedes an older selection in its own attempt", () => {
+    const reply = { ...linked, id: "reply-link", sequence: 3, idempotencyKey: "run:user-reply:reply",
+      detail: { ...linked.detail, turnId: "reply", reason: "user-reply" } };
+    const attempts = project([start, reply, linked, reply]);
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0]?.latestInAttempt).toBe(false);
+    expect(attempts[1]).toMatchObject({ turnId: "reply", selection: null, latestInAttempt: true });
+  });
+
   test("active or missing turns do not masquerade as measured completed work", () => {
     expect(project([start, linked], new Map())[0]).toMatchObject({ turnOutcome: "unknown", usage: null, reportedCostUsd: null });
     expect(project([start, linked], new Map([["turn-1", { ...facts, completed: false }]]))[0])
