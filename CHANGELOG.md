@@ -1,3 +1,16 @@
+## [0.35.5](https://github.com/sendbird/stave/compare/v0.35.4...v0.35.5) (2026-11-21)
+
+### Changes
+
+- Auto and Agent Runs keep the model and effort for the active turn aligned across replies, automatic continuations, and steers. Tars work cards show the selection recorded for each stage.
+- Tars keeps the original request, decisions, and verified result reachable from its task. Users can inspect failed pull request checks and request a fix, retry publication for the confirmed branch and base, and see a verified result even when publication fails.
+- Claude tasks can delegate an MCP step to another signed-in Claude account. An optional Codex setting can use that account's MCP servers, and account settings show their readiness.
+- Usage limits follow the model they apply to, so a Fable window does not block other Claude models. Auto skips exhausted models when another capable option remains and applies Codex routing rules to delegated work.
+
+### References
+
+- [PR #1032](https://github.com/sendbird/stave/pull/1032), [PR #1033](https://github.com/sendbird/stave/pull/1033), [PR #1034](https://github.com/sendbird/stave/pull/1034), [PR #1035](https://github.com/sendbird/stave/pull/1035)
+
 ## [0.35.4](https://github.com/sendbird/stave/compare/v0.35.3...v0.35.4) (2026-11-20)
 
 ### Changes
