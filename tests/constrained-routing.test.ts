@@ -117,7 +117,9 @@ describe("constrained host Decision routing", () => {
     const base = { ...input, accounts: {}, parentTaskId: "parent" };
     expect((await router({ ...base, model: "gpt-6-luna", modelPinned: true, effort: "high", effortPinned: true })).runtimeOptions.codexReasoningEffort).toBe("high");
     expect(calls).toBe(0);
-    await expect(router(base)).rejects.toThrow("allowed model");
+    // A delegated child routes by the delegate rule, whose floor is light, so
+    // an Extreme classification still runs on the only allowed model.
+    expect((await router(base)).fingerprint.model).toBe("gpt-6-luna");
     complexity = "low";
     expect((await router(base)).fingerprint.model).toBe("gpt-6-luna");
     await expect(router({ ...base, model: "gpt-6.2-astra", modelPinned: true })).rejects.toThrow("frozen");

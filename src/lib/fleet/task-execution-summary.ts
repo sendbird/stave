@@ -8,7 +8,7 @@ import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { computePromptCacheStats } from "@/lib/providers/usage-cache";
 import {
   providerAccountUsageLabel,
-  resolveTightestAccountUsageWindow,
+  collectProviderAccountUsageWindows,
 } from "@/lib/providers/account-usage-block";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { TurnVerificationResult } from "@/lib/workspace-scripts";
@@ -553,15 +553,24 @@ function resolveContextHeadroomFromMessages(
 
 function buildAccountLimitMetric(args: {
   providerId: ProviderId;
+  messages: readonly ChatMessage[];
   rateLimits?: RateLimitsSnapshotResponse | null;
 }): TaskExecutionMetric<TaskExecutionAccountLimit> {
   if (!args.rateLimits) {
     return unavailableMetric("Account limit data has not been loaded.");
   }
-  const window = resolveTightestAccountUsageWindow({
+  // The task's own model decides which windows bind it: a Fable-only weekly
+  // window must not stand in for an Opus task's account headroom. Without a
+  // reported model, only the account-wide windows apply.
+  const model = [...args.messages]
+    .reverse()
+    .find((message) => message.role === "assistant" && message.providerId === args.providerId && message.model)
+    ?.model;
+  const window = collectProviderAccountUsageWindows({
     providerId: args.providerId,
+    ...(model ? { model } : {}),
     snapshot: args.rateLimits,
-  });
+  })?.sort((left, right) => right.usedPercent - left.usedPercent)[0];
   return window
     ? {
         value: {
@@ -642,6 +651,7 @@ export function buildTaskExecutionSummary(args: {
     usage: buildUsageMetric(args.messages),
     accountLimit: buildAccountLimitMetric({
       providerId: args.providerId,
+      messages: args.messages,
       rateLimits: args.rateLimits,
     }),
     agents: buildAgentsMetric(args.activity),

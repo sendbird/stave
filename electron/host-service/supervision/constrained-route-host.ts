@@ -66,7 +66,8 @@ export function createConstrainedHostRouter(deps: {
       let utility: UtilityInferenceMetadata | undefined;
       const classifyRoute = context ? createAgentRouteClassifier({ context: { ...context, routingDecision: decisionConfig, ...(cwd ? { cwd } : {}) },
         classify: async (request, token) => { const result = await deps.classify({ ...request, ...(input.requestId ? { requestId: input.requestId } : {}) }, token); utility = result.utility; return result; } }) : undefined;
-      const decision = await resolveAutoRoutingDecision({ settings: { autoRoutingEnabled: autoRouting, autoRoutingProfile: { ...profile, signals: { ...profile.signals, providerSwitch: false } } },
+      const delegated = Boolean(input.parentTaskId) || assignment?.role === "delegate";
+      const decision = await resolveAutoRoutingDecision({ ...(delegated ? { role: "delegate" as const } : {}), settings: { autoRoutingEnabled: autoRouting, autoRoutingProfile: { ...profile, signals: { ...profile.signals, providerSwitch: false } } },
         rateLimitsSnapshot: readAdaptiveObservations(providerId, selectedProviderAccount(providerId, input.accounts)).quota?.snapshot,
         runtimeOverrides: { autoRouting: true }, currentProviderId: providerId, currentModel: allowedModels.includes(model) ? model : allowedModels[0] ?? model, prompt: input.prompt,
         history: toRoutingHistory(deps.history(input)), signal, classifyRoute,
@@ -75,7 +76,7 @@ export function createConstrainedHostRouter(deps: {
         exclusiveModelsByProvider: { [providerId]: allowedModels } });
       const options = effortLocked ? routeEffortOverrides({ providerId, model: decision.model, effort })
         : { ...(decision.claudeEffort ? { claudeEffort: decision.claudeEffort } : {}), ...(decision.codexReasoningEffort ? { codexReasoningEffort: decision.codexReasoningEffort } : {}) };
-      const minimumTier = !input.parentTaskId && assignment?.role !== "delegate" ? resolveAutoRoutingMinimumTier(decision) : undefined;
+      const minimumTier = !delegated ? resolveAutoRoutingMinimumTier(decision) : undefined;
       return { fingerprint: { providerId, model: decision.model }, runtimeOptions: options, allowedModels, decisionConfig, ...(minimumTier ? { minimumTier } : {}),
         route: "auto", rationale: decision.rationale, selection: null, ...(utility ? { decision: utility } : {}) };
     });

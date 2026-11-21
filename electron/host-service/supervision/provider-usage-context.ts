@@ -45,14 +45,16 @@ export function summarizeProviderUsage(args: { providerId: TeamProviderId; obser
     const resetsAt = isoFromEpochSeconds(block.resetsAt);
     return { status: "exhausted", usedPercent: Math.round(Math.min(100, Math.max(0, block.usedPercent))), ...(resetsAt ? { resetsAt } : {}), ...provenance };
   }
+  // A model-scoped limit (Claude's Fable weekly) is reported even when the
+  // account-wide windows are missing, so a run never routes to a used-up model.
+  const exhaustedModels = getSdkModelOptions({ providerId }).filter((model) =>
+    model !== accountModel && resolveAccountUsageBlock({ providerId, model, snapshot, now: args.now }) !== null);
   const live = windows.filter((window) =>
     Number.isFinite(window.usedPercent) && (window.resetsAt == null || !Number.isFinite(window.resetsAt) || window.resetsAt * 1000 > args.now));
-  if (!live.length) return { status: "unknown", ...provenance };
+  if (!live.length) return { status: "unknown", ...provenance, ...(exhaustedModels.length ? { exhaustedModels: [...exhaustedModels] } : {}) };
   const tightest = [...live].sort((left, right) => right.usedPercent - left.usedPercent)[0]!;
   const usedPercent = Math.round(Math.min(100, Math.max(0, tightest.usedPercent)));
   const resetsAt = isoFromEpochSeconds(tightest.resetsAt);
-  const exhaustedModels = getSdkModelOptions({ providerId }).filter((model) =>
-    model !== accountModel && resolveAccountUsageBlock({ providerId, model, snapshot, now: args.now }) !== null);
   return {
     status: usedPercent >= PROVIDER_USAGE_CRITICAL_PERCENT ? "critical" : usedPercent >= PROVIDER_USAGE_LOW_PERCENT ? "low" : "headroom",
     usedPercent,

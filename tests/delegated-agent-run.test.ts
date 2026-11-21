@@ -239,7 +239,8 @@ describe("supervised saved-Agent delegations", () => {
     const child = await h.start();
     expect(h.classified).toBeGreaterThan(0);
     expect(h.calls[0]!.runtimeOptions.codexFileAccess).toBe("read-only");
-    expect(h.calls[0]!.runtimeOptions.model).toBe("gpt-6-luna");
+    // The delegate rule (flagship at medium effort) applies at run time.
+    expect(h.calls[0]!.runtimeOptions.model).toBe("gpt-6.2-sol");
     h.end("turn-1"); h.restartRuntime(); await h.runtime.requestTick();
     expect(h.calls).toHaveLength(2);
     expect(h.classified).toBeGreaterThan(2);

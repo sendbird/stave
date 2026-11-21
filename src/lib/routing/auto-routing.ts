@@ -375,6 +375,11 @@ export function buildAutoRoutingDecisionRecord(args: {
 
 export interface ResolveAutoRoutingDecisionArgs {
   settings: AutoRoutingSettings;
+  /**
+   * Role the routed turn plays. A delegated child routes as `delegate`, so the
+   * profile's delegate rule applies at run time, as the Settings preview shows.
+   */
+  role?: RouterRole;
   runtimeOverrides?: PromptDraftRuntimeOverrides;
   currentProviderId: ProviderId;
   currentModel: string;
@@ -802,6 +807,44 @@ export function resolveBudgetUsedPercentByProvider(
  * the base availability stands: the account-usage guard then reports the block
  * with its reset time, which is more useful than Auto failing to find a route.
  */
+/**
+ * Eligible models whose own usage window is exhausted while their provider
+ * still has other usable models. A provider whose every model is blocked is
+ * handled by `resolveRoutingProviderAvailability` instead.
+ */
+export function resolveExhaustedRouteModels(args: {
+  profile: AutoRoutingProfile;
+  rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
+  runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  now?: number;
+}): Partial<Record<ProviderId, string[]>> {
+  const result: Partial<Record<ProviderId, string[]>> = {};
+  if (!args.rateLimitsSnapshot) {
+    return result;
+  }
+  for (const providerId of listProviderIds()) {
+    const models = listEligibleRouteModels({
+      profile: args.profile,
+      providerId,
+      runtimeModels: args.runtimeModelsByProvider?.[providerId],
+      exclusiveModels: args.exclusiveModelsByProvider?.[providerId],
+    });
+    const blocked = models.filter((model) =>
+      resolveAccountUsageBlock({
+        providerId,
+        model,
+        snapshot: args.rateLimitsSnapshot,
+        ...(args.now != null ? { now: args.now } : {}),
+      }) != null,
+    );
+    if (blocked.length > 0 && blocked.length < models.length) {
+      result[providerId] = blocked;
+    }
+  }
+  return result;
+}
+
 export function resolveRoutingProviderAvailability(args: {
   profile: AutoRoutingProfile;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
@@ -1009,6 +1052,12 @@ export function computeRouterSignals(args: {
       ? { runtimeModelsByProvider: args.runtimeModelsByProvider }
       : {}),
   });
+  const exhaustedModelsByProvider = resolveExhaustedRouteModels({
+    profile: args.profile,
+    ...(args.rateLimitsSnapshot ? { rateLimitsSnapshot: args.rateLimitsSnapshot } : {}),
+    ...(args.runtimeModelsByProvider ? { runtimeModelsByProvider: args.runtimeModelsByProvider } : {}),
+    ...(args.exclusiveModelsByProvider ? { exclusiveModelsByProvider: args.exclusiveModelsByProvider } : {}),
+  });
   const lastAssistantProvider = findLastAssistantProvider(args.history);
   const budgetProvider = lastAssistantProvider ?? args.currentProviderId;
   const classification = args.classifier;
@@ -1019,10 +1068,18 @@ export function computeRouterSignals(args: {
   const sensitive = classification
     ? classification.risk === "high"
     : heuristic.sensitive;
+  // A small, bounded implementation is the classifier's form of a quick edit;
+  // without this the quick-edit rules (Provider strengths) never match once
+  // the classifier answers, only on its heuristic fallback.
+  const boundedQuickEdit = classification?.intent === "implement"
+    && classification.complexity === "low"
+    && classification.evidenceCodes.includes("bounded_edit");
   const derivedTaskClass = classification
     ? sensitive && args.profile.signals.safetyEscalation
       ? "safety-critical"
-      : intentClass[classification.intent]
+      : boundedQuickEdit
+        ? "quick-edit"
+        : intentClass[classification.intent]
     : heuristic.taskClass;
   // The agent's class only fills in for an unclear or missing classification.
   const confidentlyClassified = Boolean(classification && classification.intent !== "unknown");
@@ -1060,6 +1117,9 @@ export function computeRouterSignals(args: {
       budgetUsedPercentByProvider: budgetByProvider,
       ...(routingAvailability
         ? { providerAvailability: routingAvailability }
+        : {}),
+      ...(Object.keys(exhaustedModelsByProvider).length > 0
+        ? { exhaustedModelsByProvider }
         : {}),
       lastAssistantProvider,
       lastAssistantModel: findLastAssistantModel(args.history),
@@ -1237,7 +1297,7 @@ export async function resolveAutoRoutingDecision(
 
   const route = resolveRoute({
     profile,
-    role: "primary",
+    role: args.role ?? "primary",
     signals: {
       ...signals,
       uncertain: signals.uncertain || source === "classifier_fallback",
@@ -1267,7 +1327,7 @@ export async function resolveAutoRoutingDecision(
   return buildDecision({
     providerId: route.providerId,
     model: route.model,
-    role: "primary",
+    role: args.role ?? "primary",
     taskType: taskClassToTaskType(signals.taskClass),
     taskClass: signals.taskClass,
     tier: routeTierToModelTier(route),

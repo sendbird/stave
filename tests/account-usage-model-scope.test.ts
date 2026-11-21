@@ -24,8 +24,14 @@ describe("model-scoped account limits", () => {
     expect(check("claude-sonnet-4-6")).toBeNull();
     expect(check("claude-opus-5")).toBeNull();
     expect(check("claude-fable-5-1")?.windowLabel).toBe("Model weekly");
-    expect(check()?.windowLabel).toBe("Model weekly");
-    expect(check("default")?.windowLabel).toBe("Model weekly");
+    expect(check("anthropic/claude-fable-5-2")?.windowLabel).toBe("Model weekly");
+    expect(check("claude-fable-5-2[1m]")?.windowLabel).toBe("Model weekly");
+    // Without a model the check is account-wide: Fable's window binds Fable only.
+    expect(check()).toBeNull();
+    // Aliases and gateway ids of other models are not Fable.
+    for (const model of ["default", "opusplan", "opus[1m]", "sonnet[1m]", "anthropic/claude-sonnet-5-5", "claude-opus-5-5[1m]"]) {
+      expect(check(model)).toBeNull();
+    }
     const state = {
       settings: { blockTurnsWhenAccountLimitReached: true },
       rateLimitsSnapshot: snapshot,
@@ -64,8 +70,10 @@ describe("model-scoped account limits", () => {
       providerId: "codex", model, snapshot,
     });
     expect(check("gpt-5.4")).toBeNull();
+    expect(check("openai/gpt-5.4")).toBeNull();
     expect(check("gpt-5.3-codex-spark")?.usedPercent).toBe(100);
-    expect(check()?.usedPercent).toBe(100);
+    // Without a model the check is account-wide: Spark's bucket binds Spark only.
+    expect(check()).toBeNull();
     snapshot.codex.buckets[0]!.primary!.usedPercent = 100;
     expect(check("gpt-5.4")?.windowLabel).toBe("Codex primary");
     snapshot.codex.buckets[1]!.primary!.usedPercent = 20;
