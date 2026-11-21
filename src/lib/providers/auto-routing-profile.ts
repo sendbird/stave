@@ -1156,6 +1156,13 @@ export interface RouterSignals {
   budgetUsedPercent?: number;
   budgetUsedPercentByProvider?: Partial<Record<ProviderId, number>>;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
+  /**
+   * Models whose own usage window is used up (Claude's Fable weekly, Codex's
+   * Spark bucket) while their provider can still run other models. Auto
+   * skips them like a model below the floor, so a capable model elsewhere is
+   * chosen instead of one the send guard rejects.
+   */
+  exhaustedModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   /** Provider that produced the most recent assistant turn, when any. */
   lastAssistantProvider?: ProviderId | null;
   /**
@@ -1581,6 +1588,21 @@ function noRouteMessage(complexity: RouteComplexity, floor: RouteTier) {
  * turn to an available provider that does, whether or not switching is on.
  */
 export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
+  const exhausted = args.signals.exhaustedModelsByProvider;
+  if (!exhausted || Object.values(exhausted).every((models) => !models?.length)) {
+    return resolveRouteOnce(args);
+  }
+  try {
+    return resolveRouteOnce(args);
+  } catch {
+    // Every capable model is used up: route as before and let the account
+    // usage guard report the block with its reset time.
+    const { exhaustedModelsByProvider: _exhausted, ...signals } = args.signals;
+    return resolveRouteOnce({ ...args, signals });
+  }
+}
+
+function resolveRouteOnce(args: ResolveRouteArgs): ResolvedRoute {
   const { profile, signals, role } = args;
   const stance = applyStance(profile);
   const complexity = resolveEffectiveComplexity({
@@ -1678,7 +1700,10 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       runtimeModels: args.runtimeModelsByProvider?.[providerId],
       exclusiveModels: args.exclusiveModelsByProvider?.[providerId],
     });
-    const models = allowedModels.filter(satisfiesFloor);
+    const exhaustedModels = signals.exhaustedModelsByProvider?.[providerId] ?? [];
+    const models = allowedModels.filter(
+      (model) => satisfiesFloor(model) && !exhaustedModels.includes(model),
+    );
     if (models.length === 0) {
       continue;
     }

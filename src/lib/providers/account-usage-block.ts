@@ -76,13 +76,30 @@ function compareUsageWindows(
   return right.usedPercent - left.usedPercent;
 }
 
+/**
+ * Whether a model id names a Claude Fable model. Provider prefixes
+ * (`anthropic/claude-fable-5-2`) and context suffixes (`[1m]`) are allowed.
+ */
+export function isClaudeFableModel(model: string | undefined): boolean {
+  return /(?:^|[^a-z])fable(?:[^a-z]|$)/i.test(model?.trim() ?? "");
+}
+
+/**
+ * Which windows a usage read applies to. With a model, every window that
+ * binds that model. Without one, `account` keeps only the windows every model
+ * of the account shares; `all` adds the model-scoped ones too, for callers
+ * that schedule reads or display every window rather than judge one turn.
+ */
+export type AccountUsageWindowScope = "account" | "all";
+
 function collectClaudeWindows(
   snapshot: ClaudeUsageSnapshot,
-  model?: string,
+  model: string | undefined,
+  scope: AccountUsageWindowScope,
 ): AccountUsageLimitWindow[] {
-  const knownNonFableModel = /^(?:claude-)?(?:sonnet|opus|haiku)(?:$|[-.])/i.test(
-    model?.trim() ?? "",
-  );
+  // Fable's weekly window is model-scoped: it binds Fable turns only, never
+  // Opus, Sonnet, Haiku, aliases such as `opusplan`, or the account as a whole.
+  const includeFable = model?.trim() ? isClaudeFableModel(model) : scope === "all";
   return [
     snapshot.session
       ? { label: i18n.t("providers:accountUsageBlock.session"), usedPercent: snapshot.session.usedPercent, resetsAt: snapshot.session.resetsAt }
@@ -90,7 +107,7 @@ function collectClaudeWindows(
     snapshot.weekly
       ? { label: i18n.t("providers:accountUsageBlock.weekly"), usedPercent: snapshot.weekly.usedPercent, resetsAt: snapshot.weekly.resetsAt }
       : null,
-    snapshot.fableWeekly && !knownNonFableModel
+    snapshot.fableWeekly && includeFable
       ? {
           label: i18n.t("providers:accountUsageBlock.modelWeekly"),
           usedPercent: snapshot.fableWeekly.usedPercent,
@@ -102,22 +119,23 @@ function collectClaudeWindows(
 
 function collectCodexWindows(
   buckets: readonly CodexRateLimitSnapshot[],
-  model?: string,
+  model: string | undefined,
+  scope: AccountUsageWindowScope,
   ordinaryUsageAllowed?: boolean | null,
 ): AccountUsageLimitWindow[] {
   const windows: AccountUsageLimitWindow[] = [];
   for (const bucket of buckets) {
-    // The separately named Spark quota does not constrain standard models.
-    // Shared and unknown buckets remain binding: the protocol does not expose
-    // a complete model-to-bucket mapping. Other names may describe model groups.
+    // The separately named Spark quota does not constrain standard models or
+    // the account as a whole. Shared and unknown buckets remain binding: the
+    // protocol does not expose a complete model-to-bucket mapping. Other
+    // names may describe model groups.
     const isSparkBucket =
       bucket.limitName?.trim().toLowerCase() === "gpt-5.3-codex-spark";
-    if (
-      model?.trim() &&
-      isSparkBucket &&
-      /^gpt-/i.test(model.trim()) &&
-      !/spark/i.test(model)
-    ) {
+    const trimmedModel = model?.trim() ?? "";
+    const excludesSpark = trimmedModel
+      ? /^(?:[a-z0-9-]+\/)?gpt-/i.test(trimmedModel) && !/spark/i.test(trimmedModel)
+      : scope === "account";
+    if (isSparkBucket && excludesSpark) {
       continue;
     }
     const label = bucket.limitName?.trim() || bucket.limitId?.trim() || "Codex";
@@ -175,21 +193,24 @@ function collectAccountWindows(
 export function collectProviderAccountUsageWindows(args: {
   providerId: ProviderId;
   model?: string;
+  /** Applies only without `model`; defaults to `account`. */
+  scope?: AccountUsageWindowScope;
   snapshot: RateLimitsSnapshotResponse | null | undefined;
 }): AccountUsageLimitWindow[] | null {
   const snapshot = args.snapshot;
+  const scope = args.scope ?? "account";
   if (!snapshot) {
     return null;
   }
   if (args.providerId === "claude-code") {
     return snapshot.claude.source === "unavailable"
       ? null
-      : collectClaudeWindows(snapshot.claude, args.model);
+      : collectClaudeWindows(snapshot.claude, args.model, scope);
   }
   if (args.providerId === "codex") {
     return snapshot.codex.source === "unavailable"
       ? null
-      : collectCodexWindows(snapshot.codex.buckets, args.model, snapshot.codex.ordinaryUsageAllowed);
+      : collectCodexWindows(snapshot.codex.buckets, args.model, scope, snapshot.codex.ordinaryUsageAllowed);
   }
   if (args.providerId === "cursor") {
     if (!snapshot.cursor || snapshot.cursor.source === "unavailable") {
@@ -241,6 +262,7 @@ export function collectProviderAccountUsageWindows(args: {
 export function resolveTightestAccountUsageWindow(args: {
   providerId: ProviderId;
   model?: string;
+  scope?: AccountUsageWindowScope;
   snapshot: RateLimitsSnapshotResponse | null | undefined;
 }): AccountUsageLimitWindow | null {
   const windows = collectProviderAccountUsageWindows(args);
@@ -263,7 +285,9 @@ export function resolveEarliestAccountUsageResetAtMs(args: {
   providerId: ProviderId;
   snapshot: RateLimitsSnapshotResponse | null | undefined;
 }): number | null {
-  const windows = collectProviderAccountUsageWindows(args);
+  // Every window the meter shows, model-scoped ones included: a Fable or
+  // Spark reset changes a ring the user is looking at.
+  const windows = collectProviderAccountUsageWindows({ ...args, scope: "all" });
   if (!windows || windows.length === 0) {
     return null;
   }

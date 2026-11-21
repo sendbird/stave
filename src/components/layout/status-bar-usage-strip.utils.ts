@@ -160,9 +160,11 @@ export function describeUsageWindow(args: {
       : countdown === i18n.t("shell:usageUnits.now")
         ? i18n.t("shell:statusBarUsageStripUtils.resetsNowStaveReadsTheNewNumbers")
         : i18n.t("shell:statusBarUsageStripUtils.resetsIn", { value1: countdown, value2: formatResetClock(window.resetsAt, now, args.locale) });
+  // A model-scoped window holds only that model's turns (`Claude Fable`).
+  const turnsOf = window.scopedModel ? `${providerName} ${window.scopedModel}` : providerName;
   const atLimit = args.blockAtLimit
-    ? i18n.t("shell:statusBarUsageStripUtils.at100StaveHoldsNewTurnsUntil", { value1: providerName })
-    : i18n.t("shell:statusBarUsageStripUtils.at100StaveKeepsSendingTurnsBecause", { value1: providerName });
+    ? i18n.t("shell:statusBarUsageStripUtils.at100StaveHoldsNewTurnsUntil", { value1: turnsOf })
+    : i18n.t("shell:statusBarUsageStripUtils.at100StaveKeepsSendingTurnsBecause", { value1: turnsOf });
   return {
     title: i18n.t("shell:statusBarUsageStripUtils.windowUsedTitle", { title: window.title, percent: formatUsagePercent(window.usedPercent) }),
     lines: [...(window.note ? [window.note] : []), reset, atLimit],

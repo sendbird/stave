@@ -30,6 +30,11 @@ export interface UsageHeadlineWindow {
   resetsAt: number | null;
   /** Full window length in ms, when known; enables the time-left pie. */
   windowMs: number | null;
+  /**
+   * Model family a model-scoped window binds (`Fable`); absent for windows the
+   * whole account shares. A scoped window holds that model's turns only.
+   */
+  scopedModel?: string;
 }
 
 /** `300` → `5h`, `10080` → `7d`; `null` when the length is unknown. */
@@ -135,6 +140,7 @@ export function buildUsageHeadlineWindows(args: {
               usedPercent: claude.fableWeekly.usedPercent,
               resetsAt: claude.fableWeekly.resetsAt,
               windowMs: SEVEN_DAYS_MS,
+              scopedModel: "Fable",
             },
           ]
         : []),
@@ -179,12 +185,19 @@ export function buildUsageHeadlineWindows(args: {
   return [];
 }
 
-/** The dot tracks the window closest to its limit, not the first one listed. */
+/**
+ * The dot tracks the account-wide window closest to its limit, not the first
+ * one listed. A model-scoped window (Claude's Fable weekly) keeps its own ring
+ * but does not colour the provider's dot: it holds that model's turns only.
+ * When only scoped windows are reported, they are all the dot has.
+ */
 export function headlineUsagePercent(
   windows: readonly UsageHeadlineWindow[],
 ): number | null {
-  return windows.length
-    ? Math.max(...windows.map((window) => window.usedPercent))
+  const shared = windows.filter((window) => !window.scopedModel);
+  const source = shared.length ? shared : windows;
+  return source.length
+    ? Math.max(...source.map((window) => window.usedPercent))
     : null;
 }
 

@@ -14,6 +14,8 @@ const EMPTY_TASKS: Task[] = [];
 /**
  * Trailing mark on a workspace row when that workspace has a task whose
  * provider is at 100% included usage and the stop-at-limit setting is on.
+ * Only account-wide windows count: a model-scoped window such as Claude's
+ * Fable weekly limit blocks that model alone, not the workspace's tasks.
  */
 export const WorkspaceAccountLimitIcon = memo(
   function WorkspaceAccountLimitIcon(args: { workspaceId: string }) {

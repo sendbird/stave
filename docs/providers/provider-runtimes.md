@@ -1654,7 +1654,9 @@ amount. Codex reports tokens only, so its popover shows no cost rather than
 
 When the bar is narrower, segments give way in steps. First the tokens entries
 go and the windows stay in full; then segments fall back to the compact meter:
-dot, name and `5h 42%` with the time-left clock. Each choice is a container
+dot, name and `5h 42%` with the time-left clock. The dot takes the tone of
+the account-wide window closest to its limit; a model-scoped window such as the
+weekly Fable limit keeps its own ring but does not colour the dot. Each choice is a container
 query on the bar's left group: `resolveUsageStripTokensBreakpoint` and
 `resolveUsageStripBreakpoint` estimate the width with and without tokens from
 each segment's name, windows and tokens (using the widest percent, countdown
@@ -1665,7 +1667,10 @@ and the right-hand segments keep their place.
 Hovering an entry explains it: what the window is, when it resets (countdown and
 wall-clock time), and what happens at 100%. With Stop turns at 100% usage on
 (the default), Stave holds new turns for that provider until the window resets
-and running turns finish; with it off, Stave keeps sending turns. Stave does not
+and running turns finish; with it off, Stave keeps sending turns. A
+model-scoped window holds only that model's turns: a used-up weekly Fable limit
+holds Claude Fable turns, while Opus, Sonnet and Haiku keep running, and Auto
+routes around Fable to another capable model. Stave does not
 switch accounts on its own; the popover says so and offers the account switch.
 A task whose turn a limit stopped, or whose queued message the 100% rule
 refused, pauses its queue and shows a usage-limit line in the composer shelf

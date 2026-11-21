@@ -41,14 +41,19 @@ const ABSOLUTE_RESET_RE = /resets?\s+(?!in\b)([^\r\n│┃|]+)/i;
  * ("16% of your usage came from subagent-heavy sessions"), which a
  * percent-anywhere scan would happily misread as a limit.
  *
- * The Fable pattern is tested before the general weekly one: `Current week
- * (Fable)` satisfies both, and the model-scoped number must never land in the
- * account-wide weekly slot.
+ * A weekly row's parenthesised scope decides its slot: `all models` (or no
+ * scope) is the account-wide weekly window, any scope naming Fable is the
+ * Fable window, and every other model scope is skipped, because a
+ * model-scoped number must never land in the account-wide weekly slot.
  */
 const SESSION_LABEL_RE = /^\s*current session\b/i;
-const FABLE_WEEKLY_LABEL_RE = /^\s*current week\s*\(\s*fable\b/i;
 const WEEKLY_LABEL_RE =
   /^\s*(?:current week\b|weekly (?:limits|usage|rate limit)\b|7-day\b)/i;
+/** The parenthesised scope after a weekly label: `all models`, `Fable`, `Sonnet only`. */
+const WEEKLY_SCOPE_RE =
+  /^\s*(?:current week|weekly (?:limits|usage|rate limit)|7-day)\b[^(:\n]*\(([^)]*)\)/i;
+const ACCOUNT_WIDE_SCOPE_RE = /^\s*all(?:\s+models)?\s*$/i;
+const FABLE_SCOPE_RE = /\bfable\b/i;
 
 function parseRelativeDurationToSeconds(text: string): number | null {
   const days = text.match(/(\d+)\s*d/)?.[1];
@@ -222,17 +227,21 @@ export function parseClaudeUsageReportText(rawText: string): {
   const now = Date.now();
 
   for (const line of rawText.split(/\r?\n/)) {
-    if (FABLE_WEEKLY_LABEL_RE.test(line)) {
-      fableWeekly ??= parseUsageWindow(line, now);
-      continue;
-    }
     if (SESSION_LABEL_RE.test(line)) {
       session ??= parseUsageWindow(line, now);
       continue;
     }
-    if (WEEKLY_LABEL_RE.test(line)) {
+    if (!WEEKLY_LABEL_RE.test(line)) {
+      continue;
+    }
+    const scope = line.match(WEEKLY_SCOPE_RE)?.[1];
+    if (scope !== undefined && FABLE_SCOPE_RE.test(scope)) {
+      fableWeekly ??= parseUsageWindow(line, now);
+    } else if (scope === undefined || ACCOUNT_WIDE_SCOPE_RE.test(scope)) {
       weekly ??= parseUsageWindow(line, now);
     }
+    // Any other scope (`Sonnet only`, a future model) is a model's own limit:
+    // it must never land in the account-wide weekly slot.
   }
 
   return { session, weekly, fableWeekly };
