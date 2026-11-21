@@ -403,6 +403,7 @@ function TarsViewContent() {
     <GlobalPageHeader title={snapshot?.identity.name ?? t("shell:tars.title")} titleIcon={<TarsMark />} actions={<div className={sx(styles.actions)}>
       <TarsTrayToggle pinned={pinned} counts={tray.counts} status={trayStatus} outputs={outputs.length} open={trayOpen} onOpenChange={onTrayOpenChange} panelId={trayId} headerActions={trayGrouping}>{trayBody}</TarsTrayToggle>
       <TarsActivityPanel open={activityOpen} onOpenChange={setActivityOpen} conversation={conversation.conversation} responsibilities={snapshot ? responsibilities : null}
+        onEditRequest={text => controller.current?.insert(text)} onOpenDecision={id => controller.current?.showDecisionById(id)}
         failed={Boolean(conversation.error)} onReload={() => void conversation.refresh()} onOpenWork={(id) => openSide({ responsibilityId: id, kind: "brief" })} />
       <TarsGuideButton onExample={(text) => controller.current?.insert(text)} />
       <TarsInsights identity={snapshot?.identity ?? null} settings={conversation.conversation?.settings ?? null} bridge={api} onEditSettings={() => setSettingsOpen(true)}
@@ -424,8 +425,9 @@ function TarsViewContent() {
       <TarsStartContext value={startInfo}><TarsConversation state={conversation} name={snapshot?.identity.name ?? t("shell:tars.title")} initialSettings={initialSettings} floor={pinned && (pinnedTrayOpen || Boolean(sideView))}
         titleOf={(id) => responsibilities.find((row) => row.id === id)?.title} rowOf={rowOf} workspaceNameOf={workspaceNameOf} onOpenTask={openRequestTask} agentNameOf={(id) => agentNames.get(id)} flows={flows}
         responsibilities={snapshot ? responsibilities : null} onAnswer={answer} onDismissDecision={dismissDecision} controller={controller} sidePanel={pinned ? null : sideView}
-        publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
-        composerStatus={<TarsRunningStrip items={running} onShowAll={showRunningWork} />} /></TarsStartContext></TarsAllowRulesProvider>
+        onOpenPublish={openPublish} publish={publishing.available ? publishing.context : undefined} draftBridge={api} clear={clearing.available ? clearing : undefined} suggestions={suggestions}
+        composerStatus={side?.target.kind === "timeline" && !side.target.agentRunId && running.length === 1 && running[0]?.row.id === side.target.responsibilityId
+          ? null : <TarsRunningStrip items={running} onShowAll={showRunningWork} />} /></TarsStartContext></TarsAllowRulesProvider>
       </TarsResultProvider>
       {pinned ? sideView : null}
       {/* Folded, not removed, while the side view has its column: what opened the side view is still there to take focus back. */}

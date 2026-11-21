@@ -1,3 +1,6 @@
+import { parseTarsRequestMessageId } from "@/lib/tars/brief";
+import { useTarsResponsibilities } from "@/store/tars-snapshot-store";
+import { openTarsAt } from "@/store/tars-notification-focus-store";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { useId, type ReactNode } from "react";
 import { Check, Copy } from "lucide-react";
@@ -105,7 +108,18 @@ export function TarsBriefPanel({ row, state, onRetry }: {
 }
 
 /** The request view of the side view: reads the saved texts for the work it shows. */
-export function TarsBriefView({ row, load }: { row: Pick<TarsResponsibility, "id" | "acceptanceCriteria">; load: TarsBriefLoader | undefined }) {
+export function TarsBriefView({ row, load, onNavigate }: { onNavigate?: () => void; row: Pick<TarsResponsibility, "id" | "acceptanceCriteria">; load: TarsBriefLoader | undefined }) {
   const { state, retry } = useTarsBrief(row.id, load);
-  return <TarsBriefPanel row={row} state={state} onRetry={retry} />;
+  const { t } = useTranslation(["shell"]);
+  const responsibilities = useTarsResponsibilities();
+  const messageId = state.status === "ready" ? state.brief.request?.messageId : null;
+  const siblings = messageId ? responsibilities.filter(peer => peer.id !== row.id &&
+    (peer.request?.messageId ?? parseTarsRequestMessageId(peer.requestId)) === messageId) : [];
+  return <>
+    <TarsBriefPanel row={row} state={state} onRetry={retry} />
+    {siblings.length ? <section className={sx(styles.section)}>
+      <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.taskRequest.related")}</h3>
+      {siblings.map(peer => <Button key={peer.id} size="sm" variant="ghost" onClick={() => { onNavigate?.(); openTarsAt({ kind: "brief", responsibilityId: peer.id }); }}>{peer.title}</Button>)}
+    </section> : null}
+  </>;
 }

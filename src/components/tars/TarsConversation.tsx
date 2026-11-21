@@ -1,3 +1,6 @@
+import { stageTarsPrCiFix } from "./ask-tars";
+import { tarsCiPullRequest } from "@/lib/tars/pr-ci";
+import { Button } from "@/components/ui/button";
 import { isTarsBatchAction } from "@/lib/tars/batch";
 import { TarsBatchProposal, TarsBatchRecordEntry, useTarsBatchRecords } from "./TarsBatchCard";
 import { tarsWorkspaceRecordId } from "@/lib/tars/workspace-action";
@@ -86,6 +89,7 @@ export interface TarsConversationController {
   selectWork: (responsibilityId: string) => void;
   /** Shows the work's waiting decision card above the composer and moves focus to it; the composer takes focus when none waits. */
   showDecision: (responsibilityId: string) => void;
+  showDecisionById: (decisionId: string) => void;
   answer: TarsDecisionAnswerHandler;
   focusComposer: () => void;
 }
@@ -123,7 +127,8 @@ function TarsPublishProposal({ view, publish, titleOf, matchedRules }: { view: T
     onPublish={view.checked ? (words, source) => publish.onPublish({ id: view.requestId, responsibilityId: row.id, expectedRevision: view.expectedRevision }, words, source) : undefined} />;
 }
 
-export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, onOpenWaiting, records }: {
+export function TarsConversationMessage({ message, receipts, name, busy, onCancel, onResend, titleOf, agentNameOf, flows, decisions, onAnswer, answerErrors, context, publish, clear, onOpenWaiting, onCiFixDraft, records }: {
+  onCiFixDraft?: (url: string) => void;
   records?: readonly TarsActionRecord[];
   message: TarsMessageView; receipts: TarsActionReceipt[]; name: string; busy: boolean; onCancel: () => void;
   /** Puts a failed message's words back in the message box; absent, its failure offers no action. */
@@ -146,7 +151,7 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
   /** Waiting forms live in the dock; their history entries open that queue item. */
   onOpenWaiting?: (id: string) => void;
 }) {
-  const { t } = useTranslation(["shell"]);
+  const { t } = useTranslation(["shell", "sourceControl"]);
   const cards = new Map((decisions ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const publishViews = new Map((publish?.proposals ?? []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
   const clearViews = new Map((clear?.available ? clear.proposals : []).filter((view) => view.messageId === message.id).map((view) => [view.actionIndex, view]));
@@ -167,12 +172,15 @@ export function TarsConversationMessage({ message, receipts, name, busy, onCance
     : origin?.kind === "followUp" ? <TarsRecordRow state={superseded ? "skipped" : "info"} icon={RefreshCw} data-tars-follow-up={origin.reason} at={message.createdAt} subject={originLine}
       detail={superseded ? <TarsRecordDetail data-tars-follow-up-superseded="">{t("shell:tars.followUp.superseded")}</TarsRecordDetail> : null} />
       : null;
+  const ci = message.state === "answered" && message.decision?.ciFailureHead && userWords ? tarsCiPullRequest(message.text) : null;
   const outcome = [
     message.reply !== null ? <Message key="reply" from="assistant" aria-label={t("shell:tars.conversation.replyFrom", { name })} data-tars-reply=""><MessageContent>
       {/* A wide table may claim the transcript's wide measure; prose, code and cards keep the reading column. */}
       <TranscriptWideScope enabled><MessageResponse fileLinkContext="none" lineBreaks="paragraph">{message.reply}</MessageResponse></TranscriptWideScope></MessageContent></Message>
       : message.state === "failed" ? <TarsMessageFailure key="failure" message={message} onResend={userWords && onResend ? onResend : undefined} />
         : message.state !== "answered" && !superseded ? <TarsMessageStatus key="status" state={message.state} busy={busy} onCancel={onCancel} inspection={message.inspection} /> : null,
+    ci && onCiFixDraft ? <div key="ciFix"><Button type="button" size="sm" variant="secondary"
+      data-testid="tars-ci-fix-draft" onClick={() => onCiFixDraft(ci.url)}>{t("sourceControl:tarsCI.fixAction")}</Button></div> : null,
     // Why it has not started yet, or that its first attempt failed and Tars is trying once more: never a silent wait.
     message.state === "queued" && message.waiting ? <TarsRecordList key="waiting"><TarsRecordRow state="info" icon={Clock} at={message.waiting.since}
       subject={t(`shell:tars.conversation.waiting.${message.waiting.reason}`)} data-tars-message-waiting={message.waiting.reason} /></TarsRecordList>
@@ -238,7 +246,7 @@ function TarsWorkingChangesToggle({ pressed, disabled, onPressedChange }: { pres
   </>;
 }
 
-export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, onDismissDecision, sidePanel, controller, publish, composerStatus, draftBridge, clear, suggestions }: {
+export function TarsConversation({ state, name, initialSettings, titleOf, rowOf, workspaceNameOf, onOpenTask, agentNameOf, flows, floor, responsibilities, onAnswer, onDismissDecision, sidePanel, controller, publish, onOpenPublish, composerStatus, draftBridge, clear, suggestions }: {
   state: TarsConversationState; name: string; initialSettings: TarsConversationSettings; titleOf?: (responsibilityId: string) => string | undefined;
   rowOf?: TarsDecisionCardProps["rowOf"];
   workspaceNameOf?: TarsDecisionCardProps["workspaceNameOf"];
@@ -258,6 +266,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   controller?: Ref<TarsConversationController>;
   /** Publish cards: word proposals in place, records of cards the user opened, and the card open now at the end. */
   publish?: TarsPublishContext;
+  onOpenPublish?: (row: TarsResponsibility) => void;
   /** The work running now, in the composer band above the message field; absent while nothing runs. */
   composerStatus?: ReactNode;
   /** Where the draft is saved across restarts; absent, it lasts for this window. */
@@ -387,6 +396,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   useImperativeHandle(controller, () => ({
     insert: insertDraft,
     selectWork: (responsibilityId) => { setTarsDraftTarget({ responsibilityId }); focusComposer(); },
+    showDecisionById: openWaiting,
     showDecision: (responsibilityId) => {
       const waiting = decisions.find((view) => view.state === "waiting" && view.targets.some((target) => target.responsibilityId === responsibilityId));
       if (waiting && dockRef.current) dockRef.current.show(waiting.id); else focusComposer();
@@ -429,6 +439,7 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
   /** One timeline entry: a message's exchange or a card in the flow, or a record that joins its neighbours' list. */
   const nodeOf = (item: (typeof timeline)[number]): TarsTranscriptEntry["node"] => {
     if (item.kind === "message") return <TarsConversationMessage key={item.id} message={item.value} records={state.conversation?.records} receipts={state.conversation!.receipts.filter((receipt) => receipt.messageId === item.value.id)} name={name} busy={state.busy || answering} onCancel={() => void state.cancel(item.value.id)}
+      onCiFixDraft={url => { if (stageTarsPrCiFix(url)) focusComposer(); }}
       onResend={() => resend(item.value)}
       titleOf={titleOf} agentNameOf={agentNameOf} flows={flows} decisions={decisions} onAnswer={cardHandler} answerErrors={answerErrors} context={cardContext} publish={publish} clear={clear} onOpenWaiting={openWaiting} />;
     if (item.kind === "allow") return { record: <TarsAllowRuleRecord key={item.id} rule={item.value.rule} /> };
@@ -470,12 +481,13 @@ export function TarsConversation({ state, name, initialSettings, titleOf, rowOf,
     const record = composerRef.current?.closest("[data-tars-chat]")?.querySelector<HTMLElement>(`[data-tars-decision="${CSS.escape(id)}"] [tabindex="-1"]`);
     if (record) record.focus({ preventScroll: true }); else focusComposer();
   };
-  useTarsNotificationFocus({ ready: Boolean(state.conversation && responsibilities), busy: state.busy || answering || Boolean(publish?.busyId),
-    items: dockItems, responsibilities, dock: dockRef, openSide: flows?.onOpenSide, focusComposer });
+  const targetUnavailable = useTarsNotificationFocus({ ready: Boolean(state.conversation && responsibilities), busy: state.busy || answering || Boolean(publish?.busyId),
+    items: dockItems, responsibilities, dock: dockRef, openSide: flows?.onOpenSide, openPublish: onOpenPublish, focusComposer });
   // The transcript and the composer take the same width step, measured on this column.
   return <div className={sx(styles.chat, transcriptWidthStyles.surface, floor && trayStyles.conversationFloor)} style={textScale} data-tars-chat="">
     <Conversation className={sx(widthTheme)}>
       <ConversationContent scrollScopeKey="personal-representative" autoScrollKey={`${scrollKey}|error:${state.error ?? ""}`} data-testid="tars-transcript">
+        {targetUnavailable ? <p role="status">{t("shell:tars.taskRequest.unavailable")}</p> : null}
         {!state.available ? <p role="status">{t("shell:tars.conversation.unavailable")}</p> : null}
         {!state.conversation && state.available && !state.error ? <p role="status">{t("shell:tars.conversation.loading")}</p> : null}
         {/* The active conversation clear leads what is left, with its Restore. */}

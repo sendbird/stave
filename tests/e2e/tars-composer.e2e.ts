@@ -442,10 +442,8 @@ for (const theme of ["light", "dark"]) for (const lang of ["en", "ko"]) {
         .map((element) => parseFloat(getComputedStyle(element).fontSize)));
       expect(sizes.length).toBeGreaterThan(1);
       expect(new Set(sizes)).toEqual(new Set([13]));
-      const band = await view.evaluate((root) => [...root.querySelectorAll("[data-tars-running-status], [data-tars-running-status] span")]
-        .map((element) => parseFloat(getComputedStyle(element).fontSize)));
-      expect(band.length).toBeGreaterThan(1);
-      expect(new Set(band)).toEqual(new Set([14]));
+      // The only running work is already open; closing it restores the shortcut.
+      await expect(view.locator("[data-tars-running-status]")).toHaveCount(0);
       await page.keyboard.press("Escape");
       await expect(side).toHaveCount(0);
     }

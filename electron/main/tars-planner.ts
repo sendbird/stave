@@ -1,3 +1,6 @@
+import { i18n } from "../../src/i18n/runtime";
+import { tarsCiPullRequest } from "../../src/lib/tars/pr-ci";
+import type { readTarsCi } from "./tars-pr-ci";
 import { tarsSourceLinkGuidance } from "../../src/lib/tars/intake";
 import { tarsPlannerAutonomy } from "./tars-planner-autonomy";
 import { z } from "zod";
@@ -69,6 +72,7 @@ interface PlannerPorts {
   /** Main supplies a profile-owned reasoning directory and bounded local observations. */
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
   inspect?: TarsInspectionReader;
+  readCi?: (url: string) => ReturnType<typeof readTarsCi>;
   now?: () => string;
   isStopped?: () => boolean;
   /**
@@ -337,16 +341,24 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
     // Nothing is claimed or billed yet: an automatic follow-up whose change no longer stands stops here.
     if (ports.supersedeStale?.(id)) return;
     const inspections: TarsInspectionObservation[] = [];
+    const prCi = !message.origin && ports.readCi ? tarsCiPullRequest(message.text) : null;
+    const ci = prCi && ports.readCi ? await ports.readCi(prCi.url) : null;
+    if (ci && prCi?.mixed) ci.evidence += "\n" + i18n.t("sourceControl:tarsCI.followUp");
     let remaining = TARS_INSPECTION_TOTAL_CHARS - 2;
     for (let round = 0; round <= TARS_INSPECTION_ROUNDS; round++) {
       ({ runId, stepId } = tarsMessageRunIdentity(id, round));
       executionId = undefined;
       failKey = `${runId}:failed`;
+      if (ports.isStopped?.() || ports.conversations.get(id)?.state !== "reasoning") return;
+      if (ci && !ci.prompt) {
+        ports.conversations.answer(id, message.revision, { reply: ci.evidence, actions: [], ciFailureHead: ci.failureHead }, now());
+        return;
+      }
       phase = "prompt";
       const input = { providerId: message.providerId, model: message.model,
-        ...(message.attachments?.length ? { attachments: message.attachments } : {}),
+        ...(!ci && message.attachments?.length ? { attachments: message.attachments } : {}),
         cwd: context.cwd, toolsDisabled: true as const, runtimeHints: buildTarsRuntimeHints(message.providerId, message.runtimeHints ?? {}),
-        prompt: buildTarsPlannerPrompt(message, { ...context, inspections, inspectionRound: round }, ports.conversations.listBefore(message.id, TARS_PLANNER_HISTORY_MESSAGES, ports.historyAfter?.() ?? null)) };
+        prompt: ci?.prompt ?? buildTarsPlannerPrompt(message, { ...context, inspections, inspectionRound: round }, ports.conversations.listBefore(message.id, TARS_PLANNER_HISTORY_MESSAGES, ports.historyAfter?.() ?? null)) };
       phase = "admission";
       const claimArgs = {
         run: { id: runId, kind: "secondary-provider" as const, origin: { kind: "advisor" as const, id },
@@ -398,6 +410,13 @@ export async function processTarsMessage(id: string, ports: PlannerPorts): Promi
       if (execution.truncated) throw new Error("The representative's reasoning result was truncated.");
       phase = "decision";
       const decision = parseTarsDecisionOutput(execution.text);
+      if (ci) {
+        // External logs can inform the reply but can never introduce an action.
+        decision.actions = [];
+        decision.ciFailureHead = ci.failureHead;
+        delete decision.dropped;
+        decision.reply = decision.reply.slice(0, TARS_REPLY_MAX_CHARS - ci.evidence.length - 2) + "\n\n" + ci.evidence;
+      }
       const reads = decision.actions.filter((action) => action.kind === "inspect");
       if (reads.length && round < TARS_INSPECTION_ROUNDS) {
         // A paid intermediate answer is durable history only, never an admitted work decision.

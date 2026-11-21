@@ -1,4 +1,5 @@
 import { expect, mock } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -24,6 +25,8 @@ const cancelledLocation = process.argv[3];
 const provider = process.argv[2] as "codex" | "claude-code";
 const directory = mkdtempSync(path.join(tmpdir(), "stave-goal-continuation-"));
 const filename = path.join(directory, "store.sqlite");
+const execution = path.join(directory, "execution");
+const branch = "feat/existing-goal";
 // The host stamps continuation requests with the real clock; keep fixture time ahead of it so a
 // verification finished here always starts after its own request, whatever day the suite runs.
 let clock = Math.max(Date.parse("2026-11-12T00:00:00.000Z"), Date.now());
@@ -37,7 +40,7 @@ function open() {
 }
 persistence = open();
 let archived = false, missing = false, revoke = false, loseAck = false;
-const registry = [{ repositoryPath: directory, workspaces: [{ id: "source", path: directory }, { id: "execution", path: directory }] }];
+const registry = [{ repositoryPath: directory, workspaces: [{ id: "source", path: directory }, { id: "execution", path: execution }] }];
 mock.module("../../electron/host-service/persistence", () => ({ ensureHostServicePersistenceReady: () => persistence }));
 mock.module("../../electron/host-service/supervision/assign-host", () => ({ hostAgents: () => BUILTIN_AGENTS }));
 mock.module("../../electron/providers/runtime", () => ({ providerRuntime: {} }));
@@ -93,9 +96,13 @@ function finish(agentRunId: string) {
 }
 
 try {
+  const git = (...args: string[]) => execFileSync("git", ["-C", directory, ...args], { stdio: "pipe" });
+  git("init", "-b", "main");
+  git("-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "initial");
+  git("worktree", "add", "-b", branch, execution);
   const time = now();
   let row = persistence.tars.create({ requestId: "original", title: "Existing goal", instruction: "Original goal",
-    acceptanceCriteria: ["Original criterion"], completionGoal: "pullRequest", branchName: "feat/existing-goal",
+    acceptanceCriteria: ["Original criterion"], completionGoal: "pullRequest", branchName: branch,
     workspaceId: "source", repositoryPath: directory, providerId: provider }, time);
   row = persistence.tars.patch(row.id, row.revision, { taskId: "same-task", executionWorkspaceId: "execution", agentRunId: "original-run", state: "running" }, time);
   createAssignRuntime({ store: persistence.agentAssignments }).recordTaskAgent({ requestId: `tars-${row.id}`, taskId: row.taskId!,
@@ -113,7 +120,7 @@ try {
     url: "https://example.test/pull/1", number: 1, error: null, reason: null, updatedAt: now() } }, now());
   await tick(); row = persistence.tars.get(row.id)!;
   expect(row.state).toBe("completed");
-  writeFileSync(path.join(directory, "artifact.txt"), "original artifact");
+  writeFileSync(path.join(execution, "artifact.txt"), "original artifact");
   const id = row.id;
   const send = (requestId: string, text: string) => {
     const current = persistence.tars.get(id)!;
@@ -180,7 +187,7 @@ try {
     await restart(); await tick();
     expect(starts).toBe(3);
   }
-  const artifact = readFileSync(path.join(directory, "artifact.txt"), "utf8");
+  const artifact = readFileSync(path.join(execution, "artifact.txt"), "utf8");
   console.log(JSON.stringify({ starts, history: row.previousRunIds!.length, reports: outputs.filter(item => item.kind === "report").length, artifact, provider }));
 } finally {
   runtime.stop(); await runtime.drain(); db!.close(); rmSync(directory, { recursive: true, force: true });

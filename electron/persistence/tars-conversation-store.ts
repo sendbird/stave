@@ -1,3 +1,4 @@
+import { tarsCiPullRequest } from "../../src/lib/tars/pr-ci";
 import { tarsWorkspaceRecordId } from "../../src/lib/tars/workspace-action";
 import { TarsUndoActionRefused, type TarsActionUndo, type TarsUndoActionInput } from "../../src/lib/tars/action-undo";
 import { createHash, randomUUID } from "node:crypto";
@@ -371,7 +372,9 @@ export class TarsConversationStore {
           WHERE m.state IN ('queued', 'reasoning') OR (${this.pendingActionsSql()})`).get() as { count: number };
         if (row.count >= maxOutstanding) throw new Error("Too many outstanding messages. Wait or cancel queued work before sending another.");
       }
-      const message = TarsMessageSchema.parse({ ...input, ...settings, id: randomUUID(), revision: 1, state: "queued",
+      // Hash the original send for acknowledgement retries across upgrades. A URL read has no workspace owner.
+      const scopedInput = !origin && tarsCiPullRequest(input.text) ? { ...input, target: undefined, includeWorkingChanges: false } : input;
+      const message = TarsMessageSchema.parse({ ...scopedInput, ...settings, id: randomUUID(), revision: 1, state: "queued",
         reply: null, error: null, decision: null, ...(origin ? { origin } : {}), createdAt: now, updatedAt: now });
       this.db.prepare(`INSERT INTO tars_messages (id, request_id, request_hash, revision, state, created_at, body_json)
         VALUES (?, ?, ?, ?, ?, ?, ?)`)

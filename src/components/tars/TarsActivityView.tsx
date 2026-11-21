@@ -12,6 +12,7 @@ import { textWrap } from "@/components/aui/recipes/text-wrap";
 import { groupTarsActivity, projectTarsActivity, TARS_ACTIVITY_FILTERS, type TarsActivityEntry, type TarsActivityFilter } from "@/lib/tars/activity";
 import type { TarsConversation } from "@/lib/tars/conversation";
 import type { TarsResponsibility } from "@/lib/tars/types";
+import { tarsReceiptRefusalKey } from "./TarsReceiptRow";
 import { useTarsActionUndo } from "./use-tars-action-undo";
 import { useTarsTextScale } from "./TarsMessageChrome";
 import { describeTarsWorkspaceAction } from "./TarsWorkspaceReceipt";
@@ -55,13 +56,31 @@ function Undo({ record }: { record: NonNullable<TarsActivityEntry["undo"]> }) {
   </>;
 }
 
-function ActivityRow({ entry, onOpenWork }: { entry: TarsActivityEntry; onOpenWork: (id: string) => void }) {
+interface ActivityNavigation {
+  onOpenWork: (id: string) => void;
+  onOpenDecision?: (id: string) => void;
+  onEditRequest?: (text: string) => void;
+}
+
+function ActivityRow({ entry, onOpenWork, onOpenDecision, onEditRequest }: ActivityNavigation & { entry: TarsActivityEntry }) {
   const { t } = useTranslation(["shell"]);
   const description = useDescription(entry);
+  const unstarted = entry.unstartedRequest;
+  const refused = unstarted?.receipt.status === "rejected";
+  const reason = refused && tarsReceiptRefusalKey(unstarted.receipt);
+  const waiting = entry.content.kind === "decision" && entry.content.decision.state === "waiting" ? entry.content.decision : null;
   return <li className={sx(activityStyles.row)} data-tars-activity-entry={entry.id}>
     {entry.responsibilityId ? <LinkButton type="button" variant="link" size="xs" flushInline xstyle={styles.rowOpen} onClick={() => onOpenWork(entry.responsibilityId!)}>{entry.title ?? t("shell:tars.activityView.workUnavailable")}</LinkButton>
       : <span className={sx(styles.itemTitle)}>{entry.title ?? t("shell:tars.title")}</span>}
     <p className={sx(activityStyles.description)} title={description}>{description}</p>
+    {unstarted ? <>
+      <p className={sx(styles.note)}>{refused ? reason ? t(reason) : unstarted.receipt.error : t("shell:tars.taskRequest.pending")}</p>
+      {unstarted.text ? <details><summary>{t("shell:tars.side.brief.request")}</summary>
+        <p className={sx(styles.quoted)}>{unstarted.text}</p>
+        {refused && onEditRequest ? <Button variant="secondary" size="xs" onClick={() => onEditRequest(unstarted.text!)}>{t("shell:tars.taskRequest.editText")}</Button> : null}
+      </details> : null}
+    </> : null}
+    {waiting && onOpenDecision ? <Button size="xs" variant="secondary" onClick={() => onOpenDecision(waiting.id)}>{t("shell:tars.dock.review")}</Button> : null}
     <div className={sx(styles.rowMeta)}><time dateTime={entry.at}>{formatTime(entry.at, { hour: "numeric", minute: "2-digit" })}</time>
       <span>{t(`shell:tars.activityView.origin.${entry.origin}`)}</span>
       {entry.undo ? <Undo record={entry.undo} /> : null}
@@ -69,8 +88,8 @@ function ActivityRow({ entry, onOpenWork }: { entry: TarsActivityEntry; onOpenWo
   </li>;
 }
 
-export function TarsActivityView({ conversation, responsibilities, onOpenWork, failed, onReload }: {
-  conversation: TarsConversation | null; responsibilities: readonly TarsResponsibility[] | null; onOpenWork: (id: string) => void;
+export function TarsActivityView({ conversation, responsibilities, onOpenWork, onOpenDecision, onEditRequest, failed, onReload }: ActivityNavigation & {
+  conversation: TarsConversation | null; responsibilities: readonly TarsResponsibility[] | null;
   failed?: boolean; onReload?: () => void;
 }) {
   const { t } = useTranslation(["shell"]);
@@ -87,7 +106,7 @@ export function TarsActivityView({ conversation, responsibilities, onOpenWork, f
     {!conversation ? <p role="status" className={sx(styles.note)}>{t(failed ? "shell:tars.activityView.failed" : "shell:tars.activityView.loading")}</p> : groups.length === 0
       ? <p className={sx(styles.note)}>{t("shell:tars.activityView.empty")}</p> : groups.map(group => <section key={group.day} className={sx(styles.section)} aria-label={formatDate(group.at)}>
         <h3 className={sx(styles.sectionTitle)}>{formatDate(group.at)}</h3>
-        <ul className={sx(activityStyles.list)}>{group.entries.map(entry => <ActivityRow key={entry.id} entry={entry} onOpenWork={onOpenWork} />)}</ul>
+        <ul className={sx(activityStyles.list)}>{group.entries.map(entry => <ActivityRow key={entry.id} entry={entry} onOpenWork={onOpenWork} onOpenDecision={onOpenDecision} onEditRequest={onEditRequest} />)}</ul>
       </section>)}
   </div>;
 }
@@ -101,7 +120,10 @@ export function TarsActivityPanel({ open, onOpenChange, ...props }: Parameters<t
     <Tooltip content={t("shell:tars.activityView.shortcut")}><Button variant="ghost" size="icon-sm" aria-label={t("shell:tars.activityView.title")} aria-keyshortcuts="Control+Shift+A Meta+Shift+A" aria-expanded={open} onClick={() => onOpenChange(true)} data-tars-activity-button=""><History aria-hidden /></Button></Tooltip>
     <Sheet open={open} onOpenChange={onOpenChange}><SheetContent xstyle={styles.sheet} style={textScale} data-tars-activity-sheet="">
       <SheetHeader><SheetTitle>{t("shell:tars.activityView.title")}</SheetTitle><SheetDescription>{t("shell:tars.activityView.description")}</SheetDescription></SheetHeader>
-      {open ? <TarsActivityView {...props} onOpenWork={(id) => { onOpenChange(false); props.onOpenWork(id); }} /> : null}
+      {open ? <TarsActivityView {...props}
+        onEditRequest={props.onEditRequest && (text => { onOpenChange(false); props.onEditRequest!(text); })}
+        onOpenDecision={props.onOpenDecision && (id => { onOpenChange(false); props.onOpenDecision!(id); })}
+        onOpenWork={(id) => { onOpenChange(false); props.onOpenWork(id); }} /> : null}
     </SheetContent></Sheet>
   </>;
 }

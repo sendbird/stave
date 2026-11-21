@@ -2,6 +2,8 @@ import {
   unreadNotificationIds,
   type FleetInboxEntry,
 } from "@/lib/fleet/inbox-model";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import { openTarsAt } from "@/store/tars-notification-focus-store";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -20,6 +22,12 @@ export function markInboxEntryRead(
   for (const id of unreadNotificationIds(entry)) {
     void markNotificationRead({ id });
   }
+}
+
+export function openFleetTarsItem(item: FleetAttentionItem) {
+  if (item.tarsDecisionId && item.tarsResponsibilityId) openTarsAt({ kind: "decision", responsibilityId: item.tarsResponsibilityId, decisionId: item.tarsDecisionId });
+  else if (item.tarsResponsibilityId) openTarsAt({ kind: "report", responsibilityId: item.tarsResponsibilityId });
+  else useAppStore.getState().openTars();
 }
 
 export type InboxOpenResult =
@@ -50,7 +58,7 @@ export async function openInboxEntry(
   }
   // A Tars decision is confirmed in Tars, and Tars work without a task lives there.
   if (item.kind === "tars-decision" || (item.source === "tars" && !item.taskId)) {
-    state.openTars();
+    openFleetTarsItem(item);
     return { status: "opened" };
   }
   if (item.taskId) {

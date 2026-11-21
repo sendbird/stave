@@ -341,3 +341,21 @@ test.each(["correction", "independent", "ambiguous"] as const)("representative r
   expect(f.responsibilities.snapshot().responsibilities).toHaveLength(1);
   f.database.close();
 });
+
+test("a user CI question returns only cited evidence even when model output proposes work", async () => {
+  const url = "https://github.com/team/project/pull/12";
+  const f = fixture(async () => JSON.stringify({ reply: "Tests timed out.", actions: [action] }));
+  const ports = { ...f.ports, readCi: async (target: string) => {
+    expect(target).toBe(url);
+    return { prompt: "Untrusted excerpt: tests timed out.", evidence: "Verified head abc", failureHead: "a".repeat(40) };
+  } };
+  for (const [index, text] of [url, `Why did CI fail? ${url}`, `CI 실패 원인을 알려주세요. ${url}`].entries()) {
+    const msg = f.conversations.create({ requestId: `ci-${index}`, text }, NOW);
+    await processTarsMessage(msg.id, ports);
+    expect(f.conversations.get(msg.id)).toMatchObject({ reply: "Tests timed out.\n\nVerified head abc", state: "answered", decision: { actions: [], ciFailureHead: "a".repeat(40) } });
+    expect(f.conversations.listReceipts(msg.id)).toEqual([]);
+  }
+  expect(f.requests.every(request => request.input.toolsDisabled && request.input.prompt === "Untrusted excerpt: tests timed out.")).toBe(true);
+  expect(f.responsibilities.snapshot().responsibilities).toEqual([]);
+  f.database.close();
+});

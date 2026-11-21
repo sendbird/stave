@@ -207,6 +207,14 @@ const goal = { id: "goal", title: "Release check", repositoryPath: "/tmp/work/st
 const context: TarsDecisionCardContext = { rowOf: (id) => id === "goal" ? goal : undefined, workspaceNameOf: (id) => id === "exec-1" ? "Release branch" : undefined };
 
 describe("confirmation card", () => {
+  test("a completed task's follow-up confirmation identifies its repository and execution branch", () => {
+    const decision = ask({ id: "confirm:message:1", kind: "confirm", question: null, targets: [{ responsibilityId: "goal", expectedRevision: 3 }],
+      options: [{ kind: "control", control: { responsibilityId: "goal", expectedRevision: 3, operation: "requestChanges", input: { text: "Fix checkout" } }, label: null, rationale: null }] });
+    const { html } = rendered(decision, () => {}, { ...context, rowOf: () => ({ ...goal, state: "completed", branchName: "fix/checkout" }) });
+    expect(html).toContain('data-tars-decision-rows="repository,branch,workspace"');
+    expect(html).toContain("fix/checkout");
+  });
+
   test("a proposed cancel leads with what will happen: the title, the work, the effect; where it runs waits behind Details", () => {
     const { html } = rendered(proposal("cancel"), () => {}, context);
     // Effect first: title, then the work, then the effect sentence, before Details and the buttons.

@@ -1,24 +1,13 @@
 import { i18n } from "@/i18n/runtime";
 import type { AppNotification, AppNotificationCreateInput } from "@/lib/notifications/notification.types";
 import { isTarsNotificationKind } from "@/lib/notifications/notification.types";
-import { collectTarsAttention, tarsDecisionSignalId } from "./attention";
-import { tarsConfirmationRequestId } from "./conversation";
-import { tarsAskDecisionId, tarsUnverifiedDecisionId } from "./decisions";
-import type { TarsPendingDecision, TarsSnapshot } from "./types";
+import { collectTarsAttention } from "./attention";
+import type { TarsSnapshot } from "./types";
 
 export interface TarsNotificationTarget { responsibilityId: string; decisionId?: string }
 
-function decisionId(decision: TarsPendingDecision) {
-  if (decision.kind === "unverifiedCompletion" || decision.messageId === null || decision.actionIndex === null) {
-    return tarsUnverifiedDecisionId(decision.responsibilityId, decision.expectedRevision);
-  }
-  return decision.kind === "ask" ? tarsAskDecisionId(decision.messageId, decision.actionIndex)
-    : tarsConfirmationRequestId(decision.messageId, decision.actionIndex);
-}
-
 /** Tray, Fleet and notifications read the same live facts, never action receipts. */
 export function describeTarsNotifications(snapshot: TarsSnapshot): AppNotificationCreateInput[] {
-  const decisions = new Map(snapshot.pendingDecisions.map((decision) => [tarsDecisionSignalId(decision), decisionId(decision)]));
   const signals = collectTarsAttention(snapshot);
   const workById = new Map(snapshot.responsibilities.map(row => [row.id, row]));
   const decisionsByWork = new Set(signals.filter((signal) => signal.kind === "tars-decision").map((signal) => signal.responsibilityId));
@@ -45,7 +34,7 @@ export function describeTarsNotifications(snapshot: TarsSnapshot): AppNotificati
       providerId: null,
       action: null,
       payload: { source: "tars", tarsSignalId: signal.id, responsibilityId: signal.responsibilityId,
-        ...(decisions.has(signal.id) ? { decisionId: decisions.get(signal.id) } : {}) },
+        ...(signal.decisionId ? { decisionId: signal.decisionId } : {}) },
       dedupeKey: id,
     };
   });

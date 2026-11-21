@@ -1,3 +1,5 @@
+import { tarsAskDecisionId, tarsUnverifiedDecisionId } from "./decision-ids";
+export { tarsAskDecisionId, tarsUnverifiedDecisionId } from "./decision-ids";
 import {
   TarsMessageSchema, TARS_IRREVERSIBLE_OPERATIONS, isTarsAnswerRetryable, isTarsDecisionClosure, isTarsHoldableAction, tarsConfirmationRequestId, withoutIrreversibleRecommendation,
 } from "./conversation";
@@ -17,12 +19,6 @@ import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibi
  * the re-ask scan all read this one projection of saved state.
  */
 
-export function tarsAskDecisionId(messageId: string, actionIndex: number) {
-  return `ask:${messageId}:${actionIndex}`;
-}
-export function tarsUnverifiedDecisionId(responsibilityId: string, revision: number) {
-  return `unverified:${responsibilityId}:${revision}`;
-}
 /** A confirmation keeps its proposal's request id, so Fleet, the tray and the card join one record. */
 export function tarsAnswerActRequestId(decisionId: string) {
   return decisionId.startsWith("confirm:") ? decisionId : `answer:${decisionId}`;

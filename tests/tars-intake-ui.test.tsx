@@ -1,10 +1,11 @@
 import { afterEach, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { openTarsIntake } from "../src/components/tars/ask-tars";
+import { tarsCiPullRequest } from "../src/lib/tars/pr-ci";
+import { askTarsAboutPrCi, openTarsIntake, stageTarsPrCiFix } from "../src/components/tars/ask-tars";
 import { TrackerIssueDetailPane } from "../src/components/layout/issues/TrackerIssueDetailPane";
 import { useAppStore } from "../src/store/app.store";
-import { resetTarsDraftForTests, useTarsDraftStore } from "../src/store/tars-draft-store";
+import { resetTarsDraftForTests, setTarsDraftTarget, setTarsDraftText, useTarsDraftStore } from "../src/store/tars-draft-store";
 import { i18n, applyAppLocale } from "../src/i18n";
 import { parseGitHubIssue } from "../electron/main/tracker-issues/github-source";
 
@@ -42,4 +43,29 @@ test.each(["en", "ko"] as const)("issue action and document link control are loc
     now: new Date("2026-11-12T00:00:00Z"), onKickoff() {}, onAttach() {}, onOpenStaveTask() {},
     attachTargetLabel: null, messageFontSize: 14, messageCodeFontSize: 13 }));
   expect(pane).toContain(locale === "en" ? "Ask Tars" : "Tars에게 요청");
+});
+
+test.each(["en", "ko"] as const)("the PR menu opens a reviewable CI request in %s", async locale => {
+  await i18n.changeLanguage(locale);
+  const url = "https://github.com/team/project/pull/12";
+  let opens = 0;
+  globalThis.window = { api: { tars: { getDraft: async () => null } } } as unknown as Window & typeof globalThis;
+  useAppStore.setState({ openTars: () => { opens++; } });
+  await askTarsAboutPrCi(url);
+  const text = useTarsDraftStore.getState().text;
+  expect(text).toBe(i18n.t("sourceControl:tarsCI.request", { url }));
+  expect(tarsCiPullRequest(text)).toEqual({ url, mixed: false });
+  expect(opens).toBe(1);
+});
+
+test.each(["en", "ko"] as const)("fix draft preserves unsent words and binds the clicked PR in %s", async locale => {
+  await i18n.changeLanguage(locale);
+  setTarsDraftText("Why did CI fail?");
+  setTarsDraftTarget({ responsibilityId: "other-work" });
+  const clicked = "https://github.com/team/project/pull/42";
+  expect(stageTarsPrCiFix(clicked)).toBe(true);
+  const draft = useTarsDraftStore.getState();
+  expect(draft.text).toBe("Why did CI fail?\n\n" + i18n.t("sourceControl:tarsCI.fixRequest", { url: clicked }));
+  expect(draft.target).toBeUndefined();
+  expect(tarsCiPullRequest(draft.text)).toBeNull();
 });

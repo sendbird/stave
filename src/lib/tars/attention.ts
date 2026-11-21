@@ -1,3 +1,4 @@
+import { tarsAskDecisionId, tarsUnverifiedDecisionId, tarsConfirmationRequestId } from "./decision-ids";
 import type { TarsControlOperation, TarsPendingDecision, TarsResponsibility, TarsSnapshot } from "./types";
 
 /**
@@ -26,6 +27,7 @@ export interface TarsAttentionSignal {
   taskId: string | null;
   /** When the wait began. */
   since: string;
+  decisionId?: string;
   /** Set on a single-action decision (a proposed control): what Confirm applies. */
   decision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
   /** Set on a decision with several options; it is answered in the Tars conversation. */
@@ -81,9 +83,12 @@ export function collectTarsAttention(
     if (!isLiveDecision(decision, row)) return [];
     const kind = decision.kind ?? "confirm";
     const single = kind === "confirm" && decision.messageId !== null && decision.actionIndex !== null && decision.operation !== null;
-    if (kind === "confirm" && !single) return [];
+    if ((kind === "confirm" && !single) || (kind === "ask" && (decision.messageId === null || decision.actionIndex === null))) return [];
     return [{
       id: tarsDecisionSignalId(decision),
+      decisionId: kind === "unverifiedCompletion" ? tarsUnverifiedDecisionId(row.id, row.revision)
+        : kind === "ask" ? tarsAskDecisionId(decision.messageId!, decision.actionIndex!)
+        : tarsConfirmationRequestId(decision.messageId!, decision.actionIndex!),
       kind: "tars-decision",
       ...place(row),
       since: decision.proposedAt,

@@ -975,7 +975,8 @@ test("a failed publish folds to its reason with Retry, which reopens the card an
   await failed.locator("[data-tars-publish-retry]").click();
   const retry = view.locator("[data-tars-publish-card^='publish-click:']");
   await expect(retry).toHaveAttribute("data-tars-publish-state", "waiting");
-  await expect(retry.locator("[data-tars-publish-message]")).toBeFocused();
+  await expect(retry.locator("[data-tars-publish-message]")).toHaveJSProperty("readOnly", true);
+  await expect(retry.locator("[data-tars-publish-title]")).toBeFocused();
   await expect(retry.locator("[data-tars-publish-row='resume']")).toContainText("Push");
   await page.keyboard.press("Enter");
   await expect(view.locator("[data-tars-publish-record='applied']")).toContainText(/Draft PR #12 opened.*PR #12/);
@@ -1046,7 +1047,7 @@ test("running work says what Stave observed on its card and in the timeline; the
   const card = page.getByRole("complementary").locator('[data-tars-card="billing"]');
   await expect(card.locator('[data-tars-card-sentence] [data-tars-live-freshness="live"]')).toContainText("Running the tests");
   await openCardDetail(card);
-  await expect(card.locator("[data-tars-recent-entry]")).toHaveCount(3);
+  await expect(card.locator("[data-tars-recent-entry]")).toHaveCount(0);
   // The observation is said once: the detail does not repeat the card's sentence.
   await expect(card.locator("[data-tars-live-line]")).toHaveCount(1);
   // Taken-over work gets no live line.
@@ -1072,6 +1073,7 @@ test("running work says what Stave observed on its card and in the timeline; the
   await card.getByRole("button", { name: "Open the timeline for Fix the billing export on empty invoice lists" }).click();
   const now = view.locator("[data-tars-timeline-now]");
   await expect(now).toContainText("Running the tests");
+  await expect(now.locator("[data-tars-recent-entry]").first()).toBeVisible();
   await expect(now.locator('[data-tars-state="running"]')).toBeVisible();
   await expect(now).toContainText("started again, attempt 2");
   await expect(view.locator('[aria-controls="agent-run-stage-cause"]')).toHaveAttribute("aria-expanded", "true");

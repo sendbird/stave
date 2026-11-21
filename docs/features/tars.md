@@ -23,6 +23,10 @@ Long record and Activity descriptions stay on one line with their full text on h
 
 ## Give Tars work from a source
 
+From a pull request's menu, choose **Summarize CI failures in Tars**, or paste its GitHub PR link into Tars and send it. The reply identifies the checked commit and failed checks. If GitHub provides logs, use the linked checks to inspect the evidence. If access is missing or the commit changes during the read, the reply explains what to do next. Reading CI leaves the branch and checks untouched. When a check failed, choose **Draft a fix request** under that reply to prepare a follow-up for the same PR. Review the request before sending it.
+
+In a task Tars started, choose **Open original Tars request** in the task header to read what you asked for and find related work. A pending decision opens the proposal with its full context. If the request was refused before a task was created, open **Activity**, expand the request and edit its text to try again. If the changes were verified and only draft PR creation failed, choose **Retry publishing** to continue from that step.
+
 For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account and model constraints. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
 
 
@@ -668,7 +672,7 @@ no Undo. Clearing keeps its separate Undo.
   **Working changes** on carries that chip; where a reply Tars is still
   writing will appear, **Thinking** shimmers beside the moving mark.
 - **Composer**: while work runs, one status line above the message box says
-  how many pieces run now; selecting it opens the Work tray.
+  how many pieces run now; selecting it opens the Work tray. It steps aside while the timeline of the only running task is open.
 - **Work** tray: the header indicator ("1 needs you · 2 in progress · 3 done")
   opens lanes **Needs you**, **In progress**, **Done** and **Outputs**. Each
   card reads in three lines (its title, one sentence, its state with one
@@ -1187,7 +1191,7 @@ usage; the work's branch in the code face; the selected model
 while the work runs; the stage it is on with the time since that stage's
 latest attempt started (a live clock) and one segment per workflow stage
 (done, in progress, not started, or stopped short); the goal; what Stave
-observed and the run's recent progress with their ages; what waits on you, in
+observed (open **Timeline** for recent changes and their ages); what waits on you, in
 a shaded area; and the other controls. A Tars decision there is one line: an
 amber mark (read aloud as "Tars decision waiting") and the proposal's own
 text, with **Can't be undone** at its end when it applies; other items (such

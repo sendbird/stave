@@ -5,6 +5,7 @@ import { captureTarsControlUndo, captureTarsQueueUndo } from "@/lib/tars/action-
 import { previewTarsActionUndo } from "./tars-action-undo-bridge";
 import { useLayoutEffect, useState } from "react";
 import { applyAppLocale } from "@/i18n";
+import { TarsTaskRequest } from "@/components/tars/TarsTaskRequest";
 import { TarsView } from "@/components/tars/TarsView";
 import { tarsSnapshotForWindow, type TarsBridgeApi, type TarsSnapshot } from "@/lib/tars/types";
 import { buildTarsBrief } from "@/lib/tars/brief";
@@ -41,6 +42,7 @@ import { buildTarsAwayFixtures, createPreviewAwayBridge, syncTarsAwayPreview, TA
 
 /** UI-only fixture: session storage simulates reload, never real provider or host execution. */
 export function TarsPreview() {
+  const taskRequest = new URLSearchParams(window.location.search).get("taskRequest");
   const [ready, setReady] = useState(false);
   useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -545,10 +547,15 @@ export function TarsPreview() {
         ...Object.entries(gallery?.workspaceNames ?? {}).map(([id, name]) => ({ id, name, updatedAt: now }))], workspacePathById: empty ? {} : { "preview-workspace": "/tmp/preview", ...side?.workspacePaths }, repositoryFiles: empty ? [] : ["src/example.ts"],
       // `insights=true` registers the repositories its views list; `start=true` registers more than the start screen lists.
       recentRepositories: insights?.repositories ?? (!empty && params.get("start") === "true" ? buildTarsStartRepositoryFixtures(now) : []), openFileFromTree: async ({ filePath }) => { document.documentElement.dataset.previewOpenedFile = filePath; } });
+    if (taskRequest) {
+      publishTarsSnapshot(tarsSnapshotForWindow(structuredClone(snapshot)));
+      useAppStore.getState().closeTars();
+    }
     setReady(true);
-  }, []);
+  }, [taskRequest]);
   // Only Close leaves the view here; "Show in Fleet" keeps it, recording where it would land instead.
   const closed = useAppStore((state) => state.activeAppSurface.kind === "workspace");
   if (!ready) return null;
+  if (closed && taskRequest) return <TarsTaskRequest taskId={taskRequest} />;
   return closed ? <button type="button" data-preview-reopen-tars="" onClick={() => useAppStore.getState().openTars()}>Open Tars</button> : <TarsView />;
 }

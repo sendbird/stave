@@ -60,7 +60,7 @@ export function TarsDecisionDock({ items, controller, busy, preferredId, onEmpty
   useLayoutEffect(() => {
     const focusCard = () => {
       const active = root.current?.querySelector<HTMLElement>("[data-tars-dock-item]:not([hidden])");
-      (active?.querySelector<HTMLElement>("[data-tars-publish-message]")
+      (active?.querySelector<HTMLElement>("[data-tars-publish-message]:not([readonly]), [data-tars-publish-title]")
         ?? active?.querySelector<HTMLElement>("[data-tars-decision], [data-tars-publish-card]") ?? root.current)?.focus();
     };
     const last = previous.current;

@@ -1115,6 +1115,15 @@
     }
   },
   "tars": {
+    "taskRequest": {
+      "pending": "Tars is waiting to start this task. You can follow its progress here.",
+      "review": "Review decision",
+      "reviewAction": "Review decision: {{action}}",
+      "unavailable": "This item has changed or is no longer available.",
+      "editText": "Edit request text",
+      "open": "Open original Tars request",
+      "related": "Other work from this request"
+    },
     "title": "Tars",
     "description": "Ask about your work and hand tasks to Tars across workspaces.",
     "identity": "Name and standing instructions",
@@ -2264,6 +2273,7 @@
     },
     "publish": {
       "open": "Create draft PR",
+      "retryPublication": "Retry publishing",
       "openHint": "Opens a confirmation card. Nothing is committed or pushed until you confirm it.",
       "card": {
         "title": "Open a draft pull request?",
@@ -2351,6 +2361,7 @@
       "status": {
         "opened": "Draft PR #{{number}} open",
         "openedUnnumbered": "Draft PR open",
+        "verifiedPrFailed": "Changes verified · Draft PR creation failed",
         "failed": "Publishing stopped",
         "running": "Publishing…"
       },

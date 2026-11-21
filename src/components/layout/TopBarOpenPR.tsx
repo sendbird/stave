@@ -1,3 +1,4 @@
+import { askTarsAboutPrCi } from "@/components/tars/ask-tars";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { sx } from "@/components/aui/utils/stylex";
@@ -1874,6 +1875,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </DropdownMenuItem>
               ))}
 
+              {prInfo?.pr?.url ? (
+                <DropdownMenuItem onSelect={() => void askTarsAboutPrCi(prInfo.pr!.url)}>
+                  {i18n.t("sourceControl:tarsCI.menu")}
+                </DropdownMenuItem>
+              ) : null}
               {/* Attach review threads / failed-check evidence to the task. */}
               {prInfo?.pr?.url && activeTask ? (
                 <>

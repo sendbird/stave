@@ -80,12 +80,14 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
   const hintId = useId();
   const messageRef = useRef<HTMLInputElement>(null);
   const titleRef = useRef<HTMLInputElement>(null);
-  const [commitMessage, setCommitMessage] = useState(() => initial?.commitMessage ?? tarsDefaultCommitSubject(row.title));
-  const [title, setTitle] = useState(() => initial?.title ?? tarsDefaultCommitSubject(row.title));
+  const retry = row.publication?.state === "failed" ? row.publication : null;
+  const committed = Boolean(retry?.commit);
+  const [commitMessage, setCommitMessage] = useState(() => retry?.commit ? retry.commitMessage : initial?.commitMessage ?? retry?.commitMessage ?? tarsDefaultCommitSubject(row.title));
+  const [title, setTitle] = useState(() => initial?.title ?? retry?.title ?? tarsDefaultCommitSubject(row.title));
   const [missing, setMissing] = useState(false);
   // The body reads as its rendered markdown by default; the raw text is one toggle away and is exactly what is sent.
   const [bodyView, setBodyView] = useState<"preview" | "raw">("preview");
-  useEffect(() => { if (autoFocus) messageRef.current?.focus(); }, [autoFocus]);
+  useEffect(() => { if (autoFocus) (committed ? titleRef : messageRef).current?.focus(); }, [autoFocus, committed]);
   const reason = previewState === "ready" ? preview?.reason ?? null : null;
   const ready = previewState === "ready" && preview !== null && reason === null;
   const type = parseTarsCommitSubject(commitMessage)?.type ?? "";
@@ -155,13 +157,13 @@ export function TarsPublishCard({ id, row, preview, previewState, initial, busy 
       <div className={sx(publishStyles.commitLine)}>
         <label className={sx(publishStyles.field, publishStyles.typeField)}>
           <span className={sx(publishStyles.label)}>{t("shell:tars.publish.card.rows.commitType")}</span>
-          <NativeSelect controlOnly size="md" value={type} disabled={busy} data-tars-publish-type=""
+          <NativeSelect controlOnly size="md" value={type} disabled={busy || committed} data-tars-publish-type=""
             onChange={(event) => changeType(event.target.value as TarsCommitType)}
             options={[...(type ? [] : [{ value: "", label: "—" }]), ...TARS_COMMIT_TYPES.map((value) => ({ value, label: value }))]} />
         </label>
         <label className={sx(publishStyles.field, publishStyles.grow)}>
           <span className={sx(publishStyles.label)}>{t("shell:tars.publish.card.rows.commitMessage")}</span>
-          <Input ref={messageRef} value={commitMessage} disabled={busy} maxLength={TARS_PUBLISH_COMMIT_MESSAGE_MAX_CHARS} spellCheck={false}
+          <Input ref={messageRef} value={commitMessage} readOnly={committed} disabled={busy} maxLength={TARS_PUBLISH_COMMIT_MESSAGE_MAX_CHARS} spellCheck={false}
             aria-invalid={missing && !commitMessage.trim() ? true : undefined} data-tars-publish-message=""
             onChange={(event) => setCommitMessage(event.target.value)} />
         </label>
