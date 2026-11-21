@@ -325,12 +325,41 @@
     "apiBilling": " · API 요금 청구",
     "billedPerTokenByTheGateway": "게이트웨이에서 토큰별 요금 청구"
   },
+  "codexMcpDelegation": {
+    "title": "Codex의 Claude MCP 사용",
+    "allow": "Codex 작업에서 Claude 계정의 MCP 서버 사용",
+    "description": "모든 Codex 작업에 적용됩니다. 선택한 Claude 계정의 서브에이전트가 MCP 작업을 수행하고 결과를 Codex에 전달합니다.",
+    "account": "Claude 계정",
+    "accountUnavailable": "선택한 계정을 사용할 수 없음",
+    "searchAccounts": "Claude 계정 검색",
+    "noAccounts": "검색과 일치하는 Claude 계정이 없습니다",
+    "candidates": "Claude 계정에서 사용 가능: {{servers}}",
+    "noCandidates": "선택한 Claude 계정에 추가로 쓸 수 있는 MCP 서버가 없습니다.",
+    "candidatesUnavailable": "MCP 서버 목록을 확인할 수 없습니다.",
+    "loadFailed": "Codex MCP 위임 설정을 불러오지 못했습니다.",
+    "saveFailed": "Codex MCP 위임 설정을 저장하지 못했습니다. 다시 시도해 주세요."
+  },
   "providerAccountSetupSharing": {
-    "useMySkillsAndInstructionsFrom": "시스템 기본값의 스킬과 지시 사용",
     "updateCopiedSettings": "복사한 설정 업데이트",
     "copiesYourSystemDefaultSettingsAgain": "시스템 기본 설정을 다시 복사합니다. 스킬, 에이전트, 명령, 플러그인, 지시는 연결되어 항상 최신 상태로 유지됩니다. 이 계정에서 변경한 설정 파일은 보존합니다.",
     "linkSettings": "설정을 System default와 링크",
-    "linkSettingsDescription": "이 계정이나 System default에서 바꾼 설정이 양쪽에 모두 적용됩니다. API 키, 토큰, 로그인 규칙이 들어 있는 설정은 링크하지 않습니다. Claude는 필터링한 사본을 받고, Codex는 계정 자체 설정을 유지합니다."
+    "linkSettingsDescription": "이 계정이나 System default에서 바꾼 설정이 양쪽에 모두 적용됩니다. API 키, 토큰, 로그인 규칙이 들어 있는 설정은 링크하지 않습니다. Claude는 필터링한 사본을 받고, Codex는 계정 자체 설정을 유지합니다.",
+    "useSystemMcp": "System default의 MCP 서버 사용",
+    "useSystemMcpDescription": "System default에 설정한 MCP 서버를 매 실행마다 읽어 이 계정에서도 사용합니다. 스킬, 지침, 설정은 계정 자체 것을 그대로 씁니다. 이 계정에 같은 이름의 서버가 있으면 계정 쪽을 사용합니다.",
+    "useSystemMcpNothingToShare": "System default에 아직 MCP 서버가 없습니다. 추가하면 이 계정에서도 사용합니다.",
+    "delegateMcpWork": "이 계정에서 못 하는 MCP 작업은 다른 계정에 맡기기",
+    "delegateMcpWorkDescription": "회사가 claude.ai 조직에 설치한 커넥터처럼 로그인한 계정에서만 동작하는 MCP 서버가 있습니다. 그런 서버가 필요한 단계가 오면, 그 서버를 쓸 수 있는 Claude 계정에서 하위 에이전트를 시작해 그 단계만 처리하고 결과를 기다려 받습니다. Sonnet으로 실행하며, 맡을 계정의 사용량이 위험 수준이거나 소진됐으면 시작하지 않습니다. 하위 에이전트가 그 계정에서 읽은 내용은 이 계정의 대화로 돌아옵니다.",
+    "delegableServers": "{{account}} 계정에 맡길 수 있는 서버: {{servers}}",
+    "checkConnections": "{{account}} 연결 확인",
+    "checkingConnections": "{{account}} 연결 확인 중…",
+    "connected": "연결됨",
+    "needsAuth": "{{account}}에서 로그인 필요",
+    "failed": "연결 실패",
+    "checkFailed": "연결을 확인하지 못했습니다. 다시 시도해 주세요.",
+    "checkEmpty": "확인된 MCP 서버가 없습니다.",
+    "fromConfig": "설정 파일 기준입니다.",
+    "lastChecked": "마지막 확인 {{time}}.",
+    "delegableNone": "이 계정에 없는 MCP 서버를 가진 다른 Claude 계정이 없어서 아직 맡길 것이 없습니다."
   },
   "providerAccountsSettings": {
     "nameFor": "{{value1}} 이름",

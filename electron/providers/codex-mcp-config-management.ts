@@ -42,6 +42,14 @@ function getCodexServerMap(config: Record<string, unknown>) {
   );
 }
 
+/** Native merged config handles quoted keys, nested tables and project layers. */
+export async function readCodexConfiguredMcpNames(client: CodexMcpConfigClient, cwd?: string) {
+  const response = asMcpRecord(await client.request("config/read", { includeLayers: false, cwd }));
+  const config = asMcpRecord(response?.config);
+  if (!config) throw new Error("Codex App Server returned an unreadable MCP configuration.");
+  return Object.keys(getCodexServerMap(config));
+}
+
 function getCodexLayerSource(layer: Record<string, unknown>) {
   return asMcpRecord(layer.name) ?? asMcpRecord(layer.source);
 }

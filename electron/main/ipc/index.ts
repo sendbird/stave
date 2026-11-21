@@ -27,6 +27,7 @@ import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
 import { registerApiConnectionHandlers } from "./api-connections";
 import { registerProviderAccountIdentityHandlers } from "./provider-account-identity";
+import { registerCodexMcpDelegationSettings } from "./codex-mcp-delegation-settings";
 import { registerProviderAccountSetupHandlers } from "./provider-account-setup";
 import { registerRunHandlers } from "./runs";
 import { registerAutomationHandlers } from "./automations";
@@ -50,6 +51,7 @@ export function registerHandlers() {
   registerApiConnectionHandlers();
   registerProviderAccountIdentityHandlers();
   registerProviderAccountSetupHandlers();
+  registerCodexMcpDelegationSettings();
   registerRunHandlers();
   registerAutomationHandlers();
   registerAgentRunHandlers();

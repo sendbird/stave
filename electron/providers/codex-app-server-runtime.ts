@@ -1051,6 +1051,7 @@ const codexMcpManagement = createCodexMcpManagement({
 export const getCodexMcpRuntimeStatus = codexMcpManagement.getRuntimeStatus;
 export const startCodexMcpOauthLogin = codexMcpManagement.startOauthLogin;
 export const readCodexMcpResource = codexMcpManagement.readResource;
+export const listCodexConfiguredMcpNames = codexMcpManagement.configuredNames;
 export const listCodexMcpServerConfigs = codexMcpManagement.listConfigs;
 export const previewCodexMcpServerConfigMutation =
   codexMcpManagement.previewConfigMutation;
@@ -1917,13 +1918,11 @@ export async function streamCodexWithAppServer(
         args.unattendedAutomation?.authorizationToken,
     });
 
-    // Resolved before the thread is keyed: it decides whether the Lens
-    // instruction block is part of the developer instructions, which are hashed
-    // into the thread key.
+    // Lens and account MCP guidance feed the thread’s instruction profile.
     const hasEmbeddedStaveLocalMcp = staveLocalMcpManifest !== null;
-    const hasStaveLensTools = await hasStaveLensToolsForCodex(
-      hasEmbeddedStaveLocalMcp,
-    );
+    const hasStaveLensTools = await hasStaveLensToolsForCodex(hasEmbeddedStaveLocalMcp);
+    const mcpDelegationPrompt = hasEmbeddedStaveLocalMcp && !toolsDisabled && args.staveTurnGrants
+      ? await codexMcpManagement.delegationPrompt(client, runtimeCwd) : null;
 
     const requestedModel = runtimeOptions?.model;
     let resolvedModel: string | undefined;
@@ -1958,7 +1957,7 @@ export async function streamCodexWithAppServer(
           configOverrides: mergedConfigOverrides,
           boundSecretFingerprint,
           secondaryReadOnly,
-          hasStaveLocalMcp: hasStaveLensTools,
+          hasStaveLocalMcp: hasStaveLensTools, mcpDelegationPrompt,
           turnGrants: args.staveTurnGrants,
         }));
     } catch (error) {
