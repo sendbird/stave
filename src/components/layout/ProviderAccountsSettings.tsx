@@ -9,6 +9,7 @@ import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile, type ProviderAc
 import { PROVIDER_ACCOUNTS_FIELD_ID, PROVIDER_ACCOUNT_ADD_FIELD_ID, STAVE_ACCOUNTS_GUIDE_URL, signInProviderFromFocus } from "@/lib/providers/accounts-guide";
 import { useSettingsFocusRequest } from "@/lib/providers/accounts-navigation";
 import { SettingsCard } from "./settings-dialog.shared";
+import { CodexMcpDelegationSettingsCard } from "./CodexMcpDelegationSettingsCard";
 import { AccountsGuideButton } from "./AccountsGuideButton";
 import { ProviderAccountPicker } from "./ProviderAccountPicker";
 import { ProviderAccountAddForm } from "./ProviderAccountAddForm";
@@ -136,5 +137,5 @@ export function ProviderAccountsSettings() {
   useLoadProviderAccounts();
   const error = useProviderAccounts(s => s.error);
   if (!window.api?.providerAccounts) return null;
-  return <>{error && <p role="alert">{error}</p>}<AccountsForProvider providerId="claude-code" /><AccountsForProvider providerId="codex" /></>;
+  return <>{error && <p role="alert">{error}</p>}<AccountsForProvider providerId="claude-code" /><AccountsForProvider providerId="codex" /><CodexMcpDelegationSettingsCard /></>;
 }

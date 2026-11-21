@@ -13,4 +13,8 @@ export const providerAccountDetailsApi: ProviderAccountIdentityBridgeApi & Provi
   identity: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_IDENTITY_IPC.identity, args),
   setupStatus: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_SETUP_IPC.setupStatus, args),
   shareSetup: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_SETUP_IPC.shareSetup, args),
+  codexMcpDelegation: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_SETUP_IPC.codexMcpDelegation, args),
+  setCodexMcpDelegation: (settings) => ipcRenderer.invoke(PROVIDER_ACCOUNT_SETUP_IPC.setCodexMcpDelegation, settings),
+  checkMcpConnections: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_SETUP_IPC.checkMcpConnections, args),
+  mcpOptions: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_SETUP_IPC.mcpOptions, args),
 };

@@ -15,7 +15,8 @@ import {
   delegatedTaskResultReceipt,
   delegatedTaskWaitingReason,
   delegatedTaskWaitsForPerson,
-  isActiveDelegatedTaskPhase,
+  isDelegatedTaskWorking,
+  delegatedTaskMcpAnswerAt,
   toDelegatedTaskSummary,
   type DelegatedTaskSummary,
 } from "../../src/lib/runs/delegated-task";
@@ -55,6 +56,7 @@ export function listDelegatedTaskSummaries(args: {
           ...aggregate,
           acceptedReceipt: receipts.find((receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt),
           resultReceipt: delegatedTaskResultReceipt(receipts, aggregate.step),
+          mcpAnswerAt: delegatedTaskMcpAnswerAt(receipts, aggregate.step),
           waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
           waitsForPerson: delegatedTaskWaitsForPerson(receipts, aggregate.step),
         });
@@ -210,7 +212,5 @@ export function listDelegatedStallSignals(args: { taskId: string }): DelegatedSt
 
 /** Delegated tasks of a parent that have not reached a terminal phase. */
 export function countActiveDelegatedTasks(args: { parentTaskId: string }): number {
-  return listDelegatedTaskSummaries({ parentTaskId: args.parentTaskId }).filter(
-    (summary) => isActiveDelegatedTaskPhase(summary.phase),
-  ).length;
+  return listDelegatedTaskSummaries({ parentTaskId: args.parentTaskId }).filter(isDelegatedTaskWorking).length;
 }

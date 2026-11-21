@@ -9,7 +9,14 @@ import {
   type ProviderAccountSetupState,
 } from "../../src/lib/providers/provider-account-setup";
 import { sharedSetupEntries, type SetupSharingEntry } from "../../src/lib/providers/provider-account-setup-plan";
-import { claudeMcpStateFileForSystemDir, hasShareableClaudeMcpServers, SETUP_SHARING_LEDGER_NAME } from "./shared-mcp";
+import {
+  claudeMcpStateFileForSystemDir,
+  hasShareableClaudeMcpServers,
+  ACCOUNT_MCP_OPTIONS_FILE_NAME,
+  readAccountMcpOptions,
+  SETUP_SHARING_LEDGER_NAME,
+  type AccountMcpOptions,
+} from "./shared-mcp";
 
 /**
  * Executes the sharing plan in `provider-account-setup-plan.ts` for one managed
@@ -332,6 +339,7 @@ function describe(
   return {
     enabled: ledger !== null,
     ...(entries.some((entry) => entry.modal) ? { settingsMode: mode } : {}),
+    ...(entries.some((entry) => entry.action === "runtime") ? { mcp: readAccountMcpOptions(profileDir) } : {}),
     entries: entries.map((entry) => {
       const source = resolveEntrySource(sourceDir, entry);
       const action = effectiveAction(entry, source, mode);
@@ -439,6 +447,32 @@ export function removeSetupSharing(target: SetupSharingTarget): ProviderAccountS
     }
     try {
       fs.unlinkSync(path.join(target.profileDir, LEDGER_NAME));
+    } catch {
+      /* Already gone. */
+    }
+  }
+  return describe(target.providerId, target.sourceDir, target.profileDir);
+}
+
+/**
+ * Change the account's MCP choices (`AccountMcpOptions`); an omitted choice
+ * keeps its value. Only the options file is written, and it is removed once
+ * both choices are off. Independent of setup sharing, which already includes
+ * System default's MCP servers while it is on.
+ */
+export function applyAccountMcpOptions(
+  target: SetupSharingTarget,
+  patch: Partial<AccountMcpOptions>,
+): ProviderAccountSetupState {
+  if (!sharedSetupEntries(target.providerId).some((entry) => entry.action === "runtime"))
+    throw new Error("This account has no MCP options.");
+  assertSeparate(target.sourceDir, target.profileDir);
+  const next = { ...readAccountMcpOptions(target.profileDir), ...patch };
+  const file = path.join(target.profileDir, ACCOUNT_MCP_OPTIONS_FILE_NAME);
+  if (next.useSystemMcp || next.delegateMcpWork) writeFileAtomic(file, JSON.stringify({ version: 1, ...next }));
+  else {
+    try {
+      fs.unlinkSync(file);
     } catch {
       /* Already gone. */
     }

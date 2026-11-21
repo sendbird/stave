@@ -36,6 +36,7 @@ export interface SubagentListItem {
   exchange: DelegationExchange;
   /** Who the subagent is: its agent, model or label. */
   who: string;
+  accountLabel?: string;
   /** What it was asked to do. */
   what: string;
   canStop: boolean;
@@ -350,6 +351,9 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
         ) : null}
       </div>
       {item.what !== item.who ? <p className={sx(styles.what)}>{item.what}</p> : null}
+      {item.accountLabel ? (
+        <p className={sx(styles.what)}>{i18n.t("session:subagentsSection.onAccount", { account: item.accountLabel })}</p>
+      ) : null}
       {exchange.outcome.progress?.at(-1) ? <p className={sx(styles.what)}>{exchange.outcome.progress.at(-1)}</p> : null}
       {subagentResultLine(exchange) ? <p className={sx(styles.what)} title={error ?? result}>{subagentResultLine(exchange)}</p> : null}
       {(error ?? result) && !live ? (

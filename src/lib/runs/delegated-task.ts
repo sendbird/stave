@@ -35,13 +35,16 @@ export const DELEGATED_TASK_LIST_LIMIT = 50;
 /** How long `stave_delegate_task` may hold the caller for an answer. */
 export const DELEGATED_TASK_WAIT_DEFAULT_SECONDS = 120;
 export const DELEGATED_TASK_WAIT_MAX_SECONDS = 180;
+const MCP_DELEGATION_WAIT_DEFAULT_SECONDS = 30;
 
-/** Seconds a delegate call waits: read-only subagents wait unless told not to. */
+/** Seconds a delegate call waits, with defaults for account and read-only delegations. */
 export function resolveDelegatedTaskWaitSeconds(
   wait: boolean | number | undefined,
   access: DelegationAccess | undefined,
+  hasTargetAccount = false,
 ): number {
   if (typeof wait === "number") return Math.min(Math.max(1, Math.floor(wait)), DELEGATED_TASK_WAIT_MAX_SECONDS);
+  if (wait === undefined && hasTargetAccount) return MCP_DELEGATION_WAIT_DEFAULT_SECONDS;
   return (wait ?? access === "read-only") ? DELEGATED_TASK_WAIT_DEFAULT_SECONDS : 0;
 }
 
@@ -224,6 +227,18 @@ export const DelegateTaskToolInputSchema = z.object({
     .optional()
     .describe("Provider the child runs on. Defaults to the agent's fixed or preferred provider, else this task's provider. A provider that contradicts a Fixed agent is refused."),
   model: z.string().optional().describe("Optional model override for the child."),
+  account: z
+    .string()
+    .trim()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      "Only for MCP work this account cannot do: the id of another Claude account named in the \"MCP servers on your other Claude accounts\" note. The subagent runs that one step on that account, in this workspace. Omit `provider`, `model` and `agentConfigId` with it, and omit it for all other work.",
+    ),
+  server: z.string().trim().min(1).max(200).optional().describe(
+    "The MCP server this step needs, as named in the \"MCP servers on your other Claude accounts\" note. Only use with `account`.",
+  ),
   effort: DelegatedTaskEffortSchema.optional().describe(
     "Optional reasoning-effort tier. Defaults to this task's effort when the child runs on the same provider, otherwise the automation default (`medium`). Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`).",
   ),
@@ -283,7 +298,7 @@ export const DelegateTaskToolInputSchema = z.object({
     .union([z.boolean(), z.number().int().min(1).max(DELEGATED_TASK_WAIT_MAX_SECONDS)])
     .optional()
     .describe(
-      `Wait for the subagent's answer and return it as \`child.result\`. Defaults to true for read-only subagents and false otherwise. true waits up to ${DELEGATED_TASK_WAIT_DEFAULT_SECONDS} s; a number waits that many seconds (max ${DELEGATED_TASK_WAIT_MAX_SECONDS}). A subagent still working when the wait ends keeps running, and its answer arrives with this task's next turn under Subagent results.`,
+      `Wait for the subagent's answer and return it as \`child.result\`. Defaults to ${MCP_DELEGATION_WAIT_DEFAULT_SECONDS} s with \`account\`, true for other read-only subagents, and false otherwise. true waits up to ${DELEGATED_TASK_WAIT_DEFAULT_SECONDS} s; a number waits that many seconds (max ${DELEGATED_TASK_WAIT_MAX_SECONDS}). A subagent still working when the wait ends keeps running, and its answer arrives with this task's next turn under Subagent results.`,
     ),
 });
 export type DelegateTaskToolInput = z.infer<typeof DelegateTaskToolInputSchema>;
@@ -326,19 +341,19 @@ export const DelegatedTaskStopArgsSchema = z
 export type DelegatedTaskStopArgs = z.infer<typeof DelegatedTaskStopArgsSchema>;
 
 /**
- * One more turn on a child that is still open. Omission reuses its recorded
- * policy; an explicit profile may narrow it.
- */
-/**
- * Who asked for a delegated turn, beside its arguments: the accounts it runs
- * on. Kept out of the argument schemas, which the model-facing tools share, so
- * a model can never pick an account. Absent accounts mean System default.
+ * The calling turn's accounts, supplied by the host beside the arguments.
+ * Absent accounts mean System default. An MCP delegation can separately name
+ * a Claude account, which the host resolves and pins to the delegation.
  */
 export const DelegatedTaskRequestContextSchema = z
-  .object({ accounts: ProviderAccountSelectionSchema.optional() })
+  .object({ accounts: ProviderAccountSelectionSchema.optional(), waitForAccountAnswer: z.boolean().optional(), callerProviderId: z.enum(["codex", "claude-code"]).optional() })
   .strict();
 export type DelegatedTaskRequestContext = z.infer<typeof DelegatedTaskRequestContextSchema>;
 
+/**
+ * One more turn on a child that is still open. Omission reuses its recorded
+ * policy; an explicit profile may narrow it.
+ */
 export const DelegatedTaskFollowUpArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),
@@ -399,6 +414,9 @@ export const DELEGATED_TASK_STOPPED_REASON = ("Stopped from the parent task." /*
  * What the parent is allowed to learn about a child: who it is, what phase it
  * is in, and why it ended. Never the child's transcript.
  */
+export const MCP_DELEGATION_FOLLOW_UP_WINDOW_MS = 24 * 60 * 60 * 1_000;
+export const MCP_DELEGATION_ANSWERED_CODE = "mcp-delegation-answered";
+
 export const DelegatedTaskSummarySchema = z
   .object({
     runId: RunIdSchema,
@@ -416,6 +434,8 @@ export const DelegatedTaskSummarySchema = z
     /** The model and effort the delegation asked for at admission time. */
     requestedModel: z.string().trim().min(1).max(200).optional(),
     requestedEffort: DelegatedTaskEffortSchema.optional(),
+    mcpAnswerAt: z.string().datetime().optional(),
+    accountLabel: z.string().min(1).max(100).optional(),
     lifecycle: DelegatedTaskLifecycleSchema,
     phase: RunStatusSchema,
     reason: z.string().max(1_000).nullable(),
@@ -469,6 +489,18 @@ export function delegatedTaskResultReceipt<Receipt extends Pick<RunReceiptRecord
       return receipt;
   }
   return null;
+}
+
+/** The current child turn has answered, including answers with no text. */
+export function delegatedTaskMcpAnswerAt(receipts: readonly RunReceiptRecord[], step: RunStepRecord) {
+  if (!step.target?.turnId || (step.status !== "waiting" && step.status !== "completed")) return null;
+  return receipts.findLast((receipt) => receipt.type === "waiting" && receipt.executionId === step.executionId &&
+    receipt.detail?.code === MCP_DELEGATION_ANSWERED_CODE &&
+    delegatedTaskAnswerTurnId(receipt, step) === step.target?.turnId)?.timestamp ?? null;
+}
+
+export function isDelegatedTaskWorking(child: Pick<DelegatedTaskSummary, "phase" | "mcpAnswerAt">) {
+  return isActiveDelegatedTaskPhase(child.phase) && !child.mcpAnswerAt;
 }
 
 /** A supervised child's run waits: for a person, or for a usage reset that resumes it on its own. */
@@ -630,6 +662,7 @@ export function toDelegatedTaskSummary(args: {
   /** `delegatedTaskResultReceipt`. */
   resultReceipt?: Pick<RunReceiptRecord, "timestamp" | "detail" | "type" | "idempotencyKey" | "executionId"> | null;
   waitingReason?: string | null;
+  mcpAnswerAt?: string | null;
   /** `delegatedTaskWaitsForPerson`. */
   waitsForPerson?: boolean;
 }): DelegatedTaskSummary | null {
@@ -680,6 +713,8 @@ export function toDelegatedTaskSummary(args: {
     delegatedTurnId: step.target.turnId,
     providerId: step.target.providerId,
     ...requested,
+    ...(args.mcpAnswerAt ? { mcpAnswerAt: args.mcpAnswerAt } : {}),
+    ...(acceptedDetail?.targetAccountLabel ? { accountLabel: acceptedDetail.targetAccountLabel } : {}),
     lifecycle: acceptedDetail?.agentRunId ? "supervised" : resolveDelegatedTaskLifecycle(run.policy),
     ...(acceptedDetail?.agentRunId ? { agentRunId: acceptedDetail.agentRunId } : {}),
     phase: step.status,
@@ -796,7 +831,7 @@ export function resolveDelegatedTaskControls(child: DelegatedTaskSummary) {
   const active = isActiveDelegatedTaskPhase(child.phase);
   return {
     // A supervised child's Run that stopped for a person takes its manager's reply on that stage.
-    canFollowUp: child.phase === "waiting" && (child.lifecycle === "detached" ||
+    canFollowUp: child.phase === "waiting" && (child.lifecycle === "detached" || Boolean(child.mcpAnswerAt) ||
       (child.lifecycle === "supervised" && child.waitsForPerson === true && Boolean(child.agentRunId))),
     canStop: active,
     canDetach: active && child.lifecycle !== "supervised",

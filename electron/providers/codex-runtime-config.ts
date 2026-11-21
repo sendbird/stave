@@ -168,11 +168,11 @@ export function buildCodexDeveloperInstructions(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   /** A secondary read-only run never calls subagents. */
   secondaryReadOnly?: boolean;
+  mcpDelegationPrompt?: string | null;
   /**
    * Whether the Stave local MCP is registered with Codex for this thread. The
    * Lens block is included only then, because its tools do not otherwise exist.
-   * The instructions are hashed into the thread key, so this must be resolved
-   * *before* the key is built or a mid-life flip would rotate the thread.
+   * Resolve this before creating the instruction profile for the turn.
    */
   hasStaveLocalMcp?: boolean;
 }) {
@@ -192,6 +192,7 @@ export function buildCodexDeveloperInstructions(args: {
     parts.push(agentInstructions);
   }
   parts.push(CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
+  if (!args.secondaryReadOnly && args.mcpDelegationPrompt) parts.push(args.mcpDelegationPrompt);
   if (args.hasStaveLocalMcp) {
     parts.push(CODEX_STAVE_LENS_INSTRUCTIONS);
   }
@@ -211,6 +212,7 @@ export function buildCodexInstructionProfileKey(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   secondaryReadOnly?: boolean;
   hasStaveLocalMcp?: boolean;
+  mcpDelegationPrompt?: string | null;
 }) {
   const developerInstructions = buildCodexDeveloperInstructions(args);
   if (!developerInstructions) {

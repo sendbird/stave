@@ -390,6 +390,7 @@
     "secretBindingControl3": "연결된 값은 이 작업의 셸 명령과 지원되는 MCP 인증에 사용할 수 있습니다. 에이전트에 직접 표시되지 않지만 변수를 출력하는 명령으로 노출될 수 있습니다."
   },
   "subagentsSection": {
+    "onAccount": "{{account}} 계정에서 실행",
     "subagentsSection": "하위 에이전트 불러오는 중…",
     "subagentsSection2": "하위 에이전트가 없습니다. 작업 일부가 다른 에이전트나 모델에 적합하면 에이전트가 하위 에이전트를 호출합니다.",
     "ariaLabel": "하위 에이전트",

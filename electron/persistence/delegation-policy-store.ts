@@ -1,3 +1,4 @@
+import { CodexMcpDelegationSettingsSchema, DEFAULT_CODEX_MCP_DELEGATION_SETTINGS, type CodexMcpDelegationSettings } from "../../src/lib/providers/codex-mcp-delegation-settings";
 import type Database from "better-sqlite3";
 import {
   DelegationPermissionPolicySchema,
@@ -72,6 +73,12 @@ export class DelegationPolicyStore {
   }
   savePullRequestWatchDefault(enabled: boolean) {
     this.write("wake-ups.pull-request-watch-default", enabled);
+  }
+  loadCodexMcpDelegation(): CodexMcpDelegationSettings {
+    return CodexMcpDelegationSettingsSchema.safeParse(this.read("delegation.codex-mcp")).data ?? DEFAULT_CODEX_MCP_DELEGATION_SETTINGS;
+  }
+  saveCodexMcpDelegation(settings: CodexMcpDelegationSettings) {
+    this.write("delegation.codex-mcp", CodexMcpDelegationSettingsSchema.parse(settings));
   }
   loadTask(taskId: string) {
     const raw = this.read(`delegation.task-policy:${taskId}`);

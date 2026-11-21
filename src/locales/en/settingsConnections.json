@@ -326,12 +326,41 @@
     "apiBilling": " · API billing",
     "billedPerTokenByTheGateway": "Billed per token by the gateway"
   },
+  "codexMcpDelegation": {
+    "title": "Cross-account MCP for Codex",
+    "allow": "Let Codex tasks use MCP servers from a Claude account",
+    "description": "Applies to all Codex tasks. A subagent on the selected Claude account handles the MCP step and returns the result to Codex.",
+    "account": "Claude account",
+    "accountUnavailable": "Selected account unavailable",
+    "searchAccounts": "Search Claude accounts",
+    "noAccounts": "No matching Claude accounts",
+    "candidates": "Available through Claude: {{servers}}",
+    "noCandidates": "The selected Claude account has no additional MCP servers.",
+    "candidatesUnavailable": "MCP server list unavailable.",
+    "loadFailed": "Could not load Codex MCP delegation settings.",
+    "saveFailed": "Could not save Codex MCP delegation settings. Try again."
+  },
   "providerAccountSetupSharing": {
-    "useMySkillsAndInstructionsFrom": "Use my skills and instructions from System default",
     "updateCopiedSettings": "Update copied settings",
     "copiesYourSystemDefaultSettingsAgain": "Copies your System default settings again. Skills, agents, commands, plugins and instructions are linked and always current. A settings file you changed in this account is kept.",
     "linkSettings": "Link settings to System default",
-    "linkSettingsDescription": "A setting changed in this account or in System default applies to both. Settings that name an API key, token or login rule are never linked: Claude gets a filtered copy and Codex keeps the account's own."
+    "linkSettingsDescription": "A setting changed in this account or in System default applies to both. Settings that name an API key, token or login rule are never linked: Claude gets a filtered copy and Codex keeps the account's own.",
+    "useSystemMcp": "Use MCP servers from System default",
+    "useSystemMcpDescription": "This account runs the MCP servers you set up in System default, read at each launch, and keeps its own skills, instructions and settings. A server this account defines with the same name wins.",
+    "useSystemMcpNothingToShare": "System default has no MCP servers yet. Once you add some there, this account runs them too.",
+    "delegateMcpWork": "Hand MCP work to another account when this one cannot do it",
+    "delegateMcpWorkDescription": "Some MCP servers work only on the account that signed in to them, such as connectors your company installs on its claude.ai organization. When a step needs one, this account starts a subagent on the Claude account that has it, for that step only, and waits for the result. It runs on Sonnet and does not start while that account's usage is critical or used up. What the subagent reads there comes back into this account's conversation.",
+    "delegableServers": "{{account}} can do this for: {{servers}}",
+    "checkConnections": "Check connections for {{account}}",
+    "checkingConnections": "Checking connections for {{account}}…",
+    "connected": "Connected",
+    "needsAuth": "Sign in on {{account}}",
+    "failed": "Connection failed",
+    "checkFailed": "Could not check connections. Try again.",
+    "checkEmpty": "No MCP servers reported.",
+    "fromConfig": "From configuration.",
+    "lastChecked": "Last checked {{time}}.",
+    "delegableNone": "No other Claude account has an MCP server this account lacks, so there is nothing to hand over yet."
   },
   "providerAccountsSettings": {
     "nameFor": "Name for {{value1}}",

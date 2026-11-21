@@ -1,4 +1,6 @@
 import { providerAccountKey } from "../provider-accounts/runtime-scope";
+import type { McpServerConfigListRequest } from "../../src/lib/providers/mcp-config.types";
+import { currentCodexMcpDelegationPrompt } from "../provider-accounts/codex-mcp-delegation";
 import type { StreamTurnArgs } from "./types";
 import type {
   CodexMcpOauthLoginResponse,
@@ -7,7 +9,7 @@ import type {
   CodexMcpStatusResponse,
 } from "../../src/lib/providers/provider.types";
 import { mapCodexMcpStatusSnapshot } from "./codex-snapshot-mappers";
-import { createCodexMcpConfigManagement } from "./codex-mcp-config-management";
+import { createCodexMcpConfigManagement, readCodexConfiguredMcpNames } from "./codex-mcp-config-management";
 import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
 
 export type CodexMcpRuntimeNotification = {
@@ -135,16 +137,15 @@ export function resolveCodexMcpOauthAuthorizationUrl(response: unknown) {
 export function createCodexMcpManagement(
   dependencies: CodexMcpManagementDependencies,
 ) {
+  const resolveClient = (args: McpServerConfigListRequest) => {
+    const executablePath = dependencies.resolveExecutablePath({
+      explicitPath: args.runtimeOptions?.codexBinaryPath,
+    });
+    if (!executablePath) throw new Error("Codex executable not found.");
+    return dependencies.getClient({ executablePath });
+  };
   const configManagement = createCodexMcpConfigManagement({
-    resolveClient: (args) => {
-      const executablePath = dependencies.resolveExecutablePath({
-        explicitPath: args.runtimeOptions?.codexBinaryPath,
-      });
-      if (!executablePath) {
-        throw new Error("Codex executable not found.");
-      }
-      return dependencies.getClient({ executablePath });
-    },
+    resolveClient,
     formatError: (message) => dependencies.formatError({ message }),
   });
   const observationsByExecutable = new Map<
@@ -343,6 +344,8 @@ export function createCodexMcpManagement(
   }
 
   return {
+    delegationPrompt: (client: ReturnType<typeof resolveClient>, cwd: string) => currentCodexMcpDelegationPrompt(() => readCodexConfiguredMcpNames(client, cwd)),
+    configuredNames: (args: McpServerConfigListRequest) => readCodexConfiguredMcpNames(resolveClient(args), args.cwd),
     captureNotification,
     getRuntimeStatus,
     startOauthLogin,

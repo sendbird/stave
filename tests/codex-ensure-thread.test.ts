@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { ensureCodexThread } from "../electron/providers/codex-ensure-thread";
 
-type StartCall = { method: string; model?: string; threadId?: string };
+type StartCall = { method: string; model?: string; threadId?: string; developerInstructions?: unknown };
 
 function fakeClient(args: {
   fail: (call: StartCall) => string | undefined;
@@ -19,11 +19,12 @@ function fakeClient(args: {
           && typeof params.threadId === "string"
           ? params.threadId
           : undefined;
-      const call = { method, model, ...(threadId ? { threadId } : {}) };
+      const developerInstructions = (params as { config?: Record<string, unknown> } | undefined)?.config?.developer_instructions;
+      const call = { method, model, ...(threadId ? { threadId } : {}), ...(developerInstructions ? { developerInstructions } : {}) };
       calls.push(call);
       const message = args.fail(call);
       if (message) throw new Error(message);
-      return { thread: { id: `thread-${calls.length}` }, model } as T;
+      return { thread: { id: threadId ?? `thread-${calls.length}` }, model } as T;
     },
     threadLifetime: {
       async acquire() {
@@ -44,6 +45,26 @@ function start(taskId: string, model: string, client: ReturnType<typeof fakeClie
     runtimeOptions: { model },
   });
 }
+
+test("Codex keeps its thread and refreshes MCP instructions once when candidates change", async () => {
+  const { client, calls } = fakeClient({ fail: () => undefined });
+  const args = { client, executablePath: "/tmp/fake-codex", cwd: "/repo", taskId: "mcp-thread-stability" };
+  const begin = await ensureCodexThread({ ...args, mcpDelegationPrompt: "MCP candidates: Reports" });
+  const stable = await ensureCodexThread({ ...args, mcpDelegationPrompt: "MCP candidates: Reports" });
+  const changed = await ensureCodexThread({ ...args, mcpDelegationPrompt: "MCP candidates: Documents" });
+  const refreshed = await ensureCodexThread({ ...args, mcpDelegationPrompt: "MCP candidates: Documents" });
+  const disabled = await ensureCodexThread(args);
+  expect(calls.map((call) => call.method)).toEqual(["thread/start", "thread/resume", "thread/resume", "thread/resume", "thread/resume"]);
+  expect(calls[0]?.developerInstructions).toContain("MCP candidates: Reports");
+  expect(calls[2]?.developerInstructions).toContain("MCP candidates: Documents");
+  expect([stable, changed, refreshed, disabled].map((turn) => turn.threadKey)).toEqual(Array(4).fill(begin.threadKey));
+  expect([stable, changed, refreshed, disabled].map((turn) => turn.threadId)).toEqual(Array(4).fill(begin.threadId));
+  expect(stable.instructionRefresh).toBeNull();
+  expect(changed.instructionRefresh).toContain("MCP candidates: Documents");
+  expect(refreshed.instructionRefresh).toBeNull();
+  expect(disabled.instructionRefresh).toBeTruthy();
+  expect(disabled.instructionRefresh).not.toContain("MCP candidates");
+});
 
 describe("Codex same-rung model fallback", () => {
   test("retries an unavailable GPT-6.1 Sol once on GPT-6 Sol", async () => {

@@ -117,6 +117,10 @@ Screens: [Settings > Providers](https://github.com/sendbird/stave/blob/main/docs
 | Agents   | Accounts, Providers, Models, Presets & Macros, Prompts & Skills, MCP, Integrations, Secrets | Sign-in accounts, permission presets, default models and Auto, skills, MCP servers, Jira and Crane, secrets |
 | System   | Developer (Developer mode only), Changelog                              | Diagnostics and release notes                                                    |
 
+In **Settings > Accounts**, a Claude account's **Check connections for [account]** shows connected MCP servers, servers that need sign-in on that account, and connection failures. It sends no model prompt. Connected names and the check time are remembered for up to 12 hours, including after restart. The list uses saved configuration when there is no recent check.
+
+**Cross-account MCP for Codex** is an app-wide option and starts off. Turn on **Let Codex tasks use MCP servers from a Claude account**, then choose the Claude account (initially **System default**). The list shows the additional servers Codex can use through that account. After an account subagent answers, it stays open for follow-up for up to 24 hours.
+
 @page concepts | Concepts | Core concepts | concept
 @lead Everything in Stave nests as repository → workspace → task → turn. Once these four words are clear, you can see where every other feature attaches.
 

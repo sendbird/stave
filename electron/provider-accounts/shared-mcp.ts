@@ -7,11 +7,27 @@ import { resolveLoginShellEnvVarValue } from "../providers/executable-path";
 export const SETUP_SHARING_LEDGER_NAME = ".stave-shared-setup.json";
 
 /**
+ * The MCP choices an account folder holds, kept apart from setup sharing so an
+ * account can take either without the rest of System default's setup.
+ */
+export const ACCOUNT_MCP_OPTIONS_FILE_NAME = ".stave-account-mcp.json";
+
+export interface AccountMcpOptions {
+  /** Run System default's MCP servers in this account's sessions (`resolveSharedClaudeMcpStateFile`). */
+  useSystemMcp: boolean;
+  /** Hand work that needs another account's MCP servers to a subagent on that account (`mcp-delegation.ts`). */
+  delegateMcpWork: boolean;
+}
+
+/**
  * Claude keeps user and local MCP servers in `.claude.json`, next to the
  * sign-in, so setup sharing never links or copies that file. A managed account
  * that shares System default's setup still needs those servers, so Stave reads
  * only System default's `mcpServers` maps at launch and hands them to the
  * account's session. Nothing is written into the account folder.
+ *
+ * An account can also take only the MCP servers (`AccountMcpOptions.useSystemMcp`)
+ * and keep its own skills, instructions and settings.
  */
 
 function canonicalOrResolved(target: string) {
@@ -27,14 +43,30 @@ function claudeStateFilePath(configDir: string | undefined) {
   return configDir && path.isAbsolute(configDir) ? path.join(configDir, ".claude.json") : path.join(homedir(), ".claude.json");
 }
 
-/** True while the account folder shares System default's setup. */
-function sharesSystemSetup(accountDir: string) {
+function hasVersionOneRecord(file: string) {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(path.join(accountDir, SETUP_SHARING_LEDGER_NAME), "utf8"));
+    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
     return typeof parsed === "object" && parsed !== null && (parsed as { version?: unknown }).version === 1;
   } catch {
     return false;
   }
+}
+
+/** The account folder's MCP choices; both off when the file is missing or unreadable. */
+export function readAccountMcpOptions(accountDir: string): AccountMcpOptions {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path.join(accountDir, ACCOUNT_MCP_OPTIONS_FILE_NAME), "utf8"));
+    if (typeof parsed !== "object" || parsed === null || (parsed as { version?: unknown }).version !== 1) throw new Error("unsupported");
+    const record = parsed as { useSystemMcp?: unknown; delegateMcpWork?: unknown };
+    return { useSystemMcp: record.useSystemMcp === true, delegateMcpWork: record.delegateMcpWork === true };
+  } catch {
+    return { useSystemMcp: false, delegateMcpWork: false };
+  }
+}
+
+/** True while the account folder shares System default's whole setup or only its MCP servers. */
+function sharesSystemMcp(accountDir: string) {
+  return hasVersionOneRecord(path.join(accountDir, SETUP_SHARING_LEDGER_NAME)) || readAccountMcpOptions(accountDir).useSystemMcp;
 }
 
 /** The `CLAUDE_CONFIG_DIR` System default runs with, or undefined when unset. */
@@ -48,7 +80,7 @@ function systemClaudeConfigDir() {
 
 /**
  * System default's `.claude.json` when `claudeConfigDir` is a managed account
- * that shares System default's setup. Null for System default itself, for an
+ * that shares System default's setup or only its MCP servers. Null for System default itself, for an
  * account that does not share, and for a path that resolves to the account's
  * own state file.
  */
@@ -58,7 +90,7 @@ export function resolveSharedClaudeMcpStateFile(args: {
 }): string | null {
   const accountDir = args.claudeConfigDir?.trim();
   if (!accountDir || !path.isAbsolute(accountDir)) return null;
-  if (!sharesSystemSetup(accountDir)) return null;
+  if (!sharesSystemMcp(accountDir)) return null;
   const sourceFile = claudeStateFilePath((args.systemConfigDir ?? systemClaudeConfigDir)());
   const accountFile = claudeStateFilePath(accountDir);
   if (canonicalOrResolved(sourceFile) === canonicalOrResolved(accountFile)) return null;

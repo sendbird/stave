@@ -1122,6 +1122,7 @@
     "removeInformationReference": "정보 참조 제거"
   },
   "delegatedTaskView": {
+    "answered": "답변 완료 · 후속 요청 가능",
     "queued": "대기열에 있음",
     "running": "실행 중",
     "waiting": "대기 중",

@@ -127,6 +127,7 @@ export function describeDelegatedTaskPhase(
     case "running":
       return { label: i18n.t("workspace:delegatedTaskView.running"), tone: "active", blocked: false };
     case "waiting":
+      if (child.mcpAnswerAt) return { label: i18n.t("workspace:delegatedTaskView.answered"), tone: "waiting", blocked: false };
       return { label: i18n.t("workspace:delegatedTaskView.waiting"), tone: "waiting", blocked: false };
     case "completed":
       return { label: i18n.t("workspace:delegatedTaskView.completed"), tone: "done", blocked: false };

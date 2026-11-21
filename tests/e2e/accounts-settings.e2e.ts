@@ -24,6 +24,8 @@ type Seed = {
   openCodeReady?: boolean;
   /** Kiro is installed but its CLI is signed out (otherwise it is not installed). */
   kiroSignedOut?: boolean;
+  /** The Work account does not share the System default setup, so it shows both MCP options. */
+  mcpOnlySharing?: boolean;
   /** The Claude Code CLI is found; true unless set to false. */
   claudeInstalled?: boolean;
   /** The workspace has a task open (and so a composer); true unless set to false. */
@@ -116,6 +118,17 @@ function seedAccounts(page: Page, seed: Seed) {
           })),
         ),
       ];
+      let codexMcpDelegation = { enabled: false, claudeAccountProfileId: "system-default" };
+      const mcp = { useSystemMcp: false, delegateMcpWork: false };
+      const mcpOnlySetup = () => ({
+        enabled: false,
+        settingsMode: "link",
+        mcp: { ...mcp, delegable: [{ id: "system-default", observedAt: null, label: "System default", servers: ["claude.ai Company - MCP Gateway", "reports"] }] },
+        entries: [
+          { name: "skills", label: "skills", action: "link", state: "not-shared" },
+          { name: "mcpServers", label: "MCP servers", action: "link", state: "not-shared" },
+        ],
+      });
       const signedIn = (providerId: string, profileId: string) =>
         providerId === "claude-code" && profileId === "system-default" && args.seed.claudeSignedIn;
       (window as unknown as { api?: Record<string, unknown> }).api = {
@@ -161,8 +174,23 @@ function seedAccounts(page: Page, seed: Seed) {
           remove: async () => ({ ok: false, message: "Fixture: removing is disabled." }),
           login: async () => ({ ok: false, message: "Fixture: sign-in is disabled." }),
           checkGateway: async () => ({ ok: true, message: "Fixture." }),
-          setupStatus: async () => ({ ok: true, setup: { enabled: true, settingsMode: "copy", entries: [{ name: "skills", label: "skills", action: "link", state: "shared" }] } }),
+          setupStatus: async () => ({ ok: true, setup: args.seed.mcpOnlySharing ? mcpOnlySetup() : { enabled: true, settingsMode: "copy", entries: [{ name: "skills", label: "skills", action: "link", state: "shared" }] } }),
           shareSetup: async () => ({ ok: true, setup: { enabled: true, entries: [] } }),
+          codexMcpDelegation: async () => ({ ok: true, settings: codexMcpDelegation, servers: codexMcpDelegation.claudeAccountProfileId === "system-default" ? ["Reports"] : ["Documents"] }),
+          setCodexMcpDelegation: async (settings: typeof codexMcpDelegation) => { codexMcpDelegation = settings; return true; },
+          checkMcpConnections: async () => {
+            await sleep(300);
+            return { ok: true, servers: [
+              { name: "Reports", status: "connected" },
+              { name: "Slack", status: "needs-auth" },
+              { name: "Files", status: "failed" },
+            ] };
+          },
+          mcpOptions: async (options: Partial<typeof mcp>) => {
+            if (options.useSystemMcp !== undefined) mcp.useSystemMcp = options.useSystemMcp;
+            if (options.delegateMcpWork !== undefined) mcp.delegateMcpWork = options.delegateMcpWork;
+            return { ok: true, setup: mcpOnlySetup() };
+          },
         },
         apiConnections: {
           list: async () => {
@@ -339,6 +367,41 @@ for (const themeMode of ["light", "dark"] as const) {
     await expect(steps.locator('[data-step="signIn"]')).toHaveAttribute("data-status", "todo");
     await expect(steps.getByText("The sign-in terminal runs in a workspace. Open a repository first.")).toBeVisible();
     await shot(page, testInfo, `settings-getting-started-${themeMode}`);
+  });
+}
+
+for (const themeMode of ["light", "dark"] as const) {
+  test(`a Claude account's MCP options turn on and off on their own (${themeMode})`, async ({ page }, testInfo) => {
+    await seedAccounts(page, { themeMode, ...READY, mcpOnlySharing: true });
+    await page.setViewportSize({ width: 1440, height: 1800 });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: /^Model:/ })).toBeVisible({ timeout: 20_000 });
+    const settings = await openSettingsSection(page, "Accounts");
+    // The Work row comes first; the add-account forms below carry the same setup checkbox.
+    const setup = settings.getByRole("checkbox", { name: "Use my skills and instructions from System default" }).first();
+    const mcp = settings.getByRole("checkbox", { name: "Use MCP servers from System default" });
+    const delegate = settings.getByRole("checkbox", { name: "Hand MCP work to another account when this one cannot do it" });
+    await expect(setup).not.toBeChecked();
+    await expect(mcp).not.toBeChecked();
+    await expect(delegate).not.toBeChecked();
+    await delegate.click();
+    await expect(delegate).toBeChecked();
+    await expect(mcp).not.toBeChecked();
+    await mcp.click();
+    await expect(mcp).toBeChecked();
+    await expect(delegate).toBeChecked();
+    await expect(setup).not.toBeChecked();
+    await expect(settings.locator("[data-mcp-delegable]")).toHaveText("System default can do this for: claude.ai Company - MCP Gateway and reports From configuration.");
+    await settings.getByRole("button", { name: "Check connections for System default" }).click();
+    await expect(settings.getByRole("button", { name: "Checking connections for System default…" })).toBeDisabled();
+    await expect(settings.getByText("Reports · Connected")).toBeVisible();
+    await expect(settings.getByText("Slack · Sign in on System default")).toBeVisible();
+    await expect(settings.getByText("Files · Connection failed")).toBeVisible();
+    await delegate.scrollIntoViewIfNeeded();
+    await shot(page, testInfo, `settings-accounts-mcp-options-${themeMode}`);
+    await delegate.click();
+    await expect(delegate).not.toBeChecked();
+    await expect(mcp).toBeChecked();
   });
 }
 
@@ -610,3 +673,21 @@ for (const themeMode of ["light", "dark"] as const) {
     await shot(page, testInfo, `settings-getting-started-no-task-${themeMode}`);
   });
 }
+
+test("Codex MCP delegation is one global option with a searchable Claude account and candidate list", async ({ page }) => {
+  await seedAccounts(page, { themeMode: "light", ...READY });
+  await page.goto("/");
+  const settings = await openSettingsSection(page, "Accounts");
+  const enable = settings.getByRole("checkbox", { name: "Let Codex tasks use MCP servers from a Claude account" });
+  await expect(enable).toHaveCount(1);
+  await expect(enable).not.toBeChecked();
+  await expect(settings.getByText("Available through Claude: Reports")).toBeVisible();
+  await enable.click();
+  await expect(enable).toBeChecked();
+  await settings.getByRole("combobox", { name: /Claude account.*System default/i }).click();
+  await page.getByPlaceholder("Search Claude accounts").fill("aaaaaaaa");
+  await page.getByRole("option", { name: "Work" }).click();
+  await expect(settings.getByText("Available through Claude: Documents")).toBeVisible();
+  await enable.click();
+  await expect(enable).not.toBeChecked();
+});

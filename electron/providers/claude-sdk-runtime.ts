@@ -46,6 +46,7 @@ import {
 } from "./claude-event-mapping";
 import { createClaudeCompactionTracker } from "./claude-compaction";
 import { claudeNativePlanEnv } from "./native-plan-options";
+import { readSettledClaudeMcpStatus, observeClaudeMcpReadiness } from "./claude-mcp-readiness-summary";
 import { buildClaudeSystemPrompt } from "./claude-system-prompt";
 export { buildClaudeSystemPrompt, STAVE_TURN_BEHAVIOR_DIRECTIVE } from "./claude-system-prompt";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
@@ -2546,27 +2547,7 @@ export interface ClaudeMcpReadinessResult {
   timedOut: boolean;
 }
 
-export function summarizeClaudeMcpReadiness(
-  servers: readonly McpServerStatus[],
-): Pick<ClaudeMcpReadinessResult, "pending" | "unavailable"> {
-  const pending: string[] = [];
-  const unavailable: ClaudeMcpReadinessResult["unavailable"] = [];
-  for (const server of servers) {
-    if (server.status === "pending") {
-      pending.push(server.name);
-      continue;
-    }
-    // `disabled` is a deliberate user choice, not a failure to report.
-    if (server.status === "failed" || server.status === "needs-auth") {
-      unavailable.push({
-        name: server.name,
-        status: server.status,
-        ...(server.error ? { error: server.error } : {}),
-      });
-    }
-  }
-  return { pending, unavailable };
-}
+export { summarizeClaudeMcpReadiness } from "./claude-mcp-readiness-summary";
 
 const CLAUDE_MCP_READINESS_NOTICE_NAME_LIMIT = 5;
 
@@ -2673,7 +2654,7 @@ export async function waitForClaudeMcpReadiness(args: {
     if (!servers) {
       break;
     }
-    summary = summarizeClaudeMcpReadiness(servers);
+    summary = observeClaudeMcpReadiness(servers);
     if (summary.pending.length === 0) {
       return { ...summary, waitedMs: now() - startedAt, timedOut: false };
     }
@@ -2783,9 +2764,10 @@ const activeClaudeMcpOauthFlowByKey = new Map<
 async function createClaudeMcpControlQuery(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  prompt: "" | AsyncIterable<SDKUserMessage>;
+  prompt: AsyncIterable<SDKUserMessage>;
   /** Re-read MCP-referenced shell variables before the CLI process starts. */
   refreshLoginShellEnv?: boolean;
+  abortController?: AbortController;
 }) {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
@@ -2822,7 +2804,7 @@ async function createClaudeMcpControlQuery(args: {
   }
   const stream = queryFn({
     prompt: args.prompt,
-    options: buildClaudeQueryOptions({
+    options: { ...buildClaudeQueryOptions({
       cwd: runtimeCwd,
       claudeExecutablePath,
       runtimeOptions: args.runtimeOptions,
@@ -2830,7 +2812,7 @@ async function createClaudeMcpControlQuery(args: {
       promptSuggestions: false,
       mcpServers,
       ...(enabledPlugins ? { enabledPlugins } : {}),
-    }),
+    }), ...(args.abortController ? { abortController: args.abortController, persistSession: false } : {}) },
   }) as ClaudeMcpControlQuery;
 
   return {
@@ -2912,20 +2894,28 @@ async function monitorClaudeMcpOauthFlow(args: {
 export async function getClaudeMcpStatus(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  waitForConnections?: boolean;
 }): Promise<ClaudeMcpStatusResponse> {
-  const checkedAt = Date.now();
+  let checkedAt = Date.now();
   let stream: ClaudeMcpControlQuery | null = null;
+  const input = new SteerableUserMessageQueue();
+  const abortController = new AbortController();
+  const timeout = setTimeout(() => abortController.abort(), 15_000);
   try {
     const control = await createClaudeMcpControlQuery({
       cwd: args.cwd,
       runtimeOptions: args.runtimeOptions,
-      prompt: "",
+      prompt: input,
+      abortController,
       // Settings' MCP refresh is how a user re-reads a token just exported in
       // the shell profile; later turns spawn with the same refreshed values.
       refreshLoginShellEnv: true,
     });
     stream = control.stream;
-    const statuses = await stream.mcpServerStatus();
+    const statuses = args.waitForConnections
+      ? await readSettledClaudeMcpStatus(() => control.stream.mcpServerStatus(), abortController.signal)
+      : await stream.mcpServerStatus();
+    checkedAt = Date.now();
     return {
       ok: true,
       detail:
@@ -2948,6 +2938,8 @@ export async function getClaudeMcpStatus(args: {
       checkedAt,
     };
   } finally {
+    clearTimeout(timeout);
+    input.close();
     stream?.close();
   }
 }
@@ -3265,6 +3257,7 @@ export async function streamClaudeWithSdk(
       baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
       responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
       agentInstructions: args.runtimeOptions?.agentInstructions,
+      delegationBrief: args.runtimeOptions?.delegationBrief,
       // Gates the Lens block: its tools only exist when the Stave local MCP
       // is registered, so this must be resolved before the prompt is built.
       hasStaveLocalMcp: resolvedMcpServers.hasStaveLocalMcp,

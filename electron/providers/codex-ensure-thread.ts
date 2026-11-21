@@ -114,6 +114,7 @@ export async function ensureCodexThread(args: {
   secondaryReadOnly?: boolean;
   /** Gates the Lens instruction block; see `buildCodexDeveloperInstructions`. */
   hasStaveLocalMcp?: boolean;
+  mcpDelegationPrompt?: string | null;
   turnGrants?: StreamTurnArgs["staveTurnGrants"];
   /** Set on the one retry that substitutes the previous same-rung model (GPT-6 Sol, GPT-5.6 Terra) for an unavailable current one. */
   modelFallbackAttempted?: boolean;
@@ -126,10 +127,15 @@ export async function ensureCodexThread(args: {
   });
   const instructionArgs = {
     runtimeOptions: args.runtimeOptions,
+    mcpDelegationPrompt: args.mcpDelegationPrompt,
     ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
     ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   };
   const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
+  const developerInstructions = buildCodexDeveloperInstructions(instructionArgs);
+  const configOverrides = args.mcpDelegationPrompt && developerInstructions
+    ? { ...args.configOverrides, developer_instructions: developerInstructions }
+    : args.configOverrides;
   let resumeThreadId = args.fresh ? undefined : resolveCodexThreadSession({
     threadKey,
     executablePath: providerAccountKey("codex", args.executablePath),
@@ -184,7 +190,7 @@ export async function ensureCodexThread(args: {
             // Forward caller config overrides on resume too. Previously dropped
             // here, which silently discarded MCP-isolation and injected-secret
             // shell env whenever a thread resumed instead of starting fresh.
-            configOverrides: args.configOverrides,
+            configOverrides,
             ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
             ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
           }),
@@ -201,7 +207,7 @@ export async function ensureCodexThread(args: {
                   approvalPolicy: "never" as const,
                 }
               : {}),
-            configOverrides: args.configOverrides,
+            configOverrides,
             ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
             ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
           }),
@@ -226,7 +232,7 @@ export async function ensureCodexThread(args: {
         resumed: Boolean(resumeThreadId),
         previousProfile: instructionProfileByThreadKey.get(threadKey),
         currentProfile: instructionProfile,
-        developerInstructions: buildCodexDeveloperInstructions(instructionArgs),
+        developerInstructions,
       });
       instructionProfileByThreadKey.set(threadKey, instructionProfile);
     }

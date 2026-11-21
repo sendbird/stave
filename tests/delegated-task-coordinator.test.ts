@@ -1,3 +1,5 @@
+import { MCP_DELEGATION_FOLLOW_UP_WINDOW_MS, isDelegatedTaskWorking } from "../src/lib/runs/delegated-task";
+import { taskCompletionSignalOf } from "../src/lib/supervision/task-completion-signal";
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
@@ -6,12 +8,13 @@ import { recordDelegatedTaskAnswersDelivered } from "../src/lib/runs/delegated-t
 import { createTurnAdmission } from "../electron/host-service/turn-admission";
 import {
   createDelegatedTaskCoordinator,
+  deriveDelegationKey,
   type DelegatedTaskHostPort,
   type DelegatedTaskLedgerPort,
 } from "../electron/main/runs/delegated-task-coordinator";
 import { buildDelegatedTaskRuntimeOptions } from "../src/lib/runs/delegated-task-runtime";
 import { resolveManagedTaskRuntimeOptions } from "../src/lib/providers/managed-task-runtime";
-import { DelegateTaskToolInputSchema, type DelegateTaskArgs, type DelegatedTaskEffort } from "../src/lib/runs/delegated-task";
+import { DelegateTaskToolInputSchema, resolveDelegatedTaskWaitSeconds, type DelegateTaskArgs, type DelegatedTaskEffort } from "../src/lib/runs/delegated-task";
 import {
   resolveDelegationPermissionPolicy,
   type DelegationPermissionPolicy,
@@ -153,10 +156,13 @@ function createHarness(
     resolveDelegationStrengths?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveDelegationStrengths"];
     isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
     readProviderUsage?: Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"];
+    resolveMcpDelegationAccount?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveMcpDelegationAccount"];
+    buildMcpDelegationBrief?: Parameters<typeof createDelegatedTaskCoordinator>[0]["buildMcpDelegationBrief"];
     dailyUsageLimit?: Parameters<typeof createDelegatedTaskCoordinator>[0]["dailyUsageLimit"];
     canStopTask?: Parameters<typeof createDelegatedTaskCoordinator>[0]["canStopTask"];
     resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
     cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
+    now?: () => string;
     admissionWait?: Parameters<typeof createDelegatedTaskCoordinator>[0]["admissionWait"];
   } = {},
 ) {
@@ -182,6 +188,8 @@ function createHarness(
       ...(options.resolveDelegationStrengths ? { resolveDelegationStrengths: options.resolveDelegationStrengths } : {}),
       ...(options.isProviderAvailable ? { isProviderAvailable: options.isProviderAvailable } : {}),
       ...(options.readProviderUsage ? { readProviderUsage: options.readProviderUsage } : {}),
+      ...(options.resolveMcpDelegationAccount ? { resolveMcpDelegationAccount: options.resolveMcpDelegationAccount } : {}),
+      buildMcpDelegationBrief: options.buildMcpDelegationBrief,
       dailyUsageLimit: options.dailyUsageLimit,
       canStopTask: options.canStopTask,
       admissionWait: options.admissionWait,
@@ -202,7 +210,7 @@ function createHarness(
       ...(options.parentDefaults !== undefined
         ? { resolveParentDefaults: async () => options.parentDefaults ?? null }
         : {}),
-      now: () => new Date(Date.UTC(2026, 7, 10, 0, 0, clock++)).toISOString(),
+      now: options.now ?? (() => new Date(Date.UTC(2026, 7, 10, 0, 0, clock++)).toISOString()),
       createExecutionId: () => `execution-${clock}`,
     });
   return {
@@ -234,6 +242,249 @@ function delegateArgs(
     ...overrides,
   };
 }
+
+describe("MCP work handed to another Claude account", () => {
+  const PERSONAL = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  const WORK = "2a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE, accounts: { claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" } };
+  type Usage = Awaited<ReturnType<NonNullable<Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"]>>>;
+  const resolveCalls: Array<Record<string, unknown>> = [];
+  const harnessFor = (claudeStatus: NonNullable<Usage>["claude-code"]["status"], usageCalls: unknown[] = []) => createHarness({
+    parentDefaults: { providerId: "claude-code", effort: "high" },
+    runTask: () => new Promise(() => {}),
+    readProviderUsage: async (accounts) => { usageCalls.push(accounts); return { "claude-code": { status: claudeStatus }, codex: { status: "headroom" } }; },
+    resolveMcpDelegationAccount: (args) => {
+      resolveCalls.push(args);
+      return args.account === "system-default"
+        ? { ok: true, accountProfileId: "system-default", label: "System default", model: "claude-sonnet-5-5" }
+        : { ok: false, message: "`account` must be one of: \"system-default\" (System default)." };
+    },
+  });
+
+  test("the step runs on the named account, in this workspace, on the delegation model", async () => {
+    const usageCalls: unknown[] = [];
+    const harness = harnessFor("low", usageCalls);
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Upload report.html with the gateway.", account: "system-default", model: "claude-opus-5-5", wait: false }, { ...caller, providerId: "codex" });
+    expect(response.accepted).toBe(true);
+    expect(resolveCalls.at(-1)).toEqual({ callerProviderId: "codex", callerAccountProfileId: PERSONAL, account: "system-default" });
+    await Bun.sleep(0);
+    expect(harness.runTaskCalls).toHaveLength(1);
+    expect(harness.runTaskCalls[0]).toMatchObject({
+      workspaceId: PARENT_WORKSPACE,
+      providerId: "claude-code",
+      model: "claude-sonnet-5-5",
+      effort: "medium",
+      accounts: { claudeAccountProfileId: "system-default", codexAccountProfileId: "system-default" },
+    });
+    // Usage is read for the account that will do the work, not the caller's.
+    expect(usageCalls[0]).toEqual({ claudeAccountProfileId: "system-default", codexAccountProfileId: "system-default" });
+    expect(harness.createWorkspaceCalls).toHaveLength(0);
+  });
+
+  test("nothing starts while that account's usage is critical or exhausted, unless the user asked", async () => {
+    for (const status of ["critical", "exhausted"] as const) {
+      const harness = harnessFor(status);
+      const response = await harness.coordinator.delegateFromTool({ prompt: "Upload it.", account: "system-default", wait: false }, caller);
+      expect(response).toMatchObject({ accepted: false, reason: "usage-limited" });
+      expect(response.message).toContain(`System default account's usage is ${status}`);
+      expect(harness.runTaskCalls).toHaveLength(0);
+    }
+    const asked = await harnessFor("critical").coordinator.delegateFromTool({ prompt: "Upload it.", account: "system-default", usageOverride: "user-request", wait: false }, caller);
+    expect(asked.accepted).toBe(true);
+  });
+
+  test("an account the caller may not use, another provider, an agent and a caller outside a turn are refused", async () => {
+    const harness = harnessFor("headroom");
+    const refused = async (input: Record<string, unknown>, from: typeof caller | null = caller) => {
+      const response = await harness.coordinator.delegateFromTool({ prompt: "Upload it.", wait: false, ...input }, from ?? undefined);
+      expect(response).toMatchObject({ accepted: false, reason: "invalid-request" });
+      return response.message;
+    };
+    expect(await refused({ account: "work" })).toContain("must be one of");
+    expect(await refused({ account: "system-default", provider: "codex" })).toContain("Omit `provider`");
+    expect(await refused({ account: "system-default", agentConfigId: "reviewer" })).toContain("Omit `provider`");
+    expect(await refused({ account: "system-default", parentTaskId: PARENT_TASK, parentWorkspaceId: PARENT_WORKSPACE, repositoryPath: REPOSITORY_PATH }, null)).toContain("inside a Stave turn");
+    expect(harness.runTaskCalls).toHaveLength(0);
+    // Without the dependency the field is refused instead of silently ignored.
+    const bare = createHarness({ parentDefaults: { providerId: "claude-code" } });
+    expect(await bare.coordinator.delegateFromTool({ prompt: "Upload it.", account: "system-default", wait: false }, caller)).toMatchObject({ accepted: false, reason: "invalid-request" });
+  });
+
+  const accountResolver = ({ account }: { account: string }) => ({
+    ok: true as const,
+    accountProfileId: account,
+    label: account === "system-default" ? "System default" : "Work",
+    model: "claude-sonnet-5-5",
+  });
+
+  test("retry and follow-up after restart keep the original account, brief and server", async () => {
+    let attempts = 0;
+    const harness = createHarness({
+      resolveMcpDelegationAccount: accountResolver,
+      buildMcpDelegationBrief: ({ accountLabel, server }) => `${accountLabel} / ${server}`,
+      runTask: async () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error("Turn failed");
+        return { turnId: `turn-${attempts}` };
+      },
+    });
+    const first = await harness.coordinator.delegateFromTool({
+      account: "system-default", server: "Artifact library", prompt: "Upload the report.", lifecycle: "detached", wait: false,
+    }, { ...caller, providerId: "codex" });
+    await harness.coordinator.waitForInFlight();
+    expect(first.child).toMatchObject({ accountLabel: "System default" });
+    const child = first.child!;
+    const action = {
+      parentTaskId: PARENT_TASK, delegationKey: child.delegationKey,
+    };
+    const expected = { delegatedTaskId: child.delegatedTaskId, delegatedWorkspaceId: child.delegatedWorkspaceId };
+    const changedCaller = { accounts: { claudeAccountProfileId: WORK, codexAccountProfileId: PERSONAL } };
+    const restarted = harness.restart();
+    const retry = await restarted.retry({
+      ...action, repositoryPath: REPOSITORY_PATH, parentWorkspaceId: PARENT_WORKSPACE,
+      prompt: "Try the upload again.", expected: { ...expected, attempt: child.attempt },
+    }, changedCaller);
+    expect(retry).toMatchObject({ accepted: true, child: { accountLabel: "System default", attempt: 2 } });
+    await restarted.waitForInFlight();
+    const followUp = await harness.restart().followUp({ ...action, prompt: "Rename the report.", expected: { ...expected, attempt: retry.child!.attempt } }, changedCaller);
+    expect(followUp).toMatchObject({ accepted: true, child: { accountLabel: "System default" } });
+    expect(harness.runTaskCalls).toHaveLength(3);
+    for (const [index, prompt] of ["Upload the report.", "Try the upload again.", "Rename the report."].entries()) {
+      expect(harness.runTaskCalls[index]).toMatchObject({
+        taskId: child.delegatedTaskId,
+        accounts: { claudeAccountProfileId: "system-default", codexAccountProfileId: index === 0 ? "system-default" : PERSONAL },
+        prompt,
+        delegationBrief: "System default / Artifact library",
+      });
+    }
+    const claims = harness.store.listReceipts({ runId: child.runId }).filter((receipt) => receipt.type === "accepted");
+    expect(claims).toHaveLength(2);
+    for (const claim of claims) {
+      expect(claim.detail).toMatchObject({ targetAccountProfileId: "system-default", targetAccountLabel: "System default", server: "Artifact library" });
+    }
+  });
+
+  test("the same prompt on two accounts produces different keys, children and input hashes", async () => {
+    const harness = createHarness({
+      resolveMcpDelegationAccount: accountResolver,
+      buildMcpDelegationBrief: () => "The prefixed prompt is not part of the hash.",
+    });
+    const input = { prompt: "Upload it.", wait: false };
+    const first = (await harness.coordinator.delegateFromTool({ ...input, account: "system-default" }, caller)).child!;
+    const other = (await harness.coordinator.delegateFromTool({ ...input, account: WORK }, caller)).child!;
+    expect(first.delegationKey).not.toBe(other.delegationKey);
+    expect(first.delegatedTaskId).not.toBe(other.delegatedTaskId);
+    const firstHash = harness.store.getAggregate(first)?.step.inputHash;
+    expect(firstHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(harness.store.getAggregate(other)?.step.inputHash).not.toBe(firstHash);
+    const withoutBrief = createHarness({ resolveMcpDelegationAccount: accountResolver });
+    const same = (await withoutBrief.coordinator.delegateFromTool({ ...input, account: "system-default" }, caller)).child!;
+    expect(withoutBrief.store.getAggregate(same)?.step.inputHash).toBe(firstHash);
+  });
+
+  test("a different account cannot reuse an explicit key for an active child or a failed child's retry", async () => {
+    const turn = Promise.withResolvers<{ turnId: string }>();
+    const harness = createHarness({ resolveMcpDelegationAccount: accountResolver, runTask: () => turn.promise });
+    const input = { prompt: "Upload it.", delegationKey: "upload-report", wait: false };
+    const first = await harness.coordinator.delegateFromTool({ ...input, account: "system-default" }, caller);
+    expect(first.accepted).toBe(true);
+    for (const account of [WORK, undefined]) {
+      const duplicate = await harness.coordinator.delegateFromTool({ ...input, account, provider: "claude-code" }, caller);
+      expect(duplicate).toMatchObject({ accepted: false, duplicate: false, reason: "invalid-request" });
+      expect(duplicate.message).toContain("different account selection");
+    }
+    turn.reject(new Error("Failed to upload"));
+    await harness.coordinator.waitForInFlight();
+    const retry = await harness.coordinator.delegateFromTool({ ...input, account: WORK, retry: true }, caller);
+    expect(retry).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(harness.runTaskCalls).toHaveLength(1);
+  });
+
+  test("a delegation without an account keeps the existing key and input hash", async () => {
+    const harness = createHarness();
+    const args = delegateArgs();
+    expect(deriveDelegationKey(args)).toBe("review-the-docs-203c0fa73f30");
+    const { child } = await harness.coordinator.delegate(args);
+    expect(harness.store.getAggregate(child!)?.step.inputHash).toBe("254a0d58d6df7cd350251fbc3b77f3792c95daf073033e9567bfd5e5b763886c");
+  });
+
+  test("an omitted wait returns the answer in the same call while false returns early", async () => {
+    expect(resolveDelegatedTaskWaitSeconds(undefined, "read-only", true)).toBe(30);
+    expect(resolveDelegatedTaskWaitSeconds(true, undefined, true)).toBe(120);
+    expect(resolveDelegatedTaskWaitSeconds(5, undefined, true)).toBe(5);
+    const waiting: boolean[] = [];
+    const turn = Promise.withResolvers<{ turnId: string; responseText: string }>();
+    const harness = createHarness({
+      resolveMcpDelegationAccount: accountResolver,
+      runTask: () => turn.promise,
+      admissionWait: async ({ waiting: value }) => {
+        waiting.push(value);
+        if (value) turn.resolve({ turnId: "turn-1", responseText: "Uploaded." });
+      },
+    });
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Upload it.", account: "system-default" }, caller);
+    expect(response.child?.result).toBe("Uploaded.");
+    expect(waiting).toEqual([true, false]);
+    const early = createHarness({
+      resolveMcpDelegationAccount: accountResolver, runTask: () => new Promise(() => {}),
+      admissionWait: async ({ waiting: value }) => { waiting.push(value); },
+    });
+    expect(await early.coordinator.delegateFromTool({
+      prompt: "Upload it.", account: "system-default", wait: false,
+    }, caller)).toMatchObject({ accepted: true, child: { phase: "running" } });
+    expect(waiting).toEqual([true, false]);
+  });
+
+  test("an answered account delegation releases its slot and resumes the same child until expiry", async () => {
+    let time = Date.parse("2026-11-20T12:00:00Z");
+    const admission: boolean[] = [];
+    let turn = 0;
+    const harness = createHarness({
+      now: () => new Date(time).toISOString(), concurrencyLimit: 1,
+      resolveMcpDelegationAccount: accountResolver,
+      admissionWait: async ({ waiting }) => { admission.push(waiting); },
+      runTask: async () => ({ turnId: `turn-${++turn}`, responseText: `answer ${turn}` }),
+    });
+    const first = await harness.coordinator.delegateFromTool({ prompt: "Upload it.", account: "system-default" }, caller);
+    expect(first).toMatchObject({ accepted: true, child: { phase: "waiting", result: "answer 1" } });
+    const child = first.child!;
+    expect(isDelegatedTaskWorking(child)).toBe(false);
+    expect(taskCompletionSignalOf(child)).toMatchObject({ status: "completed", completedAt: child.mcpAnswerAt });
+    const other = await harness.coordinator.delegateFromTool({ prompt: "List files.", account: "system-default" }, caller);
+    expect(other.accepted).toBe(true);
+
+    time += MCP_DELEGATION_FOLLOW_UP_WINDOW_MS - 1;
+    const restarted = harness.restart();
+    const action = {
+      parentTaskId: PARENT_TASK, delegationKey: child.delegationKey, prompt: "Rename it.",
+      expected: { delegatedTaskId: child.delegatedTaskId, delegatedWorkspaceId: child.delegatedWorkspaceId, attempt: child.attempt },
+    };
+    const continued = await restarted.followUp(action, { waitForAccountAnswer: true });
+    expect(continued).toMatchObject({ accepted: true, child: {
+      delegatedTaskId: child.delegatedTaskId, runId: child.runId, phase: "waiting", result: "answer 3",
+    } });
+    expect(harness.runTaskCalls[2]).toMatchObject({ taskId: child.delegatedTaskId, workspaceId: child.delegatedWorkspaceId,
+      prompt: "Rename it.", accounts: { claudeAccountProfileId: "system-default" },
+    });
+    expect(admission).toEqual([true, false, true, false, true, false]);
+
+    time += MCP_DELEGATION_FOLLOW_UP_WINDOW_MS;
+    await restarted.reconcile();
+    expect(await restarted.followUp(action)).toMatchObject({ accepted: false, child: { phase: "completed", result: "answer 3" } });
+    expect(taskCompletionSignalOf((await restarted.get(action))!)).toEqual(taskCompletionSignalOf(continued.child!));
+    expect(harness.runTaskCalls).toHaveLength(3);
+    expect(harness.stopTaskCalls).toHaveLength(0);
+    expect(admission).toEqual([true, false, true, false, true, false]);
+  });
+
+  test("a server without an account is refused", async () => {
+    const harness = createHarness();
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Upload it.", server: "Artifact library" }, caller);
+    expect(response).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(response.message).toContain("`server` requires `account`");
+    expect(harness.runTaskCalls).toHaveLength(0);
+  });
+});
 
 describe("account usage admission", () => {
   const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };

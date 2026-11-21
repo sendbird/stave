@@ -133,14 +133,26 @@ copy helpers; `provider-account-setup-plan.ts` is the table of what is linked,
 copied or skipped. `electron/provider-accounts/identity-parse.ts` holds the
 pure parsers (the only code that decodes a credential file's claims),
 `identity.ts` the probe and its cache, `setup-sharing.ts` the link, copy and
-removal, and `shared-mcp.ts` the System default `.claude.json` an account's
-Claude sessions read MCP servers from. `electron/main/ipc/provider-account-identity.ts` and
-`provider-account-setup.ts` register the handlers, and the renderer reads
+removal, `shared-mcp.ts` the System default `.claude.json` an account's
+Claude sessions read MCP servers from and the account's MCP options file, and
+`mcp-delegation.ts` which of the user's other Claude accounts can do MCP work
+the calling account cannot (the session note, the brief its subagent runs with
+and the `account` a `stave_delegate_task` call may name), preferring the
+statuses `mcp-status-cache.ts` persists from turn readiness and Settings checks.
+The Claude SDK status control query in `electron/providers/claude-sdk-runtime.ts`
+starts with an empty user-message stream and closes without sending a prompt.
+`electron/provider-accounts/codex-mcp-delegation.ts` applies the global preference
+and compares names against the native App Server's merged MCP configuration.
+The settings and runtime share candidate calculation. Codex refreshes the
+resulting instructions within the same thread. Account-delegated answers
+leave the child open for a follow-up while releasing capacity for the parent.
+The account IPC handlers live under `electron/main/ipc/`, and the renderer reads
 identity through `src/lib/providers/use-provider-account-identity.ts`. Focused
 checks are `tests/provider-account-identity-parse.test.ts`,
 `tests/provider-account-identity.test.ts`,
 `tests/provider-account-setup-sharing.test.ts`,
-`tests/claude-shared-mcp.test.ts`, and
+`tests/claude-shared-mcp.test.ts`,
+`tests/claude-mcp-delegation.test.ts`, and
 `tests/provider-account-identity-ipc.test.ts`.
 
 | Domain | Owner and boundary | Focused tests to start with |

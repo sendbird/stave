@@ -9,6 +9,8 @@ import {
   createDelegatedTaskHostPort,
   type DelegatedTaskTurnUpdate,
 } from "../electron/main/runs/delegated-task-host-port";
+import { RuntimeOptionsSchema } from "../electron/main/ipc/provider-runtime-schemas";
+import { buildClaudeSystemPrompt } from "../electron/providers/claude-system-prompt";
 import type { DelegateTaskArgs } from "../src/lib/runs/delegated-task";
 
 /**
@@ -31,6 +33,7 @@ interface FakeTurn {
   turnId: string;
   completedAt: string | null;
   error: string | null;
+  prompt: string;
   runtimeOptions?: Record<string, unknown>;
 }
 
@@ -114,7 +117,7 @@ function createFakeTaskBackend() {
         latestTurnError: latest?.error ?? null,
       };
     },
-    startTaskTurn: async (args: { workspaceId: string; taskId: string; runtimeOptions?: Record<string, unknown> }) => {
+    startTaskTurn: async (args: { workspaceId: string; taskId: string; prompt: string; runtimeOptions?: Record<string, unknown> }) => {
       if (activeTurn(args.taskId)) {
         throw new Error(`Task already has an active turn: ${args.taskId}`);
       }
@@ -126,6 +129,7 @@ function createFakeTaskBackend() {
         turnId: `turn-${turnCounter}`,
         completedAt: null,
         error: null,
+        prompt: args.prompt,
         runtimeOptions: args.runtimeOptions,
       };
       const turns = turnsByTask.get(args.taskId) ?? [];
@@ -182,6 +186,7 @@ function createHarness() {
   let clock = 0;
   const coordinator = createDelegatedTaskCoordinator({
     getLedger: () => createLedgerPort(store),
+    buildMcpDelegationBrief: () => "Use the selected account for this MCP step.",
     host: createDelegatedTaskHostPort({
       ...backend,
       // Fast poll so the poll backstop cannot slow a test down; the event
@@ -229,6 +234,22 @@ async function getChild(
 }
 
 describe("delegated task host port", () => {
+  test("stores the account step verbatim as the user message and forwards its system brief separately", async () => {
+    const harness = createHarness();
+    const prompt = "Upload the report.";
+    expect((await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", prompt }), {
+      mcpTarget: { targetAccountProfileId: "system-default", targetAccountLabel: "System default" },
+    })).accepted).toBe(true);
+    const turn = await harness.backend.waitForTurnStart(1);
+    expect(turn.prompt).toBe(prompt);
+    const runtimeOptions = RuntimeOptionsSchema.parse(turn.runtimeOptions);
+    const [, , dynamic] = buildClaudeSystemPrompt({ cwd: REPOSITORY_PATH, delegationBrief: runtimeOptions?.delegationBrief });
+    expect(dynamic).toContain("Use the selected account for this MCP step.");
+    expect(dynamic).not.toContain(prompt);
+    harness.backend.endTurn(turn.turnId);
+    await harness.coordinator.waitForInFlight();
+  });
+
   test("the child's turn carries the accounts of the request that asked for it", async () => {
     const accounts = { claudeAccountProfileId: "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b", codexAccountProfileId: "system-default" as const };
     const harness = createHarness();

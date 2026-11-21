@@ -1,7 +1,8 @@
 import { formatList } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
+import type { CodexMcpDelegationPreview, CodexMcpDelegationPreviewArgs, CodexMcpDelegationSettings } from "./codex-mcp-delegation-settings";
 import { z } from "zod";
-import { ProviderAccountProviderIdSchema, type ProviderAccountProviderId } from "./provider-accounts";
+import { ProviderAccountProfileIdSchema, ProviderAccountProviderIdSchema, type ProviderAccountProviderId } from "./provider-accounts";
 import { sharedSetupSummary } from "./provider-account-setup-plan";
 
 /**
@@ -12,6 +13,10 @@ import { sharedSetupSummary } from "./provider-account-setup-plan";
 export const PROVIDER_ACCOUNT_SETUP_IPC = {
   setupStatus: "provider-accounts:setup-status",
   shareSetup: "provider-accounts:share-setup",
+  mcpOptions: "provider-accounts:mcp-options",
+  checkMcpConnections: "provider-accounts:check-mcp-connections",
+  codexMcpDelegation: "provider-accounts:codex-mcp-delegation",
+  setCodexMcpDelegation: "provider-accounts:set-codex-mcp-delegation",
 } as const;
 
 export const ProviderAccountSetupStatusArgsSchema = z
@@ -32,6 +37,13 @@ export const ProviderAccountShareSetupArgsSchema = ProviderAccountSetupStatusArg
   settingsMode: ProviderAccountSettingsSharingModeSchema.optional(),
 }).strict();
 
+/** Change a Claude account's MCP choices; an omitted choice keeps its value. */
+export const ProviderAccountMcpOptionsArgsSchema = ProviderAccountSetupStatusArgsSchema.extend({
+  useSystemMcp: z.boolean().optional(),
+  delegateMcpWork: z.boolean().optional(),
+}).strict();
+
+export type ProviderAccountMcpOptionsArgs = z.infer<typeof ProviderAccountMcpOptionsArgsSchema>;
 export type ProviderAccountSetupStatusArgs = z.infer<typeof ProviderAccountSetupStatusArgsSchema>;
 export type ProviderAccountShareSetupArgs = z.infer<typeof ProviderAccountShareSetupArgsSchema>;
 
@@ -62,6 +74,23 @@ export interface ProviderAccountSetupState {
   enabled: boolean;
   /** Present only when the provider shares a settings file (Claude). */
   settingsMode?: ProviderAccountSettingsSharingMode;
+  /**
+   * Present only for a provider with MCP choices of its own (Claude).
+   * `useSystemMcp`: the account runs System default's MCP servers without
+   * sharing the rest of the setup; setup sharing includes them either way.
+   * `delegateMcpWork`: work that needs an MCP server only another account can
+   * use goes to a subagent on that account.
+   */
+  mcp?: {
+    useSystemMcp: boolean;
+    delegateMcpWork: boolean;
+    /**
+     * The other Claude accounts that can use MCP servers this one cannot, by
+     * label and server name: what `delegateMcpWork` hands over. Absent when
+     * the accounts could not be compared.
+     */
+    delegable?: { id: string; label: string; servers: string[]; observedAt: number | null }[];
+  };
   entries: ProviderAccountSetupEntry[];
 }
 
@@ -69,7 +98,16 @@ export type ProviderAccountSetupResult =
   | { ok: true; setup: ProviderAccountSetupState }
   | { ok: false; message: string };
 
+export const CheckMcpConnectionsArgsSchema = z.object({ profileId: ProviderAccountProfileIdSchema, claudeBinaryPath: z.string().max(4096).optional() }).strict();
+export type CheckMcpConnectionsArgs = z.infer<typeof CheckMcpConnectionsArgsSchema>;
+export type CheckMcpConnectionsResult =
+  | { ok: true; servers: { name: string; status: "connected" | "needs-auth" | "failed" }[] }
+  | { ok: false };
+
 export interface ProviderAccountSetupBridgeApi {
+  codexMcpDelegation: (args: CodexMcpDelegationPreviewArgs) => Promise<CodexMcpDelegationPreview>;
+  setCodexMcpDelegation: (settings: CodexMcpDelegationSettings) => Promise<boolean>;
+  checkMcpConnections: (args: CheckMcpConnectionsArgs) => Promise<CheckMcpConnectionsResult>;
   /** Read-only: what the account shares now. */
   setupStatus: (args: ProviderAccountSetupStatusArgs) => Promise<ProviderAccountSetupResult>;
   /**
@@ -79,6 +117,8 @@ export interface ProviderAccountSetupBridgeApi {
    * only what Stave added.
    */
   shareSetup: (args: ProviderAccountShareSetupArgs) => Promise<ProviderAccountSetupResult>;
+  /** Change the account's MCP choices, leaving the rest of its setup alone. */
+  mcpOptions: (args: ProviderAccountMcpOptionsArgs) => Promise<ProviderAccountSetupResult>;
 }
 
 function joinLabels(labels: readonly string[]) {

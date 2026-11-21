@@ -1,3 +1,4 @@
+import { removeClaudeAccountMcpStatus } from "./mcp-status-cache";
 import { randomUUID } from "node:crypto";
 import {
   closeSync,
@@ -211,6 +212,7 @@ export class ProviderAccountRegistry {
     profiles.splice(this.findIndex(profiles, parsed.data), 1);
     // Native credentials and session files belong to the user, even in managed directories.
     this.write(profiles);
+    if (parsed.data.providerId === "claude-code") removeClaudeAccountMcpStatus(parsed.data.id, path.dirname(this.filePath));
   }
 
   resolveDirectory(args: {

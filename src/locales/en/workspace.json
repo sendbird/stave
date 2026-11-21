@@ -1146,6 +1146,7 @@
     "removeInformationReference": "Remove Information reference"
   },
   "delegatedTaskView": {
+    "answered": "Answered, open for follow-up",
     "queued": "Queued",
     "running": "Running",
     "waiting": "Waiting",
