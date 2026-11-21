@@ -493,6 +493,12 @@ Screens: [Run in the Task panel](https://github.com/sendbird/stave/blob/main/doc
 
 ## Keep responsibilities with Tars
 
+From a pull request's menu, choose **Summarize CI failures in Tars**, or paste its GitHub PR link into Tars and send it. The reply identifies the checked commit and failed checks. If GitHub provides logs, use the linked checks to inspect the evidence. If access is missing or the commit changes during the read, the reply explains what to do next. Reading CI leaves the branch and checks untouched. When a check failed, choose **Draft a fix request** under that reply to prepare a follow-up for the same PR. Review the request before sending it.
+
+In a task Tars started, choose **Open original Tars request** in the task header to read what you asked for and find related work. A pending decision opens the proposal with its full context. If the request was refused before a task was created, open **Activity**, expand the request and edit its text to try again. If the changes were verified and only draft PR creation failed, choose **Retry publishing** to continue from that step.
+
+Screens: [Original request in a task](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/tars-task-request.png)
+
 For work Tars still owns, **Needs you** or a blocked helper first goes to Tars for judgment. Under **Balanced** and **Hands-off**, Tars can answer a complete ordinary task question from the original mandate or project evidence and return bounded instructions to a blocked or stuck helper in the same Run. Recovery keeps the helper's permissions, account and model constraints. A changed report or stage invalidates older guidance. **Careful** still asks for confirmation. Tool approvals, explicit stage sign-offs, credentials, new authority and choices that only you can make remain yours; Tars asks when the mandate cannot resolve them. Paused, taken-over and cancelled work is not resumed this way.
 
 You can continue a task Tars delegated yourself (for example "implement it and open the PR"). The work stays open and follows the task: within a few seconds it follows the run you started, which keeps your own permission, and the work's state, report and outputs, including a PR that run opened, follow it. This also works after the work ended. Tars follows only runs in that task, in its own workspace and repository. Tars observes your run and does not act in it: it does not answer its questions, control it, send it queued follow-ups or publish its work by itself. If something should be done there, Tars asks on a card and only your confirmation applies it; a control approved before you started a newer run is refused without effect. When your run produces what the goal asks for (for a PR goal, a PR in the work's own repository from the work's branch to its base, carrying its commits), the work is recorded as finished by you, without Tars's verification; otherwise it stays open. **Pause**, **Take over** (or **Take control** in the task) and **Cancel** work as before; releasing or changing the task's agent also removes Tars.
@@ -777,8 +783,7 @@ work's branch, the selected model while it runs, the stage it is on (such as
 stage (done, in progress, not started or stopped), the goal, what Stave
 observed (such as "Running the tests · updated just now", or, when nothing was
 observed for five minutes while the work runs, "No update for 7m · progress
-may be out of date" in amber), **Recent progress** with the run's three latest
-changes and how long ago they happened, and what waits on you. A value Stave
+may be out of date" in amber), and what waits on you. Open **Timeline** for recent changes and their ages. When this is the only running task, its timeline takes the place of the composer’s running-work shortcut. A value Stave
 does not know is left out, never shown as zero, and work whose run Stave has
 not observed says "No progress information yet". When work stops or its step
 could not start, the card says so in your language and the detail keeps the

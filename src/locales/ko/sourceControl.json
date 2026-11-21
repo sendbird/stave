@@ -1,4 +1,20 @@
 {
+  "tarsCI": {
+    "fixAction": "수정 요청 작성",
+    "fixRequest": "다음 PR에서 실패한 CI를 수정해 주세요. {{url}}",
+    "followUp": "수정이나 재실행을 이어가려면 원하는 다음 작업을 별도로 요청하세요.",
+    "menu": "Tars에서 CI 실패 원인 요약",
+    "request": "CI 실패 원인을 요약해 주세요. {{url}}",
+    "source": "확인한 커밋 {{head}} · {{url}}",
+    "stale": "확인 중 PR 커밋이 {{head}}에서 {{current}}로 바뀌었습니다. 현재 커밋을 확인하려면 다시 요청하세요.",
+    "noFailures": "이 커밋에 대해 GitHub가 반환한 실패 검사가 없습니다.",
+    "check": "{{name}} · {{url}}",
+    "access": "GitHub CLI 계정에 PR과 Actions 로그의 읽기 권한이 있는지 확인하세요. {{url}}",
+    "signIn": "`gh auth login`으로 GitHub CLI에 로그인한 뒤 다시 시도하세요.",
+    "install": "GitHub CLI를 설치하고 `gh auth login`으로 로그인한 뒤 다시 시도하세요.",
+    "unavailable": "CI 근거를 읽을 수 없습니다. PR의 Checks 탭에서 확인하세요. {{url}}",
+    "omitted_other": "실패한 검사 {{count}}개를 PR에서 더 확인할 수 있습니다."
+  },
   "prContextDialog": {
     "attachPRContext": "PR 컨텍스트 첨부",
     "reviewThreadsAndFailedCheckEvidenceAreAttached": "리뷰 스레드와 실패한 검사 근거를 신뢰되지 않은 컨텍스트로 이 작업에 첨부합니다. 제거할 때까지 매 턴 다시 보냅니다.",

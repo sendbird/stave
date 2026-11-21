@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { Database } from "bun:sqlite";
 import { createTarsPublisher, type TarsCommandResult, type TarsPublishPorts } from "../electron/host-service/tars-publish";
 import { applyTarsDecision, type TarsDecisionPorts } from "../electron/host-service/tars-decisions";
@@ -90,8 +93,8 @@ function fakeRepository() {
   return { state, calls, run, commands: (name: string) => calls.filter(([command, args]) => command === "git" ? args[0] === name : `${args[0]} ${args[1]}` === name) };
 }
 
-function fixture(options: { workspace?: boolean; base?: string } = {}) {
-  const database = new Database(":memory:"); databases.push(database);
+function fixture(options: { workspace?: boolean; base?: string; databasePath?: string } = {}) {
+  const database = new Database(options.databasePath ?? ":memory:"); databases.push(database);
   const responsibilities = new TarsStore(database);
   const conversations = new TarsConversationStore(database);
   const repo = fakeRepository();
@@ -197,6 +200,53 @@ describe("Tars publish pins what it confirmed", () => {
     const pushes = f.repo.commands("push").map(([, args]) => args);
     expect(pushes.at(-1)).toEqual(["push", "origin", `${SHA}:refs/heads/${HEAD}`]);
     expect(pushes.flat().join(" ")).not.toContain(moved);
+  });
+
+  test("a retry refuses a changed base branch before creating the PR", async () => {
+    const location = { base: "main" };
+    const f = fixture(location);
+    f.repo.state.fail.create = 1;
+    const row = f.completed();
+    await f.confirm(row);
+    location.base = "other";
+    const retry = await f.confirm(f.responsibilities.get(row.id)!);
+    expect(retry.record).toMatchObject({ status: "rejected", reason: "wrongBranch" });
+    expect(f.repo.commands("push")).toHaveLength(1);
+    expect(f.repo.commands("pr create")).toHaveLength(1);
+  });
+
+  test("after reopening the database concurrent PR retries resume the saved step once", async () => {
+    const directory = mkdtempSync(path.join(tmpdir(), "stave-publish-restart-"));
+    const databasePath = path.join(directory, "state.sqlite");
+    let reopened: Database | undefined;
+    try {
+      const f = fixture({ databasePath });
+      let row = f.completed({ state: "resultReady", completionGoal: "pullRequest" });
+      row = f.responsibilities.patch(row.id, row.revision, { resultVerifiedRunId: row.agentRunId }, NOW);
+      f.repo.state.fail.create = 1;
+      expect((await f.confirm(row)).record.status).toBe("rejected");
+      databases.splice(databases.indexOf(f.database), 1);
+      f.database.close();
+
+      reopened = new Database(databasePath);
+      const responsibilities = new TarsStore(reopened);
+      const conversations = new TarsConversationStore(reopened);
+      const restarted = createTarsPublisher({ ...f.ports, responsibilities, conversations });
+      restarted.recover();
+      const saved = responsibilities.get(row.id)!;
+      expect(saved.publication?.failedStep).toBe("pr");
+      const input = { requestId: "retry-after-restart", responsibilityId: row.id, expectedRevision: saved.revision,
+        commitMessage: "feat: checkout", title: "feat: checkout", source: "click" as const };
+      const [one, duplicate] = await Promise.all([restarted.publish(input), restarted.publish(input)]);
+      expect(one.record).toMatchObject({ status: "applied", url: URL });
+      expect(duplicate).toEqual(one);
+      expect(responsibilities.get(row.id)).toMatchObject({ agentRunId: row.agentRunId, taskId: row.taskId, state: "completed" });
+      expect(f.repo.commands("push")).toHaveLength(1);
+      expect(f.repo.commands("pr create")).toHaveLength(2); // First attempt failed, restarted attempt succeeded.
+    } finally {
+      reopened?.close();
+      rmSync(directory, { recursive: true, force: true });
+    }
   });
 
   test("a retry whose saved commit is gone refuses instead of pushing something else", async () => {

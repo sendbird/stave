@@ -1,9 +1,9 @@
 import { recoverTarsHelper } from "./tars-helper-recovery";
-import { hasEndedTarsExecution, tarsExecutionScope } from "../../src/lib/tars/continuation";
+import { hasEndedTarsExecution, tarsContinuationBranch, tarsExecutionScope } from "../../src/lib/tars/continuation";
 import { WorkspacePreparationError } from "./workspace-preparation";
 import path from "node:path";
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, realpathSync } from "node:fs";
 import {
   tarsExecutionAgentInstructions, tarsRunInitialContext, tarsRunOwner, tarsWorkflow, tarsObservation, tarsRunResult, tarsHelperObservation, withTarsActiveStage, type TarsHelperRead,
   tarsPullRequestReachesGoal, tarsReportedPullRequestUrls, tarsUserRunObservation, isTarsWorkPullRequest, type TarsUserPullRequest,
@@ -201,7 +201,7 @@ export function createHostTarsRuntime(args: {
         path.resolve(task.repositoryPath ?? "") !== path.resolve(row.repositoryPath))
       throw new TarsOwnershipLostError("The execution task is unavailable or changed.", "taskUnavailable");
     if (!hasAssignment(row)) throw new TarsOwnershipLostError("The task's assignment is unavailable.");
-    return { task, scope, workflow, existingRunId: null };
+    return { task, scope, workflow, existingRunId: null, executionPath: execution.path };
   }
   return createTarsRuntime({
     dailyUsageLimit: (providerId) => persistence.dailyUsage.refusal(providerId),
@@ -442,7 +442,7 @@ export function createHostTarsRuntime(args: {
     async continueWork(row, continuation, assertAdmitted) {
       let startRequested = false;
       try {
-        const { task, scope, workflow, existingRunId } = await readContinuation(row, continuation);
+        const { task, scope, workflow, existingRunId, executionPath } = await readContinuation(row, continuation);
         if (existingRunId) return existingRunId;
         if (!task) throw new TarsOwnershipLostError("The execution task is unavailable or changed.", "taskUnavailable");
         if (task.activeTurnId || task.pendingApprovalCount || task.pendingUserInputCount) return "busy";
@@ -450,6 +450,8 @@ export function createHostTarsRuntime(args: {
         const previousReport = previous.report ? { outcome: previous.report.outcome,
           criteria: previous.report.acceptanceCriteria.slice(0, 20), links: previous.report.links.slice(0, 12),
           leftBehind: previous.report.leftBehind.slice(0, 12) } : null;
+        if (!executionPath) throw new TarsRunRefusedError("The execution workspace could not be located.");
+        await verifyContinuationCheckout(row, executionPath);
         assertAdmitted?.();
         startRequested = true;
         const detail = await args.agentRuns.startAgentRun({
@@ -498,6 +500,24 @@ const TarsUserPullRequestSchema = z.object({ number: z.number().int().min(1), ur
 const TARS_READ_COMMAND_TIMEOUT_MS = 30_000;
 const readTarsCommand = (command: string, commandArgs: string[], cwd: string) => runCommandArgs({ command, commandArgs, cwd,
   timeoutMs: TARS_READ_COMMAND_TIMEOUT_MS, env: { ...process.env, GH_PROMPT_DISABLED: "1", GIT_TERMINAL_PROMPT: "0" } });
+
+/** The registry can outlive a checkout or branch switch. Verify the actual target before starting a new run. */
+async function verifyContinuationCheckout(row: TarsResponsibility, cwd: string) {
+  const common = ["rev-parse", "--path-format=absolute", "--git-common-dir"];
+  const [source, checkout, current] = await Promise.all([
+    readTarsCommand("git", common, row.repositoryPath),
+    readTarsCommand("git", [...common, "--show-toplevel"], cwd),
+    readTarsCommand("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
+  ]);
+  const [commonDirectory, topLevel] = checkout.stdout.trimEnd().split(/\r?\n/);
+  if (!source.ok || !checkout.ok || !commonDirectory || !topLevel || path.resolve(commonDirectory) !== path.resolve(source.stdout.trimEnd()) ||
+      path.resolve(topLevel) !== realpathSync(cwd) || path.resolve(topLevel) === realpathSync(row.repositoryPath))
+    throw new TarsRunRefusedError("The checkout no longer matches the work's execution workspace and repository.");
+  const branch = current.stdout.trimEnd();
+  const expected = tarsContinuationBranch(row, branch);
+  if (!current.ok || branch !== expected)
+    throw new TarsRunRefusedError(`The execution workspace must be on its work branch (${expected}) before continuing.`);
+}
 
 /** What GitHub says of one pull request, read in the work's execution workspace; null when it cannot be read. */
 async function readTarsPullRequest(cwd: string, url: string): Promise<TarsUserPullRequest | null> {

@@ -1,3 +1,4 @@
+export { tarsConfirmationRequestId } from "./decision-ids";
 import { TarsBulkControlActionSchema, TarsCleanupActionSchema, isTarsBatchAction } from "./batch";
 import { TarsPrReviewEffectSchema } from "./pr-checks";
 import { TarsSelectionReasonSchema, TarsWorkTargetSchema } from "./selected-work";
@@ -167,9 +168,6 @@ export type TarsControlAction = z.infer<typeof TarsControlActionSchema>;
 
 // Defined with the autonomy levels, which are read from the same sets (`autonomy.ts`).
 export { TARS_CONFIRMED_OPERATIONS, TARS_IRREVERSIBLE_OPERATIONS };
-export function tarsConfirmationRequestId(messageId: string, actionIndex: number) {
-  return `confirm:${messageId}:${actionIndex}`;
-}
 export function parseTarsConfirmationRequestId(requestId: string): { messageId: string; actionIndex: number } | null {
   const match = /^confirm:(.+):([0-7])$/.exec(requestId);
   return match ? { messageId: match[1]!, actionIndex: Number(match[2]) } : null;
@@ -354,6 +352,8 @@ export type TarsDroppedAction = z.infer<typeof TarsDroppedActionSchema>;
 
 /** A proposal is not an execution receipt or an authorization grant. One reply asks at most one question. */
 export const TarsDecisionSchema = z.object({
+  /** Main records the read-only CI result. Model output cannot supply this provenance. */
+  ciFailureHead: z.string().regex(/^[0-9a-f]{40,64}$/i).optional(),
   reply: z.string().max(TARS_REPLY_MAX_CHARS),
   actions: z.array(z.discriminatedUnion("kind", [...TarsDecisionActionSchema.options, TarsRetiredActionSchema])).max(8)
     // i18n-ignore: schema diagnostic, not user-facing copy

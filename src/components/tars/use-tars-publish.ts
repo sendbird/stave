@@ -109,7 +109,7 @@ export function useTarsPublish(args: {
         if (waiting) { waiting.click(); return; }
         const card = document.querySelector<HTMLElement>(`[data-tars-publish-card="${CSS.escape(proposal.requestId)}"]`);
         card?.scrollIntoView({ block: "nearest" });
-        (card?.querySelector<HTMLElement>("[data-tars-publish-message]") ?? card)?.focus();
+        (card?.querySelector<HTMLElement>("[data-tars-publish-message]:not([readonly]), [data-tars-publish-title]") ?? card)?.focus();
       });
       return;
     }

@@ -43,7 +43,7 @@ import {
   type FleetWorkspaceCardVisibility,
 } from "@/components/layout/FleetWorkspaceCard";
 import { useFleetAttention } from "@/store/fleet-attention-store";
-import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
+import { openFleetTarsItem, markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
 import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
 import { FleetAgentTree } from "@/components/layout/FleetAgentTree";
 import {
@@ -421,7 +421,7 @@ export function FleetView() {
       // Tars work without a task yet lives only in Tars.
       if (target.source === "tars") {
         setSelectedAttentionId(null);
-        useAppStore.getState().openTars();
+        openFleetTarsItem(target);
         return;
       }
       markInboxEntryRead(inboxEntryByItemId.get(target.id));

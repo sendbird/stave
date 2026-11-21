@@ -11,24 +11,38 @@ import type { TarsResponsibility } from "@/lib/tars/types";
  * the one kept current.
  */
 export function useTarsRunDetails(responsibilities: readonly TarsResponsibility[], fleetRuns: Readonly<Record<string, AgentRunDetail>>) {
-  const [read, setRead] = useState<Record<string, AgentRunDetail>>({});
-  const requested = useRef(new Set<string>());
-  const mounted = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
+  const [read, setRead] = useState<Record<string, { key: string; detail: AgentRunDetail }>>({});
+  const pending = useRef(new Map<string, Promise<AgentRunDetail | null>>());
   const wanted = responsibilities.flatMap((row) => tarsRunIds(row).filter((id) => !fleetRuns[id]).map((id) => `${id}@${id === row.agentRunId ? row.revision : "ended"}`)).join("|");
+  const keys = useMemo(() => wanted ? wanted.split("|") : [], [wanted]);
   useEffect(() => {
     const api = typeof window === "undefined" ? undefined : window.api?.agentRuns;
-    if (!api || !wanted) return;
-    for (const key of wanted.split("|")) {
-      if (requested.current.has(key)) continue;
-      requested.current.add(key);
+    if (!api) return;
+    let active = true;
+    const current = new Set(keys);
+    for (const key of pending.current.keys()) if (!current.has(key)) pending.current.delete(key);
+    for (const key of keys) {
       const agentRunId = key.slice(0, key.lastIndexOf("@"));
-      void api.get({ agentRunId }).then((response) => {
-        if (mounted.current && response.ok && response.agentRun) setRead((current) => ({ ...current, [agentRunId]: response.agentRun! }));
-      }, () => undefined);
+      let result = pending.current.get(key);
+      if (!result) {
+        result = api.get({ agentRunId }).then(response =>
+          response.ok && response.agentRun?.agentRun.id === agentRunId ? response.agentRun : null, () => null);
+        pending.current.set(key, result);
+      }
+      void result.then(detail => {
+        if (active && detail) setRead(cache => cache[agentRunId]?.key === key ? cache : { ...cache, [agentRunId]: { key, detail } });
+      });
     }
-  }, [wanted]);
-  return useMemo(() => ({ ...read, ...fleetRuns }), [fleetRuns, read]);
+    return () => { active = false; };
+  }, [keys]);
+  return useMemo(() => {
+    const details: Record<string, AgentRunDetail> = { ...fleetRuns };
+    for (const key of keys) {
+      const id = key.slice(0, key.lastIndexOf("@"));
+      if (read[id]?.key === key) details[id] = read[id].detail;
+    }
+    return details;
+  }, [fleetRuns, read, keys]);
 }
 
 /**

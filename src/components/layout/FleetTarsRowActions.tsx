@@ -5,7 +5,7 @@ import { Button } from "@/components/ui";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { confirmFleetTarsDecision } from "@/lib/fleet/tars-decision-confirm";
 import { isTarsTaskOperation, type TarsControlOperation } from "@/lib/tars/types";
-import { useAppStore } from "@/store/app.store";
+import { openFleetTarsItem } from "./inbox-actions";
 import { tarsBridge } from "@/store/tars-snapshot-store";
 import { inboxRowStyles as rowStyles } from "./inbox-row.styles";
 
@@ -79,7 +79,7 @@ export function FleetOpenInTarsButton(props: { item: FleetAttentionItem; disable
       xstyle={rowStyles.rowAction}
       disabled={props.disabled}
       aria-label={t("fleet:tarsAttention.openInTarsLabel", { title: props.item.taskTitle ?? "" })}
-      onClick={() => useAppStore.getState().openTars()}
+      onClick={() => openFleetTarsItem(props.item)}
     >
       {t("fleet:tarsAttention.openInTars")}
     </Button>

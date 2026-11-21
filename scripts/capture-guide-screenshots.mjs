@@ -701,6 +701,17 @@ const SHOTS = [
     },
   },
   {
+    name: "tars-task-request",
+    async capture({ page, locale, file }) {
+      await openPreview(page, locale, "tars&tray=true&queue=true&taskRequest=task-billing");
+      await page.locator("[data-tars-task-request]").click();
+      const sheet = page.getByRole("dialog");
+      await sheet.locator('[data-tars-brief-text="request"]').waitFor();
+      await settle(page);
+      await save(page, null, file, { clip: await contentClip(page, sheet) });
+    },
+  },
+  {
     name: "agent-run-panel",
     viewport: { width: 448, height: 900 },
     async capture({ page, locale, file }) {

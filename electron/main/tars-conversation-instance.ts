@@ -1,3 +1,4 @@
+import { readTarsCi } from "./tars-pr-ci";
 import { createTarsInspectionReader } from "./tars-inspection-readers";
 import { app } from "electron";
 import path from "node:path";
@@ -27,6 +28,7 @@ export function getTarsConversationService() {
     const service = createTarsConversationService({
       conversations: store.tarsConversations,
       coordinator: secondaryRunCoordinator,
+      readCi: (url) => readTarsCi(url, invokeHostService),
       inspect: createTarsInspectionReader(store, invokeHostService),
       responsibilities: store.tars,
       context: async (message) => {

@@ -120,6 +120,7 @@ export interface FleetAttentionItem {
   agentRunStage?: { agentRunId: string; stageId: string; attempt: number };
   /** The Tars responsibility a `tars-*` row speaks for. */
   tarsResponsibilityId?: string;
+  tarsDecisionId?: string;
   /** The proposed control a `tars-decision` row confirms, at the revision it was proposed for. */
   tarsDecision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
 }
@@ -793,6 +794,7 @@ export function collectFleetTarsAttentionItems(
             ? i18n.t("fleet:tarsAttention.unverifiedCompletion")
             : i18n.t("fleet:tarsAttention.blockedDetail"),
       tarsResponsibilityId: signal.responsibilityId,
+      ...(signal.decisionId ? { tarsDecisionId: signal.decisionId } : {}),
       ...(signal.decision ? { tarsDecision: { ...signal.decision } } : {}),
     };
   });

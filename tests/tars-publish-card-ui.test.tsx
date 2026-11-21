@@ -131,6 +131,9 @@ describe("publish card", () => {
     const { html } = rendered({ row: failed });
     expect(html).toContain('data-tars-publish-rows="repository,base,head,changedFiles,resume"');
     expect(html).toContain("Continues from");
+    expect(html.match(/value="feat: x"/g)).toHaveLength(2);
+    expect(html.match(/<input[^>]*data-tars-publish-message[^>]*>/)?.[0]).toContain("readOnly");
+    expect(html.match(/<input[^>]*data-tars-publish-title[^>]*>/)?.[0]).not.toContain("readOnly");
   });
 
   test("Korean copy", async () => {
@@ -158,6 +161,23 @@ describe("publish record and entry", () => {
     expect(failed).toContain("Stopped at: Push");
     expect(failed).toContain("fatal: unable to access remote");
     expect(failed).toContain("Retry");
+  });
+
+  test("a failed PR creation shows the verified result separately and offers only publication recovery", () => {
+    const publication = { state: "failed" as const, failedStep: "pr" as const, commit: "f00ba12", branch: "b", base: "main",
+      agentRunId: "run-checkout", commitMessage: "fix: checkout", title: "fix: checkout", url: null, number: null,
+      error: "creation failed", reason: "publishFailed" as const, updatedAt: NOW };
+    const verified = row({ resultVerifiedRunId: "run-checkout", publication });
+    const html = renderToStaticMarkup(createElement(TarsPublishEntry, { row: verified, onPublish: () => {} }));
+    expect(html).toContain("Changes verified · Draft PR creation failed");
+    expect(html).toContain("Retry publishing");
+    expect(html).not.toContain("Create draft PR");
+    const readOnly = renderToStaticMarkup(createElement(TarsPublishEntry, { row: verified }));
+    expect(readOnly).toContain("Changes verified · Draft PR creation failed");
+    expect(readOnly).not.toContain("Retry publishing");
+    for (const other of [row({ publication }), row({ publication: { ...publication, agentRunId: "old" }, resultVerifiedRunId: "run-checkout" })]) {
+      expect(renderToStaticMarkup(createElement(TarsPublishEntry, { row: other }))).not.toContain("Changes verified");
+    }
   });
 
   test("completed work offers Create draft PR until its pull request is open, then links it", () => {

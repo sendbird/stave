@@ -135,6 +135,8 @@ async function inspect(row: TarsResponsibility, ports: TarsPublishPorts): Promis
   if (!workspace.base) stop("wrongBranch", "The base branch could not be determined.");
   else if (workspace.base === facts.head) stop("wrongBranch", "The work's branch is the base branch; Tars never pushes to it.");
   if (current.stdout.trim() !== facts.head) stop("wrongBranch", `The workspace is on ${current.stdout.trim() || "a detached HEAD"}, not the work's branch ${facts.head}.`);
+  if (row.publication && (facts.base !== row.publication.base || facts.head !== row.publication.branch))
+    stop("wrongBranch", "The publication target changed. Restore the confirmed head and base before retrying.");
   const status = await git(["status", "--porcelain=v1", "-z", "--untracked-files=all"]);
   if (!status.ok) return stop("noWorkspace", diagnostic(status, "The workspace status could not be read."));
   facts.dirty = statusPaths(status.stdout);

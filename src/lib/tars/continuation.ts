@@ -1,3 +1,4 @@
+import { tarsPublishHeadBranch } from "./publication";
 import type { TarsResponsibility } from "./types";
 
 /** Original delegation stays immutable; each continued run owns only its new scope. */
@@ -16,6 +17,12 @@ export function tarsExecutionScope(row: TarsResponsibility, pending = false): Ta
     // i18n-ignore: model-facing criterion; the exact request is the run assignment
     acceptanceCriteria: ["Implement and verify the complete follow-up request in this task, preserving existing work."],
   };
+}
+
+/** Worktree creation can fall back to tars/<id> when Git refuses the chosen branch name. */
+export function tarsContinuationBranch(row: Pick<TarsResponsibility, "id" | "branchName" | "publication">, currentBranch?: string | null) {
+  const fallback = `tars/${row.id}`;
+  return row.publication?.branch ?? (currentBranch === fallback ? fallback : tarsPublishHeadBranch(row));
 }
 
 /** An execution can end while the user's delegated goal remains open. */

@@ -237,7 +237,7 @@ test("the title opens the detail by click and by keyboard, and everything that l
   await expect(detail.locator("[data-run-segments]")).toBeVisible();
   await expect(detail.locator("[data-tars-monitor-count]")).toBeVisible();
   await expect(detail.locator("[data-tars-goal]")).toBeVisible();
-  await expect(detail.locator("[data-tars-recent-progress]")).toBeVisible();
+  await expect(detail.locator("[data-tars-recent-progress]")).toHaveCount(0);
   await expect(detail.locator('[data-tars-action="pause"]')).toBeVisible();
   await expect(detail.locator("[data-tars-select-work]")).toBeVisible();
   await expect(detail.locator("[data-tars-monitor-brief]")).toBeVisible();

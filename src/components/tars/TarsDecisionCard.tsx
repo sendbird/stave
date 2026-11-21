@@ -1,3 +1,4 @@
+import { useTarsContinuationBranch } from "./use-tars-continuation-branch";
 import { TarsAlwaysAllowButton } from "./TarsAllowRules";
 import { tarsActionKey } from "@/lib/tars/autonomy";
 import { describeTarsWorkspaceAction } from "./TarsWorkspaceReceipt";
@@ -197,6 +198,8 @@ export function handleTarsQuestionKey(event: Pick<KeyboardEvent<HTMLElement>, "k
  */
 export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, error, rowOf, workspaceNameOf, onDismiss, onDismissDecision, onOpenTask }: TarsDecisionCardProps) {
   const { t } = useTranslation(["shell"]);
+  const control = decision.options[0]?.kind === "control" ? decision.options[0].control : undefined;
+  const branch = useTarsContinuationBranch(control && ["message", "retryStage", "requestChanges"].includes(control.operation) ? rowOf?.(control.responsibilityId) : undefined);
   const actorOf = useTarsDirectActor();
   const questionId = useId();
   const subtitleId = useId();
@@ -390,6 +393,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   // The revision the decision is bound to stays an attribute, not a row: it means nothing to people.
   const candidates: Array<DetailRow | null> = [
     target.repository ? { key: "repository", label: t("shell:tars.decision.card.rows.repository"), value: target.repository, title: target.repositoryPath ?? undefined } : null,
+    branch ? { key: "branch", label: t("shell:tars.publish.card.rows.head"), value: branch } : null,
     target.workspace ? { key: "workspace", label: t("shell:tars.decision.card.rows.workspace"), value: target.workspace } : null,
   ];
   const rows = candidates.filter((entry): entry is DetailRow => entry !== null);

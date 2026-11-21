@@ -17,6 +17,8 @@ export type TarsActivityContent =
 export interface TarsActivityEntry {
   id: string; at: string; responsibilityId: string | null; title: string | null;
   origin: "you" | "tars"; doneByTars: boolean; needsYou: boolean;
+  /** Pre-admission requests still have their source text, while waiting and after a refusal. */
+  unstartedRequest?: { receipt: TarsActionReceipt; text: string | null };
   content: TarsActivityContent; undo: TarsActionRecord | null;
 }
 
@@ -28,6 +30,7 @@ export function projectTarsActivity(conversation: TarsConversation, responsibili
   const entries: TarsActivityEntry[] = [];
   const add = (entry: Omit<TarsActivityEntry, "title"> & { title?: string | null }) => entries.push({ ...entry,
     title: entry.title ?? (entry.responsibilityId ? rows.get(entry.responsibilityId)?.title ?? titles.get(entry.responsibilityId) : null) ?? null });
+  const words = new Map(conversation.messages.map(message => [message.id, message.text]));
   const records = new Map(conversation.records.map((record) => [record.requestId, record]));
   const decisions = projectTarsDecisions({ ...conversation, answers: conversation.answers ?? [], responsibilities });
   const decisionReceipts = new Set(decisions.map((decision) => `${decision.messageId}:${decision.actionIndex}`));
@@ -49,6 +52,8 @@ export function projectTarsActivity(conversation: TarsConversation, responsibili
     const action = receipt.action;
     add({ id: `receipt:${key}`, at: receipt.createdAt, responsibilityId: receipt.responsibilityId ?? ("responsibilityId" in action ? action.responsibilityId : null),
       title: action.kind === "delegate" ? action.title : undefined, origin: "tars", doneByTars: receipt.status === "applied", needsYou: receipt.status === "proposed",
+      ...(action.kind === "delegate" && !receipt.responsibilityId && (receipt.status === "pending" || receipt.status === "rejected")
+        ? { unstartedRequest: { receipt, text: words.get(receipt.messageId) ?? null } } : {}),
       content: { kind: "action", action, status: receipt.status }, undo: null });
   }
   for (const activity of conversation.activity) {

@@ -6,6 +6,7 @@ import { Tooltip } from "@/components/aui/components/Tooltip";
 import { sx } from "@/components/aui/utils/stylex";
 import type { TarsResponsibility } from "@/lib/tars/types";
 import type { TarsWorkTarget } from "@/lib/tars/selected-work";
+import { useTarsContinuationBranch } from "./use-tars-continuation-branch";
 import { tarsSelectionStyles as styles } from "./tars-selection.styles";
 
 /** Use the shortest repository suffix that distinguishes same-title work. */
@@ -28,19 +29,21 @@ export function TarsWorkSelection({ rows, target, onSelect, onOpen, disabled }: 
   disabled: boolean;
 }) {
   const { t } = useTranslation(["shell"]);
+  const row = target ? rows.find((item) => item.id === target.responsibilityId) : undefined;
+  const branch = useTarsContinuationBranch(row);
   if (!target) return null;
-  const row = rows.find((row) => row.id === target.responsibilityId);
   const title = row?.title ?? t("shell:tars.selection.unavailableLabel");
   const twins = row ? rows.filter((peer) => peer.title === row.title && peer.repositoryPath === row.repositoryPath).map((peer) => peer.id).sort() : [];
   const repository = row ? repositoryLabel(row, rows) : "";
   const state = row ? t(`shell:tars.states.${row.state}`) : t("shell:tars.selection.clearUnavailable");
   const identity = twins.length > 1 ? t("shell:tars.selection.numberedRepository", { repository, number: twins.indexOf(row!.id) + 1 }) : repository;
-  const details = row
+  const workDetails = row
     ? t("shell:tars.selection.details", { title, state, repository: row.repositoryPath, id: row.id })
     : t("shell:tars.selection.unavailable", { id: target.responsibilityId });
+  const details = branch ? `${workDetails} · ${branch}` : workDetails;
   const label = <span className={sx(styles.copy)}>
     <span className={sx(contextChipStyles.label)} data-tars-target-title="">{title}</span>
-    <span className={sx(contextChipStyles.label, styles.identity)} data-tars-target-identity="">{row ? `${state} · ${identity}` : state}</span>
+    <span className={sx(contextChipStyles.label, styles.identity)} data-tars-target-identity="">{row ? [state, identity, branch].filter(Boolean).join(" · ") : state}</span>
   </span>;
   return <div className={sx(styles.root)} data-tars-work-selection="">
     <ContextChip icon={MessagesSquare} compact className={sx(styles.target)} data-tars-target-chip="">

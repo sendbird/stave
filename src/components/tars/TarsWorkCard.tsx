@@ -238,7 +238,7 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
       {queueWait && queueWait !== said ? <p className={sx(styles.meta)} data-tars-queue-wait={row.queueWait?.code ?? "unknown"}>{queueWait}</p> : null}
       {!staged && !terminal && row.agentRunId && !live.running ? <p className={sx(styles.meta)}>{t("shell:tars.tray.runPending")}</p> : null}
       {liveShows && !liveSentence ? <TarsLiveLine row={row} live={live} now={now} /> : null}
-      {!terminal && live.recent.length ? <TarsRecentProgress entries={live.recent} now={now} title compact /> : null}
+      {!terminal && !(staged && actions.onOpenSide) && live.recent.length ? <TarsRecentProgress entries={live.recent} now={now} title compact /> : null}
       {detail && !blockedEntry && detail !== said ? <p className={sx(styles.meta)}>{detail}</p> : null}
       {diagnostic ? <TarsDiagnosticDetail text={diagnostic} /> : null}
       {row.reverifyAfter && !terminal ? <p className={sx(styles.meta)}>{t("shell:tars.reverify")}</p> : null}

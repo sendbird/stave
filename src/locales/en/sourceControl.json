@@ -1,4 +1,21 @@
 {
+  "tarsCI": {
+    "fixAction": "Draft a fix request",
+    "fixRequest": "Fix the failing CI checks for {{url}}.",
+    "followUp": "To continue with a change or rerun, send the next action as a separate request.",
+    "menu": "Summarize CI failures in Tars",
+    "request": "Summarize the CI failures for {{url}}",
+    "source": "Checked commit {{head}} · {{url}}",
+    "stale": "The PR changed from {{head}} to {{current}} during the check. Send the request again to read the current commit.",
+    "noFailures": "GitHub returned no failed check runs for this commit.",
+    "check": "{{name}} · {{url}}",
+    "access": "Check that your GitHub CLI account can read the PR and its Actions logs: {{url}}",
+    "signIn": "Sign in to GitHub CLI with `gh auth login`, then retry.",
+    "install": "Install GitHub CLI and sign in with `gh auth login`, then retry.",
+    "unavailable": "CI evidence is unavailable. Check the PR’s Checks tab: {{url}}",
+    "omitted_one": "One further failed check is listed in the PR.",
+    "omitted_other": "{{count}} further failed checks are listed in the PR."
+  },
   "prContextDialog": {
     "attachPRContext": "Attach PR context",
     "reviewThreadsAndFailedCheckEvidenceAreAttached": "Review threads and failed-check evidence are attached to this task as untrusted context and re-sent with every turn until you remove them.",

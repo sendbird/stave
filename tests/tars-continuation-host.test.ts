@@ -7,6 +7,7 @@ test("actual host continuation reuses execution identity, persists a separate wo
     import { mock } from "bun:test";
     import { Database } from "bun:sqlite";
     import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+    import { execFileSync } from "node:child_process";
     import { tmpdir } from "node:os";
     import path from "node:path";
     import { TarsStore } from "./electron/persistence/tars-store";
@@ -20,6 +21,13 @@ test("actual host continuation reuses execution identity, persists a separate wo
     import { compileTaskAgentRole } from "./src/lib/agents/runtime-options";
     import { tarsWorkflow } from "./electron/host-service/tars-execution";
     const directory = mkdtempSync(path.join(tmpdir(), "stave-host-continuation-"));
+    const execution = path.join(directory, "execution");
+    const git = (...args) => execFileSync("git", ["-C", directory, ...args], { stdio: "pipe" });
+    git("init", "-b", "main");
+    git("-c", "user.name=Test", "-c", "user.email=test@example.test", "commit", "--allow-empty", "-m", "initial");
+    git("worktree", "add", "-b", "fix/existing", execution);
+    const foreign = path.join(directory, "foreign");
+    git("init", "-b", "fix/existing", foreign);
     const db = new Database(path.join(directory, "store.sqlite"));
     const persistence = { tars: new TarsStore(db), tarsConversations: new TarsConversationStore(db),
       agentAssignments: new AgentAssignmentStore(db), agentRuns: new AgentRunStore(db) };
@@ -27,7 +35,7 @@ test("actual host continuation reuses execution identity, persists a separate wo
     const now = "2026-11-11T00:00:00.000Z";
     let readFailure = false;
     let missing = false, archived = false, inUse = false, beforeAdmission = null;
-    const registry = [{ repositoryPath: directory, workspaces: [{ id: "source", path: "/tmp/source" }, { id: "execution", path: directory }] }];
+    const registry = [{ repositoryPath: directory, workspaces: [{ id: "source", path: "/tmp/source" }, { id: "execution", path: execution }] }];
     mock.module("./electron/host-service/persistence", () => ({ ensureHostServicePersistenceReady: () => persistence }));
     mock.module("./electron/host-service/supervision/assign-host", () => ({ hostAgents: () => BUILTIN_AGENTS }));
     mock.module("./electron/providers/runtime", () => ({ providerRuntime: {} }));
@@ -53,7 +61,7 @@ test("actual host continuation reuses execution identity, persists a separate wo
     } } });
     const results = [];
     for (provider of ["codex", "claude-code"]) {
-      const created = persistence.tars.create({ requestId: provider, title: "Existing work", instruction: "Original delegation",
+      const created = persistence.tars.create({ requestId: provider, title: "Existing work", instruction: "Original delegation", branchName: "fix/existing",
         acceptanceCriteria: ["Original criterion"], workspaceId: "source", repositoryPath: directory, providerId: provider }, now);
       let row = persistence.tars.patch(created.id, created.revision, { taskId: "task-" + provider, executionWorkspaceId: "execution", state: "completed",
         agentRunId: "previous-" + provider }, now);
@@ -72,6 +80,14 @@ test("actual host continuation reuses execution identity, persists a separate wo
       missing = true; try { await ports.continueWork(row, scope); } catch { refused.push("missing"); } missing = false;
       archived = true; try { await ports.continueWork(row, scope); } catch { refused.push("archived"); } archived = false;
       inUse = true; const busy = await ports.continueWork(row, scope); inUse = false;
+      registry[0].workspaces[1].path = foreign;
+      try { await ports.continueWork(row, scope); } catch { refused.push("repository"); }
+      registry[0].workspaces[1].path = execution;
+      git("-C", execution, "switch", "--detach");
+      try { await ports.continueWork(row, scope); } catch { refused.push("detached"); }
+      git("-C", execution, "switch", "-c", "other-" + provider);
+      try { await ports.continueWork(row, scope); } catch { refused.push("branch"); }
+      git("-C", execution, "switch", "fix/existing");
       beforeAdmission = () => assignments.releaseTaskAgent(row.taskId);
       try { await ports.continueWork(row, scope); } catch { refused.push("owner"); }
       beforeAdmission = null;
@@ -79,7 +95,7 @@ test("actual host continuation reuses execution identity, persists a separate wo
     }
     // Use a separate task with authority intact for successful start and lost-ack reconciliation.
     // The assignment store is intentionally not repaired: build a fresh admitted responsibility.
-    const created = persistence.tars.create({ requestId: "success", title: "Existing work", instruction: "Original delegation",
+    const created = persistence.tars.create({ requestId: "success", title: "Existing work", instruction: "Original delegation", branchName: "fix/existing",
       acceptanceCriteria: ["Original criterion"], workspaceId: "source", repositoryPath: directory, providerId: "codex" }, now);
     provider = "codex";
     let owned = persistence.tars.patch(created.id, created.revision, { taskId: "success-task", executionWorkspaceId: "execution", state: "completed", agentRunId: "old-success" }, now);
@@ -116,7 +132,7 @@ test("actual host continuation reuses execution identity, persists a separate wo
   const result = Bun.spawnSync({ cmd: [process.execPath, "--eval", source], cwd: path.join(import.meta.dir, ".."), stdout: "pipe", stderr: "pipe" });
   expect(result.exitCode, result.stderr.toString()).toBe(0);
   const output = JSON.parse(result.stdout.toString());
-  expect(output.results).toEqual([{ refused: ["TarsRunRefusedError", "missing", "archived", "owner"], busy: "busy" }, { refused: ["TarsRunRefusedError", "missing", "archived", "owner"], busy: "busy" }]);
+  expect(output.results).toEqual([{ refused: ["TarsRunRefusedError", "missing", "archived", "repository", "detached", "branch", "owner"], busy: "busy" }, { refused: ["TarsRunRefusedError", "missing", "archived", "repository", "detached", "branch", "owner"], busy: "busy" }]);
   expect(output.starts).toBe(1); expect(output.id).toBe(output.replay);
   expect(output.beforeStart).toBeNull(); expect(output.raceRefused).toBe(true); expect(output.startsBeforeActual).toBe(0);
   expect(output.reconciled).toBe(output.id);

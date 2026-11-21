@@ -2,7 +2,7 @@ import { GitPullRequestDraft } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { Button, ExternalAnchor } from "@/components/ui";
 import { sx } from "@/components/aui/utils/stylex";
-import { isTarsPublicationUnfinished } from "@/lib/tars/publication";
+import { isTarsPublicationUnfinished, tarsResultStanding } from "@/lib/tars/publication";
 import { isTarsPublishable } from "@/lib/tars/publish-model";
 import type { TarsResponsibility } from "@/lib/tars/types";
 import { tarsStyles as styles } from "./tars.styles";
@@ -21,11 +21,15 @@ export function TarsPublishEntry({ row, onPublish }: { row: TarsResponsibility; 
       {publication.number ? t("shell:tars.publish.status.opened", { number: publication.number }) : t("shell:tars.publish.status.openedUnnumbered")}</ExternalAnchor><TarsPrChecksLine row={row} /></>;
   }
   if (isTarsPublicationUnfinished(publication)) return <span className={sx(styles.text)} role="status" data-tars-publish-entry="running">{t("shell:tars.publish.status.running")}</span>;
-  if (!isTarsPublishable(row) || !onPublish) return null;
+  const canPublish = isTarsPublishable(row) && onPublish;
+  const failed = publication?.state === "failed";
+  if (!canPublish && !failed) return null;
+  const verifiedPrFailure = failed && publication.failedStep === "pr" && !publication.number && publication.reason !== "notVerified" &&
+    publication.agentRunId === row.agentRunId && tarsResultStanding(row) === "verified";
   return <>
-    {publication?.state === "failed" ? <span className={sx(styles.text, styles.error)} data-tars-publish-entry="failed">{t("shell:tars.publish.status.failed")}</span> : null}
-    <Button type="button" variant="ghost" size="xs" title={t("shell:tars.publish.openHint")} data-tars-publish-open={row.id} onClick={() => onPublish(row)}>
-      <GitPullRequestDraft aria-hidden />{t("shell:tars.publish.open")}</Button>
+    {failed ? <span className={sx(styles.text, styles.error)} data-tars-publish-entry="failed">{t(verifiedPrFailure ? "shell:tars.publish.status.verifiedPrFailed" : "shell:tars.publish.status.failed")}</span> : null}
+    {canPublish ? <Button type="button" variant="ghost" size="xs" title={t("shell:tars.publish.openHint")} data-tars-publish-open={row.id} onClick={() => onPublish(row)}>
+      <GitPullRequestDraft aria-hidden />{t(failed ? "shell:tars.publish.retryPublication" : "shell:tars.publish.open")}</Button> : null}
   </>;
 }
 

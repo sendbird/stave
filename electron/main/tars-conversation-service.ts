@@ -1,3 +1,5 @@
+import { tarsCiPullRequest } from "../../src/lib/tars/pr-ci";
+import type { readTarsCi } from "./tars-pr-ci";
 import { TARS_INSPECTION_ROUNDS, type TarsInspectionReader } from "./tars-inspections";
 import {
   TarsActInputSchema, CancelTarsMessageInputSchema, GetTarsConversationInputSchema, TarsMessageInputSchema, TarsAnswerInputSchema,
@@ -34,6 +36,7 @@ interface ConversationPorts {
   responsibilities: Pick<TarsStore, "listActivity" | "snapshot" | "get" | "patch" | "events" | "view">;
   context: (message: TarsMessage) => Promise<TarsPlannerContext>;
   inspect?: TarsInspectionReader;
+  readCi?: (url: string) => ReturnType<typeof readTarsCi>;
   applyDecision: (input: ApplyTarsDecisionInput) => Promise<unknown>;
   /**
    * The host's admitted control path (`tars.act`). A decision answer that
@@ -498,7 +501,8 @@ export function createTarsConversationService(ports: ConversationPorts) {
         return;
       }
       // Never claim (or bill) a message before its allowed saved agents are known: wait a bounded time, then say it failed.
-      if (message.allowedAgentIds?.length && ports.agentCatalogReady?.() === false) {
+      if (message.allowedAgentIds?.length && ports.agentCatalogReady?.() === false &&
+          !(ports.readCi && !message.origin && tarsCiPullRequest(message.text))) {
         if (stillWaiting(`catalog:${message.id}`)) { noteQueueWait("agentCatalog"); throw new TarsAgentCatalogPendingError(); }
         blockedSince.delete(`catalog:${message.id}`);
         ports.conversations.fail(message.id, message.revision, TARS_MESSAGE_FAILURE_TEXT.agentsUnavailable, now(), "agentsUnavailable");

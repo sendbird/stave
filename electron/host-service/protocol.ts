@@ -463,6 +463,7 @@ export interface HostScmPrStatusResult {
     mergedAt: string | null;
     baseRefName: string;
     headRefName: string;
+    headRefOid?: string | null;
   } | null;
   stderr?: string;
 }

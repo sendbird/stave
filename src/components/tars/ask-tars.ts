@@ -5,7 +5,7 @@ import { findTrackerIssueMappedRepositoryPath } from "@/lib/tracker-issues/kicko
 import type { TrackerIssue } from "@/lib/tracker-issues/types";
 import { buildTarsDocumentDraft, buildTarsIssueDraft, type TarsIntakeDraft } from "@/lib/tars/intake";
 import { useAppStore } from "@/store/app.store";
-import { hydrateTarsDraft } from "@/store/tars-draft-store";
+import { hydrateTarsDraft, setTarsDraftTarget } from "@/store/tars-draft-store";
 import { stageTarsIntake } from "@/store/tars-intake";
 
 /** Opens a reviewable draft; this path never calls sendMessage or admits work. */
@@ -43,4 +43,19 @@ export async function askTarsAboutDocument(filePath: string, content: string): P
     await openTarsIntake(buildTarsDocumentDraft({ filePath, content,
       request: i18n.t("shell:tars.intake.documentRequest") }));
   } catch { toast.error(i18n.t("shell:tars.intake.failed")); }
+}
+
+export async function askTarsAboutPrCi(url: string): Promise<void> {
+  try {
+    await openTarsIntake({ text: i18n.t("sourceControl:tarsCI.request", { url }), attachments: [] });
+  } catch { toast.error(i18n.t("shell:tars.intake.failed")); }
+}
+
+/** Uses the clicked result's source, never its model-authored reply or CI logs. */
+export function stageTarsPrCiFix(url: string): boolean {
+  try {
+    stageTarsIntake({ text: i18n.t("sourceControl:tarsCI.fixRequest", { url }), attachments: [] });
+    setTarsDraftTarget(undefined);
+    return true;
+  } catch { toast.error(i18n.t("shell:tars.intake.failed")); return false; }
 }

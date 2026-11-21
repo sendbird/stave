@@ -527,3 +527,19 @@ test("a hung saved answer releases the queue, joins delivery once and wakes queu
     expect(deliveries).toBe(1);
   } finally { gate.resolve(); await service.stop(); f.runtime.stop(); }
 });
+
+test("PR inspection leaves an unrelated composer selection and working copy out of the saved request", async () => {
+  const f = fixture();
+  const service = createTarsConversationService({ ...f.ports, readCi: async () => ({ prompt: null, evidence: "No failed checks." }) });
+  const url = "https://github.com/team/project/pull/12";
+  service.start();
+  try {
+    const message = service.sendMessage({ requestId: "ci", text: url, includeWorkingChanges: true, target: { responsibilityId: "unrelated" } });
+    expect(message.target).toBeUndefined();
+    expect(message.includeWorkingChanges).not.toBe(true);
+    await service.whenIdle();
+    expect(f.conversations.get(message.id)?.reply).toBe("No failed checks.");
+    expect(f.applying()).toBe(0);
+    expect(f.requests).toHaveLength(0);
+  } finally { await service.stop(); }
+});
