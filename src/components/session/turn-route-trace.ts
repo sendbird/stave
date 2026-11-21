@@ -1,5 +1,47 @@
+import { readMessageIdTurnId } from "@/lib/session/message-id";
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
+
+/**
+ * The current turn (or the latest reply when idle) backs the composer's Auto
+ * label. Agent runs write their model on the reply and mark their prompt
+ * instead of using the renderer's Auto send path.
+ */
+export function findComposerAutoRoute(
+  messages: readonly ChatMessage[],
+  taskId: string,
+  activeTurnId: string | undefined,
+  liveTurnId: string | undefined,
+) {
+  const turnIdOf = (message: ChatMessage) =>
+    message.turnId ?? message.steeredIntoTurnId ?? readMessageIdTurnId({ taskId, id: message.id });
+  const replyIndex = messages.findLastIndex((message) =>
+    message.role === "assistant" && message.providerId !== "user" &&
+    message.model.length > 0 && (!activeTurnId || activeTurnId === turnIdOf(message)),
+  );
+  const reply = messages[replyIndex];
+  if (!reply) return null;
+
+  const turnId = turnIdOf(reply);
+  let resolution = reply.modelResolution;
+  let agentTurn = false;
+  for (let index = replyIndex - 1; turnId && !resolution && index >= 0; index -= 1) {
+    const message = messages[index]!;
+    if (turnIdOf(message) !== turnId) break;
+    if (message.role === "assistant") resolution = message.modelResolution;
+    if (message.role === "user" && message.agentRunPrompt) agentTurn = true;
+  }
+  if (!resolution && !agentTurn && !(turnId && turnId === liveTurnId)) return null;
+
+  // Keep the subscription stable while the contents of the reply stream.
+  return {
+    providerId: reply.providerId,
+    model: reply.model,
+    modelInfo: reply.modelInfo,
+    resolution,
+    turnId,
+  };
+}
 
 export interface RecordedTurnRoute {
   resolution: AutoRoutingModelResolution;

@@ -108,7 +108,7 @@ export function buildAutoModelSelectorOption(args: {
    * reads `Auto → Opus 5 · High` and its tooltip carries the rule that fired.
    * Absent before the first routed turn, when only the stance is known.
    */
-  routed?: { label: string; description: string } | null;
+  routed?: { label: string; description?: string } | null;
   stanceLabel?: string;
   /** A send is waiting on the classifier; the previous route no longer applies. */
   pending?: boolean;

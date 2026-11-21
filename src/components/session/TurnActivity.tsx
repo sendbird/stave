@@ -41,7 +41,6 @@ import {
 } from "@/components/auto-routing";
 import { findRecordedTurnRoute } from "./turn-route-trace";
 import { isDelegatedTaskInTurn } from "@/lib/work-graph/delegated-task-scope";
-import type { AutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import {
   selectDelegationExchanges,
   type DelegationActionId,
@@ -140,8 +139,6 @@ const EMPTY_CHILD_SOURCE: DelegatedTaskListingSource = {
 const TURN_ACTIVITY_FAILURE_LINGER_MS = 5_000;
 /** Matches the exit animation below so the shelf collapses instead of popping. */
 const TURN_ACTIVITY_EXIT_MS = 180;
-/** Send-time decision vs. first provider event: allow the clock to disagree a little. */
-const ROUTE_RECORD_SKEW_MS = 5_000;
 /**
  * Provider events can flush up to 20 times per second, so row content would
  * still rebuild too often. Rows are prose a human has to read — coalescing them
@@ -566,27 +563,14 @@ export function useTurnActivityModel(args: {
     currentActivity?.workGraph ?? null,
     TURN_ACTIVITY_CONTENT_THROTTLE_MS,
   );
-  // The task keeps only its latest decision. A retained turn replayed after a
-  // newer send would otherwise show the newer route, so the record has to
-  // predate the turn it is drawn under.
-  const liveAutoRouting = useMemo<AutoRoutingDecisionRecord | null>(() => {
-    if (!isRoutedDecision(autoRoutingRecord)) {
-      return null;
-    }
-    const startedAt = currentActivity?.startedAt;
-    if (typeof startedAt !== "number") {
-      return autoRoutingRecord;
-    }
-    const resolvedAt = Date.parse(autoRoutingRecord.resolvedAt);
-    return Number.isFinite(resolvedAt) && resolvedAt <= startedAt + ROUTE_RECORD_SKEW_MS
+  // The task caches only its latest decision. It can fill the trace for the
+  // matching turn until that turn's recorded resolution arrives.
+  const shownTurnId = currentActivity?.turnId ?? activeTurnId;
+  const liveAutoRouting =
+    shownTurnId && isRoutedDecision(autoRoutingRecord) && autoRoutingRecord.turnId === shownTurnId
       ? autoRoutingRecord
       : null;
-  }, [autoRoutingRecord, currentActivity?.startedAt]);
-  // The saved decision for the turn on screen wins, so a restart or a later
-  // send cannot change the route a turn shows; the in-memory record only fills
-  // in while nothing was saved yet. Keyed on the saved fields rather than the
-  // message, which is replaced on every streamed delta.
-  const recordedRoute = findRecordedTurnRoute(messages, currentActivity?.turnId ?? activeTurnId);
+  const recordedRoute = findRecordedTurnRoute(messages, shownTurnId);
   const recordedResolution = recordedRoute?.resolution;
   const recordedModelInfo = recordedRoute?.modelInfo;
   const recordedPrompt = recordedRoute?.prompt ?? "";

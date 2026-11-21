@@ -9,6 +9,7 @@ import type {
   ImageContextPart,
   MessagePart,
   MessageRole,
+  TurnModelInfo,
   ToolUsePart,
   UserInputQuestion,
 } from "@/types/chat";
@@ -1133,6 +1134,7 @@ export type NormalizedProviderEvent =
       type: "model_resolved";
       resolvedProviderId: ProviderId;
       resolvedModel: string;
+      modelInfo?: TurnModelInfo;
       modelExecution?: ModelExecution;
       /** Present only for Stave's automatic primary-model routing decision. */
       modelResolution?: AutoRoutingModelResolution;

@@ -70,7 +70,8 @@ export function projectAgentRunRoutes(args: {
   const latestByAttempt = new Map<string, AgentRunRouteObservation>();
   const observations: AgentRunRouteObservation[] = [];
   for (const event of events) {
-    if (event.kind !== "turn-started") continue;
+    const userReply = event.kind === "turn-linked" && event.detail.reason === "user-reply";
+    if (event.kind !== "turn-started" && !userReply) continue;
     const decisionId = event.idempotencyKey ?? event.id;
     if (seen.has(decisionId)) continue;
     seen.add(decisionId);
@@ -78,13 +79,14 @@ export function projectAgentRunRoutes(args: {
     const attempt = typeof event.detail.attempt === "number" && Number.isInteger(event.detail.attempt) && event.detail.attempt > 0
       ? event.detail.attempt : null;
     const outcomeEvent = (outcome: "linked" | "failed" | "interrupted") => {
-      if (!event.idempotencyKey) return undefined;
+      if (userReply || !event.idempotencyKey) return undefined;
       const candidate = keyed.get(buildAgentRunTurnOutcomeKey(event.idempotencyKey, outcome));
       return candidate && candidate.sequence > event.sequence && candidate.kind === `turn-${outcome}` &&
         candidate.detail.stageId === stageId && candidate.detail.attempt === attempt ? candidate : undefined;
     };
-    const linked = outcomeEvent("linked");
+    const linked = userReply ? event : outcomeEvent("linked");
     const candidateTurnId = typeof linked?.detail.turnId === "string" ? linked.detail.turnId : null;
+    if (userReply && (!stageId || attempt === null || !candidateTurnId || usedTurns.has(candidateTurnId))) continue;
     const turnId = candidateTurnId && !usedTurns.has(candidateTurnId) ? candidateTurnId : null;
     if (turnId) usedTurns.add(turnId);
     const facts = turnId ? args.turns?.get(turnId) : undefined;
