@@ -37,9 +37,41 @@ test("a task's pending decision opens the same live card without confirming it",
   await expect(card.locator("[data-tars-decision-state=waiting]")).toBeVisible();
 });
 
+test("opening a live decision waits for the conversation to catch up", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&tray=true&taskRequest=task-release");
+  await page.locator('[data-tars-task-request="release"]').click();
+  const conversation = await page.evaluateHandle(() => {
+    const bridge = window.api.tars!;
+    const read = bridge.getConversation!;
+    return { refresh: () => {
+      bridge.getConversation = async () => {
+        const current = await read();
+        const proposal = { ...current.receipts[0]!, messageId: "message-plan", actionIndex: 1, status: "proposed" as const,
+          action: { kind: "control" as const, operation: "resume" as const, responsibilityId: "release", expectedRevision: 3 } };
+        return { ...current, messages: [...current.messages, { ...current.messages[0]!, id: proposal.messageId }],
+          receipts: [...current.receipts, proposal] };
+      };
+      window.dispatchEvent(new Event("focus"));
+    } };
+  });
+  await page.getByRole("dialog").getByRole("button", { name: "Review decision: Resume", exact: true }).click();
+  await expect(page.locator("[data-tars-composer] [contenteditable=true]")).toBeEditable();
+  await expect(page.locator("[data-tars-dock-item]")).toHaveCount(0);
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await conversation.evaluate(api => api.refresh());
+  const card = page.locator('[data-tars-dock-item="confirm:message-plan:1"]:not([hidden])');
+  await expect(card.locator("[data-tars-decision]")).toBeFocused();
+  await expect(card.locator("[data-tars-decision-state=waiting]")).toBeVisible();
+});
+
 test("opening a decision whose card disappeared gives a reason and takes no action", async ({ page }) => {
   await page.goto("/?stavePreview=tars&tray=true&taskRequest=task-release");
   await page.locator('[data-tars-task-request="release"]').click();
+  await page.evaluate(() => {
+    const bridge = window.api.tars!;
+    const read = bridge.get;
+    bridge.get = async () => ({ ...await read(), pendingDecisions: [] });
+  });
   await page.getByRole("dialog").getByRole("button", { name: "Review decision: Resume", exact: true }).click();
   await expect(page.getByText("This item has changed or is no longer available.")).toBeVisible();
   await expect(page.locator("[data-tars-dock-item]")).toHaveCount(0);

@@ -510,7 +510,7 @@ async function verifyContinuationCheckout(row: TarsResponsibility, cwd: string) 
     readTarsCommand("git", ["symbolic-ref", "--quiet", "--short", "HEAD"], cwd),
   ]);
   const [commonDirectory, topLevel] = checkout.stdout.trimEnd().split(/\r?\n/);
-  if (!source.ok || !checkout.ok || !topLevel || path.resolve(commonDirectory) !== path.resolve(source.stdout.trimEnd()) ||
+  if (!source.ok || !checkout.ok || !commonDirectory || !topLevel || path.resolve(commonDirectory) !== path.resolve(source.stdout.trimEnd()) ||
       path.resolve(topLevel) !== realpathSync(cwd) || path.resolve(topLevel) === realpathSync(row.repositoryPath))
     throw new TarsRunRefusedError("The checkout no longer matches the work's execution workspace and repository.");
   const branch = current.stdout.trimEnd();

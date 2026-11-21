@@ -37,8 +37,8 @@ export function useTarsNotificationFocus(args: {
       });
       return () => cancelAnimationFrame(frame);
     }
-    // Host notifications can precede the conversation refresh that carries the card.
-    if (!request.destination && waiting) return;
+    // The snapshot can arrive before the conversation that carries the waiting card.
+    if (waiting && (!request.destination || request.destination === "decision")) return;
     const unavailable = !row || request.destination === "decision" ||
       (request.destination === "publish" && !(openPublish && isTarsPublishable(row)));
     setUnavailable(unavailable);
