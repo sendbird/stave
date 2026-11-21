@@ -54,7 +54,7 @@ You sign in once per account, not once per CLI binary. The sign-in is saved in t
 - **Settings > Accounts** (first item under Agents), from top to bottom:
   - **Getting started**: the steps above.
   - **Choose how you pay**: your subscription, another subscription, or a company gateway key. Each button goes to its form; a way you already use reads **In use**.
-  - **Claude accounts** and **Codex accounts**: add, rename, sign in, and remove accounts.
+  - **Claude accounts** and **Codex accounts** add, rename, sign in, and remove accounts. **Cross-account MCP for Codex** applies to every Codex task.
   - **Other agent CLIs** (Cursor, Kiro, OpenCode): each installed CLI gets a row that says whether it is signed in, with **Copy Login Command**. These CLIs keep their own sign-in, so Stave does not manage accounts for them. CLIs that are not installed share one folded **Not installed** row; opening it shows how to install each one, a field for its CLI path when it is installed where Stave does not look, and **Open Tooling**. While the first check runs, the card shows one **Checking** row. A CLI's other Settings areas (its tab in Settings > Providers, its rows in Settings > Models, its columns in Settings > MCP and its entry in provider pickers) appear once it is installed and signed in; OpenCode only needs to be installed.
   - **API connections**: add, check, edit, and remove API connections.
 - **Settings > Accounts > Tooling** keeps CLI paths, install status, and versions. Its top card points to the Accounts tab.
@@ -103,6 +103,20 @@ Claude and Codex read skills, instructions, and settings from the account's own 
 - If the account already has its own version of an entry, Stave keeps it and says so under the checkbox.
 - Use **Update copied settings** after you change System default's settings; the copy is replaced only while you have not edited it in the account.
 - Clearing the checkbox removes the links and an unedited settings copy that Stave added. It never touches your System default folder or anything the account owns.
+
+### MCP Options for a Claude Account
+
+A Claude account that Stave created has two MCP choices of its own. Both are kept in the account folder (`.stave-account-mcp.json`) and neither moves a sign-in.
+
+- **Use MCP servers from System default** runs System default's user and local MCP servers in the account's sessions without sharing the rest of the setup. It is offered only while **Use my skills and instructions from System default** is off, because that option already includes the MCP servers.
+- **Hand MCP work to another account when this one cannot do it** covers servers that follow the sign-in and cannot be shared as configuration: connectors a company installs on its claude.ai organization, and servers whose OAuth sign-in was done on one account only. A session on this account is told which servers its other Claude accounts can use and it cannot. When a step needs one, it starts a subagent on that account for that step only (for example the upload of a document it finished writing here), waits for the answer and continues with it.
+  - Settings lists under the option which account can do this for which servers, before you turn it on.
+  - A skill or instruction that says to call a tool of such a server is carried out the same way, so a skill written for the company account also works here.
+  - The subagent runs in the same workspace on Sonnet, so it can read files the task wrote. Its answer ends with a status (`ok`, `partial`, `needs_auth`, `missing_connector` or `failed`) and the links, ids or short excerpts the task needs.
+  - A retry or a follow-up of that subagent runs on the same account again, whichever account is selected by then. The subagent list shows the account it ran on.
+  - It does not start while the other account's usage is critical or used up. Low usage is allowed.
+  - What the subagent reads on the other account comes back into this account's conversation. Leave the option off if the two accounts must not exchange content.
+  - Stave compares server names only. Recent connection checks and turn observations take precedence for 12 hours. Without a recent observation, Stave uses the configured server and connector names and omits servers that the account's saved configuration marks as needing sign-in.
 
 ### Switch Accounts
 
@@ -255,7 +269,10 @@ What to expect:
 - **Check connection** does not run a turn, so it cannot confirm that tools and streaming work with a model. Send a short turn to confirm.
 - Claude's `claude auth status` fields for email and plan are observed rather than documented. If a future version drops them, the row shows **Signed in** without an email.
 - A Codex sign-in stored in the system keyring (not `auth.json`) shows **Signed in** without an email.
-- Claude MCP servers that sign in with OAuth (`/mcp` login) keep their sign-in per account, so authenticate them once in each account. Codex MCP servers are shared only while `config.toml` is linked.
+- Claude MCP servers that sign in with OAuth (`/mcp` login) keep their sign-in per account, so authenticate them once in each account, or turn on **Hand MCP work to another account when this one cannot do it**.
+- In a Claude account's delegation settings, choose **Check connections for [account]** to see which MCP servers are connected, require sign-in on that account, or failed to connect. The check uses the account's configuration and sends no model prompt. Stave keeps the connected server names and check time for up to 12 hours, including after restart. When no recent check is available, the list is based on saved configuration.
+- To let Codex delegate, open **Settings > Accounts > Cross-account MCP for Codex** and enable **Let Codex tasks use MCP servers from a Claude account**. The app-wide setting starts off and defaults to the **System default** Claude account. Select another Claude account if needed. The list shows servers available through that account, excluding equivalent names already configured in the selected Codex account.
+- After a subagent answers an account delegation, it stays available for follow-up for up to 24 hours. Ask the parent task about the same item to continue in that subagent's conversation. It closes automatically after the window.
 
 ## Troubleshooting
 
