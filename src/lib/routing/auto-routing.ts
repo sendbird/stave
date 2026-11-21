@@ -372,6 +372,11 @@ export function buildAutoRoutingDecisionRecord(args: {
 
 export interface ResolveAutoRoutingDecisionArgs {
   settings: AutoRoutingSettings;
+  /**
+   * Role the routed turn plays. A delegated child routes as `delegate`, so the
+   * profile's delegate rule applies at run time, as the Settings preview shows.
+   */
+  role?: RouterRole;
   runtimeOverrides?: PromptDraftRuntimeOverrides;
   currentProviderId: ProviderId;
   currentModel: string;
@@ -1060,10 +1065,18 @@ export function computeRouterSignals(args: {
   const sensitive = classification
     ? classification.risk === "high"
     : heuristic.sensitive;
+  // A small, bounded implementation is the classifier's form of a quick edit;
+  // without this the quick-edit rules (Provider strengths) never match once
+  // the classifier answers, only on its heuristic fallback.
+  const boundedQuickEdit = classification?.intent === "implement"
+    && classification.complexity === "low"
+    && classification.evidenceCodes.includes("bounded_edit");
   const derivedTaskClass = classification
     ? sensitive && args.profile.signals.safetyEscalation
       ? "safety-critical"
-      : intentClass[classification.intent]
+      : boundedQuickEdit
+        ? "quick-edit"
+        : intentClass[classification.intent]
     : heuristic.taskClass;
   // The agent's class only fills in for an unclear or missing classification.
   const confidentlyClassified = Boolean(classification && classification.intent !== "unknown");
@@ -1281,7 +1294,7 @@ export async function resolveAutoRoutingDecision(
 
   const route = resolveRoute({
     profile,
-    role: "primary",
+    role: args.role ?? "primary",
     signals: {
       ...signals,
       uncertain: signals.uncertain || source === "classifier_fallback",
@@ -1311,7 +1324,7 @@ export async function resolveAutoRoutingDecision(
   return buildDecision({
     providerId: route.providerId,
     model: route.model,
-    role: "primary",
+    role: args.role ?? "primary",
     taskType: taskClassToTaskType(signals.taskClass),
     taskClass: signals.taskClass,
     tier: routeTierToModelTier(route),

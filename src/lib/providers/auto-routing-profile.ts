@@ -337,7 +337,9 @@ const MODELS_WITHOUT_EFFORT: ReadonlySet<string> = new Set([
 
 export function resolveRouteTierForModel(model: string): RouteTier {
   const trimmed = model.trim();
-  const known = ROUTE_TIER_BY_MODEL[trimmed];
+  // Gateway ids carry a vendor prefix (`openai/gpt-6.2-astra`); the explicit
+  // rung belongs to the model, not to how a connection names it.
+  const known = ROUTE_TIER_BY_MODEL[trimmed] ?? ROUTE_TIER_BY_MODEL[canonicalApiConnectionModelId(trimmed)];
   if (known) {
     return known;
   }
