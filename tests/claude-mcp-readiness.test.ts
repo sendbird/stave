@@ -1,10 +1,27 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import type { McpServerStatus } from "@anthropic-ai/claude-agent-sdk";
 import {
   buildClaudeMcpReadinessNotice,
   summarizeClaudeMcpReadiness,
   waitForClaudeMcpReadiness,
 } from "../electron/providers/claude-sdk-runtime";
+
+// Readiness probes record MCP status under STAVE_USER_DATA_PATH. Point it at a
+// temp folder so a run inside Stave never writes into the real app data.
+const previousUserDataPath = process.env.STAVE_USER_DATA_PATH;
+let userDataRoot = "";
+beforeAll(() => {
+  userDataRoot = mkdtempSync(path.join(tmpdir(), "stave-mcp-readiness-"));
+  process.env.STAVE_USER_DATA_PATH = userDataRoot;
+});
+afterAll(() => {
+  if (previousUserDataPath === undefined) delete process.env.STAVE_USER_DATA_PATH;
+  else process.env.STAVE_USER_DATA_PATH = previousUserDataPath;
+  rmSync(userDataRoot, { recursive: true, force: true });
+});
 
 // Remote connectors (Figma, Slack) finish their handshake after the CLI reports
 // `system:init`. Sending the turn's prompt before then makes the model answer

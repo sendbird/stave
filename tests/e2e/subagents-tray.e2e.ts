@@ -82,6 +82,11 @@ for (const lang of ["en", "ko"] as const) {
       await page.evaluate(() => document.fonts.ready);
       const list = page.getByTestId("subagents-list");
       await expect(list.locator("li")).toHaveCount(6);
+      const accountLabel = list.getByText(lang === "ko" ? "System default 계정에서 실행" : "on System default", { exact: true });
+      await expect(accountLabel).toBeVisible();
+      const accountRow = accountLabel.locator("..");
+      await expect(accountRow).toHaveAttribute("data-subagent-kind", "delegated-task");
+      expect(await accountRow.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
       const frame = page.getByTestId("task-panel-frame");
       expect((await frame.boundingBox())!.width).toBeLessThanOrEqual(322);
       expect(await frame.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);

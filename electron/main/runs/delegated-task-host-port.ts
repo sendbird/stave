@@ -282,6 +282,7 @@ export function createDelegatedTaskHostPort(
       permissionPolicy,
       parentTaskId,
       accounts,
+      delegationBrief,
       onStarted,
     }) {
       const started = await dependencies.startTaskTurn({
@@ -298,6 +299,7 @@ export function createDelegatedTaskHostPort(
             effort,
             permissionProfile,
             permissionPolicy,
+            delegationBrief,
           }),
           // In runtime options, so main attaches an API connection's key too.
           ...accounts,

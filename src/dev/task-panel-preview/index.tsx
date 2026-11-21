@@ -607,6 +607,7 @@ const DELEGATED_ASKING: DelegatedTaskSummary = {
   delegatedTaskId: "task-panel-preview-changelog",
   delegatedTurnId: "turn-changelog-1",
   providerId: "claude-code",
+  accountLabel: "System default",
   requestedModel: "claude-sonnet-5",
   phase: "running",
   createdAt: "2026-09-29T10:03:00.000Z",

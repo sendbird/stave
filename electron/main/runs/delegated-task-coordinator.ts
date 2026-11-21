@@ -7,6 +7,7 @@ import {
   shouldCheckDelegationProvider,
 } from "../../../src/lib/runs/delegation-provider";
 import type { ProviderStrengthMap } from "../../../src/lib/providers/provider-strength-presets";
+import type { ProviderId } from "../../../src/lib/providers/provider.types";
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -37,6 +38,11 @@ import {
   resolveDelegatedTaskWaitSeconds,
   describeDelegatedTaskRejection,
   isActiveDelegatedTaskPhase,
+  isDelegatedTaskWorking,
+  delegatedTaskMcpAnswerAt,
+  delegatedTaskAnswerTurnId,
+  MCP_DELEGATION_FOLLOW_UP_WINDOW_MS,
+  MCP_DELEGATION_ANSWERED_CODE,
   isReservedDelegationKey,
   resolveDelegatedTaskControls,
   toDelegatedTaskSummary,
@@ -56,6 +62,7 @@ import {
   createPendingRun,
   createPendingRunStep,
   RUN_LEDGER_SCHEMA_VERSION,
+  type RunReceiptDetail,
   type RunReceiptRecord,
   type RunRecord,
   type RunStepRecord,
@@ -75,7 +82,7 @@ import type { AgentRunDetail } from "../../../src/lib/agent-runs/api";
 import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../../src/lib/agent-runs/delegated-run";
 import { readDelegatedAgentCompletion } from "../../../src/lib/agent-runs/delegated-completion";
 import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
-import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
+import { selectedProviderAccount, type ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import { admitDelegationUsage, type ProviderUsageSummary, type TeamProviderId } from "../../../src/lib/agent-runs/provider-usage";
 import { formatAgentRunReportMarkdown } from "../../../src/lib/agent-runs/report-markdown";
 import { currentStageRecord } from "../../../src/lib/agent-runs/domain";
@@ -232,6 +239,7 @@ export interface DelegatedTaskHostPort {
     parentTaskId: string;
     /** The accounts of the request that asked for this turn. */
     accounts?: ProviderAccountSelection;
+    delegationBrief?: string;
     /** Persist the exact execution identity before waiting for completion. */
     onStarted?: (turnId: string) => void;
   }): Promise<{ turnId: string; responseText?: string }>;
@@ -252,11 +260,23 @@ export interface DelegatedTaskHostPort {
 export interface DelegateCaller {
   taskId: string;
   workspaceId: string | null;
+  providerId?: ProviderId;
   /** The calling turn; absent for a caller that cannot name one. */
   turnId?: string;
   /** The agent run this turn belongs to, when it is a stage or reply turn of one. */
   agentRunId?: string;
   accounts?: ProviderAccountSelection;
+}
+
+type McpDelegationAccountResolution = { ok: true; accountProfileId: string; label: string; model: string } | { ok: false; message: string };
+
+type McpDelegationTarget = Pick<RunReceiptDetail, "targetAccountProfileId" | "targetAccountLabel" | "server">;
+
+interface DelegationDefaults {
+  inheritedEffort?: DelegatedTaskEffort;
+  accounts?: ProviderAccountSelection;
+  usageCheck?: { override: boolean };
+  mcpTarget?: McpDelegationTarget;
 }
 
 interface DelegatedTaskCoordinatorDependencies {
@@ -318,6 +338,15 @@ interface DelegatedTaskCoordinatorDependencies {
    * it; null or a failed read admits, since unknown usage is not a refusal.
    */
   readProviderUsage?: (accounts: ProviderAccountSelection | undefined) => Promise<Record<TeamProviderId, ProviderUsageSummary> | null>;
+  /**
+   * The Claude account a call's `account` names, when the calling account may
+   * hand MCP work to it (`provider-accounts/mcp-delegation.ts`), and the model
+   * that work runs on. Absent, `account` is refused.
+   */
+  resolveMcpDelegationAccount?: (args: { callerProviderId?: ProviderId; callerAccountProfileId: string; account: string }) =>
+    | McpDelegationAccountResolution
+    | Promise<McpDelegationAccountResolution>;
+  buildMcpDelegationBrief?: (args: { accountLabel: string; server?: string }) => string;
   applyAgent?: (
     args: DelegateTaskArgs,
   ) => Promise<
@@ -326,7 +355,7 @@ interface DelegatedTaskCoordinatorDependencies {
   >;
 }
 
-function hashDelegatedTaskInput(args: DelegateTaskArgs, agentContentHash?: string | null) {
+function hashDelegatedTaskInput(args: DelegateTaskArgs, agentContentHash?: string | null, targetAccountProfileId?: string) {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -341,6 +370,7 @@ function hashDelegatedTaskInput(args: DelegateTaskArgs, agentContentHash?: strin
         ...(args.lifecycle === "supervised" ? { maxTurns: args.maxTurns ?? 30 } : {}),
         workspace: args.workspace,
         ...(agentContentHash ? { agentContentHash } : {}),
+        ...(targetAccountProfileId ? { targetAccountProfileId } : {}),
       }),
     )
     .digest("hex");
@@ -360,6 +390,7 @@ export function deriveDelegationKey(args: {
   prompt: string;
   /** Distinguishes the same prompt sent to two agents; absent keeps older keys. */
   agentConfigId?: string;
+  targetAccountProfileId?: string;
 }) {
   const digest = createHash("sha256")
     .update(JSON.stringify([
@@ -368,6 +399,7 @@ export function deriveDelegationKey(args: {
       args.model ?? null,
       args.prompt,
       ...(args.agentConfigId ? [args.agentConfigId] : []),
+      ...(args.targetAccountProfileId ? [{ targetAccountProfileId: args.targetAccountProfileId }] : []),
     ]))
     .digest("hex");
   const slug = args.prompt
@@ -460,6 +492,10 @@ function acceptedReceiptForRun(
     );
 }
 
+function accountsForDelegatedTurn(accounts: ProviderAccountSelection | undefined, targetAccountProfileId?: string) {
+  return targetAccountProfileId ? { ...accounts, claudeAccountProfileId: targetAccountProfileId } : accounts;
+}
+
 function summaryFromTransition(
   ledger: Pick<DelegatedTaskLedgerPort, "listRunReceipts">,
   transition: RunLedgerTransitionResult,
@@ -482,6 +518,7 @@ function summaryFromAggregate(
       (receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt,
     ),
     resultReceipt: delegatedTaskResultReceipt(receipts, aggregate.step),
+    mcpAnswerAt: delegatedTaskMcpAnswerAt(receipts, aggregate.step),
     waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
     waitsForPerson: delegatedTaskWaitsForPerson(receipts, aggregate.step),
   });
@@ -521,6 +558,7 @@ export function createDelegatedTaskCoordinator(
   const createExecutionId = dependencies.createExecutionId ?? randomUUID;
   const inFlightByStepId = new Map<string, Promise<void>>();
 
+  const followUpTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const getLedger = async () => dependencies.getLedger();
   // Read-only source watermarks suppress out-of-order observations without a receipt per event.
   const supervisorSequences = new Map<string, number>();
@@ -542,6 +580,48 @@ export function createDelegatedTaskCoordinator(
     } catch (error) {
       reportError(error, { scope: "notify-change", runId: parentTaskId });
     }
+  };
+
+  const clearMcpFollowUpExpiry = (stepId: string) => {
+    clearTimeout(followUpTimers.get(stepId));
+    followUpTimers.delete(stepId);
+  };
+
+  const expireMcpFollowUp = (ledger: DelegatedTaskLedgerPort, child: DelegatedTaskSummary) => {
+    if (child.phase !== "waiting" || !child.mcpAnswerAt) return false;
+    const timestamp = now();
+    if (Date.parse(timestamp) < Date.parse(child.mcpAnswerAt) + MCP_DELEGATION_FOLLOW_UP_WINDOW_MS) return false;
+    const step = ledger.getRunAggregate(child)?.step;
+    if (!step?.executionId || !step.target?.turnId || step.status !== "waiting" || step.target.turnId !== child.delegatedTurnId) return false;
+    const transition = ledger.completeRunStep({
+      runId: child.runId, stepId: child.stepId, executionId: step.executionId,
+      idempotencyKey: `child:${step.executionId}:mcp-follow-up-expired`,
+      resultArtifactRef: buildDelegatedTaskArtifactRef({
+        workspaceId: step.target.workspaceId, taskId: step.target.taskId, turnId: step.target.turnId,
+      }),
+      now: timestamp,
+    });
+    if (transition.accepted) {
+      clearMcpFollowUpExpiry(child.stepId);
+      if (!transition.duplicate) notifyChanged(child.parentTaskId);
+    }
+    return transition.accepted;
+  };
+
+  const scheduleMcpFollowUpExpiry = (child: DelegatedTaskSummary) => {
+    if (child.phase !== "waiting" || !child.mcpAnswerAt || followUpTimers.has(child.stepId)) return;
+    const { runId, stepId, mcpAnswerAt } = child;
+    const remaining = Date.parse(mcpAnswerAt) + MCP_DELEGATION_FOLLOW_UP_WINDOW_MS - Date.parse(now());
+    const timer = setTimeout(() => {
+      followUpTimers.delete(stepId);
+      void getLedger().then((ledger) => {
+        const aggregate = ledger.getRunAggregate({ runId, stepId });
+        const current = aggregate && summaryFromAggregate(ledger, aggregate);
+        if (current && !expireMcpFollowUp(ledger, current)) scheduleMcpFollowUpExpiry(current);
+      }).catch((error) => reportError(error, { scope: "mcp-follow-up-expiry", runId }));
+    }, Math.max(0, remaining));
+    timer.unref?.();
+    followUpTimers.set(stepId, timer);
   };
 
   /** A fresh turn identity, so a late settle of an earlier turn cannot land on this one. */
@@ -588,9 +668,8 @@ export function createDelegatedTaskCoordinator(
       `Subagent ${holder.step.target?.taskId ?? holder.step.id} is already writing in this workspace. Run this one in a new worktree, or wait for it to finish.`);
 
   /**
-   * Turn the child's terminal outcome into ledger receipts. `one-turn` closes
-   * the run; `detached` parks it in `waiting` so the delegated task stays open for
-   * follow-up turns until the parent stops it.
+   * Turn the child's outcome into a ledger receipt. Detached and account
+   * delegations park in `waiting` so the same child can take follow-ups.
    */
   const settleAfterTurn = (args: {
     ledger: DelegatedTaskLedgerPort;
@@ -606,6 +685,7 @@ export function createDelegatedTaskCoordinator(
     responseText?: string | null;
     routingDecision?: RoutingDecisionObservation;
     reviewCompletedRevision?: WorkspaceRevision;
+    accountDelegation?: boolean;
   }) => {
     const timestamp = now();
     const responseText = boundResponseText(args.responseText);
@@ -619,20 +699,23 @@ export function createDelegatedTaskCoordinator(
       expectedExecutionId: args.executionId,
       expectedTurnExecutionId: args.target.turnExecutionId,
     });
-    if (args.lifecycle === "detached") {
+    if (args.lifecycle === "detached" || args.accountDelegation) {
       // Keyed per turn and allowed to re-enter `waiting`: a detached child
       // parks in `waiting` between turns, so a follow-up turn's completion
       // must still write its own receipt and move `updatedAt` instead of
       // short-circuiting as a duplicate of the first turn's settle.
-      return args.ledger.markRunStepWaiting({
+      const transition = args.ledger.markRunStepWaiting({
         runId: args.runId,
         stepId: args.stepId,
         executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
-        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}), ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}) },
+        detail: { code: args.accountDelegation ? MCP_DELEGATION_ANSWERED_CODE : "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}), ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}) },
         reenter: true,
         now: timestamp,
       });
+      const summary = summaryFromTransition(args.ledger, transition);
+      if (summary) scheduleMcpFollowUpExpiry(summary);
+      return transition;
     }
     return args.ledger.completeRunStep({
       runId: args.runId,
@@ -741,6 +824,7 @@ export function createDelegatedTaskCoordinator(
       resourceRootRunId?: string;
       /** The accounts of the request that asked for this turn; absent means System default. */
       accounts?: ProviderAccountSelection;
+      mcpTarget?: McpDelegationTarget;
     };
   }) => {
     args.target = { ...args.target, turnId: null };
@@ -800,12 +884,17 @@ export function createDelegatedTaskCoordinator(
         }
         const dailyRefusal = dependencies.dailyUsageLimit ? await dependencies.dailyUsageLimit(args.target.providerId) : null;
         if (dailyRefusal) throw new Error(dailyRefusal);
+        const { targetAccountProfileId, targetAccountLabel, server } = args.turn.mcpTarget ?? {};
+        const delegationBrief = targetAccountProfileId
+          ? dependencies.buildMcpDelegationBrief?.({ accountLabel: targetAccountLabel ?? targetAccountProfileId, server })
+          : undefined;
         const result = await dependencies.host.runTask({
           workspaceId: args.target.workspaceId,
           taskId: args.target.taskId,
           parentTaskId: args.parentTaskId,
           title: args.turn.title,
           prompt: args.turn.prompt,
+          delegationBrief,
           providerId: args.target.providerId,
           model,
           effort,
@@ -853,6 +942,7 @@ export function createDelegatedTaskCoordinator(
           responseText: result.responseText,
           routingDecision,
           reviewCompletedRevision,
+          accountDelegation: Boolean(targetAccountProfileId),
         });
       } catch (error) {
         if (args.turn.agentRunId) {
@@ -956,6 +1046,11 @@ export function createDelegatedTaskCoordinator(
         // authoritative.
         return;
       }
+      if (summary.phase === "waiting" && summary.mcpAnswerAt) {
+        if (expireMcpFollowUp(ledger, summary)) reconciled += 1;
+        else scheduleMcpFollowUpExpiry(summary);
+        return;
+      }
       if (summary.agentRunId) {
         const observation = await dependencies.host.readAgentRun?.({ agentRunId: summary.agentRunId }).catch(() => null) ?? null;
         if (observation && "missing" in observation && !inFlightByStepId.has(aggregate.step.id)) {
@@ -1005,7 +1100,8 @@ export function createDelegatedTaskCoordinator(
         reconciled += transition.accepted ? 1 : 0;
         return;
       }
-      if (summary.lifecycle === "detached" && summary.phase === "waiting") {
+      const accountDelegation = Boolean(acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.targetAccountProfileId);
+      if (!accountDelegation && summary.lifecycle === "detached" && summary.phase === "waiting") {
         // Parked open on purpose; whatever the child does next belongs to its
         // own task surface, not to this delegation's receipts.
         return;
@@ -1028,7 +1124,10 @@ export function createDelegatedTaskCoordinator(
       // close a retry with results the retry never produced, so such a row
       // falls through to the interrupted receipt instead.
       const claimedAt = aggregate.step.startedAt;
-      const staleLatestTurn = Boolean(
+      const isPreviousMcpAnswer = summary.phase === "waiting" && ledger.listRunReceipts({ runId: aggregate.run.id }).some((receipt) =>
+        receipt.type === "waiting" && receipt.executionId === executionId && receipt.detail?.code === MCP_DELEGATION_ANSWERED_CODE &&
+        delegatedTaskAnswerTurnId(receipt, aggregate.step) === status.latestTurnId);
+      const staleLatestTurn = isPreviousMcpAnswer || Boolean(
         claimedAt &&
         status.latestTurnCompletedAt &&
         Date.parse(status.latestTurnCompletedAt) < Date.parse(claimedAt),
@@ -1080,6 +1179,7 @@ export function createDelegatedTaskCoordinator(
           turnId: status.latestTurnId,
           providerId: target.providerId,
           responseText: status.latestAssistantText,
+          accountDelegation,
         });
         reconciled += transition.accepted ? 1 : 0;
         return;
@@ -1167,8 +1267,12 @@ export function createDelegatedTaskCoordinator(
     const stepId = buildDelegatedTaskStepId(runId);
     const ledger = await getLedger();
     await ensureReconciled(args.parentTaskId);
-    const aggregate = ledger.getRunAggregate({ runId, stepId });
-    const child = aggregate ? summaryFromAggregate(ledger, aggregate) : null;
+    let aggregate = ledger.getRunAggregate({ runId, stepId });
+    let child = aggregate ? summaryFromAggregate(ledger, aggregate) : null;
+    if (child && expireMcpFollowUp(ledger, child)) {
+      aggregate = ledger.getRunAggregate({ runId, stepId });
+      child = aggregate ? summaryFromAggregate(ledger, aggregate) : null;
+    }
     if (!child) {
       return { ok: false as const, rejection: rejected("not-found") };
     }
@@ -1227,7 +1331,7 @@ export function createDelegatedTaskCoordinator(
 
   const delegateChild = async (
     rawArgs: unknown,
-    defaults: { inheritedEffort?: DelegatedTaskEffort; accounts?: ProviderAccountSelection; usageCheck?: { override: boolean } } = {},
+    defaults: DelegationDefaults = {},
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskArgsSchema.safeParse(rawArgs);
     if (!parsed.success) {
@@ -1252,7 +1356,7 @@ export function createDelegatedTaskCoordinator(
     return withParentDelegationLock(args.parentTaskId, () =>
       stoppingTasks.has(args.parentTaskId)
         ? Promise.resolve(rejected("invalid-state", null, "parent-stopping"))
-        : admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts, defaults.usageCheck),
+        : admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults),
     );
   };
 
@@ -1268,8 +1372,7 @@ export function createDelegatedTaskCoordinator(
     agentAssignment?: { snapshot: AgentSnapshot; standards?: string },
     effort: DelegatedTaskEffort | undefined = args.effort,
     expectedResourceRoot?: string | null,
-    accounts?: ProviderAccountSelection,
-    usageCheck?: { override: boolean },
+    defaults: DelegationDefaults = {},
   ): Promise<DelegatedTaskActionResponse> => {
     const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
@@ -1313,6 +1416,13 @@ export function createDelegatedTaskCoordinator(
     const existingSummary = existing
       ? summaryFromAggregate(ledger, existing)
       : null;
+    const existingDetail = existing ? acceptedReceiptForRun(ledger, runId, existing.step.attempt)?.detail : null;
+    if (existing && existingDetail?.targetAccountProfileId !== defaults.mcpTarget?.targetAccountProfileId) {
+      return rejected("invalid-request", null, "This delegation key already belongs to a different account selection.");
+    }
+    const mcpTarget = existing ? existingDetail : defaults.mcpTarget;
+    const { targetAccountProfileId, targetAccountLabel, server } = mcpTarget ?? {};
+    const accounts = accountsForDelegatedTurn(defaults.accounts, targetAccountProfileId);
 
     // ── Concurrency ─────────────────────────────────────────────────────
     // Counted per parent task over live children only, and never against the
@@ -1328,7 +1438,7 @@ export function createDelegatedTaskCoordinator(
         const summary = summaryFromAggregate(ledger, aggregate);
         return summary && summary.runId !== runId ? [summary] : [];
       })
-      .filter((summary) => isActiveDelegatedTaskPhase(summary.phase));
+      .filter(isDelegatedTaskWorking);
     if (activeOthers.length >= dependencies.concurrencyLimit) {
       return rejected("concurrency-limit-reached", existingSummary);
     }
@@ -1345,11 +1455,15 @@ export function createDelegatedTaskCoordinator(
     // A model's new attempt does not start where the account cannot run it,
     // or where it would spend what the user's other tasks still need. A
     // re-sent key that starts nothing keeps its own answer.
-    if (usageCheck && (!existingSummary || args.retry)) {
+    if (defaults.usageCheck && (!existingSummary || args.retry)) {
       const usage = dependencies.readProviderUsage
         ? await dependencies.readProviderUsage(accounts).catch(() => null)
         : null;
-      const admission = admitDelegationUsage({ providerId: args.providerId, model: args.model, usage, override: usageCheck.override });
+      const status = usage?.["claude-code"].status;
+      if (targetAccountProfileId && !defaults.usageCheck.override && (status === "critical" || status === "exhausted")) {
+        return rejected("usage-limited", existingSummary, `The ${targetAccountLabel ?? targetAccountProfileId} account's usage is ${status}, so Stave did not start MCP work there. Tell the user which MCP step is still open.`);
+      }
+      const admission = admitDelegationUsage({ providerId: args.providerId, model: args.model, usage, override: defaults.usageCheck.override });
       if (!admission.ok) return rejected("usage-limited", existingSummary, admission.message.slice(0, 500));
     }
 
@@ -1429,7 +1543,7 @@ export function createDelegatedTaskCoordinator(
         kind: DELEGATED_TASK_STEP_KIND,
         target,
         dependencyIds: [],
-        inputHash: hashDelegatedTaskInput(args, agentContentHash),
+        inputHash: hashDelegatedTaskInput(args, agentContentHash, targetAccountProfileId),
         now: timestamp,
       }),
       executionId,
@@ -1442,6 +1556,7 @@ export function createDelegatedTaskCoordinator(
       detail: {
         providerId: args.providerId,
         ...(args.model ? { model: args.model } : {}),
+        ...(targetAccountProfileId ? { targetAccountProfileId, targetAccountLabel, server } : {}),
         ...(effort ? { effort } : {}),
         permissionProfile: args.permissionProfile,
         ...(args.access ? { access: args.access } : {}),
@@ -1502,6 +1617,7 @@ export function createDelegatedTaskCoordinator(
         ...(agentRunId ? { agentRunId, maxTurns: args.maxTurns ?? 30 } : {}),
         ...(resourceRootRunId ? { resourceRootRunId } : {}),
         ...(accounts ? { accounts } : {}),
+        ...(mcpTarget ? { mcpTarget } : {}),
       },
     });
     notifyChanged(args.parentTaskId);
@@ -1563,7 +1679,9 @@ export function createDelegatedTaskCoordinator(
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskToolInputSchema.safeParse(rawInput);
     if (!parsed.success) return rejected("invalid-request");
-    const input = parsed.data;
+    let input = parsed.data;
+    if (input.server && !input.account)
+      return rejected("invalid-request", null, "`server` requires `account`.");
     // A Stave turn acts for its own task: the host's grant names it, and an id
     // the model typed for any other task or workspace is refused.
     if (caller && input.parentTaskId?.trim() && input.parentTaskId.trim() !== caller.taskId)
@@ -1582,6 +1700,30 @@ export function createDelegatedTaskCoordinator(
         return rejected("invalid-state", null, "Stave could not read whether this task is itself a subagent, so it started nothing. Try again.");
       if (nested.value)
         return rejected("invalid-request", null, "A subagent cannot start subagents of its own. Do this work in this turn, or report what still needs another agent so the task that delegated you can start it.");
+    }
+    // MCP work for another of the user's Claude accounts: one step, in this
+    // workspace so the subagent reads what the caller wrote, on a model sized
+    // for tool calls, and never while that account's usage is nearly spent.
+    let mcpTarget: McpDelegationTarget | undefined;
+    if (input.account) {
+      if (!caller || !dependencies.resolveMcpDelegationAccount)
+        return rejected("invalid-request", null, "`account` works only inside a Stave turn.");
+      if (input.provider === "codex" || input.agentConfigId)
+        return rejected("invalid-request", null, "`account` names a Claude account for MCP work. Omit `provider` and `agentConfigId`.");
+      const target = await dependencies.resolveMcpDelegationAccount({
+        callerProviderId: caller.providerId,
+        callerAccountProfileId: selectedProviderAccount("claude-code", caller.accounts),
+        account: input.account,
+      });
+      if (!target.ok) return rejected("invalid-request", null, target.message.slice(0, 500));
+      mcpTarget = { targetAccountProfileId: target.accountProfileId, targetAccountLabel: target.label, server: input.server };
+      input = {
+        ...input,
+        provider: "claude-code",
+        model: target.model,
+        effort: input.effort ?? "medium",
+        workspace: input.workspace ?? { mode: "same-workspace" },
+      };
     }
     const repositoryPath = input.repositoryPath?.trim() ||
       (await dependencies.host.resolveWorkspace({ workspaceId: parentWorkspaceId }).catch(() => null))?.repositoryPath;
@@ -1643,6 +1785,7 @@ export function createDelegatedTaskCoordinator(
         providerId,
         model,
         prompt,
+        targetAccountProfileId: mcpTarget?.targetAccountProfileId,
         ...(input.agentConfigId ? { agentConfigId: input.agentConfigId } : {}),
       });
     const response = await delegateChild(
@@ -1674,13 +1817,17 @@ export function createDelegatedTaskCoordinator(
       },
       {
         inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined,
-        // The subagent runs on the calling turn's accounts, not System default.
-        ...(caller?.accounts ? { accounts: caller.accounts } : {}),
+        accounts: caller?.accounts,
+        mcpTarget,
         usageCheck: { override: input.usageOverride === "user-request" },
       },
     );
-    const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
+    const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access, Boolean(mcpTarget));
     if (!waitSeconds || !response.accepted || !response.child) return response;
+    return waitWithAdmission(parentTaskId, response, waitSeconds);
+  };
+
+  const waitWithAdmission = async (parentTaskId: string, response: DelegatedTaskActionResponse, waitSeconds: number) => {
     const deadline = Date.now() + waitSeconds * 1_000;
     // The parent gives its slot to its helper while it waits.
     await Promise.resolve(dependencies.admissionWait?.({ taskId: parentTaskId, waiting: true })).catch((error) => {
@@ -1772,6 +1919,7 @@ export function createDelegatedTaskCoordinator(
           summaryFromTransition(resolved.ledger, transition),
         );
       }
+      clearMcpFollowUpExpiry(resolved.stepId);
       stoppingTasks.add(resolved.child.delegatedTaskId);
       try {
         if (!transition.duplicate && target) {
@@ -1890,7 +2038,7 @@ export function createDelegatedTaskCoordinator(
         // retries inside its original worktree and never cuts a second one.
         workspace: { mode: "same-workspace" },
         retry: true,
-      }, context.accounts ? { accounts: context.accounts } : {});
+      }, { accounts: context.accounts, mcpTarget: originalClaim?.detail ?? undefined });
     },
 
     /**
@@ -1941,14 +2089,21 @@ export function createDelegatedTaskCoordinator(
       if (inFlightByStepId.has(resolved.stepId)) {
         return rejected("already-active", resolved.child);
       }
-      const originalClaim = [...resolved.ledger.listRunReceipts({ runId: resolved.runId })]
-        .reverse().find((receipt) => receipt.type === "accepted");
+      const originalClaim = acceptedReceiptForRun(resolved.ledger, resolved.runId, resolved.step.attempt);
+      if (context.callerProviderId === "codex" && originalClaim?.detail?.targetAccountProfileId) {
+        const access = await dependencies.resolveMcpDelegationAccount?.({
+          callerProviderId: "codex", callerAccountProfileId: selectedProviderAccount("claude-code", context.accounts),
+          account: originalClaim.detail.targetAccountProfileId,
+        });
+        if (!access?.ok) return rejected("invalid-request", resolved.child, access?.message);
+      }
       const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId: target.taskId, providerId: target.providerId, permissionProfile: args.permissionProfile, agentConfigId: originalClaim?.detail?.agentConfigId });
       // Before the checks below, which stay synchronous with the target update.
       await revalidateSameWorkspaceWriters(resolved.ledger, { workspaceId: target.workspaceId, runId: resolved.runId, policy: permissionPolicy, providerId: target.providerId });
       if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
       const fresh = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
       if (!fresh || fresh.step.executionId !== executionId || fresh.step.status !== "waiting") return rejected("stale-execution", resolved.child);
+      if (expireMcpFollowUp(resolved.ledger, resolved.child)) return rejected("invalid-state", resolved.child);
       target = nextTurnTarget(target);
       const writer = sameWorkspaceWriter(resolved.ledger, { workspaceId: target.workspaceId, runId: resolved.runId, policy: permissionPolicy, providerId: target.providerId });
       if (writer) return writerBusy(writer, resolved.child);
@@ -1967,6 +2122,7 @@ export function createDelegatedTaskCoordinator(
           return rejected("head-mismatch", resolved.child);
         }
       }
+      clearMcpFollowUpExpiry(resolved.stepId);
       runChildTurn({
         ledger: resolved.ledger,
         runId: resolved.runId,
@@ -1982,10 +2138,14 @@ export function createDelegatedTaskCoordinator(
           permissionProfile: args.permissionProfile,
           permissionPolicy,
           lifecycle: resolved.child.lifecycle,
-          ...(context.accounts ? { accounts: context.accounts } : {}),
+          accounts: accountsForDelegatedTurn(context.accounts, originalClaim?.detail?.targetAccountProfileId),
+          mcpTarget: originalClaim?.detail ?? undefined,
         },
       });
-      return accepted({ duplicate: false, child: resolved.child });
+      const response = accepted({ duplicate: false, child: resolved.child });
+      return context.waitForAccountAnswer && originalClaim?.detail?.targetAccountProfileId
+        ? waitWithAdmission(args.parentTaskId, response, resolveDelegatedTaskWaitSeconds(undefined, undefined, true))
+        : response;
     },
 
     /**
@@ -2023,6 +2183,7 @@ export function createDelegatedTaskCoordinator(
           summaryFromTransition(resolved.ledger, transition) ?? resolved.child,
         );
       }
+      clearMcpFollowUpExpiry(resolved.stepId);
       // The child is an ordinary task from here on, so its delegation stamp
       // must go too — that stamp is what hides it from workspace task
       // listings. Best effort: the ledger release above is the authority, and

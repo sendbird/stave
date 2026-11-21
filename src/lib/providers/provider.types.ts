@@ -1223,6 +1223,8 @@ export interface ProviderRuntimeOptions {
   /** `claudeAgentTurn` for a Codex turn, so a Claude helper of a Codex Agent still runs the guardrails. */
   codexAgentTurn?: boolean;
   claudeSystemPrompt?: string;
+  /** System instructions for an account-delegated Claude task. */
+  delegationBrief?: string;
   claudeMaxTurns?: number;
   claudeMaxBudgetUsd?: number;
   claudeTaskBudgetTokens?: number;

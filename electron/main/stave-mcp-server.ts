@@ -715,7 +715,7 @@ function createToolServer(options?: {
         delegation: await getDelegatedTaskCoordinator().delegateFromTool(
           input,
           caller.kind === "turn"
-            ? { taskId: caller.grant.taskId, workspaceId: caller.grant.workspaceId, turnId: caller.grant.turnId,
+            ? { taskId: caller.grant.taskId, workspaceId: caller.grant.workspaceId, turnId: caller.grant.turnId, providerId: caller.grant.providerId,
                 ...(caller.grant.agentRunId ? { agentRunId: caller.grant.agentRunId } : {}),
                 ...(caller.grant.accounts ? { accounts: caller.grant.accounts } : {}) }
             : undefined,
@@ -783,7 +783,8 @@ function createToolServer(options?: {
         followUp: await getDelegatedTaskCoordinator().followUp(DelegatedTaskFollowUpArgsSchema.parse({
           ...input,
           parentTaskId: callerTaskId(caller, input.parentTaskId),
-        }), caller.kind === "turn" && caller.grant.accounts ? { accounts: caller.grant.accounts } : {}),
+        }), caller.kind === "turn" ? { accounts: caller.grant.accounts, waitForAccountAnswer: true,
+          callerProviderId: caller.grant.providerId === "codex" ? "codex" : undefined } : {}),
       });
     },
   );

@@ -6,6 +6,8 @@
  *
  * Used by: `claude-sdk-runtime.ts`.
  */
+import { currentMcpDelegationPrompt } from "../provider-accounts/mcp-delegation";
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import {
   CLAUDE_STAVE_LENS_INSTRUCTIONS,
   CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
@@ -51,6 +53,13 @@ export function buildClaudeSystemPrompt(args: {
   hasStaveLocalMcp?: boolean;
   /** Instructions of the Agent the task runs as; see `ProviderRuntimeOptions.agentInstructions`. */
   agentInstructions?: string;
+  delegationBrief?: string;
+  /**
+   * The note about MCP servers only the user's other Claude accounts can use.
+   * Omitted, it is read for the account this turn's scope runs on
+   * (`provider-accounts/mcp-delegation.ts`); null leaves it out.
+   */
+  mcpDelegationPrompt?: string | null;
 }): string[] {
   const workspacePrompt = [
     "Stave workspace context:",
@@ -84,10 +93,22 @@ export function buildClaudeSystemPrompt(args: {
   // here rather than in the cached prefix: it is a per-turn choice, so caching
   // it would leak one turn's execution shape into the next.
   const dynamicParts: string[] = [workspacePrompt];
+  if (args.delegationBrief) dynamicParts.push(args.delegationBrief);
   // The task's Agent is chosen per task, so it stays out of the shared cached prefix.
   const agentInstructions = args.agentInstructions?.trim();
   if (agentInstructions) {
     dynamicParts.push(agentInstructions);
+  }
+
+  // Follows the account the turn runs on, so it stays out of the cached prefix too.
+  // Needs Stave's subagent tool, which a read-only secondary turn does not get.
+  const mcpDelegation = !args.hasStaveLocalMcp || args.delegationBrief
+    ? undefined
+    : (args.mcpDelegationPrompt === undefined
+        ? currentMcpDelegationPrompt(currentProviderAccountId("claude-code"))
+        : args.mcpDelegationPrompt)?.trim();
+  if (mcpDelegation) {
+    dynamicParts.push(mcpDelegation);
   }
 
   return [

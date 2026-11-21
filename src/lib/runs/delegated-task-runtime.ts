@@ -63,6 +63,7 @@ export function buildDelegatedTaskRuntimeOptions(args: {
   providerId: ProviderId;
   model?: string;
   effort?: DelegatedTaskEffort;
+  delegationBrief?: string;
   permissionProfile?: DelegatedTaskPermissionProfile;
   permissionPolicy?: import("./delegation-policy").DelegationPermissionPolicy;
 }): ProviderRuntimeOptions {
@@ -82,6 +83,7 @@ export function buildDelegatedTaskRuntimeOptions(args: {
   // Select model/effort explicitly: future automation fields cannot become child grants.
   const options: ProviderRuntimeOptions = { model: defaults.model };
   if (args.providerId === "claude-code") {
+    if (args.delegationBrief) options.delegationBrief = args.delegationBrief;
     options.claudeEffort = defaults.claudeEffort;
     options.claudeThinkingMode = defaults.claudeThinkingMode;
   } else if (args.providerId === "codex")

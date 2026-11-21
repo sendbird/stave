@@ -109,7 +109,7 @@ const delegationAggregatesByOwnedTaskId = new Map<
   Array<{ run: RunRecord; step: RunStepRecord }>
 >();
 const rendererSelectedTaskByWorkspaceId = new Map<string, string>();
-const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string; messages?: Array<{ id: string }> }> = [];
+const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string; messages?: UpsertedMessages[string] }> = [];
 // Set by a test: field-scoped task writes succeed, as for a migrated workspace row.
 let acceptTaskDeltas = false;
 let wholeSnapshotWrites = 0;
@@ -817,6 +817,40 @@ describe("local MCP runtime runTask", () => {
         modelInfo: assistant?.modelInfo,
       }),
     ).toBe("Claude Sonnet 5 · 1M · X-High · Fast");
+  });
+
+  test("persists only the account subagent's request and resumes its saved Claude session", async () => {
+    const nativeSessionId = "account-subagent-session";
+    const taskId = "child-account-mcp";
+    const previousWrites = persistedDeltaSelections.length;
+    const runtimeOptions = { claudeAccountProfileId: "system-default", delegationBrief: "Use the pinned Claude account." };
+    const run = (prompt: string) => runtime.runTask({
+      workspaceId: WORKSPACE_ID, taskId, parentTaskId: "parent-account-mcp", prompt,
+      provider: "claude-code", runtimeOptions,
+    });
+    const first = await run("Upload the report.");
+    const finish = async (turnId: string, firstTurn: boolean) => {
+      const stream = startTurnStreamHandlers.at(-1);
+      if (firstTurn) stream?.onEvent?.({ type: "provider_session", providerId: "claude-code", nativeSessionId });
+      stream?.onEvent?.({ type: "text", text: "Done." });
+      stream?.onEvent?.({ type: "done" });
+      for (let i = 0; i < 20 && !persistedTurnsById.get(turnId)?.completedAt; i += 1) await Bun.sleep(0);
+      expect(persistedTurnsById.get(turnId)?.completedAt).toBeTruthy();
+    };
+    await finish(first.turnId, true);
+
+    const continued = await run("Rename it.");
+    expect(continued.taskId).toBe(first.taskId);
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({
+      runtimeOptions,
+      conversation: { resume: { nativeSessionId } },
+    });
+    await finish(continued.turnId, false);
+    const rows = persistedDeltaSelections.slice(previousWrites)
+      .filter((write) => write.taskId === taskId)
+      .flatMap((write) => write.messages ?? []);
+    const userMessages = new Map(rows.filter((row) => row.role === "user").map((row) => [row.id, row.content]));
+    expect([...userMessages.values()]).toEqual(["Upload the report.", "Rename it."]);
   });
 
   test("creates a delegated task with the ledger's pre-minted id", async () => {

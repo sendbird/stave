@@ -164,6 +164,7 @@ import {
   resolveCodexExecutablePath,
   importCodexExternalConfig,
   installCodexPlugin,
+  listCodexConfiguredMcpNames,
   readCodexThread,
   readCodexMcpResource,
   renameCodexThread,
@@ -2017,6 +2018,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.get-codex-mcp-status":
       await respond(request.id, await loadMergedCodexMcpStatus(request.params));
+      return;
+    case "provider.list-codex-configured-mcp-names":
+      await respond(request.id, await listCodexConfiguredMcpNames(request.params));
       return;
     case "provider.list-mcp-server-configs":
       await respond(request.id, await listMcpServerConfigs(request.params));

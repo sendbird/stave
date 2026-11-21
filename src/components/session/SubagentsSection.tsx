@@ -118,6 +118,7 @@ export function SubagentsSection(props: {
     return {
       exchange,
       who: whoLabel(exchange, child, agentNames),
+      accountLabel: child?.accountLabel,
       what: child ? describeWork(child, tasks.find((task) => task.id === child.delegatedTaskId)?.title) : exchange.ask,
       canStop: Boolean(child && !props.readOnly && resolveDelegatedTaskControls(child).canStop),
       busy: Boolean(child && controller.busyDelegationKey === child.delegationKey),

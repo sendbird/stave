@@ -45,14 +45,13 @@ export const RuntimeOptionsObjectSchema = z
     claudeGuardrails: z.array(z.enum(["G1", "G2", "G3"])).max(3).optional(),
     claudeAgentTurn: z.boolean().optional(),
     codexAgentTurn: z.boolean().optional(),
+    delegationBrief: z.string().max(12_000).optional(),
     claudeSystemPrompt: z.string().max(20_000).optional(),
     claudeMaxTurns: z.number().int().min(1).max(200).optional(),
     claudeMaxBudgetUsd: z.number().min(0).max(10_000).optional(),
     claudeTaskBudgetTokens: z.number().int().min(1).max(1_000_000).optional(),
     claudeSettingSources: z
-      .array(
-        z.union([z.literal("user"), z.literal("project"), z.literal("local")]),
-      )
+      .array(z.enum(["user", "project", "local"]))
       .max(3)
       .optional(),
     claudeEffort: z

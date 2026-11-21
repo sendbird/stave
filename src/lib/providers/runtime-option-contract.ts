@@ -171,6 +171,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeAgentTurn",
   "codexAgentTurn",
   "claudeSystemPrompt",
+  "delegationBrief",
   "claudeMaxTurns",
   "claudeMaxBudgetUsd",
   "claudeTaskBudgetTokens",

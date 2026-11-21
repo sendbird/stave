@@ -394,6 +394,7 @@
     "secretBindingControl3": "Bound values are available to shell commands and supported MCP authentication for this task. They are never shown to the agent, but a command that echoes the variable can still surface it."
   },
   "subagentsSection": {
+    "onAccount": "on {{account}}",
     "subagentsSection": "Loading subagents…",
     "subagentsSection2": "No subagents yet. An agent calls one when part of its work fits another agent or model.",
     "ariaLabel": "Subagents",

@@ -711,6 +711,7 @@ export interface HostServiceRequestMap {
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.get-claude-mcp-status": {
+    waitForConnections?: boolean;
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
@@ -719,6 +720,7 @@ export interface HostServiceRequestMap {
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.list-mcp-server-configs": McpServerConfigListRequest;
+  "provider.list-codex-configured-mcp-names": McpServerConfigListRequest;
   "provider.preview-mcp-server-config-mutation": McpServerConfigMutationRequest;
   "provider.apply-mcp-server-config-mutation": McpServerConfigMutationApplyRequest;
   "provider.get-codex-model-catalog": {
@@ -1174,6 +1176,7 @@ export interface HostServiceResponseMap {
   "provider.reload-claude-plugins": ClaudePluginReloadResponse;
   "provider.list-claude-plugins": ClaudeInstalledPluginsResponse;
   "provider.get-claude-mcp-status": ClaudeMcpStatusResponse;
+  "provider.list-codex-configured-mcp-names": string[];
   "provider.get-codex-mcp-status": CodexMcpStatusResponse;
   "provider.list-mcp-server-configs": McpServerConfigListResponse;
   "provider.preview-mcp-server-config-mutation": McpServerConfigMutationPreviewResponse;

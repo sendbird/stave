@@ -5,6 +5,7 @@ import {
 import { z } from "zod";
 import { WorkspaceRevisionSchema } from "../agent-runs/verification-contract";
 import { RoutingDecisionObservationSchema } from "../providers/routing-decision";
+import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 
 export const RunIdSchema = z.string().trim().min(1).max(300);
 const TimestampSchema = z.string().datetime();
@@ -167,6 +168,9 @@ export const RunReceiptDetailSchema = z
     message: z.string().max(1_000).optional(),
     providerId: z.enum(["claude-code", "codex"]).optional(),
     model: z.string().max(200).optional(),
+    targetAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+    targetAccountLabel: z.string().min(1).max(100).optional(),
+    server: z.string().min(1).max(200).optional(),
     routingDecision: RoutingDecisionObservationSchema.optional(),
     attempt: z.number().int().min(0).max(10).optional(),
     /**
@@ -281,6 +285,9 @@ export function sanitizeRunReceiptDetail(
   const code = normalizeDiagnosticText(candidate.code, 120);
   const message = normalizeDiagnosticText(candidate.message, 1_000);
   const model = normalizeDiagnosticText(candidate.model, 200);
+  const targetAccountProfileId = ProviderAccountProfileIdSchema.safeParse(candidate.targetAccountProfileId);
+  const targetAccountLabel = normalizeDiagnosticText(candidate.targetAccountLabel, 100);
+  const server = normalizeDiagnosticText(candidate.server, 200);
   const providerId =
     candidate.providerId === "claude-code" || candidate.providerId === "codex"
       ? candidate.providerId
@@ -332,6 +339,9 @@ export function sanitizeRunReceiptDetail(
     ...(message ? { message } : {}),
     ...(providerId ? { providerId } : {}),
     ...(model ? { model } : {}),
+    ...(targetAccountProfileId.success ? { targetAccountProfileId: targetAccountProfileId.data } : {}),
+    ...(targetAccountLabel ? { targetAccountLabel } : {}),
+    ...(server ? { server } : {}),
     ...(attempt !== undefined ? { attempt } : {}),
     ...(permissionProfile ? { permissionProfile } : {}),
     ...(access.success ? { access: access.data } : {}),

@@ -7,6 +7,7 @@ import {
   resolveSharedOnlyClaudeMcpServersSync,
 } from "../electron/providers/claude-mcp-config";
 import {
+  ACCOUNT_MCP_OPTIONS_FILE_NAME,
   resolveSharedClaudeMcpStateFile,
   SETUP_SHARING_LEDGER_NAME,
 } from "../electron/provider-accounts/shared-mcp";
@@ -52,6 +53,26 @@ describe("System default MCP servers for a managed Claude account", () => {
     expect(resolve()).toBeNull();
     shareSetup(accountDir);
     expect(resolve()).toBe(path.join(systemDir, ".claude.json"));
+  });
+
+  test("an account that takes only the MCP servers reads System default's .claude.json too", async () => {
+    const { systemDir, accountDir, cwd } = layout();
+    const resolve = () =>
+      resolveSharedClaudeMcpStateFile({ claudeConfigDir: accountDir, systemConfigDir: () => systemDir });
+    writeJson(path.join(accountDir, ACCOUNT_MCP_OPTIONS_FILE_NAME), { version: 1, delegateMcpWork: true });
+    expect(resolve()).toBeNull();
+    writeJson(path.join(accountDir, ACCOUNT_MCP_OPTIONS_FILE_NAME), { version: 1, useSystemMcp: true });
+    expect(resolve()).toBe(path.join(systemDir, ".claude.json"));
+    writeJson(path.join(systemDir, ".claude.json"), {
+      mcpServers: { crane: { type: "http", url: "https://crane.example.test/mcp" } },
+    });
+    const servers = await resolveClaudeMcpServers({
+      cwd,
+      claudeConfigDir: accountDir,
+      sharedStateFilePath: resolve(),
+      staveServers,
+    });
+    expect(Object.keys(servers ?? {}).sort()).toEqual(["crane", "stave-local-mcp"]);
   });
 
   test("System default itself and a relative folder never read a second copy", () => {

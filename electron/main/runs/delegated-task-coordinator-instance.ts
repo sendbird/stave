@@ -25,6 +25,8 @@ import { activeStandards } from "../../../src/lib/agents/standards";
 import { ASSIGNMENT_LIMITS } from "../../../src/lib/agents/assign";
 import { createDelegatedAgentRunPort } from "./delegated-agent-run-port";
 import type { AgentRunDetail, AgentRunInvokeResult } from "../../../src/lib/agent-runs/api";
+import { resolveCodexMcpDelegationTarget } from "../../provider-accounts/codex-mcp-delegation";
+import { buildMcpDelegationBrief, currentMcpDelegationDirectory, MCP_DELEGATION_MODEL, resolveMcpDelegationTarget } from "../../provider-accounts/mcp-delegation";
 
 const execFileAsync = promisify(execFile);
 
@@ -138,6 +140,15 @@ export function getDelegatedTaskCoordinator() {
           Record<import("../../../src/lib/agent-runs/provider-usage").TeamProviderId,
             import("../../../src/lib/agent-runs/provider-usage").ProviderUsageSummary> | null
         >,
+      resolveMcpDelegationAccount: async ({ callerProviderId, callerAccountProfileId, account }) => {
+        const directory = currentMcpDelegationDirectory();
+        if (!directory) return { ok: false, message: "Provider accounts are unavailable, so `account` cannot be used." };
+        const target = callerProviderId === "codex"
+          ? resolveCodexMcpDelegationTarget((await ensurePersistenceReady()).delegationPolicies.loadCodexMcpDelegation(), account, directory)
+          : resolveMcpDelegationTarget({ callerAccountProfileId, requested: account, directory });
+        return target.ok ? { ...target, model: MCP_DELEGATION_MODEL } : target;
+      },
+      buildMcpDelegationBrief,
       isProviderAvailable: async (providerId) => {
         const result = await invokeHostService("provider.check-availability", { providerId });
         return result.available;
