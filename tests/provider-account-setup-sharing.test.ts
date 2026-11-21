@@ -14,6 +14,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
+  applyAccountMcpOptions,
   applySetupSharing,
   codexConfigSafeToLink,
   filterClaudeSettings,
@@ -452,6 +453,53 @@ describe("System default MCP servers", () => {
       JSON.stringify({ projects: { "/repo": { mcpServers: { portal: { command: "portal" } } } } }),
     );
     expect(states(readSetupSharing(target("claude-code", sourceDir, profileDir))).mcpServers).toBe("shared");
+  });
+});
+
+describe("an account's MCP options", () => {
+  const OPTIONS_FILE = ".stave-account-mcp.json";
+  test("writes only the options file, leaves the rest of the setup alone, and removes it once both are off", () => {
+    const { sourceDir, profileDir } = folders();
+    claudeSource(sourceDir);
+    write(path.join(profileDir, "CLAUDE.md"), "account instructions");
+    const plan = target("claude-code", sourceDir, profileDir);
+    expect(readSetupSharing(plan).mcp).toEqual({ useSystemMcp: false, delegateMcpWork: false });
+
+    const on = applyAccountMcpOptions(plan, { useSystemMcp: true });
+    expect(on.enabled).toBe(false);
+    expect(on.mcp).toEqual({ useSystemMcp: true, delegateMcpWork: false });
+    expect(readdirSync(profileDir).sort()).toEqual([OPTIONS_FILE, "CLAUDE.md"]);
+    expect(readFileSync(path.join(profileDir, "CLAUDE.md"), "utf8")).toBe("account instructions");
+    expect(allText(profileDir)).not.toContain("SENTINEL-IDENTITY");
+
+    // A choice left out keeps its value.
+    expect(applyAccountMcpOptions(plan, { delegateMcpWork: true }).mcp).toEqual({ useSystemMcp: true, delegateMcpWork: true });
+    expect(applyAccountMcpOptions(plan, { useSystemMcp: false }).mcp).toEqual({ useSystemMcp: false, delegateMcpWork: true });
+    expect(existsSync(path.join(profileDir, OPTIONS_FILE))).toBe(true);
+    expect(applyAccountMcpOptions(plan, { delegateMcpWork: false }).mcp).toEqual({ useSystemMcp: false, delegateMcpWork: false });
+    expect(readdirSync(profileDir)).toEqual(["CLAUDE.md"]);
+    expect(applyAccountMcpOptions(plan, {}).mcp).toEqual({ useSystemMcp: false, delegateMcpWork: false });
+  });
+
+  test("are independent of setup sharing in both directions", () => {
+    const { sourceDir, profileDir } = folders();
+    claudeSource(sourceDir);
+    const plan = target("claude-code", sourceDir, profileDir);
+    applyAccountMcpOptions(plan, { useSystemMcp: true, delegateMcpWork: true });
+    expect(applySetupSharing(plan).mcp).toEqual({ useSystemMcp: true, delegateMcpWork: true });
+    const afterSetupOff = removeSetupSharing(plan);
+    expect(afterSetupOff.enabled).toBe(false);
+    expect(afterSetupOff.mcp).toEqual({ useSystemMcp: true, delegateMcpWork: true });
+    applySetupSharing(plan);
+    expect(applyAccountMcpOptions(plan, { useSystemMcp: false, delegateMcpWork: false }).enabled).toBe(true);
+  });
+
+  test("are Claude only and never target System default's own folder", () => {
+    const { sourceDir, profileDir } = folders();
+    expect(readSetupSharing(target("codex", sourceDir, profileDir)).mcp).toBeUndefined();
+    expect(() => applyAccountMcpOptions(target("codex", sourceDir, profileDir), { useSystemMcp: true })).toThrow(/^This account/);
+    expect(() => applyAccountMcpOptions(target("claude-code", sourceDir, sourceDir), { useSystemMcp: true })).toThrow(/^This account/);
+    expect(existsSync(path.join(sourceDir, OPTIONS_FILE))).toBe(false);
   });
 });
 
