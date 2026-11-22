@@ -152,8 +152,8 @@ HTML nor a second execution engine.
    or tightly coupled work itself, delegates only independent or large units
    and repeats the checks a helper ran. Work that
    changed no files (an answer or research) ends after its report. Changed files go to an
-   independent read-only **Review** on the provider that did not write them
-   (the pinned provider and model when you fixed a model);
+   independent read-only **Review** on the provider that did not write them,
+   also when you pinned an execution model;
    the **Fix review findings** stage runs only when that review asks for
    changes. A fix that changed files returns once to the Reviewer for the fix
    commits only, so the run ends on a revision an independent review passed. The Reviewer confirms the reported evidence and runs only checks
@@ -1884,11 +1884,12 @@ automatic follow-ups. Delegated work runs separately:
   same saved policy within their own role and provider; fixed Agent models and
   explicit model or effort pins still take priority. The Automatic choice and
   shared policy survive a restart through the saved Run and host settings.
-- **Pinning an execution model** runs the work, its helpers and its review on
-  that model and its provider. The lead starts at the model's default effort;
-  helpers can still use Auto to select effort within that model while app-wide
-  Auto is on, unless effort is explicitly pinned. A pin on the other provider
-  runs with that provider's System default account.
+- **Pinning an execution model** runs the lead's own turns on that model and
+  its provider, starting at the model's default effort, and the saved agent you
+  named for the work stage runs on it too. Other helpers, including the
+  reviewer, are not bound by it: they choose their own model and effort, and
+  the review still goes to the provider that did not write the change. A pin
+  on the other provider runs with that provider's System default account.
 
 Conversation delegation keeps the selected account; other conversation runtime
 preferences, including its reasoning effort, are not copied into supervised

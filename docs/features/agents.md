@@ -237,7 +237,9 @@ What you pick decides how the task runs:
   Auto tab also lifts the pin. A pin never ends the agent. Per turn the order
   is: pin, then the agent's fixed model, then Stave Auto. An agent fixed to a
   provider without a model runs on that provider's default model; any other
-  model of the provider is a pin.
+  model of the provider is a pin. The pin covers the agent's own turns only:
+  its in-turn subagents and the helpers it delegates to still pick their own
+  provider, model and effort for their work.
 - The first send in Agent mode reads **Assign**; later sends read **Send**.
 - A choice applies from the next turn. Earlier turns keep the agent they ran
   as. Choosing another agent is locked while a turn runs or waits for an
@@ -464,7 +466,7 @@ nothing to turn on. The Run panel's **Team limits** section shows them.
   turns. A **Fixed** Agent model, or a model or effort pinned in the composer
   when the run starts, never changes on its own; a composer pin replaces a
   fixed model on the Agent's own provider, and a pin on another provider is
-  refused at start.
+  refused at start. These pins bind the run's own turns, not its helpers.
 - **Your choice wins.** Pin a model or effort in the composer when you reply,
   and the reply and the turns after it run on it, over the run's route, its
   proposals and its start pins, until you switch the composer back to Auto;
@@ -478,8 +480,10 @@ nothing to turn on. The Run panel's **Team limits** section shows them.
   propose a justified change itself, including while its stage is blocked.
 - **Providers.** The run stays on the provider and account it started on. A
   helper Agent runs on its own provider, so a Reviewer can review Claude's
-  work on Codex, unless the run's model is pinned; then helpers stay on the
-  run's provider too. Helpers cannot call further helpers.
+  work on Codex, also when the run's model is pinned. On the run's provider a
+  helper chooses among the run's eligible models; it keeps only its own pins
+  (its Agent's Fixed model, or a model the run names for it). Helpers cannot
+  call further helpers.
 
 After helpers settle, the run integrates their results and reports its
 acceptance criteria; a report written before they finished is not enough.

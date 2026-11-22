@@ -116,7 +116,7 @@ export function admitTarsAgent(args: {
   const compiled = supported ? compileAgent({ snapshot: snapshotAgent(agent), role: "delegate", providerId }) : null;
   if (!compiled?.ok || compiled.compiled.role !== "delegate")
     throw new TarsDelegateRejection("agentNotDelegable", `The agent "${agent.id}" cannot take delegated work on Claude or Codex.`);
-  // A pin locks the whole team to its provider and model (`helperKeepsParentProvider`).
+  // The named agent does the unit's work, so it runs on the pinned execution model; other helpers stay free.
   if (args.executionModel && (providerId !== args.executionProviderId || (fixed?.model && fixed.model !== args.executionModel)))
     throw new TarsDelegateRejection("agentModelConflict", `The agent "${agent.id}" cannot run on the pinned execution model.`);
   const profile = compiled.compiled.delegate.permissionProfile;

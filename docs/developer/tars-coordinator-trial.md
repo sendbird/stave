@@ -36,13 +36,11 @@ No gap blocks the trial. These limits shape the setup:
   Claude and starts from a Claude task. A routing rule that names Codex still
   outranks the preference; check that each run started on Claude and note it
   when it did not.
-- **A pinned model keeps the whole team on one provider.** A **Fixed** Agent
-  model, or a model pinned in the composer, locks the run's model, and then
-  every helper must stay on the run's provider
-  (`helperKeepsParentProvider`). A Fixed Claude coordinator therefore cannot
-  get a Codex review: the Reviewer prefers the other provider, and Stave
-  refuses the helper ("The helper must keep the parent's provider"). The
-  coordinator's model is **Auto** for that reason.
+- **A pinned model binds only the coordinator.** A **Fixed** Agent model, or
+  a model pinned in the composer, locks the run's own model; helpers keep
+  their own provider and eligible models, so a Fixed Claude coordinator can
+  still get a Codex review. The coordinator's model stays **Auto** so its own
+  turns can also step up when the work needs it.
 - **Read-only cannot delegate writers.** A delegation never runs wider than
   the delegating Agent, so the coordinator needs Auto permission. It keeps its
   own workspace clean by instruction.
@@ -125,12 +123,9 @@ and this call for the review (an owner that ran on Claude, commit `3f9c2a1…`):
   `fromBranch` is the commit id starts exactly at that commit (Stave passes it
   to `git worktree add` as the start point), so the Reviewer's own check
   passes. Stave does not enforce the commit there; the Reviewer's check does.
-- **Not possible without a product change:** a Fixed (or composer-pinned)
-  coordinator with a review on the other provider. The smallest change would
-  let a helper that names another provider run on that provider's own catalog
-  even when the parent's model is pinned, that is, have
-  `helperKeepsParentProvider` stop treating `modelLocked` as a team-wide
-  provider pin. The trial does not need it.
+- A Fixed (or composer-pinned) coordinator can get a review on the other
+  provider: `helperKeepsParentProvider` keeps a team on one provider only for
+  a version 1 policy, and a run's pin binds its own turns.
 
 ## Trial protocol
 

@@ -359,9 +359,10 @@ entry behavior.
 
 An Agent-origin Run freezes its team limits at admission and keeps the provider
 it started on; saved-Agent supervision keeps its admitted provider. A helper
-Agent may run on its own provider unless the parent's model is pinned (always
-kept for a Run that froze the version 1 policy). Stage definitions never
-acquire provider-switch authority.
+Agent may run on its own provider (always kept for a Run that froze the
+version 1 policy). A parent's model or effort pin covers the parent's own
+turns; a helper keeps only its own pins. Stage definitions never acquire
+provider-switch authority.
 
 ## Secondary Run Contract
 

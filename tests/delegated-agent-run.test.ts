@@ -181,7 +181,7 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
 }
 
 describe("supervised saved-Agent delegations", () => {
-  for (const providerId of ["codex", "claude-code"] as const) for (const tarsRoot of [false, true]) test(`${providerId}: global-on pinned parent preserves helper classification and effort (Tars: ${tarsRoot})`, async () => {
+  for (const providerId of ["codex", "claude-code"] as const) for (const tarsRoot of [false, true]) test(`${providerId}: global-on pinned parent leaves helper classification free of its pin and keeps the helper effort (Tars: ${tarsRoot})`, async () => {
     const h = harness(providerId, { routing: true, adaptive: true, pinnedRoot: true, tarsRoot });
     expect(h.runs.resourceConfig("root")?.policy).toMatchObject({ modelLocked: true });
     expect(h.runs.resourceConfig("root")?.policy).not.toHaveProperty("autoRouting");
@@ -189,7 +189,9 @@ describe("supervised saved-Agent delegations", () => {
     expect(h.classified).toBeGreaterThan(0);
     const effort = providerId === "codex" ? "codexReasoningEffort" : "claudeEffort";
     expect(h.calls[0]!.runtimeOptions[effort]).toBe("high");
-    expect(h.calls[0]!.runtimeOptions.model).toBe(providerId === "codex" ? "gpt-6-sol" : "sonnet");
+    // The parent's pin binds its own turns: the helper's Auto route picks from the whole eligible catalog
+    // (the Claude parent is pinned to Sonnet, yet the review routes to Opus).
+    expect(h.calls[0]!.runtimeOptions.model).toBe(providerId === "codex" ? "gpt-6-sol" : "claude-opus-5-5");
     h.end("turn-1"); h.restartRuntime(); await h.runtime.requestTick();
     expect(h.calls).toHaveLength(2);
     expect(h.calls[1]!.runtimeOptions[effort]).toBe("high");

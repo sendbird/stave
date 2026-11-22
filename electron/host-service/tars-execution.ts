@@ -31,14 +31,14 @@ export const TARS_OWNER_EXECUTION_POLICY = `${TARS_POLICY_SCOPE} Execute, repair
 export const TARS_OWNER_RULES = "You own this responsibility from the first read to its committed, checked result, in this task and this workspace. Before editing, read the request and everything it links, the repository's agent instructions and the code you will touch. Do the work yourself: never hand it, or a part of it, to another agent or task. In-turn subagents may search and read for you; they change no files. Decide what does not change scope, correctness or authority, and say what you decided.";
 
 /**
- * Which provider reviews the work. Automatic execution lets a helper run on
- * the other provider (`helperKeepsParentProvider`), so the review goes to the
- * provider that did not write the change; a pinned model keeps the team on one.
+ * Which provider reviews the work: the one that did not write the change. A
+ * pinned execution model binds only the lead's own turns, as any run's pin
+ * does (`constrainHelperResources`), so helpers and the review stay free.
  */
 export function tarsReviewGuidance(row: Pick<TarsResponsibility, "model">): string {
   return row.model
     // i18n-ignore: model-facing instructions
-    ? "Every helper, including the reviewer, stays on this provider and model the user pinned. Pass `provider` and `model` explicitly to `stave_delegate_task`, using the pinned provider and model from Run team limits, including when passing `agentConfigId: \"reviewer\"`; this overrides an Auto agent's provider preference. Report the same-provider review."
+    ? "The pinned model runs your own turns only. Helpers, including the reviewer, choose their own model and effort; the workflow reviews on the provider that did not write the change. Helpers may use Claude or Codex."
     // i18n-ignore: model-facing instructions
     : "Auto picks each unit's model and effort; the workflow reviews on the provider that did not write the change. Helpers may use Claude or Codex.";
 }
@@ -110,7 +110,7 @@ export function tarsExecutionInstructions(row: Pick<TarsResponsibility, "model" 
       : "One work owner implements, debugs and verifies the unit in the same task. Delegate only independent units; each owner fixes its own failures. The workflow supplies the independent review after Work, so ask no helper for another; findings alone open the fix.",
     ...(row.agentId && !owner
       // i18n-ignore: model-facing instructions
-      ? [`The user's representative assigned this responsibility's work stage to the agent \`${row.agentId}\`. Delegate that stage to it; do not substitute another agent for it.`]
+      ? [`The user's representative assigned this responsibility's work stage to the agent \`${row.agentId}\`. Delegate that stage to it; do not substitute another agent for it.${row.model ? " The pin covers that work: pass the pinned provider and model from Run team limits for it." : ""}`]
       : []),
     ...(row.workingChanges?.kind === "snapshot"
       // i18n-ignore: model-facing instructions

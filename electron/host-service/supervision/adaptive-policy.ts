@@ -54,7 +54,9 @@ export function freezeAdaptivePolicy(args: {
   return AdaptiveRunPolicySchema.parse({ version: 2, profile: "balanced", providerId,
     ...(args.autoRouting !== undefined ? { autoRouting: args.autoRouting } : {}),
     accountProfileId: (providerId === "codex" ? args.accounts?.codexAccountProfileId ?? draft?.codexAccountProfileId : args.accounts?.claudeAccountProfileId ?? draft?.claudeAccountProfileId) ?? currentProviderAccountId(providerId),
-    allowedModels: modelLocked ? [model] : [...new Set([model, ...candidates.filter((id) => args.exclusiveModels !== undefined || getModelCapability({ model: id })?.providerId === providerId)])],
+    // The starting model comes first. A pin locks only this run's own turns (`modelLocked`);
+    // the rest of the catalog stays eligible for the helpers it starts.
+    allowedModels: [...new Set([model, ...candidates.filter((id) => args.exclusiveModels !== undefined || getModelCapability({ model: id })?.providerId === providerId)])],
     modelLocked, effortLocked, initialEffort,
     // The whole team's guard against loops, never a budget: see `TEAM_LIMITS.maxTeamTurns`.
     teamTurns: TEAM_LIMITS.maxTeamTurns,

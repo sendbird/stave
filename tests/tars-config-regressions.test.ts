@@ -48,11 +48,12 @@ test("2: newly admitted Tars work defaults to the Supervisor's 60 turns and pres
   expect(readFileSync(new URL("../src/components/tars/TarsView.tsx", import.meta.url), "utf8")).toContain("maxTurns: TARS_DEFAULT_MAX_TURNS");
 });
 
-test("3: pinned review guidance names explicit routing fields which override the reviewer's other-provider preference", () => {
+test("3: a pinned lead keeps the reviewer's other-provider preference; an explicit provider still overrides it", () => {
   const reviewer = getBuiltinAgent("reviewer")!;
   expect(resolveDelegationProvider({ agentModel: reviewer.model, parentProviderId: "codex" })).toMatchObject({ providerId: "claude-code" });
-  expect(lead("gpt-6.1-sol")).toContain('including when passing `agentConfigId: "reviewer"`');
-  expect(lead("gpt-6.1-sol")).toContain("Pass `provider` and `model` explicitly");
+  expect(lead("gpt-6.1-sol")).toContain("The pinned model runs your own turns only.");
+  expect(lead("gpt-6.1-sol")).toContain("the workflow reviews on the provider that did not write the change");
+  expect(lead("gpt-6.1-sol")).not.toContain('including when passing `agentConfigId: "reviewer"`');
   expect(resolveDelegationProvider({ agentModel: reviewer.model, parentProviderId: "codex", explicit: "codex" })).toMatchObject({ ok: true, providerId: "codex" });
 });
 

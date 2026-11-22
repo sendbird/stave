@@ -278,8 +278,8 @@ whose name repeats it.
     starts on another.
 16. An agent run keeps its frozen instructions and team limits, and with them
     the provider it started on; a supervised saved-Agent delegation keeps its
-    admitted provider. A helper Agent may use its own provider unless the run's
-    model is pinned. A stage
+    admitted provider. A helper Agent may use its own provider, also when the
+    run's model is pinned: a pin covers the run's own turns. A stage
     another agent does runs as a delegated task, never a stage provider override.
 17. A Local MCP call acts only for the task whose turn made it: the host's
     caller grant names that task, a `parentTaskId` naming another is refused,
