@@ -20,6 +20,7 @@ import type { AppNotification, NotificationsLoad } from "@/lib/notifications/not
 import {
   MAX_NOTIFICATION_HISTORY,
   buildNotificationExpiresAt,
+  isNotificationPendingAttention,
 } from "@/lib/notifications/notification.types";
 
 interface NotificationSliceState {
@@ -44,11 +45,18 @@ function syncUnreadBadge(get: NotificationActionDeps["get"]) {
   });
 }
 
+// A failed mark-read is rolled back only while it is still the latest word on
+// that notification: a later mark-read of the same one owns its state, and a
+// mark-all since then already made it read for good.
+let nextMarkReadTicket = 0;
+const latestMarkReadTicketById = new Map<string, number>();
+let markAllGeneration = 0;
+
 /**
  * Marks one notification read (and resolved, when `resolvedAt` is given) at
  * once, then persists it. Resolves to whether the change was saved. A failed
- * write puts the notification back as it was, unless something replaced it in
- * the meantime, so the list never shows a state the next load would undo.
+ * write takes back what it changed, so the list never shows a state the next
+ * load would undo, without undoing a write that came after it.
  */
 export async function markNotificationReadAction(
   deps: NotificationActionDeps & { id: string; resolvedAt?: string },
@@ -57,6 +65,10 @@ export async function markNotificationReadAction(
   const expiresAt = buildNotificationExpiresAt({
     readAt: deps.resolvedAt ?? readAt,
   });
+  nextMarkReadTicket += 1;
+  const ticket = nextMarkReadTicket;
+  latestMarkReadTicketById.set(deps.id, ticket);
+  const generation = markAllGeneration;
   const previous = deps.get().notifications.find((item) => item.id === deps.id);
   deps.set((state) => ({
     notifications: markNotificationReadInList({
@@ -90,20 +102,40 @@ export async function markNotificationReadAction(
       "[notifications] failed to mark notification as read",
       error,
     );
-    if (previous && optimistic !== previous) {
+    if (
+      previous &&
+      optimistic !== previous &&
+      latestMarkReadTicketById.get(deps.id) === ticket
+    ) {
+      const markedAllSince = markAllGeneration !== generation;
       deps.set((state) => ({
-        notifications: state.notifications.map((item) =>
-          item === optimistic ? previous : item,
-        ),
+        notifications: state.notifications.map((item) => {
+          // Anything that replaced the record (a merge, a hydration) wins.
+          if (item !== optimistic) return item;
+          if (!markedAllSince) return previous;
+          // Mark-all saved the read; only the resolution is taken back.
+          const reverted = { ...item, resolvedAt: previous.resolvedAt };
+          return {
+            ...reverted,
+            expiresAt: isNotificationPendingAttention(reverted)
+              ? null
+              : item.expiresAt,
+          };
+        }),
       }));
     }
     return false;
+  } finally {
+    if (latestMarkReadTicketById.get(deps.id) === ticket) {
+      latestMarkReadTicketById.delete(deps.id);
+    }
   }
 }
 
 export async function markAllNotificationsReadAction(
   deps: NotificationActionDeps,
 ) {
+  markAllGeneration += 1;
   const readAt = new Date().toISOString();
   const expiresAt = buildNotificationExpiresAt({ readAt });
   deps.set((state) => ({

@@ -48,7 +48,8 @@ async function listPendingResults(scopes: ResultReviewScope[], markedReviewed = 
   return scopes.filter((scope) => pendingKeys.has(resultReviewKey(scope)));
 }
 
-function bulkOperations(): FleetBulkOperations {
+/** The store-backed writers a Fleet bulk plan runs with. */
+export function fleetBulkOperations(): FleetBulkOperations {
   return {
     listPendingResults,
     setResultsReviewed,
@@ -59,7 +60,10 @@ function bulkOperations(): FleetBulkOperations {
         .notifications.find((item) => item.id === args.id);
       // Read elsewhere since Fleet listed it: nothing to change or count.
       if (!notification || notification.readAt) return false;
-      await useAppStore.getState().markNotificationRead(args);
+      // A failed write is rolled back: count it as failed, not as done.
+      if (!(await useAppStore.getState().markNotificationRead(args))) {
+        throw new Error(`Could not mark notification ${args.id} read`);
+      }
       return true;
     },
     snoozeFleetAttention,
@@ -83,7 +87,7 @@ export function useFleetBulkActions() {
     }
     applyingRef.current = true;
     setApplying(true);
-    const operations = bulkOperations();
+    const operations = fleetBulkOperations();
     const outcome = await applyFleetBulkPlan({
       plan,
       operations,
