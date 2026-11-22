@@ -13,7 +13,7 @@ const approval: AppNotification = { id: "notification-approval", kind: "task.app
 const originalWindow = globalThis.window;
 const originalError = console.error;
 /** Pending saves, settled by the test in any order. */
-let saves: Array<(saved: boolean) => void> = [];
+let saves: Array<(saved: boolean, notification?: AppNotification) => void> = [];
 /** When set, every save settles at once with this result. */
 let autoSave: boolean | null = null;
 
@@ -28,7 +28,8 @@ beforeEach(async () => {
       createNotification: async () => ({ ok: true, inserted: false, notification: null }),
       markAllNotificationsRead: async () => ({ ok: true, count: 1 }),
       markNotificationRead: () => new Promise((resolve) => {
-        const settle = (saved: boolean) => resolve({ ok: saved, notification: null });
+        const settle = (saved: boolean, notification?: AppNotification) =>
+          resolve({ ok: saved, notification: saved ? (notification ?? null) : null });
         if (autoSave !== null) settle(autoSave);
         else saves.push(settle);
       }),
@@ -107,6 +108,18 @@ describe("mark-read rollback", () => {
     expect(after?.readAt).toBeTruthy();
     expect(after?.resolvedAt).toBeNull();
     expect(after?.expiresAt).toBeNull();
+  });
+
+  test("a failed close keeps a resolution the store returned from elsewhere", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const close = useAppStore.getState().markNotificationRead({ id: approval.id, resolvedAt: NOW });
+    const read = useAppStore.getState().markNotificationRead({ id: approval.id });
+    // Meanwhile another window resolved the request; the read's save returns that record.
+    const elsewhere = { ...approval, readAt: "2026-10-01T00:00:05.000Z", resolvedAt: "2026-10-01T00:00:04.000Z", expiresAt: null };
+    saves[1]!(true, elsewhere);
+    saves[0]!(false);
+    expect([await close, await read]).toEqual([false, true]);
+    expect(await current()).toEqual(elsewhere);
   });
 
   test("Fleet's bulk read counts a failed save as failed, not as read", async () => {

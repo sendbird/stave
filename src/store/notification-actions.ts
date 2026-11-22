@@ -47,12 +47,14 @@ function syncUnreadBadge(get: NotificationActionDeps["get"]) {
 
 /**
  * Mark-reads of one notification still being saved. When the last of them
- * settles and any failed, the list is set to what was saved: the record before
- * the first of them, plus what a successful one wrote (read; resolved when it
+ * settles and any failed, the list is set to what was saved: the last record
+ * the store returned (or the record before the first write), plus what a
+ * successful write without a returned record wrote (read; resolved when it
  * resolved), plus a mark-all made since (read). A record something else
  * replaced meanwhile (a hydration, a host merge) is left alone.
  */
 interface MarkReadBatch {
+  /** The last record known to be saved: the one before the first write, or one the store returned. */
   before: AppNotification;
   /** Records these writes put in the list; anything else replaced them. */
   own: Set<AppNotification>;
@@ -136,7 +138,13 @@ export async function markNotificationReadAction(
       resolvedAt: deps.resolvedAt,
     });
     saved = true;
-    if (batch) {
+    if (batch && persisted) {
+      // What the store returned is what it holds, including changes made
+      // elsewhere (another window resolving the request) since this began.
+      batch.before = persisted;
+      batch.savedRead = false;
+      batch.savedResolvedAt = null;
+    } else if (batch) {
       batch.savedRead = true;
       batch.savedResolvedAt ??= deps.resolvedAt ?? null;
     }
