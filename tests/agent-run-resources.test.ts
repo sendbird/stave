@@ -73,7 +73,7 @@ test("legacy runs remain outside shared admission and malformed resource request
   expect(s.reserveChildResources({parentTaskId:"legacy",childRunId:"a",executionId:"ea",requestedTurns:30,now})).toBeNull();
   expect(AgentResourceRequestSchema.safeParse({model:"x",reason:"capability-mismatch",rationale:"diagnosed",evidenceRefs:["turn-1"],permissionMode:"auto"}).success).toBe(false);
 });
-test("a default team policy takes a helper on another provider unless the parent's model is pinned, and names its own limits", () => {
+test("a default team policy takes a helper on another provider, also when the parent's model is pinned, and names its own limits", () => {
   const team = (patch: Record<string, unknown>) => AdaptiveRunPolicySchema.parse({ ...policy, version: 2, concurrentHelpers: 1, totalHelpers: 2, ...patch });
   const start = (id: string, resources: ReturnType<typeof team>) => {
     const s = new AgentRunStore(new Database(":memory:"));
@@ -89,8 +89,11 @@ test("a default team policy takes a helper on another provider unless the parent
   expect(() => open.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "second", executionId: "e2",
     requestedTurns: 1, now })).toThrow("1 at once / 2 in total");
   const pinned = start("parent", team({ modelLocked: true }));
-  expect(() => pinned.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
-    requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })).toThrow("pinned");
+  expect(pinned.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
+    requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })?.capacity).toBe(2);
+  const legacy = start("parent", team({ version: 1 }));
+  expect(() => legacy.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
+    requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })).toThrow("keep the parent's provider");
 });
 test("a workflow's later stages done by another agent keep their helper slots from every earlier helper", () => {
   const resources = AdaptiveRunPolicySchema.parse({ ...policy, version: 2, concurrentHelpers: 3, totalHelpers: 3 });

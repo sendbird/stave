@@ -27,7 +27,7 @@ test("execution defaults to automatic routing; only an explicit pin locks the mo
     .toEqual({ providerId: "claude-code", model: "claude-opus-5-5" });
 });
 
-test("automatic routing leaves the team free to review on the other provider; a pin keeps it on one", () => {
+test("automatic routing leaves the team free to review on the other provider; a pin binds only the run's own turns", () => {
   const freeze = (row: { providerId: "codex" | "claude-code"; model: string | null }, model: string) => {
     const resources = buildTarsExecutionResources(row);
     return freezeAdaptivePolicy({ providerId: row.providerId, model, agent: getBuiltinAgent("supervisor")!, settings: null, maxTurns: 20,
@@ -41,12 +41,14 @@ test("automatic routing leaves the team free to review on the other provider; a 
     settings: null, maxTurns: 20, delegated: true });
   expect(constrainHelperResources(automatic, reviewer, "claude-sonnet-5-5")).toMatchObject({ providerId: "claude-code", autoRouting: true });
   const pinned = freeze({ providerId: "codex", model: "gpt-6.1-sol" }, "gpt-6.1-sol");
-  expect(pinned).toMatchObject({ modelLocked: true, allowedModels: ["gpt-6.1-sol"] });
-  expect(helperKeepsParentProvider(pinned)).toBe(true);
-  expect(() => constrainHelperResources(pinned, reviewer, "claude-sonnet-5-5")).toThrow("keep its provider");
+  expect(pinned).toMatchObject({ modelLocked: true });
+  expect(pinned.allowedModels[0]).toBe("gpt-6.1-sol");
+  expect(helperKeepsParentProvider(pinned)).toBe(false);
+  // A pinned Tars team reviews on the other provider like an automatic one.
+  expect(constrainHelperResources(pinned, reviewer, "claude-sonnet-5-5")).toMatchObject({ providerId: "claude-code", modelLocked: false });
 });
 
-test("execution instructions and the review stage restore cross-provider review guidance where the policy allows it", () => {
+test("execution instructions send the review to the other provider, pinned or not; the review stage carries no routing advice", () => {
   const row = { id: "goal", model: null, agentId: null, acceptanceCriteria: ["Works"] } as unknown as Parameters<typeof tarsWorkflow>[0];
   expect(tarsReviewGuidance({ model: null })).toContain("the workflow reviews on the provider that did not write the change");
   expect(tarsExecutionInstructions({ model: null, agentId: null })).toContain("the workflow reviews on the provider that did not write the change");
@@ -57,7 +59,13 @@ test("execution instructions and the review stage restore cross-provider review 
   const pinnedReview = pinned.stages[1]?.kind === "ai" ? pinned.stages[1].instruction : "";
   expect(pinnedReview).not.toContain("stays on this provider and model");
   expect(pinnedReview).not.toContain("provider that did not write the change");
-  expect(tarsExecutionInstructions({ model: "gpt-6.1-sol", agentId: null })).toContain("stays on this provider and model");
+  const pinnedInstructions = tarsExecutionInstructions({ model: "gpt-6.1-sol", agentId: null });
+  expect(pinnedInstructions).toContain("The pinned model runs your own turns only.");
+  expect(pinnedInstructions).toContain("the workflow reviews on the provider that did not write the change");
+  expect(pinnedInstructions).not.toContain("stays on this provider and model");
+  // The saved agent named for the work stage does the unit's work, so the pin follows it.
+  expect(tarsExecutionInstructions({ model: "gpt-6.1-sol", agentId: "release-notes" })).toContain("The pin covers that work");
+  expect(tarsExecutionInstructions({ model: null, agentId: "release-notes" })).not.toContain("The pin covers that work");
 });
 
 test("strict capture rejects malformed accounts, permissions, an agent on the renderer create path and changing accepted runtime hints", () => {
@@ -185,10 +193,11 @@ test("actual host preparation and Run admission route automatically by default, 
   }
   expect(rows["codex-auto"]).toMatchObject({ providerId: "codex", account: ACCOUNT, accounts: { codexAccountProfileId: ACCOUNT, claudeAccountProfileId: "system-default" } });
   expect(rows["claude-auto"]).toMatchObject({ providerId: "claude-code", account: "system-default" });
-  expect(rows["codex-pinned"]).toMatchObject({ providerId: "codex", model: "gpt-6.1-sol", locked: true, models: 1, helpersKeepProvider: true,
+  expect(rows["codex-pinned"]).toMatchObject({ providerId: "codex", model: "gpt-6.1-sol", locked: true, helpersKeepProvider: false,
     account: ACCOUNT, routingIntent: { model: "gpt-6.1-sol", modelProviderId: "codex", autoRouting: false },
     idle: { model: "gpt-6.1-sol", autoRouting: false } });
   expect(rows["codex-pinned"].review).not.toContain("stays on this provider and model");
+  expect(rows["codex-pinned"].instructions).toContain("the workflow reviews on the provider that did not write the change");
   // A pin on the other provider runs there with that provider's System default account.
   expect(rows["cross-pinned"]).toMatchObject({ providerId: "claude-code", model: "claude-sonnet-5-5", locked: true,
     account: "system-default", accounts: { claudeAccountProfileId: "system-default", codexAccountProfileId: ACCOUNT } });

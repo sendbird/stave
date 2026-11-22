@@ -95,8 +95,8 @@ describe("provider usage summary", () => {
 });
 
 describe("Run team limits context", () => {
-  const policy = (modelLocked: boolean) => AdaptiveRunPolicySchema.parse({
-    version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["claude-opus-5-5"],
+  const policy = (modelLocked: boolean, version: 1 | 2 = 2) => AdaptiveRunPolicySchema.parse({
+    version, profile: "balanced", providerId: "claude-code", allowedModels: ["claude-opus-5-5"],
     modelLocked, effortLocked: false, initialEffort: "medium", teamTurns: 60, concurrentHelpers: 3, totalHelpers: 8,
     parentReserve: 1, maxChanges: 2, cooldownTurns: 2,
   });
@@ -110,8 +110,14 @@ describe("Run team limits context", () => {
     expect(context.instruction).toContain("send new parallel work to the other one");
   });
 
-  test("a run whose helpers must stay on its provider gets the usage but no advice to switch", () => {
+  test("a pinned run still lets its helpers use the other provider, and says the pin is its own", () => {
     const context = read(teamLimitsContextPart(policy(true), null, "turn-1", usage));
+    expect(context.instruction).toContain("A helper Agent may run on its own provider.");
+    expect(context.instruction).toContain("Pins cover this run's own turns only, not its helpers");
+  });
+
+  test("a run whose helpers must stay on its provider gets the usage but no advice to switch", () => {
+    const context = read(teamLimitsContextPart(policy(false, 1), null, "turn-1", usage));
     expect(context.providerUsage).toEqual(usage);
     expect(context.instruction).toContain("Helpers stay on this run's provider.");
     expect(context.instruction).not.toContain("send new parallel work to the other one");

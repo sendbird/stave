@@ -46,7 +46,7 @@ export function createConstrainedHostRouter(deps: {
       const settings = deps.settings();
       const profile = resolveAutoRoutingProfile(settings?.routing ?? { autoRoutingEnabled: false });
       const parent = input.parentTaskId ? deps.parentPolicy?.(input.parentTaskId) : undefined;
-      if (parent && parent.providerId !== providerId && helperKeepsParentProvider(parent)) throw new Error("The helper must keep the parent's provider: the parent's model is pinned.");
+      if (parent && parent.providerId !== providerId && helperKeepsParentProvider(parent)) throw new Error("The helper must keep the parent's provider.");
       const autoRouting = input.autoRouting ?? parent?.autoRouting ?? settings?.routing.autoRoutingEnabled ?? false;
       const frozen = input.allowedModels ?? (parent?.providerId === providerId ? parent.allowedModels : undefined);
       const pool = (frozen ?? pins ?? getSdkModelOptions({ providerId })).filter((id) => !pins || Boolean(resolveApiConnectionModel({ runtime: providerId, models: pins, model: id })));

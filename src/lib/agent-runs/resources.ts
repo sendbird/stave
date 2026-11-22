@@ -77,18 +77,22 @@ export const AdaptiveRunPolicySchema = z.object({
 export type AdaptiveRunPolicy = z.infer<typeof AdaptiveRunPolicySchema>;
 
 /**
- * Whether a helper must run on the parent's provider: when the parent's model
- * is pinned, and always for a version 1 policy. Otherwise a helper Agent runs
- * on its own provider, so a review can go to the other one.
+ * Whether a helper must run on the parent's provider: only for a version 1
+ * policy. A pinned model or effort covers the run's own turns, not its team,
+ * so a helper Agent runs on its own provider and a review can go to the other one.
  */
-export function helperKeepsParentProvider(root: Pick<AdaptiveRunPolicy, "version" | "modelLocked">): boolean {
-  return root.version === 1 || root.modelLocked;
+export function helperKeepsParentProvider(root: Pick<AdaptiveRunPolicy, "version">): boolean {
+  return root.version === 1;
 }
 
-/** Helpers can narrow frozen team authority, never obtain fresh wider settings. */
+/**
+ * Helpers can narrow frozen team authority, never obtain fresh wider settings.
+ * The parent's model and effort pins stay with the parent: a helper keeps only
+ * its own pins (its Agent's fixed model, or a model the parent named for it).
+ */
 export function constrainHelperResources(root: AdaptiveRunPolicy, child: AdaptiveRunPolicy, model: string): AdaptiveRunPolicy {
   if (child.providerId !== root.providerId) {
-    if (helperKeepsParentProvider(root)) throw new Error("This team must keep its provider: the parent's model is pinned.");
+    if (helperKeepsParentProvider(root)) throw new Error("This team must keep its provider.");
     // Another provider: the child's own catalog, account and effort; the team's shared limits.
     if (!child.allowedModels.includes(model)) throw new Error("The helper model is outside its own eligible catalog.");
     return AdaptiveRunPolicySchema.parse({ ...child, autoRouting: root.autoRouting, version: root.version, teamTurns: root.teamTurns,
@@ -96,14 +100,8 @@ export function constrainHelperResources(root: AdaptiveRunPolicy, child: Adaptiv
   }
   const allowedModels = child.allowedModels.filter((id) => root.allowedModels.includes(id));
   if (!allowedModels.includes(model)) throw new Error("The helper model is outside the parent's frozen eligible catalog.");
-  if (root.effortLocked && child.effortLocked && child.initialEffort !== root.initialEffort) throw new Error("The helper effort conflicts with the parent's pin.");
-  if (root.effortLocked && root.providerId === "codex" && root.initialEffort &&
-      !listCodexReasoningEffortsForModel({ model }).some((effort) => effort === root.initialEffort))
-    throw new Error("The helper model cannot preserve the parent's effort pin.");
   return AdaptiveRunPolicySchema.parse({ ...child, autoRouting: root.autoRouting, allowedModels, accountProfileId: root.accountProfileId,
-    modelLocked: root.modelLocked || child.modelLocked, effortLocked: root.effortLocked || child.effortLocked,
-    initialEffort: root.effortLocked ? root.initialEffort : child.initialEffort, version: root.version, teamTurns: root.teamTurns,
-    concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });
+    version: root.version, teamTurns: root.teamTurns, concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });
 }
 
 export const ResourceLinkSchema = z.object({ rootRunId: Id, reservationId: Id, executionId: Id }).strict();

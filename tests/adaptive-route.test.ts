@@ -130,13 +130,15 @@ test("an explicit request outranks the automatic proposal and says so", () => {
 });
 test("explicit model and effort pins are frozen without taking a caller authority field", () => {
   const p = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null,     draft: { model: "gpt-6.2-astra", modelProviderId: "codex", codexReasoningEffort: "high" } });
-  expect(p).toMatchObject({ allowedModels: ["gpt-6.2-astra"], modelLocked: true, effortLocked: true, initialEffort: "high" });
+  expect(p).toMatchObject({ modelLocked: true, effortLocked: true, initialEffort: "high" });
+  expect(p.allowedModels[0]).toBe("gpt-6.2-astra");
 });
 test("a composer pin wins over a fixed Agent model on its provider; another provider is refused at start", () => {
   const agent = { ...getBuiltinAgent("builder")!, model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-6.2-sol", effort: "high" as const } };
-  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent, settings: null,     draft: { model: "gpt-6.2-astra", modelProviderId: "codex" } })).toMatchObject({ allowedModels: ["gpt-6.2-astra"], modelLocked: true });
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent, settings: null,     draft: { model: "gpt-6.2-astra", modelProviderId: "codex" } })).toMatchObject({ allowedModels: expect.arrayContaining(["gpt-6.2-astra"]), modelLocked: true });
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent, settings: null, draft: { model: "gpt-6.2-astra", modelProviderId: "codex" } }).allowedModels[0]).toBe("gpt-6.2-astra");
   expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-astra", agent, settings: null, draft: null }))
-    .toMatchObject({ allowedModels: ["gpt-6.2-sol"], modelLocked: true, effortLocked: true, initialEffort: "high" });
+    .toMatchObject({ allowedModels: expect.arrayContaining(["gpt-6.2-sol"]), modelLocked: true, effortLocked: true, initialEffort: "high" });
   // A fixed Agent compiles for its own provider only, so a pin on another provider is refused before any turn.
   expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null,     draft: { model: "claude-opus-5-5", modelProviderId: "claude-code" } })).toThrow("another provider");
   expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, draft: null }))
@@ -157,14 +159,30 @@ test("the team shares the guard against loops, not a turn budget, and the helper
   // A hand-edited setting outside the range is clamped, never rejected.
   expect(freeze({ concurrentHelpers: 40, totalHelpers: 0 })).toMatchObject({ concurrentHelpers: 6, totalHelpers: 1 });
 });
-test("a helper on another provider keeps its own catalog unless the parent's model is pinned", () => {
+test("a helper on another provider keeps its own catalog, also when the parent's model is pinned", () => {
   const claudeChild = freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent: null, settings: null, delegated: true });
   const constrained = constrainHelperResources(policy, claudeChild, "claude-opus-5-5");
   expect(constrained).toMatchObject({ providerId: "claude-code", teamTurns: policy.teamTurns, concurrentHelpers: policy.concurrentHelpers, totalHelpers: policy.totalHelpers });
   expect(constrained.allowedModels).toContain("claude-opus-5-5");
-  expect(() => constrainHelperResources({ ...policy, modelLocked: true }, claudeChild, "claude-opus-5-5")).toThrow("pinned");
+  // A parent's pin covers its own turns: the helper keeps its provider, catalog and unpinned route.
+  expect(constrainHelperResources({ ...policy, modelLocked: true, effortLocked: true }, claudeChild, "claude-opus-5-5"))
+    .toMatchObject({ providerId: "claude-code", modelLocked: false, effortLocked: false });
   // A run that froze the opt-in version 1 policy keeps its provider for every helper.
-  expect(() => constrainHelperResources({ ...policy, version: 1 }, claudeChild, "claude-opus-5-5")).toThrow("pinned");
+  expect(() => constrainHelperResources({ ...policy, version: 1 }, claudeChild, "claude-opus-5-5")).toThrow("keep its provider");
+});
+test("a composer pin locks the run's own model while its helpers keep the eligible catalog and their own pins", () => {
+  const root = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.2-sol", agent: null, settings: null,
+    draft: { model: "gpt-6.2-sol", modelProviderId: "codex", codexReasoningEffort: "high" } });
+  expect(root).toMatchObject({ modelLocked: true, effortLocked: true, initialEffort: "high" });
+  expect(root.allowedModels[0]).toBe("gpt-6.2-sol");
+  expect(root.allowedModels.length).toBeGreaterThan(1);
+  // The run's own route still refuses another model.
+  expect(selectAdaptiveRoute(root, aggregate(0), [], null, { model: "gpt-6-luna", rationale: "cheaper" }).model).toBe("gpt-6.2-sol");
+  const free = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6-luna", agent: null, settings: null, delegated: true });
+  expect(constrainHelperResources(root, free, "gpt-6-luna")).toMatchObject({ modelLocked: false, effortLocked: false });
+  // A model the parent names for a helper is that helper's own pin.
+  const named = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6-luna", agent: null, settings: null, delegated: true, modelPinned: true });
+  expect(constrainHelperResources(root, named, "gpt-6-luna")).toMatchObject({ modelLocked: true });
 });
 test("the account selected when the Run was asked for wins over a draft pin and the request scope", () => {
   const selected = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -198,11 +216,12 @@ test("catalog and quota facts are scoped to an account and expire after five min
   expect(readAdaptiveObservations("codex", "observed-account", time + 300_001).quota).toBeNull();
 });
 
-test("a helper inherits the root account, eligible catalog and pins even after settings widen", () => {
+test("a helper inherits the root account and eligible catalog, not its pins, even after settings widen", () => {
+  // A run frozen with a one-model catalog (before pins stopped narrowing it) keeps its helpers to that model.
   const root = { ...policy, allowedModels: ["gpt-6.2-sol"], modelLocked: true, effortLocked: true, accountProfileId: "root-account" };
   expect(constrainHelperResources(root, { ...policy, accountProfileId: "other-account" }, "gpt-6.2-sol"))
-    .toMatchObject({ allowedModels: ["gpt-6.2-sol"], accountProfileId: "root-account", modelLocked: true, effortLocked: true });
-  expect(() => constrainHelperResources(root, { ...policy, providerId: "claude-code" }, "gpt-6.2-sol")).toThrow("provider");
+    .toMatchObject({ allowedModels: ["gpt-6.2-sol"], accountProfileId: "root-account", modelLocked: false, effortLocked: false });
+  expect(() => constrainHelperResources({ ...root, version: 1 }, { ...policy, providerId: "claude-code" }, "gpt-6.2-sol")).toThrow("provider");
   expect(() => constrainHelperResources(root, policy, "gpt-6-luna")).toThrow("catalog");
 });
 
@@ -213,9 +232,11 @@ test("a mechanical step cannot hide an effort escalation on the same model", () 
     .toMatchObject({ accepted: false, reason: "A mechanical step cannot increase effort." });
 });
 
-test("a helper cannot silently clamp the root's locked effort on a smaller model", () => {
+test("a root's effort pin stays with the root: a helper keeps its own effort", () => {
   const root = { ...policy, effortLocked: true, initialEffort: "ultra" };
-  expect(() => constrainHelperResources(root, policy, "gpt-6-luna")).toThrow("effort pin");
+  expect(constrainHelperResources(root, policy, "gpt-6-luna")).toMatchObject({ effortLocked: false, initialEffort: policy.initialEffort });
+  const pinnedChild = { ...policy, effortLocked: true, initialEffort: "medium" };
+  expect(constrainHelperResources(root, pinnedChild, "gpt-6-luna")).toMatchObject({ effortLocked: true, initialEffort: "medium" });
 });
 
 test("a retired pinned effort is refused rather than silently raised at admission", () => {

@@ -655,7 +655,7 @@ export class AgentRunStore {
       if (!args.expectedRootRunId) throw new Error("A helper must carry the exact resource Run accepted by its coordinator.");
       const config = this.resourceConfig(parent.id)!;
       const otherProvider = Boolean(args.providerId && args.providerId !== config.policy.providerId);
-      if (otherProvider && helperKeepsParentProvider(config.policy)) throw new Error("The helper must keep the parent's provider: the parent's model is pinned.");
+      if (otherProvider && helperKeepsParentProvider(config.policy)) throw new Error("The helper must keep the parent's provider.");
       // A helper on another provider is held to its own catalog when its run freezes.
       if (!otherProvider && args.model && !config.policy.allowedModels.includes(args.model)) throw new Error("The helper model is outside the frozen parent catalog.");
       if (config.link) throw new Error("A delegated Run cannot create recursive resource reservations.");
