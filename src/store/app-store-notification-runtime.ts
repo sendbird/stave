@@ -38,7 +38,7 @@ export function createAppStoreNotificationRuntime(args: {
   });
   const attentionSync = createNotificationAttentionSync({
     getNotifications: () => get().notifications,
-    markRead: (args) => get().markNotificationRead(args),
+    markRead: async (args) => { await get().markNotificationRead(args); },
     getReviewSurface: () => {
       const state = get();
       return {

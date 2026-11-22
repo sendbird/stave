@@ -181,3 +181,118 @@ test("completed history stays quiet on hydration; a live completion announces on
   immediate.snapshot(snapshot("completed", [])); await immediate.reconcile();
   expect(immediate.inserted).toHaveLength(1);
 });
+
+test("a read that fails to save waits for a new snapshot instead of retrying in a loop", async () => {
+  let current: TarsSnapshot | null = snapshot("running", []);
+  // A decision that is no longer live, so the sync resolves its notification.
+  const row = persisted(describeTarsNotifications(snapshot())[0]!);
+  let notifications: AppNotification[] = [row];
+  const attempts: string[] = [];
+  const sync = createTarsNotificationSync({
+    getSnapshot: () => current,
+    notificationsReady: () => true,
+    getNotifications: () => notifications,
+    persist: async () => {},
+    // The store rolls a failed write back: a new list with the row unresolved.
+    markRead: async ({ id }) => { attempts.push(id); notifications = [...notifications]; return false; },
+  });
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id]);
+  // The rollback is itself a notifications change; reconciling on it does not retry.
+  await sync.reconcile();
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id]);
+  // A new snapshot is a real change: the read is tried again.
+  current = snapshot("running", []);
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id, row.id]);
+});
+
+test("a failed read is tried again on the same snapshot once the retry delay passes", async () => {
+  const current = snapshot("running", []);
+  const row = persisted(describeTarsNotifications(snapshot())[0]!);
+  let notifications: AppNotification[] = [row];
+  let clock = 0;
+  let timer: (() => void) | null = null;
+  let saveWorks = false;
+  const attempts: string[] = [];
+  const sync = createTarsNotificationSync({
+    getSnapshot: () => current,
+    notificationsReady: () => true,
+    getNotifications: () => notifications,
+    persist: async () => {},
+    markRead: async ({ id, resolvedAt }) => {
+      attempts.push(id);
+      notifications = notifications.map((item) => item.id === id && saveWorks ? { ...item, readAt: TARS_AT, resolvedAt } : { ...item });
+      return saveWorks;
+    },
+    readRetryMs: 1_000,
+    now: () => clock,
+    setTimer: (run) => { timer = run; return 1; },
+    clearTimer: () => { timer = null; },
+  });
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id]);
+  // Storage recovers, but the snapshot never changes: the delay brings it back.
+  saveWorks = true;
+  clock = 500;
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id]);
+  clock = 1_000;
+  const fire = timer as (() => void) | null;
+  expect(fire).not.toBeNull();
+  fire!();
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id, row.id]);
+  expect(notifications[0]?.resolvedAt).toBeTruthy();
+  sync.stop();
+});
+
+test("reads that failed at different times are each tried again once due", async () => {
+  const current = snapshot("running", []);
+  const first = persisted(describeTarsNotifications(snapshot())[0]!);
+  const second = { ...first, id: `${first.id}:second` };
+  let notifications: AppNotification[] = [first];
+  let clock = 0;
+  let timer: { run: () => void; ms: number } | null = null;
+  let saveWorks = false;
+  const attempts: string[] = [];
+  const sync = createTarsNotificationSync({
+    getSnapshot: () => current,
+    notificationsReady: () => true,
+    getNotifications: () => notifications,
+    persist: async () => {},
+    markRead: async ({ id, resolvedAt }) => {
+      attempts.push(id);
+      notifications = notifications.map((item) => item.id === id && saveWorks ? { ...item, readAt: TARS_AT, resolvedAt } : { ...item });
+      return saveWorks;
+    },
+    readRetryMs: 1_000,
+    now: () => clock,
+    setTimer: (run, ms) => { timer = { run, ms }; return 1; },
+    clearTimer: () => { timer = null; },
+  });
+  await sync.reconcile();
+  // A second stale notification appears later and fails too.
+  clock = 600;
+  notifications = [...notifications, second];
+  await sync.reconcile();
+  expect(attempts).toEqual([first.id, second.id]);
+  // Storage recovers. The timer for the first fires; the second is not due yet.
+  saveWorks = true;
+  clock = 1_000;
+  const firstTimer = timer as { run: () => void; ms: number } | null;
+  firstTimer!.run();
+  await sync.reconcile();
+  expect(attempts).toEqual([first.id, second.id, first.id]);
+  // A timer is set for the second's own due time, and it is retried then.
+  const secondTimer = timer as { run: () => void; ms: number } | null;
+  expect(secondTimer?.ms).toBe(600);
+  clock = 1_600;
+  secondTimer!.run();
+  await sync.reconcile();
+  expect(attempts).toEqual([first.id, second.id, first.id, second.id]);
+  expect(notifications.every((item) => item.resolvedAt)).toBe(true);
+  sync.stop();
+});
+

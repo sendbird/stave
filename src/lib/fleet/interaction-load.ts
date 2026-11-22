@@ -291,6 +291,9 @@ async function readAndMerge(
               [expected.workspaceId]: next,
             },
             activeWorkspaceId: state.activeWorkspaceId,
+            // The read was for this workspace: evicting it at once would leave
+            // the request unknown and the caller with nothing to show.
+            keepWorkspaceId: expected.workspaceId,
           }),
           taskWorkspaceIdById: mapping,
         };
