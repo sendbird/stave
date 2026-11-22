@@ -650,10 +650,12 @@ model, and each work's title opens that work. A cost appears only when a
 provider reported one; nothing is estimated. Tars's own replies are counted but
 their tokens are not recorded, and turns of helper tasks are not counted.
 
-**Settings > Providers > Today’s daily limits** sets a daily token limit per
-provider, or a USD limit once that provider reports a cost. Limits start off.
-AI usage and Tars usage insights show today’s recorded task usage across all
-accounts and workspaces, including helpers. Completed turns count on their
+At the bottom of **Settings > Providers**, **Today’s daily limits** sets a
+daily token limit per provider, or a USD limit once that provider reports a
+cost. Limits start off. In **AI usage > Quota**, expand **Today’s daily limits**
+below the account quota report. This section and Tars usage insights show
+today’s recorded task usage across all accounts and workspaces, including
+helpers. Completed turns count on their
 local start date; limits reset at local midnight. Only reported usage counts;
 Tars conversation replies are excluded. At the limit, new work on that
 provider is refused. Active turns finish, then the run pauses before its next
@@ -1151,6 +1153,7 @@ An agent can hand part of its work to another agent. A delegated task is a real 
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
+A delegated task's approval or question also appears above the parent task's composer, where you can answer it. If it was already answered elsewhere or expired, the card says so and **Close** (×) removes it; a request still waiting has no Close.
 
 The parent receives each subagent answer once, including after a restart. Each answer arrives whole; one longer than 4,000 characters arrives as its beginning with a reference to the full answer. An answer that does not fit the turn arrives whole in the next one. An answer counts as received once the provider accepts a parent turn that carried it, even if you stop that turn; a turn that never started leaves it for the next turn. If Stave cannot record that the parent received an answer, it sends the answer again with the next turn; after three failed tries it stops, tells you once on the task, and you can read the answer in the **Subagents** tab.
 

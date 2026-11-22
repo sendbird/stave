@@ -367,7 +367,14 @@ working there. It appears in these places:
   offers the usual `Allow once` / `Deny` or answer controls.
   Answering there responds to the child without selecting it or switching
   workspaces, including for a child running in its own worktree. Further
-  requests wait behind it as `+N more`.
+  requests wait behind it as `+N more`. A request the child already answered,
+  or one that expired, reads "This request was answered or expired." and
+  offers a close (×) button; closing it resolves its notification, so it stays
+  gone after a restart and the next request takes its place. The button only
+  appears once Stave has loaded the child's message and confirmed the request
+  is no longer pending. A request still waiting, one that could not be loaded,
+  or an asynchronous question that outlived its turn and can still be answered
+  has no close button.
 - **Notifications.** The item reads as the root task, with the delegated task
   named in its detail. Opening it focuses the root task rather than the
   child's workspace.

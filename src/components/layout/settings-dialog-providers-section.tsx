@@ -259,7 +259,6 @@ export function ProvidersSection() {
 
   return (
     <>
-      <DailyLimits editable />
       <Tabs
         value={providerTab.value}
         onValueChange={providerTab.onValueChange}
@@ -730,6 +729,7 @@ export function ProvidersSection() {
       </SettingsCard>
       <SettingsDelegationSection />
       </ScopeLocked>
+      <DailyLimits editable />
     </>
   );
 }
