@@ -142,6 +142,13 @@ export function createWorkspaceCleanupRuntime(ports: {
     if (saved) prSavedTips.add(key);
     return saved;
   }
+  /** Whether Git still lists the checkout as a worktree; null when Git cannot tell. */
+  async function gitRegistersWorktree(repositoryPath: string, path: string): Promise<boolean | null> {
+    const listed = await git(repositoryPath, ["worktree", "list", "--porcelain", "-z"]);
+    if (!listed.ok) return null;
+    const target = canonical(path);
+    return listed.stdout.split("\0").some(field => field.startsWith("worktree ") && canonical(field.slice("worktree ".length)) === target);
+  }
   async function inspect(row: WorkspaceCleanupRow, scanDisk = false, checkPr = false, action?: WorkspaceCleanupActArgs["action"]): Promise<WorkspaceCleanupRow> {
     const blockers = hostBlockers(row, action);
     const reasons: string[] = [...row.reasons];
@@ -383,6 +390,12 @@ export function createWorkspaceCleanupRuntime(ports: {
               // Git kept the checkout; return the workspace to its active registry.
               // If rollback also fails, the durable archive still protects history.
               if (createArchive && existsSync(row.path)) {
+                // A failed removal can still drop Git's worktree record, leaving only
+                // files Git could not delete. That folder is no longer a checkout,
+                // so the archive and any saved changes stay and the leftover is reported.
+                const owned = await gitRegistersWorktree(row.repositoryPath, row.path);
+                if (owned === false) throw new Error("worktreeLeftoverFiles");
+                if (owned === null) throw error;
                 try {
                   if (savedRef && savedStateCleared) await applySavedWorkspaceChanges(row.path, savedRef);
                   if (linked) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);

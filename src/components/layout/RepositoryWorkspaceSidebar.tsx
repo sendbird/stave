@@ -146,7 +146,7 @@ export function RepositoryWorkspaceSidebar(args: {
   onPreloadSettings: () => void;
   onKickoffWorkspace: (repositoryPath: string) => Promise<void> | void;
 }) {
-  const { t: tI18n } = useTranslation(["workspace"]);
+  const { t: tI18n } = useTranslation(["workspace", "common"]);
   const [collapsedByRepositoryPath, setCollapsedByRepositoryPath] = useState<
     Record<string, boolean>
   >({});
@@ -161,6 +161,7 @@ export function RepositoryWorkspaceSidebar(args: {
   const [workspaceToClose, setWorkspaceToClose] = useState<{
     id: string;
     name: string;
+    path?: string;
   } | null>(null);
   const [closingWorkspaceId, setClosingWorkspaceId] = useState<string | null>(
     null,
@@ -1713,7 +1714,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                     closingWorkspaceId={closingWorkspaceId}
                                                     onArchive={() => {
                                                       setArchiveError(null);
-                                                      setWorkspaceToClose({ id: workspace.id, name: workspace.name });
+                                                      setWorkspaceToClose({ id: workspace.id, name: workspace.name, path: workspacePathById[workspace.id] });
                                                     }}
                                                     onRename={renameWorkspace}
                                                   />
@@ -1824,18 +1825,19 @@ export function RepositoryWorkspaceSidebar(args: {
         open={Boolean(workspaceToClose)}
         title={tI18n("workspace:repositoryWorkspaceSidebar.archiveWorkspace")}
         description={archiveDialogCopy?.description ?? ""}
-        confirmLabel={tI18n(archiveError ? "workspace:cleanupCenter.retryArchive" : "workspace:repositoryWorkspaceSidebar.archive")}
+        confirmLabel={tI18n(archiveError === "worktreeLeftoverFiles" ? "common:actions.close" : archiveError ? "workspace:cleanupCenter.retryArchive" : "workspace:repositoryWorkspaceSidebar.archive")}
         defaultFocus={archiveError ? "cancel" : "confirm"}
         loading={closingWorkspaceId !== null}
         onCancel={() => {
           setWorkspaceToClose(null);
         }}
-        onConfirm={() => archiveSelectedWorkspace()}
+        // The workspace is already archived; only its leftover folder remains.
+        onConfirm={() => archiveError === "worktreeLeftoverFiles" ? setWorkspaceToClose(null) : archiveSelectedWorkspace()}
       >
         {archiveError && workspaceToClose && (
           <WorkspaceArchiveRecovery
             reason={archiveError}
-            path={workspacePathById[workspaceToClose.id]}
+            path={workspaceToClose.path}
             busy={closingWorkspaceId !== null}
             keep={() => archiveSelectedWorkspace(true)}
           />

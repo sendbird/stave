@@ -1409,7 +1409,7 @@
     "summary": "Completed {{done}}; skipped {{skipped}}.",
     "archived": "Archived",
     "selectReady": "Select all ready",
-    "archiveConfirm": "Remove managed worktrees and keep branches, including local commits, as well as all tasks, messages and history. You can restore archived workspaces.",
+    "archiveConfirm": "Remove managed worktrees and keep branches, including local commits, as well as all tasks, messages and history. Git-ignored files in those worktrees, such as dependencies and build output, are deleted. You can restore archived workspaces.",
     "deleteConfirm": "Permanently delete the selected workspaces and all their tasks, messages, turns and events. Clean worktrees are removed. Branches are kept unless selected below. This cannot be undone.",
     "branchConfirm": "Delete the selected branches. Safe deletion refuses unmerged work unless you explicitly allow force deletion.",
     "alsoDeleteBranch": "Delete eligible branches too",
@@ -1492,6 +1492,7 @@
       "savedChangesRestorePartial": "Saved changes could not be restored, and the partially restored folder was kept for review",
       "savedChangesUnavailable": "Saved changes are unavailable",
       "ignoredFiles": "Git-ignored files blocked worktree removal",
+      "worktreeLeftoverFiles": "Archived, but Git could not delete some files in the worktree folder. Delete the folder before restoring this workspace",
       "gitOperationInProgress": "A Git operation is in progress in this worktree",
       "hiddenChanges": "Git is hiding tracked files from its normal change check",
       "keptWorktree": "Restore the workspace before removing its retained files"
@@ -1509,7 +1510,7 @@
     "worktreeKept": "Worktree kept on disk",
     "savedChanges": "Saved changes",
     "saveChanges": "Save uncommitted changes and archive",
-    "saveChangesDescription": "Preserve staged, unstaged and untracked files. Git-ignored files, such as dependencies and build output, are deleted with the worktree. Restore stops if existing files conflict."
+    "saveChangesDescription": "Preserve staged, unstaged and untracked files. Restore stops if existing files conflict."
   },
   "archivedShelf": {
     "title": "Archived workspaces",

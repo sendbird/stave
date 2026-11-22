@@ -245,7 +245,10 @@ export function createWorkspaceManagementActions(args: {
         action: "archive", workspaceId, repositoryPath,
         ...(preserveLocalWork ? { preserveLocalWork: true, ...(keepWorktree ? { keepWorktree: true } : { saveChanges: true }) } : {}),
       });
-      if (!result.ok) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
+      // The host keeps the archive when Git dropped the worktree but left files it
+      // could not delete, so the workspace leaves this session before the reason is shown.
+      const archivedWithLeftover = !result.ok && result.reason === "worktreeLeftoverFiles";
+      if (!result.ok && !archivedWithLeftover) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
       // Pick the replacement active workspace, ignoring the one being archived.
       const nextWorkspace =
         state.workspaces.find(
@@ -367,6 +370,7 @@ export function createWorkspaceManagementActions(args: {
             error,
           );
         }
+        if (archivedWithLeftover) throw new Error("worktreeLeftoverFiles");
         return;
       }
       // Archiving an inactive workspace must not disturb the current session.
@@ -467,6 +471,7 @@ export function createWorkspaceManagementActions(args: {
           error,
         );
       }
+      if (archivedWithLeftover) throw new Error("worktreeLeftoverFiles");
     },
     switchWorkspace: async ({ workspaceId }) => {
       const current = get();

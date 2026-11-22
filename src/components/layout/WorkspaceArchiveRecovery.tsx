@@ -18,16 +18,18 @@ export function WorkspaceArchiveRecovery({ reason, path, busy, retry, keep }: {
   keep: () => void;
 }) {
   const { t } = useTranslation("workspace");
-  const canKeep = reason.split(",").every(code => worktreeReasons.has(code));
+  // Archived already: Git removed the worktree but could not delete every file.
+  const archived = reason === "worktreeLeftoverFiles";
+  const canKeep = !archived && reason.split(",").every(code => worktreeReasons.has(code));
   const showInFinder = window.api?.shell?.showInFinder;
   return (
     <div className={sx(cleanupStyles.archiveRecovery)}>
       <p aria-live="polite" className={sx(cleanupStyles.status)}>
-        {t("cleanupCenter.archiveRefusedWithReason", { reason: workspaceCleanupReasonText(reason) })}
+        {archived ? workspaceCleanupReasonText(reason) : t("cleanupCenter.archiveRefusedWithReason", { reason: workspaceCleanupReasonText(reason) })}
       </p>
-      {!canKeep && <p className={sx(cleanupStyles.muted)}>{t("cleanupCenter.retryAfterResolving")}</p>}
+      {!canKeep && !archived && <p className={sx(cleanupStyles.muted)}>{t("cleanupCenter.retryAfterResolving")}</p>}
       <div className={sx(cleanupStyles.actions)}>
-        {canKeep && path && showInFinder && (
+        {(canKeep || archived) && path && showInFinder && (
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { void showInFinder({ path }); }}>
             {t("cleanupCenter.showWorktree")}
           </Button>
@@ -37,7 +39,7 @@ export function WorkspaceArchiveRecovery({ reason, path, busy, retry, keep }: {
             {t("cleanupCenter.keepWorktree")}
           </Button>
         )}
-        {retry && (
+        {retry && !archived && (
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={retry}>
             {t("cleanupCenter.retryArchive")}
           </Button>

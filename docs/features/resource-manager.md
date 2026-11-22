@@ -83,7 +83,8 @@ unstaged changes and untracked files on a hidden local Git reference.
 Git-ignored files, such as dependencies, build output and caches, are deleted
 with the worktree, as automatic cleanup does. Unfinished Git operations and
 tracked files hidden from Git status prevent worktree removal in both manual
-flows.
+flows. If Git removes the worktree but cannot delete some files, the workspace
+stays archived and Stave asks you to delete the leftover folder before restoring.
 If removal is blocked, review the reason, show the worktree folder and retry,
 or choose **Archive and keep files on disk** when available. Restoring a
 retained checkout reopens the same files. Restore it before trying to remove
