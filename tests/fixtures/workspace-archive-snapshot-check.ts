@@ -68,7 +68,7 @@ async function main() {
     assert.equal((await act("archive")).ok, false, "Default archive still blocks changed files");
     assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.canSaveChanges, true, JSON.stringify((await runtime.list()).rows));
     // A failed durable save must leave the full checkout and active registry intact.
-    let archive = store.archiveWorkspacePersistence.bind(store);
+    const archive = store.archiveWorkspacePersistence.bind(store);
     store.archiveWorkspacePersistence = () => { throw new Error("fixtureSaveFailure"); };
     assert.equal((await act("archive", true)).ok, false);
     store.archiveWorkspacePersistence = archive;
@@ -101,29 +101,6 @@ async function main() {
     assert.equal(git(path, "show", ":tracked"), index);
     assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
     git(repo, "worktree", "unlock", path);
-    writeFileSync(join(path, "ignored"), "private working data");
-    const ignored = await manualArchive();
-    assert.equal(ignored.reason, "ignoredFiles");
-    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "private working data");
-    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
-    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
-    assert.equal((await keepArchive()).ok, true);
-    store.close(); store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
-    archive = store.archiveWorkspacePersistence.bind(store);
-    assert.equal((await act("restore")).ok, true);
-    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "private working data");
-    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
-    rmSync(join(path, "ignored"));
-
-    store.archiveWorkspacePersistence = args => { const record = archive(args); writeFileSync(join(path, "ignored"), "late private data"); return record; };
-    const lateIgnored = await manualArchive();
-    store.archiveWorkspacePersistence = archive;
-    assert.equal(lateIgnored.reason, "ignoredFiles");
-    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "late private data");
-    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
-    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
-    rmSync(join(path, "ignored"));
-
     const mergeHead = git(path, "rev-parse", "--path-format=absolute", "--git-path", "MERGE_HEAD").trim();
     writeFileSync(mergeHead, branch);
     assert.equal((await manualArchive()).reason, "gitOperationInProgress");
@@ -138,6 +115,8 @@ async function main() {
     assert.match((await runtime.act({ ...request, deleteBranch: true })).reason ?? "", /unpushedCommits/);
     assert.match((await runtime.act(request, true)).reason ?? "", /unpushedCommits/);
     assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
+    // Git-ignored files are disposable and removed with the checkout, as automatic cleanup does.
+    writeFileSync(join(path, "ignored"), "regenerable output");
     const archived = await manualArchive();
     assert.equal(archived.ok, true, JSON.stringify(archived));
     assert.equal(existsSync(path), false);

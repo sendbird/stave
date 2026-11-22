@@ -80,8 +80,10 @@ The sidebar's **Archive** confirmation includes saving uncommitted changes.
 In the cleanup center, select the workspace and turn on **Save uncommitted
 changes and archive** in the confirmation. This preserves staged changes,
 unstaged changes and untracked files on a hidden local Git reference.
-Git-ignored files and unfinished Git operations prevent worktree removal
-in both manual flows. Stave can remove its own dependency symlink.
+Git-ignored files, such as dependencies, build output and caches, are deleted
+with the worktree, as automatic cleanup does. Unfinished Git operations and
+tracked files hidden from Git status prevent worktree removal in both manual
+flows.
 If removal is blocked, review the reason, show the worktree folder and retry,
 or choose **Archive and keep files on disk** when available. Restoring a
 retained checkout reopens the same files. Restore it before trying to remove

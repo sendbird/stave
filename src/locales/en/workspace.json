@@ -474,7 +474,7 @@
     "text2": "1 item needs attention{{scope}}: {{reason}}",
     "valueNeedAttentionvalueMostUrgentValue": "{{value1}} need attention{{scope}}, most urgent: {{reason}}",
     "archiveWorkspaceValueItIsALinked": "Archive workspace \"{{value1}}\"? Its external worktree and branch are kept, along with all tasks, messages and history. Restore it from Archived or Clean up workspaces.",
-    "archiveWorkspaceValueStaveWillRemoveThe": "Archive workspace \"{{value1}}\"? Stave saves any uncommitted changes before removing the worktree. The branch, including local commits, and conversation history are kept. Restore it from Archived or Clean up workspaces.",
+    "archiveWorkspaceValueStaveWillRemoveThe": "Archive workspace \"{{value1}}\"? Stave saves any uncommitted changes before removing the worktree. Git-ignored files, such as dependencies and build output, are deleted with it. The branch, including local commits, and conversation history are kept. Restore it from Archived or Clean up workspaces.",
     "repositories": "Repositories",
     "workQueue": "Work queue",
     "answerNeeded": "answer needed",
@@ -1491,7 +1491,7 @@
       "savedChangesRestoreGitFailed": "Saved changes could not be restored. The archive is kept, so you can restore again.",
       "savedChangesRestorePartial": "Saved changes could not be restored, and the partially restored folder was kept for review",
       "savedChangesUnavailable": "Saved changes are unavailable",
-      "ignoredFiles": "Move Git-ignored files you want to keep out of the worktree and remove any remaining ignored files before archiving",
+      "ignoredFiles": "Git-ignored files blocked worktree removal",
       "gitOperationInProgress": "A Git operation is in progress in this worktree",
       "hiddenChanges": "Git is hiding tracked files from its normal change check",
       "keptWorktree": "Restore the workspace before removing its retained files"
@@ -1509,7 +1509,7 @@
     "worktreeKept": "Worktree kept on disk",
     "savedChanges": "Saved changes",
     "saveChanges": "Save uncommitted changes and archive",
-    "saveChangesDescription": "Preserve staged, unstaged and untracked files. Git-ignored files block worktree removal. Restore stops if existing files conflict."
+    "saveChangesDescription": "Preserve staged, unstaged and untracked files. Git-ignored files, such as dependencies and build output, are deleted with the worktree. Restore stops if existing files conflict."
   },
   "archivedShelf": {
     "title": "Archived workspaces",

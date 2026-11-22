@@ -21,7 +21,7 @@ export function installCleanupFixture() {
     act: async (args) => {
       const row = rows.find((item) => item.id === args.workspaceId);
       if (params.has("cleanupRecoveryPreview") && args.action === "archive" && !args.keepWorktree) {
-        return { ok: false, workspaceId: args.workspaceId, action: args.action, reason: "ignoredFiles" };
+        return { ok: false, workspaceId: args.workspaceId, action: args.action, reason: "gitOperationInProgress" };
       }
       const canKeepLocalCommits = args.action === "archive" && args.preserveLocalWork && !args.deleteBranch;
       const saveAllowed = args.action === "archive" && args.saveChanges && row?.canSaveChanges;

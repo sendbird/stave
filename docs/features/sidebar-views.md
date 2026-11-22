@@ -76,7 +76,8 @@ no branch is available, only the label appears.
 Choose **Archive** from the workspace's sidebar menu to remove its managed
 worktree while retaining the branch, including local commits. Confirming the
 archive saves staged, unstaged and untracked files so they can be restored.
-Git-ignored files and unfinished Git operations block worktree removal.
+Git-ignored files, such as dependencies and build output, are deleted with
+the worktree. Unfinished Git operations block worktree removal.
 When that happens, the confirmation stays open so you can show the worktree
 folder, retry, or archive while keeping its files on disk.
 Open **Clean up workspaces** to see the **Saved

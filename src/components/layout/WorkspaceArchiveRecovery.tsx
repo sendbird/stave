@@ -5,7 +5,7 @@ import { cleanupStyles } from "./workspace-cleanup-center.styles";
 import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
 
 const worktreeReasons = new Set([
-  "changedFiles", "ignoredFiles", "hiddenChanges", "gitOperationInProgress",
+  "changedFiles", "hiddenChanges", "gitOperationInProgress",
   "worktreeRemoveFailed", "savedChangesGitFailed", "savedChangesVerificationFailed",
   "savedChangesChangedDuringSave", "savedChangesSubmoduleUnsupported",
 ]);

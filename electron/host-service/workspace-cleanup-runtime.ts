@@ -351,7 +351,7 @@ export function createWorkspaceCleanupRuntime(ports: {
           const linkedSymlinkNames = linked ? await listWorkspaceShelfLinks(row.repositoryPath, row.path) : [];
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
           const checkArchiveFiles = preserveLocalWork && !keepWorktree && !linked && existsSync(row.path);
-          if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path, row.repositoryPath);
+          if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path);
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
           const saved = willSave(fresh) ? await saveWorkspaceChanges(row.path) : undefined;
@@ -375,7 +375,7 @@ export function createWorkspaceCleanupRuntime(ports: {
               if (saved) await clearSavedWorkspaceChanges(row.path, saved, () => { savedStateCleared = true; });
               if (linked && args.action === "archive") await removeWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
               if (!keepWorktree && !linked && !row.branchOnly && existsSync(row.path)) {
-                if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path, row.repositoryPath);
+                if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path);
                 const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
                 if (!removed.ok) throw new Error("worktreeRemoveFailed");
               }
