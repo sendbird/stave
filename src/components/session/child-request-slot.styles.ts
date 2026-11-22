@@ -63,6 +63,14 @@ export const childRequestSlotStyles = stylex.create({
     marginInlineStart: "auto",
     whiteSpace: "nowrap",
   },
+  // The close control trails the header; with no "+N more" before it, it takes
+  // the free space itself so it still sits at the trailing edge.
+  dismiss: {
+    flexShrink: 0,
+  },
+  dismissEnd: {
+    marginInlineStart: "auto",
+  },
   status: {
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],

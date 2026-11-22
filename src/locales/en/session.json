@@ -198,7 +198,8 @@
     "childRequestView": "Delegated task",
     "childRequestView2": "more",
     "extraCopy88": "This request could not be loaded.",
-    "extraCopy89": "Sending the response to the delegated task…"
+    "extraCopy89": "Sending the response to the delegated task…",
+    "dismiss": "Close"
   },
   "composerContextDock": {
     "copy": "Could not compact context",

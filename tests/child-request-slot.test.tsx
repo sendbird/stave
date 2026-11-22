@@ -140,4 +140,65 @@ describe("child requests in the parent composer", () => {
     expect(result.ok).toBe(false);
     expect(responses).toEqual([]);
   });
+
+  test("only a request with nothing left to answer offers a close control", async () => {
+    const { ChildRequestView, findChildPendingRequest } = await import("@/components/session/ChildRequestSlot");
+    const pending = findChildPendingRequest({ expected: { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace",
+      taskId: "child", turnId: "child-turn", kind: "approval", requestId: "approval-1", messageId: "approval-message" },
+      messages, activeTurnId: "child-turn" });
+    const render = (overrides: Partial<Parameters<typeof ChildRequestView>[0]>) =>
+      renderToStaticMarkup(createElement(ChildRequestView, { requestId: "approval-1", childTitle: "Implementation",
+        providerId: "codex", pending: null, queuedCount: 0, busy: false, error: null, loaded: true,
+        onRespond: () => {}, onDismiss: () => {}, ...overrides }));
+    const close = 'aria-label="Close"';
+
+    const settled = render({});
+    expect(settled).toContain("This request was answered or expired.");
+    expect(settled).toContain(close);
+    // A request that could not be loaded would otherwise also stay forever.
+    expect(render({ error: "This request could not be loaded." })).toContain(close);
+    // Still answerable, still loading, or being delivered: no close.
+    expect(render({ pending })).not.toContain(close);
+    expect(render({ loaded: false })).not.toContain(close);
+    expect(render({ busy: true })).not.toContain(close);
+    // A view without a close handler, like the frame preview, shows none.
+    expect(render({ onDismiss: undefined })).not.toContain(close);
+  });
+
+  test("closing a settled request persists and does not bring it back", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const { dismissChildRequest } = await import("@/components/session/ChildRequestSlot");
+    const { selectDelegatedInteractionRequests } = await import("@/lib/notifications/delegated-attention");
+    const persisted: Array<{ id: string; resolvedAt?: string }> = [];
+    (window.api as unknown as Record<string, unknown>).persistence = {
+      listNotifications: async () => ({ ok: true, notifications: [] }),
+      createNotification: async () => ({ ok: true }),
+      markAllNotificationsRead: async () => ({ ok: true, count: 0 }),
+      markNotificationRead: async (args: { id: string; readAt?: string; resolvedAt?: string }) => {
+        persisted.push({ id: args.id, resolvedAt: args.resolvedAt });
+        const source = [questionNotification, approvalNotification].find((item) => item.id === args.id)!;
+        return { ok: true, notification: { ...source, readAt: args.readAt ?? null, resolvedAt: args.resolvedAt ?? null } };
+      },
+    };
+    // The child already answered its question elsewhere, so the parent's card
+    // reads "answered or expired" until it is closed.
+    const select = () => selectDelegatedInteractionRequests({ notifications: useAppStore.getState().notifications,
+      taskId: "parent", repositoryPath: REPOSITORY_PATH, now: Date.parse(NOW) }).map((item) => item.notificationId);
+    expect(select()).toEqual(["notification-approval", "notification-question"]);
+
+    await dismissChildRequest("notification-approval");
+    await flush();
+
+    expect(persisted).toHaveLength(1);
+    expect(persisted[0]!.id).toBe("notification-approval");
+    expect(typeof persisted[0]!.resolvedAt).toBe("string");
+    // The next queued request takes the slot; the closed one stays gone after
+    // the persisted record is merged back.
+    expect(select()).toEqual(["notification-question"]);
+    const closed = useAppStore.getState().notifications.find((item) => item.id === "notification-approval");
+    expect(closed?.resolvedAt).toBe(persisted[0]!.resolvedAt);
+    // The parent stays where it was.
+    const state = useAppStore.getState();
+    expect([state.activeWorkspaceId, state.activeTaskId]).toEqual(["parent-workspace", "parent"]);
+  });
 });

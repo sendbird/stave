@@ -195,7 +195,8 @@
     "childRequestView": "위임 작업",
     "childRequestView2": "더 보기",
     "extraCopy88": "이 요청을 불러오지 못했습니다.",
-    "extraCopy89": "위임 작업에 응답 전송 중…"
+    "extraCopy89": "위임 작업에 응답 전송 중…",
+    "dismiss": "닫기"
   },
   "composerContextDock": {
     "copy": "컨텍스트를 압축하지 못했습니다",

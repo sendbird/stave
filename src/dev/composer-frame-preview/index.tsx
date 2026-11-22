@@ -135,7 +135,9 @@ import {
  * so the three context chips render side by side; `&partial=1` attaches a task
  * whose reply is still streaming.
  * `&childRequest=question|preview|approval` shows a delegated task's request above the
- * composer, the slot `ChatInputComposer` mounts.
+ * composer, the slot `ChatInputComposer` mounts; `&childRequest=answered` shows
+ * one that was answered or expired elsewhere, with the close control (add
+ * `&queued=0` to drop the "+1 more" count).
  * `&draft=empty` starts with an empty draft, so the placeholder shows. With
  * `&case=needs-input` the composer stays usable and sending redirects the agent;
  * `&redirect=queue` shows the variant for a turn that cannot be steered.
@@ -245,7 +247,10 @@ const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
   preview: PREVIEW_CHILD_QUESTION_WITH_PREVIEW,
   approval: PREVIEW_CHILD_APPROVAL,
 };
-const CHILD_REQUEST = CHILD_REQUESTS[previewParams.get("childRequest") ?? ""] ?? null;
+const CHILD_REQUEST_CASE = previewParams.get("childRequest");
+const CHILD_REQUEST = CHILD_REQUESTS[CHILD_REQUEST_CASE ?? ""] ?? null;
+const CHILD_REQUEST_SETTLED = CHILD_REQUEST_CASE === "answered";
+const CHILD_REQUEST_QUEUED = previewParams.get("queued") === "0" ? 0 : 1;
 const SECRET_REQUEST_CASE = previewParams.get("secretRequest");
 const SECRET_REQUEST =
   SECRET_REQUEST_CASE === "existing" || SECRET_REQUEST_CASE === "enter"
@@ -257,6 +262,7 @@ installAgentsBridge(INITIAL_AGENT);
 
 export function ComposerFramePreviewApp() {
   const [dark, setDark] = useState(previewParams.get("theme") !== "light");
+  const [childRequestClosed, setChildRequestClosed] = useState(false);
   const [layoutPreference, setLayoutPreference] =
     useState<ComposerLayoutMode>("framed");
   const [squeezed, setSqueezed] = useState(false);
@@ -550,17 +556,18 @@ export function ComposerFramePreviewApp() {
                   />
                 ) : null}
                 {framed ? null : shelf}
-                {CHILD_REQUEST ? (
+                {(CHILD_REQUEST || CHILD_REQUEST_SETTLED) && !childRequestClosed ? (
                   <ChildRequestView
-                    requestId={CHILD_REQUEST.part.requestId}
+                    requestId={CHILD_REQUEST?.part.requestId ?? "preview-settled"}
                     childTitle="Migrate settings sections to the new tokens"
                     providerId="codex"
                     pending={CHILD_REQUEST}
-                    queuedCount={1}
+                    queuedCount={CHILD_REQUEST_QUEUED}
                     busy={false}
                     error={null}
                     loaded
                     onRespond={() => {}}
+                    onDismiss={() => setChildRequestClosed(true)}
                   />
                 ) : null}
                 {SECRET_REQUEST ? (

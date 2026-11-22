@@ -1,5 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
+import { Button } from "@/components/aui/components/Button";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx } from "@/components/aui/utils/stylex";
@@ -94,6 +96,20 @@ export function ChildRequestSlot(props: { taskId: string }) {
   );
 }
 
+/**
+ * Closes a child request that has nothing left to answer by settling the
+ * notification its card is keyed by, the same way the task window settles a
+ * request that can no longer be answered. The write persists, so the card does
+ * not return on the next render or app start, and the next queued request
+ * takes its place.
+ */
+export function dismissChildRequest(notificationId: string) {
+  return useAppStore
+    .getState()
+    .markNotificationRead({ id: notificationId, resolvedAt: new Date().toISOString() })
+    .catch(() => {});
+}
+
 function ChildRequestCard(props: {
   request: DelegatedInteractionRequest;
   queuedCount: number;
@@ -159,6 +175,7 @@ function ChildRequestCard(props: {
       error={error}
       loaded={loaded}
       onRespond={respond}
+      onDismiss={() => void dismissChildRequest(props.request.notificationId)}
     />
   );
 }
@@ -174,6 +191,8 @@ export function ChildRequestView(props: {
   error: string | null;
   loaded: boolean;
   onRespond: (response: FleetInteractionResponse) => void;
+  /** Hides a request that has nothing left to answer. */
+  onDismiss?: () => void;
 }) {
   useTranslation();
   const { pending, busy, error } = props;
@@ -187,6 +206,9 @@ export function ChildRequestView(props: {
         : props.loaded
           ? i18n.t("session:childRequestSlot.statusText2")
           : i18n.t("session:childRequestSlot.statusText3");
+  // Only a request with nothing left to answer can be closed: a pending one is
+  // answered or denied, and one being delivered settles on its own.
+  const dismissible = Boolean(props.onDismiss) && props.loaded && !pending && !busy;
 
   return (
     <section
@@ -204,6 +226,19 @@ export function ChildRequestView(props: {
         </p>
         {props.queuedCount > 0 ? (
           <span className={sx(styles.queued)}>+{props.queuedCount} {i18n.t("session:childRequestSlot.childRequestView2")}</span>
+        ) : null}
+        {dismissible ? (
+          <Button
+            variant="quiet"
+            size="xs"
+            iconOnly
+            aria-label={i18n.t("session:childRequestSlot.dismiss")}
+            title={i18n.t("session:childRequestSlot.dismiss")}
+            xstyle={[styles.dismiss, props.queuedCount > 0 ? null : styles.dismissEnd]}
+            onClick={props.onDismiss}
+          >
+            <X aria-hidden="true" />
+          </Button>
         ) : null}
       </div>
       {pending?.part.type === "approval" ? (
