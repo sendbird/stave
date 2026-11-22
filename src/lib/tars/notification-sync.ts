@@ -37,12 +37,18 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
   const setTimer = deps.setTimer ?? ((run: () => void, ms: number) => setTimeout(run, ms));
   const clearTimer = deps.clearTimer ?? ((timer: unknown) => clearTimeout(timer as ReturnType<typeof setTimeout>));
   let retryTimer: unknown = null;
-  const scheduleRetry = () => {
-    if (retryTimer !== null || !active) return;
+  let retryAt = Infinity;
+  // One timer, set for the earliest failed read that is due; a read still
+  // inside its delay when the timer fires sets the next one.
+  const scheduleRetry = (at: number) => {
+    if (!active || (retryTimer !== null && retryAt <= at)) return;
+    if (retryTimer !== null) clearTimer(retryTimer);
+    retryAt = at;
     retryTimer = setTimer(() => {
       retryTimer = null;
+      retryAt = Infinity;
       void reconcile();
-    }, retryMs);
+    }, Math.max(0, at - now()));
   };
   const reconcile = () => {
     dirty = true;
@@ -78,12 +84,15 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
           if (!active) break;
           if (!isTarsNotificationKind(notification.kind) || notification.resolvedAt || live.has(notification.id)) continue;
           const failedAt = failedReads.get(notification.id);
-          if (failedAt !== undefined && now() - failedAt < retryMs) continue;
+          if (failedAt !== undefined && now() - failedAt < retryMs) {
+            scheduleRetry(failedAt + retryMs);
+            continue;
+          }
           const saved = await deps.markRead({ id: notification.id, resolvedAt: new Date().toISOString() });
           if (saved === false) {
             failedReads.set(notification.id, now());
             failedUnder = snapshot;
-            scheduleRetry();
+            scheduleRetry(now() + retryMs);
             continue;
           }
           failedReads.delete(notification.id);
@@ -99,6 +108,7 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
       active = false;
       if (retryTimer !== null) clearTimer(retryTimer);
       retryTimer = null;
+      retryAt = Infinity;
     },
   };
 }

@@ -247,3 +247,52 @@ test("a failed read is tried again on the same snapshot once the retry delay pas
   expect(notifications[0]?.resolvedAt).toBeTruthy();
   sync.stop();
 });
+
+test("reads that failed at different times are each tried again once due", async () => {
+  const current = snapshot("running", []);
+  const first = persisted(describeTarsNotifications(snapshot())[0]!);
+  const second = { ...first, id: `${first.id}:second` };
+  let notifications: AppNotification[] = [first];
+  let clock = 0;
+  let timer: { run: () => void; ms: number } | null = null;
+  let saveWorks = false;
+  const attempts: string[] = [];
+  const sync = createTarsNotificationSync({
+    getSnapshot: () => current,
+    notificationsReady: () => true,
+    getNotifications: () => notifications,
+    persist: async () => {},
+    markRead: async ({ id, resolvedAt }) => {
+      attempts.push(id);
+      notifications = notifications.map((item) => item.id === id && saveWorks ? { ...item, readAt: TARS_AT, resolvedAt } : { ...item });
+      return saveWorks;
+    },
+    readRetryMs: 1_000,
+    now: () => clock,
+    setTimer: (run, ms) => { timer = { run, ms }; return 1; },
+    clearTimer: () => { timer = null; },
+  });
+  await sync.reconcile();
+  // A second stale notification appears later and fails too.
+  clock = 600;
+  notifications = [...notifications, second];
+  await sync.reconcile();
+  expect(attempts).toEqual([first.id, second.id]);
+  // Storage recovers. The timer for the first fires; the second is not due yet.
+  saveWorks = true;
+  clock = 1_000;
+  const firstTimer = timer as { run: () => void; ms: number } | null;
+  firstTimer!.run();
+  await sync.reconcile();
+  expect(attempts).toEqual([first.id, second.id, first.id]);
+  // A timer is set for the second's own due time, and it is retried then.
+  const secondTimer = timer as { run: () => void; ms: number } | null;
+  expect(secondTimer?.ms).toBe(600);
+  clock = 1_600;
+  secondTimer!.run();
+  await sync.reconcile();
+  expect(attempts).toEqual([first.id, second.id, first.id, second.id]);
+  expect(notifications.every((item) => item.resolvedAt)).toBe(true);
+  sync.stop();
+});
+
