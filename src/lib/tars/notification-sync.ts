@@ -10,7 +10,14 @@ export interface TarsNotificationSyncDeps {
   persist: (notifications: AppNotificationCreateInput[]) => Promise<void>;
   /** Resolves to `false` when the write failed and the notification was put back. */
   markRead: (args: { id: string; resolvedAt: string }) => Promise<boolean | void>;
+  /** How long a failed read waits before it is tried again on the same snapshot. */
+  readRetryMs?: number;
+  now?: () => number;
+  setTimer?: (run: () => void, ms: number) => unknown;
+  clearTimer?: (timer: unknown) => void;
 }
+
+const READ_RETRY_MS = 30_000;
 
 /** Serializes hydration and changes, including a fact disappearing during its insert. */
 export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
@@ -19,11 +26,24 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
   let current: Promise<void> | null = null;
   const seen = new Set<string>();
   let primed = false;
-  // Reads whose write failed, and the snapshot they failed under. The failed
-  // write is rolled back, which is itself a notifications change; retrying on
-  // it would spin. They are retried once Tars publishes a new snapshot.
-  const failedReads = new Set<string>();
+  // Reads whose write failed, when, and the snapshot they failed under. The
+  // failed write is rolled back, which is itself a notifications change;
+  // retrying on it would spin. They are retried when Tars publishes a new
+  // snapshot, or once the retry delay passes (a timer brings the sync back).
+  const failedReads = new Map<string, number>();
   let failedUnder: TarsSnapshot | null = null;
+  const retryMs = deps.readRetryMs ?? READ_RETRY_MS;
+  const now = deps.now ?? Date.now;
+  const setTimer = deps.setTimer ?? ((run: () => void, ms: number) => setTimeout(run, ms));
+  const clearTimer = deps.clearTimer ?? ((timer: unknown) => clearTimeout(timer as ReturnType<typeof setTimeout>));
+  let retryTimer: unknown = null;
+  const scheduleRetry = () => {
+    if (retryTimer !== null || !active) return;
+    retryTimer = setTimer(() => {
+      retryTimer = null;
+      void reconcile();
+    }, retryMs);
+  };
   const reconcile = () => {
     dirty = true;
     if (current) return current;
@@ -57,18 +77,28 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
         for (const notification of notifications) {
           if (!active) break;
           if (!isTarsNotificationKind(notification.kind) || notification.resolvedAt || live.has(notification.id)) continue;
-          if (failedReads.has(notification.id)) continue;
+          const failedAt = failedReads.get(notification.id);
+          if (failedAt !== undefined && now() - failedAt < retryMs) continue;
           const saved = await deps.markRead({ id: notification.id, resolvedAt: new Date().toISOString() });
           if (saved === false) {
-            failedReads.add(notification.id);
+            failedReads.set(notification.id, now());
             failedUnder = snapshot;
+            scheduleRetry();
             continue;
           }
+          failedReads.delete(notification.id);
           dirty = true;
         }
       }
     }).finally(() => { current = null; });
     return current;
   };
-  return { reconcile, stop: () => { active = false; } };
+  return {
+    reconcile,
+    stop: () => {
+      active = false;
+      if (retryTimer !== null) clearTimer(retryTimer);
+      retryTimer = null;
+    },
+  };
 }
