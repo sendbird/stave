@@ -277,6 +277,22 @@ describe("workspace runtime cache eviction", () => {
     ).toBe(cache);
   });
 
+  test("never evicts a workspace just read on purpose", () => {
+    // The newest entry was just read for a delegated child's request; the
+    // rest are pinned by running turns or are older.
+    const ids = Array.from({ length: 10 }, (_, index) => `ws-${index}`);
+    const next = evictColdWorkspaceRuntimeCacheEntries({
+      cache: cacheOf(ids),
+      activeWorkspaceId: "ws-9",
+      limit: 8,
+      keepWorkspaceId: "ws-0",
+    });
+
+    expect(Object.keys(next)).toHaveLength(8);
+    expect(next["ws-0"]).toBeDefined();
+    expect(next["ws-1"]).toBeUndefined();
+  });
+
   test("never evicts the active workspace", () => {
     const ids = Array.from({ length: 10 }, (_, index) => `ws-${index}`);
     const next = evictColdWorkspaceRuntimeCacheEntries({

@@ -239,6 +239,8 @@ export function evictColdWorkspaceRuntimeCacheEntries(args: {
   cache: Record<string, WorkspaceSessionState>;
   activeWorkspaceId: string;
   limit?: number;
+  /** A workspace just read on purpose (a delegated child's request), kept like the active one. */
+  keepWorkspaceId?: string;
 }) {
   const limit = args.limit ?? MAX_CACHED_WORKSPACE_SESSIONS;
   const entries = Object.entries(args.cache);
@@ -248,6 +250,7 @@ export function evictColdWorkspaceRuntimeCacheEntries(args: {
 
   const isPinned = (workspaceId: string, session: WorkspaceSessionState) =>
     workspaceId === args.activeWorkspaceId ||
+    workspaceId === args.keepWorkspaceId ||
     Object.values(session.activeTurnIdsByTask).some((turnId) => Boolean(turnId));
 
   let evictable = entries.filter(([id, session]) => !isPinned(id, session))
