@@ -235,6 +235,28 @@ export const MAX_CACHED_WORKSPACE_SESSIONS = 8;
  * re-inserts the active workspace last on every save, and non-numeric string
  * keys iterate in insertion order.
  */
+// Workspaces something on screen is showing right now (a delegated-request
+// card shows its child's request), counted per holder. Eviction leaves them
+// alone the way it leaves the active workspace, until the last holder lets go.
+const retainedWorkspaceIds = new Map<string, number>();
+
+/**
+ * Keeps a cached workspace from eviction while it is shown; returns the
+ * release. Held only by mounted UI, so the cache grows past its cap by at most
+ * the workspaces on screen.
+ */
+export function retainWorkspaceRuntimeCache(workspaceId: string) {
+  retainedWorkspaceIds.set(workspaceId, (retainedWorkspaceIds.get(workspaceId) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const left = (retainedWorkspaceIds.get(workspaceId) ?? 1) - 1;
+    if (left > 0) retainedWorkspaceIds.set(workspaceId, left);
+    else retainedWorkspaceIds.delete(workspaceId);
+  };
+}
+
 export function evictColdWorkspaceRuntimeCacheEntries(args: {
   cache: Record<string, WorkspaceSessionState>;
   activeWorkspaceId: string;
@@ -251,6 +273,7 @@ export function evictColdWorkspaceRuntimeCacheEntries(args: {
   const isPinned = (workspaceId: string, session: WorkspaceSessionState) =>
     workspaceId === args.activeWorkspaceId ||
     workspaceId === args.keepWorkspaceId ||
+    retainedWorkspaceIds.has(workspaceId) ||
     Object.values(session.activeTurnIdsByTask).some((turnId) => Boolean(turnId));
 
   let evictable = entries.filter(([id, session]) => !isPinned(id, session))

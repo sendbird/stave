@@ -293,6 +293,31 @@ describe("workspace runtime cache eviction", () => {
     expect(next["ws-1"]).toBeUndefined();
   });
 
+  test("never evicts a workspace held on screen, and lets it go once released", async () => {
+    const { retainWorkspaceRuntimeCache } = await import("@/store/workspace-runtime-state");
+    const ids = Array.from({ length: 10 }, (_, index) => `ws-${index}`);
+    const release = retainWorkspaceRuntimeCache("ws-0");
+    const releaseAgain = retainWorkspaceRuntimeCache("ws-0");
+    try {
+      // Another load (for ws-1) keeps its own workspace; the held one stays too.
+      const held = evictColdWorkspaceRuntimeCacheEntries({
+        cache: cacheOf(ids), activeWorkspaceId: "ws-9", limit: 8, keepWorkspaceId: "ws-1",
+      });
+      expect(held["ws-0"]).toBeDefined();
+      expect(held["ws-1"]).toBeDefined();
+      release();
+      release(); // a second call of the same release does nothing
+      expect(evictColdWorkspaceRuntimeCacheEntries({
+        cache: cacheOf(ids), activeWorkspaceId: "ws-9", limit: 8,
+      })["ws-0"]).toBeDefined();
+    } finally {
+      releaseAgain();
+    }
+    expect(evictColdWorkspaceRuntimeCacheEntries({
+      cache: cacheOf(ids), activeWorkspaceId: "ws-9", limit: 8,
+    })["ws-0"]).toBeUndefined();
+  });
+
   test("never evicts the active workspace", () => {
     const ids = Array.from({ length: 10 }, (_, index) => `ws-${index}`);
     const next = evictColdWorkspaceRuntimeCacheEntries({
