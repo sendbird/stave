@@ -85,6 +85,30 @@ describe("mark-read rollback", () => {
     expect((await current())?.resolvedAt).toBe(NOW);
   });
 
+  test("two failed saves put back the record as it was before both", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    // Read in the inbox, then closed from the composer; neither is saved.
+    const read = useAppStore.getState().markNotificationRead({ id: approval.id });
+    const close = useAppStore.getState().markNotificationRead({ id: approval.id, resolvedAt: NOW });
+    saves[0]!(false);
+    saves[1]!(false);
+    expect([await read, await close]).toEqual([false, false]);
+    expect(await current()).toEqual(approval);
+  });
+
+  test("a failed close followed by a saved read keeps the read and reopens the request", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const close = useAppStore.getState().markNotificationRead({ id: approval.id, resolvedAt: NOW });
+    const read = useAppStore.getState().markNotificationRead({ id: approval.id });
+    saves[0]!(false);
+    saves[1]!(true);
+    expect([await close, await read]).toEqual([false, true]);
+    const after = await current();
+    expect(after?.readAt).toBeTruthy();
+    expect(after?.resolvedAt).toBeNull();
+    expect(after?.expiresAt).toBeNull();
+  });
+
   test("Fleet's bulk read counts a failed save as failed, not as read", async () => {
     const { fleetBulkOperations } = await import("@/components/layout/useFleetBulkActions");
     const { applyFleetBulkPlan } = await import("@/lib/fleet/attention-bulk");

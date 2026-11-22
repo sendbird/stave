@@ -45,18 +45,55 @@ function syncUnreadBadge(get: NotificationActionDeps["get"]) {
   });
 }
 
-// A failed mark-read is rolled back only while it is still the latest word on
-// that notification: a later mark-read of the same one owns its state, and a
-// mark-all since then already made it read for good.
-let nextMarkReadTicket = 0;
-const latestMarkReadTicketById = new Map<string, number>();
+/**
+ * Mark-reads of one notification still being saved. When the last of them
+ * settles and any failed, the list is set to what was saved: the record before
+ * the first of them, plus what a successful one wrote (read; resolved when it
+ * resolved), plus a mark-all made since (read). A record something else
+ * replaced meanwhile (a hydration, a host merge) is left alone.
+ */
+interface MarkReadBatch {
+  before: AppNotification;
+  /** Records these writes put in the list; anything else replaced them. */
+  own: Set<AppNotification>;
+  inFlight: number;
+  failed: boolean;
+  savedRead: boolean;
+  savedResolvedAt: string | null;
+  markAllGeneration: number;
+}
+const markReadBatches = new Map<string, MarkReadBatch>();
 let markAllGeneration = 0;
+
+function settleMarkReadBatch(deps: NotificationActionDeps, id: string, batch: MarkReadBatch) {
+  markReadBatches.delete(id);
+  if (!batch.failed) return;
+  const read = batch.savedRead || batch.markAllGeneration !== markAllGeneration;
+  deps.set((state) => ({
+    notifications: state.notifications.map((item) => {
+      if (item.id !== id || !batch.own.has(item)) return item;
+      // Nothing of these writes was saved: the record as it was.
+      if (!read && !batch.savedResolvedAt) return batch.before;
+      const saved = {
+        ...item,
+        readAt: read ? item.readAt : batch.before.readAt,
+        resolvedAt: batch.savedResolvedAt ?? batch.before.resolvedAt,
+      };
+      const expiresAt = isNotificationPendingAttention(saved)
+        ? null
+        : saved.readAt
+          ? item.expiresAt
+          : batch.before.expiresAt;
+      return { ...saved, expiresAt };
+    }),
+  }));
+}
 
 /**
  * Marks one notification read (and resolved, when `resolvedAt` is given) at
- * once, then persists it. Resolves to whether the change was saved. A failed
- * write takes back what it changed, so the list never shows a state the next
- * load would undo, without undoing a write that came after it.
+ * once, then persists it. Resolves to whether this write was saved. When a
+ * write fails the list is set back to what was actually saved, so it never
+ * shows a state the next load would undo, and a write that did save is kept.
  */
 export async function markNotificationReadAction(
   deps: NotificationActionDeps & { id: string; resolvedAt?: string },
@@ -65,11 +102,21 @@ export async function markNotificationReadAction(
   const expiresAt = buildNotificationExpiresAt({
     readAt: deps.resolvedAt ?? readAt,
   });
-  nextMarkReadTicket += 1;
-  const ticket = nextMarkReadTicket;
-  latestMarkReadTicketById.set(deps.id, ticket);
-  const generation = markAllGeneration;
   const previous = deps.get().notifications.find((item) => item.id === deps.id);
+  let batch = markReadBatches.get(deps.id);
+  if (!batch && previous) {
+    batch = {
+      before: previous,
+      own: new Set([previous]),
+      inFlight: 0,
+      failed: false,
+      savedRead: false,
+      savedResolvedAt: null,
+      markAllGeneration,
+    };
+    markReadBatches.set(deps.id, batch);
+  }
+  if (batch) batch.inFlight += 1;
   deps.set((state) => ({
     notifications: markNotificationReadInList({
       notifications: state.notifications,
@@ -80,56 +127,43 @@ export async function markNotificationReadAction(
     }),
   }));
   const optimistic = deps.get().notifications.find((item) => item.id === deps.id);
+  if (batch && optimistic) batch.own.add(optimistic);
+  let saved = false;
   try {
     const persisted = await markPersistedNotificationRead({
       id: deps.id,
       readAt,
       resolvedAt: deps.resolvedAt,
     });
-    if (!persisted) {
-      return true;
+    saved = true;
+    if (batch) {
+      batch.savedRead = true;
+      batch.savedResolvedAt ??= deps.resolvedAt ?? null;
     }
-    deps.set((state) => ({
-      notifications: mergeNotificationIntoList({
-        notifications: state.notifications,
-        notification: persisted,
-      }),
-    }));
-    syncUnreadBadge(deps.get);
-    return true;
+    if (persisted) {
+      deps.set((state) => ({
+        notifications: mergeNotificationIntoList({
+          notifications: state.notifications,
+          notification: persisted,
+        }),
+      }));
+      const merged = deps.get().notifications.find((item) => item.id === deps.id);
+      if (batch && merged) batch.own.add(merged);
+      syncUnreadBadge(deps.get);
+    }
   } catch (error) {
     console.error(
       "[notifications] failed to mark notification as read",
       error,
     );
-    if (
-      previous &&
-      optimistic !== previous &&
-      latestMarkReadTicketById.get(deps.id) === ticket
-    ) {
-      const markedAllSince = markAllGeneration !== generation;
-      deps.set((state) => ({
-        notifications: state.notifications.map((item) => {
-          // Anything that replaced the record (a merge, a hydration) wins.
-          if (item !== optimistic) return item;
-          if (!markedAllSince) return previous;
-          // Mark-all saved the read; only the resolution is taken back.
-          const reverted = { ...item, resolvedAt: previous.resolvedAt };
-          return {
-            ...reverted,
-            expiresAt: isNotificationPendingAttention(reverted)
-              ? null
-              : item.expiresAt,
-          };
-        }),
-      }));
-    }
-    return false;
+    if (batch) batch.failed = true;
   } finally {
-    if (latestMarkReadTicketById.get(deps.id) === ticket) {
-      latestMarkReadTicketById.delete(deps.id);
+    if (batch) {
+      batch.inFlight -= 1;
+      if (batch.inFlight === 0) settleMarkReadBatch(deps, deps.id, batch);
     }
   }
+  return saved;
 }
 
 export async function markAllNotificationsReadAction(
