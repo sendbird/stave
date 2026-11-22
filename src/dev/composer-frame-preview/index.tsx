@@ -58,7 +58,9 @@ import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-c
 import { Popover, PopoverAnchor, Toaster, TooltipProvider, toast } from "@/components/ui";
 import { PromptEnhancementDiffPopover } from "@/components/session/prompt-enhancement-diff";
 import { i18n } from "@/i18n";
-import { ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
+import { ChildRequestSlot, ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
+import type { AppNotification } from "@/lib/notifications/notification.types";
+import { createEmptyWorkspaceState } from "@/store/workspace-session-state";
 import { SecretRequestCard } from "@/components/session/secret-request-card";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
@@ -108,6 +110,7 @@ import {
   PREVIEW_APPROVALS,
   PREVIEW_QUEUE,
   PREVIEW_TASK_ID,
+  PREVIEW_WORKSPACE_ID,
   SHELF_CASES,
   seedShelfCase,
   type ShelfCaseId,
@@ -135,9 +138,10 @@ import {
  * so the three context chips render side by side; `&partial=1` attaches a task
  * whose reply is still streaming.
  * `&childRequest=question|preview|approval` shows a delegated task's request above the
- * composer, the slot `ChatInputComposer` mounts; `&childRequest=answered` shows
- * one that was answered or expired elsewhere, with the close control (add
- * `&queued=0` to drop the "+1 more" count).
+ * composer, the slot `ChatInputComposer` mounts; `&childRequest=answered`
+ * mounts the real `ChildRequestSlot` on a seeded store: a child approval that
+ * was already answered (with the close control), and a still-pending one
+ * queued behind it (add `&queued=0` to drop the queued one).
  * `&draft=empty` starts with an empty draft, so the placeholder shows. With
  * `&case=needs-input` the composer stays usable and sending redirects the agent;
  * `&redirect=queue` shows the variant for a turn that cannot be steered.
@@ -251,6 +255,55 @@ const CHILD_REQUEST_CASE = previewParams.get("childRequest");
 const CHILD_REQUEST = CHILD_REQUESTS[CHILD_REQUEST_CASE ?? ""] ?? null;
 const CHILD_REQUEST_SETTLED = CHILD_REQUEST_CASE === "answered";
 const CHILD_REQUEST_QUEUED = previewParams.get("queued") === "0" ? 0 : 1;
+const PREVIEW_REPOSITORY_PATH = "/tmp/preview-repo";
+
+/**
+ * `&childRequest=answered`: notifications for two requests from a delegated
+ * child in another workspace, with the child loaded in the runtime cache. The
+ * older one was approved in the child, so the slot reads it as answered; the
+ * newer one still waits. The slot, its loading and its close are the real ones.
+ */
+function seedSettledChildRequest() {
+  const childWorkspaceId = "preview-child-workspace";
+  const childTaskId = "preview-child-task";
+  const turnId = "preview-child-turn";
+  const at = (second: number) => `2026-10-02T09:00:0${second}.000Z`;
+  const messages = [
+    { id: "preview-child-answered-message", role: "assistant" as const, providerId: "codex" as const, model: "gpt-5.5-codex", content: "",
+      parts: [{ type: "approval" as const, requestId: "preview-child-answered", toolName: "Bash", description: "bun run lint", state: "approval-responded" as const }] },
+    ...(CHILD_REQUEST_QUEUED
+      ? [{ id: PREVIEW_CHILD_APPROVAL.messageId, role: "assistant" as const, providerId: "codex" as const, model: "gpt-5.5-codex", content: "",
+        parts: [PREVIEW_CHILD_APPROVAL.part] }]
+      : []),
+  ];
+  const root = { parentTaskId: PREVIEW_TASK_ID, ancestorTaskIds: [PREVIEW_TASK_ID], rootTaskId: PREVIEW_TASK_ID,
+    rootWorkspaceId: PREVIEW_WORKSPACE_ID, rootWorkspaceName: "Preview", rootTaskTitle: "Review the composer layout" };
+  const notification = (id: string, requestId: string, messageId: string, createdAt: string): AppNotification => ({
+    id, kind: "task.approval_requested", title: "Review the composer layout", body: "", repositoryPath: PREVIEW_REPOSITORY_PATH,
+    repositoryName: "preview-repo", workspaceId: childWorkspaceId, workspaceName: "Child", taskId: childTaskId,
+    taskTitle: "Migrate settings sections to the new tokens", turnId, providerId: "codex",
+    action: { type: "approval", requestId, messageId }, payload: { ...root, toolName: "Bash" }, createdAt, readAt: null, resolvedAt: null,
+  });
+  useAppStore.setState((state) => ({
+    repositoryPath: PREVIEW_REPOSITORY_PATH,
+    taskWorkspaceIdById: { ...state.taskWorkspaceIdById, [childTaskId]: childWorkspaceId },
+    workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [childWorkspaceId]: {
+      ...createEmptyWorkspaceState(), nativeSessionReadyByTask: {},
+      tasks: [{ id: childTaskId, title: "Migrate settings sections to the new tokens", provider: "codex", updatedAt: at(0), unread: false,
+        controlMode: "managed", controlOwner: "external", parentTaskId: PREVIEW_TASK_ID }],
+      activeTaskId: childTaskId,
+      messagesByTask: { [childTaskId]: messages },
+      messageCountByTask: { [childTaskId]: messages.length },
+      activeTurnIdsByTask: { [childTaskId]: turnId },
+    } },
+    notifications: [
+      notification("preview-child-answered-notification", "preview-child-answered", "preview-child-answered-message", at(1)),
+      ...(CHILD_REQUEST_QUEUED
+        ? [notification("preview-child-pending-notification", PREVIEW_CHILD_APPROVAL.part.requestId, PREVIEW_CHILD_APPROVAL.messageId, at(2))]
+        : []),
+    ],
+  }));
+}
 const SECRET_REQUEST_CASE = previewParams.get("secretRequest");
 const SECRET_REQUEST =
   SECRET_REQUEST_CASE === "existing" || SECRET_REQUEST_CASE === "enter"
@@ -262,7 +315,6 @@ installAgentsBridge(INITIAL_AGENT);
 
 export function ComposerFramePreviewApp() {
   const [dark, setDark] = useState(previewParams.get("theme") !== "light");
-  const [childRequestClosed, setChildRequestClosed] = useState(false);
   const [layoutPreference, setLayoutPreference] =
     useState<ComposerLayoutMode>("framed");
   const [squeezed, setSqueezed] = useState(false);
@@ -344,11 +396,12 @@ export function ComposerFramePreviewApp() {
     },
   });
   useEffect(() => {
-    useAppStore.setState({ repositoryPath: "/tmp/preview-repo" });
+    useAppStore.setState({ repositoryPath: PREVIEW_REPOSITORY_PATH });
     void useAgentAssignmentsStore.getState().load();
   }, []);
   useLayoutEffect(() => {
     seedShelfCase({ caseId, placement, detailsOpen: previewParams.get("open") === "1" });
+    if (CHILD_REQUEST_SETTLED) seedSettledChildRequest();
     if (previewParams.get("attachments") === "all") {
       // One chip of each context kind, so the shared chip shape can be compared.
       const document = buildDocumentMentionOptions({ entries: PREVIEW_DOCUMENT_CATALOG, attachments: [] })[1]!;
@@ -556,20 +609,20 @@ export function ComposerFramePreviewApp() {
                   />
                 ) : null}
                 {framed ? null : shelf}
-                {(CHILD_REQUEST || CHILD_REQUEST_SETTLED) && !childRequestClosed ? (
+                {CHILD_REQUEST ? (
                   <ChildRequestView
-                    requestId={CHILD_REQUEST?.part.requestId ?? "preview-settled"}
+                    requestId={CHILD_REQUEST.part.requestId}
                     childTitle="Migrate settings sections to the new tokens"
                     providerId="codex"
                     pending={CHILD_REQUEST}
-                    queuedCount={CHILD_REQUEST_QUEUED}
+                    queuedCount={1}
                     busy={false}
                     error={null}
-                    loaded
+                    settled={false}
                     onRespond={() => {}}
-                    onDismiss={() => setChildRequestClosed(true)}
                   />
                 ) : null}
+                {CHILD_REQUEST_SETTLED ? <ChildRequestSlot taskId={PREVIEW_TASK_ID} /> : null}
                 {SECRET_REQUEST ? (
                   <SecretRequestCard
                     request={SECRET_REQUEST}

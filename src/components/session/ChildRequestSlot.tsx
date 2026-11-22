@@ -1,15 +1,21 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/aui/components/Button";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx } from "@/components/aui/utils/stylex";
-import { loadFleetInteraction } from "@/lib/fleet/interaction-load";
 import {
+  isFleetRequestShown,
+  loadFleetInteraction,
+  loadFleetRequestFromOlderMessages,
+} from "@/lib/fleet/interaction-load";
+import {
+  fleetInteractionOutlivesTurn,
   respondToFleetInteraction,
   type FleetInteractionResponse,
 } from "@/lib/fleet/interaction-respond";
+import { toast } from "@/lib/notifications/toast";
 import {
   selectDelegatedInteractionRequests,
   type DelegatedInteractionRequest,
@@ -38,9 +44,11 @@ export interface ChildPendingRequest {
 }
 
 /**
- * The child's request exactly as the notification recorded it: same turn,
- * same message, still waiting. Anything else is answered, expired, or belongs
- * to another turn, and gets no controls.
+ * The child's request exactly as the notification recorded it: same message,
+ * still waiting, and in the same turn. An asynchronous question did not pause
+ * its turn and can still be answered after it ends, so it is matched without
+ * the turn, as sending it is (`respondToFleetInteraction`). Anything else is
+ * answered, expired, or belongs to another turn, and gets no controls.
  */
 export function findChildPendingRequest(args: {
   expected: ChildRequestIdentity;
@@ -54,13 +62,33 @@ export function findChildPendingRequest(args: {
       : findPendingUserInputMessageByRequestId({ messages, requestId: expected.requestId });
   if (
     !found ||
-    args.activeTurnId !== expected.turnId ||
-    (expected.messageId && found.messageId !== expected.messageId)
+    (expected.messageId && found.messageId !== expected.messageId) ||
+    (!fleetInteractionOutlivesTurn(found.part) && args.activeTurnId !== expected.turnId)
   ) {
     return null;
   }
   const model = messages.find((message) => message.id === found.messageId)?.model;
   return { ...found, model: model?.trim() || null };
+}
+
+/**
+ * Whether the loaded state proves the request is over, the rule a Fleet row
+ * uses before it says "answered or expired": the child is loaded, nothing
+ * pending matches, and its message is in the loaded window (or every message
+ * is). A session can hold only its latest page, so a request missing from it
+ * is not evidence of anything.
+ */
+export function isChildRequestSettled(args: {
+  expected: ChildRequestIdentity;
+  taskLoaded: boolean;
+  messages: ChatMessage[] | undefined;
+  messageCount: number | undefined;
+  activeTurnId: string | null;
+}) {
+  const { expected, messages } = args;
+  if (!args.taskLoaded || !messages) return false;
+  if (findChildPendingRequest({ expected, messages, activeTurnId: args.activeTurnId })) return false;
+  return isFleetRequestShown(messages, expected) || messages.length >= (args.messageCount ?? 0);
 }
 
 /**
@@ -101,13 +129,17 @@ export function ChildRequestSlot(props: { taskId: string }) {
  * notification its card is keyed by, the same way the task window settles a
  * request that can no longer be answered. The write persists, so the card does
  * not return on the next render or app start, and the next queued request
- * takes its place.
+ * takes its place. When the write fails the store puts the notification back,
+ * so the card returns at once and can be closed again.
  */
-export function dismissChildRequest(notificationId: string) {
-  return useAppStore
+export async function dismissChildRequest(notificationId: string) {
+  const saved = await useAppStore
     .getState()
-    .markNotificationRead({ id: notificationId, resolvedAt: new Date().toISOString() })
-    .catch(() => {});
+    .markNotificationRead({ id: notificationId, resolvedAt: new Date().toISOString() });
+  if (!saved) {
+    toast.error(i18n.t("session:childRequestSlot.dismissFailed"));
+  }
+  return saved;
 }
 
 function ChildRequestCard(props: {
@@ -117,23 +149,37 @@ function ChildRequestCard(props: {
   useTranslation();
   // The card is keyed by notification, so its identity is fixed for its life.
   const [expected] = useState(props.request.identity);
-  const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [childTask, messages, activeTurnId] = useChildRequestState(expected);
+  const { childTask, messages, messageCount, activeTurnId } = useChildRequestState(expected);
+  const pending = useMemo(
+    () => findChildPendingRequest({ expected, messages: messages ?? EMPTY_MESSAGES, activeTurnId }),
+    [activeTurnId, expected, messages],
+  );
+  const settled = useMemo(
+    () => isChildRequestSettled({ expected, taskLoaded: Boolean(childTask), messages, messageCount, activeTurnId }),
+    [activeTurnId, childTask, expected, messageCount, messages],
+  );
+  // Nothing is read when the request is already loaded, pending or not; like
+  // a Fleet row, a cold child loads first, then older pages until it shows.
+  const loadedAtMount = useRef(Boolean(pending) || settled);
+  const [loadDone, setLoadDone] = useState(loadedAtMount.current);
 
   useEffect(() => {
+    if (loadedAtMount.current) return;
     let cancelled = false;
-    loadFleetInteraction(expected).then(
-      () => {
-        if (!cancelled) setLoaded(true);
-      },
-      (cause: unknown) => {
-        if (cancelled) return;
-        setLoaded(true);
-        setError(cause instanceof Error ? cause.message : i18n.t("session:childRequestSlot.extraCopy88"));
-      },
-    );
+    loadFleetInteraction(expected)
+      .then(() => loadFleetRequestFromOlderMessages(expected))
+      .then(
+        () => {
+          if (!cancelled) setLoadDone(true);
+        },
+        (cause: unknown) => {
+          if (cancelled) return;
+          setLoadDone(true);
+          setError(cause instanceof Error ? cause.message : i18n.t("session:childRequestSlot.extraCopy88"));
+        },
+      );
     return () => {
       cancelled = true;
     };
@@ -147,11 +193,6 @@ function ChildRequestCard(props: {
     );
     return () => window.clearTimeout(timer);
   }, [busy]);
-
-  const pending = useMemo(
-    () => findChildPendingRequest({ expected, messages, activeTurnId }),
-    [activeTurnId, expected, messages],
-  );
 
   function respond(response: FleetInteractionResponse) {
     if (busy) return;
@@ -172,8 +213,10 @@ function ChildRequestCard(props: {
       pending={pending}
       queuedCount={props.queuedCount}
       busy={busy}
-      error={error}
-      loaded={loaded}
+      // Loaded but neither pending nor provably over (its message is older
+      // than every page read): say so instead of guessing either way.
+      error={error ?? (loadDone && !pending && !settled ? i18n.t("session:childRequestSlot.extraCopy88") : null)}
+      settled={settled}
       onRespond={respond}
       onDismiss={() => void dismissChildRequest(props.request.notificationId)}
     />
@@ -189,7 +232,8 @@ export function ChildRequestView(props: {
   queuedCount: number;
   busy: boolean;
   error: string | null;
-  loaded: boolean;
+  /** The loaded state proves the request is over (`isChildRequestSettled`). */
+  settled: boolean;
   onRespond: (response: FleetInteractionResponse) => void;
   /** Hides a request that has nothing left to answer. */
   onDismiss?: () => void;
@@ -203,12 +247,14 @@ export function ChildRequestView(props: {
       ? i18n.t("session:childRequestSlot.statusText")
       : pending
         ? null
-        : props.loaded
+        : props.settled
           ? i18n.t("session:childRequestSlot.statusText2")
           : i18n.t("session:childRequestSlot.statusText3");
-  // Only a request with nothing left to answer can be closed: a pending one is
-  // answered or denied, and one being delivered settles on its own.
-  const dismissible = Boolean(props.onDismiss) && props.loaded && !pending && !busy;
+  // Only a request the loaded state proves over can be closed. A pending one is
+  // answered or denied, one being delivered settles on its own, and one that
+  // could not be read may still be waiting, so closing it would hide a live
+  // request from this composer and from Fleet.
+  const dismissible = Boolean(props.onDismiss) && props.settled && !pending && !busy && !error;
 
   return (
     <section
@@ -285,21 +331,13 @@ function useChildRequestState(expected: ChildRequestIdentity) {
   const isActive = (state: ReturnType<typeof useAppStore.getState>) =>
     state.repositoryPath === expected.repositoryPath &&
     state.activeWorkspaceId === expected.workspaceId;
+  const session = (state: ReturnType<typeof useAppStore.getState>) =>
+    isActive(state) ? state : state.workspaceRuntimeCacheById[expected.workspaceId];
   const childTask = useAppStore((state) =>
-    (isActive(state)
-      ? state.tasks
-      : state.workspaceRuntimeCacheById[expected.workspaceId]?.tasks
-    )?.find((task) => task.id === expected.taskId),
+    session(state)?.tasks.find((task) => task.id === expected.taskId),
   );
-  const messages = useAppStore((state) =>
-    isActive(state)
-      ? state.messagesByTask[expected.taskId]
-      : state.workspaceRuntimeCacheById[expected.workspaceId]?.messagesByTask[expected.taskId],
-  );
-  const activeTurnId = useAppStore((state) =>
-    isActive(state)
-      ? state.activeTurnIdsByTask[expected.taskId]
-      : state.workspaceRuntimeCacheById[expected.workspaceId]?.activeTurnIdsByTask[expected.taskId],
-  );
-  return [childTask, messages ?? EMPTY_MESSAGES, activeTurnId ?? null] as const;
+  const messages = useAppStore((state) => session(state)?.messagesByTask[expected.taskId]);
+  const messageCount = useAppStore((state) => session(state)?.messageCountByTask[expected.taskId]);
+  const activeTurnId = useAppStore((state) => session(state)?.activeTurnIdsByTask[expected.taskId]);
+  return { childTask, messages, messageCount, activeTurnId: activeTurnId ?? null };
 }

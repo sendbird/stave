@@ -78,7 +78,7 @@ describe("child requests in the parent composer", () => {
     const pending = findChildPendingRequest({ expected: current.identity, messages, activeTurnId: "child-turn" });
     const html = renderToStaticMarkup(createElement(ChildRequestView, { requestId: current.identity.requestId,
       childTitle: current.childTaskTitle, providerId: current.providerId, pending, queuedCount: requests.length - 1,
-      busy: false, error: null, loaded: true, onRespond: () => {} }));
+      busy: false, error: null, settled: false, onRespond: () => {} }));
     expect(html).toContain('aria-label="Requests from delegated tasks"');
     expect(html).toContain("Implementation");
     expect(html).toContain('data-agent-identity="GPT-5.3-Codex"');
@@ -148,19 +148,21 @@ describe("child requests in the parent composer", () => {
       messages, activeTurnId: "child-turn" });
     const render = (overrides: Partial<Parameters<typeof ChildRequestView>[0]>) =>
       renderToStaticMarkup(createElement(ChildRequestView, { requestId: "approval-1", childTitle: "Implementation",
-        providerId: "codex", pending: null, queuedCount: 0, busy: false, error: null, loaded: true,
+        providerId: "codex", pending: null, queuedCount: 0, busy: false, error: null, settled: true,
         onRespond: () => {}, onDismiss: () => {}, ...overrides }));
     const close = 'aria-label="Close"';
 
     const settled = render({});
     expect(settled).toContain("This request was answered or expired.");
     expect(settled).toContain(close);
-    // A request that could not be loaded would otherwise also stay forever.
-    expect(render({ error: "This request could not be loaded." })).toContain(close);
-    // Still answerable, still loading, or being delivered: no close.
-    expect(render({ pending })).not.toContain(close);
-    expect(render({ loaded: false })).not.toContain(close);
+    // Not proven over: still answerable, not yet found, being delivered, or
+    // unreadable (the request may still be waiting). Closing any of them would
+    // hide a live request from this composer and from Fleet.
+    expect(render({ pending, settled: false })).not.toContain(close);
+    expect(render({ settled: false })).toContain("Loading request…");
+    expect(render({ settled: false })).not.toContain(close);
     expect(render({ busy: true })).not.toContain(close);
+    expect(render({ error: "This request could not be loaded." })).not.toContain(close);
     // A view without a close handler, like the frame preview, shows none.
     expect(render({ onDismiss: undefined })).not.toContain(close);
   });
@@ -200,5 +202,74 @@ describe("child requests in the parent composer", () => {
     // The parent stays where it was.
     const state = useAppStore.getState();
     expect([state.activeWorkspaceId, state.activeTaskId]).toEqual(["parent-workspace", "parent"]);
+  });
+
+  test("a request counts as over only when its message is loaded and nothing pending matches", async () => {
+    const { findChildPendingRequest, isChildRequestSettled } = await import("@/components/session/ChildRequestSlot");
+    const approval = { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
+      kind: "approval" as const, requestId: "approval-1", messageId: "approval-message" };
+    const answered: ChatMessage[] = [{ ...messages[0]!, parts: [{ type: "approval", requestId: "approval-1", toolName: "Shell",
+      description: "Run focused tests", state: "approval-responded" }] }];
+    const settled = (overrides: Partial<Parameters<typeof isChildRequestSettled>[0]>) =>
+      isChildRequestSettled({ expected: approval, taskLoaded: true, messages: answered, messageCount: answered.length,
+        activeTurnId: "child-turn", ...overrides });
+
+    // Answered in the child, its message loaded: over.
+    expect(settled({})).toBe(true);
+    // Still pending in the same turn: not over.
+    expect(settled({ messages })).toBe(false);
+    // The turn ended while it waited: an approval cannot be answered any more.
+    expect(settled({ messages, activeTurnId: "replacement-turn" })).toBe(true);
+    // Only a later page is loaded and older messages exist: unknown, not over.
+    const later: ChatMessage[] = [{ id: "later", role: "assistant", content: "", parts: [] }];
+    expect(settled({ messages: later, messageCount: 200 })).toBe(false);
+    // Every message is loaded and the request is not among them: over.
+    expect(settled({ messages: later, messageCount: later.length })).toBe(true);
+    // The child is not loaded at all: unknown.
+    expect(settled({ taskLoaded: false })).toBe(false);
+    expect(settled({ messages: undefined })).toBe(false);
+
+    // An asynchronous question did not pause its turn and stays answerable
+    // after it ends, as sending it does: pending, so neither "answered" nor closable.
+    const question = { ...approval, kind: "user-input" as const, requestId: "async-1", messageId: "async-message" };
+    const asyncMessages: ChatMessage[] = [{ id: "async-message", role: "assistant", content: "", parts: [{ type: "user_input",
+      requestId: "async-1", toolName: "ask", state: "input-requested", delivery: "async",
+      questions: [{ question: "Which branch?", header: "Branch", options: [{ label: "Current", description: "" }] }] }] }];
+    expect(findChildPendingRequest({ expected: question, messages: asyncMessages, activeTurnId: null })?.messageId).toBe("async-message");
+    expect(isChildRequestSettled({ expected: question, taskLoaded: true, messages: asyncMessages, messageCount: 1,
+      activeTurnId: null })).toBe(false);
+    // A blocking question from an ended turn is over.
+    const blocking: ChatMessage[] = [{ ...asyncMessages[0]!, parts: asyncMessages[0]!.parts.map((part) =>
+      part.type === "user_input" ? { ...part, delivery: undefined } : part) }];
+    expect(isChildRequestSettled({ expected: question, taskLoaded: true, messages: blocking, messageCount: 1,
+      activeTurnId: null })).toBe(true);
+  });
+
+  test("a close that fails to save puts the request back", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const { dismissChildRequest } = await import("@/components/session/ChildRequestSlot");
+    const { selectDelegatedInteractionRequests } = await import("@/lib/notifications/delegated-attention");
+    (window.api as unknown as Record<string, unknown>).persistence = {
+      listNotifications: async () => ({ ok: true, notifications: [] }),
+      createNotification: async () => ({ ok: true }),
+      markAllNotificationsRead: async () => ({ ok: true, count: 0 }),
+      markNotificationRead: async () => ({ ok: false, notification: null }),
+    };
+    const originalError = console.error;
+    console.error = () => {};
+    try {
+      const select = () => selectDelegatedInteractionRequests({ notifications: useAppStore.getState().notifications,
+        taskId: "parent", repositoryPath: REPOSITORY_PATH, now: Date.parse(NOW) }).map((item) => item.notificationId);
+      const pending = dismissChildRequest("notification-approval");
+      // The card leaves at once, as with any close.
+      expect(select()).toEqual(["notification-question"]);
+      expect(await pending).toBe(false);
+      // The write failed, so the store holds what the next load would show.
+      expect(select()).toEqual(["notification-approval", "notification-question"]);
+      expect(useAppStore.getState().notifications.find((item) => item.id === "notification-approval"))
+        .toEqual(approvalNotification);
+    } finally {
+      console.error = originalError;
+    }
   });
 });
