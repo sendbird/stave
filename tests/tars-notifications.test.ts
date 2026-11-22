@@ -181,3 +181,29 @@ test("completed history stays quiet on hydration; a live completion announces on
   immediate.snapshot(snapshot("completed", [])); await immediate.reconcile();
   expect(immediate.inserted).toHaveLength(1);
 });
+
+test("a read that fails to save waits for a new snapshot instead of retrying in a loop", async () => {
+  let current: TarsSnapshot | null = snapshot("running", []);
+  // A decision that is no longer live, so the sync resolves its notification.
+  const row = persisted(describeTarsNotifications(snapshot())[0]!);
+  let notifications: AppNotification[] = [row];
+  const attempts: string[] = [];
+  const sync = createTarsNotificationSync({
+    getSnapshot: () => current,
+    notificationsReady: () => true,
+    getNotifications: () => notifications,
+    persist: async () => {},
+    // The store rolls a failed write back: a new list with the row unresolved.
+    markRead: async ({ id }) => { attempts.push(id); notifications = [...notifications]; return false; },
+  });
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id]);
+  // The rollback is itself a notifications change; reconciling on it does not retry.
+  await sync.reconcile();
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id]);
+  // A new snapshot is a real change: the read is tried again.
+  current = snapshot("running", []);
+  await sync.reconcile();
+  expect(attempts).toEqual([row.id, row.id]);
+});

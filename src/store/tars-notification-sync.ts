@@ -10,7 +10,7 @@ export function subscribeTarsNotifications() {
     getNotifications: () => useAppStore.getState().notifications,
     notificationsReady: () => useAppStore.getState().notificationsLoad.status === "ready",
     persist: persistRendererNotifications,
-    markRead: async (args) => { await useAppStore.getState().markNotificationRead(args); },
+    markRead: (args) => useAppStore.getState().markNotificationRead(args),
   });
   const reconcile = () => { void sync.reconcile().catch((error) => console.error("[notifications] Tars reconciliation failed", error)); };
   const offSnapshot = useTarsSnapshotStore.subscribe((state, previous) => {

@@ -8,7 +8,8 @@ export interface TarsNotificationSyncDeps {
   getNotifications: () => readonly AppNotification[];
   notificationsReady: () => boolean;
   persist: (notifications: AppNotificationCreateInput[]) => Promise<void>;
-  markRead: (args: { id: string; resolvedAt: string }) => Promise<void>;
+  /** Resolves to `false` when the write failed and the notification was put back. */
+  markRead: (args: { id: string; resolvedAt: string }) => Promise<boolean | void>;
 }
 
 /** Serializes hydration and changes, including a fact disappearing during its insert. */
@@ -18,6 +19,11 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
   let current: Promise<void> | null = null;
   const seen = new Set<string>();
   let primed = false;
+  // Reads whose write failed, and the snapshot they failed under. The failed
+  // write is rolled back, which is itself a notifications change; retrying on
+  // it would spin. They are retried once Tars publishes a new snapshot.
+  const failedReads = new Set<string>();
+  let failedUnder: TarsSnapshot | null = null;
   const reconcile = () => {
     dirty = true;
     if (current) return current;
@@ -27,6 +33,7 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
         const snapshot = deps.getSnapshot();
         // A failed or unfinished read cannot withdraw a live request.
         if (!snapshot || !deps.notificationsReady()) continue;
+        if (snapshot !== failedUnder) failedReads.clear();
         const drafts = describeTarsNotifications(snapshot);
         // Completed history is not a new result when Stave first hydrates.
         if (!primed) {
@@ -50,7 +57,13 @@ export function createTarsNotificationSync(deps: TarsNotificationSyncDeps) {
         for (const notification of notifications) {
           if (!active) break;
           if (!isTarsNotificationKind(notification.kind) || notification.resolvedAt || live.has(notification.id)) continue;
-          await deps.markRead({ id: notification.id, resolvedAt: new Date().toISOString() });
+          if (failedReads.has(notification.id)) continue;
+          const saved = await deps.markRead({ id: notification.id, resolvedAt: new Date().toISOString() });
+          if (saved === false) {
+            failedReads.add(notification.id);
+            failedUnder = snapshot;
+            continue;
+          }
           dirty = true;
         }
       }
