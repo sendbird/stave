@@ -20,6 +20,7 @@ import type { AppNotification, NotificationsLoad } from "@/lib/notifications/not
 import {
   MAX_NOTIFICATION_HISTORY,
   buildNotificationExpiresAt,
+  isNotificationPendingAttention,
 } from "@/lib/notifications/notification.types";
 
 interface NotificationSliceState {
@@ -44,13 +45,80 @@ function syncUnreadBadge(get: NotificationActionDeps["get"]) {
   });
 }
 
+/**
+ * Mark-reads of one notification still being saved. When the last of them
+ * settles and any failed, the list is set to what was saved: the last record
+ * the store returned (or the record before the first write), plus what a
+ * successful write without a returned record wrote (read; resolved when it
+ * resolved), plus a mark-all made since (read). A record something else
+ * replaced meanwhile (a hydration, a host merge) is left alone.
+ */
+interface MarkReadBatch {
+  /** The last record known to be saved: the one before the first write, or one the store returned. */
+  before: AppNotification;
+  /** Records these writes put in the list; anything else replaced them. */
+  own: Set<AppNotification>;
+  inFlight: number;
+  failed: boolean;
+  savedRead: boolean;
+  savedResolvedAt: string | null;
+  markAllGeneration: number;
+}
+const markReadBatches = new Map<string, MarkReadBatch>();
+let markAllGeneration = 0;
+
+function settleMarkReadBatch(deps: NotificationActionDeps, id: string, batch: MarkReadBatch) {
+  markReadBatches.delete(id);
+  if (!batch.failed) return;
+  const read = batch.savedRead || batch.markAllGeneration !== markAllGeneration;
+  deps.set((state) => ({
+    notifications: state.notifications.map((item) => {
+      if (item.id !== id || !batch.own.has(item)) return item;
+      // Nothing of these writes was saved: the record as it was.
+      if (!read && !batch.savedResolvedAt) return batch.before;
+      const saved = {
+        ...item,
+        readAt: read ? item.readAt : batch.before.readAt,
+        resolvedAt: batch.savedResolvedAt ?? batch.before.resolvedAt,
+      };
+      const expiresAt = isNotificationPendingAttention(saved)
+        ? null
+        : saved.readAt
+          ? item.expiresAt
+          : batch.before.expiresAt;
+      return { ...saved, expiresAt };
+    }),
+  }));
+}
+
+/**
+ * Marks one notification read (and resolved, when `resolvedAt` is given) at
+ * once, then persists it. Resolves to whether this write was saved. When a
+ * write fails the list is set back to what was actually saved, so it never
+ * shows a state the next load would undo, and a write that did save is kept.
+ */
 export async function markNotificationReadAction(
   deps: NotificationActionDeps & { id: string; resolvedAt?: string },
-) {
+): Promise<boolean> {
   const readAt = new Date().toISOString();
   const expiresAt = buildNotificationExpiresAt({
     readAt: deps.resolvedAt ?? readAt,
   });
+  const previous = deps.get().notifications.find((item) => item.id === deps.id);
+  let batch = markReadBatches.get(deps.id);
+  if (!batch && previous) {
+    batch = {
+      before: previous,
+      own: new Set([previous]),
+      inFlight: 0,
+      failed: false,
+      savedRead: false,
+      savedResolvedAt: null,
+      markAllGeneration,
+    };
+    markReadBatches.set(deps.id, batch);
+  }
+  if (batch) batch.inFlight += 1;
   deps.set((state) => ({
     notifications: markNotificationReadInList({
       notifications: state.notifications,
@@ -60,33 +128,61 @@ export async function markNotificationReadAction(
       expiresAt,
     }),
   }));
+  const optimistic = deps.get().notifications.find((item) => item.id === deps.id);
+  if (batch && optimistic) batch.own.add(optimistic);
+  let saved = false;
   try {
     const persisted = await markPersistedNotificationRead({
       id: deps.id,
       readAt,
       resolvedAt: deps.resolvedAt,
     });
-    if (!persisted) {
-      return;
+    saved = true;
+    if (batch) {
+      batch.savedRead = true;
+      batch.savedResolvedAt ??= deps.resolvedAt ?? null;
     }
-    deps.set((state) => ({
-      notifications: mergeNotificationIntoList({
-        notifications: state.notifications,
-        notification: persisted,
-      }),
-    }));
-    syncUnreadBadge(deps.get);
+    if (batch && persisted) {
+      // What the store returned is what it holds, including changes made
+      // elsewhere (another window resolving the request) since this began.
+      // The store only ever fills read and resolved, never clears them, so a
+      // response that arrives late cannot take back what an earlier one showed.
+      batch.before = {
+        ...persisted,
+        readAt: persisted.readAt ?? batch.before.readAt,
+        resolvedAt: persisted.resolvedAt ?? batch.before.resolvedAt,
+      };
+    }
+    if (persisted) {
+      deps.set((state) => ({
+        notifications: mergeNotificationIntoList({
+          notifications: state.notifications,
+          notification: persisted,
+        }),
+      }));
+      const merged = deps.get().notifications.find((item) => item.id === deps.id);
+      if (batch && merged) batch.own.add(merged);
+      syncUnreadBadge(deps.get);
+    }
   } catch (error) {
     console.error(
       "[notifications] failed to mark notification as read",
       error,
     );
+    if (batch) batch.failed = true;
+  } finally {
+    if (batch) {
+      batch.inFlight -= 1;
+      if (batch.inFlight === 0) settleMarkReadBatch(deps, deps.id, batch);
+    }
   }
+  return saved;
 }
 
 export async function markAllNotificationsReadAction(
   deps: NotificationActionDeps,
 ) {
+  markAllGeneration += 1;
   const readAt = new Date().toISOString();
   const expiresAt = buildNotificationExpiresAt({ readAt });
   deps.set((state) => ({
