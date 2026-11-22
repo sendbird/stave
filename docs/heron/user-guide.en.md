@@ -650,10 +650,12 @@ model, and each work's title opens that work. A cost appears only when a
 provider reported one; nothing is estimated. Tars's own replies are counted but
 their tokens are not recorded, and turns of helper tasks are not counted.
 
-**Settings > Providers > Today’s daily limits** sets a daily token limit per
-provider, or a USD limit once that provider reports a cost. Limits start off.
-AI usage and Tars usage insights show today’s recorded task usage across all
-accounts and workspaces, including helpers. Completed turns count on their
+At the bottom of **Settings > Providers**, **Today’s daily limits** sets a
+daily token limit per provider, or a USD limit once that provider reports a
+cost. Limits start off. In **AI usage > Quota**, expand **Today’s daily limits**
+below the account quota report. This section and Tars usage insights show
+today’s recorded task usage across all accounts and workspaces, including
+helpers. Completed turns count on their
 local start date; limits reset at local midnight. Only reported usage counts;
 Tars conversation replies are excluded. At the limit, new work on that
 provider is refused. Active turns finish, then the run pauses before its next

@@ -778,6 +778,10 @@ const SHOTS = [
     name: "settings-providers",
     async capture({ page, locale, file }) {
       await openApp(page, locale);
+      await page.evaluate(async () => {
+        const { installUsagePreviewBridge } = await import("/src/dev/usage-preview/fixtures.ts");
+        installUsagePreviewBridge();
+      });
       await quietChrome(page);
       const dialog = await openSettings(page, "providers");
       await blur(page);
