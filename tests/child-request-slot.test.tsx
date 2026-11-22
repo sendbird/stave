@@ -204,7 +204,7 @@ describe("child requests in the parent composer", () => {
     expect([state.activeWorkspaceId, state.activeTaskId]).toEqual(["parent-workspace", "parent"]);
   });
 
-  test("a request counts as over only when its message is loaded and nothing pending matches", async () => {
+  test("a request counts as over only on evidence a stale cache cannot fake", async () => {
     const { findChildPendingRequest, isChildRequestSettled } = await import("@/components/session/ChildRequestSlot");
     const approval = { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
       kind: "approval" as const, requestId: "approval-1", messageId: "approval-message" };
@@ -212,22 +212,32 @@ describe("child requests in the parent composer", () => {
       description: "Run focused tests", state: "approval-responded" }] }];
     const settled = (overrides: Partial<Parameters<typeof isChildRequestSettled>[0]>) =>
       isChildRequestSettled({ expected: approval, taskLoaded: true, messages: answered, messageCount: answered.length,
-        activeTurnId: "child-turn", ...overrides });
+        activeTurnId: "child-turn", freshlyRead: false, ...overrides });
 
-    // Answered in the child, its message loaded: over.
+    // Answered in the child: a request only moves forward, so even a cached
+    // copy that shows it answered is proof.
     expect(settled({})).toBe(true);
-    // Still pending in the same turn: not over.
-    expect(settled({ messages })).toBe(false);
-    // The turn ended while it waited: an approval cannot be answered any more.
-    expect(settled({ messages, activeTurnId: "replacement-turn" })).toBe(true);
-    // Only a later page is loaded and older messages exist: unknown, not over.
+    // Still waiting in its turn: not over, however fresh.
+    expect(settled({ messages, freshlyRead: true })).toBe(false);
+    // Still waiting, but its turn is no longer running: expired only on this
+    // card's own fresh read, since a cache can lag the turn.
+    expect(settled({ messages, activeTurnId: "replacement-turn" })).toBe(false);
+    expect(settled({ messages, activeTurnId: "replacement-turn", freshlyRead: true })).toBe(true);
+    // The notification arrived before the cache saw the request: its message
+    // is cached without it. Not over, even after a read.
+    const beforeRequest: ChatMessage[] = [{ ...messages[0]!, parts: [{ type: "text", text: "Running the tests." }] }];
+    expect(settled({ messages: beforeRequest, messageCount: 1 })).toBe(false);
+    expect(settled({ messages: beforeRequest, messageCount: 1, freshlyRead: true })).toBe(false);
+    // Only a later page is loaded and older messages exist: unknown.
     const later: ChatMessage[] = [{ id: "later", role: "assistant", content: "", parts: [] }];
-    expect(settled({ messages: later, messageCount: 200 })).toBe(false);
-    // Every message is loaded and the request is not among them: over.
-    expect(settled({ messages: later, messageCount: later.length })).toBe(true);
+    expect(settled({ messages: later, messageCount: 200, freshlyRead: true })).toBe(false);
+    // Every message is loaded and the request is in none of them (rolled
+    // back past it): over, on a fresh read only.
+    expect(settled({ messages: later, messageCount: later.length })).toBe(false);
+    expect(settled({ messages: later, messageCount: later.length, freshlyRead: true })).toBe(true);
     // The child is not loaded at all: unknown.
-    expect(settled({ taskLoaded: false })).toBe(false);
-    expect(settled({ messages: undefined })).toBe(false);
+    expect(settled({ taskLoaded: false, freshlyRead: true })).toBe(false);
+    expect(settled({ messages: undefined, freshlyRead: true })).toBe(false);
 
     // An asynchronous question did not pause its turn and stays answerable
     // after it ends, as sending it does: pending, so neither "answered" nor closable.
@@ -237,12 +247,12 @@ describe("child requests in the parent composer", () => {
       questions: [{ question: "Which branch?", header: "Branch", options: [{ label: "Current", description: "" }] }] }] }];
     expect(findChildPendingRequest({ expected: question, messages: asyncMessages, activeTurnId: null })?.messageId).toBe("async-message");
     expect(isChildRequestSettled({ expected: question, taskLoaded: true, messages: asyncMessages, messageCount: 1,
-      activeTurnId: null })).toBe(false);
-    // A blocking question from an ended turn is over.
+      activeTurnId: null, freshlyRead: true })).toBe(false);
+    // A blocking question from an ended turn is over, once read fresh.
     const blocking: ChatMessage[] = [{ ...asyncMessages[0]!, parts: asyncMessages[0]!.parts.map((part) =>
       part.type === "user_input" ? { ...part, delivery: undefined } : part) }];
     expect(isChildRequestSettled({ expected: question, taskLoaded: true, messages: blocking, messageCount: 1,
-      activeTurnId: null })).toBe(true);
+      activeTurnId: null, freshlyRead: true })).toBe(true);
   });
 
   test("a close that fails to save puts the request back", async () => {

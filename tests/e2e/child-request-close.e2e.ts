@@ -4,7 +4,9 @@ import { expect, test, type Page } from "@playwright/test";
  * The delegated-request slot above the composer, on the real `ChildRequestSlot`
  * (composer-frame preview, `childRequest=answered`). A child request that was
  * already answered says so and can be closed; closing it brings up the request
- * queued behind it, which is still pending and so has no close.
+ * queued behind it, which is still pending and so has no close. The preview
+ * seeds its notifications through the notification store and hydrates from it,
+ * so a reload shows what was saved: the closed request does not come back.
  */
 
 // The first page of a run waits on the dev server's cold compile.
@@ -38,14 +40,27 @@ test("closing an answered child request shows the pending one behind it", async 
   await expect(slot.getByText("This request was answered or expired.")).toHaveCount(0);
   await expect(slot.getByRole("button", { name: "Close" })).toHaveCount(0);
   await expect(slot.getByText("+1 more")).toHaveCount(0);
+
+  // The close was saved: after a reload only the pending request is left.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(slot.getByText("bun run check:design-system")).toBeVisible();
+  await expect(slot.getByText("This request was answered or expired.")).toHaveCount(0);
+  await expect(slot.getByText("+1 more")).toHaveCount(0);
 });
 
 test("closing the only child request removes the slot (ko)", async ({ page }) => {
   await open(page, { locale: "ko", queued: false });
   const slot = page.getByRole("region", { name: "위임 작업의 요청" });
-  await expect(slot.getByText("이 요청에 응답했거나 요청이 만료되었습니다.")).toBeVisible();
+  const settled = slot.getByText("이 요청에 응답했거나 요청이 만료되었습니다.");
+  await expect(settled).toBeVisible();
+  // Reloading alone brings the saved, still-open request back: only Close removes it.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(settled).toBeVisible();
 
   await slot.getByRole("button", { name: "닫기" }).click();
 
+  await expect(slot).toHaveCount(0);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("textbox", { name: "프롬프트" })).toBeVisible();
   await expect(slot).toHaveCount(0);
 });

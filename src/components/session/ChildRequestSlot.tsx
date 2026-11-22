@@ -71,12 +71,34 @@ export function findChildPendingRequest(args: {
   return { ...found, model: model?.trim() || null };
 }
 
+/** The request's own part in the loaded messages, in whatever state, or null. */
+function findChildRequestPart(messages: readonly ChatMessage[], expected: ChildRequestIdentity) {
+  const type = expected.kind === "approval" ? "approval" : "user_input";
+  for (const message of messages) {
+    if (expected.messageId && message.id !== expected.messageId) continue;
+    const part = message.parts.find(
+      (candidate): candidate is ApprovalPart | UserInputPart =>
+        candidate.type === type && "requestId" in candidate && candidate.requestId === expected.requestId,
+    );
+    if (part) return part;
+  }
+  return null;
+}
+
 /**
- * Whether the loaded state proves the request is over, the rule a Fleet row
- * uses before it says "answered or expired": the child is loaded, nothing
- * pending matches, and its message is in the loaded window (or every message
- * is). A session can hold only its latest page, so a request missing from it
- * is not evidence of anything.
+ * Whether the loaded state proves the request is over, so the card may say
+ * "answered or expired" and offer Close. Closing resolves the request for this
+ * composer and for Fleet, so only evidence counts:
+ *
+ * - The request's own part is loaded and no longer waiting. A request only
+ *   moves forward, so a stale copy can show it waiting but never answered.
+ * - It is still waiting in a turn that is no longer running, or it is in none
+ *   of the messages and every message is loaded: true only after this card's
+ *   own fresh read (`freshlyRead`), since a stale cache shows both.
+ *
+ * Its message loaded without the request is a copy from before the request
+ * was added, and a request older than the loaded page is unknown: neither is
+ * over.
  */
 export function isChildRequestSettled(args: {
   expected: ChildRequestIdentity;
@@ -84,11 +106,18 @@ export function isChildRequestSettled(args: {
   messages: ChatMessage[] | undefined;
   messageCount: number | undefined;
   activeTurnId: string | null;
+  freshlyRead: boolean;
 }) {
   const { expected, messages } = args;
   if (!args.taskLoaded || !messages) return false;
   if (findChildPendingRequest({ expected, messages, activeTurnId: args.activeTurnId })) return false;
-  return isFleetRequestShown(messages, expected) || messages.length >= (args.messageCount ?? 0);
+  const part = findChildRequestPart(messages, expected);
+  if (part) {
+    const waiting = part.type === "approval" ? part.state === "approval-requested" : part.state === "input-requested";
+    return !waiting || args.freshlyRead;
+  }
+  if (isFleetRequestShown(messages, expected)) return false;
+  return args.freshlyRead && messages.length >= (args.messageCount ?? 0);
 }
 
 /**
@@ -150,40 +179,51 @@ function ChildRequestCard(props: {
   // The card is keyed by notification, so its identity is fixed for its life.
   const [expected] = useState(props.request.identity);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [respondError, setRespondError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [freshlyRead, setFreshlyRead] = useState(false);
   const { childTask, messages, messageCount, activeTurnId } = useChildRequestState(expected);
   const pending = useMemo(
     () => findChildPendingRequest({ expected, messages: messages ?? EMPTY_MESSAGES, activeTurnId }),
     [activeTurnId, expected, messages],
   );
   const settled = useMemo(
-    () => isChildRequestSettled({ expected, taskLoaded: Boolean(childTask), messages, messageCount, activeTurnId }),
-    [activeTurnId, childTask, expected, messageCount, messages],
+    () => isChildRequestSettled({ expected, taskLoaded: Boolean(childTask), messages, messageCount, activeTurnId, freshlyRead }),
+    [activeTurnId, childTask, expected, freshlyRead, messageCount, messages],
   );
-  // Nothing is read when the request is already loaded, pending or not; like
-  // a Fleet row, a cold child loads first, then older pages until it shows.
-  const loadedAtMount = useRef(Boolean(pending) || settled);
-  const [loadDone, setLoadDone] = useState(loadedAtMount.current);
+  // Nothing is read when the cache already shows the request waiting or
+  // answered; otherwise, like a Fleet row, the child loads (or re-reads), then
+  // older pages until the request shows. A child dropped from the cache later
+  // is read again.
+  const skipLoad = useRef(Boolean(pending) || settled);
+  const [loadDone, setLoadDone] = useState(skipLoad.current);
+  const cold = !childTask || !messages;
+  const reload = cold && loadDone && !loadError;
 
   useEffect(() => {
-    if (loadedAtMount.current) return;
+    if (skipLoad.current && !reload) return;
     let cancelled = false;
     loadFleetInteraction(expected)
       .then(() => loadFleetRequestFromOlderMessages(expected))
       .then(
         () => {
-          if (!cancelled) setLoadDone(true);
+          if (cancelled) return;
+          skipLoad.current = true;
+          setLoadError(null);
+          setFreshlyRead(true);
+          setLoadDone(true);
         },
         (cause: unknown) => {
           if (cancelled) return;
+          skipLoad.current = true;
+          setLoadError(cause instanceof Error ? cause.message : i18n.t("session:childRequestSlot.extraCopy88"));
           setLoadDone(true);
-          setError(cause instanceof Error ? cause.message : i18n.t("session:childRequestSlot.extraCopy88"));
         },
       );
     return () => {
       cancelled = true;
     };
-  }, [expected]);
+  }, [expected, reload]);
 
   useEffect(() => {
     if (!busy) return;
@@ -198,10 +238,10 @@ function ChildRequestCard(props: {
     if (busy) return;
     const result = respondToFleetInteraction(expected, response);
     if (!result.ok) {
-      setError(result.reason);
+      setRespondError(result.reason);
       return;
     }
-    setError(null);
+    setRespondError(null);
     setBusy(true);
   }
 
@@ -213,9 +253,16 @@ function ChildRequestCard(props: {
       pending={pending}
       queuedCount={props.queuedCount}
       busy={busy}
-      // Loaded but neither pending nor provably over (its message is older
-      // than every page read): say so instead of guessing either way.
-      error={error ?? (loadDone && !pending && !settled ? i18n.t("session:childRequestSlot.extraCopy88") : null)}
+      // A response error belongs to a request still waiting; a read error, or
+      // a read that never found the request, to one not yet known. Once the
+      // state proves the request over, neither is current.
+      error={
+        pending
+          ? respondError
+          : settled
+            ? null
+            : (loadError ?? (loadDone && !cold && !busy ? i18n.t("session:childRequestSlot.extraCopy88") : null))
+      }
       settled={settled}
       onRespond={respond}
       onDismiss={() => void dismissChildRequest(props.request.notificationId)}

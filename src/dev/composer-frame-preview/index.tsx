@@ -59,7 +59,8 @@ import { Popover, PopoverAnchor, Toaster, TooltipProvider, toast } from "@/compo
 import { PromptEnhancementDiffPopover } from "@/components/session/prompt-enhancement-diff";
 import { i18n } from "@/i18n";
 import { ChildRequestSlot, ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
-import type { AppNotification } from "@/lib/notifications/notification.types";
+import type { AppNotificationCreateInput } from "@/lib/notifications/notification.types";
+import { createNotification } from "@/lib/db/notifications.db";
 import { createEmptyWorkspaceState } from "@/store/workspace-session-state";
 import { SecretRequestCard } from "@/components/session/secret-request-card";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
@@ -261,7 +262,10 @@ const PREVIEW_REPOSITORY_PATH = "/tmp/preview-repo";
  * `&childRequest=answered`: notifications for two requests from a delegated
  * child in another workspace, with the child loaded in the runtime cache. The
  * older one was approved in the child, so the slot reads it as answered; the
- * newer one still waits. The slot, its loading and its close are the real ones.
+ * newer one still waits. The notifications go through the notification store
+ * (the browser's fallback persistence here) and the list is hydrated from it,
+ * so a reload shows what was saved: a closed request stays closed. The slot,
+ * its loading and its close are the real ones.
  */
 function seedSettledChildRequest() {
   const childWorkspaceId = "preview-child-workspace";
@@ -278,11 +282,12 @@ function seedSettledChildRequest() {
   ];
   const root = { parentTaskId: PREVIEW_TASK_ID, ancestorTaskIds: [PREVIEW_TASK_ID], rootTaskId: PREVIEW_TASK_ID,
     rootWorkspaceId: PREVIEW_WORKSPACE_ID, rootWorkspaceName: "Preview", rootTaskTitle: "Review the composer layout" };
-  const notification = (id: string, requestId: string, messageId: string, createdAt: string): AppNotification => ({
+  const notification = (id: string, requestId: string, messageId: string, createdAt: string): AppNotificationCreateInput => ({
     id, kind: "task.approval_requested", title: "Review the composer layout", body: "", repositoryPath: PREVIEW_REPOSITORY_PATH,
     repositoryName: "preview-repo", workspaceId: childWorkspaceId, workspaceName: "Child", taskId: childTaskId,
     taskTitle: "Migrate settings sections to the new tokens", turnId, providerId: "codex",
-    action: { type: "approval", requestId, messageId }, payload: { ...root, toolName: "Bash" }, createdAt, readAt: null, resolvedAt: null,
+    action: { type: "approval", requestId, messageId }, payload: { ...root, toolName: "Bash" }, createdAt,
+    dedupeKey: `task.approval_requested:${turnId}:${requestId}`,
   });
   useAppStore.setState((state) => ({
     repositoryPath: PREVIEW_REPOSITORY_PATH,
@@ -296,13 +301,16 @@ function seedSettledChildRequest() {
       messageCountByTask: { [childTaskId]: messages.length },
       activeTurnIdsByTask: { [childTaskId]: turnId },
     } },
-    notifications: [
-      notification("preview-child-answered-notification", "preview-child-answered", "preview-child-answered-message", at(1)),
-      ...(CHILD_REQUEST_QUEUED
-        ? [notification("preview-child-pending-notification", PREVIEW_CHILD_APPROVAL.part.requestId, PREVIEW_CHILD_APPROVAL.messageId, at(2))]
-        : []),
-    ],
   }));
+  const notifications = [
+    notification("preview-child-answered-notification", "preview-child-answered", "preview-child-answered-message", at(1)),
+    ...(CHILD_REQUEST_QUEUED
+      ? [notification("preview-child-pending-notification", PREVIEW_CHILD_APPROVAL.part.requestId, PREVIEW_CHILD_APPROVAL.messageId, at(2))]
+      : []),
+  ];
+  // An existing row (same dedupe key) is kept as saved, closed or not.
+  void Promise.all(notifications.map((item) => createNotification({ notification: item })))
+    .then(() => useAppStore.getState().hydrateNotifications());
 }
 const SECRET_REQUEST_CASE = previewParams.get("secretRequest");
 const SECRET_REQUEST =
