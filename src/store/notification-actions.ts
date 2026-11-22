@@ -138,15 +138,20 @@ export async function markNotificationReadAction(
       resolvedAt: deps.resolvedAt,
     });
     saved = true;
+    if (batch) {
+      batch.savedRead = true;
+      batch.savedResolvedAt ??= deps.resolvedAt ?? null;
+    }
     if (batch && persisted) {
       // What the store returned is what it holds, including changes made
       // elsewhere (another window resolving the request) since this began.
-      batch.before = persisted;
-      batch.savedRead = false;
-      batch.savedResolvedAt = null;
-    } else if (batch) {
-      batch.savedRead = true;
-      batch.savedResolvedAt ??= deps.resolvedAt ?? null;
+      // The store only ever fills read and resolved, never clears them, so a
+      // response that arrives late cannot take back what an earlier one showed.
+      batch.before = {
+        ...persisted,
+        readAt: persisted.readAt ?? batch.before.readAt,
+        resolvedAt: persisted.resolvedAt ?? batch.before.resolvedAt,
+      };
     }
     if (persisted) {
       deps.set((state) => ({

@@ -122,6 +122,22 @@ describe("mark-read rollback", () => {
     expect(await current()).toEqual(elsewhere);
   });
 
+  test("a late read response does not undo a close the store already returned", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const read = useAppStore.getState().markNotificationRead({ id: approval.id });
+    const close = useAppStore.getState().markNotificationRead({ id: approval.id, resolvedAt: NOW });
+    const again = useAppStore.getState().markNotificationRead({ id: approval.id, resolvedAt: NOW });
+    const readRecord = { ...approval, readAt: "2026-10-01T00:00:01.000Z" };
+    const closedRecord = { ...readRecord, resolvedAt: NOW, expiresAt: "2026-10-31T00:00:00.000Z" };
+    // The close's response arrives first, then the read's older one, then a third write fails.
+    saves[1]!(true, closedRecord);
+    saves[0]!(true, readRecord);
+    saves[2]!(false);
+    expect([await read, await close, await again]).toEqual([true, true, false]);
+    expect((await current())?.resolvedAt).toBe(NOW);
+    expect((await current())?.readAt).toBeTruthy();
+  });
+
   test("Fleet's bulk read counts a failed save as failed, not as read", async () => {
     const { fleetBulkOperations } = await import("@/components/layout/useFleetBulkActions");
     const { applyFleetBulkPlan } = await import("@/lib/fleet/attention-bulk");
