@@ -42,6 +42,8 @@ for (const scenario of [
     await edit.press("Enter");
 
     const settings = page.getByRole("dialog");
+    // Let the lazy-loaded Settings dialog mount before checking focus.
+    await settings.waitFor({ state: "visible" });
     const section = settings.getByRole("region", { name: scenario.title, exact: true });
     const unit = section.getByRole("combobox", { name: scenario.unit, exact: true });
     await expect(section).toBeFocused();
