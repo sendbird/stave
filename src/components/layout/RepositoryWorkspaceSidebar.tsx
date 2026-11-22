@@ -707,7 +707,8 @@ export function RepositoryWorkspaceSidebar(args: {
     if (!workspaceToClose) return;
     setClosingWorkspaceId(workspaceToClose.id);
     void closeWorkspace({ workspaceId: workspaceToClose.id, preserveLocalWork: true, keepWorktree })
-      .then(() => setWorkspaceToClose(null), (error: unknown) => {
+      // Archived either way; a leftover folder keeps the dialog open to say so.
+      .then((outcome) => outcome?.leftoverFiles ? setArchiveError("worktreeLeftoverFiles") : setWorkspaceToClose(null), (error: unknown) => {
         setArchiveError(error instanceof Error ? error.message : "cleanupFailed");
       }).finally(() => setClosingWorkspaceId(null));
   };

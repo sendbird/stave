@@ -206,13 +206,13 @@ async function main() {
     assert.equal(readlinkSync(join(path, "untracked-link")), "tracked");
     assert.equal(statSync(join(path, "executable")).mode & 0o111, 0o111);
     // Git drops its worktree record even when it cannot delete an ignored file. The
-    // leftover folder is not a checkout, so the archive must stay instead of reactivating it.
+    // leftover folder is not a checkout, so the archive completes and reports the folder.
     const leftover = async (saved: boolean) => {
       mkdirSync(join(path, "ignored")); writeFileSync(join(path, "ignored", "read-only"), "cache");
       chmodSync(join(path, "ignored"), 0o555);
       const result = await manualArchive();
       chmodSync(join(path, "ignored"), 0o755);
-      assert.equal(result.ok, false);
+      assert.equal(result.ok, true, JSON.stringify(result));
       assert.equal(result.reason, "worktreeLeftoverFiles");
       const record = store!.listArchivedWorkspacesPersistence()[0];
       assert.ok(record, "The archive stays");

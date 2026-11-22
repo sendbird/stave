@@ -1492,7 +1492,7 @@
       "savedChangesRestorePartial": "Saved changes could not be restored, and the partially restored folder was kept for review",
       "savedChangesUnavailable": "Saved changes are unavailable",
       "ignoredFiles": "Git-ignored files blocked worktree removal",
-      "worktreeLeftoverFiles": "Archived, but Git could not delete some files in the worktree folder. Delete the folder before restoring this workspace",
+      "worktreeLeftoverFiles": "Done, but Git could not delete some files in the worktree folder. Delete the leftover folder; restore waits until it is gone",
       "gitOperationInProgress": "A Git operation is in progress in this worktree",
       "hiddenChanges": "Git is hiding tracked files from its normal change check",
       "keptWorktree": "Restore the workspace before removing its retained files"
