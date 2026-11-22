@@ -46,12 +46,26 @@ function syncUnreadBadge(get: NotificationActionDeps["get"]) {
 }
 
 /**
+ * The store only ever fills a notification's read and resolved times, never
+ * clears them. A record it returned for an older write can arrive after a
+ * newer one, so it must not take back a time (or its expiry) already known.
+ */
+function withoutClearing(record: AppNotification, known: AppNotification | undefined): AppNotification {
+  if (!known) return record;
+  const readAt = record.readAt ?? known.readAt;
+  const resolvedAt = record.resolvedAt ?? known.resolvedAt;
+  if (readAt === record.readAt && resolvedAt === record.resolvedAt) return record;
+  return { ...record, readAt, resolvedAt, expiresAt: known.expiresAt ?? record.expiresAt };
+}
+
+/**
  * Mark-reads of one notification still being saved. When the last of them
  * settles and any failed, the list is set to what was saved: the last record
  * the store returned (or the record before the first write), plus what a
  * successful write without a returned record wrote (read; resolved when it
- * resolved), plus a mark-all made since (read). A record something else
- * replaced meanwhile (a hydration, a host merge) is left alone.
+ * resolved), plus a mark-all saved since (read). Times the store already held
+ * win over this batch's. A record something else replaced meanwhile (a
+ * hydration, a host merge) is left alone.
  */
 interface MarkReadBatch {
   /** The last record known to be saved: the one before the first write, or one the store returned. */
@@ -62,15 +76,16 @@ interface MarkReadBatch {
   failed: boolean;
   savedRead: boolean;
   savedResolvedAt: string | null;
-  markAllGeneration: number;
+  markAllSaves: number;
 }
 const markReadBatches = new Map<string, MarkReadBatch>();
-let markAllGeneration = 0;
+/** Mark-alls whose save succeeded; one in flight or failed does not count. */
+let markAllSaves = 0;
 
 function settleMarkReadBatch(deps: NotificationActionDeps, id: string, batch: MarkReadBatch) {
   markReadBatches.delete(id);
   if (!batch.failed) return;
-  const read = batch.savedRead || batch.markAllGeneration !== markAllGeneration;
+  const read = batch.savedRead || batch.markAllSaves !== markAllSaves;
   deps.set((state) => ({
     notifications: state.notifications.map((item) => {
       if (item.id !== id || !batch.own.has(item)) return item;
@@ -78,14 +93,12 @@ function settleMarkReadBatch(deps: NotificationActionDeps, id: string, batch: Ma
       if (!read && !batch.savedResolvedAt) return batch.before;
       const saved = {
         ...item,
-        readAt: read ? item.readAt : batch.before.readAt,
-        resolvedAt: batch.savedResolvedAt ?? batch.before.resolvedAt,
+        readAt: batch.before.readAt ?? (read ? item.readAt : null),
+        resolvedAt: batch.before.resolvedAt ?? batch.savedResolvedAt,
       };
       const expiresAt = isNotificationPendingAttention(saved)
         ? null
-        : saved.readAt
-          ? item.expiresAt
-          : batch.before.expiresAt;
+        : (batch.before.expiresAt ?? item.expiresAt);
       return { ...saved, expiresAt };
     }),
   }));
@@ -114,7 +127,7 @@ export async function markNotificationReadAction(
       failed: false,
       savedRead: false,
       savedResolvedAt: null,
-      markAllGeneration,
+      markAllSaves,
     };
     markReadBatches.set(deps.id, batch);
   }
@@ -145,19 +158,18 @@ export async function markNotificationReadAction(
     if (batch && persisted) {
       // What the store returned is what it holds, including changes made
       // elsewhere (another window resolving the request) since this began.
-      // The store only ever fills read and resolved, never clears them, so a
-      // response that arrives late cannot take back what an earlier one showed.
-      batch.before = {
-        ...persisted,
-        readAt: persisted.readAt ?? batch.before.readAt,
-        resolvedAt: persisted.resolvedAt ?? batch.before.resolvedAt,
-      };
+      batch.before = withoutClearing(persisted, batch.before);
     }
     if (persisted) {
       deps.set((state) => ({
         notifications: mergeNotificationIntoList({
           notifications: state.notifications,
-          notification: persisted,
+          // A late response for an older write must not reopen what the list
+          // already shows read or resolved.
+          notification: withoutClearing(
+            persisted,
+            state.notifications.find((item) => item.id === deps.id),
+          ),
         }),
       }));
       const merged = deps.get().notifications.find((item) => item.id === deps.id);
@@ -182,9 +194,11 @@ export async function markNotificationReadAction(
 export async function markAllNotificationsReadAction(
   deps: NotificationActionDeps,
 ) {
-  markAllGeneration += 1;
   const readAt = new Date().toISOString();
   const expiresAt = buildNotificationExpiresAt({ readAt });
+  // Every notification listed now exists in the store, which marks all of
+  // them read when this saves and never un-reads one.
+  const marked = new Set(deps.get().notifications.map((item) => item.id));
   deps.set((state) => ({
     notifications: markAllNotificationsReadInList({
       notifications: state.notifications,
@@ -194,6 +208,17 @@ export async function markAllNotificationsReadAction(
   }));
   try {
     await markAllPersistedNotificationsRead({ readAt });
+    markAllSaves += 1;
+    // A failed mark-read settling while this was saving may have taken a read
+    // back; the save covered those notifications, so show them read again.
+    // One that arrived after the click is not touched.
+    deps.set((state) => {
+      const unread = state.notifications.filter((item) => marked.has(item.id) && !item.readAt);
+      if (unread.length === 0) return {};
+      const reread = markAllNotificationsReadInList({ notifications: unread, readAt, expiresAt });
+      const byId = new Map(reread.map((item) => [item.id, item]));
+      return { notifications: state.notifications.map((item) => byId.get(item.id) ?? item) };
+    });
     syncUnreadBadge(deps.get);
   } catch (error) {
     console.error(
