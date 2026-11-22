@@ -121,6 +121,23 @@ export function isChildRequestSettled(args: {
 }
 
 /**
+ * Whether the card should read the child now: the request is neither waiting
+ * nor proven over, and the child is not loaded or this card has not read it
+ * fresh yet. A request that was waiting at mount and whose turn then ended
+ * lands here too, since only a fresh read proves it expired. A failed read
+ * waits instead of retrying in a loop.
+ */
+export function shouldReadChildRequest(args: {
+  pending: boolean;
+  settled: boolean;
+  cold: boolean;
+  freshlyRead: boolean;
+  loadError: string | null;
+}) {
+  return !args.pending && !args.settled && (args.cold || !args.freshlyRead) && !args.loadError;
+}
+
+/**
  * Approvals and questions raised by tasks this one delegated, at any depth,
  * answered from this task's composer. Nothing here selects the child or
  * switches workspaces; the child's request is loaded on demand and answered
@@ -191,39 +208,41 @@ function ChildRequestCard(props: {
     () => isChildRequestSettled({ expected, taskLoaded: Boolean(childTask), messages, messageCount, activeTurnId, freshlyRead }),
     [activeTurnId, childTask, expected, freshlyRead, messageCount, messages],
   );
-  // Nothing is read when the cache already shows the request waiting or
-  // answered; otherwise, like a Fleet row, the child loads (or re-reads), then
-  // older pages until the request shows. A child dropped from the cache later
-  // is read again.
-  const skipLoad = useRef(Boolean(pending) || settled);
-  const [loadDone, setLoadDone] = useState(skipLoad.current);
+  // Like a Fleet row, a request that is neither waiting nor proven over is
+  // read: the child loads (or re-reads), then older pages until the request
+  // shows. That covers a stale cache at mount, a request whose turn ended
+  // while it waited (only a fresh read proves it expired), and a child dropped
+  // from the cache. A read in flight is never cancelled by the state it
+  // writes; only unmounting drops its result.
   const cold = !childTask || !messages;
-  const reload = cold && loadDone && !loadError;
-
+  const needsRead = shouldReadChildRequest({ pending: Boolean(pending), settled, cold, freshlyRead, loadError });
+  const mounted = useRef(false);
+  const reading = useRef(false);
   useEffect(() => {
-    if (skipLoad.current && !reload) return;
-    let cancelled = false;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!needsRead || reading.current) return;
+    reading.current = true;
     loadFleetInteraction(expected)
       .then(() => loadFleetRequestFromOlderMessages(expected))
       .then(
         () => {
-          if (cancelled) return;
-          skipLoad.current = true;
+          reading.current = false;
+          if (!mounted.current) return;
           setLoadError(null);
           setFreshlyRead(true);
-          setLoadDone(true);
         },
         (cause: unknown) => {
-          if (cancelled) return;
-          skipLoad.current = true;
+          reading.current = false;
+          if (!mounted.current) return;
           setLoadError(cause instanceof Error ? cause.message : i18n.t("session:childRequestSlot.extraCopy88"));
-          setLoadDone(true);
         },
       );
-    return () => {
-      cancelled = true;
-    };
-  }, [expected, reload]);
+  }, [expected, needsRead]);
 
   useEffect(() => {
     if (!busy) return;
@@ -261,7 +280,7 @@ function ChildRequestCard(props: {
           ? respondError
           : settled
             ? null
-            : (loadError ?? (loadDone && !cold && !busy ? i18n.t("session:childRequestSlot.extraCopy88") : null))
+            : (loadError ?? (freshlyRead && !cold && !busy ? i18n.t("session:childRequestSlot.extraCopy88") : null))
       }
       settled={settled}
       onRespond={respond}

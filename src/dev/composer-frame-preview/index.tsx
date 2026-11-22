@@ -60,7 +60,7 @@ import { PromptEnhancementDiffPopover } from "@/components/session/prompt-enhanc
 import { i18n } from "@/i18n";
 import { ChildRequestSlot, ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
 import type { AppNotificationCreateInput } from "@/lib/notifications/notification.types";
-import { createNotification } from "@/lib/db/notifications.db";
+import { createNotification, deleteNotificationsForWorkspaces } from "@/lib/db/notifications.db";
 import { createEmptyWorkspaceState } from "@/store/workspace-session-state";
 import { SecretRequestCard } from "@/components/session/secret-request-card";
 import { ComposerWorkspaceBarView } from "@/components/session/composer-workspace-bar";
@@ -268,7 +268,10 @@ const PREVIEW_REPOSITORY_PATH = "/tmp/preview-repo";
  * its loading and its close are the real ones.
  */
 function seedSettledChildRequest() {
-  const childWorkspaceId = "preview-child-workspace";
+  // Each case keeps its own saved rows; the other case's are removed so a
+  // switch between them in one browser does not show both.
+  const childWorkspaceId = `preview-child-workspace-${CHILD_REQUEST_QUEUED ? "queued" : "single"}`;
+  const otherWorkspaceId = `preview-child-workspace-${CHILD_REQUEST_QUEUED ? "single" : "queued"}`;
   const childTaskId = "preview-child-task";
   const turnId = "preview-child-turn";
   const at = (second: number) => `2026-10-02T09:00:0${second}.000Z`;
@@ -287,7 +290,7 @@ function seedSettledChildRequest() {
     repositoryName: "preview-repo", workspaceId: childWorkspaceId, workspaceName: "Child", taskId: childTaskId,
     taskTitle: "Migrate settings sections to the new tokens", turnId, providerId: "codex",
     action: { type: "approval", requestId, messageId }, payload: { ...root, toolName: "Bash" }, createdAt,
-    dedupeKey: `task.approval_requested:${turnId}:${requestId}`,
+    dedupeKey: `task.approval_requested:${childWorkspaceId}:${turnId}:${requestId}`,
   });
   useAppStore.setState((state) => ({
     repositoryPath: PREVIEW_REPOSITORY_PATH,
@@ -309,7 +312,8 @@ function seedSettledChildRequest() {
       : []),
   ];
   // An existing row (same dedupe key) is kept as saved, closed or not.
-  void Promise.all(notifications.map((item) => createNotification({ notification: item })))
+  void deleteNotificationsForWorkspaces({ workspaceIds: [otherWorkspaceId] })
+    .then(() => Promise.all(notifications.map((item) => createNotification({ notification: item }))))
     .then(() => useAppStore.getState().hydrateNotifications());
 }
 const SECRET_REQUEST_CASE = previewParams.get("secretRequest");

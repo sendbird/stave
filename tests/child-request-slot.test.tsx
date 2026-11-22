@@ -282,4 +282,23 @@ describe("child requests in the parent composer", () => {
       console.error = originalError;
     }
   });
+
+  test("the card reads the child whenever the request is neither waiting nor proven over", async () => {
+    const { shouldReadChildRequest } = await import("@/components/session/ChildRequestSlot");
+    const read = (overrides: Partial<Parameters<typeof shouldReadChildRequest>[0]>) =>
+      shouldReadChildRequest({ pending: false, settled: false, cold: false, freshlyRead: false, loadError: null, ...overrides });
+    // Waiting at mount: nothing to read.
+    expect(read({ pending: true })).toBe(false);
+    // Answered (proven from the cache): nothing to read.
+    expect(read({ settled: true })).toBe(false);
+    // Was waiting at mount, then its turn ended while it still waited: only a
+    // fresh read can prove it expired, so the card reads even with the child cached.
+    expect(read({})).toBe(true);
+    // Read fresh and still not found: say so, do not read again.
+    expect(read({ freshlyRead: true })).toBe(false);
+    // Dropped from the cache after a read: read again.
+    expect(read({ freshlyRead: true, cold: true })).toBe(true);
+    // A failed read waits instead of retrying in a loop.
+    expect(read({ cold: true, loadError: "This task is no longer available." })).toBe(false);
+  });
 });

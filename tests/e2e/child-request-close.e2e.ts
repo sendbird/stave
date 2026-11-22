@@ -64,3 +64,15 @@ test("closing the only child request removes the slot (ko)", async ({ page }) =>
   await expect(page.getByRole("textbox", { name: "프롬프트" })).toBeVisible();
   await expect(slot).toHaveCount(0);
 });
+
+test("switching preview cases in one browser does not carry the other case's requests", async ({ page }) => {
+  await open(page, { locale: "en", queued: true });
+  const slot = page.getByRole("region", { name: "Requests from delegated tasks" });
+  await expect(slot.getByText("+1 more")).toBeVisible();
+
+  await open(page, { locale: "en", queued: false });
+  await expect(slot.getByText("This request was answered or expired.")).toBeVisible();
+  await expect(slot.getByText("+1 more")).toHaveCount(0);
+  await slot.getByRole("button", { name: "Close" }).click();
+  await expect(slot).toHaveCount(0);
+});
