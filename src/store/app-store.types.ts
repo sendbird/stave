@@ -678,10 +678,11 @@ export interface AppState
     workspacePath?: string | null;
   }) => Promise<void>;
   takeOverTask: (args: { taskId: string }) => Promise<TaskTakeoverResult>;
+  /** Resolves to whether the change was saved; a failed write is rolled back. */
   markNotificationRead: (args: {
     id: string;
     resolvedAt?: string;
-  }) => Promise<void>;
+  }) => Promise<boolean>;
   markAllNotificationsRead: () => Promise<void>;
   clearNotificationHistory: () => Promise<number>;
   openNotificationContext: (args: {

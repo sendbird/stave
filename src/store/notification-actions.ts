@@ -44,13 +44,20 @@ function syncUnreadBadge(get: NotificationActionDeps["get"]) {
   });
 }
 
+/**
+ * Marks one notification read (and resolved, when `resolvedAt` is given) at
+ * once, then persists it. Resolves to whether the change was saved. A failed
+ * write puts the notification back as it was, unless something replaced it in
+ * the meantime, so the list never shows a state the next load would undo.
+ */
 export async function markNotificationReadAction(
   deps: NotificationActionDeps & { id: string; resolvedAt?: string },
-) {
+): Promise<boolean> {
   const readAt = new Date().toISOString();
   const expiresAt = buildNotificationExpiresAt({
     readAt: deps.resolvedAt ?? readAt,
   });
+  const previous = deps.get().notifications.find((item) => item.id === deps.id);
   deps.set((state) => ({
     notifications: markNotificationReadInList({
       notifications: state.notifications,
@@ -60,6 +67,7 @@ export async function markNotificationReadAction(
       expiresAt,
     }),
   }));
+  const optimistic = deps.get().notifications.find((item) => item.id === deps.id);
   try {
     const persisted = await markPersistedNotificationRead({
       id: deps.id,
@@ -67,7 +75,7 @@ export async function markNotificationReadAction(
       resolvedAt: deps.resolvedAt,
     });
     if (!persisted) {
-      return;
+      return true;
     }
     deps.set((state) => ({
       notifications: mergeNotificationIntoList({
@@ -76,11 +84,20 @@ export async function markNotificationReadAction(
       }),
     }));
     syncUnreadBadge(deps.get);
+    return true;
   } catch (error) {
     console.error(
       "[notifications] failed to mark notification as read",
       error,
     );
+    if (previous && optimistic !== previous) {
+      deps.set((state) => ({
+        notifications: state.notifications.map((item) =>
+          item === optimistic ? previous : item,
+        ),
+      }));
+    }
+    return false;
   }
 }
 
