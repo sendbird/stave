@@ -312,7 +312,8 @@ function seedSettledChildRequest() {
       : []),
   ];
   // An existing row (same dedupe key) is kept as saved, closed or not.
-  void deleteNotificationsForWorkspaces({ workspaceIds: [otherWorkspaceId] })
+  // `preview-child-workspace` held both cases' rows before they were split.
+  void deleteNotificationsForWorkspaces({ workspaceIds: [otherWorkspaceId, "preview-child-workspace"] })
     .then(() => Promise.all(notifications.map((item) => createNotification({ notification: item }))))
     .then(() => useAppStore.getState().hydrateNotifications());
 }
