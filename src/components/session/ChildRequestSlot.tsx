@@ -22,6 +22,7 @@ import {
 } from "@/lib/notifications/delegated-attention";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
+import { retainWorkspaceRuntimeCache } from "@/store/workspace-runtime-state";
 import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
@@ -216,6 +217,10 @@ function ChildRequestCard(props: {
   // writes; only unmounting drops its result.
   const cold = !childTask || !messages;
   const needsRead = shouldReadChildRequest({ pending: Boolean(pending), settled, cold, freshlyRead, loadError });
+  // The card shows this child's request: keep its workspace cached while it
+  // is on screen, or a load for another workspace could evict it and leave the
+  // card re-reading it.
+  useEffect(() => retainWorkspaceRuntimeCache(expected.workspaceId), [expected.workspaceId]);
   const mounted = useRef(false);
   const reading = useRef(false);
   useEffect(() => {
