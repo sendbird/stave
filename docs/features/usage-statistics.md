@@ -12,10 +12,12 @@ account-quota view directly.
 
 ## Daily provider limits
 
-**Settings > Providers > Today’s daily limits** sets one app-wide limit per
-provider: tokens, or USD after that provider has reported a cost. Every limit
-starts off. AI usage and Tars’s usage insights show today’s recorded task usage
-against it, across all accounts and workspaces, regardless of history filters.
+At the bottom of **Settings > Providers**, **Today’s daily limits** sets one
+app-wide limit per provider in tokens, or in USD after that provider reports a
+cost. Every limit starts off. In **AI usage > Quota**, expand **Today’s daily
+limits** below the account quota report to see recorded task usage across all
+accounts and workspaces. The same totals appear in Tars’s usage insights and
+are independent of the report filters.
 
 Limits reuse the usage report’s measured-token convention (excluding cache
 reads) and reported costs only. Completed turns count on their start date in

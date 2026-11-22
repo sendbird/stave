@@ -1,6 +1,7 @@
 import { addUsageMetrics, emptyUsageMetrics, usageBucketKey, type QuotaObservation, type UsageStatisticsArgs,
   type UsageStatisticsReport, type UsageTurn } from "@/lib/providers/usage-statistics";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
+import { DAILY_LIMIT_PROVIDERS, dailyLimitReached, dailyUsageWindow, type DailyUsageReport } from "@/lib/usage/daily-limit";
 
 export const USAGE_PREVIEW_NOW = Date.parse("2026-10-04T09:00:00.000Z");
 export const USAGE_PREVIEW_PROFILES: ProviderAccountProfile[] = [
@@ -92,4 +93,38 @@ export function usagePreviewReport(args: UsageStatisticsArgs, empty = false): Us
     turns: selected.sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id)).slice(args.offset, args.offset + args.limit),
     quota: observations.filter((row) => row.observedAt >= args.from && row.observedAt < args.to), latestQuota: [...latest.values()],
     quotaHistoryTruncated: false, generatedAt: new Date(USAGE_PREVIEW_NOW).toISOString() };
+}
+
+/** In-memory bridge for exercising the full Usage → Providers settings flow. */
+export function installUsagePreviewBridge(readDelay = 0) {
+  const bridge = window.api;
+  if (!bridge) throw new Error("Usage fixtures require the dev bridge.");
+  let report: DailyUsageReport = {
+    ...dailyUsageWindow(),
+    providers: DAILY_LIMIT_PROVIDERS.map((providerId, index) => ({
+      providerId,
+      limit: null,
+      tokens: [6_610_456, 9_163_910][index] ?? 0,
+      costUsd: index === 0 ? 3.25 : null,
+      costReportedTurns: index === 0 ? 1 : 0,
+      costAvailable: index === 0,
+      turns: index < 2 ? 4 : 0,
+      reached: false,
+    })),
+  };
+  bridge.persistence = {
+    ...bridge.persistence,
+    usageStatistics: async (args) => ({ ok: true, report: usagePreviewReport(args) }),
+    dailyUsage: {
+      read: async () => {
+        if (readDelay) await new Promise((resolve) => setTimeout(resolve, readDelay));
+        return report;
+      },
+      update: async ({ providerId, limit }) => {
+        report = { ...report, providers: report.providers.map((usage) =>
+          usage.providerId === providerId ? { ...usage, limit, reached: dailyLimitReached({ ...usage, limit }) } : usage) };
+        return report;
+      },
+    },
+  } as NonNullable<typeof bridge.persistence>;
 }
