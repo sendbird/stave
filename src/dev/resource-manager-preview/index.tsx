@@ -265,6 +265,7 @@ function installFixture() {
       useAppStore.setState((s) => ({
         workspaces: s.workspaces.filter((w) => w.id !== workspaceId),
       }));
+      return { leftoverFiles: false };
     },
   });
   const shell = buildWorkspaceSessionState({ snapshot: null });

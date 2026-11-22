@@ -1401,10 +1401,13 @@ You can also choose **Archive** from a workspace's sidebar menu. Confirming
 there saves any uncommitted changes before removing the worktree. In the cleanup
 center, turn on **Save uncommitted changes and archive** in the confirmation.
 Staged, unstaged and untracked files are saved without moving the branch.
-Git-ignored files and unfinished Git operations prevent worktree removal.
+Git-ignored files, such as dependencies and build output, are deleted with the
+worktree. Unfinished Git operations prevent worktree removal.
 When removal is blocked, you can show the worktree folder and retry or choose
 **Archive and keep files on disk** when offered. Restore reopens those same
 files. Restore the workspace before trying to remove a retained worktree.
+If Git removes the worktree but cannot delete some files, the workspace is
+archived and the leftover folder is reported; delete it before restoring.
 **Saved changes** marks these archives. Restore brings back
 the files and staged state, stopping with a conflict if files already occupy the
 destination. A failed save leaves the worktree in place. Permanent deletion

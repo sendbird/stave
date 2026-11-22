@@ -108,10 +108,11 @@ export async function cleanWorkspace(repositoryPath: string, row: CleanupWorkspa
   const state = useAppStore.getState();
   const blocker = workspaceCleanupBlocker(state, repositoryPath, row.id, row.path);
   if (blocker) return { ...current, blocker };
-  await state.closeWorkspace({ workspaceId: row.id, onlyIfInactive: true });
+  const outcome = await state.closeWorkspace({ workspaceId: row.id, onlyIfInactive: true });
   const archived = !useAppStore.getState().workspaces.some((w) => w.id === row.id);
   if (!archived) return { ...current, blocker: i18n.t("workspace:cleanupDialog.operations.notArchived") };
   const runner = window.api?.terminal?.runCommand;
   const listed = runner && !row.linked ? await listRepositoryWorktrees({ repositoryPath, run: runner, nulSeparated: true }) : null;
+  if (outcome?.leftoverFiles) return { ...current, result: i18n.t("workspace:cleanupCenter.reasons.worktreeLeftoverFiles") };
   return { ...current, result: i18n.t(cleanupWorktreeResultKey({ linked: row.linked, listed, path: row.path })) };
 }

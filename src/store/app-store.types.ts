@@ -405,7 +405,8 @@ export interface AppState
     keepWorktree?: boolean;
     /** Bulk cleanup must stop if the workspace becomes active or awaits input. */
     onlyIfInactive?: boolean;
-  }) => Promise<void>;
+    /** Resolves without a value when nothing was archived. */
+  }) => Promise<{ leftoverFiles: boolean } | undefined>;
   switchWorkspace: (args: { workspaceId: string }) => Promise<void>;
   renameWorkspace: (args: {
     repositoryPath?: string;

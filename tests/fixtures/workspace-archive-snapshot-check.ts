@@ -51,6 +51,14 @@ async function main() {
       git(path, "update-index", `--no-${flag}`, "tracked");
       git(path, "restore", "tracked");
     }
+    // Keeping files on disk retains Git-ignored files, including across a SQLite restart.
+    writeFileSync(join(path, "ignored"), "kept on disk");
+    assert.equal((await keepArchive()).ok, true);
+    store.close(); store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
+    assert.equal((await runtime.list()).rows.find(row => row.id === "feature")?.keptWorktree, true, "The kept checkout survives a SQLite restart");
+    assert.equal((await act("restore")).ok, true);
+    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "kept on disk");
+    rmSync(join(path, "ignored"));
     const dirty = () => {
       writeFileSync(join(path, "tracked"), "staged\n"); git(path, "add", "tracked");
       writeFileSync(join(path, "tracked"), "unstaged\r\nbytes\n");
@@ -68,7 +76,7 @@ async function main() {
     assert.equal((await act("archive")).ok, false, "Default archive still blocks changed files");
     assert.equal((await runtime.list()).rows.find(row => row.id === "feature")!.canSaveChanges, true, JSON.stringify((await runtime.list()).rows));
     // A failed durable save must leave the full checkout and active registry intact.
-    let archive = store.archiveWorkspacePersistence.bind(store);
+    const archive = store.archiveWorkspacePersistence.bind(store);
     store.archiveWorkspacePersistence = () => { throw new Error("fixtureSaveFailure"); };
     assert.equal((await act("archive", true)).ok, false);
     store.archiveWorkspacePersistence = archive;
@@ -101,29 +109,6 @@ async function main() {
     assert.equal(git(path, "show", ":tracked"), index);
     assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
     git(repo, "worktree", "unlock", path);
-    writeFileSync(join(path, "ignored"), "private working data");
-    const ignored = await manualArchive();
-    assert.equal(ignored.reason, "ignoredFiles");
-    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "private working data");
-    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
-    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
-    assert.equal((await keepArchive()).ok, true);
-    store.close(); store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
-    archive = store.archiveWorkspacePersistence.bind(store);
-    assert.equal((await act("restore")).ok, true);
-    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "private working data");
-    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
-    rmSync(join(path, "ignored"));
-
-    store.archiveWorkspacePersistence = args => { const record = archive(args); writeFileSync(join(path, "ignored"), "late private data"); return record; };
-    const lateIgnored = await manualArchive();
-    store.archiveWorkspacePersistence = archive;
-    assert.equal(lateIgnored.reason, "ignoredFiles");
-    assert.equal(readFileSync(join(path, "ignored"), "utf8"), "late private data");
-    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
-    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
-    rmSync(join(path, "ignored"));
-
     const mergeHead = git(path, "rev-parse", "--path-format=absolute", "--git-path", "MERGE_HEAD").trim();
     writeFileSync(mergeHead, branch);
     assert.equal((await manualArchive()).reason, "gitOperationInProgress");
@@ -138,6 +123,8 @@ async function main() {
     assert.match((await runtime.act({ ...request, deleteBranch: true })).reason ?? "", /unpushedCommits/);
     assert.match((await runtime.act(request, true)).reason ?? "", /unpushedCommits/);
     assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
+    // Git-ignored files are disposable and removed with the checkout, as automatic cleanup does.
+    writeFileSync(join(path, "ignored"), "regenerable output");
     const archived = await manualArchive();
     assert.equal(archived.ok, true, JSON.stringify(archived));
     assert.equal(existsSync(path), false);
@@ -218,6 +205,34 @@ async function main() {
     assert.equal(git(path, "show", ":index-only"), "staged only\n");
     assert.equal(readlinkSync(join(path, "untracked-link")), "tracked");
     assert.equal(statSync(join(path, "executable")).mode & 0o111, 0o111);
+    // Git drops its worktree record even when it cannot delete an ignored file. The
+    // leftover folder is not a checkout, so the archive completes and reports the folder.
+    const leftover = async (saved: boolean) => {
+      mkdirSync(join(path, "ignored")); writeFileSync(join(path, "ignored", "read-only"), "cache");
+      chmodSync(join(path, "ignored"), 0o555);
+      const result = await manualArchive();
+      chmodSync(join(path, "ignored"), 0o755);
+      assert.equal(result.ok, true, JSON.stringify(result));
+      assert.equal(result.reason, "worktreeLeftoverFiles");
+      const record = store!.listArchivedWorkspacesPersistence()[0];
+      assert.ok(record, "The archive stays");
+      assert.equal(Boolean(record.savedChangesRef), saved);
+      assert.ok(!store!.loadRepositoryRegistry()[0]!.workspaces.some(workspace => workspace.id === "feature"), "The leftover folder is not reactivated");
+      assert.ok(!git(repo, "worktree", "list", "--porcelain").includes(path), "Git no longer lists the checkout");
+      assert.equal(readFileSync(join(path, "ignored", "read-only"), "utf8"), "cache");
+      assert.equal((await act("restore")).ok, false, "Restore waits for the leftover folder to be deleted");
+      rmSync(path, { recursive: true });
+      const restoredAfterLeftover = await act("restore");
+      assert.equal(restoredAfterLeftover.ok, true, JSON.stringify(restoredAfterLeftover));
+    };
+    await leftover(true);
+    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status, "Saved changes survive the leftover folder");
+    assert.equal(git(path, "show", ":tracked"), index);
+    git(path, "reset", "--hard"); git(path, "clean", "-fd");
+    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), "");
+    await leftover(false);
+    assert.equal(git(path, "status", "--porcelain=v1", "-uall"), "");
+    writeFileSync(join(path, "untracked"), "archive again");
     const again = await manualArchive(); assert.equal(again.ok, true, JSON.stringify(again));
     const deletedRef = store.listArchivedWorkspacesPersistence()[0]!.savedChangesRef!;
     git(repo, "push", "origin", "feature");

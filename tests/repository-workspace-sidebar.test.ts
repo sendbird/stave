@@ -659,6 +659,7 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
     expect(copy.canDeleteBranch).toBe(false);
     expect(copy.description).toContain('Archive workspace "fix/archive"?');
     expect(copy.description).toContain("saves any uncommitted changes before removing the worktree");
+    expect(copy.description).toContain("Git-ignored files");
     expect(copy.description).toContain("including local commits");
     expect(copy.description).toContain("Restore it");
   });

@@ -146,7 +146,8 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       if (target.action === "archive" && !result.ok) archiveRequests.current.set(result.workspaceId, target);
       else archiveRequests.current.delete(result.workspaceId);
       if (result.ok && result.readOnly) setHistory({ workspaceId: target.workspaceId, repositoryPath: target.repositoryPath });
-      if (result.ok && target.action === "archive") archived.push({ action: "restore", workspaceId: target.workspaceId, repositoryPath: target.repositoryPath });
+      // Restore refuses while a leftover folder occupies the path, so it gets no Undo.
+      if (result.ok && !result.reason && target.action === "archive") archived.push({ action: "restore", workspaceId: target.workspaceId, repositoryPath: target.repositoryPath });
     }
     setResults(previous => retry ? [...previous.filter(result => !finished.some(item => item.workspaceId === result.workspaceId)), ...finished] : finished);
     setUndo(previous => retry ? [...previous, ...archived] : archived);
@@ -200,7 +201,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         </div> : null)}
       </div>
       {message && <p role="status" className={sx(styles.status)}>{message}{undo.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act("restore", undo)}>{t("cleanupCenter.undo")}</Button>}</p>}
-      {results.some((result) => !result.ok) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok).map((result, index) => {
+      {results.some((result) => !result.ok || result.reason) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok || r.reason).map((result, index) => {
         const target = archiveRequests.current.get(result.workspaceId);
         const reason = result.reason ?? "unavailable";
         if (!target) return <p className={sx(styles.status)} key={index}>{workspaceName(result)} · {reasonText(reason)}</p>;
@@ -216,7 +217,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
           />
         </div>;
       })}</div>}
-      <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>{data?.recent.map((item, index) => <div key={index} className={sx(styles.toolbar)}><span className={sx(styles.muted)}>{formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {workspaceName(item)} · {item.ok ? t("cleanupCenter.completed") : reasonText(item.reason ?? "unavailable")}</span>{item.ok && (item.action === "archive" || item.action === "removeWorktree") && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}</div>)}</div></details>
+      <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>{data?.recent.map((item, index) => <div key={index} className={sx(styles.toolbar)}><span className={sx(styles.muted)}>{formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {workspaceName(item)} · {item.ok && !item.reason ? t("cleanupCenter.completed") : reasonText(item.reason ?? "unavailable")}</span>{item.ok && (item.action === "archive" || item.action === "removeWorktree") && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}</div>)}</div></details>
     </DialogContent>
   </Dialog><Dialog open={confirming !== null} onOpenChange={(next) => { if (!next) setConfirming(null); }}>
     <DialogContent showCloseButton={false} initialFocus={() => cancelRef.current} onKeyDown={(event) => { if (event.key === "Enter" && confirming === "delete") { event.preventDefault(); event.stopPropagation(); } }}>

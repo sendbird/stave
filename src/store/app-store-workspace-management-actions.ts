@@ -246,6 +246,8 @@ export function createWorkspaceManagementActions(args: {
         ...(preserveLocalWork ? { preserveLocalWork: true, ...(keepWorktree ? { keepWorktree: true } : { saveChanges: true }) } : {}),
       });
       if (!result.ok) throw new Error(result.reason ?? "Workspace archive was refused"); // i18n-ignore: diagnostic
+      // Archived, but Git left files it could not delete in the worktree folder.
+      const leftoverFiles = result.reason === "worktreeLeftoverFiles";
       // Pick the replacement active workspace, ignoring the one being archived.
       const nextWorkspace =
         state.workspaces.find(
@@ -367,7 +369,7 @@ export function createWorkspaceManagementActions(args: {
             error,
           );
         }
-        return;
+        return { leftoverFiles };
       }
       // Archiving an inactive workspace must not disturb the current session.
       // Bulk cleanup also avoids the asynchronous switch, so its final guard
@@ -467,6 +469,7 @@ export function createWorkspaceManagementActions(args: {
           error,
         );
       }
+      return { leftoverFiles };
     },
     switchWorkspace: async ({ workspaceId }) => {
       const current = get();

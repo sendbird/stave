@@ -142,6 +142,8 @@ export function createWorkspaceCleanupRuntime(ports: {
     if (saved) prSavedTips.add(key);
     return saved;
   }
+  /** A linked worktree's own record under `<common>/worktrees/<id>`; the main checkout has no `gitdir`. */
+  const worktreeRecordIntact = (adminDir: string) => existsSync(join(adminDir, "HEAD")) && existsSync(join(adminDir, "gitdir"));
   async function inspect(row: WorkspaceCleanupRow, scanDisk = false, checkPr = false, action?: WorkspaceCleanupActArgs["action"]): Promise<WorkspaceCleanupRow> {
     const blockers = hostBlockers(row, action);
     const reasons: string[] = [...row.reasons];
@@ -236,6 +238,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     const args = WorkspaceCleanupActArgsSchema.parse(input);
     let result: WorkspaceCleanupResult = { ok: false, workspaceId: args.workspaceId, action: args.action, reason: null };
     let registryChanged = false;
+    let leftoverFiles = false;
     let enteredGate = false;
     let wasSuspended = false;
     try {
@@ -351,7 +354,7 @@ export function createWorkspaceCleanupRuntime(ports: {
           const linkedSymlinkNames = linked ? await listWorkspaceShelfLinks(row.repositoryPath, row.path) : [];
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
           const checkArchiveFiles = preserveLocalWork && !keepWorktree && !linked && existsSync(row.path);
-          if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path, row.repositoryPath);
+          if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path);
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
           const saved = willSave(fresh) ? await saveWorkspaceChanges(row.path) : undefined;
@@ -371,26 +374,39 @@ export function createWorkspaceCleanupRuntime(ports: {
               registryChanged = true;
             }
             let savedStateCleared = false;
+            // Set only once Git is about to remove this checkout and its own record was found.
+            let removedRecord: string | null = null;
             try {
               if (saved) await clearSavedWorkspaceChanges(row.path, saved, () => { savedStateCleared = true; });
               if (linked && args.action === "archive") await removeWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
               if (!keepWorktree && !linked && !row.branchOnly && existsSync(row.path)) {
-                if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path, row.repositoryPath);
+                if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path);
+                const adminDir = await git(row.path, ["rev-parse", "--absolute-git-dir"]);
+                removedRecord = adminDir.ok && worktreeRecordIntact(adminDir.stdout.trim()) ? adminDir.stdout.trim() : null;
                 const removed = ports.git ? await git(row.repositoryPath, ["worktree", "remove", "--", row.path]) : await removeWorkspaceLifecycleWorktree(row.repositoryPath, row.path);
                 if (!removed.ok) throw new Error("worktreeRemoveFailed");
               }
             } catch (error) {
-              // Git kept the checkout; return the workspace to its active registry.
-              // If rollback also fails, the durable archive still protects history.
-              if (createArchive && existsSync(row.path)) {
-                try {
-                  if (savedRef && savedStateCleared) await applySavedWorkspaceChanges(row.path, savedRef);
-                  if (linked) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
-                  ports.store().restoreWorkspacePersistence({ workspaceId: row.id });
-                  if (savedRef) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
-                } catch { /* Keep the archive recoverable. */ }
+              // A failed removal can still delete Git's record of this checkout and leave
+              // only files Git could not delete (for example a read-only ignored cache).
+              // That folder is no longer a checkout, so the removal stands and the
+              // leftover is reported. Every other failure rolls back as before.
+              const leftover = error instanceof Error && error.message === "worktreeRemoveFailed" &&
+                removedRecord !== null && existsSync(row.path) && !worktreeRecordIntact(removedRecord);
+              if (!leftover) {
+                // Git kept the checkout; return the workspace to its active registry.
+                // If rollback also fails, the durable archive still protects history.
+                if (createArchive && existsSync(row.path)) {
+                  try {
+                    if (savedRef && savedStateCleared) await applySavedWorkspaceChanges(row.path, savedRef);
+                    if (linked) await restoreWorkspaceShelfLinks(row.repositoryPath, row.path, linkedSymlinkNames);
+                    ports.store().restoreWorkspacePersistence({ workspaceId: row.id });
+                    if (savedRef) await deleteSavedWorkspaceChanges(row.repositoryPath, savedRef);
+                  } catch { /* Keep the archive recoverable. */ }
+                }
+                throw error;
               }
-              throw error;
+              leftoverFiles = true;
             }
           } finally { await saved?.dispose(); }
           if (args.action === "deleteBranch" || args.deleteBranch) {
@@ -409,7 +425,8 @@ export function createWorkspaceCleanupRuntime(ports: {
           enteredGate = true;
           await workspaceExecutionGate.stop({ workspaceId: row.id, workspacePath: row.path }, apply);
         }
-        result = { ...result, ok: true };
+        // The action stands; the reason tells the user to delete the leftover folder.
+        result = { ...result, ok: true, reason: leftoverFiles ? "worktreeLeftoverFiles" : null };
       }
     } catch (error) { result.reason = error instanceof Error ? error.message : "cleanupFailed"; }
     let archiveRemains = false;
