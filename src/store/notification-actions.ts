@@ -198,7 +198,8 @@ export async function markAllNotificationsReadAction(
   const expiresAt = buildNotificationExpiresAt({ readAt });
   // Every notification listed now exists in the store, which marks all of
   // them read when this saves and never un-reads one.
-  const marked = new Set(deps.get().notifications.map((item) => item.id));
+  const before = new Map(deps.get().notifications.map((item) => [item.id, item]));
+  const marked = new Set(before.keys());
   deps.set((state) => ({
     notifications: markAllNotificationsReadInList({
       notifications: state.notifications,
@@ -206,6 +207,7 @@ export async function markAllNotificationsReadAction(
       expiresAt,
     }),
   }));
+  const after = new Map(deps.get().notifications.map((item) => [item.id, item]));
   try {
     await markAllPersistedNotificationsRead({ readAt });
     markAllSaves += 1;
@@ -225,6 +227,22 @@ export async function markAllNotificationsReadAction(
       "[notifications] failed to mark all notifications as read",
       error,
     );
+    // Nothing was saved: take back the reads this showed, where the record is
+    // still the one it put there. A mark-read batch that began from one of
+    // those records settles against the record from before the click instead.
+    const changed = [...after].filter(([id, item]) => before.get(id) !== item);
+    if (changed.length === 0) return;
+    deps.set((state) => ({
+      notifications: state.notifications.map((item) =>
+        after.get(item.id) === item ? (before.get(item.id) ?? item) : item,
+      ),
+    }));
+    for (const [id, item] of changed) {
+      const batch = markReadBatches.get(id);
+      const original = before.get(id);
+      if (batch && original && batch.before === item) batch.before = original;
+    }
+    syncUnreadBadge(deps.get);
   }
 }
 
