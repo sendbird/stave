@@ -71,7 +71,7 @@ test("untrusted acknowledgement cannot start a capture, and cancellation parks i
   await flush();
   expect(messages).toHaveLength(1);
   abort.abort();
-  expect(String(await error)).toContain("cancelled");
+  expect(String(await error)).toContain("AbortError");
   expect(messages.map((p) => p.active)).toEqual([true, false]);
   resolveLensCapturePaint({ requestId: messages[0]!.requestId, ok: true }, 9);
   expect(messages).toHaveLength(2);

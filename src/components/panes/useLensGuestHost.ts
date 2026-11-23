@@ -3,6 +3,7 @@ import { isLensGuestPointerTarget } from "@/lib/lens/lens-guest-interaction";
 import {
   acquireLensGuestPointerPassthrough,
   setLensGuestCapturePaint,
+  isLensGuestCapturePaintReady,
   resetLensGuestCapturePaint,
   ensureLensGuest,
   focusLensGuest,
@@ -116,9 +117,18 @@ export function useLensGuestHost(): void {
 
     const unsubscribeCapturePaint = lens.subscribeCapturePaint?.((payload) => {
       const ok = setLensGuestCapturePaint(payload);
-      // Style application is synchronous. Native capture waits for its own frame;
-      // a renderer rAF acknowledgement can itself stall in a minimized window.
-      if (payload.active) lens.reportCapturePaint?.({ requestId: payload.requestId, ok });
+      if (!payload.active) return;
+      const respond = (ready: boolean) =>
+        lens.reportCapturePaint?.({ requestId: payload.requestId, ok: ready });
+      if (!ok) {
+        respond(false);
+        return;
+      }
+      // Let the host compositor observe the new paintable placement. Main
+      // bounds this acknowledgement if the host cannot produce frames.
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => respond(isLensGuestCapturePaintReady(payload)));
+      });
     });
 
     const unsubscribeWorkspace = useAppStore.subscribe((state, previous) => {

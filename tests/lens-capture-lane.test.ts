@@ -100,7 +100,7 @@ describe("Lens capture lane", () => {
       { timeoutMs: 5, onTimeout: (phase) => phases.push(phase) },
     );
 
-    await expect(queued).rejects.toThrow(/still waiting for the page to draw/);
+    await expect(queued).rejects.toThrow(/earlier screenshot of this page is still running/);
     expect(phases).toEqual(["waiting"]);
 
     stalled.resolve("done");
@@ -144,5 +144,57 @@ describe("Lens capture lane", () => {
     );
     await flush();
     expect(lane.isBusy(GUEST)).toBe(false);
+  });
+
+  test.each(["navigation", "reload", "presentation", "guest rebuild"])(
+    "%s cancels stuck preparation and invalidates queued screenshots",
+    async (change) => {
+      const lane = createLensCaptureLane();
+      const started = deferred<void>();
+      const stalled = lane.run(
+        GUEST,
+        ({ signal }) =>
+          new Promise<never>((_, reject) => {
+            signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+            started.resolve();
+          }),
+        LONG,
+      );
+      const queued = lane.run(GUEST, async () => "stale", LONG);
+      const results = Promise.allSettled([stalled, queued]);
+      await started.promise;
+
+      const reason = new Error(change);
+      lane.cancel(GUEST, reason);
+      expect(await results).toEqual([
+        { status: "rejected", reason },
+        { status: "rejected", reason },
+      ]);
+      await expect(lane.run(GUEST, async () => "fresh", LONG)).resolves.toBe("fresh");
+    },
+  );
+
+  test("lifecycle cancellation leaves a native copy serialized until it settles", async () => {
+    const lane = createLensCaptureLane();
+    const stalled = deferred<void>();
+    const started = deferred<void>();
+    const first = lane.run(GUEST, () => {
+      started.resolve();
+      return stalled.promise;
+    }, LONG);
+    const rejection = first.catch((error: Error) => error);
+    await started.promise;
+    lane.cancel(GUEST, new Error("navigation"));
+    expect(String(await rejection)).toContain("navigation");
+
+    let copied = false;
+    const next = lane.run(GUEST, async () => {
+      copied = true;
+    }, LONG);
+    await flush();
+    expect(copied).toBe(false);
+    stalled.resolve();
+    await next;
+    expect(copied).toBe(true);
   });
 });

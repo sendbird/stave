@@ -1274,6 +1274,8 @@ The AI can use Stave features such as the Information panel, workspace documents
 
 Lens opens only in the desktop app. Closing a CLI tab ends its process.
 
+An agent can take a Lens screenshot while the tab is hidden. If Lens cannot prepare a frame, show the Lens tab and retry the screenshot.
+
 ## Common shortcuts
 
 macOS uses Cmd; Windows and Linux use Ctrl. See the full list with Cmd/Ctrl+/.

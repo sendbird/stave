@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import type { WebContents } from "electron";
 import { expect, test, type Page } from "@playwright/test";
 import { parseToolOutputImages } from "../../src/lib/tool-images/tool-images";
 import { createToolImageStore } from "../../electron/main/tool-images/tool-image-store";
@@ -43,9 +44,8 @@ import {
  *   running and says nothing about whether the compositor produces frames. This
  *   one calls the tool an agent calls and decodes the PNG: a parked guest
  *   returns its page's actual pixels, and repaints them when the page changes.
- *   The last test in the file forces `visibility: hidden` back on by hand and
- *   watches the same call stop answering, because that is the regression this
- *   parking style exists to avoid and a comment cannot hold the line on it.
+ *   The last test forces `visibility: hidden` and checks that Lens rejects
+ *   capture promptly, then captures again after the guest becomes paintable.
  *
  * - **Claim B — the focus guard in front of agent input means something. It
  *   does.** `withLensGuestFocus` trusts `focusLensGuest`, which returns
@@ -67,8 +67,8 @@ import {
  * Requires `bun run build:desktop`.
  */
 
-/** A session id no panel will ever adopt on its own. */
-const PARKED_SESSION_ID = "agent-parked";
+/** The session MCP creates when the caller does not specify a Lens tab. */
+const PARKED_SESSION_ID = "default";
 
 const LEFT_A = { r: 220, g: 20, b: 60 };
 const RIGHT_A = { r: 0, g: 0, b: 128 };
@@ -163,6 +163,7 @@ async function navigateParkedGuest(pathname: string): Promise<void> {
     url: `${origin}${pathname}`,
   });
   expect(result.isError, result.text).toBe(false);
+  expect(JSON.parse(result.text)).toMatchObject({ ok: true, url: `${origin}${pathname}` });
 }
 
 /** The parked guest as its own Playwright page, for reads the path under test cannot fake. */
@@ -180,7 +181,7 @@ function findGuestPage(): Page | undefined {
 function hostState() {
   return stave.page.evaluate(() => {
     const guest = document.querySelector(
-      `webview[data-lens-session-id="agent-parked"]`,
+      `webview[data-lens-session-id="default"]`,
     ) as HTMLElement | null;
     const active = document.activeElement as HTMLElement | null;
     const probe = document.getElementById(
@@ -252,7 +253,7 @@ function focusHostProbe(): Promise<string | null> {
 async function setGuestStyle(patch: Record<string, string>): Promise<void> {
   await stave.page.evaluate((input) => {
     const guest = document.querySelector(
-      `webview[data-lens-session-id="agent-parked"]`,
+      `webview[data-lens-session-id="default"]`,
     ) as HTMLElement | null;
     if (!guest) {
       throw new Error("the parked guest element is gone");
@@ -270,7 +271,7 @@ async function setGuestStyle(patch: Record<string, string>): Promise<void> {
 function guestHitTest() {
   return stave.page.evaluate(() => {
     const guest = document.querySelector(
-      `webview[data-lens-session-id="agent-parked"]`,
+      `webview[data-lens-session-id="default"]`,
     ) as HTMLElement | null;
     const rect = guest?.getBoundingClientRect();
     const hit = rect
@@ -339,17 +340,13 @@ test.beforeAll(async () => {
 
   // The Lens surface is never opened in this spec. The only guest that exists
   // is the one main asks the window for on the agent's behalf.
-  await expect
-    .poll(
-      async () => {
-        const result = await callTool("stave_lens_navigate", {
-          url: `${origin}/paint/a`,
-        });
-        return result.isError ? result.text : "ok";
-      },
-      { timeout: 60_000 },
-    )
-    .toBe("ok");
+  const target = `${origin}/paint/a`;
+  const result = await callStaveMcpTool(endpoint, "stave_lens_navigate", {
+    workspaceId: E2E_WORKSPACE_ID,
+    url: target,
+  });
+  expect(result.isError, result.text).toBe(false);
+  expect(JSON.parse(result.text)).toMatchObject({ ok: true, url: target });
 
   await expect
     .poll(() => Boolean(findGuestPage()), { timeout: 30_000 })
@@ -788,70 +785,81 @@ test("Claim B: stave_lens_click reaches the parked guest", async () => {
   expect(after.opacity).toBe("0");
 });
 
-test("Claim A: forcing visibility:hidden back onto a parked guest breaks capture", async () => {
-  /*
-   * A simulated regression, and it has to stay last in this file.
-   *
-   * Nothing in the product does this. The test sets `visibility: hidden` on the
-   * parked guest by hand — the style parking used to carry — so that the reason
-   * `resolveLensGuestStyle` returns `opacity` is measured rather than asserted
-   * by comment. Everything else about the guest is unchanged: same session,
-   * same page, same tool call.
-   *
-   * Why it must be last: a hidden guest does not refuse the capture, it never
-   * answers it, and the call dies on Lens's own 15-second guard. The abandoned
-   * `Page.captureScreenshot` stays queued on the guest's debugger session, and
-   * anything else that talks to that page — including Playwright's own protocol
-   * calls — queues behind it.
-   */
-  test.setTimeout(180_000);
-
-  // Onto a page with known colours, since the input tests left the guest on the
-  // form. Polled, because a capture taken before the new document's first frame
-  // reads the previous page.
+test("an unpaintable guest fails promptly and can capture again after reload", async () => {
   await navigateParkedGuest("/paint/a");
-  await expect
-    .poll(
-      async () =>
-        formatRgb(
-          pixelAtFraction((await captureParkedGuest()).image, 0.25, 0.5),
-        ),
-      { timeout: 20_000 },
-    )
-    .toBe(formatRgb({ ...LEFT_A, a: 255 }));
-
   await setGuestStyle({ visibility: "hidden" });
   const startedAt = Date.now();
-  const regressed = await callTool("stave_lens_screenshot", {});
-  const elapsedMs = Date.now() - startedAt;
+  const failed = await callTool("stave_lens_screenshot", {});
+  expect(failed.isError).toBe(true);
+  expect(failed.text).toContain("cannot draw a screenshot");
+  expect(Date.now() - startedAt).toBeLessThan(5_000);
 
-  console.log(
-    "[claim A] regression control: visibility:hidden",
-    JSON.stringify({
-      isError: regressed.isError,
-      text: regressed.text,
-      elapsedMs,
-    }),
-  );
-
-  expect(regressed.isError).toBe(true);
-  expect(regressed.text).toMatch(/timed out|Unable to capture screenshot/);
-
-  // Put the shipping style back and confirm the capture returns with it, so the
-  // one CSS property really is the whole difference.
   await setGuestStyle({ visibility: "visible" });
-  const restored = await captureParkedGuest();
-  console.log(
-    "[claim A] restored to the shipping parked style",
-    JSON.stringify({
-      bytes: restored.bytes,
-      size: `${restored.image.width}x${restored.image.height}`,
-      left: formatRgb(pixelAtFraction(restored.image, 0.25, 0.5)),
-    }),
-  );
-  expectColor(
-    pixelAtFraction(restored.image, 0.25, 0.5),
-    LEFT_A,
-    "left half after restoring the shipping parked style",
-  );
+  const reloaded = await callTool("stave_lens_reload", {});
+  expect(reloaded.isError, reloaded.text).toBe(false);
+  await expect(findGuestPage()!.locator("#heading")).toHaveText("paint a");
+
+  const { image } = await captureParkedGuest();
+  expectColor(pixelAtFraction(image, 0.25, 0.5), LEFT_A, "left half after reload");
+  expect((await hostState()).opacity).toBe("0");
 });
+
+type HeldCopyGuest = WebContents & { releaseTestCopy?: () => void };
+
+const captureInterruptions = [
+  { tool: "stave_lens_navigate", path: "/paint/b", error: "started navigating", color: LEFT_B },
+  { tool: "stave_lens_reload", path: "/paint/a", error: "started navigating", color: LEFT_A },
+  { tool: "stave_lens_present_session", path: "/paint/a", error: "tab was shown", color: LEFT_A },
+];
+
+for (const { tool, path: expectedPage, error, color } of captureInterruptions) {
+  test(`${tool} cancels a pending screenshot and allows a fresh capture`, async () => {
+    await navigateParkedGuest("/paint/a");
+    await stave.app.evaluate(({ webContents }, url) => {
+      const guest = webContents.getAllWebContents().find((wc) => wc.getURL() === url) as HeldCopyGuest;
+      const capture = guest.capturePage;
+      guest.capturePage = async (...args) => {
+        const signal = new Promise<void>((resolve) => {
+          guest.releaseTestCopy = resolve;
+        });
+        const image = await capture.apply(guest, args);
+        await signal;
+        return image;
+      };
+    }, `${origin}/paint/a`);
+
+    const screenshot = callTool("stave_lens_screenshot", {});
+    try {
+      await expect.poll(() => stave.app.evaluate(({ webContents }) => {
+        const guest = webContents.getAllWebContents().find((wc) => wc.getType() === "webview") as HeldCopyGuest;
+        return Boolean(guest.releaseTestCopy);
+      }), { timeout: 5_000 }).toBe(true);
+      const interrupted = await callTool(
+        tool,
+        tool === "stave_lens_navigate" ? { url: `${origin}${expectedPage}` } : {},
+      );
+      expect(interrupted.isError, interrupted.text).toBe(false);
+      const cancelled = await screenshot;
+      expect(cancelled.isError).toBe(true);
+      expect(cancelled.text).toContain(error);
+    } finally {
+      await stave.app.evaluate(({ webContents }) => {
+        const guest = webContents.getAllWebContents().find((wc) => wc.getType() === "webview") as HeldCopyGuest;
+        delete (guest as Partial<WebContents>).capturePage;
+        guest.releaseTestCopy?.();
+        delete guest.releaseTestCopy;
+      });
+    }
+
+    if (tool === "stave_lens_reload") {
+      await expect.poll(async () => {
+        return findGuestPage()?.evaluate(() => {
+          if (document.readyState === "loading") return;
+          return (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming)?.type;
+        }).catch(() => undefined);
+      }).toBe("reload");
+    }
+    const { image } = await captureParkedGuest();
+    expectColor(pixelAtFraction(image, 0.25, 0.5), color, `left half after ${tool}`);
+  });
+}
