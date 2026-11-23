@@ -12,7 +12,6 @@ import {
   FilesystemDirectoryArgsSchema,
   FilesystemFileArgsSchema,
   FilesystemImportAttachmentsArgsSchema,
-  FilesystemReadFileArgsSchema,
   FilesystemPickFilesArgsSchema,
   FilesystemRootArgsSchema,
   FilesystemWriteFileArgsSchema,
@@ -49,6 +48,10 @@ const FilesystemReadPreviewRangeArgsSchema = FilesystemFileArgsSchema.extend({
   offset: z.number().int().nonnegative(),
   length: z.number().int().nonnegative(),
   revision: z.string().max(256).optional(),
+});
+
+const FilesystemReadFileArgsSchema = FilesystemFileArgsSchema.extend({
+  pastedText: z.literal(true).optional(),
 });
 
 async function statIfExists(targetPath: string) {
