@@ -1846,6 +1846,8 @@ export function RepositoryWorkspaceSidebar(args: {
             path={workspaceToClose.path}
             busy={closingWorkspaceId !== null}
             keep={() => archiveSelectedWorkspace(true)}
+            trashTarget={currentRepositoryPath ? { workspaceId: workspaceToClose.id, repositoryPath: currentRepositoryPath } : undefined}
+            onTrashed={() => setWorkspaceToClose(null)}
           />
         )}
       </ConfirmDialog>

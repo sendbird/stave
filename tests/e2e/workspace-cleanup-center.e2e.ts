@@ -292,3 +292,32 @@ test("dirty archive stays unavailable while a turn or run is active", async ({ p
     await expect(page.locator("[data-cleanup-footer]").getByRole("button")).toHaveCount(0);
   }
 });
+
+
+for (const [width, lang, theme] of [[520, "ko", "dark"], [1440, "en", "light"]] as const) {
+  test(`moves an archived leftover to Trash and enables Restore at ${width} ${lang} ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?stavePreview=command-palette&cleanupPreview=1&cleanupLeftoverPreview=1&lang=${lang}&theme=${theme}`);
+    const pick = (en: string, ko: string) => lang === "en" ? en : ko;
+    const cleanup = pick("Clean up workspaces", "워크스페이스 정리");
+    await page.locator("input[data-slot=command-input]").fill(cleanup);
+    await page.getByText(cleanup, { exact: true }).click();
+    const row = page.getByTestId("cleanup-row-cleanup-archived");
+    const trash = row.getByRole("button", { name: pick("Move to Trash", "휴지통으로 이동") });
+    await expect(trash).toBeVisible();
+    await expect(row.getByRole("checkbox")).toBeDisabled();
+    await page.evaluate(() => document.fonts.ready);
+    const rowBox = (await row.boundingBox())!;
+    const buttonBox = (await trash.boundingBox())!;
+    expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(rowBox.x + rowBox.width);
+    expect(Math.abs(buttonBox.y + buttonBox.height / 2 - rowBox.y - rowBox.height / 2)).toBeLessThanOrEqual(1);
+    await page.getByText(pick("Recent cleanup", "최근 정리"), { exact: true }).click();
+    await expect(page.locator("details").getByRole("button", { name: pick("Move to Trash", "휴지통으로 이동") })).toBeVisible();
+    await trash.click();
+    await expect(trash).toHaveCount(0);
+    await expect(row.getByRole("checkbox")).toBeEnabled();
+    await row.getByRole("checkbox").click();
+    await page.getByRole("button", { name: pick("Restore (1)", "복원 (1)"), exact: true }).click();
+    await expect(row).not.toContainText(pick("Archived", "보관됨"));
+  });
+}

@@ -79,15 +79,18 @@ accessible name includes the same status in the tree and collapsed rail.
 Choose **Archive** from the workspace's sidebar menu to remove its managed
 worktree while retaining the branch, including local commits. Confirming the
 archive saves staged, unstaged and untracked files so they can be restored.
-Git-ignored files, such as dependencies and build output, are deleted with
-the worktree. Unfinished Git operations block worktree removal. When that
+Stave saves sensitive Git-ignored files such as `.env` files for restore, up
+to 50 files and 1 MiB each. Other ignored files, including dependencies, build
+output and caches, are deleted. If copying fails, the checkout stays in place.
+Restore reports conflicts and keeps the saved copies in Stave app data.
+Unfinished Git operations block worktree removal. When that
 happens, the confirmation stays open so you can show the worktree folder,
 retry, or archive while keeping its files on disk. If Git removes the worktree
 but cannot delete some files, the workspace is archived and the confirmation
-offers to show the leftover folder; delete it before restoring.
+offers **Move to Trash** to clear the leftover folder before restoring.
 Open **Clean up workspaces** to see the **Saved
 changes** marker and restore them. Restore refuses occupied destinations;
-permanent deletion removes the saved archive reference. A saved archive can
+permanent deletion removes the saved archive reference and sensitive copies. A saved archive can
 recreate its deleted branch and skips initialization commands during restore.
 
 The Repositories view includes an **Archived** shelf. Archived workspaces are

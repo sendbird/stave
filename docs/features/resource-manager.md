@@ -80,15 +80,27 @@ The sidebar's **Archive** confirmation includes saving uncommitted changes.
 In the cleanup center, select the workspace and turn on **Save uncommitted
 changes and archive** in the confirmation. This preserves staged changes,
 unstaged changes and untracked files on a hidden local Git reference.
-Git-ignored files, such as dependencies, build output and caches, are deleted
-with the worktree, as automatic cleanup does. Unfinished Git operations and
+Before manual or automatic removal, Stave saves up to 50 sensitive Git-ignored
+files, such as `.env` files, credentials and keys, with a 1 MiB limit per file.
+It skips `node_modules` and reports files skipped because of the limits or
+because a link cannot be safely followed. Other ignored files, including
+dependencies, build output and caches, are deleted with the worktree. If a
+sensitive file cannot be copied, Stave keeps the checkout and reports the error.
+
+Restore copies the saved files back before running workspace setup. If a path is
+already occupied, Stave reports the conflict and leaves the saved copies in
+`workspace-archive-sensitive-files/<workspace-id-hash>` under its app data
+directory. Copies are stored as plaintext with owner-only permissions on POSIX
+systems. Permanent deletion removes them.
+
+Unfinished Git operations and
 tracked files hidden from Git status prevent worktree removal in both manual
 flows. If removal is blocked, review the reason, show the worktree folder and
 retry, or choose **Archive and keep files on disk** when available. Restoring a
 retained checkout reopens the same files. Restore it before trying to remove
 its worktree again. If Git removes the worktree but cannot delete some files,
-the action still completes and reports the leftover folder; restore waits until
-you delete it.
+the workspace is archived. Choose **Move to Trash** in the confirmation or
+cleanup center before restoring.
 **Saved changes** marks the archived row. Restore recreates
 those files and the staged state; if the destination already contains files,
 it stops and reports a conflict rather than overwriting them. Saving must succeed

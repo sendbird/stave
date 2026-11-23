@@ -1613,4 +1613,4 @@ export {
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/repository-memory";
 
-export { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../../../src/lib/workspace-cleanup-contract";
+export { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupTrashArgsSchema } from "../../../src/lib/workspace-cleanup-contract";
