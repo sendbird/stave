@@ -37,7 +37,7 @@ export function usePromptInputClipboardPaste(args: {
     for (const recover of recoveries) recover();
     recoveries.clear();
   }, [queue, recoveries]);
-  const pending = useSyncExternalStore(queue.subscribe, queue.isPending);
+  const pending = useSyncExternalStore(queue.subscribe, queue.isPending, queue.isPending);
 
   function captureInlineInsertion() {
     const original = args.valueRef.current;
