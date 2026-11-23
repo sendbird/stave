@@ -131,8 +131,9 @@ export function parsePrWorkflowRuns(ref: PrRef, input: unknown) {
     // Use the server-owned workflow relation. An integration can set the
     // check's detailsUrl to an arbitrary run without belonging to that run.
     const match = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/actions\/runs\/(\d+)$/i.exec(workflowRun.url);
-    if (!match || !sameRepo(match[1], repoName(ref))) continue;
-    const id = Number(match[2]);
+    const [, workflowRepository, runId] = match ?? [];
+    if (!workflowRepository || !runId || !sameRepo(workflowRepository, repoName(ref))) continue;
+    const id = Number(runId);
     if (!Number.isSafeInteger(id) || id <= 0 || runs.has(id)) continue;
     runs.set(id, { id, name: sanitizePrContextText(workflowRun.workflow?.name ?? "", 256) });
   }
@@ -171,7 +172,7 @@ export function boundedPrLogTail(stdout: string, captureTruncated = false) {
   const text = sanitizePrContextLogTail(completeLines, Number.POSITIVE_INFINITY);
   const bytes = Buffer.from(text, "utf8");
   let start = Math.max(0, bytes.length - GITHUB_PR_LOG_MAX_BYTES);
-  while ((bytes[start] & 0xc0) === 0x80) start += 1;
+  while (((bytes[start] ?? 0) & 0xc0) === 0x80) start += 1;
   return {
     text: bytes.toString("utf8", start),
     truncated: captureTruncated || start > 0,
