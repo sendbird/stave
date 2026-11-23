@@ -767,6 +767,17 @@ const SHOTS = [
     },
   },
   {
+    name: "notifications",
+    async capture({ page, locale, file, t }) {
+      await openPreview(page, locale, "bell-answers&theme=dark");
+      const label = await t("shell:topBarNotifications.notifications");
+      await page.getByRole("button", { name: label, exact: true }).click();
+      const panel = page.getByRole("dialog");
+      await panel.getByRole("button", { name: "JSON", exact: true }).waitFor();
+      await save(page, panel, file);
+    },
+  },
+  {
     name: "schedules",
     async capture({ page, locale, file }) {
       await openPreview(page, locale, "schedules&theme=dark");

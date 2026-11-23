@@ -396,6 +396,11 @@
     "nothingInTheInbox": "Nothing in the inbox.",
     "noErrors": "No errors.",
     "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here.",
+    "allowOnce": "Allow once",
+    "openTask": "Open task",
+    "answerSent": "Answer sent",
+    "requestUnavailable": "Request unavailable",
+    "answerFailed": "Could not answer the request.",
     "allowOnceFor": "Allow the request in {{title}} once",
     "denyFor": "Deny the request in {{title}}",
     "viewSwitch": "Notification view"

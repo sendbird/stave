@@ -113,10 +113,10 @@ export interface SendBlockedUsageLimit {
 }
 
 /**
- * How an approval answer ended. `skipped`: the request was no longer pending,
+ * How an approval or question answer ended. `skipped`: the request was no longer pending,
  * or the provider could no longer answer it and the caller asked to close it.
  */
-export type ApprovalAnswerOutcome =
+export type InteractionAnswerOutcome =
   | { status: "delivered" }
   | { status: "skipped" }
   | { status: "failed"; message: string };
@@ -883,14 +883,15 @@ export interface AppState
      * delivery failure; `close` marks the request interrupted and skips it.
      */
     onUnanswerable?: "report" | "close";
-  }) => Promise<ApprovalAnswerOutcome>;
+  }) => Promise<InteractionAnswerOutcome>;
   resolveUserInput: (args: {
     taskId: string;
     messageId: string;
     requestId?: string;
     answers?: Record<string, string>;
     denied?: boolean;
-  }) => void;
+    onUnanswerable?: "report" | "close";
+  }) => Promise<InteractionAnswerOutcome | void>;
   resolveDiff: (args: {
     taskId: string;
     messageId: string;

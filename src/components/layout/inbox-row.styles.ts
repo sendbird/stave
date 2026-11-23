@@ -227,6 +227,10 @@ export const inboxRowStyles = stylex.create({
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 2,
   },
+  rowDetailWrapped: {
+    display: "block",
+    overflowWrap: "anywhere",
+  },
   rowActions: {
     alignItems: "center",
     display: "flex",

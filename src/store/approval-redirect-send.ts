@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type {
-  ApprovalAnswerOutcome,
+  InteractionAnswerOutcome,
   SendUserMessageResult,
 } from "@/store/app-store.types";
 
@@ -81,7 +81,7 @@ const MAX_REDIRECT_DECLINES = 32;
  */
 export async function declinePendingApprovals(args: {
   readPendingApprovals: () => readonly PendingApprovalTarget[];
-  decline: (approval: PendingApprovalTarget) => Promise<ApprovalAnswerOutcome>;
+  decline: (approval: PendingApprovalTarget) => Promise<InteractionAnswerOutcome>;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
   const attempted = new Set<string>();
   while (attempted.size < MAX_REDIRECT_DECLINES) {
@@ -119,7 +119,7 @@ export async function declinePendingApprovals(args: {
 export async function sendWithApprovalRedirect(args: {
   preferSteer: boolean;
   readPendingApprovals: () => readonly PendingApprovalTarget[];
-  decline: (approval: PendingApprovalTarget) => Promise<ApprovalAnswerOutcome>;
+  decline: (approval: PendingApprovalTarget) => Promise<InteractionAnswerOutcome>;
   /** Whether the composer still holds the text being sent. */
   isDraftCurrent: () => boolean;
   /**

@@ -38,7 +38,11 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "restart-notifications") {
+if (preview === "bell-answers") {
+  void import("@/dev/bell-answers-preview").then(({ BellAnswersPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><BellAnswersPreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "restart-notifications") {
   void import("@/dev/restart-notifications-preview").then(({ RestartNotificationsPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><RestartNotificationsPreview /></StaveDesignProvider></StrictMode>);
   });

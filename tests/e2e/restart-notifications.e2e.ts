@@ -34,10 +34,10 @@ for (const [lang, theme] of [["en", "light"], ["ko", "dark"]] as const) {
   }
 }
 
-test("native response preference is hidden on unsupported platforms", async ({ page }) => {
+test("the bell response preference is available without native actions", async ({ page }) => {
   await page.goto("/?stavePreview=restart-notifications&platform=linux", { waitUntil: "domcontentloaded" });
   await page.getByRole("dialog").getByRole("button", { name: "Dismiss", exact: true }).click();
-  await expect(page.getByRole("switch", { name: "Answer from notifications", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("switch", { name: "Answer from notifications", exact: true })).toBeVisible();
 });
 
 test("continue all closes the notice and restart choices update the preference", async ({ page }) => {

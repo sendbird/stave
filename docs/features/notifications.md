@@ -2,7 +2,7 @@
 
 Stave has an in-app notification center that tracks task activity across every repository and workspace you have open, so you can step away from a task and still know when it needs you again.
 
-![Notifications popover with unread task updates and approval requests](../screenshots/notifications.png)
+![Notification bell with a short question and a pending approval](../screenshots/guide/en/notifications.png)
 
 The notification center lives in the top bar behind the bell icon.
 
@@ -38,17 +38,19 @@ Stave keeps the 50 most recent notifications and deletes older ones automaticall
 - With a row focused, `ArrowUp` and `ArrowDown` move between rows and `Enter`
   opens one.
 
-## Respond To Approvals
+## Answer From The Bell
 
-You do not have to scroll back through the task chat to approve or deny a tool call.
-
-- Open the bell and find the approval entry.
-- Choose `Allow` or `Deny` directly from the notification, or focus the row and
-  press `A` or `D`, the same words and keys as Fleet View's rows. `Allow`
-  allows that request once.
-- The change is reflected back in the task immediately.
-
-If you prefer, the task itself also shows the pending approval as a row above the composer.
+- For a pending approval, choose **Allow once** or **Deny**. With the row
+  focused, press **A** or **D**. Persistent permissions are available in the task.
+- For a short question with up to four fixed choices, click a choice to send
+  it. Use **Open task** for longer questions, multiple questions or selections,
+  typed answers, and questions that accept a later reply.
+- After delivery, the row confirms the response briefly and moves to History.
+  When a request has already ended or its workspace is unloaded, its notification
+  moves to History without sending an answer. If delivery fails, **Open task**
+  stays available so you can inspect the request.
+- **Settings > General > Desktop Notifications > Answer from notifications**
+  controls these shortcuts.
 
 ## Jump Back To A Task
 
@@ -102,8 +104,8 @@ must be sent as a follow-up task message, rather than delivered to a waiting
 provider request. Notifications preserve that guard and do not offer a shortcut
 that would record an answer without sending it.
 
-Windows and Linux keep title, body and click-to-open behavior; native action
-buttons and text replies are unavailable and the setting is hidden. Delivery
+Windows and Linux system notifications show the title and body and open Stave
+when clicked. **Answer from notifications** controls the in-app bell on these platforms. Delivery
 and visible controls also depend on OS notification permissions and settings.
 
 ## Notification Sound

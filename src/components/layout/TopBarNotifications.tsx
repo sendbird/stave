@@ -1,8 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { Tooltip } from "@/components/aui/components/Tooltip";
-import { Archive, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
-import { useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
+import { Archive, Bell, CheckCheck, Trash2 } from "lucide-react";
+import { useRef, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   Button,
@@ -21,10 +21,10 @@ import { CountBadge } from "@/components/system/CountBadge";
 import {
   getNextNotificationView,
   type NotificationView,
-  shouldShowNotificationApprovalActions,
 } from "@/components/layout/top-bar-notifications.utils";
-import { InboxRow, moveInboxFocus } from "@/components/layout/InboxRow";
-import { ApprovalRowButtons, resolveApprovalRowKey } from "@/components/layout/FleetRowInlineAnswer";
+import { moveInboxFocus } from "@/components/layout/InboxRow";
+import { BellInboxRow } from "@/components/layout/BellInboxRow";
+import { useBellAnswerFeedback } from "@/components/layout/useBellAnswerFeedback";
 import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
 import { inboxRowStyles as rowStyles } from "@/components/layout/inbox-row.styles";
 import { describeFleetAttentionPrimaryAction } from "@/lib/fleet/fleet-vocabulary";
@@ -34,7 +34,6 @@ import {
   type FleetInboxEntry,
 } from "@/lib/fleet/inbox-model";
 import { isTaskArchived } from "@/lib/tasks";
-import { isNotificationUnread } from "@/lib/notifications/notification.types";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { sx } from "@/components/aui/utils/stylex";
@@ -84,7 +83,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     markAllNotificationsRead,
     clearNotificationHistory,
     openNotificationContext,
-    resolveNotificationApproval,
     restoreTask,
   ] = useAppStore(
     useShallow(
@@ -96,7 +94,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
           state.markAllNotificationsRead,
           state.clearNotificationHistory,
           state.openNotificationContext,
-          state.resolveNotificationApproval,
           state.restoreTask,
         ] as const,
     ),
@@ -107,6 +104,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   const snoozedAttentionIds = useFleetAttention((snapshot) => snapshot.snoozedAttentionIds);
   const snoozedCount = useFleetAttention((snapshot) => snapshot.snoozedCount);
   const bulk = useFleetBulkActions();
+  const { feedback, submitAnswer } = useBellAnswerFeedback();
   const [open, setOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [view, setView] = useState<NotificationView>("unread");
@@ -143,7 +141,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   const historyEntries = selectBellHistory(inbox);
   const pagedHistoryEntries = historyEntries.slice(0, historyLimit);
   const hasMoreHistory = historyEntries.length > historyLimit;
-  const visibleEntries =
+  const viewEntries =
     view === "all"
       ? allEntries
       : view === "unread"
@@ -151,6 +149,15 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
         : view === "errors"
           ? errorEntries
           : pagedHistoryEntries;
+  const visibleEntries = [...viewEntries];
+  if (view === "all" || view === "unread") {
+    for (const current of feedback.values()) {
+      if (current.status !== "failed" && (view === "all" || current.entry.unread) &&
+          !visibleEntries.some(({ id }) => id === current.entry.id)) {
+        visibleEntries.splice(current.index, 0, current.entry);
+      }
+    }
+  }
   const viewCount: Record<NotificationView, number> = {
     all: allEntries.length,
     unread: unreadEntries.length,
@@ -160,7 +167,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   const unreadCount = unreadEntries.length;
   const needsYouTaskCount = useFleetAttention((snapshot) => snapshot.needsYouTaskCount);
   const historyCount = historyEntries.length;
-  const hasEntries = allEntries.length > 0 || historyCount > 0;
+  const hasEntries = allEntries.length > 0 || historyCount > 0 || visibleEntries.length > 0;
   // A failed read keeps the list it had under a notice, and before any list it
   // is an error with Retry, never "no notifications".
   const inboxState: AsyncState<FleetInboxEntry[]> =
@@ -176,8 +183,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     return (
       pendingActionId === `open:${entryId}` ||
       pendingActionId === `mark:${entryId}` ||
-      pendingActionId === `approve:${entryId}` ||
-      pendingActionId === `deny:${entryId}` ||
       pendingActionId === `restore:${entryId}`
     );
   }
@@ -275,31 +280,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     }
   }
 
-  async function handleResolveApproval(
-    entry: FleetInboxEntry,
-    notificationId: string,
-    approved: boolean,
-  ) {
-    setPendingActionId(`${approved ? "approve" : "deny"}:${entry.id}`);
-    try {
-      await resolveNotificationApproval({ notificationId, approved });
-    } finally {
-      setPendingActionId(null);
-    }
-  }
-
-  function renderEntry(entry: FleetInboxEntry) {
-    const primary = entry.notifications[0] ?? null;
-    const unreadNotification = entry.notifications.find(isNotificationUnread) ?? null;
-    const approvalNotification =
-      primary &&
-      !primary.resolvedAt &&
-      shouldShowNotificationApprovalActions({
-        unread: Boolean(unreadNotification),
-        action: primary.action,
-      })
-        ? primary
-        : null;
+  function renderEntry(entry: FleetInboxEntry, index: number) {
     const entryTask = entry.taskId
       ? (tasks.find((task) => task.id === entry.taskId) ?? null)
       : null;
@@ -312,73 +293,24 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
       ? (archivedPrompt?.taskTitle ?? entry.title ?? i18n.t("shell:topBarNotifications.thisTask"))
       : null;
 
-    // A focused row with an approval answers to A / D, as Fleet's rows do.
-    const handleRowKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
-      if (event.defaultPrevented || busy || !approvalNotification) {
-        return;
-      }
-      const approved = resolveApprovalRowKey({
-        key: event.key,
-        altKey: event.altKey,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey,
-        repeat: event.repeat,
-        isComposing: event.nativeEvent.isComposing,
-        target: event.target,
-      });
-      if (approved === null) {
-        return;
-      }
-      event.preventDefault();
-      void handleResolveApproval(entry, approvalNotification.id, approved);
-    };
-
     return (
-      <InboxRow
+      <BellInboxRow
         key={entry.id}
         entry={entry}
-        triggerId={`notification-entry-${entry.id}`}
+        history={view === "history"}
         triggerLabel={describeInboxEntryLabel(entry)}
-        triggerProps={approvalNotification ? { "aria-keyshortcuts": "A D" } : undefined}
+        feedback={feedback.get(entry.id)?.status}
         busy={busy}
         onActivate={() => void handleOpenEntry(entry)}
-        onKeyDown={handleRowKeyDown}
+        onAnswer={(answer) => void submitAnswer(entry, index, answer)}
+        onMarkRead={() => handleMarkRead(entry)}
+        onSettle={() => void submitAnswer(entry, index)}
         supplement={
           taskIsArchived ? (
             <span className={sx(rowStyles.archivedChip)}>
               <Archive className={sx(rowStyles.chipIcon)} aria-hidden="true" />
               {i18n.t("shell:topBarNotifications.archived")}
             </span>
-          ) : undefined
-        }
-        actions={
-          entry.unread || approvalNotification ? (
-            <>
-              {/* Fleet's decision words and keys, allow first. */}
-              {approvalNotification ? (
-                <ApprovalRowButtons
-                  allowLabel={i18n.t("shell:topBarNotifications.allowOnceFor", { title: entry.title })}
-                  denyLabel={i18n.t("shell:topBarNotifications.denyFor", { title: entry.title })}
-                  disabled={busy}
-                  onAllow={() => void handleResolveApproval(entry, approvalNotification.id, true)}
-                  onDeny={() => void handleResolveApproval(entry, approvalNotification.id, false)}
-                />
-              ) : null}
-              {entry.unread ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  xstyle={[rowStyles.rowAction, notificationsStyles.quietAction]}
-                  disabled={busy}
-                  onClick={() => handleMarkRead(entry)}
-                >
-                  <Check className={sx(rowStyles.rowActionIcon)} aria-hidden="true" />
-                  {i18n.t("shell:topBarNotifications.markRead")}
-                </Button>
-              ) : null}
-            </>
           ) : undefined
         }
       >
@@ -411,7 +343,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
             </div>
           </div>
         ) : null}
-      </InboxRow>
+      </BellInboxRow>
     );
   }
 

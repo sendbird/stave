@@ -28,12 +28,12 @@ export function DesktopNotificationsCard() {
         checked={nativeNotificationsEnabled}
         onCheckedChange={(checked) => updateSettings({ patch: { nativeNotificationsEnabled: checked } })}
       />
-      {window.api?.platform === "darwin" && <SwitchField
+      <SwitchField
         title={t("settings:desktopNotifications.actions.title")}
         description={t("settings:desktopNotifications.actions.description")}
         checked={notificationActionsEnabled}
         onCheckedChange={(checked) => updateSettings({ patch: { notificationActionsEnabled: checked } })}
-      />}
+      />
       <SelectField
         title={t("settings:desktopNotifications.restart.title")}
         description={t("settings:desktopNotifications.restart.description")}
