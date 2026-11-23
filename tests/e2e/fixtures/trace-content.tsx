@@ -28,7 +28,7 @@ export function mountTraceContent() {
             <TraceOutput text="short output" />
           </section>
           <section data-command-copy-fixture>
-            <CommandResult command="bun test --timeout 30000" output="done" />
+            <CommandResult command="bun test --timeout 30000" output={"\u001b[32mdone\u001b[0m\r\n"} />
           </section>
           <section data-reasoning-fixture>
             <ReasoningRow isStreaming={streaming} text={text} />

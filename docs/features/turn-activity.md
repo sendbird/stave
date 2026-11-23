@@ -114,7 +114,15 @@ your review decision. To undo edits, select **Restore files** in the completed t
   work — `rm -rf`, `sudo`, `git push --force`, `git reset --hard`,
   `git branch -D` — are red. A finished command shows the exit code the provider
   reported, or **Exit unknown** when no code was reported. **Copy output**
-  copies its output.
+  copies its text with terminal control sequences removed, matching the display.
+- **Read** shows the file path and any range the provider reported. Select the
+  path to open the file at the starting line in the editor or read-only viewer.
+- **Grep and Glob** show file locations when their output can be parsed. Select
+  a result to open the file at its reported line. The list shows up to 50
+  matches and counts the rest. Other result formats appear as text.
+- **JSON output** shows an expandable tree for objects and arrays. Large
+  results use a bounded preview. **Copy raw output** copies the recorded JSON
+  as text, including entries outside the tree preview.
 - **Images** a tool returned show as thumbnails in that step; choose one to see
   it full size. This covers Lens screenshots for every provider, and images
   from other MCP tools when the provider kept them (Codex does; Claude Code drops

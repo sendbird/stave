@@ -628,6 +628,17 @@ async function assertHealthy(page, locale, problems) {
 
 const SHOTS = [
   {
+    name: "tool-details",
+    async capture({ page, locale, file }) {
+      await openPreview(page, locale, "turn-events&toolDetails");
+      const trace = page.locator("#event-1");
+      const json = trace.locator("[data-tool-json-detail]");
+      await json.locator("summary").filter({ hasText: '"records":' }).click();
+      await settle(page);
+      await save(page, trace, file, { padding: 16 });
+    },
+  },
+  {
     name: "overview",
     async capture({ page, locale, file, t }) {
       await openApp(page, locale);
