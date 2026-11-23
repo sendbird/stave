@@ -186,13 +186,6 @@ export function PromptInput(args: PromptInputProps) {
     value,
     onComplete: onPromptEnhancementRevealComplete,
   });
-  const { clipboardReadQueue, handlePaste, attachTransfer, acceptsFiles } = usePromptInputClipboardPaste({
-    attachmentScopeId: args.attachmentScopeId,
-    workspaceCwd: args.workspaceCwd,
-    onAttachmentsChange: attachmentsEnabled ? onAttachmentsChange : undefined,
-    onPasteFiles: attachmentsEnabled ? onPasteFiles : undefined,
-  });
-
   const {
     imageAttachments,
     standaloneImageAttachments,
@@ -227,7 +220,6 @@ export function PromptInput(args: PromptInputProps) {
   );
   const composerTextStyle = useComposerTextSize(minimal && !trayChrome);
   const interactionsDisabled = Boolean(disabled);
-  const drop = usePromptInputDrop({ onAttachTask: plainText ? undefined : onAttachTask, acceptsFiles: acceptsFiles && !interactionsDisabled, attachTransfer });
   const promptEnhancementBusy =
     promptEnhancementPending || promptEnhancementRevealing;
   const promptEnhancementState = promptEnhancementPending
@@ -240,14 +232,6 @@ export function PromptInput(args: PromptInputProps) {
     : promptEnhancementRevealing
       ? i18n.t("composer:promptInput.promptEnhancementLabel2")
       : i18n.t("composer:promptInput.promptEnhancementLabel3");
-  const hasDraftPayload =
-    value.trim().length > 0 ||
-    attachedFilePaths.length > 0 ||
-    imageAttachments.length > 0 ||
-    lensAnnotationAttachments.length > 0 ||
-    referenceAttachments.length > 0 ||
-    promptBatch.length > 0;
-  const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isSteerOrQueueMode = submitMode === "steer-or-queue";
   const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
   const runtimeProfile = useMemo(
@@ -281,6 +265,19 @@ export function PromptInput(args: PromptInputProps) {
     interactionsDisabled,
     isTurnActive,
   });
+  const clipboard = usePromptInputClipboardPaste({
+    attachmentScopeId: args.attachmentScopeId, workspaceCwd, valueRef, editorRef: promptEditorRef,
+    onValueChange, restoreSelection: restoreComposerSelection,
+    onAttachmentsChange: attachmentsEnabled ? onAttachmentsChange : undefined,
+    onPasteFiles: attachmentsEnabled ? onPasteFiles : undefined,
+    pastedTextFiles: attachmentsEnabled ? args.pastedTextFiles : undefined,
+  });
+  const drop = usePromptInputDrop({ onAttachTask: plainText ? undefined : onAttachTask, acceptsFiles: clipboard.acceptsFiles && !interactionsDisabled, attachTransfer: clipboard.attachTransfer });
+  const hasDraftPayload = hasPromptSubmitPayload({
+    text: value.trim(), attachedFilePaths, imageAttachments, lensAnnotationAttachments,
+    workspaceInformationAttachments: referenceAttachments, promptBatch,
+  });
+  const primaryActionDisabled = Boolean(disabled || (!hasDraftPayload && !clipboard.pending));
   const placeholder = resolvePromptPlaceholder({
     minimal,
     focused: isPromptInputFocused,
@@ -371,26 +368,9 @@ export function PromptInput(args: PromptInputProps) {
   });
 
   async function submitCurrentMessage(intent?: "steer" | "queue") {
-    if (clipboardReadQueue.isPending()) {
-      toast.info(
-        i18n.t("composer:promptInput.submitCurrentMessage"),
-      );
-      return;
-    }
-    const nextText = value.trim();
-    if (
-      !hasPromptSubmitPayload({
-        text: nextText,
-        attachedFilePaths,
-        imageAttachments,
-        lensAnnotationAttachments,
-        workspaceInformationAttachments: referenceAttachments,
-        promptBatch,
-      })
-    ) {
-      return;
-    }
-    await onSubmit({ text: nextText, filePaths: attachedFilePaths, intent });
+    if (clipboard.blockWhileReading()) return;
+    if (!hasDraftPayload) return;
+    await onSubmit({ text: value.trim(), filePaths: attachedFilePaths, intent });
     setSelectedPromptHistoryIndex(NO_PROMPT_HISTORY_SELECTION);
     setDraftBeforeHistory("");
   }
@@ -683,7 +663,7 @@ export function PromptInput(args: PromptInputProps) {
                       }}
                       // Leaving a plain-text editor closes host-owned `@` candidates until the next mention.
                       onBlur={() => { if (plainText && selectionMentions) setDismissedWorkspaceInformationToken(activeWorkspaceInformationToken?.token ?? null); onBlur?.(); }}
-                      onPaste={handlePaste}
+                      onPaste={interactionsDisabled ? undefined : clipboard.handlePaste}
                       onKeyDown={(event) =>
                         handlePromptEditorKeyDown(event, {
                           palette,
@@ -696,7 +676,9 @@ export function PromptInput(args: PromptInputProps) {
                           steerQueueEnterAction,
                           promptCommentShortcut,
                           onAbort,
-                          onStagePromptBatch: plainText ? undefined : onStagePromptBatch,
+                          onStagePromptBatch: plainText || !onStagePromptBatch ? undefined : () => {
+                            if (!clipboard.blockWhileReading()) onStagePromptBatch();
+                          },
                           onEmptyEditorKey: hasDraftPayload ? undefined : onEmptyEditorKey,
                         })
                       }
@@ -808,8 +790,15 @@ export function PromptInput(args: PromptInputProps) {
               onAttachFilesChange={onAttachFilesChange}
               onOpenAttachedFile={onOpenAttachedFile}
               setImagePreviewSrc={setImagePreviewSrc}
+              onKeepPastedText={args.pastedTextFiles ? clipboard.keepAsText : undefined}
+              pastedTextBusy={clipboard.pending}
             />
           ) : null)}
+          {clipboard.pending ? (
+            <div role="status" className={sx(promptInputStyles.attachmentsCount)}>
+              {i18n.t("composer:pastedText.saving")}
+            </div>
+          ) : null}
           <div
             ref={toolbarFit.rowRef}
             className={sx(

@@ -38,3 +38,22 @@ describe("desktop HTML preview reads", () => {
     expect(await handlers.get("fs:read-file")!(null, { rootPath })).toMatchObject({ ok: false, content: "" });
   });
 });
+
+test("an imported paste can be read in full without enlarging ordinary editor previews", async () => {
+  const rootPath = await mkdtemp(path.join(tmpdir(), "stave-pasted-text-"));
+  roots.push(rootPath);
+  const content = "로그\r\n" + "x".repeat(1024 * 1024);
+  const result = await handlers.get("fs:import-attachments")!(null, {
+    rootPath,
+    entries: [{ name: "pasted-text.txt", data: new TextEncoder().encode(content) }],
+  }) as { ok: boolean; filePaths: string[] };
+  expect(result.ok).toBe(true);
+  const [filePath] = result.filePaths;
+  expect(await handlers.get("fs:read-file")!(null, { rootPath, filePath }))
+    .toMatchObject({ ok: false, tooLarge: true });
+  expect(await handlers.get("fs:read-file")!(null, { rootPath, filePath, pastedText: true }))
+    .toMatchObject({ ok: true, content });
+  await writeFile(path.join(rootPath, "pasted-text.txt"), content);
+  expect(await handlers.get("fs:read-file")!(null, { rootPath, filePath: "pasted-text.txt", pastedText: true }))
+    .toMatchObject({ ok: false, content: "" });
+});

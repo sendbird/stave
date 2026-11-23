@@ -1496,6 +1496,10 @@ export const FilesystemFileArgsSchema = z
   })
   .strict();
 
+export const FilesystemReadFileArgsSchema = FilesystemFileArgsSchema.extend({
+  pastedText: z.literal(true).optional(),
+});
+
 export const FilesystemCreateDirectoryArgsSchema = z
   .object({
     rootPath: FilesystemRootPathSchema,

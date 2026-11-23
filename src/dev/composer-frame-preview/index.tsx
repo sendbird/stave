@@ -1,3 +1,4 @@
+import { createPastedTextFileAccess, reconcilePastedTextPaths } from "@/components/session/chat-input.attachments";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { applyAppLocale } from "@/i18n";
 import {
@@ -332,6 +333,28 @@ export function ComposerFramePreviewApp() {
     useState<ComposerLayoutMode>("framed");
   const [squeezed, setSqueezed] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const pastePreview = previewParams.get("paste");
+  const pastedFiles = useMemo(() => {
+    if (!pastePreview) return undefined;
+    const files = new Map<string, string>();
+    return createPastedTextFileAccess("/preview", {
+      async importAttachments({ entries }) {
+        if (pastePreview === "pending") await new Promise((resolve) => setTimeout(resolve, 1_500));
+        if (pastePreview === "fail") return { ok: false, filePaths: [], failures: [] };
+        const filePaths = entries.flatMap((entry) => {
+          if (!("data" in entry)) return [];
+          const filePath = ".stave/attachments/" + crypto.randomUUID().slice(0, 8) + "/" + entry.name;
+          files.set(filePath, new TextDecoder("utf-8", { ignoreBOM: true }).decode(entry.data));
+          return [filePath];
+        });
+        return { ok: true, filePaths, failures: [] };
+      },
+      async readFile({ filePath }) {
+        const content = files.get(filePath);
+        return { ok: content !== undefined, content: content ?? "", revision: "" };
+      },
+    });
+  }, [pastePreview]);
   const [caseId, setCaseId] = useState<ShelfCaseId>(() => {
     const requested = previewParams.get("case");
     return isShelfCaseId(requested) ? requested : "running";
@@ -690,7 +713,8 @@ export function ComposerFramePreviewApp() {
                   modelOptions={modelOptions}
                   effortValue={effort}
                   {...(PREVIEW_EFFORT_LABEL ? { effortLabel: PREVIEW_EFFORT_LABEL } : {})}
-                  attachedFilePaths={[]}
+                  attachedFilePaths={pastedFiles ? reconcilePastedTextPaths([], [], attachments) : []}
+                  pastedTextFiles={pastedFiles ? { ...pastedFiles, recover: (text) => setDraft((current) => current + text) } : undefined}
                   attachments={attachments}
                   onAttachmentsChange={({ attachments: next }) => setAttachments(next)}
                   taskMentionOptions={PREVIEW_TASK_MENTIONS}
@@ -762,7 +786,12 @@ export function ComposerFramePreviewApp() {
                   onComposerControlPlacementsChange={() => {}}
                   onModelSelect={agentChoice.selectModel}
                   onAttachFilesChange={() => {}}
-                  onSubmit={() => {}}
+                  onSubmit={() => {
+                    if (pastePreview) {
+                      setDraft("");
+                      setAttachments([]);
+                    }
+                  }}
                   onAbort={() => {}}
                 />
               </div>
@@ -789,7 +818,7 @@ export function ComposerFramePreviewApp() {
         </div>
       </div>
       </TaskScopeProvider>
-      {ENHANCE_DIFF ? <Toaster /> : null}
+      {ENHANCE_DIFF || pastePreview ? <Toaster /> : null}
     </TooltipProvider>
   );
 }

@@ -2,7 +2,8 @@ import { afterEach, expect, test } from "bun:test";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { getDraftFileContexts, getDraftImageContexts } from "../src/store/prompt-draft-context";
+import { buildQueuedTurnFromDraft, getDraftFileContexts, getDraftImageContexts } from "../src/store/prompt-draft-context";
+import { WorkspaceSnapshotSchema } from "../src/lib/task-context/schemas";
 import { buildCanonicalConversationRequest } from "../src/lib/providers/canonical-request";
 import { StreamTurnArgsSchema } from "../electron/main/ipc/provider-conversation-schemas";
 import { buildAcpNativeImageBlocks, buildClaudeNativeImageBlocks, buildCodexNativeImageItems, collectNativeImageInputs } from "../electron/providers/native-image-input";
@@ -99,4 +100,33 @@ test("binary and too-large attachments go by path instead of failing the send", 
   expect(contexts.map((context) => [context.filePath, context.language])).toEqual([
     ["docs/spec.PDF", "binary"], ["huge.log", "binary"], ["data.unknown", "binary"],
   ]);
+});
+
+test("a queued pasted file sends its path and preview through the existing file context contract", async () => {
+  Object.defineProperty(globalThis, "window", { configurable: true, value: {} });
+  const filePath = ".stave/attachments/a1b2c3d4/pasted-text.txt";
+  const preview = "Worker started\nReading records";
+  const draft = {
+    text: "",
+    attachedFilePaths: [filePath],
+    attachments: [{ kind: "file" as const, filePath, pastedText: { preview, sizeBytes: 8192 } }],
+  };
+  for (const providerId of ["claude-code", "codex", "cursor", "kiro", "opencode"] as const) {
+    const queued = buildQueuedTurnFromDraft({ draft, providerId });
+    const restored = WorkspaceSnapshotSchema.shape.promptDraftByTask.parse(JSON.parse(
+      JSON.stringify({ task: { ...draft, queuedTurns: [queued] } }),
+    )).task!.queuedTurns![0]!;
+    const fileContexts = await getDraftFileContexts({
+      promptDraft: { text: restored.content, attachedFilePaths: restored.attachedFilePaths, attachments: restored.attachments },
+      session: { editorTabs: [] },
+    });
+    const conversation = buildCanonicalConversationRequest({ providerId, history: [], userInput: "Read", fileContexts });
+    const result = StreamTurnArgsSchema.parse({
+      providerId, cwd: "/tmp/project", prompt: "Read", conversation, runtimeOptions: {},
+    });
+    expect(result.conversation?.contextParts).toContainEqual({
+      type: "file_context", filePath, language: "plaintext", content: preview,
+      instruction: "This is a preview of pasted text. Read the workspace file for the complete text.",
+    });
+  }
 });

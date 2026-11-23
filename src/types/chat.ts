@@ -29,7 +29,7 @@ export type MessagePartType =
   | "system_event";
 
 export type Attachment =
-  | { kind: "file"; filePath: string }
+  | { kind: "file"; filePath: string; pastedText?: { preview: string; sizeBytes: number } }
   | {
       kind: "image";
       id: string;
@@ -85,6 +85,14 @@ export type Attachment =
       displayContent?: string;
       annotations?: LensAnnotation[];
     };
+
+export type PastedTextAttachment = Extract<Attachment, { kind: "file" }> & {
+  pastedText: { preview: string; sizeBytes: number };
+};
+
+export function isPastedTextAttachment(attachment: Attachment): attachment is PastedTextAttachment {
+  return attachment.kind === "file" && Boolean(attachment.pastedText);
+}
 
 /**
  * How much of an attached task travels with the prompt: its latest reply (the

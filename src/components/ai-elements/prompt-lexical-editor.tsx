@@ -822,7 +822,7 @@ export const PromptLexicalEditor = forwardRef<
               onBlur={props.onBlur}
               onFocus={props.onFocus}
               onKeyDownCapture={props.onKeyDown}
-              onPaste={props.onPaste}
+              onPasteCapture={props.onPaste}
               spellCheck={false}
             />
           }

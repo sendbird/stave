@@ -109,16 +109,24 @@ export function createClipboardReadQueue() {
   let tail = Promise.resolve();
   let pending = 0;
   let generation = 0;
+  const listeners = new Set<() => void>();
+  const notify = () => listeners.forEach((listen) => listen());
   return {
     isPending: () => pending > 0,
+    subscribe(listener: () => void) {
+      listeners.add(listener);
+      return () => { listeners.delete(listener); };
+    },
     cancel: () => {
       generation += 1;
       pending = 0;
       tail = Promise.resolve();
+      notify();
     },
     enqueue<T>(read: () => Promise<T>, commit: (value: T) => void) {
       const startedGeneration = generation;
       pending += 1;
+      if (pending === 1) notify();
       const operation = tail.then(async () => {
         if (generation !== startedGeneration) return;
         try {
@@ -127,7 +135,10 @@ export function createClipboardReadQueue() {
         } catch (error) {
           if (generation === startedGeneration) throw error;
         } finally {
-          if (generation === startedGeneration) pending -= 1;
+          if (generation === startedGeneration) {
+            pending -= 1;
+            if (pending === 0) notify();
+          }
         }
       });
       tail = operation.catch(() => {});

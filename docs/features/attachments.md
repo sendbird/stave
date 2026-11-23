@@ -37,6 +37,19 @@ You can remove a file before sending by clicking the `x` on the chip.
 
 You can paste more than one image into the same message. Each one is attached as a separate image.
 
+## Paste A Long Log Or Text
+
+In the desktop app, paste plain text into a task composer. Text over 2,000
+characters or 40 lines is saved as a `.txt` file in the workspace. The draft
+chip shows the first three lines and the file size. Select **Keep as text**
+to put the complete text back into the composer, or use the remove button
+to leave it out. Saved chips reopen with the draft.
+
+Wait for the attachment to finish saving before sending. If Stave cannot
+save the file, it puts the original text in the composer and shows a notice.
+The agent receives the preview and workspace path and can read the full file
+when needed.
+
 ## Attach Another Task As Context
 
 Hand a finished investigation, plan or review from one task to another without
@@ -103,7 +116,7 @@ If your clipboard contains image data and file references at the same time, Stav
 
 - Image bytes become image attachments.
 - File references become workspace-file attachments.
-- Plain text stays as text in the composer.
+- Short plain text stays in the composer. Long plain text becomes a file chip in clipboard order alongside image thumbnails.
 
 ## Tips
 
@@ -117,7 +130,7 @@ If your clipboard contains image data and file references at the same time, Stav
 ### Paste Did Nothing
 
 - Symptom: nothing appears after `Cmd/Ctrl+V`.
-- Cause: the clipboard has text only, or your focus was outside the prompt composer.
+- Cause: your focus may be outside the prompt composer, or the clipboard has no supported content.
 - Fix: click inside the composer, then paste again. If the source was a screenshot tool, retake the screenshot so the clipboard contains image bytes.
 
 ### The File Picker Does Not Open

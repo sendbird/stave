@@ -1,4 +1,12 @@
 {
+  "pastedText": {
+    "label": "Pasted text · {{size}}",
+    "keepInline": "Keep as text",
+    "remove": "Remove pasted text",
+    "saving": "Preparing attachments…",
+    "saveFailed": "Pasted text could not be saved as a file. It was kept in the draft.",
+    "readFailed": "Could not read the pasted text file. The attachment was kept."
+  },
   "agentChoiceActions": {
     "apply": "The task's agent was not changed",
     "release": "The task's agent was not released",
@@ -334,7 +342,7 @@
     "promptEnhancementLabel": "Enhancing prompt",
     "promptEnhancementLabel2": "Applying enhanced prompt",
     "promptEnhancementLabel3": "Enhance prompt",
-    "submitCurrentMessage": "Images are still loading. Send again when the thumbnails appear.",
+    "submitCurrentMessage": "Attachments are still being prepared. Try again when they’re ready.",
     "copy": "Comment removal failed",
     "description": "Lens could not remove that comment.",
     "copy2": "Style edit failed",

@@ -710,7 +710,7 @@ interface WindowFsApi {
     unreadable?: boolean;
     stderr?: string;
   }>;
-  readFile?: (args: { rootPath: string; filePath: string }) => Promise<{
+  readFile?: (args: { rootPath: string; filePath: string; pastedText?: true }) => Promise<{
     ok: boolean;
     content: string;
     revision: string;

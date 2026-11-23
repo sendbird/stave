@@ -1,3 +1,4 @@
+import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import { FeatureEnableHint } from "./FeatureEnableHint";
 import { i18n, useTranslation } from "@/i18n";
 import { PromptInput } from "@/components/ai-elements";
@@ -130,8 +131,11 @@ import {
   TaskSourceContextNotice,
 } from "./TaskSourceContextNotice";
 import {
+  createPastedTextFileAccess,
   mergeAttachedFilePaths,
+  reconcilePastedTextPaths,
   resolveComposerFileAttachments,
+  warnSkippedAttachments,
 } from "./chat-input.attachments";
 import { ComposerShelf } from "./composer-shelf/ComposerShelf";
 import { reorderQueuedTurns } from "./composer-shelf/composer-shelf.utils";
@@ -1106,16 +1110,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       updateNonTextPromptDraft({ attachedFilePaths: nextFilePaths });
     }
   };
-  const warnSkippedAttachments = (failures: readonly { name: string }[] | undefined) => {
-    if (!failures || failures.length === 0) {
-      return;
-    }
-    toast.warning(i18n.t("session:chatInputComposer.attachSkippedTitle"), {
-      description: i18n.t("session:chatInputComposer.attachSkippedDescription", {
-        names: failures.map((failure) => failure.name).join(", "),
-      }),
-    });
-  };
   const handleOpenFileSelector =
     workspaceRootPath && filePicker
       ? async () => {
@@ -1144,6 +1138,24 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         warnSkippedAttachments(failures);
       }
     : undefined;
+
+  const pastedTextFiles = workspaceRootPath && createPastedTextFileAccess(workspaceRootPath, window.api?.fs);
+  function recoverPastedText(text: string) {
+    const store = useAppStore.getState();
+    const taskId = args.providerSelectionTarget;
+    const workspaceId = store.taskWorkspaceIdById[taskId] ?? store.activeWorkspaceId;
+    const session = workspaceId ? getWorkspaceSessionForState({ state: store, workspaceId }) : undefined;
+    const isCurrent = syncedDraftRef.current.taskId === taskId;
+    const previous = isCurrent ? draftTextRef.current : session?.promptDraftByTask[taskId]?.text ?? "";
+    const recovered = previous ? previous + "\n" + text : text;
+    if (isCurrent) {
+      // Keep the outgoing composer flush from overwriting the recovery.
+      cancelPendingDraftSave();
+      draftTextRef.current = recovered;
+    }
+    store.updatePromptDraft({ taskId, patch: { text: recovered } });
+    toast.warning(i18n.t("composer:pastedText.saveFailed"));
+  }
 
   function schedulePromptDraftSave(nextDraft: {
     taskId: string;
@@ -1711,16 +1723,14 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           }
           onOpenFileSelector={handleOpenFileSelector}
           onPasteFiles={handlePasteFiles}
+          pastedTextFiles={pastedTextFiles ? { ...pastedTextFiles, recover: recoverPastedText } : undefined}
           onAttachmentsChange={({ attachments }) => {
-            const current =
-              useAppStore.getState().promptDraftByTask[
-                args.providerSelectionTarget
-              ]?.attachments ?? [];
+            const current = useAppStore.getState().promptDraftByTask[args.providerSelectionTarget];
+            const before = current?.attachments ?? [];
+            const after = typeof attachments === "function" ? attachments(before) : attachments;
             updateNonTextPromptDraft({
-              attachments:
-                typeof attachments === "function"
-                  ? attachments(current)
-                  : attachments,
+              attachments: after,
+              attachedFilePaths: reconcilePastedTextPaths(current?.attachedFilePaths ?? [], before, after),
             });
           }}
           workspaceCwd={args.workspaceCwd}
