@@ -153,6 +153,9 @@ for (const locale of ["en", "ko"] as const) {
     await expect(card).toBeVisible();
     await expectDockAtBottom(bottomInset);
     await expect.poll(() => transcript.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
+    // Restoring the workspace returns the transcript to its latest message.
+    // Wheel only once that settles, or the restore can land after the wheel.
+    await expect.poll(() => transcript.evaluate((node) => node.scrollHeight - node.clientHeight - node.scrollTop)).toBeLessThan(2);
     // The floating jump-to-latest control can cover the transcript center in
     // a short pane. Wheel over the upper-left portion of the message viewport.
     const scrollBox = (await transcript.boundingBox())!;
