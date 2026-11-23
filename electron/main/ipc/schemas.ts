@@ -1451,6 +1451,18 @@ export const FilesystemRootArgsSchema = z
   })
   .strict();
 
+export const FilesystemSearchScopeSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(200),
+    surface: z.literal("explorer"),
+  })
+  .strict();
+
+export const FilesystemSearchArgsSchema = FilesystemSearchScopeSchema.extend({
+  rootPath: FilesystemRootPathSchema.refine((value) => !value.includes("\0")),
+  query: z.string().min(1).max(16_384).refine((value) => !value.includes("\0")),
+}).strict();
+
 export const FilesystemPickFilesArgsSchema = FilesystemRootArgsSchema;
 
 export const FilesystemImportAttachmentsArgsSchema = z

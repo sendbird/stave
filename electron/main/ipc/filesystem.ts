@@ -19,7 +19,6 @@ import {
 } from "./schemas";
 import { openExternalWithFallback } from "../utils/external-url";
 import { importAttachmentFiles } from "../utils/attachment-import";
-import { toAsarUnpackedPath } from "../../providers/executable-path";
 import {
   WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
   workspaceTextFilePreviewMaxBytes,
@@ -36,11 +35,7 @@ import {
   revisionFromStat,
   writeFileWithExpectedRevision,
 } from "../utils/filesystem";
-import {
-  buildFilesystemSearchRgArgs,
-  normalizeFilesystemSearchQuery,
-  parseFilesystemSearchMatchLine,
-} from "./filesystem-search";
+import { registerFilesystemSearchHandlers } from "./filesystem-search-ipc";
 
 async function statIfExists(targetPath: string) {
   try {
@@ -627,114 +622,5 @@ export function registerFilesystemHandlers() {
     }
   });
 
-  ipcMain.handle(
-    "fs:search-content",
-    async (_event, args: { rootPath: string; query: string }) => {
-      const normalizedQuery = normalizeFilesystemSearchQuery(args.query ?? "");
-      if (!normalizedQuery || !args.rootPath) {
-        return {
-          ok: false,
-          results: [],
-          stderr: "Missing query or rootPath.",
-          limitHit: false,
-        };
-      }
-      const resolvedRoot = path.resolve(args.rootPath);
-      try {
-        await fs.access(resolvedRoot);
-      } catch {
-        return {
-          ok: false,
-          results: [],
-          stderr: "Root path not accessible.",
-          limitHit: false,
-        };
-      }
-
-      const MAX_MATCHES = 20_000;
-
-      return new Promise<{
-        ok: boolean;
-        results: Array<{
-          file: string;
-          matches: Array<{ line: number; text: string }>;
-        }>;
-        limitHit: boolean;
-        stderr?: string;
-      }>((resolve) => {
-        const { rgPath: rawRgPath } = require("@vscode/ripgrep") as {
-          rgPath: string;
-        };
-        const rgPath = toAsarUnpackedPath(rawRgPath);
-        const rgArgs = buildFilesystemSearchRgArgs(normalizedQuery);
-        const child = spawn(rgPath, rgArgs, { cwd: resolvedRoot });
-
-        const fileMap = new Map<
-          string,
-          Array<{ line: number; text: string }>
-        >();
-        let remainder = "";
-        let matchCount = 0;
-        let limitHit = false;
-        let stderr = "";
-
-        const parseLine = (raw: string) => {
-          if (limitHit) return;
-          const parsed = parseFilesystemSearchMatchLine(raw);
-          if (!parsed) return;
-          let entries = fileMap.get(parsed.file);
-          if (!entries) {
-            entries = [];
-            fileMap.set(parsed.file, entries);
-          }
-          entries.push(parsed.match);
-          matchCount += 1;
-          if (matchCount >= MAX_MATCHES) {
-            limitHit = true;
-            child.kill("SIGTERM");
-          }
-        };
-
-        child.stdout.on("data", (chunk: Buffer) => {
-          if (limitHit) return;
-          const data = remainder + chunk.toString();
-          const lines = data.split("\n");
-          remainder = lines.pop() ?? "";
-          for (const line of lines) {
-            parseLine(line);
-            if (limitHit) break;
-          }
-        });
-        child.stderr.on("data", (chunk: Buffer) => {
-          stderr += chunk.toString();
-        });
-        child.on("error", (error) => {
-          resolve({
-            ok: false,
-            results: [],
-            stderr: String(error),
-            limitHit: false,
-          });
-        });
-        child.on("close", (code) => {
-          if (remainder && !limitHit) {
-            parseLine(remainder);
-          }
-          const results = Array.from(fileMap.entries()).map(
-            ([file, matches]) => ({ file, matches }),
-          );
-          if (!limitHit && results.length === 0 && code != null && code > 1) {
-            resolve({
-              ok: false,
-              results: [],
-              stderr: stderr.trim() || "Search failed.",
-              limitHit: false,
-            });
-            return;
-          }
-          resolve({ ok: true, results, limitHit });
-        });
-      });
-    },
-  );
+  registerFilesystemSearchHandlers(ipcMain);
 }
