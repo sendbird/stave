@@ -39,7 +39,10 @@ function registerTerminalEventBridge() {
 
   onHostServiceEvent("terminal.output", (payload) => {
     const ownerRegistration = terminalOwnerBySessionId.get(payload.sessionId);
-    if (!ownerRegistration) {
+    if (
+      !ownerRegistration ||
+      (payload.attachmentId && payload.attachmentId !== ownerRegistration.attachmentId)
+    ) {
       return;
     }
 

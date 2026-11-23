@@ -135,6 +135,7 @@ import type {
   WorkspaceActiveSurface,
   WorkspaceCliSessionTab,
   TerminalCreateSessionArgs,
+  TerminalSessionOutputPayload,
   WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
@@ -1254,13 +1255,6 @@ interface TerminalRunResult {
   code: number;
   stdout: string;
   stderr: string;
-}
-
-interface TerminalSessionOutputPayload {
-  sessionId: string;
-  output: string;
-  sequence: number;
-  bytes: number;
 }
 
 interface TerminalSessionExitPayload {
