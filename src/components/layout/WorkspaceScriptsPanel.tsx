@@ -438,7 +438,7 @@ export function ScriptEntryRow(props: {
                   />
                   <Tooltip content={tI18n("scripts:workspaceScriptsPanel.openInBrowser")}>
                     <Button
-                      size="icon"
+                      size="icon-xs"
                       variant="ghost"
                       xstyle={toolStyles.urlRowButton}
                       onClick={() => openExternalUrl(state.orbitLocalUrl ?? "")}
