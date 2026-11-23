@@ -36,6 +36,10 @@ import type {
 } from "@/lib/github-pr-review";
 import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
+import { useAppStore } from "@/store/app.store";
+import { PrContextDialog } from "./PrContextDialog";
+import { SourceControlPrChecks } from "./SourceControlPrChecks";
+import { SourceControlPrDiscussion } from "./SourceControlPrDiscussion";
 import { SourceControlReviewDialog } from "./SourceControlReviewDialog";
 import { reviewsStyles } from "./source-control-reviews-panel.styles";
 
@@ -243,8 +247,36 @@ function FilesView(props: {
   );
 }
 
-function ConversationView(props: { detail: GitHubPrReviewDetail }) {
+function AttachPrEvidence({ prUrl, cwd }: { prUrl: string; cwd?: string }) {
+  const { t } = useTranslation("sourceControl");
+  const task = useAppStore((state) => state.tasks.find((item) => item.id === state.activeTaskId));
+  const [target, setTarget] = useState<typeof task>(undefined);
+  if (!task) return null;
+  return (
+    <div className={sx(reviewsStyles.activityActions)}>
+      <Button type="button" size="sm" variant="ghost" onClick={() => setTarget(task)}>
+        {t("prActivity.attachForAgent")}
+      </Button>
+      {target ? (
+        <PrContextDialog
+          key={target.id}
+          open
+          onOpenChange={(open) => { if (!open) setTarget(undefined); }}
+          prUrl={prUrl}
+          cwd={cwd}
+          taskId={target.id}
+          taskTitle={target.title}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ConversationView(props: { detail: GitHubPrReviewDetail; cwd?: string }) {
   useTranslation();
+  const reviews = props.detail.timeline.filter((item) => item.kind === "review");
+  const initialComments = props.detail.timeline.filter((item) => item.kind === "comment")
+    .map((item) => ({ ...item, author: item.authorLogin }));
   return (
     <div className={sx(reviewsStyles.conversationPane)}>
       <section className={sx(reviewsStyles.conversationSection)}>
@@ -253,15 +285,17 @@ function ConversationView(props: { detail: GitHubPrReviewDetail }) {
           {props.detail.body || i18n.t("sourceControl:sourceControlReviewsPanel.noDescriptionProvided")}
         </p>
       </section>
+      <AttachPrEvidence prUrl={props.detail.url} cwd={props.cwd} />
+      <SourceControlPrDiscussion prUrl={props.detail.url} cwd={props.cwd} initialComments={initialComments} />
       <section className={sx(reviewsStyles.conversationSection)}>
-        <p className={sx(reviewsStyles.sectionLabel)}>{i18n.t("sourceControl:sourceControlReviewsPanel.activity")}</p>
-        {props.detail.timeline.length === 0 ? (
+        <p className={sx(reviewsStyles.sectionLabel)}>{i18n.t("sourceControl:prActivity.submittedReviews")}</p>
+        {reviews.length === 0 ? (
           <p className={sx(reviewsStyles.mutedText)}>
-            {i18n.t("sourceControl:sourceControlReviewsPanel.noSubmittedReviewsOrCommentsYet")}
+            {i18n.t("sourceControl:prActivity.noReviews")}
           </p>
         ) : (
           <ul className={sx(reviewsStyles.timeline)}>
-            {props.detail.timeline.map((item) => (
+            {reviews.map((item) => (
               <li key={item.id} className={sx(reviewsStyles.timelineItem)}>
                 <div className={sx(reviewsStyles.timelineMeta)}>
                   <span className={sx(reviewsStyles.timelineAuthor)}>
@@ -630,13 +664,19 @@ export function SourceControlReviewsPanel(props: {
                 value="conversation"
                 xstyle={reviewsStyles.tabPanel}
               >
-                <ConversationView detail={detail} />
+                <ConversationView key={JSON.stringify([detail.url, props.cwd])} detail={detail} cwd={props.cwd} />
               </TabsContent>
               <TabsContent
                 value="checks"
                 xstyle={reviewsStyles.tabPanel}
               >
-                <ChecksView checks={detail.checks} />
+                <div key={JSON.stringify([detail.url, props.cwd])}>
+                  <SourceControlPrChecks prUrl={detail.url} cwd={props.cwd} />
+                  <div className={sx(reviewsStyles.activityPane)}>
+                    <AttachPrEvidence prUrl={detail.url} cwd={props.cwd} />
+                  </div>
+                  <ChecksView checks={detail.checks} />
+                </div>
               </TabsContent>
             </Tabs>
 

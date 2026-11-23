@@ -5,6 +5,7 @@ import type {
   LensGuestViewportResult,
   LensViewportArgs,
 } from "@/lib/lens/lens-viewport";
+import type { GitHubPrActivityRequest } from "@/lib/github-pr-activity";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
@@ -1671,6 +1672,7 @@ interface WindowSourceControlApi {
     prUrl: string;
     cwd?: string;
   }) => Promise<GitHubPrReviewDetailResult>;
+  gitHubPrActivity?: GitHubPrActivityRequest;
   submitGitHubPrReview?: (args: {
     prUrl: string;
     expectedHeadOid: string;

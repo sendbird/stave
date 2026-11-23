@@ -39,8 +39,9 @@ interface PrContextDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   prUrl: string | null;
-  cwd: string;
+  cwd?: string;
   taskId: string | null;
+  taskTitle?: string;
 }
 
 export function PrContextDialog(props: PrContextDialogProps) {
@@ -188,7 +189,9 @@ export function PrContextDialog(props: PrContextDialogProps) {
         <DialogHeader>
           <DialogTitle>{i18n.t("sourceControl:prContextDialog.attachPRContext")}</DialogTitle>
           <DialogDescription>
-            {i18n.t("sourceControl:prContextDialog.reviewThreadsAndFailedCheckEvidenceAreAttached")}
+            {props.taskTitle
+              ? i18n.t("sourceControl:prActivity.attachToTask", { title: props.taskTitle })
+              : i18n.t("sourceControl:prContextDialog.reviewThreadsAndFailedCheckEvidenceAreAttached")}
           </DialogDescription>
         </DialogHeader>
 

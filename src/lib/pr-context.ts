@@ -187,6 +187,10 @@ export const PrReviewThreadSchema = z
     id: boundedText(PR_CONTEXT_LIMITS.maxNameChars),
     isResolved: z.boolean(),
     isOutdated: z.boolean(),
+    originalLine: z.number().int().nonnegative().max(10_000_000).nullable().optional(),
+    viewerCanReply: z.boolean().optional(),
+    viewerCanResolve: z.boolean().optional(),
+    viewerCanUnresolve: z.boolean().optional(),
     path: boundedText(PR_CONTEXT_LIMITS.maxPathChars),
     line: z.number().int().nonnegative().max(10_000_000).nullable(),
     comments: z.array(PrReviewCommentSchema).max(

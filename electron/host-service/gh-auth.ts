@@ -13,10 +13,11 @@ const authCache = new Map<
 export async function ensureGhAuth(args: {
   cwd?: string;
   now?: () => number;
+  hostname?: string;
   runCommand?: typeof runCommandArgs;
 }) {
   const now = args.now?.() ?? Date.now();
-  const cacheKey = resolveCommandCwd({ cwd: args.cwd });
+  const cacheKey = authCacheKey(args);
   const cached = authCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
     return cached.result;
@@ -24,7 +25,8 @@ export async function ensureGhAuth(args: {
 
   const result = await (args.runCommand ?? runCommandArgs)({
     command: "gh",
-    commandArgs: ["auth", "status"],
+    commandArgs: ["auth", "status", ...(args.hostname ? ["--hostname", args.hostname] : [])],
+    timeoutMs: 10_000,
     cwd: args.cwd,
   });
   authCache.set(cacheKey, {
@@ -35,10 +37,14 @@ export async function ensureGhAuth(args: {
   return result;
 }
 
-export function invalidateGhAuthCache(args?: { cwd?: string }) {
+function authCacheKey(args: { cwd?: string; hostname?: string }) {
+  return JSON.stringify([resolveCommandCwd(args), args.hostname]);
+}
+
+export function invalidateGhAuthCache(args?: { cwd?: string; hostname?: string }) {
   if (!args) {
     authCache.clear();
     return;
   }
-  authCache.delete(resolveCommandCwd({ cwd: args.cwd }));
+  authCache.delete(authCacheKey(args));
 }

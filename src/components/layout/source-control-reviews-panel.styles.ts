@@ -284,6 +284,61 @@ export const reviewsStyles = stylex.create({
     whiteSpace: "pre-wrap",
   },
 
+  activityPane: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-12"],
+  },
+  activityActions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--aui-space-4"],
+    alignItems: "center",
+  },
+  activityList: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--aui-space-8"],
+    listStyle: "none",
+  },
+  activityTextarea: {
+    minBlockSize: vars["--aui-space-64"],
+  },
+  activityError: {
+    color: vars["--aui-color-danger-text"],
+    fontSize: vars["--aui-font-size-caption"],
+    overflowWrap: "anywhere",
+  },
+  threadPath: {
+    minInlineSize: 0,
+    overflowWrap: "anywhere",
+    fontSize: vars["--aui-font-size-caption"],
+    fontWeight: vars["--aui-font-weight-medium"],
+  },
+  runButton: {
+    blockSize: "auto",
+    minBlockSize: vars["--aui-control-height-md"],
+    maxInlineSize: "100%",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    textAlign: "start",
+  },
+  logTail: {
+    backgroundColor: vars["--aui-color-canvas-subtle"],
+    borderRadius: vars["--aui-radius-control"],
+    color: vars["--aui-color-text"],
+    fontFamily: "monospace",
+    fontSize: vars["--aui-font-size-caption"],
+    maxBlockSize: "20rem",
+    margin: 0,
+    overflow: "auto",
+    overflowWrap: "anywhere",
+    padding: vars["--aui-space-8"],
+    whiteSpace: "pre-wrap",
+  },
+
   // --- checks tab ---------------------------------------------------------
   checksEmpty: {
     color: vars["--aui-color-text-muted"],

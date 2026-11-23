@@ -42,6 +42,10 @@ if (preview === "restart-notifications") {
   void import("@/dev/restart-notifications-preview").then(({ RestartNotificationsPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><RestartNotificationsPreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "github-pr-activity") {
+  void import("@/dev/github-pr-activity-preview").then(({ GitHubPrActivityPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><GitHubPrActivityPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "question-reply") {
   void import("@/dev/question-reply-preview").then(({ QuestionReplyPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><QuestionReplyPreview /></StaveDesignProvider></StrictMode>);

@@ -48,11 +48,13 @@ import {
   ScmCommitDiffArgsSchema,
   ScmCommitFilesArgsSchema,
   ScmGraphArgsSchema,
+  GitHubPrActivityArgsSchema,
   GetGitHubPrReviewDetailArgsSchema,
   ListGitHubPrsArgsSchema,
   SubmitGitHubPrReviewArgsSchema,
 } from "../electron/main/ipc/schemas";
 import { ScmCommitArgsSchema } from "../electron/main/ipc/scm-commit-schema";
+import { runGitHubPrActivity } from "../electron/host-service/github-pr-activity-runtime";
 import {
   fetchGitHubPullRequestReviewDetail,
   listGitHubPullRequests,
@@ -860,6 +862,22 @@ const server = Bun.serve({
         );
       }
       return json(await fetchGitHubPullRequestReviewDetail(parsed.data));
+    }
+
+    if (url.pathname === "/api/scm/github-pr-activity" && req.method === "POST") {
+      // The local bridge's CORS policy also covers third-party sites. Require
+      // a loopback page and destination before running authenticated commands.
+      const origin = req.headers.get("origin") ?? "";
+      if (
+        !/^http:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(origin) ||
+        !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname)
+      ) {
+        return json({ ok: false, reason: "failed" }, 403);
+      }
+      const parsed = GitHubPrActivityArgsSchema.safeParse(await readJson<unknown>(req));
+      return parsed.success
+        ? json(await runGitHubPrActivity(parsed.data))
+        : json({ ok: false, reason: "failed" }, 400);
     }
 
     if (url.pathname === "/api/scm/github-pr-review" && req.method === "POST") {
