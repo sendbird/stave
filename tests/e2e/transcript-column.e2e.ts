@@ -22,12 +22,13 @@ async function seedConversation(page: Page) {
         { type: "tool_use", toolUseId: "t1", toolName: "Grep", input: JSON.stringify({ pattern: "sidebarOpen" }), output: "src/store/app.store.ts:812", state: "output-available" },
         { type: "tool_use", toolUseId: "t2", toolName: "Read", input: JSON.stringify({ file_path: "/tmp/stave-project/src/App.tsx" }), output: "export {}", state: "output-available" },
         { type: "tool_use", toolUseId: "t3", toolName: "Bash", input: JSON.stringify({ command: "bun test" }), output: "42 pass", exitCode: 0, state: "output-available" },
+        { type: "tool_use", toolUseId: "t4", toolName: "Read", input: JSON.stringify({ file_path: "/tmp/stave-project/tests/sidebar.test.ts" }), output: "export {}", state: "output-available" },
       ];
       const messages = [
         { id: "u1", role: "user", model: "", providerId: "user", content: "Move the sidebar flag into the store.", parts: [{ type: "text", text: "Move the sidebar flag into the store." }] },
         { id: "a1", role: "assistant", model: "claude-sonnet-4-5", providerId: "claude-code", content: "", parts: [...toolParts, { type: "text", text: `Moved the sidebar flag into the window store so it survives workspace switches.\n\n${longList}` }] },
         { id: "u2", role: "user", model: "", providerId: "user", content: "Great. Now run the full e2e suite for the shell and fix anything that breaks.", parts: [{ type: "text", text: "Great. Now run the full e2e suite for the shell and fix anything that breaks." }] },
-        { id: "a2", role: "assistant", model: "claude-sonnet-4-5", providerId: "claude-code", content: "", parts: [toolParts[2], { type: "text", text: "One spec asserted the old 280px sidebar width, so I updated the expectation and re-ran the suite." }] },
+        { id: "a2", role: "assistant", model: "claude-sonnet-4-5", providerId: "claude-code", content: "", startedAt: "2026-07-25T00:01:00.000Z", completedAt: "2026-07-25T00:01:42.000Z", parts: [...toolParts, { type: "text", text: "One spec asserted the old 280px sidebar width, so I updated the expectation and re-ran the suite." }] },
       ];
       const snapshot = {
         activeTaskId: taskId,
@@ -108,12 +109,13 @@ test.describe("transcript column", () => {
     });
   }
 
-  test("a finished turn's summary and counts stay on one line", async ({ page }) => {
+  test("a finished turn's status and history label stay on one line", async ({ page }) => {
     await seedConversation(page);
     await openConversation(page, 1024);
-    const trigger = page.locator('[data-message-id="a2"] button[aria-expanded]').first();
-    await expect(trigger).toContainText("One spec asserted the old 280px sidebar width, so I updated the expectation and re-ran the suite");
-    await expect(trigger).toContainText("1 tool call");
+    const reply = page.locator('[data-message-id="a2"]');
+    const trigger = reply.getByRole("button", { name: "Finished 4 steps · 42s", exact: true });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(reply.getByText("One spec asserted the old 280px sidebar width, so I updated the expectation and re-ran the suite.", { exact: true })).toHaveCount(1);
     const line = await trigger.evaluate((element) => {
       const own = element.getBoundingClientRect();
       const middle = own.top + own.height / 2;

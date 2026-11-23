@@ -3,6 +3,7 @@ import { parseSubagentToolInput } from "@/lib/subagent-tool-input";
 import type { ToolUsePart } from "@/types/chat";
 import type { AssistantTraceEntry } from "./assistant-trace-builder";
 import { deriveTraceToolSummary, getToolTitle } from "./assistant-trace.utils";
+import { isTraceToolFailure } from "./turn-event-state";
 import { traceToolCategory, type TraceCategory } from "./trace-summary";
 
 /**
@@ -22,7 +23,7 @@ const ACTIVITY_KEYS = {
 } as const satisfies Partial<Record<TraceCategory, I18nKey>>;
 
 function isRunning(part: ToolUsePart): boolean {
-  return part.state === "input-streaming" || part.state === "input-available";
+  return !isTraceToolFailure(part) && (part.state === "input-streaming" || part.state === "input-available");
 }
 
 function toolActivity(part: ToolUsePart, t: AppTFunction): string {

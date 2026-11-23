@@ -3,6 +3,10 @@ import type { FileChangeStatus } from "@/components/session/chat-panel.utils";
 import type { CodeDiffPart, MessagePart, ToolUsePart } from "@/types/chat";
 import { normalizeTraceToolName } from "./assistant-trace.utils";
 
+export function isTraceToolFailure(part: ToolUsePart): boolean {
+  return part.state === "output-error" || (part.exitCode != null && part.exitCode !== 0);
+}
+
 /**
  * The one place a Stave tool-part state becomes an AUI `AgentStepState`.
  *

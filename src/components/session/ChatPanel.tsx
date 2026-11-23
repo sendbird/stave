@@ -126,6 +126,8 @@ import {
   findActiveConversationTurnMessageId,
 } from "./conversation-turn-rail.utils";
 import { AssistantMessageBody } from "./message/assistant-trace";
+import { buildAssistantTrace } from "./message/assistant-trace-builder";
+import { findTraceSearchEntry, getTraceElapsedMs } from "./message/assistant-trace-folding";
 import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segments";
 import { TaskStartGuide } from "./TaskStartGuide";
@@ -179,19 +181,8 @@ function getMessageElapsedLabel(args: {
   message: Pick<ChatMessage, "startedAt" | "completedAt">;
   nowMs?: number;
 }) {
-  const startedAt = args.message.startedAt
-    ? Date.parse(args.message.startedAt)
-    : Number.NaN;
-  if (!Number.isFinite(startedAt)) {
-    return null;
-  }
-  const endMs = args.message.completedAt
-    ? Date.parse(args.message.completedAt)
-    : args.nowMs;
-  if (!Number.isFinite(endMs ?? Number.NaN)) {
-    return null;
-  }
-  return formatDuration(Math.max(0, (endMs ?? startedAt) - startedAt));
+  const elapsed = getTraceElapsedMs(args.message, args.nowMs);
+  return elapsed === undefined ? null : formatDuration(elapsed);
 }
 
 interface MessageRowProps {
@@ -244,8 +235,8 @@ interface MessageRowProps {
   documentTurnId?: string;
   /** The tool step a Turn Activity jump is revealing in this message. */
   revealToolUseId?: string;
-  /** The approval or answer the return summary is revealing in this message. */
-  revealRequestId?: string;
+  /** The indexed search match the transcript is revealing inside this message. */
+  revealTraceEntryId?: string;
   searchMatch?: { query: string; snippet: string };
   /** The return summary sits beside this message: where you had left off. */
   returnSummary?: "before" | "after";
@@ -588,7 +579,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     traceExpansionMode={traceExpansionMode}
                     showInterimMessages={showInterimMessages}
                     revealToolUseId={args.revealToolUseId}
-                    revealRequestId={args.revealRequestId}
+                    revealTraceEntryId={args.revealTraceEntryId}
                   />
                 </TranscriptWideScope>
                 {message.role === "assistant" && args.documentTurnId ? (
@@ -1195,11 +1186,11 @@ function ChatPanelMessageList(props: {
   }, []);
 
   useEffect(() => {
-    if (previousActiveTurnIdRef.current && !activeTurnId) {
+    if (previousActiveTurnIdRef.current && !activeTurnId && hasBottomIntent) {
       setTurnCompletionScrollTick((current) => current + 1);
     }
     previousActiveTurnIdRef.current = activeTurnId;
-  }, [activeTurnId]);
+  }, [activeTurnId, hasBottomIntent]);
 
   useEffect(() => {
     if (restoreAnchor && restoreItemIndex == null && !taskMessagesLoading) {
@@ -1291,6 +1282,7 @@ function ChatPanelMessageList(props: {
     messageId: string;
     toolUseId?: string;
     requestId?: string;
+    traceEntryId?: string;
     searchQuery?: string;
     searchSnippet?: string;
     target?: "message" | "return-summary";
@@ -1389,14 +1381,20 @@ function ChatPanelMessageList(props: {
       align: targetMessageId ? "start" : "center",
       behavior: "auto",
     });
-    const messageId = visibleMessages[messageIndex]?.id;
-    if (messageId) {
+    const message = visibleMessages[messageIndex];
+    if (message) {
+      const traceEntry = searchQuery && message.role === "assistant" && !message.displayParts?.length
+        ? findTraceSearchEntry(buildAssistantTrace({ message }).entries, searchQuery)
+        : undefined;
+      const messageId = message.id;
       setRevealedStep(
         decision
           ? { messageId, requestId: decision.requestId }
-          : targetMessageId
-            ? { messageId, target: "message", searchQuery, searchSnippet }
-            : { messageId, toolUseId },
+          : toolUseId
+            ? { messageId, toolUseId, searchQuery, searchSnippet }
+            : traceEntry
+              ? { messageId, traceEntryId: traceEntry.id, searchQuery, searchSnippet }
+              : { messageId, target: "message", searchQuery, searchSnippet },
       );
     }
   }, [
@@ -1425,16 +1423,19 @@ function ChatPanelMessageList(props: {
       });
     }
     const messageSelector = `[data-testid="conversation-scroll-${escapeAttributeSelectorValue(taskId)}"] [data-message-id="${escapeAttributeSelectorValue(revealedStep.messageId)}"]`;
+    const requestId = revealedStep.requestId && escapeAttributeSelectorValue(revealedStep.requestId);
     const selector = revealedStep.target === "message"
       ? messageSelector
       : revealedStep.target === "return-summary"
         ? `${messageSelector} [data-testid="return-summary"]`
-        : revealedStep.requestId
+        : requestId
           ? [
-              `[data-approval-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
-              `[data-user-input-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
+              `${messageSelector} [data-approval-request-id="${requestId}"]`,
+              `${messageSelector} [data-user-input-request-id="${requestId}"]`,
             ].join(", ")
-          : `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId ?? "")}"]`;
+          : revealedStep.traceEntryId
+            ? `${messageSelector} [data-trace-anchor="${escapeAttributeSelectorValue(revealedStep.traceEntryId)}"]`
+            : `${messageSelector} [data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId ?? "")}"]`;
     // Where the step now is becomes the reading anchor a later render keeps.
     const anchorAtStep = () => {
       suppressAnchorUntilRef.current = 0;
@@ -1456,18 +1457,36 @@ function ChatPanelMessageList(props: {
     };
     let frames = 0;
     let frame = 0;
+    let settledFrames = 0;
     const focusStep = () => {
       const node = document.querySelector<HTMLElement>(selector);
       if (node) {
         // A message is read from its start; a step or the summary is centered.
         // Only a step takes focus: the others are places to read from.
-        node.scrollIntoView({
-          block: revealedStep.target === "message" ? "start" : "center",
-          behavior: "auto",
-        });
         if (!revealedStep.target) {
-          node.focus({ preventScroll: true });
-        } else if (
+          const viewport = node.closest("[data-transcript-scroller]")?.getBoundingClientRect();
+          const bounds = node.getBoundingClientRect();
+          const center = (bounds.top + bounds.bottom) / 2;
+          const inView = viewport && center >= viewport.top && center <= viewport.bottom;
+          // The virtual list can still apply its coarse message scroll after
+          // the folded row mounts. Confirm the exact row after it remeasures.
+          if (settledFrames === 0 || !inView) {
+            node.scrollIntoView({ block: "center", behavior: "auto" });
+            node.focus({ preventScroll: true });
+            settledFrames = 0;
+          }
+          settledFrames += 1;
+          if (settledFrames < 4 && ++frames < TRANSCRIPT_STEP_FOCUS_MAX_FRAMES) {
+            frame = window.requestAnimationFrame(focusStep);
+            return;
+          }
+        } else {
+          node.scrollIntoView({
+            block: revealedStep.target === "message" ? "start" : "center",
+            behavior: "auto",
+          });
+        }
+        if (
           revealedStep.target === "message" &&
           (revealedStep.searchSnippet ||
             document.activeElement?.closest('[data-testid="return-summary"]'))
@@ -1481,6 +1500,7 @@ function ChatPanelMessageList(props: {
         }
         anchorAtStep();
       } else if (frames > 0 && frames % TRANSCRIPT_STEP_REAIM_FRAMES === 0) {
+        settledFrames = 0;
         // Rows on the way measure taller or shorter than estimated, so the
         // first jump can land a few rows off with the target not mounted:
         // aim again until it mounts.
@@ -1650,6 +1670,7 @@ function ChatPanelMessageList(props: {
         />
       )}
       <ConversationContent
+        data-transcript-scroller=""
         data-testid={`conversation-scroll-${taskId}`}
         autoScrollKey={autoScrollKey}
         autoScrollBehavior="auto"
@@ -1802,9 +1823,9 @@ function ChatPanelMessageList(props: {
                     ? revealedStep.toolUseId
                     : undefined
                 }
-                revealRequestId={
+                revealTraceEntryId={
                   revealedStep?.messageId === message.id
-                    ? revealedStep.requestId
+                    ? revealedStep.traceEntryId
                     : undefined
                 }
                 returnSummary={

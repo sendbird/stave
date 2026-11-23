@@ -80,6 +80,16 @@ if (preview === "restart-notifications") {
       </StrictMode>,
     );
   });
+} else if (preview === "trace-folding") {
+  void import("@/dev/trace-folding-preview").then(({ TraceFoldingPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <TraceFoldingPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
 } else if (preview === "aui-regressions") {
   void import("@/dev/aui-regression-preview").then(
     ({ AuiRegressionPreview }) => {

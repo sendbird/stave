@@ -22,11 +22,16 @@ over the chat, or in the right rail's Task panel, under **Details**.
 
 ## Before You Start
 
-The running conversation trace header shows only the current step, or **Thinking**
-before a step is available. Once complete, it folds into a one-line summary of
-the reply (or counted work when there is no reply), with the tool-call count on the right.
-Expand the header to read the steps; pending questions stay outside it.
-The turn elapsed time remains in the message footer.
+The conversation trace header shows the current activity while the turn runs.
+When the turn ends, the header shows **Finished** and reports any failed steps.
+The final answer is in the message body.
+
+With more than three tool steps, successful steps and earlier interim messages
+fold into history. Open the header to read them. The label shows the number of
+folded steps and the turn's elapsed time when available. The latest interim
+message stays visible while work runs. Failed steps, subagents, and questions
+remain visible outside the history. Activity and conversation search can open
+the history and take you to a matching row.
 Thinking bodies render Markdown while streaming and after completion, including
 bold text, lists and code. Tool argument/output blocks and command lines have
 a copy icon beside their content; it changes to a check mark after copying the

@@ -24,6 +24,17 @@
     "truncated": "출력의 마지막 부분을 표시합니다.",
     "noOutput": "아직 표시할 출력이 없습니다."
   },
+  "traceFoldingPreview": {
+    "title": "에이전트 실행 기록 접기",
+    "description": "헤더를 펼쳐 이전 단계를 확인하세요.",
+    "darkMode": "다크 모드",
+    "runningScenario": "실행 중 · 25개 단계와 중간 메시지",
+    "runningFailureScenario": "실행 중 · 실패한 단계 있음",
+    "finishedScenario": "종료 · 모든 단계 성공",
+    "finishedFailureScenario": "종료 · 실패한 단계 있음",
+    "subagentsScenario": "실행 중 · 하위 에이전트",
+    "shortScenario": "종료 · 3개 단계"
+  },
   "questionReply": {
     "label_other": "AI 질문에 대한 답변 · 질문 {{count}}개",
     "declined_other": "답변 거절 · 질문 {{count}}개",
@@ -755,6 +766,11 @@
     "extraCopy195": "하위 에이전트"
   },
   "assistantTrace": {
+    "finished": "완료",
+    "finishedWithFailures_other": "종료 · {{steps}}개 단계 실패",
+    "runningAfterFailure": "실행 중 · 마지막 단계 실패",
+    "foldedSteps_other": "{{steps}}개 단계",
+    "timedSteps": "{{steps}} · {{time}}",
     "title": "시스템",
     "title2": "시스템",
     "baseTitle": "하위 에이전트",
