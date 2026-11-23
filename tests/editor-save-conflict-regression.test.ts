@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
@@ -72,7 +72,7 @@ async function createFsApi(args: { rootPath: string; filePath: string }) {
     }),
     listFiles: async () => ({ ok: true, files: [args.filePath] }),
     readFile: async (req: { rootPath: string; filePath: string }) => {
-      if (!resolveRequestedFilePath(req.filePath)) {
+      if (req.rootPath !== args.rootPath || !resolveRequestedFilePath(req.filePath)) {
         return { ok: false, content: "", revision: "" };
       }
       const file = await readWithRevision();
@@ -85,7 +85,7 @@ async function createFsApi(args: { rootPath: string; filePath: string }) {
       expectedRevision?: string | null;
     }) => {
       const fullPath = resolveRequestedFilePath(req.filePath);
-      if (!fullPath) {
+      if (req.rootPath !== args.rootPath || !fullPath) {
         return { ok: false };
       }
       const current = await readWithRevision();
@@ -99,13 +99,18 @@ async function createFsApi(args: { rootPath: string; filePath: string }) {
   };
 }
 
-async function setupStore(args: { rootPath: string; filePath: string }) {
+async function setupStore(args: {
+  rootPath: string;
+  filePath: string;
+  fix?: (request: { text: string }) => Promise<{ ok: boolean; output: string }>;
+}) {
   const localStorage = createMemoryStorage();
   const fsApi = await createFsApi(args);
   (globalThis as { window?: unknown }).window = {
     localStorage,
     api: {
       fs: fsApi,
+      eslint: { fix: args.fix },
     },
   };
 
@@ -147,7 +152,7 @@ async function setupStore(args: { rootPath: string; filePath: string }) {
     activeEditorTabId: null,
   }));
 
-  return { useAppStore };
+  return { fsApi, useAppStore };
 }
 
 beforeEach(() => {
@@ -156,6 +161,253 @@ beforeEach(() => {
 
 afterEach(() => {
   (globalThis as { window?: unknown }).window = originalWindow;
+});
+
+describe("editor async save and refresh", () => {
+  const filePath = "note.ts";
+  const tabId = `file:${filePath}`;
+  const initial = "const initial = true;\n";
+  const draft = "const draft=true\n";
+  const newerDraft = `${draft}const newer = true;\n`;
+  let rootPath: string;
+
+  beforeEach(async () => {
+    rootPath = await mkdtemp(path.join(tmpdir(), "stave-editor-race-"));
+    await writeFile(path.join(rootPath, filePath), initial);
+  });
+
+  afterEach(async () => {
+    await rm(rootPath, { recursive: true, force: true });
+  });
+
+  async function open(fix?: Parameters<typeof setupStore>[0]["fix"]) {
+    const { fsApi, useAppStore } = await setupStore({ rootPath, filePath, fix });
+    const state = useAppStore.getState;
+    state().updateSettings({
+      patch: { editorFormatOnSave: Boolean(fix), editorEslintEnabled: Boolean(fix) },
+    });
+    await state().openFileFromTree({ filePath });
+    return {
+      fsApi,
+      state,
+      setState: useAppStore.setState,
+      tab: () => state().editorTabs.find((tab) => tab.id === tabId)!,
+      edit: (content: string) => state().updateEditorContent({ tabId, content }),
+      readDisk: () => readFile(path.join(rootPath, filePath), "utf8"),
+    };
+  }
+
+  function pauseNextRead(fsApi: Awaited<ReturnType<typeof setupStore>>["fsApi"]) {
+    const read = fsApi.readFile;
+    const started = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    fsApi.readFile = async (request) => {
+      fsApi.readFile = read;
+      const result = await read(request);
+      started.resolve();
+      await resume.promise;
+      return result;
+    };
+    return { started: started.promise, resume: resume.resolve };
+  }
+
+  test("discards a format result if typing changed the draft while formatting", async () => {
+    const formatted = Promise.withResolvers<{ ok: boolean; output: string }>();
+    const invoked = Promise.withResolvers<string>();
+    const { state, tab, edit, readDisk } = await open(({ text }) => {
+      invoked.resolve(text);
+      return formatted.promise;
+    });
+    edit(draft);
+    const save = state().saveActiveEditorTab();
+    expect(await invoked.promise).toBe(draft);
+    edit(newerDraft);
+    formatted.resolve({ ok: true, output: "const draft = true;\n" });
+
+    expect(await save).toEqual({ ok: true });
+    expect(await readDisk()).toBe(draft);
+    expect(tab()).toMatchObject({
+      content: newerDraft,
+      originalContent: draft,
+      savedContent: draft,
+      isDirty: true,
+    });
+  });
+
+  test("shows the formatted text once the unchanged draft is written", async () => {
+    const formatted = "const draft = true;\n";
+    const { state, tab, edit, readDisk } = await open(async () => ({
+      ok: true,
+      output: formatted,
+    }));
+    edit(draft);
+
+    expect(await state().saveActiveEditorTab()).toEqual({ ok: true });
+    expect(await readDisk()).toBe(formatted);
+    expect(tab()).toMatchObject({
+      content: formatted,
+      originalContent: formatted,
+      savedContent: formatted,
+      isDirty: false,
+    });
+  });
+
+  test.each([false, true])("acknowledges the exact write while typing and switching tabs (format: %s)", async (format) => {
+    const formatted = "const draft = true;\n";
+    const { fsApi, state, tab, edit, readDisk } = await open(
+      format ? async () => ({ ok: true, output: formatted }) : undefined,
+    );
+    const write = fsApi.writeFile;
+    const written = Promise.withResolvers<Awaited<ReturnType<typeof write>>>();
+    const resume = Promise.withResolvers<void>();
+    fsApi.writeFile = async (request) => {
+      const result = await write(request);
+      written.resolve(result);
+      await resume.promise;
+      return result;
+    };
+    edit(draft);
+    const save = state().saveActiveEditorTab();
+    const { revision } = await written.promise;
+    edit(newerDraft);
+    const otherPath = "other.ts";
+    await state().openFileFromTree({ filePath: otherPath, fallbackContent: "other draft" });
+    const otherTab = state().editorTabs.find((tab) => tab.filePath === otherPath);
+    resume.resolve();
+
+    const expected = format ? formatted : draft;
+    expect(await save).toEqual({ ok: true });
+    expect(await readDisk()).toBe(expected);
+    expect(tab()).toMatchObject({
+      content: newerDraft,
+      originalContent: expected,
+      savedContent: expected,
+      baseRevision: revision,
+      isDirty: true,
+    });
+    expect(state().activeEditorTabId).toBe(otherTab?.id);
+    expect(state().editorTabs.find((tab) => tab.id === otherTab?.id)).toBe(otherTab);
+  });
+
+  test("flags the disk revision without replacing edits made during the poll", async () => {
+    const { fsApi, state, tab, edit } = await open();
+    const baseRevision = tab().baseRevision;
+    await writeFile(path.join(rootPath, filePath), "external change\n");
+    const { revision } = await fsApi.readFile({ rootPath, filePath });
+    const read = pauseNextRead(fsApi);
+    const poll = state().checkOpenTabConflicts();
+    await read.started;
+    edit(draft);
+    read.resume();
+    await poll;
+
+    expect(tab()).toMatchObject({
+      content: draft,
+      originalContent: initial,
+      baseRevision,
+      conflictRevision: revision,
+      isDirty: true,
+      hasConflict: true,
+    });
+  });
+
+  test("ignores a poll response that predates a completed save", async () => {
+    const { fsApi, state, tab, edit } = await open();
+    await writeFile(path.join(rootPath, filePath), "external change\n");
+    const read = pauseNextRead(fsApi);
+    const poll = state().checkOpenTabConflicts();
+    await read.started;
+    // A second poll applies the disk change before this response arrives.
+    await state().checkOpenTabConflicts();
+    edit(draft);
+    expect(await state().saveActiveEditorTab()).toEqual({ ok: true });
+    const savedRevision = tab().baseRevision;
+    // A later edit stays based on the revision acknowledged by the save.
+    edit(newerDraft);
+    read.resume();
+    await poll;
+
+    expect(tab()).toMatchObject({
+      content: newerDraft,
+      baseRevision: savedRevision,
+      hasConflict: false,
+      isDirty: true,
+    });
+  });
+
+  test("ignores a poll response after switching to a workspace with the same tab id", async () => {
+    const { fsApi, state, setState, tab } = await open();
+    await writeFile(path.join(rootPath, filePath), "external change\n");
+    const read = pauseNextRead(fsApi);
+    const poll = state().checkOpenTabConflicts();
+    await read.started;
+    const otherTab = { ...tab(), content: "other workspace" };
+    setState({ activeWorkspaceId: "ws-other", editorTabs: [otherTab] });
+    read.resume();
+    await poll;
+
+    expect(tab()).toBe(otherTab);
+  });
+
+  test("keeps edits made while resolving a conflict with Reload", async () => {
+    const { fsApi, state, tab, edit } = await open();
+    edit(draft);
+    await writeFile(path.join(rootPath, filePath), "external change\n");
+    await state().checkOpenTabConflicts();
+    const read = pauseNextRead(fsApi);
+    const reload = state().resolveEditorTabConflict({ tabId, resolution: "reload" });
+    await read.started;
+    edit(newerDraft);
+    read.resume();
+
+    expect(await reload).toEqual({ ok: false });
+    expect(tab()).toMatchObject({ content: newerDraft, isDirty: true, hasConflict: true });
+  });
+
+  test("keeps the captured write scoped to its workspace when the adapter root moves", async () => {
+    const { state, tab, edit, readDisk } = await open();
+    const { workspaceFsAdapter } = await import("../src/lib/fs");
+    edit(draft);
+    const save = state().saveActiveEditorTab();
+    // Workspace switching prepares the adapter before installing the new state.
+    await workspaceFsAdapter.setRoot({ rootPath: path.join(rootPath, "other"), rootName: "other" });
+
+    expect(await save).toEqual({ ok: true });
+    expect(await readDisk()).toBe(draft);
+    expect(tab()).toMatchObject({ savedContent: draft, isDirty: false });
+    expect(workspaceFsAdapter.getRootPath()).toBe(path.join(rootPath, "other"));
+  });
+
+  test("preserves an undo to the old base while the write and its revision are pending", async () => {
+    const { fsApi, state, tab, edit, readDisk } = await open();
+    const write = fsApi.writeFile;
+    const written = Promise.withResolvers<void>();
+    const resume = Promise.withResolvers<void>();
+    fsApi.writeFile = async (request) => {
+      fsApi.writeFile = write;
+      const result = await write(request);
+      written.resolve();
+      await resume.promise;
+      return result;
+    };
+    edit(draft);
+    const save = state().saveActiveEditorTab();
+    await written.promise;
+    edit(initial);
+    const overlappingSave = await state().saveActiveEditorTab();
+    await state().checkOpenTabConflicts();
+    resume.resolve();
+
+    expect(overlappingSave).toEqual({ ok: false });
+    expect(await save).toEqual({ ok: true });
+    expect(await readDisk()).toBe(draft);
+    expect(tab()).toMatchObject({
+      content: initial,
+      savedContent: draft,
+      isDirty: true,
+      hasConflict: false,
+    });
+  });
 });
 
 describe("editor save/conflict behavior", () => {

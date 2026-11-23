@@ -3,6 +3,7 @@ import type {
   WorkspaceDeleteEntryResult,
   WorkspaceDirectoryEntry,
   WorkspaceFileData,
+  WorkspaceFileTarget,
   WorkspaceFsAdapter,
   WorkspaceImageData,
   WorkspaceRootInfo,
@@ -82,10 +83,9 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     return result.entries;
   }
 
-  async readFile(args: {
-    filePath: string;
-  }): Promise<WorkspaceFileData | null> {
-    if (!this.rootPath) {
+  async readFile(args: WorkspaceFileTarget): Promise<WorkspaceFileData | null> {
+    const rootPath = args.rootPath ?? this.rootPath;
+    if (!rootPath) {
       return null;
     }
     const readFile = window.api?.fs?.readFile;
@@ -94,7 +94,7 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     }
 
     const result = await readFile({
-      rootPath: this.rootPath,
+      rootPath,
       filePath: args.filePath,
     });
     if (!result.ok && !result.tooLarge) {
@@ -110,10 +110,11 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async readFileDataUrl(args: {
-    filePath: string;
-  }): Promise<WorkspaceImageData | null> {
-    if (!this.rootPath) {
+  async readFileDataUrl(
+    args: WorkspaceFileTarget,
+  ): Promise<WorkspaceImageData | null> {
+    const rootPath = args.rootPath ?? this.rootPath;
+    if (!rootPath) {
       return null;
     }
     const readFileDataUrl = window.api?.fs?.readFileDataUrl;
@@ -121,7 +122,7 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
       return null;
     }
     const result = await readFileDataUrl({
-      rootPath: this.rootPath,
+      rootPath,
       filePath: args.filePath,
     });
     if (!result.ok && !result.tooLarge) {
@@ -136,12 +137,12 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     };
   }
 
-  async writeFile(args: {
-    filePath: string;
+  async writeFile(args: WorkspaceFileTarget & {
     content: string;
     expectedRevision?: string | null;
   }): Promise<WorkspaceWriteResult> {
-    if (!this.rootPath) {
+    const rootPath = args.rootPath ?? this.rootPath;
+    if (!rootPath) {
       return { ok: false };
     }
     const writeFile = window.api?.fs?.writeFile;
@@ -150,7 +151,7 @@ export class ElectronFsAdapter implements WorkspaceFsAdapter {
     }
 
     const result = await writeFile({
-      rootPath: this.rootPath,
+      rootPath,
       filePath: args.filePath,
       content: args.content,
       expectedRevision: args.expectedRevision,

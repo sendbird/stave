@@ -4,6 +4,7 @@ import { formatWithEslint } from "@/components/layout/editor-language-intelligen
 import { loadWorkspaceEditorTabBodies } from "@/lib/db/workspaces.db";
 import { isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
 import { workspaceFsAdapter } from "@/lib/fs";
+import type { WorkspaceFileData, WorkspaceImageData } from "@/lib/fs/fs.types";
 import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { toast } from "@/lib/notifications/toast";
 import { resolveWorkspaceRelativeFilePath } from "@/lib/workspace-file-path";
@@ -79,6 +80,66 @@ function incrementWorkspaceSnapshotVersion(
   return state.workspaceSnapshotVersion + 1;
 }
 
+function getEditorWorkspaceRoot(state: AppState) {
+  return state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath;
+}
+
+function isSameEditorWorkspace(current: AppState, captured: AppState) {
+  return (
+    current.activeWorkspaceId === captured.activeWorkspaceId &&
+    getEditorWorkspaceRoot(current) === getEditorWorkspaceRoot(captured)
+  );
+}
+
+function hasSameEditorBase(tab: EditorTab, captured: EditorTab) {
+  return (
+    tab.filePath === captured.filePath &&
+    tab.kind === captured.kind &&
+    tab.contentState === captured.contentState &&
+    tab.baseRevision === captured.baseRevision &&
+    tab.savedContent === captured.savedContent &&
+    tab.originalContent === captured.originalContent &&
+    tab.hasConflict === captured.hasConflict &&
+    tab.conflictRevision === captured.conflictRevision
+  );
+}
+
+function applyEditorDiskContents(
+  tab: EditorTab,
+  disk: WorkspaceFileData | WorkspaceImageData,
+): EditorTab {
+  const content = "dataUrl" in disk ? disk.dataUrl : disk.content;
+  return {
+    ...tab,
+    content: disk.tooLarge ? "" : content,
+    contentState: disk.tooLarge ? "too-large" : "ready",
+    originalContent: disk.tooLarge
+      ? undefined
+      : tab.id.startsWith("file:") && tab.kind !== "image"
+        ? content
+        : tab.originalContent,
+    savedContent: disk.tooLarge
+      ? undefined
+      : tab.kind === "image"
+        ? tab.savedContent
+        : content,
+    baseRevision: disk.revision,
+    fileSizeBytes: disk.sizeBytes,
+    fileSizeLimitBytes: disk.maxSizeBytes,
+    hasConflict: false,
+    conflictRevision: null,
+    isDirty: false,
+  };
+}
+
+function editorFileKey(state: AppState, tab: EditorTab) {
+  return JSON.stringify([
+    state.activeWorkspaceId,
+    getEditorWorkspaceRoot(state),
+    tab.filePath,
+  ]);
+}
+
 /**
  * Disk anchor for a freshly opened live diff tab: the modified side's content
  * together with the revision of the very read that produced it.
@@ -122,6 +183,37 @@ export function createEditorActions(args: {
   get: AppStoreGet;
 }): EditorActions {
   const { set, get } = args;
+  // A poll must not adopt the bytes of a write before its save is acknowledged.
+  const pendingSaves = new Set<string>();
+
+  function updateEditorTab(
+    capturedState: AppState,
+    capturedTab: EditorTab,
+    update: (tab: EditorTab) => EditorTab,
+  ) {
+    let applied = false;
+    set((state) => {
+      if (!isSameEditorWorkspace(state, capturedState)) {
+        return state;
+      }
+      const tab = state.editorTabs.find((tab) => tab.id === capturedTab.id);
+      if (!tab || !hasSameEditorBase(tab, capturedTab)) {
+        return state;
+      }
+      const updated = update(tab);
+      if (updated === tab) {
+        return state;
+      }
+      applied = true;
+      return {
+        editorTabs: state.editorTabs.map((item) =>
+          item === tab ? updated : item,
+        ),
+        workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+      };
+    });
+    return applied;
+  }
 
   const hydrateDeferredEditorTab = async (args: {
     workspaceId: string;
@@ -285,97 +377,78 @@ export function createEditorActions(args: {
       return { ok: false, conflict: true };
     }
 
-    // Format on save with ESLint
-    let contentToSave = activeTab.content;
-    if (
-      state.settings.editorFormatOnSave &&
-      state.settings.editorEslintEnabled
-    ) {
-      const rootPath =
-        state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath;
-      if (rootPath) {
-        const formatted = await formatWithEslint({
-          rootPath,
-          filePath: activeTab.filePath,
-          text: activeTab.content,
-        });
-        if (formatted !== null) {
-          contentToSave = formatted;
-          // Update the tab content with formatted text
-          set((s) => ({
-            editorTabs: s.editorTabs.map((tab) =>
-              tab.id === activeTab.id ? { ...tab, content: formatted } : tab,
-            ),
+    const fileKey = editorFileKey(state, activeTab);
+    if (pendingSaves.has(fileKey)) {
+      return { ok: false };
+    }
+    pendingSaves.add(fileKey);
+
+    try {
+      const rootPath = getEditorWorkspaceRoot(state) ?? undefined;
+      const filePath = activeTab.filePath;
+      const draft = activeTab.content;
+      const formatted =
+        state.settings.editorFormatOnSave &&
+        state.settings.editorEslintEnabled &&
+        rootPath
+          ? await formatWithEslint({ rootPath, filePath, text: draft })
+          : null;
+
+      const current = get();
+      const tab = current.editorTabs.find((tab) => tab.id === tabId);
+      if (
+        !isSameEditorWorkspace(current, state) ||
+        !tab ||
+        !hasSameEditorBase(tab, activeTab)
+      ) {
+        return { ok: false };
+      }
+      const contentToSave = tab.content === draft ? (formatted ?? draft) : draft;
+      const result = await workspaceFsAdapter.writeFile({
+        rootPath,
+        filePath,
+        content: contentToSave,
+        expectedRevision: activeTab.baseRevision,
+      });
+
+      if (!result.ok) {
+        if (result.conflict) {
+          updateEditorTab(state, activeTab, (tab) => ({
+            ...tab,
+            hasConflict: true,
+            conflictRevision: result.revision ?? tab.conflictRevision,
           }));
+        } else {
+          toast.error(i18n.t("editor:saveConflict.saveFailed"), {
+            description: filePath,
+          });
         }
+        return { ok: false, conflict: result.conflict };
       }
+
+      updateEditorTab(state, activeTab, (tab) => {
+        // Apply formatting only to the draft it was computed from. The disk
+        // anchor always describes the text the write actually acknowledged.
+        const content = tab.content === draft ? contentToSave : tab.content;
+        return {
+          ...tab,
+          content,
+          contentState: "ready",
+          originalContent: tab.id.startsWith("file:")
+            ? contentToSave
+            : tab.originalContent,
+          savedContent: contentToSave,
+          baseRevision: result.revision ?? tab.baseRevision,
+          hasConflict: false,
+          conflictRevision: null,
+          isDirty: content !== contentToSave,
+        };
+      });
+
+      return { ok: true };
+    } finally {
+      pendingSaves.delete(fileKey);
     }
-
-    let result = await workspaceFsAdapter.writeFile({
-      filePath: activeTab.filePath,
-      content: contentToSave,
-      expectedRevision: activeTab.baseRevision,
-    });
-    if (!result.ok && !result.conflict) {
-      const workspaceRootPath =
-        state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath;
-      if (workspaceRootPath) {
-        await workspaceFsAdapter.setRoot?.({
-          rootPath: workspaceRootPath,
-          rootName: state.repositoryName ?? "project",
-        });
-        result = await workspaceFsAdapter.writeFile({
-          filePath: activeTab.filePath,
-          content: contentToSave,
-          expectedRevision: activeTab.baseRevision,
-        });
-      }
-    }
-
-    if (!result.ok) {
-      if (result.conflict) {
-        set((nextState) => ({
-          editorTabs: nextState.editorTabs.map((tab) =>
-            tab.id === activeTab.id
-              ? {
-                  ...tab,
-                  hasConflict: true,
-                  conflictRevision: result.revision ?? tab.conflictRevision,
-                }
-              : tab,
-          ),
-          workspaceSnapshotVersion:
-            incrementWorkspaceSnapshotVersion(nextState),
-        }));
-      } else {
-        toast.error(i18n.t("editor:saveConflict.saveFailed"), {
-          description: activeTab.filePath,
-        });
-      }
-      return { ok: false, conflict: result.conflict };
-    }
-
-    set((nextState) => ({
-      editorTabs: nextState.editorTabs.map((tab) =>
-        tab.id === activeTab.id
-          ? {
-              ...tab,
-              contentState: "ready",
-              originalContent: tab.id.startsWith("file:")
-                ? tab.content
-                : tab.originalContent,
-              savedContent: tab.content,
-              baseRevision: result.revision ?? tab.baseRevision,
-              hasConflict: false,
-              conflictRevision: null,
-              isDirty: false,
-            }
-          : tab,
-      ),
-      workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(nextState),
-    }));
-
-    return { ok: true };
   };
 
   return {
@@ -856,231 +929,124 @@ export function createEditorActions(args: {
       return tabId ? saveEditorTab(tabId) : { ok: false };
     },
     resolveEditorTabConflict: async ({ tabId, resolution }) => {
-      const tab = get().editorTabs.find((item) => item.id === tabId);
-      if (!tab?.hasConflict || tab.kind === "image") {
+      const state = get();
+      const tab = state.editorTabs.find((item) => item.id === tabId);
+      if (
+        !tab?.hasConflict ||
+        tab.kind === "image" ||
+        pendingSaves.has(editorFileKey(state, tab))
+      ) {
         return { ok: false };
       }
+      const target = {
+        rootPath: getEditorWorkspaceRoot(state) ?? undefined,
+        filePath: tab.filePath,
+      };
       if (resolution === "keep-mine") {
         // Keep mine overwrites only the disk version the user was shown. If
-        // the file moved again since, the save conflicts again and the tab
-        // asks once more instead of dropping the newer change.
+        // the file moved again since, the save conflicts again.
         const diskRevision =
           tab.conflictRevision ??
-          (await workspaceFsAdapter.readFile({ filePath: tab.filePath }))
-            ?.revision ??
+          (await workspaceFsAdapter.readFile(target))?.revision ??
           null;
-        set((state) => ({
-          editorTabs: state.editorTabs.map((item) =>
-            item.id === tabId
-              ? {
-                  ...item,
-                  baseRevision: diskRevision,
-                  hasConflict: false,
-                  conflictRevision: null,
-                }
-              : item,
-          ),
-          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        const applied = updateEditorTab(state, tab, (current) => ({
+          ...current,
+          baseRevision: diskRevision,
+          hasConflict: false,
+          conflictRevision: null,
         }));
-        return saveEditorTab(tabId);
+        return applied ? saveEditorTab(tabId) : { ok: false };
       }
 
-      const disk = await workspaceFsAdapter.readFile({ filePath: tab.filePath });
+      const disk = await workspaceFsAdapter.readFile(target);
       if (!disk) {
         toast.error(i18n.t("editor:saveConflict.reloadFailed"), {
           description: tab.filePath,
         });
         return { ok: false };
       }
-      set((state) => ({
-        editorTabs: state.editorTabs.map((item) => {
-          if (item.id !== tabId) {
-            return item;
-          }
-          if (disk.tooLarge) {
-            return {
-              ...item,
-              content: "",
-              contentState: "too-large",
-              originalContent: undefined,
-              savedContent: undefined,
-              baseRevision: disk.revision,
-              fileSizeBytes: disk.sizeBytes,
-              fileSizeLimitBytes: disk.maxSizeBytes,
-              hasConflict: false,
-              conflictRevision: null,
-              isDirty: false,
-            };
-          }
-          return {
-            ...item,
-            content: disk.content,
-            contentState: "ready",
-            originalContent: item.id.startsWith("file:")
-              ? disk.content
-              : item.originalContent,
-            savedContent: disk.content,
-            baseRevision: disk.revision,
-            hasConflict: false,
-            conflictRevision: null,
-            isDirty: false,
-          };
-        }),
-        workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
-      }));
-      return { ok: true };
+      const applied = updateEditorTab(state, tab, (current) =>
+        current.content === tab.content
+          ? applyEditorDiskContents(current, disk)
+          : current,
+      );
+      return { ok: applied };
     },
     checkOpenTabConflicts: async () => {
       const state = get();
-      const updates: Array<{
-        tabId: string;
-        fromDisk: string;
-        revision: string;
-        dirty: boolean;
-        kind: "text" | "image";
-        tooLarge?: boolean;
-        sizeBytes?: number;
-        maxSizeBytes?: number;
-      }> = [];
+      const rootPath = getEditorWorkspaceRoot(state) ?? undefined;
+      const reads = new Map<
+        string,
+        { captured: EditorTab; disk: WorkspaceFileData | WorkspaceImageData }
+      >();
 
       for (const tab of state.editorTabs) {
-        if (tab.contentState && tab.contentState !== "ready") {
+        if (!isSameEditorWorkspace(get(), state)) {
+          return;
+        }
+        if (
+          (tab.contentState && tab.contentState !== "ready") ||
+          tab.kind === "git-graph" ||
+          isSnapshotDiffEditorTab(tab) ||
+          pendingSaves.has(editorFileKey(state, tab))
+        ) {
           continue;
         }
-        // Snapshot diffs record two frozen sides, not a live view of the file
-        // on disk. Refreshing them would swap the recorded change out of the
-        // modified side of the diff.
-        if (isSnapshotDiffEditorTab(tab)) {
-          continue;
+        const target = { rootPath, filePath: tab.filePath };
+        const disk =
+          tab.kind === "image"
+            ? await workspaceFsAdapter.readFileDataUrl(target)
+            : await workspaceFsAdapter.readFile(target);
+        if (disk) {
+          reads.set(tab.id, { captured: tab, disk });
         }
-        if (tab.kind === "image") {
-          const imageDisk = await workspaceFsAdapter.readFileDataUrl({
-            filePath: tab.filePath,
-          });
-          if (!imageDisk) {
-            continue;
-          }
-          if (imageDisk.tooLarge) {
-            updates.push({
-              tabId: tab.id,
-              fromDisk: "",
-              revision: imageDisk.revision,
-              dirty: tab.isDirty,
-              kind: "image",
-              tooLarge: true,
-              sizeBytes: imageDisk.sizeBytes,
-              maxSizeBytes: imageDisk.maxSizeBytes,
-            });
-            continue;
-          }
-          if (tab.baseRevision && imageDisk.revision === tab.baseRevision) {
-            continue;
-          }
-          updates.push({
-            tabId: tab.id,
-            fromDisk: imageDisk.dataUrl,
-            revision: imageDisk.revision,
-            dirty: tab.isDirty,
-            kind: "image",
-          });
-          continue;
-        }
-
-        const disk = await workspaceFsAdapter.readFile({
-          filePath: tab.filePath,
-        });
-        if (!disk) {
-          continue;
-        }
-        if (disk.tooLarge) {
-          updates.push({
-            tabId: tab.id,
-            fromDisk: "",
-            revision: disk.revision,
-            dirty: tab.isDirty,
-            kind: "text",
-            tooLarge: true,
-            sizeBytes: disk.sizeBytes,
-            maxSizeBytes: disk.maxSizeBytes,
-          });
-          continue;
-        }
-
-        if (tab.baseRevision && disk.revision === tab.baseRevision) {
-          continue;
-        }
-        // Already flagged against this disk version; the user still has to
-        // choose, so there is nothing new to record.
-        if (tab.hasConflict && tab.conflictRevision === disk.revision) {
-          continue;
-        }
-
-        updates.push({
-          tabId: tab.id,
-          fromDisk: disk.content,
-          revision: disk.revision,
-          dirty: tab.isDirty,
-          kind: "text",
-        });
       }
 
-      if (updates.length === 0) {
+      if (reads.size === 0) {
         return;
       }
-
-      set((nextState) => ({
-        editorTabs: nextState.editorTabs.map((tab) => {
-          const update = updates.find((item) => item.tabId === tab.id);
-          if (!update) {
+      set((current) => {
+        if (!isSameEditorWorkspace(current, state)) {
+          return current;
+        }
+        let changed = false;
+        const editorTabs = current.editorTabs.map((tab) => {
+          const read = reads.get(tab.id);
+          if (!read || !hasSameEditorBase(tab, read.captured)) {
+            return tab;
+          }
+          const { disk } = read;
+          if (
+            pendingSaves.has(editorFileKey(state, tab)) ||
+            (!disk.tooLarge &&
+              tab.baseRevision &&
+              disk.revision === tab.baseRevision) ||
+            (tab.hasConflict && tab.conflictRevision === disk.revision)
+          ) {
             return tab;
           }
 
-          if (update.dirty) {
-            // `baseRevision` stays where the edits started, so a save cannot
-            // pass the revision check until the user picks a version.
+          changed = true;
+          // Use the current draft state. The user may have edited the tab
+          // while the read was in flight.
+          if (tab.isDirty) {
             return {
               ...tab,
               hasConflict: true,
-              conflictRevision: update.revision,
+              conflictRevision: disk.revision,
             };
           }
 
-          if (update.tooLarge) {
-            return {
-              ...tab,
-              content: "",
-              contentState: "too-large",
-              originalContent: undefined,
-              savedContent: undefined,
-              baseRevision: update.revision,
-              fileSizeBytes: update.sizeBytes,
-              fileSizeLimitBytes: update.maxSizeBytes,
-              hasConflict: false,
-              conflictRevision: null,
-              isDirty: false,
-            };
-          }
+          return applyEditorDiskContents(tab, disk);
+        });
 
-          return {
-            ...tab,
-            content: update.fromDisk,
-            contentState: "ready",
-            originalContent:
-              update.kind === "image"
-                ? tab.originalContent
-                : tab.id.startsWith("file:")
-                  ? update.fromDisk
-                  : tab.originalContent,
-            savedContent:
-              update.kind === "image" ? tab.savedContent : update.fromDisk,
-            baseRevision: update.revision,
-            hasConflict: false,
-            conflictRevision: null,
-            isDirty: false,
-          };
-        }),
-        workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(nextState),
-      }));
+        return changed
+          ? {
+              editorTabs,
+              workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(current),
+            }
+          : current;
+      });
     },
     sendEditorContextToChat: ({ taskId }) => {
       const state = get();

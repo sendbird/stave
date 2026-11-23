@@ -44,6 +44,12 @@ export interface WorkspaceDeleteEntryResult {
   stderr?: string;
 }
 
+export interface WorkspaceFileTarget {
+  filePath: string;
+  /** Explicit root for desktop operations that outlive the active workspace. */
+  rootPath?: string;
+}
+
 export interface WorkspaceFsAdapter {
   isAvailable: () => boolean;
   pickRoot: () => Promise<WorkspaceRootInfo | null>;
@@ -51,12 +57,11 @@ export interface WorkspaceFsAdapter {
   listDirectory: (args: {
     directoryPath?: string;
   }) => Promise<WorkspaceDirectoryEntry[] | null>;
-  readFile: (args: { filePath: string }) => Promise<WorkspaceFileData | null>;
-  readFileDataUrl: (args: {
-    filePath: string;
-  }) => Promise<WorkspaceImageData | null>;
-  writeFile: (args: {
-    filePath: string;
+  readFile: (args: WorkspaceFileTarget) => Promise<WorkspaceFileData | null>;
+  readFileDataUrl: (
+    args: WorkspaceFileTarget,
+  ) => Promise<WorkspaceImageData | null>;
+  writeFile: (args: WorkspaceFileTarget & {
     content: string;
     expectedRevision?: string | null;
   }) => Promise<WorkspaceWriteResult>;
