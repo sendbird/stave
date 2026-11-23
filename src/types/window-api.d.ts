@@ -2175,6 +2175,7 @@ interface WindowPersistenceApi {
     ok: boolean;
     count: number;
   }>;
+  hasUsageLimitResume?: (id: string) => Promise<boolean>;
   listTaskTurns?: (args: {
     workspaceId: string;
     taskId: string;

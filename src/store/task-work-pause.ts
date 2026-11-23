@@ -1,3 +1,4 @@
+import { UsageLimitReservationIdSchema } from "@/lib/providers/usage-limit-reservation";
 import { z } from "zod";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
@@ -19,6 +20,8 @@ export interface TaskUsageLimitPause {
    * work, then the queue drains as usual.
    */
   stoppedTurn: boolean;
+  origin?: { kind: "turn" | "queue"; id: string };
+  reservation?: { id: string; queuedTurnId?: string };
   pausedAt: number;
   /** When the limit resets, in epoch ms; null until a usage read knows it. */
   resetsAt: number | null;
@@ -73,7 +76,7 @@ export type QueuePauseReason = "usage-limit" | "restart";
 export function resolveQueuePause(args: {
   queuedTurns: readonly Pick<PromptDraftQueuedTurn, "queuedAt">[];
   usageLimitPause: TaskUsageLimitPause | undefined;
-  restoredQueueReleased: boolean;
+  restoredQueueReleased: boolean | number | undefined;
   sessionStartedAt?: number;
 }): QueuePauseReason | null {
   if (args.queuedTurns.length === 0) {
@@ -82,12 +85,8 @@ export function resolveQueuePause(args: {
   if (args.usageLimitPause) {
     return "usage-limit";
   }
-  if (args.restoredQueueReleased) {
-    return null;
-  }
-  const sessionStartedAt = args.sessionStartedAt ?? RENDERER_SESSION_STARTED_AT;
   return args.queuedTurns.some((item) =>
-    isQueuedTurnRestoredAfterRestart({ item, sessionStartedAt }),
+    resolveQueuedTurnPauseHold({ ...args, item }) === "wait",
   )
     ? "restart"
     : null;
@@ -100,14 +99,15 @@ export function resolveQueuePause(args: {
 export function resolveQueuedTurnPauseHold(args: {
   item: Pick<PromptDraftQueuedTurn, "queuedAt">;
   usageLimitPause: TaskUsageLimitPause | undefined;
-  restoredQueueReleased: boolean;
+  restoredQueueReleased: boolean | number | undefined;
   sessionStartedAt?: number;
 }): QueuedTurnAutoDispatchHold | undefined {
   if (args.usageLimitPause) {
     return "wait";
   }
   if (
-    !args.restoredQueueReleased &&
+    args.restoredQueueReleased !== true &&
+    !(typeof args.restoredQueueReleased === "number" && Date.parse(args.item.queuedAt) <= args.restoredQueueReleased) &&
     isQueuedTurnRestoredAfterRestart({
       item: args.item,
       sessionStartedAt: args.sessionStartedAt ?? RENDERER_SESSION_STARTED_AT,
@@ -171,6 +171,8 @@ export const UsageLimitPauseSchema = z.object({
   accountProfileId: z.string().min(1).optional(),
   model: z.string().optional(),
   stoppedTurn: z.boolean(),
+  origin: z.object({ kind: z.enum(["turn", "queue"]), id: z.string().min(1).max(200) }).optional(),
+  reservation: z.object({ id: UsageLimitReservationIdSchema, queuedTurnId: z.string().min(1).max(200).optional() }).optional(),
   pausedAt: z.number().finite().nonnegative(),
   resetsAt: z.number().finite().nonnegative().nullable(),
   windowLabel: z.string().optional(),

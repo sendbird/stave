@@ -16,14 +16,16 @@ const MIN_AUTO_RESUME_WAIT_MS = 1_000;
 /**
  * Resumes tasks whose usage-limit pause was armed with "Resume at reset".
  * Mounted once at the app root. Saved reset times catch up after a restart;
- * the action consumes each reservation durably before dispatching work.
+ * the host claims each reservation durably before dispatching work.
  */
 export function useUsageLimitAutoResume() {
+  const hydrated = useAppStore((state) => state.hasHydratedWorkspaces);
   const pauses = useAppStore((state) => state.usageLimitPauseByTask);
   const [wake, setWake] = useState(0);
   const resumingRef = useRef(new Set<string>());
 
   useEffect(() => {
+    if (!hydrated) return;
     // A resume still reading usage keeps its past-due time until it settles;
     // waiting on it here would spin a zero-delay timer for the whole read.
     const waiting = Object.fromEntries(
@@ -39,6 +41,7 @@ export function useUsageLimitAutoResume() {
     );
     const timer = window.setTimeout(() => {
       const state = useAppStore.getState();
+      if (!state.hasHydratedWorkspaces) return;
       const due = listDueUsageLimitAutoResumes({
         pauses: state.usageLimitPauseByTask,
         now: Date.now(),
@@ -50,6 +53,7 @@ export function useUsageLimitAutoResume() {
         resumingRef.current.add(taskId);
         void state
           .resumePausedTaskWork({ taskId, trigger: "auto" })
+          .catch(error => console.warn("[usage-limit-resume] check failed", { taskId, error }))
           .finally(() => {
             resumingRef.current.delete(taskId);
             setWake((current) => current + 1);
@@ -59,5 +63,5 @@ export function useUsageLimitAutoResume() {
       setWake((current) => current + 1);
     }, delay);
     return () => window.clearTimeout(timer);
-  }, [pauses, wake]);
+  }, [hydrated, pauses, wake]);
 }

@@ -1,3 +1,4 @@
+import { isUsageLimitReservationId } from "../../src/lib/providers/usage-limit-reservation";
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import type { StreamTurnArgs } from "../providers/types";
 import type { ProviderTurnAdmission } from "../providers/runtime";
@@ -54,6 +55,9 @@ export function createHostTurnAdmission(store: SqliteStore, options: { now?: () 
   const recovery: SavedTurnStart[] = [];
   for (const row of store.turnAdmission.read()) {
     if (row.state !== "queued" || !row.args.turnId) continue;
+    // The renderer still holds this reservation and will retry through its
+    // quota and ownership checks. Restoring it as a draft would duplicate it.
+    if (isUsageLimitReservationId(row.args.turnId)) continue;
     const age = now() - Date.parse(row.queuedAt);
     if ((row.attempts ?? 0) >= 1) dropped.push({ row, reason: "exhausted" });
     else if (!Number.isFinite(age) || age > QUEUED_TURN_RECOVERY_MAX_AGE_MS) dropped.push({ row, reason: "expired" });
@@ -106,20 +110,43 @@ export function createHostTurnAdmission(store: SqliteStore, options: { now?: () 
   const admission: ProviderTurnAdmission = {
     async acquire(args, changed) {
       const id = args.turnId!;
+      const usageLimitResume = isUsageLimitReservationId(id);
+      if (usageLimitResume && (starts.has(id) || store.turnAdmission.hasUsageLimitResume(id))) {
+        throw new Error("turnAdmissionCancelled");
+      }
       const { unattendedAutomation: _authorization, staveTurnGrants: _grants, agentRunStage: _stage, turnPolicy: _policy,
         managedTask: _managed, freshSession: _fresh, admissionPriority: _priority, executionPolicy: _execution, admissionOwner: _owner, ...safe } = args;
       // Parse a projection: caller callbacks and in-memory capabilities never enter SQLite. The subagent
       // answers the prompt carries are saved with it, so a start run again after a restart records exactly those.
       const { turnId, providerId, prompt, conversation, taskId, workspaceId, cwd, runtimeOptions, subagentAnswers } = safe;
       const savedArgs = StreamTurnArgsSchema.parse({ turnId, providerId, prompt, conversation, taskId, workspaceId, cwd, subagentAnswers, runtimeOptions: { ...runtimeOptions, claudeAccountProfileId: runtimeOptions?.claudeAccountProfileId ?? currentProviderAccountId("claude-code"), codexAccountProfileId: runtimeOptions?.codexAccountProfileId ?? currentProviderAccountId("codex") } });
-      const priority = args.admissionPriority ?? (args.agentRunStage || args.unattendedAutomation ? "automatic" : "user");
+      const priority = usageLimitResume ? "automatic" : args.admissionPriority ?? (args.agentRunStage || args.unattendedAutomation ? "automatic" : "user");
       const previous = recovered.get(id);
       recoveryPending.delete(id);
       starts.set(id, { args: savedArgs, priority, state: "queued", queuedAt: previous?.queuedAt ?? new Date(now()).toISOString(),
         ...(previous?.attempts ? { attempts: previous.attempts } : {}), hostTask: args.admissionOwner === "host-task",
         unattended: Boolean(args.unattendedAutomation), freshSession: args.freshSession, managedTask: args.managedTask, agentRunStage: args.agentRunStage });
-      try { await gate.acquire({ turnId: id, taskId: args.taskId, priority }, changed); }
-      catch (error) { starts.delete(id); throw error; }
+      try {
+        // Hold the running notification until the durable dispatch claim.
+        await gate.acquire({ turnId: id, taskId: args.taskId, priority }, usageLimitResume
+          ? (state) => { if (state.state === "queued") changed?.(state); }
+          : changed);
+      } catch (error) {
+        starts.delete(id);
+        throw error;
+      }
+      if (usageLimitResume) {
+        try {
+          // There is no shared transaction with a provider accepting a prompt.
+          // Claim before dispatch so an ambiguous delivery is never replayed.
+          if (!store.turnAdmission.claimUsageLimitResume(id)) throw new Error("turnAdmissionCancelled");
+          changed?.({ state: "running", ahead: 0 });
+        } catch (error) {
+          gate.release(id);
+          starts.delete(id);
+          throw error;
+        }
+      }
     },
     release(id) { gate.release(id); starts.delete(id); },
     cancel: id => gate.cancel(id),

@@ -413,8 +413,9 @@ Usage-limit pauses and restored queues share a renderer-owned dispatch gate:
 - `src/store/queued-task-turn-dispatch.ts` honours the hold before sending
   through `src/store/app-store-send-user-message.ts`.
 
-The pause is not a new provider event or a persisted scheduled task. Do not
-infer account exhaustion from a transient request throttle. Cancellation or
+The pause is saved with app state. Automatic resumes use regular turn admission
+with a durable reservation ID. Do not infer account exhaustion from a transient
+request throttle. Cancellation or
 manual resume during a usage read must prevent a second continuation turn.
 Keep tests in `tests/usage-limit-stop.test.ts`, `tests/task-work-pause.test.ts`,
 `tests/task-work-pause-store.test.ts` and

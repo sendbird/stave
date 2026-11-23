@@ -19,7 +19,8 @@ function createMemoryStorage() {
 
 type StreamListener = (payload: { streamId: string; event: unknown; done: boolean }) => void;
 
-function installProviderHarness() {
+function installProviderHarness(reservations = false) {
+  const startedRequests: Array<{ turnId?: string; prompt?: string; runtimeOptions?: { codexAccountProfileId?: string; model?: string } }> = [];
   const startedPrompts: string[] = [];
   let streamListener: StreamListener | null = null;
   (globalThis as { window: unknown }).window = {
@@ -27,9 +28,17 @@ function installProviderHarness() {
     setTimeout: globalThis.setTimeout.bind(globalThis),
     clearTimeout: globalThis.clearTimeout.bind(globalThis),
     api: {
+      ...(reservations ? { persistence: { hasUsageLimitResume: async () => false } } : {}),
       provider: {
-        getRateLimitsSnapshot: async () => ({ ...emptyRateLimitsSnapshot(), codex: { source: "rpc" as const, buckets: [], error: null } }),
-        startPushTurn: async (args: { prompt?: string }) => {
+        getRateLimitsSnapshot: async () => ({
+          ...emptyRateLimitsSnapshot(),
+          codex: { source: "rpc" as const, error: null, buckets: reservations ? [{
+            limitId: "codex", limitName: null, planType: null, credits: null, individualLimit: null,
+            secondary: null, primary: { usedPercent: 0, resetsAt: null, windowDurationMins: 300 },
+          }] : [] },
+        }),
+        startPushTurn: async (args: (typeof startedRequests)[number]) => {
+          startedRequests.push(args);
           const sequence = startedPrompts.length + 1;
           startedPrompts.push(args.prompt ?? "");
           return { ok: true, streamId: `stream-${sequence}`, turnId: `turn-${sequence}` };
@@ -53,6 +62,7 @@ function installProviderHarness() {
   } as unknown;
   return {
     startedPrompts,
+    startedRequests,
     emit: (streamId: string, event: unknown, done = false) =>
       streamListener?.({ streamId, event, done }),
   };
@@ -256,4 +266,39 @@ describe("restored queue", () => {
     expect(harness.startedPrompts[1]).toContain("Restored prompt");
     expect(useAppStore.getState().restoredQueueReleasedByTask["task-main"]).toBe(true);
   });
+});
+
+test("a reserved queue send keeps the original item and selected runtime through host admission", async () => {
+  const harness = installProviderHarness(true);
+  const taskId = "task-main";
+  const makeQueued = (id: string, content: string) => ({
+    id, content, queuedAt: "2026-04-09T00:00:00.000Z",
+    providerId: "codex", model: "gpt-5.5", attachedFilePaths: [], attachments: [],
+  });
+  const store = await seedStore({ [taskId]: { text: "Unsent draft", queuedTurns: [
+    makeQueued("refused", "Queued prompt"), makeQueued("next", "Next prompt"),
+  ] } });
+  const actions = store.getState();
+  actions.pauseTaskForUsageLimit({
+    taskId, workspaceId: "ws-main", providerId: "codex", accountProfileId: "system-default",
+    origin: { kind: "queue", id: "refused" }, stoppedTurn: false,
+    usageLimit: { providerId: "codex", windowLabel: "Session", resetsAt: Date.now() - 60_000 },
+  });
+  actions.setUsageLimitAutoResume({ taskId, enabled: true });
+  const id = store.getState().usageLimitPauseByTask[taskId]!.reservation!.id;
+  await actions.resumePausedTaskWork({ taskId, trigger: "auto" });
+  expect(harness.startedRequests).toMatchObject([{ turnId: id, prompt: "Queued prompt", runtimeOptions: { model: "gpt-5.5" } }]);
+  expect(store.getState().promptDraftByTask[taskId]?.queuedTurns?.map(item => item.id)).toEqual(["refused", "next"]);
+  harness.emit("stream-1", { type: "turn_admission", state: "running", ahead: 0 });
+  await Bun.sleep(25);
+  expect(store.getState().usageLimitPauseByTask[taskId]).toBeUndefined();
+  const { createAppStorePersistenceOptions } = await import("../src/store/app-store-persistence");
+  const saved = createAppStorePersistenceOptions().partialize(store.getState());
+  expect(saved.restoredQueueReleasedByTask[taskId]).toBeNumber();
+  expect(store.getState().promptDraftByTask[taskId]?.text).toBe("Unsent draft");
+  expect(store.getState().promptDraftByTask[taskId]?.queuedTurns?.map(item => item.id)).toEqual(["next"]);
+  harness.emit("stream-1", { type: "done" }, true);
+  await Bun.sleep(25);
+  expect(harness.startedPrompts).toEqual(["Queued prompt", "Next prompt"]);
+  harness.emit("stream-2", { type: "done" }, true);
 });
