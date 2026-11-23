@@ -78,6 +78,7 @@ import { createWorkspaceKickoffResolver } from "@/store/workspace-kickoff-action
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import {
   appendInterruptedTurnNotices,
+  flushPendingSnapshotPersists,
   scheduleWorkspaceSnapshotPersist,
   type WorkspaceSessionState,
 } from "@/store/workspace-session-state";
@@ -703,7 +704,7 @@ export const useAppStore = create<AppState>()(
         }
         clearProviderTurnStallTimer(taskId);
         attentionSync.syncTaskInteractions({ taskId, messages, endedTurnId: turnId });
-        settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, { workspaceId, taskId });
+        settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, { workspaceId, taskId, turnId });
       }
       for (const taskId of refresh.refreshedTaskIds) {
         void loadTaskMessagesIntoSession({ workspaceId, taskId, mode: "latest" });
@@ -927,7 +928,19 @@ export const useAppStore = create<AppState>()(
       shouldLoadLatestTaskMessages,
     });
     const failedSendActions = createFailedSendActions({ set, get });
-    const taskPauseActions = createTaskPauseActions({ set, get, dispatchNextQueuedTaskTurn, flushPersistence: flushAppStorePersistence });
+    const taskPauseActions = createTaskPauseActions({
+      set,
+      get,
+      dispatchNextQueuedTaskTurn,
+      flushPersistence: flushAppStorePersistence,
+      isQueueItemHeld: (taskId, queuedTurnId) =>
+        Boolean(steerQueueReservations.getAutoDispatchHold({ taskId, queuedTurnId }) ??
+          queuedTurnEditHolds.getAutoDispatchHold({ taskId, queuedTurnId })),
+      persistReleasedQueue: async (workspaceId, session) => {
+        persistWorkspaceSessionInBackground({ workspaceId, session });
+        await flushPendingSnapshotPersists(workspaceId);
+      },
+    });
     const conversationThreadActions = createConversationThreadActions({
       set,
       get,
@@ -1220,7 +1233,7 @@ export const useAppStore = create<AppState>()(
         if (syncResult.turnSettled) {
           const done = update.activityEvents?.findLast((event) => event.type === "done");
           settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
-            workspaceId: update.workspaceId, taskId: update.taskId,
+            workspaceId: update.workspaceId, taskId: update.taskId, turnId: update.turnId,
             providerId: update.providerId, model: update.model,
             done: update.terminalReceipt?.outcome === "cancelled"
               ? { type: "done", stop_reason: "cancelled" }

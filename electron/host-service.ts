@@ -1,3 +1,4 @@
+import { isUsageLimitReservationId } from "../src/lib/providers/usage-limit-reservation";
 import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
 import { TurnSnapshotService } from "./host-service/turn-snapshots";
 import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../src/lib/turn-snapshots";
@@ -1065,8 +1066,13 @@ function flushActivePushTurnEvents() {
   }
 }
 
+const reservedPushStreams = new Map<string, string>();
+
 function startPushProviderTurn(args: StreamTurnArgs) {
   const turnId = args.turnId ?? randomUUID();
+  const reserved = isUsageLimitReservationId(turnId);
+  const existingStream = reservedPushStreams.get(turnId);
+  if (existingStream) return { ok: true, streamId: existingStream, turnId } as const;
   const store = args.taskId ? ensureHostServicePersistenceReady() : null;
   let sequence = store?.getStreamEvents({ turnId }).at(-1)?.sequence ?? 0;
   let completed = false;
@@ -1074,7 +1080,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
   // W1 Phase 0 — durable turn-event journaling. Buffer events and flush to
   // SQLite in batches so the provider stream hot path never blocks on a
   // per-event DB write (the unbounded per-event journal it replaces was purged).
-  const persistEnabled = Boolean(args.taskId && store);
+  let persistEnabled = false;
   let pendingTurnEvents: Array<{ sequence: number; event: BridgeEvent }> = [];
   let turnEventFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -1121,11 +1127,10 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     stopTurnEventFlushTimer();
     flushTurnEvents();
   };
-  if (persistEnabled) {
+  const beginPersistence = () => {
+    if (!args.taskId || !store || persistEnabled) return;
+    persistEnabled = true;
     activePushTurnFlushFinalizers.add(finalizeTurnEventFlush);
-  }
-
-  if (args.taskId && store) {
     try {
       store.beginTurn({
         id: turnId,
@@ -1144,7 +1149,10 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         workspaceId: args.workspaceId ?? null,
       });
     }
-  }
+  };
+  // A queued reservation can be retried after a restart. Its turn row only
+  // begins when the host has durably claimed the dispatch.
+  if (!reserved) beginPersistence();
 
   let latestTurnUsage: PersistenceTurnUsage | null = null;
   const started = providerRuntime.startTurnStream(
@@ -1155,6 +1163,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     {
       bufferEvents: true,
       onEvent: (turnEvent) => {
+        if (reserved && turnEvent.type === "turn_admission" && turnEvent.state === "running") {
+          beginPersistence();
+        }
         sequence += 1;
 
         // The last `usage` event of a turn is its authoritative total; earlier
@@ -1187,8 +1198,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         });
       },
       onDone: () => {
+        if (reserved) reservedPushStreams.delete(turnId);
         finalizeTurnEventFlush();
-        if (!completed && args.taskId && store) {
+        if (!completed && persistEnabled && args.taskId && store) {
           completed = true;
           try {
             store.completeTurn({
@@ -1216,6 +1228,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     },
   );
 
+  if (reserved) reservedPushStreams.set(turnId, started.streamId);
   return {
     ok: true,
     streamId: started.streamId,

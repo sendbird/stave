@@ -1848,6 +1848,8 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         count: number;
       }>,
+    hasUsageLimitResume: (id: string) =>
+      ipcRenderer.invoke("persistence:has-usage-limit-resume", id) as Promise<boolean>,
     listTaskTurns: (args: {
       workspaceId: string;
       taskId: string;

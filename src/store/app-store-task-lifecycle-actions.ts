@@ -412,6 +412,10 @@ export function createTaskLifecycleActions(args: {
         }
       }
       void window.api?.provider?.cleanupTask?.({ taskId });
+      // Flush removal of the persisted usage-limit schedule before a restart.
+      if (stateBefore.usageLimitPauseByTask[taskId] || stateBefore.restoredQueueReleasedByTask[taskId]) {
+        get().dismissUsageLimitPause({ taskId });
+      }
       // An archived task is settled by definition: it must not keep asking
       // for an answer or a review from Fleet.
       attentionSync.markTaskNotificationsRead(taskId);

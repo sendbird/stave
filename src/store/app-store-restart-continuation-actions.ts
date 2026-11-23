@@ -1,3 +1,4 @@
+import { isUsageLimitReservationId } from "@/lib/providers/usage-limit-reservation";
 import type { StoreApi } from "zustand";
 import { listActiveWorkspaceTurns, listTaskTurns } from "@/lib/db/turns.db";
 import { listWorkspaceSummaries, loadTaskMessagesPage, loadWorkspaceShellForRestore } from "@/lib/db/workspaces.db";
@@ -63,6 +64,9 @@ export function createRestartContinuationActions({ set, get, flushPersistence }:
   const unlist = (turnId: string) => set(state => ({ interruptedTasks: state.interruptedTasks.filter(row => row.turnId !== turnId) }));
 
   const readCandidate = async (item: InterruptedTask, context: { live: ProviderLiveTurns; reads: TaskOwnershipReads; shells: Map<string, Promise<Shell | null>> }): Promise<Verdict> => {
+    // Usage-limit recovery owns these delivery attempts. The generic restart
+    // policy must never start a second continuation for an ambiguous send.
+    if (isUsageLimitReservationId(item.turnId)) return SETTLE;
     const recovery = get().restartRecovery;
     if (recovery.consumedTurnIds.includes(item.turnId)) return SETTLE;
     if (hostRunsTaskTurn(context.live, item)) return SKIP;

@@ -8,7 +8,8 @@ import {
   resolveUnreadableUsageRetryDelay,
   UNREADABLE_USAGE_RETRY_MAX_MS,
 } from "../src/store/app-store-task-pause-actions";
-import { listDueUsageLimitAutoResumes, resolveNextUsageLimitAutoResume } from "../src/store/task-work-pause";
+import { createAppStorePersistenceOptions } from "../src/store/app-store-persistence";
+import { listDueUsageLimitAutoResumes, normalizeUsageLimitPauses, resolveNextUsageLimitAutoResume } from "../src/store/task-work-pause";
 import type { AppState } from "../src/store/app-store.types";
 import { pauseQueueOnUsageLimitRefusal, settleTaskQueueAfterTurn } from "../src/store/task-work-pause-wiring";
 
@@ -403,4 +404,82 @@ describe("an automatic resume waits out transient reads instead of disarming", (
     await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
     expect(h.get().workspaceRuntimeCacheById["ws-main"]?.messagesByTask["task-main"]?.[0]?.isStreaming).toBe(false);
   });
+});
+
+function restartPauseState(h: ReturnType<typeof harness>) {
+  const previous = { ...h.get(), workspaces: [], recentRepositories: [] };
+  const saved = JSON.parse(JSON.stringify(createAppStorePersistenceOptions().partialize(previous)));
+  return {
+    usageLimitPauseByTask: normalizeUsageLimitPauses(saved.usageLimitPauseByTask),
+    restoredQueueReleasedByTask: saved.restoredQueueReleasedByTask,
+  };
+}
+
+test("a restarted continuation keeps its reservation and uses the selected account", async () => {
+  const taskId = "task-main";
+  const sentAt = Date.now();
+  const first = harness();
+  first.actions.pauseTaskForUsageLimit({
+    taskId, workspaceId: "ws-main", providerId: "codex", accountProfileId: ACCOUNT_A,
+    model: "gpt-5.5", stoppedTurn: true, origin: { kind: "turn", id: "exhausted-turn" },
+    usageLimit: { providerId: "codex", windowLabel: "Session", resetsAt: sentAt + 60_000 },
+  });
+  first.actions.setUsageLimitAutoResume({ taskId, enabled: true });
+  const saved = restartPauseState(first);
+  const id = saved.usageLimitPauseByTask[taskId]!.reservation!.id;
+  let consumed = false;
+  const restarted = harness(undefined, { persistence: {
+    hasUsageLimitResume: async () => consumed,
+    listWorkspaces: async () => ({ ok: true, workspaces: [] }),
+    listTaskTurns: async () => ({ ok: true, turns: [] }),
+  } });
+  restarted.set(saved);
+  expect(listDueUsageLimitAutoResumes({ pauses: restarted.get().usageLimitPauseByTask, now: sentAt })).toEqual([]);
+  expect(listDueUsageLimitAutoResumes({ pauses: restarted.get().usageLimitPauseByTask, now: sentAt + 121_000 })).toEqual([taskId]);
+  const resume = () => restarted.actions.resumePausedTaskWork({ taskId, trigger: "auto" });
+  await Promise.all([resume(), resume()]);
+  expect(restarted.sends).toEqual([expect.objectContaining({
+    usageLimitResume: expect.objectContaining({ turnId: id }),
+    runtimeOverrides: expect.objectContaining({ codexAccountProfileId: ACCOUNT_B, model: "gpt-5.5" }),
+  })]);
+  const beforeAcknowledgement = restartPauseState(restarted);
+  expect(beforeAcknowledgement.usageLimitPauseByTask[taskId]).toMatchObject({
+    origin: { kind: "turn", id: "exhausted-turn" }, reservation: { id },
+  });
+  consumed = true;
+  restarted.set(beforeAcknowledgement);
+  await resume();
+  expect(restarted.sends).toHaveLength(1);
+  expect(restarted.get().usageLimitPauseByTask[taskId]).toBeUndefined();
+  // The host claimed the send but has no successful terminal receipt.
+  expect(restartPauseState(restarted).restoredQueueReleasedByTask[taskId]).toBeUndefined();
+  expect(restarted.dispatches).toHaveLength(0);
+});
+
+test("unreadable quota backs off across reload and Cancel clears the saved schedule", async () => {
+  const taskId = "task-main";
+  const offline = async () => { throw new Error("offline"); };
+  const first = harness(offline);
+  first.pause();
+  first.actions.setUsageLimitAutoResume({ taskId, enabled: true });
+  await first.actions.resumePausedTaskWork({ taskId, trigger: "auto" });
+  const saved = restartPauseState(first);
+  expect(saved.usageLimitPauseByTask[taskId]).toMatchObject({ unreadableUsageReads: 1 });
+  const restarted = harness(offline);
+  restarted.set(saved);
+  const before = Date.now();
+  await restarted.actions.resumePausedTaskWork({ taskId, trigger: "auto" });
+  const backedOff = restartPauseState(restarted).usageLimitPauseByTask[taskId]!;
+  expect(backedOff.unreadableUsageReads).toBe(2);
+  expect(backedOff.autoResumeAt!).toBeGreaterThanOrEqual(before + 10 * 60_000);
+  restarted.actions.setUsageLimitAutoResume({ taskId, enabled: false });
+  const cancelled = restartPauseState(restarted);
+  const afterCancel = harness();
+  afterCancel.set(cancelled);
+  await afterCancel.actions.resumePausedTaskWork({ taskId, trigger: "auto" });
+  expect(afterCancel.get().usageLimitPauseByTask[taskId]).toBeDefined();
+  expect(afterCancel.get().usageLimitPauseByTask[taskId]?.autoResumeAt).toBeUndefined();
+  expect(afterCancel.get().usageLimitPauseByTask[taskId]?.unreadableUsageReads).toBeUndefined();
+  expect(afterCancel.requests).toEqual([]);
+  expect(afterCancel.dispatches).toEqual([]);
 });

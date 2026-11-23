@@ -58,6 +58,13 @@ export class TurnAdmissionStore {
     this.db.prepare("INSERT INTO app_state(key, value_json, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value_json=excluded.value_json, updated_at=excluded.updated_at")
       .run(key, JSON.stringify(value), new Date().toISOString());
   }
+  hasUsageLimitResume(id: string): boolean {
+    return Boolean(this.db.prepare("SELECT 1 FROM app_state WHERE key = ?").get(id));
+  }
+  claimUsageLimitResume(id: string): boolean {
+    return this.db.prepare("INSERT OR IGNORE INTO app_state(key, value_json, updated_at) VALUES(?, 'true', ?)")
+      .run(id, new Date().toISOString()).changes === 1;
+  }
   /** One unreadable row is dropped; it never keeps the host from starting. */
   read(): SavedTurnStart[] {
     return this.readKey("turn_admission").flatMap((row) => {
