@@ -85,6 +85,57 @@ function buildLiveWorkspace(
 }
 
 describe("Fleet attention projection", () => {
+  test("counts every pending question and approval once, including a persisted mirror", () => {
+    const messages = [buildAssistantMessage({
+      turnId: "turn-1",
+      parts: [
+        ...["input-1", "input-2"].map((requestId) => ({
+          type: "user_input" as const, state: "input-requested" as const,
+          requestId, toolName: "AskUserQuestion", questions: [],
+        })),
+        ...["approval-1", "approval-2"].map((requestId) => ({
+          type: "approval" as const, state: "approval-requested" as const,
+          requestId, toolName: "Bash", description: "Run tests",
+        })),
+      ],
+    })];
+    const projection = buildFleetAttentionProjection({
+      notifications: [buildNotification()],
+      liveWorkspaces: [buildLiveWorkspace({
+        messagesByTask: { "task-1": messages },
+        activeTurnIdsByTask: { "task-1": "turn-1" },
+      })],
+      prWorkspaces: [],
+    });
+
+    expect(projection.blockingItems.map((item) => item.requestId).sort())
+      .toEqual(["approval-1", "approval-2", "input-1", "input-2"]);
+    expect(projection.count).toBe(4);
+    expect(projection.attentionItemsByWorkspaceId["workspace-1"]).toHaveLength(4);
+  });
+
+  test("shows async requests without a live turn and excludes requests from a superseded synchronous turn", () => {
+    const priorTurn = buildAssistantMessage({
+      turnId: "previous-turn",
+      parts: [
+        { type: "user_input", requestId: "async", toolName: "AskUserQuestion", state: "input-requested", questions: [], delivery: "async" },
+        { type: "user_input", requestId: "sync", toolName: "AskUserQuestion", state: "input-requested", questions: [] },
+        { type: "approval", requestId: "approval-1", toolName: "Bash", description: "Run tests", state: "approval-requested" },
+      ],
+    });
+    for (const activeTurnId of [undefined, "new-turn"]) {
+      const projection = buildFleetAttentionProjection({
+        notifications: [],
+        liveWorkspaces: [buildLiveWorkspace({
+          messagesByTask: { "task-1": [priorTurn] },
+          activeTurnIdsByTask: { "task-1": activeTurnId },
+        })],
+        prWorkspaces: [],
+      });
+      expect(projection.blockingItems.map((item) => item.requestId)).toEqual(["async"]);
+    }
+  });
+
   test("keeps unresolved cold approval notifications even when read", () => {
     const projection = buildFleetAttentionProjection({
       notifications: [

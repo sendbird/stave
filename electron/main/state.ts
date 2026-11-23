@@ -13,17 +13,7 @@ let persistenceBootstrapStatus: PersistenceBootstrapStatus =
   IDLE_PERSISTENCE_BOOTSTRAP_STATUS;
 
 export async function ensurePersistenceReady() {
-  if (sqliteStore) {
-    return sqliteStore;
-  }
-  const dbPath = path.join(app.getPath("userData"), "stave.sqlite");
-  const store = new SqliteStore({
-    dbPath,
-    onBootstrapStatusChange: setPersistenceBootstrapStatus,
-  });
-  store.reconcileInterruptedRuns({ now: new Date().toISOString() });
-  sqliteStore = store;
-  return sqliteStore;
+  return ensurePersistenceReadySync();
 }
 
 export function ensurePersistenceReadySync() {
@@ -34,6 +24,7 @@ export function ensurePersistenceReadySync() {
   const store = new SqliteStore({
     dbPath,
     onBootstrapStatusChange: setPersistenceBootstrapStatus,
+    recoverInterruptedTaskNotifications: true,
   });
   store.reconcileInterruptedRuns({ now: new Date().toISOString() });
   sqliteStore = store;

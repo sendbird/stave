@@ -1137,9 +1137,7 @@ async function persistUserInputNotification(args: {
   event: Extract<NormalizedProviderEvent, { type: "user_input" }>;
   session: WorkspaceSessionState;
 }) {
-  const task =
-    args.session.tasks.find((candidate) => candidate.id === args.taskId) ??
-    null;
+  const task = args.session.tasks.find((candidate) => candidate.id === args.taskId);
   if (!task || !publishesInteractionNotifications(task)) {
     return;
   }
@@ -1185,6 +1183,7 @@ async function persistUserInputNotification(args: {
       questionCount: args.event.questions.length,
       requestId: args.event.requestId,
       messageId: location.messageId,
+      ...(location.part.delivery ? { delivery: location.part.delivery } : {}),
       ...attribution.payload,
     },
     dedupeKey: `task.user_input_requested:${args.turnId}:${args.event.requestId}`,

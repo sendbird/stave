@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { isExternallyManagedTask } from "../tasks";
-import type { Task } from "../../types/chat";
+import type { Task, UserInputPart } from "../../types/chat";
+import { runQuestionStage } from "../agent-runs/persistent-question";
+
+/** These questions can still be answered by a follow-up turn. */
+export function canAnswerUserInputWithoutTurn(
+  part: Pick<UserInputPart, "requestId"> & { delivery?: unknown },
+) {
+  return part.delivery === "async" || runQuestionStage(part.requestId) !== null;
+}
 
 /** Delegated children need the user; external root controllers handle their own requests. */
 export function publishesInteractionNotifications(

@@ -43,6 +43,22 @@ test("cold child request hydration retains parent selection and the full durable
   expect(state.workspaceRuntimeCacheById["child-workspace"]?.activeTurnIdsByTask.child).toBe("child-turn");
 });
 
+test("opening a cold Fleet request cannot revive an interactive turn from the previous host", async () => {
+  const store = await setup();
+  const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
+  globalThis.window.api = { provider: { listLiveTurns: async () => ({
+    ok: true, turns: [], hostStartedAt: Date.parse("2026-10-01T01:00:00Z"),
+  }) } } as Window["api"];
+  await loadFleetInteraction(expected, {
+    loadWorkspaceShell: async () => ({
+      ...shell, tasks: [{ ...child, controlMode: "interactive", parentTaskId: null }],
+    }),
+    listActiveWorkspaceTurns: async () => turns,
+    loadTaskMessagesPage: async () => page,
+  });
+  expect(store.getState().workspaceRuntimeCacheById["child-workspace"]?.activeTurnIdsByTask.child).toBeUndefined();
+});
+
 for (const change of ["metadata", "messages", "turn"] as const) {
   test(`a ${change} update during the child read wins over the persisted snapshot`, async () => {
     const store = await setup(true);

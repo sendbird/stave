@@ -15,6 +15,9 @@ The notification center lives in the top bar behind the bell icon.
   stuck, or finished. Clicking one opens its lead task.
 
 Notifications stay in the app even if you close and reopen Stave, and even if the originating task has been archived.
+Reopening Stave keeps interrupted requests in history and clears them from the
+unread count once they can no longer be answered. Requests that still accept an
+answer remain available. Restoring an existing notification is silent.
 
 Stave keeps the 50 most recent notifications and deletes older ones automatically. Approval and input requests that are still waiting for you are never deleted by this limit, no matter how old they are.
 

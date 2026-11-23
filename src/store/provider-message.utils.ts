@@ -425,12 +425,14 @@ export function interruptPendingToolInteractionParts(args: {
 
 export function interruptPendingToolInteractionsInMessages(args: {
   messages: ChatMessage[];
+  preserveAsync?: boolean;
   stopped?: boolean;
 }): ChatMessage[] {
   let changed = false;
   const nextMessages = args.messages.map((message) => {
     const nextParts = interruptPendingToolInteractionParts({
       parts: message.parts,
+      preserveAsync: args.preserveAsync,
       stopped: args.stopped,
     });
     if (nextParts === message.parts) {

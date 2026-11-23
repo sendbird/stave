@@ -16,10 +16,7 @@ import {
   isTaskArchived,
   isTaskManaged,
 } from "@/lib/tasks";
-import {
-  findLatestPendingApproval,
-  findLatestPendingUserInput,
-} from "@/store/provider-message.utils";
+import { canAnswerUserInputWithoutTurn } from "@/lib/notifications/interaction-policy";
 import {
   approvalInteractionId,
   userInputInteractionId,
@@ -349,19 +346,33 @@ export function collectFleetLiveAttentionItems(
         continue;
       }
 
-      // A locally driven item belongs to a running turn. Without one the task is
-      // done and any leftover pending part is history, not an open request.
-      // Managed tasks are the exception: their requests are answered through the
-      // host, so they stay actionable without a renderer turn.
       const activeTurnId = workspace.activeTurnIdsByTask[task.id];
       const messages = workspace.messagesByTask[task.id] ?? [];
       const activity = workspace.providerTurnActivityByTask[task.id];
-      const canAnswerRequest = Boolean(activeTurnId) || isTaskManaged(task);
-      const pendingInput = canAnswerRequest ? findLatestPendingUserInput({ messages }) : null;
-      if (pendingInput) {
-        const requestId = normalizeRequired(pendingInput.part.requestId);
-        if (requestId) {
-          const kind = "user-input" as const;
+      const taskIsManaged = isTaskManaged(task);
+      const previousItemCount = attentionItems.length;
+      for (const message of messages) {
+        // Older snapshots can lack a turn id on the message. A different
+        // known turn, however, cannot answer an old synchronous request.
+        const canAnswerInTurn = activeTurnId
+          ? !message.turnId || message.turnId === activeTurnId
+          : taskIsManaged;
+        for (const part of message.parts) {
+          let kind: "user-input" | "approval";
+          let detail: string | undefined;
+          if (part.type === "user_input" && part.state === "input-requested" &&
+              (canAnswerInTurn || canAnswerUserInputWithoutTurn(part))) {
+            kind = "user-input";
+            detail = part.questions[0]?.question || part.questions[0]?.header;
+          } else if (part.type === "approval" && part.state === "approval-requested" && canAnswerInTurn) {
+            kind = "approval";
+            detail = `${part.toolName}: ${part.description}`;
+          } else {
+            continue;
+          }
+          const requestId = normalizeRequired(part.requestId);
+          if (!requestId) continue;
+          const turnId = canAnswerInTurn ? activeTurnId : undefined;
           attentionItems.push({
             ...buildLiveBase({ workspace, task }),
             id: buildInteractionAttentionId({
@@ -373,47 +384,18 @@ export function collectFleetLiveAttentionItems(
             kind,
             priority: FLEET_ATTENTION_PRIORITY[kind],
             requestId,
-            messageId: pendingInput.messageId,
-            detail: pendingInput.part.questions[0]?.question || pendingInput.part.questions[0]?.header,
-            turnId: activeTurnId,
+            messageId: message.id,
+            turnId,
+            detail,
             waitingSince: resolveLiveRaisedAt({
               activity,
-              activeTurnId,
-              interactionId: userInputInteractionId(requestId),
+              activeTurnId: turnId,
+              interactionId: kind === "approval" ? approvalInteractionId(requestId) : userInputInteractionId(requestId),
             }),
           });
-          continue;
         }
       }
-
-      const pendingApproval = canAnswerRequest ? findLatestPendingApproval({ messages }) : null;
-      if (pendingApproval) {
-        const requestId = normalizeRequired(pendingApproval.part.requestId);
-        if (requestId) {
-          const kind = "approval" as const;
-          attentionItems.push({
-            ...buildLiveBase({ workspace, task }),
-            id: buildInteractionAttentionId({
-              kind,
-              workspaceId: workspace.workspaceId,
-              taskId: task.id,
-              requestId,
-            }),
-            kind,
-            priority: FLEET_ATTENTION_PRIORITY[kind],
-            requestId,
-            messageId: pendingApproval.messageId,
-            turnId: activeTurnId,
-            waitingSince: resolveLiveRaisedAt({
-              activity,
-              activeTurnId,
-              interactionId: approvalInteractionId(requestId),
-            }),
-            detail: `${pendingApproval.part.toolName}: ${pendingApproval.part.description}`,
-          });
-          continue;
-        }
-      }
+      if (attentionItems.length > previousItemCount) continue;
 
       const turnStatus = classifyTaskStatus({ task, messages, activeTurnId, activity: activity ?? null });
       const failedMessage = messages.at(-1);

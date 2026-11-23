@@ -15,7 +15,6 @@ import type { AppNotificationCreateInput } from "@/lib/notifications/notificatio
 import {
   isAgentRunAttentionNotificationKind,
   isNotificationAttentionKind,
-  isTarsNotificationKind,
 } from "@/lib/notifications/notification.types";
 import { showNotificationToast } from "@/store/app-notification-builders";
 import type { AppState } from "@/store/app-store.types";
@@ -113,8 +112,8 @@ export function createAppStoreNotificationRuntime(args: {
           notification: result.notification!,
         }),
       }));
-      // Watchers can raise the same run or Tars fact again; announce only its first insert.
-      if (!result.inserted && (result.notification.kind.startsWith("agent_run.") || isTarsNotificationKind(result.notification.kind))) {
+      // Only the writer that inserted the row may announce it.
+      if (!result.inserted) {
         return result.notification;
       }
       if (result.notification.payload.tarsManaged === true) {

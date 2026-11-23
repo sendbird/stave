@@ -6,6 +6,8 @@ import {
   validateFleetInteractionAction,
   type FleetInteractionControlIdentity,
 } from "@/lib/fleet/control-plane";
+import { readProviderLiveTurns } from "@/lib/providers/live-turns";
+import { isDelegatedTask, isTaskManaged } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage, Task } from "@/types/chat";
 import { buildWorkspaceSessionStateFromShell } from "@/store/workspace-session-state";
@@ -146,8 +148,9 @@ export function isOtherRepositoryInteraction(
  *
  * Bounded and on demand: nothing is read when the request is already loaded
  * and pending, and only the task's shell, one page of its messages and the
- * workspace's active turns are read otherwise. The read lands in the runtime
- * cache (or the active session); provider events that arrive during the read
+ * workspace's active turns are read otherwise and checked against the live
+ * host. The read lands in the runtime cache (or the active session); provider
+ * events that arrive during the read
  * win over the persisted snapshot. Only a task of the open repository can be
  * loaded; another repository's request is answered by opening it.
  */
@@ -189,7 +192,7 @@ async function readAndMerge(
     workspaceId: expected.workspaceId,
   });
   const seqAtStart = loadWriteSeq;
-  const [shell, page, turns] = await Promise.all([
+  const [shell, page, turns, live] = await Promise.all([
     reads.loadWorkspaceShell({ workspaceId: expected.workspaceId }),
     reads.loadTaskMessagesPage({
       workspaceId: expected.workspaceId,
@@ -201,15 +204,28 @@ async function readAndMerge(
       workspaceId: expected.workspaceId,
       limit: 200,
     }),
+    readProviderLiveTurns(window.api?.provider?.listLiveTurns),
   ]);
   const task = shell?.tasks.find((candidate) => candidate.id === expected.taskId);
   if (!shell || !task) {
     throw new Error(i18n.t("fleet:inlineAnswer.taskUnavailable"));
   }
+  const liveTurnIds = new Set(live?.turns.map((turn) => turn.turnId));
+  const hostOwnedTaskIds = new Set(
+    shell.tasks.filter((task) => isTaskManaged(task) || isDelegatedTask(task)).map((task) => task.id),
+  );
+  // An unfinished SQLite row from the previous host is history. Loading an
+  // async question in that workspace must not make its old turn live again.
+  const currentTurns = live
+    ? turns.filter((turn) => {
+        const fromPreviousHost = Date.parse(turn.createdAt) < live.hostStartedAt;
+        return !fromPreviousHost || hostOwnedTaskIds.has(turn.taskId) || liveTurnIds.has(turn.id);
+      })
+    : turns;
   const loaded = buildWorkspaceSessionStateFromShell({
     shell,
     messagesByTask: { [expected.taskId]: page.messages },
-    latestTurns: turns,
+    latestTurns: currentTurns,
   });
   const loadedTask = loaded.tasks.find((candidate) => candidate.id === expected.taskId) ?? task;
   useAppStore.setState((state) => {
