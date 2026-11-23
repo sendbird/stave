@@ -1,7 +1,6 @@
-import { nativeImage } from "electron";
+import { nativeImage, type NativeImage } from "electron";
 import { sendCdpCommandIfAttached } from "./browser-cdp-controller";
 import {
-  assertLensScreenshotPng,
   assertLensScreenshotRect,
 } from "./browser-screenshot-guard";
 
@@ -23,6 +22,8 @@ export async function captureFullPage(
   id: number,
   command: Command,
   assertDocument: () => void,
+  waitForFrame: () => Promise<void>,
+  captureFrame: () => Promise<NativeImage>,
 ): Promise<string> {
   const tree = (await command("Page.getFrameTree")) as {
     frameTree: { frame: { id: string } };
@@ -66,10 +67,9 @@ export async function captureFullPage(
             root.style.setProperty("overflow-anchor", "none", "important");
             return geometry();
           },
-          async move(x, y) {
+          move(x, y) {
             scrollTo({ left: x, top: y, behavior: "instant" });
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            return geometry();
+            return true;
           },
           restore() {
             scrollTo({ left: start.x, top: start.y, behavior: "instant" });
@@ -104,10 +104,12 @@ export async function captureFullPage(
     const pixels = Buffer.alloc(width * height * 4);
     for (let top = 0; top < height; top += tileHeight) {
       for (let left = 0; left < width; left += tileWidth) {
-        const at = await invoke<Geometry>(
+        await invoke<boolean>(
           "function(x, y) { return this.move(x, y); }",
           [left, top],
         );
+        await waitForFrame();
+        const at = await invoke<Geometry>("function() { return this.geometry(); }");
         const stable = (g: Geometry) =>
           g.width === initial.width &&
           g.height === initial.height &&
@@ -117,9 +119,7 @@ export async function captureFullPage(
           throw new Error(
             "Lens page resized during full-page capture; retry after it settles.",
           );
-        const result = (await command("Page.captureScreenshot", {
-          format: "png",
-        })) as { data: string };
+        const image = await captureFrame();
         const after = await invoke<Geometry>(
           "function() { return this.geometry(); }",
         );
@@ -127,11 +127,6 @@ export async function captureFullPage(
           throw new Error(
             "Lens page moved during full-page capture; retry after it settles.",
           );
-        const png = Buffer.from(result.data, "base64");
-        assertLensScreenshotPng(png);
-        const image = nativeImage.createFromBuffer(png);
-        if (image.isEmpty())
-          throw new Error("Lens screenshot returned no image.");
         // Compose in CSS pixels; page zoom and device scale are encoded in the
         // actual viewport bitmap, rather than inferred from the host display.
         const bitmap = image

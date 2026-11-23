@@ -3,6 +3,7 @@ import { isCdpPageSleeping, setCdpPageSleeping } from "./browser-cdp-controller"
 import { forgetLensAutomation } from "./browser-automation-control";
 import { LensResourceHistory, type LensResourceEvent } from "../../../src/lib/lens/lens-resource-history";
 import { isLensKeptActive, setLensKeptActive } from "./lens-resource-preferences";
+import { lensCaptureLane } from "./browser-capture-lane";
 // ---------------------------------------------------------------------------
 // Browser session manager – singleton per Electron main process
 // Tracks Lens sessions keyed by (workspaceId, lensSessionId) so a workspace can
@@ -940,6 +941,7 @@ function wireBrowserSession(args: {
    * session that has no tab to rebuild it.
    */
   const handleGuestGone = () => {
+    lensCaptureLane.cancel(webContents.id, new Error("The Lens guest closed during capture."));
     reapDeadBrowserSession(webContents.id, "guest-gone");
   };
   webContents.once("destroyed", handleGuestGone);
@@ -1760,6 +1762,12 @@ export function setSessionPresented(
   const wasVisible = session.visible;
   session.visible = presented;
   if (presented) {
+    if (!wasVisible) {
+      lensCaptureLane.cancel(
+        session.webContentsId,
+        new Error("The Lens tab was shown during capture; retry the screenshot."),
+      );
+    }
     if (isCdpPageSleeping(session.webContentsId)) void setCdpPageSleeping(session.webContentsId, false).catch(() => undefined);
     session.lastHiddenAtMs = 0;
     session.lastVisibleAt = ++lensVisibilitySequence;

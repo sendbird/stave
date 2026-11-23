@@ -2,6 +2,7 @@ import type { BrowserSessionState } from "./browser-manager";
 import { lensCaptureLane } from "./browser-capture-lane";
 import { acquireLensCapturePaint } from "./browser-capture-paint";
 import { isCdpPageSleeping } from "./browser-cdp-controller";
+import { captureLensSurface } from "./browser-surface-capture";
 
 /** A preview must neither overlap capture nor make a successful action fail. */
 export async function captureLensPreview(
@@ -10,6 +11,7 @@ export async function captureLensPreview(
   const guest = session.webContents;
   if (
     guest.isDestroyed() ||
+    guest.isLoadingMainFrame() ||
     lensCaptureLane.isBusy(guest.id) ||
     isCdpPageSleeping(guest.id)
   )
@@ -22,11 +24,8 @@ export async function captureLensPreview(
         const release = await acquireLensCapturePaint(guest.id, context.signal);
         try {
           context.assertActive();
-          if (guest.isDestroyed() || session.documentId !== documentId) return;
-          const image = await guest.capturePage(undefined, {
-            stayHidden: true,
-            stayAwake: true,
-          });
+          if (guest.isDestroyed() || guest.isLoadingMainFrame() || session.documentId !== documentId) return;
+          const image = await captureLensSurface(guest);
           context.assertActive();
           if (
             guest.isDestroyed() ||

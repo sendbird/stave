@@ -1,6 +1,7 @@
 import { captureFullPage } from "./browser-full-page-capture";
 import { acquireLensCapturePaint } from "./browser-capture-paint";
-import { nativeImage, webContents } from "electron";
+import { webContents, type NativeImage } from "electron";
+import { captureLensSurface } from "./browser-surface-capture";
 import type { BrowserScreenshotOptions } from "../../../src/lib/lens/lens.types";
 import {
   isLensCaptureViewport,
@@ -17,11 +18,9 @@ import {
 } from "./browser-cdp-controller";
 import {
   lensCaptureLane,
-  type LensCaptureContext,
 } from "./browser-capture-lane";
 import {
   assertLensScreenshotRect,
-  assertLensScreenshotPng,
   LENS_SCREENSHOT_COMMAND_TIMEOUT_MS,
 } from "./browser-screenshot-guard";
 
@@ -55,7 +54,7 @@ function captureDocument(id: number) {
     throw new Error("No Lens browser session found for capture.");
   const documentId = session.documentId;
   const url = wc.getURL();
-  return () => {
+  const assertDocument = () => {
     if (
       webContents.fromId(id) !== wc ||
       wc.isDestroyed() ||
@@ -69,6 +68,7 @@ function captureDocument(id: number) {
       );
     }
   };
+  return { wc, assertDocument };
 }
 
 /** A caller deadline never releases an unfinished native screenshot. */
@@ -83,9 +83,7 @@ export async function captureScreenshot(
     );
   }
   if (options.clip) assertLensScreenshotRect(options.clip, "selected-area");
-  const assertDocument = captureDocument(id);
-  let startedFullPage = false;
-  let timeoutCleanup: Promise<void> | undefined;
+  const { wc, assertDocument } = captureDocument(id);
   return lane.run(
     id,
     async (context) => {
@@ -102,6 +100,14 @@ export async function captureScreenshot(
         assertCurrent();
         return result;
       };
+      const waitForFrame = () => waitForCaptureFrame(command, context.signal);
+      const captureFrame = async () => {
+        assertCurrent();
+        const image = await captureLensSurface(wc);
+        assertCurrent();
+        assertLensScreenshotRect({ x: 0, y: 0, ...image.getSize() }, "image");
+        return image;
+      };
       assertCurrent();
       await assertCdpAllowedForWebContentsId(id, "capture screenshot");
       assertCurrent();
@@ -110,12 +116,7 @@ export async function captureScreenshot(
         releasePaint = await acquireLensCapturePaint(id, context.signal);
         assertCurrent();
         await command("Page.enable");
-        await command("Runtime.evaluate", {
-          expression:
-            "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))",
-          awaitPromise: true,
-          returnByValue: true,
-        });
+        await waitForFrame();
         await lifecycle.prepare?.();
         assertCurrent();
         if (options.fullPage) {
@@ -126,21 +127,22 @@ export async function captureScreenshot(
           assertLensScreenshotRect(clip, "full-page");
           await assertCdpAllowedForWebContentsId(id, "capture screenshot");
           assertCurrent();
-          startedFullPage = true;
-          return await captureFullPage(id, command, assertDocument);
+          return await captureFullPage(
+            id,
+            command,
+            assertDocument,
+            waitForFrame,
+            captureFrame,
+          );
         }
         return await captureViewport(
           id,
           options,
-          context,
           command,
           assertCurrent,
+          captureFrame,
         );
       } finally {
-        if (startedFullPage) {
-          await timeoutCleanup;
-          await clearOverride(id);
-        }
         try {
           assertDocument();
           await lifecycle.restore?.();
@@ -151,14 +153,7 @@ export async function captureScreenshot(
         }
       }
     },
-    {
-      timeoutMs: LENS_SCREENSHOT_COMMAND_TIMEOUT_MS,
-      onTimeout: () => {
-        // Repair emulation left by earlier versions without freeing the lane.
-        // Native settlement and scroll restoration still precede the next capture.
-        if (startedFullPage) timeoutCleanup = clearOverride(id);
-      },
-    },
+    { timeoutMs: LENS_SCREENSHOT_COMMAND_TIMEOUT_MS },
   );
 }
 
@@ -166,6 +161,42 @@ type Command = (
   method: string,
   params?: Record<string, unknown>,
 ) => Promise<unknown>;
+
+async function waitForCaptureFrame(command: Command, signal: AbortSignal): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  let onAbort!: () => void;
+  const unavailable = new Promise<never>((_, reject) => {
+    onAbort = () => reject(signal.reason);
+    timeout = setTimeout(() => {
+      reject(new Error("Lens page did not draw a frame. Show its Lens tab and retry."));
+    }, 1_000);
+    signal.addEventListener("abort", onAbort, { once: true });
+  });
+  try {
+    // This probe only waits for frames. It can be abandoned independently
+    // of the lane because it never starts a native screenshot or changes the page.
+    const result = (await Promise.race([
+      unavailable,
+      command("Runtime.evaluate", {
+        expression: `new Promise(resolve => {
+          const deadline = setTimeout(() => resolve(false), 750);
+          requestAnimationFrame(() => requestAnimationFrame(() => {
+            clearTimeout(deadline);
+            resolve(true);
+          }));
+        })`,
+        awaitPromise: true,
+        returnByValue: true,
+      }),
+    ])) as { result?: { value?: boolean } };
+    if (result.result?.value !== true) {
+      throw new Error("Lens page did not draw a frame. Show its Lens tab and retry.");
+    }
+  } finally {
+    clearTimeout(timeout);
+    signal.removeEventListener("abort", onAbort);
+  }
+}
 
 async function measure(command: Command, selector?: string): Promise<Geometry> {
   const result = (await command("Runtime.evaluate", {
@@ -200,9 +231,9 @@ async function measure(command: Command, selector?: string): Promise<Geometry> {
 async function captureViewport(
   id: number,
   options: CaptureOptions,
-  context: LensCaptureContext,
   command: Command,
   assertCurrent: () => void,
+  captureFrame: () => Promise<NativeImage>,
 ): Promise<string> {
   const region = options.clip || options.selector !== undefined;
   // Target lookup belongs inside the lane: an earlier capture can temporarily
@@ -212,21 +243,14 @@ async function captureViewport(
   if (clip) assertLensScreenshotRect(clip, "selected-area");
   await assertCdpAllowedForWebContentsId(id, "capture screenshot");
   assertCurrent();
-  const result = (await command("Page.captureScreenshot", {
-    format: "png",
-  })) as { data: string };
-  if (!before || !clip) return `data:image/png;base64,${result.data}`;
+  const image = await captureFrame();
+  if (!before || !clip) return `data:image/png;base64,${image.toPNG().toString("base64")}`;
   const after = await measure(command, options.selector);
   if (JSON.stringify(before) !== JSON.stringify(after)) {
     throw new Error(
       "The screenshot target or viewport moved during capture; retry the screenshot.",
     );
   }
-  context.assertActive();
-  const buffer = Buffer.from(result.data, "base64");
-  assertLensScreenshotPng(buffer);
-  const image = nativeImage.createFromBuffer(buffer);
-  if (image.isEmpty()) throw new Error("Lens screenshot returned no image.");
   const crop = resolveLensViewportCrop({
     clip,
     viewport: before.viewport,

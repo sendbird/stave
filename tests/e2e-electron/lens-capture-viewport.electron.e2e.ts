@@ -116,6 +116,21 @@ function guestViewport() {
   }));
 }
 
+async function expectViewportFollowsGuestElement(zoom = 1) {
+  const guest = stave.page.locator(`webview[data-lens-session-id="${SESSION_ID}"]`);
+  // Host layout and native guest size arrive in separate compositor frames.
+  // A zoomed CSS viewport can differ by one pixel after native rounding.
+  await expect(async () => {
+    const rect = await guest.boundingBox();
+    expect(rect).not.toBeNull();
+    const viewport = await guestViewport();
+    expect(Math.abs(viewport.width - rect!.width / zoom)).toBeLessThanOrEqual(1);
+    expect(Math.abs(viewport.height - rect!.height / zoom)).toBeLessThanOrEqual(1);
+    expect(viewport.offsetLeft).toBe(0);
+    expect(viewport.offsetTop).toBe(0);
+  }).toPass({ timeout: 5_000 });
+}
+
 test.beforeAll(async () => {
   repositoryDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
   execFileSync("git", ["init", "--initial-branch=main", repositoryDir], {
@@ -351,7 +366,7 @@ for (const zoom of [1, 1.25]) {
       await test
         .info()
         .attach("full-page.png", { path: imagePath, contentType: "image/png" });
-      await expect.poll(() => guestViewport()).toEqual(before);
+      await expectViewportFollowsGuestElement(zoom);
       const pixel = pixelAtFraction(
         image,
         geometry.x / geometry.width,
@@ -422,17 +437,20 @@ test("repeated hidden-workspace captures preserve page state and recover on retu
       () => (window as unknown as { captureMarker: string }).captureMarker,
     ),
   ).toBe("retained");
-  const viewport = await guestViewport();
-  const rect = await guest.boundingBox();
-  expect(viewport.width).toBe(Math.round(rect!.width));
-  expect(viewport.height).toBe(Math.round(rect!.height));
+  await expectViewportFollowsGuestElement();
   await stave.page.screenshot({
     path: test.info().outputPath("returned-workspace.png"),
   });
 });
 
 test("full-page failure restores scroll and page styles", async () => {
-  await guestPage().evaluate(() => window.scrollTo(0, 350));
+  await guestPage().evaluate(async () => {
+    window.scrollTo(0, 350);
+    // Drain setup's scroll event before listening for capture-induced scrolling.
+    await new Promise<void>((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+    );
+  });
   const before = await guestPage().evaluate(() => ({
     y: scrollY,
     style: document.documentElement.getAttribute("style"),

@@ -1,12 +1,9 @@
 import { beforeEach, expect, mock, test } from "bun:test";
+import type { NativeImage } from "electron";
 const cleanup: string[] = [];
 let composed: Buffer;
 mock.module("electron", () => ({
   nativeImage: {
-    createFromBuffer: (png: Buffer) => ({
-      isEmpty: () => false,
-      resize: () => ({ toBitmap: () => Buffer.alloc(16, png[0]) }),
-    }),
     createFromBitmap: (pixels: Buffer) => {
       composed = pixels;
       return { toPNG: () => Buffer.from("assembled") };
@@ -14,7 +11,6 @@ mock.module("electron", () => ({
   },
 }));
 mock.module("../electron/main/browser/browser-screenshot-guard", () => ({
-  assertLensScreenshotPng: () => {},
   assertLensScreenshotRect: () => {},
 }));
 mock.module("../electron/main/browser/browser-cdp-controller", () => ({
@@ -56,13 +52,18 @@ async function command(
     }
     return { result: { value: geometry() } };
   }
-  if (method === "Page.captureScreenshot") {
-    shots++;
-    if (shots === failAt) throw new Error("native failed");
-    return { data: Buffer.from([10 + y]).toString("base64") };
-  }
   throw new Error(method);
 }
+
+async function captureFrame(): Promise<NativeImage> {
+  shots++;
+  if (shots === failAt) throw new Error("native failed");
+  return { resize: () => ({ toBitmap: () => Buffer.alloc(16, 10 + y) }) } as NativeImage;
+}
+
+const capture = (assertDocument = () => {}) =>
+  captureFullPage(1, command, assertDocument, async () => {}, captureFrame);
+
 beforeEach(() => {
   cleanup.length = 0;
   y = shots = failAt = 0;
@@ -70,7 +71,7 @@ beforeEach(() => {
 });
 
 test("stitches distinct lower pixels and handles bottom scroll clamping", async () => {
-  await expect(captureFullPage(1, command, () => {})).resolves.toContain(
+  await expect(capture()).resolves.toContain(
     "data:image/png",
   );
   expect(shots).toBe(2);
@@ -82,21 +83,21 @@ test("stitches distinct lower pixels and handles bottom scroll clamping", async 
 });
 test("a later native failure restores page state before releasing its handle", async () => {
   failAt = 2;
-  await expect(captureFullPage(1, command, () => {})).rejects.toThrow(
+  await expect(capture()).rejects.toThrow(
     "native failed",
   );
   expect(cleanup).toEqual(["Runtime.callFunctionOn", "Runtime.releaseObject"]);
 });
 test("a preparation deadline still has a handle with which to restore styles", async () => {
   failPreparation = true;
-  await expect(captureFullPage(1, command, () => {})).rejects.toThrow(
+  await expect(capture()).rejects.toThrow(
     "preparation expired",
   );
   expect(cleanup).toEqual(["Runtime.callFunctionOn", "Runtime.releaseObject"]);
 });
 test("a replacement document never receives the old scroll restoration", async () => {
   await expect(
-    captureFullPage(1, command, () => {
+    capture(() => {
       throw new Error("document replaced");
     }),
   ).rejects.toThrow("document replaced");

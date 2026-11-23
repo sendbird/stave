@@ -1,26 +1,9 @@
 /**
  * One native screenshot at a time per Lens guest.
  *
- * `Page.captureScreenshot` is not a read. Chromium serves a clipped or
- * full-page capture by applying a temporary device-emulation override to the
- * page — view size, viewport offset and scale — and restores "whatever was in
- * force when the capture started" from the capture's completion callback.
- * Two captures in flight on the same page therefore corrupt each other: the
- * second one records the first one's temporary override as the original, and
- * whichever finishes last restores it. The page is left laid out at the old
- * size, scrolled to the old clip origin, and painting only a clip-sized band —
- * shifted up and left, with blank space below — and because emulation lives on
- * the DevTools session, a reload does not clear it.
- *
- * Measured against a `<webview>` guest: two overlapping clipped captures stick
- * every time. A capture that waits for a frame the guest never draws (a parked
- * guest) stays in flight long after Lens's own timeout has given up on it, so a
- * retry is the usual way the second capture arrives.
- *
- * The lane closes that: a guest's next capture starts only once the previous
- * one has *settled natively*, not merely once its caller stopped waiting. A
- * caller still gets a bounded answer — the timeout covers its wait for a turn
- * and its own capture — but giving up never frees the guest early.
+ * A guest's next capture starts after the previous native copy and any page
+ * restoration have completed. A lifecycle change cancels the caller and
+ * abortable preparation while the lane keeps ownership of a running copy.
  */
 
 export type LensCaptureTimeoutPhase = "waiting" | "capturing";
@@ -47,6 +30,8 @@ export type LensCaptureLane = {
   ): Promise<T>;
   /** Serialize cleanup behind native work and before later captures. */
   after(key: number, cleanup: () => Promise<void>): Promise<void>;
+  /** Invalidate work from the previous page or presentation, retaining native serialization. */
+  cancel(key: number, reason: Error): void;
   /** Whether a capture for `key` is queued or still running natively. */
   isBusy(key: number): boolean;
 };
@@ -64,7 +49,7 @@ export function createLensCaptureTimeoutError(
   const base = `Lens screenshot timed out after ${formatTimeout(timeoutMs)}.`;
   return new Error(
     phase === "waiting"
-      ? `${base} An earlier screenshot of this page is still waiting for the page to draw; show its Lens tab, then retry.`
+      ? `${base} An earlier screenshot of this page is still running.`
       : base,
   );
 }
@@ -72,6 +57,7 @@ export function createLensCaptureTimeoutError(
 export function createLensCaptureLane(): LensCaptureLane {
   /** Settles when every capture queued so far for a guest has settled. */
   const tails = new Map<number, Promise<void>>();
+  const pending = new Map<number, Set<(reason: Error) => void>>();
 
   return {
     run<T>(
@@ -100,20 +86,31 @@ export function createLensCaptureLane(): LensCaptureLane {
       return new Promise<T>((resolve, reject) => {
         let answered = false;
         let started = false;
-        const timer = setTimeout(() => {
+        const requests = pending.get(key) ?? new Set();
+        pending.set(key, requests);
+        const forget = () => {
+          requests.delete(cancel);
+          if (!requests.size && pending.get(key) === requests) pending.delete(key);
+        };
+        const cancel = (reason: Error) => {
+          if (answered) return;
           answered = true;
+          clearTimeout(timer);
+          if (!started) {
+            release();
+            forget();
+          }
+          abort.abort(reason);
+          reject(reason);
+        };
+        const timer = setTimeout(() => {
           const phase: LensCaptureTimeoutPhase = started
             ? "capturing"
             : "waiting";
-          if (!started) {
-            // Never started: nothing native to wait for on this turn.
-            release();
-          }
-          const error = createLensCaptureTimeoutError(options.timeoutMs, phase);
-          abort.abort(error);
-          reject(error);
+          cancel(createLensCaptureTimeoutError(options.timeoutMs, phase));
           options.onTimeout?.(phase);
         }, options.timeoutMs);
+        requests.add(cancel);
         (timer as { unref?: () => void }).unref?.();
 
         void previous.then(() => {
@@ -155,7 +152,10 @@ export function createLensCaptureLane(): LensCaptureLane {
                 reject(error);
               },
             )
-            .finally(release);
+            .finally(() => {
+              forget();
+              release();
+            });
         });
       });
     },
@@ -172,6 +172,10 @@ export function createLensCaptureLane(): LensCaptureLane {
 
     isBusy(key: number): boolean {
       return tails.has(key);
+    },
+
+    cancel(key, reason) {
+      for (const cancel of pending.get(key) ?? []) cancel(reason);
     },
   };
 }
