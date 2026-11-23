@@ -1,3 +1,8 @@
+import { i18n } from "@/i18n";
+import { toast } from "@/components/ui";
+import { PASTED_TEXT_FILE_NAME, previewPastedText } from "@/lib/fs/pasted-text";
+import { isPastedTextAttachment, type Attachment, type PastedTextAttachment } from "@/types/chat";
+
 function normalizeWorkspacePath(value: string) {
   return value.replaceAll("\\", "/").replace(/\/+$/, "");
 }
@@ -121,4 +126,44 @@ export async function resolveComposerFileAttachments(args: {
     if (relativePath) filePaths.push(relativePath);
   }
   return { filePaths, failures: [] };
+}
+
+/** The draft carries metadata for the chip and a path for the existing file send flow. */
+export function reconcilePastedTextPaths(
+  filePaths: readonly string[],
+  before: readonly Attachment[],
+  after: readonly Attachment[],
+): string[] {
+  const previous = new Set(before.filter(isPastedTextAttachment).map((item) => item.filePath));
+  const next = new Set(after.filter(isPastedTextAttachment).map((item) => item.filePath));
+  return mergeAttachedFilePaths(filePaths.filter((path) => !previous.has(path) || next.has(path)), [...next]);
+}
+
+export function createPastedTextFileAccess(rootPath: string, fs: NonNullable<Window["api"]>["fs"]) {
+  const { importAttachments, readFile } = fs ?? {};
+  if (!importAttachments || !readFile) return undefined;
+
+  return {
+    async save(text: string): Promise<PastedTextAttachment> {
+      const data = new TextEncoder().encode(text);
+      const result = await importAttachments({ rootPath, entries: [{ name: PASTED_TEXT_FILE_NAME, data }] });
+      const [filePath] = result.filePaths;
+      if (!result.ok || !filePath) throw new Error("Pasted text import failed.");
+      return { kind: "file", filePath, pastedText: { preview: previewPastedText(text), sizeBytes: data.byteLength } };
+    },
+    async read(filePath: string): Promise<string> {
+      const result = await readFile({ rootPath, filePath, pastedText: true });
+      if (!result.ok) throw new Error("Pasted text read failed.");
+      return result.content;
+    },
+  };
+}
+
+export function warnSkippedAttachments(failures: readonly { name: string }[] | undefined) {
+  if (!failures?.length) return;
+  toast.warning(i18n.t("session:chatInputComposer.attachSkippedTitle"), {
+    description: i18n.t("session:chatInputComposer.attachSkippedDescription", {
+      names: failures.map((failure) => failure.name).join(", "),
+    }),
+  });
 }

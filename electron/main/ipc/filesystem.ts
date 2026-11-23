@@ -20,7 +20,12 @@ import {
 } from "./schemas";
 import { readFilePreviewRange } from "../utils/file-preview-range";
 import { openExternalWithFallback } from "../utils/external-url";
-import { importAttachmentFiles } from "../utils/attachment-import";
+import {
+  ATTACHMENT_IMPORT_DIRECTORY,
+  ATTACHMENT_IMPORT_MAX_BYTES,
+  importAttachmentFiles,
+} from "../utils/attachment-import";
+import { PASTED_TEXT_FILE_NAME } from "../../../src/lib/fs/pasted-text";
 import {
   WORKSPACE_IMAGE_PREVIEW_MAX_BYTES,
   workspaceTextFilePreviewMaxBytes,
@@ -43,6 +48,10 @@ const FilesystemReadPreviewRangeArgsSchema = FilesystemFileArgsSchema.extend({
   offset: z.number().int().nonnegative(),
   length: z.number().int().nonnegative(),
   revision: z.string().max(256).optional(),
+});
+
+const FilesystemReadFileArgsSchema = FilesystemFileArgsSchema.extend({
+  pastedText: z.literal(true).optional(),
 });
 
 async function statIfExists(targetPath: string) {
@@ -506,7 +515,7 @@ export function registerFilesystemHandlers() {
   });
 
   ipcMain.handle("fs:read-file", async (_event, args: unknown) => {
-    const parsed = FilesystemFileArgsSchema.safeParse(args);
+    const parsed = FilesystemReadFileArgsSchema.safeParse(args);
     if (!parsed.success) {
       return {
         ok: false,
@@ -525,20 +534,30 @@ export function registerFilesystemHandlers() {
       };
     }
     try {
-      const stat = await fs.stat(absolutePath);
+      let contentPath = absolutePath;
+      let maxSizeBytes = workspaceTextFilePreviewMaxBytes(absolutePath);
+      if (parsed.data.pastedText) {
+        const [root, target] = await Promise.all([fs.realpath(parsed.data.rootPath), fs.realpath(absolutePath)]);
+        const relative = path.relative(root, target);
+        const [stave, directory, importId, name, ...extra] = relative.split(path.sep);
+        if (
+          [stave, directory].join("/") !== ATTACHMENT_IMPORT_DIRECTORY ||
+          !importId || !/^[0-9a-f]{8}$/.test(importId) ||
+          name !== PASTED_TEXT_FILE_NAME || extra.length > 0
+        ) {
+          return { ok: false, content: "", revision: "", stderr: "Invalid pasted text path." };
+        }
+        contentPath = target;
+        maxSizeBytes = ATTACHMENT_IMPORT_MAX_BYTES;
+      }
+      const stat = await fs.stat(contentPath);
       if (!stat.isFile()) {
-        return {
-          ok: false,
-          content: "",
-          revision: "",
-          stderr: "Path is not a file.",
-        };
+        return { ok: false, content: "", revision: "", stderr: "Path is not a file." };
       }
       const revision = revisionFromStat({
         size: stat.size,
         mtimeMs: stat.mtimeMs,
       });
-      const maxSizeBytes = workspaceTextFilePreviewMaxBytes(absolutePath);
       if (stat.size > maxSizeBytes) {
         return {
           ok: false,
@@ -551,7 +570,7 @@ export function registerFilesystemHandlers() {
         };
       }
 
-      const content = await fs.readFile(absolutePath, "utf8");
+      const content = await fs.readFile(contentPath, "utf8");
       return {
         ok: true,
         content,

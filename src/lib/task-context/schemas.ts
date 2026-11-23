@@ -1,3 +1,4 @@
+import { PASTED_TEXT_PREVIEW_MAX_LENGTH } from "@/lib/fs/pasted-text";
 import { QuestionReplySchema } from "@/lib/question-reply";
 import { APPROVAL_RISKS, ApprovalResolutionSchema } from "@/lib/approvals/approval-resolution";
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
@@ -253,7 +254,14 @@ const MessagePartSchema = z.discriminatedUnion("type", [
 ]);
 
 const AttachmentSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("file"), filePath: z.string() }),
+  z.object({
+    kind: z.literal("file"),
+    filePath: z.string(),
+    pastedText: z.object({
+      preview: z.string().max(PASTED_TEXT_PREVIEW_MAX_LENGTH),
+      sizeBytes: z.number().int().positive(),
+    }).optional().catch(undefined),
+  }),
   z.object({
     kind: z.literal("image"),
     id: z.string(),

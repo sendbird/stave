@@ -812,6 +812,28 @@ export const promptInputStyles = stylex.create({
     borderColor: `color-mix(in oklch, ${vars["--aui-color-border"]} 80%, transparent)`,
     backgroundColor: `color-mix(in oklch, ${vars["--aui-color-surface-tint"]} 50%, transparent)`,
   },
+  pastedTextChip: {
+    flexDirection: "column",
+    alignItems: "stretch",
+    minWidth: 0,
+    gap: vars["--aui-space-2"],
+    paddingInline: vars["--aui-space-8"],
+  },
+  pastedTextHeader: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: vars["--aui-space-4"],
+  },
+  pastedTextPreview: {
+    minWidth: 0,
+    margin: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    color: vars["--aui-color-text-muted"],
+  },
   fileOpenButton: {
     height: 28,
     minWidth: 0,

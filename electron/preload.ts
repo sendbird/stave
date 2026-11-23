@@ -1900,7 +1900,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:list-files", args),
     listDirectory: (args: { rootPath: string; directoryPath?: string }) =>
       ipcRenderer.invoke("fs:list-directory", args),
-    readFile: (args: { rootPath: string; filePath: string }) =>
+    readFile: (args: { rootPath: string; filePath: string; pastedText?: true }) =>
       ipcRenderer.invoke("fs:read-file", args),
     readPreviewRange: (args: import("../src/lib/fs/file-preview-reader").FilePreviewRangeRequest) =>
       ipcRenderer.invoke("fs:read-preview-range", args),

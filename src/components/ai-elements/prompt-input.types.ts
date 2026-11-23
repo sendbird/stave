@@ -149,6 +149,11 @@ export interface PromptInputProps {
   onAttachmentsChange?: (args: {
     attachments: Attachment[] | ((current: Attachment[]) => Attachment[]);
   }) => void;
+  pastedTextFiles?: {
+    save: (text: string) => Promise<Extract<Attachment, { kind: "file" }>>;
+    read: (filePath: string) => Promise<string>;
+    recover: (text: string) => void;
+  };
   onPasteFiles?: (args: { files: File[] }) => void | Promise<void>;
   onProviderModeSelect?: (presetId: ProviderModePresetId) => void;
   effortLabel?: string;

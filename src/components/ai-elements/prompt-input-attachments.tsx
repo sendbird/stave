@@ -3,7 +3,8 @@ import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Tooltip as AuiTooltip } from "@/components/aui/components/Tooltip";
 import { FileText, Paperclip, X } from "lucide-react";
 import { Button } from "@/components/ui";
-import type { Attachment } from "@/types/chat";
+import { isPastedTextAttachment, type Attachment, type PastedTextAttachment } from "@/types/chat";
+import { formatFileSize } from "@/lib/fs/file-preview-limits";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import { TaskContextDraftChip } from "@/components/task-context-draft-chip";
 import {
@@ -37,6 +38,8 @@ export function PromptInputAttachmentsRow(args: {
   onAttachmentsChange: PromptInputProps["onAttachmentsChange"];
   onAttachFilesChange: PromptInputProps["onAttachFilesChange"];
   onOpenAttachedFile: PromptInputProps["onOpenAttachedFile"];
+  pastedTextBusy: boolean;
+  onKeepPastedText?: (attachment: PastedTextAttachment) => void;
   setImagePreviewSrc: (preview: { dataUrl: string; label: string }) => void;
 }) {
   useTranslation();
@@ -54,7 +57,12 @@ export function PromptInputAttachmentsRow(args: {
     onAttachFilesChange,
     onOpenAttachedFile,
     setImagePreviewSrc,
+    onKeepPastedText,
+    pastedTextBusy,
   } = args;
+  const filePaths = new Set(attachedFilePaths);
+  const imageIds = new Set(standaloneImageAttachments.map((image) => image.id));
+  const pastedTextPaths = new Set((attachments ?? []).filter(isPastedTextAttachment).map((item) => item.filePath));
   return (
     <div
       role="group"
@@ -140,7 +148,7 @@ export function PromptInputAttachmentsRow(args: {
           }
         />
       ))}
-      {attachedFilePaths.map((filePath) => (
+      {attachedFilePaths.filter((filePath) => !pastedTextPaths.has(filePath)).map((filePath) => (
         <div
           key={filePath}
           className={sx(
@@ -188,57 +196,103 @@ export function PromptInputAttachmentsRow(args: {
           </AuiTooltip>
         </div>
       ))}
-      {standaloneImageAttachments.map((img) => (
-        <div
-          key={img.id}
-          className={sx(
-            promptInputStyles.imageChip,
-            minimal
-              ? promptInputStyles.imageChipMinimal
-              : promptInputStyles.imageChipDefault,
-          )}
-        >
-          <AuiButton layout="host"
-            type="button"
-            disabled={interactionsDisabled}
-            aria-label={i18n.t("composer:promptInput.ariaLabel18", { value1: img.label })}
-            title={i18n.t("composer:promptInput.title8")}
-            xstyle={promptInputStyles.imagePreviewButton}
-            onClick={() =>
-              setImagePreviewSrc({
-                dataUrl: img.dataUrl,
-                label: img.label,
-              })
-            }
+      {(attachments ?? []).map((item) => {
+        if (isPastedTextAttachment(item) && filePaths.has(item.filePath)) {
+          const { preview, sizeBytes } = item.pastedText;
+          return (
+            <div
+              key={item.filePath}
+              data-pasted-text-chip=""
+              className={sx(
+                promptInputStyles.fileChip,
+                minimal ? promptInputStyles.fileChipMinimal : promptInputStyles.fileChipDefault,
+                promptInputStyles.pastedTextChip,
+              )}
+            >
+              <div className={sx(promptInputStyles.pastedTextHeader)}>
+                <FileText className={sx(promptInputStyles.icon35Shrink)} aria-hidden="true" />
+                <span>{i18n.t("composer:pastedText.label", { size: formatFileSize(sizeBytes) })}</span>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="ghost"
+                  disabled={interactionsDisabled || pastedTextBusy || !onKeepPastedText}
+                  onClick={() => onKeepPastedText?.(item)}
+                >
+                  {i18n.t("composer:pastedText.keepInline")}
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  iconOnly
+                  variant="ghost"
+                  disabled={interactionsDisabled || pastedTextBusy}
+                  aria-label={i18n.t("composer:pastedText.remove")}
+                  onClick={() => onAttachmentsChange?.({
+                    attachments: (current) => current.filter((candidate) => !isPastedTextAttachment(candidate) || candidate.filePath !== item.filePath),
+                  })}
+                >
+                  <X />
+                </Button>
+              </div>
+              <pre className={sx(promptInputStyles.pastedTextPreview)}>{preview}</pre>
+            </div>
+          );
+        }
+        if (item.kind !== "image" || !imageIds.has(item.id)) return null;
+        const img = item;
+        return (
+          <div
+            key={img.id}
+            className={sx(
+              promptInputStyles.imageChip,
+              minimal
+                ? promptInputStyles.imageChipMinimal
+                : promptInputStyles.imageChipDefault,
+            )}
           >
-            <img
-              src={img.dataUrl}
-              alt={img.label}
-              className={sx(promptInputStyles.imagePreview)}
-            />
-          </AuiButton>
-          <AuiTooltip content={i18n.t("composer:promptInput.title9")}>
-            <Button
+            <AuiButton layout="host"
               type="button"
-              size="xs"
-              iconOnly
-              variant="floating"
               disabled={interactionsDisabled}
-              aria-label={i18n.t("composer:promptInput.ariaLabel19", { value1: img.label })}
+              aria-label={i18n.t("composer:promptInput.ariaLabel18", { value1: img.label })}
+              title={i18n.t("composer:promptInput.title8")}
+              xstyle={promptInputStyles.imagePreviewButton}
               onClick={() =>
-                onAttachmentsChange?.({
-                  attachments: (attachments ?? []).filter(
-                    (a) => !(a.kind === "image" && a.id === img.id),
-                  ),
+                setImagePreviewSrc({
+                  dataUrl: img.dataUrl,
+                  label: img.label,
                 })
               }
-              xstyle={promptInputStyles.imageRemoveButton}
             >
-              <X />
-            </Button>
-          </AuiTooltip>
-        </div>
-      ))}
+              <img
+                src={img.dataUrl}
+                alt={img.label}
+                className={sx(promptInputStyles.imagePreview)}
+              />
+            </AuiButton>
+            <AuiTooltip content={i18n.t("composer:promptInput.title9")}>
+              <Button
+                type="button"
+                size="xs"
+                iconOnly
+                variant="floating"
+                disabled={interactionsDisabled}
+                aria-label={i18n.t("composer:promptInput.ariaLabel19", { value1: img.label })}
+                onClick={() =>
+                  onAttachmentsChange?.({
+                    attachments: (current) => current.filter(
+                      (a) => !(a.kind === "image" && a.id === img.id),
+                    ),
+                  })
+                }
+                xstyle={promptInputStyles.imageRemoveButton}
+              >
+                <X />
+              </Button>
+            </AuiTooltip>
+          </div>
+        );
+      })}
     </div>
   );
 }

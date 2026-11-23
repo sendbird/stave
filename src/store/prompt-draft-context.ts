@@ -11,6 +11,7 @@ import {
   getImageAttachmentMimeType,
 } from "@/store/prompt-draft-message-content";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
+import { isPastedTextAttachment } from "@/types/chat";
 import type {
   Attachment,
   PromptDraft,
@@ -250,12 +251,26 @@ export async function getDraftFileContexts(args: {
   }
 
   const attachedFilePaths = getPromptDraftAttachedFilePaths(args.promptDraft);
+  const pastedTextByPath = new Map(getPromptDraftAttachments(args.promptDraft)
+    .filter(isPastedTextAttachment)
+    .map((attachment) => [attachment.filePath, attachment.pastedText]));
 
   for (const filePath of attachedFilePaths) {
     if (!filePath || seenFilePaths.has(filePath)) {
       continue;
     }
     seenFilePaths.add(filePath);
+
+    const pastedText = pastedTextByPath.get(filePath);
+    if (pastedText) {
+      nextFileContexts.push({
+        ...buildPathBackedFileContext(filePath),
+        content: pastedText.preview,
+        language: "plaintext",
+        instruction: "This is a preview of pasted text. Read the workspace file for the complete text.",
+      });
+      continue;
+    }
 
     // Image files remain native, path-backed inputs on immediate and queued
     // turns alike. Reading them through the text preview API corrupts bytes

@@ -1,4 +1,12 @@
 {
+  "pastedText": {
+    "label": "붙여넣은 텍스트 · {{size}}",
+    "keepInline": "텍스트로 유지",
+    "remove": "붙여넣은 텍스트 제거",
+    "saving": "첨부 파일 준비 중…",
+    "saveFailed": "파일로 저장하지 못해 붙여넣은 텍스트를 초안에 남겼습니다.",
+    "readFailed": "붙여넣은 텍스트 파일을 읽지 못했습니다. 첨부는 유지됩니다."
+  },
   "agentChoiceActions": {
     "apply": "작업의 에이전트를 변경하지 못했습니다",
     "release": "작업의 에이전트를 해제하지 못했습니다",
@@ -332,7 +340,7 @@
     "promptEnhancementLabel": "프롬프트 개선 중",
     "promptEnhancementLabel2": "개선된 프롬프트 적용 중",
     "promptEnhancementLabel3": "프롬프트 개선",
-    "submitCurrentMessage": "이미지를 불러오는 중입니다. 썸네일이 나타나면 다시 보내세요.",
+    "submitCurrentMessage": "첨부 파일을 준비 중입니다. 완료되면 다시 시도하세요.",
     "copy": "댓글 삭제 실패",
     "description": "Lens가 해당 댓글을 삭제하지 못했습니다.",
     "copy2": "스타일 편집 실패",
