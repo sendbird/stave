@@ -1,3 +1,4 @@
+import { applyAppLocale } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/aui/components/Button";
@@ -15,7 +16,7 @@ installMcpAppPreviewBridge((summary) => console.info("[mcp-app preview] request"
 
 export function TurnEventPreview() {
   const [samples, setSamples] = useState(createEventSamples);
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(() => new URLSearchParams(location.search).get("theme") === "dark");
   const [sentMessages, setSentMessages] = useState<string[]>([]);
   const root = useRef<HTMLDivElement>(null);
   const expand = () => {
@@ -30,6 +31,7 @@ export function TurnEventPreview() {
     applyThemeClass({ enabled: dark });
   }, [dark]);
   useEffect(() => {
+    applyAppLocale(new URLSearchParams(location.search).get("lang") ?? "en");
     const original = useAppStore.getState();
     // This isolated dev entrypoint keeps decision clicks inside its fixtures.
     useAppStore.setState({

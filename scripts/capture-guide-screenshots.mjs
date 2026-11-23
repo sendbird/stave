@@ -201,6 +201,7 @@ function approvalMessageFor(copy) {
         input: JSON.stringify({ command: "bun test tests/auth" }),
         state: "approval-requested",
         supportsAllowAlways: true,
+        trustedToolEntry: "bash:bun test tests/auth",
       },
     ],
   };
@@ -680,6 +681,7 @@ const SHOTS = [
       await quietChrome(page);
       const request = page.getByTestId("composer-approval-row").first();
       await request.waitFor();
+      await request.getByTestId("composer-approval-details-toggle").click();
       await settle(page);
       await save(page, null, file, { clip: await unionClip(page, [request, page.getByTestId("composer-workspace-bar")], 16) });
     },
@@ -776,7 +778,7 @@ const SHOTS = [
   },
   {
     name: "settings-providers",
-    async capture({ page, locale, file }) {
+    async capture({ page, locale, file, t }) {
       await openApp(page, locale);
       await page.evaluate(async () => {
         const { installUsagePreviewBridge } = await import("/src/dev/usage-preview/fixtures.ts");
@@ -784,6 +786,8 @@ const SHOTS = [
       });
       await quietChrome(page);
       const dialog = await openSettings(page, "providers");
+      const trustedApprovals = dialog.getByText(await t("settingsProviders:providersSection.trustedApprovals.title"), { exact: true });
+      await trustedApprovals.evaluate((element) => element.scrollIntoView({ block: "center" }));
       await blur(page);
       await save(page, dialog, file);
     },

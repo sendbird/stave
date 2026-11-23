@@ -98,12 +98,17 @@ to start runs folded.
 ### Steps In The Conversation
 
 The steps a turn took also stay in its reply, folded under the reasoning
-summary. A few kinds read better than plain text:
+summary.
+
+On a changed-file card, **Mark as accepted** and **Mark as rejected** record
+your review decision. To undo edits, select **Restore files** in the completed turn’s actions.
 
 - **Commands** are colored by part: the program in bold, flags, quoted text,
   variables, operators like `&&` and `|`, and comments. Parts that can destroy
   work — `rm -rf`, `sudo`, `git push --force`, `git reset --hard`,
-  `git branch -D` — are red.
+  `git branch -D` — are red. A finished command shows the exit code the provider
+  reported, or **Exit unknown** when no code was reported. **Copy output**
+  copies its output.
 - **Images** a tool returned show as thumbnails in that step; choose one to see
   it full size. This covers Lens screenshots for every provider, and images
   from other MCP tools when the provider kept them (Codex does; Claude Code drops

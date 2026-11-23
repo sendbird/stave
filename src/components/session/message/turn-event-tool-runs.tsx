@@ -147,8 +147,9 @@ export function TraceToolRun(args: {
       {isCommand ? (
         <CommandResult
           command={command}
+          exitCode={part.exitCode}
           isError={isError}
-          isStreaming={streamingInput}
+          isStreaming={streamingInput || part.state === "input-available"}
           output={part.output}
         />
       ) : null}

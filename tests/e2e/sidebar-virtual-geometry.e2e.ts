@@ -138,3 +138,25 @@ test("a focused sidebar row stays mounted and moves without re-centering", async
   await nextFrames(page, 4);
   expect(Math.abs(await scroller.evaluate((element) => element.scrollTop) - start.scrollTop)).toBeLessThanOrEqual(1);
 });
+
+test("the repository tree and collapsed rail name the PR state shown on the workspace", async ({ page }) => {
+  const sidebar = await seedSidebar(page, 1, 5);
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    useAppStore.setState((state) => ({
+      workspacePrInfoById: {
+        ...state.workspacePrInfoById,
+        "scale-0-1": { pr: null, derived: "no_pr", lastFetched: Date.now() },
+      },
+    }));
+  });
+
+  const treeRow = sidebar.getByRole("button", { name: "Open workspace Workspace 0-1 No PR", exact: true });
+  await expect(treeRow).toBeVisible();
+  await expect(treeRow.locator('[title="No PR"]')).toBeVisible();
+
+  await sidebar.getByTestId("collapse-project-list").click();
+  const railRow = sidebar.getByTestId("collapsed-workspace-scale-0-1");
+  await expect(railRow).toHaveAccessibleName("Open workspace Workspace 0-1 No PR");
+  await expect(railRow.locator('[title="No PR"]')).toBeVisible();
+});

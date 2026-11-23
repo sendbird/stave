@@ -1094,6 +1094,7 @@
     "saveMyVersion": "내 버전으로 저장"
   },
   "workspaceSidebarRows": {
+    "openingWorkspace": "워크스페이스 여는 중…",
     "default": "기본",
     "previewUnavailable": "미리 보기를 사용할 수 없습니다",
     "loadingSummary": "요약을 불러오는 중...",

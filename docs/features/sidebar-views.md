@@ -64,6 +64,9 @@ The default workspace shows its label and branch on one line, separated by a
 middle dot (`Default · main`), in both densities. Long branches truncate; when
 no branch is available, only the label appears.
 
+Hover a workspace’s leading status mark to read its state. The open control’s
+accessible name includes the same status in the tree and collapsed rail.
+
 - A workspace with a running task lists its open tasks under its row. The active
   workspace and those tasks share one selection fill, with the workspace row a
   step deeper.

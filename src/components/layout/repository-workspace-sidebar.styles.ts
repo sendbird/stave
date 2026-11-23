@@ -999,6 +999,10 @@ export const repositorySidebarStyles = stylex.create({
     cursor: { default: "pointer", ":active": "grabbing" },
   },
   workspaceOpenDragging: { cursor: "grabbing" },
+  workspaceStatusMark: {
+    display: "inline-flex",
+    flexShrink: 0,
+  },
   workspaceLeadSlot: {
     alignItems: "center",
     display: "flex",

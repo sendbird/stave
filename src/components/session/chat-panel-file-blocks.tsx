@@ -273,6 +273,11 @@ export function ChangedFilesBlock(args: {
           const isOpen = openRows.includes(index);
           const isPendingDiff =
             !readOnly && isPendingDiffStatus(row.part.status);
+          const reviewMarkHelp = isPendingDiff
+            ? i18n.t("session:chatPanelFileBlocks.reviewMarkHelp", {
+                restoreAction: i18n.t("session:turnFiles.restoreShort"),
+              })
+            : undefined;
           return (
             <div
               key={`${row.openFilePath}-${index}`}
@@ -336,8 +341,9 @@ export function ChangedFilesBlock(args: {
                               partIndex: startIndex + index,
                             })
                           }
+                          title={reviewMarkHelp}
                         >
-                          {i18n.t("session:chatPanelFileBlocks.copy2")}</Button>
+                          {i18n.t("session:chatPanelFileBlocks.markAccepted")}</Button>
                         <Button
                           size="sm"
                           variant="outline"
@@ -349,8 +355,9 @@ export function ChangedFilesBlock(args: {
                               partIndex: startIndex + index,
                             })
                           }
+                          title={reviewMarkHelp}
                         >
-                          {i18n.t("session:chatPanelFileBlocks.copy3")}</Button>
+                          {i18n.t("session:chatPanelFileBlocks.markRejected")}</Button>
                       </>
                     ) : null}
                   </div>
