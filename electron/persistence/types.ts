@@ -1,5 +1,5 @@
 import type { TurnTerminalReceipt } from "./turn-terminal-receipt";
-import type { ChatMessage, PromptDraft } from "../../src/types/chat";
+import type { ChatMessage, EditorTabContentState, PromptDraft } from "../../src/types/chat";
 import type { AppNotificationKind } from "../../src/lib/notifications/notification.types";
 import type { ReviewComment } from "../../src/types/review";
 import type { TaskProviderSessionState } from "../../src/lib/db/workspaces.db";
@@ -75,7 +75,7 @@ export interface PersistenceWorkspaceSnapshot {
     kind?: "text" | "image" | "git-graph";
     language: string;
     content?: string;
-    contentState?: "ready" | "deferred" | "loading" | "too-large";
+    contentState?: EditorTabContentState;
     originalContent?: string;
     savedContent?: string;
     baseRevision?: string | null;
@@ -116,7 +116,7 @@ export interface PersistenceWorkspaceShell {
     kind?: "text" | "image" | "git-graph";
     language: string;
     content?: string;
-    contentState?: "ready" | "deferred" | "loading" | "too-large";
+    contentState?: EditorTabContentState;
     originalContent?: string;
     savedContent?: string;
     baseRevision?: string | null;

@@ -52,6 +52,20 @@ try {
   process.exit(1);
 }
 
+// A renderer build dependency can ship as compiled code without being present
+// as a production node_modules package in the installer.
+const productionCount = Object.keys(report).length;
+const bundledBuildPackages = policy.bundledBuildPackages ?? [];
+for (const name of bundledBuildPackages) {
+  const manifest = JSON.parse(await readFile(
+    path.join(root, "node_modules", name, "package.json"), "utf8",
+  ));
+  report[`${name}@${manifest.version}`] = {
+    licenses: manifest.license,
+    repository: manifest.repository,
+  };
+}
+
 const allowedLicenseAtoms = new Set(policy.allowedLicenseAtoms ?? []);
 const obligationLicenseAtoms = new Set(
   policy.obligationLicenseAtoms ?? [],
@@ -156,6 +170,6 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `License compliance passed (${Object.keys(report).length} production packages; ${exceptions.length} explicit exceptions).`,
+  `License compliance passed (${productionCount} production packages, ${bundledBuildPackages.length} bundled build packages; ${exceptions.length} explicit exceptions).`,
 );
 for (const obligation of obligations) console.log(`- ${obligation}`);

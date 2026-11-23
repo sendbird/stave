@@ -78,6 +78,22 @@ as usual; the agent answers there without writing a document.
   document and choose it. The lines are added to the chat input as a quote with
   the file path and line numbers; write your comment under the quote.
 
+## Read PDF and Log Outputs
+
+In the desktop app, open the file from Explorer, file search or a chat link.
+PDF opens read-only with a page count, **Fit width**, and **Actual size**.
+Pages render near the visible area. PDF previews support files up to 64 MiB.
+
+Most text files are editable up to 1 MiB. HTML keeps its 10 MiB limit. Larger
+UTF-8 files open read-only in bounded chunks. Browse with **Previous chunk**
+and **Next chunk**, or use **Find in file** and **Find next** for a
+case-sensitive literal search. Chat links with a line number jump to that
+line. The reader strips ANSI color codes so text can be copied and searched.
+
+**Follow tail** shows the end of the latest revision as output changes. Turn
+it off to browse that revision. If a file changes during a read, the reader
+keeps the last complete view and prompts you to **Reload**.
+
 ## Common Workflows
 
 ### Revise A Plan Before Implementing It

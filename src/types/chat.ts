@@ -521,7 +521,7 @@ export interface ChatMessage {
 }
 
 export type EditorTabContentState =
-  "ready" | "deferred" | "loading" | "too-large";
+  "ready" | "deferred" | "loading" | "too-large" | "read-only";
 
 export type TaskControlMode = "interactive" | "managed";
 export type TaskControlOwner = "stave" | "external";

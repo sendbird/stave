@@ -49,6 +49,21 @@ describe("workspace shell artifact persistence", () => {
     expect(prepared.persistedEditorTabs?.[0]?.contentState).toBeUndefined();
   });
 
+  test("restores legacy clean PDFs as read-only without dropping dirty buffers", () => {
+    const persistedEditorTabs = ["clean.PDF", "dirty.pdf"].map((filePath, index) => ({
+      id: `file:${filePath}`,
+      filePath,
+      kind: "text" as const,
+      language: "plaintext",
+      content: "legacy body",
+      hasConflict: false,
+      isDirty: index === 1,
+    }));
+    const restored = restorePersistedWorkspaceEditorTabs({ rootDir, persistedEditorTabs });
+    expect(restored[0]).toMatchObject({ content: "", contentState: "read-only" });
+    expect(restored[1]).toMatchObject({ content: "legacy body", contentState: "ready", isDirty: true });
+  });
+
   test("externalizes only clean file tab bodies and keeps dirty tabs inline", () => {
     const largeBody = "x".repeat(WORKSPACE_SHELL_INLINE_EDITOR_TABS_MAX_BYTES + 4096);
     const prepared = prepareWorkspaceShellEditorTabsPersistence({

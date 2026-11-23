@@ -1,3 +1,4 @@
+import { isPdfFilePath } from "../../src/lib/fs/file-preview-limits";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { byteLengthUtf8 } from "../shared/bounded-text";
@@ -32,6 +33,15 @@ interface PersistedWorkspaceEditorTabBodyEntry {
 }
 
 function normalizePersistedEditorTab(tab: PersistedEditorTab): PersistedEditorTab {
+  if (tab.id.startsWith("file:") && !tab.isDirty && isPdfFilePath(tab.filePath)) {
+    return {
+      ...tab,
+      content: "",
+      originalContent: undefined,
+      savedContent: undefined,
+      contentState: "read-only",
+    };
+  }
   if (tab.contentState !== "loading") {
     return tab;
   }
@@ -42,11 +52,11 @@ function normalizePersistedEditorTab(tab: PersistedEditorTab): PersistedEditorTa
 }
 
 function canExternalizeEditorTabBody(tab: PersistedEditorTab) {
-  return tab.id.startsWith("file:") && !tab.isDirty && tab.contentState !== "too-large";
+  return tab.id.startsWith("file:") && !tab.isDirty && tab.contentState !== "too-large" && tab.contentState !== "read-only";
 }
 
 function restoreMetadataOnlyContentState(tab: PersistedEditorTab): NonNullable<PersistedEditorTab["contentState"]> {
-  if (tab.contentState === "deferred" || tab.contentState === "too-large") {
+  if (tab.contentState === "deferred" || tab.contentState === "too-large" || tab.contentState === "read-only") {
     return tab.contentState;
   }
   return "ready";
@@ -58,11 +68,11 @@ export function prepareWorkspaceShellEditorTabsPersistence(args: {
   createdAt: string;
   previousBodyByTabId?: Map<string, PersistedWorkspaceEditorTabBodyEntry>;
 }) {
-  const editorTabs = args.editorTabs ?? [];
+  const editorTabs = (args.editorTabs ?? []).map(normalizePersistedEditorTab);
   const externalizableTabs = editorTabs.filter(canExternalizeEditorTabBody);
   if (externalizableTabs.length === 0) {
     return {
-      persistedEditorTabs: editorTabs.map(normalizePersistedEditorTab),
+      persistedEditorTabs: editorTabs,
       artifact: null,
     };
   }
@@ -91,7 +101,7 @@ export function prepareWorkspaceShellEditorTabsPersistence(args: {
   );
   if (byteSize <= WORKSPACE_SHELL_INLINE_EDITOR_TABS_MAX_BYTES && !hasDeferredExternalizableTabs) {
     return {
-      persistedEditorTabs: editorTabs.map(normalizePersistedEditorTab),
+      persistedEditorTabs: editorTabs,
       artifact: null,
     };
   }
@@ -147,7 +157,7 @@ export function hydratePersistedWorkspaceEditorTabs(args: {
   persistedEditorTabs: PersistedEditorTab[] | undefined;
   artifactRelativePath?: string | null;
 }) {
-  const persistedEditorTabs = args.persistedEditorTabs ?? [];
+  const persistedEditorTabs = (args.persistedEditorTabs ?? []).map(normalizePersistedEditorTab);
   if (!args.artifactRelativePath) {
     return persistedEditorTabs.map((tab) => ({
       ...tab,
@@ -162,7 +172,7 @@ export function hydratePersistedWorkspaceEditorTabs(args: {
   });
 
   return persistedEditorTabs.map((tab) => {
-    const body = bodiesByTabId.get(tab.id);
+    const body = tab.contentState === "read-only" ? undefined : bodiesByTabId.get(tab.id);
     if (!body) {
       return {
         ...tab,
@@ -190,7 +200,7 @@ export function restorePersistedWorkspaceEditorTabs(args: {
   artifactRelativePath?: string | null;
   activeEditorTabId?: string | null;
 }) {
-  const persistedEditorTabs = args.persistedEditorTabs ?? [];
+  const persistedEditorTabs = (args.persistedEditorTabs ?? []).map(normalizePersistedEditorTab);
   if (!args.artifactRelativePath) {
     return persistedEditorTabs.map((tab) => ({
       ...tab,
@@ -207,7 +217,7 @@ export function restorePersistedWorkspaceEditorTabs(args: {
   });
 
   return persistedEditorTabs.map((tab) => {
-    const body = bodiesByTabId.get(tab.id);
+    const body = tab.contentState === "read-only" ? undefined : bodiesByTabId.get(tab.id);
     if (body) {
       return {
         ...tab,
@@ -222,7 +232,7 @@ export function restorePersistedWorkspaceEditorTabs(args: {
       };
     }
 
-    if (tab.contentState === "deferred" || tab.contentState === "too-large") {
+    if (tab.contentState === "deferred" || tab.contentState === "too-large" || tab.contentState === "read-only") {
       return {
         ...tab,
         content: tab.content ?? "",

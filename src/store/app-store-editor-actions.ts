@@ -4,6 +4,7 @@ import { formatWithEslint } from "@/components/layout/editor-language-intelligen
 import { loadWorkspaceEditorTabBodies } from "@/lib/db/workspaces.db";
 import { isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
 import { workspaceFsAdapter } from "@/lib/fs";
+import { isPdfFilePath } from "@/lib/fs/file-preview-limits";
 import type { WorkspaceFileData, WorkspaceImageData } from "@/lib/fs/fs.types";
 import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
 import { toast } from "@/lib/notifications/toast";
@@ -231,9 +232,17 @@ export function createEditorActions(args: {
         !targetTab ||
         targetTab.contentState === "ready" ||
         targetTab.contentState === "loading" ||
-        targetTab.contentState === "too-large"
+        targetTab.contentState === "too-large" ||
+        targetTab.contentState === "read-only"
       ) {
         return {};
+      }
+      if (targetTab.id.startsWith("file:") && !targetTab.isDirty && isPdfFilePath(targetTab.filePath)) {
+        return {
+          editorTabs: state.editorTabs.map((tab) => tab.id === args.tabId
+            ? { ...tab, content: "", contentState: "read-only" }
+            : tab),
+        };
       }
       filePath = targetTab.filePath;
       shouldHydrate = true;
@@ -632,6 +641,7 @@ export function createEditorActions(args: {
     },
     openFileFromTree: async ({ filePath, line, column, fallbackContent }) => {
       const state = get();
+      const workspaceId = state.activeWorkspaceId;
       const workspaceRootPath =
         state.workspacePathById[state.activeWorkspaceId] ||
         state.repositoryPath ||
@@ -661,7 +671,8 @@ export function createEditorActions(args: {
           }
         : null;
       const isImageFile = isImageFilePath({ filePath: normalizedFilePath });
-      let fileData = isImageFile
+      const isPdf = isPdfFilePath(normalizedFilePath);
+      let fileData = isImageFile || isPdf
         ? null
         : await workspaceFsAdapter.readFile({
             filePath: normalizedFilePath,
@@ -671,7 +682,10 @@ export function createEditorActions(args: {
             filePath: normalizedFilePath,
           })
         : null;
-      if (!fileData && !imageData) {
+      if (get().activeWorkspaceId !== workspaceId) {
+        return;
+      }
+      if (!isPdf && !fileData && !imageData) {
         if (workspaceRootPath) {
           await workspaceFsAdapter.setRoot?.({
             rootPath: workspaceRootPath,
@@ -690,14 +704,45 @@ export function createEditorActions(args: {
         }
       }
 
+      const tooLargeMetadata = getTooLargeEditorTabMetadata(isImageFile ? imageData : fileData);
+      const contentState = isPdf ? "read-only" : (tooLargeMetadata?.contentState ?? "ready");
+      const fileContent = isPdf || tooLargeMetadata
+        ? ""
+        : isImageFile ? (imageData?.dataUrl ?? "") : (fileData?.content ?? fallbackContent ?? "");
+      const editableContent = isImageFile || contentState !== "ready" ? undefined : fileContent;
+      const fileTabData = {
+        content: fileContent,
+        contentState,
+        originalContent: editableContent,
+        savedContent: editableContent,
+        baseRevision: (isImageFile ? imageData?.revision : fileData?.revision) ?? null,
+        fileSizeBytes: tooLargeMetadata?.fileSizeBytes,
+        fileSizeLimitBytes: tooLargeMetadata?.fileSizeLimitBytes,
+        hasConflict: false,
+        isDirty: false,
+      } satisfies Partial<EditorTab>;
+
       let existingDeferredTabId: string | null = null;
       set((state) => {
+        if (state.activeWorkspaceId !== workspaceId) {
+          return {};
+        }
         const tabId = `file:${normalizedFilePath}`;
         const existing = state.editorTabs.find((tab) => tab.id === tabId);
         if (existing) {
+          // Crossing the editable byte limit on disk can change the surface
+          // when a file is reopened, but a dirty buffer still owns its tab.
+          const changeSurface = !existing.isDirty && existing.contentState !== contentState &&
+            (isPdf || (!isImageFile && fileData &&
+              (tooLargeMetadata || existing.contentState === "too-large")));
           existingDeferredTabId =
-            existing.contentState === "deferred" ? existing.id : null;
+            !changeSurface && existing.contentState === "deferred" ? existing.id : null;
           return {
+            ...(changeSurface && {
+              editorTabs: state.editorTabs.map((tab) =>
+                tab.id === existing.id ? { ...tab, ...fileTabData, conflictRevision: null } : tab,
+              ),
+            }),
             activeEditorTabId: existing.id,
             layout: {
               ...state.layout,
@@ -708,44 +753,18 @@ export function createEditorActions(args: {
             },
             pendingEditorSelection: pendingSelection,
             workspaceSnapshotVersion:
-              state.activeEditorTabId !== existing.id
+              (changeSurface || state.activeEditorTabId !== existing.id)
                 ? incrementWorkspaceSnapshotVersion(state)
                 : state.workspaceSnapshotVersion,
           };
         }
 
-        const tooLargeMetadata = getTooLargeEditorTabMetadata(
-          isImageFile ? imageData : fileData,
-        );
-        const fileContent = isImageFile
-          ? tooLargeMetadata
-            ? ""
-            : (imageData?.dataUrl ?? "")
-          : tooLargeMetadata
-            ? ""
-            : (fileData?.content ?? fallbackContent ?? "");
-        const baseRevision = isImageFile
-          ? (imageData?.revision ?? null)
-          : (fileData?.revision ?? null);
-        const nextLanguage = resolveLanguage({
-          filePath: normalizedFilePath,
-        });
         const nextTab: EditorTab = {
           id: tabId,
           filePath: normalizedFilePath,
           kind: isImageFile ? "image" : "text",
-          language: nextLanguage,
-          content: fileContent,
-          contentState: tooLargeMetadata?.contentState ?? "ready",
-          originalContent:
-            isImageFile || tooLargeMetadata ? undefined : fileContent,
-          savedContent:
-            isImageFile || tooLargeMetadata ? undefined : fileContent,
-          baseRevision: tooLargeMetadata?.baseRevision ?? baseRevision,
-          fileSizeBytes: tooLargeMetadata?.fileSizeBytes,
-          fileSizeLimitBytes: tooLargeMetadata?.fileSizeLimitBytes,
-          hasConflict: false,
-          isDirty: false,
+          language: resolveLanguage({ filePath: normalizedFilePath }),
+          ...fileTabData,
         };
         // A new HTML tab opens the way the user last left one.
         if (isHtmlEditorTab(nextTab)) {

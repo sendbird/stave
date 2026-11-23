@@ -104,7 +104,7 @@ export interface WorkspaceEditorTabBody {
 function restoreWorkspaceShellEditorTabContentState(
   contentState: EditorTab["contentState"],
 ): EditorTab["contentState"] {
-  return contentState === "too-large" ? "too-large" : "ready";
+  return contentState === "too-large" || contentState === "read-only" ? contentState : "ready";
 }
 
 export interface WorkspaceShellLite {

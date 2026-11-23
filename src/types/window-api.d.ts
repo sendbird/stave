@@ -153,7 +153,7 @@ import type { AgentRunsBridgeApi } from "@/lib/agent-runs/api";
 import type { TarsBridgeApi } from "@/lib/tars/types";
 import type { WakeUpsBridgeApi } from "@/lib/supervision/wake-up-bridge";
 import type { AgentsBridgeApi } from "@/lib/agents/api";
-import type { PromptDraft } from "@/types/chat";
+import type { EditorTabContentState, PromptDraft } from "@/types/chat";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import type {
   AppUpdateInstallResult,
@@ -714,6 +714,9 @@ interface WindowFsApi {
     maxSizeBytes?: number;
     stderr?: string;
   }>;
+  readPreviewRange?: (
+    args: import("@/lib/fs/file-preview-reader").FilePreviewRangeRequest,
+  ) => Promise<import("@/lib/fs/file-preview-reader").FilePreviewRangeResult>;
   readFileDataUrl?: (args: { rootPath: string; filePath: string }) => Promise<{
     ok: boolean;
     dataUrl: string;
@@ -1731,7 +1734,7 @@ interface WindowPersistenceApi {
         kind?: "text" | "image" | "git-graph";
         language: string;
         content?: string;
-        contentState?: "ready" | "deferred" | "loading" | "too-large";
+        contentState?: EditorTabContentState;
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;
@@ -1777,7 +1780,7 @@ interface WindowPersistenceApi {
         kind?: "text" | "image" | "git-graph";
         language: string;
         content?: string;
-        contentState?: "ready" | "deferred" | "loading" | "too-large";
+        contentState?: EditorTabContentState;
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;
@@ -1887,7 +1890,7 @@ interface WindowPersistenceApi {
         kind?: "text" | "image" | "git-graph";
         language: string;
         content: string;
-        contentState?: "ready" | "deferred" | "loading" | "too-large";
+        contentState?: EditorTabContentState;
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;
@@ -2015,7 +2018,7 @@ interface WindowPersistenceApi {
         kind?: "text" | "image" | "git-graph";
         language: string;
         content: string;
-        contentState?: "ready" | "deferred" | "loading" | "too-large";
+        contentState?: EditorTabContentState;
         originalContent?: string;
         savedContent?: string;
         baseRevision?: string | null;

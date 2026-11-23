@@ -13,6 +13,8 @@ import type {
 import { FileCode2 } from "lucide-react";
 import type { IDockviewPanelProps } from "dockview-react";
 import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -99,7 +101,9 @@ import {
   Loader,
 } from "@/components/ui";
 import { isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
-import { formatFileSize } from "@/lib/fs/file-preview-limits";
+import { formatFileSize, resolveReadOnlyFileViewer } from "@/lib/fs/file-preview-limits";
+import type { FilePreviewReader } from "@/lib/fs/file-preview-reader";
+import { LogFileViewer } from "./LogFileViewer";
 import { buildPanePanelId, parsePanePanelId } from "@/lib/panes/types";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
@@ -113,6 +117,8 @@ import { isDiffEditorTab } from "@/store/layout.utils";
 import type { ReviewComment } from "@/types/review";
 import { classifySentReviewComment, type SentReviewCommentView } from "@/lib/sent-review-comments";
 import { EMPTY_SENT_REVIEW_COMMENTS, useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
+
+const PdfFileViewer = lazy(() => import("./PdfFileViewer"));
 
 const EMPTY_REVIEW_COMMENTS: ReviewComment[] = [];
 const EMPTY_SENT_REVIEW_COMMENT_VIEWS: readonly SentReviewCommentView[] = [];
@@ -408,7 +414,19 @@ function EditorTabSurface({
   const tabContentPending = Boolean(
     tab && (tab.contentState === "deferred" || tab.contentState === "loading"),
   );
-  const tabContentUnavailable = tabContentPending || tabContentTooLarge;
+  const readPreviewRange = window.api?.fs?.readPreviewRange;
+  const viewer = tab ? resolveReadOnlyFileViewer(tab, Boolean(readPreviewRange && workspaceRootPath)) : null;
+  const tabContentUnavailable = tabContentPending || tabContentTooLarge || viewer !== null;
+  const tabFilePath = tab?.filePath;
+  const readPreview = useCallback<FilePreviewReader>((range) =>
+    readPreviewRange && tabFilePath && workspaceRootPath
+      ? readPreviewRange({ ...range, rootPath: workspaceRootPath, filePath: tabFilePath })
+      : Promise.resolve({ ok: false, reason: "unavailable" }),
+  [readPreviewRange, tabFilePath, workspaceRootPath]);
+  const handleLogLineTarget = useCallback((target: { line: number }) => {
+    const state = useAppStore.getState();
+    if (state.pendingEditorSelection === target) state.clearPendingEditorSelection();
+  }, []);
   const tabIsImage = Boolean(
     tab && (tab.kind === "image" || tab.language === "image"),
   );
@@ -425,7 +443,7 @@ function EditorTabSurface({
     conflictCompare &&
     conflictCompare.conflictRevision === (tab.conflictRevision ?? null),
   );
-  const previewKind: EditorPreviewKind | null = tabIsMarkdown
+  const previewKind: EditorPreviewKind | null = viewer ? null : tabIsMarkdown
     ? "markdown"
     : tabIsHtml
       ? "html"
@@ -798,7 +816,6 @@ function EditorTabSurface({
   // pane click bypasses both, so trigger hydration when the panel shows a
   // deferred tab.
   const tabContentState = tab?.contentState;
-  const tabFilePath = tab?.filePath;
   useEffect(() => {
     if (tabContentState !== "deferred" || !tabFilePath) {
       return;
@@ -1148,6 +1165,19 @@ function EditorTabSurface({
               key={workspaceRootPath || "git-graph:no-workspace"}
               workspaceCwd={workspaceRootPath || undefined}
             />
+          ) : viewer ? (
+            editorMounted && (viewer === "pdf" ? (
+              <Suspense fallback={<div className={sx(styles.emptyHost)} aria-busy="true" />}>
+                <PdfFileViewer key={absolutePath} reader={readPreview} />
+              </Suspense>
+            ) : (
+              <LogFileViewer
+                key={absolutePath}
+                reader={readPreview}
+                lineTarget={pendingEditorSelection?.tabId === editorTabId ? pendingEditorSelection : null}
+                onLineTargetHandled={handleLogLineTarget}
+              />
+            ))
           ) : tabContentTooLarge ? (
             <div className={sx(styles.emptyHost)}>
               <Empty className={sx(styles.empty)}>
