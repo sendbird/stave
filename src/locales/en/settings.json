@@ -79,7 +79,7 @@
     },
     "actions": {
       "title": "Answer from notifications",
-      "description": "Answer approval requests and questions from system notifications on supported platforms."
+      "description": "Answer requests from the notification bell and, on macOS, from system notifications."
     },
     "restart": {
       "title": "After a restart, continue interrupted work",

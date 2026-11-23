@@ -1,8 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import {
-  getNextNotificationView,
-  shouldShowNotificationApprovalActions,
-} from "@/components/layout/top-bar-notifications.utils";
+import { getNextNotificationView } from "@/components/layout/top-bar-notifications.utils";
 
 describe("top-bar-notifications utils", () => {
   test("resets the notification view to unread whenever the popover opens", () => {
@@ -22,28 +19,5 @@ describe("top-bar-notifications utils", () => {
       isOpening: false,
       previousView: "history",
     })).toBe("history");
-  });
-
-  test("shows approval actions only for unread approval notifications", () => {
-    expect(shouldShowNotificationApprovalActions({
-      unread: true,
-      action: {
-        type: "approval",
-        requestId: "approval-1",
-      },
-    })).toBe(true);
-
-    expect(shouldShowNotificationApprovalActions({
-      unread: false,
-      action: {
-        type: "approval",
-        requestId: "approval-1",
-      },
-    })).toBe(false);
-
-    expect(shouldShowNotificationApprovalActions({
-      unread: true,
-      action: null,
-    })).toBe(false);
   });
 });

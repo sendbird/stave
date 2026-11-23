@@ -167,6 +167,8 @@ export function InboxRow(props: {
   };
   /** Hide the detail line when the body already says it. */
   hideDetail?: boolean;
+  /** Show the whole detail when it is the prompt for an inline decision. */
+  wrapDetail?: boolean;
   supplement?: ReactNode;
   leading?: ReactNode;
   selectionKey?: string;
@@ -293,7 +295,7 @@ export function InboxRow(props: {
           </span>
         ) : null}
         {entry.detail && !props.hideDetail ? (
-          <span className={sx(styles.rowDetail)}>{entry.detail}</span>
+          <span className={sx(styles.rowDetail, props.wrapDetail && styles.rowDetailWrapped)}>{entry.detail}</span>
         ) : null}
         {props.supplement ? (
           <span className={sx(styles.rowSupplement)}>{props.supplement}</span>

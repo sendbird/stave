@@ -341,7 +341,7 @@ export function updateApprovalPartsByRequestId(args: {
       return part;
     }
     if (args.interrupted) {
-      return { ...part, state: "approval-interrupted" };
+      return part.state === "approval-requested" ? { ...part, state: "approval-interrupted" } : part;
     }
 
     return {
@@ -453,12 +453,16 @@ export function updateUserInputPartsByRequestId(args: {
   requestId: string;
   answers?: Record<string, string>;
   denied?: boolean;
+  interrupted?: true;
 }): MessagePart[] {
   return args.parts.map((part) => {
     if (part.type !== "user_input" || part.requestId !== args.requestId) {
       return part;
     }
 
+    if (args.interrupted) {
+      return part.state === "input-requested" ? { ...part, state: "input-interrupted" } : part;
+    }
     return {
       ...part,
       answers: args.answers,

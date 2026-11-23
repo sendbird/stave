@@ -60,7 +60,7 @@ export function TurnEventPreview() {
         );
         return { status: "delivered" as const };
       },
-      resolveUserInput: ({ requestId, answers, denied }) =>
+      resolveUserInput: async ({ requestId, answers, denied }) =>
         setSamples((rows) =>
           rows.map((row) => ({
             ...row,

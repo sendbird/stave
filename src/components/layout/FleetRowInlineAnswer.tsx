@@ -115,6 +115,7 @@ export function ApprovalRowButtons(props: {
   allowLabel: string;
   denyLabel: string;
   disabled?: boolean;
+  compact?: boolean;
   onAllow: () => void;
   onDeny: () => void;
 }) {
@@ -128,10 +129,10 @@ export function ApprovalRowButtons(props: {
         onClick={props.onAllow}
         size="sm"
         type="button"
-        xstyle={styles.inlineOptionCompact}
+        xstyle={props.compact !== false && styles.inlineOptionCompact}
       >
         <Kbd aria-hidden="true">A</Kbd>
-        {i18n.t("fleet:inlineAnswer.allow")}
+        {i18n.t(props.compact === false ? "shell:topBarNotifications.allowOnce" : "fleet:inlineAnswer.allow")}
       </Button>
       <Button
         aria-keyshortcuts="D"
@@ -141,7 +142,7 @@ export function ApprovalRowButtons(props: {
         size="sm"
         type="button"
         variant="outline"
-        xstyle={styles.inlineOptionCompact}
+        xstyle={props.compact !== false && styles.inlineOptionCompact}
       >
         <Kbd aria-hidden="true">D</Kbd>
         {i18n.t("fleet:inlineAnswer.deny")}

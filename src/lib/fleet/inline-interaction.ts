@@ -49,6 +49,7 @@ const TYPED_INPUT_TYPES: ReadonlySet<UserInputQuestion["inputType"]> = new Set([
 
 export function classifyFleetInlineInteraction(
   part: ApprovalPart | UserInputPart | null | undefined,
+  optionCount: { min: number; max: number } = FLEET_SHORT_QUESTION_OPTIONS,
 ): FleetInlineInteraction {
   if (!part) {
     return OPEN;
@@ -63,8 +64,8 @@ export function classifyFleetInlineInteraction(
   if (
     question.multiSelect === true ||
     TYPED_INPUT_TYPES.has(question.inputType) ||
-    question.options.length < FLEET_SHORT_QUESTION_OPTIONS.min ||
-    question.options.length > FLEET_SHORT_QUESTION_OPTIONS.max
+    question.options.length < optionCount.min ||
+    question.options.length > optionCount.max
   ) {
     return OPEN;
   }

@@ -332,7 +332,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         title: "Notifications",
         description:
           "Track approvals, task completions, and follow-up work across workspaces from the top-bar bell.",
-        previewImage: "screenshots/notifications.png",
+        previewImage: "screenshots/guide/en/notifications.png",
       },
       {
         routePath: "fleet-needs-me",

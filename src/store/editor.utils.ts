@@ -263,6 +263,7 @@ export function applyUserInputState(args: {
   requestId: string;
   answers?: Record<string, string>;
   denied?: boolean;
+  interrupted?: true;
 }): {
   messagesByTask: Record<string, ChatMessage[]>;
   workspaceSnapshotVersion: number;
@@ -281,6 +282,7 @@ export function applyUserInputState(args: {
             requestId: args.requestId,
             answers: args.answers,
             denied: args.denied,
+            interrupted: args.interrupted,
           }),
         }),
       }),

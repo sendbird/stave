@@ -1,3 +1,4 @@
+import type { ProviderDecisionResponse } from "@/lib/providers/provider.types";
 import { buildQuestionReply } from "@/lib/question-reply";
 import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
 import { cancelPendingAutoRouting } from "./auto-routing-dispatch";
@@ -16,7 +17,7 @@ import {
   approvalInteractionId,
   userInputInteractionId,
 } from "@/lib/work-graph/work-graph-reducer";
-import type { AppState, ApprovalAnswerOutcome } from "@/store/app-store.types";
+import type { AppState, InteractionAnswerOutcome } from "@/store/app-store.types";
 import {
   buildMessageId,
   buildRecentTimestamp,
@@ -517,11 +518,11 @@ export function createProviderInteractionActions(args: {
         // Already answered, or never pending: nothing left to deliver.
         return { status: "skipped" };
       }
-      const fail = (message: string): ApprovalAnswerOutcome => {
+      const fail = (message: string): InteractionAnswerOutcome => {
         appendApprovalFailure(`Approval delivery failed: ${message}`);
         return { status: "failed", message };
       };
-      const alreadyAnswering: ApprovalAnswerOutcome = {
+      const alreadyAnswering: InteractionAnswerOutcome = {
         status: "failed",
         message: i18n.t("notifications:approvalAnswer.alreadyAnswering"),
       };
@@ -545,7 +546,7 @@ export function createProviderInteractionActions(args: {
               ...(grant ? { scope: grant } : {}),
             });
             if (!result.ok) {
-              if (result.unanswerable && onUnanswerable === "close") {
+              if ((result.unanswerable || result.reason === "already-answered") && onUnanswerable === "close") {
                 applyApprovalResponse(approvalPart.requestId, undefined, true);
                 return { status: "skipped" };
               }
@@ -609,12 +610,13 @@ export function createProviderInteractionActions(args: {
       }
       return fail("no active turn found for this task.");
     },
-    resolveUserInput: ({
+    resolveUserInput: async ({
       taskId,
       messageId,
       requestId,
       answers,
       denied,
+      onUnanswerable = "report",
     }) => {
       const stateBefore = get();
       const runtimeTarget = resolveTaskRuntimeTarget({
@@ -714,7 +716,7 @@ export function createProviderInteractionActions(args: {
         });
       };
 
-      const applyUserInputResponse = (requestId: string) => {
+      const applyUserInputResponse = (requestId: string, interrupted?: true) => {
         const resolvedAt = Date.now();
         set((state) => {
           const resolveActivity = (messagesByTask: Record<string, ChatMessage[]>) =>
@@ -741,6 +743,7 @@ export function createProviderInteractionActions(args: {
               requestId,
               answers,
               denied,
+              interrupted,
             });
             return {
               workspaceRuntimeCacheById: {
@@ -762,6 +765,7 @@ export function createProviderInteractionActions(args: {
             requestId,
             answers,
             denied,
+            interrupted,
           });
           return {
             ...nextMessagesState,
@@ -881,89 +885,47 @@ export function createProviderInteractionActions(args: {
         return;
       }
 
-      if (activeTurnId && userInputPart && !respondThroughHost) {
-        const respondUserInput = window.api?.provider?.respondUserInput;
-        if (respondUserInput) {
-          const release = claimInteractionAnswer(taskId, userInputPart.requestId);
-          if (!release) {
-            return;
-          }
-          void respondUserInput({
-            turnId: activeTurnId,
-            requestId: userInputPart.requestId,
-            answers,
-            denied,
-          })
-            .then((result) => {
-              if (!result.ok) {
-                appendUserInputFailure(
-                  `User input delivery failed: ${result.message ?? "unknown"}`,
-                );
-                return;
-              }
-              applyUserInputResponse(userInputPart.requestId);
-            })
-            .catch((error) => {
-              appendUserInputFailure(
-                `User input delivery failed: ${String(error)}`,
-              );
-            })
-            .finally(release);
-          return;
-        }
-      }
+      if (!userInputPart) return { status: "skipped" };
 
-      if (
-        (respondThroughHost || !activeTurnId) &&
-        userInputPart &&
-        workspaceId &&
-        window.api?.localMcp?.respondUserInput
-      ) {
+      const fail = (message: string): InteractionAnswerOutcome => {
+        appendUserInputFailure(`User input delivery failed: ${message}`);
+        return { status: "failed", message };
+      };
+      const deliver = async (
+        send: () => Promise<ProviderDecisionResponse>,
+      ): Promise<InteractionAnswerOutcome> => {
         const release = claimInteractionAnswer(taskId, userInputPart.requestId);
         if (!release) {
-          return;
+          return { status: "failed", message: i18n.t("notifications:approvalAnswer.alreadyAnswering") };
         }
-        void window.api.localMcp
-          .respondUserInput({
-            workspaceId,
-            taskId,
-            requestId: userInputPart.requestId,
-            answers,
-            denied,
-          })
-          .then((result) => {
-            if (!result.ok) {
-              appendUserInputFailure(
-                `User input delivery failed: ${result.message ?? "unknown"}`,
-              );
-              return;
+        try {
+          const result = await send();
+          if (!result.ok) {
+            if (onUnanswerable === "close" && (result.unanswerable || result.reason === "already-answered")) {
+              applyUserInputResponse(userInputPart.requestId, true);
+              return { status: "skipped" };
             }
-            applyUserInputResponse(userInputPart.requestId);
-          })
-          .catch((error) => {
-            appendUserInputFailure(
-              `User input delivery failed: ${String(error)}`,
-            );
-          })
-          .finally(release);
-        return;
-      }
+            return fail(result.message ?? "unknown");
+          }
+          applyUserInputResponse(userInputPart.requestId);
+          return { status: "delivered" };
+        } catch (error) {
+          return fail(String(error));
+        } finally {
+          release();
+        }
+      };
 
-      if (
-        !activeTurnId &&
-        userInputPart &&
-        window.api?.provider?.respondUserInput
-      ) {
-        appendUserInputFailure(
-          "User input delivery failed: no active turn found for this task.",
-        );
-        return;
+      const response = { requestId: userInputPart.requestId, answers, denied };
+      const respondUserInput = window.api?.provider?.respondUserInput;
+      if (activeTurnId && !respondThroughHost && respondUserInput) {
+        return deliver(() => respondUserInput({ ...response, turnId: activeTurnId }));
       }
-      if (userInputPart) {
-        appendUserInputFailure(
-          "User input delivery failed: no active turn found for this task.",
-        );
+      const respondThroughLocalMcp = window.api?.localMcp?.respondUserInput;
+      if ((respondThroughHost || !activeTurnId) && workspaceId && respondThroughLocalMcp) {
+        return deliver(() => respondThroughLocalMcp({ ...response, workspaceId, taskId }));
       }
+      return fail("no active turn found for this task.");
     },
   };
 }
