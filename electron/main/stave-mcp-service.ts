@@ -1,3 +1,4 @@
+import { WorktreeCreationError } from "../../src/lib/git-worktree-creation";
 import { NotificationTaskStatusArgsSchema } from "../../src/lib/notifications/native-notification-contract";
 import { webContents } from "electron";
 import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
@@ -331,9 +332,11 @@ export async function createWorkspace(args: {
   initCommand?: string;
   useRootNodeModulesSymlink?: boolean;
 }) {
-  return invokeLocalMcp<
-    import("../host-service/local-mcp-runtime").CreatedWorkspaceInfo
-  >("create-workspace", args);
+  const result = await invokeLocalMcp<Awaited<ReturnType<
+    typeof import("../host-service/local-mcp-runtime").createWorkspaceForLocalMcp
+  >>>("create-workspace", args);
+  if ("failure" in result) throw new WorktreeCreationError(result.failure);
+  return result;
 }
 
 export async function runTask(args: {

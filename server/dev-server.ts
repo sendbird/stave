@@ -1,3 +1,5 @@
+import { GitWorktreeCreateArgsSchema } from "../src/lib/git-worktree-creation";
+import { createGitWorktree } from "../electron/shared/git-worktree-create";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { parseWorktreePathByBranch } from "../src/lib/source-control-worktrees";
@@ -128,15 +130,17 @@ async function readJson<T>(req: Request): Promise<T> {
 
 async function runCommand(args: {
   cmd: string;
+  commandArgs?: string[];
   cwd?: string;
 }): Promise<CommandResult> {
   try {
     const cwd = args.cwd || process.cwd();
-    const proc = Bun.spawn(["/usr/bin/env", "bash", "-lc", args.cmd], {
+    const argv = args.commandArgs ? [args.cmd, ...args.commandArgs] : ["/usr/bin/env", "bash", "-lc", args.cmd];
+    const proc = Bun.spawn(argv, {
       cwd,
       stderr: "pipe",
       stdout: "pipe",
-      env: buildRepositoryShellEnv({ cwd, baseEnv: process.env }),
+      env: buildRepositoryShellEnv({ cwd, baseEnv: args.commandArgs ? { ...process.env, LC_ALL: "C" } : process.env }),
     });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -454,6 +458,11 @@ const server = Bun.serve({
           .filter(Boolean)
           .join("\n"),
       });
+    }
+
+    if (url.pathname === "/api/scm/create-worktree" && req.method === "POST") {
+      const args = GitWorktreeCreateArgsSchema.parse(await readJson<unknown>(req));
+      return json(await createGitWorktree(args));
     }
 
     if (url.pathname === "/api/scm/status" && req.method === "POST") {
@@ -1057,8 +1066,8 @@ const server = Bun.serve({
     }
 
     if (url.pathname === "/api/terminal/run" && req.method === "POST") {
-      const body = await readJson<{ command: string; cwd?: string }>(req);
-      return json(await runCommand({ cmd: body.command, cwd: body.cwd }));
+      const body = await readJson<{ command: string; commandArgs?: string[]; cwd?: string }>(req);
+      return json(await runCommand({ cmd: body.command, commandArgs: body.commandArgs, cwd: body.cwd }));
     }
 
     if (url.pathname === "/api/terminal/write" && req.method === "POST") {

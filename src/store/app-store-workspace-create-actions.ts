@@ -3,6 +3,7 @@ import { continueWorkspaceOnNewBranch } from "@/store/workspace-continue-here";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
+import { describeWorktreeCreationFailure } from "@/lib/git-worktree-creation";
 import { workspaceFsAdapter } from "@/lib/fs";
 import {
   findListedWorktree,
@@ -151,32 +152,29 @@ export function createWorkspaceCreateActions(args: {
         level: "success" | "warning";
         message: string;
       }> = [];
+      const createWorktree = window.api?.sourceControl?.createWorktree;
+      if (!createWorktree) {
+        return { ok: false, message: i18n.t("workspace:worktreeCreationErrors.gitFailed") };
+      }
       const runner = window.api?.terminal?.runCommand;
       if (runner) {
+        const runGit = (commandArgs: string[]) => runner({
+          cwd: current.repositoryPath ?? undefined,
+          command: "git",
+          commandArgs,
+        });
         const remoteTarget =
           mode === "branch"
             ? await resolveWorkspaceRemoteBaseBranchTarget({
                 baseBranch,
                 fromBranchKind,
-                verifyRef: async (ref) =>
-                  (
-                    await runner({
-                      cwd: current.repositoryPath ?? undefined,
-                      command: `git show-ref --verify --quiet ${JSON.stringify(ref)}`,
-                    })
-                  ).ok,
+                verifyRef: async (ref) => (await runGit(["show-ref", "--verify", "--quiet", ref])).ok,
               })
             : null;
         if (remoteTarget) {
-          const fetchResult = await runner({
-            cwd: current.repositoryPath,
-            command: `git fetch ${remoteTarget.remoteName} --prune`,
-          });
+          const fetchResult = await runGit(["fetch", "--prune", "--", remoteTarget.remoteName]);
           if (!fetchResult.ok) {
-            const localBranchProbe = await runner({
-              cwd: current.repositoryPath,
-              command: `git show-ref --verify --quiet ${JSON.stringify(`refs/heads/${remoteTarget.localBranch}`)}`,
-            });
+            const localBranchProbe = await runGit(["show-ref", "--verify", "--quiet", `refs/heads/${remoteTarget.localBranch}`]);
             const fallbackBranch = localBranchProbe.ok
               ? remoteTarget.localBranch
               : baseBranch;
@@ -201,36 +199,14 @@ export function createWorkspaceCreateActions(args: {
             });
           }
         }
-        await runner({
-          cwd: current.repositoryPath,
-          command: "mkdir -p .stave/workspaces",
-        });
-        // `--no-track`: a branch started from `origin/main` would otherwise track it,
-        // and a bare `git push` then suggests `git push origin HEAD:main`.
-        const addResult = await runner({
-          cwd: current.repositoryPath,
-          command:
-            mode === "clean"
-              ? `git worktree add --no-track -b ${JSON.stringify(branchName)} ${JSON.stringify(workspacePath)}`
-              : `git worktree add --no-track -b ${JSON.stringify(branchName)} ${JSON.stringify(workspacePath)} ${JSON.stringify(baseBranch)}`,
-        });
-        if (!addResult.ok) {
-          const fallbackResult = await runner({
-            cwd: current.repositoryPath,
-            command: `git worktree add ${JSON.stringify(workspacePath)} ${JSON.stringify(branchName)}`,
-          });
-          if (!fallbackResult.ok) {
-            return {
-              ok: false,
-              message: (
-                fallbackResult.stderr ||
-                addResult.stderr ||
-                "Failed to create git worktree."
-              ).trim(),
-            };
-          }
-        }
       }
+      const failure = await createWorktree({
+        cwd: current.repositoryPath,
+        branch: branchName,
+        path: workspacePath,
+        baseRef: mode === "branch" ? baseBranch : undefined,
+      });
+      if (failure) return { ok: false, message: describeWorktreeCreationFailure(failure) };
 
       const empty = createEmptyWorkspaceState();
       const seededTask: Task = {

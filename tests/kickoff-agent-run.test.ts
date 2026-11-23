@@ -75,6 +75,7 @@ function install(options: { refuseRun?: boolean; refuseRecord?: boolean; failSav
         return { ok: true };
       },
     },
+    sourceControl: { createWorktree: async () => null },
     terminal: { runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }) },
     agentRuns: {
       start: async (input: AgentRunStartArgs) => {

@@ -17,7 +17,7 @@ import {
   TerminalResumeSessionStreamArgsSchema,
 } from "./schemas";
 import { invokeHostService, onHostServiceEvent } from "../host-service-client";
-import { runCommand } from "../utils/command";
+import { runCommand, runCommandArgs } from "../utils/command";
 
 const logDev = process.env.STAVE_DEV
   ? (...args: unknown[]) => console.error(...args)
@@ -155,8 +155,10 @@ export function registerTerminalHandlers() {
 
   ipcMain.handle(
     "terminal:run-command",
-    async (_event, args: { command: string; cwd?: string }) =>
-      runCommand({ command: args.command, cwd: args.cwd }),
+    async (_event, { command, commandArgs, cwd }: { command: string; commandArgs?: string[]; cwd?: string }) =>
+      commandArgs
+        ? runCommandArgs({ command, commandArgs, cwd, env: { ...process.env, LC_ALL: "C" } })
+        : runCommand({ command, cwd }),
   );
 
   ipcMain.handle("terminal:create-session", async (_event, args) => {

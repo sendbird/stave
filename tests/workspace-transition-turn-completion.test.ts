@@ -297,12 +297,10 @@ describe("a turn that finishes during a workspace transition stays finished", ()
   test("creating a workspace keeps a completion in the workspace it leaves", async () => {
     const hold = createHold();
     installWindow({
-      terminal: {
-        runCommand: async ({ command }: { command: string }) => {
-          if (command.includes("git worktree add")) {
-            await hold.wait();
-          }
-          return { ok: true, code: 0, stdout: "", stderr: "" };
+      sourceControl: {
+        createWorktree: async () => {
+          await hold.wait();
+          return null;
         },
       },
       persistence: {

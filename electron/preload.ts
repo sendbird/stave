@@ -297,6 +297,7 @@ interface StreamTurnArgs {
 
 interface TerminalRunArgs {
   command: string;
+  commandArgs?: string[];
   cwd?: string;
 }
 
@@ -2525,6 +2526,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   scripts: scriptsApi,
   sourceControl: {
+    createWorktree: (args: import("../src/lib/git-worktree-creation").GitWorktreeCreateArgs) =>
+      ipcRenderer.invoke("scm:create-worktree", args) as Promise<import("../src/lib/git-worktree-creation").WorktreeCreationFailure | null>,
     seedWorktreeDependencies: (args: import("../src/lib/worktree-dependencies").WorktreeDependenciesArgs) =>
       ipcRenderer.invoke("scm:seed-worktree-dependencies", args) as Promise<import("../src/lib/worktree-dependencies").WorktreeDependenciesResult>,
     getStatus: (args: { cwd?: string }) =>

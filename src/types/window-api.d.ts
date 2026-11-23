@@ -1234,6 +1234,7 @@ interface WindowDiagnosticsApi {
 
 interface TerminalRunArgs {
   command: string;
+  commandArgs?: string[];
   cwd?: string;
 }
 
@@ -1437,6 +1438,7 @@ interface SourceControlCommandResult {
 }
 
 interface WindowSourceControlApi {
+  createWorktree?: (args: import("@/lib/git-worktree-creation").GitWorktreeCreateArgs) => Promise<import("@/lib/git-worktree-creation").WorktreeCreationFailure | null>;
   seedWorktreeDependencies?: (args: import("@/lib/worktree-dependencies").WorktreeDependenciesArgs) => Promise<import("@/lib/worktree-dependencies").WorktreeDependenciesResult>;
   getStatus?: (args: { cwd?: string }) => Promise<SourceControlStatusResult>;
   stageAll?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;

@@ -836,8 +836,8 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
         args as Parameters<typeof localMcpRuntime.registerRepository>[0],
       );
     case "create-workspace":
-      return localMcpRuntime.createWorkspace(
-        args as Parameters<typeof localMcpRuntime.createWorkspace>[0],
+      return localMcpRuntime.createWorkspaceForLocalMcp(
+        args as Parameters<typeof localMcpRuntime.createWorkspaceForLocalMcp>[0],
       );
     case "sync-delegation-permission-settings":
       return syncDelegationPermissionSettings(args);

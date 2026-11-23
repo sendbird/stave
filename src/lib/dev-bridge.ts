@@ -1,3 +1,4 @@
+import type { GitWorktreeCreateArgs, WorktreeCreationFailure } from "@/lib/git-worktree-creation";
 import { i18n } from "@/i18n/runtime";
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "@/lib/review/review-diff-contract";
 import type {
@@ -120,7 +121,7 @@ export function installDevApiBridge() {
     },
     terminal: {
       ...existingApi.terminal,
-      runCommand: (args: { command: string; cwd?: string }) =>
+      runCommand: (args: { command: string; commandArgs?: string[]; cwd?: string }) =>
         postJson({
           path: "/api/terminal/run",
           body: args,
@@ -158,6 +159,8 @@ export function installDevApiBridge() {
     },
     sourceControl: {
       ...existingApi.sourceControl,
+      createWorktree: (args: GitWorktreeCreateArgs) =>
+        postJson<WorktreeCreationFailure | null>({ path: "/api/scm/create-worktree", body: args }),
       getStatus: (args: { cwd?: string }) =>
         postJson({ path: "/api/scm/status", body: args }),
       stageAll: (args: { cwd?: string }) =>

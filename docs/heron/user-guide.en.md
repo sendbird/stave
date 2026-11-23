@@ -191,6 +191,8 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 | Create Clean Workspace     | Create a new isolated worktree with a fresh branch                               |
 | Link Existing Worktree     | Symlink a worktree that lives elsewhere into `.stave/workspaces/` and keep its branch |
 
+If the branch name already exists, Create Workspace and Kickoff stop and suggest an available name. Enter a new name and retry to create the workspace from your selected base.
+
 A **Post-Create Command** (for example `bun install`) runs right after creation.
 Before setup runs, new worktrees can reuse ignored `node_modules` (including package workspaces) and `.venv` from the source checkout on macOS and Linux. A root `.worktreeinclude` replaces these defaults with gitignore-style allowlist rules; environment and credential files require explicit inclusion. Copying is limited to 30 seconds; failures or timeouts show a short notice, then normal setup continues. Setup still checks dependency compatibility.
 

@@ -1,4 +1,6 @@
 import { ProviderDecisionDeliveryError } from "../providers/provider-decision-delivery-error";
+import { createGitWorktree, runWorkspaceGit } from "../shared/git-worktree-create";
+import { WorktreeCreationError, type WorktreeCreationFailure } from "../../src/lib/git-worktree-creation";
 import { NotificationTaskStatusArgsSchema } from "../../src/lib/notifications/native-notification-contract";
 import { delegatedTaskRulesFor } from "../../src/lib/runs/delegated-task";
 import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
@@ -154,7 +156,7 @@ import {
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
 import { turnPullRequestEvidence } from "./turn-pr-evidence";
-import { runCommand, runCommandArgs } from "../main/utils/command";
+import { runCommand } from "../main/utils/command";
 import { buildTurnHandoffContextPart } from "../../src/lib/task-context/handoff-delivery";
 
 export interface RegisteredWorkspaceInfo {
@@ -1421,8 +1423,21 @@ export async function registerRepository(args: {
   } satisfies RegisteredRepositoryInfo;
 }
 
+export async function createWorkspaceForLocalMcp(
+  args: Omit<Parameters<typeof createWorkspace>[0], "recoverExistingWorktree" | "signal">,
+): Promise<CreatedWorkspaceInfo | { failure: WorktreeCreationFailure }> {
+  try {
+    return await createWorkspace({ ...args, recoverExistingWorktree: false, signal: undefined });
+  } catch (error) {
+    if (error instanceof WorktreeCreationError) return { failure: error.failure };
+    throw error;
+  }
+}
+
 export async function createWorkspace(args: {
   signal?: AbortSignal;
+  /** Trusted Tars retry of a previously prepared, deterministic worktree. */
+  recoverExistingWorktree?: boolean;
   repositoryPath: string;
   name: string;
   /** Human-facing sidebar label. Falls back to the derived branch name. */
@@ -1450,27 +1465,6 @@ export async function createWorkspace(args: {
     throw new Error("Workspace branch name is invalid.");
   }
   const workspaceDisplayName = args.label?.trim() || branchName;
-
-  const existingWorkspace =
-    toWorkspaceList(repository).find(
-      (workspace) =>
-        workspace.branch === branchName ||
-        workspace.name === branchName ||
-        workspace.path ===
-          `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`,
-    ) ?? null;
-  if (existingWorkspace) {
-    return {
-      workspaceId: existingWorkspace.id,
-      workspaceName: existingWorkspace.name,
-      workspacePath: existingWorkspace.path,
-      branch: existingWorkspace.branch,
-      repositoryPath,
-      repositoryName: repository.repositoryName,
-      message: "Workspace already exists.",
-      noticeLevel: "warning",
-    } satisfies CreatedWorkspaceInfo;
-  }
 
   const workspacePath = `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`;
   const workspaceId = buildImportedWorktreeWorkspaceId({
@@ -1500,41 +1494,19 @@ export async function createWorkspace(args: {
         });
   const notices: Array<{ level: "success" | "warning"; message: string }> = [];
 
+  const runGit = runWorkspaceGit({ cwd: repositoryPath, signal: args.signal });
   const remoteTarget =
     args.mode === "branch" && !fromCommit
       ? await resolveWorkspaceRemoteBaseBranchTarget({
           baseBranch,
           fromBranchKind: args.fromBranchKind,
-          verifyRef: async (ref) =>
-            (
-              await runCommandArgs({
-                cwd: repositoryPath,
-                command: "git",
-                commandArgs: ["show-ref", "--verify", "--quiet", ref],
-                signal: args.signal, timeoutMs: 30_000,
-              })
-            ).ok,
+          verifyRef: async (ref) => (await runGit(["show-ref", "--verify", "--quiet", ref])).ok,
         })
       : null;
   if (remoteTarget) {
-    const fetchResult = await runCommandArgs({
-      cwd: repositoryPath,
-      command: "git",
-      commandArgs: ["fetch", remoteTarget.remoteName, "--prune"],
-      signal: args.signal, timeoutMs: 60_000,
-    });
+    const fetchResult = await runGit(["fetch", "--prune", "--", remoteTarget.remoteName]);
     if (!fetchResult.ok) {
-      const localBranchProbe = await runCommandArgs({
-        cwd: repositoryPath,
-        command: "git",
-        signal: args.signal, timeoutMs: 30_000,
-        commandArgs: [
-          "show-ref",
-          "--verify",
-          "--quiet",
-          `refs/heads/${remoteTarget.localBranch}`,
-        ],
-      });
+      const localBranchProbe = await runGit(["show-ref", "--verify", "--quiet", `refs/heads/${remoteTarget.localBranch}`]);
       baseBranch = localBranchProbe.ok ? remoteTarget.localBranch : baseBranch;
       notices.push({
         level: "warning",
@@ -1557,47 +1529,46 @@ export async function createWorkspace(args: {
     }
   }
 
-  const worktrees = await runCommandArgs({ cwd: repositoryPath, command: "git", commandArgs: ["worktree", "list", "--porcelain", "-z"], signal: args.signal, timeoutMs: 30_000 });
-  if (!worktrees.ok) throw new WorkspacePreparationError("Could not reconcile Git worktrees. Check repository access, then resume to retry.");
-  const comparable = (value: string) => fs.realpath(value).catch(() => path.resolve(value));
-  const expectedPath = await comparable(workspacePath);
-  const listed = await Promise.all(parseGitWorktrees({ stdout: worktrees.stdout }).map(async (entry) => ({ ...entry, resolved: await comparable(entry.path) })));
-  const existingTree = listed.find((entry) => entry.branch === branchName || entry.resolved === expectedPath);
-  if (existingTree && (existingTree.branch !== branchName || existingTree.resolved !== expectedPath))
-    throw new WorkspacePreparationError("The execution branch or path belongs to a different worktree. Resolve that conflict, then resume to retry.");
-  if (!existingTree) {
-    await fs.mkdir(path.join(repositoryPath, ".stave/workspaces"), { recursive: true });
-    // `--no-track`: a branch started from `origin/main` would otherwise track it,
-    // and a bare `git push` then suggests `git push origin HEAD:main`.
-    const addResult = await runCommandArgs({
-      cwd: repositoryPath,
-      command: "git",
-      signal: args.signal, timeoutMs: 60_000,
-      commandArgs:
-        args.mode === "clean"
-          ? ["worktree", "add", "--no-track", "-b", branchName, workspacePath]
-          : ["worktree", "add", "--no-track", "-b", branchName, workspacePath, baseBranch],
-    });
-    if (!addResult.ok) {
-      const fallbackResult = await runCommandArgs({
-        cwd: repositoryPath,
-        command: "git",
-        signal: args.signal, timeoutMs: 60_000,
-        commandArgs: ["worktree", "add", workspacePath, branchName],
-      });
-      if (!fallbackResult.ok) {
-        throw new Error(
-          (
-            fallbackResult.stderr ||
-            addResult.stderr ||
-            "Failed to create git worktree."
-          ).trim(),
-        );
+  args.signal?.throwIfAborted();
+  const baseRef = args.mode === "branch" ? baseBranch : undefined;
+  let recovering = false;
+  if (args.recoverExistingWorktree) {
+    const worktrees = await runGit(["worktree", "list", "--porcelain", "-z"]);
+    args.signal?.throwIfAborted();
+    if (!worktrees.ok || worktrees.stdoutTruncated) throw new WorkspacePreparationError("Could not reconcile Git worktrees. Check repository access, then resume to retry.");
+    const checkout = parseGitWorktrees({ stdout: worktrees.stdout }).find((entry) => entry.branch === branchName);
+    if (checkout) {
+      const [expectedPath, actualPath] = await Promise.all([
+        fs.realpath(workspacePath).catch(() => null),
+        fs.realpath(checkout.path).catch(() => null),
+      ]);
+      if (expectedPath && expectedPath === actualPath) {
+        const [base, head] = await Promise.all([
+          runGit(["rev-parse", "--verify", "--end-of-options", `${baseRef ?? "HEAD"}^{commit}`]),
+          runGit(["-C", workspacePath, "rev-parse", "--show-prefix", "HEAD"]),
+        ]);
+        args.signal?.throwIfAborted();
+        recovering = base.ok && head.ok && head.stdout.startsWith("\n") && base.stdout.trim() === head.stdout.trim();
       }
+    }
+    const registered = recovering ? toWorkspaceList(repository).find((workspace) => workspace.id === workspaceId) : undefined;
+    if (registered) {
+      return {
+        workspaceId,
+        workspaceName: registered.name,
+        workspacePath,
+        branch: branchName,
+        repositoryPath,
+        repositoryName: repository.repositoryName,
+        message: "Recovered the prepared workspace.",
+      } satisfies CreatedWorkspaceInfo;
     }
   }
 
-  if (!existingTree) {
+  if (!recovering) {
+    const failure = await createGitWorktree({ cwd: repositoryPath, branch: branchName, path: workspacePath, baseRef }, runGit);
+    args.signal?.throwIfAborted();
+    if (failure) throw new WorktreeCreationError(failure);
     const seed = await seedWorktreeDependencies({ sourcePath: repositoryPath, workspacePath, skipRootNodeModules: useRootNodeModulesSymlink, signal: args.signal });
     if (seed.status === "fallback") notices.push({ level: "warning", message: i18n.t("workspace:dependencyCopyFallback") });
   }

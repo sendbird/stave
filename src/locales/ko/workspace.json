@@ -1211,6 +1211,14 @@
       "inProgress": "진행 중"
     }
   },
+  "worktreeCreationErrors": {
+    "branchExists": "브랜치 \"{{branch}}\"이(가) 이미 있습니다.",
+    "branchCheckedOut": "브랜치 \"{{branch}}\"이(가) 이미 \"{{path}}\"에 체크아웃되어 있습니다.",
+    "suggestBranch": "\"{{branch}}\" 이름으로 워크스페이스를 만들어 보세요.",
+    "pathExists": "워크스페이스 경로 \"{{path}}\"이(가) 이미 있거나 Git에 등록되어 있습니다.",
+    "baseRefMissing": "기준 참조 \"{{ref}}\"에서 커밋을 찾을 수 없습니다. 사용 가능한 기준 브랜치를 선택해 다시 시도하세요.",
+    "gitFailed": "Git이 워크트리를 만들지 못했습니다."
+  },
   "appStoreWorkspaceCreateActions": {
     "workspaceNameIsRequired": "워크스페이스 이름이 필요합니다.",
     "openARepositoryBeforeCreatingAWorkspace": "워크스페이스를 만들려면 저장소를 엽니다.",
