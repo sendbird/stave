@@ -544,6 +544,14 @@ const GitPathSchema = z
   .max(4096)
   .refine((value) => !value.includes("\0"), "Git paths must not contain NUL.");
 
+export const ScmCommitArgsSchema = z
+  .object({
+    cwd: z.string().max(4096).optional(),
+    message: z.string(),
+    paths: z.array(GitPathSchema).min(1).max(1000).optional(),
+  })
+  .strict();
+
 export const ScmGraphArgsSchema = z
   .object({
     cwd: z.string().max(4096).optional(),

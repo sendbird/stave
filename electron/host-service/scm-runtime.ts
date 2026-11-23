@@ -550,22 +550,18 @@ export function stageAllSourceControl(args: { cwd?: string }) {
 }
 
 /**
- * Attempt to auto-fix lint errors on staged files.
- * Runs `eslint --fix` and `prettier --write` on lintable staged files,
- * then re-stages the results. Returns whether a fix was attempted and
- * whether any remaining errors persist.
+ * Fix lintable working-tree files before a commit retry. The scoped commit
+ * reads the resulting files directly. An index-based retry restages its fixes.
  */
 export async function tryAutoFixLintErrors(args: {
   cwd?: string;
   paths?: string[];
 }) {
-  let files = [
-    ...new Set(args.paths?.map((path) => path.trim()).filter(Boolean) ?? []),
-  ];
-  if (files.length === 0) {
+  let files = [...new Set(args.paths)];
+  if (!args.paths) {
     const stagedResult = await runCommandArgs({
       command: "git",
-      commandArgs: ["diff", "--cached", "--name-only", "--diff-filter=ACMR"],
+      commandArgs: ["diff", "--cached", "--name-only", "--diff-filter=ACMR", "-z"],
       cwd: args.cwd,
     });
     if (!stagedResult.ok || !stagedResult.stdout.trim()) {
@@ -575,20 +571,18 @@ export async function tryAutoFixLintErrors(args: {
         stderr: "No staged files to fix.",
       };
     }
-    files = stagedResult.stdout.trim().split("\n").filter(Boolean);
+    files = stagedResult.stdout.split("\0").filter(Boolean);
   }
 
-  if (files.length === 0) {
-    return {
-      ok: false,
-      fixAttempted: false,
-      stderr: "No staged files to fix.",
-    };
-  }
-
-  const lintableFiles = files.filter((f) =>
+  const candidates = files.filter((f) =>
     /\.(js|jsx|ts|tsx|mjs|cjs|vue|svelte)$/.test(f),
   );
+  const cwd = resolveCommandCwd({ cwd: args.cwd });
+  const lintableFiles = (await Promise.all(candidates.map(async (file) => {
+    const absolutePath = resolveRootFilePath({ rootPath: cwd, filePath: `./${file}` });
+    const stat = absolutePath && await fs.lstat(absolutePath).catch(() => null);
+    return stat && stat.isFile() ? absolutePath : null;
+  }))).filter((file): file is string => file !== null);
   if (lintableFiles.length === 0) {
     return {
       ok: false,
@@ -611,12 +605,13 @@ export async function tryAutoFixLintErrors(args: {
     cwd: args.cwd,
   });
 
-  // Re-stage only the files that were explicitly included in this operation.
-  await runCommandArgs({
-    command: "git",
-    commandArgs: ["add", "--", ...lintableFiles],
-    cwd: args.cwd,
-  });
+  if (!args.paths) {
+    await runCommandArgs({
+      command: "git",
+      commandArgs: ["--literal-pathspecs", "add", "--", ...lintableFiles],
+      cwd: args.cwd,
+    });
+  }
 
   return {
     ok: true,
@@ -638,19 +633,71 @@ export function unstageAllSourceControl(args: { cwd?: string }) {
   });
 }
 
-export function commitSourceControl(args: { message: string; cwd?: string }) {
+export async function commitSourceControl(args: {
+  message: string;
+  cwd?: string;
+  paths?: string[];
+}) {
   const message = args.message.trim();
   if (!message) {
-    return Promise.resolve({
+    return {
       ok: false,
       code: -1,
       stdout: "",
       stderr: "Commit message is required.",
+    };
+  }
+  if (args.paths === undefined) {
+    return runCommandArgs({
+      command: "git",
+      commandArgs: ["commit", "-m", message],
+      cwd: args.cwd,
     });
+  }
+  const selectedPaths = new Set(args.paths);
+  const status = await runCommandArgs({
+    command: "git",
+    commandArgs: GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS,
+    cwd: args.cwd,
+  });
+  if (!status.ok) return status;
+  const items = parseStatusLines({ stdout: status.stdout });
+  const changedPaths = new Set(items.flatMap((item) =>
+    item.oldPath && (item.indexStatus === "R" || item.workingTreeStatus === "R")
+      ? [item.path, item.oldPath]
+      : [item.path],
+  ));
+  if (
+    status.stdoutTruncated ||
+    selectedPaths.size === 0 ||
+    [...selectedPaths].some((path) => !changedPaths.has(path) || path.endsWith("/"))
+  ) {
+    return {
+      ok: false,
+      code: -1,
+      stdout: "",
+      stderr: "",
+    };
+  }
+
+  // Unlike a literal directory pathspec, this glob cannot match descendants.
+  // Escaping the first character forces a pattern match even for plain names.
+  const exactPathspec = (path: string) =>
+    `:(top,glob)${path.replace(/^.|[\\*?[\]]/gsu, "\\$&")}`;
+  const untracked = items.filter((item) => item.code === "??" && selectedPaths.has(item.path));
+  if (untracked.length > 0) {
+    // Path-limited commits need new files in the index. Intent-to-add leaves
+    // their contents unstaged if a hook rejects the commit.
+    const added = await runCommandArgs({
+      command: "git",
+      commandArgs: ["add", "--intent-to-add", "--", ...untracked.map((item) => exactPathspec(item.path))],
+      cwd: args.cwd,
+    });
+    if (!added.ok) return added;
   }
   return runCommandArgs({
     command: "git",
-    commandArgs: ["commit", "-m", message],
+    commandArgs: ["commit", "--only", "-m", message, "--", ...Array.from(selectedPaths, exactPathspec)],
     cwd: args.cwd,
   });
 }

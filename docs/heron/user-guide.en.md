@@ -283,7 +283,7 @@ Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/doc
 
 1. Use **Source Control** in the right panels to see changed files and history.
 2. Open Review mode with the **Conversation / Review** switch above the task tab (Cmd/Ctrl+Alt+R). Leave line comments on the diff and send them with **Send review to agent**. See [Review and delegation](#review).
-3. Select **Create PR** in the top bar to open the pull request dialog, where you pick the merge method and auto-merge. GitHub CLI (`gh`) must be signed in.
+3. Select **Create PR** in the top bar to open the pull request dialog, where you pick the merge method and auto-merge. If the workspace has uncommitted changes, choose which files to commit. Unchecked staged changes stay staged. GitHub CLI (`gh`) must be signed in.
 4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub.
 5. When the work is done, choose **Archive Workspace** from the workspace row's ⋮ menu. Turn on **Delete the git branch too** to delete the branch as well.
 

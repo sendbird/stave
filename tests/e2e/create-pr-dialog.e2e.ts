@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 interface PrHarnessOptions {
   holdDraft?: boolean;
   hookFailure?: "blocking" | "warning";
+  failCommitOnce?: boolean;
   failPushOnce?: boolean;
 }
 
@@ -22,9 +23,12 @@ async function installPrHarness(page: Page, options: PrHarnessOptions = {}) {
       releaseDraftPromise = resolve;
     });
     let pushFailed = false;
+    let commitFailed = false;
     let statusItems = [
-      { path: "src/a.ts", code: "M" },
-      { path: "src/b.ts", code: "M" },
+      initial.failCommitOnce
+        ? { path: "src/a.ts", oldPath: "src/old.ts", code: "R", indexStatus: "R" }
+        : { path: "src/a.ts", code: "M" },
+      { path: "src/b.ts", code: "M", indexStatus: "M" },
     ];
 
     const harness: PrHarnessState = {
@@ -97,10 +101,18 @@ async function installPrHarness(page: Page, options: PrHarnessOptions = {}) {
           harness.calls.push(`stage:${requestCwd}:${paths.join(",")}`);
           return commandOk;
         },
-        commit: async ({ cwd: requestCwd }: { cwd?: string }) => {
-          harness.calls.push(`commit:${requestCwd}`);
-          statusItems = [];
+        commit: async ({ paths, cwd: requestCwd }: { paths?: string[]; cwd?: string }) => {
+          harness.calls.push(`commit:${requestCwd}:${paths?.join(",")}`);
+          if (initial.failCommitOnce && !commitFailed) {
+            commitFailed = true;
+            return { ok: false, code: 1, stdout: "", stderr: "pre-commit hook failed" };
+          }
+          statusItems = statusItems.filter((item) => !paths?.includes(item.path));
           return commandOk;
+        },
+        tryAutoFixLint: async ({ paths, cwd: requestCwd }: { paths: string[]; cwd?: string }) => {
+          harness.calls.push(`fix:${requestCwd}:${paths.join(",")}`);
+          return { ok: true, fixAttempted: true, stderr: "" };
         },
         createPR: async ({ cwd: requestCwd }: { cwd?: string }) => {
           harness.calls.push(`create:${requestCwd}`);
@@ -323,12 +335,13 @@ test("review decisions and blocking verification stop before commit", async ({
   expect(browserErrors).toEqual([]);
 });
 
-test("warning preflight, push failure, and retry retain commit order and workspace cwd", async ({
+test("hook and push retries keep the selected rename separate from an unchecked staged file", async ({
   page,
 }) => {
   const browserErrors = trackBrowserErrors(page);
   await installPrHarness(page, {
     hookFailure: "warning",
+    failCommitOnce: true,
     failPushOnce: true,
   });
   await page.setViewportSize({ width: 1440, height: 1200 });
@@ -338,6 +351,7 @@ test("warning preflight, push failure, and retry retain commit order and workspa
   await page.getByRole("button", { name: "Create PR" }).click();
   const dialog = page.getByRole("dialog", { name: "Create Pull Request" });
   await expect(dialog.getByRole("textbox", { name: "Title" })).toBeVisible();
+  await dialog.getByRole("checkbox", { name: "Include src/b.ts in the automatic commit" }).uncheck();
   await dialog.getByRole("button", { name: "Create PR" }).click();
   await expect(
     dialog.getByText("Verification reported warnings", { exact: true }),
@@ -357,11 +371,12 @@ test("warning preflight, push failure, and retry retain commit order and workspa
 
   const calls = await getCalls(page);
   const operations = calls.filter((call) =>
-    /^(stage|commit|push|create):/.test(call),
+    /^(stage|commit|fix|push|create):/.test(call),
   );
   expect(operations).toEqual([
-    "stage:/tmp/stave-project/.stave/workspaces/feature-pr:src/a.ts,src/b.ts",
-    "commit:/tmp/stave-project/.stave/workspaces/feature-pr",
+    "commit:/tmp/stave-project/.stave/workspaces/feature-pr:src/a.ts,src/old.ts",
+    "fix:/tmp/stave-project/.stave/workspaces/feature-pr:src/a.ts",
+    "commit:/tmp/stave-project/.stave/workspaces/feature-pr:src/a.ts,src/old.ts",
     "push:/tmp/stave-project/.stave/workspaces/feature-pr:git push -u origin HEAD",
     "push:/tmp/stave-project/.stave/workspaces/feature-pr:git push -u origin HEAD",
     "create:/tmp/stave-project/.stave/workspaces/feature-pr",

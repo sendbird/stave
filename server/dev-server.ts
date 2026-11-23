@@ -7,10 +7,6 @@ import {
   buildSourceControlDiffPreview,
   resolveSourceControlDiffPaths,
 } from "../src/lib/source-control-diff";
-import {
-  hasSourceControlConflicts,
-  parseSourceControlStatusLines,
-} from "../src/lib/source-control-status";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -26,6 +22,7 @@ import {
   checkoutDefaultBranchDetached,
   checkoutScmBranch,
   cherryPickScmCommit,
+  commitSourceControl,
   createScmBranch,
   createScmTag,
   deleteScmBranch,
@@ -35,6 +32,7 @@ import {
   getScmCommitDiff,
   getScmCommitFiles,
   getScmGraph,
+  getScmStatus,
   mergeScmBranch,
   pullScmBranch,
   pushScmBranch,
@@ -46,6 +44,7 @@ import {
 import { getScmReviewDiff, getScmReviewFileDiff } from "../electron/host-service/scm-review-diff";
 import { ScmReviewDiffArgsSchema, ScmReviewFileDiffArgsSchema } from "../src/lib/review/review-diff-contract";
 import {
+  ScmCommitArgsSchema,
   ScmCommitDetailsArgsSchema,
   ScmCommitDiffArgsSchema,
   ScmCommitFilesArgsSchema,
@@ -165,17 +164,6 @@ async function runCommand(args: {
       stderr: String(error),
     };
   }
-}
-
-function hasConflictItems(args: {
-  items: Array<{
-    code: string;
-    path: string;
-    indexStatus?: string;
-    workingTreeStatus?: string;
-  }>;
-}) {
-  return args.items.some((item) => hasSourceControlConflicts({ item }));
 }
 
 function toGitPathspecArg(paths: string[]) {
@@ -467,23 +455,7 @@ const server = Bun.serve({
 
     if (url.pathname === "/api/scm/status" && req.method === "POST") {
       const body = await readJson<{ cwd?: string }>(req);
-      const [statusResult, branchResult] = await Promise.all([
-        runCommand({ cmd: "git status --porcelain -z", cwd: body.cwd }),
-        runCommand({ cmd: "git rev-parse --abbrev-ref HEAD", cwd: body.cwd }),
-      ]);
-      const items = statusResult.ok
-        ? parseSourceControlStatusLines({ stdout: statusResult.stdout })
-        : [];
-      return json({
-        ok: statusResult.ok && branchResult.ok,
-        branch: branchResult.ok ? branchResult.stdout.trim() : "unknown",
-        items,
-        hasConflicts: hasConflictItems({ items }),
-        stderr: [statusResult.stderr, branchResult.stderr]
-          .filter(Boolean)
-          .join("\n")
-          .trim(),
-      });
+      return json(await getScmStatus(body));
     }
 
     if (url.pathname === "/api/scm/stage-all" && req.method === "POST") {
@@ -499,25 +471,19 @@ const server = Bun.serve({
     }
 
     if (url.pathname === "/api/scm/commit" && req.method === "POST") {
-      const body = await readJson<{ cwd?: string; message: string }>(req);
-      const msg = body.message.trim();
-      if (!msg) {
+      const parsed = ScmCommitArgsSchema.safeParse(await readJson<unknown>(req));
+      if (!parsed.success) {
         return json(
           {
             ok: false,
             code: -1,
             stdout: "",
-            stderr: "Commit message is required.",
+            stderr: "Invalid commit request.",
           },
           400,
         );
       }
-      return json(
-        await runCommand({
-          cmd: `git commit -m ${JSON.stringify(msg)}`,
-          cwd: body.cwd,
-        }),
-      );
+      return json(await commitSourceControl(parsed.data));
     }
 
     if (url.pathname === "/api/scm/stage-file" && req.method === "POST") {

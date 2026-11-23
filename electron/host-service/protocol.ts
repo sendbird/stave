@@ -888,6 +888,7 @@ export interface HostServiceRequestMap {
   "scm.commit": {
     message: string;
     cwd?: string;
+    paths?: string[];
   };
   "scm.try-auto-fix-lint": {
     cwd?: string;

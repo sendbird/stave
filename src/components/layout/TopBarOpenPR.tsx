@@ -31,8 +31,8 @@ import {
   FIELD_LABEL_CLASS,
   InlineNoticeBanner,
   type InlineNotice,
-  type ScmStatusItem,
 } from "@/components/layout/pull-request/create-pr-dialog-panels";
+import type { SourceControlStatusItem } from "@/lib/source-control-status";
 import {
   Button,
   DropdownMenu,
@@ -182,9 +182,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [verificationBlocking, setVerificationBlocking] = useState(false);
 
   // Uncommitted changes section
-  const [changedFiles, setChangedFiles] = useState<ScmStatusItem[]>([]);
+  const [changedFiles, setChangedFiles] = useState<SourceControlStatusItem[]>([]);
   const [selectedFilePaths, setSelectedFilePaths] = useState<string[]>([]);
   const [commitMessage, setCommitMessage] = useState("");
+  const [didCommitSelection, setDidCommitSelection] = useState(false);
   const [changesExpanded, setChangesExpanded] = useState(true);
   const [repoMergeSettings, setRepoMergeSettings] =
     useState<RepoMergeSettings>();
@@ -306,7 +307,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   // Helpers
   // -------------------------------------------------------------------------
 
-  function generateFallbackCommitMessage(files: ScmStatusItem[]) {
+  function generateFallbackCommitMessage(files: SourceControlStatusItem[]) {
     const added = files.filter((f) => f.code === "?" || f.code === "A").length;
     const modified = files.filter((f) => f.code === "M").length;
     const deleted = files.filter((f) => f.code === "D").length;
@@ -318,7 +319,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     return `chore: update ${parts.join(", ") || `${files.length} changes`}`;
   }
 
-  function generateFallbackPRDraft(files: ScmStatusItem[]) {
+  function generateFallbackPRDraft(files: SourceControlStatusItem[]) {
     const baseBranch = targetBranch.trim() || defaultBaseBranch;
     return generateFallbackPullRequestDraft({
       baseBranch,
@@ -350,6 +351,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       setChangedFiles([]);
       setSelectedFilePaths([]);
       userDeselectedPathsRef.current.clear();
+      setDidCommitSelection(false);
       setCommitMessage("");
       setChangesExpanded(true);
       setRepoMergeSettings(undefined);
@@ -456,6 +458,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setChangedFiles([]);
     setSelectedFilePaths([]);
     userDeselectedPathsRef.current.clear();
+    setDidCommitSelection(false);
     setRepoMergeSettings(undefined);
     const configuredMergeState = resolveCreatePrMergeState({
       preferredMethod: createPrMergeMethod,
@@ -733,7 +736,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       );
       setChangedFiles(statusResult.items);
       setChangesExpanded(statusResult.items.length > 0);
-      if (statusResult.items.length > 0 && pendingFiles.length === 0) {
+      if (!didCommitSelection && statusResult.items.length > 0 && pendingFiles.length === 0) {
         setInlineNotice({
           tone: "warning",
           title: i18n.t("sourceControl:topBarOpenPR.selectFilesToCommit"),
@@ -993,15 +996,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     // Commit only after all preflight checks have passed. This keeps a
     // stop-and-fix result from leaving an automatic commit behind.
     if (pendingFiles.length > 0) {
-      const stageFile = window.api?.sourceControl?.stageFile;
-      const stageFiles = window.api?.sourceControl?.stageFiles;
       const commit = window.api?.sourceControl?.commit;
-      if ((!stageFiles && !stageFile) || !commit) {
+      if (!commit) {
         setInlineNotice({
           tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.automaticCommitIsUnavailable"),
           description:
-            i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeCannotIntentionallyStage"),
+            i18n.t("sourceControl:topBarOpenPR.selectedFilesCommitUnavailable"),
         });
         setStep("ready");
         setActiveSubmitAction(null);
@@ -1013,7 +1014,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         tone: "info",
         title: i18n.t("sourceControl:topBarOpenPR.preparingAutomaticCommit"),
         description:
-          i18n.t("sourceControl:topBarOpenPR.theExplicitlySelectedWorkspaceChangesWillBe"),
+          i18n.t("sourceControl:topBarOpenPR.onlySelectedFilesWillBeCommitted"),
       });
 
       let message = commitMessage.trim();
@@ -1053,47 +1054,18 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
       setCommitMessage(message);
 
-      setInlineNotice({
-        tone: "info",
-        title: i18n.t("sourceControl:topBarOpenPR.stagingChanges"),
-        description: i18n.t("sourceControl:topBarOpenPR.reviewingAndStagingExplicitlySelectedWorkspaceFile", { count: pendingFiles.length }),
-      });
-      const stagePendingFiles = async () => {
-        if (stageFiles) {
-          return stageFiles({
-            paths: pendingFiles.map((file) => file.path),
-            cwd: submitWorkspaceCwd,
-          });
-        }
-        for (const file of pendingFiles) {
-          const stageResult = await stageFile!({
-            path: file.path,
-            cwd: submitWorkspaceCwd,
-          });
-          if (!stageResult.ok) {
-            return stageResult;
-          }
-        }
-        return { ok: true, code: 0, stdout: "", stderr: "" };
-      };
-      let stageResult = await stagePendingFiles();
-      if (!isCurrentOperation()) return;
-      if (!stageResult.ok) {
-        setInlineNotice({
-          tone: "danger",
-          title: i18n.t("sourceControl:topBarOpenPR.stagingFailed"),
-          description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
-        });
-        setStep("ready");
-        return;
-      }
-
+      const paths = pendingFiles.flatMap((file) =>
+        file.oldPath && (file.indexStatus === "R" || file.workingTreeStatus === "R")
+          ? [file.path, file.oldPath]
+          : [file.path],
+      );
+      const commitArgs = { message, cwd: submitWorkspaceCwd, paths };
       setInlineNotice({
         tone: "info",
         title: i18n.t("sourceControl:topBarOpenPR.creatingCommit"),
         description: message,
       });
-      let commitResult = await commit({ message, cwd: submitWorkspaceCwd });
+      let commitResult = await commit(commitArgs);
       if (!isCurrentOperation()) return;
 
       // When a pre-commit hook (husky/lint-staged/eslint) fails, try to
@@ -1116,23 +1088,12 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           });
           if (!isCurrentOperation()) return;
           if (fixResult.fixAttempted) {
-            stageResult = await stagePendingFiles();
-            if (!isCurrentOperation()) return;
-            if (!stageResult.ok) {
-              setInlineNotice({
-                tone: "danger",
-                title: i18n.t("sourceControl:topBarOpenPR.reStagingAfterAutoFixFailed"),
-                description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
-              });
-              setStep("ready");
-              return;
-            }
             setInlineNotice({
               tone: "info",
               title: i18n.t("sourceControl:topBarOpenPR.retryingCommitAfterAutoFix"),
               description: message,
             });
-            commitResult = await commit({ message, cwd: submitWorkspaceCwd });
+            commitResult = await commit(commitArgs);
             if (!isCurrentOperation()) return;
           }
         }
@@ -1148,7 +1109,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         return;
       }
 
-      setChangedFiles([]);
+      // Keep unchecked rows available if pushing or creating the PR fails.
+      setDidCommitSelection(true);
+      setChangedFiles((files) => files.filter((file) => !paths.includes(file.path)));
       setSelectedFilePaths([]);
       setChangesExpanded(false);
       setInlineNotice({
@@ -1653,7 +1616,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const canSubmitPr = canSubmitCreatePr({
     step,
     title: effectiveTitle,
-    hasUncommittedChanges: changedFiles.length > 0,
+    hasUncommittedChanges: !didCommitSelection && changedFiles.length > 0,
     selectedFileCount: selectedFilePaths.length,
     commitMessage,
   });
