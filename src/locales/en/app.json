@@ -30,6 +30,8 @@
     "highPressure": "High pressure"
   },
   "promptTokenChips": {
+    "pastedText_one": "Pasted text #{{id}} · {{count}} line",
+    "pastedText_other": "Pasted text #{{id}} · {{count}} lines",
     "providerBrowser": "Provider browser",
     "informationSection": "Information section",
     "informationItem": "Information item"

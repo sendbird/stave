@@ -2,6 +2,7 @@ import { i18n } from "@/i18n";
 import { type ClipboardEvent, type RefObject, useLayoutEffect, useMemo, useSyncExternalStore } from "react";
 import { toast } from "@/components/ui";
 import { shouldAttachPastedText } from "@/lib/fs/pasted-text";
+import { pastedTextBlockRegistry, shouldCollapsePastedText, type PastedTextBlock } from "@/lib/pasted-text-blocks";
 import { isPastedTextAttachment, type Attachment, type PastedTextAttachment } from "@/types/chat";
 import {
   collectClipboardFiles,
@@ -25,6 +26,8 @@ export function usePromptInputClipboardPaste(args: {
   editorRef: RefObject<PromptLexicalEditorHandle | null>;
   onValueChange: (text: string) => void;
   restoreSelection: (position: number) => void;
+  /** Draft scope for collapsed pasted text. Omit to paste long text as plain text. */
+  pastedTextBlockScope?: string;
 }) {
   const { onAttachmentsChange, onPasteFiles, pastedTextFiles } = args;
   // A different draft owns different queued reads and recovery callbacks.
@@ -53,6 +56,16 @@ export function usePromptInputClipboardPaste(args: {
       args.onValueChange(next);
       args.restoreSelection(start + insertion.length);
     };
+  }
+
+  /** Inserts pasted text; long text is registered so the editor shows it as one chip. */
+  function insertPastedText(insertInline: (text: string) => void, text: string) {
+    const scope = args.pastedTextBlockScope;
+    if (scope && shouldCollapsePastedText(text)) {
+      insertInline(pastedTextBlockRegistry.register(scope, text).text);
+      return;
+    }
+    insertInline(text);
   }
 
   function blockWhileReading() {
@@ -108,7 +121,7 @@ export function usePromptInputClipboardPaste(args: {
     }, (ordered) => {
       if (pastedText !== undefined && !ordered.some(isPastedTextAttachment)) {
         if (recover) recoveries.delete(recover);
-        insertInline(pastedText);
+        insertPastedText(insertInline, pastedText);
         toast.warning(i18n.t("composer:pastedText.saveFailed"));
       }
       if (ordered.length) onAttachmentsChange?.({
@@ -125,7 +138,7 @@ export function usePromptInputClipboardPaste(args: {
       if (recover) recoveries.delete(recover);
     }).catch(() => {
       if (recover && recoveries.delete(recover)) {
-        insertInline(pastedText ?? "");
+        insertPastedText(insertInline, pastedText ?? "");
         toast.warning(i18n.t("composer:pastedText.saveFailed"));
       } else {
         toast.error(i18n.t("composer:promptInput.copy4"));
@@ -149,8 +162,15 @@ export function usePromptInputClipboardPaste(args: {
       event.stopPropagation();
       // Preserve inline text on image pastes even when it doesn't need a file.
       if (!shouldSave && text && collectClipboardFiles(transfer).every((file) => file.type.startsWith("image/"))) {
-        captureInlineInsertion()(text);
+        insertPastedText(captureInlineInsertion(), text);
       }
+      return;
+    }
+    // Long plain text stays in the draft but shows as one chip, not the whole text.
+    if (!shouldSave && args.pastedTextBlockScope && shouldCollapsePastedText(text)) {
+      event.preventDefault();
+      event.stopPropagation();
+      insertPastedText(captureInlineInsertion(), text);
     }
   }
 
@@ -169,4 +189,12 @@ export function usePromptInputClipboardPaste(args: {
     handlePaste, attachTransfer, keepAsText, blockWhileReading, pending,
     acceptsFiles: Boolean(onAttachmentsChange || onPasteFiles),
   };
+}
+
+const NO_PASTED_TEXT_BLOCKS: readonly PastedTextBlock[] = [];
+
+/** The collapsed pasted text registered for one draft scope. */
+export function usePastedTextBlocks(scopeId: string | undefined): readonly PastedTextBlock[] {
+  const read = () => scopeId ? pastedTextBlockRegistry.get(scopeId) : NO_PASTED_TEXT_BLOCKS;
+  return useSyncExternalStore(pastedTextBlockRegistry.subscribe, read, read);
 }

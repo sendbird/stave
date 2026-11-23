@@ -786,8 +786,10 @@ export function ComposerFramePreviewApp() {
                   onComposerControlPlacementsChange={() => {}}
                   onModelSelect={agentChoice.selectModel}
                   onAttachFilesChange={() => {}}
-                  onSubmit={() => {
+                  onSubmit={({ text }) => {
                     if (pastePreview) {
+                      // e2e reads the sent text to check collapsed pastes still send the original.
+                      document.documentElement.dataset.previewLastSubmit = text;
                       setDraft("");
                       setAttachments([]);
                     }

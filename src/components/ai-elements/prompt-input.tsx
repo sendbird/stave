@@ -54,7 +54,7 @@ import {
   usePromptEnhancementReveal,
   usePromptEnhancementScrollReset,
 } from "./prompt-input-enhancement";
-import { usePromptInputClipboardPaste } from "./prompt-input-paste";
+import { usePastedTextBlocks, usePromptInputClipboardPaste } from "./prompt-input-paste";
 import { usePromptInputAttachmentGroups } from "./prompt-input-attachment-groups";
 import { usePromptInputCaret } from "./prompt-input-caret";
 import { usePromptInputWindowShortcuts } from "./prompt-input-shortcuts";
@@ -265,8 +265,11 @@ export function PromptInput(args: PromptInputProps) {
     interactionsDisabled,
     isTurnActive,
   });
+  // Long pastes show as one chip in the task composer; plain-text inputs keep raw text.
+  const pastedTextBlockScope = plainText ? undefined : args.attachmentScopeId ?? workspaceCwd ?? "composer";
+  const pastedTextBlocks = usePastedTextBlocks(pastedTextBlockScope);
   const clipboard = usePromptInputClipboardPaste({
-    attachmentScopeId: args.attachmentScopeId, workspaceCwd, valueRef, editorRef: promptEditorRef,
+    attachmentScopeId: args.attachmentScopeId, workspaceCwd, valueRef, editorRef: promptEditorRef, pastedTextBlockScope,
     onValueChange, restoreSelection: restoreComposerSelection,
     onAttachmentsChange: attachmentsEnabled ? onAttachmentsChange : undefined,
     onPasteFiles: attachmentsEnabled ? onPasteFiles : undefined,
@@ -636,6 +639,7 @@ export function PromptInput(args: PromptInputProps) {
                         workspaceInformationReferenceOptions
                       }
                       syncNonce={editorSyncNonce}
+                      pastedTextBlocks={pastedTextBlocks}
                       onChange={(nextValue) => {
                         const guard = shortcutEchoGuardRef.current;
                         if (guard) {

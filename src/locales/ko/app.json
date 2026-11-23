@@ -30,6 +30,7 @@
     "highPressure": "부하 높음"
   },
   "promptTokenChips": {
+    "pastedText_other": "붙여넣은 텍스트 #{{id}} · {{count}}줄",
     "providerBrowser": "프로바이더 브라우저",
     "informationSection": "정보 섹션",
     "informationItem": "정보 항목"
