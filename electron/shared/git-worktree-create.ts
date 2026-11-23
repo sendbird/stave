@@ -23,6 +23,7 @@ export function runWorkspaceGit(args: { cwd: string; signal?: AbortSignal }): Ru
 export async function createGitWorktree(
   args: GitWorktreeCreateArgs,
   runGit: RunGit = runWorkspaceGit(args),
+  options?: { track?: boolean },
 ): Promise<WorktreeCreationFailure | null> {
   const worktreeList = await runGit(["worktree", "list", "--porcelain", "-z"]);
   if (!worktreeList.ok || worktreeList.stdoutTruncated) {
@@ -49,7 +50,7 @@ export async function createGitWorktree(
 
   let created = false;
   try {
-    const failure = await addNewGitWorktree({ ...args, runGit });
+    const failure = await addNewGitWorktree({ ...args, runGit, track: options?.track });
     created = !failure;
     return failure;
   } finally {

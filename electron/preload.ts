@@ -2538,6 +2538,8 @@ contextBridge.exposeInMainWorld("api", {
   },
   scripts: scriptsApi,
   sourceControl: {
+    checkoutWorkspacePr: (args: import("../src/lib/workspace-pr-checkout").WorkspacePrCheckoutArgs) =>
+      ipcRenderer.invoke("scm:checkout-workspace-pr", args) as Promise<import("../src/lib/workspace-pr-checkout").WorkspacePrCheckoutResult>,
     createWorktree: (args: import("../src/lib/git-worktree-creation").GitWorktreeCreateArgs) =>
       ipcRenderer.invoke("scm:create-worktree", args) as Promise<import("../src/lib/git-worktree-creation").WorktreeCreationFailure | null>,
     seedWorktreeDependencies: (args: import("../src/lib/worktree-dependencies").WorktreeDependenciesArgs) =>

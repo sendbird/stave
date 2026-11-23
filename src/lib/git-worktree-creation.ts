@@ -81,10 +81,11 @@ export async function addNewGitWorktree(args: {
   branch: string;
   path: string;
   baseRef?: string;
+  track?: boolean;
 }): Promise<WorktreeCreationFailure | null> {
-  const { runGit, branch, path, baseRef } = args;
+  const { runGit, branch, path, baseRef, track } = args;
   // Starting from a remote-tracking ref must not set the new branch's upstream.
-  const add = await runGit(["worktree", "add", "--no-track", "-b", branch, "--", path, ...(baseRef ? [baseRef] : [])]);
+  const add = await runGit(["worktree", "add", track ? "--track" : "--no-track", "-b", branch, "--", path, ...(baseRef ? [baseRef] : [])]);
   if (add.ok) return null;
 
   const detail = (add.stderr || add.stdout).trim();

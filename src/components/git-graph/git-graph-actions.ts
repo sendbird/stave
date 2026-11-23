@@ -251,7 +251,10 @@ export async function pushBranch(
 ): Promise<ActionResult> {
   const api = window.api?.sourceControl?.push;
   if (!api) return unavailable();
-  return api({ branch, force, cwd });
+  const result = await api({ branch, force, cwd });
+  return result.reason === "fork-pr-read-only"
+    ? { ...result, stderr: i18n.t("workspace:prCheckout.forkPolicy") }
+    : result;
 }
 
 export interface ListBranchesResult {

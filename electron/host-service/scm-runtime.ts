@@ -360,6 +360,14 @@ export async function fetchGitHubPrStatus(args: {
       runCommand: args.runCommand,
     });
     if (branch) {
+      const linkedPr = await run({
+        command: "git",
+        commandArgs: ["config", "--get", `branch.${branch}.stave-pr-url`],
+        cwd: args.cwd,
+      });
+      if (linkedPr.ok && /^https:\/\/github\.com\/[\w-]+\/[\w.-]+\/pull\/[1-9]\d*$/.test(linkedPr.stdout.trim())) {
+        return fetchGitHubPrStatus({ ...args, target: linkedPr.stdout.trim() });
+      }
       const listResult = await run({
         command: "gh",
         commandArgs: [
@@ -1872,7 +1880,7 @@ export function deleteScmBranch(args: {
   });
 }
 
-export function pushScmBranch(args: {
+export async function pushScmBranch(args: {
   branch?: string;
   remote?: string;
   force?: boolean;
@@ -1880,13 +1888,47 @@ export function pushScmBranch(args: {
 }) {
   const remote = (args.remote ?? "origin").trim();
   const branch = args.branch?.trim();
+  let refspec = branch;
+  const branchName = branch?.replace(/^refs\/heads\//, "") ?? await resolveCurrentScmBranch(args);
+  if (branchName) {
+    const upstream = await runCommandArgs({
+      command: "git",
+      commandArgs: ["config", "--get", `branch.${branchName}.remote`],
+      cwd: args.cwd,
+    });
+    if (upstream.ok && /^stave-pr-\d+$/.test(upstream.stdout.trim())) {
+      return {
+        ok: false, code: -1, stdout: "",
+        // i18n-ignore: diagnostic fallback for non-renderer callers
+        stderr: "Pushing from a fork pull request workspace is disabled.",
+        reason: "fork-pr-read-only" as const,
+      };
+    }
+    if (upstream.ok && upstream.stdout.trim() === remote) {
+      const linked = await runCommandArgs({
+        command: "git",
+        commandArgs: ["config", "--get", `branch.${branchName}.stave-pr-url`],
+        cwd: args.cwd,
+      });
+      if (linked.ok) {
+        const merge = await runCommandArgs({
+          command: "git",
+          commandArgs: ["config", "--get", `branch.${branchName}.merge`],
+          cwd: args.cwd,
+        });
+        const head = merge.stdout.trim();
+        if (merge.ok && head.startsWith("refs/heads/")) refspec = `refs/heads/${branchName}:${head}`;
+      }
+    }
+
+  }
   return runCommandArgs({
     command: "git",
     commandArgs: [
       "push",
       ...(args.force ? ["--force-with-lease"] : []),
       remote,
-      ...(branch ? [branch] : []),
+      ...(refspec ? [refspec] : []),
     ],
     cwd: args.cwd,
   });

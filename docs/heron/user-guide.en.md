@@ -190,6 +190,9 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 | Create From Branch (default) | Search and pick a base branch, then create the worktree from it               |
 | Create Clean Workspace     | Create a new isolated worktree with a fresh branch                               |
 | Link Existing Worktree     | Symlink a worktree that lives elsewhere into `.stave/workspaces/` and keep its branch |
+| Open From Pull Request | Open a GitHub PR from this repository using its URL or a number such as `#123` |
+
+The PR head determines the default workspace branch name. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
 
 If the branch name already exists, Create Workspace and Kickoff stop and suggest an available name. Enter a new name and retry to create the workspace from your selected base.
 

@@ -659,13 +659,9 @@ const SHOTS = [
   {
     name: "new-workspace",
     async capture({ page, locale, file, t }) {
-      await openApp(page, locale);
-      await quietChrome(page);
-      const trigger = page.getByRole("button", { name: await t("workspace:repositoryWorkspaceSidebar.accessibility.newProjectWorkspace", { value1: "acme-web" }) });
-      // The row's actions show on hover; the repository name sits over them until then.
-      await trigger.hover({ force: true });
-      await trigger.click({ force: true });
+      await openPreview(page, locale, "workspace-pr");
       const dialog = page.getByRole("dialog").last();
+      await dialog.getByRole("button", { name: await t("workspace:prCheckout.method") }).click();
       await settle(page);
       await save(page, dialog, file, { padding: 16 });
     },

@@ -1,6 +1,8 @@
 import { GitWorktreeCreateArgsSchema } from "../../../src/lib/git-worktree-creation";
 import { createGitWorktree } from "../../shared/git-worktree-create";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema } from "../../../src/lib/pull-request-stack";
+import { WorkspacePrCheckoutArgsSchema } from "../../../src/lib/workspace-pr-checkout";
+import { checkoutWorkspacePr } from "../../host-service/workspace-pr-checkout";
 import { ipcMain } from "electron";
 import { WorktreeDependenciesArgsSchema } from "../../../src/lib/worktree-dependencies";
 import { seedWorktreeDependencies } from "../../host-service/worktree-dependencies";
@@ -47,6 +49,10 @@ function invalidGraphResult(stderr: string) {
 }
 
 export function registerScmHandlers() {
+  ipcMain.handle("scm:checkout-workspace-pr", (_event, input: unknown) => {
+    const parsed = WorkspacePrCheckoutArgsSchema.safeParse(input);
+    return parsed.success ? checkoutWorkspacePr(parsed.data) : { ok: false, code: "invalidReference" };
+  });
   ipcMain.handle("scm:create-worktree", (_event, input: unknown) =>
     createGitWorktree(GitWorktreeCreateArgsSchema.parse(input)),
   );

@@ -1,3 +1,4 @@
+import type { WorkspacePrCheckoutArgs, WorkspacePrCheckoutResult } from "@/lib/workspace-pr-checkout";
 import type { GitWorktreeCreateArgs, WorktreeCreationFailure } from "@/lib/git-worktree-creation";
 import { i18n } from "@/i18n/runtime";
 import type { GitHubPrActivityRequest } from "@/lib/github-pr-activity";
@@ -160,6 +161,8 @@ export function installDevApiBridge() {
     },
     sourceControl: {
       ...existingApi.sourceControl,
+      checkoutWorkspacePr: (args: WorkspacePrCheckoutArgs) =>
+        postJson<WorkspacePrCheckoutResult>({ path: "/api/scm/checkout-workspace-pr", body: args }),
       createWorktree: (args: GitWorktreeCreateArgs) =>
         postJson<WorktreeCreationFailure | null>({ path: "/api/scm/create-worktree", body: args }),
       getStatus: (args: { cwd?: string }) =>

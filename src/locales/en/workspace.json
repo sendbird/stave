@@ -1537,5 +1537,22 @@
     "title": "Archived workspaces",
     "trigger": "Archived workspaces ({{count}})",
     "manage": "Open Clean up workspaces"
+  },
+  "prCheckout": {
+    "method": "Open From Pull Request",
+    "optionalBranch": "Workspace branch name (optional)",
+    "reference": "Pull request URL or number",
+    "placeholder": "GitHub URL or #123",
+    "forkPolicy": "Fork pull requests can be fetched and reviewed. Pushing is disabled.",
+    "linkWarning": "The pull request is linked in Information, but Git could not save it for automatic PR status.",
+    "errors": {
+      "invalidReference": "Enter a GitHub pull request URL or a number such as #123.",
+      "wrongRepository": "Use a pull request from this repository’s GitHub origin.",
+      "ghMissing": "Install GitHub CLI (gh) to open a pull request.",
+      "ghAuth": "Sign in to GitHub CLI with gh auth login, then retry.",
+      "notFound": "The pull request was not found in this repository.",
+      "lookupFailed": "Could not look up the pull request on GitHub.",
+      "fetchFailed": "Could not fetch the pull request head."
+    }
   }
 }

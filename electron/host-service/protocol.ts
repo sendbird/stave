@@ -1,3 +1,4 @@
+import type { WorkspacePrPushReason } from "../../src/lib/workspace-pr-checkout";
 import type { ProviderDecisionFailureReason, ProviderDecisionResponse } from "../../src/lib/providers/provider.types";
 import type { BackgroundTaskRequest, BackgroundTaskResponse } from "../../src/lib/providers/background-tasks";
 import type { GitHubPrActivityArgs, GitHubPrActivityResult } from "../../src/lib/github-pr-activity";
@@ -1281,7 +1282,7 @@ export interface HostServiceResponseMap {
   "scm.delete-tag": CommandResult;
   "scm.rename-branch": CommandResult;
   "scm.delete-branch": CommandResult;
-  "scm.push": CommandResult;
+  "scm.push": CommandResult & { reason?: WorkspacePrPushReason };
   "scm.get-pr-stack": GetPrStackResult;
   "scm.retarget-pr-stack": RetargetPrStackResult;
   "scm.get-pr-status": HostScmPrStatusResult;
