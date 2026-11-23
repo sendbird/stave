@@ -38,6 +38,7 @@ import type { ProviderAccountSelection } from "../src/lib/providers/provider-acc
 import {
   cleanupAllScriptProcesses,
   getScriptStatuses,
+  hasWorkspaceOrbitHost,
   runScriptEntry,
   runScriptHook,
   setWorkspaceScriptEventListener,
@@ -1902,6 +1903,14 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "workspace-scripts.get-status":
       await respond(request.id, {
         statuses: getScriptStatuses(request.params),
+      });
+      return;
+    case "workspace-scripts.has-orbit-host":
+      await respond(request.id, {
+        matches: hasWorkspaceOrbitHost(
+          request.params.workspaceId,
+          request.params.host,
+        ),
       });
       return;
     case "workspace-scripts.cleanup-all":

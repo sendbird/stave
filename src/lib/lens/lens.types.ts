@@ -702,6 +702,8 @@ export interface LensSecurityConfig {
   blockedHosts: string[];
   /** Master switch for CDP-backed Lens operations. */
   developerModeCdp: boolean;
+  /** Skip CDP prompts for loopback and workspace Orbit hosts. */
+  cdpLocalHostExemption: boolean;
   /** Hosts approved for CDP access (per-host opt-in). */
   cdpApprovedHosts: string[];
 }

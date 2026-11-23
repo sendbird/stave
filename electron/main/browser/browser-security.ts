@@ -5,22 +5,22 @@ import {
   type LensCdpApprovalResponse,
   type LensSecurityConfig,
 } from "../../../src/lib/lens/lens.types";
+import { normalizeLensHostList } from "../../../src/lib/lens/lens-security";
 import {
-  normalizeLensHostEntry,
-  normalizeLensHostList,
-} from "../../../src/lib/lens/lens-security";
-import {
+  isCdpLoopbackHost,
+  isWorkspaceOrbitCdpHost,
   publishLensCdpPolicy,
   type LensTransientCdpApproval,
 } from "./browser-cdp-policy";
 
 const CDP_APPROVAL_TIMEOUT_MS = 60_000;
-const TRANSIENT_CDP_APPROVAL_MS = 60_000;
+const TRANSIENT_CDP_APPROVAL_MS = 15 * 60_000;
 
 const DEFAULT_SECURITY_CONFIG: LensSecurityConfig = {
   allowedHosts: [],
   blockedHosts: [],
   developerModeCdp: true,
+  cdpLocalHostExemption: true,
   cdpApprovedHosts: [],
 };
 
@@ -189,16 +189,20 @@ function unattendedAutomationCdpApprovalKey(args: {
   )}`;
 }
 
-function hasTransientCdpApproval(workspaceId: string, host: string): boolean {
+function refreshTransientCdpApproval(workspaceId: string, host: string): boolean {
   const key = cdpApprovalKey(workspaceId, host);
   const approval = transientCdpApprovals.get(key);
   if (!approval) {
     return false;
   }
-  if (approval.expiresAt <= Date.now()) {
+  const now = Date.now();
+  if (approval.expiresAt <= now) {
     transientCdpApprovals.delete(key);
+    publishCurrentCdpPolicy();
     return false;
   }
+  approval.expiresAt = now + TRANSIENT_CDP_APPROVAL_MS;
+  publishCurrentCdpPolicy();
   return true;
 }
 
@@ -296,6 +300,7 @@ export function getLensSecurityConfig(): LensSecurityConfig {
     allowedHosts: [...currentSecurityConfig.allowedHosts],
     blockedHosts: [...currentSecurityConfig.blockedHosts],
     developerModeCdp: currentSecurityConfig.developerModeCdp,
+    cdpLocalHostExemption: currentSecurityConfig.cdpLocalHostExemption,
     cdpApprovedHosts: [...currentSecurityConfig.cdpApprovedHosts],
   };
 }
@@ -307,6 +312,7 @@ export function setLensSecurityConfig(
     allowedHosts: normalizeLensHostList(config.allowedHosts),
     blockedHosts: normalizeLensHostList(config.blockedHosts),
     developerModeCdp: config.developerModeCdp === true,
+    cdpLocalHostExemption: config.cdpLocalHostExemption !== false,
     cdpApprovedHosts: normalizeLensHostList(config.cdpApprovedHosts),
   };
   if (!currentSecurityConfig.developerModeCdp) {
@@ -315,12 +321,13 @@ export function setLensSecurityConfig(
   }
   publishCurrentCdpPolicy();
 
-  // Treat hydrated approved-host settings as authorization for requests that
-  // raced the renderer-to-main configuration sync.
+  // Resolve requests that raced the renderer-to-main settings sync.
   if (currentSecurityConfig.developerModeCdp) {
     for (const [requestId, pending] of pendingCdpApprovals) {
       if (
-        hostMatchesList(pending.host, currentSecurityConfig.cdpApprovedHosts)
+        hostMatchesList(pending.host, currentSecurityConfig.cdpApprovedHosts) ||
+        (currentSecurityConfig.cdpLocalHostExemption &&
+          isCdpLoopbackHost(pending.host))
       ) {
         settlePendingCdpApproval(requestId, "approved");
       }
@@ -360,22 +367,12 @@ export function assertNavigationAllowed(
   }
 }
 
-export async function assertCdpAllowed(args: {
-  workspaceId: string;
-  /** Lens session the CDP request originates from ("default" when omitted). */
-  lensSessionId?: string;
-  url: string;
-  reason?: string;
-}): Promise<void> {
+function hasCdpApproval(
+  workspaceId: string,
+  host: string,
+  unattendedAutomationAuthorizationToken: string | null,
+): boolean {
   const config = currentSecurityConfig;
-  const unattendedAutomationAuthorizationToken =
-    unattendedAutomationContext.getStore()?.authorizationToken ?? null;
-  const parsed = parseHttpUrl(args.url);
-  const host = normalizeLensHostEntry(normalizeParsedHost(parsed));
-  if (!host) {
-    throw new Error(`Invalid Lens URL hostname: ${args.url}`);
-  }
-
   if (!config.developerModeCdp) {
     throw new Error(
       "Lens Developer Mode CDP is disabled. Enable Settings > Browser > Lens > Developer Mode to allow CDP-backed Lens actions.",
@@ -384,51 +381,51 @@ export async function assertCdpAllowed(args: {
 
   if (
     hostMatchesList(host, config.cdpApprovedHosts) ||
-    hasTransientCdpApproval(args.workspaceId, host)
+    refreshTransientCdpApproval(workspaceId, host)
   ) {
-    return;
+    return true;
   }
-
   if (
+    unattendedAutomationAuthorizationToken &&
     isAuthorizedUnattendedAutomation({
-      workspaceId: args.workspaceId,
+      workspaceId,
       authorizationToken: unattendedAutomationAuthorizationToken,
     })
   ) {
     rememberUnattendedAutomationCdpApproval({
-      workspaceId: args.workspaceId,
+      workspaceId,
       host,
-      authorizationToken: unattendedAutomationAuthorizationToken!,
+      authorizationToken: unattendedAutomationAuthorizationToken,
     });
-    return;
+    return true;
   }
+  return config.cdpLocalHostExemption && isCdpLoopbackHost(host);
+}
+
+export async function assertCdpAllowed(args: {
+  workspaceId: string;
+  /** Lens session the CDP request originates from ("default" when omitted). */
+  lensSessionId?: string;
+  url: string;
+  reason?: string;
+}): Promise<void> {
+  const { workspaceId } = args;
+  const authorizationToken =
+    unattendedAutomationContext.getStore()?.authorizationToken ?? null;
+  const host = normalizeParsedHost(parseHttpUrl(args.url));
+  if (!host) {
+    throw new Error(`Invalid Lens URL hostname: ${args.url}`);
+  }
+
+  if (hasCdpApproval(workspaceId, host, authorizationToken)) return;
 
   const { getMainWindow } = await import("../window");
-  // Persisted renderer settings can arrive over IPC while the main-window
-  // module is loading. Re-check before creating a prompt from stale defaults.
-  if (!currentSecurityConfig.developerModeCdp) {
-    throw new Error(
-      "Lens Developer Mode CDP is disabled. Enable Settings > Browser > Lens > Developer Mode to allow CDP-backed Lens actions.",
-    );
-  }
-  if (
-    hostMatchesList(host, currentSecurityConfig.cdpApprovedHosts) ||
-    hasTransientCdpApproval(args.workspaceId, host)
-  ) {
-    return;
-  }
-  if (
-    isAuthorizedUnattendedAutomation({
-      workspaceId: args.workspaceId,
-      authorizationToken: unattendedAutomationAuthorizationToken,
-    })
-  ) {
-    rememberUnattendedAutomationCdpApproval({
-      workspaceId: args.workspaceId,
-      host,
-      authorizationToken: unattendedAutomationAuthorizationToken!,
-    });
-    return;
+  // Settings may arrive while the main-window module or Orbit lookup is pending.
+  if (hasCdpApproval(workspaceId, host, authorizationToken)) return;
+  if (currentSecurityConfig.cdpLocalHostExemption) {
+    const orbitHost = await isWorkspaceOrbitCdpHost(workspaceId, host);
+    if (hasCdpApproval(workspaceId, host, authorizationToken)) return;
+    if (orbitHost && currentSecurityConfig.cdpLocalHostExemption) return;
   }
 
   const renderer = getMainWindow()?.webContents;
@@ -438,11 +435,7 @@ export async function assertCdpAllowed(args: {
     );
   }
 
-  const key = cdpRequestKey(
-    args.workspaceId,
-    host,
-    unattendedAutomationAuthorizationToken,
-  );
+  const key = cdpRequestKey(workspaceId, host, authorizationToken);
   const existingRequestId = pendingCdpApprovalKeys.get(key);
   const existingRequest = existingRequestId
     ? pendingCdpApprovals.get(existingRequestId)
@@ -466,7 +459,7 @@ export async function assertCdpAllowed(args: {
       key,
       host,
       workspaceId: args.workspaceId,
-      unattendedAutomationAuthorizationToken,
+      unattendedAutomationAuthorizationToken: authorizationToken,
       promise,
       resolve: resolveApproval,
       timeout,
@@ -504,7 +497,7 @@ export function respondCdpApproval(response: LensCdpApprovalResponse): boolean {
     return false;
   }
 
-  if (response.approved) {
+  if (response.approved && !response.remember) {
     rememberTransientCdpApproval(pending.workspaceId, pending.host);
   }
 

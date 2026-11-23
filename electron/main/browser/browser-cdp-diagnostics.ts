@@ -35,6 +35,8 @@ import {
   subscribeCdpMessages,
 } from "./browser-cdp-controller";
 import {
+  isCdpLoopbackHost,
+  isWorkspaceOrbitCdpHost,
   subscribeLensCdpPolicy,
   type LensCdpPolicyConfig,
 } from "./browser-cdp-policy";
@@ -1601,7 +1603,10 @@ export function getLensCdpDiagnosticsState(
     : { enabled: false };
 }
 
+let diagnosticsPolicyRevision = 0;
+
 export function enforceLensCdpDiagnosticsPolicy(args: LensCdpPolicyConfig) {
+  const revision = ++diagnosticsPolicyRevision;
   const now = Date.now();
   for (const capture of [...captures.values()]) {
     const persistedApproval = args.cdpApprovedHosts.some(
@@ -1611,14 +1616,27 @@ export function enforceLensCdpDiagnosticsPolicy(args: LensCdpPolicyConfig) {
       (approval) =>
         approval.workspaceId === capture.workspaceId &&
         approval.expiresAt > now &&
-        (capture.host === approval.host ||
-          capture.host.endsWith(`.${approval.host}`)),
+        capture.host === approval.host,
     );
-    const approved =
-      args.developerModeCdp && (persistedApproval || transientApproval);
-    if (!approved) {
-      stopLensCdpDiagnostics(capture.webContentsId, true);
+    if (args.developerModeCdp) {
+      if (persistedApproval || transientApproval) continue;
+      if (args.cdpLocalHostExemption) {
+        if (isCdpLoopbackHost(capture.host)) continue;
+        void isWorkspaceOrbitCdpHost(capture.workspaceId, capture.host).then(
+          (matches) => {
+            if (
+              !matches &&
+              diagnosticsPolicyRevision === revision &&
+              captures.get(capture.webContentsId) === capture
+            ) {
+              stopLensCdpDiagnostics(capture.webContentsId, true);
+            }
+          },
+        );
+        continue;
+      }
     }
+    stopLensCdpDiagnostics(capture.webContentsId, true);
   }
 }
 

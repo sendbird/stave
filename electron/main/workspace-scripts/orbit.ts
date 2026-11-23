@@ -1,5 +1,7 @@
 import path from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { resolveUserHome, RouteStore } from "portless";
 import {
   canExecutePath,
   resolveExecutablePath,
@@ -83,6 +85,19 @@ export function buildOrbitEnv(args: {
     PORTLESS_PORT: String(args.orbit.proxyPort ?? DEFAULT_ORBIT_PROXY_PORT),
     ...(args.orbit.noTls ? { PORTLESS_HTTPS: "0" } : {}),
   };
+}
+
+export function getOrbitRouteStores(cwd: string, env: NodeJS.ProcessEnv) {
+  // Match the state directories used by the bundled Portless CLI.
+  const dirs = env.PORTLESS_STATE_DIR
+    ? [path.resolve(cwd, env.PORTLESS_STATE_DIR)]
+    : [
+        path.join(resolveUserHome({ env }), ".portless"),
+        process.platform === "win32"
+          ? path.join(tmpdir(), "portless")
+          : "/tmp/portless",
+      ];
+  return dirs.map((dir) => new RouteStore(dir));
 }
 
 export function tokenizeOrbitCommand(command: string) {

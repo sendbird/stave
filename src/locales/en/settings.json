@@ -459,7 +459,11 @@
       },
       "cdpTools": {
         "title": "CDP tools",
-        "description": "Ask before the first CDP action for each host. Allow once is temporary; always allow saves the hostname below."
+        "description": "Enable CDP tools. Allow once lasts 15 minutes after the last use, and Always allow saves the hostname below."
+      },
+      "localHostExemption": {
+        "title": "Skip CDP prompts for local development",
+        "description": "Allow loopback and workspace Orbit hosts without a prompt while CDP tools are enabled."
       },
       "approvedHosts": "Approved CDP hosts",
       "hostPlaceholder": "localhost or https://example.com",
@@ -467,11 +471,11 @@
       "addHost": "Add host",
       "hostHelp": "Enter a hostname or URL. Ports and paths are ignored, so <code>localhost</code> covers <code>localhost:3000</code>, <code>localhost:8899</code>, and other localhost ports.",
       "removeHost": "Remove {{host}}",
-      "noHosts": "No hosts are pre-approved. The first CDP action will show an approval dialog."
+      "noHosts": "No hosts are pre-approved. Lens prompts for hosts that need CDP approval."
     },
     "siteAccess": {
       "title": "Site access",
-      "description": "Restrict Lens navigation by hostname. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation, but CDP actions still require approval above.",
+      "description": "Restrict Lens navigation by hostname. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation. CDP access is configured separately in Developer mode.",
       "allowed": {
         "title": "Allowed hosts",
         "description": "One host per line. Leave empty to allow any host that is not blocked."

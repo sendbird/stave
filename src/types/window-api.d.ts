@@ -2447,6 +2447,7 @@ interface LensSecurityConfig {
   allowedHosts: string[];
   blockedHosts: string[];
   developerModeCdp: boolean;
+  cdpLocalHostExemption: boolean;
   cdpApprovedHosts: string[];
 }
 

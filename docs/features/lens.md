@@ -114,8 +114,9 @@ Automatic presentation is limited to actions that are inherently visual or inter
 1. Open `Settings > Browser > Lens`.
 2. Use `Site Access` to set newline-delimited allowed and blocked hosts. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation.
 3. Open `Developer Mode` > `Advanced options` to enable or disable CDP-backed Lens actions and add or remove approved CDP hosts.
-4. When Lens asks for CDP access, choose `Allow once`, `Always allow`, or `Deny`. The dialog appears app-wide and does not require the originating Lens tab to be visible.
-5. Approved host entries are hostname-only. Ports and paths are ignored, so approving `localhost` covers `localhost:3000`, `localhost:8899`, and other localhost ports.
+4. `Skip CDP prompts for local development` is on by default. With CDP tools enabled, `localhost`, `*.localhost`, `127.0.0.1`, `::1`, and active Orbit service hosts assigned to the current workspace can use CDP without prompting. Turn off the setting to apply the usual approval rules to those hosts.
+5. When Lens asks for CDP access, choose `Allow once`, `Always allow`, or `Deny`. The dialog appears app-wide and does not require the originating Lens tab to be visible.
+6. `Allow once` grants access to that hostname in the current workspace for 15 minutes after its last approved CDP action. Each use renews the 15-minute window. `Always allow` saves the hostname in Approved CDP Hosts. Ports and paths are ignored.
 
 ### Inspect A Page And Send A Fix Request
 
@@ -154,8 +155,8 @@ After visual comments are sent, the feedback tray keeps the task's latest sent f
 1. Enable `Settings > MCP > Local MCP Server`.
 2. Call `stave_lens_navigate` or another `stave_lens_*` tool for the target workspace. Lens reuses a visible/recent tab or creates a hidden `default` session; `stave_lens_open_session` is optional.
 3. Visual inspection and page interaction follow the user's `Agent Activity` preference. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.
-4. The first CDP-backed call for an unapproved host pauses while Stave shows its app-wide approval dialog.
-5. Approve the visible dialog within 60 seconds, or add the hostname under `Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts` and retry the tool.
+4. A CDP-backed call that requires approval pauses while Stave shows its app-wide approval dialog.
+5. Approve the visible dialog within 60 seconds. If you choose `Allow once`, the grant expires after 15 minutes without CDP use for that workspace and host. You can also add the hostname under `Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts` and retry the tool.
 6. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
 7. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
 8. Use the returned page data together with normal Stave task tools or your own external workflow.
@@ -178,6 +179,7 @@ removes it when the workspace is archived.
   "lensAllowedHosts": [],
   "lensBlockedHosts": [],
   "lensDeveloperModeCdp": true,
+  "lensCdpLocalHostExemption": true,
   "lensCdpApprovedHosts": []
 }
 ```
@@ -305,8 +307,8 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 ### CDP actions fail with a Developer Mode message
 
 - Symptom: screenshots, page HTML reads, evaluation, clicks, or style edits fail before running.
-- Cause: CDP is disabled or the current host has not been approved.
-- Fix: enable `Settings > Browser > Lens > Developer Mode`, then retry the action and answer the app-wide prompt within 60 seconds, or add the hostname manually under Approved CDP Hosts. The Lens panel does not need to be open.
+- Cause: CDP tools are disabled, or the host requires approval.
+- Fix: enable CDP tools under `Settings > Browser > Lens > Developer Mode > Advanced options`, then retry the action. For loopback and workspace Orbit hosts, check `Skip CDP prompts for local development`. If prompted, answer within 60 seconds or add the hostname manually under Approved CDP Hosts.
 
 ### CDP approval times out or no prompt was visible
 

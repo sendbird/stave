@@ -1,4 +1,16 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, setSystemTime, test } from "bun:test";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { RouteStore } from "portless";
+import { normalizePersistedLensSettings } from "../src/store/app-settings";
+import type { LensCdpPolicyConfig } from "../electron/main/browser/browser-cdp-policy";
+import {
+  deleteWorkspaceScriptProcess,
+  getScriptProcessKey,
+  hasWorkspaceOrbitHost,
+  setWorkspaceScriptProcess,
+} from "../electron/main/workspace-scripts/state";
 
 const sentApprovalRequests: Array<{
   channel: string;
@@ -26,6 +38,12 @@ mock.module("../electron/main/window", () => ({
   }),
 }));
 
+mock.module("../electron/main/host-service-client", () => ({
+  invokeHostService: async (_method: string, args: { workspaceId: string; host: string }) => ({
+    matches: hasWorkspaceOrbitHost(args.workspaceId, args.host),
+  }),
+}));
+
 const {
   assertCdpAllowed,
   getLensSecurityConfig,
@@ -38,15 +56,157 @@ const { subscribeLensCdpPolicy } =
   await import("../electron/main/browser/browser-cdp-policy");
 
 describe("Lens CDP approval coordination", () => {
+  async function expectPromptFor(workspaceId: string, url: string, host: string) {
+    const requestCount = sentApprovalRequests.length;
+    const pending = assertCdpAllowed({ workspaceId, url });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(sentApprovalRequests).toHaveLength(requestCount + 1);
+    const { payload } = sentApprovalRequests[requestCount];
+    expect(payload).toMatchObject({ workspaceId, host });
+    respondCdpApproval({ requestId: payload.requestId, approved: true });
+    await pending;
+  }
+
   afterEach(() => {
+    setSystemTime();
     sentApprovalRequests.length = 0;
     setUnattendedAutomationAuthorizations([]);
+    // Disabling CDP clears grants and settles any pending requests.
+    setLensSecurityConfig({ ...getLensSecurityConfig(), developerModeCdp: false });
     setLensSecurityConfig({
       allowedHosts: [],
       blockedHosts: [],
       developerModeCdp: true,
+      cdpLocalHostExemption: true,
       cdpApprovedHosts: [],
     });
+  });
+
+  test("defaults the exemption on and preserves a saved opt-out", () => {
+    expect(normalizePersistedLensSettings({}).lensCdpLocalHostExemption).toBe(true);
+    expect(
+      normalizePersistedLensSettings({ lensCdpLocalHostExemption: false })
+        .lensCdpLocalHostExemption,
+    ).toBe(false);
+  });
+
+  test.each([
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://[::1]:5173",
+    "https://fix-ui.stave.localhost",
+  ])("exempts %s when local development prompts are skipped", async (url) => {
+    await expect(
+      assertCdpAllowed({ workspaceId: "local-workspace", url }),
+    ).resolves.toBeUndefined();
+    expect(sentApprovalRequests).toHaveLength(0);
+  });
+
+  test.each([
+    ["http://localhost:5173", "localhost"],
+    ["http://127.0.0.1:5173", "127.0.0.1"],
+    ["http://[::1]:5173", "::1"],
+    ["https://fix-ui.stave.localhost", "fix-ui.stave.localhost"],
+  ])("prompts for %s when the exemption is off", async (url, host) => {
+    setLensSecurityConfig({ ...getLensSecurityConfig(), cdpLocalHostExemption: false });
+    await expectPromptFor("opt-out-workspace", url, host);
+  });
+
+  test.each(["0.0.0.0", "127.0.0.2", "localhost.example.test"])(
+    "does not exempt %s from CDP approval",
+    async (host) => {
+      await expectPromptFor("other-host-workspace", `http://${host}:5173`, host);
+    },
+  );
+
+  test("exempts only exact active Orbit routes owned by the workspace", async () => {
+    const directory = mkdtempSync(join(tmpdir(), "stave-lens-orbit-"));
+    const workspaceId = "orbit-workspace";
+    const identity = { workspaceId, scriptId: "dev", scriptKind: "service" } as const;
+    const key = getScriptProcessKey(identity);
+    const store = new RouteStore(directory);
+    const host = "worktree.dev.orbit.test";
+    const url = `https://${host}:1355`;
+    store.addRoute(host, 4000, process.pid);
+    setWorkspaceScriptProcess(key, {
+      ...identity,
+      process: { pid: process.pid } as import("node:child_process").ChildProcess,
+      runId: "orbit-run",
+      aborted: false,
+      source: { kind: "manual" },
+      log: "",
+      orbitRouteStores: [store],
+      orbitUrl: "https://fake-orbit.test",
+    });
+
+    try {
+      await expect(assertCdpAllowed({ workspaceId, url })).resolves.toBeUndefined();
+      expect(sentApprovalRequests).toHaveLength(0);
+      await expectPromptFor("another-workspace", url, host);
+      await expectPromptFor(workspaceId, `https://child.${host}`, `child.${host}`);
+      await expectPromptFor(workspaceId, "https://fake-orbit.test", "fake-orbit.test");
+
+      setLensSecurityConfig({ ...getLensSecurityConfig(), cdpLocalHostExemption: false });
+      await expectPromptFor(workspaceId, url, host);
+
+      setLensSecurityConfig({ ...getLensSecurityConfig(), developerModeCdp: false });
+      setLensSecurityConfig({
+        ...getLensSecurityConfig(),
+        developerModeCdp: true,
+        cdpLocalHostExemption: true,
+      });
+      store.removeRoute(host, process.pid);
+      store.addRoute(host, 4000, 0); // A Portless alias has no owning process.
+      await expectPromptFor(workspaceId, url, host);
+    } finally {
+      deleteWorkspaceScriptProcess(key);
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  test("blocks loopback when Developer Mode is off", async () => {
+    setLensSecurityConfig({ ...getLensSecurityConfig(), developerModeCdp: false });
+    await expect(
+      assertCdpAllowed({ workspaceId: "local-workspace", url: "http://localhost:5173" }),
+    ).rejects.toThrow("Lens Developer Mode CDP is disabled");
+    expect(sentApprovalRequests).toHaveLength(0);
+  });
+
+  test("renews and publishes Allow once on use until 15 minutes of inactivity", async () => {
+    const workspaceId = "sliding-workspace";
+    const host = "sliding.approval.test";
+    const url = `https://${host}`;
+    const start = Date.now();
+    const minute = 60_000;
+    const policies: LensCdpPolicyConfig[] = [];
+    const unsubscribe = subscribeLensCdpPolicy((policy) => policies.push(policy));
+    try {
+      setSystemTime(new Date(start));
+      await expectPromptFor(workspaceId, url, host);
+      expect(policies.at(-1)?.transientCdpApprovals).toContainEqual({
+        workspaceId, host, expiresAt: start + 15 * minute,
+      });
+
+      setSystemTime(new Date(start + 14 * minute));
+      await assertCdpAllowed({ workspaceId, url: `${url}:8443/settings` });
+      expect(policies.at(-1)?.transientCdpApprovals).toContainEqual({
+        workspaceId, host, expiresAt: start + 29 * minute,
+      });
+
+      setSystemTime(new Date(start + 28 * minute));
+      await assertCdpAllowed({ workspaceId, url });
+      expect(sentApprovalRequests).toHaveLength(1);
+      expect(policies.at(-1)?.transientCdpApprovals).toContainEqual({
+        workspaceId, host, expiresAt: start + 43 * minute,
+      });
+      await expectPromptFor("another-workspace", url, host);
+      await expectPromptFor(workspaceId, `https://child.${host}`, `child.${host}`);
+
+      setSystemTime(new Date(start + 43 * minute));
+      await expectPromptFor(workspaceId, url, host);
+    } finally {
+      unsubscribe();
+    }
   });
 
   test("deduplicates concurrent prompts and grants temporary access", async () => {
@@ -97,7 +257,7 @@ describe("Lens CDP approval coordination", () => {
 
   test("unblocks a pending request when persisted host settings arrive", async () => {
     const workspaceId = `workspace-${Date.now()}`;
-    const host = "127.0.0.1";
+    const host = "hydrate.approval.test";
     const pending = assertCdpAllowed({
       workspaceId,
       lensSessionId: "startup-race",
@@ -112,6 +272,7 @@ describe("Lens CDP approval coordination", () => {
       allowedHosts: [],
       blockedHosts: [],
       developerModeCdp: true,
+      cdpLocalHostExemption: true,
       cdpApprovedHosts: [host],
     });
 
@@ -147,6 +308,7 @@ describe("Lens CDP approval coordination", () => {
       allowedHosts: [],
       blockedHosts: [],
       developerModeCdp: true,
+      cdpLocalHostExemption: true,
       cdpApprovedHosts: [host],
     });
 
@@ -172,7 +334,7 @@ describe("Lens CDP approval coordination", () => {
     expect(sentApprovalRequests).toHaveLength(0);
   });
 
-  test("persists a remembered approval after settling its request", async () => {
+  test("persists Always allow without creating an Allow once grant", async () => {
     const workspaceId = `workspace-${Date.now()}`;
     const host = `${Date.now()}.remember.test`;
     const pending = assertCdpAllowed({
@@ -193,6 +355,8 @@ describe("Lens CDP approval coordination", () => {
     await pending;
 
     expect(getLensSecurityConfig().cdpApprovedHosts).toContain(host);
+    setLensSecurityConfig({ ...getLensSecurityConfig(), cdpApprovedHosts: [] });
+    await expectPromptFor(workspaceId, `https://${host}`, host);
   });
 
   test("skips prompts only for requests carrying an active unattended authorization", async () => {
@@ -284,6 +448,7 @@ describe("Lens CDP approval coordination", () => {
       allowedHosts: [],
       blockedHosts: [],
       developerModeCdp: false,
+      cdpLocalHostExemption: true,
       cdpApprovedHosts: [],
     });
 
@@ -366,6 +531,7 @@ describe("Lens CDP approval coordination", () => {
         allowedHosts: [],
         blockedHosts: [],
         developerModeCdp: true,
+        cdpLocalHostExemption: true,
         cdpApprovedHosts: [],
       });
 
