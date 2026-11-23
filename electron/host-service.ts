@@ -222,6 +222,7 @@ import {
   runCommand,
   runCommandArgs,
 } from "./main/utils/command";
+import { ProviderDecisionDeliveryError } from "./providers/provider-decision-delivery-error";
 import type { BridgeEvent, StreamTurnArgs } from "./providers/types";
 import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
@@ -1555,6 +1556,7 @@ async function respondError(id: number, error: unknown) {
     type: "response",
     id,
     ok: false,
+    ...(error instanceof ProviderDecisionDeliveryError ? { decisionFailureReason: error.reason } : {}),
     error: truncateHostServiceErrorMessage(
       error instanceof Error ? error.message : String(error),
     ),

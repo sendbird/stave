@@ -55,6 +55,7 @@
     "deny": "Deny",
     "reply": "Reply",
     "openToReview": "Open to review",
+    "alreadyAnswering": "An answer is already being sent",
     "alreadyAnswered": "Already answered",
     "couldNotAnswer": "Could not answer — open Stave"
   }

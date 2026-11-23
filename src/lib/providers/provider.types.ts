@@ -168,6 +168,21 @@ export interface ProviderSteerTurnRequest {
   clientMessageId?: string;
 }
 
+export type ProviderDecisionFailureReason =
+  | "unknown-request"
+  | "already-answering"
+  | "already-answered"
+  | "request-interrupted"
+  | "write-failed";
+
+export interface ProviderDecisionResponse {
+  ok: boolean;
+  message?: string;
+  reason?: ProviderDecisionFailureReason;
+  /** The provider no longer accepts a response for this request. */
+  unanswerable?: true;
+}
+
 export interface ProviderSteerTurnResponse {
   ok: boolean;
   message?: string;

@@ -1,3 +1,4 @@
+import { ProviderDecisionDeliveryError } from "../providers/provider-decision-delivery-error";
 import { z } from "zod";
 import { encodeUserInputSelection, getUserInputAnswerKey } from "../../src/lib/user-input-answers";
 
@@ -100,6 +101,7 @@ export function createNativeNotificationActionResponder(ports: {
   respondApproval: (args: { workspaceId: string; taskId: string; requestId: string; expectedMessageId: string; approved: boolean }) => Promise<{ ok: boolean }>;
   respondUserInput: (args: { workspaceId: string; taskId: string; requestId: string; expectedMessageId: string; answers: Record<string, string> }) => Promise<{ ok: boolean }>;
   alreadyAnswered: () => void;
+  alreadyAnswering: () => void;
   /** The answer may not have reached the task; the user should answer in Stave. */
   couldNotAnswer: () => void;
   resolved?: (request: NativeNotificationRequest, response: Response) => void;
@@ -124,7 +126,23 @@ export function createNativeNotificationActionResponder(ports: {
         : await ports.respondUserInput({ ...target, answers: response.answers });
       if (!result.ok) fail();
       else ports.resolved?.(request, response);
-    } catch {
+    } catch (error) {
+      if (error instanceof ProviderDecisionDeliveryError) {
+        if (error.reason === "already-answered") {
+          ports.alreadyAnswered();
+          return;
+        }
+        if (error.reason === "already-answering") {
+          claimed.delete(key);
+          ports.alreadyAnswering();
+          return;
+        }
+      } else if (await ports.isPending(request).catch(() => "unavailable") === "answered") {
+        // The card may have been resolved between the preflight and the
+        // host's own pending-message check.
+        ports.alreadyAnswered();
+        return;
+      }
       fail();
     }
   };

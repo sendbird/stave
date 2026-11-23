@@ -3140,6 +3140,8 @@ export async function streamClaudeWithSdk(
     const events = eventCollector.events;
     const toolTiming = createToolTimingRecorder(); // Observed tool start/end; every tool event passes through it.
     const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
+    // The SDK awaits these in-process resolvers. Invoking one completes the
+    // handoff synchronously, with no separate transport write to confirm.
     args.registerApprovalResponder?.(({ requestId, approved }) => {
       const resolver = pendingApprovalResolvers.get(requestId);
       if (!resolver) {

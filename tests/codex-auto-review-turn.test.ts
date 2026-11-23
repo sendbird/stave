@@ -1,8 +1,9 @@
-import { afterEach, beforeEach, expect, test } from "bun:test";
+import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { disposeAllCodexAppServerClients, streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
+import { disposeAllCodexAppServerClients, getCodexAppServerClientFromRuntimeOptions, streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
 import { classifyAgentRunTurnEnding } from "../electron/host-service/supervision/agent-run-actions";
 import type { BridgeEvent, ProviderResponderResult } from "../electron/providers/types";
 import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types";
@@ -23,7 +24,7 @@ type ServerOptions = {
   /** The reviewer `thread/start` reports; defaults to the one requested. */
   threadReviewer?: string;
   /** What the server asks after `turn/start`; `none` completes the turn, `fail` fails it. */
-  request?: "approval" | "user_input" | "none" | "fail";
+  request?: "approval" | "user_input" | "elicitation" | "none" | "fail";
   /** Answer this method with a JSON-RPC error: only while it asks for auto-review, or always. */
   refuse?: { method: "thread/start" | "thread/resume" | "turn/start"; when: "auto_review" | "always" };
   /** Before refusing `turn/start`, announce that turn as started (or completed) first. */
@@ -72,6 +73,7 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     if (options.request === "none") return complete("completed");
     if (options.request === "fail") return complete("failed", { message: "Model stream failed" });
     if (options.request === "user_input") return send({ id: "request-1", method: "item/tool/requestUserInput", params: { threadId: "thread-1", turnId: "turn-1", itemId: "item-1", questions: [{ id: "q1", header: "Choice", question: "Which one?", options: null }] } });
+    if (options.request === "elicitation") return send({ id: "request-1", method: "mcpServer/elicitation/request", params: { threadId: "thread-1", serverName: "fixture", mode: "form", message: "Choose a number", requestedSchema: { type: "object", properties: { q1: { type: "integer" } } } } });
     send({ id: "request-1", method: "item/commandExecution/requestApproval", params: { threadId: "thread-1", turnId: "turn-1", command: "test command", reason: "Human review required" } });
   }, 10);
   if (m.method === "turn/interrupt") complete("interrupted");
@@ -99,8 +101,8 @@ function startTurn(server: ReturnType<typeof fakeServer>, args: {
 }) {
   const events: BridgeEvent[] = [];
   const responders: {
-    approval?: (input: { requestId: string; approved: boolean }) => ProviderResponderResult;
-    userInput?: (input: { requestId: string; answers?: Record<string, string>; denied?: boolean }) => ProviderResponderResult;
+    approval?: (input: { requestId: string; approved: boolean }) => Promise<ProviderResponderResult>;
+    userInput?: (input: { requestId: string; answers?: Record<string, string>; denied?: boolean }) => Promise<ProviderResponderResult>;
     abort?: () => void;
   } = {};
   let asked!: () => void;
@@ -133,6 +135,131 @@ const appliedApprovals = (events: BridgeEvent[]) =>
 const appliedAfterStart = (events: BridgeEvent[]) =>
   events.findIndex((event) => event.type === "approvals_applied") > events.findIndex((event) => event.type === "provider_turn");
 
+// Intercept only the first decision frame. All subsequent writes still use
+// the real pipe, so a retry must reach the child using the original request id.
+function holdDecisionWrite(server: ReturnType<typeof fakeServer>) {
+  const client = getCodexAppServerClientFromRuntimeOptions({ runtimeOptions: { codexBinaryPath: server.executable } });
+  const child = Reflect.get(client, "process") as ChildProcessWithoutNullStreams;
+  const stdin = child.stdin;
+  const write = stdin.write.bind(stdin);
+  const held = Promise.withResolvers<{
+    fail: () => void;
+    send: () => void;
+  }>();
+  const spy = spyOn(stdin, "write").mockImplementation((chunk, encoding, callback) => {
+    const onWrite = typeof encoding === "function" ? encoding : callback;
+    if (typeof chunk === "string" && chunk.includes('"id":"request-1","result":')) {
+      spy.mockRestore();
+      held.resolve({
+        fail: () => onWrite?.(new Error("Injected decision write failure")),
+        send: () => { write(chunk, "utf8", onWrite); },
+      });
+      return false; // Backpressure alone does not indicate failure.
+    }
+    return write(chunk, typeof encoding === "string" ? encoding : "utf8", onWrite);
+  });
+  return { child, held: held.promise, restore: () => spy.mockRestore() };
+}
+
+for (const request of ["approval", "user_input", "elicitation"] as const) {
+  test(`${request}: a failed pipe write is retryable and only a confirmed write succeeds`, async () => {
+    process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS = "60000";
+    const server = fakeServer("0.162.1", { request });
+    const turn = startTurn(server, { taskId: `delivery-${request}` });
+    await turn.asked();
+    const answer = () => request === "approval"
+      ? turn.responders.approval!({ requestId: "request-1", approved: true })
+      : turn.responders.userInput!({ requestId: "request-1", answers: { q1: "7" } });
+    const { held, restore } = holdDecisionWrite(server);
+    try {
+      const attempt = answer();
+      const write = await held;
+      write.fail();
+      expect(await attempt).toMatchObject({ ok: false, reason: "write-failed" });
+      expect(await answer()).toEqual({ ok: true });
+      await turn.work;
+      const payload = request === "approval" ? { decision: "accept" }
+        : request === "user_input" ? { answers: { q1: { answers: ["7"] } } }
+        : { action: "accept", content: { q1: 7 } };
+      expect(server.read().filter((entry) => entry.response)).toEqual([{ response: payload }]);
+    } finally {
+      restore();
+    }
+  }, 10_000);
+}
+
+test("an in-flight approval claims the request through the decision deadline", async () => {
+  const server = fakeServer("0.162.1");
+  const turn = startTurn(server, { taskId: "delivery-concurrent" });
+  await turn.asked();
+  const { held, restore } = holdDecisionWrite(server);
+  try {
+    const answer = () => turn.responders.approval!({ requestId: "request-1", approved: true });
+    let settled = false;
+    const first = Promise.resolve(answer()).then((result) => { settled = true; return result; });
+    const write = await held;
+    await Bun.sleep(50);
+    expect(settled).toBe(false);
+    expect(await answer()).toMatchObject({ ok: false, reason: "already-answering" });
+    write.send();
+    expect(await first).toEqual({ ok: true });
+    expect(await answer()).toMatchObject({ ok: false, reason: "already-answered" });
+    await turn.work;
+    expect(errors(turn.events)).toEqual([]);
+    expect(server.read().filter((entry) => entry.response)).toEqual([{ response: { decision: "accept" } }]);
+  } finally {
+    restore();
+  }
+}, 10_000);
+
+test("a write that fails after the decision deadline triggers exactly one automatic decline", async () => {
+  const server = fakeServer("0.162.1");
+  const turn = startTurn(server, { taskId: "delivery-expired" });
+  await turn.asked();
+  const { held, restore } = holdDecisionWrite(server);
+  try {
+    const attempt = turn.responders.approval!({ requestId: "request-1", approved: true });
+    const write = await held;
+    await Bun.sleep(50);
+    write.fail();
+    expect(await attempt).toMatchObject({ ok: false, reason: "request-interrupted" });
+    await turn.work;
+    expect(server.read().filter((entry) => entry.response)).toEqual([{ response: { decision: "decline" } }]);
+    expect(turn.events.filter((event) => event.type === "approval_resolved"))
+      .toEqual([expect.objectContaining({ decision: "denied", reason: "timeout" })]);
+  } finally {
+    restore();
+  }
+}, 10_000);
+
+for (const ending of ["cancel", "exit"] as const) {
+  test(`${ending} interrupts an approval with an outstanding write`, async () => {
+    process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS = "60000";
+    const server = fakeServer("0.162.1");
+    const turn = startTurn(server, { taskId: `delivery-${ending}` });
+    await turn.asked();
+    const { child, held, restore } = holdDecisionWrite(server);
+    try {
+      const attempt = turn.responders.approval!({ requestId: "request-1", approved: true });
+      const write = await held;
+      if (ending === "cancel") turn.responders.abort?.();
+      else child.kill();
+      expect(await attempt).toMatchObject({ ok: false, reason: "request-interrupted" });
+      write.fail();
+      await turn.work;
+      expect(server.read().filter((entry) => entry.response)).toEqual([]);
+      const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
+      const replayed = replayProviderEventsToTaskState({
+        taskId: "task", provider: "codex", model: "gpt", turnId: "turn", events: turn.events, messages: [],
+      });
+      expect(replayed.messages.flatMap((message) => message.parts).find((part) => part.type === "approval"))
+        .toMatchObject({ state: "approval-interrupted" });
+    } finally {
+      restore();
+    }
+  }, 10_000);
+}
+
 for (const version of ["0.162.1", "0.162.0"]) {
   for (const decision of ["approve", "deny", "cancel"] as const) {
     test(`agent run ${version} approval ${decision} reaches Codex when answered in time`, async () => {
@@ -146,13 +273,13 @@ for (const version of ["0.162.1", "0.162.0"]) {
       expect(sent.approvalsReviewer).toBe(version === "0.162.1" ? "auto_review" : undefined);
       expect(sent.sandboxPolicy).toMatchObject({ type: "workspaceWrite", networkAccess: false, writableRoots: [server.cwd] });
       expect(fallbackNotices(turn.events)).toHaveLength(version === "0.162.1" ? 0 : 1);
-      expect(turn.responders.approval?.({ requestId: "wrong-request", approved: true }).ok).toBe(false);
+      expect((await turn.responders.approval?.({ requestId: "wrong-request", approved: true }))?.ok).toBe(false);
       if (decision === "cancel") turn.responders.abort?.();
-      else expect(turn.responders.approval?.({ requestId: "request-1", approved: decision === "approve" }).ok).toBe(true);
+      else expect((await turn.responders.approval?.({ requestId: "request-1", approved: decision === "approve" }))?.ok).toBe(true);
       await turn.work;
       expect(turn.events.some((event) => event.type === "done")).toBe(true);
       expect(errors(turn.events)).toEqual([]);
-      expect(turn.responders.approval?.({ requestId: "request-1", approved: true }).ok).toBe(false);
+      expect((await turn.responders.approval?.({ requestId: "request-1", approved: true }))?.ok).toBe(false);
       const response = server.read().find((entry) => entry.response)?.response as { decision?: string } | undefined;
       if (decision !== "cancel") expect(response?.decision).toBe(decision === "approve" ? "accept" : "decline");
     }, 10_000);
@@ -181,7 +308,9 @@ for (const agentRunId of ["run-timeout", undefined]) {
     // Both end the server's wait: the ordinary turn at the timeout, the Run at its turn's cleanup.
     expect(server.read().find((entry) => entry.response)?.response).toEqual({ answers: {} });
     const asked = turn.events.find(event => event.type === "user_input") as Extract<BridgeEvent, { type: "user_input" }>;
-    expect(turn.responders.userInput?.({ requestId: asked.requestId, answers: { q1: "late" } })).toMatchObject({ ok: false, reason: "unknown-request" });
+    expect(await turn.responders.userInput?.({ requestId: asked.requestId, answers: { q1: "late" } })).toMatchObject({
+      ok: false, reason: agentRunId ? "unknown-request" : "request-interrupted",
+    });
     expect(errors(turn.events)).toEqual(agentRunId ? [] : [expect.stringContaining("did not receive an answer decision")]);
     const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
     const replayed = replayProviderEventsToTaskState({ taskId: "task", provider: "codex", model: "gpt", turnId: "turn", events: turn.events, messages: [] });
@@ -230,7 +359,7 @@ test("an agent run question answered in time reaches Codex", async () => {
   await turn.asked();
   const question = turn.events.find(event => event.type === "user_input")!;
   expect(question.type).toBe("user_input");
-  expect(turn.responders.userInput?.({ requestId: (question as Extract<BridgeEvent, { type: "user_input" }>).requestId, answers: { q1: "first" } }).ok).toBe(true);
+  expect((await turn.responders.userInput?.({ requestId: (question as Extract<BridgeEvent, { type: "user_input" }>).requestId, answers: { q1: "first" } }))?.ok).toBe(true);
   await turn.work;
   expect(server.read().find((entry) => entry.response)?.response).toEqual({ answers: { q1: { answers: ["first"] } } });
 }, 10_000);
