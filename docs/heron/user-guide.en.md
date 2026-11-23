@@ -4,12 +4,12 @@ title: Stave User Guide
 product: Stave
 brandSub: Guide
 versionLabel: v1
-status: Current · Stave 0.35.0
+status: Current · Stave 0.36.1
 statusTone: current
 captured: 2026-11-09
-updated: 2026-11-17
+updated: 2026-11-23
 recorder: jacob.kim
-footer: Stave User Guide v1 · Stave 0.35.0 · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
+footer: Stave User Guide v1 · Stave 0.36.1 · Source in the repository's docs/heron, screenshots in docs/screenshots/guide.
 ---
 
 @page start | Getting started | Stave at a glance | guide
@@ -17,7 +17,7 @@ footer: Stave User Guide v1 · Stave 0.35.0 · Source in the repository's docs/h
 
 ```meta
 Audience | Developers new to Stave | From installing to handing a goal to an agent
-Version | Stave 0.35.0 | the 0.35.0 release
+Version | Stave 0.36.1 | the 0.36.1 release
 Screens | Captures with synthetic data | English UI, in the repository's `docs/screenshots/guide/en`
 UI language | English (default) and Korean | Change it in Settings > General > Language
 ```
@@ -354,7 +354,7 @@ For a primary task resumed by a check-back or an Agent run event, **Always** bro
 | Method                  | How                                                          | Worth knowing                                                                |
 | ----------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------- |
 | Files and images        | The paperclip in the composer (**Attach files**); paste or drop files on the composer | A drop shows **Drop to attach** and attaches the way a paste does |
-| Long pasted text        | Paste over 2,000 characters or 40 lines into the desktop task composer | A file chip shows a preview and size. **Keep as text** puts the full text inline. Wait for saving to finish before sending. If saving fails, Stave keeps the text inline. |
+| Long pasted text        | Paste at least five lines or 800 characters into the desktop task composer | The full text stays in the draft and is sent unchanged; the composer shows one numbered chip. Backspace removes the whole pasted block. Text over 2,000 characters or 40 lines is saved as a file when a workspace is available. |
 | Other tasks             | `@` and part of a task title, or drag a task from the sidebar | Choose **Latest reply** or **Recent conversation**; up to 5 per message     |
 | Skills                  | Type `$` and pick one                                        | The skill's whole SKILL.md goes with the message                             |
 | `@web`                  | Write `@web` in the message                                  | Uses the provider's Chrome integration; scope in Settings > Browser > Mentions |

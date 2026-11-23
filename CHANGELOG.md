@@ -1,3 +1,9 @@
+## [0.36.1](https://github.com/sendbird/stave/compare/v0.36.0...v0.36.1) (2026-11-23)
+
+### Features
+
+* **composer:** pastes of at least five lines or 800 characters appear as one numbered chip while the full text stays in the draft and is sent unchanged; pastes over 2,000 characters or 40 lines become file attachments when a workspace is available ([#1075](https://github.com/sendbird/stave/pull/1075)) ([cdb53db](https://github.com/sendbird/stave/commit/cdb53dba895a47bc6ea0fb1d7b9eb2b4cf9b5a2c))
+
 ## [0.36.0](https://github.com/sendbird/stave/compare/v0.35.5...v0.36.0) (2026-11-23)
 
 ### Changes
