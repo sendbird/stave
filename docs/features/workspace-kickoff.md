@@ -21,13 +21,16 @@ produces a usable preview.
    first task model, effort, Codex Fast mode (for GPT models), and prompt.
 6. Create the workspace.
 
-If the proposed branch name already exists, Kickoff stops before creating the
-worktree or starting the first task. Edit the branch name, using the available
-name in the error if you like, then retry with your selected base. Create
-Workspace applies the same rule.
+The new workspace row and pane show checkout, file copying, setup, and first-task
+startup. The first task's prompt appears as soon as the workspace opens. With
+**Start now** enabled, Stave sends it after setup succeeds. Turn **Start now**
+off to keep it as a draft in the composer.
 
-The `Start now` switch controls whether Stave sends the first prompt
-immediately. When it is off, the prompt remains ready in the new task composer.
+If a step fails, open the workspace to see the reason and its logs. Retry a
+checkout or setup failure from the pane after addressing the cause. If Git
+reports a branch collision, use the suggested name in a new creation request.
+A failed dependency copy is shown while regular setup continues.
+
 The selected model, effort, and Codex Fast mode stay attached to that task in
 either case. The Fast dropdown appears only when the first task uses Codex.
 
@@ -97,9 +100,9 @@ context. Resetting the menu restores content-aware defaults.
 Stave tries the configured primary model, then the fallback model. Claude
 resolution can use the MCP servers declared by the matched source. Codex runs
 the kickoff turn with read-only filesystem access and no approval prompts.
-While resolution or workspace creation is running, the kickoff dialog cannot be
-dismissed with Escape or an outside click. Resolution can still be stopped with
-the explicit cancel action.
+While resolving a source, Escape and outside clicks leave the Kickoff dialog
+open. Use the explicit cancel action to stop resolution. The dialog closes once
+the new workspace appears.
 
 The editable proposal contains:
 

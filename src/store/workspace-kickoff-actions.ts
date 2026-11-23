@@ -71,6 +71,7 @@ export interface KickoffWorkspaceArgs {
   firstTaskProvider?: ProviderId;
   firstTaskRuntimeOverrides?: PromptDraftRuntimeOverrides;
   extraInstructions?: string;
+  onWorkspacePreparing?: () => void;
   /**
    * Runs once the task exists and before its first send. Kickoff uses it to record that the task runs as an agent.
    * A rejection stages the task with its prompt and never sends.
@@ -370,31 +371,42 @@ export async function runWorkspaceKickoff(args: {
   );
   const runtimeOverrides = args.input.firstTaskRuntimeOverrides;
   const target = args.input.target;
-  const createResult = target
-    ? createKickoffTaskInCurrentWorkspace({
+  if (target) {
+    return finishKickoff({
+      ...args, prompt, result: createKickoffTaskInCurrentWorkspace({
         getState: args.getState,
         workspaceId: target.workspaceId,
         title: proposal.firstTaskTitle,
         provider: args.input.firstTaskProvider,
         prompt,
         runtimeOverrides,
-      })
-    : await args.getState().createWorkspace({
-        name: proposal.branchName,
-        label: proposal.workspaceLabel,
-        mode: "branch",
-        fromBranch: args.input.fromBranch,
-        fromBranchKind: args.input.fromBranchKind,
-        initialTaskTitle: proposal.firstTaskTitle,
-        initialTaskProvider: args.input.firstTaskProvider,
-        initialPromptDraft: {
-          text: prompt,
-          runtimeOverrides,
-          attachedFilePaths: [],
-          attachments: [],
-        },
-        workspaceInformation: buildWorkspaceInformationSeed(proposal),
-      });
+      }),
+    });
+  }
+  const created = await args.getState().createWorkspace({
+    name: proposal.branchName,
+    label: proposal.workspaceLabel,
+    mode: "branch",
+    fromBranch: args.input.fromBranch,
+    fromBranchKind: args.input.fromBranchKind,
+    initialTaskTitle: proposal.firstTaskTitle,
+    initialTaskProvider: args.input.firstTaskProvider,
+    initialPromptDraft: { text: prompt, runtimeOverrides, attachedFilePaths: [], attachments: [] },
+    workspaceInformation: buildWorkspaceInformationSeed(proposal),
+    onWorkspacePreparing: args.input.onWorkspacePreparing,
+    startInitialTask: (target) => finishKickoff({ ...args, prompt, result: { ok: true, ...target } }),
+  });
+  return created.startup ? created : finishKickoff({ ...args, prompt, result: created });
+}
+
+async function finishKickoff(args: {
+  input: KickoffWorkspaceArgs;
+  getState: () => KickoffWorkspaceState;
+  prompt: string;
+  result: KickoffWorkspaceResult;
+}): Promise<KickoffWorkspaceResult> {
+  const { result: createResult, prompt } = args;
+  const { firstTaskRuntimeOverrides: runtimeOverrides, target } = args.input;
   if (!createResult.ok) return createResult;
   const { taskId } = createResult;
   // A current-workspace start made a task, not a workspace.

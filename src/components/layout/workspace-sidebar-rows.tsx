@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { WorkspaceCreationRowStatus } from "./WorkspaceCreationProgress";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   AlertTriangle,
@@ -618,6 +619,7 @@ export function WorkQueueRow(args: {
             >
               {args.secondaryLabel ?? entry.repositoryName}
             </span>
+            <WorkspaceCreationRowStatus workspaceId={entry.workspaceId} />
             <WorkspaceUnansweredCount workspaceId={entry.workspaceId} />
             <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
             {/* The revealed menu's room, so the counts step aside instead of sitting under it. */}
@@ -875,10 +877,11 @@ export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
     isDefault: args.isDefault,
   });
   if (!branch) {
-    return null;
+    return <WorkspaceCreationRowStatus workspaceId={args.workspaceId} />;
   }
   return (
     <>
+      <WorkspaceCreationRowStatus workspaceId={args.workspaceId} />
       <span className={sx(repositorySidebarStyles.rowSeparator)} aria-hidden="true">·</span>
       <span
         className={sx(repositorySidebarStyles.rowSecondary)}
@@ -895,7 +898,6 @@ export const IS_MAC =
   typeof window !== "undefined" && window.api?.platform === "darwin";
 
 export const workspaceShortcutModifierLabel = IS_MAC ? "\u2318\u21E7" : "Ctrl+Shift";
-
 interface SortableSidebarItemProps {
   listId: string;
   id: string;

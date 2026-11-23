@@ -1,3 +1,4 @@
+import { getPendingWorkspaceCheckouts, isWorkspaceCheckoutPending, withoutPendingWorkspaceRegistrations } from "@/store/workspace-creation-progress";
 import { isWorkspaceArchiveInProgress } from "@/lib/workspace-cleanup-activity";
 import { claimRestoredQueuedTurns } from "@/store/restored-queued-turns";
 import type { StoreApi } from "zustand";
@@ -352,11 +353,12 @@ export function createWorkspaceHydrationActions(args: {
             : {}),
         }));
       }
+      const durableRepositories = withoutPendingWorkspaceRegistrations(mergedRepositories, getPendingWorkspaceCheckouts());
       if (
-        JSON.stringify(rawPersistedRepositories) !== JSON.stringify(mergedRepositories)
+        JSON.stringify(rawPersistedRepositories) !== JSON.stringify(durableRepositories)
       ) {
         await saveRepositoryRegistrySnapshot({
-          repositories: mergedRepositories,
+          repositories: durableRepositories,
         });
       }
     },
@@ -380,11 +382,12 @@ export function createWorkspaceHydrationActions(args: {
         workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       });
       await saveRepositoryRegistrySnapshot({
-        repositories,
+        repositories: withoutPendingWorkspaceRegistrations(repositories, getPendingWorkspaceCheckouts()),
         activeRepositoryPath: state.repositoryPath,
       });
     },
     hydrateWorkspaces: async () => {
+      const pendingAtStart = new Set(getPendingWorkspaceCheckouts());
       const workspaceIdentityRequestToken = beginWorkspaceIdentityRequest();
       await get().hydrateRepositoryRegistry();
       let initialRows = await listWorkspaceSummaries();
@@ -574,7 +577,7 @@ export function createWorkspaceHydrationActions(args: {
           const registeredPaths = new Set(discoveredWorktrees.flatMap(worktreeComparablePaths));
           const staleIds: string[] = [];
           for (const row of rows) {
-            if (row.id === defaultWorkspaceId) continue;
+            if (row.id === defaultWorkspaceId || pendingAtStart.has(row.id) || isWorkspaceCheckoutPending(row.id)) continue;
             const wsPath =
               pathById[row.id] ??
               `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
@@ -972,6 +975,7 @@ export function createWorkspaceHydrationActions(args: {
     },
     refreshWorkspaces: async () => {
       const state = get();
+      const pendingAtStart = new Set(getPendingWorkspaceCheckouts());
       if (!state.hasHydratedWorkspaces || !state.repositoryPath) {
         return;
       }
@@ -1117,7 +1121,7 @@ export function createWorkspaceHydrationActions(args: {
       const staleIds: string[] = [];
       for (const workspace of state.workspaces) {
         if (workspace.id === defaultWorkspaceId || archivedIds.has(workspace.id) ||
-          isWorkspaceArchiveInProgress(workspace.id) ||
+          isWorkspaceArchiveInProgress(workspace.id) || pendingAtStart.has(workspace.id) || isWorkspaceCheckoutPending(workspace.id) ||
           !get().workspaces.some(current => current.id === workspace.id)) continue;
         const wsPath = normalizeComparablePath(
           state.workspacePathById[workspace.id] ??
@@ -1132,7 +1136,7 @@ export function createWorkspaceHydrationActions(args: {
         }
       }
       for (const id of staleIds) {
-        if (isWorkspaceArchiveInProgress(id)) continue;
+        if (isWorkspaceArchiveInProgress(id) || isWorkspaceCheckoutPending(id)) continue;
         await closeWorkspacePersistence({ workspaceId: id });
       }
 
@@ -1260,7 +1264,7 @@ export function createWorkspaceHydrationActions(args: {
       const workspace = state.workspaces.find(
         (item) => item.id === workspaceId,
       );
-      if (!workspaceId || !workspace) {
+      if (!workspaceId || !workspace || isWorkspaceCheckoutPending(workspaceId)) {
         return;
       }
 

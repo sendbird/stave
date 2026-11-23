@@ -1,3 +1,4 @@
+import { isWorkspacePreparing, useWorkspaceCreationStore } from "@/store/workspace-creation-progress";
 import { noteWorkspaceMessage } from "@/lib/fleet/workspace-settlement";
 import { i18n } from "@/i18n/runtime";
 import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
@@ -301,6 +302,8 @@ export function createSendUserMessageAction(args: {
           taskId: resolvedTaskId,
         })
       : null;
+    const owner = runtimeTarget?.workspaceId ?? state.activeWorkspaceId;
+    if (isWorkspacePreparing(useWorkspaceCreationStore.getState().byId[owner])) return { status: "blocked" };
     let task = runtimeTarget?.task ?? null;
     const {archived,hasActiveTurn}=prepareTaskSendView(task,runtimeTarget?.session.activeTurnIdsByTask,state.requestTaskScrollToLatest);
     if (usageLimitResume && (!task || hasActiveTurn)) return { status: "blocked" };

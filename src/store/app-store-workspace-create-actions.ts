@@ -4,7 +4,7 @@ import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { describeWorktreeCreationFailure } from "@/lib/git-worktree-creation";
-import { describeWorkspacePrCheckoutError, parseWorkspacePrReference } from "@/lib/workspace-pr-checkout";
+import { describeWorkspacePrCheckoutError, isSafeGitBranchName, parseWorkspacePrReference } from "@/lib/workspace-pr-checkout";
 import { createEmptyWorkspaceInformation, upsertWorkspaceResourceInState } from "@/lib/workspace-information";
 import { workspaceFsAdapter } from "@/lib/fs";
 import {
@@ -42,7 +42,8 @@ import {
 } from "@/store/repository.utils";
 import { archivedWorktreePaths } from "@/store/workspace-archive-cleanup";
 import { rememberCachedWorkspaceFiles } from "@/store/workspace-file-cache";
-import { runWorkspaceKickoff } from "@/store/workspace-kickoff-actions";
+import { beginWorkspaceCreation, runWorkspaceCreationSteps } from "@/store/workspace-creation-progress";
+import { runWorkspaceKickoff, type KickoffWorkspaceResult } from "@/store/workspace-kickoff-actions";
 import {
   saveActiveWorkspaceRuntimeCacheWithLensCleanup,
 } from "@/store/workspace-runtime-state";
@@ -107,6 +108,8 @@ export function createWorkspaceCreateActions(args: {
       initialTaskTitle,
       initialTaskProvider,
       initialPromptDraft,
+      onWorkspacePreparing,
+      startInitialTask,
       workspaceInformation,
     }) => {
       const trimmed = name.trim();
@@ -115,7 +118,8 @@ export function createWorkspaceCreateActions(args: {
       }
 
       const current = get();
-      if (!current.repositoryPath) {
+      const repositoryPath = current.repositoryPath;
+      if (!repositoryPath) {
         return {
           ok: false,
           message: i18n.t("workspace:appStoreWorkspaceCreateActions.openARepositoryBeforeCreatingAWorkspace"),
@@ -126,11 +130,13 @@ export function createWorkspaceCreateActions(args: {
       if (mode === "pr" && !pr) {
         return { ok: false, message: i18n.t("workspace:prCheckout.errors.invalidReference") };
       }
-      let branchName = sanitizeBranchName({ value: trimmed });
-      if (!branchName && (!pr || trimmed)) {
+      const branchName = sanitizeBranchName({ value: trimmed });
+      if ((!branchName && (!pr || trimmed)) || (pr && branchName && !isSafeGitBranchName(branchName))) {
         return { ok: false, message: i18n.t("workspace:appStoreWorkspaceCreateActions.workspaceBranchNameIsInvalid") };
       }
-      let workspaceDisplayName = label?.trim() || branchName;
+      const folderBranch = branchName || `pr-${pr?.number}`;
+      const workspaceLabel = label?.trim();
+      let workspaceDisplayName = workspaceLabel || folderBranch;
       const repositoryWorkspaceInitCommand = resolveRepositoryWorkspaceInitCommand({
         repositoryPath: current.repositoryPath,
         recentRepositories: current.recentRepositories,
@@ -149,12 +155,12 @@ export function createWorkspaceCreateActions(args: {
           : normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
               value: requestedRootNodeModulesSymlink,
             });
-      const workspacePath = `${current.repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName || `pr-${pr?.number}`, unique: true })}`;
+      const workspacePath = `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: folderBranch, unique: true })}`;
       const workspaceId = buildImportedWorktreeWorkspaceId({
-        repositoryPath: current.repositoryPath,
+        repositoryPath,
         worktreePath: workspacePath,
       });
-      let baseBranch = fromBranch?.trim() || current.defaultBranch || "main";
+      const requestedBase = fromBranch?.trim() || current.defaultBranch || "main";
       const creationNotices: Array<{
         level: "success" | "warning";
         message: string;
@@ -164,76 +170,6 @@ export function createWorkspaceCreateActions(args: {
         return { ok: false, message: i18n.t("workspace:worktreeCreationErrors.gitFailed") };
       }
       const runner = window.api?.terminal?.runCommand;
-      if (!pr && runner) {
-        const runGit = (commandArgs: string[]) => runner({
-          cwd: current.repositoryPath ?? undefined,
-          command: "git",
-          commandArgs,
-        });
-        const remoteTarget =
-          mode === "branch"
-            ? await resolveWorkspaceRemoteBaseBranchTarget({
-                baseBranch,
-                fromBranchKind,
-                verifyRef: async (ref) => (await runGit(["show-ref", "--verify", "--quiet", ref])).ok,
-              })
-            : null;
-        if (remoteTarget) {
-          const fetchResult = await runGit(["fetch", "--prune", "--", remoteTarget.remoteName]);
-          if (!fetchResult.ok) {
-            const localBranchProbe = await runGit(["show-ref", "--verify", "--quiet", `refs/heads/${remoteTarget.localBranch}`]);
-            const fallbackBranch = localBranchProbe.ok
-              ? remoteTarget.localBranch
-              : baseBranch;
-            baseBranch = fallbackBranch;
-            creationNotices.push({
-              level: "warning",
-              message: localBranchProbe.ok
-                ? i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotRefreshValueCreatedTheWorkspace", { fromBranch: fromBranch, value1: remoteTarget.localBranch, value2: summarizeTerminalCommandDetail(
-                    {
-                      stderr: fetchResult.stderr,
-                      stdout: fetchResult.stdout,
-                      fallback: "git fetch failed.",
-                    },
-                  ) })
-                : i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotRefreshValueCreatedTheWorkspace2", { fromBranch: fromBranch, value1: summarizeTerminalCommandDetail(
-                    {
-                      stderr: fetchResult.stderr,
-                      stdout: fetchResult.stdout,
-                      fallback: "git fetch failed.",
-                    },
-                  ) }),
-            });
-          }
-        }
-      }
-      if (pr) {
-        const checkout = window.api?.sourceControl?.checkoutWorkspacePr;
-        if (!checkout) return { ok: false, message: i18n.t("workspace:prCheckout.errors.lookupFailed") };
-        const result = await checkout({
-          cwd: current.repositoryPath, path: workspacePath, reference: prReference ?? "", branch: branchName || undefined,
-        });
-        if (!result.ok) return { ok: false, message: describeWorkspacePrCheckoutError(result) };
-        branchName = result.branch;
-        workspaceDisplayName = label?.trim() || branchName;
-        workspaceInformation = upsertWorkspaceResourceInState({
-          current: workspaceInformation ?? createEmptyWorkspaceInformation(),
-          input: { kind: "pull_request", title: result.title, url: result.url },
-        }).state;
-        if (result.fork) creationNotices.push({ level: "warning", message: i18n.t("workspace:prCheckout.forkPolicy") });
-        if (result.linkWarning !== undefined) {
-          creationNotices.push({ level: "warning", message: i18n.t("workspace:prCheckout.linkWarning") });
-        }
-      } else if (createWorktree) {
-        const failure = await createWorktree({
-          cwd: current.repositoryPath,
-          branch: branchName,
-          path: workspacePath,
-          baseRef: mode === "branch" ? baseBranch : undefined,
-        });
-        if (failure) return { ok: false, message: describeWorktreeCreationFailure(failure) };
-      }
-
       const empty = createEmptyWorkspaceState();
       const seededTask: Task = {
         id: crypto.randomUUID(),
@@ -267,7 +203,7 @@ export function createWorkspaceCreateActions(args: {
           [seededTask.id]: {},
         },
       });
-      await persistWorkspaceSnapshot({
+      const persistInitialTask = () => persistWorkspaceSnapshot({
         workspaceId,
         workspaceName: workspaceDisplayName,
         creationOptions: { initCommand: workspaceInitCommand || undefined, useRootNodeModulesSymlink },
@@ -275,7 +211,7 @@ export function createWorkspaceCreateActions(args: {
         tasks: snapshot.tasks,
         messagesByTask: snapshot.messagesByTask,
         promptDraftByTask: snapshot.promptDraftByTask ?? {},
-        workspaceInformation: snapshot.workspaceInformation,
+        workspaceInformation: workspaceInformation ?? snapshot.workspaceInformation,
         editorTabs: snapshot.editorTabs ?? [],
         activeEditorTabId: snapshot.activeEditorTabId ?? null,
         terminalTabs: snapshot.terminalTabs ?? [],
@@ -291,98 +227,16 @@ export function createWorkspaceCreateActions(args: {
       });
       const workspaceState = buildWorkspaceSessionState({ snapshot });
 
-      let files = current.repositoryFiles;
-      try {
-        if (get().repositoryPath === current.repositoryPath) await workspaceFsAdapter.setRoot?.({
-          rootPath: workspacePath,
-          rootName: workspaceDisplayName,
-        });
-      } catch {
-        // Worktree may be created successfully before filesystem bridge catches up.
-        // Keep workspace registration and use the existing file list as fallback.
+      // Flush the previous workspace before the optimistic switch changes the
+      // target of the app-level persistence debounce.
+      await current.flushActiveWorkspaceSnapshot();
+      if (get().repositoryPath !== repositoryPath) {
+        return { ok: false, message: i18n.t("workspace:creationProgress.repositoryChanged") };
       }
-
-      const seed = window.api?.sourceControl?.seedWorktreeDependencies;
-      if (!pr && runner && seed) {
-        const result = await seed({ sourcePath: current.repositoryPath, workspacePath, skipRootNodeModules: useRootNodeModulesSymlink }).catch(() => ({ status: "fallback" }));
-        if (result.status === "fallback") creationNotices.push({ level: "warning", message: i18n.t("workspace:dependencyCopyFallback") });
-      }
-
-      if (useRootNodeModulesSymlink) {
-        if (!runner) {
-          creationNotices.push({
-            level: "warning",
-            message:
-              i18n.t("workspace:appStoreWorkspaceCreateActions.theSharedRootNodeModulesSymlinkCould"),
-          });
-        } else {
-          const linkResult = await runner({
-            cwd: workspacePath,
-            command: buildWorkspaceRootNodeModulesSymlinkCommand({
-              repositoryPath: current.repositoryPath,
-            }),
-          });
-          if (linkResult.ok) {
-            creationNotices.push({
-              level: "success",
-              message:
-                i18n.t("workspace:appStoreWorkspaceCreateActions.linkedNodeModulesFromTheRepositoryRoot"),
-            });
-          } else {
-            creationNotices.push({
-              level: "warning",
-              message: i18n.t("workspace:appStoreWorkspaceCreateActions.linkingTheSharedRootNodeModulesFailed", { value1: summarizeTerminalCommandDetail(
-                {
-                  stderr: linkResult.stderr,
-                  stdout: linkResult.stdout,
-                  fallback: "Command failed.",
-                },
-              ) }),
-            });
-          }
-        }
-      }
-
-      if (workspaceInitCommand) {
-        const summarizedCommand = summarizeWorkspaceInitCommand({
-          command: workspaceInitCommand,
-        });
-        if (!runner) {
-          creationNotices.push({
-            level: "warning",
-            message: i18n.t("workspace:appStoreWorkspaceCreateActions.thePostCreateCommandCouldNotRun", { summarizedCommand: summarizedCommand }),
-          });
-        } else {
-          const initResult = await runner({
-            cwd: workspacePath,
-            command: workspaceInitCommand,
-          });
-          if (initResult.ok) {
-            creationNotices.push({
-              level: "success",
-              message: i18n.t("workspace:appStoreWorkspaceCreateActions.ranThePostCreateCommandValue", { summarizedCommand: summarizedCommand }),
-            });
-          } else {
-            creationNotices.push({
-              level: "warning",
-              message: i18n.t("workspace:appStoreWorkspaceCreateActions.thePostCreateCommandFailedValueValue", { summarizedCommand: summarizedCommand, value1: summarizeTerminalCommandDetail(
-                {
-                  stderr: initResult.stderr,
-                  stdout: initResult.stdout,
-                  fallback: "Command failed.",
-                },
-              ) }),
-            });
-          }
-        }
-      }
-
-      try {
-        if (get().repositoryPath === current.repositoryPath) files = await workspaceFsAdapter.listFiles();
-      } catch {
-        // Keep workspace registration and use the existing file list as fallback.
-      }
-
+      const progress = beginWorkspaceCreation(workspaceId, {
+        taskTitle: seededTask.title,
+        prompt: initialPromptDraft?.text,
+      });
       set((state) => {
         if (state.repositoryPath !== current.repositoryPath) {
           const repository = state.recentRepositories.find((entry) => entry.repositoryPath === current.repositoryPath);
@@ -450,14 +304,6 @@ export function createWorkspaceCreateActions(args: {
             workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
             archivedWorkspacePathsToRemove: [workspacePath],
           }),
-          workspaceFileCacheByPath: rememberCachedWorkspaceFiles({
-            workspaceFileCacheByPath: state.workspaceFileCacheByPath,
-            workspacePath,
-            files,
-            retainPaths: [state.repositoryPath],
-          }),
-          // Saved here, not before the awaits above: turns in the outgoing
-          // workspace and cached ones kept running while it was created.
           workspaceRuntimeCacheById:
             saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state }),
           activeAppSurface: WORKSPACE_APP_SURFACE,
@@ -467,21 +313,207 @@ export function createWorkspaceCreateActions(args: {
             tasks: workspaceState.tasks,
           }),
           ...workspaceState,
-          repositoryFiles: files,
+          repositoryFiles: [],
         };
       });
-      await registerCreatedWorkspace(get, workspaceId);
-      if (pr) void get().fetchWorkspacePrStatus({ workspaceId });
-      else runScriptHookInBackground({
-        workspaceId,
-        trigger: "task.created",
-        taskId: seededTask.id,
-        taskTitle: seededTask.title,
-      });
-      const creationNotice = buildWorkspaceCreationNotice({
-        notices: creationNotices,
-      });
-      return { ok: true, workspaceId, taskId: seededTask.id, ...creationNotice };
+      // Route path-based operations to this workspace even before its directory
+      // exists. In particular they must never point at the outgoing checkout.
+      void workspaceFsAdapter.setRoot?.({ rootPath: workspacePath, rootName: workspaceDisplayName, files: [] })?.catch(() => {});
+      onWorkspacePreparing?.();
+      let checkoutCreated = false;
+      let linkedDependencies = false;
+      const taskStartup: { result?: KickoffWorkspaceResult } = {};
+      const target = { workspaceId, taskId: seededTask.id };
+      try {
+        await runWorkspaceCreationSteps(progress, {
+          worktree: async () => {
+            if (!checkoutCreated) {
+              if (pr) {
+                const checkout = window.api?.sourceControl?.checkoutWorkspacePr;
+                if (!checkout) throw new Error(i18n.t("workspace:prCheckout.errors.lookupFailed"));
+                const result = await checkout({
+                  cwd: repositoryPath,
+                  path: workspacePath,
+                  reference: prReference ?? "",
+                  branch: branchName || undefined,
+                });
+                if (!result.ok) throw new Error(describeWorkspacePrCheckoutError(result));
+
+                const name = workspaceLabel || result.branch;
+                workspaceDisplayName = name;
+                set((state) => {
+                  const updateRows = (rows: AppState["workspaces"]) => rows.map((row) =>
+                    row.id === workspaceId ? { ...row, name } : row,
+                  );
+                  return {
+                    ...(state.repositoryPath === repositoryPath && {
+                      workspaces: updateRows(state.workspaces),
+                      workspaceBranchById: { ...state.workspaceBranchById, [workspaceId]: result.branch },
+                    }),
+                    recentRepositories: state.recentRepositories.map((repository) =>
+                      repository.repositoryPath === repositoryPath ? {
+                        ...repository,
+                        workspaces: updateRows(repository.workspaces),
+                        workspaceBranchById: { ...repository.workspaceBranchById, [workspaceId]: result.branch },
+                      } : repository,
+                    ),
+                  };
+                });
+
+                const latest = get();
+                const liveInformation = latest.activeWorkspaceId === workspaceId
+                  ? latest.workspaceInformation
+                  : latest.workspaceRuntimeCacheById[workspaceId]?.workspaceInformation;
+                workspaceInformation = upsertWorkspaceResourceInState({
+                  current: liveInformation ?? snapshot.workspaceInformation ?? createEmptyWorkspaceInformation(),
+                  input: { kind: "pull_request", title: result.title, url: result.url },
+                }).state;
+                latest.applyExternalWorkspaceInformationUpdate({ workspaceId, workspaceInformation });
+                if (latest.activeWorkspaceId === workspaceId) {
+                  void workspaceFsAdapter.setRoot?.({ rootPath: workspacePath, rootName: name })?.catch(() => {});
+                }
+                if (result.fork) {
+                  creationNotices.push({ level: "warning", message: i18n.t("workspace:prCheckout.forkPolicy") });
+                }
+                if (result.linkWarning !== undefined) {
+                  creationNotices.push({ level: "warning", message: i18n.t("workspace:prCheckout.linkWarning") });
+                }
+              } else if (createWorktree) {
+                let baseBranch = requestedBase;
+                if (runner) {
+                  const runGit = (commandArgs: string[]) => runner({
+                    cwd: repositoryPath,
+                    command: "git",
+                    commandArgs,
+                  });
+                  const remoteTarget =
+                    mode === "branch"
+                      ? await resolveWorkspaceRemoteBaseBranchTarget({
+                          baseBranch,
+                          fromBranchKind,
+                          verifyRef: async (ref) => (await runGit(["show-ref", "--verify", "--quiet", ref])).ok,
+                        })
+                      : null;
+                  if (remoteTarget) {
+                    const fetchResult = await runGit(["fetch", "--prune", "--", remoteTarget.remoteName]);
+                    if (!fetchResult.ok) {
+                      const localBranchProbe = await runGit(["show-ref", "--verify", "--quiet", `refs/heads/${remoteTarget.localBranch}`]);
+                      const fallbackBranch = localBranchProbe.ok
+                        ? remoteTarget.localBranch
+                        : baseBranch;
+                      baseBranch = fallbackBranch;
+                      creationNotices.push({
+                        level: "warning",
+                        message: localBranchProbe.ok
+                          ? i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotRefreshValueCreatedTheWorkspace", { fromBranch: fromBranch, value1: remoteTarget.localBranch, value2: summarizeTerminalCommandDetail(
+                              {
+                                stderr: fetchResult.stderr,
+                                stdout: fetchResult.stdout,
+                                fallback: "git fetch failed.",
+                              },
+                            ) })
+                          : i18n.t("workspace:appStoreWorkspaceCreateActions.couldNotRefreshValueCreatedTheWorkspace2", { fromBranch: fromBranch, value1: summarizeTerminalCommandDetail(
+                              {
+                                stderr: fetchResult.stderr,
+                                stdout: fetchResult.stdout,
+                                fallback: "git fetch failed.",
+                              },
+                            ) }),
+                      });
+                    }
+                  }
+                }
+                const failure = await createWorktree({
+                  cwd: repositoryPath,
+                  branch: branchName,
+                  path: workspacePath,
+                  baseRef: mode === "branch" ? baseBranch : undefined,
+                });
+                if (failure) throw new Error(describeWorktreeCreationFailure(failure));
+              }
+              checkoutCreated = true;
+            }
+            await persistInitialTask();
+          },
+          copy: async () => {
+            await registerCreatedWorkspace(get, workspaceId);
+            if (pr) {
+              if (get().repositoryPath === repositoryPath) void get().fetchWorkspacePrStatus({ workspaceId });
+              return { status: "skipped" };
+            }
+            const seed = window.api?.sourceControl?.seedWorktreeDependencies;
+            if (!runner || !seed) return { status: "skipped" };
+            const result = await seed({ sourcePath: repositoryPath, workspacePath, skipRootNodeModules: useRootNodeModulesSymlink })
+              .catch(() => ({ status: "fallback" as const }));
+            if (result.status === "fallback") {
+              const detail = i18n.t("workspace:dependencyCopyFallback");
+              creationNotices.push({ level: "warning", message: detail });
+              return { status: "failed", detail };
+            }
+            return { status: result.status === "skipped" ? "skipped" : "complete" };
+          },
+          setup: async () => {
+            if (!workspaceInitCommand && !useRootNodeModulesSymlink) return { status: "skipped" };
+            if (!runner) throw new Error(i18n.t("workspace:creationProgress.commandUnavailable"));
+            if (useRootNodeModulesSymlink && !linkedDependencies) {
+              const result = await runner({
+                cwd: workspacePath,
+                command: buildWorkspaceRootNodeModulesSymlinkCommand({ repositoryPath }),
+              });
+              if (!result.ok) throw new Error(i18n.t("workspace:appStoreWorkspaceCreateActions.linkingTheSharedRootNodeModulesFailed", {
+                value1: summarizeTerminalCommandDetail({ ...result, fallback: i18n.t("workspace:creationProgress.commandFailed") }),
+              }));
+              linkedDependencies = true;
+              creationNotices.push({
+                level: "success",
+                message: i18n.t("workspace:appStoreWorkspaceCreateActions.linkedNodeModulesFromTheRepositoryRoot"),
+              });
+            }
+            if (!workspaceInitCommand) return;
+            const result = await runner({ cwd: workspacePath, command: workspaceInitCommand });
+            const summarizedCommand = summarizeWorkspaceInitCommand({ command: workspaceInitCommand });
+            if (!result.ok) throw new Error(i18n.t("workspace:appStoreWorkspaceCreateActions.thePostCreateCommandFailedValueValue", {
+              summarizedCommand,
+              value1: [result.stderr, result.stdout].filter(Boolean).join("\n").trim().slice(-16_384)
+                || i18n.t("workspace:creationProgress.commandFailed"),
+            }));
+            creationNotices.push({
+              level: "success",
+              message: i18n.t("workspace:appStoreWorkspaceCreateActions.ranThePostCreateCommandValue", { summarizedCommand }),
+            });
+          },
+          task: async () => {
+            if (get().activeWorkspaceId === workspaceId && workspaceFsAdapter.getRootPath?.() === workspacePath) {
+              void workspaceFsAdapter.listFiles().then((files) => {
+                set((state) => state.activeWorkspaceId === workspaceId ? {
+                  repositoryFiles: files,
+                  workspaceFileCacheByPath: rememberCachedWorkspaceFiles({
+                    workspaceFileCacheByPath: state.workspaceFileCacheByPath, workspacePath, files, retainPaths: [repositoryPath],
+                  }),
+                } : state);
+              }).catch(() => {});
+            }
+            if (!pr) runScriptHookInBackground({
+              workspaceId, trigger: "task.created", taskId: seededTask.id, taskTitle: seededTask.title,
+            });
+            if (!startInitialTask) return { status: "skipped" };
+            const startup = await startInitialTask(target);
+            taskStartup.result = startup;
+            if (startup.startup === "blocked" || startup.startup === "unknown") {
+              return { status: "failed", detail: startup.message ?? i18n.t("workspace:creationProgress.commandFailed") };
+            }
+            if (startup.startup === "staged") return { status: "skipped" };
+          },
+        });
+      } catch (error) {
+        return { ok: false, ...target, message: error instanceof Error ? error.message : String(error) };
+      }
+      const notice = buildWorkspaceCreationNotice({ notices: creationNotices });
+      const startup = taskStartup.result;
+      if (startup?.noticeLevel === "warning") {
+        return { ...startup, ...target, message: [notice?.message, startup.message].filter(Boolean).join("\n") };
+      }
+      return { ok: true, ...target, ...notice, startup: startup?.startup };
     },
     kickoffWorkspace: (input) => runWorkspaceKickoff({ input, getState: get }),
     importWorkspaceFromWorktree: async ({ worktreePath, label }) => {

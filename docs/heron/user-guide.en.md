@@ -192,9 +192,10 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 | Link Existing Worktree     | Symlink a worktree that lives elsewhere into `.stave/workspaces/` and keep its branch |
 | Open From Pull Request | Open a GitHub PR from this repository using its URL or a number such as `#123` |
 
-The PR head determines the default workspace branch name. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
+The PR head determines the default workspace branch name. PR checkout runs in the **Create worktree** step. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
 
-If the branch name already exists, Create Workspace and Kickoff stop and suggest an available name. Enter a new name and retry to create the workspace from your selected base.
+The new workspace opens as soon as creation begins. Its sidebar row and pane show checkout, reusable file copying, setup, and first-task startup. Select **Open logs** to see details of a failure. After fixing a checkout or setup problem, select **Retry** to continue in the same workspace. If Git reports a branch collision, use the suggested name in a new creation request.
+Screens: [Workspace creation progress](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-creation-progress.png)
 
 A **Post-Create Command** (for example `bun install`) runs right after creation.
 Before setup runs, new worktrees can reuse ignored `node_modules` (including package workspaces) and `.venv` from the source checkout on macOS and Linux. A root `.worktreeinclude` replaces these defaults with gitignore-style allowlist rules; environment and credential files require explicit inclusion. Copying is limited to 30 seconds; failures or timeouts show a short notice, then normal setup continues. Setup still checks dependency compatibility.
@@ -204,7 +205,7 @@ Before setup runs, new worktrees can reuse ignored `node_modules` (including pac
 To start from existing material such as a Jira issue, a PR or a report, use **Kick off workspace**.
 Paste a link or a description and select **Resolve source**: Stave reads it and proposes the branch, label, Information panel links, and the first task's model and prompt. Edit anything before creating.
 **Skip AI** proposes the same from the link and text alone, without an AI.
-In **Who**, pick **Me** or a saved agent; in **Where**, pick a new workspace or the **Current workspace**. Turn off **Start now** to keep the first prompt in the composer instead of sending it.
+In **Who**, pick **Me** or a saved agent; in **Where**, pick a new workspace or the **Current workspace**. The first prompt appears as soon as the new workspace opens. With **Start now** on, Stave waits for setup before sending it. Turn **Start now** off to keep it in the composer.
 Screens: [Kick off workspace](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/kickoff.png)
 
 ## 2. Open a task and send a request
