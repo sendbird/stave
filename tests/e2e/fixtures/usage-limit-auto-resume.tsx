@@ -15,6 +15,7 @@ let finishRead: ((snapshot: RateLimitsSnapshotResponse) => void) | undefined;
 // run together so the test catches a lost reservation or duplicate dispatch.
 window.api = {
   provider: {
+    listLiveTurns: async () => ({ ok: true, hostStartedAt: 0, turns: [] }),
     getRateLimitsSnapshot: async () => {
       reads += 1;
       if (reads === 1) throw new Error("offline after wake");
@@ -25,6 +26,7 @@ window.api = {
 
 useAppStore.persist.setOptions({ name: "usage-limit-resume-fixture" });
 useAppStore.setState({
+  hasHydratedWorkspaces: true,
   activeWorkspaceId: "usage-limit-workspace",
   activeTaskId: taskId,
   tasks: [{

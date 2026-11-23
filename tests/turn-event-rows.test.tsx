@@ -44,23 +44,33 @@ describe("ReasoningRow", () => {
 });
 
 describe("CommandResult", () => {
-  test("shows the command line, the output and a copy action", () => {
+  test("shows the command line, the output and separate copy actions", () => {
     const markup = renderToStaticMarkup(
       <CommandResult command="bun run typecheck" output="tsc --noEmit" />,
     );
     expect(markup).toContain("bun run typecheck");
     expect(markup).toContain("tsc --noEmit");
-    expect(markup).toContain("Copy");
+    expect(markup).toContain('aria-label="Copy command"');
+    expect(markup).toContain('aria-label="Copy output"');
   });
 
-  test("takes its failure tone from isError and prints no exit code", () => {
-    // `NormalizedProviderEvent.tool_result` carries `output` and `isError` and
-    // nothing else, so an exit code here would be fabricated.
+  test.each([
+    [0, "Exit 0"],
+    [2, "Exit 2"],
+    [undefined, "Exit unknown"],
+    [null, "Exit unknown"],
+  ] as const)("displays exit status %s from the provider", (exitCode, label) => {
+    const markup = renderToStaticMarkup(<CommandResult command="bun test" exitCode={exitCode} />);
+    expect(markup).toContain(`>${label}</span>`);
+    expect(markup).not.toContain('aria-label="Copy output"');
+  });
+
+  test("uses the tool failure tone without guessing an exit code", () => {
     const failed = renderToStaticMarkup(
       <CommandResult command="bun test" isError output="1 fail" />,
     );
     expect(failed).toContain("1 fail");
-    expect(failed).not.toMatch(/exit\s+\d/);
+    expect(failed).toContain("Exit unknown");
 
     const passed = renderToStaticMarkup(<CommandResult command="bun test" output="1 fail" />);
     // The tone is the only difference, so the two must not render identically.
@@ -68,9 +78,9 @@ describe("CommandResult", () => {
   });
 
   test("says which state an empty result is in", () => {
-    expect(renderToStaticMarkup(<CommandResult command="bun test" isStreaming />)).toContain(
-      "Waiting for output",
-    );
+    const streaming = renderToStaticMarkup(<CommandResult command="bun test" isStreaming />);
+    expect(streaming).toContain("Waiting for output");
+    expect(streaming).not.toContain("Exit unknown");
     expect(renderToStaticMarkup(<CommandResult command="bun test" />)).toContain("No output.");
   });
 });

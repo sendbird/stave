@@ -1,3 +1,4 @@
+import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { create } from "zustand";
 import type { StoreApi } from "zustand";
 import type { AppState } from "./app-store.types";
@@ -52,7 +53,7 @@ export async function restoreArchivedSearchView(taskId:string, set:StoreApi<AppS
   try {
   const api=window.api?.workspaceCleanup;
   if (!api) throw new Error();
-  const result=await api.act({action:"restore",workspaceId:view.workspaceId,repositoryPath:view.repositoryPath});
+  const result=await runWorkspaceCleanupAction(api, {action:"restore",workspaceId:view.workspaceId,repositoryPath:view.repositoryPath});
   if (!result.ok || result.readOnly) throw new Error();
   const {refreshWorkspaceCleanupRegistry}=await import("./workspace-cleanup-sync");
   const {notifyWorkspaceCleanupChanged}=await import("@/components/layout/workspace-cleanup-events");

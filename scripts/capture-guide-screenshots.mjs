@@ -201,6 +201,7 @@ function approvalMessageFor(copy) {
         input: JSON.stringify({ command: "bun test tests/auth" }),
         state: "approval-requested",
         supportsAllowAlways: true,
+        trustedToolEntry: "bash:bun test tests/auth",
       },
     ],
   };
@@ -214,7 +215,7 @@ function scriptsConfig(copy) {
       { id: "test", kind: "action", label: copy.scripts.test, description: copy.scripts.testDescription, commands: ["bun test"], targetId: "workspace", target, source: "script" },
     ],
     services: [
-      { id: "web", kind: "service", label: copy.scripts.web, description: copy.scripts.webDescription, commands: ["bun run dev"], targetId: "workspace", target, restartOnRun: true, source: "script" },
+      { id: "web", kind: "service", label: copy.scripts.web, description: copy.scripts.webDescription, commands: ["bun run dev"], targetId: "workspace", target, restartOnRun: true, source: "script", orbit: {} },
     ],
     hooks: {
       "task.created": [{ trigger: "task.created", scriptId: "bootstrap", scriptKind: "action", blocking: true }],
@@ -226,7 +227,7 @@ function scriptsConfig(copy) {
 
 function scriptStatuses() {
   return [
-    { scriptId: "web", scriptKind: "service", running: true, log: "[09:02:11] bun run dev\n[09:02:12] Local: http://localhost:5173/\n", runId: "run-web", sessionId: "session-web", source: { kind: "manual" } },
+    { scriptId: "web", scriptKind: "service", running: true, log: "[09:02:11] bun run dev\n[09:02:12] Local: http://localhost:5173/\n", runId: "run-web", sessionId: "session-web", orbitUrl: "http://acme-web.localhost:1355", orbitLocalUrl: "http://localhost:5173", source: { kind: "manual" } },
     { scriptId: "bootstrap", scriptKind: "action", running: false, log: "[08:50:44] bun install\n[08:51:02] bun run db:seed\n[08:51:05] Done\n", runId: "run-bootstrap", sessionId: "session-bootstrap", source: { kind: "hook", trigger: "task.created" } },
   ];
 }
@@ -415,7 +416,15 @@ async function openApp(page, locale, scenario = {}) {
         getStatus: async () => ({ ok: true, branch: "main", items: [], hasConflicts: false, stderr: "" }),
         getHistory: async () => ({ ok: true, items: [], stderr: "" }),
       },
+      lens: { openSession: ok, navigate: ok },
       scripts: {
+        listListeningPorts: async () => ({
+          status: "available",
+          ports: [
+            { pid: 101, host: "127.0.0.1", port: 5173, processName: "node", attribution: "owned" },
+            { pid: 102, host: "::1", port: 6006, processName: "bun", attribution: "inferred" },
+          ],
+        }),
         getConfig: async () => ({ ok: true, config: data.scripts.config }),
         getStatus: async () => ({ ok: true, statuses: data.scripts.statuses }),
         runEntry: async () => ({ ok: true, runId: "run", sessionId: "session", alreadyRunning: false }),
@@ -680,6 +689,7 @@ const SHOTS = [
       await quietChrome(page);
       const request = page.getByTestId("composer-approval-row").first();
       await request.waitFor();
+      await request.getByTestId("composer-approval-details-toggle").click();
       await settle(page);
       await save(page, null, file, { clip: await unionClip(page, [request, page.getByTestId("composer-workspace-bar")], 16) });
     },
@@ -776,7 +786,7 @@ const SHOTS = [
   },
   {
     name: "settings-providers",
-    async capture({ page, locale, file }) {
+    async capture({ page, locale, file, t }) {
       await openApp(page, locale);
       await page.evaluate(async () => {
         const { installUsagePreviewBridge } = await import("/src/dev/usage-preview/fixtures.ts");
@@ -784,6 +794,8 @@ const SHOTS = [
       });
       await quietChrome(page);
       const dialog = await openSettings(page, "providers");
+      const trustedApprovals = dialog.getByText(await t("settingsProviders:providersSection.trustedApprovals.title"), { exact: true });
+      await trustedApprovals.evaluate((element) => element.scrollIntoView({ block: "center" }));
       await blur(page);
       await save(page, dialog, file);
     },
@@ -819,9 +831,11 @@ const SHOTS = [
   },
   {
     name: "workspace-tools",
-    async capture({ page, locale, file }) {
+    async capture({ page, locale, file, t }) {
       await openApp(page, locale);
       await openRightPanel(page, "scripts", COPY[locale].scripts.web);
+      await page.getByRole("region", { name: await t("scripts:workspaceScriptsPanel.listeningPorts") })
+        .getByText("[::1]:6006", { exact: true }).waitFor();
       await quietChrome(page);
       await save(page, null, file, { clip: await contentClip(page, page.locator("[data-stave-right-panel][data-state='open']")) });
     },

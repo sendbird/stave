@@ -39,6 +39,12 @@ export const commandResultStyles = stylex.create({
   copy: {
     flexShrink: 0,
   },
+  exit: {
+    color: vars["--aui-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--aui-font-size-caption"],
+    whiteSpace: "nowrap",
+  },
   /**
    * The output. `pre-wrap` keeps the process's own line breaks;
    * `overflow-wrap: anywhere` stops one long path from establishing a
@@ -55,12 +61,6 @@ export const commandResultStyles = stylex.create({
     overflowWrap: "anywhere",
     whiteSpace: "pre-wrap",
   },
-  /**
-   * The error tone comes from `isError` and nothing else. A normalized tool
-   * result carries `output` and `isError`; it carries no exit code, so the
-   * surface must not print one — an invented `exit 1` next to a real stderr
-   * dump is worse than no number at all.
-   */
   outputError: {
     color: vars["--aui-color-danger-text"],
   },

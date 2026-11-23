@@ -185,10 +185,10 @@ approval card in the conversation and the Fleet panel): it appears whenever
 the grant is honored on later calls, and nowhere else.
 
 - **Claude and Codex** keep it in **Settings > Providers > Trusted
-  Approvals**. The entry is the tool, or for a command the exact command line;
-  a later request that matches it is answered without asking. A Bash entry
-  also covers the same command with more arguments, but never one chained,
-  piped or redirected into another command. Claude does not offer it for a
+  Approvals**. A tool entry answers later requests for that tool. A Bash rule
+  covers the saved command and added plain arguments. Appended shell control
+  syntax such as pipes, redirections, and command substitutions requires a
+  separate approval. Claude does not offer it for a
   call that crossed a guardrail (G1–G3), because no rule answers those.
   Codex offers it for commands and for edits inside the workspace, not for
   input to a running terminal, a request for a write root outside the

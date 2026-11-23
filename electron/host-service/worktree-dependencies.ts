@@ -15,7 +15,7 @@ const run: Run = (command, argv, options) => execute(command, argv, {
 const entries = (text: string) => text.split("\0").filter(Boolean);
 const inside = (root: string, target: string) => target === root || target.startsWith(`${root}${path.sep}`);
 // Default seeds exclude local authentication/configuration material at every depth.
-const sensitive = (name: string) => /^(?:\.envrc|\.npmrc|\.pypirc|\.netrc|\.ssh|\.aws|\.gnupg|\.git-credentials|id_rsa|id_ed25519|secrets?(?:\..*)?|credentials(?:\..*)?)$/i.test(name) || /\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$/i.test(name);
+export const sensitive = (name: string) => /^(?:\.envrc|\.npmrc|\.pypirc|\.netrc|\.ssh|\.aws|\.gnupg|\.git-credentials|id_rsa|id_ed25519|secrets?(?:\..*)?|credentials(?:\..*)?)$/i.test(name) || /^\.env|\.env(?:\.|$)|\.(?:pem|key|p12|pfx)$/i.test(name);
 
 /** Best effort only: setup remains authoritative for lockfiles, ABI and relocatable environments. */
 export async function seedWorktreeDependencies(args: WorktreeDependenciesArgs & { signal?: AbortSignal }, deps: {

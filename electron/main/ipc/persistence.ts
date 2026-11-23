@@ -1,5 +1,6 @@
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema } from "../../../src/lib/task-read-state";
 import { TruncateTaskMessagesResultSchema } from "../../../src/lib/task-context/conversation-truncation";
+import { UsageLimitReservationIdSchema } from "../../../src/lib/providers/usage-limit-reservation";
 import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
@@ -50,6 +51,10 @@ import {
 import { resolveRendererPersistenceFlush } from "../persistence-flush-gate";
 
 export function registerPersistenceHandlers() {
+  ipcMain.handle("persistence:has-usage-limit-resume", async (_event, id: unknown) => {
+    const parsed = UsageLimitReservationIdSchema.parse(id);
+    return (await ensurePersistenceReady()).turnAdmission.hasUsageLimitResume(parsed);
+  });
   ipcMain.handle("persistence:record-workspace-documents", async (_event, args: unknown) => {
     const parsed = RecordWorkspaceDocumentsArgsSchema.safeParse(args);
     if (!parsed.success) return { ok: false, changes: [] };

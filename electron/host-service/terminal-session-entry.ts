@@ -40,13 +40,13 @@ export interface TerminalSessionEntry {
   lastPushWritePromise: Promise<void> | null;
   deliveryMode: "poll" | "push";
   closing: boolean;
+  notifyExitOnClose: boolean;
   slotKey: string | null;
-  closed: Promise<void>;
+  /** True after exit, false when the deadline expires without confirmation. */
+  closed: Promise<boolean>;
   close: () => void;
-  disposePtyListeners: () => void;
   disposeHeadlessMirror: () => void;
   flushPushOutput: () => void;
-  markClosed: () => void;
   activeAttachmentId: string | null;
   streamReadyAttachmentId: string | null;
   backgroundBuffer: string[];
@@ -60,6 +60,9 @@ export interface TerminalSessionEntry {
   sentOutputBytes: number;
   acknowledgedOutputBytes: number;
   flowPaused: boolean;
+  flowStallTimer: ReturnType<typeof setTimeout> | undefined;
+  flowStalled: boolean;
+  outputGapPending: boolean;
   persistedScreenState: string | null;
   persistScreenState?: boolean;
   osc133Parser: Osc133Parser;

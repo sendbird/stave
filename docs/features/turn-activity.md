@@ -98,12 +98,17 @@ to start runs folded.
 ### Steps In The Conversation
 
 The steps a turn took also stay in its reply, folded under the reasoning
-summary. A few kinds read better than plain text:
+summary.
+
+On a changed-file card, **Mark as accepted** and **Mark as rejected** record
+your review decision. To undo edits, select **Restore files** in the completed turn’s actions.
 
 - **Commands** are colored by part: the program in bold, flags, quoted text,
   variables, operators like `&&` and `|`, and comments. Parts that can destroy
   work — `rm -rf`, `sudo`, `git push --force`, `git reset --hard`,
-  `git branch -D` — are red.
+  `git branch -D` — are red. A finished command shows the exit code the provider
+  reported, or **Exit unknown** when no code was reported. **Copy output**
+  copies its output.
 - **Images** a tool returned show as thumbnails in that step; choose one to see
   it full size. This covers Lens screenshots for every provider, and images
   from other MCP tools when the provider kept them (Codex does; Claude Code drops
@@ -193,8 +198,10 @@ the wait doubles up to 30 minutes. Older pauses without a recorded account need
 
 The pause and reset-time reservation survive a restart. Nothing runs while the
 app is closed or the computer sleeps. On startup or wake, an overdue reservation
-checks current usage before resuming, with at most one catch-up in flight.
-Cancelling the reservation keeps the task paused.
+checks current usage before resuming. An automatic resume releases the queue
+it held once the host admits the turn. If Stave crashes after admission and
+cannot confirm delivery, it leaves the remaining queue idle for you to review.
+Cancelling keeps the task paused across restarts.
 
 ### Continue Interrupted Work After Restart
 

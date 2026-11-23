@@ -581,10 +581,22 @@ export function setLensGuestCapturePaint(request: LensCapturePaintRequest): bool
   try {
     if (record.element.getWebContentsId() !== request.webContentsId) return false;
   } catch { return false; }
+  if (request.active && !record.element.checkVisibility({ visibilityProperty: true })) {
+    return false;
+  }
   if (request.active) record.captureRequests.add(request.requestId);
   else record.captureRequests.delete(request.requestId);
   applyPlacement(key);
   return true;
+}
+
+export function isLensGuestCapturePaintReady(request: LensCapturePaintRequest): boolean {
+  const record = guests.get(lensGuestKey(request));
+  return Boolean(
+    record?.captureRequests.has(request.requestId) &&
+      record.element.isConnected &&
+      record.element.checkVisibility({ visibilityProperty: true }),
+  );
 }
 
 export function resetLensGuestCapturePaint(): void {

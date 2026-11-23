@@ -69,12 +69,11 @@ export async function acquireLensCapturePaint(
         if (error) reject(error);
         else resolve();
       };
-      const onAbort = () =>
-        finish(new Error("Lens screenshot preparation was cancelled."));
+      const onAbort = () => finish(signal.reason);
       const onDestroyed = () =>
         finish(new Error("Lens host closed during screenshot preparation."));
       const timer = setTimeout(
-        () => finish(new Error("Lens screenshot paint preparation timed out.")),
+        () => finish(new Error("Lens screenshot paint preparation timed out. Show its Lens tab and retry.")),
         2000,
       );
       timer.unref?.();
@@ -84,7 +83,7 @@ export async function acquireLensCapturePaint(
           finish(
             ok
               ? undefined
-              : new Error("Lens guest could not prepare a screenshot."),
+              : new Error("Lens guest cannot draw a screenshot. Show its Lens tab and retry."),
           ),
       });
       signal.addEventListener("abort", onAbort, { once: true });

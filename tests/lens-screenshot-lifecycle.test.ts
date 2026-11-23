@@ -1,4 +1,5 @@
 import { beforeEach, expect, mock, test } from "bun:test";
+import { lensCaptureLane } from "../electron/main/browser/browser-capture-lane";
 
 function deferred() {
   let resolve!: () => void;
@@ -21,6 +22,7 @@ let approvals = 0;
 let approved = true;
 let approvalWait: Promise<void> | undefined;
 let metricsWait: Promise<void> | undefined;
+let frameWait: Promise<void> | undefined;
 let captureWait: Promise<void> | undefined;
 let dispatchWait: Promise<void> | undefined;
 let cleanupWait: Promise<void> | undefined;
@@ -30,10 +32,13 @@ let targetPresent = true;
 mock.module("../electron/main/browser/browser-full-page-capture", () => ({
   captureFullPage: async (
     _id: number,
-    command: (method: string, params: unknown) => Promise<{ data: string }>,
+    _command: unknown,
+    _assertDocument: unknown,
+    _waitForFrame: unknown,
+    capture: () => Promise<{ toPNG: () => Buffer }>,
   ) => {
-    const result = await command("Page.captureScreenshot", { format: "png" });
-    return `data:image/png;base64,${result.data}`;
+    const result = await capture();
+    return `data:image/png;base64,${result.toPNG().toString("base64")}`;
   },
 }));
 mock.module("../electron/main/browser/browser-capture-paint", () => ({
@@ -41,12 +46,16 @@ mock.module("../electron/main/browser/browser-capture-paint", () => ({
 }));
 mock.module("electron", () => ({
   webContents: { fromId: () => guest },
-  nativeImage: {
-    createFromBuffer: () => ({
-      isEmpty: () => false,
+}));
+mock.module("../electron/main/browser/browser-surface-capture", () => ({
+  captureLensSurface: async () => {
+    commands.push("capturePage");
+    await captureWait;
+    return {
+      toPNG: () => Buffer.from("png"),
       getSize: () => ({ width: 800, height: 600 }),
       crop: () => ({ toPNG: () => Buffer.from("crop") }),
-    }),
+    };
   },
 }));
 mock.module("../electron/main/browser/browser-manager", () => ({
@@ -63,7 +72,6 @@ mock.module("../electron/main/browser/browser-security", () => ({
 mock.module("../electron/main/browser/browser-screenshot-guard", () => ({
   LENS_SCREENSHOT_COMMAND_TIMEOUT_MS: 40,
   assertLensScreenshotRect: () => undefined,
-  assertLensScreenshotPng: () => undefined,
 }));
 mock.module("../electron/main/browser/browser-cdp-controller", () => ({
   sendCdpCommand: async (
@@ -74,19 +82,15 @@ mock.module("../electron/main/browser/browser-cdp-controller", () => ({
   ) => {
     await dispatchWait;
     beforeDispatch();
-    if (
-      method === "Page.enable" ||
-      (method === "Runtime.evaluate" && _params?.awaitPromise)
-    )
-      return {};
+    if (method === "Page.enable") return {};
+    if (method === "Runtime.evaluate" && _params?.awaitPromise) {
+      await frameWait;
+      return { result: { value: true } };
+    }
     commands.push(method);
     if (method === "Page.getLayoutMetrics") {
       await metricsWait;
       return { cssContentSize: { width: 800, height: 1600 } };
-    }
-    if (method === "Page.captureScreenshot") {
-      await captureWait;
-      return { data: "cG5n" };
     }
     return {
       result: {
@@ -119,7 +123,7 @@ beforeEach(() => {
   commands.length = 0;
   approvals = 0;
   approved = true;
-  approvalWait = metricsWait = captureWait = dispatchWait = undefined;
+  approvalWait = metricsWait = captureWait = dispatchWait = frameWait = undefined;
   cleanupWait = undefined;
   scrollY = 0;
   targetPresent = true;
@@ -139,7 +143,7 @@ test("navigation while queued rejects both stale captures", async () => {
   const errors = await Promise.all([firstError, secondError]);
   for (const error of errors) expect(String(error)).toContain("page changed");
   expect(
-    commands.filter((method) => method === "Page.captureScreenshot"),
+    commands.filter((method) => method === "capturePage"),
   ).toHaveLength(1);
 });
 
@@ -156,7 +160,7 @@ test("revoked site permission is checked when a queued capture starts", async ()
   expect(String(await rejected)).toContain("Site access denied");
   expect(approvals).toBeGreaterThanOrEqual(3);
   expect(
-    commands.filter((method) => method === "Page.captureScreenshot"),
+    commands.filter((method) => method === "capturePage"),
   ).toHaveLength(1);
 });
 
@@ -174,7 +178,7 @@ test("late layout metrics cannot start a full-page capture after its deadline", 
   );
 });
 
-test("a retry waits for both native settlement and timeout cleanup", async () => {
+test("a retry waits for both native settlement and queued viewport repair", async () => {
   const native = deferred();
   const cleanup = deferred();
   captureWait = native.promise;
@@ -182,20 +186,21 @@ test("a retry waits for both native settlement and timeout cleanup", async () =>
   await expect(captureScreenshot(guest.id, { fullPage: true })).rejects.toThrow(
     "timed out",
   );
+  const heal = healLensViewportEmulation(guest.id);
   const next = captureScreenshot(guest.id);
   native.resolve();
   await flush();
   expect(
-    commands.filter((method) => method === "Page.captureScreenshot"),
+    commands.filter((method) => method === "capturePage"),
   ).toHaveLength(1);
   cleanup.resolve();
+  await heal;
   await expect(next).resolves.toContain("data:image/png");
   expect(commands).toEqual([
     "Page.getLayoutMetrics",
-    "Page.captureScreenshot",
+    "capturePage",
     "Emulation.clearDeviceMetricsOverride",
-    "Emulation.clearDeviceMetricsOverride",
-    "Page.captureScreenshot",
+    "capturePage",
   ]);
 });
 
@@ -239,9 +244,9 @@ test("one heal request survives a running capture and precedes a retry", async (
   pending.resolve();
   await Promise.all([first, heal, next]);
   expect(commands).toEqual([
-    "Page.captureScreenshot",
+    "capturePage",
     "Emulation.clearDeviceMetricsOverride",
-    "Page.captureScreenshot",
+    "capturePage",
   ]);
 });
 
@@ -253,12 +258,12 @@ test("target lookup is delayed until the previous capture has settled", async ()
   const second = captureScreenshot(guest.id, { selector: "#target" });
   const rejected = second.catch((error: Error) => error);
   await flush();
-  expect(commands).toEqual(["Page.captureScreenshot"]);
+  expect(commands).toEqual(["capturePage"]);
   targetPresent = false;
   pending.resolve();
   await first;
   expect(String(await rejected)).toContain("target was not found");
-  expect(commands).toEqual(["Page.captureScreenshot", "Runtime.evaluate"]);
+  expect(commands).toEqual(["capturePage", "Runtime.evaluate"]);
 });
 
 test("scrolling during selected-area capture rejects the stale crop", async () => {
@@ -311,4 +316,19 @@ test("closing the guest during preparation prevents capture and overlay restorat
   ).rejects.toThrow("page changed");
   expect(commands).toEqual([]);
   expect(restores).toBe(0);
+});
+
+test("lifecycle cancellation releases a frame probe that never answers", async () => {
+  const pending = deferred();
+  frameWait = pending.promise;
+  const capture = captureScreenshot(guest.id);
+  const result = capture.catch((error: Error) => error);
+  await flush();
+  lensCaptureLane.cancel(guest.id, new Error("tab shown"));
+  expect(String(await result)).toContain("tab shown");
+  frameWait = undefined;
+  await expect(captureScreenshot(guest.id)).resolves.toContain("data:image/png");
+  pending.resolve();
+  await flush();
+  expect(commands).toEqual(["capturePage"]);
 });

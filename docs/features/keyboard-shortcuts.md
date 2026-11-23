@@ -100,6 +100,11 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 | Switch between conversation and Review | `Cmd/Ctrl+Alt+R` | Workspace; switches the active task |
 | Ask a side question | `Cmd/Ctrl+K` then `Q` | Anywhere; opens the panel beside the active task's conversation |
 
+**Search in files** finds literal text in the current workspace, including pasted
+multiline blocks. Press `Cmd/Ctrl+Enter` to search immediately. Editing or
+clearing the query stops the previous search. Switching workspaces clears the
+search. **Result limit reached** means some matches or preview text were omitted.
+
 The letter after `Cmd/Ctrl+K` is the default. Change or turn off any of them under
 **Settings → Keyboard & Commands → Shell Shortcut Chords**; the list in the app follows your
 choice.

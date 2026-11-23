@@ -25,7 +25,7 @@ export function resolvePausedQueueHold(
   return resolveQueuedTurnPauseHold({
     item: target,
     usageLimitPause: state.usageLimitPauseByTask[target.taskId],
-    restoredQueueReleased: state.restoredQueueReleasedByTask[target.taskId] === true,
+    restoredQueueReleased: state.restoredQueueReleasedByTask[target.taskId],
   });
 }
 
@@ -35,7 +35,7 @@ export function resolvePausedQueueHold(
  */
 export function pauseQueueOnUsageLimitRefusal(
   get: () => AppState,
-  blocked: QueueTarget & { result: QueuedTurnBlockedResult },
+  blocked: QueueTarget & { queuedTurnId?: string; result: QueuedTurnBlockedResult },
 ) {
   const usageLimit = blocked.result.usageLimit;
   if (blocked.result.reason !== "account-limit" || !usageLimit) {
@@ -48,6 +48,7 @@ export function pauseQueueOnUsageLimitRefusal(
     accountProfileId: usageLimit.accountProfileId,
     model: usageLimit.model,
     stoppedTurn: false,
+    origin: blocked.queuedTurnId ? { kind: "queue", id: blocked.queuedTurnId } : undefined,
     usageLimit,
   });
 }
@@ -74,6 +75,7 @@ export function settleTaskQueueAfterTurn(
   get: () => AppState,
   dispatchNextQueuedTaskTurn: (target: QueueTarget) => void,
   turn: QueueTarget & {
+    turnId?: string;
     /** Captured execution identity; the persisted assistant row takes precedence. */
     providerId?: ProviderId;
     accountProfileId?: string;
@@ -95,6 +97,7 @@ export function settleTaskQueueAfterTurn(
   const providerId =
     (recorded?.providerId !== "user" ? recorded?.providerId : undefined) ?? turn.providerId ??
     session.tasks.find((task) => task.id === turn.taskId)?.provider;
+  const originatingTurnId = turn.turnId ?? recorded?.turnId;
   const terminalLimit = turn.done ? findUsageLimitStopInEvents([turn.done]) : null;
   if (
     turn.turnOrigin !== "utility" &&
@@ -108,6 +111,7 @@ export function settleTaskQueueAfterTurn(
       accountProfileId: terminalLimit?.accountProfileId ?? recorded?.nativeAccountProfileId ?? turn.accountProfileId,
       model: recorded?.model || turn.model,
       stoppedTurn: true,
+      origin: originatingTurnId ? { kind: "turn", id: originatingTurnId } : undefined,
     });
   }
   if (USER_STOPPED_TURN_REASONS.includes(stopReason)) return;

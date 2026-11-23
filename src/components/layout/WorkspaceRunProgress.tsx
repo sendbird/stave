@@ -6,7 +6,6 @@ import { useSharedNow } from "@/components/aui/components/DurationTimer";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
-import { AgentRunMark } from "@/components/system/AgentRunMark";
 import {
   buildRunProgress,
   formatRunProgressDuration,
@@ -119,25 +118,6 @@ function useRunProgress(
   );
   return { progress, providerId: activity?.providerId ?? null };
 }
-
-/**
- * The row's leading run mark: one motion while the agent works, its own mark
- * while it waits on helpers, a still warning mark once it goes quiet.
- */
-export const WorkspaceRunMark = memo(function WorkspaceRunMark(args: {
-  workspaceId: string;
-  /** Ink when no live snapshot names a provider yet. */
-  fallbackInkClassName: string;
-}) {
-  const { progress, providerId } = useWorkspaceRunProgress(args.workspaceId, false);
-  return (
-    <AgentRunMark
-      kind={progress?.kind ?? "working"}
-      providerId={providerId}
-      fallbackInkClassName={args.fallbackInkClassName}
-    />
-  );
-});
 
 /** "Edit file · 2/5 · 3m", "Waiting on 2 helpers · 1m" or "No output · 6m". */
 export function WorkspaceRunProgressText(args: {

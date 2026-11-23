@@ -112,6 +112,7 @@ import {
   hasPromptDraftPayload,
   normalizePromptDraftForStorage,
 } from "@/store/prompt-draft-state";
+import { readMessageIdTurnId } from "@/lib/session/message-id";
 import { withoutTurnScopedContexts } from "@/lib/task-context/turn-scoped-context";
 import {
   scheduleWorkspaceSnapshotPersist,
@@ -283,11 +284,12 @@ export function createSendUserMessageAction(args: {
     submitIntent,
     turnOrigin,
     queuedTurnId,
+    usageLimitResume,
     attachedFilePaths: payloadAttachedFilePaths,
     attachments: payloadAttachments,
     declinePendingApprovals,
   }) => {
-    const turnId = crypto.randomUUID();
+    const turnId = usageLimitResume?.turnId ?? crypto.randomUUID();
     let state = get();
     let resolvedTaskId = taskId;
     const sourcePromptDraftTaskId = taskId || "draft:session";
@@ -301,6 +303,7 @@ export function createSendUserMessageAction(args: {
       : null;
     let task = runtimeTarget?.task ?? null;
     const {archived,hasActiveTurn}=prepareTaskSendView(task,runtimeTarget?.session.activeTurnIdsByTask,state.requestTaskScrollToLatest);
+    if (usageLimitResume && (!task || hasActiveTurn)) return { status: "blocked" };
     if(archived) return {status:"blocked"} satisfies SendUserMessageResult;
 
     if (!task) {
@@ -404,8 +407,10 @@ export function createSendUserMessageAction(args: {
     // Settings scope: model, effort and permission defaults come from the
     // task's project when it overrides them; explicit draft choices still win.
     const turnSettings = selectEffectiveSettings(state, taskWorkspace.repositoryPath);
-    const existingHistory =
-      taskWorkspaceSession.messagesByTask[resolvedTaskId] ?? [];
+    const withoutPriorAttempt = (history: ChatMessage[]) => usageLimitResume
+      ? history.filter((message) => message.turnId !== turnId && readMessageIdTurnId({ taskId: resolvedTaskId, id: message.id }) !== turnId)
+      : history;
+    const existingHistory = withoutPriorAttempt(taskWorkspaceSession.messagesByTask[resolvedTaskId] ?? []);
     // A steer that declines the pending approvals may pass: the steer branch
     // declines them once nothing else can refuse the message.
     if (findLatestPendingApproval({ messages: existingHistory }) && !(declinePendingApprovals && hasActiveTurn && submitIntent === "steer")) {
@@ -494,7 +499,7 @@ export function createSendUserMessageAction(args: {
       });
     };
     // Decided synchronously: a Chat send must not pass an await before its draft is cleared.
-    const agentRunStart = prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
+    const agentRunStart = !usageLimitResume && prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
       resolveInitialContext: () => resolveAgentRunInitialContext({ getState: get, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
         prompt: promptContent, promptDraft, session: taskWorkspaceSession, fileContexts, imageContexts,
         includeLensCommentImages: state.settings.lensVisualCommentScreenshotsAsImageContext,
@@ -786,7 +791,7 @@ export function createSendUserMessageAction(args: {
     });
     const draftAfterSend = (currentDraft?: PromptDraft) =>
       resolvePromptDraftAfterSend({ currentDraft, storedDraft: storedPromptDraftForTask, sourceDraft: sourcePromptDraft,
-        sentDraft: promptDraft, preservePromptDraft: preservePromptDraft || composerClearedForRun, preservedQueuedDraft: preservedQueuedDispatchDraft, queuedTurns: codexGoalQueuedTurns });
+        sentDraft: promptDraft, preservePromptDraft: Boolean(usageLimitResume) || preservePromptDraft || composerClearedForRun, preservedQueuedDraft: preservedQueuedDispatchDraft, queuedTurns: codexGoalQueuedTurns });
 
     const submittedPromptDraft = createSubmittedPromptDraftLifecycle({
       taskId: resolvedTaskId,
@@ -803,7 +808,8 @@ export function createSendUserMessageAction(args: {
       ...guardTypedTextDuringSend({ get, set, taskId: resolvedTaskId, workspaceId: taskWorkspaceId, draft: promptDraft }),
     });
 
-    submittedPromptDraft.clear();
+    // A reserved send keeps its queue item on disk until the host claims it.
+    if (!usageLimitResume) submittedPromptDraft.clear();
 
     try {
       // A queued turn's stored model (queue-time selection) wins over the
@@ -838,9 +844,7 @@ export function createSendUserMessageAction(args: {
         submittedPromptDraft.restore();
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
-      const latestHistory =
-        latestWorkspaceSession.messagesByTask[resolvedTaskId] ??
-        existingHistory;
+      const latestHistory = withoutPriorAttempt(latestWorkspaceSession.messagesByTask[resolvedTaskId] ?? existingHistory);
       if (latestWorkspaceSession.activeTurnIdsByTask[resolvedTaskId]) {
         submittedPromptDraft.restore();
         return { status: "blocked" } satisfies SendUserMessageResult;
@@ -1101,6 +1105,7 @@ export function createSendUserMessageAction(args: {
         retrievedContextParts,
       });
       const prompt = normalizedPrompt;
+      if (usageLimitResume && !usageLimitResume.isCurrent()) return { status: "blocked" };
       submittedPromptDraft.commit();
       // A message is real activity: it brings a settled workspace back, and
       // the Work queue's merge rule only settles after a merge that follows it.
@@ -1140,6 +1145,7 @@ export function createSendUserMessageAction(args: {
                 ? resolvedImageContexts
                 : undefined,
             ...(queuedTurnToSend ? { dispatchedFromQueue: true } : {}),
+            ...(usageLimitResume ? { replaceUnsentAttempt: true } : {}),
           });
 
           return {
@@ -1198,6 +1204,7 @@ export function createSendUserMessageAction(args: {
                 ? resolvedImageContexts
                 : undefined,
             ...(queuedTurnToSend ? { dispatchedFromQueue: true } : {}),
+            ...(usageLimitResume ? { replaceUnsentAttempt: true } : {}),
           });
 
           return {
@@ -1255,7 +1262,7 @@ export function createSendUserMessageAction(args: {
       }
       // Same tick as the row insert: Auto's pending row hands straight over.
       endPendingAutoRoute({ taskId: resolvedTaskId, id: turnId });
-      endUsageLimitPauseOnTurnStart(get, resolvedTaskId, turnOrigin);
+      if (!usageLimitResume) endUsageLimitPauseOnTurnStart(get, resolvedTaskId, turnOrigin);
 
       const turnActivityStartedAt = Date.now();
       // The usage meter's cadence is driven by real turn activity rather
@@ -1528,7 +1535,7 @@ export function createSendUserMessageAction(args: {
               workspaceId: taskWorkspaceId,
             });
             settleTaskQueueAfterTurn(get, dispatchNextQueuedTaskTurn, {
-              workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
+              workspaceId: taskWorkspaceId, taskId: resolvedTaskId, turnId,
               providerId: provider, model: activeModel, accountProfileId: selectedProviderAccount(provider, turnAccounts), turnOrigin,
               done,
             });
@@ -1573,6 +1580,7 @@ export function createSendUserMessageAction(args: {
       const routedModelEvent = buildAutoRoutingModelResolvedEvent({ decision: autoRoutingDecision, provider, model: activeModel });
       if (routedModelEvent) providerTurnEventController.handleEvent(routedModelEvent);
 
+      let admissionSettlement: Promise<void> | undefined;
       runProviderTurn({
         turnId,
         provider,
@@ -1591,7 +1599,18 @@ export function createSendUserMessageAction(args: {
         }),
         // Recorded as delivered by the host once the provider has the turn.
         ...(deliveredAnswers.length > 0 ? { subagentAnswers: deliveredAnswers } : {}),
-        onEvent: ({ event }) => providerTurnEventController.handleEvent(event),
+        onEvent: ({ event }) => {
+          if (event.type === "turn_admission" && event.state === "running") {
+            admissionSettlement ??= usageLimitResume?.onAdmitted();
+          }
+          // Settle the claimed queue item before a terminal event can replace
+          // its pause or wake another queued send.
+          if (event.type === "done" && admissionSettlement) {
+            void admissionSettlement.then(() => providerTurnEventController.handleEvent(event));
+          } else {
+            providerTurnEventController.handleEvent(event);
+          }
+        },
       });
       return {
         status: "started",
@@ -1605,6 +1624,7 @@ export function createSendUserMessageAction(args: {
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
       if (
+        usageLimitResume ||
         queuedTurnToSend ||
         turnOrigin !== "conversation" ||
         submittedPromptDraft.isCommitted()

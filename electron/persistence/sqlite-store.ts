@@ -200,6 +200,7 @@ export class SqliteStore {
   private searchRetry: ReturnType<typeof setTimeout> | null = null;
   get contentSearch() { return this.searchIndex; }
   private readonly dbPath: string;
+  get appDataPath() { return path.dirname(this.dbPath); }
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   /** Which subagent answers each parent's turns carried; beside the run ledger, which it leaves as earlier versions write it. */
@@ -210,7 +211,8 @@ export class SqliteStore {
   private automationState: AutomationStateStore;
   private repositoryMemories: RepositoryMemoryStore;
   private notifications: NotificationStore;
-  private workspaceArchives!: WorkspaceArchiveStore;
+  private workspaceArchiveStore!: WorkspaceArchiveStore;
+  get workspaceArchives() { return this.workspaceArchiveStore; }
   readonly turnSnapshots: TurnSnapshotStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
@@ -537,7 +539,7 @@ export class SqliteStore {
     `,
       )
       .run();
-    this.workspaceArchives = new WorkspaceArchiveStore(this.db);
+    this.workspaceArchiveStore = new WorkspaceArchiveStore(this.db);
     if (this.runMaintenance) {
       this.purgeLegacyTurnJournal();
     }
@@ -1814,7 +1816,6 @@ export class SqliteStore {
   setRunStepTarget(args: Parameters<RunLedgerStore["setStepTarget"]>[0]) {
     return this.runLedger.setStepTarget(args);
   }
-
 
   interruptRunStep(args: Parameters<RunLedgerStore["interruptStep"]>[0]) {
     return this.runLedger.interruptStep(args);

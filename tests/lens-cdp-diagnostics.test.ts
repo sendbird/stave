@@ -463,6 +463,7 @@ describe("Lens CDP diagnostics", () => {
       allowedHosts: [],
       blockedHosts: [],
       developerModeCdp: true,
+      cdpLocalHostExemption: true,
       cdpApprovedHosts: [],
       transientCdpApprovals: [
         {
@@ -478,6 +479,30 @@ describe("Lens CDP diagnostics", () => {
     ).toEqual({
       enabled: true,
       host: "app.example.test",
+    });
+  });
+
+  test("keeps loopback diagnostics active only while the exemption applies", async () => {
+    const harness = createHarness();
+    await harness.start("http://[::1]:5173");
+    const policy = {
+      allowedHosts: [],
+      blockedHosts: [],
+      developerModeCdp: true,
+      cdpLocalHostExemption: true,
+      cdpApprovedHosts: [],
+      transientCdpApprovals: [],
+    };
+
+    diagnostics.enforceLensCdpDiagnosticsPolicy(policy);
+    expect(diagnostics.getLensCdpDiagnosticsState(harness.webContentsId)).toEqual({
+      enabled: true,
+      host: "::1",
+    });
+
+    diagnostics.enforceLensCdpDiagnosticsPolicy({ ...policy, cdpLocalHostExemption: false });
+    expect(diagnostics.getLensCdpDiagnosticsState(harness.webContentsId)).toEqual({
+      enabled: false,
     });
   });
 

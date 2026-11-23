@@ -13,6 +13,7 @@ import {
   WorkspaceScriptsEventSubscriptionArgsSchema,
   WorkspaceScriptsGetConfigArgsSchema,
   WorkspaceScriptsGetStatusArgsSchema,
+  WorkspaceScriptsListPortsArgsSchema,
   WorkspaceScriptsRunEntryArgsSchema,
   WorkspaceScriptsRunHookArgsSchema,
   WorkspaceScriptsStopAllArgsSchema,
@@ -143,6 +144,19 @@ export function registerWorkspaceScriptHandlers() {
         return { ok: true, statuses: result.statuses };
       } catch (error) {
         return { ok: false, error: String(error), statuses: [] };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    WORKSPACE_SCRIPTS_IPC.LIST_PORTS,
+    async (_event, rawArgs: unknown) => {
+      const parsed = WorkspaceScriptsListPortsArgsSchema.safeParse(rawArgs);
+      if (!parsed.success) return { status: "unavailable" };
+      try {
+        return await invokeHostService("workspace-scripts.list-ports", parsed.data);
+      } catch {
+        return { status: "unavailable" };
       }
     },
   );

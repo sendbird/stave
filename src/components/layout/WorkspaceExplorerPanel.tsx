@@ -22,6 +22,7 @@ import { GhosttyIcon, VSCodeIcon } from "@/components/brand-icons";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -45,6 +46,10 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  normalizeFilesystemSearchQuery,
+  type FilesystemSearchFileResult,
+} from "@/lib/fs/content-search";
 import type { WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
 import { sx } from "@/components/aui/utils/stylex";
 import { ExplorerEntryIcon } from "./explorer-entry-icon";
@@ -59,19 +64,6 @@ interface ExplorerDirectoryState {
 interface PendingExplorerCreate {
   type: "file" | "folder";
   placeholder: string;
-}
-
-interface SearchResultFile {
-  file: string;
-  matches: Array<{ line: number; text: string }>;
-}
-
-function normalizeSearchQuery(rawQuery: string) {
-  const normalizedLineEndings = rawQuery.replace(/\r\n?/g, "\n");
-  if (normalizedLineEndings.includes("\n")) {
-    return normalizedLineEndings.replace(/^\n+|\n+$/g, "");
-  }
-  return normalizedLineEndings.trim();
 }
 
 function getParentDirectoryPath(args: { path: string }) {
@@ -110,7 +102,7 @@ type FlatSearchRow =
     };
 
 function buildFlatRows(
-  results: SearchResultFile[],
+  results: FilesystemSearchFileResult[],
   collapsedFiles: Set<string>,
 ): FlatSearchRow[] {
   const rows: FlatSearchRow[] = [];
@@ -140,12 +132,13 @@ function buildFlatRows(
 
 function ExplorerSearchPanel(props: {
   focusRequestNonce: number;
+  workspaceId: string;
   workspaceCwd: string | undefined;
   onOpenFile: (path: string, line?: number) => void;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SearchResultFile[]>([]);
+  const [results, setResults] = useState<FilesystemSearchFileResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [limitHit, setLimitHit] = useState(false);
@@ -153,74 +146,91 @@ function ExplorerSearchPanel(props: {
   const [collapsedFiles, setCollapsedFiles] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLTextAreaElement | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const generationRef = useRef(0);
+  const activeSearchRef = useRef(false);
+
+  const clearSearchTimer = useCallback(() => {
+    if (searchTimerRef.current !== null) {
+      clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = null;
+    }
+  }, []);
+
+  const cancelSearch = useCallback(() => {
+    generationRef.current++;
+    clearSearchTimer();
+    if (activeSearchRef.current) {
+      activeSearchRef.current = false;
+      void window.api?.fs?.cancelContentSearch?.({
+        workspaceId: props.workspaceId,
+        surface: "explorer",
+      }).catch(() => {
+        // The renderer can already be disconnecting when the panel closes.
+      });
+    }
+  }, [clearSearchTimer, props.workspaceId]);
+
+  useLayoutEffect(() => cancelSearch, [cancelSearch]);
 
   const performSearch = useCallback(
     async (searchQuery: string) => {
-      const normalizedQuery = normalizeSearchQuery(searchQuery);
-      if (!normalizedQuery || !props.workspaceCwd) {
-        setResults([]);
-        setHasSearched(false);
-        setLimitHit(false);
-        setError("");
-        return;
-      }
+      clearSearchTimer();
+      const search = window.api?.fs?.searchContent;
+      if (!normalizeFilesystemSearchQuery(searchQuery) || !props.workspaceCwd || !search) return;
+
+      const generation = ++generationRef.current;
+      activeSearchRef.current = true;
       setIsSearching(true);
       setError("");
       try {
-        const searchFn = window.api?.fs?.searchContent;
-        if (!searchFn) return;
-        const response = await searchFn({
-          rootPath: props.workspaceCwd!,
+        const response = await search({
+          workspaceId: props.workspaceId,
+          surface: "explorer",
+          rootPath: props.workspaceCwd,
           query: searchQuery,
         });
-        if (response?.ok) {
+        if (generation !== generationRef.current) return;
+        if (response.ok) {
           setResults(response.results);
           setLimitHit(response.limitHit);
           setCollapsedFiles(new Set());
-        } else {
+          setHasSearched(true);
+        } else if ("stderr" in response) {
           setResults([]);
           setLimitHit(false);
-          setError(response?.stderr ?? i18n.t("workspace:additionalCopy.message10"));
+          setError(response.stderr);
         }
       } catch (err) {
+        if (generation !== generationRef.current) return;
         setResults([]);
         setLimitHit(false);
         setError(String(err));
       } finally {
-        setIsSearching(false);
-        setHasSearched(true);
+        if (generation === generationRef.current) {
+          activeSearchRef.current = false;
+          setIsSearching(false);
+        }
       }
     },
-    [props.workspaceCwd],
+    [clearSearchTimer, props.workspaceCwd, props.workspaceId],
   );
 
   const handleInputChange = useCallback(
     (value: string) => {
+      cancelSearch();
       setQuery(value);
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-      }
-      if (!normalizeSearchQuery(value)) {
-        setResults([]);
-        setHasSearched(false);
-        setLimitHit(false);
-        setError("");
-        return;
-      }
-      searchTimerRef.current = setTimeout(() => {
-        void performSearch(value);
-      }, 300);
-    },
-    [performSearch],
-  );
-
-  useEffect(
-    () => () => {
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
+      setResults([]);
+      setIsSearching(false);
+      setHasSearched(false);
+      setLimitHit(false);
+      setError("");
+      if (normalizeFilesystemSearchQuery(value)) {
+        searchTimerRef.current = setTimeout(() => {
+          void performSearch(value);
+        }, 300);
       }
     },
-    [],
+    [cancelSearch, performSearch],
   );
 
   useEffect(() => {
@@ -232,14 +242,7 @@ function ExplorerSearchPanel(props: {
     input.select();
   }, [props.focusRequestNonce]);
 
-  const handleClear = useCallback(() => {
-    setQuery("");
-    setResults([]);
-    setHasSearched(false);
-    setLimitHit(false);
-    setError("");
-    setCollapsedFiles(new Set());
-  }, []);
+  const handleClear = () => handleInputChange("");
 
   const toggleFileCollapse = useCallback((file: string) => {
     setCollapsedFiles((prev) => {
@@ -261,7 +264,7 @@ function ExplorerSearchPanel(props: {
     () => results.reduce((sum, r) => sum + r.matches.length, 0),
     [results, i18n.resolvedLanguage],
   );
-  const normalizedQuery = useMemo(() => normalizeSearchQuery(query), [query, i18n.resolvedLanguage]);
+  const normalizedQuery = useMemo(() => normalizeFilesystemSearchQuery(query), [query, i18n.resolvedLanguage]);
   const isMultilineQuery = normalizedQuery.includes("\n");
   const queryLineCount = Math.max(1, query.split(/\r\n?|\n/).length);
 
@@ -277,8 +280,6 @@ function ExplorerSearchPanel(props: {
             onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={(e) => {
               if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
-                if (searchTimerRef.current)
-                  clearTimeout(searchTimerRef.current);
                 void performSearch(query);
               }
               if (
@@ -327,7 +328,7 @@ function ExplorerSearchPanel(props: {
           {tI18n("workspace:workspaceExplorerPanel.searching")}</p>
       ) : null}
 
-      {!isSearching && hasSearched && results.length === 0 && !error ? (
+      {!isSearching && hasSearched && results.length === 0 && !limitHit && !error ? (
         <p className={sx(explorerStyles.searchEmpty)}>{tI18n("workspace:workspaceExplorerPanel.noResultsFound")}</p>
       ) : null}
 
@@ -335,13 +336,13 @@ function ExplorerSearchPanel(props: {
         <p className={sx(explorerStyles.searchError)}>{error}</p>
       ) : null}
 
-      {!isSearching && results.length > 0 ? (
+      {!isSearching && (results.length > 0 || limitHit) ? (
         <>
           <p className={sx(explorerStyles.searchCount)}>
             {tI18n("workspace:workspaceExplorerPanel.searchResultsSummary", { count: totalMatches, matches: formatNumber(totalMatches), files: formatNumber(results.length) })}
             {limitHit ? tI18n("workspace:workspaceExplorerPanel.resultLimitReached") : ""}
           </p>
-          <div className={sx(explorerStyles.searchResults)}>
+          {results.length > 0 ? <div className={sx(explorerStyles.searchResults)}>
             <Virtuoso
               totalCount={flatRows.length}
               increaseViewportBy={1200}
@@ -402,7 +403,7 @@ function ExplorerSearchPanel(props: {
                 );
               }}
             />
-          </div>
+          </div> : null}
         </>
       ) : null}
     </div>
@@ -637,6 +638,7 @@ export function WorkspaceExplorerPanel(props: {
   onRequestDeleteExplorerFile: (path: string, name: string) => void;
   onRequestDeleteExplorerFolder: (path: string, name: string) => void;
   searchRequestNonce: number;
+  workspaceId: string;
   workspaceCwd?: string;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
@@ -760,6 +762,8 @@ export function WorkspaceExplorerPanel(props: {
       {showSearch ? (
         <div className={sx(explorerStyles.searchSlot)}>
           <ExplorerSearchPanel
+            key={JSON.stringify([props.workspaceId, props.workspaceCwd])}
+            workspaceId={props.workspaceId}
             focusRequestNonce={searchFocusNonce}
             workspaceCwd={props.workspaceCwd}
             onOpenFile={props.onOpenExplorerFile}

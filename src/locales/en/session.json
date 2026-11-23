@@ -656,8 +656,9 @@
     "referencedFiles_other": "{{count}} referenced files",
     "changedFilesBlock5": "Open in editor",
     "copy": "Open in editor",
-    "copy2": "Accept",
-    "copy3": "Reject",
+    "markAccepted": "Mark as accepted",
+    "markRejected": "Mark as rejected",
+    "reviewMarkHelp": "Record your review decision. To undo file edits, choose “{{restoreAction}}” in the turn actions.",
     "copy4": "Open",
     "referencedFilesBlock3": "Open",
     "copy5": "Open in editor",
@@ -810,8 +811,11 @@
     "questionTitle": "Question"
   },
   "commandResult": {
+    "exitCode": "Exit {{code}}",
+    "exitUnknown": "Exit unknown",
+    "copyCommand": "Copy command",
+    "copyOutput": "Copy output",
     "commandResult": "Copied",
-    "commandResult2": "Copy",
     "label": "Output of {{value1}}",
     "commandResult3": "Waiting for output…",
     "commandResult4": "No output."

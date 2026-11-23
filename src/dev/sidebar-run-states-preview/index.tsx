@@ -1,4 +1,4 @@
-import { applyAppLocale, useTranslation } from "@/i18n";
+import { applyAppLocale, i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useLayoutEffect, useState } from "react";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
@@ -9,6 +9,7 @@ import {
   WorkspaceRowSecondary,
   WorkspaceLeadingStatusIcon,
 } from "@/components/layout/workspace-sidebar-rows";
+import { workspaceRowLabelProps } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { TooltipProvider } from "@/components/ui";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provider.types";
@@ -29,7 +30,7 @@ interface PreviewRow {
   branch: string;
   providerId: ProviderId;
   isDefault?: boolean;
-  busy?: boolean;
+  busy?: "opening" | "creating";
   attentionKind?: FleetAttentionKind;
   /** Events the turn reported, oldest first, each `msAgo` before now. */
   batches?: { msAgo: number; events: NormalizedProviderEvent[] }[];
@@ -100,7 +101,10 @@ const ROWS: PreviewRow[] = [
     stalledMsAgo: 60_000,
     batches: [{ msAgo: 362_000, events: [tool("m1", "Bash", { command: "bun run build" })] }],
   },
-  { id: "busy", name: "New workspace", branch: "feat/new-workspace", providerId: "claude-code", busy: true },
+  { id: "needs-you", name: "Check the importer", branch: "fix/importer", providerId: "codex", attentionKind: "user-input" },
+  { id: "pr", name: "Update the release notes", branch: "docs/notes", providerId: "codex", attentionKind: "pr-ready-to-merge" },
+  { id: "busy", name: "New workspace", branch: "feat/new-workspace", providerId: "claude-code", busy: "creating" },
+  { id: "opening", name: "Existing workspace", branch: "feat/existing", providerId: "codex", busy: "opening" },
   { id: "idle", name: "Docs touch-ups", branch: "docs/touch-ups", providerId: "codex" },
 ];
 
@@ -183,13 +187,19 @@ export function SidebarRunStatesPreview() {
           {ROWS.map((row) => (
             <div key={row.id} data-preview-workspace={row.id} className={sx(s.workspaceItem, row.id === "working-claude" && s.workspaceGroupActive)}>
               <div className={sx(s.workspaceRow, s.row, row.id === "working-claude" ? s.workspaceRowActive : s.workspaceRowIdle)}>
-                <div className={sx(s.workspaceOpen, s.rowHit)}>
+                <div
+                  className={sx(s.workspaceOpen, s.rowHit)}
+                  role="button"
+                  tabIndex={0}
+                  {...workspaceRowLabelProps(row.id, i18n.t("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: row.name }))}
+                >
                   <span className={sx(s.workspaceLeadSlot)}>
                     <WorkspaceLeadingStatusIcon
                       workspaceId={row.id}
                       workspaceName={row.name}
                       isDefault={Boolean(row.isDefault)}
-                      busy={Boolean(row.busy)}
+                      busy={row.busy}
+                      rowId={row.id}
                       attentionKind={row.attentionKind}
                     />
                   </span>

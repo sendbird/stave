@@ -1,6 +1,52 @@
 import { expect, test } from "@playwright/test";
 import { mountSegmented, segmentGeometry } from "./segmented-mount";
 
+for (const locale of ["en", "ko"] as const) {
+  for (const [themeMode, uiDensity] of [["light", "regular"], ["dark", "compact"]] as const) {
+    test(`Lens local CDP exemption uses the Settings switch layout: ${locale}/${themeMode}/${uiDensity}`, async ({ page }) => {
+      await page.goto("/");
+      const open = page.getByRole("button", { name: "Open settings", exact: true });
+      await expect(open).toBeVisible();
+      await page.evaluate(async (patch) => {
+        const { useAppStore } = await import("/src/store/app.store.ts");
+        useAppStore.getState().updateSettings({ patch });
+        window.dispatchEvent(new CustomEvent("stave:open-settings", { detail: { section: "lens" } }));
+        await document.fonts.ready;
+      }, { language: locale, themeMode, uiDensity });
+
+      const dialog = page.getByRole("dialog");
+      const master = dialog.getByRole("switch", { name: locale === "ko" ? "CDP 도구" : "CDP tools", exact: true });
+      const exemption = dialog.getByRole("switch", { name: locale === "ko" ? "로컬 개발 환경에서 CDP 승인 생략" : "Skip CDP prompts for local development" });
+      const approvedHost = dialog.getByRole("textbox", { name: locale === "ko" ? "CDP 승인 호스트" : "CDP approved host" });
+      const advanced = dialog.getByRole("button", { name: locale === "ko" ? /고급 옵션 CDP 도구/ : /Advanced options CDP tools/ });
+      await advanced.click();
+      await expect(exemption).toBeChecked();
+
+      for (const width of [600, 960, 1440]) {
+        await page.setViewportSize({ width, height: 800 });
+        await expect.poll(async () => {
+          const [masterBox, exemptionBox, inputBox] = await Promise.all(
+            [master, exemption, approvedHost].map((field) => field.boundingBox()),
+          );
+          if (!masterBox || !exemptionBox || !inputBox) return Infinity;
+          return Math.max(
+            Math.abs(masterBox.x - exemptionBox.x),
+            Math.abs(masterBox.width - exemptionBox.width),
+            masterBox.y + masterBox.height - exemptionBox.y,
+            exemptionBox.y + exemptionBox.height - inputBox.y,
+            exemptionBox.x + exemptionBox.width - width,
+          );
+        }).toBeLessThanOrEqual(0.5);
+      }
+
+      await exemption.focus();
+      await page.keyboard.press("Space");
+      await expect(exemption).not.toBeChecked();
+      await expect(master).toBeChecked();
+    });
+  }
+}
+
 // Use actual product markup and resolved tokens; compact density changes the
 // 12-step padding, so a hardcoded pixel assertion would encode the wrong rule.
 for (const locale of ["en", "ko"] as const) {

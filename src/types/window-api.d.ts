@@ -1,3 +1,4 @@
+import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearchScope } from "../lib/fs/content-search";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
@@ -135,6 +136,7 @@ import type {
   WorkspaceActiveSurface,
   WorkspaceCliSessionTab,
   TerminalCreateSessionArgs,
+  TerminalSessionOutputPayload,
   WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
 import type { WorkspaceInformationState } from "@/lib/workspace-information";
@@ -186,6 +188,7 @@ import type {
   WorkspaceScriptHookRunSummary,
   WorkspaceScriptStatusEntry,
 } from "@/lib/workspace-scripts/types";
+import type { WorkspaceListeningPortsResult } from "@/lib/workspace-scripts/listening-ports";
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
 import type {
   GraphCommitDetailsResult,
@@ -359,21 +362,13 @@ interface WindowProviderApi {
     approved: boolean;
     reason?: string;
     scope?: "once" | "always";
-  }) => Promise<{
-    ok: boolean;
-    message?: string;
-    /** The provider can no longer answer this request (no live turn, or an unknown request id). */
-    unanswerable?: true;
-  }>;
+  }) => Promise<import("../lib/providers/provider.types").ProviderDecisionResponse>;
   respondUserInput?: (args: {
     turnId: string;
     requestId: string;
     answers?: Record<string, string>;
     denied?: boolean;
-  }) => Promise<{
-    ok: boolean;
-    message?: string;
-  }>;
+  }) => Promise<import("../lib/providers/provider.types").ProviderDecisionResponse>;
   checkAvailability?: (args: {
     providerId: ProviderId;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
@@ -762,15 +757,8 @@ interface WindowFsApi {
     ok: boolean;
     stderr?: string;
   }>;
-  searchContent?: (args: { rootPath: string; query: string }) => Promise<{
-    ok: boolean;
-    results: Array<{
-      file: string;
-      matches: Array<{ line: number; text: string }>;
-    }>;
-    limitHit: boolean;
-    stderr?: string;
-  }>;
+  searchContent?: (args: FilesystemSearchRequest) => Promise<FilesystemSearchResponse>;
+  cancelContentSearch?: (args: FilesystemSearchScope) => Promise<void>;
 }
 
 interface WindowSkillsApi {
@@ -1256,13 +1244,6 @@ interface TerminalRunResult {
   stderr: string;
 }
 
-interface TerminalSessionOutputPayload {
-  sessionId: string;
-  output: string;
-  sequence: number;
-  bytes: number;
-}
-
 interface TerminalSessionExitPayload {
   sessionId: string;
   exitCode: number;
@@ -1366,6 +1347,7 @@ interface WindowToolingApi {
 }
 
 interface WindowScriptsApi {
+  listListeningPorts?: (args: { workspaceId: string }) => Promise<WorkspaceListeningPortsResult>;
   getConfig?: (args: {
     repositoryPath: string;
     workspacePath: string;
@@ -2175,6 +2157,7 @@ interface WindowPersistenceApi {
     ok: boolean;
     count: number;
   }>;
+  hasUsageLimitResume?: (id: string) => Promise<boolean>;
   listTaskTurns?: (args: {
     workspaceId: string;
     taskId: string;
@@ -2447,6 +2430,7 @@ interface LensSecurityConfig {
   allowedHosts: string[];
   blockedHosts: string[];
   developerModeCdp: boolean;
+  cdpLocalHostExemption: boolean;
   cdpApprovedHosts: string[];
 }
 

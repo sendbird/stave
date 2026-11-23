@@ -1,3 +1,7 @@
+import { newUsageLimitReservationId } from "@/lib/providers/usage-limit-reservation";
+import { listTaskTurns } from "@/lib/db/turns.db";
+import { isTaskArchived } from "@/lib/tasks";
+import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import { canRecoverOrdinaryTask } from "@/store/restart-continuation";
 import { loadTaskMessagesPage, loadWorkspaceShellForRestore } from "@/lib/db/workspaces.db";
 import { buildWorkspaceSessionStateFromShell } from "@/store/workspace-session-state";
@@ -72,10 +76,31 @@ function readUsageLimitReset(args: {
   };
 }
 
+async function restorePauseSession(
+  get: () => AppState,
+  set: StoreApi<AppState>["setState"],
+  taskId: string,
+  workspaceId: string,
+) {
+  if (getWorkspaceSessionForState({ state: get(), workspaceId })) return;
+  const [shell, page] = await Promise.all([
+    loadWorkspaceShellForRestore({ workspaceId }),
+    loadTaskMessagesPage({ workspaceId, taskId }),
+  ]);
+  if (!shell || getWorkspaceSessionForState({ state: get(), workspaceId })) return;
+  const session = buildWorkspaceSessionStateFromShell({ shell, messagesByTask: { [taskId]: page.messages } });
+  set(state => ({
+    workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [workspaceId]: session },
+    taskWorkspaceIdById: { ...state.taskWorkspaceIdById, [taskId]: workspaceId },
+  }));
+}
+
 export function createTaskPauseActions(args: {
   set: StoreApi<AppState>["setState"];
   get: StoreApi<AppState>["getState"];
   flushPersistence?: () => boolean;
+  persistReleasedQueue?: (workspaceId: string, session: WorkspaceSessionState) => Promise<void>;
+  isQueueItemHeld?: (taskId: string, queuedTurnId: string) => boolean;
   /** Drains a task's queue; it honours every pause, so release first. */
   dispatchNextQueuedTaskTurn: (target: { workspaceId: string; taskId: string }) => void;
 }): TaskPauseActions {
@@ -86,6 +111,8 @@ export function createTaskPauseActions(args: {
    * another account is refused) re-creates it; within this window it comes
    * back armed for the next reset instead of waiting for the user again.
    */
+  const resumeInFlight = new Set<string>();
+  const settling = new Set<string>();
   const autoResumeRetryUntil = new Map<string, number>();
 
   const patchPause = (
@@ -119,16 +146,19 @@ export function createTaskPauseActions(args: {
    * accounts is how the user unblocks it. Turns queued later, behind a turn
    * that is still running, keep the accounts they were queued with.
    */
-  const retargetHeldQueue = (workspaceId: string, taskId: string) => {
+  const updateHeldQueue = (workspaceId: string, taskId: string, consumedId?: string) => {
     const accounts = snapshotProviderAccounts(get().settings);
-    const retarget = (draft: PromptDraft | undefined) =>
-      draft?.queuedTurns?.length
-        ? { ...draft, queuedTurns: draft.queuedTurns.map((turn) => ({ ...turn, ...accounts })) }
-        : draft;
+    const updateDraft = (draft: PromptDraft | undefined) => {
+      if (!draft?.queuedTurns?.length) return draft;
+      const queuedTurns = consumedId
+        ? draft.queuedTurns.filter((turn) => turn.id !== consumedId)
+        : draft.queuedTurns.map((turn) => ({ ...turn, ...accounts }));
+      return consumedId && queuedTurns.length === draft.queuedTurns.length ? draft : { ...draft, queuedTurns };
+    };
     set((state) => {
       if (state.activeWorkspaceId === workspaceId) {
         const draft = state.promptDraftByTask[taskId];
-        const next = retarget(draft);
+        const next = updateDraft(draft);
         return next === draft || !next ? state : {
           promptDraftByTask: { ...state.promptDraftByTask, [taskId]: next },
           workspaceSnapshotVersion: state.workspaceSnapshotVersion + 1,
@@ -136,7 +166,7 @@ export function createTaskPauseActions(args: {
       }
       const cached = state.workspaceRuntimeCacheById[workspaceId];
       const draft = cached?.promptDraftByTask[taskId];
-      const next = retarget(draft);
+      const next = updateDraft(draft);
       return !cached || next === draft || !next ? state : {
         workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [workspaceId]: {
           ...cached, promptDraftByTask: { ...cached.promptDraftByTask, [taskId]: next } } },
@@ -209,12 +239,15 @@ export function createTaskPauseActions(args: {
       }
       const model = pauseArgs.model ?? current?.model;
       const windowLabel = reading?.windowLabel ?? current?.windowLabel;
+      if (pauseArgs.origin && current?.origin?.kind === pauseArgs.origin.kind &&
+          current.origin.id === pauseArgs.origin.id && !pauseArgs.usageLimit) return state;
       const next: TaskUsageLimitPause = {
         workspaceId: pauseArgs.workspaceId,
         providerId: pauseArgs.providerId,
         ...(accountProfileId ? { accountProfileId } : {}),
         ...(model ? { model } : {}),
         stoppedTurn: pauseArgs.stoppedTurn || (current?.stoppedTurn ?? false),
+        origin: pauseArgs.origin ?? current?.origin,
         pausedAt: current?.pausedAt ?? now,
         resetsAt,
         ...(windowLabel ? { windowLabel } : {}),
@@ -227,6 +260,7 @@ export function createTaskPauseActions(args: {
         },
       };
     });
+    args.flushPersistence?.();
     const pause = get().usageLimitPauseByTask[pauseArgs.taskId];
     if (!pauseArgs.usageLimit && pause?.accountProfileId) {
       // A stopped turn only says it hit the limit. A fresh usage read says
@@ -236,11 +270,81 @@ export function createTaskPauseActions(args: {
     }
   };
 
-  const resumePausedTaskWork: AppState["resumePausedTaskWork"] = async ({
+  const releasePause = (taskId: string, workspaceId: string, releaseThrough?: true | number) => {
+    set((state) => ({
+      usageLimitPauseByTask: removeRecordEntries(state.usageLimitPauseByTask, [taskId]) ?? state.usageLimitPauseByTask,
+      restoredQueueReleasedByTask: releaseThrough === undefined
+        ? removeRecordEntries(state.restoredQueueReleasedByTask, [taskId]) ?? state.restoredQueueReleasedByTask
+        : { ...state.restoredQueueReleasedByTask, [taskId]: releaseThrough },
+    }));
+    args.flushPersistence?.();
+    if (releaseThrough !== undefined) args.dispatchNextQueuedTaskTurn({ workspaceId, taskId });
+  };
+
+  const settleReservation = async (taskId: string, pause: TaskUsageLimitPause, drain: boolean) => {
+    const reservation = pause.reservation;
+    if (!reservation || settling.has(reservation.id) || get().usageLimitPauseByTask[taskId]?.reservation?.id !== reservation.id) return;
+    settling.add(reservation.id);
+    try {
+      if (reservation.queuedTurnId) {
+        updateHeldQueue(pause.workspaceId, taskId, reservation.queuedTurnId);
+        const session = getWorkspaceSessionForState({ state: get(), workspaceId: pause.workspaceId });
+        if (!session) return;
+        await args.persistReleasedQueue?.(pause.workspaceId, session);
+      }
+      if (get().usageLimitPauseByTask[taskId]?.reservation?.id === reservation.id) {
+        autoResumeRetryUntil.set(taskId, Date.now() + AUTO_RESUME_RETRY_WINDOW_MS);
+        releasePause(taskId, pause.workspaceId, drain ? Date.now() : undefined);
+      }
+    } finally {
+      settling.delete(reservation.id);
+    }
+  };
+
+  const resumePausedTaskWorkImpl: AppState["resumePausedTaskWork"] = async ({
     taskId,
     trigger = "user",
   }) => {
     let pause = get().usageLimitPauseByTask[taskId];
+    const reservationRead = window.api?.persistence?.hasUsageLimitResume;
+    if (pause?.reservation && reservationRead) {
+      const expected = pause;
+      try {
+        const consumed = await reservationRead(pause.reservation.id);
+        if (get().usageLimitPauseByTask[taskId] !== expected) return;
+        if (consumed) {
+          await restorePauseSession(get, set, taskId, pause.workspaceId);
+          // A saved claim proves we cannot replay this turn. Only successful
+          // terminal evidence lets us drain behind it after a restart.
+          const live = await readProviderLiveTurns(window.api?.provider?.listLiveTurns);
+          if (!live || hostRunsTaskTurn(live, { taskId })) {
+            patchPause(taskId, (current) => current === expected && current.autoResumeAt != null
+              ? { ...current, autoResumeAt: Date.now() + USAGE_LIMIT_UNAVAILABLE_RETRY_MS }
+              : current);
+            return;
+          }
+          const session = getWorkspaceSessionForState({ state: get(), workspaceId: pause.workspaceId });
+          const task = session?.tasks.find(item => item.id === taskId);
+          if (!task || isTaskArchived(task)) {
+            if (get().usageLimitPauseByTask[taskId]?.reservation?.id === pause.reservation.id) {
+              get().dismissUsageLimitPause({ taskId });
+            }
+            return;
+          }
+          const turns = await listTaskTurns({ workspaceId: pause.workspaceId, taskId, limit: 1 });
+          await settleReservation(taskId, pause, turns[0]?.id === pause.reservation.id &&
+            turns[0].terminalReceipt?.outcome === "completed");
+          return;
+        }
+      } catch (error) {
+        console.warn("[usage-limit-resume] could not reconcile reservation", { taskId, error });
+        patchPause(taskId, (current) => current === expected && current.autoResumeAt != null
+          ? { ...current, autoResumeAt: Date.now() + USAGE_LIMIT_UNAVAILABLE_RETRY_MS }
+          : current);
+        return;
+      }
+    }
+    let checkedAccount: string | undefined;
     if (trigger === "auto") {
       if (!pause || pause.autoResumeAt == null) {
         return;
@@ -254,7 +358,8 @@ export function createTaskPauseActions(args: {
       // Read usage once more before sending: the reset can move, and another
       // window (weekly after the 5-hour one) may still be out. The resume runs
       // on the account selected now, so that is the account read.
-      const snapshot = await readProviderAccountUsage(get, pause.providerId, selectedProviderAccount(pause.providerId, get().settings));
+      checkedAccount = selectedProviderAccount(pause.providerId, get().settings);
+      const snapshot = await readProviderAccountUsage(get, pause.providerId, checkedAccount);
       const [shell, page, ownership, live] = await Promise.all([
         window.api?.persistence ? loadWorkspaceShellForRestore({ workspaceId: expected.workspaceId }) : Promise.resolve(null),
         // The stopped turn is not running, so its messages load sealed as interrupted.
@@ -286,7 +391,11 @@ export function createTaskPauseActions(args: {
         return;
       }
       const task = shell?.tasks.find(row => row.id === taskId) ?? getWorkspaceSessionForState({ state: get(), workspaceId: expected.workspaceId })?.tasks.find(row => row.id === taskId);
-      if (!task || !canRecoverOrdinaryTask({ task, messages: page.messages, stopped: false, owned: ownership === "owned" })) {
+      if (!task || isTaskArchived(task)) {
+        get().dismissUsageLimitPause({ taskId });
+        return;
+      }
+      if (!canRecoverOrdinaryTask({ task, messages: page.messages, stopped: false, owned: ownership === "owned" })) {
         get().setUsageLimitAutoResume({ taskId, enabled: false });
         return;
       }
@@ -307,6 +416,7 @@ export function createTaskPauseActions(args: {
       if (!pause || pause !== expected || pause.autoResumeAt == null) {
         return;
       }
+      if (checkedAccount !== selectedProviderAccount(pause.providerId, get().settings)) return;
       if (
         !snapshot ||
         snapshot.reads?.[pause.providerId]?.lastReadFailed ||
@@ -348,7 +458,6 @@ export function createTaskPauseActions(args: {
         });
         return;
       }
-      autoResumeRetryUntil.set(taskId, Date.now() + AUTO_RESUME_RETRY_WINDOW_MS);
     } else {
       autoResumeRetryUntil.delete(taskId);
     }
@@ -358,50 +467,89 @@ export function createTaskPauseActions(args: {
       pause?.workspaceId ??
       state.taskWorkspaceIdById[taskId] ??
       state.activeWorkspaceId;
-    set((current) => ({
-      usageLimitPauseByTask:
-        removeRecordEntries(current.usageLimitPauseByTask, [taskId]) ??
-        current.usageLimitPauseByTask,
-      restoredQueueReleasedByTask: current.restoredQueueReleasedByTask[taskId]
-        ? current.restoredQueueReleasedByTask
-        : { ...current.restoredQueueReleasedByTask, [taskId]: true },
-    }));
-
-    if (trigger === "auto" && args.flushPersistence && !args.flushPersistence()) {
-      if (pause) set(state => ({ usageLimitPauseByTask: { ...state.usageLimitPauseByTask, [taskId]: pause } }));
+    const session = getWorkspaceSessionForState({ state, workspaceId });
+    if (session?.activeTurnIdsByTask[taskId] && trigger === "auto") {
+      patchPause(taskId, (current) => ({ ...current, autoResumeAt: Date.now() + USAGE_LIMIT_UNAVAILABLE_RETRY_MS }));
       return;
     }
-
-    retargetHeldQueue(workspaceId, taskId);
-    const session = getWorkspaceSessionForState({ state: get(), workspaceId });
-    if (!session || session.activeTurnIdsByTask[taskId]) {
-      // The running turn drains the released queue when it finishes.
-      return;
+    const queued = pause && !pause.stoppedTurn
+      ? session?.promptDraftByTask[taskId]?.queuedTurns?.[0]
+      : undefined;
+    const reserved = pause && reservationRead && (trigger === "auto" || pause.reservation) && (pause.stoppedTurn || queued);
+    if (!reserved) {
+      if (trigger === "auto") autoResumeRetryUntil.set(taskId, Date.now() + AUTO_RESUME_RETRY_WINDOW_MS);
+      updateHeldQueue(workspaceId, taskId);
+      if (!pause?.stoppedTurn || !session || session.activeTurnIdsByTask[taskId]) {
+        releasePause(taskId, workspaceId, pause && trigger === "auto" ? Date.now() : true);
+        return;
+      }
+      patchPause(taskId, () => null);
+      set((current) => ({ restoredQueueReleasedByTask: { ...current.restoredQueueReleasedByTask, [taskId]: true } }));
+      args.flushPersistence?.();
     }
-    if (!pause?.stoppedTurn) {
-      args.dispatchNextQueuedTaskTurn({ workspaceId, taskId });
-      return;
+    if (!pause || !session) return;
+    // Never replace a reservation for an outstanding request while the host
+    // still owns a turn, even when the renderer has no active-turn snapshot.
+    if (reserved) {
+      const live = await readProviderLiveTurns(window.api?.provider?.listLiveTurns);
+      if (!live || hostRunsTaskTurn(live, { taskId }) || get().usageLimitPauseByTask[taskId] !== pause) return;
+      if (queued && args.isQueueItemHeld?.(taskId, queued.id)) return;
+      if (checkedAccount !== undefined && checkedAccount !== selectedProviderAccount(pause.providerId, get().settings)) return;
+      const reservation = {
+        id: !pause.reservation?.queuedTurnId || pause.reservation.queuedTurnId === queued?.id
+          ? pause.reservation?.id ?? newUsageLimitReservationId()
+          : newUsageLimitReservationId(),
+        ...(queued ? { queuedTurnId: queued.id } : {}),
+      };
+      patchPause(taskId, (current) => ({
+        ...current,
+        reservation,
+        ...(trigger === "auto" ? { autoResumeAt: Date.now() + USAGE_LIMIT_UNAVAILABLE_RETRY_MS } : {}),
+      }));
+      pause = get().usageLimitPauseByTask[taskId]!;
+      if (args.flushPersistence && !args.flushPersistence()) return;
+      if (session.promptDraftByTask[taskId]?.queuedTurns?.length) {
+        updateHeldQueue(workspaceId, taskId);
+        const updated = getWorkspaceSessionForState({ state: get(), workspaceId });
+        if (updated) await args.persistReleasedQueue?.(workspaceId, updated);
+      }
+      if (get().usageLimitPauseByTask[taskId] !== pause ||
+          (checkedAccount !== undefined && checkedAccount !== selectedProviderAccount(pause.providerId, get().settings))) return;
     }
 
     // The continuation runs on the account selected now, which may not be
     // the one the limit stopped.
     const resumeAccountProfileId = selectedProviderAccount(pause.providerId, get().settings);
+    const sendingPause = pause;
+    const reservation = reserved ? sendingPause.reservation : undefined;
     const repause = () =>
       get().pauseTaskForUsageLimit({
         taskId,
         workspaceId,
-        providerId: pause.providerId,
+        providerId: sendingPause.providerId,
         accountProfileId: resumeAccountProfileId,
-        model: pause.model,
-        stoppedTurn: true,
+        model: sendingPause.model,
+        stoppedTurn: sendingPause.stoppedTurn,
+        origin: sendingPause.origin,
       });
     try {
       const result = await get().sendUserMessage({
         taskId,
-        content: buildUsageLimitContinuationPrompt(),
-        preservePromptDraft: true,
-        providerOverride: pause.providerId,
-        runtimeOverrides: {
+        content: queued?.content ?? buildUsageLimitContinuationPrompt(),
+        ...(queued ? { queuedTurnId: queued.id } : {}),
+        ...(reservation ? { usageLimitResume: {
+          turnId: reservation.id,
+          isCurrent: () => get().usageLimitPauseByTask[taskId] === sendingPause &&
+            resumeAccountProfileId === selectedProviderAccount(sendingPause.providerId, get().settings) &&
+            (!queued || (!args.isQueueItemHeld?.(taskId, queued.id) &&
+              getWorkspaceSessionForState({ state: get(), workspaceId })?.promptDraftByTask[taskId]?.queuedTurns?.some(item => item.id === queued.id) === true)),
+          onAdmitted: () => settleReservation(taskId, sendingPause, true).catch(error => {
+            console.warn("[usage-limit-resume] could not persist released queue", { taskId, error });
+          }),
+        } } : {}),
+        preservePromptDraft: !queued,
+        providerOverride: queued ? undefined : pause.providerId,
+        runtimeOverrides: queued ? undefined : {
           ...session.promptDraftByTask[taskId]?.runtimeOverrides,
           autoRouting: false,
           model: pause.model,
@@ -414,7 +562,9 @@ export function createTaskPauseActions(args: {
         },
         turnOrigin: "conversation",
       });
+      if (reservation && get().usageLimitPauseByTask[taskId] !== sendingPause) return;
       if (result.status === "blocked") {
+        if (reservation && !result.reason) return;
         if (result.reason === "account-limit") {
           get().pauseTaskForUsageLimit({
             taskId,
@@ -422,7 +572,8 @@ export function createTaskPauseActions(args: {
             providerId: result.usageLimit?.providerId ?? pause.providerId,
             accountProfileId: result.usageLimit?.accountProfileId ?? resumeAccountProfileId,
             model: result.usageLimit?.model ?? pause.model,
-            stoppedTurn: true,
+            stoppedTurn: sendingPause.stoppedTurn,
+            origin: queued ? { kind: "queue", id: queued.id } : sendingPause.origin,
             usageLimit: result.usageLimit,
           });
           return;
@@ -438,7 +589,7 @@ export function createTaskPauseActions(args: {
         toast.error(i18n.t("notifications:appStoreTaskPauseActions.couldnTResumeTheTask"), { description: result.message });
       }
     } catch (error) {
-      repause();
+      if (!reservation || get().usageLimitPauseByTask[taskId] === sendingPause) repause();
       toast.error(i18n.t("notifications:appStoreTaskPauseActions.couldnTResumeTheTask"), {
         description:
           error instanceof Error ? error.message : i18n.t("notifications:appStoreTaskPauseActions.theContinuationTurnDidNotStart"),
@@ -448,8 +599,18 @@ export function createTaskPauseActions(args: {
 
   return {
     pauseTaskForUsageLimit,
-    resumePausedTaskWork,
+    resumePausedTaskWork: async (input) => {
+      if (resumeInFlight.has(input.taskId)) return;
+      resumeInFlight.add(input.taskId);
+      try {
+        await resumePausedTaskWorkImpl(input);
+      } finally {
+        resumeInFlight.delete(input.taskId);
+        args.flushPersistence?.();
+      }
+    },
     setUsageLimitAutoResume: ({ taskId, enabled }) => {
+      const previous = get().usageLimitPauseByTask[taskId];
       if (!enabled) autoResumeRetryUntil.delete(taskId);
       if (enabled && get().usageLimitPauseByTask[taskId] && !get().usageLimitPauseByTask[taskId]?.accountProfileId) {
         toast.info(i18n.t("notifications:appStoreTaskPauseActions.pausedAccountIsUnknown"), { description: i18n.t("notifications:appStoreTaskPauseActions.resumeManuallyToUseYourCurrentlySelectedAccount") });
@@ -467,12 +628,26 @@ export function createTaskPauseActions(args: {
           resetsAt: pause.resetsAt,
           now: Date.now(),
         });
-        return autoResumeAt == null ? pause : { ...pause, autoResumeAt };
+        return autoResumeAt == null ? pause : {
+          ...pause,
+          autoResumeAt,
+          reservation: pause.reservation ?? { id: newUsageLimitReservationId() },
+        };
       });
+      args.flushPersistence?.();
+      if (!enabled && previous?.reservation && !settling.has(previous.reservation.id)) {
+        const id = previous.reservation.id;
+        void window.api?.persistence?.hasUsageLimitResume?.(id).then(consumed => {
+          if (!consumed && get().usageLimitPauseByTask[taskId]?.autoResumeAt == null) {
+            return window.api?.provider?.abortTurn?.({ turnId: id });
+          }
+        }).catch(error => console.warn("[usage-limit-resume] could not cancel admission", { taskId, error }));
+      }
     },
     dismissUsageLimitPause: ({ taskId }) => {
       autoResumeRetryUntil.delete(taskId);
       patchPause(taskId, () => null);
+      args.flushPersistence?.();
     },
   };
 }

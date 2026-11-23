@@ -42,8 +42,8 @@ completion updates cannot clear a newer renderer-owned turn.
 Queued follow-ups remain in `promptDraftByTask`, including their attachments
 and captured runtime choices. `task-work-pause.ts` distinguishes entries from
 the previous renderer session by `queuedAt`; `queued-task-turn-dispatch.ts`
-holds them until the user releases the restored queue. A newly queued entry
-cannot jump past an older held entry.
+holds them until the user releases the restored queue or a reserved usage-limit
+resume releases it. A newly queued entry cannot jump past an older held entry.
 
 For a conversation turn, the terminal event is replayed into the task's
 messages before `task-work-pause-wiring.ts` checks whether a usage-limit error
@@ -51,8 +51,8 @@ ended the turn. A queued send refused by `account-usage-guard.ts` reaches the
 same pause through the dispatcher's blocked-result callback. Utility turns
 neither create nor release this conversation pause.
 
-Each new pause retains the stopped or refused execution's provider, model and
-account. Resume runs on the account selected for that provider when it
+Each new pause retains the stopped turn or refused queue item's identity and
+the execution's provider, model and account. Resume runs on the account selected for that provider when it
 resumes, because switching accounts is how the user gets past a limit: the
 continuation keeps the recorded provider and model but takes the selected
 account, and the queued turns the pause held are retargeted to the selected
@@ -77,10 +77,22 @@ window's reset or releases the pause. When a limit interrupted a turn, resume
 uses the normal send path for a continuation asking the agent to reconcile
 completed work before proceeding; it does not replay the original prompt.
 
-Pause records, reset-time reservations and restored-queue release flags are
-renderer memory only. They are not persisted or scheduled through the
-host-service. After a restart, saved queue entries wait for the user again;
-the queue's Resume action alone does not recreate a lost continuation record.
+App-store persistence saves the pause, its reservation ID, the next check and
+the read backoff. Cancel durably disarms the reservation and leaves the pause
+available for manual resume. Dismiss and archive clear the pause. Startup
+rehydrates pending reservations and checks for work due while the app was
+closed.
+
+The reservation ID also serves as the turn ID through ordinary send and host
+admission. A queued reservation remains eligible after a restart and stays out
+of generic queued-turn recovery. Before dispatching to the provider, the host
+claims the ID in SQLite. This claim survives loss of the renderer response,
+including a crash around provider acceptance. The app reconciles a claimed
+reservation without sending again. If the host crashed after claiming it and
+delivery is uncertain, Stave leaves the remaining queue idle until there is a
+successful terminal receipt or the user acts. On admission, the renderer saves
+removal of any dispatched queue item before clearing the pause. The saved
+queue release applies only to entries already queued when the pause was released.
 
 ## Attached Task Context
 

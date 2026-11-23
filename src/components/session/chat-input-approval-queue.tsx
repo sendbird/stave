@@ -7,6 +7,7 @@ import {
   APPROVAL_DELIVERY_GUARD_MS,
   ApprovalExpiryNote,
   describeApprovalRisk,
+  describeShellAlwaysAllowScope,
 } from "@/components/session/ToolApprovalCard";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
 import { Loader } from "@/components/ui/loader";
@@ -254,6 +255,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   const toolTitle = getToolTitle(part.toolName);
   const summary = summarizeApprovalRequest(part);
   const offersAllowAlways = part.supportsAllowAlways === true && args.allowAlways !== false;
+  const shellScope = offersAllowAlways ? describeShellAlwaysAllowScope(part.trustedToolEntry) : undefined;
   const risk = part.risk ? describeApprovalRisk(part.risk) : null;
   const requester = !part.ownerAgentId
     ? null
@@ -369,6 +371,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                 disabled={!live}
                 onClick={() => decide({ approved: true, scope: "always" })}
                 size="sm"
+                title={shellScope}
                 variant="secondary"
               >
                 {i18n.t("ui:approval.alwaysAllow")}
@@ -411,6 +414,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           ) : null}
           {/* When the runtime denies it if nobody answers, as on the card. */}
           <ApprovalExpiryNote part={part} />
+          {shellScope ? <p className={sx(styles.description)}>{shellScope}</p> : null}
 
           {part.description ? (
             <p className={sx(styles.description)}>{part.description}</p>

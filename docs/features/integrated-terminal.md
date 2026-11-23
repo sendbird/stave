@@ -83,6 +83,8 @@ You do not need to create a task first just to open a provider session.
 - CLI session tabs live in the top strip and replace the main task view while selected.
 - Closing a terminal tab and hiding the dock are separate actions.
 - Within the same workspace, Stave restores terminal surfaces when you come back to them.
+- If a terminal or CLI view stops responding during heavy output, the command
+  can continue running. The view shows a notice that some live output may be missing.
 
 ## Troubleshooting
 

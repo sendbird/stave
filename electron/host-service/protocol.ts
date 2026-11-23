@@ -1,3 +1,4 @@
+import type { ProviderDecisionFailureReason, ProviderDecisionResponse } from "../../src/lib/providers/provider.types";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
 import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { TurnSnapshotList, TurnSnapshotOwner, TurnSnapshotRestore, TurnSnapshotResult } from "../../src/lib/turn-snapshots";
@@ -12,6 +13,7 @@ import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecuti
 import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
+  TerminalSessionOutputPayload,
 } from "../../src/lib/terminal/types";
 import type { HostServiceResourceMetrics } from "./resource-metrics";
 import type { ScmReviewDiffArgs, ScmReviewDiffResult, ScmReviewFileDiffArgs, ScmReviewFileDiffResult } from "../../src/lib/review/review-diff-contract";
@@ -81,6 +83,7 @@ import type {
   WorkspaceScriptStatusEntry,
   WorkspaceScriptHookRunSummary,
 } from "../../src/lib/workspace-scripts/types";
+import type { WorkspaceListeningPortsResult } from "../../src/lib/workspace-scripts/listening-ports";
 import type {
   BridgeEvent,
   ProviderCommandCatalogResult,
@@ -623,6 +626,11 @@ export interface HostServiceRequestMap {
   "workspace-scripts.get-status": {
     workspaceId: string;
   };
+  "workspace-scripts.has-orbit-host": {
+    workspaceId: string;
+    host: string;
+  };
+  "workspace-scripts.list-ports": { workspaceId: string };
   "workspace-scripts.cleanup-all": undefined;
   "turn-snapshots.list": TurnSnapshotOwner;
   "turn-snapshots.restore": TurnSnapshotRestore;
@@ -1146,6 +1154,10 @@ export interface HostServiceResponseMap {
   "workspace-scripts.get-status": {
     statuses: WorkspaceScriptStatusEntry[];
   };
+  "workspace-scripts.has-orbit-host": {
+    matches: boolean;
+  };
+  "workspace-scripts.list-ports": WorkspaceListeningPortsResult;
   "workspace-scripts.cleanup-all": {
     ok: true;
   };
@@ -1164,8 +1176,8 @@ export interface HostServiceResponseMap {
   "provider.abort-turn": HostProviderMutationResult;
   "provider.list-live-turns": ProviderLiveTurns;
   "provider.cleanup-task": HostProviderMutationResult;
-  "provider.respond-approval": HostProviderMutationResult;
-  "provider.respond-user-input": HostProviderMutationResult;
+  "provider.respond-approval": ProviderDecisionResponse;
+  "provider.respond-user-input": ProviderDecisionResponse;
   "provider.steer-turn": ProviderSteerTurnResponse;
   "provider.check-availability": ProviderAvailabilityResponse;
   "provider.get-command-catalog": ProviderCommandCatalogResult;
@@ -1325,12 +1337,7 @@ export interface HostServiceResponseMap {
 
 export interface HostServiceEventMap {
   "workspace.cleanup-changed": { workspaceId: string; repositoryPath: string };
-  "terminal.output": {
-    sessionId: string;
-    output: string;
-    sequence: number;
-    bytes: number;
-  };
+  "terminal.output": TerminalSessionOutputPayload;
   "terminal.exit": {
     sessionId: string;
     exitCode: number;
@@ -1393,6 +1400,7 @@ export interface HostServiceErrorResponseEnvelope {
   id: number;
   ok: false;
   error: string;
+  decisionFailureReason?: ProviderDecisionFailureReason;
 }
 
 export interface HostServiceEventEnvelope<TEvent extends HostServiceEventName> {

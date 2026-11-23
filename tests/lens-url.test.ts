@@ -38,6 +38,7 @@ describe("assertNavigationAllowed", () => {
         allowedHosts: [],
         blockedHosts: [],
         developerModeCdp: true,
+        cdpLocalHostExemption: true,
         cdpApprovedHosts: [],
       }),
     ).not.toThrow();
@@ -49,6 +50,7 @@ describe("assertNavigationAllowed", () => {
         allowedHosts: ["example.com"],
         blockedHosts: ["app.example.com"],
         developerModeCdp: true,
+        cdpLocalHostExemption: true,
         cdpApprovedHosts: [],
       }),
     ).toThrow("Lens navigation blocked");
@@ -60,6 +62,7 @@ describe("assertNavigationAllowed", () => {
         allowedHosts: ["example.com"],
         blockedHosts: [],
         developerModeCdp: true,
+        cdpLocalHostExemption: true,
         cdpApprovedHosts: [],
       }),
     ).not.toThrow();
@@ -71,6 +74,7 @@ describe("assertNavigationAllowed", () => {
         allowedHosts: ["example.com"],
         blockedHosts: ["localhost"],
         developerModeCdp: true,
+        cdpLocalHostExemption: true,
         cdpApprovedHosts: [],
       }),
     ).not.toThrow();
@@ -82,6 +86,7 @@ describe("assertNavigationAllowed", () => {
         allowedHosts: [],
         blockedHosts: [],
         developerModeCdp: true,
+        cdpLocalHostExemption: true,
         cdpApprovedHosts: [],
       }),
     ).toThrow("Invalid Lens URL");

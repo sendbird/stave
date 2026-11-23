@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Check, Copy, Terminal } from "lucide-react";
-import { useCallback, useMemo } from "react";
+import { useMemo } from "react";
 
 import { Button } from "@/components/aui/components/Button";
 import { ClipboardCopyAnnouncement } from "@/components/system/ClipboardCopyAnnouncement";
@@ -22,21 +22,14 @@ export function CommandResult(args: {
   command: string;
   /** Whether output is still arriving. */
   isStreaming?: boolean;
-  /**
-   * Whether the provider reported the call as failed. This is the *only*
-   * failure signal available: `NormalizedProviderEvent.tool_result` carries
-   * `output` and `isError`, and no exit code.
-   */
+  /** Whether the provider reported a tool failure. */
   isError?: boolean;
+  /** Process exit code, when the provider reported it. */
+  exitCode?: number | null;
   output?: string;
 }) {
   useTranslation();
-  const { command, isError = false, isStreaming = false, output } = args;
-  const { status, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
-  const copy = useCallback(() => {
-    void copyText(command);
-  }, [command, copyText]);
-
+  const { command, exitCode, isError = false, isStreaming = false, output } = args;
   const trimmed = output?.trim() ?? "";
 
   return (
@@ -46,27 +39,17 @@ export function CommandResult(args: {
         <code className={sx(agentSurface.meta, styles.command)} title={command}>
           <ShellCommandText command={command} />
         </code>
-        <Button
-          iconOnly
-          aria-label={
-            copied
-              ? i18n.t("session:commandResult.commandResult")
-              : i18n.t("session:commandResult.commandResult2")
-          }
-          title={
-            copied
-              ? i18n.t("session:commandResult.commandResult")
-              : i18n.t("session:commandResult.commandResult2")
-          }
-          onClick={copy}
-          size="xs"
-          type="button"
-          variant="quiet"
-          xstyle={styles.copy}
-        >
-          {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-        </Button>
-        <ClipboardCopyAnnouncement status={status} />
+        <CommandCopyButton iconOnly labelKey="session:commandResult.copyCommand" text={command} />
+        {!isStreaming ? (
+          <span className={sx(styles.exit, exitCode != null && exitCode !== 0 && styles.outputError)}>
+            {exitCode == null
+              ? i18n.t("session:commandResult.exitUnknown")
+              : i18n.t("session:commandResult.exitCode", { code: exitCode })}
+          </span>
+        ) : null}
+        {output && trimmed ? (
+          <CommandCopyButton labelKey="session:commandResult.copyOutput" text={output} />
+        ) : null}
       </div>
       {trimmed.length > 0 ? (
         <CappedViewport
@@ -83,6 +66,29 @@ export function CommandResult(args: {
         </span>
       )}
     </div>
+  );
+}
+
+function CommandCopyButton(args: { iconOnly?: true; labelKey: "session:commandResult.copyCommand" | "session:commandResult.copyOutput"; text: string }) {
+  useTranslation();
+  const { status, copied, copy } = useClipboardCopy(COPIED_MS);
+  const label = i18n.t(copied ? "session:commandResult.commandResult" : args.labelKey);
+  return (
+    <>
+      <Button
+        aria-label={label}
+        iconOnly={args.iconOnly}
+        onClick={() => void copy(args.text)}
+        size="xs"
+        title={label}
+        type="button"
+        variant="quiet"
+        xstyle={styles.copy}
+      >
+        {args.iconOnly ? (copied ? <Check aria-hidden /> : <Copy aria-hidden />) : label}
+      </Button>
+      <ClipboardCopyAnnouncement status={status} />
+    </>
   );
 }
 

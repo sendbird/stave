@@ -129,12 +129,12 @@ type ActiveRuntimeSession = {
     approved: boolean;
     reason?: string;
     scope?: "once" | "always";
-  }) => ProviderResponderResult;
+  }) => ProviderResponderResult | Promise<ProviderResponderResult>;
   respondUserInput?: (args: {
     requestId: string;
     answers?: Record<string, string>;
     denied?: boolean;
-  }) => ProviderResponderResult;
+  }) => ProviderResponderResult | Promise<ProviderResponderResult>;
   steer?: (args: {
     text: string;
     clientMessageId?: string;
@@ -351,6 +351,7 @@ async function deliverResponderResult<
   ok: boolean;
   message: string;
   timedOut?: boolean;
+  reason?: import("../../src/lib/providers/provider.types").ProviderDecisionFailureReason;
   /**
    * The provider can no longer answer this request: the turn has no live
    * session, or its runtime no longer knows the request id. Unset for a
@@ -373,7 +374,12 @@ async function deliverResponderResult<
     for (const entry of activeTurns) {
       emitBridgeWarningForTurn({ turnId: entry.turnId, message });
     }
-    return { ok: false, message, unanswerable: true };
+    return {
+      ok: false,
+      message,
+      ...(args.kind === "steer" ? {} : { reason: "request-interrupted" as const }),
+      unanswerable: true,
+    };
   }
 
   const response = Promise.resolve().then(() => args.invoke(responder));
@@ -415,18 +421,27 @@ async function deliverResponderResult<
   }
 
   const pendingIds = result.pendingRequestIds.join(", ");
-  const rejectionDetail =
-    result.reason === "turn-not-steerable"
-      ? "turn not steerable"
-      : "unknown request";
+  const rejectionDetails = {
+    "turn-not-steerable": "turn not steerable",
+    "unknown-request": "unknown request",
+    "already-answering": "request is already being answered",
+    "already-answered": "request was already answered",
+    "request-interrupted": "request was interrupted",
+    "write-failed": "transport write failed",
+  } as const;
   const message =
-    `${successLabel} responder rejected (${rejectionDetail}) for turn ${args.turnId}. ` +
+    `${successLabel} responder rejected (${rejectionDetails[result.reason]}) for turn ${args.turnId}. ` +
     `requestId=${args.requestId}. pendingRequestIds=[${pendingIds}]`;
-  emitBridgeWarningForTurn({ turnId: args.turnId, message });
+  if (result.reason !== "already-answered" && result.reason !== "already-answering") {
+    emitBridgeWarningForTurn({ turnId: args.turnId, message });
+  }
   return {
     ok: false,
     message,
-    ...(result.reason === "unknown-request" ? { unanswerable: true as const } : {}),
+    ...(result.reason === "turn-not-steerable" ? {} : { reason: result.reason }),
+    ...(result.reason === "unknown-request" || result.reason === "request-interrupted"
+      ? { unanswerable: true as const }
+      : {}),
   };
 }
 

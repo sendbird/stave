@@ -72,6 +72,11 @@ import {
   WORKSPACE_TOOLS_VIEWS,
   type WorkspaceToolsViewId,
 } from "@/lib/workspace-tools-presentation";
+import {
+  formatListeningAddress,
+  listeningPortUrl,
+  type WorkspaceListeningPortsResult,
+} from "@/lib/workspace-scripts/listening-ports";
 import { useAppStore } from "@/store/app.store";
 import {
   openOrbitUrlWithLensPriority,
@@ -148,21 +153,107 @@ function OrbitUrlBadge(props: {
 
 function RuntimeSection(props: {
   title: string;
-  count: number;
+  count?: number;
   children: ReactNode;
 }) {
   return (
-    <section className={sx(toolStyles.section)}>
+    <section aria-label={props.title} className={sx(toolStyles.section)}>
       <div className={sx(toolStyles.sectionHeader)}>
         <h3 className={sx(toolStyles.sectionTitle)}>
           {props.title}
         </h3>
-        <span className={sx(toolStyles.sectionCount)}>
-          {props.count}
-        </span>
+        {props.count !== undefined ? (
+          <span className={sx(toolStyles.sectionCount)}>{props.count}</span>
+        ) : null}
       </div>
       <div>{props.children}</div>
     </section>
+  );
+}
+
+function ListeningPortsSection(props: {
+  workspaceId: string;
+  listListeningPorts: (args: { workspaceId: string }) => Promise<WorkspaceListeningPortsResult>;
+  lensAvailable: boolean;
+  onOpenInLens: (url: string) => Promise<void>;
+}) {
+  const { workspaceId, listListeningPorts, lensAvailable, onOpenInLens } = props;
+  const { t } = useTranslation(["scripts"]);
+  const [result, setResult] = useState<WorkspaceListeningPortsResult | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    let pending = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const visible = () => !disposed && document.visibilityState === "visible";
+
+    async function poll() {
+      if (pending || !visible()) return;
+      pending = true;
+      try {
+        const next = await listListeningPorts({ workspaceId });
+        if (visible()) setResult(next);
+      } catch {
+        if (visible()) setResult({ status: "unavailable" });
+      } finally {
+        pending = false;
+        if (visible()) timer = setTimeout(() => void poll(), 3_000);
+      }
+    }
+
+    function onVisibilityChange() {
+      clearTimeout(timer);
+      void poll();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    void poll();
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [workspaceId, listListeningPorts]);
+
+  const ports = result?.status === "available" ? result.ports : [];
+  return (
+    <RuntimeSection title={t("scripts:workspaceScriptsPanel.listeningPorts")} count={result?.status === "available" ? ports.length : undefined}>
+      {ports.length === 0 ? (
+        <p role="status" className={sx(toolStyles.noResults)}>
+          {result === null
+            ? t("scripts:workspaceScriptsPanel.discoveringPorts")
+            : result.status === "unavailable"
+              ? t("scripts:workspaceScriptsPanel.portDiscoveryUnavailable")
+              : t("scripts:workspaceScriptsPanel.noListeningPorts")}
+        </p>
+      ) : ports.map((entry) => {
+        const address = formatListeningAddress(entry.host, entry.port);
+        const url = listeningPortUrl(entry);
+        return (
+          <div key={`${entry.pid}/${address}`} className={sx(toolStyles.entry, toolStyles.listeningPortRow)}>
+            <div className={sx(toolStyles.entryBody)}>
+              <code className={sx(toolStyles.title, toolStyles.truncated)} title={address}>{address}</code>
+              <div className={sx(toolStyles.entryTitleRow)}>
+                <span className={sx(toolStyles.truncatedHint)} title={entry.processName}>{entry.processName}</span>
+                <StatusBadge tone={entry.attribution === "owned" ? "accent" : "neutral"}>
+                  {entry.attribution === "owned"
+                    ? t("scripts:workspaceScriptsPanel.portOwned")
+                    : t("scripts:workspaceScriptsPanel.portInferred")}
+                </StatusBadge>
+              </div>
+            </div>
+            {lensAvailable && url ? (
+              <ActionButton
+                size="xs"
+                weight="quiet"
+                onClick={() => void onOpenInLens(url)}
+                aria-label={t("scripts:workspaceScriptsPanel.openPortInLens", { address })}
+              >
+                {t("scripts:workspaceScriptsPanel.openInLens")}
+              </ActionButton>
+            ) : null}
+          </div>
+        );
+      })}
+    </RuntimeSection>
   );
 }
 
@@ -407,6 +498,7 @@ export function ScriptEntryRow(props: {
 
 /* ---------- Main panel ---------- */
 export function WorkspaceScriptsPanel(props: {
+  visible: boolean;
   onOpenSettings?: (options?: {
     repositoryPath?: string | null;
     section?: SectionId;
@@ -512,7 +604,7 @@ export function WorkspaceScriptsPanel(props: {
     [activeWorkspaceId],
   );
 
-  const openOrbitUrlInLens = useCallback(
+  const openWorkspaceUrlInLens = useCallback(
     async (url: string) => {
       const result = await openOrbitUrlWithLensPriority({
         url,
@@ -620,6 +712,8 @@ export function WorkspaceScriptsPanel(props: {
     typeof window !== "undefined" &&
     Boolean(window.api?.lens?.openSession && window.api?.lens?.navigate);
 
+  const listListeningPorts = window.api?.scripts?.listListeningPorts;
+
   const openScriptSettings = useCallback(() => {
     props.onOpenSettings?.({
       section: "scripts",
@@ -653,7 +747,7 @@ export function WorkspaceScriptsPanel(props: {
       state={state}
       origin={originFor(entry.kind, entry.id)}
       lensAvailable={lensAvailable}
-      onOpenOrbitUrlInLens={openOrbitUrlInLens}
+      onOpenOrbitUrlInLens={openWorkspaceUrlInLens}
       onRun={runEntry}
       onStop={stopEntry}
       onClearLog={clearLog}
@@ -735,28 +829,6 @@ export function WorkspaceScriptsPanel(props: {
         ) : null}
 
         {runtime.configStatus === "ready" &&
-        serviceCount === 0 &&
-        detachedRunningCount === 0 ? (
-          <WorkspaceToolsEmptyState
-            icon={<Play className={sx(toolStyles.sectionIcon)} />}
-            title={tI18n("scripts:workspaceScriptsPanel.noProcessesConfigured")}
-            description={tI18n("scripts:workspaceScriptsPanel.addALongRunningProcessSuchAs")}
-            action={
-              activeWorkspaceId ? (
-                <div className={sx(toolStyles.quickAdd)}>
-                  <WorkspaceToolQuickAdd
-                    key={`${activeWorkspaceId}:service`}
-                    kind="service"
-                    workspaceId={activeWorkspaceId}
-                    workspacePath={workspacePath}
-                  />
-                </div>
-              ) : null
-            }
-          />
-        ) : null}
-
-        {runtime.configStatus === "ready" &&
         serviceCount > 0 &&
         activeWorkspaceId ? (
           <div className={sx(toolStyles.addForm)}>
@@ -785,6 +857,38 @@ export function WorkspaceScriptsPanel(props: {
               renderScriptEntry(entry, state),
             )}
           </RuntimeSection>
+        ) : null}
+
+        {props.visible && activeView === "processes" && !search.trim() && activeWorkspaceId && listListeningPorts ? (
+          <ListeningPortsSection
+            key={activeWorkspaceId}
+            workspaceId={activeWorkspaceId}
+            listListeningPorts={listListeningPorts}
+            lensAvailable={lensAvailable}
+            onOpenInLens={openWorkspaceUrlInLens}
+          />
+        ) : null}
+
+        {runtime.configStatus === "ready" &&
+        serviceCount === 0 &&
+        detachedRunningCount === 0 ? (
+          <WorkspaceToolsEmptyState
+            icon={<Play className={sx(toolStyles.sectionIcon)} />}
+            title={tI18n("scripts:workspaceScriptsPanel.noProcessesConfigured")}
+            description={tI18n("scripts:workspaceScriptsPanel.addALongRunningProcessSuchAs")}
+            action={
+              activeWorkspaceId ? (
+                <div className={sx(toolStyles.quickAdd)}>
+                  <WorkspaceToolQuickAdd
+                    key={`${activeWorkspaceId}:service`}
+                    kind="service"
+                    workspaceId={activeWorkspaceId}
+                    workspacePath={workspacePath}
+                  />
+                </div>
+              ) : null
+            }
+          />
         ) : null}
 
         {detachedRunningCount > 0 ? (

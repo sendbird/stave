@@ -3,11 +3,14 @@
     "defaultTitle": "Terminal"
   },
   "terminalSession": {
+    "outputGap": "Live output may be missing because the terminal view stopped responding.",
     "errors": {
       "bridgeUnavailable": "Terminal bridge unavailable. Use bun run dev:desktop.",
       "createFailed": "Failed to create terminal session.",
       "attachFailed": "Failed to attach terminal session.",
-      "resumeStreamFailed": "Failed to resume terminal session stream."
+      "resumeStreamFailed": "Failed to resume terminal session stream.",
+      "stillClosing": "The previous terminal process is still closing.",
+      "closeTimedOut": "Timed out waiting for the terminal process to exit."
     }
   },
   "renderer": {

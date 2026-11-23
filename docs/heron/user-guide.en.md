@@ -148,7 +148,7 @@ edge provider -> turn dashed : runs
 | Task       | One conversation inside a workspace     | Closing its tab does not archive it; archive with **Archive** in the tab menu. You can switch providers mid-task          |
 | Turn       | One response to one request             | Tool calls, approval requests and questions happen inside a turn. Messages sent while a turn runs wait in the queue       |
 
-The default workspace label and branch share one line in the sidebar (`Default · main`); long branches truncate, and the dot is hidden when there is no branch.
+The default workspace label and branch share one line in the sidebar (`Default · main`); long branches truncate, and the dot is hidden when there is no branch. Hover the leading status mark to read its meaning. Screen readers announce that status with the workspace name.
 
 ## Why split work into workspaces
 
@@ -244,12 +244,12 @@ S --> U: Reply · changed files · summary
 
 **Reading and composing**: code blocks without a language have no syntax colors. The composer follows the conversation reading size, including the smaller Task panel size; the minimal composer scales its monospace text and caret together.
 
-**Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. A request nobody answers is denied automatically after a time limit, and the card and the row's disclosure say when (**Auto-denies at 16:24 if nobody answers**). After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
+**Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. A saved Bash approval covers this command and added plain arguments. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. A request nobody answers is denied automatically after a time limit, and the card and the row's disclosure say when (**Auto-denies at 16:24 if nobody answers**). After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
 
 **Progress line**: while a turn runs, the line above its steps shows only the step in progress (for example **Reading search.ts**). Before a step is available, it shows **Thinking**. The elapsed time remains in the message footer. Once the turn ends it becomes the turn's title. A turn that searched or fetched the web ends with **Sources** and a count under the answer; open it to list each page once.
 
-Thinking bodies render Markdown, including bold text, lists and code, both while running and after completion. Tool arguments, output and command lines have a copy icon; a check mark confirms success, and a failed copy reports an error.
+Thinking bodies render Markdown, including bold text, lists and code, both while running and after completion. Tool arguments, output and command lines have a copy icon; a check mark confirms success, and a failed copy reports an error. Completed command details show the reported exit code or **Exit unknown**. Select **Copy output** to copy the command’s output.
 
 Tool output, reasoning, and folded tool groups load their bodies on first open and keep them after closing. Open a body before using browser find or printing its contents.
 
@@ -259,11 +259,11 @@ Tool output, reasoning, and folded tool groups load their bodies on first open a
 
 **Transcript**: messages you send back to back, such as steers, stack together with one note under the last (**Steered into active turn · 3**); hover any of them for its own copy and time actions. When a reply ran on a different provider, model or effort than the reply before it, a line above it names the change (**Claude Sonnet 4.6 · Medium → Claude Opus 4.8 · High**).
 
-**Restore files from a turn**: open a completed response's actions and choose **Restore files to before this turn**. **Keep conversation, restore files** preserves the messages. **Restore files and roll back conversation** appears only when conversation rollback is supported; otherwise, use **Fork here** to continue from that point. The host saves tracked, staged and untracked files before each user turn, excluding ignored files and the worktrees under `.stave/workspaces/`. Capture leaves your branch, index and files unchanged. Unchanged states reuse a snapshot; the default retention is 50 snapshots per task and is configurable. If saving fails, the turn still runs and shows **No snapshot for this turn** with the reason instead of the restore button. A restore changes only the files that differ, keeps their permissions, and stops before changing anything when something is in the way. It first saves the current files, and **Undo restore** brings them back. Restoration is blocked while this task runs, while another running task shares its worktree, while a terminal in the worktree runs a command, or when files may have changed after the turn. The action explains the reason. Claude conversations from before this feature keep **Preview Claude file rewind** on each user message.
+**Restore files from a turn**: **Mark as accepted** and **Mark as rejected** on a changed-file card record your review decision. To undo file edits, open a completed response's actions and choose **Restore files to before this turn**. **Keep conversation, restore files** preserves the messages. **Restore files and roll back conversation** appears only when conversation rollback is supported; otherwise, use **Fork here** to continue from that point. The host saves tracked, staged and untracked files before each user turn, excluding ignored files and the worktrees under `.stave/workspaces/`. Capture leaves your branch, index and files unchanged. Unchanged states reuse a snapshot; the default retention is 50 snapshots per task and is configurable. If saving fails, the turn still runs and shows **No snapshot for this turn** with the reason instead of the restore button. A restore changes only the files that differ, keeps their permissions, and stops before changing anything when something is in the way. It first saves the current files, and **Undo restore** brings them back. Restoration is blocked while this task runs, while another running task shares its worktree, while a terminal in the worktree runs a command, or when files may have changed after the turn. The action explains the reason. Claude conversations from before this feature keep **Preview Claude file rewind** on each user message.
 
 **Return a fork's result**: in a fork, choose **Send result to original** after its final answer. The original task's composer opens with the answer as a quote and a link to the fork. The fork is attached as task context so its details are available when you send. Review the draft before sending; returning a result never sends it automatically. The parent link is saved across restarts.
 
-**Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away.
+**Usage limits**: when a provider hits its usage limit, a usage-limit line appears on the shelf. **Resume at reset** continues automatically when the limit resets; **Resume now** tries again right away. Stave saves the pause and schedule across restarts. If a crash leaves delivery uncertain, Stave keeps the remaining queue idle for you to review.
 
 **Restart recovery**: in **Settings > General > Desktop Notifications**, **After a restart, continue interrupted work** offers **Ask** (default), **Automatically**, and **Never**. Ask lists interrupted ordinary tasks in one notice with **Continue all**, **Continue**, and **Dismiss**. Restored queues stay held under Ask. A continuation asks the agent to check state before repeating actions because earlier commands may have finished, and to confirm an irreversible action (push, deploy, delete, send messages, migrations) did not already run. Only turns the app's closing cut short are offered: reloading the window never starts a second turn beside one that is still running. Automatic recovery allows at most three continuations per task in five minutes, then asks. It excludes stopped work, pending approvals or input, and managed work; each excluded turn is decided once, and interruptions older than a day are not offered. Usage-limit pauses and reset-time reservations survive restart; an overdue reservation checks usage once before continuing.
 
@@ -1261,6 +1261,7 @@ When Stave reopens, requests that can no longer be answered move to history. Req
 | Terminal          | **Terminal** in the right panels, Cmd/Ctrl+K then the backtick key | A shell in a work-area tab. The tab's + menu has **New Terminal** and **New CLI Session** (Claude, Codex) |
 | Command palette   | Cmd/Ctrl+Shift+P                                           | Search app actions, tasks and settings. Scope: **This workspace** or **All repositories** |
 | Go to file        | Cmd/Ctrl+P                                                 | Open a workspace file by name                                                         |
+| Search in files | Cmd/Ctrl+Shift+F | Search the current workspace for literal text or a pasted multiline block. Editing or clearing the query stops the previous search. Switching workspaces clears the search. **Result limit reached** means some matches or preview text were omitted. |
 | Workspace Tools   | **Workspace Tools** in the right panels, Cmd/Ctrl+K then S | Saved commands, processes such as dev servers, and triggers, stored in `.stave/scripts.json` |
 | Lens              | Lens in the right panels, Cmd/Ctrl+K then L                | A built-in browser tab. **Pick element** and **Visual comments** add page context to the task draft |
 | Information panel | **Information** in the right panels, Cmd/Ctrl+K then I     | Todos, notes, links, documents, memory. **Create task** from a link row               |
@@ -1274,9 +1275,15 @@ Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/scre
 
 ```callout tip "Keep the Local MCP Server on"
 The AI can use Stave features such as the Information panel, workspace documents, schedules and Lens only while **Settings > MCP > Local MCP Server** is on. Agent runs need it too.
+
+With Lens CDP tools enabled, loopback addresses and active Orbit service hosts for the current workspace skip approval by default. Change this in **Settings > Browser > Lens > Developer Mode > Advanced options** under **Skip CDP prompts for local development**. When prompted, **Allow once** grants access in that workspace for 15 minutes after the last CDP action on that host.
 ```
 
+In the desktop app, **Workspace Tools > Processes > Listening ports** shows local servers associated with the workspace, even when an agent or terminal started them directly. Check the bind address and process name, then select **Open in Lens**. **Owned by Stave** identifies a registered terminal or script. **Inferred** uses the process's working directory or a parent process.
+
 Lens opens only in the desktop app. Closing a CLI tab ends its process.
+
+An agent can take a Lens screenshot while the tab is hidden. If Lens cannot prepare a frame, show the Lens tab and retry the screenshot.
 
 ## Common shortcuts
 
@@ -1364,6 +1371,8 @@ Content stays local and is never sent to a provider by search.
 
 In a terminal, Cmd+F / Ctrl+F searches the retained terminal buffer. Enter and Shift+Enter move between matches; Escape closes the search. The terminal header shows Running or the completed command's exit code.
 
+If a terminal or CLI view stops responding during heavy output, the command can continue running. The view shows a notice that some live output may be missing.
+
 Closing Fleet, Agents, Schedules, Issues, or AI usage returns to the previous view. F6 and Shift+F6 cycle window regions. The sidebar view switch has text labels. Fleet without repositories offers Open repository.
 
 When saving conflicts with a file changed on disk, use Compare, Keep mine, or Reload from disk in the editor banner. Saving again does not overwrite disk silently. Chat and Review diffs follow your diff display setting and collapse unchanged lines. Settings aligns short controls at the end of each row, and older changelog releases are collapsed. Markdown previews wrap paragraphs normally and offer highlighted code with copying.
@@ -1408,13 +1417,19 @@ You can also choose **Archive** from a workspace's sidebar menu. Confirming
 there saves any uncommitted changes before removing the worktree. In the cleanup
 center, turn on **Save uncommitted changes and archive** in the confirmation.
 Staged, unstaged and untracked files are saved without moving the branch.
-Git-ignored files, such as dependencies and build output, are deleted with the
-worktree. Unfinished Git operations prevent worktree removal.
+Manual and automatic archive save up to 50 sensitive Git-ignored files such as
+`.env` files, credentials and keys, up to 1 MiB each. Stave reports files it
+skips and keeps the checkout if copying fails. Other ignored files, including
+dependencies, build output and caches, are deleted. Restore copies the saved
+files back and reports any conflicts while preserving the existing files.
+Conflicting copies stay in Stave app data until you recover them or permanently
+delete the workspace. Unfinished Git operations prevent worktree removal.
 When removal is blocked, you can show the worktree folder and retry or choose
 **Archive and keep files on disk** when offered. Restore reopens those same
 files. Restore the workspace before trying to remove a retained worktree.
 If Git removes the worktree but cannot delete some files, the workspace is
-archived and the leftover folder is reported; delete it before restoring.
+archived. Choose **Move to Trash** in the sidebar confirmation or cleanup
+center before restoring.
 **Saved changes** marks these archives. Restore brings back
 the files and staged state, stopping with a conflict if files already occupy the
 destination. A failed save leaves the worktree in place. Permanent deletion

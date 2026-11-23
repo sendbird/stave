@@ -59,6 +59,15 @@ export const WORKSPACE_SHORTCUT_COUNT = 9;
 const WORKSPACE_HOVER_PREVIEW_TASK_LIMIT = 2;
 const UNTITLED_TASK_FALLBACK = "Untitled task";
 
+/** Reference the row's open label first, then the status owned by its mark. */
+export function workspaceRowLabelProps(rowId: string, label: string) {
+  return {
+    id: rowId,
+    "aria-label": label,
+    "aria-labelledby": `${rowId} ${rowId}-status`,
+  };
+}
+
 /** The work queue's leading attention kind; see `work-attention-order.ts`. */
 export const getWorkspaceLeadingAttentionKind = getWorkQueueLeadingAttentionKind;
 

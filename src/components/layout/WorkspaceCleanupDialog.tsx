@@ -2,7 +2,7 @@ import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
 import { refreshWorkspaceCleanupRegistry } from "@/store/workspace-cleanup-sync";
 import { WorkspaceArchivedHistory } from "./WorkspaceArchivedHistory";
-import { WorkspaceArchiveRecovery } from "./WorkspaceArchiveRecovery";
+import { LeftoverWorktreeTrashButton, WorkspaceArchiveRecovery } from "./WorkspaceArchiveRecovery";
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { GroupedVirtuoso } from "react-virtuoso";
 import { Button, Input } from "@/components/ui";
@@ -157,6 +157,15 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     notifyWorkspaceCleanupChanged();
     await refresh();
   };
+  const afterTrash = (workspaceId: string) => {
+    setResults(previous => previous.filter(result => result.workspaceId !== workspaceId));
+    void refresh();
+  };
+  const trashButton = (row: WorkspaceCleanupRow) => <LeftoverWorktreeTrashButton
+    target={{ workspaceId: row.id, repositoryPath: row.repositoryPath }}
+    disabled={busy}
+    onTrashed={() => afterTrash(row.id)}
+  />;
   const reasonText = workspaceCleanupReasonText;
   const workspaceName = (result: WorkspaceCleanupResult) => result.workspaceName ?? knownNames.current.get(result.workspaceId) ?? t("cleanupCenter.workspaceUnavailable");
   useEffect(() => window.api?.workspaceCleanup?.onChanged?.((event) => {
@@ -178,7 +187,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       {blocked
         ? <div className={sx(styles.identity, styles.identityStatic)}>{identity}<span id={reasonId} className={sx(styles.srOnly)}>{t("cleanupDialog.row.blocked", { reasons: reasonLine })}</span></div>
         : <Button variant="ghost" layout="host" xstyle={styles.identity} onClick={(event) => choose(row, event)} aria-pressed={selected.has(key)}>{identity}</Button>}
-      <span className={sx(withoutWorktree(row) && styles.muted, styles.size)}>{withoutWorktree(row) ? t("cleanupDialog.row.noWorktree") : row.bytes === null ? t("cleanupDialog.row.notScanned") : formatResourceBytes(row.bytes)}</span>
+      {row.leftoverFiles ? trashButton(row) : <span className={sx(withoutWorktree(row) && styles.muted, styles.size)}>{withoutWorktree(row) ? t("cleanupDialog.row.noWorktree") : row.bytes === null ? t("cleanupDialog.row.notScanned") : formatResourceBytes(row.bytes)}</span>}
     </div>;
   };
   const actionCount = (action: WorkspaceCleanupActArgs["action"]) => actionRows(action).length;
@@ -204,7 +213,13 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       {results.some((result) => !result.ok || result.reason) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok || r.reason).map((result, index) => {
         const target = archiveRequests.current.get(result.workspaceId);
         const reason = result.reason ?? "unavailable";
-        if (!target) return <p className={sx(styles.status)} key={index}>{workspaceName(result)} · {reasonText(reason)}</p>;
+        if (!target) {
+          const row = data?.rows.find(item => item.id === result.workspaceId);
+          return <div className={sx(styles.toolbar)} key={index}>
+            <span className={sx(styles.status)}>{workspaceName(result)} · {reasonText(reason)}</span>
+            {reason === "worktreeLeftoverFiles" && row?.leftoverFiles && trashButton(row)}
+          </div>;
+        }
         const row = data?.rows.find(item => item.id === target.workspaceId && item.repositoryPath === target.repositoryPath);
         return <div key={result.workspaceId}>
           <p className={sx(styles.status)}>{workspaceName(result)}</p>
@@ -217,7 +232,21 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
           />
         </div>;
       })}</div>}
-      <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>{data?.recent.map((item, index) => <div key={index} className={sx(styles.toolbar)}><span className={sx(styles.muted)}>{formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {workspaceName(item)} · {item.ok && !item.reason ? t("cleanupCenter.completed") : reasonText(item.reason ?? "unavailable")}</span>{item.ok && (item.action === "archive" || item.action === "removeWorktree") && <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}</div>)}</div></details>
+      <details><summary className={sx(styles.disclosure)}>{t("cleanupCenter.recent")}</summary><div className={sx(styles.recent)}>
+        {data?.recent.map((item, index) => {
+          const row = data.rows.find(row => row.id === item.workspaceId && row.repositoryPath === item.repositoryPath);
+          const reason = item.reason === "worktreeLeftoverFiles" && row && !row.leftoverFiles ? null : item.reason;
+          return <div key={index} className={sx(styles.toolbar)}>
+            <span className={sx(styles.muted)}>
+              {formatDate(item.at, { dateStyle: "short", timeStyle: "short" })} · {workspaceName(item)} · {item.ok && !reason ? t("cleanupCenter.completed") : reasonText(reason ?? "unavailable")}
+              {item.sensitiveFilesSkipped ? ` · ${t("cleanupCenter.sensitiveFilesSkipped", { count: item.sensitiveFilesSkipped })}` : null}
+            </span>
+            {reason === "worktreeLeftoverFiles" && row?.leftoverFiles ? trashButton(row) :
+              item.ok && (item.action === "archive" || item.action === "removeWorktree") && !row?.leftoverFiles &&
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => void act("restore", [{ action: "restore", workspaceId: item.workspaceId, repositoryPath: item.repositoryPath }])}>{t("cleanupCenter.restore")}</Button>}
+          </div>;
+        })}
+      </div></details>
     </DialogContent>
   </Dialog><Dialog open={confirming !== null} onOpenChange={(next) => { if (!next) setConfirming(null); }}>
     <DialogContent showCloseButton={false} initialFocus={() => cancelRef.current} onKeyDown={(event) => { if (event.key === "Enter" && confirming === "delete") { event.preventDefault(); event.stopPropagation(); } }}>
