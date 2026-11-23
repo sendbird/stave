@@ -39,16 +39,20 @@ You can paste more than one image into the same message. Each one is attached as
 
 ## Paste A Long Log Or Text
 
-In the desktop app, paste plain text into a task composer. Text over 2,000
-characters or 40 lines is saved as a `.txt` file in the workspace. The draft
-chip shows the first three lines and the file size. Select **Keep as text**
-to put the complete text back into the composer, or use the remove button
-to leave it out. Saved chips reopen with the draft.
+In the desktop app, a paste of at least five lines or 800 characters appears
+as one numbered chip in the task composer. The full text stays in the draft and
+is sent unchanged. The chip does not expand in place; Backspace removes the
+whole pasted block. The block is not stored separately, so after an app restart
+the draft shows the full text again.
 
-Wait for the attachment to finish saving before sending. If Stave cannot
-save the file, it puts the original text in the composer and shows a notice.
-The agent receives the preview and workspace path and can read the full file
-when needed.
+Text over 2,000 characters or 40 lines is saved as a `.txt` file in the
+workspace. The draft chip shows the first three lines and the file size. Select
+**Keep as text** to put the complete text back into the composer, or use the
+remove button to leave it out. Saved chips reopen with the draft. Wait for the
+attachment to finish saving before sending. If Stave cannot save the file, it
+keeps the original text in the draft, shown as a numbered chip when it meets
+the inline collapse threshold. The agent receives the preview and workspace
+path and can read the full file when needed.
 
 ## Attach Another Task As Context
 
