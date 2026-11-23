@@ -44,7 +44,6 @@ import {
 import { getScmReviewDiff, getScmReviewFileDiff } from "../electron/host-service/scm-review-diff";
 import { ScmReviewDiffArgsSchema, ScmReviewFileDiffArgsSchema } from "../src/lib/review/review-diff-contract";
 import {
-  ScmCommitArgsSchema,
   ScmCommitDetailsArgsSchema,
   ScmCommitDiffArgsSchema,
   ScmCommitFilesArgsSchema,
@@ -53,6 +52,7 @@ import {
   ListGitHubPrsArgsSchema,
   SubmitGitHubPrReviewArgsSchema,
 } from "../electron/main/ipc/schemas";
+import { ScmCommitArgsSchema } from "../electron/main/ipc/scm-commit-schema";
 import {
   fetchGitHubPullRequestReviewDetail,
   listGitHubPullRequests,

@@ -538,19 +538,11 @@ const GitCommitHashSchema = z
   .trim()
   .regex(/^[0-9a-f]{7,64}$/i, "A valid commit hash is required.");
 
-const GitPathSchema = z
+export const GitPathSchema = z
   .string()
   .min(1)
   .max(4096)
   .refine((value) => !value.includes("\0"), "Git paths must not contain NUL.");
-
-export const ScmCommitArgsSchema = z
-  .object({
-    cwd: z.string().max(4096).optional(),
-    message: z.string(),
-    paths: z.array(GitPathSchema).min(1).max(1000).optional(),
-  })
-  .strict();
 
 export const ScmGraphArgsSchema = z
   .object({

@@ -13,7 +13,6 @@ import {
   GetGitHubPrReviewDetailArgsSchema,
   GetPrStatusByUrlArgsSchema,
   ListGitHubPrsArgsSchema,
-  ScmCommitArgsSchema,
   ScmCommitDetailsArgsSchema,
   ScmCommitDiffArgsSchema,
   ScmCommitFilesArgsSchema,
@@ -22,6 +21,8 @@ import {
   SubmitGitHubPrReviewArgsSchema,
   TryAutoFixLintArgsSchema,
 } from "./schemas";
+import { ScmCommitArgsSchema } from "./scm-commit-schema";
+
 
 function invalidGraphResult(stderr: string) {
   return {
