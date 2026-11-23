@@ -1,3 +1,4 @@
+import { countFleetNeedsYouTasks } from "@/lib/attention/task-header-attention";
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { buildFleetInbox, countHiddenFleetAttention } from "@/lib/fleet/inbox-model";
@@ -315,21 +316,23 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
       snoozedAttentionIds: snoozes.activeIds,
     });
 
+    const inbox = buildFleetInbox({
+      items: projection.items,
+      snoozedItems: projection.snoozedItems,
+      notifications,
+      attentionAuthoritative: durableResultStore ? reviews.loaded && !reviews.error : notificationsLoadStatus === "ready",
+      knownAgentRunIds: new Set(Object.keys(agentRunDetails)),
+      agentRunsAuthoritative: agentRunsLoaded,
+      snoozedAttentionIds: snoozes.activeIds,
+    });
     return {
       ...projection,
       snoozedAttentionIds,
       snoozedCount: countHiddenFleetAttention({ snoozedItems: projection.snoozedItems, notifications,
         agentRunsAuthoritative: agentRunsLoaded,
         activeIds: snoozes.activeIds, knownAgentRunIds: new Set(Object.keys(agentRunDetails)) }),
-      inbox: buildFleetInbox({
-        items: projection.items,
-        snoozedItems: projection.snoozedItems,
-        notifications,
-        attentionAuthoritative: durableResultStore ? reviews.loaded && !reviews.error : notificationsLoadStatus === "ready",
-        knownAgentRunIds: new Set(Object.keys(agentRunDetails)),
-        agentRunsAuthoritative: agentRunsLoaded,
-        snoozedAttentionIds: snoozes.activeIds,
-      }),
+      inbox,
+      needsYouTaskCount: countFleetNeedsYouTasks(inbox.itemEntries),
       queueStatus: resolveFleetQueueStatus({
         blockingCount: projection.blockingItems.length,
         itemCount: projection.items.length,

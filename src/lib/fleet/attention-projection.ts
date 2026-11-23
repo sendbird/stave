@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import { activeAgentRunAttentionKind, isSupervisedTaskTurn } from "./agent-run-attention";
+import { activeAgentRunAttentionKind, canRecoverBlockedAgentRun, isSupervisedTaskTurn } from "./agent-run-attention";
 import type { AppNotification } from "@/lib/notifications/notification.types";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { currentStageRecord } from "@/lib/agent-runs/domain";
@@ -114,10 +114,13 @@ export interface FleetAttentionItem {
   prStatus?: WorkspacePrStatus;
   prUrl?: string;
   /** The stage attempt an agent run row acts on; stale once the agent run moves. */
+  agentRunRecoveryAvailable?: boolean;
+  agentRunNotificationId?: string;
   agentRunStage?: { agentRunId: string; stageId: string; attempt: number };
   /** The Tars responsibility a `tars-*` row speaks for. */
   tarsResponsibilityId?: string;
   tarsDecisionId?: string;
+  tarsResult?: { canAcceptCompletion: boolean; notificationId?: string };
   /** The proposed control a `tars-decision` row confirms, at the revision it was proposed for. */
   tarsDecision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
 }
@@ -673,11 +676,10 @@ export function collectFleetAgentRunAttentionItems(
   }
   return inputs.flatMap((input): FleetAttentionItem[] => {
     const { agentRun } = input.detail;
-    // Deleted tasks and bounded child outcomes have nobody to ask. An expired
-    // primary run does need a new instruction, until a newer run takes over.
-    const expiredNeedsDecision = agentRun.state === "stopped" && agentRun.stopReason === "expired" &&
+    // A newer run supersedes an expired primary run.
+    const expired = agentRun.state === "stopped" && agentRun.stopReason === "expired" &&
       Date.parse(agentRun.createdAt) >= (newestRunByTask.get(getFleetAttentionTaskKey(input.workspaceId, agentRun.leadTaskId)) ?? -Infinity);
-    const kind = expiredNeedsDecision ? "agent-run-blocked" : activeAgentRunAttentionKind(input.detail);
+    const kind = expired ? "agent-run-blocked" : activeAgentRunAttentionKind(input.detail);
     if (!kind) return [];
     const record = currentStageRecord(input.detail);
     const pausedNeedsDecision = agentRun.state === "paused";
@@ -701,14 +703,16 @@ export function collectFleetAgentRunAttentionItems(
         taskTitle: input.taskTitle,
         providerId: agentRun.fingerprint.providerId,
         createdAt: normalizeTimestamp(agentRun.updatedAt),
-        waitingSince: normalizeOptionalTimestamp(resolveAgentRunAttentionSince(input.detail)),
-        detail: expiredNeedsDecision
+        waitingSince: normalizeOptionalTimestamp(expired ? agentRun.updatedAt : resolveAgentRunAttentionSince(input.detail)),
+        detail: expired
           ? agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunStatus.expired")
           : pausedNeedsDecision
           ? agentRun.reasonDetail ?? record.detail ?? i18n.t("fleet:attention.agentRunPausedNeedsAttention")
           : kind === "agent-run-sign-off"
             ? describeSignOffDetail(input.detail, stage.title)
             : i18n.t("fleet:attention.agentRunNeedsAttention", { stage: stage.title, detail: record.detail ?? i18n.t(kind === "agent-run-stuck" ? "fleet:attention.stoppedMoving" : "fleet:attention.needsYou") }),
+        agentRunNotificationId: episodeId,
+        ...(kind === "agent-run-blocked" ? { agentRunRecoveryAvailable: canRecoverBlockedAgentRun(input.detail) } : {}),
         agentRunStage: { agentRunId: agentRun.id, stageId: record.stageId, attempt: record.attempt },
       },
     ];
@@ -776,6 +780,9 @@ export function collectFleetTarsAttentionItems(
             ? i18n.t("fleet:tarsAttention.unverifiedCompletion")
             : i18n.t("fleet:tarsAttention.blockedDetail"),
       tarsResponsibilityId: signal.responsibilityId,
+      ...(signal.prompt?.kind === "resultReady" ? { tarsResult: {
+        canAcceptCompletion: signal.prompt.canAcceptCompletion, notificationId: signal.prompt.notificationId,
+      } } : {}),
       ...(signal.decisionId ? { tarsDecisionId: signal.decisionId } : {}),
       ...(signal.decision ? { tarsDecision: { ...signal.decision } } : {}),
     };

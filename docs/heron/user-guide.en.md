@@ -246,6 +246,8 @@ S --> U: Reply · changed files · summary
 
 **Reading and composing**: code blocks without a language have no syntax colors. The composer follows the conversation reading size, including the smaller Task panel size; the minimal composer scales its monospace text and caret together.
 
+**Task header** shows **Needs you**, **Problem**, **Working**, **Done · unseen**, or **Idle**. Select **Needs you** or **Problem** to jump to the waiting request, failed turn, Agent Run, or Tars decision or report. The header works in Review too. Approvals and delegated requests open in the composer, and stage sign-offs open the stage in Review. Use the PR status control for check failures, conflicts and requested changes.
+
 **Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. A saved Bash approval covers this command and added plain arguments. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. A request nobody answers is denied automatically after a time limit, and the card and the row's disclosure say when (**Auto-denies at 16:24 if nobody answers**). After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
 
@@ -1259,7 +1261,7 @@ Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screensho
 
 When Stave reopens, requests that can no longer be answered move to history. Requests that still accept an answer stay available. Restoring existing notifications is silent.
 
-- **Notifications** in the top bar collect questions, approvals and completions. An agent run notifies once each for a sign-off request, blocked, stuck and completed. An approval answers with the same **Allow** and **Deny** (A and D keys) as Fleet View. New notices also show as toasts at the top-center. Branch status notices appear at the bottom-right, above the composer and the status bar.
+- **Notifications** in the top bar collect questions, approvals and completions. The bell and Dock badges count tasks with a live action for you. An agent run notifies once each for a sign-off request, blocked, stuck and completed. An approval answers with the same **Allow** and **Deny** (A and D keys) as Fleet View. New notices also show as toasts at the top-center. Branch status notices appear at the bottom-right, above the composer and the status bar.
 - **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values, and **Updated** beside it keeps tickets updated today or in the last 7, 30 or 90 days or this month; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues.
 
 @page tools | Tools | Workspace tools | reference

@@ -1,3 +1,4 @@
+import { useFleetAttention } from "@/store/fleet-attention-store";
 import { WorkspaceCleanupHost } from "./WorkspaceCleanupDialog";
 import { i18n, useTranslation } from "@/i18n";
 import { STAVE_OPEN_MODEL_SELECTOR_EVENT, requestSettingsFocus } from "@/lib/providers/accounts-navigation";
@@ -132,7 +133,7 @@ const DEFAULT_LAYOUT = createDefaultLayoutState();
 
 export function AppShell() {
   useTranslation();
-  const notifications = useAppStore((state) => state.notifications);
+  const needsYouTaskCount = useFleetAttention((snapshot) => snapshot.needsYouTaskCount);
   const [
     repositoryPath,
     repositoryName,
@@ -471,10 +472,9 @@ export function AppShell() {
 
   useEffect(() => {
     void window.api?.notifications?.setBadge?.({
-      count: notifications.filter((notification) => !notification.readAt)
-        .length,
+      count: needsYouTaskCount,
     });
-  }, [notifications]);
+  }, [needsYouTaskCount]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {

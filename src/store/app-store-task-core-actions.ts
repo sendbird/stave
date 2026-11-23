@@ -1,3 +1,4 @@
+import { focusTaskAttentionTarget } from "./task-attention-focus";
 import { openArchivedSearchView, restoreArchivedSearchView, useArchivedSearchView } from "./archived-search-view";
 import { i18n } from "@/i18n/runtime";
 import type { LoadTaskMessagesIntoSession } from "@/store/app-store-workspace-action-types";
@@ -133,6 +134,7 @@ export function createTaskCoreActions(args: {
     focusTaskAttention: withSurfaceTransition(
       async ({
         taskId,
+        target,
         workspaceId,
         repositoryPath,
         refreshFromPersistence = false,
@@ -233,6 +235,13 @@ export function createTaskCoreActions(args: {
 
         const stateAfterWorkspaceOpen = get();
         stateAfterWorkspaceOpen.selectTask({ taskId, allowArchived: Boolean(messageId || searchQuery) });
+        if (target) {
+          const selected = get();
+          if (selected.activeTaskId === taskId && selected.activeWorkspaceId === resolvedWorkspaceId) {
+            focusTaskAttentionTarget({ taskId, target, get, set });
+          }
+          return;
+        }
         if (messageId) {
           set((state) => ({
             focusTranscriptToolRequest: {
@@ -331,6 +340,7 @@ export function createTaskCoreActions(args: {
       }
       set((state) => ({
         activeTaskId: taskId,
+        focusAgentRunRequest: state.activeTaskId === taskId ? state.focusAgentRunRequest : null,
         activeAppSurface: WORKSPACE_APP_SURFACE,
         activeSurface: { kind: "task", taskId },
         openTaskTabIds: state.openTaskTabIds.includes(taskId)

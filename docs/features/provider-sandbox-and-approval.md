@@ -174,9 +174,9 @@ approval card says when, beside its decisions (**Auto-denies at 16:24 if
 nobody answers**), and so does the row's disclosure. Claude, Codex, Cursor,
 Kiro and OpenCode all report this time. When several requests wait, the row reads
 **1 of N**; step through them with the arrows, and Enter and Tab act on the
-request the row shows. The task's attention summary above the conversation
-does not repeat these requests; in Review, where the composer is hidden, it
-lists them.
+request the row shows. Select **Needs you** in the task header to open the
+pending request. From Review, the header switches back to the conversation and
+focuses the request in its answering surface.
 
 ### Always allow
 

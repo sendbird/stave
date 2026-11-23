@@ -2,7 +2,7 @@ import { TaskTurnPlan } from "./TaskTurnPlan";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronRight } from "lucide-react";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { vars } from "../aui/tokens/tokens.stylex";
 import { sx } from "../aui/utils/stylex";
@@ -19,7 +19,8 @@ import { untitledTaskTitle } from "@/lib/task-context/attached-task-context";
 import { isTaskManaged } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
-import { useTaskAgentRun } from "@/store/agent-runs-store";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { useAgentRunsStore, useTaskAgentRun } from "@/store/agent-runs-store";
 import { BackgroundTasksSection } from "./BackgroundTasksSection";
 import { TaskResultReviews } from "./TaskResultReviews";
 import { SubagentsSection } from "./SubagentsSection";
@@ -74,7 +75,11 @@ export function TaskPanel() {
     state.tasks.find((item) => item.id === state.activeTaskId),
   );
   const workspaceLabel = useAppStore(selectTaskPanelWorkspaceLabel);
-  const agentRun = useTaskAgentRun(workspaceId, taskId);
+  const latestAgentRun = useTaskAgentRun(workspaceId, taskId);
+  const runFocus = useAppStore((state) => state.focusAgentRunRequest?.taskId === taskId ? state.focusAgentRunRequest : null);
+  const localRun = useAgentRunsStore((state) => runFocus ? state.details[runFocus.agentRunId] : undefined);
+  const fleetRun = useFleetAgentRunsStore((state) => runFocus ? state.details[runFocus.agentRunId] : undefined);
+  const agentRun = localRun ?? fleetRun ?? latestAgentRun;
   if (!workspaceId || !taskId || !task) {
     return <TaskPanelEmpty hasWorkspace={Boolean(workspaceId)} />;
   }
@@ -88,6 +93,7 @@ export function TaskPanel() {
       taskTitle={untitledTaskTitle(task.title)}
       workspaceLabel={workspaceLabel}
       agentRun={agentRun}
+      runFocus={runFocus?.agentRunId === agentRun?.agentRun.id ? runFocus : null}
     />
   );
 }
@@ -123,6 +129,7 @@ export function TaskPanelView(props: {
   taskTitle: string;
   workspaceLabel: string;
   agentRun: AgentRunDetail | undefined;
+  runFocus?: AppState["focusAgentRunRequest"];
 }) {
   useTranslation();
   const { workspaceId, taskId, repositoryPath, agentRun } = props;
@@ -167,7 +174,19 @@ export function TaskPanelView(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [messages, liveTurnId, activity, retained, turns, agentRun, prInfo, selectedTurnId, now, pending, livePending, i18n.language],
   );
-  const open = detailsOpen ?? view.focusDetails;
+  const runDetailsRef = useRef<HTMLDivElement>(null);
+  const [openedForNonce, setOpenedForNonce] = useState<number | undefined>();
+  const { runFocus } = props;
+  const focusingRun = Boolean(runFocus && runFocus.nonce !== openedForNonce);
+  const open = focusingRun || (detailsOpen ?? view.focusDetails);
+  useEffect(() => {
+    if (!focusingRun || !runFocus || !runDetailsRef.current) return;
+    setOpenedForNonce(runFocus.nonce);
+    setDetailsOpen(true);
+    runDetailsRef.current.scrollIntoView({ block: "nearest" });
+    runDetailsRef.current.focus({ preventScroll: true });
+    if (runFocus.notificationId) void useAppStore.getState().markNotificationRead({ id: runFocus.notificationId });
+  }, [focusingRun, runFocus]);
   return (
     <div className={sx(styles.root)}>
       <RightRailPanelHeader>
@@ -220,7 +239,7 @@ export function TaskPanelView(props: {
               </DetailsPart>
               <DetailsPart label={i18n.t("session:taskPanel.steps")} padded>
                 {agentRun ? (
-                  <AgentRunPanel taskId={taskId} detail={agentRun} />
+                  <div ref={runDetailsRef} tabIndex={-1}><AgentRunPanel taskId={taskId} detail={agentRun} /></div>
                 ) : (
                   <>
                     <TaskTurnPlan taskId={taskId} />

@@ -510,7 +510,7 @@ export function findMessageIndexByToolUseId(args: {
  */
 export function findMessageIndexByDecision(args: {
   messages: Pick<ChatMessage, "id" | "parts">[];
-  messageId: string;
+  messageId?: string;
   requestId: string;
 }): number {
   if (!args.requestId) {

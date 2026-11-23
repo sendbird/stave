@@ -1,9 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { ResultReviewStore } from "../electron/persistence/result-review-store";
-import { TaskAttentionSummary } from "@/components/session/TaskAttentionSummary";
 import { buildFleetAttentionProjection, collectFleetLiveAttentionItems, type FleetLiveWorkspaceInput } from "@/lib/fleet/attention-projection";
 import { applyFleetBulkPlan, planFleetOutcomeRead, revertFleetBulkOutcome, type FleetBulkOperations } from "@/lib/fleet/attention-bulk";
 import { buildFleetInbox, countHiddenFleetAttention, selectBellEntries } from "@/lib/fleet/inbox-model";
@@ -17,9 +14,7 @@ import { EMPTY_STAGE_FACTS } from "@/lib/agent-runs/domain";
 import { describeAgentRunNotification } from "@/lib/agent-runs/notifications";
 import { createTurnReceipt, observeTurnEvent, finishTurnReceipt } from "@/lib/providers/turn-terminal-receipt";
 import { buildFleetTaskRows } from "@/lib/fleet/task-rows";
-import { useAppStore } from "@/store/app.store";
-import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
-import { dropEndedAgentRuns, useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { dropEndedAgentRuns } from "@/store/fleet-agent-runs-store";
 import { agentRunDetail, agentRunFixture, patchCurrent, applyChange, observe } from "./fixtures/agent-run-fixtures";
 
 const at = "2026-10-01T01:00:00.000Z";
@@ -29,18 +24,6 @@ const receipt = finishTurnReceipt(observeTurnEvent(createTurnReceipt(), { type: 
 const message = { id: "failure", role: "assistant" as const, providerId: "codex", model: "model", content: "", parts: [], turnId: "manual-turn", completedAt: at, terminalReceipt: receipt };
 const workspace: FleetLiveWorkspaceInput = { ...identity, tasks: [task], messagesByTask: { [task.id]: [message] }, activeTurnIdsByTask: {}, providerTurnActivityByTask: {} };
 const base = { notifications: [], liveWorkspaces: [workspace], prWorkspaces: [] };
-const appBefore = { ...useAppStore.getInitialState() };
-const attentionBefore = { ...useFleetAttentionStore.getInitialState() };
-const runsBefore = { ...useFleetAgentRunsStore.getInitialState() };
-afterEach(() => {
-  Object.assign(useAppStore.getInitialState(), appBefore);
-  Object.assign(useFleetAttentionStore.getInitialState(), attentionBefore);
-  Object.assign(useFleetAgentRunsStore.getInitialState(), runsBefore);
-  useAppStore.setState(appBefore, true);
-  useFleetAttentionStore.setState(attentionBefore, true);
-  useFleetAgentRunsStore.setState(runsBefore, true);
-});
-
 for (const reason of ["taken-over", "paused-by-user"] as const) {
   test(`${reason}: a subsequent user failure remains actionable while the supervisor is idle`, () => {
     const original = patchCurrent(agentRunFixture(), { status: "running", facts: { ...EMPTY_STAGE_FACTS, currentTurnId: "run-turn" } });
@@ -50,10 +33,6 @@ for (const reason of ["taken-over", "paused-by-user"] as const) {
     expect(isSupervisedTaskTurn(detail, task.id, message.turnId)).toBe(false);
     const global = buildFleetAttentionProjection({ ...base, agentRuns: [{ ...identity, detail }] });
     expect(global.items).toMatchObject([{ kind: "run-failed", turnId: "manual-turn" }]);
-    Object.assign(useAppStore.getInitialState(), { activeWorkspaceId: identity.workspaceId, tasks: [task], messagesByTask: workspace.messagesByTask, activeTurnIdsByTask: {} });
-    Object.assign(useFleetAttentionStore.getInitialState(), { snapshot: { ...EMPTY_FLEET_ATTENTION, ...global } });
-    Object.assign(useFleetAgentRunsStore.getInitialState(), { details: { [detail.agentRun.id]: detail } });
-    expect(renderToStaticMarkup(createElement(TaskAttentionSummary, { taskId: task.id }))).toContain("open=\"\"");
   });
 }
 
@@ -96,17 +75,6 @@ test("completed run notifications are available with and without a cached detail
   for (const known of [true, false]) {
     expect(selectBellEntries(buildFleetInbox({ items: [], notifications: [notification], knownAgentRunIds: new Set(known ? [detail.agentRun.id] : []) }), "unread")).toHaveLength(1);
   }
-});
-
-test("acknowledged failures are collapsed context and managed child failures do not reappear locally", () => {
-  Object.assign(useAppStore.getInitialState(), { activeWorkspaceId: identity.workspaceId, tasks: [task], messagesByTask: workspace.messagesByTask, activeTurnIdsByTask: {} });
-  Object.assign(useFleetAttentionStore.getInitialState(), { snapshot: EMPTY_FLEET_ATTENTION });
-  Object.assign(useFleetAgentRunsStore.getInitialState(), { details: {} });
-  const html = renderToStaticMarkup(createElement(TaskAttentionSummary, { taskId: task.id }));
-  expect(html).toContain("Authentication failed");
-  expect(html).not.toContain("open=\"\"");
-  Object.assign(useAppStore.getInitialState(), { tasks: [{ ...task, parentTaskId: "parent", controlMode: "managed", controlOwner: "external" }] });
-  expect(renderToStaticMarkup(createElement(TaskAttentionSummary, { taskId: task.id }))).toBe("");
 });
 
 test("a simultaneous run blocker cannot turn an approval into a running task", () => {

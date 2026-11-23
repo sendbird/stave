@@ -124,8 +124,7 @@ test("the composer keeps its controls on one row and reachable from More", async
   expect(await menu.locator("[data-composer-control-menu-item]").count()).toBeGreaterThan(0);
 });
 
-test("a pending approval is shown once, attached to the composer", async ({ page }) => {
+test("a pending approval is attached to the composer", async ({ page }) => {
   await seedNarrowPane(page);
-  await expect(page.locator("[data-approval-request-id]")).toHaveCount(1);
-  await expect(page.getByText(/Needs your attention/)).toHaveCount(0);
+  await expect(page.getByTestId("composer-approval-row").locator('[data-approval-request-id="approval-e2e"]')).toHaveCount(1);
 });

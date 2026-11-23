@@ -1,4 +1,11 @@
 {
+  "taskAttention": {
+    "needsYou": "응답 필요",
+    "problem": "문제",
+    "working": "작업 중",
+    "doneUnseen": "완료 · 안 읽음",
+    "idle": "대기 중"
+  },
   "fileViewer": {
     "previousChunk": "이전 구간",
     "nextChunk": "다음 구간",

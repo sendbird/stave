@@ -1,3 +1,4 @@
+import type { TaskAttentionTarget } from "@/lib/fleet/task-attention";
 import type { InterruptedTask, RestartRecovery } from "@/store/restart-continuation";
 import type {
   TaskProviderSessionState,
@@ -267,7 +268,9 @@ export interface AppState
   activeCliSessionTabId: string | null;
   activeAppSurface: AppActiveSurface;
   activeSurface: WorkspaceActiveSurface;
+  focusAgentRunRequest: { taskId: string; agentRunId: string; notificationId?: string; nonce: number } | null;
   focusPendingInteractionRequest: {
+    exact?: Extract<TaskAttentionTarget, { kind: "approval" | "delegated" }>;
     taskId: string;
     nonce: number;
   } | null;
@@ -283,7 +286,7 @@ export interface AppState
     messageId?: string;
     searchQuery?: string;
     searchSnippet?: string;
-    decision?: { messageId: string; requestId: string };
+    decision?: { messageId?: string; requestId: string };
     nonce: number;
   } | null;
   scrollToLatestMessageRequest: TaskScrollToLatestRequest | null;
@@ -479,6 +482,7 @@ export interface AppState
     compareRunId: string;
   }) => Promise<StartCompareRunResult>;
   focusTaskAttention: (args: {
+    target?: TaskAttentionTarget;
     workspaceArchived?: boolean;
     taskId: string;
     workspaceId?: string;

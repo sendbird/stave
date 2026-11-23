@@ -56,8 +56,7 @@ export async function openInboxEntry(
   if (!item) {
     return { status: "opened" };
   }
-  // A Tars decision is confirmed in Tars, and Tars work without a task lives there.
-  if (item.kind === "tars-decision" || (item.source === "tars" && !item.taskId)) {
+  if (item.kind === "tars-decision" || item.source === "tars") {
     openFleetTarsItem(item);
     return { status: "opened" };
   }

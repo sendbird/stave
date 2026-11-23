@@ -4,8 +4,6 @@ import {
   stepShownApproval,
   summarizeApprovalRequest,
 } from "@/components/session/composer-approval.utils";
-import { omitComposerShownApprovals } from "@/lib/fleet/task-attention";
-import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 
 const approval = (requestId: string, toolName = "Bash", input?: string, description = "") => ({
   messageId: `m-${requestId}`,
@@ -45,39 +43,5 @@ describe("summarizeApprovalRequest", () => {
     expect(summarizeApprovalRequest(approval("x", "Custom", undefined, "Open .env\nsecond line").part)).toBe("Open .env");
     expect(summarizeApprovalRequest(approval("x", "Custom", "plain input").part)).toBe("plain input");
     expect(summarizeApprovalRequest(approval("x", "Custom").part)).toBe("");
-  });
-});
-
-describe("omitComposerShownApprovals", () => {
-  const item = (overrides: Partial<FleetAttentionItem>): FleetAttentionItem => ({
-    id: overrides.id ?? "item", kind: "approval", priority: 0, repositoryPath: "/r", repositoryName: "r",
-    workspaceId: "ws", workspaceName: "ws", taskId: "task", createdAt: "2026-11-01T00:00:00.000Z", source: "live",
-    ...overrides,
-  });
-
-  test("drops the task's own approvals the composer row shows", () => {
-    const items = [
-      item({ id: "live" }),
-      item({ id: "named", requestId: "req-1" }),
-      item({ id: "failure", kind: "run-failed" }),
-    ];
-    expect(omitComposerShownApprovals(items, { taskId: "task", pendingApprovalRequestIds: ["req-1"] }).map((entry) => entry.id))
-      .toEqual(["failure"]);
-  });
-
-  test("keeps requests the row does not show", () => {
-    const items = [
-      item({ id: "stale", requestId: "req-old" }),
-      item({ id: "other-task", taskId: "other" }),
-      item({ id: "delegated", notificationId: "n-1" }),
-    ];
-    const kept = omitComposerShownApprovals(items, {
-      taskId: "task",
-      pendingApprovalRequestIds: ["req-1"],
-      isDelegated: (entry) => entry.notificationId === "n-1",
-    });
-    expect(kept.map((entry) => entry.id)).toEqual(["stale", "other-task", "delegated"]);
-    // With nothing on the row, nothing is left out.
-    expect(omitComposerShownApprovals([item({ id: "live" })], { taskId: "task", pendingApprovalRequestIds: [] })).toHaveLength(1);
   });
 });

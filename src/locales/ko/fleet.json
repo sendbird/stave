@@ -359,28 +359,6 @@
     "snoozed_other": "항목 {{count}}개 알림을 미뤘습니다",
     "scope_other": "전체 워크스페이스·필터 대상 · 확인이 필요한 요청 {{count}}개 포함"
   },
-  "taskAttention": {
-    "actionRequired_other": "확인이 필요합니다 ({{count}})",
-    "forReview_other": "검토할 항목 ({{count}})",
-    "hint": {
-      "pr": "PR을 검토하고 다음 작업을 결정해 주세요.",
-      "request": "이 답변이나 권한 승인을 기다리고 있습니다.",
-      "progress": "진행 탭에서 중단 사유와 가능한 복구 동작을 확인해 주세요.",
-      "reviewStage": "이 단계의 근거를 검토한 뒤 승인해 주세요.",
-      "reviewTurn": "턴이 중단되었습니다. 결과를 확인하고 Task에 재시도나 방향 변경을 지시해 주세요.",
-      "pendingRequest": "답변이나 권한 승인을 기다리고 있습니다."
-    },
-    "action": {
-      "pr": "PR 열기",
-      "request": "요청 보기",
-      "progress": "중단 사유 보기",
-      "reviewStage": "단계 검토",
-      "reviewTurn": "중단된 턴 보기",
-      "pendingRequest": "요청 보기"
-    },
-    "openFailed": "요청을 열지 못했습니다. 다시 시도해 주세요.",
-    "recentFailure_other": "최근 중단 원인 ({{count}})"
-  },
   "snoozeDuration": {
     "oneHour": "1시간",
     "fourHours": "4시간",

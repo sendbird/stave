@@ -3,7 +3,7 @@ import {
   type FleetAttentionItem,
   type FleetAttentionKind,
 } from "@/lib/fleet/attention-projection";
-import { taskAttentionDestination } from "@/lib/fleet/task-attention";
+import { taskAttentionTarget } from "@/lib/fleet/task-attention";
 
 /** Attention that Review settles: a finished turn's result and a stage's sign-off. */
 const REVIEW_QUEUE_KINDS: ReadonlySet<FleetAttentionKind> = new Set([
@@ -20,8 +20,8 @@ const REVIEW_QUEUE_KINDS: ReadonlySet<FleetAttentionKind> = new Set([
 export function selectReviewQueue(items: readonly FleetAttentionItem[]): FleetAttentionItem[] {
   return items.filter((item) => {
     if (!item.taskId || !REVIEW_QUEUE_KINDS.has(item.kind)) return false;
-    const destination = taskAttentionDestination(item);
-    return destination === "reviewTurn" || destination === "reviewStage";
+    const destination = taskAttentionTarget(item);
+    return destination?.kind === "turn" || destination?.kind === "stage";
   });
 }
 

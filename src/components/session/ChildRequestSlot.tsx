@@ -158,7 +158,15 @@ export function ChildRequestSlot(props: { taskId: string }) {
       }),
     [notifications, props.taskId, repositoryPath],
   );
-  const current = requests[0];
+  const focus = useAppStore((state) => {
+    const request = state.focusPendingInteractionRequest;
+    return request?.taskId === props.taskId && request.exact?.kind === "delegated" ? request : null;
+  });
+  const target = focus?.exact;
+  const exact = target?.kind === "delegated"
+    ? requests.find((request) => request.notificationId === target.notificationId && request.identity.requestId === target.requestId)
+    : undefined;
+  const current = exact ?? requests[0];
   if (!current) {
     return null;
   }
@@ -166,6 +174,7 @@ export function ChildRequestSlot(props: { taskId: string }) {
     <ChildRequestCard
       key={current.notificationId}
       request={current}
+      focusNonce={exact ? focus?.nonce : undefined}
       queuedCount={requests.length - 1}
     />
   );
@@ -191,6 +200,7 @@ export async function dismissChildRequest(notificationId: string) {
 
 function ChildRequestCard(props: {
   request: DelegatedInteractionRequest;
+  focusNonce?: number;
   queuedCount: number;
 }) {
   useTranslation();
@@ -272,6 +282,7 @@ function ChildRequestCard(props: {
   return (
     <ChildRequestView
       requestId={expected.requestId}
+      focusNonce={props.focusNonce}
       childTitle={childTask?.title.trim() || props.request.childTaskTitle}
       providerId={childTask?.provider ?? props.request.providerId}
       pending={pending}
@@ -297,6 +308,7 @@ function ChildRequestCard(props: {
 /** Presentation only, so the attribution and controls can be rendered from plain data. */
 export function ChildRequestView(props: {
   requestId: string;
+  focusNonce?: number;
   childTitle: string;
   providerId: ProviderId | null;
   pending: ChildPendingRequest | null;
@@ -310,6 +322,10 @@ export function ChildRequestView(props: {
   onDismiss?: () => void;
 }) {
   useTranslation();
+  const sectionRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (props.focusNonce) sectionRef.current?.focus({ preventScroll: true });
+  }, [props.focusNonce]);
   const { pending, busy, error } = props;
   const disabledReason = busy ? i18n.t("session:childRequestSlot.extraCopy89") : undefined;
   const statusText = error
@@ -332,6 +348,8 @@ export function ChildRequestView(props: {
       aria-label={i18n.t("session:childRequestSlot.ariaLabel")}
       className={sx(styles.section, pending?.part.type === "user_input" ? styles.sectionCapped : null)}
       data-delegated-request-id={props.requestId}
+      ref={sectionRef}
+      tabIndex={-1}
     >
       <div className={sx(styles.header)}>
         <p className={sx(styles.attribution)}>

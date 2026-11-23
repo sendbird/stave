@@ -1334,7 +1334,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           />
         ) : null}
         {pendingApprovals.length > 0 ? (
-          <ChatInputApprovalQueue
+          <ChatInputApprovalQueue taskId={args.activeTaskId}
             allowAlways={!approvalsAnswerThroughHost}
             approvals={pendingApprovals}
             guidanceFocusNonce={guidanceFocusNonce}

@@ -1,3 +1,4 @@
+import { canAcceptTarsCompletion } from "./completion";
 import { tarsAskDecisionId, tarsUnverifiedDecisionId, tarsConfirmationRequestId } from "./decision-ids";
 import type { TarsControlOperation, TarsPendingDecision, TarsResponsibility, TarsSnapshot } from "./types";
 
@@ -13,7 +14,7 @@ import type { TarsControlOperation, TarsPendingDecision, TarsResponsibility, Tar
  *   without meeting the criteria). Fleet drops it when another attention row
  *   already speaks for the same task, so one fact is one row.
  */
-export type TarsAttentionKind = "tars-decision" | "tars-blocked";
+export type TarsAttentionKind = "tars-decision" | "tars-blocked" | "result-ready";
 
 export interface TarsAttentionSignal {
   /** Stable while the fact holds; a new revision or proposal is a new id. */
@@ -31,7 +32,7 @@ export interface TarsAttentionSignal {
   /** Set on a single-action decision (a proposed control): what Confirm applies. */
   decision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
   /** Set on a decision with several options; it is answered in the Tars conversation. */
-  prompt?: { kind: "unverifiedCompletion" } | { kind: "ask"; question: string } | { kind: "resultReady" };
+  prompt?: { kind: "unverifiedCompletion" } | { kind: "ask"; question: string } | { kind: "resultReady"; canAcceptCompletion: boolean; notificationId?: string };
 }
 
 /** Fleet's row id for a pending decision; a proposal keeps the id it had before decision kinds existed. */
@@ -48,6 +49,10 @@ export function tarsDecisionSignalId(decision: Pick<TarsPendingDecision, "kind" 
  */
 export function tarsStateSignalId(row: Pick<TarsResponsibility, "id" | "revision">) {
   return `tars:blocked:${row.id}:${row.revision}`;
+}
+
+export function tarsResultNotificationId(responsibilityId: string, agentRunId: string) {
+  return `tars:result:${responsibilityId}:${agentRunId}`;
 }
 
 const TERMINAL = new Set<TarsResponsibility["state"]>(["completed", "cancelled"]);
@@ -101,8 +106,12 @@ export function collectTarsAttention(
   const decided = new Set(decisions.filter((signal) => signal.prompt?.kind === "unverifiedCompletion").map((signal) => signal.responsibilityId));
   const blocked = snapshot.responsibilities.filter((row) => (row.state === "blocked" || row.state === "resultReady") && !decided.has(row.id)).map((row): TarsAttentionSignal => ({
     id: tarsStateSignalId(row),
-    kind: row.state === "resultReady" ? "tars-decision" : "tars-blocked",
-    ...(row.state === "resultReady" ? { prompt: { kind: "resultReady" as const } } : {}),
+    kind: row.state === "resultReady" ? (canAcceptTarsCompletion(row) ? "tars-decision" : "result-ready") : "tars-blocked",
+    ...(row.state === "resultReady" ? { prompt: {
+      kind: "resultReady" as const,
+      canAcceptCompletion: canAcceptTarsCompletion(row),
+      notificationId: row.agentRunId ? tarsResultNotificationId(row.id, row.agentRunId) : undefined,
+    } } : {}),
     ...place(row),
     since: row.updatedAt,
   }));
@@ -119,11 +128,12 @@ export type TarsLane = "needsYou" | "running" | "done";
  */
 export function tarsLaneOf(row: TarsResponsibility, attentionResponsibilityIds: ReadonlySet<string>): TarsLane {
   if (attentionResponsibilityIds.has(row.id)) return "needsYou";
-  return isTarsResponsibilityTerminal(row) ? "done" : "running";
+  return isTarsResponsibilityTerminal(row) || row.state === "resultReady" ? "done" : "running";
 }
 
 /** The fields of a Fleet attention row this rule reads. */
 export interface TarsAttentionRowLike {
+  kind?: string;
   taskId?: string;
   tarsResponsibilityId?: string;
 }
@@ -147,6 +157,7 @@ export function selectTarsAttentionRows<T extends TarsAttentionRowLike>(
   const rows: T[] = [];
   const responsibilityIds = new Set<string>();
   for (const item of items) {
+    if (item.tarsResponsibilityId && item.kind === "result-ready") continue;
     const id = item.tarsResponsibilityId ?? (item.taskId ? byTask.get(item.taskId) : undefined);
     if (!id) continue;
     rows.push(item);

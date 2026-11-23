@@ -1,7 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import type { AppNotification, AppNotificationCreateInput } from "@/lib/notifications/notification.types";
 import { isTarsNotificationKind } from "@/lib/notifications/notification.types";
-import { collectTarsAttention } from "./attention";
+import { collectTarsAttention, tarsResultNotificationId } from "./attention";
 import type { TarsSnapshot } from "./types";
 
 export interface TarsNotificationTarget { responsibilityId: string; decisionId?: string }
@@ -9,15 +9,13 @@ export interface TarsNotificationTarget { responsibilityId: string; decisionId?:
 /** Tray, Fleet and notifications read the same live facts, never action receipts. */
 export function describeTarsNotifications(snapshot: TarsSnapshot): AppNotificationCreateInput[] {
   const signals = collectTarsAttention(snapshot);
-  const workById = new Map(snapshot.responsibilities.map(row => [row.id, row]));
   const decisionsByWork = new Set(signals.filter((signal) => signal.kind === "tars-decision").map((signal) => signal.responsibilityId));
   // As in Fleet, a decision already speaks for blocked work; announce it once.
   const notifications: AppNotificationCreateInput[] = signals.filter((signal) => signal.kind !== "tars-blocked" || !decisionsByWork.has(signal.responsibilityId)).map((signal) => {
     const kind = signal.kind === "tars-blocked" ? "tars.blocked"
       : signal.prompt?.kind === "resultReady" ? "tars.result_ready" : "tars.decision_requested";
     const title = signal.title.slice(0, 400);
-    const resultRun = kind === "tars.result_ready" ? workById.get(signal.responsibilityId)?.agentRunId : null;
-    const id = resultRun ? `tars:result:${signal.responsibilityId}:${resultRun}` : signal.id;
+    const id = signal.prompt?.kind === "resultReady" ? signal.prompt.notificationId ?? signal.id : signal.id;
     return {
       id,
       kind,
@@ -42,7 +40,7 @@ export function describeTarsNotifications(snapshot: TarsSnapshot): AppNotificati
     // A decision waiting on the same work already brings the user to it, and
     // published work speaks through its pull request's own notices.
     if (row.state !== "completed" || !row.agentRunId || row.publication || decisionsByWork.has(row.id)) continue;
-    const id = `tars:result:${row.id}:${row.agentRunId}`;
+    const id = tarsResultNotificationId(row.id, row.agentRunId);
     notifications.push({ id, kind: "tars.result_ready", title: i18n.t("notifications:tars.resultReady", { title: row.title }), body: row.title,
       repositoryPath: row.repositoryPath, repositoryName: row.repositoryPath.split(/[\\/]/).filter(Boolean).at(-1) ?? null,
       workspaceId: row.executionWorkspaceId ?? row.workspaceId, workspaceName: null, taskId: row.taskId, taskTitle: row.title,
