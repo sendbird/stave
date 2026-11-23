@@ -1205,6 +1205,23 @@
     "readFailed": "Turn history could not be read.",
     "didNotFinish": "Did not finish"
   },
+  "turnWatchdog": {
+    "tool": "{{name}} has been running for {{duration}}.",
+    "background_one": "{{count}} background task is still running.",
+    "background_other": "{{count}} background tasks are still running.",
+    "approval": "Waiting for approval.",
+    "userInput": "Waiting for your answer.",
+    "retry": "Provider is retrying.",
+    "transportExit": "The provider process or transport closed during the turn.",
+    "silence": "No provider activity was reported.",
+    "wait": "Kept waiting",
+    "warn": "Still waiting after {{duration}} without an update",
+    "quietWork": "Work is taking longer than usual",
+    "offer": "Offered to continue from a new message",
+    "abort": "Turn stopped",
+    "stopTransport": "Generation stopped because the provider connection closed.",
+    "stopSilence": "Generation stopped automatically after the provider stopped sending updates."
+  },
   "turnRecord": {
     "ariaLabel": "Earlier turn {{id}}",
     "badge": "Saved record",

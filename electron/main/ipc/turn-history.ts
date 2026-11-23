@@ -5,12 +5,20 @@ import {
   ReadTaskTurnRecordArgsSchema,
   TURN_HISTORY_LIST_IPC,
   TURN_HISTORY_RECORD_IPC,
+  TURN_WATCHDOG_RECORD_IPC,
+  RecordTurnWatchdogArgsSchema,
   type TurnHistoryListResponse,
   type TurnRecordResponse,
 } from "../../../src/lib/providers/turn-history";
 
 /** Activity's turn picker and the turn records it opens. Messages are diagnostics; the window words its own errors. */
 export function registerTurnHistoryHandlers() {
+  ipcMain.handle(TURN_WATCHDOG_RECORD_IPC, async (_event, input: unknown) => {
+    const parsed = RecordTurnWatchdogArgsSchema.safeParse(input);
+    if (!parsed.success) return false;
+    const store = await ensurePersistenceReady();
+    return store.turnDigests.recordWatchdog(parsed.data);
+  });
   ipcMain.handle(
     TURN_HISTORY_LIST_IPC,
     async (_event, input: unknown): Promise<TurnHistoryListResponse> => {

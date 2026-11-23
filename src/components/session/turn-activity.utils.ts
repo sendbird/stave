@@ -1,3 +1,4 @@
+import type { TurnStallEvidence } from "@/lib/providers/turn-activity-evidence";
 import { i18n } from "@/i18n/runtime";
 import { formatDuration } from "@/i18n/format";
 import type { TodoItem } from "@/lib/todo-progress";
@@ -489,6 +490,28 @@ function resolveTodoStatus(todo: TurnActivityTodo): TurnActivityRowStatus {
   return "pending";
 }
 
+export function describeTurnStallEvidence(evidence: TurnStallEvidence) {
+  switch (evidence.kind) {
+    case "tool":
+      return i18n.t("session:turnWatchdog.tool", {
+        name: evidence.name,
+        duration: formatTurnActivityElapsedSeconds(evidence.elapsedMs / 1000),
+      });
+    case "background":
+      return i18n.t("session:turnWatchdog.background", { count: evidence.count });
+    case "approval":
+      return i18n.t("session:turnWatchdog.approval");
+    case "user_input":
+      return i18n.t("session:turnWatchdog.userInput");
+    case "retry":
+      return i18n.t("session:turnWatchdog.retry");
+    case "transport_exit":
+      return i18n.t("session:turnWatchdog.transportExit");
+    case "silence":
+      return i18n.t("session:turnWatchdog.silence");
+  }
+}
+
 /**
  * Flatten every tracked signal into one row list, in a stable order: turn-level
  * signals first, then provider work in the order it started, then todos in
@@ -502,8 +525,9 @@ function resolveTodoStatus(todo: TurnActivityTodo): TurnActivityRowStatus {
 export function buildTurnActivityItems(args: {
   activity: Pick<
     ProviderTurnActivitySnapshot,
-    "completedAt" | "pendingInteraction" | "turnError" | "turnErrorRecoverable"
+    "completedAt" | "pendingInteraction" | "turnError" | "turnErrorRecoverable" | "stallWarning"
   > | null;
+  retrying?: boolean;
   idleLabel: string | null;
   isStalled: boolean;
   todos: TurnActivityTodo[];
@@ -519,6 +543,23 @@ export function buildTurnActivityItems(args: {
   const items: TurnActivityItem[] = [];
   const { groups: hookGroups, groupKeyByItemId: hookGroupKeyByItemId } =
     groupHookWorkItems(args.workItems);
+  if (args.retrying && !args.activity?.turnError) {
+    items.push({
+      id: "provider-retry",
+      status: "waiting",
+      title: i18n.t("session:turnWatchdog.retry"),
+      iconKey: "alert",
+    });
+  }
+  if (args.activity?.stallWarning && args.activity.completedAt == null) {
+    items.push({
+      id: "quiet-work",
+      status: "waiting",
+      title: i18n.t("session:turnWatchdog.quietWork"),
+      detail: describeTurnStallEvidence(args.activity.stallWarning),
+      iconKey: "alert",
+    });
+  }
   if (args.activity?.turnError) {
     const isRecovering =
       args.activity.turnErrorRecoverable === true &&

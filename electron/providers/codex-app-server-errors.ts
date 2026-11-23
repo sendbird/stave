@@ -119,6 +119,19 @@ export function buildCodexTerminalFailureEvents(args: {
   ];
 }
 
+export function buildCodexProcessExitEvents(args: {
+  message: string;
+  abortRequested: boolean;
+}): BridgeEvent[] {
+  const [error] = buildCodexTerminalFailureEvents({ message: args.message });
+  if (args.abortRequested) return [error, { type: "done", stop_reason: "user_abort" }];
+  return [
+    { type: "provider_activity", activity: { kind: "transport_exit" } },
+    error,
+    { type: "done", stop_reason: "runtime_failure" },
+  ];
+}
+
 export function resolveCodexTurnCompletionStopReason(args: {
   status?: string;
   abortRequested: boolean;

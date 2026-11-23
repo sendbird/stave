@@ -2221,6 +2221,9 @@ interface WindowPersistenceApi {
   readTaskTurnRecord?: (
     args: import("@/lib/providers/turn-history").ReadTaskTurnRecordArgs,
   ) => Promise<import("@/lib/providers/turn-history").TurnRecordResponse>;
+  recordTurnWatchdog?: (
+    args: import("@/lib/providers/turn-history").RecordTurnWatchdogArgs,
+  ) => Promise<boolean>;
   /** A task's handoff record; an empty record when none was saved. */
   readTaskHandoff?: (
     args: import("@/lib/task-context/handoff-record-ipc").ReadTaskHandoffArgs,

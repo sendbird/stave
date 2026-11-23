@@ -1158,6 +1158,7 @@ export type NormalizedProviderEvent =
       /** An Agent run reply ran on this model instead of the routed one, for this reason. */
       agentRunRoute?: { cause: AgentRunRouteCause };
     }
+  | import("./turn-activity-evidence").ProviderActivityEvent
   | { type: "error"; message: string; recoverable: boolean }
   | {
       type: "done";

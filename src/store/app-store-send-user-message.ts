@@ -517,14 +517,9 @@ export function createSendUserMessageAction(args: {
       // Hydration already cleared this draft; keep subsequent edits and recovery.
       composerClearedForRun = !preservePromptDraft && !queuedTurnToSend;
     }
-    // A "stalled" turn is one whose provider stream has gone silent past the
-    // stall threshold with no pending approval/user_input interaction — e.g. a
-    // background task that never emitted `done`, or one whose runtime died. In
-    // that state, queuing would strand the user in a spinner forever, so instead
-    // interrupt the dead turn and send this message as a fresh turn. This mirrors
-    // the manual "Stop, then send" flow (and, like it, does not resume the
-    // aborted provider session). Live/streaming turns and turns waiting on an
-    // approval or AskUserQuestion prompt are NOT stalled and still queue.
+    // When the watchdog offers continuation, submitting stops the quiet
+    // turn and sends a fresh message. Confirmed activity and pending prompts
+    // keep the regular steer and queue behavior.
     const activeTurnStalled =
       !!activeTurnId &&
       resolveProviderTurnDisplayState({

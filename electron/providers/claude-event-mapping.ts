@@ -221,6 +221,13 @@ export function mapClaudeMessageToEvents(args: {
       content?: string;
       summary?: string;
     };
+    if (sysMsg.subtype === "api_retry") {
+      return [{ type: "provider_activity", activity: { kind: "retry" } }];
+    }
+    if (sysMsg.subtype === "background_tasks_changed") {
+      const count = sysMsg.tasks.filter((task) => !task.ambient).length;
+      return [{ type: "provider_activity", activity: { kind: "background", count } }];
+    }
     if (sysMsg.subtype === "plugin_install") {
       if (sysMsg.status === "installed" && sysMsg.name) {
         return [{ type: "system", content: `Plugin installed: ${sysMsg.name}` }];

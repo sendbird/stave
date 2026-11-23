@@ -35,7 +35,7 @@ export {
   resolveClaudeAutoModeAvailability,
   shouldKeepClaudeReadOnlyPrompt,
 } from "./claude-auto-mode";
-import { spawn as spawnResourceProcess } from "node:child_process";
+import { spawn as spawnResourceProcess, type ChildProcess } from "node:child_process";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
 import { toClaudeContextUsageSnapshot } from "./claude-context-usage-snapshot";
@@ -1037,6 +1037,7 @@ function resolveClaudePluginConfigs(value?: readonly string[]) {
 }
 
 export function buildClaudeQueryOptions(args: {
+  onProcessSpawned?: (process: ChildProcess) => void;
   resourceOwner?: { workspaceId?: string; taskId?: string };
   cwd: string;
   claudeExecutablePath: string;
@@ -1268,6 +1269,7 @@ export function buildClaudeQueryOptions(args: {
         cwd: options.cwd, env: options.env, signal: options.signal,
         stdio: ["pipe", "pipe", "ignore"], windowsHide: true,
       });
+      args.onProcessSpawned?.(child);
       if (child.pid) {
         const pid = child.pid;
         retainResourceProcessOwner(pid, args.resourceOwner ?? {});
@@ -3101,6 +3103,10 @@ export async function streamClaudeWithSdk(
   const pendingUserInputResolvers = new Map<string, (response: ClaudeUserInputDecision) => void>();
   let awaitingQuestion = false;
   let backgroundTasks: ReturnType<typeof createClaudeBackgroundTaskObserver> | undefined;
+  let hasResult = false;
+  let claudeProcess: ChildProcess | undefined;
+  const processExited = () => claudeProcess?.exitCode != null || claudeProcess?.signalCode != null;
+  const transportExit = { type: "provider_activity", activity: { kind: "transport_exit" } } as const;
   // A delegated (managed) run's question keeps today's timeout: its controller, not the user, answers it.
   const runQuestionScope = args.managedTask ? undefined : args.agentRunStage;
   let stream: Query | null = null;
@@ -3349,6 +3355,7 @@ export async function streamClaudeWithSdk(
       prompt: inputQueue,
       options: (queryOptions = withClaudeTurnGuardrails(buildClaudeQueryOptions({
         resourceOwner: args,
+        onProcessSpawned: (child) => { claudeProcess = child; },
         cwd: runtimeCwd,
         claudeExecutablePath,
         runtimeOptions: args.runtimeOptions,
@@ -3809,19 +3816,8 @@ export async function streamClaudeWithSdk(
       return { ok: true };
     });
 
-    // Intentional provider asymmetry (see `the-provider-runtime-symmetry`):
-    // unlike the Codex adapter, which spawns and owns its app-server
-    // `ChildProcess` directly (`codex-app-server-runtime.ts`'s
-    // `onProcessExit`/`teardownProcess`), this loop consumes the
-    // `@anthropic-ai/claude-agent-sdk` `Query` async iterator, whose public
-    // type does not expose the underlying CLI subprocess. There is no
-    // supported way to attach an "exit" listener here, so a genuinely dead
-    // subprocess that the SDK fails to surface as a thrown/ended iteration
-    // cannot be detected at this layer. The safety net for that case is
-    // provider-agnostic instead: `autoAbortStalledTaskTurn` in
-    // `src/store/app.store.ts` force-ends any turn (Claude or Codex) that
-    // goes silent for `PROVIDER_TURN_STALL_THRESHOLD_MS +
-    // PROVIDER_TURN_AUTO_ABORT_GRACE_MS`, regardless of the underlying cause.
+    // An SDK Query can report transport failure by throwing or ending. A
+    // transport that never settles is bounded by the renderer's turn watchdog.
     let hasStreamedText = false;
     let hasStreamedThinking = false;
     const emittedToolUseIds = new Set<string>();
@@ -3975,15 +3971,11 @@ export async function streamClaudeWithSdk(
         currentStopReason: finalStopReason,
       });
       if (message.type === "result") {
-        // In streaming-input mode the SDK keeps the query open waiting for the
-        // next input message; unlike string-prompt mode it will NOT end the
-        // stream after emitting `result`. Close the input queue now so the
-        // `for await` loop can terminate and the turn completes. Any steer
-        // pushed before this point is already buffered and still drains before
-        // the iterator signals done; a steer arriving after close is rejected
-        // (returns false), and the store falls back to queuing it as a new
-        // turn — the correct behavior once the response has finished.
-        // A view capture reads through the live query, so it finishes first.
+        hasResult = true;
+        // In streaming-input mode, `result` leaves the query waiting for input.
+        // Close the queue so the iterator can finish after draining buffered
+        // steers. Later steers return false and the store queues them as new
+        // turns. Let view captures finish first because they need the live query.
         if (!abortRequested) await mcpAppViews.settle();
         inputQueue?.close();
       }
@@ -4054,6 +4046,11 @@ export async function streamClaudeWithSdk(
       args.onEvent?.(compactError);
       finalStopReason = "runtime_failure";
     }
+    if (!abortRequested && !hasResult && !heldBackgroundTasks && processExited()) {
+      eventCollector.append(transportExit);
+      args.onEvent?.(transportExit);
+      finalStopReason = "runtime_failure";
+    }
     const terminalStopReason = resolveClaudeStreamTerminalStopReason({
       abortRequested,
       currentStopReason: finalStopReason,
@@ -4093,6 +4090,7 @@ export async function streamClaudeWithSdk(
       diagnostics,
     );
     const failureEvents: BridgeEvent[] = [
+      ...(!hasResult && processExited() ? [transportExit] : []),
       {
         type: "error",
         message: `Claude runtime failure: ${toText(error)} | diagnostics=${toText(

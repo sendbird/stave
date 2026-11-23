@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ChatMessage } from "@/types/chat";
-import { TurnDigestSchema } from "./turn-digest";
+import { TurnDigestSchema, TurnWatchdogEntrySchema } from "./turn-digest";
 
 /**
  * The renderer's view of a task's earlier turns: the list behind Activity's
@@ -9,6 +9,7 @@ import { TurnDigestSchema } from "./turn-digest";
  */
 export const TURN_HISTORY_LIST_IPC = "persistence:list-task-turn-history";
 export const TURN_HISTORY_RECORD_IPC = "persistence:read-task-turn-record";
+export const TURN_WATCHDOG_RECORD_IPC = "persistence:record-turn-watchdog";
 
 /** Turns listed per read, newest first. */
 export const TURN_HISTORY_PAGE_LIMIT = 200;
@@ -36,6 +37,11 @@ export const ReadTaskTurnRecordArgsSchema = z
   .object({ workspaceId: IdSchema, taskId: IdSchema, turnId: IdSchema })
   .strict();
 export type ReadTaskTurnRecordArgs = z.infer<typeof ReadTaskTurnRecordArgsSchema>;
+
+export const RecordTurnWatchdogArgsSchema = ReadTaskTurnRecordArgsSchema.extend({
+  entry: TurnWatchdogEntrySchema,
+});
+export type RecordTurnWatchdogArgs = z.infer<typeof RecordTurnWatchdogArgsSchema>;
 
 const ProviderIdSchema = z.preprocess(
   (value) => (value === "stave" ? "claude-code" : value),

@@ -1,59 +1,51 @@
+import { i18n } from "@/i18n";
+import {
+  decideTurnStall,
+  resolveTurnStallEvidence,
+  type TurnStallEvidence,
+} from "@/lib/providers/turn-activity-evidence";
+import type { RecordTurnWatchdogArgs } from "@/lib/providers/turn-history";
+
 import {
   clearProviderTurnActivity,
   markProviderTurnStalled,
-  PROVIDER_TURN_AUTO_ABORT_GRACE_MS,
   resolveProviderTurnStallThresholdMs,
   retainRetiredTurnActivity,
   type ProviderTurnActivitySnapshot,
   type RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
-import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
+import { remainingPendingInteraction } from "@/store/provider-message.utils";
 import {
   interruptActiveTaskTurns,
   type WorkspaceSessionState,
 } from "@/store/workspace-session-state";
 import type { ChatMessage } from "@/types/chat";
 
-export const PROVIDER_TURN_AUTO_ABORT_NOTICE =
-  "Generation was stopped automatically because the provider went silent for too long.";
-
 type ProviderTurnActivityByTask = Record<
   string,
   ProviderTurnActivitySnapshot | undefined
 >;
 
-/**
- * Arm the force-abort follow-up for a turn that was just marked "stalled."
- *
- * Gives the turn one more grace window in case the provider is merely slow,
- * then force-aborts so a turn that never resumes (dead subprocess, hung
- * stream, dropped event) cannot keep its task — and therefore its workspace —
- * marked "active" forever. Deliberately reuses the caller's stall-timer map so
- * a fresh provider event before this fires reschedules cleanly: the caller's
- * scheduler clears this handle first.
- */
-export function scheduleStalledTurnAutoAbort(args: {
-  taskId: string;
-  turnId: string;
-  timerByTask: Map<string, ReturnType<typeof globalThis.setTimeout>>;
-  autoAbort: (target: { taskId: string; turnId: string }) => void;
-}) {
-  const handle = globalThis.setTimeout(() => {
-    args.timerByTask.delete(args.taskId);
-    args.autoAbort({ taskId: args.taskId, turnId: args.turnId });
-  }, PROVIDER_TURN_AUTO_ABORT_GRACE_MS);
-  args.timerByTask.set(args.taskId, handle);
+// A restored turn may have saved tool calls without a live activity snapshot.
+function findRestoredToolEvidence(
+  messages: ChatMessage[] | undefined,
+  turnId: string,
+  now: number,
+): TurnStallEvidence | undefined {
+  for (const message of messages ?? []) {
+    if (message.turnId !== turnId) continue;
+    for (const part of message.parts) {
+      if (part.type !== "tool_use" || part.state !== "input-available" || part.completedAt) continue;
+      const startedAt = Date.parse(part.startedAt ?? "");
+      if (Number.isFinite(startedAt)) {
+        return { kind: "tool", name: part.toolName.slice(0, 200), elapsedMs: Math.max(0, now - startedAt) };
+      }
+    }
+  }
+  return undefined;
 }
 
-/**
- * Build the scheduler that arms the "no events for a while" watch for one turn.
- *
- * Called on every provider event arrival (see
- * `createProviderTurnLivenessReporter`), so it always clears the previous handle
- * first and re-arms from the new `lastEventAt`. When the window elapses in
- * silence the turn is marked stalled — a display state only — and
- * `scheduleStalledTurnAutoAbort` takes over for the force-abort follow-up.
- */
+/** Re-evaluate the same quiet interval until the provider resumes or the turn settles. */
 export function createProviderTurnStallTimerScheduler<
   TState extends StalledTurnAbortState,
 >(deps: {
@@ -65,69 +57,82 @@ export function createProviderTurnStallTimerScheduler<
   }) => WorkspaceSessionState | null;
   timerByTask: Map<string, ReturnType<typeof globalThis.setTimeout>>;
   clearStallTimer: (taskId: string) => void;
-  autoAbort: (target: { taskId: string; turnId: string }) => void;
+  recordDecision: (record: RecordTurnWatchdogArgs) => void;
+  autoAbort: (target: { taskId: string; turnId: string; transportExited: boolean }) => void;
 }) {
   return (args: { taskId: string; turnId: string; lastEventAt: number }) => {
     deps.clearStallTimer(args.taskId);
-    const providerId =
-      deps.getState().providerTurnActivityByTask[args.taskId]?.providerId;
-    const delayMs = Math.max(
-      0,
-      resolveProviderTurnStallThresholdMs({ providerId }) -
-        (Date.now() - args.lastEventAt),
-    );
-    const handle = globalThis.setTimeout(() => {
-      deps.timerByTask.delete(args.taskId);
-      let markedStalled = false;
-      deps.applyPatch((state) => {
-        // `state.activeTurnIdsByTask` only covers the active workspace; resolve
-        // the owning workspace session so turns running in a backgrounded
-        // workspace can still be marked stalled.
-        const owningWorkspaceId =
-          state.taskWorkspaceIdById[args.taskId] ?? state.activeWorkspaceId;
-        const owningSession = owningWorkspaceId
-          ? deps.getWorkspaceSession({ state, workspaceId: owningWorkspaceId })
-          : null;
+    const initialActivity = deps.getState().providerTurnActivityByTask[args.taskId];
+    let lastDecision: string | undefined;
+    let silenceStartedAt = args.lastEventAt;
+    const checkAt = (deadline: number) => {
+      const handle = globalThis.setTimeout(() => {
+        if (deps.timerByTask.get(args.taskId) !== handle) return;
+        deps.timerByTask.delete(args.taskId);
+        const state = deps.getState();
+        const activity = state.providerTurnActivityByTask[args.taskId];
+        const workspaceId = state.taskWorkspaceIdById[args.taskId] ?? state.activeWorkspaceId;
+        const session = workspaceId ? deps.getWorkspaceSession({ state, workspaceId }) : null;
         if (
-          !owningSession ||
-          owningSession.activeTurnIdsByTask[args.taskId] !== args.turnId
-        ) {
-          return state;
+          session?.activeTurnIdsByTask[args.taskId] !== args.turnId ||
+          activity?.turnId !== args.turnId || activity.completedAt != null ||
+          activity.admission?.state === "queued"
+        ) return;
+
+        const now = Math.max(deadline, Date.now());
+        const messages = session.messagesByTask[args.taskId];
+        const pending = remainingPendingInteraction(messages, args.turnId);
+        const liveEvidence = resolveTurnStallEvidence(activity.activityEvidence, pending, now);
+        const evidence = liveEvidence.kind === "silence" && activity.activityEvidence?.tools == null
+          ? findRestoredToolEvidence(messages, args.turnId, now) ?? liveEvidence
+          : liveEvidence;
+        const silentMs = Math.max(0, now - silenceStartedAt);
+        if (pending) silenceStartedAt = now;
+        // A prompt can settle through host replay without a fresh provider event.
+        if (!pending && silentMs < resolveProviderTurnStallThresholdMs() && evidence.kind !== "transport_exit") {
+          checkAt(silenceStartedAt + resolveProviderTurnStallThresholdMs());
+          return;
         }
-        const providerTurnActivityByTask = markProviderTurnStalled({
-          activityByTask: state.providerTurnActivityByTask,
-          taskId: args.taskId,
-          turnId: args.turnId,
-          // Verified against the transcript, never trusted: see the
-          // `hasPendingPrompt` contract in `markProviderTurnStalled`.
-          hasPendingPrompt: Boolean(
-            findLatestPendingToolInteraction({
-              messages: owningSession.messagesByTask[args.taskId] ?? [],
+        const { decision, recheckAfterMs } = decideTurnStall(evidence, silentMs);
+        const key = `${decision}:${evidence.kind}`;
+        if (key !== lastDecision) {
+          deps.recordDecision({
+            workspaceId,
+            taskId: args.taskId,
+            turnId: args.turnId,
+            entry: { kind: "watchdog", at: new Date(now).toISOString(), decision, evidence, silentMs },
+          });
+          lastDecision = key;
+        }
+
+        if (decision === "abort") {
+          deps.autoAbort({ taskId: args.taskId, turnId: args.turnId, transportExited: evidence.kind === "transport_exit" });
+          return;
+        }
+        if (decision === "offer_continuation") {
+          deps.applyPatch((latest) => ({
+            providerTurnActivityByTask: markProviderTurnStalled({
+              activityByTask: latest.providerTurnActivityByTask,
+              taskId: args.taskId,
+              turnId: args.turnId,
+              hasPendingPrompt: false,
+              now,
             }),
-          ),
-        });
-        if (providerTurnActivityByTask === state.providerTurnActivityByTask) {
-          return state;
+          }) as Partial<TState>);
+        } else if (decision === "warn" && !activity.stallWarning) {
+          deps.applyPatch((latest) => ({
+            providerTurnActivityByTask: {
+              ...latest.providerTurnActivityByTask,
+              [args.taskId]: { ...activity, stallWarning: evidence },
+            },
+          }) as Partial<TState>);
         }
-        markedStalled = true;
-        return { providerTurnActivityByTask } as Partial<TState>;
-      });
-
-      if (!markedStalled) {
-        // Turn already ended, moved on, or is genuinely waiting on an
-        // unanswered approval / user-input prompt (`markProviderTurnStalled`
-        // excludes those) — no follow-up needed.
-        return;
-      }
-
-      scheduleStalledTurnAutoAbort({
-        taskId: args.taskId,
-        turnId: args.turnId,
-        timerByTask: deps.timerByTask,
-        autoAbort: deps.autoAbort,
-      });
-    }, delayMs);
-    deps.timerByTask.set(args.taskId, handle);
+        if (recheckAfterMs != null && !deps.timerByTask.has(args.taskId)) checkAt(now + recheckAfterMs);
+      }, Math.max(0, deadline - Date.now()));
+      deps.timerByTask.set(args.taskId, handle);
+    };
+    checkAt(args.lastEventAt + (initialActivity?.activityEvidence?.transportExited
+      ? 0 : resolveProviderTurnStallThresholdMs({ providerId: initialActivity?.providerId })));
   };
 }
 
@@ -151,20 +156,7 @@ export interface StalledTurnAbortPatch {
   workspaceSnapshotVersion?: number;
 }
 
-/**
- * Build the force-terminate routine for a turn that has been silently stalled
- * (no events, no pending approval/user-input) for
- * `PROVIDER_TURN_STALL_THRESHOLD_MS + PROVIDER_TURN_AUTO_ABORT_GRACE_MS`.
- *
- * This is the safety net for turns that never resume and never emit `done` —
- * the underlying cause (dead subprocess, hung network stream, a dropped bridge
- * event) does not matter; silence past the grace window is treated as dead.
- * Works for tasks in the active workspace *and* backgrounded workspaces
- * (mirrors the pattern already used by
- * `interruptWorkspaceTurnsBeforeTransition` / `archiveTask`), since a stalled
- * turn in a workspace the user isn't currently viewing is exactly the
- * "workspace stuck showing active in the sidebar" symptom.
- */
+/** Release a dead turn from its owning workspace and stop its provider runtime. */
 export function createStalledProviderTurnAborter<
   TState extends StalledTurnAbortState,
 >(deps: {
@@ -183,7 +175,7 @@ export function createStalledProviderTurnAborter<
     messages: ChatMessage[];
   }) => void;
 }) {
-  return (args: { taskId: string; turnId: string }) => {
+  return (args: { taskId: string; turnId: string; transportExited: boolean }) => {
     deps.clearStallTimer(args.taskId);
     const state = deps.getState();
     const owningWorkspaceId =
@@ -204,31 +196,19 @@ export function createStalledProviderTurnAborter<
       return;
     }
     const activity = state.providerTurnActivityByTask[args.taskId];
-    if (activity?.turnId !== args.turnId || activity.stalledAt == null) {
-      // Resumed in the meantime, or replaced by a newer turn.
-      return;
-    }
     if (
-      activity.pendingInteraction != null &&
-      findLatestPendingToolInteraction({
-        messages: owningSession.messagesByTask[args.taskId] ?? [],
-      })
-    ) {
-      // Genuinely waiting on an approval / user-input prompt the user has not
-      // answered yet — those have their own resolution paths and must never be
-      // force-aborted here. The transcript is checked instead of trusting
-      // `pendingInteraction` alone: a prompt resolved without the store
-      // clearing that hint (managed host answering for the agent, runtime
-      // auto-decline, message replay) would otherwise leave the task pinned to
-      // "active" with no path left to reclaim it.
-      return;
-    }
+      activity?.turnId !== args.turnId ||
+      activity.completedAt != null ||
+      remainingPendingInteraction(owningSession.messagesByTask[args.taskId], args.turnId)
+    ) return;
 
     const interrupted = interruptActiveTaskTurns({
       tasks: [task],
       messagesByTask: owningSession.messagesByTask,
       activeTurnIdsByTask: owningSession.activeTurnIdsByTask,
-      notice: PROVIDER_TURN_AUTO_ABORT_NOTICE,
+      notice: args.transportExited
+        ? i18n.t("session:turnWatchdog.stopTransport")
+        : i18n.t("session:turnWatchdog.stopSilence"),
       messageCountByTask: owningSession.messageCountByTask,
     });
     if (interrupted.interruptedTaskIds.length === 0) {
@@ -280,7 +260,7 @@ export function createStalledProviderTurnAborter<
     });
 
     console.warn(
-      "[app.store] Auto-aborted a provider turn stalled past the grace window",
+      "[app.store] Automatically stopped an unresponsive provider turn",
       {
         taskId: args.taskId,
         turnId: args.turnId,

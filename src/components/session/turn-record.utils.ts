@@ -26,6 +26,7 @@ import type { ApprovalPart, ChatMessage, ToolUsePart, UserInputPart } from "@/ty
 import type { Tone } from "@/components/aui/utils/tone";
 import {
   describeRetainedTurnHeadline,
+  describeTurnStallEvidence,
   formatTurnActivityElapsedSeconds,
   type TurnActivityItem,
   type TurnActivityRowStatus,
@@ -242,6 +243,22 @@ export function describeTurnDigestEntry(
           : i18n.t("session:turnRecord.entry.retry"),
         detail: entry.message,
       };
+    case "watchdog": {
+      const duration = formatTurnActivityElapsedSeconds(entry.silentMs / 1000);
+      const titles = {
+        wait: i18n.t("session:turnWatchdog.wait"),
+        warn: i18n.t("session:turnWatchdog.warn", { duration }),
+        offer_continuation: i18n.t("session:turnWatchdog.offer"),
+        abort: i18n.t("session:turnWatchdog.abort"),
+      };
+      return {
+        ...base,
+        tone: entry.decision === "wait" ? "neutral" : "warning",
+        icon: entry.evidence.kind === "retry" ? "retry" : "stall",
+        title: titles[entry.decision],
+        detail: describeTurnStallEvidence(entry.evidence),
+      };
+    }
     case "stall": {
       const duration = formatTurnActivityElapsedSeconds(entry.silentMs / 1000);
       return {

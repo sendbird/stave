@@ -101,6 +101,7 @@ import { isRecord } from "./codex-app-server-json";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 import { buildCodexRouteClassificationThreadStartParams } from "./codex-route-classification";
 import {
+  buildCodexProcessExitEvents,
   buildCodexTerminalFailureEvents,
   CodexAppServerRpcError,
   resolveCodexTurnCompletionStopReason,
@@ -2731,6 +2732,9 @@ export async function streamCodexWithAppServer(
               extractCodexAppServerErrorMessage(params) ??
               "Codex App Server error.";
             lastAppServerErrorMessage = errorMessage;
+            if (params.willRetry === true) {
+              emitBridgeEvent({ type: "provider_activity", activity: { kind: "retry" } });
+            }
             emitBridgeEvent({
               type: "error",
               message: toCodexUserFacingErrorMessage({ message: errorMessage }),
@@ -3020,15 +3024,7 @@ export async function streamCodexWithAppServer(
           "[provider-runtime] Codex app-server process exited during turn",
           { threadId, appServerTurnId: appServerTurnId || null, exitMessage },
         );
-        const [terminalError] = buildCodexTerminalFailureEvents({
-          message: exitMessage,
-        });
-        emitBridgeEvent(terminalError);
-        emitBridgeEvent(
-          abortRequested
-            ? { type: "done", stop_reason: "user_abort" }
-            : { type: "done", stop_reason: "runtime_failure" },
-        );
+        emitBridgeEvents(buildCodexProcessExitEvents({ message: exitMessage, abortRequested }));
         finishTurnWait();
       });
 

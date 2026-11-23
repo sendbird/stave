@@ -388,6 +388,7 @@ export type BridgeEvent =
       /** An Agent run reply ran on this model instead of the one the composer sent. */
       agentRunRoute?: { cause: import("../../src/lib/providers/provider.types").AgentRunRouteCause };
     }
+  | import("../../src/lib/providers/turn-activity-evidence").ProviderActivityEvent
   | { type: "error"; message: string; recoverable: boolean }
   | { type: "done"; stop_reason?: string; accountProfileId?: string };
 

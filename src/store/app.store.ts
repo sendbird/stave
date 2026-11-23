@@ -470,6 +470,11 @@ export const useAppStore = create<AppState>()(
         getWorkspaceSession: getWorkspaceSessionForState,
         timerByTask: providerTurnStallTimerByTask,
         clearStallTimer: clearProviderTurnStallTimer,
+        recordDecision: (record) => {
+          void window.api?.persistence?.recordTurnWatchdog?.(record).catch((error: unknown) => {
+            console.warn("[app.store] Failed to record a turn watchdog decision", error);
+          });
+        },
         // Lazy: the aborter is built below and needs this scheduler.
         autoAbort: (target) => autoAbortStalledTaskTurn(target),
       });

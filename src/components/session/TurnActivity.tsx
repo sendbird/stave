@@ -990,6 +990,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const activityTurnError = props.activity?.turnError ?? null;
   const activityTurnErrorRecoverable =
     props.activity?.turnErrorRecoverable ?? false;
+  const retrying = props.activity?.activityEvidence?.retrying;
+  const stallWarning = props.activity?.stallWarning;
   const hasActivity = props.activity != null;
   const activityStartedAt = props.activity?.startedAt ?? null;
   const stalledIdleLabel = isStalled ? idleLabel : null;
@@ -998,12 +1000,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       buildTurnActivityItems({
         activity: hasActivity
           ? {
+              stallWarning,
               completedAt: activityCompletedAt ?? undefined,
               pendingInteraction: activityPendingInteraction,
               turnError: activityTurnError ?? undefined,
               turnErrorRecoverable: activityTurnErrorRecoverable,
             }
           : null,
+        retrying,
         idleLabel: stalledIdleLabel,
         isStalled,
         todos: props.todos,
@@ -1023,6 +1027,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.todos,
       props.workItems,
       stalledIdleLabel,
+      retrying,
+      stallWarning,
       i18n.language,
     ],
   );
