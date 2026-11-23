@@ -23,5 +23,6 @@ export {
 } from "./executor";
 
 export {
+  hasWorkspaceOrbitHost,
   type WorkspaceScriptProcess,
 } from "./state";

@@ -456,7 +456,11 @@
       },
       "cdpTools": {
         "title": "CDP 도구",
-        "description": "호스트마다 첫 CDP 동작 전에 확인합니다. 한 번 허용은 일시적이며, 항상 허용은 아래에 호스트 이름을 저장합니다."
+        "description": "CDP 도구를 켭니다. 한 번 허용은 마지막 사용 후 15분간 유지되며, 항상 허용을 선택하면 아래에 호스트 이름이 저장됩니다."
+      },
+      "localHostExemption": {
+        "title": "로컬 개발 환경에서 CDP 승인 생략",
+        "description": "CDP 도구가 켜져 있으면 루프백과 워크스페이스 Orbit 호스트에 승인 없이 접근합니다."
       },
       "approvedHosts": "승인된 CDP 호스트",
       "hostPlaceholder": "localhost 또는 https://example.com",
@@ -464,11 +468,11 @@
       "addHost": "호스트 추가",
       "hostHelp": "호스트 이름이나 URL을 입력합니다. 포트와 경로는 무시되므로 <code>localhost</code> 하나로 <code>localhost:3000</code>, <code>localhost:8899</code> 등 모든 localhost 포트가 포함됩니다.",
       "removeHost": "{{host}} 호스트 제거",
-      "noHosts": "미리 승인된 호스트가 없습니다. 첫 CDP 동작 때 승인 대화상자가 표시됩니다."
+      "noHosts": "미리 승인된 호스트가 없습니다. CDP 승인이 필요한 호스트에 접근하면 승인 요청이 표시됩니다."
     },
     "siteAccess": {
       "title": "사이트 접근",
-      "description": "호스트 이름으로 Lens 탐색을 제한합니다. 차단 목록이 허용 목록보다 우선합니다. 루프백 대상은 탐색이 항상 허용되지만, CDP 동작은 여전히 위의 승인이 필요합니다.",
+      "description": "호스트 이름으로 Lens 탐색을 제한합니다. 차단 목록이 허용 목록보다 우선합니다. 루프백 대상은 탐색이 항상 허용됩니다. CDP 접근은 개발자 모드에서 별도로 설정합니다.",
       "allowed": {
         "title": "허용 호스트",
         "description": "한 줄에 호스트 하나씩 입력합니다. 비워 두면 차단되지 않은 모든 호스트를 허용합니다."

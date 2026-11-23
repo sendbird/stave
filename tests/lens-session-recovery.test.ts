@@ -218,6 +218,7 @@ describe("restoring a rebuilt guest", () => {
       allowedHosts: [],
       blockedHosts: ["blocked.test"],
       developerModeCdp: false,
+      cdpLocalHostExemption: true,
       cdpApprovedHosts: [],
     });
     const guest = fakeGuest();
@@ -238,6 +239,7 @@ describe("restoring a rebuilt guest", () => {
       allowedHosts: ["intranet.test"],
       blockedHosts: [],
       developerModeCdp: false,
+      cdpLocalHostExemption: true,
       cdpApprovedHosts: [],
     });
     const guest = fakeGuest();

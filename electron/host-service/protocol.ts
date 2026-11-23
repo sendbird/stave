@@ -623,6 +623,10 @@ export interface HostServiceRequestMap {
   "workspace-scripts.get-status": {
     workspaceId: string;
   };
+  "workspace-scripts.has-orbit-host": {
+    workspaceId: string;
+    host: string;
+  };
   "workspace-scripts.cleanup-all": undefined;
   "turn-snapshots.list": TurnSnapshotOwner;
   "turn-snapshots.restore": TurnSnapshotRestore;
@@ -1145,6 +1149,9 @@ export interface HostServiceResponseMap {
   };
   "workspace-scripts.get-status": {
     statuses: WorkspaceScriptStatusEntry[];
+  };
+  "workspace-scripts.has-orbit-host": {
+    matches: boolean;
   };
   "workspace-scripts.cleanup-all": {
     ok: true;

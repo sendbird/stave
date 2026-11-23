@@ -18,11 +18,12 @@ import { SettingsCard, SwitchField } from "../settings-dialog.shared";
  */
 export function LensDeveloperModeCard() {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [developerModeCdp, cdpApprovedHosts] = useAppStore(
+  const [developerModeCdp, cdpLocalHostExemption, cdpApprovedHosts] = useAppStore(
     useShallow(
       (state) =>
         [
           state.settings.lensDeveloperModeCdp,
+          state.settings.lensCdpLocalHostExemption,
           state.settings.lensCdpApprovedHosts,
         ] as const,
     ),
@@ -72,6 +73,16 @@ export function LensDeveloperModeCard() {
           onCheckedChange={(checked) =>
             updateSettings({
               patch: { lensDeveloperModeCdp: checked },
+            })
+          }
+        />
+        <SwitchField
+          title={t("settings:lensSection.developerMode.localHostExemption.title")}
+          description={t("settings:lensSection.developerMode.localHostExemption.description")}
+          checked={cdpLocalHostExemption}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: { lensCdpLocalHostExemption: checked },
             })
           }
         />

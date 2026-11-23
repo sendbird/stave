@@ -1270,6 +1270,8 @@ Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/scre
 
 ```callout tip "Keep the Local MCP Server on"
 The AI can use Stave features such as the Information panel, workspace documents, schedules and Lens only while **Settings > MCP > Local MCP Server** is on. Agent runs need it too.
+
+With Lens CDP tools enabled, loopback addresses and active Orbit service hosts for the current workspace skip approval by default. Change this in **Settings > Browser > Lens > Developer Mode > Advanced options** under **Skip CDP prompts for local development**. When prompted, **Allow once** grants access in that workspace for 15 minutes after the last CDP action on that host.
 ```
 
 Lens opens only in the desktop app. Closing a CLI tab ends its process.

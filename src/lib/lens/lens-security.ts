@@ -5,6 +5,8 @@ export function normalizeLensHostEntry(value: string): string | null {
   }
 
   const withoutWildcard = trimmed.startsWith("*.") ? trimmed.slice(2) : trimmed;
+  // Preserve the normalized IPv6 loopback host across settings hydration.
+  if (withoutWildcard === "::1") return withoutWildcard;
   try {
     const url = new URL(
       /^[a-z][a-z0-9+.-]*:\/\//i.test(withoutWildcard)
