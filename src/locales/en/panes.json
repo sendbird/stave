@@ -1,4 +1,28 @@
 {
+  "fileViewer": {
+    "previousChunk": "Previous chunk",
+    "nextChunk": "Next chunk",
+    "followTail": "Follow tail",
+    "reload": "Reload",
+    "findInFile": "Find in file",
+    "findNext": "Find next",
+    "noMatch": "No further matches. Search again to start from the beginning.",
+    "logSize": "Read-only · {{size}}",
+    "logContent": "Log content",
+    "loading": "Loading file…",
+    "changed": "The file changed on disk. Reload to read the latest revision.",
+    "binary": "This file does not appear to be a UTF-8 text file.",
+    "unavailable": "Unable to read this file.",
+    "fitWidth": "Fit width",
+    "actualSize": "Actual size",
+    "pageCount_one": "{{pages}} page",
+    "pageCount_other": "{{pages}} pages",
+    "pdfPage": "Page {{number}}",
+    "pdfContent": "PDF content",
+    "pdfTooLarge": "PDF preview supports files up to 64 MiB.",
+    "pdfInvalid": "Unable to open this PDF. The file may be damaged or password-protected.",
+    "pdfPageFailed": "Unable to render this page."
+  },
   "paneHeaderActions": {
     "backToFleetView": "Back to Fleet View",
     "fleetView": "Fleet View",

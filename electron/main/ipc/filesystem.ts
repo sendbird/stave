@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { z } from "zod";
 import {
   FilesystemCreateDirectoryArgsSchema,
   FilesystemCreateFileArgsSchema,
@@ -17,6 +18,7 @@ import {
   OpenExternalArgsSchema,
   OpenPathArgsSchema,
 } from "./schemas";
+import { readFilePreviewRange } from "../utils/file-preview-range";
 import { openExternalWithFallback } from "../utils/external-url";
 import { importAttachmentFiles } from "../utils/attachment-import";
 import {
@@ -36,6 +38,12 @@ import {
   writeFileWithExpectedRevision,
 } from "../utils/filesystem";
 import { registerFilesystemSearchHandlers } from "./filesystem-search-ipc";
+
+const FilesystemReadPreviewRangeArgsSchema = FilesystemFileArgsSchema.extend({
+  offset: z.number().int().nonnegative(),
+  length: z.number().int().nonnegative(),
+  revision: z.string().max(256).optional(),
+});
 
 async function statIfExists(targetPath: string) {
   try {
@@ -486,6 +494,15 @@ export function registerFilesystemHandlers() {
     } catch (error) {
       return { ok: false as const, stderr: String(error) };
     }
+  });
+
+  ipcMain.handle("fs:read-preview-range", async (_event, args: unknown) => {
+    const parsed = FilesystemReadPreviewRangeArgsSchema.safeParse(args);
+    const absolutePath = parsed.success && resolveRootFilePath(parsed.data);
+    if (!parsed.success || !absolutePath) {
+      return { ok: false, reason: "unavailable" };
+    }
+    return readFilePreviewRange(absolutePath, parsed.data);
   });
 
   ipcMain.handle("fs:read-file", async (_event, args: unknown) => {

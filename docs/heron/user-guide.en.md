@@ -1273,7 +1273,17 @@ When Stave reopens, requests that can no longer be answered move to history. Req
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |
 | MCP               | Settings > MCP                                             | **Add server**, then **Review change** and **Apply change**. The **Local MCP Server** card |
 
-Agents also show an inline HTML page without being asked when a reply compares three or more options, shows numbers across groups or over time, or explains a flow, architecture or layout. Page text starts at 14 pixels, the size of the reply around it. A tool from an MCP server you added can show its own view in its tool row; **Show text result** in the view's header opens the tool's plain text result with **Copy**, and it opens by itself when the view has no data to draw, such as after a failed call. Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; other text files have a 1 MiB preview limit.
+Agents also show an inline HTML page without being asked when a reply compares three or more options, shows numbers across groups or over time, or explains a flow, architecture or layout. Page text starts at 14 pixels, the size of the reply around it. A tool from an MCP server you added can show its own view in its tool row; **Show text result** in the view's header opens the tool's plain text result with **Copy**, and it opens by itself when the view has no data to draw, such as after a failed call. Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; the editable limit for other text files is 1 MiB.
+
+In the desktop app, open a PDF from Explorer or a chat link. The read-only
+viewer shows the page count and renders pages near the visible area. Use
+**Fit width** or **Actual size**. PDFs up to 64 MiB are supported.
+
+Larger UTF-8 text files open in a read-only reader. Use **Previous chunk** and
+**Next chunk** to browse, **Find in file** to search for exact text, or **Follow
+tail** to keep the newest output in view. Chat links with a line number jump to
+that line. Terminal color codes are stripped. If the file changes while you
+browse, choose **Reload** to start reading the latest revision.
 
 Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/command-palette.png) · [Workspace Tools](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-tools.png) · [Information panel](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/information-panel.png) · [Lens toolbar](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/lens.png) · [Settings > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/settings-mcp.png)
 

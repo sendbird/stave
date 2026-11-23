@@ -626,6 +626,7 @@ const EditorTabSchema = z.object({
       z.literal("deferred"),
       z.literal("loading"),
       z.literal("too-large"),
+      z.literal("read-only"),
     ])
     .optional()
     .default("ready"),

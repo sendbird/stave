@@ -31,3 +31,23 @@ export function formatFileSize(bytes: number | null | undefined) {
   const fractionDigits = value >= 10 ? 0 : 1;
   return `${value.toFixed(fractionDigits)} ${units[unitIndex]}`;
 }
+
+export function isPdfFilePath(filePath: string): boolean {
+  return /\.pdf$/i.test(filePath);
+}
+
+export function resolveReadOnlyFileViewer(
+  tab: { id: string; filePath: string; kind?: string; contentState?: string },
+  canReadRanges: boolean,
+): "pdf" | "log" | null {
+  if (!tab.id.startsWith("file:")) {
+    return null;
+  }
+  if (tab.contentState === "read-only" && isPdfFilePath(tab.filePath)) {
+    return "pdf";
+  }
+  if (canReadRanges && tab.contentState === "too-large" && tab.kind !== "image") {
+    return "log";
+  }
+  return null;
+}

@@ -9,6 +9,18 @@ extraResources:
     to: LICENSE
   - from: NOTICE
     to: NOTICE
+  # The PDF renderer is compiled into out/renderer. Include the upstream
+  # license and the notices for the decoder/font assets selected by the viewer.
+  - from: node_modules/pdfjs-dist
+    to: licenses/pdfjs-dist
+    filter:
+      - LICENSE
+      - cmaps/LICENSE
+      - standard_fonts/LICENSE_FOXIT
+      - wasm/LICENSE_JBIG2
+      - wasm/LICENSE_OPENJPEG
+      - wasm/LICENSE_PDFJS_JBIG2
+      - wasm/LICENSE_PDFJS_OPENJPEG
 directories:
   output: release
 asar: true
