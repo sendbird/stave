@@ -711,6 +711,7 @@ export function KickoffDialog(props: {
         : undefined;
     setCreating(true);
     setError(null);
+    let published = false;
     try {
       const result = await kickoffWorkspace({
         proposal: args.proposal,
@@ -720,10 +721,15 @@ export function KickoffDialog(props: {
         firstTaskProvider: effectiveProvider,
         firstTaskRuntimeOverrides,
         extraInstructions: args.extraInstructions,
+        onWorkspacePreparing: () => {
+          published = true;
+          props.onOpenChange(false);
+        },
         ...(beforeFirstTurn ? { beforeFirstTurn } : {}),
         ...(worksHere ? { target: { kind: "current-workspace" as const, workspaceId: activeWorkspaceId } } : {}),
       });
       if (!result.ok) {
+        if (published) return;
         setError(result.message ?? i18n.t("kickoff:additionalCopy.message8"));
         return;
       }
@@ -736,7 +742,7 @@ export function KickoffDialog(props: {
           ? tI18n(args.startFirstTask ? "kickoff:kickoffDialog.taskStartedInThisWorkspace" : "kickoff:kickoffDialog.taskCreatedInThisWorkspace")
           : tI18n("kickoff:kickoffDialog.workspaceCreatedFromKickoffSource"));
       }
-      props.onOpenChange(false);
+      if (!published) props.onOpenChange(false);
     } catch (caught) {
       setError(
         caught instanceof Error

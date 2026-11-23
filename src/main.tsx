@@ -222,6 +222,10 @@ if (preview === "bell-answers") {
   void import("@/dev/workspace-pr-preview").then(({ WorkspacePrPreview }) => {
     root.render(<StaveDesignProvider><WorkspacePrPreview /></StaveDesignProvider>);
   });
+} else if (preview === "workspace-creation") {
+  void import("@/dev/workspace-creation-preview").then(({ WorkspaceCreationPreview }) => {
+    root.render(<StaveDesignProvider><WorkspaceCreationPreview /></StaveDesignProvider>);
+  });
 } else if (preview === "create-pr") {
   void import("@/dev/create-pr-preview").then(({ CreatePrPreview }) => {
     root.render(

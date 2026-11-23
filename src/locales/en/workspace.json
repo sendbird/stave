@@ -1554,5 +1554,27 @@
       "lookupFailed": "Could not look up the pull request on GitHub.",
       "fetchFailed": "Could not fetch the pull request head."
     }
+  },
+  "creationProgress": {
+    "title": "Preparing workspace",
+    "steps": {
+      "worktree": "Create worktree",
+      "copy": "Copy reusable files",
+      "setup": "Run setup",
+      "task": "Start the first task"
+    },
+    "status": {
+      "waiting": "Waiting",
+      "running": "In progress",
+      "complete": "Done",
+      "skipped": "Skipped",
+      "failed": "Failed"
+    },
+    "failedRow": "Failed to finish: {{step}}",
+    "openLogs": "Open logs",
+    "hideLogs": "Hide logs",
+    "commandUnavailable": "The terminal bridge is unavailable. Retry once it is connected.",
+    "commandFailed": "The step failed without returning any output.",
+    "repositoryChanged": "You switched projects before creation started. Open the original project to try again."
   }
 }

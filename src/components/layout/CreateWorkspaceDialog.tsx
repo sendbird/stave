@@ -34,6 +34,7 @@ interface CreateWorkspaceDialogProps {
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
     initCommand?: string;
+    onWorkspacePreparing?: () => void;
     useRootNodeModulesSymlink?: boolean;
   }) => Promise<{
     ok: boolean;
@@ -260,6 +261,7 @@ export function CreateWorkspaceDialog({
     }
     setCreatingWorkspace(true);
     setCreateWorkspaceError(null);
+    let published = false;
     try {
       const result =
         creationMode === "link"
@@ -275,9 +277,14 @@ export function CreateWorkspaceDialog({
               fromBranch,
               fromBranchKind,
               initCommand,
+              onWorkspacePreparing: () => {
+                published = true;
+                onOpenChange(false);
+              },
               useRootNodeModulesSymlink,
             });
       if (!result.ok) {
+        if (published) return;
         setCreateWorkspaceError(
           result.message ?? t("createDialog.errors.failed"),
         );
@@ -297,7 +304,7 @@ export function CreateWorkspaceDialog({
           );
         }
       }
-      onOpenChange(false);
+      if (!published) onOpenChange(false);
     } catch (error) {
       setCreateWorkspaceError(
         error instanceof Error ? error.message : t("createDialog.errors.failed"),

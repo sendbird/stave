@@ -667,6 +667,17 @@ const SHOTS = [
     },
   },
   {
+    name: "workspace-creation-progress",
+    viewport: { width: 840, height: 640 },
+    async capture({ page, locale, file, t }) {
+      await openPreview(page, locale, "workspace-creation&stage=setup");
+      const panel = page.getByRole("region", { name: await t("workspace:creationProgress.title") });
+      await panel.getByText(await t("workspace:creationProgress.status.running"), { exact: true }).waitFor();
+      await settle(page);
+      await save(page, panel, file, { padding: 16 });
+    },
+  },
+  {
     name: "kickoff",
     async capture({ page, locale, file }) {
       await openPreview(page, locale, "kickoff");

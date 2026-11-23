@@ -61,7 +61,7 @@ import type {
   ProjectSettingsOverrides,
 } from "@/store/project-settings-overrides";
 import type { TaskScrollToLatestRequest } from "@/store/task-scroll.utils";
-import type { WorkspaceKickoffActions } from "@/store/workspace-kickoff-actions";
+import type { KickoffWorkspaceResult, WorkspaceKickoffActions } from "@/store/workspace-kickoff-actions";
 import type {
   WorkspacePaneStoreActions,
   WorkspacePaneStoreState,
@@ -372,14 +372,10 @@ export interface AppState
     initialTaskTitle?: string;
     initialTaskProvider?: ProviderId;
     initialPromptDraft?: PromptDraft;
+    onWorkspacePreparing?: () => void;
+    startInitialTask?: (target: { workspaceId: string; taskId: string }) => Promise<KickoffWorkspaceResult>;
     workspaceInformation?: WorkspaceInformationState;
-  }) => Promise<{
-    ok: boolean;
-    workspaceId?: string;
-    taskId?: string;
-    message?: string;
-    noticeLevel?: "success" | "warning";
-  }>;
+  }) => Promise<KickoffWorkspaceResult>;
   importWorkspaceFromWorktree: (args: {
     worktreePath: string;
     label?: string;

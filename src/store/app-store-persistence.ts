@@ -1,3 +1,4 @@
+import { getPendingWorkspaceCheckouts, withoutPendingWorkspaceRegistrations, withoutPendingWorkspaceRows } from "@/store/workspace-creation-progress";
 import { normalizeDismissedFeatureTips } from "@/lib/feature-tips";
 import { normalizeUsageLimitPauses } from "@/store/task-work-pause";
 import { createRestartPendingTasksCapture, InterruptedTaskSchema, normalizeRestartRecovery } from "@/store/restart-continuation";
@@ -244,42 +245,46 @@ export function createAppStorePersistenceOptions() {
   return {
     name: APP_STORE_KEY,
     storage,
-    partialize: (state: AppState) => ({
-      // Keep localStorage limited to lightweight UI/session state.
-      // Project/workspace history is mirrored into SQLite so this cache is not the only durable source.
-      workspaces: state.workspaces,
-      activeWorkspaceId: state.activeWorkspaceId,
-      activeAppSurface: state.activeAppSurface,
-      repositoryPath: state.repositoryPath,
-      recentRepositories: captureRecentRepositories({
-        recentRepositories: state.recentRepositories,
+    partialize: (state: AppState) => {
+      const pending = getPendingWorkspaceCheckouts();
+      const registration = pending.length ? withoutPendingWorkspaceRows(state, pending) : state;
+      return {
+        // Keep localStorage limited to lightweight UI/session state.
+        // Project/workspace history is mirrored into SQLite so this cache is not the only durable source.
+        workspaces: registration.workspaces,
+        activeWorkspaceId: registration.activeWorkspaceId,
+        activeAppSurface: state.activeAppSurface,
         repositoryPath: state.repositoryPath,
-        repositoryName: state.repositoryName,
+        recentRepositories: withoutPendingWorkspaceRegistrations(captureRecentRepositories({
+          recentRepositories: state.recentRepositories,
+          repositoryPath: state.repositoryPath,
+          repositoryName: state.repositoryName,
+          defaultBranch: state.defaultBranch,
+          workspaces: registration.workspaces,
+          activeWorkspaceId: registration.activeWorkspaceId,
+          workspaceBranchById: registration.workspaceBranchById,
+          workspacePathById: registration.workspacePathById,
+          workspaceDefaultById: registration.workspaceDefaultById,
+          workspaceLastActiveAtById: registration.workspaceLastActiveAtById,
+        }), pending),
         defaultBranch: state.defaultBranch,
-        workspaces: state.workspaces,
-        activeWorkspaceId: state.activeWorkspaceId,
-        workspaceBranchById: state.workspaceBranchById,
-        workspacePathById: state.workspacePathById,
-        workspaceDefaultById: state.workspaceDefaultById,
-        workspaceLastActiveAtById: state.workspaceLastActiveAtById,
-      }),
-      defaultBranch: state.defaultBranch,
-      workspaceBranchById: state.workspaceBranchById,
-      workspacePathById: state.workspacePathById,
-      workspaceDefaultById: state.workspaceDefaultById,
-      workspaceLastActiveAtById: state.workspaceLastActiveAtById,
-      workspaceSettlementById: state.workspaceSettlementById,
-      compareRunsById: state.compareRunsById,
-      isDarkMode: state.isDarkMode,
-      draftProvider: state.draftProvider,
-      layout: state.layout,
-      settings: state.settings,
-      usageLimitPauseByTask: state.usageLimitPauseByTask,
-      restoredQueueReleasedByTask: captureQueueReleases(state.restoredQueueReleasedByTask),
-      restartRecovery: state.restartRecovery,
-      restartPendingTasks: captureRestartPendingTasks(state),
-      repositoryName: state.repositoryName,
-    }),
+        workspaceBranchById: registration.workspaceBranchById,
+        workspacePathById: registration.workspacePathById,
+        workspaceDefaultById: registration.workspaceDefaultById,
+        workspaceLastActiveAtById: registration.workspaceLastActiveAtById,
+        workspaceSettlementById: state.workspaceSettlementById,
+        compareRunsById: state.compareRunsById,
+        isDarkMode: state.isDarkMode,
+        draftProvider: state.draftProvider,
+        layout: state.layout,
+        settings: state.settings,
+        usageLimitPauseByTask: state.usageLimitPauseByTask,
+        restoredQueueReleasedByTask: captureQueueReleases(state.restoredQueueReleasedByTask),
+        restartRecovery: state.restartRecovery,
+        restartPendingTasks: captureRestartPendingTasks(state),
+        repositoryName: state.repositoryName,
+      };
+    },
     onRehydrateStorage: () => (state?: AppState) => {
       if (!state) {
         return;

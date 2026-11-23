@@ -140,6 +140,37 @@ describe("a created workspace is registered before creation resolves", () => {
     expect(repository?.workspacePathById?.[result.workspaceId!]).toBe(store.getState().workspacePathById[result.workspaceId!]);
   });
 
+  test("registers one stable workspace after Git and blocks early turns", async () => {
+    const harness = install();
+    const store = await seedRepository();
+    let release!: () => void;
+    const checkout = new Promise<void>((resolve) => { release = resolve; });
+    window.api.sourceControl!.createWorktree = async () => { await checkout; return null; };
+    let workspaceId = "";
+    let currentTaskId = "";
+    const creating = store.getState().createWorkspace({
+      name: "feature/staged", mode: "clean",
+      initialPromptDraft: { text: "Check changes", attachedFilePaths: [], attachments: [] },
+      onWorkspacePreparing: () => {
+        workspaceId = store.getState().activeWorkspaceId;
+        currentTaskId = store.getState().activeTaskId;
+      },
+    });
+    pendingCreation = creating.then(() => undefined, () => undefined);
+    try {
+      await waitUntil(() => !!workspaceId, "the pending workspace and task");
+      expect(store.getState().promptDraftByTask[currentTaskId]?.text).toBe("Check changes");
+      expect(await store.getState().sendUserMessage({ taskId: currentTaskId, content: "Too soon" })).toEqual({ status: "blocked" });
+      await store.getState().flushRepositoryRegistry();
+      expect(registryHas(harness.registrySaves.at(-1), workspaceId)).toBe(false);
+      release();
+      expect(await creating).toMatchObject({ ok: true, workspaceId, taskId: currentTaskId });
+      expect(registryHas(harness.registrySaves.at(-1), workspaceId)).toBe(true);
+    } finally {
+      release();
+    }
+  });
+
   test("a failed registry save keeps the created workspace", async () => {
     install({ failRegistrySave: true });
     const store = await seedRepository();
