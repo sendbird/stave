@@ -33,7 +33,7 @@ export function mountTraceFixture(count = 100) {
   };
   const render = () => flushSync(() => root.render(
     <>
-      <AssistantMessageBody message={message} taskId="probe" messageId={message.id} streamingEnabled />
+      <AssistantMessageBody message={message} taskId="probe" messageId={message.id} streamingEnabled traceExpansionMode="auto" />
       <Thinking status="done" label="Reasoning fixture"><textarea aria-label="Reasoning draft" defaultValue="draft" /></Thinking>
     </>,
   ));

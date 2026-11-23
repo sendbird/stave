@@ -2,19 +2,14 @@ import { formatSystemEventDisplay } from "../system-event-display";
 import { formatProviderErrorDisplay } from "@/lib/providers/error-display";
 import { i18n, useTranslation, type AppTFunction } from "@/i18n";
 import type { ReactNode } from "react";
-import { memo, useMemo } from "react";
+import { memo, useEffect, useId, useMemo, useState } from "react";
 import { sameAssistantTraceEntry } from "./assistant-trace-entry-equality";
-import { FileCode2, Wrench } from "lucide-react";
+import { FileCode2 } from "lucide-react";
 import type { AgentStepState } from "@/components/aui/components/agent-state";
 import { StepRail } from "@/components/aui/components/StepRail";
 import { ToolRun } from "@/components/aui/components/ToolRun";
-import {
-  ChainOfThought,
-  ChainOfThoughtContent,
-  ChainOfThoughtTrigger,
-  MessageResponse,
-} from "@/components/ai-elements";
-import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
+import { MessageResponse } from "@/components/ai-elements";
+import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import {
   ChangedFilesBlock,
   FileChangeSummaryBlock,
@@ -47,23 +42,20 @@ import type {
   ThinkingPart,
 } from "@/types/chat";
 import {
-  buildCompletedTurnTitle,
-  countTraceCategories,
-  TRACE_CATEGORY_COUNT_KEYS,
-  type TraceCategoryCount,
-} from "./trace-summary";
-import {
   buildAssistantTrace,
+  getTraceToolStep,
   joinReasoningText,
-  traceHasDecision,
   traceHasToolStep,
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
+import { AssistantTraceHeader } from "./assistant-trace-header";
+import { foldAssistantTrace } from "./assistant-trace-folding";
+import { TraceScrollAnchor } from "./trace-scroll-anchor";
 import { TraceApproval, TraceClarification } from "./turn-event-decisions";
 import { TraceSystemNotice } from "./turn-event-notice";
 import { resolveTraceActivity } from "./trace-activity";
 import { ReasoningRow, TurnSources } from "./turn-event-rows";
-import { collectTurnWebSources, toMeasuredDurationMs } from "./turn-event-state";
+import { collectTurnWebSources, isTraceToolFailure, toMeasuredDurationMs } from "./turn-event-state";
 import {
   TRACE_GLYPH_SIZE,
   TraceSubagentRun,
@@ -113,32 +105,6 @@ function getDiffSummary(parts: readonly CodeDiffPart[]): ReactNode {
     </span>
   );
 }
-
-/* ─── Trace summary (collapsed trigger stats) ────────────────────── */
-
-function buildTraceSummary(
-  counts: readonly TraceCategoryCount[],
-  t: AppTFunction,
-): TraceSummaryItem[] {
-  // Keep the roll-up short enough to leave room for the completion summary.
-  const toolCount = counts.reduce(
-    (sum, item) => item.category === "change" ? sum : sum + item.count,
-    0,
-  );
-  if (toolCount > 0) {
-    return [{
-      id: "tool",
-      icon: <Wrench />,
-      label: t(TRACE_CATEGORY_COUNT_KEYS.tool, { count: toolCount }),
-    }];
-  }
-  const changedFiles = counts.find((item) => item.category === "change")?.count ?? 0;
-  return changedFiles > 0
-    ? [{ id: "change", icon: <FileCode2 />, label: t(TRACE_CATEGORY_COUNT_KEYS.change, { count: changedFiles }) }]
-    : [];
-}
-
-/* ─── Reasoning step (message-duration summary) ──────────────────── */
 
 function toEpochMilliseconds(value?: string): number | null {
   if (!value) {
@@ -225,6 +191,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
     case "reasoning":
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
@@ -239,10 +206,12 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
         </StepRail.Step>
       );
 
-    /* Assistant text — interim prose, always visible (no disclosure). */
+    /* Interim prose shares the trace row text column. */
     case "assistant_text":
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
+          tabIndex={-1}
           connector={!isLast}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
@@ -260,6 +229,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
     case "tool":
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           /* Anchor for Turn Activity's "show in conversation" jump. */
           data-tool-use-id={entry.part.toolUseId}
@@ -273,6 +243,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
     case "subagent":
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           /* Anchor for Turn Activity's "show in conversation" jump. */
           data-tool-use-id={entry.part.toolUseId}
@@ -286,6 +257,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
     case "todo":
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           /* Anchor for Turn Activity's "show in conversation" jump. */
           data-tool-use-id={entry.part.toolUseId}
@@ -323,6 +295,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
 
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
@@ -358,6 +331,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
     case "approval":
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
@@ -373,6 +347,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
     case "user_input":
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
@@ -408,6 +383,7 @@ const AssistantTraceEntryView = memo(function AssistantTraceEntryView(args: {
 
       return (
         <StepRail.Step
+          data-trace-anchor={entry.id}
           connector={!isLast}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
@@ -504,6 +480,7 @@ export function AssistantMessageBody(args: {
     | "terminalStopReason"
     | "role"
     | "startedAt"
+    | "completedAt"
     | "turnId"
     | "terminalReceipt"
   > & Partial<Pick<ChatMessage, "providerId">>;
@@ -519,24 +496,25 @@ export function AssistantMessageBody(args: {
   readOnly?: boolean;
   /** The tool step the transcript is jumping to: its trace opens to show it. */
   revealToolUseId?: string;
-  /** The approval or answer the transcript is jumping to, by request id: its trace opens too. */
-  revealRequestId?: string;
+  /** An indexed prose or tool-name match inside the trace. */
+  revealTraceEntryId?: string;
 }) {
-  const { language } = useTranslation().i18n;
+  const { i18n: { language } } = useTranslation();
   const {
     message,
     taskId,
     messageId,
     streamingEnabled,
-    traceExpansionMode = "auto",
+    traceExpansionMode = "manual",
     showInterimMessages = false,
     readOnly = false,
     revealToolUseId,
-    revealRequestId,
+    revealTraceEntryId,
   } = args;
   const isActivelyStreaming = Boolean(message.isStreaming);
   const isStreaming = streamingEnabled && isActivelyStreaming;
-  const shouldAutoExpandTrace = traceExpansionMode === "auto";
+  const historyId = useId();
+  const [historyOverride, setHistoryOverride] = useState<boolean>();
   const hasActionableCapacityFailure = useMemo(() => {
     const candidateParts =
       message.displayParts && message.displayParts.length > 0
@@ -553,70 +531,41 @@ export function AssistantMessageBody(args: {
         : false;
     });
   }, [message.displayParts, message.parts, message.terminalStopReason]);
-  const trace = useMemo(() => buildAssistantTrace({ message }), [message, i18n.language]);
-  const revealsStep = useMemo(
-    () =>
-      (revealToolUseId !== undefined && traceHasToolStep(trace.entries, revealToolUseId)) ||
-      (revealRequestId !== undefined && traceHasDecision(trace.entries, revealRequestId)),
-    [revealRequestId, revealToolUseId, trace.entries],
-  );
-
-  const categoryCounts = useMemo(
-    () => countTraceCategories(trace.entries),
-    [trace.entries],
-  );
-  // Fixed to the display language, so a language change rebuilds the labels.
   const t = useMemo(() => i18n.getFixedT(language) as AppTFunction, [language]);
-  const summaryItems = useMemo(
-    () => buildTraceSummary(categoryCounts, t),
-    [categoryCounts, t],
+  const trace = useMemo(
+    () => buildAssistantTrace({ message, translate: t }),
+    [message, t],
   );
-  /* What a finished turn did, without another model call: the reply's first
-     sentence, or else a summary of the counted work. */
-  const completedTitle = useMemo(
-    () =>
-      isStreaming
-        ? undefined
-        : buildCompletedTurnTitle({
-            responseText: trace.responseParts.map((part) => part.text).join("\n\n"),
-            counts: categoryCounts,
-            t,
-          }),
-    [categoryCounts, isStreaming, trace.responseParts, t],
+  const { history, visible, foldedStepCount, failureCount } = useMemo(
+    () => foldAssistantTrace(trace.entries, {
+      isRunning: isActivelyStreaming,
+      hasTrailingResponse: trace.responseParts.length > 0,
+    }),
+    [isActivelyStreaming, trace.entries, trace.responseParts.length],
   );
-
-  // Human decisions remain visible when work history is collapsed.
-  const historyEntries = useMemo(
-    () => trace.entries.filter((entry) => entry.kind !== "user_input"),
-    [trace.entries],
-  );
-  const hasPendingOrAnsweredQuestions =
-    historyEntries.length < trace.entries.length;
-  /* Once the turn ends: the web sources its searches and fetches returned. */
+  const revealsHistory =
+    (revealToolUseId !== undefined && traceHasToolStep(history, revealToolUseId)) ||
+    (revealTraceEntryId !== undefined && history.some((entry) => entry.id === revealTraceEntryId));
+  const revealing = revealToolUseId !== undefined || revealTraceEntryId !== undefined;
+  const openByPreference = isStreaming
+    ? traceExpansionMode === "auto"
+    : showInterimMessages && !isActivelyStreaming &&
+      trace.interimTextParts.length > 0 && history.some((entry) => entry.kind === "assistant_text");
+  const historyOpen = revealsHistory || (historyOverride ?? openByPreference);
+  useEffect(() => {
+    if (revealsHistory) setHistoryOverride(true);
+  }, [revealsHistory]);
+  const hasPendingOrAnsweredQuestions = trace.entries.some((entry) => entry.kind === "user_input");
   const turnSources = useMemo(
-    () => (isStreaming ? [] : collectTurnWebSources(message.parts)),
-    [isStreaming, message.parts],
+    () => (isActivelyStreaming ? [] : collectTurnWebSources(message.parts)),
+    [isActivelyStreaming, message.parts],
   );
-  /* While the turn runs: the newest step still in progress, for the header. */
   const streamingActivity = useMemo(
-    () => (isStreaming ? resolveTraceActivity(trace.entries, t) : null),
+    () => isStreaming ? resolveTraceActivity(trace.entries, t) : null,
     [isStreaming, trace.entries, t],
   );
-  /* Total reasoning time for the turn, shown next to the collapsed title
-     ("12s"). Only meaningful once the turn has finished. */
-  const traceDurationSeconds = useMemo(() => {
-    if (isStreaming) {
-      return undefined;
-    }
-    const total = trace.entries.reduce(
-      (sum, entry) =>
-        entry.kind === "reasoning"
-          ? sum + (getReasoningDurationSeconds(entry.parts) ?? 0)
-          : sum,
-      0,
-    );
-    return total > 0 ? total : undefined;
-  }, [isStreaming, trace.entries]);
+  const latestStep = trace.entries.findLast(getTraceToolStep);
+  const latestTool = latestStep && getTraceToolStep(latestStep);
   const allDiffParts = useMemo<CodeDiffPart[]>(
     () =>
       trace.entries.flatMap((entry) =>
@@ -662,7 +611,10 @@ export function AssistantMessageBody(args: {
    * the trace use the same numbers.
    */
   const replyImages = useMemo(() => collectReplyToolImages(message.parts), [message.parts]);
-  const replyImageNumbers = useMemo(() => firstReplyImageNumberByToolUseId(replyImages), [replyImages]);
+  const replyImageNumbers = useMemo(
+    () => replyImages.length > 0 ? firstReplyImageNumberByToolUseId(replyImages) : null,
+    [replyImages],
+  );
   const showDiffResults = allDiffParts.length > 0 && !isStreaming;
   const showFileChangeSummary =
     unresolvedFileChangeRows.length > 0 && !isStreaming;
@@ -699,17 +651,32 @@ export function AssistantMessageBody(args: {
    * finished reply follows the pinned rows, in the order they happened.
    */
   const responseFollowsPinned = !isActivelyStreaming;
+  const showTrace = trace.showStreamingPlaceholder || visible.length > 0 || history.length > 0;
+  const renderRows = (entries: AssistantTraceEntry[]) => (
+    <TranscriptWideScope enabled={false}>
+      <StepRail rail={false} density="compact">
+        {entries.map((entry, index) => (
+          <AssistantTraceEntryView
+            key={entry.id}
+            entry={entry}
+            isStreaming={isStreaming}
+            isLast={index === entries.length - 1}
+            taskId={taskId}
+            messageId={messageId}
+            terminalStopReason={message.terminalStopReason}
+            readOnly={readOnly}
+          />
+        ))}
+      </StepRail>
+    </TranscriptWideScope>
+  );
   const responseBlock =
     trace.responseParts.length > 0 ? (
       <div
+        data-trace-anchor="response"
         className={sx(
           styles.block,
-          (responseFollowsPinned
-            ? trace.entries.length > 0 ||
-              inlineRenders.length > 0 ||
-              (showInterimMessages && trace.interimTextParts.length > 0)
-            : historyEntries.length > 0 || trace.showStreamingPlaceholder) &&
-            styles.spacedTop,
+          (showTrace || (responseFollowsPinned && inlineRenders.length > 0)) && styles.spacedTop,
           !responseFollowsPinned && hasPendingOrAnsweredQuestions && styles.spacedBottom,
         )}
       >
@@ -727,53 +694,36 @@ export function AssistantMessageBody(args: {
       </div>
     ) : null;
 
-  return (
+  const body = (
     <ReplyImageNumbersContext.Provider value={replyImageNumbers}>
-      {trace.showStreamingPlaceholder || historyEntries.length > 0 ? (
-        <ChainOfThought
-          isStreaming={isStreaming}
-          defaultOpen={
-            hasActionableCapacityFailure ||
-            (shouldAutoExpandTrace && isStreaming)
-          }
-          openWhen={
-            hasActionableCapacityFailure ||
-            (shouldAutoExpandTrace && isStreaming) ||
-            revealsStep
-          }
-          collapseWhen={
-            !hasActionableCapacityFailure &&
-            shouldAutoExpandTrace &&
-            !isStreaming
-          }
-          summaryItems={summaryItems}
-          durationSeconds={traceDurationSeconds}
-        >
-          <ChainOfThoughtTrigger
-            completionLabel={
-              hasActionableCapacityFailure
-                ? i18n.t("session:assistantTrace.completionLabel")
-                : completedTitle
-            }
-            streamingActivity={streamingActivity}
+      {showTrace ? (
+        <div className={sx(styles.trace)}>
+          <AssistantTraceHeader
+            activity={streamingActivity}
+            isRunning={isStreaming}
+            failureCount={failureCount}
+            runFailed={hasActionableCapacityFailure}
+            lastStepFailed={latestTool !== undefined && isTraceToolFailure(latestTool)}
+            timing={message}
+            history={history.length > 0 ? {
+              id: historyId,
+              open: historyOpen,
+              toggle: () => setHistoryOverride(!historyOpen),
+              stepCount: foldedStepCount,
+            } : undefined}
           />
-          {historyEntries.length > 0 ? (
-            <ChainOfThoughtContent>
-              {historyEntries.map((entry, index) => (
-                <AssistantTraceEntryView
-                  key={entry.id}
-                  entry={entry}
-                  isStreaming={isStreaming}
-                  isLast={index === historyEntries.length - 1}
-                  taskId={taskId}
-                  messageId={messageId}
-                  terminalStopReason={message.terminalStopReason}
-                  readOnly={readOnly}
-                />
-              ))}
-            </ChainOfThoughtContent>
+          {visible.length > 0 ? renderRows(visible) : null}
+          {history.length > 0 ? (
+            <div
+              id={historyId}
+              hidden={!historyOpen}
+              className={sx(styles.history)}
+              data-folded-trace-history=""
+            >
+              {historyOpen ? renderRows(history) : null}
+            </div>
           ) : null}
-        </ChainOfThought>
+        </div>
       ) : null}
 
       {responseFollowsPinned ? null : responseBlock}
@@ -782,35 +732,11 @@ export function AssistantMessageBody(args: {
         <TraceClarification readOnly={readOnly} key={entry.id} part={entry.part} taskId={taskId} messageId={messageId} />
       ))}
 
-      {!isStreaming &&
-      showInterimMessages &&
-      trace.interimTextParts.length > 0 ? (
-        <div
-          className={sx(
-            styles.interim,
-            trace.entries.length > 0 && styles.spacedTop,
-          )}
-        >
-          {trace.interimTextParts.map((part, index) => (
-            <MessageResponse
-              key={`${messageId}-interim-${index}`}
-              tokenizePromptTokens={message.role === "user"}
-            >
-              {part.text}
-            </MessageResponse>
-          ))}
-        </div>
-      ) : null}
-
       {inlineRenders.length > 0 ? (
         <InlineHtmlRenderList
           renders={inlineRenders}
           taskId={taskId}
-          xstyle={
-            (trace.entries.length > 0 ||
-              (showInterimMessages && trace.interimTextParts.length > 0)) &&
-            styles.spacedTop
-          }
+          xstyle={trace.entries.length > 0 && styles.spacedTop}
         />
       ) : null}
 
@@ -855,4 +781,12 @@ export function AssistantMessageBody(args: {
       ) : null}
     </ReplyImageNumbersContext.Provider>
   );
+  return message.role === "assistant" ? (
+    <TraceScrollAnchor
+      layoutKey={`${visible.map((entry) => entry.id).join(",")}|${historyOpen ? history.map((entry) => entry.id).join(",") : ""}`}
+      revealing={revealing}
+    >
+      {body}
+    </TraceScrollAnchor>
+  ) : body;
 }

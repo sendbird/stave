@@ -714,9 +714,14 @@ export function ConversationVirtualList<T>(
     initialized: false,
     scope: props.listKey,
   });
+  const firstItem = props.data[0];
+  const firstItemKey = firstItem === undefined ? undefined : props.itemKey?.(0, firstItem);
   const lastRestoreRequestRef = useRef<{
     initialized: boolean;
     key?: string | number;
+    firstItemKey?: string | number;
+    itemCount?: number;
+    container?: HTMLDivElement | null;
   }>({
     initialized: false,
     key: props.restoreKey,
@@ -1052,9 +1057,16 @@ export function ConversationVirtualList<T>(
     const restoreRequested =
       !previousRestoreRequest.initialized ||
       previousRestoreRequest.key !== props.restoreKey;
+    const listWindowChanged =
+      previousRestoreRequest.firstItemKey !== firstItemKey ||
+      previousRestoreRequest.itemCount !== props.data.length ||
+      previousRestoreRequest.container !== containerEl;
     lastRestoreRequestRef.current = {
       initialized: true,
       key: props.restoreKey,
+      firstItemKey,
+      itemCount: props.data.length,
+      container: containerEl,
     };
 
     if (shouldForceRestoreBottom) {
@@ -1068,6 +1080,11 @@ export function ConversationVirtualList<T>(
       restoreToBottom("list-update-while-sticky");
       return cancelScheduledFrames;
     }
+
+    // Scroll reports save new offsets while the reader moves through a
+    // message. Replaying them on an ordinary render can undo that movement,
+    // including the finer row offset a trace restores after folding.
+    if (!restoreRequested && !listScopeChanged && !listWindowChanged) return;
 
     const savedIndex = props.restoreItemIndex;
     if (
@@ -1139,6 +1156,7 @@ export function ConversationVirtualList<T>(
   }, [
     containerEl,
     containerResizeTick,
+    firstItemKey,
     lastIndex,
     props.data.length,
     props.forceScrollKey,

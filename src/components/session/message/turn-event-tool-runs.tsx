@@ -26,7 +26,7 @@ import {
   TraceCitations,
   TraceOutput,
 } from "./turn-event-rows";
-import { toAgentStepState, toMeasuredDurationMs } from "./turn-event-state";
+import { isTraceToolFailure, toAgentStepState, toMeasuredDurationMs } from "./turn-event-state";
 import { getToolIcon, TRACE_GLYPH_SIZE } from "./tool-icon";
 
 /**
@@ -83,7 +83,7 @@ export function TraceToolRun(args: {
     normalized === "file_change" ? parseFileChangeToolInput(part.input) : [];
   const isCommand = normalized === "bash";
   const isWeb = normalized === "websearch" || normalized === "webfetch";
-  const isError = part.state === "output-error";
+  const isError = isTraceToolFailure(part);
   const streamingInput = part.state === "input-streaming";
   // Images come out of the text: a screenshot is a picture, not base64.
   const toolOutput = parseToolOutputImages(part.output);
@@ -140,7 +140,7 @@ export function TraceToolRun(args: {
         ) : undefined
       }
       outputLabel={args.outputLabel}
-      status={toAgentStepState(part.state)}
+      status={isTraceToolFailure(part) ? "failed" : toAgentStepState(part.state)}
       title={getToolTitle(part.toolName)}
       tool={toolSummary?.text}
     >
@@ -167,7 +167,7 @@ export function TraceSubagentRun(args: { part: ToolUsePart }) {
   useTranslation();
   const { part } = args;
   const parsed = parseSubagentToolInput({ input: part.input });
-  const isError = part.state === "output-error";
+  const isError = isTraceToolFailure(part);
   const output = part.output?.trim() ?? "";
 
   return (
@@ -198,7 +198,7 @@ export function TraceSubagentRun(args: { part: ToolUsePart }) {
           <TraceOutput capped label={i18n.t("ui:toolrun.output")} prose text={output} />
         ) : undefined
       }
-      status={toAgentStepState(part.state)}
+      status={isTraceToolFailure(part) ? "failed" : toAgentStepState(part.state)}
       title={
         parsed.description ??
         parsed.subagentType ??
@@ -228,7 +228,7 @@ export function TraceTodoRun(args: { part: ToolUsePart; title: string }) {
     <ToolRun
       count={planProgressCount(part.input)}
       icon={<ListTodo size={TRACE_GLYPH_SIZE} />}
-      status={toAgentStepState(part.state)}
+      status={isTraceToolFailure(part) ? "failed" : toAgentStepState(part.state)}
       title={args.title}
     >
       <TracePlan input={part.input} state={part.state} />

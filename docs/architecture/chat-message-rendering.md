@@ -98,50 +98,31 @@ mirror the Codex investigation:
    boundary
 3. add a Claude-side segment marker before changing renderer logic
 
-## Visual Style (AI Elements alignment)
+## Trace Presentation
 
-The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as possible:
-
-- **Root**: No outer border or background — just `not-prose w-full`.
-- **Trigger**: The AUI `inlineDisclosure` trigger, no card — `[glyph/chevron] title · duration`, always on one line:
-  the title ellipsizes while the measured reasoning duration keeps its width.
-  The chevron is in the LEADING slot (`InlineDisclosureIcon`) and replaces the glyph on hover
-  and focus-visible, exactly like the `ToolRun` and `Thinking` rows inside the trace, so the box
-  brings its padding, `controlHeightSm`, radius, hover wash and focus ring with it. Its ink is
-  body ink — one step darker than the `agentSurface.rowLabel` its rows use.
-  While the turn runs, the label shows the newest step still in progress
-  ("Reading search.ts", "Running bun test"), or **Thinking** between steps.
-  The activity ellipsizes on short rows. The header has no rotating status phrase
-  or duplicate turn clock; the message footer owns turn elapsed time. It is not
-  a live region, so changing activity does not interrupt the reader. A streaming
-  reasoning row inside the trace retains its own measured duration.
-  Once the turn finishes, the trigger shows a short completion summary and the total tool-call count, with measured reasoning time when available.
-  The title uses the reply's first meaningful sentence, falling back to counted work. A failed
-  run that offers recovery is titled **Run failed** instead. Individual tool records remain in the history.
-- **Open and close**: The trace panel animates its row track (`grid-template-rows` 0fr ↔ 1fr,
-  `motionDurationQuick`, `motionEaseExpressive`) with a `motionDurationFast` content fade, and
-  unmounts after the close plays. Reduced motion switches at once. While it moves, the
-  conversation holds the clicked trigger at its pre-click position, and following the latest
-  message resumes only for a reader who was at the bottom and did not just open content that
-  runs below the view (`conversation-scroll-anchor.ts`). This applies to every in-place
-  disclosure in the transcript; menu, listbox and dialog triggers (`aria-haspopup`) are excluded.
-- **Steps**: Flat flex rows `flex gap-3 text-sm` — NOT cards with borders/backgrounds.
-- **Step icons**: Kind-specific icons for done/pending steps (Terminal for Bash, FileText for Read,
-  Pencil for Edit, Search for Grep/Glob, Globe for web, Bot for subagent, Brain for reasoning,
-  ListTodo for todo, FileCode2 for diffs, etc.). Active steps always show a spinner.
+- The header uses AUI's state mark, inline disclosure, and semantic theme
+  tokens. It shows the newest active step while a turn runs and the completion
+  status and failed-step count when it ends. Long activity labels ellipsize.
+- Traces with more than three tool steps fold successful steps, settled
+  reasoning, and earlier interim text. The history label shows the folded
+  step count and elapsed wall-clock time when available. Failed and running
+  steps, subagents, and decisions stay visible alongside the latest live
+  interim update. The final response lives in the body.
+- Activity jumps and transcript search open the matching history before
+  focusing its row. The conversation holds a clicked disclosure in place.
+  When a tool settles while the reader is inside its message, a surviving row
+  anchors the viewport through the change.
+- Trace steps use the compact AUI StepRail and their existing row disclosures.
 - **Step summary chips**: After the step title, a brief summary is shown in a distinct style:
   bash commands in a mono code chip, file names in bordered file chips, search patterns in
   code chips, subagent types in primary-tinted badges.
-- **Connecting line**: Vertical 1px `bg-border` line between step icons; hidden on last step via `[&>*:last-child_.cot-connector]:hidden`.
 - **Step status colors**: `active → text-foreground`, `done → text-muted-foreground`, `pending → text-muted-foreground/50`.
 - **Expandable detail**: Steps with children show a subtle chevron next to the title; click to toggle.
   Expanded content animates in with `cot-step-in`.
 - **System-event detail**: The first non-empty line of a generic system event is the row title.
   A single-line event has no nested body, and a multi-line event renders only the lines after that
   title when expanded. Compaction checkpoints retain their specialized recovery surface.
-- **Assistant text steps**: Always visible (no accordion); rendered inline with a bullet-point dot
-  instead of an icon.
-- **No status chips**: No `Done`, `Running`, `Pending`, `toolUseId`, or item-number chips.
+- **Assistant text steps**: Interim prose aligns with tool row text and retains its position in the visible or historical steps.
 
 ### Transcript column
 

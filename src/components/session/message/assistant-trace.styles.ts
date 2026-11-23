@@ -9,6 +9,12 @@ const traceRowIn = stylex.keyframes({
 });
 
 export const assistantTraceStyles = stylex.create({
+  trace: {
+    display: "grid",
+    minWidth: 0,
+    gap: vars["--aui-space-4"],
+  },
+  history: { "--stave-trace-row-entrance": "0s" },
   // Icon that tracks the surrounding font size (glyphs inside a text run).
   glyphEm: {
     height: "1.15em",
@@ -41,8 +47,7 @@ export const assistantTraceStyles = stylex.create({
       default: traceRowIn,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    // `ChainOfThoughtContent` zeroes this for a panel the reader opened: its
-    // rows arrive with the panel, not one by one after it.
+    // History rows mount in their final positions so exact reveal can measure them.
     animationDuration: "var(--stave-trace-row-entrance, 260ms)",
     animationTimingFunction: "var(--ease-agent-spring)",
     transformOrigin: "top",
@@ -102,14 +107,6 @@ export const assistantTraceStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: 6,
-  },
-  // Muted color alone marks interim text as provisional; an extra opacity
-  // took it under the readable contrast floor.
-  interim: {
-    color: vars["--aui-color-text-muted"],
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--aui-space-8"],
   },
   spacedTop: {
     marginTop: vars["--aui-space-12"],

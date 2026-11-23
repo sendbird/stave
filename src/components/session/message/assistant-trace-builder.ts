@@ -1,4 +1,4 @@
-import { i18n } from "@/i18n/runtime";
+import { i18n, type AppTFunction } from "@/i18n/runtime";
 import { asyncQuestionTextSegmentId } from "@/lib/async-question-answer";
 import { resolveApprovalRequesterName } from "@/lib/approvals/approval-requester";
 import { resolveToolTitle } from "@/lib/providers/subagent-identity";
@@ -100,7 +100,9 @@ export function buildAssistantTrace(args: {
     ChatMessage,
     "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
   >;
+  translate?: AppTFunction;
 }): AssistantTraceData {
+  const t = args.translate ?? i18n.t;
   const messageParts = getRenderableMessageParts({
     content: args.message.content,
     parts: args.message.parts,
@@ -182,8 +184,8 @@ export function buildAssistantTrace(args: {
             candidate.type === "tool_use" && isSubagentToolPart({ toolName: candidate.toolName }) &&
             Boolean((part.parentToolUseId && candidate.toolUseId === part.parentToolUseId) ||
              (part.ownerAgentId && candidate.agentId === part.ownerAgentId))) : undefined;
-          const name = spawn ? resolveToolTitle(spawn.toolName, spawn.input, undefined, { isSubagent: true }) : i18n.t("session:assistantTraceBuilder.extraCopy195");
-          entries.push({ kind: "todo", id, part, title: owned ? i18n.t("session:assistantTraceBuilder.title", { value1: name }) : i18n.t("session:assistantTraceBuilder.title2") });
+          const name = spawn ? resolveToolTitle(spawn.toolName, spawn.input, undefined, { isSubagent: true }) : t("session:assistantTraceBuilder.extraCopy195");
+          entries.push({ kind: "todo", id, part, title: owned ? t("session:assistantTraceBuilder.title", { value1: name }) : t("session:assistantTraceBuilder.title2") });
         } else {
           entries.push({ kind: isSubagentToolPart({ toolName: part.toolName }) ? "subagent" : "tool", id, part });
         }
@@ -232,16 +234,18 @@ export function buildAssistantTrace(args: {
   };
 }
 
+export function getTraceToolStep(entry: AssistantTraceEntry): ToolUsePart | undefined {
+  if (entry.kind === "tool" || entry.kind === "subagent" || entry.kind === "todo") {
+    return entry.part;
+  }
+}
+
 /**
  * Whether the trace draws a row for this tool call: a tool, subagent or plan
  * row, the anchors a Turn Activity jump lands on.
  */
 export function traceHasToolStep(entries: readonly AssistantTraceEntry[], toolUseId: string): boolean {
-  return entries.some(
-    (entry) =>
-      (entry.kind === "tool" || entry.kind === "subagent" || entry.kind === "todo") &&
-      entry.part.toolUseId === toolUseId,
-  );
+  return entries.some((entry) => getTraceToolStep(entry)?.toolUseId === toolUseId);
 }
 
 /** Whether the trace holds the approval or question with this request id. */

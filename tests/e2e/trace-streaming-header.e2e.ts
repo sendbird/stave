@@ -31,35 +31,25 @@ for (const locale of ["en", "ko"] as const) {
           column.style.maxWidth = `${value}px`;
         }, width);
         const geometry = await label.evaluate((element) => {
-          const activity = element.querySelector<HTMLElement>(
-            '[data-trace-streaming-part="activity"]',
-          )!;
-          const button = element.closest("button")!;
-          const icon = button.querySelector("svg")!;
+          const activity = element;
+          const header = element.closest("[data-trace-anchor=header]")!;
+          const icon = header.querySelector("svg")!;
           const a = activity.getBoundingClientRect();
           const i = icon.getBoundingClientRect();
           return {
             right: a.right,
-            buttonRight: button.getBoundingClientRect().right,
+            headerRight: header.getBoundingClientRect().right,
             centreDifference: Math.abs(a.y + a.height / 2 - i.y - i.height / 2),
             ellipsis: getComputedStyle(activity).textOverflow,
             truncated: activity.scrollWidth > activity.clientWidth + 1,
           };
         });
-        expect(geometry.right).toBeLessThanOrEqual(geometry.buttonRight + 0.5);
+        expect(geometry.right).toBeLessThanOrEqual(geometry.headerRight + 0.5);
         expect(geometry.centreDifference).toBeLessThanOrEqual(1);
         expect(geometry.ellipsis).toBe("ellipsis");
         if (width === 720) expect(geometry.truncated).toBe(false);
       }
 
-      const trigger = label.locator("..");
-      await trigger.click();
-      await expect(trigger).toHaveAttribute("aria-expanded", "false");
-      await expect(label).toHaveText(
-        locale === "ko" ? "globals.css 수정 중" : "Editing globals.css",
-      );
-      await trigger.click();
-      await expect(trigger).toHaveAttribute("aria-expanded", "true");
       await page.getByRole("button", { name: "Streaming", exact: true }).click();
       await expect(label).toHaveCount(0);
     });

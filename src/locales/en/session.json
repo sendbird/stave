@@ -24,6 +24,17 @@
     "truncated": "Showing the end of the output.",
     "noOutput": "No output available yet."
   },
+  "traceFoldingPreview": {
+    "title": "Agent trace folding",
+    "description": "Open a trace header to review earlier steps.",
+    "darkMode": "Dark mode",
+    "runningScenario": "Running · 25 steps with an interim update",
+    "runningFailureScenario": "Running · A step failed",
+    "finishedScenario": "Finished · All steps passed",
+    "finishedFailureScenario": "Finished · A step failed",
+    "subagentsScenario": "Running · Subagents",
+    "shortScenario": "Finished · Three steps"
+  },
   "questionReply": {
     "label_one": "Reply to agent question · {{count}} question",
     "label_other": "Reply to agent questions · {{count}} questions",
@@ -773,6 +784,13 @@
     "extraCopy195": "Subagent"
   },
   "assistantTrace": {
+    "finished": "Finished",
+    "finishedWithFailures_one": "Finished with {{steps}} failed step",
+    "finishedWithFailures_other": "Finished with {{steps}} failed steps",
+    "runningAfterFailure": "Running · Last step failed",
+    "foldedSteps_one": "{{steps}} step",
+    "foldedSteps_other": "{{steps}} steps",
+    "timedSteps": "{{steps}} · {{time}}",
     "title": "System",
     "title2": "System",
     "baseTitle": "Subagent",

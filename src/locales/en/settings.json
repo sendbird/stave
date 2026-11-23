@@ -158,12 +158,12 @@
       },
       "reasoningExpansion": {
         "title": "Reasoning expansion",
-        "description": "Auto expands the reasoning trace while a turn is streaming, then collapses it again. Manual keeps it collapsed until you open it. With Streaming UI off, Auto behaves like Manual.",
+        "description": "Auto opens earlier history while a turn streams and closes it when the turn finishes. Manual opens history on demand. With Streaming UI off, Auto behaves like Manual.",
         "manual": "Manual"
       },
       "interimMessages": {
-        "title": "Show interim messages",
-        "description": "Show pre-final assistant text segments between execution steps. Hidden by default to keep the final response cleaner."
+        "title": "Open history with interim messages",
+        "description": "Automatically open finished history that contains interim assistant messages."
       },
       "turnRail": {
         "title": "Show conversation turn rail",

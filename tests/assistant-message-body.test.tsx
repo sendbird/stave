@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage, ToolUsePart } from "@/types/chat";
 
 function createAssistantMessage(
   args: Partial<
@@ -22,6 +22,17 @@ function createAssistantMessage(
     displayParts: args.displayParts,
     isStreaming: args.isStreaming,
   };
+}
+
+function completedReadSteps(count = 4): ToolUsePart[] {
+  return Array.from({ length: count }, (_, index) => ({
+    type: "tool_use",
+    toolUseId: `read-${index}`,
+    toolName: "Read",
+    input: JSON.stringify({ path: `file-${index}.ts` }),
+    state: "output-available",
+    output: "read",
+  }));
 }
 
 async function loadAssistantMessageBodies() {
@@ -60,44 +71,50 @@ async function loadAssistantMessageBodies() {
 }
 
 describe("AssistantMessageBody", () => {
-  test("restores a completed summary and tool counts in the history trigger", async () => {
+  test("restores the reply and the folded step count in a finished trace", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const text = "Fixed the missing redirect guard.";
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({ parts: [
-        { type: "tool_use", toolName: "Bash", input: "bun test", state: "output-available", output: "passed" },
+        ...completedReadSteps(),
         { type: "text", text },
       ] }), taskId: "parent", messageId: "reply", streamingEnabled: false,
     }));
     expect(html).not.toContain("Work history");
     expect(html).toContain("Fixed the missing redirect guard");
-    expect(html).toContain("1 tool call");
+    expect(html).toContain(">Finished<");
+    expect(html).toContain(">4 steps<");
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
+    expect(html).not.toContain('data-tool-use-id="read-0"');
   });
 
-  test("summarizes counted work when a turn has no final reply, including failed calls", async () => {
+  test("keeps short traces inline and reports a failed step even without a final reply", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({ parts: [
-        { type: "tool_use", toolName: "Read", input: "README.md", state: "output-available", output: "read" },
-        { type: "tool_use", toolName: "Bash", input: "bun test", state: "output-error", output: "failed" },
+        ...completedReadSteps(2),
+        { type: "tool_use", toolUseId: "failure", toolName: "Bash", input: "bun test", state: "output-error", output: "failed" },
       ] }), taskId: "parent", messageId: "reply", streamingEnabled: false,
     }));
-    expect(html).toContain("Ran 1 command, read 1 file");
-    expect(html).toContain("2 tool calls");
-    expect(html).not.toContain("Work history");
+    expect(html).toContain(">Finished with 1 failed step<");
+    expect(html).toContain('data-tool-use-id="read-0"');
+    expect(html).toContain('data-tool-use-id="read-1"');
+    expect(html).toMatch(/data-tool-use-id="failure"[\s\S]*?data-tool-run-status="failed"/);
+    expect(html).not.toContain("data-folded-trace-history");
   });
 
   test("a pending question stays visible when history is manually collapsed", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({ isStreaming: true, parts: [
-        { type: "tool_use", toolName: "Read", input: "README.md", state: "output-available", output: "read" },
+        ...completedReadSteps(),
         { type: "user_input", requestId: "question-1", toolName: "request_user_input", state: "input-requested",
           questions: [{ key: "scope", header: "Scope", question: "Include the narrow layout?", options: [] }] },
       ] }), taskId: "parent", messageId: "reply", streamingEnabled: true, traceExpansionMode: "manual",
     }));
     expect(html.split("Include the narrow layout?")).toHaveLength(2);
-    expect(html).toContain('aria-expanded="false"');
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
+    expect(html).not.toContain('data-tool-use-id="read-0"');
   });
 
   describe("text after an answered question", () => {
@@ -206,7 +223,7 @@ describe("AssistantMessageBody", () => {
     expect(html).not.toContain("raw prompt");
   });
 
-  test("shows only the CoT trigger before the first streaming trace entry arrives", async () => {
+  test("shows only the static thinking header before the first streaming trace entry arrives", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
@@ -220,7 +237,9 @@ describe("AssistantMessageBody", () => {
 
     expect(html).not.toContain("Thinking...</p>");
     expect(html).not.toContain("No response.");
-    expect(html.match(/<button/g)?.length ?? 0).toBe(1);
+    expect(html).toContain('data-trace-anchor="header"');
+    expect(html).toContain(">Thinking<");
+    expect(html).not.toContain("<button");
   });
 
   test("renders the reasoning step once thinking content arrives", async () => {
@@ -237,7 +256,8 @@ describe("AssistantMessageBody", () => {
 
     expect(html).toContain('data-thinking-status="thinking"');
     expect(html).not.toContain("Inspecting files.");
-    expect(html.match(/<button/g)?.length ?? 0).toBe(2);
+    expect(html).not.toContain("data-folded-trace-history");
+    expect(html.match(/<button/g)?.length ?? 0).toBe(1);
   });
 
   test("does not repeat a one-line system event inside its accordion", async () => {
@@ -254,7 +274,7 @@ describe("AssistantMessageBody", () => {
     }));
 
     expect(html.match(/Context window at 62%/g)?.length ?? 0).toBe(1);
-    expect(html.match(/<button/g)?.length ?? 0).toBe(1);
+    expect(html).not.toContain("<button");
   });
 
   test("does not repeat other one-line provider notices inside their accordions", async () => {
@@ -372,30 +392,33 @@ describe("AssistantMessageBody", () => {
     expect(html).not.toContain("<a");
   });
 
-  test("reads a finished turn's thinking time without rounding it up", async () => {
+  test("reads finished wall-clock time in the history header without rounding it up", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
-    const pass = (text: string, startMs: number, spanMs: number) => ({
-      type: "thinking" as const, text, isStreaming: false,
-      startedAt: new Date(startMs).toISOString(), completedAt: new Date(startMs + spanMs).toISOString(),
-    });
-    const render = (parts: ReturnType<typeof pass>[]) => renderToStaticMarkup(createElement(AssistantMessageBody, {
-      message: createAssistantMessage({ isStreaming: false, content: "Done.", parts: [...parts, { type: "text", text: "Done." }] }),
+    const render = (spanMs: number) => renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: {
+        ...createAssistantMessage({
+          parts: [...completedReadSteps(), { type: "text", text: "Done." }],
+        }),
+        startedAt: new Date(0).toISOString(),
+        completedAt: new Date(spanMs).toISOString(),
+      },
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
-      traceExpansionMode: "manual",
     }));
-    // 59.9s reads 59s, as it does in Fleet, not a minute it did not take.
-    expect(render([pass("Considered.", 0, 59_900)])).toContain(">59s<");
-    expect(render([pass("Quick.", 0, 400)])).toContain(">&lt;1s<");
+    expect(render(59_900)).toContain(">4 steps · 59s<");
+    expect(render(400)).toContain(">4 steps · &lt;1s<");
   });
 
-  test("keeps assistant trace collapsed in manual expansion mode", async () => {
+  test("keeps completed trace history collapsed in manual expansion mode", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
         isStreaming: true,
-        parts: [{ type: "thinking", text: "Inspecting files.", isStreaming: true }],
+        parts: [
+          ...completedReadSteps(),
+          { type: "thinking", text: "Inspecting files.", isStreaming: true },
+        ],
       }),
       taskId: "task-1",
       messageId: "message-1",
@@ -403,8 +426,10 @@ describe("AssistantMessageBody", () => {
       traceExpansionMode: "manual",
     }));
 
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
+    expect(html).not.toContain('data-tool-use-id="read-0"');
+    expect(html).toContain('data-thinking-status="thinking"');
     expect(html).not.toContain("Inspecting files.");
-    expect(html.match(/<button/g)?.length ?? 0).toBe(1);
   });
 
   test("keeps markdown rendering for a replayed assistant message", async () => {
@@ -437,12 +462,13 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Keep markdown");
   });
 
-  test("hides interim assistant messages by default", async () => {
+  test("hides finished interim prose in folded history by default", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
         parts: [
           { type: "text", text: "Inspecting the repo.", segmentId: "commentary-1" },
+          ...completedReadSteps(),
           { type: "text", text: "Patched the issue.", segmentId: "final-1" },
         ],
       }),
@@ -451,6 +477,7 @@ describe("AssistantMessageBody", () => {
       streamingEnabled: true,
     }));
 
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
     expect(html).not.toContain("Inspecting the repo.");
     expect(html).toContain("Patched the issue.");
   });
@@ -461,6 +488,8 @@ describe("AssistantMessageBody", () => {
       message: createAssistantMessage({
         isStreaming: true,
         parts: [
+          { type: "text", text: "Earlier update." },
+          ...completedReadSteps(),
           { type: "text", text: "Inspecting the repo." },
           {
             type: "thinking",
@@ -491,6 +520,8 @@ describe("AssistantMessageBody", () => {
     }));
 
     expect(html).toContain("Inspecting the repo.");
+    expect(html).not.toContain("Earlier update.");
+    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
     expect(html).toContain('data-thinking-status="thinking"');
     expect(html).toContain('data-tool-run-status="running"');
     expect(html).toContain('data-tool-run-status="failed"');
@@ -499,7 +530,7 @@ describe("AssistantMessageBody", () => {
       (match) => match[1],
     );
     expect(expanded).toContain("false");
-    expect(expanded).toContain("true");
+    expect(expanded).not.toContain("true");
     expect(html).toMatch(
       /data-thinking-status="thinking"[\s\S]*?aria-expanded="false"/,
     );
@@ -590,12 +621,13 @@ describe("AssistantMessageBody", () => {
     expect(html).not.toContain(screenshotOutput);
   });
 
-  test("renders interim assistant messages when enabled", async () => {
+  test("opens folded history for finished interim messages when enabled", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
         parts: [
           { type: "text", text: "Inspecting the repo.", segmentId: "commentary-1" },
+          ...completedReadSteps(),
           { type: "text", text: "Patched the issue.", segmentId: "final-1" },
         ],
       }),
@@ -605,50 +637,27 @@ describe("AssistantMessageBody", () => {
       showInterimMessages: true,
     }));
 
+    expect(html).toMatch(/<button[^>]*aria-expanded="true"[^>]*data-trace-anchor="header"/);
     expect(html).toContain("Inspecting the repo.");
     expect(html).toContain("Patched the issue.");
   });
 
 
-  /*
-   * The settled turn header is the container of every row on the rail, and it
-   * was the one row that disagreed with them about its own anatomy: a trailing
-   * `ChevronDown`, no padding, no hover wash and no glyph column. It now
-   * composes the same AUI `inlineDisclosure` trigger the rows do, so the
-   * chevron lives in the LEADING slot that swaps for the object glyph.
-   */
-  test("the turn header is an inline disclosure row with a leading chevron", async () => {
+  test("the history trigger starts with the current state mark and ends with a chevron", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
-      message: createAssistantMessage({
-        parts: [
-          {
-            type: "tool_use",
-            toolName: "Bash",
-            input: "ls",
-            output: "a\nb\n",
-            state: "output-available",
-          },
-        ],
-        isStreaming: false,
-      }),
+      message: createAssistantMessage({ parts: completedReadSteps() }),
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
     }));
 
-    const header = html.slice(html.indexOf("<button"));
-    /* The shared hover/focus hook, and the AUI box that comes with it. */
-    expect(header).toContain("atelier-inline-disclosure-trigger");
-    /*
-     * The first element inside the header is the disclosure slot — that is
-     * what "leading, not trailing" means, and it is the assertion a future
-     * trailing chevron would break.
-     */
-    expect(header).toMatch(
-      /^<button(?:(?!<span)[\s\S])*?<span[^>]*data-aui-inline-disclosure-icon/,
-    );
-    expect(header).toContain("data-aui-inline-disclosure-chevron");
+    const header = html.match(/<button[^>]*data-trace-anchor="header"[^>]*>[\s\S]*?<\/button>/)?.[0];
+    const historyId = header?.match(/aria-controls="([^"]+)"/)?.[1];
+    expect(historyId).toBeDefined();
+    expect(html).toContain(`id="${historyId}" hidden=""`);
+    expect(header).toMatch(/^<button[^>]*><span[^>]*data-state="ready"/);
+    expect(header).toMatch(/4 steps<\/span><svg[^>]*class="[^"]*lucide-chevron-right/);
   });
 
   /*
