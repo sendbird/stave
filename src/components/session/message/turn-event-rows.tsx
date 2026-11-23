@@ -72,22 +72,31 @@ export function TraceOutput(args: {
   capped?: boolean;
   /** Names the capped region, e.g. "Arguments" or "Output". */
   label?: string;
+  /** Structured content, with the original output still available to copy. */
+  content?: ReactNode;
+  copyLabel?: string;
+  copyText?: string;
+  note?: string;
 }) {
   useTranslation();
-  const { capped = false, label, linkify = true, prose = false, text } = args;
-  const { status, copied, copy: copyText } = useClipboardCopy(COPIED_MS);
+  const { capped = false, label, linkify = true, prose = false, text, content, copyLabel, copyText = text, note } = args;
+  const { status, copied, copy: copyToClipboard } = useClipboardCopy(COPIED_MS);
   const copy = useCallback(() => {
-    void copyText(text);
-  }, [copyText, text]);
-  const { ref: viewportRef, overflowing } = useOverflowing(capped);
-  const lineCount = useMemo(() => (capped ? countLines(text) : 0), [capped, text]);
+    void copyToClipboard(copyText);
+  }, [copyToClipboard, copyText]);
+  const showLineCount = capped && content === undefined && note === undefined;
+  const { ref: viewportRef, overflowing } = useOverflowing(showLineCount);
+  const lineCount = useMemo(() => (showLineCount ? countLines(text) : 0), [showLineCount, text]);
+  const actionLabel = copied
+    ? i18n.t("session:turnEventRows.traceOutput")
+    : copyLabel ?? i18n.t("session:turnEventRows.traceOutput2");
 
   const textClass = sx(styles.outputText, prose && styles.outputProse);
-  const body = linkify ? (
+  const body = content ?? (linkify ? (
     <LinkifiedText as="pre" className={textClass} text={text} />
   ) : (
     <pre className={textClass}>{text}</pre>
-  );
+  ));
 
   return (
     <div className={sx(styles.output)} data-trace-output="">
@@ -103,23 +112,16 @@ export function TraceOutput(args: {
       ) : (
         body
       )}
-      {capped && overflowing ? (
+      {note ? <p className={sx(styles.lineNote)}>{note}</p> : null}
+      {overflowing ? (
         <p className={sx(styles.lineNote)} data-testid="trace-output-line-note">
           {i18n.t("session:turnEventRows.lineNote", { count: lineCount })}
         </p>
       ) : null}
       <Button
         iconOnly
-        aria-label={
-          copied
-            ? i18n.t("session:turnEventRows.traceOutput")
-            : i18n.t("session:turnEventRows.traceOutput2")
-        }
-        title={
-          copied
-            ? i18n.t("session:turnEventRows.traceOutput")
-            : i18n.t("session:turnEventRows.traceOutput2")
-        }
+        aria-label={actionLabel}
+        title={actionLabel}
         onClick={copy}
         size="xs"
         type="button"

@@ -46,13 +46,13 @@ test("opens and lazily paints a real PDF in the desktop editor", async () => {
   }
 });
 
-test("opens a numbered chat link in the large log reader, searches and follows disk output", async () => {
+test("opens chat and tool matches in the large log reader, searches and follows disk output", async () => {
   test.setTimeout(120_000);
   const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-view-log-"));
   const logPath = path.join(repositoryPath, "output.log");
   const line = 9001;
   const ordinary = "worker heartbeat " + ".".repeat(100) + "\n";
-  await writeFile(logPath, ordinary.repeat(line - 1) + "\x1b[31mlinked error\x1b[0m\n" + ordinary.repeat(2000) + "only match here\n");
+  await writeFile(logPath, ordinary.repeat(line - 1) + "\x1b[31mlinked error\x1b[0m\ntool match here\n" + ordinary.repeat(2000) + "only match here\n");
   const smallPath = path.join(repositoryPath, "small.log");
   await writeFile(smallPath, ("editable output " + ".".repeat(1007) + "\n").repeat(1024));
   execFileSync("git", ["init", "-q", "-b", "main", repositoryPath]);
@@ -83,7 +83,17 @@ test("opens a numbered chat link in the large log reader, searches and follows d
               providerId: "codex",
               model: "gpt-test",
               content: text,
-              parts: [{ type: "text", text }],
+              parts: [
+                {
+                  type: "tool_use",
+                  toolUseId: "grep-log",
+                  toolName: "Grep",
+                  input: '{"pattern":"tool match"}',
+                  output: `output.log:${line + 1}:tool match here`,
+                  state: "output-available",
+                },
+                { type: "text", text },
+              ],
               startedAt: "2026-11-01T00:00:00.000Z",
               completedAt: "2026-11-01T00:00:01.000Z",
             }],
@@ -93,9 +103,15 @@ test("opens a numbered chat link in the large log reader, searches and follows d
     }, { line, workspaceId: E2E_WORKSPACE_ID });
     expect(saved.ok).toBe(true);
     await page.reload();
-    await page.getByRole("link", { name: "Open output.log (reference L9001)" }).click();
-
+    const grep = page.locator('[data-tool-use-id="grep-log"]');
+    await grep.getByRole("button", { name: /^Grep\b/ }).click();
+    await grep.getByRole("button", { name: `output.log:${line + 1}`, exact: true }).click();
     const viewer = page.getByTestId("log-file-viewer");
+    await expect(viewer.locator("mark")).toHaveText("tool match here");
+    await expect(viewer.locator("mark")).toBeInViewport();
+
+    await page.getByRole("button", { name: "Close output.log pane", exact: true }).click();
+    await page.getByRole("link", { name: "Open output.log (reference L9001)" }).click();
     await expect(viewer.locator("mark")).toHaveText("linked error");
     await expect(viewer.locator("mark")).toBeInViewport();
     await viewer.getByRole("searchbox", { name: "Find in file" }).fill("only match here");

@@ -4,7 +4,7 @@ import { mapCodexAsyncQuestions } from "./codex-async-questions";
 import { getProviderAccountRegistry } from "../provider-accounts/registry";
 import { currentProviderAccountId, providerAccountKey, withProviderAccountScope } from "../provider-accounts/runtime-scope";
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
-import { buildCodexCommandResult } from "./codex-command-result";
+import { buildCodexCommandInput, buildCodexCommandResult } from "./codex-command-result";
 import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate";
 import { createCodexApprovalReviewTracker } from "./codex-approval-review";
 import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
@@ -2534,7 +2534,7 @@ export async function streamCodexWithAppServer(
               return;
             }
             const startedItem = params.item as
-              { type?: string; id?: string; command?: string } | undefined;
+              { type?: string; id?: string; command?: string; cwd?: string; commandActions?: unknown } | undefined;
             const startedItemId =
               typeof startedItem?.id === "string" ? startedItem.id : "";
             if (startedItem?.type === "contextCompaction") {
@@ -2556,10 +2556,7 @@ export async function streamCodexWithAppServer(
                 type: "tool",
                 toolUseId: startedItemId,
                 toolName: "bash",
-                input:
-                  typeof startedItem.command === "string"
-                    ? startedItem.command
-                    : "",
+                input: buildCodexCommandInput(startedItem),
                 state: "input-available",
               });
               return;
@@ -2834,6 +2831,8 @@ export async function streamCodexWithAppServer(
               case "commandExecution": {
                 const commandItem = item as {
                   command?: string;
+                  cwd?: string;
+                  commandActions?: unknown;
                   aggregatedOutput?: string | null;
                   status?: string;
                   exitCode?: number | null;
@@ -2865,10 +2864,7 @@ export async function streamCodexWithAppServer(
                           type: "tool" as const,
                           ...(itemId ? { toolUseId: itemId } : {}),
                           toolName: "bash",
-                          input:
-                            typeof commandItem.command === "string"
-                              ? commandItem.command
-                              : "",
+                          input: buildCodexCommandInput(commandItem),
                           state: "input-available" as const,
                         },
                       ]),

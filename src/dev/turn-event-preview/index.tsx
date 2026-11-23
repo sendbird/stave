@@ -1,4 +1,4 @@
-import { applyAppLocale } from "@/i18n";
+import { applyAppLocale, i18n, useTranslation } from "@/i18n";
 import { useEffect, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/aui/components/Button";
@@ -6,18 +6,25 @@ import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
 import { buildApprovalResolution } from "@/lib/approvals/approval-resolution";
-import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
+import { applyCustomTheme, applyThemeClass, applyUiDensity } from "@/lib/themes/apply";
 import { useAppStore } from "@/store/app.store";
-import { createEventSamples } from "./fixtures";
+import { createEventSamples, type EventSample } from "./fixtures";
 import { installMcpAppPreviewBridge } from "./mcp-app-fixture";
+import { toolDetailPreviewParts } from "./tool-detail-fixtures";
 
 // The MCP App view fixture reads its view from this bridge on first render.
 installMcpAppPreviewBridge((summary) => console.info("[mcp-app preview] request", summary));
 
 export function TurnEventPreview() {
+  useTranslation();
+  const toolDetails = new URLSearchParams(location.search).has("toolDetails");
   const [samples, setSamples] = useState(createEventSamples);
   const [dark, setDark] = useState(() => new URLSearchParams(location.search).get("theme") === "dark");
   const [sentMessages, setSentMessages] = useState<string[]>([]);
+  const [openedFiles, setOpenedFiles] = useState<string[]>([]);
+  const visibleSamples: EventSample[] = toolDetails
+    ? [{ title: i18n.t("session:toolDetail.previewTitle"), parts: toolDetailPreviewParts }]
+    : samples;
   const root = useRef<HTMLDivElement>(null);
   const expand = () => {
     root.current
@@ -29,6 +36,7 @@ export function TurnEventPreview() {
   useEffect(() => {
     applyCustomTheme({ theme: null });
     applyThemeClass({ enabled: dark });
+    applyUiDensity({ density: new URLSearchParams(location.search).get("density") === "compact" ? "compact" : "regular" });
   }, [dark]);
   useEffect(() => {
     applyAppLocale(new URLSearchParams(location.search).get("lang") ?? "en");
@@ -67,6 +75,11 @@ export function TurnEventPreview() {
             ),
           })),
         ),
+      ...(toolDetails ? {
+        openFileFromTree: async ({ filePath, line }) => {
+          setOpenedFiles((rows) => [...rows, JSON.stringify({ filePath, line })]);
+        },
+      } : {}),
       // A message an inline page or MCP App view sent after the reader confirmed it.
       sendUserMessage: async ({ taskId, content }) => {
         setSentMessages((rows) => [...rows, content]);
@@ -75,12 +88,13 @@ export function TurnEventPreview() {
     });
     return () => {
       useAppStore.setState({
+        openFileFromTree: original.openFileFromTree,
         resolveApproval: original.resolveApproval,
         resolveUserInput: original.resolveUserInput,
         sendUserMessage: original.sendUserMessage,
       });
     };
-  }, []);
+  }, [toolDetails]);
   useEffect(() => {
     const timers = [100, 350, 700].map((delay) => setTimeout(expand, delay));
     return () => timers.forEach(clearTimeout);
@@ -112,11 +126,16 @@ export function TurnEventPreview() {
             ))}
           </ul>
         ) : null}
+        {openedFiles.length > 0 ? (
+          <ul data-preview-opened-files="" className={sx(styles.note)}>
+            {openedFiles.map((file, index) => <li key={index}>{file}</li>)}
+          </ul>
+        ) : null}
       </header>
       <div ref={root} className={sx(styles.list)}>
-        {samples.map((sample, index) => (
+        {visibleSamples.map((sample, index) => (
           <section
-            key={sample.title}
+            key={toolDetails ? "tool-details" : sample.title}
             id={`event-${index + 1}`}
             className={sx(styles.section)}
           >

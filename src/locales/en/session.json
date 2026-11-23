@@ -929,6 +929,20 @@
   "turnEventNotice": {
     "summary": "Failed"
   },
+  "toolDetail": {
+    "openFile": "Open {{location}}",
+    "offset": "From line {{value}}",
+    "limit": "up to {{value}} lines",
+    "lineRange": "Lines {{start}}–{{end}}",
+    "pages": "Pages {{value}}",
+    "hiddenMatches_one": "{{count}} more match",
+    "hiddenMatches_other": "{{count}} more matches",
+    "hiddenEntries_one": "{{count}} entry omitted",
+    "hiddenEntries_other": "{{count}} entries omitted",
+    "copyRaw": "Copy raw output",
+    "outputPreview": "Showing the start of this output. Copy to get the full recorded result.",
+    "previewTitle": "Tool details"
+  },
   "turnEventRows": {
     "traceOutput": "Copied",
     "traceOutput2": "Copy",

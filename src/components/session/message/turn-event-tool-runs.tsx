@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Bot, ListTodo } from "lucide-react";
 import { ToolRun } from "@/components/aui/components/ToolRun";
 import { parseFileChangeToolInput } from "@/components/session/chat-panel.utils";
@@ -10,6 +10,7 @@ import {
 import { readMcpAppViewFromToolPart } from "@/lib/mcp-app/mcp-app-view";
 import { parseSubagentToolInput } from "@/lib/subagent-tool-input";
 import { parseToolOutputImages } from "@/lib/tool-images/tool-images";
+import { normalizeToolDetailInput } from "@/lib/tool-detail";
 import type { ToolUsePart } from "@/types/chat";
 import {
   deriveTraceToolSummary,
@@ -18,6 +19,7 @@ import {
   normalizeTraceToolName,
 } from "./assistant-trace.utils";
 import { CommandResult } from "./command-result";
+import { FormattedToolOutput, ReadToolDetail } from "./tool-detail";
 import { McpAppView } from "./mcp-app-view";
 import { ToolOutputImages, useReplyImageNumber } from "./tool-output-images";
 import { planProgressCount, TracePlan } from "./turn-event-decisions";
@@ -51,6 +53,7 @@ export function TraceToolRun(args: {
   useTranslation();
   const { part, taskId } = args;
   const normalized = normalizeTraceToolName(part.toolName);
+  const detail = useMemo(() => normalizeToolDetailInput(normalized, part.input), [normalized, part.input]);
   /*
    * An inline HTML page is shown in full below the trace, so its row names the
    * page and never unpacks the page's markup (up to half a megabyte) into the
@@ -78,7 +81,9 @@ export function TraceToolRun(args: {
    */
   const residualInput = inlineRender
     ? null
-    : getResidualToolInput({ input: part.input, summary: toolSummary });
+    : detail.remainingInput !== undefined
+      ? detail.remainingInput
+      : getResidualToolInput({ input: part.input, summary: toolSummary });
   const fileRows =
     normalized === "file_change" ? parseFileChangeToolInput(part.input) : [];
   const isCommand = normalized === "bash";
@@ -88,13 +93,13 @@ export function TraceToolRun(args: {
   // Images come out of the text: a screenshot is a picture, not base64.
   const toolOutput = parseToolOutputImages(part.output);
   const firstImageNumber = useReplyImageNumber(part.toolUseId);
-  const rawOutput = toolOutput.text.trim();
+  const rawOutput = toolOutput.text;
   const output =
     inlineRender?.reference && !isError
       ? i18n.t("session:inlineRender.shownBelow")
       : rawOutput;
-  const command =
-    toolSummary?.kind === "command" ? toolSummary.text : part.input;
+  const argumentsLabel = i18n.t("ui:toolrun.arguments");
+  const formatted = !inlineRender && !isWeb && part.state === "output-available";
   // A view the runtime captured for this call replaces its text output.
   const mcpAppView = isError ? null : readMcpAppViewFromToolPart(part);
 
@@ -122,8 +127,15 @@ export function TraceToolRun(args: {
       /* Arguments get the output's copy action and cap: a long JSON payload
          is copied as often as a result is, and grows as tall. */
       input={
-        residualInput ? (
-          <TraceOutput capped label={i18n.t("ui:toolrun.arguments")} linkify={false} text={residualInput} />
+        detail.read ? (
+          <TraceOutput
+            capped
+            label={argumentsLabel}
+            text={part.input}
+            content={<ReadToolDetail read={detail.read} taskId={taskId} remainingInput={residualInput} />}
+          />
+        ) : residualInput ? (
+          <TraceOutput capped label={argumentsLabel} linkify={false} text={residualInput} />
         ) : undefined
       }
       defaultOpen={mcpAppView ? true : undefined}
@@ -135,8 +147,10 @@ export function TraceToolRun(args: {
             toolUseId={part.toolUseId}
             textResult={rawOutput || undefined}
           />
-        ) : !isError && !isCommand && output ? (
-          <TraceOutput capped label={i18n.t("ui:toolrun.output")} linkify={!streamingInput} text={output} />
+        ) : !isError && output.trim() && formatted && !isCommand ? (
+          <FormattedToolOutput output={output} search={detail.search} taskId={taskId} />
+        ) : !isError && !isCommand && output.trim() ? (
+          <TraceOutput capped label={i18n.t("ui:toolrun.output")} linkify={!streamingInput} text={output.trim()} />
         ) : undefined
       }
       outputLabel={args.outputLabel}
@@ -146,11 +160,13 @@ export function TraceToolRun(args: {
     >
       {isCommand ? (
         <CommandResult
-          command={command}
+          command={detail.command ?? part.input}
           exitCode={part.exitCode}
           isError={isError}
           isStreaming={streamingInput || part.state === "input-available"}
           output={part.output}
+          search={!isError ? detail.search : undefined}
+          taskId={taskId}
         />
       ) : null}
       {isWeb && !isError ? <TraceCitations output={part.output} /> : null}

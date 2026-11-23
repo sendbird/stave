@@ -892,6 +892,18 @@
   "turnEventNotice": {
     "summary": "실패함"
   },
+  "toolDetail": {
+    "openFile": "{{location}} 열기",
+    "offset": "{{value}}번째 줄부터",
+    "limit": "최대 {{value}}줄",
+    "lineRange": "{{start}}–{{end}}번 줄",
+    "pages": "페이지 {{value}}",
+    "hiddenMatches_other": "결과 {{count}}개 더 있음",
+    "hiddenEntries_other": "항목 {{count}}개 생략됨",
+    "copyRaw": "원본 출력 복사",
+    "outputPreview": "출력의 앞부분을 표시합니다. 기록된 전체 결과는 복사할 수 있습니다.",
+    "previewTitle": "도구 상세"
+  },
   "turnEventRows": {
     "traceOutput": "복사됨",
     "traceOutput2": "복사",

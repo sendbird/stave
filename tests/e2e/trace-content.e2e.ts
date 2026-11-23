@@ -5,17 +5,13 @@ for (const locale of ["en", "ko"] as const) {
     test(`trace copy controls fit and copy raw content (${locale}, ${dark ? "dark" : "light"})`, async ({
       page,
     }) => {
-      await page.goto("/?stavePreview=turn-events");
+      await page.goto(`/?stavePreview=turn-events&lang=${locale}&theme=${dark ? "dark" : "light"}`);
       await expect(page.locator("#event-9")).toBeVisible({ timeout: 15_000 });
       await page.evaluate(
-        async ({ locale, dark }) => {
+        async () => {
           const path = "/tests/e2e/fixtures/trace-content.tsx";
           const { mountTraceContent } = await import(path);
           mountTraceContent();
-          const i18nPath = "/src/i18n/runtime.ts";
-          const { i18n } = await import(i18nPath);
-          await i18n.changeLanguage(locale);
-          document.documentElement.classList.toggle("dark", dark);
           Object.defineProperty(navigator, "clipboard", {
             configurable: true,
             value: {
@@ -26,7 +22,6 @@ for (const locale of ["en", "ko"] as const) {
           });
           await document.fonts.ready;
         },
-        { locale, dark },
       );
       const block = page.locator("[data-copy-fixture]");
       const button = block.getByRole("button");
@@ -67,11 +62,15 @@ for (const locale of ["en", "ko"] as const) {
       expect((await button.boundingBox())!.width).toBe(before!.width);
       await expect(button.locator(".lucide-check")).toHaveCount(1);
       await expect(button).toHaveAccessibleName(label);
-      const command = page.locator("[data-command-copy-fixture]").getByRole("button");
+      const command = page.locator("[data-command-copy-fixture]").getByRole("button", { name: locale === "ko" ? "명령어 복사" : "Copy command", exact: true });
       await command.click();
       expect(await page.evaluate(() => (window as any).copiedText)).toBe(
         "bun test --timeout 30000",
       );
+      const commandResult = page.locator("[data-command-copy-fixture]");
+      expect(await commandResult.locator("pre").textContent()).toBe("done");
+      await commandResult.getByRole("button", { name: locale === "ko" ? "출력 복사" : "Copy output", exact: true }).click();
+      expect(await page.evaluate(() => (window as any).copiedText)).toBe("done\n");
       await page.locator("[data-short-copy-fixture]").getByRole("button").click();
       expect(await page.evaluate(() => (window as any).copiedText)).toBe("short output");
     });
