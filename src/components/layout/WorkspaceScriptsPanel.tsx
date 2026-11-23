@@ -429,12 +429,25 @@ export function ScriptEntryRow(props: {
                 />
               ) : null}
               {state.orbitLocalUrl ? (
-                <OrbitUrlBadge
-                  url={state.orbitLocalUrl}
-                  kind="local"
-                  lensAvailable={props.lensAvailable}
-                  onOpenInLens={props.onOpenOrbitUrlInLens}
-                />
+                <div className={sx(toolStyles.urlRow)}>
+                  <OrbitUrlBadge
+                    url={state.orbitLocalUrl}
+                    kind="local"
+                    lensAvailable={props.lensAvailable}
+                    onOpenInLens={props.onOpenOrbitUrlInLens}
+                  />
+                  <Tooltip content={tI18n("scripts:workspaceScriptsPanel.openInBrowser")}>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      xstyle={toolStyles.urlRowButton}
+                      onClick={() => openExternalUrl(state.orbitLocalUrl ?? "")}
+                      aria-label={tI18n("scripts:workspaceScriptsPanel.openLocalUrlInBrowser")}
+                    >
+                      <ExternalLink className={sx(toolStyles.icon)} />
+                    </Button>
+                  </Tooltip>
+                </div>
               ) : null}
             </div>
           ) : null}

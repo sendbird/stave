@@ -10,6 +10,8 @@ export const toolStyles = stylex.create({
   formActions: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: vars["--aui-space-8"] },
   duration: { fontVariantNumeric: "tabular-nums" },
   url: { marginTop: vars["--aui-space-4"], display: "inline-flex", maxWidth: "100%", alignItems: "center", gap: 6, borderRadius: vars["--aui-radius-control"], backgroundColor: { default: vars["--aui-color-surface-tint"], ":hover": vars["--aui-color-selection-fill"], ":active": vars["--aui-color-surface-tint"] }, paddingInline: vars["--aui-space-8"], paddingBlock: vars["--aui-space-4"], fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-medium"], color: vars["--aui-color-text"] },
+  urlRow: { display: "flex", alignItems: "center", gap: vars["--aui-space-4"], maxWidth: "100%", minWidth: 0 },
+  urlRowButton: { flexShrink: 0, width: 24, height: 24, marginTop: vars["--aui-space-4"], borderRadius: vars["--aui-radius-control"] },
   urlStack: { display: "flex", flexDirection: "column", alignItems: "flex-start", maxWidth: "100%" },
   smallIcon: { width: 12, height: 12, flexShrink: 0 },
   externalIcon: { width: 12, height: 12, flexShrink: 0, opacity: 0.6 },
