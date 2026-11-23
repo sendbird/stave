@@ -1,3 +1,4 @@
+import { applyBackgroundTaskEvents, settleBackgroundTasks, type BackgroundTaskEvent } from "./background-tasks";
 import { i18n } from "@/i18n/runtime";
 import { formatDuration } from "@/i18n/format";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
@@ -123,6 +124,7 @@ export interface ProviderTurnActivitySnapshot {
   turnError?: string;
   turnErrorRecoverable?: boolean;
   completedAt?: number;
+  backgroundTasks?: readonly BackgroundTaskEvent[];
   workItemsById: Record<string, ProviderTurnWorkItem>;
   orderedWorkItemIds: string[];
   /**
@@ -181,6 +183,7 @@ export function startProviderTurnActivity(args: {
         (isSameTurn ? current.pendingInteraction : null),
       workItemsById: isSameTurn ? current.workItemsById : {},
       orderedWorkItemIds: isSameTurn ? current.orderedWorkItemIds : [],
+      backgroundTasks: isSameTurn ? current.backgroundTasks : undefined,
       workGraph: isSameTurn
         ? current.workGraph
         : createWorkGraph({
@@ -267,6 +270,7 @@ function freezeRetiredSnapshot(
     pendingInteraction: null,
     stalledAt: null,
     completedAt: snapshot.completedAt ?? now,
+    backgroundTasks: snapshot.backgroundTasks && settleBackgroundTasks(snapshot.backgroundTasks, now),
     workGraph: resolveWorkGraphInteractions(snapshot.workGraph, now),
   };
 }
@@ -1098,7 +1102,12 @@ export function reduceProviderTurnActivityEvents(args: {
   for (const event of args.events) {
     if (event.type === "turn_admission") admission = { state: event.state, ahead: event.ahead };
   }
+  const backgroundTasks = applyBackgroundTaskEvents(
+    (current?.turnId === args.turnId ? current.backgroundTasks : undefined) ?? [],
+    args.events,
+  );
   const snapshot: ProviderTurnActivitySnapshot = {
+    ...(backgroundTasks.length ? { backgroundTasks: turnCompleted ? settleBackgroundTasks(backgroundTasks, now) : backgroundTasks } : {}),
     ...(admission && !turnCompleted ? { admission } : {}),
     turnId: args.turnId,
     terminalReceipt,

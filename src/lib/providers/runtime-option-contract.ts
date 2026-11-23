@@ -264,6 +264,7 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "history_boundary",
   "permission_denial",
   "hook_activity",
+  "background_task",
   "tool",
   "tool_progress",
   "tool_result",

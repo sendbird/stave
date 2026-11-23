@@ -10,6 +10,7 @@ export type LocalMcpTaskTurnActivityEvent = Extract<
       | "agent_provenance"
       | "advisor_activity"
       | "hook_activity"
+      | "background_task"
       | "tool"
       | "tool_progress"
       | "tool_result"
@@ -95,6 +96,7 @@ export function repositoryLocalMcpTaskTurnActivityEvent(
 ): LocalMcpTaskTurnActivityEvent | undefined {
   switch (event.type) {
     case "hook_activity":
+    case "background_task":
     case "tool_progress":
     case "subagent_progress":
     case "provider_session":

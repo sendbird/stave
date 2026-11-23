@@ -237,6 +237,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "goal_status":
     case "history_boundary":
     case "hook_activity":
+    case "background_task":
     case "agent_provenance":
     case "model_resolved":
     case "approval_resolved":
@@ -366,6 +367,7 @@ function normalizeEventToPart(args: {
     case "delegated_usage":
     case "history_boundary":
     case "hook_activity":
+    case "background_task":
     // Turn metadata: recorded on the turn's agent provenance in main, no transcript row.
     case "approvals_applied":
       return null;
@@ -1045,7 +1047,7 @@ export function replayProviderEventsToTaskState(args: {
       continue;
     }
 
-    if (event.type === "hook_activity") {
+    if (event.type === "hook_activity" || event.type === "background_task") {
       continue;
     }
 

@@ -1,3 +1,4 @@
+import { createClaudeBackgroundTaskObserver } from "./claude-background-tasks";
 import { runQuestionRequestId, RUN_QUESTION_WAIT_STOP_REASON } from "../../src/lib/agent-runs/persistent-question";
 import { currentProviderAccountId, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
@@ -571,7 +572,6 @@ async function resolveClaudeEnabledPluginsForQuery(args: {
     return undefined;
   }
 }
-
 
 /**
  * Rewrite built-in Agent tool inputs so spawned subagents run in the
@@ -3100,6 +3100,7 @@ export async function streamClaudeWithSdk(
   type ClaudeUserInputDecision = { answers?: Record<string, string>; denied?: boolean };
   const pendingUserInputResolvers = new Map<string, (response: ClaudeUserInputDecision) => void>();
   let awaitingQuestion = false;
+  let backgroundTasks: ReturnType<typeof createClaudeBackgroundTaskObserver> | undefined;
   // A delegated (managed) run's question keeps today's timeout: its controller, not the user, answers it.
   const runQuestionScope = args.managedTask ? undefined : args.agentRunStage;
   let stream: Query | null = null;
@@ -3874,7 +3875,9 @@ export async function streamClaudeWithSdk(
     const backgroundHold = createClaudePostResultBackgroundHold({
       isTurnBusy: () => awaitingQuestion || pendingApprovalResolvers.size > 0 || pendingUserInputResolvers.size > 0,
     });
+    if (!secondaryReadOnly) backgroundTasks = createClaudeBackgroundTaskObserver(args, () => abortRequested ? null : stream, eventCollector);
     for await (const message of readClaudeStreamUntilBackgroundHold(recoverableStream, backgroundHold)) {
+      await backgroundTasks?.observe(message);
       if (
         message.type === "system" &&
         (message as SDKSystemMessage).subtype === "init"
@@ -4033,6 +4036,7 @@ export async function streamClaudeWithSdk(
       mcpAppViews.observe(message, normalizedEvents);
     }
 
+    backgroundTasks?.close();
     const heldBackgroundTasks = backgroundHold.heldTasks();
     if (heldBackgroundTasks && !abortRequested) {
       console.info("[claude-sdk-runtime] ended a turn the CLI held open for background tasks", {
@@ -4103,6 +4107,7 @@ export async function streamClaudeWithSdk(
     failureEvents.forEach((event) => args.onEvent?.(event));
     return failureEvents;
   } finally {
+    backgroundTasks?.close();
     // ── Cleanup pending resolvers ───────────────────────────────────────
     // If the turn was aborted while waiting for user approval/input, the
     // SDK's options.signal SHOULD abort the pending waitForClaudeToolDecision

@@ -1,4 +1,5 @@
 import type { ProviderDecisionFailureReason, ProviderDecisionResponse } from "../../src/lib/providers/provider.types";
+import type { BackgroundTaskRequest, BackgroundTaskResponse } from "../../src/lib/providers/background-tasks";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
 import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { TurnSnapshotList, TurnSnapshotOwner, TurnSnapshotRestore, TurnSnapshotResult } from "../../src/lib/turn-snapshots";
@@ -670,6 +671,7 @@ export interface HostServiceRequestMap {
     answers?: Record<string, string>;
     denied?: boolean;
   };
+  "provider.background-task": BackgroundTaskRequest;
   "provider.steer-turn": {
     questionReply?: import("../../src/lib/question-reply").QuestionReply;
     turnId: string;
@@ -1178,6 +1180,7 @@ export interface HostServiceResponseMap {
   "provider.cleanup-task": HostProviderMutationResult;
   "provider.respond-approval": ProviderDecisionResponse;
   "provider.respond-user-input": ProviderDecisionResponse;
+  "provider.background-task": BackgroundTaskResponse;
   "provider.steer-turn": ProviderSteerTurnResponse;
   "provider.check-availability": ProviderAvailabilityResponse;
   "provider.get-command-catalog": ProviderCommandCatalogResult;

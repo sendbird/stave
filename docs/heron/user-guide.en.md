@@ -273,6 +273,8 @@ Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/doc
 
 **Task panel**: the right rail's Task panel is one screen. Its first line is the task's state, one of **Working** (followed by the step it runs now, such as `Run command · bun test`), **Waiting** (a run waits for a usage reset, PR checks or a set time; nobody has to act, and the panel says when it resumes), **Waiting for you**, **Blocked**, **Finished** or **Stopped**. Below it: what you need to do (only while a question, approval or sign-off waits, with **Answer** or **Review request**), the result (the pull request, the files changed with **Review changes**, which opens the same files the count names, and **Show answer**) or why it stopped, and the completion conditions still open. **Details**, collapsed, list the turn's steps with the **Turn** picker, the run's stages, the subagents and the outputs; they open by themselves on a failure. Picking an earlier turn moves the state to that turn; **Back to latest** returns. The **Agent tree** folds branch by branch and moves with the arrow keys. In the conversation, a tool call's arguments and output each have **Copy**, and long output scrolls inside a fixed height with a line count under it.
 
+**Background** in Task panel > **Details** shows work Claude reported for the current turn or the most recently finished turn in this session. Each row shows the provider, a description, when Stave first saw it, elapsed time, and whether the provider confirmed the status. Expand **Recent output** to follow the tail when available. **Stop** appears while the provider can stop that individual task.
+
 ## 4. Check the changes and open a PR
 
 1. Use **Source Control** in the right panels to see changed files and history.

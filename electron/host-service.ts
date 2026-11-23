@@ -1,4 +1,5 @@
 import { isUsageLimitReservationId } from "../src/lib/providers/usage-limit-reservation";
+import { requestClaudeBackgroundTask } from "./providers/claude-background-tasks";
 import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
 import { TurnSnapshotService } from "./host-service/turn-snapshots";
 import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../src/lib/turn-snapshots";
@@ -1703,6 +1704,7 @@ function requestNeedsCliDiscovery(method: string) {
     method === "provider.read-stream-turn" ||
     method === "provider.ack-stream-turn" ||
     method === "provider.steer-turn" ||
+    method === "provider.background-task" ||
     method === "provider.respond-approval" ||
     method === "provider.respond-user-input"
   ) {
@@ -2032,6 +2034,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         request.id,
         await providerRuntime.respondUserInput(request.params),
       );
+      return;
+    case "provider.background-task":
+      await respond(request.id, await requestClaudeBackgroundTask(request.params));
       return;
     case "provider.steer-turn":
       await respond(

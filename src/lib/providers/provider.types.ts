@@ -1,3 +1,4 @@
+import type { BackgroundTaskEvent } from "./background-tasks";
 import type { McpAppViewReference } from "@/lib/mcp-app/mcp-app-view";
 import type { ApprovalResolvedEvent, ApprovalRisk } from "@/lib/approvals/approval-resolution";
 import type { CodexApprovalsAppliedEvent } from "@/lib/providers/codex-runtime-options";
@@ -916,6 +917,7 @@ export interface ProviderGoalSnapshot {
 }
 
 export type NormalizedProviderEvent =
+  | BackgroundTaskEvent
   | { type: "agent_provenance"; provenance: AgentTurnProvenance }
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }

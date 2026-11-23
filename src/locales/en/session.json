@@ -1,4 +1,29 @@
 {
+  "backgroundTasks": {
+    "title": "Background",
+    "empty": "No background work was reported for this turn.",
+    "untitled": "Background task",
+    "statusLine": "{{provider}} · {{status}} · {{confidence}}",
+    "timing": "First seen {{time}} · {{elapsed}} elapsed",
+    "confidence": {
+      "confirmed": "Provider confirmed",
+      "inferred": "Inferred"
+    },
+    "status": {
+      "running": "Running",
+      "paused": "Paused",
+      "completed": "Completed",
+      "failed": "Failed",
+      "stopped": "Stopped",
+      "unknown": "Status unknown"
+    },
+    "stop": "Stop",
+    "stopping": "Stopping…",
+    "stopFailed": "Could not confirm the stop request.",
+    "log": "Recent output",
+    "truncated": "Showing the end of the output.",
+    "noOutput": "No output available yet."
+  },
   "questionReply": {
     "label_one": "Reply to agent question · {{count}} question",
     "label_other": "Reply to agent questions · {{count}} questions",

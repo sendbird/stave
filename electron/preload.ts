@@ -1,4 +1,5 @@
 import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearchScope } from "../src/lib/fs/content-search";
+import type { BackgroundTaskRequest, BackgroundTaskResponse } from "../src/lib/providers/background-tasks";
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
@@ -1240,6 +1241,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("provider:list-live-turns"),
     takeRestoredQueuedTurns: () =>
       ipcRenderer.invoke("provider:take-restored-queued-turns"),
+    backgroundTask: (args: BackgroundTaskRequest): Promise<BackgroundTaskResponse> =>
+      ipcRenderer.invoke("provider:background-task", args),
     steerTurn: (
       args: ProviderSteerTurnRequest,
     ): Promise<ProviderSteerTurnResponse> =>

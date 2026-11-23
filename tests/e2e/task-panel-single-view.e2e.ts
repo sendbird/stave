@@ -166,3 +166,32 @@ for (const lang of ["en", "ko"] as const) {
     await expect(result.getByRole("button", { name: copy.showAnswer })).toHaveCount(0);
   });
 }
+
+for (const [lang, theme, panelWidth, density] of [["en", "light", 420, "regular"], ["ko", "dark", 270, "compact"]] as const) {
+  test(`background work fits the task rail and follows available output (${lang}, ${theme})`, async ({ page }) => {
+    await page.setViewportSize({ width: 720, height: 1000 });
+    await page.goto(`/?stavePreview=task-panel&task=agent-run&background=1&panelWidth=${panelWidth}&lang=${lang}&theme=${theme}&density=${density}`);
+    const frame = page.getByTestId("task-panel-frame");
+    await frame.getByText(COPY[lang].details, { exact: true }).click();
+    const section = frame.getByRole("region", { name: lang === "en" ? "Background" : "백그라운드", exact: true });
+    const rows = section.getByTestId("background-task-row");
+    await expect(rows).toHaveCount(3);
+    await expect(rows.nth(0)).toContainText(lang === "en" ? "Provider confirmed" : "프로바이더 확인");
+    await expect(rows.nth(2)).toContainText(lang === "en" ? "Inferred" : "추정");
+    const stop = lang === "en" ? "Stop" : "중지";
+    await expect(rows.nth(0).getByRole("button", { name: stop, exact: true })).toBeVisible();
+    await expect(rows.nth(1).getByRole("button", { name: stop, exact: true })).toHaveCount(0);
+    await expect(rows.nth(2).getByRole("button", { name: stop, exact: true })).toHaveCount(0);
+    const log = lang === "en" ? "Recent output" : "최근 출력";
+    await rows.nth(0).getByText(log, { exact: true }).click();
+    const tail = rows.nth(0).locator("pre");
+    await expect(tail).toContainText(/Batch [1-9]/);
+    const initialTail = await tail.textContent();
+    await expect(tail).not.toHaveText(initialTail!);
+    await page.evaluate(() => document.fonts.ready);
+    expect(await tail.evaluate((node) => node.scrollWidth <= node.clientWidth + 1 && node.scrollHeight > node.clientHeight)).toBe(true);
+    expect(await tail.evaluate((node) => Math.abs(node.scrollHeight - node.clientHeight - node.scrollTop))).toBeLessThanOrEqual(1);
+    expect((await frame.boundingBox())?.width).toBe(panelWidth);
+    expect(await frame.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+  });
+}

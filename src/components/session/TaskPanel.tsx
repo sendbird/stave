@@ -20,6 +20,7 @@ import { isTaskManaged } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useTaskAgentRun } from "@/store/agent-runs-store";
+import { BackgroundTasksSection } from "./BackgroundTasksSection";
 import { TaskResultReviews } from "./TaskResultReviews";
 import { SubagentsSection } from "./SubagentsSection";
 import { TaskPanelEmpty } from "./TaskPanelEmpty";
@@ -239,6 +240,9 @@ export function TaskPanelView(props: {
                 ) : (
                   <p className={sx(styles.notice)}>{i18n.t("session:taskPanel.taskPanelView")}</p>
                 )}
+              </DetailsPart>
+              <DetailsPart label={i18n.t("session:backgroundTasks.title")} padded>
+                <BackgroundTasksSection workspaceId={workspaceId} taskId={taskId} />
               </DetailsPart>
               <DetailsPart label={i18n.t("session:taskPanel.outputs")} padded>
                 <TaskResultReviews workspaceId={workspaceId} taskId={taskId} />
