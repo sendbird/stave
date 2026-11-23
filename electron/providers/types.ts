@@ -10,6 +10,8 @@ import type { AgentRunStageIdentity } from "../../src/lib/agent-runs/domain";
 import type {
   CanonicalConversationRequest,
   ProviderAvailabilityResponse,
+  ProviderDecisionFailureReason,
+  ProviderDecisionResponse,
   ProviderGoalSnapshot,
   ProviderRuntimeOptions,
   ProviderSteerTurnRequest,
@@ -117,8 +119,7 @@ export interface ProviderPromptAcceptance {
  */
 export type ProviderResponderResult =
   | { ok: true }
-  | { ok: false; reason: "unknown-request"; pendingRequestIds: string[] }
-  | { ok: false; reason: "turn-not-steerable"; pendingRequestIds: string[] };
+  | { ok: false; reason: ProviderDecisionFailureReason | "turn-not-steerable"; pendingRequestIds: string[] };
 
 export type ProviderSteerResponder = (args: {
   text: string;
@@ -417,18 +418,13 @@ export interface ProviderRuntime {
     approved: boolean;
     reason?: string;
     scope?: "once" | "always";
-  }) => Promise<{
-    ok: boolean;
-    message: string;
-    /** The provider can no longer answer this request (no live turn, or an unknown request id). */
-    unanswerable?: true;
-  }>;
+  }) => Promise<ProviderDecisionResponse & { message: string }>;
   respondUserInput: (args: {
     turnId: string;
     requestId: string;
     answers?: Record<string, string>;
     denied?: boolean;
-  }) => Promise<{ ok: boolean; message: string }>;
+  }) => Promise<ProviderDecisionResponse & { message: string }>;
   steerTurn: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;

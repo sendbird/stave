@@ -35,7 +35,7 @@ export interface TaskTurnRuntimeEntries {
   failedSendsByTask: FailedOutgoingSendsByTask;
   /** A paused task that left the app has nothing left to resume. */
   usageLimitPauseByTask: UsageLimitPauseByTask;
-  restoredQueueReleasedByTask: Record<string, true | undefined>;
+  restoredQueueReleasedByTask: Record<string, true | number | undefined>;
   /** The last auto-routing decision shown for a task that is gone. */
   autoRoutingDecisionByTask: Record<string, AutoRoutingDecisionRecord>;
 }

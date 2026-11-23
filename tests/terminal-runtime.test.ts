@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { ProviderAccountRegistry } from "../electron/provider-accounts/registry";
 import { workspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
-import { afterEach, describe, expect, mock, setSystemTime, test } from "bun:test";
+import { afterEach, describe, expect, jest, mock, setSystemTime, test } from "bun:test";
 import { OPENCODE_NATIVE_SESSION_DISCOVERY } from "../src/lib/terminal/native-session-discovery-window";
 
 type ExitPayload = { exitCode: number; signal?: number };
@@ -22,6 +22,7 @@ class FakePty {
   paused = false;
   pauseCalls = 0;
   resumeCalls = 0;
+  deferExitOnDestroy = false;
   writes: string[] = [];
   dataListeners: Array<{
     listener: (data: string) => void;
@@ -56,6 +57,7 @@ class FakePty {
 
   destroy() {
     this.destroyed = true;
+    if (!this.deferExitOnDestroy) this.fireExit({ exitCode: 129, signal: 1 });
   }
 
   pause() {
@@ -77,6 +79,7 @@ class FakePty {
   }
 
   fireExit(event: ExitPayload) {
+    this.deferExitOnDestroy = true;
     for (const entry of this.exitListeners) {
       if (!entry.disposable.disposed) {
         entry.listener(event);
@@ -189,6 +192,7 @@ const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
 const TERMINAL_BACKGROUND_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
 
 afterEach(() => {
+  jest.useRealTimers();
   fakePtys.length = 0;
   fakeSpawnCalls.length = 0;
   fakeClaudeAutoModeSupported = true;
@@ -200,7 +204,7 @@ afterEach(() => {
 });
 
 describe("terminal runtime PTY cleanup", () => {
-  test("closeSession disposes PTY listeners before destroying the PTY", () => {
+  test("closeSession waits for PTY exit and suppresses late output and exit events", async () => {
     const emitted: Array<{ event: string; payload: unknown }> = [];
     const runtime = createTerminalRuntime({
       emitEvent: async (event, payload) => {
@@ -224,19 +228,51 @@ describe("terminal runtime PTY cleanup", () => {
     const fake = fakePtys[0];
     expect(fake).toBeTruthy();
 
-    const result = runtime.closeSession({ sessionId: created.sessionId! });
-    expect(result).toEqual({ ok: true });
+    fake.deferExitOnDestroy = true;
+    let settled = false;
+    const closing = Promise.resolve(runtime.closeSession({ sessionId: created.sessionId! })).then((result) => {
+      settled = true;
+      return result;
+    });
     expect(fake.destroyed).toBe(true);
     expect(fake.dataListeners.every((entry) => entry.disposable.disposed)).toBe(
       true,
     );
-    expect(fake.exitListeners.every((entry) => entry.disposable.disposed)).toBe(
-      true,
-    );
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(runtime.hasWorkspaceSessions("workspace-1")).toBe(true);
 
     fake.fireData("late output");
     fake.fireExit({ exitCode: 0 });
+    expect(await closing).toEqual({ ok: true });
+    expect(fake.exitListeners.every((entry) => entry.disposable.disposed)).toBe(true);
+    expect(runtime.hasWorkspaceSessions("workspace-1")).toBe(false);
     expect(emitted).toEqual([]);
+  });
+
+  test("reports a close timeout and keeps cleanup blocked until a late exit", async () => {
+    jest.useFakeTimers();
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const args = {
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "close-timeout",
+    };
+    const { sessionId } = runtime.createSession(args);
+    const fake = fakePtys[0]!;
+    fake.deferExitOnDestroy = true;
+
+    const closing = runtime.closeSession({ sessionId: sessionId! });
+    jest.advanceTimersByTime(5_000);
+    expect(await closing).toMatchObject({ ok: false, stderr: expect.stringContaining("Timed out") });
+    expect(runtime.hasWorkspaceSessions(args.workspaceId)).toBe(true);
+    expect(runtime.createSession(args).ok).toBe(false);
+    fake.fireExit({ exitCode: 129, signal: 1 });
+    expect(runtime.hasWorkspaceSessions(args.workspaceId)).toBe(false);
+    expect(runtime.createSession(args).ok).toBe(true);
+    await runtime.cleanupAll();
   });
 
   test("destroys the PTY when the child exits on its own", async () => {
@@ -586,6 +622,94 @@ describe("terminal runtime slot lifecycle", () => {
     });
     expect(fake.paused).toBe(false);
     expect(fake.resumeCalls).toBeGreaterThan(0);
+  });
+
+  async function openPushTerminal() {
+    const outputEvents: Array<{ output: string; bytes: number; outputGap?: boolean }> = [];
+    const runtime = createTerminalRuntime({
+      emitEvent: async (event, payload) => {
+        if (event === "terminal.output") {
+          outputEvents.push(payload as (typeof outputEvents)[number]);
+        }
+      },
+    });
+    const { sessionId } = runtime.createSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      taskId: null,
+      taskTitle: null,
+      terminalTabId: "flow-stall",
+    });
+    async function attach() {
+      const attached = await runtime.attachSession({ sessionId: sessionId!, deliveryMode: "push" });
+      const attachmentId = attached.attachmentId!;
+      runtime.resumeSessionStream({ sessionId: sessionId!, attachmentId });
+      return attachmentId;
+    }
+    return {
+      runtime,
+      sessionId: sessionId!,
+      attach,
+      attachmentId: await attach(),
+      fake: fakePtys[0]!,
+      outputEvents,
+    };
+  }
+
+  async function flushPushEvents() {
+    for (let index = 0; index < 10; index += 1) {
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
+  }
+
+  test("releases an ACK stall, bounds delivery, and reports a gap before recovery", async () => {
+    const { runtime, fake, outputEvents, sessionId, attachmentId } = await openPushTerminal();
+    jest.useFakeTimers({ doNotFake: ["setImmediate"] });
+    fake.fireData("x".repeat(5 * TERMINAL_PUSH_FLUSH_MAX_BYTES));
+    await flushPushEvents();
+    expect(fake.paused).toBe(true);
+
+    jest.advanceTimersByTime(4_999);
+    expect(fake.paused).toBe(true);
+    jest.advanceTimersByTime(1);
+    expect(fake.paused).toBe(false);
+    const pauseCalls = fake.pauseCalls;
+    const sentBeforeStall = outputEvents.reduce((total, event) => total + event.bytes, 0);
+    runtime.resumeSessionStream({ sessionId, attachmentId });
+    fake.fireData("y".repeat(3 * 1024 * 1024));
+    await flushPushEvents();
+    expect(fake.pauseCalls).toBe(pauseCalls);
+    expect(outputEvents.filter((event) => event.outputGap)).toHaveLength(1);
+    expect(outputEvents.reduce((total, event) => total + event.bytes, 0)).toBe(sentBeforeStall);
+
+    runtime.ackSessionOutput({ sessionId, attachmentId, acknowledgedBytes: sentBeforeStall });
+    fake.fireData("recovered");
+    await flushPushEvents();
+    expect(outputEvents.at(-1)?.output).toBe("recovered");
+    fake.fireData("x".repeat(5 * TERMINAL_PUSH_FLUSH_MAX_BYTES));
+    await flushPushEvents();
+    expect(fake.paused).toBe(true);
+    await runtime.cleanupAll();
+  });
+
+  test("keeps a slow renderer paused while ACKs advance and ignores stale ACKs after reattach", async () => {
+    const { runtime, fake, attach, sessionId, attachmentId } = await openPushTerminal();
+    const replacementId = await attach();
+    jest.useFakeTimers({ doNotFake: ["setImmediate"] });
+    fake.fireData("x".repeat(5 * TERMINAL_PUSH_FLUSH_MAX_BYTES));
+    await flushPushEvents();
+    expect(fake.paused).toBe(true);
+
+    jest.advanceTimersByTime(4_000);
+    runtime.ackSessionOutput({ sessionId, attachmentId: replacementId, acknowledgedBytes: TERMINAL_PUSH_FLUSH_MAX_BYTES });
+    jest.advanceTimersByTime(4_000);
+    expect(fake.paused).toBe(true);
+    runtime.ackSessionOutput({ sessionId, attachmentId, acknowledgedBytes: 5 * TERMINAL_PUSH_FLUSH_MAX_BYTES });
+    runtime.ackSessionOutput({ sessionId, attachmentId: replacementId, acknowledgedBytes: TERMINAL_PUSH_FLUSH_MAX_BYTES });
+    expect(fake.paused).toBe(true);
+    jest.advanceTimersByTime(1_000);
+    expect(fake.paused).toBe(false);
+    await runtime.cleanupAll();
   });
 
   test("persists a terminal snapshot across runtime recreation", async () => {
@@ -1686,13 +1810,27 @@ describe("terminal runtime slot lifecycle", () => {
 
 
 test("workspace stop preserves a similarly prefixed owner and blocks all provider CLI starts", async () => {
-  const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+  const exits: unknown[] = [];
+  const runtime = createTerminalRuntime({
+    emitEvent: async (event, payload) => {
+      if (event === "terminal.exit") exits.push(payload);
+    },
+  });
   const args = { workspaceId: "stop-w", workspacePath: "/tmp/workspace", taskId: null, taskTitle: null, terminalTabId: "t", cwd: "/tmp/workspace" };
   const first = runtime.createSession(args);
   const other = runtime.createSession({ ...args, workspaceId: "stop-w:other" });
-  await workspaceExecutionGate.stop(args, () => runtime.stopWorkspace(args.workspaceId));
+  const fake = fakePtys[0]!;
+  fake.deferExitOnDestroy = true;
+  const stopping = workspaceExecutionGate.stop(args, () => runtime.stopWorkspace(args.workspaceId));
   try {
-    expect(fakePtys[0]?.destroyed).toBe(true);
+    await Promise.resolve();
+    expect(fake.destroyed).toBe(true);
+    expect(workspaceExecutionGate.snapshot()).toContainEqual({ workspaceId: args.workspaceId, stopping: true, failed: false });
+    expect(runtime.hasWorkspaceSessions(args.workspaceId)).toBe(true);
+    expect(exits).toEqual([]);
+    fake.fireExit({ exitCode: 129, signal: 1 });
+    await stopping;
+    expect(exits).toEqual([{ sessionId: first.sessionId, exitCode: 129, signal: 1 }]);
     expect(fakePtys[1]?.destroyed).toBe(false);
     expect(runtime.writeSession({ sessionId: first.sessionId!, input: "" }).ok).toBe(false);
     expect(runtime.writeSession({ sessionId: other.sessionId!, input: "" }).ok).toBe(true);

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import type { ProviderDecisionResponse } from "@/lib/providers/provider.types";
 import type { ApprovalPart } from "@/types/chat";
 import { selectApprovalAnswersThroughHost, canOfferAllowAlways } from "@/store/approval-delivery";
 
@@ -90,12 +91,20 @@ describe("Always allow kept as a trusted approval", () => {
     expect(part.resolution).toMatchObject({ decision: "allowed", source: "user", scope: "always" });
   });
 
-  test("a failed delivery keeps the trusted approvals unchanged", async () => {
-    setWindow({ provider: { respondApproval: async () => ({ ok: false, message: "gone" }) } });
+  test("an unconfirmed or failed delivery leaves the card answerable and never saves a rule", async () => {
+    const delivery = Promise.withResolvers<ProviderDecisionResponse>();
+    setWindow({ provider: { respondApproval: () => delivery.promise } });
     const store = await seed({ part: ALWAYS });
-    await store.getState().resolveApproval({
+    const part = () => store.getState().messagesByTask["task-always"]?.[0]?.parts[0];
+    const outcome = store.getState().resolveApproval({
       taskId: "task-always", messageId: "message-always", requestId: "approval-always", approved: true, scope: "always",
     });
+
+    expect(part()).toEqual(ALWAYS);
+    expect(store.getState().settings.trustedTools).toEqual([]);
+    delivery.resolve({ ok: false, reason: "write-failed", message: "Transport write failed" });
+    expect(await outcome).toMatchObject({ status: "failed" });
+    expect(part()).toEqual(ALWAYS);
     expect(store.getState().settings.trustedTools).toEqual([]);
   });
 

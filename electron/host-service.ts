@@ -1,3 +1,4 @@
+import { isUsageLimitReservationId } from "../src/lib/providers/usage-limit-reservation";
 import { getPullRequestStack, retargetPullRequestStack } from "./host-service/pull-request-stack-runtime";
 import { TurnSnapshotService } from "./host-service/turn-snapshots";
 import { TurnSnapshotOwnerSchema, TurnSnapshotRestoreSchema, TurnSnapshotListSchema, TurnSnapshotResultSchema } from "../src/lib/turn-snapshots";
@@ -38,6 +39,7 @@ import type { ProviderAccountSelection } from "../src/lib/providers/provider-acc
 import {
   cleanupAllScriptProcesses,
   getScriptStatuses,
+  hasWorkspaceOrbitHost,
   runScriptEntry,
   runScriptHook,
   setWorkspaceScriptEventListener,
@@ -125,6 +127,9 @@ import {
 } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
+import { discoverWorkspaceListeningPorts } from "./host-service/workspace-listening-ports";
+import { getResourceProcessOwners } from "./shared/resource-process-owners";
+import { getWorkspaceScriptProcess, listWorkspaceScriptProcessKeys } from "./main/workspace-scripts/state";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
 import {
   parseExpectedHostParentPid,
@@ -222,6 +227,7 @@ import {
   runCommand,
   runCommandArgs,
 } from "./main/utils/command";
+import { ProviderDecisionDeliveryError } from "./providers/provider-decision-delivery-error";
 import type { BridgeEvent, StreamTurnArgs } from "./providers/types";
 import { truncateUtf8Middle } from "./shared/bounded-text";
 import {
@@ -1064,8 +1070,13 @@ function flushActivePushTurnEvents() {
   }
 }
 
+const reservedPushStreams = new Map<string, string>();
+
 function startPushProviderTurn(args: StreamTurnArgs) {
   const turnId = args.turnId ?? randomUUID();
+  const reserved = isUsageLimitReservationId(turnId);
+  const existingStream = reservedPushStreams.get(turnId);
+  if (existingStream) return { ok: true, streamId: existingStream, turnId } as const;
   const store = args.taskId ? ensureHostServicePersistenceReady() : null;
   let sequence = store?.getStreamEvents({ turnId }).at(-1)?.sequence ?? 0;
   let completed = false;
@@ -1073,7 +1084,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
   // W1 Phase 0 — durable turn-event journaling. Buffer events and flush to
   // SQLite in batches so the provider stream hot path never blocks on a
   // per-event DB write (the unbounded per-event journal it replaces was purged).
-  const persistEnabled = Boolean(args.taskId && store);
+  let persistEnabled = false;
   let pendingTurnEvents: Array<{ sequence: number; event: BridgeEvent }> = [];
   let turnEventFlushTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -1120,11 +1131,10 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     stopTurnEventFlushTimer();
     flushTurnEvents();
   };
-  if (persistEnabled) {
+  const beginPersistence = () => {
+    if (!args.taskId || !store || persistEnabled) return;
+    persistEnabled = true;
     activePushTurnFlushFinalizers.add(finalizeTurnEventFlush);
-  }
-
-  if (args.taskId && store) {
     try {
       store.beginTurn({
         id: turnId,
@@ -1143,7 +1153,10 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         workspaceId: args.workspaceId ?? null,
       });
     }
-  }
+  };
+  // A queued reservation can be retried after a restart. Its turn row only
+  // begins when the host has durably claimed the dispatch.
+  if (!reserved) beginPersistence();
 
   let latestTurnUsage: PersistenceTurnUsage | null = null;
   const started = providerRuntime.startTurnStream(
@@ -1154,6 +1167,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     {
       bufferEvents: true,
       onEvent: (turnEvent) => {
+        if (reserved && turnEvent.type === "turn_admission" && turnEvent.state === "running") {
+          beginPersistence();
+        }
         sequence += 1;
 
         // The last `usage` event of a turn is its authoritative total; earlier
@@ -1186,8 +1202,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
         });
       },
       onDone: () => {
+        if (reserved) reservedPushStreams.delete(turnId);
         finalizeTurnEventFlush();
-        if (!completed && args.taskId && store) {
+        if (!completed && persistEnabled && args.taskId && store) {
           completed = true;
           try {
             store.completeTurn({
@@ -1215,6 +1232,7 @@ function startPushProviderTurn(args: StreamTurnArgs) {
     },
   );
 
+  if (reserved) reservedPushStreams.set(turnId, started.streamId);
   return {
     ok: true,
     streamId: started.streamId,
@@ -1555,6 +1573,7 @@ async function respondError(id: number, error: unknown) {
     type: "response",
     id,
     ok: false,
+    ...(error instanceof ProviderDecisionDeliveryError ? { decisionFailureReason: error.reason } : {}),
     error: truncateHostServiceErrorMessage(
       error instanceof Error ? error.message : String(error),
     ),
@@ -1718,6 +1737,24 @@ const tarsBatchRuntime = createTarsBatchRuntime({
   control: input => actTars(input, { conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime, responsibilities: ensureHostServicePersistenceReady().tars }),
 });
 
+function readListeningPortOwners() {
+  const owners = new Map<number, Set<string>>();
+  const registry = getResourceProcessOwners();
+  for (const pid of terminalRuntime.listPtyPids()) {
+    const workspaceIds = registry.get(pid)?.filter((owner) => owner.active).map((owner) => owner.workspaceId);
+    if (workspaceIds?.length) owners.set(pid, new Set(workspaceIds));
+  }
+  for (const key of listWorkspaceScriptProcessKeys()) {
+    const script = getWorkspaceScriptProcess(key);
+    const pid = script?.process?.pid;
+    if (!script || script.aborted || !pid) continue;
+    const workspaceIds = owners.get(pid) ?? new Set<string>();
+    workspaceIds.add(script.workspaceId);
+    owners.set(pid, workspaceIds);
+  }
+  return owners;
+}
+
 async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
   if (requestNeedsCliDiscovery(request.method)) {
     // Discovery may initialize login shells. Turns and tooling probes must see
@@ -1840,7 +1877,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, terminalRuntime.resizeSession(request.params));
       return;
     case "terminal.close-session":
-      await respond(request.id, terminalRuntime.closeSession(request.params));
+      await respond(request.id, await terminalRuntime.closeSession(request.params));
       return;
     case "terminal.buffer-session-output":
       await respond(
@@ -1904,6 +1941,34 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         statuses: getScriptStatuses(request.params),
       });
       return;
+    case "workspace-scripts.has-orbit-host":
+      await respond(request.id, {
+        matches: hasWorkspaceOrbitHost(
+          request.params.workspaceId,
+          request.params.host,
+        ),
+      });
+      return;
+    case "workspace-scripts.list-ports": {
+      const { workspaceId } = request.params;
+      const { repositories } = await localMcpRuntime.loadNormalizedRepositories();
+      const registration = localMcpRuntime.findWorkspaceRegistration({ repositories, workspaceId });
+      const result = registration
+        ? await discoverWorkspaceListeningPorts({
+            workspaceId,
+            workspacePath: registration.workspacePath,
+            knownPaths: repositories.flatMap((repository) => [
+              repository.repositoryPath,
+              ...Object.values(repository.workspacePathById),
+              ...(repository.linkedWorkspacePaths ?? []),
+              ...(repository.archivedWorkspacePaths ?? []),
+            ]),
+            readOwners: readListeningPortOwners,
+          })
+        : { status: "unavailable" };
+      await respond(request.id, result);
+      return;
+    }
     case "workspace-scripts.cleanup-all":
       await cleanupAllScriptProcesses();
       await respond(request.id, { ok: true });

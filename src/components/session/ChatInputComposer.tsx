@@ -413,7 +413,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     (state) => state.usageLimitPauseByTask[args.activeTaskId],
   );
   const restoredQueueReleased = useAppStore(
-    (state) => state.restoredQueueReleasedByTask[args.activeTaskId] === true,
+    (state) => state.restoredQueueReleasedByTask[args.activeTaskId],
   );
   const resumePausedTaskWork = useAppStore(
     (state) => state.resumePausedTaskWork,

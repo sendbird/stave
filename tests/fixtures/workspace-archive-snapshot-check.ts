@@ -1,3 +1,6 @@
+import { archiveSensitiveFilesPath } from "../../electron/host-service/workspace-archive-sensitive-files";
+import { trashWorkspaceArchiveLeftover } from "../../electron/host-service/workspace-archive-leftovers";
+import { DEFAULT_WORKSPACE_CLEANUP_POLICY } from "../../src/lib/workspace-cleanup-contract";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync, readFileSync, rmSync, mkdirSync, symlinkSync, readlinkSync, chmodSync, statSync } from "node:fs";
@@ -15,7 +18,7 @@ async function main() {
     const repo = join(root, "repository");
     const path = join(root, "feature");
     git(root, "init", "-b", "main", repo);
-    writeFileSync(join(repo, ".gitignore"), "ignored\n");
+    writeFileSync(join(repo, ".gitignore"), "ignored\n.env*\n");
     // A required pointer filter proves capture uses clean filters and restore uses smudge filters.
     writeFileSync(join(repo, ".gitattributes"), "*.ptr filter=pointer\n");
     writeFileSync(join(repo, "tracked"), "original\n");
@@ -38,6 +41,36 @@ async function main() {
     const act = (action: "archive" | "restore" | "delete", saveChanges = false) => runtime.act({ action, workspaceId: "feature", repositoryPath: repo, ...(saveChanges ? { saveChanges: true } : {}) });
     const manualArchive = () => runtime.act({ action: "archive", workspaceId: "feature", repositoryPath: repo, preserveLocalWork: true, saveChanges: true });
     const keepArchive = () => runtime.act({ action: "archive", workspaceId: "feature", repositoryPath: repo, preserveLocalWork: true, keepWorktree: true });
+    const secretStore = archiveSensitiveFilesPath(root, "feature");
+    const trashLeftover = () => trashWorkspaceArchiveLeftover(
+      { workspaceId: "feature", repositoryPath: repo }, store!,
+      async (cwd, args) => ({ ok: true, stdout: git(cwd, ...args) }),
+      async target => { assert.equal(target, path); rmSync(target, { recursive: true }); },
+    );
+    writeFileSync(join(path, ".env"), "local-only fixture");
+    writeFileSync(join(path, ".env.big"), Buffer.alloc(1024 * 1024 + 1));
+    writeFileSync(join(path, "ignored"), "disposable");
+    runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, inactive: { enabled: true, value: 1 } });
+    const automatic = (await runtime.runNow()).results.find(result => result.workspaceId === "feature");
+    assert.equal(automatic?.ok, true, JSON.stringify(automatic));
+    assert.equal(automatic.sensitiveFilesSkipped, 1);
+    assert.equal(existsSync(path), false);
+    assert.equal(readFileSync(join(secretStore, ".env"), "utf8"), "local-only fixture");
+    assert.equal((await act("restore")).ok, true);
+    assert.equal(readFileSync(join(path, ".env"), "utf8"), "local-only fixture");
+    assert.equal(existsSync(join(path, ".env.big")), false);
+    assert.equal(existsSync(join(path, "ignored")), false);
+    assert.equal(existsSync(secretStore), false);
+
+    rmSync(join(root, "workspace-archive-sensitive-files"), { recursive: true });
+    writeFileSync(join(root, "workspace-archive-sensitive-files"), "blocked backup directory");
+    const refusedBackup = await manualArchive();
+    assert.equal(refusedBackup.ok, false);
+    assert.equal(refusedBackup.reason, "sensitiveFilesBackupFailed");
+    assert.equal(readFileSync(join(path, ".env"), "utf8"), "local-only fixture");
+    assert.equal(store.listArchivedWorkspacesPersistence().length, 0);
+    rmSync(join(root, "workspace-archive-sensitive-files"));
+
     for (const flag of ["assume-unchanged", "skip-worktree"]) {
       git(path, "update-index", `--${flag}`, "tracked");
       writeFileSync(join(path, "tracked"), "keep hidden changes\n");
@@ -123,7 +156,7 @@ async function main() {
     assert.match((await runtime.act({ ...request, deleteBranch: true })).reason ?? "", /unpushedCommits/);
     assert.match((await runtime.act(request, true)).reason ?? "", /unpushedCommits/);
     assert.equal(git(path, "status", "--porcelain=v1", "-uall"), status);
-    // Git-ignored files are disposable and removed with the checkout, as automatic cleanup does.
+    // Disposable ignored output is still removed and kept outside the Git snapshot.
     writeFileSync(join(path, "ignored"), "regenerable output");
     const archived = await manualArchive();
     assert.equal(archived.ok, true, JSON.stringify(archived));
@@ -221,7 +254,9 @@ async function main() {
       assert.ok(!git(repo, "worktree", "list", "--porcelain").includes(path), "Git no longer lists the checkout");
       assert.equal(readFileSync(join(path, "ignored", "read-only"), "utf8"), "cache");
       assert.equal((await act("restore")).ok, false, "Restore waits for the leftover folder to be deleted");
-      rmSync(path, { recursive: true });
+      assert.equal((await runtime.list()).rows.find(row => row.id === "feature")?.leftoverFiles, true);
+      assert.deepEqual(await trashLeftover(), { ok: true, reason: null });
+      assert.equal(existsSync(path), false);
       const restoredAfterLeftover = await act("restore");
       assert.equal(restoredAfterLeftover.ok, true, JSON.stringify(restoredAfterLeftover));
     };
@@ -232,6 +267,17 @@ async function main() {
     assert.equal(git(path, "status", "--porcelain=v1", "-uall"), "");
     await leftover(false);
     assert.equal(git(path, "status", "--porcelain=v1", "-uall"), "");
+    const conflictHook = join(repo, ".git", "hooks", "post-checkout");
+    writeFileSync(conflictHook, "#!/bin/sh\nprintf generated > .env\n");
+    chmodSync(conflictHook, 0o755);
+    assert.equal((await manualArchive()).ok, true);
+    const sensitiveConflict = await act("restore");
+    rmSync(conflictHook);
+    assert.equal(sensitiveConflict.ok, true);
+    assert.equal(sensitiveConflict.reason, "sensitiveFilesRestoreConflict");
+    assert.equal(readFileSync(join(path, ".env"), "utf8"), "generated");
+    assert.equal(readFileSync(join(secretStore, ".env"), "utf8"), "local-only fixture");
+    writeFileSync(join(path, ".env"), "local-only fixture");
     writeFileSync(join(path, "untracked"), "archive again");
     const again = await manualArchive(); assert.equal(again.ok, true, JSON.stringify(again));
     const deletedRef = store.listArchivedWorkspacesPersistence()[0]!.savedChangesRef!;
@@ -239,6 +285,7 @@ async function main() {
     const deleted = await act("delete"); assert.equal(deleted.ok, true, JSON.stringify(deleted));
     assert.equal(git(repo, "for-each-ref", "--format=%(refname)", deletedRef), "");
     assert.equal(store.loadWorkspaceSnapshot({ workspaceId: "feature" }), null);
+    assert.equal(existsSync(secretStore), false);
   } finally {
     store?.close(); workspaceExecutionGate.setArchiveReader(() => []); workspaceExecutionGate.resume("feature");
     rmSync(root, { recursive: true, force: true });

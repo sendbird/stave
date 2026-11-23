@@ -42,6 +42,7 @@ import {
   WORKSPACE_SHORTCUT_COUNT,
   type RepositorySidebarAttentionAlert,
   type RepositorySidebarCollapsedRepositoryView,
+  workspaceRowLabelProps,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
@@ -812,6 +813,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   const entryKey = `${entry.repositoryPath}:${entry.workspaceId}`;
                   const shortcutLabel = workspaceShortcutLabels.get(entryKey);
                   const workspaceBusy = busyWorkspaceKey === entryKey;
+                  const rowId = `sidebar-rail-${encodeURIComponent(entryKey)}`;
 
                   return (
                     <div
@@ -858,13 +860,14 @@ export function RepositoryWorkspaceSidebar(args: {
                             })
                           }
                           data-testid={`collapsed-workspace-${entry.workspaceId}`}
-                          aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.openWorkspace", { value1: entry.workspaceName })}
+                          {...workspaceRowLabelProps(rowId, i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.openWorkspace", { value1: entry.workspaceName }))}
                         >
                           <WorkspaceLeadingStatusIcon
                             workspaceId={entry.workspaceId}
                             workspaceName={entry.workspaceName}
                             isDefault={entry.isDefault}
-                            busy={workspaceBusy}
+                            busy={workspaceBusy ? "opening" : undefined}
+                            rowId={rowId}
                             attentionKind={
                               highestAttentionByWorkspaceId[entry.workspaceId]
                                 ?.kind
@@ -1416,6 +1419,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                       const workspaceBusy =
                                         busyWorkspaceKey ===
                                         `${repository.repositoryPath}:${workspace.id}`;
+                                      const rowId = `sidebar-workspace-${encodeURIComponent(`${repository.repositoryPath}:${workspace.id}`)}`;
                                       const isActive =
                                         repository.isCurrent &&
                                         workspace.id === activeWorkspaceId;
@@ -1515,7 +1519,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       tabIndex={0}
                                                       aria-current={isCurrentPlace ? "page" : undefined}
                                                       {...{ [WORKSPACE_ROW_FOCUS_ATTRIBUTE]: "" }}
-                                                      aria-label={tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? tI18n("workspace:repositoryWorkspaceSidebar.default") : workspace.name })}
+                                                      {...workspaceRowLabelProps(rowId, tI18n("workspace:repositoryWorkspaceSidebar.openWorkspaceValue", { value1: workspace.isDefault ? tI18n("workspace:repositoryWorkspaceSidebar.default") : workspace.name }))}
                                                       aria-keyshortcuts={
                                                         !workspaceReorderingDisabled
                                                           ? "Alt+ArrowUp Alt+ArrowDown"
@@ -1647,7 +1651,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                                           isDefault={
                                                             workspace.isDefault
                                                           }
-                                                          busy={workspaceBusy}
+                                                          busy={workspaceBusy ? "opening" : undefined}
+                                                          rowId={rowId}
                                                           attentionKind={
                                                             highestAttentionByWorkspaceId[
                                                               workspace.id
@@ -1841,6 +1846,8 @@ export function RepositoryWorkspaceSidebar(args: {
             path={workspaceToClose.path}
             busy={closingWorkspaceId !== null}
             keep={() => archiveSelectedWorkspace(true)}
+            trashTarget={currentRepositoryPath ? { workspaceId: workspaceToClose.id, repositoryPath: currentRepositoryPath } : undefined}
+            onTrashed={() => setWorkspaceToClose(null)}
           />
         )}
       </ConfirmDialog>

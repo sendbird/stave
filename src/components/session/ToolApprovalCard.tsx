@@ -24,6 +24,7 @@ import { getDefaultKeybindingKeys, getKeybinding } from "@/lib/keybindings/keybi
 import {
   formatTrustedToolEntry,
   hasTrustedToolEntry,
+  isTrustedToolEntryForBash,
   removeTrustedToolEntry,
 } from "@/lib/providers/trusted-tools";
 import { useAppStore } from "@/store/app.store";
@@ -39,6 +40,12 @@ export const APPROVAL_DELIVERY_GUARD_MS = 32_000;
 export interface ToolApprovalDecision {
   approved: boolean;
   scope: "once" | "always";
+}
+
+export function describeShellAlwaysAllowScope(entry: string | undefined) {
+  return entry && isTrustedToolEntryForBash(entry)
+    ? i18n.t("ui:approval.shellAlwaysAllowScope")
+    : undefined;
 }
 
 /** The status word for a risk the request reported. */
@@ -63,7 +70,7 @@ export function ApprovalExpiryNote(props: { part: Pick<ApprovalPart, "expiresAt"
   const deadline = props.part.state === "approval-requested" ? readApprovalDeadline(props.part.expiresAt) : null;
   if (!deadline) return null;
   return (
-    <span className={sx(styles.expiry, props.xstyle)} data-approval-expiry="">
+    <span className={sx(styles.actionNote, props.xstyle)} data-approval-expiry="">
       <Trans
         i18n={i18n}
         ns="ui"
@@ -289,13 +296,18 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
   }, [ownBusy]);
 
   const busy = controlledBusy ?? ownBusy;
+  const offersAllowAlways = part.supportsAllowAlways === true && allowAlways !== false;
+  const shellScope = pending && offersAllowAlways
+    ? describeShellAlwaysAllowScope(part.trustedToolEntry)
+    : undefined;
   const expires = pending && readApprovalDeadline(part.expiresAt) !== null;
   const hostActions =
-    note != null || actions != null || expires ? (
+    note != null || actions != null || expires || shellScope ? (
       <>
         {actions}
         {note}
         {expires ? <ApprovalExpiryNote part={part} /> : null}
+        {shellScope ? <span className={sx(styles.actionNote)}>{shellScope}</span> : null}
       </>
     ) : undefined;
   const outcome = toApprovalOutcome(part);
@@ -328,7 +340,7 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
     <Approval
       {...rest}
       actions={hostActions}
-      allowAlways={part.supportsAllowAlways === true && allowAlways !== false}
+      allowAlways={offersAllowAlways}
       allowOnceShortcut={allowOnceShortcut}
       arguments={
         part.input
@@ -379,8 +391,7 @@ const styles = stylex.create({
     fontWeight: vars["--aui-font-weight-regular"],
     marginInlineStart: vars["--aui-space-4"],
   },
-  // Muted caption beside the decisions, as the AFTER card shows it.
-  expiry: {
+  actionNote: {
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],
     lineHeight: vars["--aui-line-height-normal"],

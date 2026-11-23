@@ -43,6 +43,7 @@ function buildLensSecurityConfig(): LensSecurityConfig {
     allowedHosts: settings.lensAllowedHosts,
     blockedHosts: settings.lensBlockedHosts,
     developerModeCdp: settings.lensDeveloperModeCdp,
+    cdpLocalHostExemption: settings.lensCdpLocalHostExemption,
     cdpApprovedHosts: settings.lensCdpApprovedHosts,
   };
 }
@@ -278,6 +279,8 @@ export default function App() {
           prevState.settings.lensBlockedHosts &&
         state.settings.lensDeveloperModeCdp ===
           prevState.settings.lensDeveloperModeCdp &&
+        state.settings.lensCdpLocalHostExemption ===
+          prevState.settings.lensCdpLocalHostExemption &&
         state.settings.lensCdpApprovedHosts ===
           prevState.settings.lensCdpApprovedHosts
       ) {

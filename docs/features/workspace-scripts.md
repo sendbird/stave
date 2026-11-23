@@ -81,6 +81,24 @@ If the command relies on shell-only syntax such as `&&`, pipes, redirects, comma
 While an Orbit process runs, the process row shows the Orbit host badge and, under it, a `http://localhost:<port>` badge for the app port that Portless assigned.
 Use the localhost URL when a backend's CORS allowlist accepts only `localhost` origins and rejects the Orbit host.
 
+### Open a listening port in Lens
+
+In the desktop app, open **Workspace Tools → Processes → Listening ports**.
+Stave lists TCP listeners associated with the current workspace, including
+servers started from a terminal or by an agent. Each row shows the bind
+address, port, process name, and how Stave determined its workspace.
+
+- **Owned by Stave** means the listener belongs to a registered terminal
+  session or workspace script. Use the original terminal or script controls
+  to stop a process.
+- **Inferred** means the listener's working directory or an ancestor process
+  points to this workspace.
+
+Select **Open in Lens** to open the address over HTTP. Wildcard binds open on
+loopback. A TCP listener can appear even if it serves a protocol other than HTTP.
+Discovery refreshes while the Processes tab is visible. It uses `lsof` on macOS
+and Linux, and availability depends on the host's process visibility.
+
 ### Assign A Trigger
 
 1. Open `Settings > Projects > Workspace Tools` and select the `Triggers` tab.

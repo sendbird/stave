@@ -596,6 +596,8 @@ export const WorkspaceScriptsGetStatusArgsSchema = z
   })
   .strict();
 
+export const WorkspaceScriptsListPortsArgsSchema = WorkspaceScriptsGetStatusArgsSchema;
+
 export const WorkspaceScriptsRunEntryArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(200),
@@ -1451,6 +1453,18 @@ export const FilesystemRootArgsSchema = z
   })
   .strict();
 
+export const FilesystemSearchScopeSchema = z
+  .object({
+    workspaceId: z.string().min(1).max(200),
+    surface: z.literal("explorer"),
+  })
+  .strict();
+
+export const FilesystemSearchArgsSchema = FilesystemSearchScopeSchema.extend({
+  rootPath: FilesystemRootPathSchema.refine((value) => !value.includes("\0")),
+  query: z.string().min(1).max(16_384).refine((value) => !value.includes("\0")),
+}).strict();
+
 export const FilesystemPickFilesArgsSchema = FilesystemRootArgsSchema;
 
 export const FilesystemImportAttachmentsArgsSchema = z
@@ -1599,4 +1613,4 @@ export {
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/repository-memory";
 
-export { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../../../src/lib/workspace-cleanup-contract";
+export { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupTrashArgsSchema } from "../../../src/lib/workspace-cleanup-contract";

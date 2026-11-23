@@ -109,6 +109,7 @@
     "noSkillsFound": "스킬을 찾지 못했습니다."
   },
   "approval": {
+    "shellAlwaysAllowScope": "항상 허용은 이 명령과 뒤에 붙는 일반 인수에 적용됩니다.",
     "alwaysAllow": "항상 허용",
     "allowOnce": "한 번 허용",
     "deny": "거부",

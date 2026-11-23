@@ -23,6 +23,7 @@ const tool = (state: ToolUsePart["state"]): ToolUsePart => ({
   }),
   state,
   elapsedSeconds: 3,
+  exitCode: state === "output-available" ? 0 : state === "output-error" ? 2 : undefined,
   output:
     state === "output-error"
       ? "error: expected 200, received 503\nService is temporarily unavailable."
@@ -125,6 +126,7 @@ const approval = (state: ApprovalPart["state"]): ApprovalPart => ({
   input: "bun run typecheck",
   requestId: `preview-${state}`,
   supportsAllowAlways: true,
+  trustedToolEntry: "bash:bun run typecheck",
   state,
 });
 const question = (state: UserInputPart["state"]): UserInputPart => ({

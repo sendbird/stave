@@ -54,6 +54,7 @@ export function registerNotificationHandlers() {
       if (window && !window.isDestroyed()) window.webContents.send("notifications:native-resolved", payload);
     },
     alreadyAnswered: () => new Notification({ title: tMain("nativeNotification.alreadyAnswered"), silent: true }).show(),
+    alreadyAnswering: () => new Notification({ title: tMain("nativeNotification.alreadyAnswering"), silent: true }).show(),
     couldNotAnswer: showCouldNotAnswer,
   });
   ipcMain.handle("notifications:show-native", async (event, args: unknown) => {

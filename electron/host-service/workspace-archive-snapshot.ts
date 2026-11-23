@@ -17,8 +17,7 @@ const validRef = (ref: string) => /^refs\/stave\/archives\/[a-f0-9-]{36}$/.test(
 
 /**
  * Check for work the snapshot cannot restore before Git removes the checkout.
- * Git-ignored files are disposable by definition (dependencies, build output,
- * caches), so they are removed with the worktree, as automatic cleanup does.
+ * Sensitive ignored files are backed up separately from the Git snapshot.
  */
 export async function assertWorkspaceArchiveFilesSafe(cwd: string) {
   const gitDir = (await git(cwd, ["rev-parse", "--absolute-git-dir"]).catch(() => {
@@ -154,4 +153,10 @@ export async function discardPartialSavedWorkspaceChanges(cwd: string, ref: stri
 export async function deleteSavedWorkspaceChanges(cwd: string, ref: string) {
   if (!validRef(ref)) throw new Error("savedChangesInvalidRef");
   await git(cwd, ["update-ref", "-d", ref]);
+}
+
+/** Git supplies only ignored, untracked paths. Exclude dependency trees at every depth. */
+export function listWorkspaceArchiveIgnoredFiles(cwd: string) {
+  return entries(cwd, ["ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--", ".",
+    ":(exclude,glob)**/node_modules", ":(exclude,glob)**/node_modules/**"]);
 }

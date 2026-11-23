@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { SqliteStore } from "../../electron/persistence/sqlite-store";
 import { createHostTurnAdmission } from "../../electron/host-service/turn-admission-host";
 import { withProviderAccountScope } from "../../electron/provider-accounts/runtime-scope";
+import { newUsageLimitReservationId } from "../../src/lib/providers/usage-limit-reservation";
 import type { StreamTurnArgs } from "../../electron/providers/types";
 
 const root = mkdtempSync(join(tmpdir(), "turn-admission-"));
@@ -89,6 +90,46 @@ async function main() {
   await Promise.all(Array.from({ length: 20 }, (_, i) => host.admission.acquire(args(`uncapped-${i}`))));
   assert.equal(host.snapshot().running.length, 20);
   for (const id of host.snapshot().running) host.admission.release(id);
+  cap(1);
+  await start("quota-resume-blocker");
+  const resumeId = newUsageLimitReservationId();
+  void host.admission.acquire(args(resumeId));
+  assert.equal(host.snapshot().queued[0]?.turnId, resumeId);
+  assert.equal(store.turnAdmission.hasUsageLimitResume(resumeId), false);
+
+  // A crash before the host could dispatch leaves only the renderer reservation.
+  store.close();
+  store = new SqliteStore({ dbPath, runMaintenance: false });
+  host = createHostTurnAdmission(store);
+  host.restoreRendererStarts({
+    taskExists: () => true,
+    restore: () => { throw new Error("a reserved send must not also become a composer draft"); },
+  });
+  assert.deepEqual(host.takeRestored(), []);
+  let dispatched = 0;
+  await host.admission.acquire(args(resumeId), event => {
+    if (event.state === "running") {
+      assert.equal(store.turnAdmission.hasUsageLimitResume(resumeId), true);
+      dispatched++;
+    }
+  });
+  await assert.rejects(host.admission.acquire(args(resumeId)), /turnAdmissionCancelled/);
+  // Crash with the dispatch claim but without a renderer acknowledgement.
+  store.close();
+  store = new SqliteStore({ dbPath, runMaintenance: false });
+  host = createHostTurnAdmission(store);
+  assert.equal(store.turnAdmission.hasUsageLimitResume(resumeId), true);
+  await assert.rejects(host.admission.acquire(args(resumeId)), /turnAdmissionCancelled/);
+  assert.equal(dispatched, 1);
+  // An acknowledged completion can also outlive the transient queue record.
+  const finished = newUsageLimitReservationId();
+  await host.admission.acquire(args(finished));
+  host.admission.release(finished);
+  assert.deepEqual(store.turnAdmission.read(), []);
+  store.close();
+  store = new SqliteStore({ dbPath, runMaintenance: false });
+  host = createHostTurnAdmission(store);
+  await assert.rejects(host.admission.acquire(args(finished)), /turnAdmissionCancelled/);
   console.log("turn-admission host: cap, priority, child wait, cancel, real SQLite reopen, uncapped and six fake-provider paths passed");
 }
 void main().finally(() => { store.close(); rmSync(root, { recursive: true, force: true }); });

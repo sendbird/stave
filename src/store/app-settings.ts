@@ -542,6 +542,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   lensBlockedHosts: string[];
   /** Master switch for CDP-backed Lens tools (screenshot/evaluate/click/etc.). */
   lensDeveloperModeCdp: boolean;
+  lensCdpLocalHostExemption: boolean;
   /** Hosts the user has approved for CDP access (per-host opt-in). */
   lensCdpApprovedHosts: string[];
 }
@@ -908,6 +909,7 @@ export const defaultSettings: AppSettings = {
   lensAllowedHosts: [],
   lensBlockedHosts: [],
   lensDeveloperModeCdp: true,
+  lensCdpLocalHostExemption: true,
   lensCdpApprovedHosts: [],
 };
 
@@ -930,6 +932,7 @@ export function normalizePersistedLensSettings(
   | "lensAllowedHosts"
   | "lensBlockedHosts"
   | "lensCdpApprovedHosts"
+  | "lensCdpLocalHostExemption"
   | "lensSessionScope"
   | "lensAgentPresentationMode"
   | "lensDeveloperModeCdp"
@@ -947,6 +950,10 @@ export function normalizePersistedLensSettings(
       value.lensCdpApprovedHosts,
       defaultSettings.lensCdpApprovedHosts,
     ),
+    lensCdpLocalHostExemption:
+      typeof value.lensCdpLocalHostExemption === "boolean"
+        ? value.lensCdpLocalHostExemption
+        : defaultSettings.lensCdpLocalHostExemption,
     lensSessionScope: normalizeLensSessionScope(value.lensSessionScope),
     lensAgentPresentationMode: normalizeLensAgentPresentationMode(
       value.lensAgentPresentationMode,

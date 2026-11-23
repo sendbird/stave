@@ -178,6 +178,8 @@ import {
   buildCodexFileChangeToolEvent,
   emitCodexFileChangeEvents,
 } from "./codex-file-change-mapping";
+import { createCodexDecisionDelivery } from "./codex-decision-delivery";
+import { writeCodexServerResponse } from "./codex-server-response";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 import { mapCodexServerRequestPresentation } from "./codex-server-request-mapping";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
@@ -571,32 +573,27 @@ class CodexAppServerClient {
     }
   }
 
-  async respond(requestId: JsonRpcId, result: unknown) {
-    await this.ensureStarted();
-    const child = this.process;
-    if (!child) {
-      return;
-    }
-    this.writeToProcessStdin(child, {
-      jsonrpc: "2.0",
-      id: requestId,
-      result,
-    });
+  respond(requestId: JsonRpcId, result: unknown, signal?: AbortSignal) {
+    return this.writeResponse({ jsonrpc: "2.0", id: requestId, result }, signal);
   }
 
-  async respondError(
-    requestId: JsonRpcId,
-    error: { code: number; message: string; data?: unknown },
-  ) {
-    await this.ensureStarted();
+  respondError(requestId: JsonRpcId, error: { code: number; message: string; data?: unknown }) {
+    return this.writeResponse({ jsonrpc: "2.0", id: requestId, error });
+  }
+
+  private async writeResponse(payload: JsonRpcMessage, signal?: AbortSignal) {
     const child = this.process;
-    if (!child) {
-      return;
+    if (!child) throw new Error("Codex App Server is not running.");
+    if (child.exitCode !== null || child.signalCode !== null || child.stdin.destroyed || !child.stdin.writable) {
+      this.teardownProcess("Codex App Server stdin is closed.");
+      throw new Error("Codex App Server stdin is closed.");
     }
-    this.writeToProcessStdin(child, {
-      jsonrpc: "2.0",
-      id: requestId,
-      error,
+    await writeCodexServerResponse({
+      stdin: child.stdin, payload, signal,
+      onExit: (listener) => this.onProcessExit(listener),
+      onTimeout: () => {
+        if (this.process === child) this.teardownProcess("Codex App Server stdin write timed out.");
+      },
     });
   }
 
@@ -1720,14 +1717,14 @@ export async function streamCodexWithAppServer(
       responder: (args: {
         requestId: string;
         approved: boolean;
-      }) => ProviderResponderResult,
+      }) => Promise<ProviderResponderResult>,
     ) => void;
     registerUserInputResponder?: (
       responder: (args: {
         requestId: string;
         answers?: Record<string, string>;
         denied?: boolean;
-      }) => ProviderResponderResult,
+      }) => Promise<ProviderResponderResult>,
     ) => void;
     registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   } & import("./types").ProviderPromptAcceptance,
@@ -2150,18 +2147,7 @@ export async function streamCodexWithAppServer(
         resolveCodexApprovalDecisionTimeoutMs({
           envValue: process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS,
         });
-      const pendingApprovalAutoDeclineHandles = new Map<
-        string,
-        ReturnType<typeof setTimeout>
-      >();
-      const clearApprovalAutoDecline = (requestId: string) => {
-        const handle = pendingApprovalAutoDeclineHandles.get(requestId);
-        if (handle == null) {
-          return;
-        }
-        clearTimeout(handle);
-        pendingApprovalAutoDeclineHandles.delete(requestId);
-      };
+      const decisionDelivery = createCodexDecisionDelivery(client.respond.bind(client));
       const buildApprovalAutoDeclineTimeoutEvent = (args: {
         kind: "approval" | "user_input";
         toolName: string;
@@ -2180,49 +2166,31 @@ export async function streamCodexWithAppServer(
         requestId: string;
         toolName: string;
       }): string | undefined => {
-        const handle = setTimeout(() => {
-          pendingApprovalAutoDeclineHandles.delete(args.requestId);
+        decisionDelivery.scheduleExpiry(args.requestId, codexApprovalDecisionTimeoutMs, () => {
           const pending = pendingApprovalRequests.get(args.requestId);
           if (!pending || completed) {
             return;
           }
           pendingApprovalRequests.delete(args.requestId);
-          console.warn(
-            "[provider-runtime] Codex approval request auto-declined after timeout",
-            {
-              threadId,
-              requestId: args.requestId,
-              timeoutMs: codexApprovalDecisionTimeoutMs,
-            },
-          );
-          emitBridgeEvent(
-            buildApprovalAutoDeclineTimeoutEvent({
-              kind: "approval",
-              toolName: args.toolName,
-              requestId: args.requestId,
-            }),
-          );
-          emitBridgeEvent({ type: "approval_resolved", requestId: args.requestId, toolName: args.toolName,
-            decision: "denied", source: "rule", reason: "timeout", decidedAt: new Date().toISOString() });
-          void client
-            .respond(
-              pending.serverRequestId,
-              pending.responseKind === "elicitation"
-                ? { action: "decline" as const }
-                : { decision: "decline" as const },
-            )
-            .catch(() => {})
-            .finally(() => elicitationPauseController.end(args.requestId));
-        }, codexApprovalDecisionTimeoutMs);
-        pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+          void client.respond(
+            pending.serverRequestId,
+            pending.responseKind === "elicitation"
+              ? { action: "decline" }
+              : { decision: "decline" },
+          ).then(() => {
+            if (completed || abortRequested) return;
+            emitBridgeEvent(buildApprovalAutoDeclineTimeoutEvent({ kind: "approval", ...args }));
+            emitBridgeEvent({ type: "approval_resolved", requestId: args.requestId, toolName: args.toolName,
+              decision: "denied", source: "rule", reason: "timeout", decidedAt: new Date().toISOString() });
+          }, interruptTurn).finally(() => elicitationPauseController.end(args.requestId));
+        });
         return resolveApprovalExpiresAt({ timeoutMs: codexApprovalDecisionTimeoutMs });
       };
       const runStage = args.managedTask ? undefined : args.agentRunStage; // a managed run's controller answers; today's timeout stays
       const scheduleUserInputAutoDecline = (args: {
         event: Extract<BridgeEvent, { type: "user_input" }>;
       }) => {
-        const handle = setTimeout(() => {
-          pendingApprovalAutoDeclineHandles.delete(args.event.requestId);
+        decisionDelivery.scheduleExpiry(args.event.requestId, codexApprovalDecisionTimeoutMs, () => {
           const pending = pendingUserInputRequests.get(args.event.requestId);
           if (!pending || completed) {
             return;
@@ -2236,7 +2204,6 @@ export async function streamCodexWithAppServer(
             return;
           }
           pendingUserInputRequests.delete(args.event.requestId);
-          emitBridgeEvent(buildApprovalAutoDeclineTimeoutEvent({ kind: "user_input", toolName: args.event.toolName, requestId: args.event.requestId }));
           void client
             .respond(
               pending.serverRequestId,
@@ -2244,10 +2211,12 @@ export async function streamCodexWithAppServer(
                 ? { action: "decline" as const }
                 : { answers: {} },
             )
-            .catch(() => {})
+            .then(() => {
+              if (completed || abortRequested) return;
+              emitBridgeEvent(buildApprovalAutoDeclineTimeoutEvent({ kind: "user_input", toolName: args.event.toolName, requestId: args.event.requestId }));
+            }, interruptTurn)
             .finally(() => elicitationPauseController.end(args.event.requestId));
-        }, codexApprovalDecisionTimeoutMs);
-        pendingApprovalAutoDeclineHandles.set(args.event.requestId, handle);
+        });
       };
 
       const clearInterruptFallback = () => {
@@ -2263,123 +2232,57 @@ export async function streamCodexWithAppServer(
           return;
         }
         completed = true;
+        decisionDelivery.interrupt();
         clearInterruptFallback();
         const resolve = resolveTurnCompletion;
         resolveTurnCompletion = null;
         resolve?.();
       };
 
-      args.registerApprovalResponder?.(({ requestId, approved }) => {
-        const pending = pendingApprovalRequests.get(requestId);
-        if (!pending) {
-          return {
-            ok: false,
-            reason: "unknown-request",
-            pendingRequestIds: Array.from(pendingApprovalRequests.keys()),
-          };
-        }
-        pendingApprovalRequests.delete(requestId);
-        clearApprovalAutoDecline(requestId);
-        void client
-          .respond(
-            pending.serverRequestId,
-            (() => {
-              if (pending.responseKind === "commandExecution") {
-                return { decision: approved ? "accept" : "decline" };
-              }
-              if (pending.responseKind === "fileChange") {
-                return { decision: approved ? "accept" : "decline" };
-              }
-              if (pending.responseKind === "permissions") {
-                return approved
-                  ? {
-                      permissions: {
-                        ...(pending.permissions?.network
-                          ? { network: pending.permissions.network }
-                          : {}),
-                        ...(pending.permissions?.fileSystem
-                          ? { fileSystem: pending.permissions.fileSystem }
-                          : {}),
-                      },
-                      scope: "turn",
-                    }
-                  : { permissions: {}, scope: "turn" };
-              }
-              if (pending.responseKind === "elicitation") {
-                return { action: approved ? "accept" : "decline" };
-              }
+      args.registerApprovalResponder?.(async ({ requestId, approved }) => {
+        const result = await decisionDelivery.respond(requestId, pendingApprovalRequests, (pending) => {
+          switch (pending.responseKind) {
+            case "commandExecution":
+            case "fileChange":
+              return { decision: approved ? "accept" : "decline" };
+            case "permissions":
+              return { scope: "turn", permissions: approved ? {
+                ...(pending.permissions?.network ? { network: pending.permissions.network } : {}),
+                ...(pending.permissions?.fileSystem ? { fileSystem: pending.permissions.fileSystem } : {}),
+              } : {} };
+            case "elicitation":
+              return { action: approved ? "accept" : "decline" };
+            case "review":
               return { decision: approved ? "approved" : "denied" };
-            })(),
-          )
-          .finally(() => elicitationPauseController.end(requestId));
-        return { ok: true };
+          }
+        });
+        if (result.ok) void elicitationPauseController.end(requestId);
+        return result;
       });
 
-      args.registerUserInputResponder?.(({ requestId, answers, denied }) => {
+      args.registerUserInputResponder?.(async ({ requestId, answers, denied }) => {
         // After the timeout saved the question, only the saved card takes the answer.
-        const pending = awaitingQuestion ? undefined : pendingUserInputRequests.get(requestId);
-        if (!pending) {
-          return {
-            ok: false,
-            reason: "unknown-request",
-            pendingRequestIds: Array.from(pendingUserInputRequests.keys()),
-          };
+        if (awaitingQuestion) {
+          return { ok: false, reason: "unknown-request", pendingRequestIds: [...pendingUserInputRequests.keys()] };
         }
-        pendingUserInputRequests.delete(requestId);
-        clearApprovalAutoDecline(requestId);
-        if (pending.responseKind === "elicitation") {
-          if (denied) {
-            void client
-              .respond(pending.serverRequestId, {
-                action: "decline",
-              })
-              .finally(() => elicitationPauseController.end(requestId));
-            return { ok: true };
+        const result = await decisionDelivery.respond(requestId, pendingUserInputRequests, (pending) => {
+          if (pending.responseKind === "tool") {
+            return { answers: denied ? {} : Object.fromEntries(
+              Object.entries(answers ?? {}).map(([key, value]) => [key, { answers: [value] }]),
+            ) };
           }
-
-          if (pending.elicitationMode === "url") {
-            void client
-              .respond(pending.serverRequestId, {
-                action: "accept",
-              })
-              .finally(() => elicitationPauseController.end(requestId));
-            return { ok: true };
-          }
-
-          const content = Object.fromEntries(
-            (pending.elicitationFields ?? []).flatMap((field) => {
-              const rawValue = answers?.[field.key];
-              if (typeof rawValue !== "string") {
-                return [];
-              }
-              const coerced = coerceElicitationAnswer({
-                rawValue,
-                field,
-              });
-              return coerced === undefined ? [] : [[field.key, coerced]];
-            }),
-          );
-          void client
-            .respond(pending.serverRequestId, {
-              action: "accept",
-              content,
-            })
-            .finally(() => elicitationPauseController.end(requestId));
-          return { ok: true };
-        }
-
-        const responseAnswers = Object.fromEntries(
-          Object.entries(answers ?? {}).map(([key, value]) => [
-            key,
-            { answers: [value] },
-          ]),
-        );
-        void client
-          .respond(pending.serverRequestId, {
-            answers: denied ? {} : responseAnswers,
-          })
-          .finally(() => elicitationPauseController.end(requestId));
-        return { ok: true };
+          if (denied) return { action: "decline" };
+          if (pending.elicitationMode === "url") return { action: "accept" };
+          const content = Object.fromEntries((pending.elicitationFields ?? []).flatMap((field) => {
+            const rawValue = answers?.[field.key];
+            if (typeof rawValue !== "string") return [];
+            const coerced = coerceElicitationAnswer({ rawValue, field });
+            return coerced === undefined ? [] : [[field.key, coerced]];
+          }));
+          return { action: "accept", content };
+        });
+        if (result.ok) void elicitationPauseController.end(requestId);
+        return result;
       });
 
       args.registerSteerResponder?.(async ({ text, clientMessageId }) => {
@@ -2487,6 +2390,12 @@ export async function streamCodexWithAppServer(
             requestId,
           });
           const childRequestOwner = codexChildRequestOwner({ requestThreadId, threadId });
+          const presentApproval = (approval: Extract<typeof presentation, { kind: "approval" }>) => {
+            pendingApprovalRequests.set(requestId, { serverRequestId: message.id as JsonRpcId, ...approval.pending });
+            void elicitationPauseController.begin(requestId);
+            const expiresAt = scheduleApprovalAutoDecline({ requestId, toolName: approval.event.toolName });
+            emitBridgeEvent({ ...approval.event, ...childRequestOwner, ...(expiresAt ? { expiresAt } : {}) });
+          };
           if (
             message.method === "mcpServer/elicitation/request" &&
             presentation?.kind === "approval" &&
@@ -2496,30 +2405,19 @@ export async function streamCodexWithAppServer(
               params,
             })
           ) {
-            // Never shown: Stave's own prompt-free tools are approved by a setting; the record keeps it.
-            emitBridgeEvent({ type: "approval_resolved", requestId, toolName: presentation.event.toolName,
-              decision: "allowed", source: "rule", reason: "stave-tool", decidedAt: new Date().toISOString() });
-            void client
-              .respond(message.id as JsonRpcId, { action: "accept" })
-              .catch((error) => {
-                emitBridgeEvent({
-                  type: "error",
-                  message: `Codex could not auto-approve ${presentation.event.toolName}: ${
-                    error instanceof Error ? error.message : String(error)
-                  }`,
-                  recoverable: true,
-                });
-              });
+            // Stave's prompt-free tools are approved by a setting. If the
+            // write fails while the turn is live, let the user answer.
+            void client.respond(message.id as JsonRpcId, { action: "accept" }).then(() => {
+              if (completed || abortRequested) return;
+              emitBridgeEvent({ type: "approval_resolved", requestId, toolName: presentation.event.toolName,
+                decision: "allowed", source: "rule", reason: "stave-tool", decidedAt: new Date().toISOString() });
+            }, () => {
+              if (!completed && !abortRequested) presentApproval(presentation);
+            });
             return;
           }
           if (presentation?.kind === "approval") {
-            pendingApprovalRequests.set(requestId, {
-              serverRequestId: message.id as JsonRpcId,
-              ...presentation.pending,
-            });
-            void elicitationPauseController.begin(requestId);
-            const expiresAt = scheduleApprovalAutoDecline({ requestId, toolName: presentation.event.toolName });
-            emitBridgeEvent({ ...presentation.event, ...childRequestOwner, ...(expiresAt ? { expiresAt } : {}) });
+            presentApproval(presentation);
             return;
           }
           if (presentation?.kind === "user_input") {
@@ -2537,7 +2435,7 @@ export async function streamCodexWithAppServer(
             emitBridgeEvent(presentation.event);
             void client.respond(message.id as JsonRpcId, {
               action: "cancel",
-            });
+            }).catch(() => {});
             return;
           }
           switch (message.method) {
@@ -2547,34 +2445,22 @@ export async function streamCodexWithAppServer(
                 message: `${message.method} is not supported in Stave yet.`,
                 recoverable: true,
               });
-              void client.respond(message.id as JsonRpcId, {});
+              void client.respond(message.id as JsonRpcId, {}).catch(() => {});
               return;
             case "account/chatgptAuthTokens/refresh": {
               const params = (message.params ??
                 {}) as CodexChatgptAuthTokensRefreshParams;
-              void (async () => {
-                try {
-                  const response = await refreshCodexChatgptAuthTokens({
-                    executablePath: codexExecutablePath,
-                    previousAccountId: params.previousAccountId,
-                  });
-                  await client.respond(message.id as JsonRpcId, response);
-                } catch (error) {
-                  const messageText = toCodexUserFacingErrorMessage({
-                    message:
-                      error instanceof Error ? error.message : String(error),
-                  });
-                  emitBridgeEvent({
-                    type: "error",
-                    message: messageText,
-                    recoverable: true,
-                  });
-                  await client.respondError(message.id as JsonRpcId, {
-                    code: -32000,
-                    message: messageText,
-                  });
-                }
-              })();
+              void refreshCodexChatgptAuthTokens({
+                executablePath: codexExecutablePath,
+                previousAccountId: params.previousAccountId,
+              }).then(
+                (response) => client.respond(message.id as JsonRpcId, response),
+                (error) => {
+                  const messageText = toCodexUserFacingErrorMessage({ message: toErrorMessage(error) });
+                  emitBridgeEvent({ type: "error", message: messageText, recoverable: true });
+                  return client.respondError(message.id as JsonRpcId, { code: -32000, message: messageText });
+                },
+              ).catch(() => {});
               return;
             }
             default:
@@ -3151,6 +3037,7 @@ export async function streamCodexWithAppServer(
       const interruptTurn = () => {
         if (completed || abortRequested) return;
         abortRequested = true;
+        decisionDelivery.interrupt();
         interruptedCleanup.finish ??= beginCodexInterruptedThreadCleanup(threadId);
         if (!appServerTurnId) {
           // turn/start hasn't resolved yet — no turnId to interrupt.
@@ -3327,13 +3214,15 @@ export async function streamCodexWithAppServer(
         emitBridgeEvent({ type: "done", stop_reason: "runtime_failure" });
         return finalizeCollectedEvents();
       } finally {
+        decisionDelivery.interrupt();
         orphanRequestAbortController.abort();
         clearInterruptFallback();
         unsubscribeProcessExit();
         // Reject any pending approval/input requests so the Codex app-server
         // doesn't hang waiting for a response that will never arrive.
         for (const [id, pending] of pendingApprovalRequests) {
-          clearApprovalAutoDecline(id);
+          decisionDelivery.clearDeadline(id);
+          if (decisionDelivery.isAnswering(id)) continue;
           const declinePayload =
             pending.responseKind === "elicitation"
               ? { action: "decline" as const }
@@ -3344,7 +3233,8 @@ export async function streamCodexWithAppServer(
           pendingApprovalRequests.delete(id);
         }
         for (const [id, pending] of pendingUserInputRequests) {
-          clearApprovalAutoDecline(id);
+          decisionDelivery.clearDeadline(id);
+          if (decisionDelivery.isAnswering(id)) continue;
           const declinePayload =
             pending.responseKind === "elicitation"
               ? { action: "decline" as const }

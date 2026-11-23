@@ -6,7 +6,7 @@ import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { getRespondingProviderId } from "@/lib/tasks";
-import { buildMessageId } from "@/lib/session/message-id";
+import { buildMessageId, readMessageIdTurnId } from "@/lib/session/message-id";
 import type {
   AgentRunPromptProvenance,
   ChatMessage,
@@ -240,12 +240,17 @@ export function buildPendingProviderTurnState(args: {
   dispatchedFromQueue?: boolean;
   agentRunPrompt?: AgentRunPromptProvenance;
   questionReply?: QuestionReply;
+  replaceUnsentAttempt?: boolean;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
+  const history = args.replaceUnsentAttempt
+    ? current.filter(message => message.turnId !== args.turnId &&
+      readMessageIdTurnId({ taskId: args.taskId, id: message.id }) !== args.turnId)
+    : current;
   // Anchor new IDs to the durable total; `current` may be a trimmed tail window.
   const baseMessageCount = Math.max(
-    current.length,
-    args.messageCountByTask[args.taskId] ?? 0,
+    history.length,
+    (args.messageCountByTask[args.taskId] ?? current.length) - (current.length - history.length),
   );
   const userMessageId = buildMessageId({
     taskId: args.taskId,
@@ -281,7 +286,7 @@ export function buildPendingProviderTurnState(args: {
     terminalReceipt: createTurnReceipt(),
     parts: [],
   };
-  const nextMessages = [...current, userMessage, assistantMessage];
+  const nextMessages = [...history, userMessage, assistantMessage];
 
   return {
     tasks: args.tasks.map((taskItem) =>

@@ -27,6 +27,7 @@ import {
   requestLensSessionPresentation,
 } from "./browser-session-presentation";
 import { normalizeLensUrl } from "./browser-url";
+import { navigateLensGuest } from "./browser-navigation-result";
 import { readNormalizedPageAnnotations } from "./browser-annotation-ingestion";
 
 import {
@@ -59,7 +60,6 @@ import {
   upsertLensCredential,
 } from "./lens-credential-service";
 
-const NAVIGATE_TIMEOUT_MS = 30_000;
 const DEFAULT_SNAPSHOT_MAX_NODES = 800;
 const MAX_SNAPSHOT_MAX_NODES = 4_000;
 const DEFAULT_HTML_MAX_CHARS = 20_000;
@@ -192,23 +192,11 @@ export function registerBrowserTools(rawServer: McpServer): void {
         restorePreviousUrl: !url?.trim(),
       });
 
+      let navigation: Awaited<ReturnType<typeof navigateLensGuest>> | undefined;
       if (url?.trim()) {
         const targetUrl = normalizeLensUrl(url);
         assertNavigationAllowed(targetUrl);
-        await Promise.race([
-          session.webContents.loadURL(targetUrl),
-          new Promise<never>((_, reject) =>
-            setTimeout(
-              () =>
-                reject(
-                  new Error(
-                    `Navigation timed out after ${NAVIGATE_TIMEOUT_MS / 1000}s`,
-                  ),
-                ),
-              NAVIGATE_TIMEOUT_MS,
-            ),
-          ),
-        ]);
+        navigation = await navigateLensGuest(session.webContents, targetUrl);
       }
 
       return toStructuredResult({
@@ -217,8 +205,8 @@ export function registerBrowserTools(rawServer: McpServer): void {
         session: {
           workspaceId,
           lensSessionId: session.lensSessionId,
-          url: session.webContents.getURL(),
-          title: session.webContents.getTitle(),
+          url: navigation?.url ?? session.webContents.getURL(),
+          title: navigation?.title ?? session.webContents.getTitle(),
           isLoading: session.webContents.isLoading(),
         },
       });
@@ -344,26 +332,7 @@ export function registerBrowserTools(rawServer: McpServer): void {
       const targetUrl = normalizeLensUrl(url);
       assertNavigationAllowed(targetUrl);
 
-      await Promise.race([
-        wc.loadURL(targetUrl),
-        new Promise<never>((_, reject) =>
-          setTimeout(
-            () =>
-              reject(
-                new Error(
-                  `Navigation timed out after ${NAVIGATE_TIMEOUT_MS / 1000}s`,
-                ),
-              ),
-            NAVIGATE_TIMEOUT_MS,
-          ),
-        ),
-      ]);
-
-      return toStructuredResult({
-        ok: true,
-        url: wc.getURL(),
-        title: wc.getTitle(),
-      });
+      return toStructuredResult(await navigateLensGuest(wc, targetUrl));
     },
   );
 
@@ -506,14 +475,13 @@ export function registerBrowserTools(rawServer: McpServer): void {
       }
 
       const session = await acquireSession(workspaceId, lensSessionId);
-      requestLensAgentActivityPresentation(
-        session,
-        "stave_lens_screenshot",
-      );
-
       const dataUrl = await captureScreenshot(session.webContents.id, {
         fullPage,
         selector,
+      }).finally(() => {
+        // Automatic presentation can resize the guest. Let the screenshot
+        // finish first so its own presentation request cannot cancel it.
+        requestLensAgentActivityPresentation(session, "stave_lens_screenshot");
       });
       const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
       // Kept so the conversation can show the screenshot: providers either

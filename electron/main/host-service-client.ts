@@ -1,3 +1,4 @@
+import { ProviderDecisionDeliveryError } from "../providers/provider-decision-delivery-error";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { getAppLocale } from "../../src/i18n/runtime";
 import { resolveHostGatewayCredential } from "./provider-gateway-credential";
@@ -215,9 +216,10 @@ class HostServiceClient {
         pending.resolve(message.result);
         return;
       }
-      pending.reject(
-        new Error(`[host-service] ${pending.method} failed: ${message.error}`),
-      );
+      const detail = `[host-service] ${pending.method} failed: ${message.error}`;
+      pending.reject(message.decisionFailureReason
+        ? new ProviderDecisionDeliveryError(detail, message.decisionFailureReason)
+        : new Error(detail));
     });
   }
 

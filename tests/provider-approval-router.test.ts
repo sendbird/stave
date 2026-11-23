@@ -9,7 +9,7 @@ const unknown = (pendingRequestIds: string[]) => ({
 });
 
 describe("provider approval router", () => {
-  test("delivers primary and nested Worker approvals through one turn", () => {
+  test("delivers primary and nested Worker approvals through one turn", async () => {
     const router = createProviderApprovalRouter();
     const calls: string[] = [];
     router.registerPrimary(({ requestId }) => {
@@ -24,9 +24,9 @@ describe("provider approval router", () => {
     });
 
     expect(
-      router.respond({ requestId: "worker:approval-1", approved: true }),
+      await router.respond({ requestId: "worker:approval-1", approved: true }),
     ).toEqual({ ok: true });
-    expect(router.respond({ requestId: "primary-1", approved: true })).toEqual({
+    expect(await router.respond({ requestId: "primary-1", approved: true })).toEqual({
       ok: true,
     });
     expect(calls).toEqual([
@@ -35,14 +35,23 @@ describe("provider approval router", () => {
     ]);
   });
 
-  test("removes a Worker responder when its nested session ends", () => {
+  test("returns a delivery failure from the request owner without probing other responders", async () => {
+    const router = createProviderApprovalRouter();
+    const failure = { ok: false, reason: "write-failed", pendingRequestIds: ["primary-1"] } as const;
+    router.registerPrimary(async () => ({ ...failure, pendingRequestIds: [...failure.pendingRequestIds] }));
+    router.registerNested(() => { throw new Error("Unexpected fallback"); });
+
+    expect(await router.respond({ requestId: "primary-1", approved: true })).toEqual(failure);
+  });
+
+  test("removes a Worker responder when its nested session ends", async () => {
     const router = createProviderApprovalRouter();
     router.registerPrimary(() => unknown(["primary-1"]));
     const remove = router.registerNested(() => unknown(["worker:approval-1"]));
     remove();
 
     expect(
-      router.respond({ requestId: "worker:approval-1", approved: false }),
+      await router.respond({ requestId: "worker:approval-1", approved: false }),
     ).toEqual({
       ok: false,
       reason: "unknown-request",

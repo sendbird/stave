@@ -74,8 +74,8 @@ export function resolveClaudeApprovalRisk(
 }
 
 /**
- * Codex: a command (by its exact command line) and a patch inside the
- * workspace. Codex's own grants (`acceptForSession`, exec-policy amendments)
+ * Codex: a command (including the same command with added plain arguments)
+ * and a patch inside the workspace. Codex's own grants (`acceptForSession`, exec-policy amendments)
  * are not used: Stave could not show or remove them, so "Always allow" would
  * become a rule nobody can see. Not offered for:
  *

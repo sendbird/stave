@@ -144,6 +144,8 @@ test.describe("Tars start screen", () => {
 
   for (const look of [{ lang: "en", theme: "light" }, { lang: "ko", theme: "dark" }]) {
     test(`fits its column, starts at its top and leaves the composer on screen: ${look.lang} ${look.theme}`, async ({ page }) => {
+      // Four full preview loads; as a shard's first test it also pays the cold dev-server compile.
+      test.slow();
       for (const size of [{ width: 1440, height: 900 }, { width: 1440, height: 700 }, { width: 390, height: 844 }]) {
         await page.setViewportSize(size);
         await open(page, `start=true&tray=true&lang=${look.lang}&theme=${look.theme}`);

@@ -182,6 +182,13 @@ function createCapturedRepositoriesMemo() {
   };
 }
 
+function persistedQueueReleases(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).filter((entry): entry is [string, number] =>
+    typeof entry[1] === "number" && Number.isFinite(entry[1]) && entry[1] >= 0,
+  ));
+}
+
 const appStorePersistStorages = new Set<CoalescedPersistStorage<unknown>>();
 
 /**
@@ -219,6 +226,15 @@ export async function flushPersistenceForQuit(args: {
 export function createAppStorePersistenceOptions() {
   const captureRecentRepositories = createCapturedRepositoriesMemo();
   const captureRestartPendingTasks = createRestartPendingTasksCapture();
+  let releaseSource: AppState["restoredQueueReleasedByTask"] | undefined;
+  let releases: Record<string, number> = {};
+  const captureQueueReleases = (current: AppState["restoredQueueReleasedByTask"]) => {
+    if (current !== releaseSource) {
+      releaseSource = current;
+      releases = persistedQueueReleases(current);
+    }
+    return releases;
+  };
   const storage = createCoalescedPersistStorage<unknown>({
     getStorage: () => window.localStorage,
   });
@@ -259,6 +275,7 @@ export function createAppStorePersistenceOptions() {
       layout: state.layout,
       settings: state.settings,
       usageLimitPauseByTask: state.usageLimitPauseByTask,
+      restoredQueueReleasedByTask: captureQueueReleases(state.restoredQueueReleasedByTask),
       restartRecovery: state.restartRecovery,
       restartPendingTasks: captureRestartPendingTasks(state),
       repositoryName: state.repositoryName,
@@ -268,6 +285,7 @@ export function createAppStorePersistenceOptions() {
         return;
       }
       state.usageLimitPauseByTask = normalizeUsageLimitPauses(state.usageLimitPauseByTask);
+      state.restoredQueueReleasedByTask = persistedQueueReleases(state.restoredQueueReleasedByTask);
       state.restartRecovery = normalizeRestartRecovery(state.restartRecovery);
       state.restartPendingTasks = (Array.isArray(state.restartPendingTasks) ? state.restartPendingTasks : []).flatMap(item => { const parsed = InterruptedTaskSchema.safeParse(item); return parsed.success ? [parsed.data] : []; });
       const persistedSettings = state.settings;

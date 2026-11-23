@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { EventEmitter } from "node:events";
+import { lensCaptureLane } from "./browser-capture-lane";
 import {
   DEFAULT_LENS_SESSION_ID,
   type BrowserConsoleEntry,
@@ -213,6 +214,7 @@ export function attachBrowserSessionEventListeners(
       return;
     }
     if (isMainFrame) {
+      lensCaptureLane.cancel(wc.id, new Error("The Lens page started navigating during capture; retry after it loads."));
       handleLensCdpDiagnosticsNavigationStart(wc.id, url);
       if (!isInPlace) {
         const session = getBrowserSession(workspaceId, lensSessionId);

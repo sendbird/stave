@@ -109,6 +109,7 @@
     "noSkillsFound": "No skills found."
   },
   "approval": {
+    "shellAlwaysAllowScope": "Always allow covers this command and added plain arguments.",
     "alwaysAllow": "Always allow",
     "allowOnce": "Allow once",
     "deny": "Deny",

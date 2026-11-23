@@ -12,7 +12,6 @@ import {
 } from "../../src/lib/terminal/types";
 import {
   bindTerminalSessionSlot,
-  clearTerminalSessionSlotRegistry,
   createTerminalSessionSlotRegistry,
   getTerminalSessionIdForSlotKey,
   unbindTerminalSessionSlotBySessionId,
@@ -24,6 +23,7 @@ import { ensureUtf8Locale } from "../shared/utf8-locale";
 import { buildRepositoryShellEnv } from "../shared/repository-node-env";
 import { Osc133Parser } from "../../src/lib/terminal/osc133";
 import { appendAbsoluteCursorPosition } from "../../src/lib/terminal/snapshot";
+import { i18n } from "../../src/i18n/runtime";
 import type {
   HostServiceEventMap,
   HostTerminalCreateSessionResult,
@@ -60,6 +60,7 @@ const TERMINAL_PUSH_BACKLOG_WARN_BYTES = 128 * 1024;
 const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
 const TERMINAL_PUSH_ACK_HIGH_WATER_BYTES = 512 * 1024;
 const TERMINAL_PUSH_ACK_LOW_WATER_BYTES = 128 * 1024;
+const TERMINAL_PUSH_ACK_STALL_TIMEOUT_MS = 5_000;
 const TERMINAL_SCREEN_STATE_MAX_BYTES = 256 * 1024;
 const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [
   512, 256, 128, 64, 32, 0,
@@ -135,7 +136,7 @@ export function createTerminalRuntime(args: {
   }
 
   function applyOutputFlowControl(session: TerminalSessionEntry) {
-    if (!isPushStreamReady(session)) {
+    if (session.closing || session.flowStalled || !isPushStreamReady(session)) {
       resumeFlowPausedSession(session);
       return;
     }
@@ -151,6 +152,7 @@ export function createTerminalRuntime(args: {
       try {
         session.pty.pause();
         session.flowPaused = true;
+        armOutputStallDeadline(session);
         logTerminalPushBackpressure(
           `reason=renderer-ack-window session-unacked-bytes=${unacknowledgedBytes}`,
         );
@@ -162,15 +164,14 @@ export function createTerminalRuntime(args: {
       session.flowPaused &&
       unacknowledgedBytes <= TERMINAL_PUSH_ACK_LOW_WATER_BYTES
     ) {
-      try {
-        session.pty.resume();
-      } catch {}
-      session.flowPaused = false;
+      resumeFlowPausedSession(session);
       schedulePushFlush(session);
     }
   }
 
   function resumeFlowPausedSession(session: TerminalSessionEntry) {
+    clearTimeout(session.flowStallTimer);
+    session.flowStallTimer = undefined;
     if (!session.flowPaused) {
       return;
     }
@@ -178,6 +179,29 @@ export function createTerminalRuntime(args: {
       session.pty.resume();
     } catch {}
     session.flowPaused = false;
+  }
+
+  function armOutputStallDeadline(session: TerminalSessionEntry) {
+    clearTimeout(session.flowStallTimer);
+    session.flowStallTimer = setTimeout(() => {
+      // Keep draining the PTY into the bounded headless mirror. Sending live
+      // bytes without ACKs would move the unbounded queue into the renderer.
+      session.flowStalled = true;
+      session.outputGapPending = true;
+      session.pendingPush.length = 0;
+      session.pendingPushBytes = 0;
+      session.flushPushOutput();
+      resumeFlowPausedSession(session);
+      logTerminalPushBackpressure("reason=renderer-ack-stalled");
+    }, TERMINAL_PUSH_ACK_STALL_TIMEOUT_MS);
+    session.flowStallTimer.unref?.();
+  }
+
+  function hasPushOutputToFlush(session: TerminalSessionEntry) {
+    return (
+      session.outputGapPending ||
+      (!session.flowPaused && !session.flowStalled && session.pendingPush.length > 0)
+    );
   }
 
   function serializeScreenState(session: TerminalSessionEntry): string {
@@ -204,6 +228,7 @@ export function createTerminalRuntime(args: {
   async function persistSessionSnapshot(session: TerminalSessionEntry) {
     if (!session.slotKey || !persistence || session.persistScreenState === false) return;
     await session.lastHeadlessWritePromise;
+    if (session.closing) return;
     const screenState = serializeScreenState(session);
     if (screenState) {
       persistence.saveTerminalSnapshot({
@@ -253,7 +278,7 @@ export function createTerminalRuntime(args: {
       !isPushStreamReady(session) ||
       session.pushScheduled ||
       session.pushWriteInFlight ||
-      session.pendingPush.length === 0
+      !hasPushOutputToFlush(session)
     ) {
       return;
     }
@@ -266,20 +291,26 @@ export function createTerminalRuntime(args: {
     sessionId: string;
   }) {
     const { session, sessionId } = args;
+    const attachmentId = session.streamReadyAttachmentId;
     session.pushScheduled = false;
     if (
       session.closing ||
       session.pushWriteInFlight ||
       !isPushStreamReady(session) ||
-      session.pendingPush.length === 0
+      !attachmentId ||
+      !hasPushOutputToFlush(session)
     ) {
       return session.lastPushWritePromise ?? Promise.resolve();
     }
-    const { output, bytes: outputBytes } = shiftBoundedOutput({
-      chunks: session.pendingPush,
-      maxBytes: TERMINAL_PUSH_FLUSH_MAX_BYTES,
-    });
-    if (!output) {
+    const outputGap = session.outputGapPending;
+    session.outputGapPending = false;
+    const { output, bytes: outputBytes } = outputGap
+      ? { output: "", bytes: 0 }
+      : shiftBoundedOutput({
+          chunks: session.pendingPush,
+          maxBytes: TERMINAL_PUSH_FLUSH_MAX_BYTES,
+        });
+    if (!output && !outputGap) {
       return session.lastPushWritePromise ?? Promise.resolve();
     }
     session.pendingPushBytes = Math.max(
@@ -292,11 +323,19 @@ export function createTerminalRuntime(args: {
     session.sentOutputBytes += outputBytes;
     const pushPromise = emitEvent("terminal.output", {
       sessionId,
+      attachmentId,
       output,
       sequence,
       bytes: outputBytes,
+      ...(outputGap ? { outputGap } : {}),
     })
       .catch((error) => {
+        if (
+          session.closing ||
+          (session.activeAttachmentId !== null && session.activeAttachmentId !== attachmentId)
+        ) {
+          return;
+        }
         if (hasActiveAttachment(session)) {
           appendOutputChunk(session, output);
           session.deliveryMode = "poll";
@@ -368,10 +407,6 @@ export function createTerminalRuntime(args: {
       env: ensureUtf8Locale(args.env),
     });
     retainResourceProcessOwner(ptyProcess.pid, { workspaceId: args.workspaceId, taskId: args.env.STAVE_TASK_ID || undefined });
-    const resourceExit = ptyProcess.onExit(() => {
-      forgetResourceProcess(ptyProcess.pid);
-      resourceExit.dispose();
-    });
 
     const sessionId = randomUUID();
     const headlessTerminal = new HeadlessTerminal({
@@ -382,16 +417,10 @@ export function createTerminalRuntime(args: {
     const serializeAddon = new SerializeAddon();
     headlessTerminal.loadAddon(serializeAddon);
     let headlessMirrorDisposed = false;
-    let closeResolved = false;
-    let resolveClosed = () => {};
-    const closed = new Promise<void>((resolve) => {
-      resolveClosed = () => {
-        if (closeResolved) {
-          return;
-        }
-        closeResolved = true;
-        resolve();
-      };
+    let closeTimer: ReturnType<typeof setTimeout> | undefined;
+    let resolveClosed: (exited: boolean) => void;
+    const closed = new Promise<boolean>((resolve) => {
+      resolveClosed = resolve;
     });
 
     const session: TerminalSessionEntry = {
@@ -418,6 +447,7 @@ export function createTerminalRuntime(args: {
       lastPushWritePromise: null,
       deliveryMode: args.deliveryMode ?? "poll",
       closing: false,
+      notifyExitOnClose: false,
       slotKey: args.slotKey ?? null,
       closed,
       activeAttachmentId: null,
@@ -433,6 +463,9 @@ export function createTerminalRuntime(args: {
       sentOutputBytes: 0,
       acknowledgedOutputBytes: 0,
       flowPaused: false,
+      flowStallTimer: undefined,
+      flowStalled: false,
+      outputGapPending: false,
       persistScreenState: args.persistScreenState ?? true,
       persistedScreenState:
         args.slotKey && persistence && args.persistScreenState !== false
@@ -445,24 +478,27 @@ export function createTerminalRuntime(args: {
           return;
         }
         session.closing = true;
-        session.disposeNativeSessionDiscovery?.();
-        session.disposePtyListeners();
-        session.disposeHeadlessMirror();
-        session.markClosed();
-        const closablePty = ptyProcess as pty.IPty & { destroy?: () => void };
-        if (typeof closablePty.destroy === "function") {
-          closablePty.destroy();
-          return;
-        }
-        ptyProcess.kill();
-      },
-      disposePtyListeners: () => {
-        resourceExit.dispose();
-        forgetResourceProcess(ptyProcess.pid);
         session.dataSubscription?.dispose();
-        session.exitSubscription?.dispose();
         session.dataSubscription = null;
-        session.exitSubscription = null;
+        resumeFlowPausedSession(session);
+        session.disposeHeadlessMirror();
+        if (session.exitCode === null) {
+          // Keep the exit listener, slot, and resource owner until node-pty
+          // confirms exit. destroy() can return before the process exits.
+          closeTimer = setTimeout(() => {
+            resolveClosed(false);
+          }, TERMINAL_SESSION_CLOSE_TIMEOUT_MS);
+        }
+        const closablePty = ptyProcess as pty.IPty & { destroy?: () => void };
+        try {
+          if (typeof closablePty.destroy === "function") {
+            closablePty.destroy();
+            return;
+          }
+          ptyProcess.kill();
+        } catch (error) {
+          console.error("[terminal] failed to close PTY", error);
+        }
       },
       disposeHeadlessMirror: () => {
         if (headlessMirrorDisposed) {
@@ -481,7 +517,6 @@ export function createTerminalRuntime(args: {
       flushPushOutput: () => {
         void flushPushOutputNow({ session, sessionId });
       },
-      markClosed: resolveClosed,
     };
 
     sessions.set(sessionId, session);
@@ -520,7 +555,8 @@ export function createTerminalRuntime(args: {
           return;
         }
         const filtered = interceptOscColor(data);
-        for (const status of session.osc133Parser.push(data)) {
+        const statuses = session.osc133Parser.push(data);
+        for (const status of session.flowStalled ? [] : statuses) {
           void emitEvent("terminal.status", {
             sessionId,
             status: status.status,
@@ -533,6 +569,9 @@ export function createTerminalRuntime(args: {
           return;
         }
         void mirrorPtyOutput(session, filtered);
+        if (session.flowStalled && isPushStreamReady(session)) {
+          return;
+        }
         if (!hasActiveAttachment(session)) {
           appendBackgroundBuffer(session, filtered);
           return;
@@ -558,14 +597,21 @@ export function createTerminalRuntime(args: {
     );
 
     session.exitSubscription = ptyProcess.onExit(({ exitCode, signal }) => {
+      const wasClosing = session.closing;
       session.exitCode = exitCode ?? -1;
       session.exitSignal = signal;
       // Route through close() (idempotent) so a flow-paused child's exit still
       // releases the PTY master fd via destroy() instead of orphaning it.
       session.close();
+      clearTimeout(closeTimer);
+      session.exitSubscription?.dispose();
+      session.exitSubscription = null;
+      forgetResourceProcess(ptyProcess.pid);
       deleteSession(sessionId);
+      resolveClosed(true);
+      if (wasClosing && !session.notifyExitOnClose) return;
       void (async () => {
-        await flushPushOutputNow({ session, sessionId });
+        await session.lastPushWritePromise;
         await emitEvent("terminal.exit", {
           sessionId,
           exitCode: exitCode ?? -1,
@@ -590,7 +636,8 @@ export function createTerminalRuntime(args: {
       tabId: args.terminalTabId,
     });
     const existing = getSessionBySlotKey(slotKey);
-    if (existing && !existing.session.closing) {
+    if (existing) {
+      if (existing.session.closing) return { ok: false, stderr: i18n.t("terminal:terminalSession.errors.stillClosing") };
       setSessionDeliveryMode({
         sessionId: existing.sessionId,
         deliveryMode: args.deliveryMode ?? existing.session.deliveryMode,
@@ -636,7 +683,8 @@ export function createTerminalRuntime(args: {
       tabId: args.cliSessionTabId,
     });
     const existing = getSessionBySlotKey(slotKey);
-    if (existing && !existing.session.closing) {
+    if (existing) {
+      if (existing.session.closing) return { ok: false, stderr: i18n.t("terminal:terminalSession.errors.stillClosing") };
       if (existing.session.cliAccountIdentity !== cliAccountIdentity)
         return { ok: false, stderr: "This CLI tab belongs to another account. Open a new CLI tab." };
       setSessionDeliveryMode({
@@ -718,7 +766,7 @@ export function createTerminalRuntime(args: {
     input: string;
   }): HostTerminalMutationResult {
     const session = sessions.get(args.sessionId);
-    if (!session) {
+    if (!session || session.closing) {
       return { ok: false, stderr: "Terminal session not found." };
     }
     session.pty.write(args.input);
@@ -753,7 +801,7 @@ export function createTerminalRuntime(args: {
     rows: number;
   }): HostTerminalMutationResult {
     const session = sessions.get(args.sessionId);
-    if (!session) {
+    if (!session || session.closing) {
       return { ok: false, stderr: "Terminal session not found." };
     }
     const cols = Math.max(1, args.cols);
@@ -763,9 +811,9 @@ export function createTerminalRuntime(args: {
     return { ok: true };
   }
 
-  function closeSession(args: {
+  async function closeSession(args: {
     sessionId: string;
-  }): HostTerminalMutationResult {
+  }): Promise<HostTerminalMutationResult> {
     const session = sessions.get(args.sessionId);
     if (!session) {
       return { ok: false, stderr: "Terminal session not found." };
@@ -774,9 +822,9 @@ export function createTerminalRuntime(args: {
     if (session.slotKey && persistence) {
       persistence.deleteTerminalSnapshot({ slotKey: session.slotKey });
     }
-    session.disposeHeadlessMirror();
-    deleteSession(args.sessionId);
-    return { ok: true };
+    return await session.closed
+      ? { ok: true }
+      : { ok: false, stderr: i18n.t("terminal:terminalSession.errors.closeTimedOut") };
   }
 
   function bufferSessionOutput(args: {
@@ -805,11 +853,13 @@ export function createTerminalRuntime(args: {
     if (session.activeAttachmentId !== args.attachmentId) {
       return { ok: true };
     }
-    session.acknowledgedOutputBytes = Math.max(
-      session.acknowledgedOutputBytes,
-      Math.min(args.acknowledgedBytes, session.sentOutputBytes),
-    );
+    const acknowledgedBytes = Math.min(args.acknowledgedBytes, session.sentOutputBytes);
+    if (acknowledgedBytes <= session.acknowledgedOutputBytes) return { ok: true };
+    session.acknowledgedOutputBytes = acknowledgedBytes;
+    session.flowStalled = false;
+    if (session.flowPaused) armOutputStallDeadline(session);
     applyOutputFlowControl(session);
+    schedulePushFlush(session);
     return { ok: true };
   }
 
@@ -817,43 +867,40 @@ export function createTerminalRuntime(args: {
     ok: true;
     closedCount: number;
   }> {
-    let closedCount = 0;
+    const targets: TerminalSessionEntry[] = [];
     for (const [slotKey, sessionId] of sessionSlotRegistry.sessionIdBySlotKey) {
       if (!slotKey.startsWith(args.prefix)) {
         continue;
       }
       const session = sessions.get(sessionId);
-      if (session && !session.closing) {
-        await persistSessionSnapshot(session);
-        session.close();
-        deleteSession(sessionId);
-        closedCount++;
-      }
+      if (session) targets.push(session);
     }
+    await closeSessions(targets);
     for (const slotKey of exitedSlotInfo.keys()) {
       if (slotKey.startsWith(args.prefix)) {
         exitedSlotInfo.delete(slotKey);
       }
     }
-    return { ok: true, closedCount };
+    return { ok: true, closedCount: targets.length };
+  }
+
+  async function persistAndClose(session: TerminalSessionEntry) {
+    if (!session.closing) await persistSessionSnapshot(session);
+    session.close();
+    if (!(await session.closed)) {
+      throw new Error(i18n.t("terminal:terminalSession.errors.closeTimedOut"));
+    }
+  }
+
+  async function closeSessions(targets: TerminalSessionEntry[]) {
+    const results = await Promise.allSettled(targets.map(persistAndClose));
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
   }
 
   async function cleanupAll() {
-    const currentSessions = [...sessions.values()];
-    sessions.clear();
-    clearTerminalSessionSlotRegistry({ registry: sessionSlotRegistry });
-
     await Promise.allSettled(
-      currentSessions.map(async (session) => {
-        await persistSessionSnapshot(session);
-        session.close();
-        await Promise.race([
-          session.closed,
-          new Promise<void>((resolve) => {
-            setTimeout(resolve, TERMINAL_SESSION_CLOSE_TIMEOUT_MS);
-          }),
-        ]);
-      }),
+      [...sessions.values()].map(persistAndClose),
     );
   }
 
@@ -868,7 +915,7 @@ export function createTerminalRuntime(args: {
     stderr?: string;
   }> {
     const session = sessions.get(args.sessionId);
-    if (!session) {
+    if (!session || session.closing) {
       return { ok: false, stderr: "Terminal session not found." };
     }
     resumeFlowPausedSession(session);
@@ -877,6 +924,8 @@ export function createTerminalRuntime(args: {
     session.streamReadyAttachmentId = null;
     session.sentOutputBytes = 0;
     session.acknowledgedOutputBytes = 0;
+    session.flowStalled = false;
+    session.outputGapPending = false;
     const backlog = drainBackgroundBuffer(session);
     bufferPendingPushOutput(session);
     session.deliveryMode = args.deliveryMode;
@@ -923,6 +972,8 @@ export function createTerminalRuntime(args: {
     session.streamReadyAttachmentId = null;
     session.sentOutputBytes = 0;
     session.acknowledgedOutputBytes = 0;
+    session.flowStalled = false;
+    session.outputGapPending = false;
     bufferPendingPushOutput(session);
     for (const chunk of session.outputChunks) {
       appendBackgroundBuffer(session, chunk);
@@ -942,6 +993,9 @@ export function createTerminalRuntime(args: {
       return { ok: false, stderr: "Terminal session not found." };
     }
     if (session.activeAttachmentId !== args.attachmentId) {
+      return { ok: true };
+    }
+    if (session.streamReadyAttachmentId === args.attachmentId) {
       return { ok: true };
     }
     resumeFlowPausedSession(session);
@@ -993,14 +1047,6 @@ export function createTerminalRuntime(args: {
       return { state: "idle" };
     }
     const { sessionId, session } = existing;
-    if (session.closing) {
-      return {
-        state: "exited",
-        sessionId,
-        exitCode: session.exitCode ?? -1,
-        signal: session.exitSignal,
-      };
-    }
     if (!hasActiveAttachment(session)) {
       return { state: "background", sessionId };
     }
@@ -1023,24 +1069,17 @@ export function createTerminalRuntime(args: {
   }
 
   async function stopWorkspace(workspaceId: string) {
-    const targets = [...sessions.entries()].filter(([, session]) => session.workspaceId === workspaceId);
-    const results = await Promise.allSettled(targets.map(async ([sessionId, session]) => {
-      await persistSessionSnapshot(session);
-      session.close();
-      await session.closed;
-      deleteSession(sessionId);
-      await emitEvent("terminal.exit", { sessionId, exitCode: session.exitCode ?? -1, signal: session.exitSignal });
-    }));
-    const failure = results.find((result) => result.status === "rejected");
-    if (failure?.status === "rejected") throw failure.reason;
+    const targets = [...sessions.values()].filter((session) => session.workspaceId === workspaceId);
+    for (const session of targets) session.notifyExitOnClose = true;
+    await closeSessions(targets);
   }
 
   return {
-    hasWorkspaceSessions: (workspaceId: string) => [...sessions.values()].some(session => session.workspaceId === workspaceId && !session.closing),
+    hasWorkspaceSessions: (workspaceId: string) => [...sessions.values()].some(session => session.workspaceId === workspaceId),
     /** An open terminal blocks a file restore unless it is an idle shell. */
     hasRunningWorkspaceProcesses: (workspaceIds: readonly string[]) => [...sessions.values()].some(session =>
-      !session.closing && session.workspaceId !== undefined && workspaceIds.includes(session.workspaceId)
-      && isTerminalSessionBusy({ command: session.command ?? "", readForeground: () => session.pty.process })),
+      session.workspaceId !== undefined && workspaceIds.includes(session.workspaceId)
+      && (session.closing || isTerminalSessionBusy({ command: session.command ?? "", readForeground: () => session.pty.process }))),
     stopWorkspace,
     createSession,
     createCliSession,
@@ -1060,7 +1099,7 @@ export function createTerminalRuntime(args: {
     getSessionResumeInfo,
     listPtyPids: () =>
       [...sessions.values()]
-        .filter((session) => !session.closing && session.pty.pid > 0)
+        .filter((session) => session.pty.pid > 0)
         .map((session) => session.pty.pid),
     closeSessionsBySlotPrefix,
     cleanupAll,

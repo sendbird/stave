@@ -8,6 +8,9 @@ class ElementStub extends EventTarget {
   isConnected = true;
   id = "";
   wc = 31;
+  checkVisibility() {
+    return this.style.visibility !== "hidden";
+  }
   setAttribute() {}
   getWebContentsId() {
     return this.wc;
@@ -55,7 +58,11 @@ test("paint leases survive parking, reject stale releases and preserve geometry"
       requestId: "old",
       active: true,
     };
+    guest.style.visibility = "hidden";
+    expect(host.setLensGuestCapturePaint(request)).toBe(false);
+    guest.style.visibility = "visible";
     expect(host.setLensGuestCapturePaint(request)).toBe(true);
+    expect(host.isLensGuestCapturePaintReady(request)).toBe(true);
     host.parkLensGuestsOutsideWorkspace("other");
     expect(guest.style.opacity).toBe("1");
     expect(guest.style.filter).toBe("opacity(0)");

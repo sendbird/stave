@@ -11,6 +11,7 @@ export interface ArchivedWorkspaceRecord {
   archivedAt: string;
   readOnly: boolean;
   savedChangesRef?: string;
+  leftoverWorktree?: { dev: number; ino: number } | "cleared";
   creationOptions?: { useRootNodeModulesSymlink: boolean; initCommand?: string; linkedWorktree?: boolean; linkedSymlinkNames?: string[]; keepWorktree?: boolean };
 }
 
@@ -31,19 +32,25 @@ export class WorkspaceArchiveStore {
       ON workspace_archives(repository_path, archived_at);`);
     const columns = db.prepare("PRAGMA table_info(workspace_archives)").all() as {name:string}[];
     if (!columns.some(column => column.name === "creation_options_json")) db.exec("ALTER TABLE workspace_archives ADD COLUMN creation_options_json TEXT");
+    if (!columns.some(column => column.name === "leftover_worktree_json")) db.exec("ALTER TABLE workspace_archives ADD COLUMN leftover_worktree_json TEXT");
     if (!columns.some(column => column.name === "saved_changes_ref")) db.exec("ALTER TABLE workspace_archives ADD COLUMN saved_changes_ref TEXT");
   }
 
   list(args: { repositoryPath?: string } = {}): ArchivedWorkspaceRecord[] {
     return this.db.prepare(`SELECT workspace_id AS workspaceId,
       repository_path AS repositoryPath, path, branch, name,
-      archived_at AS archivedAt, read_only AS readOnly, creation_options_json AS creationOptionsJson, saved_changes_ref AS savedChangesRef FROM workspace_archives
+      archived_at AS archivedAt, read_only AS readOnly, creation_options_json AS creationOptionsJson, saved_changes_ref AS savedChangesRef, leftover_worktree_json AS leftoverWorktreeJson FROM workspace_archives
       ${args.repositoryPath === undefined ? "" : "WHERE repository_path = ?"}
       ORDER BY archived_at DESC`).all(...(args.repositoryPath === undefined ? [] : [args.repositoryPath]))
       .map((row) => {
-        const {creationOptionsJson, savedChangesRef, ...record} = row as Omit<ArchivedWorkspaceRecord, "readOnly"> & { readOnly: number; creationOptionsJson: string | null; savedChangesRef: string | null };
-        return { ...record, ...(savedChangesRef ? { savedChangesRef } : {}), readOnly: Boolean(record.readOnly), ...(creationOptionsJson ? {creationOptions:JSON.parse(creationOptionsJson)} : {}) };
+        const {creationOptionsJson, savedChangesRef, leftoverWorktreeJson, ...record} = row as Omit<ArchivedWorkspaceRecord, "readOnly"> & { readOnly: number; creationOptionsJson: string | null; savedChangesRef: string | null; leftoverWorktreeJson: string | null };
+        return { ...record, ...(leftoverWorktreeJson ? { leftoverWorktree: JSON.parse(leftoverWorktreeJson) } : {}), ...(savedChangesRef ? { savedChangesRef } : {}), readOnly: Boolean(record.readOnly), ...(creationOptionsJson ? {creationOptions:JSON.parse(creationOptionsJson)} : {}) };
       });
+  }
+
+  recordLeftover(record: Pick<ArchivedWorkspaceRecord, "workspaceId" | "archivedAt" | "path">, leftover: NonNullable<ArchivedWorkspaceRecord["leftoverWorktree"]>) {
+    this.db.prepare("UPDATE workspace_archives SET leftover_worktree_json = ? WHERE workspace_id = ? AND archived_at = ? AND path = ?")
+      .run(JSON.stringify(leftover), record.workspaceId, record.archivedAt, record.path);
   }
 
   /** Stale registry snapshots cannot resurrect archived identities or erase tombstones. */

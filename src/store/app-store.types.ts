@@ -249,7 +249,7 @@ export interface AppState
    * Tasks whose queue, restored from the previous run of the app, the user
    * released. Until then those items wait instead of sending on completion.
    */
-  restoredQueueReleasedByTask: Record<string, true | undefined>;
+  restoredQueueReleasedByTask: Record<string, true | number | undefined>;
   messageCountByTask: Record<string, number>;
   taskMessagesLoadingByTask: Record<string, boolean>;
   /** Newer messages omitted by a bounded history window. */
@@ -751,6 +751,11 @@ export interface AppState
      * idle/interrupted case where that trigger never fires.
      */
     queuedTurnId?: string;
+    usageLimitResume?: {
+      turnId: string;
+      isCurrent: () => boolean;
+      onAdmitted: () => Promise<void>;
+    };
     /**
      * What kind of turn this is. `"conversation"` is the task's own dialogue
      * (typing, a queued follow-up, a plan approval, a Fleet reply);
@@ -801,6 +806,7 @@ export interface AppState
     accountProfileId?: string;
     model?: string;
     stoppedTurn: boolean;
+    origin?: import("@/store/task-work-pause").TaskUsageLimitPause["origin"];
     usageLimit?: SendBlockedUsageLimit;
   }) => void;
   /**

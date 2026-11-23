@@ -4,6 +4,7 @@
 
 import type { ChildProcess } from "node:child_process";
 import type * as pty from "node-pty";
+import type { RouteStore } from "portless";
 import type {
   ScriptKind,
   WorkspaceScriptEvent,
@@ -27,6 +28,7 @@ export interface WorkspaceScriptProcess {
   error?: string;
   orbitUrl?: string;
   orbitLocalUrl?: string;
+  orbitRouteStores?: RouteStore[];
   cleanup?: () => void;
 }
 
@@ -117,6 +119,21 @@ export function getWorkspaceScriptStatusesForWorkspace(workspaceId: string): Wor
     orbitLocalUrl: entry.orbitLocalUrl,
     source: entry.source,
   }));
+}
+
+export function hasWorkspaceOrbitHost(workspaceId: string, host: string): boolean {
+  return listWorkspaceScriptProcessesForWorkspace(workspaceId).some((entry) => {
+    const pid = entry.process?.pid;
+    if (entry.aborted || !pid) return false;
+
+    // The route must belong to the live Orbit process. A service can print its
+    // own URL marker, so orbitUrl is only suitable for display.
+    return entry.orbitRouteStores?.some((store) =>
+      store.loadRoutes().some(
+        (route) => route.pid === pid && route.hostname === host,
+      ),
+    );
+  });
 }
 
 export function clearWorkspaceScriptProcesses(): void {

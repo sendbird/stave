@@ -114,8 +114,9 @@ Automatic presentation is limited to actions that are inherently visual or inter
 1. Open `Settings > Browser > Lens`.
 2. Use `Site Access` to set newline-delimited allowed and blocked hosts. Blocked hosts win over allowed hosts. Loopback targets are always allowed for navigation.
 3. Open `Developer Mode` > `Advanced options` to enable or disable CDP-backed Lens actions and add or remove approved CDP hosts.
-4. When Lens asks for CDP access, choose `Allow once`, `Always allow`, or `Deny`. The dialog appears app-wide and does not require the originating Lens tab to be visible.
-5. Approved host entries are hostname-only. Ports and paths are ignored, so approving `localhost` covers `localhost:3000`, `localhost:8899`, and other localhost ports.
+4. `Skip CDP prompts for local development` is on by default. With CDP tools enabled, `localhost`, `*.localhost`, `127.0.0.1`, `::1`, and active Orbit service hosts assigned to the current workspace can use CDP without prompting. Turn off the setting to apply the usual approval rules to those hosts.
+5. When Lens asks for CDP access, choose `Allow once`, `Always allow`, or `Deny`. The dialog appears app-wide and does not require the originating Lens tab to be visible.
+6. `Allow once` grants access to that hostname in the current workspace for 15 minutes after its last approved CDP action. Each use renews the 15-minute window. `Always allow` saves the hostname in Approved CDP Hosts. Ports and paths are ignored.
 
 ### Inspect A Page And Send A Fix Request
 
@@ -154,8 +155,8 @@ After visual comments are sent, the feedback tray keeps the task's latest sent f
 1. Enable `Settings > MCP > Local MCP Server`.
 2. Call `stave_lens_navigate` or another `stave_lens_*` tool for the target workspace. Lens reuses a visible/recent tab or creates a hidden `default` session; `stave_lens_open_session` is optional.
 3. Visual inspection and page interaction follow the user's `Agent Activity` preference. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.
-4. The first CDP-backed call for an unapproved host pauses while Stave shows its app-wide approval dialog.
-5. Approve the visible dialog within 60 seconds, or add the hostname under `Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts` and retry the tool.
+4. A CDP-backed call that requires approval pauses while Stave shows its app-wide approval dialog.
+5. Approve the visible dialog within 60 seconds. If you choose `Allow once`, the grant expires after 15 minutes without CDP use for that workspace and host. You can also add the hostname under `Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts` and retry the tool.
 6. If the page requires a saved account, call `stave_lens_fill_saved_account`; the secret is injected inside Electron and is not returned to the agent.
 7. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
 8. Use the returned page data together with normal Stave task tools or your own external workflow.
@@ -178,6 +179,7 @@ removes it when the workspace is archived.
   "lensAllowedHosts": [],
   "lensBlockedHosts": [],
   "lensDeveloperModeCdp": true,
+  "lensCdpLocalHostExemption": true,
   "lensCdpApprovedHosts": []
 }
 ```
@@ -282,11 +284,12 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 - External agents need Local MCP because the Lens browser lives inside the desktop app. Without MCP, only the current renderer UI can access it.
 - Saved accounts match one exact hostname. Wildcards and parent-domain matching are intentionally unsupported. Multiple accounts can share a hostname, but only one account per hostname can be enabled for automatic fill; enabling another account switches the previous one to on-demand use.
 - `stave_lens_set_appearance` emulates `prefers-color-scheme` and `prefers-reduced-motion` so a dark theme or a reduced-motion layout can be checked without changing the user's machine settings. It is incremental, survives a reload, and is dropped when a session is rebuilt. Every snapshot reports the emulation in force, so a forced dark theme is never read as the page's real one.
-- Hidden pages temporarily remain paintable during screenshot and action-preview capture, without being presented or receiving pointer input. The paint lease and capture slot stay owned until native work settles, even if the caller times out. Idle throttling returns afterwards. Preview failures do not fail a completed action.
+- Lens keeps hidden pages paintable during screenshots and action previews without showing the tab or sending it pointer input. If Lens cannot prepare a frame, the screenshot fails promptly with guidance to show the tab and retry. Navigation, reload, showing the tab, and guest replacement invalidate older captures. A running native copy keeps its slot until it settles or the guest is destroyed. Idle throttling then returns. Preview failures do not fail a completed action.
 - Screenshot requests and viewport recovery are serialized per page. A page takes one screenshot at a time; a later request waits for the earlier one to finish, and reports a timeout instead of starting beside it, because overlapping captures used to leave the page stuck at a stale size and offset that a reload did not clear. Element and area screenshots are cropped from a viewport capture, so they show what is on screen even when the page is scrolled; an area entirely outside the visible part of the page is refused. Full-page screenshots assemble viewport frames at CSS-pixel resolution and restore the original scroll position and temporary scroll styles. They are limited to 32 million pixels and 64 frames; a page that changes size during capture fails rather than returning a partial image. Lazy loading and scroll-triggered effects can run, and fixed or sticky content can appear in multiple frames. Requests check page identity and site access after waiting; expired preparation cannot start a capture. Element coordinates are measured after waiting, and a changed viewport or scroll position rejects the crop.
 - Viewport size cannot be emulated for a Lens page. Electron sizes a `<webview>` guest from its element and re-asserts that size over a CDP metrics override, so `Emulation.setDeviceMetricsOverride` reports success and changes nothing — measured against the product both plainly and with `dontSetVisibleSize`. Resize the Lens pane to check a responsive layout.
 - Automatic account use fills visible username and password fields but does not submit. JavaScript-heavy pages that render the form later can use `stave_lens_fill_saved_account` on demand.
 - Operational MCP tools acquire a session automatically. With no explicit id they prefer the visible/recent UI tab, then the hidden `default`; if none exists they create `default` hidden.
+- `stave_lens_navigate` reports the committed main-frame URL, including redirects. If the requested page does not commit or finish loading within the deadline, the tool reports a timeout.
 - The first user-created Lens tab also uses `default`, so a hidden MCP session can be adopted without losing its page. Additional tabs keep distinct ids.
 - Hidden MCP sessions are attached automatically only for inherently visual or interactive operations. Navigation events do not decide presentation, so click-driven navigation, redirects, and SPA route changes stay in the already selected session without reopening or refocusing Lens.
 - `stave_lens_present_session` asks the renderer to open the same session for user interaction instead of creating another browser.
@@ -305,8 +308,8 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 ### CDP actions fail with a Developer Mode message
 
 - Symptom: screenshots, page HTML reads, evaluation, clicks, or style edits fail before running.
-- Cause: CDP is disabled or the current host has not been approved.
-- Fix: enable `Settings > Browser > Lens > Developer Mode`, then retry the action and answer the app-wide prompt within 60 seconds, or add the hostname manually under Approved CDP Hosts. The Lens panel does not need to be open.
+- Cause: CDP tools are disabled, or the host requires approval.
+- Fix: enable CDP tools under `Settings > Browser > Lens > Developer Mode > Advanced options`, then retry the action. For loopback and workspace Orbit hosts, check `Skip CDP prompts for local development`. If prompted, answer within 60 seconds or add the hostname manually under Approved CDP Hosts.
 
 ### CDP approval times out or no prompt was visible
 

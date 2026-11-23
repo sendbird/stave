@@ -1,3 +1,4 @@
+import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearchScope } from "../src/lib/fs/content-search";
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
@@ -9,7 +10,7 @@ import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetSto
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
 import { contentSearchPreload } from "./persistence/content-search-preload";
 import { TarsBatchInputSchema, TarsBatchRecordSchema, TarsBatchRecordsSchema } from "../src/lib/tars/batch";
-import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema } from "../src/lib/workspace-cleanup-contract";
+import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema, WorkspaceCleanupTrashArgsSchema, WorkspaceCleanupTrashResultSchema, type WorkspaceCleanupTrashArgs } from "../src/lib/workspace-cleanup-contract";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
@@ -190,6 +191,7 @@ import type {
 import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
+  TerminalSessionOutputPayload,
 } from "../src/lib/terminal/types";
 import type {
   ScriptKind,
@@ -247,6 +249,7 @@ import {
   type SecretRequestsChangedEvent,
 } from "../src/lib/secrets/secret-request";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
+import type { WorkspaceListeningPortsResult } from "../src/lib/workspace-scripts/listening-ports";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
 import type {
   SecondaryRunAggregate,
@@ -295,13 +298,6 @@ interface StreamTurnArgs {
 interface TerminalRunArgs {
   command: string;
   cwd?: string;
-}
-
-interface TerminalSessionOutputPayload {
-  sessionId: string;
-  output: string;
-  sequence: number;
-  bytes: number;
 }
 
 interface TerminalSessionExitPayload {
@@ -1009,6 +1005,8 @@ ipcRenderer.on("lsp:event", (_event, payload: LspEventPayload) => {
 });
 
 const scriptsApi = {
+  listListeningPorts: (args: { workspaceId: string }) =>
+    ipcRenderer.invoke(WORKSPACE_SCRIPTS_IPC.LIST_PORTS, args) as Promise<WorkspaceListeningPortsResult>,
   getConfig: (args: {
     repositoryPath: string;
     workspacePath: string;
@@ -1854,6 +1852,8 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         count: number;
       }>,
+    hasUsageLimitResume: (id: string) =>
+      ipcRenderer.invoke("persistence:has-usage-limit-resume", id) as Promise<boolean>,
     listTaskTurns: (args: {
       workspaceId: string;
       taskId: string;
@@ -1908,16 +1908,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:delete-file", args),
     deleteDirectory: (args: { rootPath: string; directoryPath: string }) =>
       ipcRenderer.invoke("fs:delete-directory", args),
-    searchContent: (args: { rootPath: string; query: string }) =>
-      ipcRenderer.invoke("fs:search-content", args) as Promise<{
-        ok: boolean;
-        results: Array<{
-          file: string;
-          matches: Array<{ line: number; text: string }>;
-        }>;
-        limitHit: boolean;
-        stderr?: string;
-      }>,
+    searchContent: (args: FilesystemSearchRequest) =>
+      ipcRenderer.invoke("fs:search-content", args) as Promise<FilesystemSearchResponse>,
+    cancelContentSearch: (args: FilesystemSearchScope) =>
+      ipcRenderer.invoke("fs:cancel-content-search", args) as Promise<void>,
   },
   skills: {
     getCatalog: (args?: {
@@ -2875,6 +2869,7 @@ contextBridge.exposeInMainWorld("api", {
     },
     listArchived: async () => WorkspaceCleanupRowSchema.array().parse(await ipcRenderer.invoke("workspace:cleanup-archives")),
     list: async (args = {}) => WorkspaceCleanupListResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-list", WorkspaceCleanupListArgsSchema.parse(args))),
+    trashLeftover: async (args: WorkspaceCleanupTrashArgs) => WorkspaceCleanupTrashResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-trash-leftover", WorkspaceCleanupTrashArgsSchema.parse(args))),
     act: async (args: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupActArgs) => WorkspaceCleanupResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-act", WorkspaceCleanupActArgsSchema.parse(args))),
     configure: async (policy: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupPolicy) => WorkspaceCleanupPolicySchema.parse(await ipcRenderer.invoke("workspace:cleanup-configure", WorkspaceCleanupPolicySchema.parse(policy))),
     runNow: async () => WorkspaceCleanupRunResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-run", {})),

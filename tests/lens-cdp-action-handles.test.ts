@@ -20,7 +20,6 @@ const cleanupCommands: Array<{
 }> = [];
 let callFailure: unknown = null;
 let boxFailure: unknown = null;
-let screenshotFailure: unknown = null;
 let attachedForCleanup = true;
 let pendingScreenshot: Promise<void> | null = null;
 const crops: Array<{ x: number; y: number; width: number; height: number }> =
@@ -29,10 +28,13 @@ const crops: Array<{ x: number; y: number; width: number; height: number }> =
 mock.module("../electron/main/browser/browser-full-page-capture", () => ({
   captureFullPage: async (
     _id: number,
-    command: (method: string, params: unknown) => Promise<{ data: string }>,
+    _command: unknown,
+    _assertDocument: unknown,
+    _waitForFrame: unknown,
+    capture: () => Promise<{ toPNG: () => Buffer }>,
   ) => {
-    const result = await command("Page.captureScreenshot", { format: "png" });
-    return `data:image/png;base64,${result.data}`;
+    const result = await capture();
+    return `data:image/png;base64,${result.toPNG().toString("base64")}`;
   },
 }));
 mock.module("../electron/main/browser/browser-capture-paint", () => ({
@@ -42,15 +44,19 @@ mock.module("electron", () => ({
   webContents: {
     fromId: (id: number) => (id === webContents.id ? webContents : null),
   },
-  nativeImage: {
-    createFromBuffer: () => ({
-      isEmpty: () => false,
+}));
+mock.module("../electron/main/browser/browser-surface-capture", () => ({
+  captureLensSurface: async () => {
+    commands.push({ method: "capturePage" });
+    if (pendingScreenshot) await pendingScreenshot;
+    return {
+      toPNG: () => Buffer.from("cGVuZw==", "base64"),
       getSize: () => ({ width: 1400, height: 1000 }),
       crop: (rect: { x: number; y: number; width: number; height: number }) => {
         crops.push(rect);
         return { toPNG: () => Buffer.from("crop") };
       },
-    }),
+    };
   },
 }));
 mock.module("../electron/main/browser/browser-manager", () => ({
@@ -79,7 +85,6 @@ mock.module("../electron/main/browser/browser-style-capture", () => ({
 }));
 mock.module("../electron/main/browser/browser-screenshot-guard", () => ({
   assertLensScreenshotRect: () => undefined,
-  assertLensScreenshotPng: () => undefined,
   LENS_SCREENSHOT_COMMAND_TIMEOUT_MS: 10_000,
 }));
 mock.module("../electron/main/browser/browser-cdp-controller", () => ({
@@ -94,7 +99,7 @@ mock.module("../electron/main/browser/browser-cdp-controller", () => ({
       method === "Page.enable" ||
       (method === "Runtime.evaluate" && params?.awaitPromise)
     )
-      return {};
+      return { result: { value: true } };
     commands.push({ method, params });
     if (method === "Runtime.callFunctionOn" && callFailure) {
       throw callFailure;
@@ -131,11 +136,6 @@ mock.module("../electron/main/browser/browser-cdp-controller", () => ({
         },
       };
     }
-    if (method === "Page.captureScreenshot") {
-      if (pendingScreenshot) await pendingScreenshot;
-      if (screenshotFailure) throw screenshotFailure;
-      return { data: "cGVuZw==" };
-    }
     return { result: { objectId: "selector-object" } };
   },
   sendCdpCommandIfAttached: async (
@@ -155,7 +155,6 @@ beforeEach(() => {
   cleanupCommands.length = 0;
   callFailure = null;
   boxFailure = null;
-  screenshotFailure = null;
   attachedForCleanup = true;
   pendingScreenshot = null;
   crops.length = 0;
@@ -245,29 +244,16 @@ test("cleanup never reattaches a closing debugger", async () => {
   ).toBe(false);
 });
 
-test("full-page capture cleans up without an oversized native surface", async () => {
+test("full-page capture uses a viewport-sized surface and leaves emulation alone", async () => {
   await expect(
     cdp.captureScreenshot(webContents.id, { fullPage: true }),
   ).resolves.toBe("data:image/png;base64,cGVuZw==");
 
-  expect(
-    commands.find(({ method }) => method === "Page.captureScreenshot")?.params,
-  ).not.toHaveProperty("captureBeyondViewport");
-  expect(cleanupCommands).toEqual([
-    { method: "Emulation.clearDeviceMetricsOverride", params: undefined },
+  expect(commands.map(({ method }) => method)).toEqual([
+    "Page.getLayoutMetrics",
+    "capturePage",
   ]);
-});
-
-test("full-page capture clears the viewport override when the capture fails", async () => {
-  screenshotFailure = new Error("Lens screenshot timed out after 15 seconds.");
-
-  await expect(
-    cdp.captureScreenshot(webContents.id, { fullPage: true }),
-  ).rejects.toThrow("timed out");
-
-  expect(cleanupCommands).toEqual([
-    { method: "Emulation.clearDeviceMetricsOverride", params: undefined },
-  ]);
+  expect(cleanupCommands).toEqual([]);
 });
 
 test("viewport capture leaves emulation alone", async () => {
@@ -288,10 +274,10 @@ test("selected-area capture crops a viewport capture instead of sending a CDP cl
   );
 
   const captures = commands.filter(
-    ({ method }) => method === "Page.captureScreenshot",
+    ({ method }) => method === "capturePage",
   );
   expect(captures).toEqual([
-    { method: "Page.captureScreenshot", params: { format: "png" } },
+    { method: "capturePage" },
   ]);
   // A 700x500 CSS viewport captured at 1400x1000 is 2 pixels per CSS pixel.
   expect(crops).toEqual([{ x: 20, y: 40, width: 200, height: 80 }]);
@@ -319,14 +305,14 @@ test("captures of one guest never overlap", async () => {
   await new Promise((resolve) => setTimeout(resolve, 0));
 
   expect(
-    commands.filter(({ method }) => method === "Page.captureScreenshot"),
+    commands.filter(({ method }) => method === "capturePage"),
   ).toHaveLength(1);
 
   finishFirst();
   await expect(fullPage).resolves.toBe("data:image/png;base64,cGVuZw==");
   await expect(viewport).resolves.toBe("data:image/png;base64,cGVuZw==");
   expect(
-    commands.filter(({ method }) => method === "Page.captureScreenshot"),
+    commands.filter(({ method }) => method === "capturePage"),
   ).toHaveLength(2);
 });
 

@@ -49,6 +49,7 @@ import {
   buildOrbitRunArgs,
   createOrbitAppPortDetector,
   extractOrbitOutput,
+  getOrbitRouteStores,
   resolvePortlessCommand,
   tokenizeOrbitCommand,
 } from "./orbit";
@@ -140,6 +141,7 @@ function createProcessEntry(args: {
   source: WorkspaceScriptRunSource;
   process: WorkspaceScriptProcess["process"];
   sessionId?: string;
+  orbitRouteStores?: WorkspaceScriptProcess["orbitRouteStores"];
 }) {
   const entry: WorkspaceScriptProcess = {
     workspaceId: args.workspaceId,
@@ -150,6 +152,7 @@ function createProcessEntry(args: {
     process: args.process,
     aborted: false,
     sessionId: args.sessionId,
+    orbitRouteStores: args.orbitRouteStores,
     log: "",
   };
   setWorkspaceScriptProcess(
@@ -582,6 +585,9 @@ async function runServiceScript(args: {
     source: args.source,
     process: ptyProcess,
     sessionId,
+    orbitRouteStores: orbitLaunchSpec
+      ? getOrbitRouteStores(cwd, orbitProcessEnv)
+      : undefined,
   });
   const outputBuffer = createScriptOutputBuffer((data) => {
     emitScriptEvent({

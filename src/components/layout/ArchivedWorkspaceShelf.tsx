@@ -1,3 +1,5 @@
+import { LeftoverWorktreeTrashButton } from "./WorkspaceArchiveRecovery";
+import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { useEffect, useState } from "react";
 import { Archive } from "lucide-react";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@/components/ui";
@@ -39,7 +41,7 @@ export function ArchivedWorkspaceShelf(props: { compact?: boolean }) {
     try {
       const api = window.api?.workspaceCleanup;
       if (!api) throw new Error();
-      const result = await api.act({ action: "restore", workspaceId: row.id, repositoryPath: row.repositoryPath });
+      const result = await runWorkspaceCleanupAction(api, { action: "restore", workspaceId: row.id, repositoryPath: row.repositoryPath });
       if (!result.ok) throw new Error();
       if (result.readOnly) { setOpen(false); setHistory(row); }
       await refreshWorkspaceCleanupRegistry();
@@ -86,9 +88,9 @@ export function ArchivedWorkspaceShelf(props: { compact?: boolean }) {
                     <span className={sx(styles.name)} title={row.name}>{row.name}</span>
                     <span className={sx(styles.meta)} title={meta}>{meta}</span>
                   </span>
-                  <Button size="xs" variant="ghost" disabled={busyId !== null} aria-busy={busyId === row.id} onClick={() => { void restore(row); }}>
+                  {row.leftoverFiles ? <LeftoverWorktreeTrashButton target={{ workspaceId: row.id, repositoryPath: row.repositoryPath }} disabled={busyId !== null} /> : <Button size="xs" variant="ghost" disabled={busyId !== null} aria-busy={busyId === row.id} onClick={() => { void restore(row); }}>
                     {t("cleanupCenter.restore")}
-                  </Button>
+                  </Button>}
                 </li>
               );
             })}
