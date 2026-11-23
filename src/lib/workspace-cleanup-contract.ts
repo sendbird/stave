@@ -14,6 +14,9 @@ export const DEFAULT_WORKSPACE_CLEANUP_POLICY: WorkspaceCleanupPolicy = {
   archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 },
 };
 export const WorkspaceCleanupListArgsSchema = z.object({ scanDisk: z.boolean().optional() }).strict();
+export const WorkspaceCleanupTrashArgsSchema = z.object({ workspaceId: Id, repositoryPath: Id }).strict();
+export const WorkspaceCleanupTrashResultSchema = z.object({ ok: z.boolean(), reason: z.string().nullable() }).strict();
+export type WorkspaceCleanupTrashArgs = z.infer<typeof WorkspaceCleanupTrashArgsSchema>;
 export const WorkspaceCleanupActArgsSchema = z.object({
   action: z.enum(["archive", "delete", "restore", "deleteBranch", "removeWorktree"]),
   /** Refuse if a concurrent Restore made the workspace active before execution. */
@@ -28,7 +31,7 @@ export const WorkspaceCleanupActArgsSchema = z.object({
 export type WorkspaceCleanupActArgs = z.infer<typeof WorkspaceCleanupActArgsSchema>;
 export const WorkspaceCleanupRowSchema = z.object({
   id: Id, repositoryPath: Id, repositoryName: z.string(), name: z.string(), path: z.string(), branch: z.string(),
-  savedChanges: z.boolean().optional(), canSaveChanges: z.boolean().optional(), keptWorktree: z.boolean().optional(),
+  savedChanges: z.boolean().optional(), canSaveChanges: z.boolean().optional(), keptWorktree: z.boolean().optional(), leftoverFiles: z.boolean().optional(),
   archived: z.boolean(), branchOnly: z.boolean(), readOnly: z.boolean(), archivedAt: z.string().nullable(),
   lastActive: z.string().nullable(), blockers: z.array(z.string()), reasons: z.array(z.string()),
   bytes: z.number().nonnegative().nullable(), branchDeletable: z.boolean(),
@@ -36,7 +39,7 @@ export const WorkspaceCleanupRowSchema = z.object({
 export type WorkspaceCleanupRow = z.infer<typeof WorkspaceCleanupRowSchema>;
 export const WorkspaceCleanupResultSchema = z.object({
   ok: z.boolean(), workspaceId: Id, action: WorkspaceCleanupActArgsSchema.shape.action,
-  workspaceName: z.string().optional(), reason: z.string().nullable(), readOnly: z.boolean().optional(),
+  workspaceName: z.string().optional(), sensitiveFilesSkipped: z.number().int().positive().optional(), reason: z.string().nullable(), readOnly: z.boolean().optional(),
 }).strict();
 export type WorkspaceCleanupResult = z.infer<typeof WorkspaceCleanupResultSchema>;
 export const WorkspaceCleanupRecentSchema = WorkspaceCleanupResultSchema.extend({ at: z.string(), repositoryPath: Id, automatic: z.boolean() }).strict();
@@ -54,6 +57,7 @@ export interface WorkspaceCleanupApi {
   onChanged(listener: (event: z.infer<typeof WorkspaceCleanupChangedSchema>) => void): () => void;
   list(args?: z.infer<typeof WorkspaceCleanupListArgsSchema>): Promise<z.infer<typeof WorkspaceCleanupListResultSchema>>;
   listArchived(): Promise<WorkspaceCleanupRow[]>;
+  trashLeftover?(args: WorkspaceCleanupTrashArgs): Promise<z.infer<typeof WorkspaceCleanupTrashResultSchema>>;
   act(args: WorkspaceCleanupActArgs): Promise<WorkspaceCleanupResult>;
   configure(policy: WorkspaceCleanupPolicy): Promise<WorkspaceCleanupPolicy>;
   runNow(): Promise<z.infer<typeof WorkspaceCleanupRunResultSchema>>;

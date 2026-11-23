@@ -11,6 +11,10 @@ export function installCleanupFixture() {
   }
   if (params.has("many")) rows = [...rows, ...Array.from({ length: 150 }, (_, index) => ({ ...base, id: `cleanup-extra-${index}`, name: `Finished ${index}` }))];
   const recent: Awaited<ReturnType<WorkspaceCleanupApi["list"]>>["recent"] = [{ ok: true, action: "removeWorktree", workspaceId: "cleanup-archived", repositoryPath: base.repositoryPath, reason: null, automatic: true, at: "2026-11-01T00:00:00.000Z" }];
+  if (params.has("cleanupLeftoverPreview")) {
+    Object.assign(rows.find(row => row.id === "cleanup-archived")!, { leftoverFiles: true, blockers: ["worktreeLeftoverFiles"] });
+    recent[0]!.reason = "worktreeLeftoverFiles";
+  }
   let policy = DEFAULT_WORKSPACE_CLEANUP_POLICY;
   const api: WorkspaceCleanupApi = {
     onChanged: () => () => {},
@@ -18,6 +22,13 @@ export function installCleanupFixture() {
     list: async () => structuredClone({ rows, policy, recent }),
     configure: async (next) => { policy = next; return next; },
     runNow: async () => ({ results: [] }),
+    trashLeftover: async (args) => {
+      const row = rows.find(item => item.id === args.workspaceId && item.repositoryPath === args.repositoryPath);
+      if (!row?.leftoverFiles) return { ok: false, reason: "leftoverTrashUnavailable" };
+      row.leftoverFiles = false;
+      row.blockers = [];
+      return { ok: true, reason: null };
+    },
     act: async (args) => {
       const row = rows.find((item) => item.id === args.workspaceId);
       if (params.has("cleanupRecoveryPreview") && args.action === "archive" && !args.keepWorktree) {

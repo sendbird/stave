@@ -1,3 +1,4 @@
+import { runWorkspaceCleanupAction } from "@/lib/workspace-cleanup-activity";
 import { continueWorkspaceOnNewBranch } from "@/store/workspace-continue-here";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
@@ -573,7 +574,7 @@ export function createWorkspaceCreateActions(args: {
       const archived = (await cleanup?.listArchived?.() ?? []).find(row =>
         row.repositoryPath === repositoryPath && comparableWorktreePaths.includes(normalizeComparablePath(row.path)));
       if (archived && cleanup) {
-        const restored = await cleanup.act({ action: "restore", workspaceId: archived.id, repositoryPath });
+        const restored = await runWorkspaceCleanupAction(cleanup, { action: "restore", workspaceId: archived.id, repositoryPath });
         if (!restored.ok) return { ok: false, message: i18n.t("workspace:cleanupCenter.unavailable") };
         const { refreshWorkspaceCleanupRegistry } = await import("@/store/workspace-cleanup-sync");
         await refreshWorkspaceCleanupRegistry();
