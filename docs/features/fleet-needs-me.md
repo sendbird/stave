@@ -133,10 +133,15 @@ each question and approval separately.
   or a request for an answer. It stays in progress, with an optional item in
   `In review`. `Run failed` requires a terminal failure; diagnostics during
   recovery never establish a failed turn by themselves.
-- Inside a task, the attention summary names the actual reason and offers a
-  link to the exact request, stopped turn, stage review, or Progress panel.
-  A stopped turn's reason remains discoverable there after reading its global
-  reminder. Starting a new turn replaces that failure.
+- The task header shows **Needs you**, **Problem**, **Working**, **Done · unseen**,
+  or **Idle**. Select **Needs you** or **Problem** to open the exact request,
+  failed turn, Agent Run stage or run detail, or Tars decision or report. This
+  works from Conversation and Review. Use the task's PR status control for PR
+  checks, conflicts, and requested changes.
+- The notification bell and Dock badges count tasks with a live action for you.
+  A stopped run without recovery is a problem until seen. A Tars result counts
+  as ready for review unless a decision or an available **Accept as done** action
+  is waiting.
 - A workspace running an agent run shows an agent run strip on its card: the stage
   track, where the agent run stands, its stage position, how long it has worked
   (pauses and waits for you not counted) and what it has spent.

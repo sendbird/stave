@@ -18,6 +18,7 @@ import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions
 import { PaneNewTabSplitButton } from "@/components/panes/PaneNewTabSplitButton";
 import { TaskBackToFleet } from "@/components/panes/TaskBackToFleet";
 import { TarsTaskRequest } from "@/components/tars/TarsTaskRequest";
+import { TaskHeaderAttention } from "./TaskHeaderAttention";
 import { TaskPaneHeaderActions } from "@/components/panes/TaskPaneHeaderActions";
 import { useOverflowedTabsTrigger, usePaneHeaderCompact } from "@/components/panes/pane-header-layout";
 import { parsePanePanelId } from "@/lib/panes/types";
@@ -43,6 +44,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         <>
           <TaskBackToFleet taskId={shownSurface.taskId} compact={compact} />
           <TarsTaskRequest key={shownSurface.taskId} taskId={shownSurface.taskId} />
+          <TaskHeaderAttention taskId={shownSurface.taskId} />
           <TaskPaneHeaderActions taskId={shownSurface.taskId} compact={compact} />
         </>
       ) : null}

@@ -1,4 +1,11 @@
 {
+  "taskAttention": {
+    "needsYou": "Needs you",
+    "problem": "Problem",
+    "working": "Working",
+    "doneUnseen": "Done · unseen",
+    "idle": "Idle"
+  },
   "fileViewer": {
     "previousChunk": "Previous chunk",
     "nextChunk": "Next chunk",

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { openTaskAttention } from "@/components/session/TaskAttentionSummary";
+import { taskAttentionTarget } from "@/lib/fleet/task-attention";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
   findReviewQueueAnchor,
@@ -30,8 +30,8 @@ export function useReviewQueue(args: { workspaceId: string; taskId: string }): R
 
 /**
  * Opens a waiting review where it lives: its repository, workspace and task
- * first, then the turn or stage it asks about, exactly as the task's own
- * attention summary opens it.
+ * first, then the turn or stage it asks about, using the task's
+ * attention navigation.
  */
 export async function openReviewQueueItem(item: FleetAttentionItem) {
   const taskId = item.taskId;
@@ -40,6 +40,6 @@ export async function openReviewQueueItem(item: FleetAttentionItem) {
     repositoryPath: item.repositoryPath,
     workspaceId: item.workspaceId,
     taskId,
+    target: taskAttentionTarget(item) ?? undefined,
   });
-  openTaskAttention(item, taskId);
 }

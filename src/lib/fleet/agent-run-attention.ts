@@ -24,6 +24,17 @@ export function activeAgentRunAttentionKind(detail: Pick<AgentRunDetail, "agentR
       : status === "stuck" ? "agent-run-stuck" : null;
 }
 
+/** A stopped run cannot accept stage controls, even when its last stage was blocked. */
+export function canRecoverBlockedAgentRun(detail: Pick<AgentRunDetail, "agentRun" | "stages">) {
+  const { state, pauseReason } = detail.agentRun;
+  if (state === "paused") {
+    // These pauses have a Resume or Accept runtime control in the run panel.
+    return pauseReason === "usage-limit" || pauseReason === "wait-expired" ||
+      pauseReason === "limit-reached" || pauseReason === "runtime-changed";
+  }
+  return state === "running" && currentStageRecord(detail).status === "blocked";
+}
+
 /** A run only owns the turns linked to it, including a failed turn between retries. */
 export function isSupervisedTaskTurn(detail: AgentRunDetail, taskId: string, turnId: string) {
   const run = detail.agentRun;

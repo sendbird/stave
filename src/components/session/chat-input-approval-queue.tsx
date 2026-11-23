@@ -1,3 +1,4 @@
+import { useAppStore } from "@/store/app.store";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ShieldAlert } from "lucide-react";
@@ -30,6 +31,7 @@ export interface PendingApprovalQueueItem {
 }
 
 interface ChatInputApprovalQueueProps {
+  taskId?: string;
   approvals: readonly PendingApprovalQueueItem[];
   disabled?: boolean;
   disabledReason?: string;
@@ -114,6 +116,26 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   const latest = shown?.item;
   const latestMessageId = latest?.messageId ?? null;
   const latestRequestId = latest?.part.requestId ?? null;
+  const { taskId, onShownRequestChange } = args;
+  const exactFocus = useAppStore((state) => {
+    const request = state.focusPendingInteractionRequest;
+    return request && request.taskId === taskId && request.exact?.kind === "approval" ? request : null;
+  });
+  const sectionRef = useRef<HTMLElement>(null);
+  const handledFocus = useRef(0);
+  useEffect(() => {
+    const requestId = exactFocus?.exact?.requestId;
+    if (!exactFocus || !requestId || handledFocus.current === exactFocus.nonce ||
+        !approvals.some((approval) => approval.part.requestId === requestId)) return;
+    if (latestRequestId !== requestId) {
+      setOwnShownRequestId(requestId);
+      onShownRequestChange?.(requestId);
+      return;
+    }
+    handledFocus.current = exactFocus.nonce;
+    sectionRef.current?.focus({ preventScroll: true });
+  }, [approvals, exactFocus, latestRequestId, onShownRequestChange]);
+
   // Open only while its request is the one shown: the form sends for the
   // shown request, so a new request taking the row closes it instead of being
   // denied.
@@ -290,6 +312,8 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       aria-label={i18n.t("session:chatInputApprovalQueue.ariaLabel")}
       className={sx(styles.section)}
       data-testid="composer-approval-row"
+      ref={sectionRef}
+      tabIndex={-1}
     >
       <div
         aria-busy={busy || undefined}

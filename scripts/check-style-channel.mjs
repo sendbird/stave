@@ -106,7 +106,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -174,7 +174,7 @@ function repositoryFiles() {
   )
     .split("\0")
     .filter(Boolean)
-    .filter((file) => SCANNED(file));
+    .filter((file) => SCANNED(file) && existsSync(path.join(rootDir, file)));
 }
 
 /**

@@ -158,6 +158,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     history: historyEntries.length,
   };
   const unreadCount = unreadEntries.length;
+  const needsYouTaskCount = useFleetAttention((snapshot) => snapshot.needsYouTaskCount);
   const historyCount = historyEntries.length;
   const hasEntries = allEntries.length > 0 || historyCount > 0;
   // A failed read keeps the list it had under a notice, and before any list it
@@ -468,8 +469,8 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   style={props.noDragStyle}
                   aria-label={i18n.t("shell:topBarNotifications.notifications")}
                   indicator={
-                    unreadCount > 0 ? (
-                      <CountBadge cap={99} count={unreadCount} />
+                    needsYouTaskCount > 0 ? (
+                      <CountBadge cap={99} count={needsYouTaskCount} />
                     ) : null
                   }
                 />

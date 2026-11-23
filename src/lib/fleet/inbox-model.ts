@@ -2,6 +2,7 @@ import { getDelegatedAttentionRoot } from "@/lib/notifications/delegated-attenti
 import { agentRunNotificationAttentionId } from "./agent-run-attention";
 import {
   isNotificationUnread,
+  isTarsNotificationKind,
   type AppNotification,
   type AppNotificationKind,
 } from "@/lib/notifications/notification.types";
@@ -67,7 +68,7 @@ const NOTIFICATION_ENTRY_KIND: Record<AppNotificationKind, FleetAttentionKind> =
   "agent_run.stuck": "agent-run-stuck",
   "agent_run.completed": "result-ready",
   "tars.decision_requested": "tars-decision",
-  "tars.result_ready": "tars-decision",
+  "tars.result_ready": "result-ready",
   "tars.blocked": "tars-blocked",
 };
 
@@ -116,6 +117,8 @@ export function notificationBelongsToItem(
     Boolean(item.taskId) &&
     notification.workspaceId?.trim() === item.workspaceId &&
     notification.taskId?.trim() === item.taskId;
+  if (item.source === "tars") return isTarsNotificationKind(notification.kind) &&
+    (notification.payload.tarsSignalId === item.id || notification.id === item.tarsResult?.notificationId);
   switch (item.kind) {
     case "approval":
     case "user-input":

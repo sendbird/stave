@@ -39,12 +39,6 @@ export interface NotificationActionDeps {
   get: () => NotificationSliceState;
 }
 
-function syncUnreadBadge(get: NotificationActionDeps["get"]) {
-  void window.api?.notifications?.setBadge?.({
-    count: get().notifications.filter((item) => !item.readAt).length,
-  });
-}
-
 /**
  * The store only ever fills a notification's read and resolved times, never
  * clears them. A record it returned for an older write can arrive after a
@@ -174,7 +168,6 @@ export async function markNotificationReadAction(
       }));
       const merged = deps.get().notifications.find((item) => item.id === deps.id);
       if (batch && merged) batch.own.add(merged);
-      syncUnreadBadge(deps.get);
     }
   } catch (error) {
     console.error(
@@ -221,7 +214,6 @@ export async function markAllNotificationsReadAction(
       const byId = new Map(reread.map((item) => [item.id, item]));
       return { notifications: state.notifications.map((item) => byId.get(item.id) ?? item) };
     });
-    syncUnreadBadge(deps.get);
   } catch (error) {
     console.error(
       "[notifications] failed to mark all notifications as read",
@@ -242,7 +234,6 @@ export async function markAllNotificationsReadAction(
       const original = before.get(id);
       if (batch && original && batch.before === item) batch.before = original;
     }
-    syncUnreadBadge(deps.get);
   }
 }
 
@@ -287,7 +278,6 @@ export async function purgeWorkspaceNotificationsAction(
 
   try {
     const count = await deletePersistedWorkspaceNotifications({ workspaceIds });
-    syncUnreadBadge(deps.get);
     return count;
   } catch (error) {
     console.error(
@@ -324,7 +314,6 @@ export async function reconcileOrphanedNotificationsAction(
         workspaceIds,
       }),
     );
-    syncUnreadBadge(deps.get);
     return count;
   } catch (error) {
     console.error(

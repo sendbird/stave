@@ -396,31 +396,6 @@
     "scope_one": "All workspaces and filters · includes {{count}} request needing attention",
     "scope_other": "All workspaces and filters · includes {{count}} requests needing attention"
   },
-  "taskAttention": {
-    "actionRequired_one": "Needs your attention ({{count}})",
-    "actionRequired_other": "Needs your attention ({{count}})",
-    "forReview_one": "For review ({{count}})",
-    "forReview_other": "For review ({{count}})",
-    "hint": {
-      "pr": "Review the pull request before deciding what to do next.",
-      "request": "Work is waiting for this answer or permission.",
-      "progress": "Review the blocking reason and the available recovery actions in Progress.",
-      "reviewStage": "Review this stage’s evidence before signing off.",
-      "reviewTurn": "The turn stopped. Review its result, then give the task instructions to retry or change direction.",
-      "pendingRequest": "Work is waiting for your answer or permission."
-    },
-    "action": {
-      "pr": "Open PR",
-      "request": "Show request",
-      "progress": "Show blocker",
-      "reviewStage": "Review stage",
-      "reviewTurn": "View stopped turn",
-      "pendingRequest": "Show request"
-    },
-    "openFailed": "Could not open this request. Try again.",
-    "recentFailure_one": "Last stopped turn ({{count}})",
-    "recentFailure_other": "Last stopped turns ({{count}})"
-  },
   "snoozeDuration": {
     "oneHour": "1 hour",
     "fourHours": "4 hours",

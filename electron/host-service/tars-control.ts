@@ -1,3 +1,4 @@
+import { canAcceptTarsCompletion } from "../../src/lib/tars/completion";
 import { captureTarsControlUndo } from "../../src/lib/tars/action-undo";
 import { canContinueTarsControl, hasEndedTarsExecution } from "../../src/lib/tars/continuation";
 import type { TarsStore } from "../persistence/tars-store";
@@ -140,7 +141,7 @@ export function admitTarsControl(row: TarsResponsibility | null, request: TarsCo
       // Only completion Stave could not verify waits for this decision.
       if (row.completionGoal === "pullRequest" || row.completionGoal === "merge")
         refuse("notAcceptable", "Accepting a result cannot establish an unobserved pull request or merge.");
-      if (row.state !== "resultReady" && (row.state !== "blocked" || row.detailCode !== "unverifiedCompletion"))
+      if (!canAcceptTarsCompletion(row))
         refuse("notAcceptable", "Only work whose completion Stave could not verify can be accepted as done.");
       return row;
     case "startNow":

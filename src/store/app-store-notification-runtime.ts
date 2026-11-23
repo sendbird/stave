@@ -120,10 +120,6 @@ export function createAppStoreNotificationRuntime(args: {
         attentionSync.noteTurnOutcome(result.notification);
         return result.notification;
       }
-      const unreadCount = get().notifications.filter(
-        (item) => !item.readAt,
-      ).length;
-      void window.api?.notifications?.setBadge?.({ count: unreadCount });
       const {
         nativeNotificationsEnabled,
         notificationSoundEnabled,

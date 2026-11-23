@@ -35,9 +35,13 @@ type FleetKindWithState<State extends TaskAttentionState> = {
     : never;
 }[FleetAttentionKind];
 
-export function mapFleetAttentionKind(kind: FleetAttentionKind) {
+type FleetAttentionMapping = {
+  [State in TaskAttentionState]: { state: State; reason: FleetKindWithState<State> }
+}[TaskAttentionState];
+
+export function mapFleetAttentionKind(kind: FleetAttentionKind): FleetAttentionMapping | null {
   const state = FLEET_KIND_STATE[kind];
-  return state === null ? null : { state, reason: kind };
+  return state === null ? null : { state, reason: kind } as FleetAttentionMapping;
 }
 
 /** Each owner identifies a current response route verified by the caller. */
@@ -62,6 +66,12 @@ interface TurnAttentionFact {
   since: string;
 }
 
+interface AttentionEpisode {
+  id: string;
+  since: string;
+  seen?: boolean;
+}
+
 export interface TaskAttentionFacts {
   activeTurnId?: string | null;
   activeTurnStartedAt?: string | null;
@@ -70,6 +80,8 @@ export interface TaskAttentionFacts {
   /** The latest relevant failure for this task, after controller-owned outcomes are excluded. */
   turnFailure?: TurnAttentionFact | null;
   turnStall?: TurnAttentionFact | null;
+  agentRunBlock?: (AttentionEpisode & { recoveryAvailable: boolean }) | null;
+  tarsResult?: (AttentionEpisode & { canAcceptCompletion: boolean }) | null;
   /** The current Agent Run's stuck episode, while it still holds. */
   agentRunStuckAt?: string | null;
   /** The latest successful result eligible for this task's attention. */
@@ -115,8 +127,18 @@ function requestPriority(request: TaskAttentionRequest): number {
 }
 
 export function deriveTaskAttention(facts: TaskAttentionFacts): TaskAttention {
-  const { activeTurnId, turnFailure, turnStall, lastResultAt } = facts;
-  const requests = (facts.pendingRequests ?? [])
+  const { activeTurnId, turnFailure, turnStall, agentRunBlock, tarsResult } = facts;
+  const candidates: TaskAttentionRequest[] = [...(facts.pendingRequests ?? [])];
+  if (agentRunBlock?.recoveryAvailable) {
+    candidates.push({ id: agentRunBlock.id, since: agentRunBlock.since, kind: "agent-run-blocked", owner: { kind: "agent-run-persistent" } });
+  }
+  if (tarsResult?.canAcceptCompletion) {
+    candidates.push({ id: tarsResult.id, since: tarsResult.since, kind: "tars-decision", owner: { kind: "host-managed" } });
+  }
+  const passiveTarsResultAt = tarsResult && !tarsResult.seen ? tarsResult.since : null;
+  const lastResultAt = timestamp(passiveTarsResultAt, -Infinity) > timestamp(facts.lastResultAt, -Infinity)
+    ? passiveTarsResultAt : facts.lastResultAt;
+  const requests = candidates
     .filter((request) => canAnswer(request, activeTurnId))
     .sort((left, right) => requestPriority(left) - requestPriority(right) ||
       compareSince(left.since, right.since) || left.id.localeCompare(right.id));
@@ -133,7 +155,7 @@ export function deriveTaskAttention(facts: TaskAttentionFacts): TaskAttention {
 
   const lastSeen = timestamp(facts.lastSeenAt, -Infinity);
   const unseen = (value: string | null | undefined): value is string => timestamp(value, -Infinity) > lastSeen;
-  const problems: Array<{ reason: FleetKindWithState<"problem">; since: string }> = [];
+  const problems: Array<{ reason: FleetKindWithState<"problem"> | "agent-run-blocked"; since: string }> = [];
   // A new turn or a newer successful result supersedes a terminal failure.
   if (turnFailure && (!activeTurnId || turnFailure.turnId === activeTurnId) &&
       unseen(turnFailure.since) && timestamp(lastResultAt, -Infinity) <= Date.parse(turnFailure.since)) {
@@ -145,9 +167,12 @@ export function deriveTaskAttention(facts: TaskAttentionFacts): TaskAttention {
   if (unseen(facts.agentRunStuckAt)) {
     problems.push({ reason: "agent-run-stuck", since: facts.agentRunStuckAt });
   }
+  if (agentRunBlock && !agentRunBlock.seen && unseen(agentRunBlock.since)) {
+    problems.push({ reason: "agent-run-blocked", since: agentRunBlock.since });
+  }
   problems.sort((left, right) => compareSince(left.since, right.since));
   const problem = problems[0];
-  if (problem) return { state: FLEET_KIND_STATE[problem.reason], ...problem, requests: [] };
+  if (problem) return { state: "problem", ...problem, requests: [] };
 
   if (activeTurnId) {
     return { state: "working", reason: "active-turn", requests: [], since: facts.activeTurnStartedAt ?? null };

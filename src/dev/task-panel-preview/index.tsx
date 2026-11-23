@@ -34,8 +34,9 @@ import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
 import { useTaskReturnStore } from "@/store/task-return-store";
 import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
-import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import { buildFleetAttentionProjection, type FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import type { ChatMessage } from "@/types/chat";
+import { AttentionPane } from "./attention-pane";
 import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, stubTurnHistory } from "./turn-history-fixtures";
 
 /**
@@ -50,6 +51,7 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  * - `outcome=completed` makes the direct task's newest saved turn finish
  *   instead of fail, so the panel leads with its pull request and answer.
  * - `panelWidth=320|384` sets the frame width (default 320).
+ * - `attention=1` mounts the task pane and header instead of the right rail.
  * - `pending=approval|user_input` makes the live turn wait on the user.
  * - `older=question` (with `task=agent-run`) leaves an earlier turn's async
  *   question open while the live turn asks for an approval.
@@ -352,12 +354,18 @@ const OLDER_ASYNC_QUESTION = {
 const LIVE_APPROVAL_PART = {
   type: "approval", toolName: "Bash", description: "Run the database migration", input: "bun run migrate",
   requestId: "preview-live-approval", state: "approval-requested",
-} as unknown as ChatMessage["parts"][number];
+} satisfies ChatMessage["parts"][number];
 
 function agentRunMessages(): ChatMessage[] {
-  if (!OLDER_QUESTION) return AGENT_RUN_MESSAGES;
   const [user, live] = AGENT_RUN_MESSAGES;
-  return [user!, OLDER_ASYNC_QUESTION, { ...live!, parts: [...live!.parts, LIVE_APPROVAL_PART] }];
+  if (OLDER_QUESTION) {
+    return [user!, OLDER_ASYNC_QUESTION, { ...live!, parts: [...live!.parts, LIVE_APPROVAL_PART] }];
+  }
+  if (params.has("attention") && params.get("pending") === "approval") {
+    const first = { ...LIVE_APPROVAL_PART, requestId: "preview-first-approval", input: "bun run lint" };
+    return [user!, { ...live!, parts: [...live!.parts, first, LIVE_APPROVAL_PART] }];
+  }
+  return AGENT_RUN_MESSAGES;
 }
 
 const AGENT_RUN_AGENT: TaskAgent = {
@@ -783,6 +791,7 @@ function seedStores(args: { task: string; pending: string | null; placement: str
     defaultBranch: "main",
     activeWorkspaceId: WORKSPACE_ID,
     activeTaskId,
+    ...(params.has("attention") ? { hasHydratedWorkspaces: true, activeSurface: { kind: "task", taskId: activeTaskId } } : {}),
     // Named like a real worktree, so the panel's caption reads as it does in the app.
     workspaces: [{ id: WORKSPACE_ID, name: "sidebar-spacing", updatedAt: "2026-09-29T09:04:00.000Z" }],
     workspaceBranchById: { [WORKSPACE_ID]: "feat/sidebar-spacing" },
@@ -873,6 +882,23 @@ function seedStores(args: { task: string; pending: string | null; placement: str
     byTaskId: { [AGENT_RUN_TASK_ID]: AGENT_RUN_AGENT },
     loaded: true,
   });
+
+  if (params.has("attention")) {
+    const state = useAppStore.getState();
+    useFleetAttentionStore.setState({ snapshot: {
+      ...EMPTY_FLEET_ATTENTION,
+      ...buildFleetAttentionProjection({
+        notifications: [],
+        prWorkspaces: [],
+        liveWorkspaces: [{
+          repositoryPath: REPOSITORY_PATH, repositoryName: "preview-repo",
+          workspaceId: WORKSPACE_ID, workspaceName: "sidebar-spacing",
+          tasks: state.tasks, messagesByTask: state.messagesByTask,
+          activeTurnIdsByTask: state.activeTurnIdsByTask, providerTurnActivityByTask: state.providerTurnActivityByTask,
+        }],
+      }),
+    } });
+  }
 
   const detail = agentRunDetail();
   useAgentRunsStore.setState({
@@ -997,6 +1023,13 @@ export function TaskPanelPreview() {
     }
     setSeeded(true);
   }, [task, side, returning]);
+  if (params.has("attention")) {
+    return (
+      <main className={sx(styles.page)} style={{ width: panelWidth }}>
+        {seeded ? <AttentionPane taskId={AGENT_RUN_TASK_ID} /> : null}
+      </main>
+    );
+  }
   return (
     <main className={sx(styles.page)}>
       <p className={sx(styles.caption)}>

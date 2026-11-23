@@ -1074,6 +1074,7 @@ export const useAppStore = create<AppState>()(
       paneTabMeta: {},
       dockLayout: null,
       focusPendingInteractionRequest: null,
+      focusAgentRunRequest: null,
       focusTranscriptToolRequest: null,
       scrollToLatestMessageRequest: null,
       pendingCloseEditorTabId: null,

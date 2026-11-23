@@ -1205,6 +1205,7 @@ function ChatPanelMessageList(props: {
     if (
       !focusPendingInteractionRequest ||
       focusPendingInteractionRequest.taskId !== taskId ||
+      focusPendingInteractionRequest.exact ||
       !pendingInteraction
     ) {
       return;

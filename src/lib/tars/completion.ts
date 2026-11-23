@@ -34,3 +34,9 @@ export function tarsGoalNext(row: Pick<TarsResponsibility, "state" | "completion
   if (row.completionGoal === "merge") return row.publication?.state === "opened" ? "mergeUnknown" : "publish";
   return "confirm";
 }
+
+/** The host and the UI use the same eligibility for accepting a reported completion. */
+export function canAcceptTarsCompletion(row: Pick<TarsResponsibility, "state" | "detailCode" | "completionGoal" | "executionPending">) {
+  return !row.executionPending && row.completionGoal !== "pullRequest" && row.completionGoal !== "merge" &&
+    (row.state === "resultReady" || (row.state === "blocked" && row.detailCode === "unverifiedCompletion"));
+}

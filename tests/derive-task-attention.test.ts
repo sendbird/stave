@@ -261,3 +261,25 @@ describe("attention fact adapters", () => {
     })).toEqual(facts);
   });
 });
+
+test("an Agent Run only needs you with a recovery route, and a fresh failure episode is visible again", () => {
+  const blocked = { id: "block-1", since, recoveryAvailable: false };
+  expect(deriveTaskAttention({ agentRunBlock: blocked })).toMatchObject({ state: "problem", reason: "agent-run-blocked" });
+  expect(deriveTaskAttention({ agentRunBlock: { ...blocked, seen: true } }).state).toBe("idle");
+  expect(deriveTaskAttention({ agentRunBlock: { ...blocked, id: "block-2", since: later }, lastSeenAt: since }).state).toBe("problem");
+  expect(deriveTaskAttention({ agentRunBlock: { ...blocked, recoveryAvailable: true, seen: true } })).toMatchObject({
+    state: "needs-you", requests: [{ id: "block-1" }],
+  });
+});
+
+test("a Tars result waits for a real decision or an available completion control", () => {
+  const result = { id: "result-1", since, canAcceptCompletion: false };
+  expect(deriveTaskAttention({ tarsResult: result }).state).toBe("done-unseen");
+  expect(deriveTaskAttention({ tarsResult: { ...result, seen: true } }).state).toBe("idle");
+  expect(deriveTaskAttention({ tarsResult: { ...result, canAcceptCompletion: true } })).toMatchObject({
+    state: "needs-you", requests: [{ id: "result-1" }],
+  });
+  expect(deriveTaskAttention({ tarsResult: result, pendingRequests: [request("tars-decision")] })).toMatchObject({
+    state: "needs-you", requests: [{ id: "tars-decision" }],
+  });
+});
