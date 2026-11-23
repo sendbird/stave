@@ -34,6 +34,7 @@ export const toolStyles = stylex.create({
   loader: { marginRight: vars["--aui-space-4"] },
   runIcon: { marginRight: vars["--aui-space-4"], width: 14, height: 14 },
   entry: { borderBottomWidth: { default: 1, ":last-child": 0 }, borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border"], paddingBlock: vars["--aui-space-12"] },
+  listeningPortRow: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"] },
   selected: { backgroundColor: vars["--aui-color-selection-fill"] },
   entryHeader: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: vars["--aui-space-12"] },
   entryBody: { minWidth: 0, flex: 1, display: "flex", flexDirection: "column", gap: vars["--aui-space-2"] },

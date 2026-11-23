@@ -1113,7 +1113,7 @@ export function EditorPanel(props: EditorPanelProps) {
             <WorkspaceSkillsPanel onOpenSettings={props.onOpenSettings} />
           ) : null}
           {rightTab === "scripts" ? (
-            <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
+            <WorkspaceScriptsPanel visible={sidebarOverlayVisible} onOpenSettings={props.onOpenSettings} />
           ) : null}
           {rightTab === "task" ? <TaskPanel /> : null}
         </RightRailPanelShell>

@@ -596,6 +596,8 @@ export const WorkspaceScriptsGetStatusArgsSchema = z
   })
   .strict();
 
+export const WorkspaceScriptsListPortsArgsSchema = WorkspaceScriptsGetStatusArgsSchema;
+
 export const WorkspaceScriptsRunEntryArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(200),

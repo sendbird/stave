@@ -147,7 +147,7 @@ export async function openOrbitUrlWithLensPriority(args: {
         ok: false,
         target: "lens",
         message:
-          navigateResult.message ?? i18n.t("scripts:workspaceScriptsPanel.lensCouldNotLoadThatOrbitUrl"),
+          navigateResult.message ?? i18n.t("scripts:workspaceScriptsPanel.lensCouldNotLoadThatUrl"),
       };
     }
   } catch (error) {
