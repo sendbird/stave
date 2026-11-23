@@ -1214,5 +1214,9 @@ root: {
   minHeight: 0,
   width: "100%",
   minWidth: 0,
+  // Dockview's hidden keep-alive overlays can extend beyond the grid before
+  // they have a measured position. Keep that overflow out of the app shell
+  // so focusing a pane's contents cannot scroll the entire workspace.
+  overflow: "clip",
 }
 });
