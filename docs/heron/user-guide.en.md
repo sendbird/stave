@@ -1275,6 +1275,8 @@ When Stave reopens, requests that can no longer be answered move to history. Req
 
 Agents also show an inline HTML page without being asked when a reply compares three or more options, shows numbers across groups or over time, or explains a flow, architecture or layout. Page text starts at 14 pixels, the size of the reply around it. A tool from an MCP server you added can show its own view in its tool row; **Show text result** in the view's header opens the tool's plain text result with **Copy**, and it opens by itself when the view has no data to draw, such as after a failed call. Inline HTML pages accept up to 5,120,000 characters, including the agent’s pre-display check. Workspace `.html` and `.htm` file previews accept up to 10 MiB (10,485,760 bytes) without a dev server; other text files have a 1 MiB preview limit.
 
+In Lens Preview, open the **Fit** menu and choose **390 px**, **820 px**, or **1280 px** to check a responsive layout. Lens scales wider previews to fit the pane. Select **Fit** to follow the pane width again.
+
 Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/command-palette.png) · [Workspace Tools](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-tools.png) · [Information panel](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/information-panel.png) · [Lens toolbar](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/lens.png) · [Settings > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/settings-mcp.png)
 
 ```callout tip "Keep the Local MCP Server on"

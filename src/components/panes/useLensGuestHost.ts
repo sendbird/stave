@@ -2,12 +2,14 @@ import { useEffect } from "react";
 import { isLensGuestPointerTarget } from "@/lib/lens/lens-guest-interaction";
 import {
   acquireLensGuestPointerPassthrough,
+  applyLensGuestViewport,
   setLensGuestCapturePaint,
   isLensGuestCapturePaintReady,
   resetLensGuestCapturePaint,
   ensureLensGuest,
   focusLensGuest,
   parkLensGuestsOutsideWorkspace,
+  refreshLensFixedGuestZoom,
   releaseLensGuest,
   releaseLensGuestPointerPassthrough,
   resetLensGuestPointerPassthrough,
@@ -52,7 +54,7 @@ export function useLensGuestHost(): void {
               workspaceId: payload.workspaceId,
               lensSessionId: payload.lensSessionId,
               partition: payload.partition,
-            });
+            }, payload.viewportWidth);
             if (disposed) {
               // The host tore down while the guest was attaching. It is mounted
               // now and bound to nothing, so release it rather than leave a
@@ -115,6 +117,11 @@ export function useLensGuestHost(): void {
         });
       });
 
+    const unsubscribeViewport = lens.subscribeGuestViewport?.((payload) => {
+      const expectedWidth = applyLensGuestViewport(payload);
+      if (payload.requestId) lens.reportGuestViewport?.({ requestId: payload.requestId, expectedWidth });
+    });
+
     const unsubscribeCapturePaint = lens.subscribeCapturePaint?.((payload) => {
       const ok = setLensGuestCapturePaint(payload);
       if (!payload.active) return;
@@ -130,6 +137,8 @@ export function useLensGuestHost(): void {
         requestAnimationFrame(() => respond(isLensGuestCapturePaintReady(payload)));
       });
     });
+
+    const unsubscribeZoom = window.api?.window?.subscribeZoomChanges?.(refreshLensFixedGuestZoom);
 
     const unsubscribeWorkspace = useAppStore.subscribe((state, previous) => {
       if (state.activeWorkspaceId === previous.activeWorkspaceId) {
@@ -165,6 +174,8 @@ export function useLensGuestHost(): void {
       unsubscribeFocusRestoreRequests?.();
       unsubscribeWorkspace();
       unsubscribeCapturePaint?.();
+      unsubscribeViewport?.();
+      unsubscribeZoom?.();
       resetLensGuestCapturePaint();
       window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("pointerup", endPointerPassthrough, true);

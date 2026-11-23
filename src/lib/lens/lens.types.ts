@@ -1,3 +1,5 @@
+import type { LensViewportWidth } from "./lens-viewport";
+
 // ---------------------------------------------------------------------------
 // Browser feature – shared types (renderer + main via IPC)
 // ---------------------------------------------------------------------------
@@ -120,6 +122,7 @@ export type LensSessionCloseReason =
  * on bind; main re-resolves them and never trusts the echo.
  */
 export interface LensGuestRequiredPayload {
+  viewportWidth?: LensViewportWidth;
   workspaceId: string;
   lensSessionId: string;
   /** Partition main resolved. The renderer sets it verbatim on the tag. */

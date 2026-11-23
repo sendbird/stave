@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import type { IDockviewPanelProps } from "dockview-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { TooltipProvider, toast } from "@/components/ui";
 import {
@@ -33,6 +33,8 @@ import { useLensDomSurfaceHost } from "@/components/panes/surfaces/lens/useLensD
 import { useLensPanelOwnerWorkspaceId } from "@/components/panes/surfaces/lens/useLensPanelOwnerWorkspaceId";
 import { useLensFullView } from "@/components/panes/surfaces/lens/useLensFullView";
 import { useLensPageLinks } from "@/components/panes/surfaces/lens/useLensPageLinks";
+import { getLensGuestViewportWidth, subscribeLensGuestViewport } from "@/lib/lens/lens-guest-host";
+import type { LensViewportWidth } from "@/lib/lens/lens-viewport";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
 
@@ -117,6 +119,20 @@ function LensSessionSurface(args: {
   );
 
   const hasLensApi = Boolean(window.api?.lens);
+  const viewportWidth = useSyncExternalStore(
+    subscribeLensGuestViewport,
+    () => workspaceId ? getLensGuestViewportWidth({ workspaceId, lensSessionId }) : "fit",
+  );
+  const setViewportWidth = async (width: LensViewportWidth) => {
+    if (!workspaceId) return;
+    try {
+      const result = await window.api?.lens?.setViewportWidth?.({ workspaceId, lensSessionId, width });
+      if (result?.ok) return;
+    } catch {
+      // IPC can fail while the session or window closes.
+    }
+    toast.error(i18n.t("lens:lensChrome.viewportResizeFailed"));
+  };
 
   const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
   const [lensPanelTab, setLensPanelTab] = useState<LensPanelTab>("preview");
@@ -341,6 +357,7 @@ function LensSessionSurface(args: {
           onPanelTabChange={setLensPanelTab}
           overlayModes={overlayModes}
           panelTab={lensPanelTab}
+          viewport={{ width: viewportWidth, setWidth: setViewportWidth }}
           picker={{ disabled: pickerDisabled, tooltip: pickerTooltip }}
         />
 

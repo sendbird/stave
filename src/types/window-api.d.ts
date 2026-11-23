@@ -1,5 +1,10 @@
 import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearchScope } from "../lib/fs/content-search";
 import type { BackgroundTaskRequest, BackgroundTaskResponse } from "@/lib/providers/background-tasks";
+import type {
+  LensGuestViewportRequest,
+  LensGuestViewportResult,
+  LensViewportArgs,
+} from "@/lib/lens/lens-viewport";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
@@ -2644,6 +2649,10 @@ interface WindowSecretsApi {
 }
 
 interface WindowLensApi extends LensReviewApi {
+  getHostZoomFactor?: () => number;
+  setViewportWidth?: (args: LensViewportArgs) => Promise<{ ok: boolean }>;
+  subscribeGuestViewport?: (listener: (payload: LensGuestViewportRequest) => void) => () => void;
+  reportGuestViewport?: (payload: LensGuestViewportResult) => void;
   listCredentials?: () => Promise<{
     ok: boolean;
     credentials: LensCredentialMetadata[];

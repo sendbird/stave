@@ -1,3 +1,4 @@
+import type { LensViewportWidth } from "@/lib/lens/lens-viewport";
 import { useLayoutEffect, useRef, useState } from "react";
 import {
   DockviewReact,
@@ -64,6 +65,7 @@ function PreviewCase(props: PreviewCaseProps) {
   const [maximized, setMaximized] = useState(Boolean(props.maximized));
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const isUrlInputFocused = useRef(false);
+  const [viewportWidth, setViewportWidth] = useState<LensViewportWidth>("fit");
   const navigation: LensChromeNavigation = {
     url: props.url,
     inputUrl,
@@ -117,6 +119,7 @@ function PreviewCase(props: PreviewCaseProps) {
           onPanelTabChange={setPanelTab}
           overlayModes={overlayModes}
           panelTab={panelTab}
+          viewport={{ width: viewportWidth, setWidth: setViewportWidth }}
           picker={{ disabled: blank, tooltip: "Pick an element" }}
           fullView={props.fullViewOverride ?? {
             available: Boolean(props.canMaximize),

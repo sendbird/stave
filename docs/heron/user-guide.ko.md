@@ -1207,6 +1207,8 @@ Stave를 다시 열면 더 이상 답할 수 없는 요청은 기록에 남고, 
 
 에이전트는 답변이 세 가지 이상의 선택지를 비교하거나, 그룹별·시간별 수치를 보여주거나, 흐름·구조·레이아웃을 설명할 때 요청하지 않아도 인라인 HTML 페이지를 표시합니다. 페이지 글자는 주변 답변과 같은 14픽셀로 시작합니다. 직접 추가한 MCP 서버의 도구는 도구 행에 자체 뷰를 표시할 수 있습니다. 뷰 머리글의 **텍스트 결과 보기**를 누르면 도구의 텍스트 결과를 **복사** 버튼과 함께 볼 수 있고, 실패한 호출처럼 뷰가 그릴 데이터가 없으면 이 텍스트가 처음부터 열립니다. 인라인 HTML 페이지와 에이전트의 표시 전 검사는 최대 5,120,000자까지 지원합니다. 워크스페이스의 `.html`·`.htm` 파일은 개발 서버 없이 최대 10MiB(10,485,760바이트)까지 미리 볼 수 있습니다. 다른 텍스트 파일의 미리보기 제한은 1MiB입니다.
 
+Lens 미리보기에서 **맞춤** 메뉴를 열고 **390픽셀**, **820픽셀**, **1280픽셀** 중 하나를 골라 반응형 레이아웃을 확인합니다. 패널보다 넓은 미리보기는 전체 너비가 보이도록 축소됩니다. 패널 너비를 다시 따르려면 **맞춤**을 선택합니다.
+
 화면 보기: [명령 팔레트](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/command-palette.png) · [워크스페이스 도구](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/workspace-tools.png) · [정보 패널](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/information-panel.png) · [Lens 도구 막대](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/lens.png) · [설정 > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/settings-mcp.png)
 
 ```callout tip "로컬 MCP 서버를 켜 두세요"

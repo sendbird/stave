@@ -23,6 +23,8 @@ import {
 import { randomUUID } from "node:crypto";
 import { attachPartitionDownloadHandler } from "./browser-downloads";
 import { isDevToolsShortcut } from "../keyboard-shortcuts";
+import type { LensGuestViewportRequest } from "../../../src/lib/lens/lens-viewport";
+import { getLensViewportWidth, rememberLensViewportWidth } from "./browser-viewport-state";
 import { nextZoomFactor, zoomActionFromInput } from "../zoom-shortcut";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
 import { openExternalWithFallback } from "../utils/external-url";
@@ -897,6 +899,16 @@ function wireBrowserSession(args: {
         webContents.setZoomFactor(
           nextZoomFactor(webContents.getZoomFactor(), zoomAction),
         );
+        const width = getLensViewportWidth(workspaceId, lensSessionId);
+        const renderer = getMainWindow()?.webContents;
+        if (width !== "fit" && renderer && !renderer.isDestroyed()) {
+          renderer.send("lens:guest-viewport", {
+            workspaceId,
+            lensSessionId,
+            webContentsId: webContents.id,
+            width,
+          } satisfies LensGuestViewportRequest);
+        }
       }
       return;
     }
@@ -1640,6 +1652,7 @@ export function destroyBrowserSession(
   if (reason !== "evicted") {
     forgetLensAutomation({ workspaceId, lensSessionId: normalizedLensSessionId });
     forgetLensSessionUrl(workspaceId, normalizedLensSessionId);
+    rememberLensViewportWidth(workspaceId, normalizedLensSessionId, "fit");
   }
   const pendingClose = closingSessions.get(closingKey);
   if (pendingClose) return pendingClose;
