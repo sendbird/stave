@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { describeWorkspacePrCheckoutError, type WorkspacePrCheckoutArgs } from "../src/lib/workspace-pr-checkout";
+import { useWorkspaceCreationStore } from "../src/store/workspace-creation-progress";
 
 // The host finds a workspace only through the saved repository registry: an
 // agent run's lead-task check refuses "The lead task was not found." while the
@@ -112,6 +114,7 @@ afterEach(async () => {
   releaseHeldSave = undefined;
   await pendingCreation;
   pendingCreation = undefined;
+  useWorkspaceCreationStore.setState({ byId: {} });
   if (appStore && originalStoreState) appStore.setState(originalStoreState, true);
   (globalThis as { window?: unknown }).window = originalWindow;
 });
@@ -169,6 +172,79 @@ describe("a created workspace is registered before creation resolves", () => {
     } finally {
       release();
     }
+  });
+
+  test("PR checkout runs as the worktree step and retries in the same workspace", async () => {
+    const harness = install();
+    const store = await seedRepository();
+    const sourceControl = window.api.sourceControl!;
+    const checkouts: WorkspacePrCheckoutArgs[] = [];
+    const failure = { ok: false, code: "fetchFailed", detail: "connection reset" } as const;
+    sourceControl.createWorktree = async () => { throw new Error("Expected PR checkout"); };
+    sourceControl.seedWorktreeDependencies = async () => { throw new Error("Unexpected PR dependency copy"); };
+    let workspaceId = "";
+    let taskId = "";
+    const readProgress = () => useWorkspaceCreationStore.getState().byId[workspaceId];
+    sourceControl.checkoutWorkspacePr = async (args) => {
+      checkouts.push(args);
+      expect(workspaceId).toMatch(/^worktree:/);
+      expect(store.getState().activeWorkspaceId).toBe(workspaceId);
+      expect(store.getState().activeTaskId).toBe(taskId);
+      expect(readProgress()).toMatchObject({
+        prompt: "Review changes",
+        steps: { worktree: { status: "running" }, copy: { status: "waiting" } },
+      });
+      if (checkouts.length === 1) return failure;
+      return {
+        ok: true, branch: "feature/from-pr", base: "main", fork: true,
+        url: "https://github.com/example/project/pull/123", title: "Review changes",
+      };
+    };
+
+    const stagesAtStartup: string[] = [];
+    const result = await store.getState().createWorkspace({
+      name: "", mode: "pr", prReference: "#123", fromBranch: "origin/main",
+      initCommand: "bun install", useRootNodeModulesSymlink: true,
+      initialPromptDraft: { text: "Review changes", attachedFilePaths: [], attachments: [] },
+      onWorkspacePreparing: () => {
+        workspaceId = store.getState().activeWorkspaceId;
+        taskId = store.getState().activeTaskId;
+        expect(store.getState().promptDraftByTask[taskId]?.text).toBe("Review changes");
+      },
+      startInitialTask: async (target) => {
+        expect(target).toEqual({ workspaceId, taskId });
+        const steps = readProgress()?.steps;
+        stagesAtStartup.push(steps?.worktree.status ?? "", steps?.copy.status ?? "", steps?.setup.status ?? "");
+        return { ok: true, startup: "started", ...target };
+      },
+    });
+    const message = describeWorkspacePrCheckoutError(failure);
+    expect(result).toEqual({ ok: false, workspaceId, taskId, message });
+    expect(checkouts).toEqual([{
+      cwd: "/tmp/stave-project",
+      path: expect.stringMatching(/^\/tmp\/stave-project\/\.stave\/workspaces\/pr-123--/),
+      reference: "#123",
+      branch: undefined,
+    }]);
+    expect(readProgress()?.steps.worktree).toMatchObject({ status: "failed", detail: message });
+    expect(readProgress()?.steps.setup.status).toBe("waiting");
+    expect(harness.operations).toEqual([]);
+    expect(stagesAtStartup).toEqual([]);
+
+    const retry = readProgress()?.steps.worktree.retry;
+    expect(retry).toBeDefined();
+    await retry?.();
+    expect(checkouts).toEqual([checkouts[0], checkouts[0]]);
+    expect(stagesAtStartup).toEqual(["complete", "skipped", "skipped"]);
+    expect(readProgress()).toBeUndefined();
+    expect(store.getState().workspaces).toEqual([expect.objectContaining({ id: workspaceId, name: "feature/from-pr" })]);
+    expect(store.getState().workspaceBranchById[workspaceId]).toBe("feature/from-pr");
+    expect(store.getState().workspaceInformation.linkedPullRequests).toEqual([
+      expect.objectContaining({ url: "https://github.com/example/project/pull/123", title: "Review changes" }),
+    ]);
+    expect(harness.operations).toEqual(["snapshot", "registry"]);
+    expect(registryHas(harness.registrySaves.at(-1), workspaceId)).toBe(true);
+    expect(harness.commands).toEqual([]);
   });
 
   test("a failed registry save keeps the created workspace", async () => {

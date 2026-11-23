@@ -387,4 +387,6 @@ interface WorkspacePrInfo {
 
 From **New workspace**, select **Open From Pull Request** and enter a GitHub PR URL or a number such as `#123`. Stave uses the current project's GitHub origin and the signed-in GitHub CLI. Leave the workspace branch name blank to use the PR head's name, or choose another name if Git reports a collision. Stave links the PR in Information and uses that exact PR in the status control.
 
+A PR checkout runs in the **Create worktree** step. If checkout fails, open the step's logs and select **Retry** after resolving the problem to continue in the same workspace.
+
 A same-repository workspace tracks the remote head branch. A fork workspace tracks GitHub's PR head ref and disables pushing. PR workspaces skip automatic dependency preparation and setup. Review the checkout before running setup commands.

@@ -192,7 +192,7 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 | Link Existing Worktree     | Symlink a worktree that lives elsewhere into `.stave/workspaces/` and keep its branch |
 | Open From Pull Request | Open a GitHub PR from this repository using its URL or a number such as `#123` |
 
-The PR head determines the default workspace branch name. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
+The PR head determines the default workspace branch name. PR checkout runs in the **Create worktree** step. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
 
 The new workspace opens as soon as creation begins. Its sidebar row and pane show checkout, reusable file copying, setup, and first-task startup. Select **Open logs** to see details of a failure. After fixing a checkout or setup problem, select **Retry** to continue in the same workspace. If Git reports a branch collision, use the suggested name in a new creation request.
 Screens: [Workspace creation progress](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-creation-progress.png)
