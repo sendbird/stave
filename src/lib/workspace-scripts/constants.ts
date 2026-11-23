@@ -72,6 +72,7 @@ export const SCRIPT_ENV_VARS = {
 
 export const WORKSPACE_SCRIPTS_IPC = {
   GET_CONFIG: "workspace-scripts:get-config",
+  LIST_PORTS: "workspace-scripts:list-ports",
   GET_STATUS: "workspace-scripts:get-status",
   RUN_ENTRY: "workspace-scripts:run-entry",
   STOP_ENTRY: "workspace-scripts:stop-entry",

@@ -1274,6 +1274,8 @@ The AI can use Stave features such as the Information panel, workspace documents
 With Lens CDP tools enabled, loopback addresses and active Orbit service hosts for the current workspace skip approval by default. Change this in **Settings > Browser > Lens > Developer Mode > Advanced options** under **Skip CDP prompts for local development**. When prompted, **Allow once** grants access in that workspace for 15 minutes after the last CDP action on that host.
 ```
 
+In the desktop app, **Workspace Tools > Processes > Listening ports** shows local servers associated with the workspace, even when an agent or terminal started them directly. Check the bind address and process name, then select **Open in Lens**. **Owned by Stave** identifies a registered terminal or script. **Inferred** uses the process's working directory or a parent process.
+
 Lens opens only in the desktop app. Closing a CLI tab ends its process.
 
 ## Common shortcuts

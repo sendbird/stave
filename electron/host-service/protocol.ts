@@ -82,6 +82,7 @@ import type {
   WorkspaceScriptStatusEntry,
   WorkspaceScriptHookRunSummary,
 } from "../../src/lib/workspace-scripts/types";
+import type { WorkspaceListeningPortsResult } from "../../src/lib/workspace-scripts/listening-ports";
 import type {
   BridgeEvent,
   ProviderCommandCatalogResult,
@@ -628,6 +629,7 @@ export interface HostServiceRequestMap {
     workspaceId: string;
     host: string;
   };
+  "workspace-scripts.list-ports": { workspaceId: string };
   "workspace-scripts.cleanup-all": undefined;
   "turn-snapshots.list": TurnSnapshotOwner;
   "turn-snapshots.restore": TurnSnapshotRestore;
@@ -1154,6 +1156,7 @@ export interface HostServiceResponseMap {
   "workspace-scripts.has-orbit-host": {
     matches: boolean;
   };
+  "workspace-scripts.list-ports": WorkspaceListeningPortsResult;
   "workspace-scripts.cleanup-all": {
     ok: true;
   };

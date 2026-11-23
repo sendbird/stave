@@ -248,6 +248,7 @@ import {
   type SecretRequestsChangedEvent,
 } from "../src/lib/secrets/secret-request";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
+import type { WorkspaceListeningPortsResult } from "../src/lib/workspace-scripts/listening-ports";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
 import type {
   SecondaryRunAggregate,
@@ -1003,6 +1004,8 @@ ipcRenderer.on("lsp:event", (_event, payload: LspEventPayload) => {
 });
 
 const scriptsApi = {
+  listListeningPorts: (args: { workspaceId: string }) =>
+    ipcRenderer.invoke(WORKSPACE_SCRIPTS_IPC.LIST_PORTS, args) as Promise<WorkspaceListeningPortsResult>,
   getConfig: (args: {
     repositoryPath: string;
     workspacePath: string;

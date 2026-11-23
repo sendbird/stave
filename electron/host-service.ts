@@ -127,6 +127,9 @@ import {
 } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
+import { discoverWorkspaceListeningPorts } from "./host-service/workspace-listening-ports";
+import { getResourceProcessOwners } from "./shared/resource-process-owners";
+import { getWorkspaceScriptProcess, listWorkspaceScriptProcessKeys } from "./main/workspace-scripts/state";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
 import {
   parseExpectedHostParentPid,
@@ -1732,6 +1735,24 @@ const tarsBatchRuntime = createTarsBatchRuntime({
   control: input => actTars(input, { conversations: ensureHostServicePersistenceReady().tarsConversations, runtime: tarsRuntime, responsibilities: ensureHostServicePersistenceReady().tars }),
 });
 
+function readListeningPortOwners() {
+  const owners = new Map<number, Set<string>>();
+  const registry = getResourceProcessOwners();
+  for (const pid of terminalRuntime.listPtyPids()) {
+    const workspaceIds = registry.get(pid)?.filter((owner) => owner.active).map((owner) => owner.workspaceId);
+    if (workspaceIds?.length) owners.set(pid, new Set(workspaceIds));
+  }
+  for (const key of listWorkspaceScriptProcessKeys()) {
+    const script = getWorkspaceScriptProcess(key);
+    const pid = script?.process?.pid;
+    if (!script || script.aborted || !pid) continue;
+    const workspaceIds = owners.get(pid) ?? new Set<string>();
+    workspaceIds.add(script.workspaceId);
+    owners.set(pid, workspaceIds);
+  }
+  return owners;
+}
+
 async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
   if (requestNeedsCliDiscovery(request.method)) {
     // Discovery may initialize login shells. Turns and tooling probes must see
@@ -1926,6 +1947,26 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       });
       return;
+    case "workspace-scripts.list-ports": {
+      const { workspaceId } = request.params;
+      const { repositories } = await localMcpRuntime.loadNormalizedRepositories();
+      const registration = localMcpRuntime.findWorkspaceRegistration({ repositories, workspaceId });
+      const result = registration
+        ? await discoverWorkspaceListeningPorts({
+            workspaceId,
+            workspacePath: registration.workspacePath,
+            knownPaths: repositories.flatMap((repository) => [
+              repository.repositoryPath,
+              ...Object.values(repository.workspacePathById),
+              ...(repository.linkedWorkspacePaths ?? []),
+              ...(repository.archivedWorkspacePaths ?? []),
+            ]),
+            readOwners: readListeningPortOwners,
+          })
+        : { status: "unavailable" };
+      await respond(request.id, result);
+      return;
+    }
     case "workspace-scripts.cleanup-all":
       await cleanupAllScriptProcesses();
       await respond(request.id, { ok: true });

@@ -187,6 +187,7 @@ import type {
   WorkspaceScriptHookRunSummary,
   WorkspaceScriptStatusEntry,
 } from "@/lib/workspace-scripts/types";
+import type { WorkspaceListeningPortsResult } from "@/lib/workspace-scripts/listening-ports";
 import type { PersistenceBootstrapStatus } from "@/lib/persistence/bootstrap-status";
 import type {
   GraphCommitDetailsResult,
@@ -1360,6 +1361,7 @@ interface WindowToolingApi {
 }
 
 interface WindowScriptsApi {
+  listListeningPorts?: (args: { workspaceId: string }) => Promise<WorkspaceListeningPortsResult>;
   getConfig?: (args: {
     repositoryPath: string;
     workspacePath: string;
