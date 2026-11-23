@@ -1,3 +1,5 @@
+import { GitWorktreeCreateArgsSchema } from "../../../src/lib/git-worktree-creation";
+import { createGitWorktree } from "../../shared/git-worktree-create";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema } from "../../../src/lib/pull-request-stack";
 import { ipcMain } from "electron";
 import { WorktreeDependenciesArgsSchema } from "../../../src/lib/worktree-dependencies";
@@ -42,6 +44,9 @@ function invalidGraphResult(stderr: string) {
 }
 
 export function registerScmHandlers() {
+  ipcMain.handle("scm:create-worktree", (_event, input: unknown) =>
+    createGitWorktree(GitWorktreeCreateArgsSchema.parse(input)),
+  );
   ipcMain.handle("scm:get-pr-stack", async (_event, args: unknown) =>
     GetPrStackResultSchema.parse(await invokeHostService("scm.get-pr-stack", GetPrStackArgsSchema.parse(args))),
   );

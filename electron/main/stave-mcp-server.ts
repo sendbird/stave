@@ -1,3 +1,4 @@
+import { WorktreeCreationError } from "../../src/lib/git-worktree-creation";
 import { randomUUID } from "node:crypto";
 import {
   createServer,
@@ -594,7 +595,7 @@ function createToolServer(options?: {
     "stave_create_workspace",
     {
       description:
-        "Create a git-worktree-backed workspace inside a registered Stave project.",
+        "Create a git-worktree-backed workspace inside a registered Stave project. A branch collision returns an error code and an available branch suggestion when one can be determined.",
       inputSchema: {
         repositoryPath: z.string().min(1).describe("Project root path."),
         name: z
@@ -607,7 +608,7 @@ function createToolServer(options?: {
           .enum(["branch", "clean"])
           .default("branch")
           .describe(
-            "`branch` creates from the base branch. `clean` creates a new empty branch worktree.",
+            "`branch` creates from the base branch. `clean` starts a fresh branch at the repository's current HEAD.",
           ),
         fromBranch: z
           .string()
@@ -633,10 +634,16 @@ function createToolServer(options?: {
           ),
       },
     },
-    async (input) =>
-      toStructuredResult({
-        workspace: await createWorkspace(input),
-      }),
+    async (input) => {
+      try {
+        return toStructuredResult({ workspace: await createWorkspace(input) });
+      } catch (error) {
+        if (error instanceof WorktreeCreationError) {
+          return { ...toStructuredResult({ error: { ...error.failure, message: error.message } }), isError: true };
+        }
+        throw error;
+      }
+    },
   );
 
   server.registerTool(

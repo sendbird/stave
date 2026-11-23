@@ -1,3 +1,4 @@
+import { addNewGitWorktree, type GitWorktreeCreateArgs } from "@/lib/git-worktree-creation";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   buildImportedWorktreeWorkspaceId,
@@ -22,11 +23,17 @@ function createMemoryStorage() {
   };
 }
 
-function setWindowContext(args: { api?: unknown }) {
+function setWindowContext({ api }: { api?: unknown }) {
+  const bridge = api as Window["api"];
+  const runCommand = bridge?.terminal?.runCommand;
+  const createWorktree = runCommand && ((args: GitWorktreeCreateArgs) => addNewGitWorktree({
+    ...args,
+    runGit: (commandArgs) => runCommand({ cwd: args.cwd, command: "git", commandArgs }),
+  }));
   (globalThis as { window?: unknown }).window = {
-    api: args.api,
+    api: { ...bridge, sourceControl: { ...bridge?.sourceControl, createWorktree } },
     localStorage: createMemoryStorage(),
-  } as unknown;
+  };
 }
 
 beforeEach(() => {
@@ -62,12 +69,12 @@ describe("new workspace init command", () => {
   });
 
   test("refreshes an explicit remote base branch before creating the workspace", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             return {
               ok: true,
@@ -131,22 +138,21 @@ describe("new workspace init command", () => {
         unique: true,
       },
     )}`;
-    expect(runCalls.map((call) => call.command)).toEqual([
-      "git fetch origin --prune",
-      "mkdir -p .stave/workspaces",
-      `git worktree add --no-track -b "feature/remote-bootstrap" ${JSON.stringify(workspacePath)} "origin/main"`,
+    expect(runCalls.map((call) => call.commandArgs ?? call.command)).toEqual([
+      ["fetch", "--prune", "--", "origin"],
+      ["worktree", "add", "--no-track", "-b", "feature/remote-bootstrap", "--", workspacePath, "origin/main"],
     ]);
   });
 
   test("falls back to the matching local branch when refreshing a remote base branch fails", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
-            if (args.command === "git fetch origin --prune") {
+            if (args.command === "git" && args.commandArgs?.[0] === "fetch") {
               return {
                 ok: false,
                 code: 1,
@@ -214,21 +220,20 @@ describe("new workspace init command", () => {
         unique: true,
       },
     )}`;
-    expect(runCalls.map((call) => call.command)).toEqual([
-      "git fetch origin --prune",
-      'git show-ref --verify --quiet "refs/heads/main"',
-      "mkdir -p .stave/workspaces",
-      `git worktree add --no-track -b "feature/remote-fallback" ${JSON.stringify(workspacePath)} "main"`,
+    expect(runCalls.map((call) => call.commandArgs ?? call.command)).toEqual([
+      ["fetch", "--prune", "--", "origin"],
+      ["show-ref", "--verify", "--quiet", "refs/heads/main"],
+      ["worktree", "add", "--no-track", "-b", "feature/remote-fallback", "--", workspacePath, "main"],
     ]);
   });
 
   test("runs the configured command in the created workspace root", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             return {
               ok: true,
@@ -288,12 +293,11 @@ describe("new workspace init command", () => {
       },
     )}`;
     expect(result.message).toContain("bun install");
-    expect(runCalls.map((call) => call.command)).toEqual([
-      "mkdir -p .stave/workspaces",
-      `git worktree add --no-track -b \"feature/bootstrap\" ${JSON.stringify(workspacePath)} \"main\"`,
+    expect(runCalls.map((call) => call.commandArgs ?? call.command)).toEqual([
+      ["worktree", "add", "--no-track", "-b", "feature/bootstrap", "--", workspacePath, "main"],
       "bun install",
     ]);
-    expect(runCalls[2]).toEqual({
+    expect(runCalls[1]).toEqual({
       cwd: workspacePath,
       command: "bun install",
     });
@@ -312,12 +316,12 @@ describe("new workspace init command", () => {
   });
 
   test("uses an optional label as the workspace display name while preserving the branch", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             return {
               ok: true,
@@ -374,21 +378,17 @@ describe("new workspace init command", () => {
       "feature/customer-quota",
     );
     expect(
-      runCalls
-        .map((call) => call.command)
-        .some((command) =>
-          command.includes('git worktree add --no-track -b "feature/customer-quota"'),
-        ),
+      runCalls.some((call) => call.command === "git" && call.commandArgs?.[4] === "feature/customer-quota"),
     ).toBe(true);
   });
 
   test("reuses the repository root node_modules via symlink before the post-create command when configured", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             return {
               ok: true,
@@ -450,29 +450,28 @@ describe("new workspace init command", () => {
     )}`;
     expect(result.message).toContain("Linked `node_modules`");
     expect(result.message).toContain("bun run bootstrap:workspace");
-    expect(runCalls.map((call) => call.command)).toEqual([
-      "mkdir -p .stave/workspaces",
-      `git worktree add --no-track -b \"feature/shared-deps\" ${JSON.stringify(workspacePath)} \"main\"`,
-      runCalls[2]?.command ?? "",
+    expect(runCalls.map((call) => call.commandArgs ?? call.command)).toEqual([
+      ["worktree", "add", "--no-track", "-b", "feature/shared-deps", "--", workspacePath, "main"],
+      runCalls[1]?.command ?? "",
       "bun run bootstrap:workspace",
     ]);
-    expect(runCalls[2]?.cwd).toBe(workspacePath);
-    expect(runCalls[2]?.command).toContain(
+    expect(runCalls[1]?.cwd).toBe(workspacePath);
+    expect(runCalls[1]?.command).toContain(
       'ln -s "/tmp/stave-project/node_modules" node_modules',
     );
-    expect(runCalls[3]).toEqual({
+    expect(runCalls[2]).toEqual({
       cwd: workspacePath,
       command: "bun run bootstrap:workspace",
     });
   });
 
   test("keeps the workspace when the shared node_modules symlink fails", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             if (
               args.command.includes(
@@ -547,20 +546,20 @@ describe("new workspace init command", () => {
       "Linking the shared root `node_modules` failed",
     );
     expect(result.message).toContain("ln: node_modules: File exists");
-    expect(runCalls[2]?.cwd).toBe(workspacePath);
-    expect(runCalls[2]?.command).toContain(
+    expect(runCalls[1]?.cwd).toBe(workspacePath);
+    expect(runCalls[1]?.command).toContain(
       'ln -s "/tmp/stave-project/node_modules" node_modules',
     );
     expect(useAppStore.getState().workspaces).toHaveLength(1);
   });
 
   test("keeps the workspace when the configured command fails", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             if (args.command === "npm install") {
               return {
@@ -639,12 +638,12 @@ describe("new workspace init command", () => {
 
 describe("branch case and legacy/new folder coexistence", () => {
   test("preserves uppercase in branch name and git command when creating a mixed-case workspace", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             return { ok: true, code: 0, stdout: "", stderr: "" };
           },
@@ -686,9 +685,9 @@ describe("branch case and legacy/new folder coexistence", () => {
     )}`;
 
     // git branch name preserves case
-    expect(runCalls[1]?.command).toContain(`-b "${expectedBranch}"`);
+    expect(runCalls[0]?.commandArgs?.[4]).toBe(expectedBranch);
     // worktree path is lowercase-safe (unique slug)
-    expect(runCalls[1]?.command).toContain(JSON.stringify(expectedPath));
+    expect(runCalls[0]?.commandArgs?.[6]).toBe(expectedPath);
     expect(expectedPath.toLowerCase()).toBe(expectedPath);
   });
 
@@ -696,20 +695,18 @@ describe("branch case and legacy/new folder coexistence", () => {
     const pathsCreated: string[] = [];
 
     const makeRunner =
-      (calls: Array<{ cwd?: string; command: string }>) =>
-      async (args: { cwd?: string; command: string }) => {
+      (calls: Array<{ cwd?: string; command: string; commandArgs?: string[] }>) =>
+      async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
         calls.push(args);
-        const worktreeMatch = args.command.match(
-          /git worktree add --no-track -b "[^"]+" "([^"]+)"/,
-        );
-        if (worktreeMatch?.[1]) {
-          pathsCreated.push(worktreeMatch[1]);
+        const path = args.commandArgs?.[6];
+        if (args.commandArgs?.[0] === "worktree" && args.commandArgs?.[1] === "add" && path) {
+          pathsCreated.push(path);
         }
         return { ok: true, code: 0, stdout: "", stderr: "" };
       };
 
-    const runCallsA: Array<{ cwd?: string; command: string }> = [];
-    const runCallsB: Array<{ cwd?: string; command: string }> = [];
+    const runCallsA: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
+    const runCallsB: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: { terminal: { runCommand: makeRunner(runCallsA) } },
@@ -763,15 +760,17 @@ describe("branch case and legacy/new folder coexistence", () => {
   test("creating a workspace with the same branch as a legacy workspace preserves the legacy path entry", async () => {
     // A workspace that was created before the unique-folder change keeps its old folder path
     // in workspacePathById.  Issuing createWorkspace again for the same branch name should
-    // NOT overwrite that stored path.  (Branch-name duplicate detection lives in the host-service
-    // layer; the renderer store records whatever git reports back.)
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    // report the collision and preserve the registered path.
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
+            if (args.commandArgs?.[1] === "add") {
+              return { ok: false, code: 128, stdout: "", stderr: "fatal: a branch named 'feature/legacy-branch' already exists" };
+            }
             return { ok: true, code: 0, stdout: "", stderr: "" };
           },
         },
@@ -828,7 +827,7 @@ describe("branch case and legacy/new folder coexistence", () => {
       fromBranch: "main",
     });
 
-    expect(result.ok).toBe(true);
+    expect(result).toMatchObject({ ok: false, message: expect.stringContaining("already exists") });
 
     // The existing legacy workspace entry must still be in the list
     const state = useAppStore.getState();
@@ -841,20 +840,20 @@ describe("branch case and legacy/new folder coexistence", () => {
 
     // A git worktree add was attempted at a new unique path (not the legacy one)
     const addCall = runCalls.find((c) =>
-      c.command.startsWith("git worktree add"),
+      c.commandArgs?.[0] === "worktree" && c.commandArgs?.[1] === "add",
     );
     expect(addCall).toBeDefined();
     // Exact quoted path must differ from legacy path (unique slug has a hash suffix)
-    expect(addCall?.command).not.toContain(`"${legacyPath}"`);
+    expect(addCall?.commandArgs?.[6]).not.toBe(legacyPath);
   });
 
   test("new mixed-case workspace uses unique path; existing lowercase branch uses legacy path unaffected", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             return { ok: true, code: 0, stdout: "", stderr: "" };
           },
@@ -930,9 +929,9 @@ describe("branch case and legacy/new folder coexistence", () => {
     );
 
     const addCall = runCalls.find((c) =>
-      c.command.startsWith("git worktree add"),
+      c.commandArgs?.[0] === "worktree" && c.commandArgs?.[1] === "add",
     );
     // Git branch name preserves case
-    expect(addCall?.command).toContain('"feature/NewMixedCase"');
+    expect(addCall?.commandArgs?.[4]).toBe("feature/NewMixedCase");
   });
 });

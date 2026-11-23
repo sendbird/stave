@@ -1,3 +1,4 @@
+import { addNewGitWorktree, type GitWorktreeCreateArgs } from "@/lib/git-worktree-creation";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   buildWorkspaceContinueSummaryFilePath,
@@ -23,11 +24,17 @@ function createMemoryStorage() {
   };
 }
 
-function setWindowContext(args: { api?: unknown }) {
+function setWindowContext({ api }: { api?: unknown }) {
+  const bridge = api as Window["api"];
+  const runCommand = bridge?.terminal?.runCommand;
+  const createWorktree = runCommand && ((args: GitWorktreeCreateArgs) => addNewGitWorktree({
+    ...args,
+    runGit: (commandArgs) => runCommand({ cwd: args.cwd, command: "git", commandArgs }),
+  }));
   (globalThis as { window?: unknown }).window = {
-    api: args.api,
+    api: { ...bridge, sourceControl: { ...bridge?.sourceControl, createWorktree } },
     localStorage: createMemoryStorage(),
-  } as unknown;
+  };
 }
 
 beforeEach(() => {
@@ -92,7 +99,7 @@ describe("workspace continue summary helpers", () => {
 
 describe("continueWorkspaceFromSummary", () => {
   test("creates a new workspace and seeds the first task draft with the summary brief", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
     const createdDirectories: string[] = [];
     const createdFiles: string[] = [];
     const writtenFiles: Array<{ filePath: string; content: string }> = [];
@@ -100,7 +107,7 @@ describe("continueWorkspaceFromSummary", () => {
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             if (args.command === "git fetch origin --prune") {
               return {
@@ -271,14 +278,13 @@ describe("continueWorkspaceFromSummary", () => {
       unique: true,
     })}`;
 
-    expect(runCalls.map((call) => call.command)).toEqual([
+    expect(runCalls.map((call) => call.commandArgs ?? call.command)).toEqual([
       "git fetch origin --prune",
       "git diff --stat \"origin/main\"...HEAD",
       "git diff --name-only \"origin/main\"...HEAD",
-      "git show-ref --verify --quiet \"refs/remotes/origin/main\"",
-      "git show-ref --verify --quiet \"refs/heads/origin/main\"",
-      "mkdir -p .stave/workspaces",
-      `git worktree add --no-track -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/main\"`,
+      ["show-ref", "--verify", "--quiet", "refs/remotes/origin/main"],
+      ["show-ref", "--verify", "--quiet", "refs/heads/origin/main"],
+      ["worktree", "add", "--no-track", "-b", "feature/pr-status--continue--20260404-164512", "--", continueWorkspacePath, "origin/main"],
     ]);
 
     expect(createdDirectories).toEqual([".stave/context"]);
@@ -300,12 +306,12 @@ describe("continueWorkspaceFromSummary", () => {
   });
 
   test("falls back to the local default branch with a warning when origin cannot be refreshed", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             if (args.command === "git fetch origin --prune") {
               return {
@@ -463,22 +469,21 @@ describe("continueWorkspaceFromSummary", () => {
       unique: true,
     })}`;
     expect(result.message).toContain("Could not refresh `origin/main`; continued from local `main` instead.");
-    expect(runCalls.map((call) => call.command)).toEqual([
+    expect(runCalls.map((call) => call.commandArgs ?? call.command)).toEqual([
       "git fetch origin --prune",
       "git diff --stat \"main\"...HEAD",
       "git diff --name-only \"main\"...HEAD",
-      "mkdir -p .stave/workspaces",
-      `git worktree add --no-track -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"main\"`,
+      ["worktree", "add", "--no-track", "-b", "feature/pr-status--continue--20260404-164512", "--", continueWorkspacePath, "main"],
     ]);
   });
 
   test("uses an explicitly selected remote base branch when continuing", async () => {
-    const runCalls: Array<{ cwd?: string; command: string }> = [];
+    const runCalls: Array<{ cwd?: string; command: string; commandArgs?: string[] }> = [];
 
     setWindowContext({
       api: {
         terminal: {
-          runCommand: async (args: { cwd?: string; command: string }) => {
+          runCommand: async (args: { cwd?: string; command: string; commandArgs?: string[] }) => {
             runCalls.push(args);
             return {
               ok: true,
@@ -612,14 +617,13 @@ describe("continueWorkspaceFromSummary", () => {
       branch: "feature/pr-status--continue--20260404-164512",
       unique: true,
     })}`;
-    expect(runCalls.map((call) => call.command)).toEqual([
+    expect(runCalls.map((call) => call.commandArgs ?? call.command)).toEqual([
       "git fetch origin --prune",
       "git diff --stat \"origin/release\"...HEAD",
       "git diff --name-only \"origin/release\"...HEAD",
-      "git show-ref --verify --quiet \"refs/remotes/origin/release\"",
-      "git show-ref --verify --quiet \"refs/heads/origin/release\"",
-      "mkdir -p .stave/workspaces",
-      `git worktree add --no-track -b \"feature/pr-status--continue--20260404-164512\" ${JSON.stringify(continueWorkspacePath)} \"origin/release\"`,
+      ["show-ref", "--verify", "--quiet", "refs/remotes/origin/release"],
+      ["show-ref", "--verify", "--quiet", "refs/heads/origin/release"],
+      ["worktree", "add", "--no-track", "-b", "feature/pr-status--continue--20260404-164512", "--", continueWorkspacePath, "origin/release"],
     ]);
   });
 });

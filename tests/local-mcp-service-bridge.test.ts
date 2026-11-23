@@ -31,6 +31,9 @@ mock.module("electron", () => ({
 mock.module("../electron/main/host-service-client", () => ({
   invokeHostService: async (method: string, params: unknown) => {
     invokeCalls.push({ method, params });
+    if (method === "local-mcp.invoke" && (params as { action?: string }).action === "create-workspace") {
+      return { failure: { code: "branch_exists", branch: "topic", suggestedBranch: "topic-2" } };
+    }
     return {
       ok: true,
       workspaceId: "workspace-1",
@@ -86,6 +89,14 @@ afterEach(() => {
 });
 
 describe("local MCP service bridge", () => {
+  test("preserves the collision code and suggestion through the host service", async () => {
+    await expect(localMcpService.createWorkspace({
+      repositoryPath: "/tmp/stave-project", name: "topic", fromBranch: "main", mode: "branch",
+    })).rejects.toMatchObject({
+      failure: { code: "branch_exists", branch: "topic", suggestedBranch: "topic-2" },
+    });
+  });
+
   test("routes runTask through the host-service local MCP action", async () => {
     const result = await localMcpService.runTask({
       workspaceId: "workspace-1",

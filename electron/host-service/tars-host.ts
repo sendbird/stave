@@ -223,7 +223,7 @@ export function createHostTarsRuntime(args: {
       // Stable branch name reconciles a lost creation acknowledgement without another checkout.
       // Admission builds it under the repository's naming rule with a unique suffix; older work keeps `tars/<id>`.
       const create = (name: string) => tasks.createWorkspace({ repositoryPath: row.repositoryPath, name, label: row.title,
-        mode: "branch", signal, ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
+        mode: "branch", signal, recoverExistingWorktree: true, ...(snapshot ? { fromCommit: snapshot } : source.branch ? { fromBranch: source.branch } : {}) });
       const fallback = `tars/${row.id}`;
       let workspaceId: string;
       if (!row.branchName) workspaceId = (await create(fallback)).workspaceId;

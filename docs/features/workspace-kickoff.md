@@ -21,6 +21,11 @@ produces a usable preview.
    first task model, effort, Codex Fast mode (for GPT models), and prompt.
 6. Create the workspace.
 
+If the proposed branch name already exists, Kickoff stops before creating the
+worktree or starting the first task. Edit the branch name, using the available
+name in the error if you like, then retry with your selected base. Create
+Workspace applies the same rule.
+
 The `Start now` switch controls whether Stave sends the first prompt
 immediately. When it is off, the prompt remains ready in the new task composer.
 The selected model, effort, and Codex Fast mode stay attached to that task in

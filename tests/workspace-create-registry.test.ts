@@ -23,6 +23,7 @@ function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean;
   (globalThis as { window?: unknown }).window = {
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} },
     api: {
+      sourceControl: { createWorktree: async () => null },
       terminal: {
         runCommand: async ({ command }: { command: string }) => {
           commands.push(command);

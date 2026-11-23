@@ -57,6 +57,7 @@ describe("task script hooks", () => {
             };
           },
         },
+        sourceControl: { createWorktree: async () => null },
         terminal: {
           runCommand: async () => ({
             ok: true,

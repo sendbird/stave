@@ -1236,6 +1236,14 @@
       "inProgress": "In progress"
     }
   },
+  "worktreeCreationErrors": {
+    "branchExists": "Branch \"{{branch}}\" already exists.",
+    "branchCheckedOut": "Branch \"{{branch}}\" is already checked out at \"{{path}}\".",
+    "suggestBranch": "Try creating the workspace with \"{{branch}}\".",
+    "pathExists": "The workspace path already exists or is registered as a Git worktree at \"{{path}}\".",
+    "baseRefMissing": "Base ref \"{{ref}}\" does not resolve to a commit. Choose an available base branch and try again.",
+    "gitFailed": "Git could not create the worktree."
+  },
   "appStoreWorkspaceCreateActions": {
     "workspaceNameIsRequired": "Workspace name is required.",
     "openARepositoryBeforeCreatingAWorkspace": "Open a repository before creating a workspace.",
