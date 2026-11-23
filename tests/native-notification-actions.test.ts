@@ -1,3 +1,4 @@
+import { ProviderDecisionDeliveryError } from "../electron/providers/provider-decision-delivery-error";
 import { publishesStoredInteractionNotifications } from "../src/lib/notifications/interaction-policy";
 import { describe, expect, test } from "bun:test";
 import { buildNativeNotificationRequest, buildNativeReplyResponse, createNativeNotificationActionResponder } from "../electron/main/native-notification-actions";
@@ -13,7 +14,7 @@ function fixture() {
     isPending: async () => pending ? "pending" as const : "answered" as const,
     respondApproval: async args => { calls.push(args); pending = false; return { ok: true }; },
     respondUserInput: async args => { calls.push(args); pending = false; return { ok: true }; },
-    alreadyAnswered: () => calls.push("already"), couldNotAnswer: () => calls.push("could-not"),
+    alreadyAnswering: () => {}, alreadyAnswered: () => calls.push("already"), couldNotAnswer: () => calls.push("could-not"),
   });
   return { request, respond, calls, expire: () => { pending = false; } };
 }
@@ -32,6 +33,42 @@ describe("native notification actions", () => {
   test("expired request shows follow-up without delivering", async () => {
     const f = fixture(); f.expire(); await f.respond(f.request, { type: "approval", approved: true }); expect(f.calls).toEqual(["already"]);
   });
+  test.each(["already-answering", "already-answered", "write-failed"] as const)(
+    "a delivery rejection of %s never resolves the notification",
+    async (reason) => {
+      const notices: string[] = [];
+      const respond = createNativeNotificationActionResponder({
+        isEnabled: () => true,
+        isPending: async () => "pending",
+        respondApproval: async () => { throw new ProviderDecisionDeliveryError("Delivery rejected", reason); },
+        respondUserInput: async () => ({ ok: true }),
+        alreadyAnswering: () => notices.push("already-answering"),
+        alreadyAnswered: () => notices.push("already-answered"),
+        couldNotAnswer: () => notices.push("write-failed"),
+        resolved: () => notices.push("resolved"),
+      });
+      await respond(fixture().request, { type: "approval", approved: true });
+      expect(notices).toEqual([reason]);
+    },
+  );
+  test("a card answered between the native preflight and host lookup is reported as answered", async () => {
+    let pending = true;
+    const notices: string[] = [];
+    const respond = createNativeNotificationActionResponder({
+      isEnabled: () => true,
+      isPending: async () => pending ? "pending" : "answered",
+      respondApproval: async () => {
+        pending = false;
+        throw new Error("Pending approval not found");
+      },
+      respondUserInput: async () => ({ ok: true }),
+      alreadyAnswering: () => notices.push("answering"),
+      alreadyAnswered: () => notices.push("answered"),
+      couldNotAnswer: () => notices.push("failed"),
+    });
+    await respond(fixture().request, { type: "approval", approved: true });
+    expect(notices).toEqual(["answered"]);
+  });
   test("question options keep answer keys and values", () => {
     const request = buildNativeNotificationRequest({ ...approval, kind: "task.user_input_requested", action: null,
       payload: { requestId: "q", messageId: "m", questions: [{ key: "key", question: "Pick", options: [{ label: "First", value: "value" }] }] } });
@@ -42,7 +79,7 @@ describe("native notification actions", () => {
     const request = buildNativeNotificationRequest({ ...approval, kind: "task.user_input_requested", action: null,
       payload: { requestId: "q", messageId: "m", questions: [{ key: "key", question: "Pick", options: mode === "option" ? [{ label: "First", value: "value" }] : [] }] } })!;
     const respond = createNativeNotificationActionResponder({ isEnabled: () => true, isPending: async () => "pending" as const, couldNotAnswer: () => {},
-      respondApproval: async () => { throw new Error("Wrong responder"); }, respondUserInput: async args => { calls.push(args); return { ok: true }; }, alreadyAnswered: () => {} });
+      respondApproval: async () => { throw new Error("Wrong responder"); }, respondUserInput: async args => { calls.push(args); return { ok: true }; }, alreadyAnswering: () => {}, alreadyAnswered: () => {} });
     expect(request.reply?.key).toBe(mode === "reply" ? "key" : undefined);
     await respond(request, mode === "option" ? request.buttons[0]!.response : buildNativeReplyResponse(request, "typed answer")!);
     expect(calls).toEqual([{ workspaceId: "workspace", taskId: "task", requestId: "q", expectedMessageId: "m", answers: { key: mode === "option" ? "value" : "typed answer" } }]);
@@ -60,7 +97,7 @@ describe("native notification actions", () => {
   test("setting off prevents delivery", async () => {
     let called = false;
     const respond = createNativeNotificationActionResponder({ isEnabled: () => false, isPending: async () => "pending" as const, couldNotAnswer: () => {},
-      respondApproval: async () => { called = true; return { ok: true }; }, respondUserInput: async () => { called = true; return { ok: true }; }, alreadyAnswered: () => {} });
+      respondApproval: async () => { called = true; return { ok: true }; }, respondUserInput: async () => { called = true; return { ok: true }; }, alreadyAnswering: () => {}, alreadyAnswered: () => {} });
     await respond(fixture().request, { type: "approval", approved: true }); expect(called).toBe(false);
   });
 });
@@ -115,7 +152,7 @@ describe("a failed response is not reported as answered", () => {
     const respond = createNativeNotificationActionResponder({ isEnabled: () => true, isPending: async () => state,
       respondApproval: async args => { if (failTransport) throw new Error("host gone"); calls.push(args); return { ok: true }; },
       respondUserInput: async () => ({ ok: true }),
-      alreadyAnswered: () => notices.push("already"), couldNotAnswer: () => notices.push("could-not"),
+      alreadyAnswering: () => {}, alreadyAnswered: () => notices.push("already"), couldNotAnswer: () => notices.push("could-not"),
     } as never);
     const request = fixture().request;
     await respond(request, { type: "approval", approved: true });

@@ -1,3 +1,5 @@
+import { ProviderDecisionDeliveryError } from "../providers/provider-decision-delivery-error";
+import type { ProviderDecisionResponse } from "../../src/lib/providers/provider.types";
 import { i18n } from "../../src/i18n/runtime";
 import type { WorkspaceSessionState } from "../../src/store/workspace-session-state";
 import { AgentRunCommandError } from "../../src/lib/agent-runs/domain";
@@ -18,7 +20,7 @@ export interface HostUserInputPorts {
   workspaceName: string;
   enqueue: <T>(key: string, operation: () => Promise<T>) => Promise<T>;
   load: (workspaceId: string, taskId: string) => Promise<WorkspaceSessionState>;
-  respond: (args: { turnId: string; requestId: string; answers?: Record<string, string>; denied?: boolean }) => Promise<{ ok: boolean; message?: string }>;
+  respond: (args: { turnId: string; requestId: string; answers?: Record<string, string>; denied?: boolean }) => Promise<ProviderDecisionResponse>;
   cache: (workspaceId: string, session: WorkspaceSessionState) => WorkspaceSessionState;
   /** `taskId` and `changedMessagesByTask` scope the write to the answered task. */
   persist: (args: {
@@ -65,7 +67,7 @@ export async function respondHostUserInput(args: HostUserInputArgs, ports: HostU
         answers: args.answers,
         denied: args.denied,
       });
-      if (!result.ok) throw new Error(result.message);
+      if (!result.ok) throw new ProviderDecisionDeliveryError(result.message, result.reason);
     }
     const nextMessagesState = applyUserInputState({
       messagesByTask: session.messagesByTask,

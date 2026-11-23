@@ -1,3 +1,4 @@
+import type { ProviderDecisionFailureReason, ProviderDecisionResponse } from "../../src/lib/providers/provider.types";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
 import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { TurnSnapshotList, TurnSnapshotOwner, TurnSnapshotRestore, TurnSnapshotResult } from "../../src/lib/turn-snapshots";
@@ -1172,8 +1173,8 @@ export interface HostServiceResponseMap {
   "provider.abort-turn": HostProviderMutationResult;
   "provider.list-live-turns": ProviderLiveTurns;
   "provider.cleanup-task": HostProviderMutationResult;
-  "provider.respond-approval": HostProviderMutationResult;
-  "provider.respond-user-input": HostProviderMutationResult;
+  "provider.respond-approval": ProviderDecisionResponse;
+  "provider.respond-user-input": ProviderDecisionResponse;
   "provider.steer-turn": ProviderSteerTurnResponse;
   "provider.check-availability": ProviderAvailabilityResponse;
   "provider.get-command-catalog": ProviderCommandCatalogResult;
@@ -1396,6 +1397,7 @@ export interface HostServiceErrorResponseEnvelope {
   id: number;
   ok: false;
   error: string;
+  decisionFailureReason?: ProviderDecisionFailureReason;
 }
 
 export interface HostServiceEventEnvelope<TEvent extends HostServiceEventName> {

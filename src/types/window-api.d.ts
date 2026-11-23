@@ -360,21 +360,13 @@ interface WindowProviderApi {
     approved: boolean;
     reason?: string;
     scope?: "once" | "always";
-  }) => Promise<{
-    ok: boolean;
-    message?: string;
-    /** The provider can no longer answer this request (no live turn, or an unknown request id). */
-    unanswerable?: true;
-  }>;
+  }) => Promise<import("../lib/providers/provider.types").ProviderDecisionResponse>;
   respondUserInput?: (args: {
     turnId: string;
     requestId: string;
     answers?: Record<string, string>;
     denied?: boolean;
-  }) => Promise<{
-    ok: boolean;
-    message?: string;
-  }>;
+  }) => Promise<import("../lib/providers/provider.types").ProviderDecisionResponse>;
   checkAvailability?: (args: {
     providerId: ProviderId;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];

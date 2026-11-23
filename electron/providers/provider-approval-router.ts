@@ -5,7 +5,7 @@ export type ProviderApprovalResponder = (args: {
   approved: boolean;
   reason?: string;
   scope?: "once" | "always";
-}) => ProviderResponderResult;
+}) => ProviderResponderResult | Promise<ProviderResponderResult>;
 
 /**
  * Routes one renderer approval surface to the primary provider plus any
@@ -18,7 +18,7 @@ export function createProviderApprovalRouter() {
   const nested = new Set<ProviderApprovalResponder>();
 
   return {
-    respond: ((args) => {
+    respond: (async (args) => {
       const ordered = args.requestId.includes("worker:")
         ? [...nested, primary]
         : [primary, ...nested];
@@ -27,8 +27,8 @@ export function createProviderApprovalRouter() {
         if (!responder) {
           continue;
         }
-        const result = responder(args);
-        if (result.ok) {
+        const result = await responder(args);
+        if (result.ok || result.reason !== "unknown-request") {
           return result;
         }
         for (const requestId of result.pendingRequestIds) {

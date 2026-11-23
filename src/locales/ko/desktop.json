@@ -55,6 +55,7 @@
     "deny": "거부",
     "reply": "답장",
     "openToReview": "열어서 검토",
+    "alreadyAnswering": "이미 응답을 보내고 있습니다",
     "alreadyAnswered": "이미 응답한 요청입니다",
     "couldNotAnswer": "응답하지 못했습니다. Stave에서 응답해 주세요"
   }

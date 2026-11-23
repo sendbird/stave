@@ -1,3 +1,4 @@
+import { ProviderDecisionDeliveryError } from "../providers/provider-decision-delivery-error";
 import { NotificationTaskStatusArgsSchema } from "../../src/lib/notifications/native-notification-contract";
 import { delegatedTaskRulesFor } from "../../src/lib/runs/delegated-task";
 import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
@@ -2617,18 +2618,15 @@ export async function respondApproval(args: HostApprovalArgs) {
       throw new Error(`Pending approval not found: ${args.requestId}`);
     }
 
-    clearManagedApprovalAutoDeny({
-      turnId: activeTurnId,
-      requestId: args.requestId,
-    });
     const result = await providerRuntime.respondApproval({
       turnId: activeTurnId,
       requestId: args.requestId,
       approved: args.approved,
     });
     if (!result.ok) {
-      throw new Error(result.message);
+      throw new ProviderDecisionDeliveryError(result.message, result.reason);
     }
+    clearManagedApprovalAutoDeny({ turnId: activeTurnId, requestId: args.requestId });
 
     const nextMessagesState = applyApprovalState({
       messagesByTask: session.messagesByTask,

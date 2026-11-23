@@ -2237,7 +2237,7 @@ describe("local MCP runtime runTask: an Agent run's account-pool switch", () => 
         const current = await runtime.getTaskStatus({ workspaceId: request.workspaceId, taskId: request.taskId });
         const pending = request.kind === "approval" ? current.pendingApprovals : current.pendingUserInputs;
         return current.activeTurnId === request.turnId && pending.some(item => item.requestId === request.requestId && item.messageId === request.messageId) ? "pending" : "answered";
-      }, respondApproval: runtime.respondApproval, respondUserInput: runtime.respondUserInput, alreadyAnswered: () => { expired++; }, couldNotAnswer: () => { throw new Error("unexpected failure"); },
+      }, respondApproval: runtime.respondApproval, respondUserInput: runtime.respondUserInput, alreadyAnswering: () => {}, alreadyAnswered: () => { expired++; }, couldNotAnswer: () => { throw new Error("unexpected failure"); },
     });
     const approval = { workspaceId: WORKSPACE_ID, taskId: first.taskId, turnId: first.turnId,
       requestId: "native-approval", messageId: status.pendingApprovals[0]!.messageId, kind: "approval" as const, buttons: [] };
