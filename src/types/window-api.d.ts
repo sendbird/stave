@@ -1456,6 +1456,7 @@ interface WindowSourceControlApi {
   commit?: (args: {
     message: string;
     cwd?: string;
+    paths?: string[];
   }) => Promise<SourceControlCommandResult>;
   tryAutoFixLint?: (args: { cwd?: string; paths?: string[] }) => Promise<{
     ok: boolean;

@@ -167,7 +167,7 @@ export function installDevApiBridge() {
         postJson({ path: "/api/scm/stage-all", body: args }),
       unstageAll: (args: { cwd?: string }) =>
         postJson({ path: "/api/scm/unstage-all", body: args }),
-      commit: (args: { message: string; cwd?: string }) =>
+      commit: (args: { message: string; cwd?: string; paths?: string[] }) =>
         postJson({ path: "/api/scm/commit", body: args }),
       stageFile: (args: { path: string; cwd?: string }) =>
         postJson({ path: "/api/scm/stage-file", body: args }),

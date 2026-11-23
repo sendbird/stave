@@ -326,6 +326,7 @@ interface NativeNotificationClickPayload {
 interface ScmCommitArgs {
   message: string;
   cwd?: string;
+  paths?: string[];
 }
 
 interface StreamEventPayload {

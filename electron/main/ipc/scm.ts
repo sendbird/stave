@@ -21,6 +21,8 @@ import {
   SubmitGitHubPrReviewArgsSchema,
   TryAutoFixLintArgsSchema,
 } from "./schemas";
+import { ScmCommitArgsSchema } from "./scm-commit-schema";
+
 
 function invalidGraphResult(stderr: string) {
   return {
@@ -68,11 +70,13 @@ export function registerScmHandlers() {
     invokeHostService("scm.unstage-all", args),
   );
 
-  ipcMain.handle(
-    "scm:commit",
-    (_event, args: { message: string; cwd?: string }) =>
-      invokeHostService("scm.commit", args),
-  );
+  ipcMain.handle("scm:commit", (_event, args: unknown) => {
+    const parsed = ScmCommitArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, code: -1, stdout: "", stderr: "Invalid commit request." };
+    }
+    return invokeHostService("scm.commit", parsed.data);
+  });
 
   ipcMain.handle("scm:try-auto-fix-lint", (_event, args: unknown) => {
     const parsed = TryAutoFixLintArgsSchema.safeParse(args);

@@ -538,7 +538,7 @@ const GitCommitHashSchema = z
   .trim()
   .regex(/^[0-9a-f]{7,64}$/i, "A valid commit hash is required.");
 
-const GitPathSchema = z
+export const GitPathSchema = z
   .string()
   .min(1)
   .max(4096)
