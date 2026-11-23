@@ -210,7 +210,8 @@ export class SqliteStore {
   private automationState: AutomationStateStore;
   private repositoryMemories: RepositoryMemoryStore;
   private notifications: NotificationStore;
-  readonly workspaceArchives: WorkspaceArchiveStore;
+  private workspaceArchiveStore!: WorkspaceArchiveStore;
+  get workspaceArchives() { return this.workspaceArchiveStore; }
   readonly turnSnapshots: TurnSnapshotStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
@@ -261,7 +262,6 @@ export class SqliteStore {
     this.db.pragma("wal_autocheckpoint = 1000");
     registerContentSearchTextFunction(this.db);
     this.bootstrap();
-    this.workspaceArchives = new WorkspaceArchiveStore(this.db);
     if(args.contentSearchOwner!==false) {
       const initializeSearch=()=>{
         if(this._closed) return;
@@ -536,6 +536,7 @@ export class SqliteStore {
     `,
       )
       .run();
+    this.workspaceArchiveStore = new WorkspaceArchiveStore(this.db);
     if (this.runMaintenance) {
       this.purgeLegacyTurnJournal();
     }
@@ -1815,7 +1816,6 @@ export class SqliteStore {
   setRunStepTarget(args: Parameters<RunLedgerStore["setStepTarget"]>[0]) {
     return this.runLedger.setStepTarget(args);
   }
-
 
   interruptRunStep(args: Parameters<RunLedgerStore["interruptStep"]>[0]) {
     return this.runLedger.interruptStep(args);
