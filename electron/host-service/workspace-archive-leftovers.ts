@@ -1,4 +1,4 @@
-import { constants, existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
+import { closeSync, constants, existsSync, lstatSync, openSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { parseGitWorktrees } from "../../src/lib/source-control-worktrees";
 import { WorkspaceCleanupStateSchema, type WorkspaceCleanupTrashArgs } from "../../src/lib/workspace-cleanup-contract";
@@ -60,9 +60,14 @@ export async function trashWorkspaceArchiveLeftover(
       const pointer = join(archive.path, ".git");
       const marker = lstatSync(pointer);
       if (!marker.isFile() || marker.size > 4096) return refuse();
-      const gitdir = /^gitdir: ([^\r\n]+)\r?\n?$/.exec(readFileSync(pointer, {
-        encoding: "utf8", flag: constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
-      }))?.[1];
+      const fd = openSync(pointer, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+      let contents: string;
+      try {
+        contents = readFileSync(fd, "utf8");
+      } finally {
+        closeSync(fd);
+      }
+      const gitdir = /^gitdir: ([^\r\n]+)\r?\n?$/.exec(contents)?.[1];
       if (!gitdir) return refuse();
       const admin = resolve(archive.path, gitdir);
       if (canonical(dirname(admin)) !== canonical(join(commonDir, "worktrees")) || existsSync(admin)) return refuse();
