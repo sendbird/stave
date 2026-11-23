@@ -1,3 +1,4 @@
+import type { BackgroundTaskEvent } from "../../src/lib/providers/background-tasks";
 import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
 import type { ApprovalResolvedEvent, ApprovalRisk } from "../../src/lib/approvals/approval-resolution";
@@ -127,6 +128,7 @@ export type ProviderSteerResponder = (args: {
 }) => Promise<ProviderResponderResult>;
 
 export type BridgeEvent =
+  | BackgroundTaskEvent
   | { type: "agent_provenance"; provenance: AgentTurnProvenance }
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }

@@ -1,4 +1,29 @@
 {
+  "backgroundTasks": {
+    "title": "백그라운드",
+    "empty": "이 턴에서 보고된 백그라운드 작업이 없습니다.",
+    "untitled": "백그라운드 작업",
+    "statusLine": "{{provider}} · {{status}} · {{confidence}}",
+    "timing": "{{time}}에 처음 감지 · {{elapsed}} 경과",
+    "confidence": {
+      "confirmed": "프로바이더 확인",
+      "inferred": "추정"
+    },
+    "status": {
+      "running": "실행 중",
+      "paused": "일시 정지",
+      "completed": "완료",
+      "failed": "실패",
+      "stopped": "중지됨",
+      "unknown": "상태 알 수 없음"
+    },
+    "stop": "중지",
+    "stopping": "중지 중…",
+    "stopFailed": "중지 요청이 처리됐는지 확인할 수 없습니다.",
+    "log": "최근 출력",
+    "truncated": "출력의 마지막 부분을 표시합니다.",
+    "noOutput": "아직 표시할 출력이 없습니다."
+  },
   "questionReply": {
     "label_other": "AI 질문에 대한 답변 · 질문 {{count}}개",
     "declined_other": "답변 거절 · 질문 {{count}}개",

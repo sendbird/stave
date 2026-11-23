@@ -928,6 +928,13 @@ Claude turn end and background work:
   grace.
 - Live subagents, workflows and unknown task types can still return work.
   For them the turn keeps waiting as before, within the CLI's own ceiling.
+- The Task panel's **Background** section uses the same native live set plus
+  task start, update and terminal messages. Status becomes unknown when
+  observation ends without a terminal event. A live task's provider output
+  is read by its turn owner, with an 8 KiB suffix limit. Stop uses the
+  current query's `stopTask(taskId)` and waits for Claude's terminal event.
+  Codex command items do not expose an equivalent background lifecycle.
+
 
 Claude text-boundary note:
 

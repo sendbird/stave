@@ -404,6 +404,21 @@ badge — instead of listing a row per run.
   is the earliest handler's, so the row spans the whole group rather than one
   member.
 
+### Background work
+
+Open **Task → Details → Background** to see tasks Claude reported during the
+current turn or the most recently finished turn in this app session. Each row
+shows the provider, a description, the first time Stave saw it, and elapsed
+time. A provider event confirms whether a task is running, completed, failed,
+or stopped. If the stream ends or a task disappears without a terminal event,
+its status becomes **Status unknown**.
+
+Open **Recent output** to follow the last 8 KiB when Claude provides a readable
+output file. A monitor may supply that file only on completion. A **Stop**
+button is available only for a confirmed task the live Claude session can
+cancel individually. The panel shows **Stopped** when Claude reports it.
+Codex tool execution remains visible in **Activity**.
+
 ### The Last Turn
 
 When a turn ends, the Task panel's Details keep it on screen instead

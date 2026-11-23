@@ -1,4 +1,5 @@
 import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearchScope } from "../lib/fs/content-search";
+import type { BackgroundTaskRequest, BackgroundTaskResponse } from "@/lib/providers/background-tasks";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
@@ -350,6 +351,7 @@ interface WindowProviderApi {
   takeRestoredQueuedTurns?: () => Promise<{
     items: Array<{ workspaceId: string; taskId: string; item: import("@/types/chat").PromptDraftQueuedTurn }>;
   }>;
+  backgroundTask?: (args: BackgroundTaskRequest) => Promise<BackgroundTaskResponse>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;

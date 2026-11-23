@@ -8,6 +8,7 @@ import {
 import {
   AgentHistoryRequestSchema,
   AbortTurnArgsSchema,
+  BackgroundTaskRequestSchema,
   ListLiveTurnsArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
@@ -325,6 +326,11 @@ export function registerProviderHandlers() {
       return { ok: false, message: "Invalid user-input response request." };
     }
     return invokeHostService("provider.respond-user-input", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:background-task", (_event, args: unknown) => {
+    const request = BackgroundTaskRequestSchema.safeParse(args);
+    return request.success ? invokeHostService("provider.background-task", request.data) : { ok: false };
   });
 
   ipcMain.handle("provider:steer-turn", (_event, args: unknown) => {

@@ -5,6 +5,7 @@ import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema, TurnModelInfoSchema } from "./model-execution";
 import { AgentRunRouteCauseSchema, AutoRoutingModelResolutionSchema } from "./model-resolution";
 import { z } from "zod";
+import { BackgroundTaskEventSchema } from "./background-tasks";
 import type { NormalizedProviderEvent } from "./provider.types";
 
 const ThinkingEventSchema = z.object({
@@ -342,6 +343,7 @@ const SubagentModelEventSchema = z.object({
 
 export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   thinking: ThinkingEventSchema,
+  background_task: BackgroundTaskEventSchema,
   text: TextEventSchema,
   agent_provenance: z.object({ type: z.literal("agent_provenance"), provenance: AgentTurnProvenanceSchema }).strict(),
   provider_session: ProviderSessionEventSchema,
@@ -373,6 +375,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
 
 export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.thinking,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.background_task,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.text,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.agent_provenance,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_session,

@@ -1,3 +1,4 @@
+import type { BackgroundTaskEvent, BackgroundTaskRequest } from "@/lib/providers/background-tasks";
 import { applyAppLocale } from "@/i18n";
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
@@ -5,7 +6,7 @@ import { RightRailPanelShell } from "@/components/layout/RightRailPanelShell";
 import { TaskPanel } from "@/components/session/TaskPanel";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
-import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
+import { applyCustomTheme, applyThemeClass, applyUiDensity } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
@@ -553,6 +554,7 @@ function liveTurnActivity(now: number, pending: string | null) {
   return {
     turnId,
     providerId: "claude-code" as const,
+    backgroundTasks: params.has("background") ? backgroundTaskRows(now) : undefined,
     startedAt: now - 95_000,
     lastEventAt: now,
     stalledAt: null,
@@ -564,6 +566,47 @@ function liveTurnActivity(now: number, pending: string | null) {
       "tool-3": item("tool-3", "running", "Run command", "bun test tests/users", "Bash", 12_000),
     },
     orderedWorkItemIds: ["tool-1", "tool-2", "tool-3"],
+  };
+}
+
+function backgroundTaskRows(now: number): BackgroundTaskEvent[] {
+  return [
+    {
+      type: "background_task", id: "a0000000-0000-4000-8000-000000000001", providerId: "claude-code",
+      description: "Watch the build for updates", status: "unknown", confidence: "inferred",
+      startedAt: now - 65_000, endedAt: now - 4_000, canStop: false, hasOutput: false,
+    },
+    {
+      type: "background_task", id: "a0000000-0000-4000-8000-000000000002", providerId: "claude-code",
+      description: "Check the generated client", status: "failed", confidence: "confirmed",
+      startedAt: now - 60_000, endedAt: now - 8_000, canStop: false, hasOutput: true,
+      finalOutput: { text: "ERROR: generated client is out of date", truncated: false },
+    },
+    {
+      type: "background_task", id: "a0000000-0000-4000-8000-000000000003", providerId: "claude-code",
+      description: "Run the users integration tests", status: "running", confidence: "confirmed",
+      startedAt: now - 34_000, canStop: true, hasOutput: true,
+    },
+  ];
+}
+
+function stubBackgroundTaskOutput() {
+  if (!params.has("background")) return;
+  const host = window as unknown as { api?: Record<string, unknown> & { provider?: Record<string, unknown> } };
+  let reads = 0;
+  host.api = {
+    ...host.api,
+    provider: {
+      ...host.api?.provider,
+      backgroundTask: async ({ operation }: BackgroundTaskRequest) => {
+        if (operation === "stop") return { ok: false };
+        reads += 1;
+        return { ok: true, output: {
+          text: `Running users integration tests…\n${"users-pagination-".repeat(8)}\n${"✓ Request accepted\n".repeat(18)}Batch ${reads}\n`,
+          truncated: true,
+        } };
+      },
+    },
   };
 }
 
@@ -733,6 +776,7 @@ function seedStores(args: { task: string; pending: string | null; placement: str
   stubWorktreeChanges();
   stubTurnHistory({ plainTaskId: PLAIN_TASK_ID, messages: PLAIN_MESSAGES });
   stubTaskHandoff();
+  stubBackgroundTaskOutput();
   useAppStore.setState({
     repositoryPath: REPOSITORY_PATH,
     repositoryName: "preview-repo",
@@ -910,6 +954,7 @@ export function TaskPanelPreview() {
   const [seeded, setSeeded] = useState(false);
   useLayoutEffect(() => {
     applyAppLocale(params.get("lang") ?? "en");
+    if (params.has("background")) applyUiDensity({ density: params.get("density") === "compact" ? "compact" : "regular" });
   }, []);
   useLayoutEffect(() => {
     applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
@@ -965,7 +1010,11 @@ export function TaskPanelPreview() {
               {side ? <SideChatPanel taskId={PLAIN_TASK_ID} host="conversation" /> : null}
             </div>
           ) : null}
-          <div className={sx(styles.frame)} style={{ width: panelWidth }} data-testid="task-panel-frame">
+          <div
+            className={sx(styles.frame, params.has("background") && styles.backgroundFrame)}
+            style={{ width: panelWidth }}
+            data-testid="task-panel-frame"
+          >
             <RightRailPanelShell panelId="task" ownHeader>
               <TaskPanel />
             </RightRailPanelShell>
@@ -1008,6 +1057,7 @@ const styles = stylex.create({
     position: "relative",
     width: 560,
   },
+  backgroundFrame: { flex: "0 1 auto", minWidth: 0 },
   frame: {
     flex: "1 1 auto",
     minHeight: 0,
