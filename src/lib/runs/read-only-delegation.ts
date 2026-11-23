@@ -112,6 +112,7 @@ export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_lens_evaluate",
   "stave_lens_download",
   "stave_lens_list_downloads",
+  "stave_lens_set_viewport",
   "stave_lens_set_appearance",
   "stave_lens_set_style",
   "stave_lens_snapshot",
