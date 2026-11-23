@@ -7,12 +7,7 @@ export interface CommandResult {
   stderrTruncated?: boolean;
 }
 
-export interface SourceControlStatusItem {
-  code: string;
-  path: string;
-  indexStatus?: string;
-  workingTreeStatus?: string;
-}
+export type { SourceControlStatusItem } from "../../src/lib/source-control-status";
 
 export interface DetachedCheckoutResult extends CommandResult {
   /** Resolved remote ref such as `origin/main`, or an empty string when resolution failed. */
