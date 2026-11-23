@@ -9,6 +9,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -29,10 +30,12 @@ import {
   getWorkspaceHoverActionVisibilityStyle,
   getWorkspaceLeadingAttentionKind,
   getWorkspaceRespondingCountVisibilityStyle,
+  workspaceRowLabelProps,
   type RepositorySidebarAttentionAlert,
   type SidebarWorkQueueEntry,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
@@ -43,7 +46,11 @@ import {
   WorkspaceUnansweredCount,
 } from "@/components/layout/WorkspaceUnansweredCount";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
-import { WorkspaceRunMark } from "@/components/layout/WorkspaceRunProgress";
+import { useWorkspaceRunProgress } from "@/components/layout/WorkspaceRunProgress";
+import { AgentRunMark } from "@/components/system/AgentRunMark";
+import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
+import { formatRunProgressLabel, formatRunProgressSummary } from "@/lib/fleet/run-progress";
+import { PR_STATUS_VISUAL } from "@/lib/pr-status";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
   SortableDropIndicator,
@@ -432,75 +439,90 @@ export const WorkspaceLeadingStatusIcon = memo(
     workspaceId: string;
     workspaceName: string;
     isDefault: boolean;
-    busy: boolean;
+    rowId: string;
+    busy?: "opening" | "creating";
     attentionKind?: FleetAttentionKind;
   }) {
+    useTranslation();
     const { respondingTaskCount, respondingToneClass, prStatus } =
       useWorkspaceSidebarActivityState(args.workspaceId);
     const leadingAttentionKind = getWorkspaceLeadingAttentionKind(
       args.attentionKind,
     );
+    const { progress, providerId } = useWorkspaceRunProgress(
+      args.workspaceId,
+      !args.busy && (
+        leadingAttentionKind === "turn-stalled" ||
+        (leadingAttentionKind == null && respondingTaskCount > 0)
+      ),
+    );
+
+    function renderStatus(label: string, icon: ReactElement) {
+      return (
+        <span aria-hidden="true" className={sx(repositorySidebarStyles.workspaceStatusMark)} title={label}>
+          {icon}
+          <span hidden id={`${args.rowId}-status`}>{label}</span>
+        </span>
+      );
+    }
 
     if (args.busy) {
-      return (
+      return renderStatus(
+        args.busy === "creating"
+          ? i18n.t("workspace:createDialog.submit.creating")
+          : i18n.t("workspace:workspaceSidebarRows.openingWorkspace"),
         <Loader
-          aria-hidden
           className={sx(repositorySidebarStyles.statusMuted)}
           size="xs"
           variant="spinner"
-        />
+        />,
       );
     }
 
-    // A need of the agent work is a work state, drawn as every surface draws it.
-    const needState = leadingAttentionKind ? FLEET_ATTENTION_WORK_STATE[leadingAttentionKind] : undefined;
-    if (needState) {
-      return <StateMark state={needState} size="md" />;
-    }
-    if (leadingAttentionKind === "pr-behind-base") {
-      return (
-        <AlertTriangle
-          className={sx(repositorySidebarStyles.statusIconGitModified)}
-          aria-hidden="true"
-        />
-      );
-    }
-    if (
-      leadingAttentionKind === "pr-changes-requested" ||
-      leadingAttentionKind === "pr-checks-failed" ||
-      leadingAttentionKind === "pr-merge-conflict"
-    ) {
-      return (
-        <AlertTriangle
-          className={sx(repositorySidebarStyles.statusIconGitClosed)}
-          aria-hidden="true"
-        />
-      );
-    }
-    if (leadingAttentionKind === "pr-ready-to-merge") {
-      return (
-        <GitMerge
-          className={sx(repositorySidebarStyles.statusIconGitOpen)}
-          aria-hidden="true"
-        />
-      );
+    if (leadingAttentionKind) {
+      const needState = FLEET_ATTENTION_WORK_STATE[leadingAttentionKind];
+      const attentionLabel = FLEET_ATTENTION_KIND_LABEL[leadingAttentionKind];
+      if (needState) {
+        const label = leadingAttentionKind === "turn-stalled" && progress?.kind === "stalled"
+          ? formatRunProgressLabel(progress)
+          : needState === "needs-you" ? WORK_STATE[needState].label : attentionLabel;
+        return renderStatus(label, <StateMark state={needState} size="md" />);
+      }
+      if (leadingAttentionKind === "pr-behind-base") {
+        return renderStatus(attentionLabel, <AlertTriangle className={sx(repositorySidebarStyles.statusIconGitModified)} />);
+      }
+      if (
+        leadingAttentionKind === "pr-changes-requested" ||
+        leadingAttentionKind === "pr-checks-failed" ||
+        leadingAttentionKind === "pr-merge-conflict"
+      ) {
+        return renderStatus(attentionLabel, <AlertTriangle className={sx(repositorySidebarStyles.statusIconGitClosed)} />);
+      }
+      if (leadingAttentionKind === "pr-ready-to-merge") {
+        return renderStatus(attentionLabel, <GitMerge className={sx(repositorySidebarStyles.statusIconGitOpen)} />);
+      }
     }
 
     if (respondingTaskCount > 0) {
-      return (
-        <WorkspaceRunMark
-          workspaceId={args.workspaceId}
+      const label = progress?.kind === "stalled"
+        ? formatRunProgressLabel(progress)
+        : progress?.kind === "waiting"
+          ? formatRunProgressSummary(progress)
+          : i18n.t("fleet:runProgress.working");
+      return renderStatus(
+        label,
+        <AgentRunMark
+          kind={progress?.kind ?? "working"}
+          providerId={providerId}
           fallbackInkClassName={respondingToneClass}
-        />
+        />,
       );
     }
 
     if (!args.isDefault && prStatus) {
-      return (
-        <PrStatusIcon
-          status={prStatus}
-          className={sx(repositorySidebarStyles.statusIcon)}
-        />
+      return renderStatus(
+        PR_STATUS_VISUAL[prStatus].label,
+        <PrStatusIcon status={prStatus} className={sx(repositorySidebarStyles.statusIcon)} />,
       );
     }
 
@@ -524,6 +546,7 @@ export function WorkQueueRow(args: {
   /** Revealed on hover over the row's trailing edge. */
   actions?: ReactNode;
 }) {
+  const rowId = useId();
   const { entry } = args;
   // On a global view the active workspace is only the last place opened.
   const showingWorkspace = useAppStore(
@@ -557,7 +580,7 @@ export function WorkQueueRow(args: {
               })
             }
             data-testid={`active-workspace-${entry.workspaceId}`}
-            aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.openWorkspace", { value1: entry.workspaceName })}
+            {...workspaceRowLabelProps(rowId, i18n.t("workspace:workspaceSidebarRows.accessibility.openWorkspace", { value1: entry.workspaceName }))}
             xstyle={[
               repositorySidebarStyles.row,
               repositorySidebarStyles.rowHit,
@@ -576,7 +599,7 @@ export function WorkQueueRow(args: {
               workspaceId={entry.workspaceId}
               workspaceName={entry.workspaceName}
               isDefault={entry.isDefault}
-              busy={false}
+              rowId={rowId}
               attentionKind={args.attentionKind}
             />
             <span className={sx(repositorySidebarStyles.rowTitle)}>

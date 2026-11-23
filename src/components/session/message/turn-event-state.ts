@@ -33,9 +33,8 @@ export function toAgentStepState(state?: ToolUsePart["state"]): AgentStepState {
 }
 
 /**
- * A diff part's own status in AUI's shared run vocabulary. `accepted` is a
- * change that landed, `rejected` one a human refused, and `pending` one still
- * waiting on that decision.
+ * A diff part's review status in AUI's shared run vocabulary. These marks
+ * record a review decision independently of the files on disk.
  */
 export function toDiffRunState(status: CodeDiffPart["status"]): AgentStepState {
   switch (status) {

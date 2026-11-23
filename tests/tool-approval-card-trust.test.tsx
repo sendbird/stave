@@ -57,6 +57,14 @@ describe("ToolApprovalCard", () => {
     expect(render({ ...pending, supportsAllowAlways: undefined })).not.toContain(">Always allow<");
   });
 
+  test("explains added arguments only for a pending shell grant", () => {
+    const scope = "Always allow covers this command and added plain arguments.";
+    expect(render(pending)).toContain(scope);
+    expect(render(pending, { allowAlways: false })).not.toContain(scope);
+    expect(render({ ...pending, toolName: "Edit", trustedToolEntry: "Edit" })).not.toContain(scope);
+    expect(render(alwaysAllowed)).not.toContain(scope);
+  });
+
   test("shows the request's risk as a word before the status and who asked after the tool", () => {
     const html = render({ ...pending, risk: "network-access", ownerAgentId: "agent-7" }, { requestedBy: "Explore" });
     expect(html).toMatch(/Network access<span aria-hidden="true"> ·<\/span>/);

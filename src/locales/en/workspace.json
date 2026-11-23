@@ -1116,6 +1116,7 @@
     "saveMyVersion": "Save my version"
   },
   "workspaceSidebarRows": {
+    "openingWorkspace": "Opening workspace…",
     "default": "Default",
     "previewUnavailable": "Preview unavailable",
     "loadingSummary": "Loading summary...",
