@@ -1240,9 +1240,13 @@ Approve right in the row with **Allow** and **Deny** (A and D keys), and answer 
 Below the band, the activity filter and the **Tree** / **Cards** / **Table** switch each take one Tab stop and change with the arrow keys. While a filter or search narrows the board, its chips appear under the toolbar; remove one, or use **Clear all**.
 
 Below that band, the board opens on **Tree**. Each open task is an agent card with its status, model, the tools it used and what it is doing, under a line that counts agents, running ones, the ones that need you, and the reported cost. A task whose subagents you opened in the Task panel also counts the files its subagents changed in common. Select a card (or press Enter) to see its subagents beside it, or below it in a narrow window. A waiting subagent offers **Answer** and a failed one **Open**; both open its own task. **Cards** shows one card per workspace and **Table** one row per task; select a column header to sort by it (again to reverse, a third time for the Work queue order). If you used Cards before, Fleet switches to Tree once after the update; the layout you pick after that is kept.
+Each pending question or approval gets its own row and counts separately in **Action required**, even when several come from the same task.
+
 Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/fleet.png)
 
 ## Notifications and issues
+
+When Stave reopens, requests that can no longer be answered move to history. Requests that still accept an answer stay available. Restoring existing notifications is silent.
 
 - **Notifications** in the top bar collect questions, approvals and completions. An agent run notifies once each for a sign-off request, blocked, stuck and completed. An approval answers with the same **Allow** and **Deny** (A and D keys) as Fleet View. New notices also show as toasts at the top-center. Branch status notices appear at the bottom-right, above the composer and the status bar.
 - **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values, and **Updated** beside it keeps tickets updated today or in the last 7, 30 or 90 days or this month; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues.

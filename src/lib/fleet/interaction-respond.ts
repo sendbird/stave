@@ -6,6 +6,7 @@ import {
   type FleetInteractionControlIdentity,
 } from "@/lib/fleet/control-plane";
 import { findPendingUserInputMessageByRequestId } from "@/store/provider-message.utils";
+import { canAnswerUserInputWithoutTurn } from "@/lib/notifications/interaction-policy";
 import { useAppStore } from "@/store/app.store";
 import type { ApprovalPart, UserInputPart } from "@/types/chat";
 
@@ -16,7 +17,7 @@ import type { ApprovalPart, UserInputPart } from "@/types/chat";
 export function fleetInteractionOutlivesTurn(
   part: ApprovalPart | UserInputPart | null | undefined,
 ) {
-  return part?.type === "user_input" && part.delivery === "async";
+  return part?.type === "user_input" && canAnswerUserInputWithoutTurn(part);
 }
 
 export type FleetInteractionResponse =

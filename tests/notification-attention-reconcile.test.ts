@@ -7,6 +7,8 @@ import {
 } from "../src/lib/notifications/attention-reconcile";
 import type { AppNotification } from "../src/lib/notifications/notification.types";
 import type { ChatMessage, MessagePart } from "../src/types/chat";
+import { createNotificationAttentionSync } from "../src/store/notification-attention-sync";
+import { appendInterruptedTurnNotices } from "../src/store/workspace-session-state";
 
 function buildNotification(
   overrides: Partial<AppNotification> = {},
@@ -82,6 +84,61 @@ const pendingInputPart: MessagePart = {
 };
 
 describe("notification attention reconcile", () => {
+  test("ending a turn settles its approval but keeps its still-answerable questions", () => {
+    const runRequestId = "run-question:run:build:1:request";
+    const notifications = [
+      buildNotification(),
+      buildUserInputNotification(),
+      buildUserInputNotification({ id: "run", payload: { requestId: runRequestId, messageId: "message-1" } }),
+    ];
+    const settled: string[] = [];
+    const sync = createNotificationAttentionSync({
+      getNotifications: () => notifications,
+      markRead: async ({ id }) => { settled.push(id); },
+      getReviewSurface: () => ({ activeWorkspaceId: "", visibleTaskId: null, windowFocused: false }),
+    });
+    sync.syncTaskInteractions({
+      taskId: "task-1",
+      endedTurnId: "turn-1",
+      messages: [buildMessage({ parts: [
+        pendingApprovalPart,
+        { ...pendingInputPart, delivery: "async" },
+        { ...pendingInputPart, requestId: runRequestId },
+      ] })],
+    });
+    expect(settled).toEqual(["notification-1"]);
+  });
+
+  test("loading an interrupted turn preserves the async question card", () => {
+    const [message] = appendInterruptedTurnNotices({
+      messagesByTask: { "task-1": [buildMessage({ parts: [
+        pendingApprovalPart,
+        { ...pendingInputPart, delivery: "async" },
+      ] })] },
+      latestTurns: [{
+        id: "turn-1", taskId: "task-1", workspaceId: "workspace-1",
+        providerId: "codex", createdAt: "2026-07-26T00:00:00.000Z", completedAt: null,
+      }],
+    })["task-1"]!;
+    expect(message?.parts.map((part) => "state" in part ? part.state : null))
+      .toEqual(["approval-interrupted", "input-requested"]);
+  });
+
+  test("restoring a managed or delegated task leaves its host-owned request open", () => {
+    for (const ownership of [{ controlMode: "managed" as const }, { parentTaskId: "parent" }]) {
+      const messages = [buildMessage({ parts: [pendingApprovalPart] })];
+      const restored = appendInterruptedTurnNotices({
+        tasks: [{ id: "task-1", ...ownership }],
+        messagesByTask: { "task-1": messages },
+        latestTurns: [{
+          id: "turn-1", taskId: "task-1", workspaceId: "workspace-1",
+          providerId: "codex", createdAt: "2026-07-26T00:00:00.000Z", completedAt: null,
+        }],
+      });
+      expect(restored["task-1"]).toBe(messages);
+    }
+  });
+
   test("keeps a request that is still pending in the task window", () => {
     expect(
       findSettledInteractionNotificationIds({

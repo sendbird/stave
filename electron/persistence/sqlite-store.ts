@@ -90,6 +90,7 @@ import { AutomationStateStore } from "./automation-state-store";
 import { RepositoryMemoryStore } from "./repository-memory-store";
 import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
+import { recoverInterruptedTaskNotifications } from "./restart-notifications";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { LensReviewRecordStore } from "./lens-review-record-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
@@ -236,6 +237,7 @@ export class SqliteStore {
     onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
     runMaintenance?: boolean;
     contentSearchOwner?: boolean;
+    recoverInterruptedTaskNotifications?: boolean;
   }) {
     const dbPath = path.resolve(args.dbPath);
     this.dbPath = dbPath;
@@ -305,6 +307,7 @@ export class SqliteStore {
     this.tarsConversations = new TarsConversationStore(this.db);
     this.workspaceInformation = new WorkspaceInformationStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
+    if (args.recoverInterruptedTaskNotifications) recoverInterruptedTaskNotifications(this, this.notifications);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;
@@ -1331,10 +1334,7 @@ export class SqliteStore {
     return this.notifications.createNotification({ notification: manageStoredTarsNotification(args.notification, this.tars, this.runLedger) });
   }
 
-  listNotifications(args?: {
-    limit?: number;
-    unreadOnly?: boolean;
-  }): PersistenceNotificationRecord[] {
+  listNotifications(args?: Parameters<NotificationStore["listNotifications"]>[0]) {
     return this.notifications.listNotifications(args);
   }
 

@@ -22,7 +22,7 @@ import type {
   WorkspaceCliSessionTab,
   WorkspaceTerminalTab,
 } from "@/lib/terminal/types";
-import { isTaskArchived, normalizeTaskControl } from "@/lib/tasks";
+import { isDelegatedTask, isTaskArchived, isTaskManaged, normalizeTaskControl } from "@/lib/tasks";
 import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
 import {
   createEmptyWorkspaceInformation,
@@ -380,6 +380,7 @@ function createInterruptedTurnNoticeMessage(args: {
 }
 
 export function appendInterruptedTurnNotices(args: {
+  tasks?: readonly Pick<Task, "id" | "controlMode" | "parentTaskId">[];
   messagesByTask: Record<string, ChatMessage[]>;
   latestTurns?: PersistedTurnSummary[];
   messageCountByTask?: Record<string, number>;
@@ -391,15 +392,19 @@ export function appendInterruptedTurnNotices(args: {
 
   let changed = false;
   const nextMessagesByTask = { ...args.messagesByTask };
+  const hostOwnedTaskIds = new Set(
+    args.tasks?.filter((task) => isTaskManaged(task) || isDelegatedTask(task)).map((task) => task.id),
+  );
 
   for (const turn of latestTurns) {
-    if (turn.completedAt !== null) {
+    if (turn.completedAt !== null || hostOwnedTaskIds.has(turn.taskId)) {
       continue;
     }
 
     const currentMessages = nextMessagesByTask[turn.taskId] ?? [];
     const interruptedMessages = interruptPendingToolInteractionsInMessages({
       messages: currentMessages,
+      preserveAsync: true,
     });
     const alreadyInterrupted = hasInterruptedTurnNotice(interruptedMessages);
     if (alreadyInterrupted && interruptedMessages === currentMessages) {
@@ -551,6 +556,7 @@ export function buildWorkspaceSessionState(args: {
     args.snapshot?.providerSessionByTask ?? empty.providerSessionByTask;
   const messagesByTask = args.appendInterruptedNotices
     ? appendInterruptedTurnNotices({
+        tasks,
         messagesByTask: args.snapshot?.messagesByTask ?? empty.messagesByTask,
         latestTurns: args.latestTurns,
       })
@@ -670,6 +676,7 @@ export function buildWorkspaceSessionStateFromShell(args: {
   };
   const messagesByTask = args.appendInterruptedNotices
     ? appendInterruptedTurnNotices({
+        tasks,
         messagesByTask: loadedMessagesByTask,
         latestTurns: args.latestTurns,
         messageCountByTask: baseMessageCountByTask,

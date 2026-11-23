@@ -1,6 +1,7 @@
 import type { ChatMessage } from "@/types/chat";
 import type { AppNotification } from "./notification.types";
 import { isNotificationAttentionKind } from "./notification.types";
+import { canAnswerUserInputWithoutTurn } from "./interaction-policy";
 
 /**
  * Fleet is an auxiliary surface: the task window stays the authoritative place
@@ -43,6 +44,33 @@ export function getNotificationInteractionMessageId(
     return typeof messageId === "string" ? normalizeId(messageId) : null;
   }
   return null;
+}
+
+export function findPendingNotificationInteraction(
+  notification: Pick<AppNotification, "kind" | "action" | "payload">,
+  parts: readonly unknown[],
+) {
+  const requestId = getNotificationInteractionRequestId(notification);
+  if (!requestId) return undefined;
+  const isApproval = notification.kind === "task.approval_requested";
+  return parts.find((part): part is { delivery?: unknown } =>
+    part !== null && typeof part === "object" &&
+    "type" in part && part.type === (isApproval ? "approval" : "user_input") &&
+    "state" in part && part.state === (isApproval ? "approval-requested" : "input-requested") &&
+    "requestId" in part && part.requestId === requestId);
+}
+
+/** Use the anchored message when available, falling back to the recorded delivery. */
+export function isDurableUserInputNotification(
+  notification: Pick<AppNotification, "kind" | "action" | "payload">,
+  parts?: readonly unknown[],
+) {
+  if (notification.kind !== "task.user_input_requested") return false;
+  const requestId = getNotificationInteractionRequestId(notification);
+  if (!requestId) return false;
+  if (!parts) return canAnswerUserInputWithoutTurn({ requestId, delivery: notification.payload.delivery });
+  const part = findPendingNotificationInteraction(notification, parts);
+  return Boolean(part && canAnswerUserInputWithoutTurn({ requestId, delivery: part.delivery }));
 }
 
 export interface TaskInteractionSnapshot {
@@ -128,6 +156,7 @@ export function findUnresolvedInteractionNotificationIdsForTurn(args: {
   notifications: readonly AppNotification[];
   taskId: string;
   turnId: string;
+  messages?: readonly ChatMessage[];
 }) {
   const taskId = normalizeId(args.taskId);
   const turnId = normalizeId(args.turnId);
@@ -135,12 +164,16 @@ export function findUnresolvedInteractionNotificationIdsForTurn(args: {
     return [];
   }
 
-  return args.notifications.flatMap((notification) =>
-    isUnresolvedInteractionForTask({ notification, taskId }) &&
-    normalizeId(notification.turnId) === turnId
-      ? [notification.id]
-      : [],
-  );
+  const messagesById = new Map(args.messages?.map((message) => [message.id, message]));
+  return args.notifications.flatMap((notification) => {
+    if (!isUnresolvedInteractionForTask({ notification, taskId }) ||
+        normalizeId(notification.turnId) !== turnId) {
+      return [];
+    }
+    const messageId = getNotificationInteractionMessageId(notification);
+    const message = messageId ? messagesById.get(messageId) : undefined;
+    return isDurableUserInputNotification(notification, message?.parts) ? [] : [notification.id];
+  });
 }
 
 export function hasUnresolvedInteractionNotificationForTask(args: {

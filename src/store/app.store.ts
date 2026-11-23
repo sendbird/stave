@@ -798,6 +798,7 @@ export const useAppStore = create<AppState>()(
               );
               const nextMessages = interruptedTurn
                 ? (appendInterruptedTurnNotices({
+                    tasks: targetSession.tasks,
                     messagesByTask: { [result.value.taskId]: mergedMessages },
                     latestTurns: [interruptedTurn],
                     messageCountByTask: {

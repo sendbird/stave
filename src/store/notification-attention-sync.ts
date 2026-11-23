@@ -100,6 +100,7 @@ export function createNotificationAttentionSync(
           notifications,
           taskId: args.taskId,
           turnId: args.endedTurnId,
+          messages: args.messages,
         })) {
           ids.add(id);
         }

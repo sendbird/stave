@@ -3,7 +3,7 @@ import { app, Menu } from "electron";
 import { registerHandlers } from "./main/ipc";
 import { startHostService, stopHostService } from "./main/host-service-client";
 import { configurePersistenceUserDataPath } from "./main/runtime-profile";
-import { resetMainProcessState } from "./main/state";
+import { ensurePersistenceReady, resetMainProcessState } from "./main/state";
 import { startTarsConversationService, stopTarsConversationService } from "./main/tars-conversation-instance";
 import {
   startStorageCleanupRuntime,
@@ -147,6 +147,11 @@ if (hasSingleInstanceLock) {
 
   app.whenReady().then(() => {
     loadPersistedMainLocale();
+    // Recover the previous session's requests before the renderer or host
+    // can start new turns and publish their own requests.
+    void ensurePersistenceReady().catch((error) => {
+      console.error("[persistence] failed to initialize at startup", error);
+    });
     Menu.setApplicationMenu(buildApplicationMenu());
     onMainLocaleChange(() => {
       Menu.setApplicationMenu(buildApplicationMenu());

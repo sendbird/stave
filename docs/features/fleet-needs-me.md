@@ -14,6 +14,8 @@ Approvals and short questions are answered right in their rows, without opening
 the task; longer forms, results and anything else open the task, which stays the
 place for the full conversation. Answering in either place clears the matching
 Fleet item, and the task records the answer the same way.
+When the same task has more than one pending request, Fleet shows and counts
+each question and approval separately.
 
 ## When To Use It
 

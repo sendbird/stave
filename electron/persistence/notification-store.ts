@@ -90,26 +90,7 @@ export class NotificationStore {
     const row = this.db
       .prepare(
         `
-      SELECT
-        id,
-        kind,
-        title,
-        body,
-        project_path,
-        project_name,
-        workspace_id,
-        workspace_name,
-        task_id,
-        task_title,
-        turn_id,
-        provider_id,
-        action_json,
-        payload_json,
-        created_at,
-        read_at,
-        resolved_at,
-        expires_at
-      FROM notifications
+      SELECT * FROM notifications
       WHERE id = ?
     `,
       )
@@ -123,26 +104,7 @@ export class NotificationStore {
     const row = this.db
       .prepare(
         `
-      SELECT
-        id,
-        kind,
-        title,
-        body,
-        project_path,
-        project_name,
-        workspace_id,
-        workspace_name,
-        task_id,
-        task_title,
-        turn_id,
-        provider_id,
-        action_json,
-        payload_json,
-        created_at,
-        read_at,
-        resolved_at,
-        expires_at
-      FROM notifications
+      SELECT * FROM notifications
       WHERE source_dedupe_key = ?
       LIMIT 1
     `,
@@ -331,6 +293,25 @@ export class NotificationStore {
       .all(limit) as NotificationRow[];
 
     return rows.map((row) => this.mapNotificationRow(row));
+  }
+
+  /** Runs before the new desktop session starts any provider turns. */
+  settleInterruptedTaskNotifications(
+    remainsAnswerable: (notification: PersistenceNotificationRecord) => boolean,
+  ) {
+    this.db.transaction(() => {
+      const rows = this.db.prepare(`
+        SELECT * FROM notifications
+        WHERE resolved_at IS NULL
+          AND kind IN ('task.approval_requested', 'task.user_input_requested')
+      `).all() as NotificationRow[];
+      const resolvedAt = new Date().toISOString();
+      for (const row of rows) {
+        if (!remainsAnswerable(this.mapNotificationRow(row))) {
+          this.markNotificationRead({ id: row.id, readAt: resolvedAt, resolvedAt });
+        }
+      }
+    }).immediate();
   }
 
   markNotificationRead(args: {

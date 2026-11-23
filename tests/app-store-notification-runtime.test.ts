@@ -128,6 +128,18 @@ describe("the shared notification sound", () => {
     expect(showToast).toHaveBeenCalledTimes(1);
   });
 
+  test.each(APP_NOTIFICATION_KINDS)("restores a dedupe hit for %s without announcing it", async (kind) => {
+    const showNative = mock(async () => ({ ok: true }));
+    globalThis.window = { api: { notifications: { showNative } } } as unknown as Window & typeof globalThis;
+    // A fresh renderer has not hydrated the row already stored before restart.
+    const subject = runtime({ nativeNotificationsEnabled: true });
+    inserted = false;
+    await subject.persistNotifications([{ ...notification(kind), dedupeKey: kind }]);
+
+    expect(subject.readState().notifications.map((item) => item.id)).toEqual([kind]);
+    expect([playPreset.mock.calls.length, showNative.mock.calls.length, showToast.mock.calls.length]).toEqual([0, 0, 0]);
+  });
+
   test("an unsuccessful persistence write stays quiet", async () => {
     persistenceFails = true;
     await runtime().persistNotifications([notification("task.turn_completed")]);
