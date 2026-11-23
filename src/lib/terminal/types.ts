@@ -6,6 +6,16 @@ import type {
 
 export type SessionSlotState = "idle" | "running" | "background" | "exited";
 
+export interface TerminalSessionOutputPayload {
+  sessionId: string;
+  output: string;
+  sequence: number;
+  bytes: number;
+  attachmentId?: string;
+  /** A loss of live output. A gap notification contributes zero ACK bytes. */
+  outputGap?: boolean;
+}
+
 export interface SessionSlotStateInfo {
   state: SessionSlotState;
   sessionId?: string;

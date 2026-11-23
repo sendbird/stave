@@ -10,6 +10,7 @@ import {
 } from "@/components/layout/useTerminalTabManager";
 import { i18n } from "@/i18n";
 import { getTerminalSessionRouter } from "@/lib/terminal/terminal-session-router";
+import type { TerminalSessionOutputPayload } from "@/lib/terminal/types";
 import {
   createTerminalTranscriptBuffer,
   type TerminalTranscriptBuffer,
@@ -410,13 +411,18 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
       });
   }
 
-  function applyTerminalOutput(payload: {
-    sessionId: string;
-    output: string;
-    sequence?: number;
-    bytes?: number;
-  }) {
-    if (!payload.output) {
+  function applyTerminalOutput(
+    payload: Pick<TerminalSessionOutputPayload, "sessionId" | "output"> &
+      Partial<TerminalSessionOutputPayload>,
+  ) {
+    const tabKey = tabKeyBySessionIdRef.current[payload.sessionId];
+    if (!tabKey) return;
+    const attachmentId = attachmentIdByTabKeyRef.current[tabKey];
+    if (payload.attachmentId && payload.attachmentId !== attachmentId) return;
+    const output = payload.outputGap
+      ? `\x18\r\n[${i18n.t("terminal:terminalSession.outputGap")}]\r\n`
+      : payload.output;
+    if (!output) {
       return;
     }
 
@@ -432,18 +438,13 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
         payload.sequence;
     }
 
-    const tabKey = tabKeyBySessionIdRef.current[payload.sessionId];
-    if (!tabKey) {
-      return;
-    }
-
     delete screenStateByTabKeyRef.current[tabKey];
-    appendTranscript(tabKey, payload.output);
+    appendTranscript(tabKey, output);
     scheduleTranscriptFlush();
-    const attachmentId = attachmentIdByTabKeyRef.current[tabKey];
     const onParsed =
-      payload.sequence !== undefined && attachmentId
+      payload.sequence !== undefined && attachmentId && !payload.outputGap
         ? () => {
+            if (attachmentIdByTabKeyRef.current[tabKey] !== attachmentId) return;
             const nextAcknowledgedBytes =
               (acknowledgedBytesBySessionRef.current[payload.sessionId] ?? 0) +
               (payload.bytes ??
@@ -459,7 +460,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
         : undefined;
     terminalSessionRouterRef.current.publishOutput(
       payload.sessionId,
-      payload.output,
+      output,
       onParsed,
     );
   }

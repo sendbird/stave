@@ -568,8 +568,13 @@ export function useCliSessionManager<
     }
 
     return subscribeSessionOutput((payload) => {
-      const { sessionId, output } = payload;
-      if (!output || sessionId !== attachedSessionIdRef.current) {
+      const { sessionId } = payload;
+      const attachmentId = attachedAttachmentIdRef.current;
+      if (payload.attachmentId && payload.attachmentId !== attachmentId) return;
+      const output = payload.outputGap
+        ? `\x18\r\n[${i18n.t("terminal:terminalSession.outputGap")}]\r\n`
+        : payload.output;
+      if (!output || sessionId !== attachedSessionIdRef.current || !streamReadyRef.current) {
         return;
       }
       if (
@@ -582,22 +587,16 @@ export function useCliSessionManager<
       if (payload.sequence !== undefined) {
         lastOutputSequenceBySessionRef.current[sessionId] = payload.sequence;
       }
-      if (!streamReadyRef.current) {
-        return;
-      }
       const tabKey = tabKeyBySessionIdRef.current[sessionId];
       if (tabKey) {
         recordTranscriptOutput(tabKey, output);
       }
       terminalControllerRef.current.write(output, () => {
+        if (payload.outputGap || !attachmentId || attachmentId !== attachedAttachmentIdRef.current) return;
         const acknowledgedBytes =
           (acknowledgedBytesBySessionRef.current[sessionId] ?? 0) +
           (payload.bytes ?? new TextEncoder().encode(output).byteLength);
         acknowledgedBytesBySessionRef.current[sessionId] = acknowledgedBytes;
-        const attachmentId = attachedAttachmentIdRef.current;
-        if (!attachmentId) {
-          return;
-        }
         void window.api?.terminal?.ackSessionOutput?.({
           sessionId,
           attachmentId,

@@ -1840,7 +1840,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, terminalRuntime.resizeSession(request.params));
       return;
     case "terminal.close-session":
-      await respond(request.id, terminalRuntime.closeSession(request.params));
+      await respond(request.id, await terminalRuntime.closeSession(request.params));
       return;
     case "terminal.buffer-session-output":
       await respond(

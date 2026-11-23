@@ -12,6 +12,7 @@ import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecuti
 import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
+  TerminalSessionOutputPayload,
 } from "../../src/lib/terminal/types";
 import type { HostServiceResourceMetrics } from "./resource-metrics";
 import type { ScmReviewDiffArgs, ScmReviewDiffResult, ScmReviewFileDiffArgs, ScmReviewFileDiffResult } from "../../src/lib/review/review-diff-contract";
@@ -1325,12 +1326,7 @@ export interface HostServiceResponseMap {
 
 export interface HostServiceEventMap {
   "workspace.cleanup-changed": { workspaceId: string; repositoryPath: string };
-  "terminal.output": {
-    sessionId: string;
-    output: string;
-    sequence: number;
-    bytes: number;
-  };
+  "terminal.output": TerminalSessionOutputPayload;
   "terminal.exit": {
     sessionId: string;
     exitCode: number;

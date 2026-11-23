@@ -190,6 +190,7 @@ import type {
 import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
+  TerminalSessionOutputPayload,
 } from "../src/lib/terminal/types";
 import type {
   ScriptKind,
@@ -295,13 +296,6 @@ interface StreamTurnArgs {
 interface TerminalRunArgs {
   command: string;
   cwd?: string;
-}
-
-interface TerminalSessionOutputPayload {
-  sessionId: string;
-  output: string;
-  sequence: number;
-  bytes: number;
 }
 
 interface TerminalSessionExitPayload {

@@ -5,6 +5,7 @@ import {
   type ProviderAccountLoginArgs,
 } from "../../src/lib/providers/provider-accounts";
 import { buildTerminalSessionSlotKey } from "../../src/lib/terminal/types";
+import { i18n } from "../../src/i18n/runtime";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import {
   buildClaudeCliEnv,
@@ -91,8 +92,12 @@ export function createProviderAccountLoginSession(
     });
     // Resolution precedes reuse: a removed or invalid profile cannot open an old slot.
     const existing = deps.getSessionBySlotKey(slotKey);
-    if (existing && !existing.session.closing)
+    if (existing) {
+      if (existing.session.closing) {
+        return { ok: false, stderr: i18n.t("terminal:terminalSession.errors.stillClosing") };
+      }
       return { ok: true, sessionId: existing.sessionId };
+    }
     const sessionId = deps.createPtySession({
       workspaceId: args.workspaceId,
       command: executablePath,
