@@ -105,6 +105,7 @@ test("actual preload exposes strict send/list/cancel and rejects malformed respo
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
@@ -179,6 +180,7 @@ test("actual preload validates act input and rejects a malformed host result", (
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
@@ -210,6 +212,7 @@ test("actual preload validates snapshot reads and identity or responsibility wri
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push(channel); return reply; } },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
@@ -266,6 +269,7 @@ test("actual preload validates a queue move and rejects a malformed move record"
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
@@ -318,6 +322,7 @@ test("actual preload validates a brief request and rejects a malformed brief", (
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
@@ -367,6 +372,7 @@ test("an image preview read names a message and position only, reaches the conve
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");
@@ -427,6 +433,7 @@ test("draft IPC validates the draft before it reaches the conversation service, 
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: async (channel, input) => { calls.push([channel, input]); return reply; } },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     await import("./electron/preload");

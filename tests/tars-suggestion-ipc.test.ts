@@ -9,6 +9,7 @@ test("actual IPC and preload validate suggestion inputs and outputs", () => {
       ipcMain: { handle: (key, callback) => handlers.set(key, callback) },
       contextBridge: { exposeInMainWorld: (name, value) => { if(name === "api") api = value; } },
       ipcRenderer: { on: () => {}, removeListener: () => {}, invoke: (key, input) => handlers.get(key)(null, input) },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" },
     }));
     mock.module("./electron/main/host-service-client", () => ({ onHostServiceEvent: () => () => {}, invokeHostService: () => { throw new Error("Unexpected host call"); } }));
