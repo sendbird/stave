@@ -1257,6 +1257,7 @@ Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screensho
 | Terminal          | **Terminal** in the right panels, Cmd/Ctrl+K then the backtick key | A shell in a work-area tab. The tab's + menu has **New Terminal** and **New CLI Session** (Claude, Codex) |
 | Command palette   | Cmd/Ctrl+Shift+P                                           | Search app actions, tasks and settings. Scope: **This workspace** or **All repositories** |
 | Go to file        | Cmd/Ctrl+P                                                 | Open a workspace file by name                                                         |
+| Search in files | Cmd/Ctrl+Shift+F | Search the current workspace for literal text or a pasted multiline block. Editing or clearing the query stops the previous search. Switching workspaces clears the search. **Result limit reached** means some matches or preview text were omitted. |
 | Workspace Tools   | **Workspace Tools** in the right panels, Cmd/Ctrl+K then S | Saved commands, processes such as dev servers, and triggers, stored in `.stave/scripts.json` |
 | Lens              | Lens in the right panels, Cmd/Ctrl+K then L                | A built-in browser tab. **Pick element** and **Visual comments** add page context to the task draft |
 | Information panel | **Information** in the right panels, Cmd/Ctrl+K then I     | Todos, notes, links, documents, memory. **Create task** from a link row               |

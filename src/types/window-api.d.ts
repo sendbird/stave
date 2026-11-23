@@ -1,3 +1,4 @@
+import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearchScope } from "../lib/fs/content-search";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
@@ -755,15 +756,8 @@ interface WindowFsApi {
     ok: boolean;
     stderr?: string;
   }>;
-  searchContent?: (args: { rootPath: string; query: string }) => Promise<{
-    ok: boolean;
-    results: Array<{
-      file: string;
-      matches: Array<{ line: number; text: string }>;
-    }>;
-    limitHit: boolean;
-    stderr?: string;
-  }>;
+  searchContent?: (args: FilesystemSearchRequest) => Promise<FilesystemSearchResponse>;
+  cancelContentSearch?: (args: FilesystemSearchScope) => Promise<void>;
 }
 
 interface WindowSkillsApi {

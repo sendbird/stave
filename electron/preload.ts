@@ -1,3 +1,4 @@
+import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearchScope } from "../src/lib/fs/content-search";
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
@@ -1904,16 +1905,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:delete-file", args),
     deleteDirectory: (args: { rootPath: string; directoryPath: string }) =>
       ipcRenderer.invoke("fs:delete-directory", args),
-    searchContent: (args: { rootPath: string; query: string }) =>
-      ipcRenderer.invoke("fs:search-content", args) as Promise<{
-        ok: boolean;
-        results: Array<{
-          file: string;
-          matches: Array<{ line: number; text: string }>;
-        }>;
-        limitHit: boolean;
-        stderr?: string;
-      }>,
+    searchContent: (args: FilesystemSearchRequest) =>
+      ipcRenderer.invoke("fs:search-content", args) as Promise<FilesystemSearchResponse>,
+    cancelContentSearch: (args: FilesystemSearchScope) =>
+      ipcRenderer.invoke("fs:cancel-content-search", args) as Promise<void>,
   },
   skills: {
     getCatalog: (args?: {

@@ -1067,6 +1067,7 @@ export function EditorPanel(props: EditorPanelProps) {
               onRequestDeleteExplorerFile={handleRequestDeleteExplorerFile}
               onRequestDeleteExplorerFolder={handleRequestDeleteExplorerFolder}
               searchRequestNonce={explorerSearchRequestNonce}
+              workspaceId={activeWorkspaceId}
               workspaceCwd={workspaceCwd}
             />
           ) : null}
