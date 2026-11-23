@@ -7,13 +7,17 @@ import {
 } from "@/lib/service-link-badges";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import {
+  splitPastedTextBlocks,
+  type PastedTextBlock,
+} from "@/lib/pasted-text-blocks";
+import {
   getWorkspaceInformationReferenceLabel,
   resolveWorkspaceInformationReferenceFromToken,
   type WorkspaceInformationReference,
   type WorkspaceInformationReferenceOption,
 } from "@/lib/workspace-information-references";
 
-export type PromptTokenKind = "command" | "skill" | "information" | "link";
+export type PromptTokenKind = "command" | "skill" | "information" | "link" | "pasted";
 
 export interface PromptTokenDescriptor {
   kind: PromptTokenKind;
@@ -22,6 +26,7 @@ export interface PromptTokenDescriptor {
   detail?: string;
   informationReference?: WorkspaceInformationReference;
   serviceLink?: ServiceLinkKind;
+  pastedTextBlock?: PastedTextBlock;
 }
 
 export type PromptTokenSegment =
@@ -34,6 +39,8 @@ export interface PromptTokenParseOptions {
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
   allowGenericCommandTokens?: boolean;
   allowGenericSkillTokens?: boolean;
+  /** Pasted text to show as one collapsed chip. Matched before other tokens. */
+  pastedTextBlocks?: readonly PastedTextBlock[];
 }
 
 const COMMAND_TOKEN_PATTERN = /^\/[A-Za-z0-9:._-]+/;
@@ -231,6 +238,23 @@ function resolveDescriptorAt(args: {
   return null;
 }
 
+export function describePastedTextBlock(
+  block: PastedTextBlock,
+): PromptTokenDescriptor {
+  return {
+    kind: "pasted",
+    token: block.text,
+    label: i18n.t("app:promptTokenChips.pastedText", {
+      id: block.id,
+      count: block.lineCount,
+    }),
+    detail: block.text.split("\n", 3).map((line) =>
+      line.length > 120 ? line.slice(0, 120) + "…" : line,
+    ).join("\n"),
+    pastedTextBlock: block,
+  };
+}
+
 export function parsePromptTokenSegments(
   text: string,
   options: PromptTokenParseOptions = {},
@@ -238,7 +262,21 @@ export function parsePromptTokenSegments(
   if (!text) {
     return [];
   }
+  if (!options.pastedTextBlocks?.length) {
+    return parseInlineTokenSegments(text, options);
+  }
+  return splitPastedTextBlocks(text, options.pastedTextBlocks).flatMap(
+    (part): PromptTokenSegment[] =>
+      part.type === "pasted"
+        ? [{ type: "token", descriptor: describePastedTextBlock(part.block) }]
+        : parseInlineTokenSegments(part.text, options),
+  );
+}
 
+function parseInlineTokenSegments(
+  text: string,
+  options: PromptTokenParseOptions,
+): PromptTokenSegment[] {
   const commandMap = buildCommandMap(options.commandPaletteItems);
   const skillMap = buildSkillMap(options.skillPaletteItems);
   const informationMap = buildInformationMap(

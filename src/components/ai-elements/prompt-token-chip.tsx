@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { Info, Link, Sparkles, Terminal } from "lucide-react";
+import { ClipboardPaste, Info, Link, Sparkles, Terminal } from "lucide-react";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import type { PromptTokenDescriptor } from "@/lib/prompt-token-chips";
 import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
@@ -27,7 +27,9 @@ export function PromptTokenChip(args: {
         ? Sparkles
         : descriptor.kind === "link"
           ? Link
-          : Terminal;
+          : descriptor.kind === "pasted"
+            ? ClipboardPaste
+            : Terminal;
   const toneStyle =
     descriptor.kind === "information"
       ? tokenChipStyles.information
@@ -45,6 +47,7 @@ export function PromptTokenChip(args: {
     <span
       contentEditable={false}
       title={descriptor.detail ?? descriptor.token}
+      data-pasted-text-block={descriptor.kind === "pasted" ? descriptor.pastedTextBlock?.id : undefined}
       className={cx(
         sx(
           tokenChipStyles.chip,

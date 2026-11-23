@@ -53,6 +53,7 @@ import {
   type PromptTokenParseOptions,
 } from "@/lib/prompt-token-chips";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
+import type { PastedTextBlock } from "@/lib/pasted-text-blocks";
 import { coreStyles } from "./ai-element-core.styles";
 import {
   lexicalEditorStyles,
@@ -107,6 +108,8 @@ interface PromptLexicalEditorProps {
   commandPaletteItems?: readonly CommandPaletteItem[];
   skillPaletteItems?: readonly SkillCatalogEntry[];
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
+  /** Pasted text the editor shows as one collapsed chip. */
+  pastedTextBlocks?: readonly PastedTextBlock[];
   onChange: (value: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
@@ -776,8 +779,10 @@ export const PromptLexicalEditor = forwardRef<
         props.workspaceInformationReferenceOptions,
       allowGenericCommandTokens: false,
       allowGenericSkillTokens: false,
+      pastedTextBlocks: props.pastedTextBlocks,
     }),
     [
+      props.pastedTextBlocks,
       props.plainText,
       props.commandPaletteItems,
       props.skillPaletteItems,
