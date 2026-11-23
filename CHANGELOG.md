@@ -1,3 +1,54 @@
+## [0.36.0](https://github.com/sendbird/stave/compare/v0.35.5...v0.36.0) (2026-11-23)
+
+### Changes
+
+- Restarting Stave no longer replays dozens of Needs You notifications. Requests that can no longer be answered are settled, the task header shows one attention state (Needs you, Problem, Working, Done · unseen, Idle) that jumps to the exact request, and the conversation-top attention banner is gone. Short approvals and single-choice questions can be answered from the bell.
+- Lens no longer asks for CDP approval on loopback and active Orbit hosts, Allow once lasts 15 minutes after last use, hidden-tab screenshots no longer hang, and fixed-width viewport checks are available from the toolbar and MCP.
+- Workspaces can be opened from a pull request URL or number, show checkout and setup progress under their final id with retry, list listening ports that open in Lens, and keep sensitive ignored files such as `.env` across archive and restore. Creating a workspace no longer silently reuses an existing branch.
+- The transcript folds finished trace steps, shows agent background tasks, explains Read ranges, search matches and JSON in tool details, and turns large pasted text into an attachment. Read-only PDF and large log viewers open from chat links.
+- Stalled turns are judged by provider activity, usage-limit pauses survive restarts, Codex decisions are reported only after delivery, terminal output resumes after a stalled acknowledgement, and edits typed during save, format or refresh are kept.
+- Create PR commits only the files selected in the dialog, and PR review threads can be replied to and CI runs inspected from Stave.
+- Upgrade note: the cleanup of the removed Martin sync integration (its leftover `martin_sync_outbox` table and saved `martinSync` settings) is gone. Profiles that skip 0.34.x and 0.35.x keep those unused leftovers; nothing reads them.
+
+### Features
+
+* **agents:** scope model and effort pins to the lead's own turns ([#1037](https://github.com/sendbird/stave/issues/1037)) ([2fcbc18](https://github.com/sendbird/stave/commit/2fcbc181713c683a5200e38b83616ac00c3bd662))
+* **attention:** add task attention derivation module ([#1052](https://github.com/sendbird/stave/issues/1052)) ([8d79016](https://github.com/sendbird/stave/commit/8d79016599e6cee771268c9cb6be57f5b101a2a9))
+* **attention:** show task state in the header and drop the attention banner ([#1069](https://github.com/sendbird/stave/issues/1069)) ([2191ede](https://github.com/sendbird/stave/commit/2191ede6258412f08ea58add8d91e66e074f59bd))
+* **composer:** turn large pasted text into an attachment ([#1057](https://github.com/sendbird/stave/issues/1057)) ([b42b575](https://github.com/sendbird/stave/commit/b42b575f8c5fa404f52d09bf5a8775c7fd2730a8))
+* **editor:** add read-only pdf and large log viewers ([#1064](https://github.com/sendbird/stave/issues/1064)) ([6473a91](https://github.com/sendbird/stave/commit/6473a912bdaf7be24da3c3210d4e666b11021102))
+* **lens:** add fixed-width viewport checks ([#1059](https://github.com/sendbird/stave/issues/1059)) ([2b57776](https://github.com/sendbird/stave/commit/2b577764d70900fcb5673820c6fb39220137f0c0))
+* **lens:** skip cdp approval for loopback and orbit hosts ([#1045](https://github.com/sendbird/stave/issues/1045)) ([5bccfe7](https://github.com/sendbird/stave/commit/5bccfe7e797cd7312df7a9dfdeff95c203ffc647))
+* **notifications:** answer short requests from the bell ([#1073](https://github.com/sendbird/stave/issues/1073)) ([cdd9ecd](https://github.com/sendbird/stave/commit/cdd9ecda8071aff9420cc4fbfae653ff917ee0aa))
+* **scm:** reply to pr threads and inspect ci runs ([#1063](https://github.com/sendbird/stave/issues/1063)) ([c8df3d7](https://github.com/sendbird/stave/commit/c8df3d7e829d99363ab2198ceebc244cd5cfd0cb))
+* **session:** explain read ranges, search matches and json in tool details ([#1070](https://github.com/sendbird/stave/issues/1070)) ([89d97a4](https://github.com/sendbird/stave/commit/89d97a4da6e5a683dc3d92cca03ad11a3d1c568b))
+* **session:** fold finished agent trace steps ([#1058](https://github.com/sendbird/stave/issues/1058)) ([4a27a83](https://github.com/sendbird/stave/commit/4a27a83ba77c389a53cdc928f62cae9e9d027ab9))
+* **session:** show agent background tasks ([#1060](https://github.com/sendbird/stave/issues/1060)) ([6713aa7](https://github.com/sendbird/stave/commit/6713aa712b40f45d1908bcefe17947335a5bb6b7))
+* **workspace:** keep sensitive ignored files on archive and trash leftover folders ([#1046](https://github.com/sendbird/stave/issues/1046)) ([5025b78](https://github.com/sendbird/stave/commit/5025b78e7663468b6295ed45feec41614eeea53b))
+* **workspace:** list listening ports and open them in lens ([#1056](https://github.com/sendbird/stave/issues/1056)) ([b02dc9f](https://github.com/sendbird/stave/commit/b02dc9f89739492027fea3c7bfa1dc2e44de12c5))
+* **workspace:** open a workspace from a pull request ([#1071](https://github.com/sendbird/stave/issues/1071)) ([29f937a](https://github.com/sendbird/stave/commit/29f937a4d72e80390f3ea5225be14369bf3fcc29))
+* **workspace:** show creation and setup progress under the workspace id ([#1072](https://github.com/sendbird/stave/issues/1072)) ([8306a8e](https://github.com/sendbird/stave/commit/8306a8eba9839ada635fbb25d2634fe5617f7dfe))
+
+### Bug Fixes
+
+* **editor:** keep edits typed during save, format and refresh ([#1054](https://github.com/sendbird/stave/issues/1054)) ([afafa1b](https://github.com/sendbird/stave/commit/afafa1b6670f9e7a95ff16353c97a9a7f1d1f8ea))
+* improve daily usage limits layout ([#1039](https://github.com/sendbird/stave/issues/1039)) ([fad2821](https://github.com/sendbird/stave/commit/fad282182b54bbd54e7807e3b05a9f2bfb18b70b))
+* **layout:** keep clarification dock in place ([#1042](https://github.com/sendbird/stave/issues/1042)) ([193fd91](https://github.com/sendbird/stave/commit/193fd91abbf5b5744fefdef2566fad09d547c0f0))
+* **lens:** stop hidden-tab screenshots from hanging ([#1050](https://github.com/sendbird/stave/issues/1050)) ([9498650](https://github.com/sendbird/stave/commit/949865074896ff7f9bdefc860ee89e6c54003e89))
+* **notifications:** keep closed delegated requests closed when saves overlap ([#1041](https://github.com/sendbird/stave/issues/1041)) ([46b73c8](https://github.com/sendbird/stave/commit/46b73c830285d373b182e39e52e263d409da801a))
+* **notifications:** stop restart notification storms and settle dead requests ([#1044](https://github.com/sendbird/stave/issues/1044)) ([15f0ae6](https://github.com/sendbird/stave/commit/15f0ae68b19b62e215c39d9bf118b0e75ae792bd))
+* **providers:** report codex decisions only after delivery ([#1048](https://github.com/sendbird/stave/issues/1048)) ([d5c6ab5](https://github.com/sendbird/stave/commit/d5c6ab5818dc97c29682c188acf4ff4b71fc6bc7))
+* **scm:** commit only the files selected in create pr ([#1047](https://github.com/sendbird/stave/issues/1047)) ([481e751](https://github.com/sendbird/stave/commit/481e75161597f9c6ae028c4795bc193d33c2631b))
+* **search:** cancel superseded workspace content searches ([#1055](https://github.com/sendbird/stave/issues/1055)) ([a23d035](https://github.com/sendbird/stave/commit/a23d03585edf5f8e7f73e60e0d7d243e95baa79b))
+* **session:** clarify review marks, sidebar status and command exit codes ([#1049](https://github.com/sendbird/stave/issues/1049)) ([948ec35](https://github.com/sendbird/stave/commit/948ec35b1d78c7a0d73039c42a57464e2e08e1eb))
+* **session:** judge stalled turns by provider activity ([#1062](https://github.com/sendbird/stave/issues/1062)) ([19ff4d4](https://github.com/sendbird/stave/commit/19ff4d4d321b1354997a99d468df01df0ba25db8))
+* **session:** keep a delegated child's workspace cached while its card is shown ([#1043](https://github.com/sendbird/stave/issues/1043)) ([fdbb80b](https://github.com/sendbird/stave/commit/fdbb80b44f533556d9f2a304d75e1847ca964c77))
+* **session:** keep usage-limit pauses across restarts ([#1061](https://github.com/sendbird/stave/issues/1061)) ([04eee65](https://github.com/sendbird/stave/commit/04eee6580de126f57e5c77708952ca9da11693be))
+* **session:** let a settled delegated request be closed from the composer ([#1040](https://github.com/sendbird/stave/issues/1040)) ([a21748a](https://github.com/sendbird/stave/commit/a21748afc5789f6dfa80494b0861b9cd74df5b35))
+* **terminal:** resume stalled output and wait for pty exit on close ([#1053](https://github.com/sendbird/stave/issues/1053)) ([13577a0](https://github.com/sendbird/stave/commit/13577a05b46e95fc9b9a1b8774e3c07712eb4ea5))
+* **workspace:** delete ignored files when archiving and report leftover folders ([#1038](https://github.com/sendbird/stave/issues/1038)) ([1c5201e](https://github.com/sendbird/stave/commit/1c5201ee92f760a1ac005bd1c05735e764c477f2))
+* **workspace:** stop silently reusing an existing branch on create ([#1051](https://github.com/sendbird/stave/issues/1051)) ([3d06d45](https://github.com/sendbird/stave/commit/3d06d451126ab328b715b23f1497affda40f0598))
+
 ## [0.35.5](https://github.com/sendbird/stave/compare/v0.35.4...v0.35.5) (2026-11-21)
 
 ### Changes
