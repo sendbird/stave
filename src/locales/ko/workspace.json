@@ -1504,5 +1504,22 @@
     "title": "보관된 워크스페이스",
     "trigger": "보관된 워크스페이스 ({{count}})",
     "manage": "워크스페이스 정리 열기"
+  },
+  "prCheckout": {
+    "method": "PR에서 열기",
+    "optionalBranch": "워크스페이스 브랜치 이름 (선택 사항)",
+    "reference": "PR URL 또는 번호",
+    "placeholder": "GitHub URL 또는 #123",
+    "forkPolicy": "포크의 PR을 가져와 검토할 수 있습니다. 푸시는 사용할 수 없습니다.",
+    "linkWarning": "정보 패널에 PR을 연결했지만 Git에 자동 상태 조회용 링크를 저장하지 못했습니다.",
+    "errors": {
+      "invalidReference": "GitHub PR URL 또는 #123 형식의 번호를 입력하세요.",
+      "wrongRepository": "현재 저장소의 GitHub origin에 있는 PR을 입력하세요.",
+      "ghMissing": "PR을 열려면 GitHub CLI(gh)를 설치하세요.",
+      "ghAuth": "gh auth login으로 GitHub CLI에 로그인한 뒤 다시 시도하세요.",
+      "notFound": "이 저장소에서 PR을 찾을 수 없습니다.",
+      "lookupFailed": "GitHub에서 PR 정보를 가져오지 못했습니다.",
+      "fetchFailed": "PR의 헤드 브랜치를 가져오지 못했습니다."
+    }
   }
 }

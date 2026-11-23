@@ -363,7 +363,8 @@ export interface AppState
   createWorkspace: (args: {
     name: string;
     label?: string;
-    mode: "branch" | "clean";
+    mode: "branch" | "clean" | "pr";
+    prReference?: string;
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
     initCommand?: string;

@@ -382,3 +382,9 @@ interface WorkspacePrInfo {
 - **Webhook-based updates**: Replace polling with GitHub webhook push for real-time status
 - **Archive workspace on merge**: Prompt user to archive workspace after PR is merged
 - **Cross-repository PR view**: Aggregate PR status across all recent repositories in sidebar
+
+## Open a workspace from a PR
+
+From **New workspace**, select **Open From Pull Request** and enter a GitHub PR URL or a number such as `#123`. Stave uses the current project's GitHub origin and the signed-in GitHub CLI. Leave the workspace branch name blank to use the PR head's name, or choose another name if Git reports a collision. Stave links the PR in Information and uses that exact PR in the status control.
+
+A same-repository workspace tracks the remote head branch. A fork workspace tracks GitHub's PR head ref and disables pushing. PR workspaces skip automatic dependency preparation and setup. Review the checkout before running setup commands.

@@ -13,6 +13,7 @@ import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/Cre
 import { overlaySurface } from "@/components/aui/recipes/overlay-surface";
 import { cx, sx } from "@/components/aui/utils/stylex";
 import { Badge, Button, Input, Textarea, toast } from "@/components/ui";
+import { parseWorkspacePrReference } from "@/lib/workspace-pr-checkout";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { createWorkspaceStyles } from "./create-workspace-dialog.styles";
 import { Trans, useTranslation } from "@/i18n";
@@ -28,7 +29,8 @@ interface CreateWorkspaceDialogProps {
   onCreateWorkspace: (args: {
     name: string;
     label?: string;
-    mode: "branch" | "clean";
+    mode: "branch" | "clean" | "pr";
+    prReference?: string;
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
     initCommand?: string;
@@ -48,7 +50,7 @@ interface CreateWorkspaceDialogProps {
   }>;
 }
 
-type CreateWorkspaceCreationMode = "branch" | "clean" | "link";
+type CreateWorkspaceCreationMode = "branch" | "clean" | "link" | "pr";
 
 function resolveSelectedBranchKind(args: {
   branch: string;
@@ -72,6 +74,7 @@ export function CreateWorkspaceDialog({
   const { t } = useTranslation(["workspace", "common"]);
   const [workspaceName, setWorkspaceName] = useState("");
   const [workspaceLabel, setWorkspaceLabel] = useState("");
+  const [prReference, setPrReference] = useState("");
   const [worktreePath, setWorktreePath] = useState("");
   const [createWorkspaceError, setCreateWorkspaceError] = useState<
     string | null
@@ -186,6 +189,7 @@ export function CreateWorkspaceDialog({
       return;
     }
     setWorkspaceName("");
+    setPrReference("");
     setWorkspaceLabel("");
     setWorktreePath("");
     setCreateWorkspaceError(null);
@@ -250,6 +254,10 @@ export function CreateWorkspaceDialog({
   }
 
   async function handleCreateWorkspace() {
+    if (creationMode === "pr" && !parseWorkspacePrReference(prReference)) {
+      setCreateWorkspaceError(t("prCheckout.errors.invalidReference"));
+      return;
+    }
     setCreatingWorkspace(true);
     setCreateWorkspaceError(null);
     try {
@@ -263,6 +271,7 @@ export function CreateWorkspaceDialog({
               name: workspaceName,
               label: workspaceLabel,
               mode: creationMode,
+              prReference: creationMode === "pr" ? prReference.trim() : undefined,
               fromBranch,
               fromBranchKind,
               initCommand,
@@ -376,10 +385,11 @@ export function CreateWorkspaceDialog({
           {creationMode !== "link" ? (
             <div className={sx(createWorkspaceStyles.field)}>
               <p className={sx(createWorkspaceStyles.fieldLabel)}>
-                {t("createDialog.branchNameLabel")}
+                {creationMode === "pr" ? t("prCheckout.optionalBranch") : t("createDialog.branchNameLabel")}
               </p>
               <Input
                 autoFocus
+                aria-label={creationMode === "pr" ? t("prCheckout.optionalBranch") : t("createDialog.branchNameLabel")}
                 value={workspaceName}
                 placeholder="feature/your-workspace"
                 onChange={(event) => setWorkspaceName(event.target.value)}
@@ -535,8 +545,23 @@ export function CreateWorkspaceDialog({
                 </div>
               ) : null}
             </div>
+            <div role="radio" aria-checked={creationMode === "pr"} className={sx(
+              createWorkspaceStyles.modeCard,
+              creationMode === "pr" ? createWorkspaceStyles.modeCardSelected : createWorkspaceStyles.modeCardIdle,
+            )}>
+              <AuiButton layout="host" type="button" onClick={() => setCreationMode("pr")} xstyle={createWorkspaceStyles.modeTrigger}>
+                <span className={sx(createWorkspaceStyles.modeTitlePlain)}>{t("prCheckout.method")}</span>
+              </AuiButton>
+              {creationMode === "pr" ? (
+                <div className={sx(createWorkspaceStyles.subBlock)}>
+                  <Input aria-label={t("prCheckout.reference")} placeholder={t("prCheckout.placeholder")}
+                    value={prReference} onChange={(event) => setPrReference(event.target.value)} xstyle={createWorkspaceStyles.textInput} />
+                  <p className={sx(createWorkspaceStyles.fieldHint)}>{t("prCheckout.forkPolicy")}</p>
+                </div>
+              ) : null}
+            </div>
           </div>
-          {creationMode !== "link" ? (
+          {creationMode !== "link" && creationMode !== "pr" ? (
             <>
               <div className={sx(createWorkspaceStyles.section)}>
                 <p className={sx(createWorkspaceStyles.fieldLabel)}>
@@ -642,7 +667,7 @@ export function CreateWorkspaceDialog({
             </Button>
           </div>
           {createWorkspaceError ? (
-            <p className={sx(createWorkspaceStyles.error)}>
+            <p role="alert" className={sx(createWorkspaceStyles.error)}>
               {createWorkspaceError}
             </p>
           ) : null}

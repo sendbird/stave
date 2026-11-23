@@ -1449,6 +1449,7 @@ interface SourceControlCommandResult {
 }
 
 interface WindowSourceControlApi {
+  checkoutWorkspacePr?: (args: import("@/lib/workspace-pr-checkout").WorkspacePrCheckoutArgs) => Promise<import("@/lib/workspace-pr-checkout").WorkspacePrCheckoutResult>;
   createWorktree?: (args: import("@/lib/git-worktree-creation").GitWorktreeCreateArgs) => Promise<import("@/lib/git-worktree-creation").WorktreeCreationFailure | null>;
   seedWorktreeDependencies?: (args: import("@/lib/worktree-dependencies").WorktreeDependenciesArgs) => Promise<import("@/lib/worktree-dependencies").WorktreeDependenciesResult>;
   getStatus?: (args: { cwd?: string }) => Promise<SourceControlStatusResult>;
@@ -1605,7 +1606,7 @@ interface WindowSourceControlApi {
     remote?: string;
     force?: boolean;
     cwd?: string;
-  }) => Promise<SourceControlCommandResult>;
+  }) => Promise<SourceControlCommandResult & { reason?: import("@/lib/workspace-pr-checkout").WorkspacePrPushReason }>;
   createPR?: (args: {
     title: string;
     body?: string;

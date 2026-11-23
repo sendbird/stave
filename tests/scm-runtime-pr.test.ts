@@ -293,6 +293,20 @@ describe("fetchGitHubPrStatus", () => {
     expect(calls.some((line) => line.startsWith("gh pr view"))).toBe(false);
   });
 
+  test("uses the exact linked PR for a workspace with a different local branch name", async () => {
+    invalidateGhAuthCache();
+    const { run, calls } = scriptedRunner((command, args) => {
+      if (command === "gh" && args[0] === "auth") return ok("authenticated");
+      if (command === "git" && args[0] === "rev-parse") return ok("review-copy");
+      if (command === "git" && args[0] === "config") return ok(merged.url);
+      if (command === "gh" && args[1] === "view" && args[2] === merged.url) return ok(JSON.stringify(merged));
+      return undefined;
+    });
+
+    expect((await fetchGitHubPrStatus({ cwd, runCommand: run })).pr?.number).toBe(merged.number);
+    expect(calls.some((line) => line.startsWith("gh pr list"))).toBe(false);
+  });
+
   test("drops a merged PR once the reused branch has new local commits", async () => {
     invalidateGhAuthCache();
     const { run } = scriptedRunner((command, args) => {

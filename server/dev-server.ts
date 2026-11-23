@@ -1,3 +1,5 @@
+import { WorkspacePrCheckoutArgsSchema } from "../src/lib/workspace-pr-checkout";
+import { checkoutWorkspacePr } from "../electron/host-service/workspace-pr-checkout";
 import { GitWorktreeCreateArgsSchema } from "../src/lib/git-worktree-creation";
 import { createGitWorktree } from "../electron/shared/git-worktree-create";
 import { randomUUID } from "node:crypto";
@@ -448,6 +450,11 @@ const server = Bun.serve({
           .filter(Boolean)
           .join("\n"),
       });
+    }
+
+    if (url.pathname === "/api/scm/checkout-workspace-pr" && req.method === "POST") {
+      const args = WorkspacePrCheckoutArgsSchema.safeParse(await readJson<unknown>(req));
+      return json(args.success ? await checkoutWorkspacePr(args.data) : { ok: false, code: "invalidReference" });
     }
 
     if (url.pathname === "/api/scm/create-worktree" && req.method === "POST") {
