@@ -34,7 +34,12 @@ import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/provi
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
 import type { RepositoryMemoryControlsApi } from "../src/lib/repository-memory-settings";
-import { contextBridge, ipcRenderer, webUtils } from "electron";
+import type {
+  LensGuestViewportRequest,
+  LensGuestViewportResult,
+  LensViewportArgs,
+} from "../src/lib/lens/lens-viewport";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
@@ -3131,6 +3136,17 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("lens:set-presented", args) as Promise<{
         ok: boolean;
       }>,
+    getHostZoomFactor: () => webFrame.getZoomFactor(),
+    setViewportWidth: (args: LensViewportArgs) =>
+      ipcRenderer.invoke("lens:set-viewport-width", args) as Promise<{ ok: boolean }>,
+    subscribeGuestViewport: (listener: (payload: LensGuestViewportRequest) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: LensGuestViewportRequest) => listener(payload);
+      ipcRenderer.on("lens:guest-viewport", handler);
+      return () => { ipcRenderer.removeListener("lens:guest-viewport", handler); };
+    },
+    reportGuestViewport: (payload: LensGuestViewportResult) => {
+      ipcRenderer.send("lens:guest-viewport-result", payload);
+    },
     subscribeCapturePaint: (listener: (payload: LensCapturePaintRequest) => void) => {
       const handler = (_event: Electron.IpcRendererEvent, payload: LensCapturePaintRequest) => listener(payload);
       ipcRenderer.on("lens:capture-paint", handler);

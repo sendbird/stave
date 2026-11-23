@@ -1211,6 +1211,8 @@ Stave를 다시 열면 더 이상 답할 수 없는 요청은 기록에 남고, 
 
 편집 한도를 넘는 UTF-8 텍스트 파일은 읽기 전용으로 열립니다. **이전 구간**과 **다음 구간**으로 내용을 살피고, **파일에서 찾기**로 입력한 문자열을 그대로 검색합니다. **최신 내용 따라가기**를 켜면 새 출력이 추가될 때 끝으로 이동합니다. 줄 번호가 있는 대화 링크는 해당 줄로 이동합니다. 터미널 색상 코드는 제거합니다. 읽는 중 파일이 바뀌면 **다시 읽기**를 눌러 최신 버전을 엽니다.
 
+Lens 미리보기에서 **맞춤** 메뉴를 열고 **390픽셀**, **820픽셀**, **1280픽셀** 중 하나를 골라 반응형 레이아웃을 확인합니다. 패널보다 넓은 미리보기는 전체 너비가 보이도록 축소됩니다. 패널 너비를 다시 따르려면 **맞춤**을 선택합니다.
+
 화면 보기: [명령 팔레트](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/command-palette.png) · [워크스페이스 도구](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/workspace-tools.png) · [정보 패널](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/information-panel.png) · [Lens 도구 막대](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/lens.png) · [설정 > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/ko/settings-mcp.png)
 
 ```callout tip "로컬 MCP 서버를 켜 두세요"

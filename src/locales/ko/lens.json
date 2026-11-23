@@ -48,6 +48,11 @@
     "latestCapture": "최근 세션 캡처 · {{time}}. 이 도구 호출을 재생한 결과가 아닙니다."
   },
   "lensChrome": {
+    "viewportFit": "맞춤",
+    "viewportPixels": "{{width}}픽셀",
+    "viewportWidth": "뷰포트 너비",
+    "viewportWidthControl": "뷰포트 너비: {{width}}",
+    "viewportResizeFailed": "Lens 뷰포트 너비를 변경하지 못했습니다.",
     "goBack": "뒤로 이동",
     "back": "뒤로",
     "goForward": "앞으로 이동",

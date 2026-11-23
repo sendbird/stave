@@ -49,6 +49,11 @@
     "latestCapture": "Latest session capture · {{time}}. Not a replay of this tool call."
   },
   "lensChrome": {
+    "viewportFit": "Fit",
+    "viewportPixels": "{{width}} px",
+    "viewportWidth": "Viewport width",
+    "viewportWidthControl": "Viewport width: {{width}}",
+    "viewportResizeFailed": "Lens could not change the viewport width.",
     "goBack": "Go back",
     "back": "Back",
     "goForward": "Go forward",

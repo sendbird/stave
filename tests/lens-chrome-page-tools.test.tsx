@@ -44,6 +44,7 @@ function renderChrome(args: {
           isUrlInputFocused,
         },
         panelTab: args.panelTab,
+        viewport: { width: "fit", setWidth: noop },
         onPanelTabChange: noop,
         consoleEntryCount: 12,
         networkEntryCount: 1,

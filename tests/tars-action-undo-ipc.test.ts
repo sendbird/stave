@@ -8,6 +8,7 @@ test("Undo validates caller identity through actual preload and IPC, with no cal
     mock.module("electron", () => ({
       contextBridge: { exposeInMainWorld: (name, value) => { if (name === "api") api = value; } },
       ipcRenderer: { on() {}, removeListener() {}, invoke: async (channel, input) => handlers.get(channel)(null, input) },
+      webFrame: { getZoomFactor: () => 1 },
       webUtils: { getPathForFile: () => "" }, webContents: { getAllWebContents: () => [] },
       ipcMain: { handle: (channel, fn) => handlers.set(channel, fn) },
     }));

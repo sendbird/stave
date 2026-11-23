@@ -1,3 +1,5 @@
+import { LensViewportArgsSchema } from "../../../src/lib/lens/lens-viewport";
+import { resolveLensGuestViewport, setLensViewportWidth } from "../browser/browser-viewport";
 import { resolveLensCapturePaint } from "../browser/browser-capture-paint";
 import { registerLensReviewHandlers } from "./lens-review";
 import { readLensComponentContext } from "../browser/browser-component-context";
@@ -185,6 +187,23 @@ export function registerBrowserHandlers() {
   ipcMain.on("lens:capture-paint-result", (event, payload: unknown) => {
     if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) return;
     resolveLensCapturePaint(payload, event.sender.id);
+  });
+  ipcMain.on("lens:guest-viewport-result", (event, payload: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) return;
+    resolveLensGuestViewport(payload);
+  });
+  handleLens("lens:set-viewport-width", async (_event, args: unknown) => {
+    const parsed = LensViewportArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false };
+    const { workspaceId, lensSessionId, width } = parsed.data;
+    const session = getBrowserSession(workspaceId, lensSessionId);
+    if (!session) return { ok: false };
+    try {
+      await setLensViewportWidth(session, width);
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
   });
   registerLensReviewHandlers();
   // ---- Saved accounts: secrets stay in the Electron main-process vault ----

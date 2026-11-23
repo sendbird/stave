@@ -7,6 +7,7 @@ import {
   waitForBrowserSessionClose,
   type BrowserSessionState,
 } from "./browser-manager";
+import { getLensViewportWidth } from "./browser-viewport-state";
 import { restoreLensSessionUrl } from "./browser-session-recovery";
 import type {
   LensGuestFocusRequestPayload,
@@ -310,6 +311,7 @@ export async function ensureBrowserSessionGuest(
     workspaceId,
     lensSessionId,
     partition: sessionProfile.partition,
+    viewportWidth: getLensViewportWidth(workspaceId, lensSessionId),
     sessionScope: sessionProfile.scope,
     repositoryKey: options?.repositoryKey ?? null,
   });

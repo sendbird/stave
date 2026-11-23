@@ -1285,6 +1285,8 @@ tail** to keep the newest output in view. Chat links with a line number jump to
 that line. Terminal color codes are stripped. If the file changes while you
 browse, choose **Reload** to start reading the latest revision.
 
+In Lens Preview, open the **Fit** menu and choose **390 px**, **820 px**, or **1280 px** to check a responsive layout. Lens scales wider previews to fit the pane. Select **Fit** to follow the pane width again.
+
 Screens: [Command palette](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/command-palette.png) · [Workspace Tools](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-tools.png) · [Information panel](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/information-panel.png) · [Lens toolbar](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/lens.png) · [Settings > MCP](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/settings-mcp.png)
 
 ```callout tip "Keep the Local MCP Server on"

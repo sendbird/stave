@@ -1,5 +1,6 @@
 import { Loader } from "@/components/ui";
 import { i18n, useTranslation } from "@/i18n";
+import { formatNumber } from "@/i18n/format";
 import { chromeStyles } from "./lens-chrome.styles";
 import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "../../../aui/utils/stylex";
@@ -7,6 +8,7 @@ import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import {
   ArrowLeft,
   ArrowRight,
+  ChevronDown,
   Crosshair,
   Globe,
   Maximize2,
@@ -28,6 +30,11 @@ import {
 } from "react";
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
@@ -42,6 +49,7 @@ import { useLensChromeCompact } from "@/components/panes/surfaces/lens/useLensCh
 import type { LensOverlayModesHandle } from "@/components/panes/surfaces/lens/useLensOverlayModes";
 import { formatLensAddressForDisplay } from "@/lib/lens/lens-address";
 import { LENS_LOG_LIMIT, type LensPanelTab } from "@/lib/lens/lens-log-format";
+import { LENS_VIEWPORT_WIDTHS, LensViewportWidthSchema, type LensViewportWidth } from "@/lib/lens/lens-viewport";
 import type { LensDownloadEntry } from "@/lib/lens/lens.types";
 
 /**
@@ -134,6 +142,10 @@ export function LensChrome(props: {
   pageLinks: LensChromePageLinks;
   fullView: LensChromeFullView;
   onFloatingSurfaceOpenChange: (open: boolean) => void;
+  viewport: {
+    width: LensViewportWidth;
+    setWidth: (width: LensViewportWidth) => void;
+  };
 }) {
   useTranslation();
   const {
@@ -190,6 +202,13 @@ export function LensChrome(props: {
   }, [isAddressFocused, urlInputRef]);
   const hasPage = !lensPageActionDisabled;
   const onPreview = lensPanelTab === "preview";
+  const viewportWidth = props.viewport.width;
+  const viewportLabel = (width: LensViewportWidth) =>
+    width === "fit"
+      ? i18n.t("lens:lensChrome.viewportFit")
+      : i18n.t("lens:lensChrome.viewportPixels", {
+        width: formatNumber(width, { useGrouping: false }),
+      });
   const previewOnlyTooltip = i18n.t("lens:lensChrome.availableInPreview");
   const pickerUnavailable = pickerDisabled || !onPreview;
   const commentsUnavailable =
@@ -494,6 +513,44 @@ export function LensChrome(props: {
             );
           })}
         </div>
+
+        <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={!hasLensApi || !hasPage || !onPreview}
+                aria-label={i18n.t("lens:lensChrome.viewportWidthControl", {
+                  width: viewportLabel(viewportWidth),
+                })}
+                data-testid="lens-viewport-width"
+              />
+            }
+          >
+            {viewportLabel(viewportWidth)}
+            <ChevronDown aria-hidden className={sx(chromeStyles.compactIcon)} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuRadioGroup
+              aria-label={i18n.t("lens:lensChrome.viewportWidth")}
+              value={String(viewportWidth)}
+              onValueChange={(value) => {
+                const width = LensViewportWidthSchema.parse(
+                  value === "fit" ? value : Number(value),
+                );
+                props.viewport.setWidth(width);
+              }}
+            >
+              {LENS_VIEWPORT_WIDTHS.map((width) => (
+                <DropdownMenuRadioItem key={width} value={String(width)} closeOnClick>
+                  {viewportLabel(width)}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <LensChromeMenu
           capture={capture}

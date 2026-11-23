@@ -17,9 +17,8 @@
  *
  * Emulating the media features below is unaffected, because
  * `Emulation.setEmulatedMedia` does not touch the widget at all. The honest
- * split is therefore to ship what works rather than a viewport parameter that
- * reports success and changes nothing; sizing a DOM-hosted guest is a renderer
- * concern — its element's width — and belongs with the placement code, not here.
+ * split is to keep appearance here and size the actual guest element in
+ * lens-guest-host.ts for fixed-width responsive checks.
  *
  * The policy is pure so the CDP sequence can be tested without a browser, and
  * so the one property that trips people up is stated once: **emulation lives on

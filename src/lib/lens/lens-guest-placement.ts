@@ -1,12 +1,11 @@
+import type { LensViewportWidth } from "./lens-viewport";
 import type { LensBounds } from "./lens.types";
 
 /**
  * Where a Lens guest element sits, and whether it is on screen.
  *
- * A guest is a DOM element, so "where" is CSS pixels in the host document and
- * nothing converts, scales, or rounds them: the element occupies exactly the
- * rectangle the panel measured, and the app's own chrome stacks over it by
- * z-index like any other content.
+ * Pane measurements and guest placement are in host CSS pixels. A fixed
+ * viewport can lay out wider than the pane and be scaled for presentation.
  */
 export type LensGuestPlacement = {
   /** Last rectangle a panel measured for this session, if any ever did. */
@@ -91,6 +90,26 @@ export function resolveLensGuestStyle(
     height: `${height}px`,
     opacity: shown ? "1" : "0",
     pointerEvents: shown ? "auto" : "none",
+  };
+}
+
+/**
+ * Size the actual element for responsive layout, then scale its painted box
+ * when the pane is narrower. The pane still owns its overlay chrome.
+ */
+export function resolveLensFixedGuestStyle(
+  pane: LensGuestStyle,
+  width: Exclude<LensViewportWidth, "fit">,
+  zoomRatio: number,
+): { left: string; width: string; transform: string } {
+  const paneWidth = Number.parseFloat(pane.width);
+  const guestWidth = width * zoomRatio;
+  const scale = Math.min(1, paneWidth / guestWidth);
+  const inset = Math.max(0, (paneWidth - guestWidth) / 2);
+  return {
+    left: `${Number.parseFloat(pane.left) + inset}px`,
+    width: `${guestWidth}px`,
+    transform: scale < 1 ? `scale(${scale})` : "",
   };
 }
 

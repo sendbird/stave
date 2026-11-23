@@ -84,6 +84,7 @@ function renderChrome(fullView: LensChromeFullView, url = "http://localhost:5173
           isUrlInputFocused,
         },
         panelTab: "preview",
+        viewport: { width: "fit", setWidth: noop },
         onPanelTabChange: noop,
         consoleEntryCount: 4,
         networkEntryCount: 0,

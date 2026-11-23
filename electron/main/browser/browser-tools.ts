@@ -1,3 +1,5 @@
+import { LensViewportArgsSchema, type LensViewport } from "../../../src/lib/lens/lens-viewport";
+import { readLensViewport, setLensViewportWidth } from "./browser-viewport";
 import { buildToolImageReferenceText } from "../../../src/lib/tool-images/tool-images";
 import { getToolImageStore } from "../tool-images/tool-image-service";
 import { controlledLensTools } from "./browser-controlled-tools";
@@ -439,12 +441,31 @@ export function registerBrowserTools(rawServer: McpServer): void {
     },
   );
 
+  server.registerTool(
+    "stave_lens_set_viewport",
+    {
+      description:
+        "Set a Lens session's responsive layout width to 390, 820, or 1280 CSS pixels, or use fit to follow the pane. Returns the measured page viewport. The width stays set for this session until changed.",
+      inputSchema: LensViewportArgsSchema.shape,
+    },
+    async ({ workspaceId, lensSessionId, width }) => {
+      const session = await acquireSession(workspaceId, lensSessionId);
+      const viewport = await withLensAction(
+        session.webContents.id,
+        "stave_lens_set_viewport",
+        String(width),
+        () => setLensViewportWidth(session, width),
+      );
+      return toStructuredResult({ ok: true, width, viewport });
+    },
+  );
+
   // ---- Screenshot ----
   server.registerTool(
     "stave_lens_screenshot",
     {
       description:
-        "Take a screenshot of the current page in the workspace Lens browser. Prefer selector screenshots for focused visual checks. Returns a base64-encoded PNG data URL.",
+        "Take a screenshot of the current page in the workspace Lens browser. Prefer selector screenshots for focused visual checks. Returns a PNG and the page's measured viewport in CSS pixels.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         lensSessionId: z
@@ -475,10 +496,12 @@ export function registerBrowserTools(rawServer: McpServer): void {
       }
 
       const session = await acquireSession(workspaceId, lensSessionId);
-      const dataUrl = await captureScreenshot(session.webContents.id, {
-        fullPage,
-        selector,
-      }).finally(() => {
+      let viewport: LensViewport | undefined;
+      const dataUrl = await captureScreenshot(
+        session.webContents.id,
+        { fullPage, selector },
+        { prepare: async () => { viewport = await readLensViewport(session.webContents); } },
+      ).finally(() => {
         // Automatic presentation can resize the guest. Let the screenshot
         // finish first so its own presentation request cannot cancel it.
         requestLensAgentActivityPresentation(session, "stave_lens_screenshot");
@@ -492,10 +515,15 @@ export function registerBrowserTools(rawServer: McpServer): void {
         .catch(() => null);
 
       return {
+        structuredContent: { viewport },
         content: [
           ...(reference
             ? [{ type: "text" as const, text: buildToolImageReferenceText(reference) }]
             : []),
+          {
+            type: "text" as const,
+            text: JSON.stringify({ viewport }),
+          },
           {
             type: "image" as const,
             data: base64,
@@ -959,7 +987,7 @@ export function registerBrowserTools(rawServer: McpServer): void {
     "stave_lens_snapshot",
     {
       description:
-        "Snapshot the current page as an indented accessibility outline with a `ref` on every element you can act on. Use this as the first Lens read, before raw HTML, console, or network dumps, and pass the refs it returns to stave_lens_click, _type, _inspect, _get_text, and _set_style. Refs are minted per snapshot and die with the document, so a ref that no longer describes the page fails loudly instead of acting on the wrong element. Nodes new since the previous snapshot of the same page are marked `*`.",
+        "Snapshot the current page as an indented accessibility outline with a `ref` on every element you can act on. Use this as the first Lens read, before raw HTML, console, or network dumps, and pass the refs it returns to stave_lens_click, _type, _inspect, _get_text, and _set_style. Refs are minted per snapshot and die with the document, so a ref that no longer describes the page fails loudly instead of acting on the wrong element. Nodes new since the previous snapshot of the same page are marked `*`. Includes the page's measured viewport in CSS pixels.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         lensSessionId: z
@@ -1042,6 +1070,7 @@ export function registerBrowserTools(rawServer: McpServer): void {
         return toStructuredResult({
           ok: true,
           degraded: true,
+          viewport: await readLensViewport(session.webContents),
           message: `Ref-based snapshot unavailable, returning the raw tree: ${
             error instanceof Error ? error.message : String(error)
           }`,
@@ -1053,6 +1082,7 @@ export function registerBrowserTools(rawServer: McpServer): void {
         ok: true,
         url: snapshot.url,
         title: snapshot.title,
+        viewport: await readLensViewport(session.webContents),
         loading: session.navigationState.isLoading,
         refCount: snapshot.refCount,
         truncated: snapshot.truncated,
@@ -1141,7 +1171,7 @@ export function registerBrowserTools(rawServer: McpServer): void {
     "stave_lens_set_appearance",
     {
       description:
-        "Emulate `prefers-color-scheme` and `prefers-reduced-motion` for the workspace Lens page, so a dark theme or a reduced-motion layout can be checked without changing the user's machine settings. Incremental: setting one keeps the other. Survives a page reload, and is dropped when a session is rebuilt. Call with `reset: true` to return the page to the machine's own settings. Note that viewport size is not emulable for a Lens page — Electron sizes the guest from its element and overrides any CDP metrics override.",
+        "Emulate `prefers-color-scheme` and `prefers-reduced-motion` for the workspace Lens page, so a dark theme or a reduced-motion layout can be checked without changing the user's machine settings. Incremental: setting one keeps the other. Survives a page reload, and is dropped when a session is rebuilt. Call with `reset: true` to return the page to the machine's own settings. Use stave_lens_set_viewport to change layout width.",
       inputSchema: {
         workspaceId: z.string().describe("Target workspace ID"),
         lensSessionId: z

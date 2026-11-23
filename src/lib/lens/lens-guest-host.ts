@@ -15,8 +15,11 @@ import {
   areLensGuestRectsEqual,
   isLensGuestVisuallyPresented,
   resolveLensGuestStyle,
+  resolveLensFixedGuestStyle,
+  type LensGuestStyle,
   type LensGuestPlacement,
 } from "./lens-guest-placement";
+import type { LensGuestViewportRequest, LensViewportWidth } from "./lens-viewport";
 import type { LensCapturePaintRequest, LensBounds } from "./lens.types";
 
 /**
@@ -43,6 +46,7 @@ import type { LensCapturePaintRequest, LensBounds } from "./lens.types";
 type LensGuestElement = HTMLElement & {
   /** Valid only after `did-attach`; throws before the guest exists. */
   getWebContentsId(): number;
+  getZoomFactor(): number;
 };
 
 export type LensGuestIdentity = {
@@ -81,12 +85,68 @@ type GuestRecord = {
   /** Resolves with the guest's WebContents id once it has attached. */
   attached: Promise<number>;
   captureRequests: Set<string>;
+  viewportWidth: LensViewportWidth;
+  zoomRatio: number;
+  geometryDirty: boolean;
   placement: LensGuestPlacement;
   /** Last style object written, so unchanged layout writes nothing. */
-  appliedStyle: ReturnType<typeof resolveLensGuestStyle> | null;
+  appliedStyle: LensGuestStyle | null;
 };
 
 const guests = new Map<string, GuestRecord>();
+const viewportListeners = new Set<() => void>();
+
+export function subscribeLensGuestViewport(listener: () => void): () => void {
+  viewportListeners.add(listener);
+  return () => { viewportListeners.delete(listener); };
+}
+
+export function getLensGuestViewportWidth(identity: LensGuestIdentity): LensViewportWidth {
+  return guests.get(lensGuestKey(identity))?.viewportWidth ?? "fit";
+}
+
+function notifyViewportListeners(): void {
+  for (const listener of viewportListeners) listener();
+}
+
+function refreshGuestZoom(record: GuestRecord): void {
+  try {
+    const hostZoom = window.api?.lens?.getHostZoomFactor?.() ?? 1;
+    record.zoomRatio = record.element.getZoomFactor() / hostZoom;
+  } catch {
+    // The element can receive a width before Electron has attached the guest.
+  }
+}
+
+export function refreshLensFixedGuestZoom(): void {
+  for (const [key, record] of guests) {
+    if (record.viewportWidth === "fit") continue;
+    refreshGuestZoom(record);
+    record.geometryDirty = true;
+    applyPlacement(key);
+  }
+}
+
+export function applyLensGuestViewport(request: LensGuestViewportRequest): number | null {
+  const key = lensGuestKey(request);
+  const record = guests.get(key);
+  if (!record) return null;
+  try {
+    if (record.element.getWebContentsId() !== request.webContentsId) return null;
+  } catch {
+    return null;
+  }
+
+  const widthChanged = record.viewportWidth !== request.width;
+  record.viewportWidth = request.width;
+  record.geometryDirty = true;
+  refreshGuestZoom(record);
+  applyPlacement(key);
+  if (widthChanged) notifyViewportListeners();
+  return request.width === "fit"
+    ? Math.max(1, Math.round(record.element.clientWidth / record.zoomRatio))
+    : request.width;
+}
 
 /**
  * Sessions that currently have a mounted panel. A guest is revealed only while
@@ -197,6 +257,7 @@ function createGuestElement(descriptor: LensGuestDescriptor): LensGuestElement {
   element.setAttribute("allowpopups", "");
 
   element.style.position = "absolute";
+  element.style.transformOrigin = "top left";
   // Keep Electron's required `display: flex`. A block webview sizes its outer
   // box correctly but can leave the internal guest frame at content height.
   element.style.margin = "0";
@@ -311,6 +372,7 @@ function waitForAttach(element: LensGuestElement): Promise<number> {
  */
 export function ensureLensGuest(
   descriptor: LensGuestDescriptor,
+  viewportWidth: LensViewportWidth = "fit",
 ): Promise<number> {
   const key = lensGuestKey(descriptor);
   releaseLensGuest(descriptor);
@@ -318,15 +380,29 @@ export function ensureLensGuest(
   const element = createGuestElement(descriptor);
   const chromeLayer = createChromeLayer(descriptor);
   const attached = waitForAttach(element);
-  guests.set(key, {
+  const record: GuestRecord = {
     descriptor,
     element,
     chromeLayer,
     attached,
     captureRequests: new Set(),
+    viewportWidth,
+    zoomRatio: 1,
+    geometryDirty: false,
     placement: { rect: null, presented: false },
     appliedStyle: null,
-  });
+  };
+  guests.set(key, record);
+
+  const updateZoom = () => {
+    if (record.viewportWidth === "fit") return;
+    refreshGuestZoom(record);
+    record.geometryDirty = true;
+    applyPlacement(key);
+  };
+  element.addEventListener("dom-ready", updateZoom);
+  element.addEventListener("did-navigate", updateZoom);
+  notifyViewportListeners();
 
   applyPlacement(key);
   ensureSurfaceRoot().append(element, chromeLayer);
@@ -356,6 +432,7 @@ export function releaseLensGuest(identity: LensGuestIdentity): void {
   guests.delete(key);
   record.element.remove();
   record.chromeLayer.remove();
+  notifyViewportListeners();
 }
 
 /**
@@ -387,6 +464,7 @@ function applyPlacement(key: string): void {
   const guestOpacity = capturing ? "1" : style.opacity;
   const previous = record.appliedStyle;
   if (
+    !record.geometryDirty &&
     previous &&
     previous.left === style.left &&
     previous.top === style.top &&
@@ -400,10 +478,15 @@ function applyPlacement(key: string): void {
   }
 
   record.appliedStyle = { ...style, pointerEvents };
+  record.geometryDirty = false;
   const target = record.element.style;
-  target.left = style.left;
+  const geometry = record.viewportWidth === "fit"
+    ? { left: style.left, width: style.width, transform: "" }
+    : resolveLensFixedGuestStyle(style, record.viewportWidth, record.zoomRatio);
+  target.left = geometry.left;
   target.top = style.top;
-  target.width = style.width;
+  target.width = geometry.width;
+  target.transform = geometry.transform;
   target.height = style.height;
   target.opacity = guestOpacity;
   target.pointerEvents = pointerEvents;
