@@ -1,4 +1,11 @@
 import { applyBackgroundTaskEvents, settleBackgroundTasks, type BackgroundTaskEvent } from "./background-tasks";
+import {
+  observeProviderActivity,
+  TURN_STALL_GRACE_MS,
+  TURN_STALL_WARNING_MS,
+  type ProviderActivityEvidence,
+  type TurnStallEvidence,
+} from "./turn-activity-evidence";
 import { i18n } from "@/i18n/runtime";
 import { formatDuration } from "@/i18n/format";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
@@ -32,32 +39,8 @@ import {
 } from "@/lib/work-graph/work-graph-reducer";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 
-/**
- * How long a turn can be silent (no events) before it is marked stalled in the
- * UI. Stalled turns are not auto-aborted at this point; this is only a
- * visibility signal. 5 minutes covers typical long-running Claude and Codex
- * operations (deep reasoning, multi-file edits, large tool calls) without
- * prematurely interrupting legitimate work.
- */
-export const PROVIDER_TURN_STALL_THRESHOLD_MS = 5 * 60 * 1000; // 5 min
-
-/**
- * Extra silence allowed *after* a turn is marked "stalled" before it is
- * force-aborted (see `createStalledProviderTurnAborter` in
- * `src/store/provider-turn-stall-abort.ts`).
- * A turn that is still silent 20 minutes (5 min stall + 15 min grace) after
- * its last event is treated as dead — a hung provider stream, a crashed
- * subprocess the runtime never detected, or a dropped event — rather than a
- * legitimately slow operation. Without this, a turn that never emits `done`
- * leaves its task (and workspace) marked "active" forever, since the stall
- * marker alone only changes the display state and never clears the active
- * turn id. Turns waiting on an approval / user-input prompt are exempt (see
- * `markProviderTurnStalled`'s `pendingInteraction` guard below) — those have
- * their own dedicated timeout paths per provider. That exemption is verified
- * against the task's message parts rather than trusted outright, so a prompt
- * that was resolved without the store noticing cannot exempt the turn forever.
- */
-export const PROVIDER_TURN_AUTO_ABORT_GRACE_MS = 15 * 60 * 1000; // 15 min
+export const PROVIDER_TURN_STALL_THRESHOLD_MS = TURN_STALL_WARNING_MS;
+export const PROVIDER_TURN_AUTO_ABORT_GRACE_MS = TURN_STALL_GRACE_MS;
 
 export function resolveProviderTurnStallThresholdMs(_args?: {
   providerId?: ProviderId | null;
@@ -118,6 +101,8 @@ export interface ProviderTurnActivitySnapshot {
   startedAt: number;
   lastEventAt: number;
   stalledAt: number | null;
+  activityEvidence?: ProviderActivityEvidence;
+  stallWarning?: TurnStallEvidence;
   pendingInteraction: ProviderTurnPendingInteraction | null;
   admission?: { state: "queued" | "running"; ahead: number };
   terminalReceipt?: TurnTerminalReceipt;
@@ -178,6 +163,7 @@ export function startProviderTurnActivity(args: {
       startedAt,
       lastEventAt: now,
       stalledAt: null,
+      activityEvidence: isSameTurn ? current.activityEvidence : undefined,
       pendingInteraction:
         args.pendingInteraction ??
         (isSameTurn ? current.pendingInteraction : null),
@@ -1115,6 +1101,10 @@ export function reduceProviderTurnActivityEvents(args: {
     startedAt,
     lastEventAt: now,
     stalledAt: null,
+    activityEvidence: args.events.reduce(
+      (evidence, event) => observeProviderActivity(evidence, event, now),
+      current?.turnId === args.turnId ? current.activityEvidence : undefined,
+    ),
     pendingInteraction: settleDecidedApprovals(pendingInteraction, args.events, workGraph),
     workItemsById: work.workItemsById,
     orderedWorkItemIds: work.orderedWorkItemIds,

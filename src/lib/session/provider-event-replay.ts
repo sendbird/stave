@@ -233,6 +233,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "prompt_suggestions":
     case "provider_session":
     case "turn_admission":
+    case "provider_activity":
     case "provider_turn":
     case "goal_status":
     case "history_boundary":
@@ -362,6 +363,7 @@ function normalizeEventToPart(args: {
       return createTextPart({ text: event.text, segmentId: event.segmentId });
     case "provider_session":
     case "turn_admission":
+    case "provider_activity":
     case "provider_turn":
     case "goal_status":
     case "delegated_usage":

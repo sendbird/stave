@@ -208,6 +208,7 @@ export function resolveTurnRunState(args: {
   steering: boolean;
   turnError: string | null;
   turnErrorRecoverable: boolean;
+  retrying?: boolean;
   completed: boolean;
   replayOutcome?: RetainedTurnOutcome;
 }): ShelfRunState {
@@ -230,6 +231,7 @@ export function resolveTurnRunState(args: {
   if (args.turnError) {
     return args.turnErrorRecoverable ? "retrying" : "failed";
   }
+  if (args.retrying) return "retrying";
   return args.isStalled ? "stalled" : "active";
 }
 
@@ -348,6 +350,7 @@ export interface ShelfTurnAlert {
 export function resolveShelfTurnAlert(args: {
   activity: Pick<
     ProviderTurnActivitySnapshot,
+    | "activityEvidence"
     | "completedAt"
     | "lastEventAt"
     | "pendingInteraction"
@@ -369,6 +372,7 @@ export function resolveShelfTurnAlert(args: {
     steering: args.steering,
     turnError,
     turnErrorRecoverable: activity?.turnErrorRecoverable ?? false,
+    retrying: activity?.activityEvidence?.retrying,
     completed,
   });
   if (tone !== "steering" && tone !== "stalled" && tone !== "retrying" && tone !== "failed") {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { NormalizedProviderEvent } from "./provider.types";
+import { TURN_STALL_WARNING_MS, TurnStallDecisionSchema, TurnStallEvidenceSchema } from "./turn-activity-evidence";
 
 /**
  * A turn's digest: the facts about it that exist only as provider events, so
@@ -18,12 +19,8 @@ import type { NormalizedProviderEvent } from "./provider.types";
 export const TURN_DIGEST_ENTRY_LIMIT = 64;
 /** And at most this many bytes of JSON per turn. */
 export const TURN_DIGEST_BYTE_LIMIT = 16 * 1024;
-/**
- * Silence this long between two events is recorded as a stall. It matches the
- * run line's stall threshold (`PROVIDER_TURN_STALL_THRESHOLD_MS`), so a turn
- * the shelf showed as stalled has a matching entry.
- */
-export const TURN_DIGEST_STALL_MS = 5 * 60 * 1000;
+/** Record an observed gap this long when no watchdog decision covered it. */
+export const TURN_DIGEST_STALL_MS = TURN_STALL_WARNING_MS;
 const TEXT_LIMIT = 400;
 const CHECK_FAILURE_LIMIT = 6;
 const CHECK_MESSAGE_LIMIT = 200;
@@ -35,7 +32,16 @@ const AtSchema = z.string().min(1).max(64);
 const TextSchema = z.string().max(TEXT_LIMIT);
 const CountSchema = z.number().int().min(1);
 
+export const TurnWatchdogEntrySchema = z.object({
+  kind: z.literal("watchdog"),
+  at: z.iso.datetime(),
+  silentMs: z.number().int().nonnegative(),
+  decision: TurnStallDecisionSchema,
+  evidence: TurnStallEvidenceSchema,
+});
+
 export const TurnDigestEntrySchema = z.discriminatedUnion("kind", [
+  TurnWatchdogEntrySchema,
   /** A provider error the turn did not recover from. */
   z.object({
     kind: z.literal("error"),
@@ -195,6 +201,7 @@ function byteLength(digest: TurnDigest) {
 const EVICTION_ORDER: readonly TurnDigestEntryKind[] = [
   "retry",
   "stall",
+  "watchdog",
   "route",
   "account",
   "error",
@@ -247,6 +254,9 @@ export function turnDigestEntryForEvent(
   event: NormalizedProviderEvent,
   at: string,
 ): TurnDigestEntry | null {
+  if (event.type === "provider_activity" && event.activity.kind === "transport_exit") {
+    return { kind: "watchdog", at, silentMs: 0, decision: "abort", evidence: { kind: "transport_exit" } };
+  }
   if (event.type === "error") {
     const message = bound(event.message || "", TEXT_LIMIT);
     return { kind: event.recoverable ? "retry" : "error", at, message, count: 1 };
@@ -312,6 +322,7 @@ export function observeTurnDigestAccount(args: {
 
 /** The decision an event asks the user for (an approval or a question), or null. */
 function turnDigestWaitRequestId(event: NormalizedProviderEvent) {
+  if (event.type === "user_input" && event.delivery === "async") return null;
   if (event.type !== "approval" && event.type !== "user_input") return null;
   return bound(event.requestId, ID_LIMIT) || null;
 }
@@ -396,6 +407,8 @@ export function turnDigestStallEntry(args: {
   endsTurn: boolean;
   /** An approval or question was open through the silence. */
   waiting?: boolean;
+  /** Decisions already saved by the live watchdog. */
+  entries?: readonly TurnDigestEntry[];
   /** When the turn last stopped waiting on the user. */
   resumedAt?: string | null;
 }): TurnDigestEntry | null {
@@ -404,6 +417,11 @@ export function turnDigestStallEntry(args: {
     args.resumedAt && Date.parse(args.resumedAt) > Date.parse(args.previousAt) ? args.resumedAt : args.previousAt;
   const silentMs = Date.parse(args.at) - Date.parse(start);
   if (!Number.isFinite(silentMs) || silentMs < TURN_DIGEST_STALL_MS) return null;
+  if (args.entries?.some((entry) =>
+    entry.kind === "watchdog" &&
+    Date.parse(entry.at) >= Date.parse(start) &&
+    Date.parse(entry.at) <= Date.parse(args.at)
+  )) return null;
   return { kind: "stall", at: start, silentMs: Math.round(silentMs), endedTurn: args.endsTurn };
 }
 

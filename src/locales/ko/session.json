@@ -1156,6 +1156,22 @@
     "readFailed": "턴 기록을 읽지 못했습니다.",
     "didNotFinish": "완료되지 않음"
   },
+  "turnWatchdog": {
+    "tool": "{{name}} 도구가 {{duration}} 동안 실행 중입니다.",
+    "background_other": "백그라운드 작업 {{count}}개가 실행 중입니다.",
+    "approval": "승인을 기다리고 있습니다.",
+    "userInput": "답변을 기다리고 있습니다.",
+    "retry": "프로바이더가 다시 시도 중입니다.",
+    "transportExit": "턴을 실행하는 중에 프로바이더 프로세스나 연결이 종료되었습니다.",
+    "silence": "보고된 프로바이더 활동이 없습니다.",
+    "wait": "계속 대기함",
+    "warn": "{{duration}} 동안 업데이트가 없어 계속 대기함",
+    "quietWork": "작업이 평소보다 오래 걸리고 있습니다",
+    "offer": "새 메시지로 계속할 수 있게 안내함",
+    "abort": "턴 중단됨",
+    "stopTransport": "프로바이더 연결이 종료되어 응답 생성이 중단되었습니다.",
+    "stopSilence": "프로바이더가 오랫동안 업데이트를 보내지 않아 응답 생성이 자동으로 중단되었습니다."
+  },
   "turnRecord": {
     "ariaLabel": "이전 턴 {{id}}",
     "badge": "저장된 기록",

@@ -167,7 +167,7 @@ async function setupBackgroundTurn() {
  * need to wait 20 real minutes. Anything scheduled with a much shorter delay
  * (debounces, etc.) is left untouched. Callers restore `globalThis.setTimeout`.
  */
-function installCompressedStallTimers() {
+function installCompressedStallTimers(maxDelay = Infinity) {
   const originalSetTimeout = globalThis.setTimeout;
   (globalThis as { setTimeout: typeof setTimeout }).setTimeout = ((
     fn: (...callbackArgs: unknown[]) => void,
@@ -175,7 +175,7 @@ function installCompressedStallTimers() {
     ...rest: unknown[]
   ) => {
     const compressed =
-      typeof delay === "number" && delay >= 60_000 ? 30 : delay;
+      typeof delay === "number" && delay >= 60_000 && delay <= maxDelay ? 30 : delay;
     return originalSetTimeout(fn as never, compressed, ...rest);
   }) as typeof setTimeout;
 }
@@ -266,6 +266,74 @@ describe("background workspace turn activity tracking", () => {
       expect(notice?.parts.some((part) => part.type === "system_event")).toBe(
         true,
       );
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
+  test("keeps a quiet command running past the ordinary abort window and stops it on transport exit", async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    const abortTurnCalls: Array<{ turnId: string }> = [];
+    installCompressedStallTimers(30 * 60_000);
+    try {
+      const { useAppStore, emit } = await setupBackgroundTurn();
+      stubTurnTeardown({ abortTurnCalls });
+      emit({
+        type: "tool",
+        toolUseId: "cmd-1",
+        toolName: "Shell",
+        input: "build",
+        state: "input-available",
+        startedAt: Date.now(),
+      }, { sequence: 1, done: false });
+      const turnId = useAppStore.getState().activeTurnIdsByTask["task-a"];
+      await Bun.sleep(160);
+      expect(abortTurnCalls).toEqual([]);
+      expect(useAppStore.getState().providerTurnActivityByTask["task-a"]).toMatchObject({
+        stalledAt: null,
+        stallWarning: { kind: "tool", name: "Shell", elapsedMs: expect.any(Number) },
+      });
+
+      emit({ type: "provider_activity", activity: { kind: "transport_exit" } }, { sequence: 2, done: false });
+      await Bun.sleep(40);
+      expect(abortTurnCalls).toEqual([{ turnId }]);
+      expect(useAppStore.getState().activeTurnIdsByTask["task-a"]).toBeUndefined();
+    } finally {
+      globalThis.setTimeout = originalSetTimeout;
+    }
+  });
+
+  test("keeps a blocking question open and re-arms after the answer is synced", async () => {
+    const originalSetTimeout = globalThis.setTimeout;
+    const abortTurnCalls: Array<{ turnId: string }> = [];
+    installCompressedStallTimers();
+    try {
+      const { useAppStore, emit } = await setupBackgroundTurn();
+      stubTurnTeardown({ abortTurnCalls });
+      emit({
+        type: "user_input",
+        requestId: "q-1",
+        toolName: "AskUserQuestion",
+        questions: [{ id: "question", header: "Choice", question: "Continue?", options: [] }],
+      }, { sequence: 1, done: false });
+      const turnId = useAppStore.getState().activeTurnIdsByTask["task-a"];
+      await Bun.sleep(160);
+      expect(abortTurnCalls).toEqual([]);
+      expect(useAppStore.getState().providerTurnActivityByTask["task-a"]?.pendingInteraction).toBe("user_input");
+      const { messagesByTask } = useAppStore.getState();
+      useAppStore.setState({
+        messagesByTask: {
+          ...messagesByTask,
+          "task-a": messagesByTask["task-a"].map((message) => ({
+            ...message,
+            parts: message.parts.map((part) => part.type === "user_input"
+              ? { ...part, state: "input-responded", answers: { question: "Yes" } }
+              : part),
+          })),
+        },
+      });
+      await Bun.sleep(160);
+      expect(abortTurnCalls).toEqual([{ turnId }]);
     } finally {
       globalThis.setTimeout = originalSetTimeout;
     }

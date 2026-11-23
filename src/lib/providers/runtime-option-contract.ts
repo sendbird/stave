@@ -278,6 +278,7 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "subagent_progress",
   "subagent_model",
   "model_resolved",
+  "provider_activity",
   "error",
   "done",
 ] as const satisfies readonly NormalizedProviderEvent["type"][];

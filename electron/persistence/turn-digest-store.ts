@@ -26,6 +26,7 @@ import {
   TURN_RECORD_MESSAGE_LIMIT,
   type ListTaskTurnHistoryArgs,
   type ReadTaskTurnRecordArgs,
+  type RecordTurnWatchdogArgs,
   type TurnHistoryEntry,
   type TurnHistoryPage,
   type TurnRecord,
@@ -161,6 +162,7 @@ export function observeTurnDigestEvent(
         at: args.createdAt,
         endsTurn: isTurnDigestEndingEvent(args.event),
         waiting: Boolean(before.waits?.length),
+        entries: before.entries,
         resumedAt: before.resumedAt ?? null,
       })
     : null;
@@ -376,6 +378,18 @@ export class TurnDigestStore {
 
   recordChecks(args: { turnId: string; summary: TurnDigestCheckSummary; at?: string }) {
     return recordTurnDigestChecks(this.db, args);
+  }
+
+  recordWatchdog(args: RecordTurnWatchdogArgs) {
+    return this.db.transaction(() => {
+      const row = this.db.prepare(
+        "SELECT digest_json FROM turns WHERE id = ? AND workspace_id = ? AND task_id = ?",
+      ).get(args.turnId, args.workspaceId, args.taskId) as Pick<TurnDigestRow, "digest_json"> | undefined;
+      if (!row) return false;
+      const digest = parseTurnDigest(row.digest_json) ?? createTurnDigest();
+      writeTurnDigest(this.db, args.turnId, appendTurnDigestEntry(digest, args.entry));
+      return true;
+    }).immediate();
   }
 
   recordDecisionAnswered(args: { turnId: string; requestId: string; at?: string }) {

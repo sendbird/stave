@@ -64,3 +64,17 @@ test("invalid requests and unreadable storage answer ok: false instead of throwi
   expect(await bridge.listTaskTurnHistory({ workspaceId: "w", taskId: "t" })).toMatchObject({ ok: false });
   failRead = false;
 });
+
+test("records the real watchdog decision and evidence across IPC and suppresses a duplicate quiet gap", async () => {
+  const owner = { workspaceId: "w", taskId: "t", turnId: "watchdog-turn" };
+  store.beginTurn({ id: owner.turnId, workspaceId: "w", taskId: "t", providerId: "codex", createdAt: "2026-10-22T12:00:00.000Z" });
+  const entry = {
+    kind: "watchdog", at: "2026-10-22T12:05:00.000Z", silentMs: 300_000,
+    decision: "wait", evidence: { kind: "tool", name: "Shell", elapsedMs: 300_000 },
+  } as const;
+  expect(await bridge.recordTurnWatchdog({ ...owner, taskId: "wrong", entry })).toBe(false);
+  expect(await bridge.recordTurnWatchdog({ ...owner, entry })).toBe(true);
+  store.saveStreamEvent({ turnId: owner.turnId, sequence: 1, createdAt: "2026-10-22T12:06:00.000Z", event: { type: "done" } });
+  const record = await bridge.readTaskTurnRecord(owner);
+  expect(record.ok && record.record?.digest?.entries).toEqual([entry]);
+});

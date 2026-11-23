@@ -1,3 +1,4 @@
+import { ProviderActivityEventSchema } from "./turn-activity-evidence";
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { APPROVAL_RISKS, ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
 import { CODEX_APPROVAL_POLICIES, CODEX_APPROVALS_REVIEWERS } from "@/lib/providers/codex-runtime-options";
@@ -366,6 +367,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   user_input: UserInputEventSchema,
   turn_admission: z.object({ type: z.literal("turn_admission"), state: z.enum(["queued", "running"]), ahead: z.number().int().nonnegative() }).strict(),
   system: SystemEventSchema,
+  provider_activity: ProviderActivityEventSchema,
   error: ErrorEventSchema,
   done: DoneEventSchema,
   model_resolved: ModelResolvedEventSchema,
@@ -398,6 +400,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.user_input,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.turn_admission,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.system,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.provider_activity,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.error,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.done,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.model_resolved,

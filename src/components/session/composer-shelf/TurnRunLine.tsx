@@ -77,6 +77,8 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     activity?.stalledAt != null &&
     completedAt == null &&
     pendingInteraction == null;
+  const retrying = activity?.activityEvidence?.retrying;
+  const stallWarning = activity?.stallWarning;
   const hasActivity = activity != null;
   const turnStartedAt = activity?.startedAt ?? null;
   // Built from primitives: the snapshot gets a fresh identity on every
@@ -86,12 +88,14 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       buildTurnActivityItems({
         activity: hasActivity
           ? {
+              stallWarning,
               completedAt: completedAt ?? undefined,
               pendingInteraction,
               turnError: turnError ?? undefined,
               turnErrorRecoverable,
             }
           : null,
+        retrying,
         idleLabel: null,
         isStalled,
         todos: surface.todos,
@@ -110,6 +114,8 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       turnError,
       turnErrorRecoverable,
       turnStartedAt,
+      retrying,
+      stallWarning,
       i18n.language,
     ],
   );
@@ -136,6 +142,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     steering: props.steering,
     turnError,
     turnErrorRecoverable,
+    retrying,
     completed: completedAt != null,
     replayOutcome: surface.replayOutcome,
   });

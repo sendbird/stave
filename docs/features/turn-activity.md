@@ -65,7 +65,8 @@ when there is no run, usage-limit pause, review or queued message to show.
 | A turn is running | The run line: a status mark, `Working · <current step>`, the to-do count and cells, the elapsed time, **Stop**, the panel button and the details toggle. While the agent reasons, its newest thought shows in italics under the line, up to two lines, so you can stop a turn heading the wrong way without opening the details. |
 | Running with queued messages | The run line, then the queue line. |
 | Waiting on an approval or a question | An approval asks in the composer's approval row, which stands for the turn's wait, so the run line steps aside until it is answered (Stop stays in the composer). A question asks in its card above the shelf; the run line turns amber and reads `Waiting for your input` without asking again. The details stay folded behind the card. |
-| Stalled | The run line turns amber and reads `Stalled · No updates for 2m`, with how to stop or interrupt it. |
+| Quiet with no activity reported | After five minutes, the run line shows **Stalled**. Send a new message to interrupt and continue, or let Stave stop the turn after 20 minutes of silence. |
+| Quiet while work is reported | A running tool, provider retry or background task keeps the turn open. Stave shows a warning after 20 minutes without an update and stops the turn after 60 minutes of silence. |
 | Steering | `Steering · Waiting for the provider to accept your message` until the provider takes the steer. |
 | Provider retry or failure | `Retrying` in amber, or `Failed` in red with the reason; a failed turn stays for a few seconds, then the shelf leaves. |
 | An agent run | The agent's line replaces the turn's: see [With An Agent Run](#with-an-agent-run). |
@@ -467,11 +468,14 @@ A turn's record has three parts:
   - `Error` and `Retried`: a provider error the turn did not recover from, and
     the ones it retried. A repeated failure counts on one entry
     (`Retried 3 times`).
-  - `No updates for 6m`: the turn went quiet for five minutes or more, then
-    continued or ended. Time an approval or question waited for your answer
-    is not counted, even when other updates arrived while it waited; the
-    silence after you answered is, and so is the silence after a request was
-    decided without you (it timed out, or a Stave rule took it).
+  - Watchdog entries show why Stave kept waiting, warned, offered to continue
+    from a new message, or stopped the turn. The evidence can include a tool
+    and its elapsed time, a retry, background tasks, a pending decision, or
+    a process exit. A pending approval or blocking question is exempt from
+    the watchdog's automatic stop.
+  - `No updates for 6m` records a gap between events when there was no
+    corresponding watchdog entry. Time spent waiting for your answer is
+    excluded.
   - `Model changed`: the runtime ran the turn on another model than the one
     requested, with the reason it gave, or an agent run routed the reply.
   - `Account changed`: the turn ran on another account than the task's previous

@@ -15,6 +15,7 @@ export type LocalMcpTaskTurnActivityEvent = Extract<
       | "tool_progress"
       | "tool_result"
       | "subagent_progress"
+      | "provider_activity"
       | "provider_session"
       | "model_resolved"
       | "text"
@@ -99,6 +100,7 @@ export function repositoryLocalMcpTaskTurnActivityEvent(
     case "background_task":
     case "tool_progress":
     case "subagent_progress":
+    case "provider_activity":
     case "provider_session":
     case "agent_provenance":
     case "model_resolved":
