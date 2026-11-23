@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { applyPendingProviderEventsToStoreState } from "../src/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
   type WorkspaceSessionState,
@@ -11,8 +12,8 @@ import type { ChatMessage, Task } from "../src/types/chat";
 // brings it back as running, with no stream left to end it, so the task shows
 // "Working" until the user stops it.
 //
-// The finished state is written with `setState` while each action is held at
-// its await; the provider reducer that produces it is covered elsewhere.
+// Tests hold each transition at an await to exercise an update during that
+// window. The optimistic creation path uses the provider reducer to route it.
 
 const originalWindow = globalThis.window;
 type AppStore = typeof import("../src/store/app.store").useAppStore;
@@ -294,47 +295,75 @@ describe("a turn that finishes during a workspace transition stays finished", ()
     expectFinished(state, "task-new");
   });
 
-  test("creating a workspace keeps a completion in the workspace it leaves", async () => {
-    const hold = createHold();
-    installWindow({
-      sourceControl: {
-        createWorktree: async () => {
-          await hold.wait();
-          return null;
+  test.each(["outgoing snapshot write", "git worktree add"] as const)(
+    "creating a workspace keeps a completion in the workspace it leaves during %s",
+    async (stage) => {
+      const hold = createHold();
+      installWindow({
+        sourceControl: {
+          createWorktree: async () => {
+            if (stage === "git worktree add") await hold.wait();
+            return null;
+          },
         },
-      },
-      persistence: {
-        listWorkspaces: async () => ({ ok: true, rows: [] }),
-        loadWorkspace: async () => ({ ok: true, snapshot: null }),
-        loadWorkspaceShellLite: async () => ({ ok: true, shellLite: null }),
-        upsertWorkspace: async () => ({ ok: true }),
-        saveRepositoryRegistry: async () => ({ ok: true }),
-      },
-    });
-    const store = await loadStore();
-    store.setState({
-      ...store.getInitialState(),
-      ...repositoryState(["ws-main"]),
-      ...turnState("task-main", false),
-      workspaceRuntimeCacheById: {},
-    });
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          loadWorkspaceShellLite: async () => ({ ok: true, shellLite: null }),
+          upsertWorkspace: async ({ id }: { id: string }) => {
+            if (stage === "outgoing snapshot write" && id === "ws-main") {
+              await hold.wait();
+            }
+            return { ok: true };
+          },
+          saveRepositoryRegistry: async () => ({ ok: true }),
+        },
+      });
+      const store = await loadStore();
+      store.setState({
+        ...store.getInitialState(),
+        ...repositoryState(["ws-main"]),
+        ...turnState("task-main", false),
+        workspaceRuntimeCacheById: {},
+      });
 
-    const creating = store.getState().createWorkspace({
-      name: "feature/next",
-      mode: "branch",
-      fromBranch: "main",
-    });
-    pending = creating;
-    await within(hold.reached, "git worktree add");
-    store.setState(turnState("task-main", true));
-    hold.release();
-    const result = await within(creating, "workspace creation");
+      const creating = store.getState().createWorkspace({
+        name: "feature/next",
+        mode: "branch",
+        fromBranch: "main",
+      });
+      pending = creating;
+      await within(hold.reached, stage);
+      const beforeCompletion = store.getState();
+      if (stage === "git worktree add") {
+        expect(beforeCompletion.activeWorkspaceId).not.toBe("ws-main");
+        expect(
+          beforeCompletion.workspaceRuntimeCacheById["ws-main"]?.activeTurnIdsByTask["task-main"],
+        ).toBe(TURN_ID);
+      } else {
+        expect(beforeCompletion.activeWorkspaceId).toBe("ws-main");
+      }
+      const completion = applyPendingProviderEventsToStoreState({
+        state: beforeCompletion,
+        taskWorkspaceId: "ws-main",
+        taskId: "task-main",
+        events: [{ type: "done" }],
+        provider: "claude-code",
+        model: "model-1",
+        turnId: TURN_ID,
+      });
+      expect(completion.turnCompleted).toBe(true);
+      store.setState(completion.statePatch);
+      hold.release();
+      const result = await within(creating, "workspace creation");
 
-    expect(result).toMatchObject({ ok: true });
-    const state = store.getState();
-    expect(state.activeWorkspaceId).toBe(result.workspaceId!);
-    expectFinished(state.workspaceRuntimeCacheById["ws-main"], "task-main");
-  });
+      expect(result).toMatchObject({ ok: true });
+      const state = store.getState();
+      expect(state.activeWorkspaceId).toBe(result.workspaceId!);
+      expectFinished(state.workspaceRuntimeCacheById["ws-main"], "task-main");
+      expect(state.messagesByTask["task-main"]).toBeUndefined();
+    },
+  );
 
   test("opening another project keeps a completion in the workspace it leaves", async () => {
     const hold = createHold();

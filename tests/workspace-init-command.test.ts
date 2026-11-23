@@ -4,6 +4,7 @@ import {
   buildImportedWorktreeWorkspaceId,
   toWorkspaceFolderName,
 } from "@/store/repository.utils";
+import { useWorkspaceCreationStore } from "@/store/workspace-creation-progress";
 
 const originalWindow = globalThis.window;
 
@@ -41,6 +42,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  useWorkspaceCreationStore.setState({ byId: {} });
   (globalThis as { window?: unknown }).window = originalWindow;
 });
 
@@ -532,16 +534,17 @@ describe("new workspace init command", () => {
       mode: "clean",
     });
 
-    expect(result).toMatchObject({
-      ok: true,
-      noticeLevel: "warning",
-    });
     const workspacePath = `/tmp/stave-project/.stave/workspaces/${toWorkspaceFolderName(
       {
         branch: "feature/shared-deps-warning",
         unique: true,
       },
     )}`;
+    const workspaceId = buildImportedWorktreeWorkspaceId({
+      repositoryPath: "/tmp/stave-project",
+      worktreePath: workspacePath,
+    });
+    expect(result).toMatchObject({ ok: false, workspaceId });
     expect(result.message).toContain(
       "Linking the shared root `node_modules` failed",
     );
@@ -550,7 +553,13 @@ describe("new workspace init command", () => {
     expect(runCalls[1]?.command).toContain(
       'ln -s "/tmp/stave-project/node_modules" node_modules',
     );
-    expect(useAppStore.getState().workspaces).toHaveLength(1);
+    const state = useAppStore.getState();
+    expect(state.workspaces.map(({ id }) => id)).toEqual([workspaceId]);
+    expect(state.activeWorkspaceId).toBe(workspaceId);
+    expect(useWorkspaceCreationStore.getState().byId[workspaceId]?.steps).toMatchObject({
+      worktree: { status: "complete" },
+      setup: { status: "failed", detail: result.message, retry: expect.any(Function) },
+    });
   });
 
   test("keeps the workspace when the configured command fails", async () => {
@@ -615,24 +624,30 @@ describe("new workspace init command", () => {
       mode: "clean",
     });
 
-    expect(result).toMatchObject({
-      ok: true,
-      noticeLevel: "warning",
-    });
     const workspacePath = `/tmp/stave-project/.stave/workspaces/${toWorkspaceFolderName(
       {
         branch: "feature/failing-bootstrap",
         unique: true,
       },
     )}`;
+    const workspaceId = buildImportedWorktreeWorkspaceId({
+      repositoryPath: "/tmp/stave-project",
+      worktreePath: workspacePath,
+    });
+    expect(result).toMatchObject({ ok: false, workspaceId });
     expect(result.message).toContain("post-create command failed");
     expect(result.message).toContain("npm ERR! missing lockfile");
     expect(runCalls.at(-1)).toEqual({
       cwd: workspacePath,
       command: "npm install",
     });
-    expect(useAppStore.getState().workspaces).toHaveLength(1);
-    expect(useAppStore.getState().activeWorkspaceId).not.toBe("");
+    const state = useAppStore.getState();
+    expect(state.workspaces.map(({ id }) => id)).toEqual([workspaceId]);
+    expect(state.activeWorkspaceId).toBe(workspaceId);
+    expect(useWorkspaceCreationStore.getState().byId[workspaceId]?.steps).toMatchObject({
+      worktree: { status: "complete" },
+      setup: { status: "failed", detail: result.message, retry: expect.any(Function) },
+    });
   });
 });
 
