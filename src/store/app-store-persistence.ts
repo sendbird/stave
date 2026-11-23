@@ -312,11 +312,6 @@ export function createAppStorePersistenceOptions() {
           appShellMode?: unknown;
         }
       ).appShellMode;
-      // temporary-migration: strip-retired-sync-settings
-      // Martin sync was removed; drop its toggles from older saved settings.
-      delete (state.settings as AppSettings & { martinSync?: unknown })
-        .martinSync;
-      // end temporary-migration: strip-retired-sync-settings
       // temporary-migration: strip-task-checkpoints
       // Turn snapshots replaced the per-task HEAD checkpoint; drop the saved map.
       delete (state as AppState & { taskCheckpointById?: unknown }).taskCheckpointById;

@@ -105,8 +105,6 @@ import type {
   WakeUp,
   WakeUpOccurrence,
 } from "../../src/lib/supervision/wake-up-policy";
-// temporary-migration: drop-retired-sync-outbox
-import { dropRetiredSyncOutbox } from "./retired-sync-outbox";
 import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
@@ -276,8 +274,6 @@ export class SqliteStore {
       };
       initializeSearch();
     }
-    // temporary-migration: drop-retired-sync-outbox
-    dropRetiredSyncOutbox(this.db);
     this.notifications = new NotificationStore(
       this.db,
       () => this.loadRepositoryRegistry(),
