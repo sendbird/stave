@@ -2,6 +2,7 @@ import type { FilesystemSearchRequest, FilesystemSearchResponse, FilesystemSearc
 import type { BackgroundTaskRequest, BackgroundTaskResponse } from "../src/lib/providers/background-tasks";
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
+import type { GitHubPrActivityRequest } from "../src/lib/github-pr-activity";
 import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
 import { NativeNotificationResolvedSchema, type NativeNotificationResolved } from "../src/lib/notifications/native-notification-contract";
 import { TruncateTaskMessagesAfterArgsSchema, TruncateTaskMessagesResultSchema } from "../src/lib/task-context/conversation-truncation";
@@ -2749,6 +2750,8 @@ contextBridge.exposeInMainWorld("api", {
         "scm:get-github-pr-review-detail",
         args,
       ) as Promise<GitHubPrReviewDetailResult>,
+    gitHubPrActivity: ((args) =>
+      ipcRenderer.invoke("scm:github-pr-activity", args)) satisfies GitHubPrActivityRequest,
     submitGitHubPrReview: (args: {
       prUrl: string;
       expectedHeadOid: string;

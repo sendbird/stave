@@ -1,5 +1,6 @@
 import type { GitWorktreeCreateArgs, WorktreeCreationFailure } from "@/lib/git-worktree-creation";
 import { i18n } from "@/i18n/runtime";
+import type { GitHubPrActivityRequest } from "@/lib/github-pr-activity";
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "@/lib/review/review-diff-contract";
 import type {
   CanonicalConversationRequest,
@@ -254,6 +255,8 @@ export function installDevApiBridge() {
       }) => postJson({ path: "/api/scm/github-prs", body: args }),
       getGitHubPrReviewDetail: (args: { prUrl: string; cwd?: string }) =>
         postJson({ path: "/api/scm/github-pr-review-detail", body: args }),
+      gitHubPrActivity: ((args) =>
+        postJson({ path: "/api/scm/github-pr-activity", body: args })) satisfies GitHubPrActivityRequest,
       submitGitHubPrReview: (args: {
         prUrl: string;
         expectedHeadOid: string;

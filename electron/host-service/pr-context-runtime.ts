@@ -103,19 +103,27 @@ function asPlainString(value: unknown, maxChars: number): string {
 // Index — PR head, review threads, failed checks. No logs.
 // ---------------------------------------------------------------------------
 
-const REVIEW_THREADS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$threads:Int!,$comments:Int!){
+const REVIEW_THREADS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$threads:Int!,$comments:Int!,$discussion:Boolean!){
   repository(owner:$owner,name:$repo){
     pullRequest(number:$pr){
       title
       headRefOid
       url
+      comments(last:30) @include(if:$discussion){
+        totalCount
+        nodes{ id body createdAt url author{ login } }
+      }
       reviewThreads(first:$threads){
         totalCount
         nodes{
           id
           isResolved
           isOutdated
+          viewerCanReply @include(if:$discussion)
+          viewerCanResolve @include(if:$discussion)
+          viewerCanUnresolve @include(if:$discussion)
           path
+          originalLine @include(if:$discussion)
           line
           comments(last:$comments){
             totalCount
@@ -174,6 +182,12 @@ function mapThread(raw: unknown): PrReviewThread | null {
     id,
     isResolved: node.isResolved === true,
     isOutdated: node.isOutdated === true,
+    ...(typeof node.viewerCanReply === "boolean" ? {
+      viewerCanReply: node.viewerCanReply,
+      viewerCanResolve: node.viewerCanResolve === true,
+      viewerCanUnresolve: node.viewerCanUnresolve === true,
+      originalLine: typeof node.originalLine === "number" ? node.originalLine : null,
+    } : {}),
     path: asPlainString(node.path, PR_CONTEXT_LIMITS.maxPathChars),
     line: typeof node.line === "number" ? Math.max(0, Math.trunc(node.line)) : null,
     comments,
@@ -214,6 +228,101 @@ function mapCheckRun(raw: unknown): PrCheckFailure | null {
   };
 }
 
+export async function readPrReviewThreads(
+  ref: NonNullable<ReturnType<typeof parsePrContextUrl>>,
+  cwd: string | undefined,
+  run: RunCommand,
+  discussion: boolean,
+) {
+  const graphResult = await run({
+    command: "gh",
+    commandArgs: [
+      "api",
+      "graphql",
+      "--hostname",
+      "github.com",
+      "-f",
+      `query=${REVIEW_THREADS_QUERY}`,
+      "-f",
+      `owner=${ref.owner}`,
+      "-f",
+      `repo=${ref.repo}`,
+      "-F",
+      `pr=${ref.number}`,
+      "-F",
+      `threads=${PR_CONTEXT_LIMITS.maxThreads}`,
+      "-F",
+      `comments=${PR_CONTEXT_LIMITS.maxCommentsPerThread}`,
+      "-F",
+      `discussion=${discussion}`,
+    ],
+    cwd,
+    maxOutputChars: GH_MAX_OUTPUT_CHARS,
+    timeoutMs: GH_TIMEOUT_MS,
+  });
+  invalidateAuthOnFailure(graphResult, cwd);
+  if (!graphResult.ok) {
+    return { ok: false as const, stderr: describeGhFailure(graphResult) };
+  }
+
+  let pullRequest: Record<string, unknown>;
+  try {
+    const parsed = JSON.parse(graphResult.stdout) as Record<string, unknown>;
+    if (graphResult.stdoutTruncated || (Array.isArray(parsed.errors) && parsed.errors.length)) {
+      return { ok: false as const, stderr: "GitHub returned an incomplete review response." };
+    }
+    const data = parsed.data as Record<string, unknown> | undefined;
+    const repository = data?.repository as Record<string, unknown> | undefined;
+    const candidate = repository?.pullRequest as
+      | Record<string, unknown>
+      | undefined;
+    if (!candidate) {
+      return {
+        ok: false as const,
+        stderr: "Pull request not found.",
+      };
+    }
+    pullRequest = candidate;
+  } catch {
+    return {
+      ok: false as const,
+      stderr: "Could not read the GitHub response.",
+    };
+  }
+
+  const threadBlock = pullRequest.reviewThreads as
+    | Record<string, unknown>
+    | undefined;
+  const rawThreads = Array.isArray(threadBlock?.nodes)
+    ? (threadBlock.nodes as unknown[])
+    : [];
+  const threads = rawThreads
+    .map(mapThread)
+    .filter((thread): thread is PrReviewThread => thread !== null)
+    .slice(0, PR_CONTEXT_LIMITS.maxThreads);
+  const totalThreads =
+    typeof threadBlock?.totalCount === "number"
+      ? threadBlock.totalCount
+      : rawThreads.length;
+
+  const commentBlock = pullRequest.comments as { nodes?: unknown; totalCount?: number } | undefined;
+  if (discussion && (!Array.isArray(threadBlock?.nodes) || !Array.isArray(commentBlock?.nodes))) {
+    return { ok: false as const, stderr: "GitHub returned an incomplete review response." };
+  }
+  const comments = (Array.isArray(commentBlock?.nodes) ? commentBlock.nodes : [])
+    .slice(-30).map(mapComment).filter((comment): comment is PrReviewComment => comment !== null);
+  return {
+    ok: true as const,
+    title: asPlainString(pullRequest.title, PR_CONTEXT_LIMITS.maxNameChars),
+    url: asPlainString(pullRequest.url, PR_CONTEXT_LIMITS.maxUrlChars),
+    headSha: asPlainString(pullRequest.headRefOid, 64),
+    threads,
+    omittedThreads: Math.max(0, totalThreads - threads.length),
+    comments,
+    omittedComments: Math.max(0, (commentBlock?.totalCount ?? comments.length) - comments.length),
+  };
+}
+
 export async function fetchPrContextIndex(args: {
   cwd?: string;
   prUrl: string;
@@ -236,72 +345,11 @@ export async function fetchPrContextIndex(args: {
     };
   }
 
-  const graphResult = await run({
-    command: "gh",
-    commandArgs: [
-      "api",
-      "graphql",
-      "-f",
-      `query=${REVIEW_THREADS_QUERY}`,
-      "-f",
-      `owner=${ref.owner}`,
-      "-f",
-      `repo=${ref.repo}`,
-      "-F",
-      `pr=${ref.number}`,
-      "-F",
-      `threads=${PR_CONTEXT_LIMITS.maxThreads}`,
-      "-F",
-      `comments=${PR_CONTEXT_LIMITS.maxCommentsPerThread}`,
-    ],
-    cwd: args.cwd,
-    maxOutputChars: GH_MAX_OUTPUT_CHARS,
-    timeoutMs: GH_TIMEOUT_MS,
-  });
-  invalidateAuthOnFailure(graphResult, args.cwd);
-  if (!graphResult.ok) {
-    return { ok: false, index: null, stderr: describeGhFailure(graphResult) };
+  const discussion = await readPrReviewThreads(ref, args.cwd, run, false);
+  if (!discussion.ok) {
+    return { ok: false, index: null, stderr: discussion.stderr };
   }
-
-  let pullRequest: Record<string, unknown>;
-  try {
-    const parsed = JSON.parse(graphResult.stdout) as Record<string, unknown>;
-    const data = parsed.data as Record<string, unknown> | undefined;
-    const repository = data?.repository as Record<string, unknown> | undefined;
-    const candidate = repository?.pullRequest as
-      | Record<string, unknown>
-      | undefined;
-    if (!candidate) {
-      return {
-        ok: false,
-        index: null,
-        stderr: "Pull request not found.",
-      };
-    }
-    pullRequest = candidate;
-  } catch {
-    return {
-      ok: false,
-      index: null,
-      stderr: "Could not read the GitHub response.",
-    };
-  }
-
-  const headSha = asPlainString(pullRequest.headRefOid, 64);
-  const threadBlock = pullRequest.reviewThreads as
-    | Record<string, unknown>
-    | undefined;
-  const rawThreads = Array.isArray(threadBlock?.nodes)
-    ? (threadBlock.nodes as unknown[])
-    : [];
-  const threads = rawThreads
-    .map(mapThread)
-    .filter((thread): thread is PrReviewThread => thread !== null)
-    .slice(0, PR_CONTEXT_LIMITS.maxThreads);
-  const totalThreads =
-    typeof threadBlock?.totalCount === "number"
-      ? threadBlock.totalCount
-      : rawThreads.length;
+  const { headSha } = discussion;
 
   // Check runs are commit-scoped, so this stays correct even if the PR head
   // moves between the two calls — the index reports the SHA it actually read.
@@ -353,14 +401,14 @@ export async function fetchPrContextIndex(args: {
       repo: ref.repo,
       number: ref.number,
       url:
-        asPlainString(pullRequest.url, PR_CONTEXT_LIMITS.maxUrlChars) ||
+        discussion.url ||
         `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.number}`,
     },
-    title: asPlainString(pullRequest.title, PR_CONTEXT_LIMITS.maxNameChars),
+    title: discussion.title,
     headSha,
     fetchedAt: new Date(args.now?.() ?? Date.now()).toISOString(),
-    threads,
-    truncatedThreads: Math.max(0, totalThreads - threads.length),
+    threads: discussion.threads,
+    truncatedThreads: discussion.omittedThreads,
     failedChecks,
     truncatedFailedChecks,
   };

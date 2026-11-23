@@ -125,3 +125,15 @@ describe("GitHub PR review IPC schemas", () => {
     ).toBe(false);
   });
 });
+
+test("PR activity uses the same strict contract through the window and host bridges", () => {
+  expect(windowApiSource).toContain("gitHubPrActivity?: GitHubPrActivityRequest");
+  expect(preloadSource).toContain('ipcRenderer.invoke("scm:github-pr-activity", args)');
+  expect(scmIpcSource).toContain('ipcMain.handle("scm:github-pr-activity"');
+  expect(scmIpcSource).toContain("GitHubPrActivityArgsSchema.safeParse(args)");
+  expect(scmIpcSource).toContain('invokeHostService("scm.github-pr-activity", parsed.data)');
+  expect(hostProtocolSource).toContain('"scm.github-pr-activity": GitHubPrActivityArgs');
+  expect(hostProtocolSource).toContain('"scm.github-pr-activity": GitHubPrActivityResult');
+  expect(hostDispatchSource).toContain('case "scm.github-pr-activity":');
+  expect(hostDispatchSource).toContain("await runGitHubPrActivity(request.params)");
+});

@@ -191,6 +191,7 @@ export const COMMAND_CANCELLED_MESSAGE = "Command was cancelled.";
 export function runCommandArgs(args: {
   command: string;
   commandArgs?: string[];
+  input?: string;
   cwd?: string;
   env?: NodeJS.ProcessEnv;
   maxOutputChars?: number;
@@ -217,6 +218,13 @@ export function runCommandArgs(args: {
       cwd,
       env,
     });
+
+    if (args.input !== undefined) {
+      // A command may exit before reading stdin. Its exit result still reports
+      // the failure, while the pipe error must not escape the host process.
+      child.stdin.on("error", () => {});
+      child.stdin.end(args.input);
+    }
 
     const stdout = createCommandOutputCollector(args.maxOutputChars);
     const stderr = createCommandOutputCollector(args.maxOutputChars);

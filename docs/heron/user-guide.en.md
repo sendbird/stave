@@ -287,6 +287,10 @@ Screens: [Queue and usage limit](https://github.com/sendbird/stave/blob/main/doc
 4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub.
 5. When the work is done, choose **Archive Workspace** from the workspace row's ⋮ menu. Turn on **Delete the git branch too** to delete the branch as well.
 
+Open **Source Control → Reviews**, select a PR, and use **Conversation** to post a comment, reply to a review thread, or resolve or unresolve it. The thread retains its file location, comment dates, and outdated status. In **Checks**, expand a GitHub Actions run to see jobs and failed steps, open a failed log tail, or choose **Re-run failed jobs**. Use **Refresh** to see the latest attempt. **Draft a fix request** opens a Tars draft you can review and send. GitHub actions use the account signed in to GitHub CLI.
+
+With a task selected, **Attach evidence for the agent…** adds selected PR evidence to that task. Send the agent a message to investigate or fix the issue.
+
 @page context | Working | Giving the AI context | concept
 @lead The AI does not see only the sentence you typed. Stave bundles repository instructions, workspace information, attachments and skills into every turn. Knowing what goes in saves you from repeating yourself.
 

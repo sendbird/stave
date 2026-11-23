@@ -51,6 +51,13 @@ export async function askTarsAboutPrCi(url: string): Promise<void> {
   } catch { toast.error(i18n.t("shell:tars.intake.failed")); }
 }
 
+export async function openTarsPrCiFixDraft(url: string): Promise<void> {
+  try {
+    await hydrateTarsDraft(window.api?.tars);
+    if (stageTarsPrCiFix(url)) useAppStore.getState().openTars();
+  } catch { toast.error(i18n.t("shell:tars.intake.failed")); }
+}
+
 /** Uses the clicked result's source, never its model-authored reply or CI logs. */
 export function stageTarsPrCiFix(url: string): boolean {
   try {

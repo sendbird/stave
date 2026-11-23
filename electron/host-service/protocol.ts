@@ -1,5 +1,6 @@
 import type { ProviderDecisionFailureReason, ProviderDecisionResponse } from "../../src/lib/providers/provider.types";
 import type { BackgroundTaskRequest, BackgroundTaskResponse } from "../../src/lib/providers/background-tasks";
+import type { GitHubPrActivityArgs, GitHubPrActivityResult } from "../../src/lib/github-pr-activity";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
 import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { TurnSnapshotList, TurnSnapshotOwner, TurnSnapshotRestore, TurnSnapshotResult } from "../../src/lib/turn-snapshots";
@@ -1030,6 +1031,7 @@ export interface HostServiceRequestMap {
     prUrl: string;
     cwd?: string;
   };
+  "scm.github-pr-activity": GitHubPrActivityArgs;
   "scm.submit-github-pr-review": {
     prUrl: string;
     expectedHeadOid: string;
@@ -1297,6 +1299,7 @@ export interface HostServiceResponseMap {
   };
   "scm.list-github-prs": GitHubPrInboxResult;
   "scm.get-github-pr-review-detail": GitHubPrReviewDetailResult;
+  "scm.github-pr-activity": GitHubPrActivityResult;
   "scm.submit-github-pr-review": GitHubPrReviewSubmitResult;
   "scm.set-pr-ready":
     | CommandResult

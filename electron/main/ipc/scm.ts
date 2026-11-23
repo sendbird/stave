@@ -10,6 +10,7 @@ import {
   CreatePRArgsSchema,
   FetchPrCheckLogsArgsSchema,
   FetchPrContextIndexArgsSchema,
+  GitHubPrActivityArgsSchema,
   GetGitHubPrReviewDetailArgsSchema,
   GetPrStatusByUrlArgsSchema,
   ListGitHubPrsArgsSchema,
@@ -338,6 +339,13 @@ export function registerScmHandlers() {
       };
     }
     return invokeHostService("scm.get-github-pr-review-detail", parsed.data);
+  });
+
+  ipcMain.handle("scm:github-pr-activity", (_event, args: unknown) => {
+    const parsed = GitHubPrActivityArgsSchema.safeParse(args);
+    return parsed.success
+      ? invokeHostService("scm.github-pr-activity", parsed.data)
+      : { ok: false, reason: "failed" };
   });
 
   ipcMain.handle("scm:submit-github-pr-review", (_event, args: unknown) => {

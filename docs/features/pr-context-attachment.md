@@ -124,3 +124,26 @@ stage deliberately left alone.
 - [`tests/pr-context-ipc-contract.test.ts`](../../tests/pr-context-ipc-contract.test.ts) —
   the full renderer → preload → IPC schema → main → host-service chain, the two
   argument schemas, and the consumer wiring.
+
+## Discuss a PR and inspect its checks
+
+Open **Source Control → Reviews**, then select a PR from **To review** or
+**My PRs**. In **Conversation**, use **Post comment to GitHub** for a PR
+comment. Review threads show the file and line, comment dates, and outdated
+or resolved status. Use **Reply** to write to a thread, or resolve and
+unresolve it when GitHub allows your account to do so.
+
+In **Checks**, expand a GitHub Actions run to see its latest attempt, jobs,
+and failed steps. **Show failed log tail** loads up to 16 KiB of failed-step
+output for that job. **Re-run failed jobs** requests another attempt from
+GitHub. Choose **Refresh** to check the result. **Draft a fix request** opens
+a Tars draft you can review and send. Checks from other providers
+remain listed below the Actions runs. The panel shows Actions runs linked
+from the PR's checks and indicates when run, job, thread, or comment lists
+are capped. Open the PR on GitHub for the full history.
+
+With a task selected, **Attach evidence for the agent…** opens the existing
+attachment picker. Choose the review threads and failed checks to include,
+then send the agent a message if you want it to investigate or fix them.
+Posting, thread resolution, and CI re-runs use the account signed in to
+GitHub CLI.
