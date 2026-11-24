@@ -58,6 +58,7 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_write_plan_file: "Write plan file",
   stave_render_html: "Show HTML page",
   stave_preview_html: "Preview HTML page",
+  stave_show_view: "Show data view",
   stave_clear_workspace_notes: "Clear workspace notes",
   stave_add_workspace_todo: "Add workspace todo",
   stave_update_workspace_todo: "Update workspace todo",

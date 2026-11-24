@@ -41,6 +41,9 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // Renders a page offscreen and returns its screenshot to the agent. It writes
   // nothing, shows nothing, and runs under the same sandbox and network policy.
   "stave_preview_html",
+  // Validates a view the agent wrote and returns it as the tool result. Its
+  // data is inline; nothing is saved, fetched, read or executed.
+  "stave_show_view",
   // Project memory is Stave metadata too: one short sentence per row, capped
   // and user-editable from the Information panel.
   "stave_remember",

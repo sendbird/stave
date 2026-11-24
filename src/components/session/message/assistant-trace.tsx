@@ -24,6 +24,8 @@ import {
 import { sx } from "@/components/aui/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { parseInlineRenderToolOutput } from "@/lib/inline-render/inline-render";
+import { parseStructuredViewToolOutput } from "@/lib/structured-view/view-spec";
+import { StructuredViewList } from "@/components/ai-elements/structured-view-block";
 import { MessageSubagents } from "./message-subagents";
 import { InlineHtmlRenderList } from "./inline-html-render";
 import { ReplyImageNumbersContext, ReplyToolImages } from "./tool-output-images";
@@ -602,6 +604,17 @@ export function AssistantMessageBody(args: {
       }),
     [trace.entries],
   );
+  /* Views the agent drew with `stave_show_view`, placed like the pages above. */
+  const structuredViews = useMemo(
+    () =>
+      trace.entries.flatMap((entry) => {
+        if (entry.kind !== "tool" || entry.part.state !== "output-available") return [];
+        const spec = parseStructuredViewToolOutput(entry.part.output);
+        return spec ? [{ key: `${entry.id}-view`, spec }] : [];
+      }),
+    [trace.entries],
+  );
+  const hasInlineBlocks = inlineRenders.length > 0 || structuredViews.length > 0;
   /*
    * Screenshots the assistant took, attached under the reply in the order
    * taken. The reply calls them "Image 1", "Image 2", and the tool steps in
@@ -673,7 +686,7 @@ export function AssistantMessageBody(args: {
         data-trace-anchor="response"
         className={sx(
           styles.block,
-          (showTrace || (responseFollowsPinned && inlineRenders.length > 0)) && styles.spacedTop,
+          (showTrace || (responseFollowsPinned && hasInlineBlocks)) && styles.spacedTop,
           !responseFollowsPinned && hasPendingOrAnsweredQuestions && styles.spacedBottom,
         )}
       >
@@ -726,6 +739,13 @@ export function AssistantMessageBody(args: {
       {trace.entries.filter((entry) => entry.kind === "user_input").map((entry) => (
         <TraceClarification readOnly={readOnly} key={entry.id} part={entry.part} taskId={taskId} messageId={messageId} />
       ))}
+
+      {structuredViews.length > 0 ? (
+        <StructuredViewList
+          views={structuredViews}
+          xstyle={trace.entries.length > 0 && styles.spacedTop}
+        />
+      ) : null}
 
       {inlineRenders.length > 0 ? (
         <InlineHtmlRenderList

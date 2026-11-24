@@ -752,6 +752,13 @@
     "tableFilterCount": "{{total}}행 중 {{shown}}행",
     "tableNoMatches": "필터와 일치하는 행이 없습니다."
   },
+  "structuredView": {
+    "drawing": "뷰를 그리는 중…",
+    "failed": "이 뷰를 그리지 못했습니다.",
+    "invalid": "이 뷰를 그리지 못해 소스를 표시합니다: {{detail}}",
+    "yes": "예",
+    "no": "아니요"
+  },
   "mermaid": {
     "drawing": "다이어그램을 그리는 중…",
     "failed": "다이어그램을 그리지 못해 소스를 표시합니다.",

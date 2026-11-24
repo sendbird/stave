@@ -21,6 +21,10 @@ more options across several attributes, shows numbers across groups or over
 time, or explains a flow, architecture, or UI layout. Short answers, code, and
 plain lists stay as text.
 
+For plain data (a table, numbers across groups or over time, headline metrics,
+a timeline), agents use [Data views](structured-views.md) instead: Stave draws
+those natively from a description, with nothing to write or preview.
+
 Use [Lens](lens.md) instead when you want to check a real web app or a running
 dev server. Inline pages are results the agent produced, not sites to browse.
 

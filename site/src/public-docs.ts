@@ -144,6 +144,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See charts, tables, and mockups an agent builds as HTML right in the conversation, isolated from the app and your files.",
       },
       {
+        routePath: "structured-views",
+        sourcePath: "docs/features/structured-views.md",
+        title: "Data Views",
+        description:
+          "See tables, charts, stat tiles, timelines, and heatmaps an agent describes as data, drawn natively in the conversation.",
+      },
+      {
         routePath: "accounts-and-gateways",
         sourcePath: "docs/features/accounts-and-gateways.md",
         title: "Accounts and API Connections",
