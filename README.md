@@ -90,6 +90,9 @@ Recommended next steps:
 - Fleet `Action required` inbox for questions, approvals, agent run sign-offs, failed runs, results, and PR blockers across every workspace
 - notifications, attachments, skill selection, custom model shortcuts, and theme presets
 - local-only MCP access for same-machine automation and tool-driven workflows
+- sortable tables, math, JSON trees, terminal colors and agent-drawn tables, charts and stat tiles right in the conversation
+- a live Scratch panel for the screenshots, logs and JSON an agent saves while it works
+- an opt-in Activity page for Claude Code and Codex sessions running outside Stave, and per-project tokens, cost and disk in Usage
 
 ## Documentation
 
@@ -109,6 +112,9 @@ Recommended next steps:
 - [Workspace Kickoff](docs/features/workspace-kickoff.md) for source matching, MCP resolution, and Information panel defaults
 - [Agent runs](docs/features/agent-runs.md) for assigning an outcome to an agent and following its stages
 - [Agents](docs/features/agents.md) for saving workers, assigning work to them and following each task's flow
+- [Structured Views](docs/features/structured-views.md) for tables, charts and stat tiles an agent draws in the conversation
+- [Workspace Scratch](docs/features/workspace-scratch.md) for following what an agent saves while it works
+- [External Activity](docs/features/external-activity.md) for watching Claude Code and Codex sessions started outside Stave
 
 ## For Developers And Contributors
 
