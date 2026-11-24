@@ -1,4 +1,5 @@
 import type { ExternalAction, ExternalAgentStatus } from "../../../src/lib/external-sessions/external-sessions";
+import { isAbsolute } from "node:path";
 import { cleanTarget, describeClaudeTool } from "./external-actions";
 
 /**
@@ -255,6 +256,8 @@ export interface ClaudeAgentMeta {
   description?: string;
   toolUseId?: string;
   finished?: boolean;
+  /** The worktree an agent started with worktree isolation works in. */
+  worktreePath?: string;
 }
 
 export function parseClaudeAgentMeta(text: string): ClaudeAgentMeta {
@@ -267,6 +270,7 @@ export function parseClaudeAgentMeta(text: string): ClaudeAgentMeta {
     if (description) meta.description = description;
     if (typeof raw.toolUseId === "string" && raw.toolUseId) meta.toolUseId = raw.toolUseId.slice(0, 200);
     if (raw.finished === true) meta.finished = true;
+    if (typeof raw.worktreePath === "string" && isAbsolute(raw.worktreePath) && raw.worktreePath.length <= 4096) meta.worktreePath = raw.worktreePath;
     return meta;
   } catch {
     return {};

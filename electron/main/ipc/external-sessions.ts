@@ -67,6 +67,11 @@ const watcher = new ExternalSessionsWatcher({
   onChange: broadcast,
 });
 
+/** Worktrees of unfinished sub-agents Activity follows; empty while Activity is off. Read by workspace cleanup. */
+export function runningExternalAgentWorktrees(): string[] {
+  return watcher.runningAgentWorktrees();
+}
+
 function applyMode() {
   const mode = resolveExternalSessionsWatcherMode(subscriptions);
   if (mode === null) directoryCache = null;

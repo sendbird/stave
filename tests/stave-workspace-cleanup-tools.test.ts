@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { registerWorkspaceCleanupTools, selectWorkspaceCleanupRows, WORKSPACE_CLEANUP_TOOL_NAMES } from "../electron/main/stave-workspace-cleanup-tools";
 import { isAlwaysAllowedStaveLocalMcpTool } from "../electron/providers/stave-local-mcp-approval";
 import { DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS, READ_ONLY_DELEGATION_STAVE_TOOLS } from "../src/lib/runs/read-only-delegation";
-import type { WorkspaceCleanupActArgs, WorkspaceCleanupRow } from "../src/lib/workspace-cleanup-contract";
+import type { SubAgentWorktreeRow, WorkspaceCleanupActArgs, WorkspaceCleanupRow } from "../src/lib/workspace-cleanup-contract";
 
 const REPO = "/tmp/project";
 const row = (patch: Partial<WorkspaceCleanupRow>): WorkspaceCleanupRow => ({ id: "w1", repositoryPath: REPO, repositoryName: "project", name: "Fix search",
@@ -15,11 +15,11 @@ function fakeServer() {
   return { tools, registerTool: (name: string, config: { description: string }, handler: Handler) => { tools.set(name, { description: config.description, handler }); } };
 }
 
-function setup(rows: WorkspaceCleanupRow[], result: { ok: boolean; reason: string | null } = { ok: true, reason: null }) {
+function setup(rows: WorkspaceCleanupRow[], result: { ok: boolean; reason: string | null } = { ok: true, reason: null }, subAgentWorktrees: SubAgentWorktreeRow[] = []) {
   const server = fakeServer();
   const acts: WorkspaceCleanupActArgs[] = [];
   registerWorkspaceCleanupTools(server as never, {
-    list: async () => ({ rows, policy: { merged: { enabled: false, value: 1 }, inactive: { enabled: false, value: 30 }, archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 } }, recent: [] }),
+    list: async () => ({ rows, subAgentWorktrees, policy: { merged: { enabled: false, value: 1 }, inactive: { enabled: false, value: 30 }, archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 } }, recent: [] }),
     act: async (args) => { acts.push(args); return { ...result, workspaceId: args.workspaceId, action: args.action, workspaceName: "Fix search" }; },
   });
   return { tools: server.tools, acts };
@@ -60,6 +60,16 @@ describe("workspace cleanup MCP tools", () => {
     expect(isAlwaysAllowedStaveLocalMcpTool("stave_archive_workspace")).toBe(false);
     expect(READ_ONLY_DELEGATION_STAVE_TOOLS).toContain("stave_list_workspace_cleanup");
     expect(DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS).toContain("stave_archive_workspace");
+  });
+
+  test("lists sub-agent worktrees read-only and offers no tool that removes them", async () => {
+    const agent = (patch: Partial<SubAgentWorktreeRow>): SubAgentWorktreeRow => ({ repositoryPath: REPO, repositoryName: "project", path: `${REPO}/.claude/worktrees/agent-a1`,
+      name: "agent-a1", branch: "worktree-agent-a1", head: "abc", lastModified: "2026-11-01T00:00:00.000Z", blockers: [], bytes: 10, ...patch });
+    const { tools, acts } = setup([row({})], undefined, [agent({}), agent({ path: "/tmp/other/.claude/worktrees/agent-b", repositoryPath: "/tmp/other", blockers: ["changedFiles"] })]);
+    const listed = (await tools.get("stave_list_workspace_cleanup")!.handler({ repositoryPath: REPO })).structuredContent.subAgentWorktrees;
+    expect(listed).toEqual([{ repositoryPath: REPO, path: `${REPO}/.claude/worktrees/agent-a1`, branch: "worktree-agent-a1", lastModified: "2026-11-01T00:00:00.000Z", blockers: [] }]);
+    expect([...tools.keys()]).toEqual([...WORKSPACE_CLEANUP_TOOL_NAMES]);
+    expect(acts).toEqual([]);
   });
 
   test("filters by comparable project path", () => {

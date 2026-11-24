@@ -106,9 +106,11 @@ describe("deriveAgentStatus", () => {
     expect(deriveAgentStatus({ lastWriteAt: now - idleMs - 1, now, idleMs, final: false, markedFinished: false })).toBe("idle");
   });
   test("reads only the shown fields of the side file and survives a broken one", () => {
-    expect(parseClaudeAgentMeta(JSON.stringify({ agentType: "Explore", description: "Map IPC", toolUseId: "t9", worktreePath: "/x", finished: true }))).toEqual({
-      agentType: "Explore", description: "Map IPC", toolUseId: "t9", finished: true,
+    expect(parseClaudeAgentMeta(JSON.stringify({ agentType: "Explore", description: "Map IPC", toolUseId: "t9", worktreePath: "/x", isBuiltIn: true, finished: true }))).toEqual({
+      agentType: "Explore", description: "Map IPC", toolUseId: "t9", worktreePath: "/x", finished: true,
     });
+    // Workspace cleanup matches worktrees by absolute path only.
+    expect(parseClaudeAgentMeta(JSON.stringify({ worktreePath: "relative/agent-1" }))).toEqual({});
     expect(parseClaudeAgentMeta("{oops")).toEqual({});
     expect(parseClaudeAgentMeta("null")).toEqual({});
   });

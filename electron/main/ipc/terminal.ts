@@ -1,8 +1,9 @@
 import { hasWorkspaceArchiveLeftover, trashWorkspaceArchiveLeftover } from "../../host-service/workspace-archive-leftovers";
 import { runWorkspaceLifecycleGit } from "../../host-service/scm-runtime";
 import { ensurePersistenceReady } from "../state";
+import { runningExternalAgentWorktrees } from "./external-sessions";
 import { z } from "zod";
-import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema, WorkspaceCleanupStateSchema, WorkspaceCleanupTrashResultSchema, WorkspaceDiskUsageArgsSchema, WorkspaceDiskUsageReportSchema } from "../../../src/lib/workspace-cleanup-contract";
+import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema, WorkspaceCleanupStateSchema, WorkspaceCleanupTrashResultSchema, WorkspaceDiskUsageArgsSchema, WorkspaceDiskUsageReportSchema, SubAgentWorktreeRemoveArgsSchema, SubAgentWorktreeRemoveResultSchema } from "../../../src/lib/workspace-cleanup-contract";
 import { WorkspaceExecutionArgsSchema, WorkspaceCleanupTrashArgsSchema } from "./schemas";
 import { ipcMain, shell, webContents } from "electron";
 import {
@@ -137,7 +138,9 @@ export function registerTerminalHandlers() {
       blockers: [], reasons: [], bytes: null, branchDeletable: false,
     })));
   });
-  ipcMain.handle("workspace:cleanup-list", async (_event, input: unknown) => WorkspaceCleanupListResultSchema.parse(await invokeHostService("workspace.cleanup-list", WorkspaceCleanupListArgsSchema.parse(input ?? {}))));
+  // Activity's unfinished sub-agents are read here in main and never taken from the renderer.
+  ipcMain.handle("workspace:cleanup-list", async (_event, input: unknown) => WorkspaceCleanupListResultSchema.parse(await invokeHostService("workspace.cleanup-list", { ...WorkspaceCleanupListArgsSchema.parse(input ?? {}), runningAgentWorktrees: runningExternalAgentWorktrees() })));
+  ipcMain.handle("workspace:subagent-worktree-remove", async (_event, input: unknown) => SubAgentWorktreeRemoveResultSchema.parse(await invokeHostService("workspace.subagent-worktree-remove", { ...SubAgentWorktreeRemoveArgsSchema.parse(input), runningAgentWorktrees: runningExternalAgentWorktrees() })));
   ipcMain.handle("workspace:disk-usage", async (_event, input: unknown) => WorkspaceDiskUsageReportSchema.parse(await invokeHostService("workspace.disk-usage", WorkspaceDiskUsageArgsSchema.parse(input ?? {}))));
   ipcMain.handle("workspace:cleanup-act", async (_event, input: unknown) => WorkspaceCleanupResultSchema.parse(await invokeHostService("workspace.cleanup-act", WorkspaceCleanupActArgsSchema.parse(input))));
   ipcMain.handle("workspace:cleanup-trash-leftover", async (_event, input: unknown) => {

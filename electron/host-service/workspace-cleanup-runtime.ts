@@ -4,6 +4,7 @@ import { saveWorkspaceChanges, clearSavedWorkspaceChanges, applySavedWorkspaceCh
 import { existsSync, realpathSync } from "node:fs";
 import { workspaceRunningCleanupBlockers } from "./workspace-cleanup-running";
 import { createWorkspaceDiskUsage, readWorkspaceDiskUsage, workspaceDiskFolders, type WorkspaceDiskUsage } from "./workspace-disk-usage";
+import { createSubAgentWorktrees } from "./subagent-worktrees";
 import { lstat, symlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { SqliteStore } from "../persistence/sqlite-store";
@@ -15,7 +16,7 @@ import { getScriptStatuses } from "../main/workspace-scripts";
 import { isTarsTrayPinned } from "../../src/lib/tars/clearing";
 import { isNotificationPendingAttention } from "../../src/lib/notifications/notification.types";
 import { worktreeStatusHasMeaningfulChanges } from "../../src/lib/workspace-archive-status";
-import { DEFAULT_WORKSPACE_CLEANUP_POLICY, WorkspaceCleanupStateSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupActArgsSchema, type WorkspaceCleanupActArgs, type WorkspaceCleanupPolicy, type WorkspaceCleanupResult, type WorkspaceCleanupRow } from "../../src/lib/workspace-cleanup-contract";
+import { DEFAULT_WORKSPACE_CLEANUP_POLICY, WorkspaceCleanupStateSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupActArgsSchema, SubAgentWorktreeRemoveArgsSchema, subAgentWorktreeDiskId, type SubAgentWorktreeRemoveArgs, type WorkspaceCleanupActArgs, type WorkspaceCleanupPolicy, type WorkspaceCleanupResult, type WorkspaceCleanupRow } from "../../src/lib/workspace-cleanup-contract";
 
 const DAY = 86400_000;
 const canonical = (path: string) => { try { return realpathSync(path); } catch { return resolve(path); } };
@@ -46,6 +47,7 @@ export function createWorkspaceCleanupRuntime(ports: {
   const pr = ports.pr ?? fetchGitHubPrStatus;
   const now = ports.now ?? Date.now;
   const disk = ports.diskUsage ?? createWorkspaceDiskUsage();
+  const subAgents = createSubAgentWorktrees({ store: ports.store, git, now });
   const mergedAtByWorkspace = new Map<string, number>();
   const prSavedTips = new Set<string>();
   let running = false;
@@ -521,7 +523,20 @@ export function createWorkspaceCleanupRuntime(ports: {
     timer.unref();
     return () => clearInterval(timer);
   }
-  /** Disk used by workspace folders; stale folders are measured in the background (`workspace-disk-usage.ts`). */
-  const diskUsage = (refresh = false) => readWorkspaceDiskUsage(workspaceDiskFolders(ports.store()), disk, refresh);
-  return { list, act, configure, runNow, runScheduled, start, diskUsage };
+  /** Worktrees Claude Code sub-agents left (`subagent-worktrees.ts`); `runningAgentWorktrees` comes from Activity in main. */
+  const listSubAgentWorktrees = (runningAgentWorktrees: readonly string[] = [], scanDisk = false) => subAgents.list(runningAgentWorktrees, async folder =>
+    (scanDisk ? await disk.read(subAgentWorktreeDiskId(folder.path), folder.path, 0) : disk.peek(subAgentWorktreeDiskId(folder.path), folder.path))?.bytes ?? null);
+  /** Only the cleanup dialog's confirmation calls this; it shares the action queue so removals never overlap. */
+  function removeSubAgentWorktree(args: SubAgentWorktreeRemoveArgs, runningAgentWorktrees: readonly string[] = []) {
+    const pending = actionChain.then(() => subAgents.remove(SubAgentWorktreeRemoveArgsSchema.parse(args), runningAgentWorktrees));
+    actionChain = pending.then(() => {}, () => {});
+    return pending;
+  }
+  /** Disk used by workspace folders and sub-agent worktrees; stale folders are measured in the background (`workspace-disk-usage.ts`). */
+  const diskUsage = async (refresh = false) => {
+    const leftByAgents = await subAgents.discover().catch(() => []);
+    return readWorkspaceDiskUsage([...workspaceDiskFolders(ports.store()), ...leftByAgents.map(folder => ({ workspaceId: subAgentWorktreeDiskId(folder.path),
+      name: folder.name, repositoryPath: folder.repositoryPath, repositoryName: folder.repositoryName, archived: false, subAgentWorktree: true as const, path: folder.path }))], disk, refresh);
+  };
+  return { list, act, configure, runNow, runScheduled, start, diskUsage, listSubAgentWorktrees, removeSubAgentWorktree };
 }

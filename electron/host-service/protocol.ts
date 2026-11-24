@@ -5,7 +5,7 @@ import type { GitHubPrActivityArgs, GitHubPrActivityResult } from "../../src/lib
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../../src/lib/pull-request-stack";
 import type { ProviderLiveTurns } from "../../src/lib/providers/live-turns";
 import type { TurnSnapshotList, TurnSnapshotOwner, TurnSnapshotRestore, TurnSnapshotResult } from "../../src/lib/turn-snapshots";
-import type { WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupPolicy } from "../../src/lib/workspace-cleanup-contract";
+import type { SubAgentWorktreeRemoveArgs, SubAgentWorktreeRemoveResult, WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupPolicy } from "../../src/lib/workspace-cleanup-contract";
 import type { McpAppViewRequestArgs, McpAppViewRequestResponse } from "../../src/lib/mcp-app/mcp-app-bridge";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../src/lib/agent-runs/delegated-run";
@@ -554,8 +554,10 @@ export type HostAutomationAction =
   | "list-information-references";
 
 export interface HostServiceRequestMap {
-  "workspace.cleanup-list": { scanDisk?: boolean };
+  /** `runningAgentWorktrees` is added by main from Activity, never forwarded from the renderer. */
+  "workspace.cleanup-list": { scanDisk?: boolean; runningAgentWorktrees?: string[] };
   "workspace.cleanup-act": WorkspaceCleanupActArgs;
+  "workspace.subagent-worktree-remove": SubAgentWorktreeRemoveArgs & { runningAgentWorktrees?: string[] };
   "workspace.cleanup-configure": WorkspaceCleanupPolicy;
   "workspace.cleanup-run": Record<string, never>;
   "workspace.disk-usage": { refresh?: boolean };
@@ -1115,6 +1117,7 @@ export interface HostServiceRequestMap {
 export interface HostServiceResponseMap {
   "workspace.cleanup-list": Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
   "workspace.cleanup-act": Awaited<ReturnType<WorkspaceCleanupApi["act"]>>;
+  "workspace.subagent-worktree-remove": SubAgentWorktreeRemoveResult;
   "workspace.cleanup-configure": WorkspaceCleanupPolicy;
   "workspace.cleanup-run": Awaited<ReturnType<WorkspaceCleanupApi["runNow"]>>;
   "workspace.disk-usage": import("../../src/lib/workspace-cleanup-contract").WorkspaceDiskUsageReport;
