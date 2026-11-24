@@ -1,0 +1,134 @@
+/*
+ * A chart's first entrance (`entrance` on a chart, `Charts.entrance.ts`).
+ *
+ * It lives in a stylesheet because the moving parts are the marks recharts
+ * draws inside the plot, which StyleX's per-element styles cannot reach. The
+ * plot carries `.aui-chart-entrance` and `data-chart-entrance` only while the
+ * entrance plays, so nothing here matches a settled chart.
+ *
+ * One rule: the frame is there from the first frame, and the marks are
+ * uncovered once ACROSS their values, never along them. A mark sits at its
+ * final geometry throughout and only a clip moves, in the direction that
+ * carries no value: along the category axis for a line or a bar, outwards
+ * from the centre for an arc (whose value is its angle). So no frame shows a
+ * bar at a height, or a slice at an angle, the data does not have.
+ *
+ *   inline  line, area, columns…   uncovered from the start of the category axis
+ *   block   rows                   uncovered from the first row to the last
+ *   radial  pie, donut, rings      uncovered from the centre outwards
+ *   appear  scatter, radar, …      opacity only (every direction is a value)
+ *
+ * All four run 340ms (`panel`, the system's longest one-shot step: the edge
+ * crosses the whole plot, as a drawer crosses its own width) on the ease-out,
+ * with no delay and no stagger. Clip and opacity do not lay anything out.
+ * Under Reduce Motion the component never adds the class (the plot keeps its
+ * opacity fade); the media rule below is the same answer for a page that
+ * renders before the preference is known.
+ */
+@layer aui {
+  .aui-chart-entrance[data-chart-entrance="inline"]
+    :is(
+      .recharts-line,
+      .recharts-area,
+      .recharts-bar,
+      .recharts-line-dots,
+      .recharts-area-dots,
+      .recharts-scatter,
+      .recharts-label-list,
+      .recharts-sankey-links,
+      .recharts-sankey-nodes
+    ) {
+    animation: aui-chart-entrance-inline var(--atelier-motion-duration-panel)
+      var(--atelier-motion-ease-out) both;
+  }
+
+  /* Rows: the same marks, uncovered down the category axis. */
+  .aui-chart-entrance[data-chart-entrance="block"]
+    :is(
+      .recharts-line,
+      .recharts-area,
+      .recharts-bar,
+      .recharts-line-dots,
+      .recharts-area-dots,
+      .recharts-scatter,
+      .recharts-label-list,
+      .recharts-sankey-links,
+      .recharts-sankey-nodes
+    ) {
+    animation: aui-chart-entrance-block var(--atelier-motion-duration-panel)
+      var(--atelier-motion-ease-out) both;
+  }
+
+  /* The arcs share the plot with nothing but themselves, so the clip is the
+     plot's drawing surface. */
+  .aui-chart-entrance[data-chart-entrance="radial"] svg.recharts-surface {
+    animation: aui-chart-entrance-radial var(--atelier-motion-duration-panel)
+      var(--atelier-motion-ease-out) both;
+  }
+
+  .aui-chart-entrance[data-chart-entrance="appear"]
+    :is(
+      .recharts-scatter,
+      .recharts-radar,
+      .recharts-trapezoids,
+      .recharts-treemap-depth-0,
+      .recharts-label-list
+    ) {
+    animation: aui-chart-entrance-appear var(--atelier-motion-duration-panel)
+      var(--atelier-motion-ease-out) both;
+  }
+
+  /* A sparkline is a small mark: the same move over the normal step. The
+     doubled class only out-specifies the rules above. */
+  .aui-chart-entrance.aui-chart-entrance[data-chart-entrance-size="compact"]
+    :is(.recharts-line, .recharts-area, .recharts-bar, .recharts-line-dots) {
+    animation-duration: var(--atelier-motion-duration-normal);
+  }
+
+  /* The clip's box is the plot's viewport, so every series shares one edge.
+     The 8px outset keeps strokes and end dots at the plot's rim whole. */
+  @keyframes aui-chart-entrance-inline {
+    from {
+      clip-path: inset(-8px 100% -8px -8px) view-box;
+    }
+    to {
+      clip-path: inset(-8px) view-box;
+    }
+  }
+
+  @keyframes aui-chart-entrance-block {
+    from {
+      clip-path: inset(-8px -8px 100% -8px) view-box;
+    }
+    to {
+      clip-path: inset(-8px) view-box;
+    }
+  }
+
+  /* 71% of a square's reference radius reaches its corners. */
+  @keyframes aui-chart-entrance-radial {
+    from {
+      clip-path: circle(0% at 50% 50%);
+    }
+    to {
+      clip-path: circle(71% at 50% 50%);
+    }
+  }
+
+  @keyframes aui-chart-entrance-appear {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .aui-chart-entrance.aui-chart-entrance.aui-chart-entrance[data-chart-entrance]
+      :is(svg.recharts-surface, .recharts-layer) {
+      animation: none;
+    }
+  }
+}
+

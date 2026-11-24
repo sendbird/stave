@@ -74,6 +74,8 @@ export const chartsThemeTargets = {
        */
       swatch: ["borderRadius"],
       title: ink,
+      /* The `headline` figure under the title. */
+      value: ink,
     },
   },
   /**

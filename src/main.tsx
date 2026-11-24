@@ -193,6 +193,10 @@ if (preview === "bell-answers") {
   void import("@/dev/rich-markdown-preview").then(({ RichMarkdownPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><RichMarkdownPreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "structured-views") {
+  void import("@/dev/structured-view-preview").then(({ StructuredViewPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><StructuredViewPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "agent-messages") {
   void import("@/dev/agent-preview").then(({ AgentPreviewApp }) => {
     root.render(

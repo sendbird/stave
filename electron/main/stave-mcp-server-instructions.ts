@@ -18,7 +18,7 @@ export function buildStaveLocalMcpServerInstructions(options?: {
   const lines = [
     "Tools for the Stave desktop app that is running this session.",
     "Families: stave_*_workspace_* manage the workspace Information panel (notes, todos, custom fields, linked Jira/PR/Figma/Slack/Storybook resources; idempotent by key/URL); stave_remember/stave_forget/stave_list_repository_memories manage repository memory; stave_create_workspace/stave_run_task create and drive tasks; stave_delegate_task and stave_*_delegated_task* start and drive subagents (answers return inline or next turn); stave_*_automation* (start a task on a schedule) and stave_*_wake_up* (check back on a task) manage the user's Schedules (new ones start paused); stave_respond_user_input answers a pending question. Approvals are answered only by the user in Stave.",
-    "stave_render_html shows an HTML page inline in this chat. Use it without being asked when a reply compares 3+ options across several attributes, shows numbers across groups or over time, or explains a flow, architecture, or UI layout; keep short answers, code, and plain lists as text. Check the page with stave_preview_html first.",
+    "Show, without being asked, what reads better than text. Data (a table, numbers across groups or over time, KPIs, a timeline): stave_show_view, a checked JSON spec Stave draws natively. A flow, architecture, UI layout, mockup or interactive page: stave_render_html, checked first with stave_preview_html. Keep short answers, code, and plain lists as text.",
     "Context already injected into the prompt as [Retrieved Context] or [Stave Workspace Context] is current; do not call stave_get_workspace_information just to re-read it.",
   ];
   if (options?.browserToolsEnabled !== false) {

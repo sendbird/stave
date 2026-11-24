@@ -271,8 +271,19 @@ export const contentThemeTargets = {
   },
   text: {
     axes: {
-      size: ["sm", "md", "lg"],
-      tone: ["default", "muted", "subtle"],
+      // Host merge: the chart and data-table install's `Text` adds `xs` and
+      // the status tones; `lg` stays for the earlier contract.
+      size: ["xs", "sm", "md", "lg"],
+      tone: [
+        "default",
+        "muted",
+        "subtle",
+        "success",
+        "danger",
+        "warning",
+        "info",
+        "inverted",
+      ],
     },
     exports: ["Text"],
     properties: [...ink],

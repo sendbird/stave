@@ -8,6 +8,10 @@ import {
   parseInlineRenderToolOutput,
 } from "@/lib/inline-render/inline-render";
 import { readMcpAppViewFromToolPart } from "@/lib/mcp-app/mcp-app-view";
+import {
+  isStructuredViewToolName,
+  parseStructuredViewToolOutput,
+} from "@/lib/structured-view/view-spec";
 import { parseSubagentToolInput } from "@/lib/subagent-tool-input";
 import { parseToolOutputImages } from "@/lib/tool-images/tool-images";
 import { normalizeToolDetailInput } from "@/lib/tool-detail";
@@ -62,9 +66,17 @@ export function TraceToolRun(args: {
   const inlineRender = isInlineRenderToolName(part.toolName)
     ? { reference: parseInlineRenderToolOutput(part.output) }
     : null;
+  // A structured view is drawn the same way, and its spec can be as long.
+  const structuredView = isStructuredViewToolName(part.toolName)
+    ? { spec: parseStructuredViewToolOutput(part.output) }
+    : null;
   const toolSummary =
     normalized === "file_change"
       ? null
+      : structuredView
+        ? structuredView.spec?.title
+          ? { kind: "text" as const, text: structuredView.spec.title }
+          : null
       : inlineRender
         ? inlineRender.reference
           ? { kind: "text" as const, text: inlineRender.reference.title }
@@ -79,7 +91,7 @@ export function TraceToolRun(args: {
    * arguments the header does not cover. Single-argument tools (Bash, Read,
    * Grep) therefore show their result and not the same string twice.
    */
-  const residualInput = inlineRender
+  const residualInput = inlineRender || structuredView
     ? null
     : detail.remainingInput !== undefined
       ? detail.remainingInput
@@ -95,11 +107,11 @@ export function TraceToolRun(args: {
   const firstImageNumber = useReplyImageNumber(part.toolUseId);
   const rawOutput = toolOutput.text;
   const output =
-    inlineRender?.reference && !isError
+    (inlineRender?.reference || structuredView?.spec) && !isError
       ? i18n.t("session:inlineRender.shownBelow")
       : rawOutput;
   const argumentsLabel = i18n.t("ui:toolrun.arguments");
-  const formatted = !inlineRender && !isWeb && part.state === "output-available";
+  const formatted = !inlineRender && !structuredView && !isWeb && part.state === "output-available";
   // A view the runtime captured for this call replaces its text output.
   const mcpAppView = isError ? null : readMcpAppViewFromToolPart(part);
 

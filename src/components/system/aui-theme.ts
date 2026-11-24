@@ -91,6 +91,16 @@ const roles = {
   "--aui-color-accent-soft": "color-mix(in oklab, var(--foreground) 4%, var(--card))",
   "--aui-color-accent-text": "var(--primary-foreground)",
   "--aui-color-selection-fill": "var(--accent)",
+  // The chart and data-table families' "on" control and selection steps
+  // (aliases in tokens.stylex.ts). Re-declared here so they resolve against
+  // this element's theme instead of the root defaults the aliases captured.
+  "--aui-color-control-on": "var(--primary)",
+  "--aui-color-control-on-soft": "color-mix(in oklab, var(--foreground) 4%, var(--card))",
+  "--aui-color-selection-fill-hover": "color-mix(in oklab, var(--foreground) 4%, var(--accent))",
+  "--aui-color-selection-fill-strong": "color-mix(in oklab, var(--foreground) 8%, var(--accent))",
+  "--aui-color-selection-fill-strong-hover":
+    "color-mix(in oklab, var(--foreground) 12%, var(--accent))",
+  "--aui-color-skeleton": "color-mix(in oklab, var(--foreground) 12%, transparent)",
   "--aui-color-danger": "var(--destructive)",
   // Same two rules. The operand is the ink the destructive fill contrasts
   // against, and the space is oklab so a red does not swing toward orange.

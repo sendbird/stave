@@ -29,6 +29,12 @@ describe("buildStaveLocalMcpServerInstructions", () => {
     expect(text).toContain("stave_preview_html");
   });
 
+  test("sends data to stave_show_view and layouts to stave_render_html", () => {
+    const text = buildStaveLocalMcpServerInstructions({ browserToolsEnabled: false });
+    expect(text).toMatch(/Data \(a table[^:]*\): stave_show_view/);
+    expect(text).toMatch(/mockup or interactive page: stave_render_html/);
+  });
+
   test("stays small because it is resident in every turn", () => {
     expect(buildStaveLocalMcpServerInstructions().length).toBeLessThan(1_500);
   });

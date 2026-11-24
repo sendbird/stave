@@ -1178,3 +1178,67 @@ Further host extensions:
   - When refreshing, call `aui_check_source_updates`; upstream accepts the
     legacy `.ads-source.json` name only as a migration path, and this install
     already uses `.aui-source.json`.
+
+- The chart, stat tile, timeline and data table families (`ChartSpec` with
+  `validateChartSpec`, `DataTable`, `StatTile` with `Sparkline`,
+  `TimelineChart`, plus the `Heatmap`, `BarList` and interval charts
+  `ChartSpec` draws) were installed on 2026-11-24 for data views in the
+  conversation (`stave_show_view`, `docs/features/structured-views.md`).
+  `.aui-source-structured-views.json` records the 117 files written, all of
+  them absent before, with the bundle's `sourceRevision` and each file's
+  upstream `integrity`. The bundle's dependency closure through files the host
+  already had was resolved against the host's copies, so only files those
+  copies actually import were installed; the bundle's newer foundation
+  (point colour system, `Select`, `Menu`, `Tooltip` base, `Typography`
+  dependants, `prose.css` and the other motion sheets) was not. New
+  dependencies: `recharts` and `@tanstack/react-virtual` (both MIT); the
+  renderer that uses them loads lazily, and `vite.config.ts` puts them in
+  their own `charts` chunk.
+  Host merges into existing files, all additive:
+  - `tokens.stylex.ts`: `--aui-line-height-body`, `--aui-font-size-prose`,
+    `--aui-motion-duration-skeleton` and `--aui-motion-duration-reveal` at the
+    bundle's fixed values; `--aui-color-control-on(-soft)`,
+    `--aui-color-selection-fill-hover`, `-strong`, `-strong-hover` and
+    `--aui-color-skeleton` as aliases of roles every theme already sets
+    (upstream derives them from the point colours, which the host does not
+    have). `src/components/system/aui-theme.ts` re-declares the colour aliases
+    from Stave's theme variables so they resolve per theme.
+  - Theme targets: `text` gains the `xs` size and the status tones (`lg`
+    stays), `stat-tile` the `variant` axis and the `comparison` and `error`
+    slots, `chart` the `value` slot.
+  - `Skeleton` takes `as="span"` for an inline placeholder.
+  - `styles.css` imports `chart-entrance-motion.css` and defines the
+    `atelier-motion-arrive` and `atelier-motion-show-delayed` classes
+    `Skeleton.motion.ts` applies, copied from the bundle's
+    `skeleton-motion.css`. The rest of that sheet (its newer skeleton paint)
+    was not installed, so the host's skeletons look as before.
+  Adaptations in the newly installed files:
+  - `Charts.series.tsx` falls back to the comparison ink when a palette slot
+    is out of range (`noUncheckedIndexedAccess`).
+  - `DataTable.cellLayout.ts`, `DataTable.header.tsx` and `StatTile.error.tsx`
+    type style entries with the host's `StyleXValue`.
+  - `DataTable.header.tsx` renders a column's `headerHint` without the
+    bundle's `TooltipPlacementScope`, which the installed `Tooltip` does not
+    read. `DataTable.toolbar.tsx` drops the density toggle's `size`, which the
+    installed `ToggleGroup` does not take. `DropdownMenu.row.tsx` renders an
+    `href` row as an action row because the installed `Menu` has no
+    `LinkItem`; the table's column menu never passes `href`.
+  - `Charts.headline.tsx` passes the installed `RelativeTime` its host words
+    (`formatTimeAgo`, `common:time.utc`, the display locale).
+  - Every user-facing string reads `i18n.t("ui:chart.*" | "ui:dataTable.*" |
+    "ui:statTile.*" | "ui:sparkline.*" | "ui:timeline.*" | "ui:interval.*" |
+    "ui:heatmap.*" | "ui:barList.*" | "ui:dataError.*")`; module-level copy
+    (`OTHER_LABEL`, tone and status words, pin actions) became functions or
+    getters read at render. The column-sizing warnings in `DataTable.sizing.ts`
+    are developer diagnostics and stay English (`i18n-ignore`).
+  - Source comments that named other products as design references
+    (`Charts.entrance.ts`, `Charts.timeline.tsx`, the `DataTable` column,
+    export, reorder, toolbar and header files, `Sparkline.tsx`,
+    `recipes/live-breath.ts`, `recipes/measured.ts`, `recipes/metric.ts`) are
+    generalized to the behaviour they describe.
+  Known gaps: the screen-reader point readout and the table twin's headers in
+  `Charts.cartesian.tsx` (and the default `Projected` name in
+  `Charts.cartesian.marks.tsx`) still build English text from fragments, and
+  `Charts.timeline.utils.ts` formats axis days in `en-US`. The i18n gate does
+  not flag them; translating them needs the readout rewritten as whole
+  sentences.

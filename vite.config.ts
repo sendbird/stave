@@ -83,6 +83,18 @@ export default defineConfig({
                 if (id.includes("/node_modules/katex/")) {
                   return "katex";
                 }
+                // Structured views load the chart library and the table's
+                // windowing on first use. Left out of every named group, they
+                // split with the lazy renderer that imports them; a named
+                // group would pull their shared dependencies (React) in with
+                // them, and `vendor` would load them with the app.
+                if (
+                  /\/node_modules\/(?:recharts|victory-vendor|@reduxjs\/toolkit|react-redux|redux|redux-thunk|reselect|immer|es-toolkit|eventemitter3|tiny-invariant|@standard-schema\/utils|decimal\.js-light|@tanstack\/(?:react-virtual|virtual-core))\//.test(
+                    id,
+                  )
+                ) {
+                  return null;
+                }
                 if (id.includes("zustand") || id.includes("zod")) {
                   return "state-runtime";
                 }

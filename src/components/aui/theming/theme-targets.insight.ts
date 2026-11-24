@@ -73,11 +73,15 @@ export const insightThemeTargets = {
    * to be reachable (`.aui-stat-tile[data-density="compact"] [data-aui-slot="value"]`).
    */
   "stat-tile": {
-    axes: { density: ["compact", "regular"] },
+    axes: { density: ["compact", "regular"], variant: ["row", "tile"] },
     exports: ["StatTile"],
     properties: [...surface, ...themeSpaceProperties],
     root: "the `<div>` `StatTile` renders",
     slots: {
+      /* The delta tag and its period words under the value. */
+      comparison: ink,
+      /* The failure line (glyph, message, retry) shown when `error` is set. */
+      error: ink,
       /* The metric caption row and its optional glyph's ink. */
       label: ink,
       /* Small print under the readout. */

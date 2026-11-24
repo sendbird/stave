@@ -450,5 +450,174 @@
   "runRecap": {
     "reviewed": "검토함",
     "unreviewed": "아직 검토 안 함"
+  },
+  "barList": {
+    "label": "막대 차트"
+  },
+  "chart": {
+    "column": {
+      "category": "범주",
+      "item": "항목",
+      "value": "값"
+    },
+    "currentSeries": "현재",
+    "downloadCsv": "CSV 다운로드",
+    "downloadImage": "이미지 다운로드",
+    "emptyTitle": "선택한 조건에 해당하는 데이터가 없습니다",
+    "exploreHint": "화살표 키로 포인트 사이를 이동하고, Home 키와 End 키로 처음과 마지막 포인트로 이동합니다.",
+    "exploreHintSelectable": "화살표 키로 포인트 사이를 이동하고, Home 키와 End 키로 처음과 마지막 포인트로 이동하며, Enter 키로 포인트를 엽니다.",
+    "invalidSpec": "차트를 그리지 못했습니다: {{detail}}",
+    "invalidSpecFallback": "잘못된 차트 사양",
+    "legend": "차트 범례",
+    "loadFailed": "차트를 불러오지 못했습니다",
+    "loading": "차트 데이터를 불러오는 중",
+    "other": "기타",
+    "paused": "일시 중지됨",
+    "previousPeriod": "이전 기간",
+    "retry": "다시 시도",
+    "roleDescription": "차트",
+    "seriesLegend": "차트 시리즈",
+    "showChart": "차트 보기",
+    "showTable": "표 보기",
+    "stale": "오래됨",
+    "tooManySeries": "SeriesChart는 시리즈를 최대 {{max}}개까지 지원합니다. 나머지 측정값은 작은 차트 여러 개로 나누어 표시하세요.",
+    "tooltip": {
+      "change": "변화량"
+    },
+    "total": "합계",
+    "updated": "업데이트",
+    "visibleRange": "표시 범위"
+  },
+  "dataError": {
+    "retry": "다시 시도"
+  },
+  "dataTable": {
+    "actionsColumn": "동작",
+    "collapseRow": "{{row}}행 접기",
+    "columnMoved": "{{column}} 열을 {{total}}개 중 {{position}}번째 위치로 옮겼습니다",
+    "columnWidth_other": "{{count}}픽셀",
+    "columns": "열",
+    "density": {
+      "comfortable": "넓은 행",
+      "compact": "좁은 행",
+      "label": "행 밀도"
+    },
+    "editCell": "{{column}} 편집, {{row}}",
+    "editCellRowId": "{{column}} 편집, 행 {{rowId}}",
+    "empty": {
+      "description": "표에 데이터가 생기면 여기에 행이 표시됩니다.",
+      "filteredDescription": "현재 필터와 일치하는 행이 없습니다.",
+      "filteredTitle": "일치하는 행 없음",
+      "title": "아직 데이터 없음"
+    },
+    "error": {
+      "message": "불러오는 중 문제가 발생했습니다.",
+      "title": "행을 불러오지 못했습니다"
+    },
+    "expandColumn": "펼치기",
+    "expandRow": "{{row}}행 펼치기",
+    "exportCsv": "CSV 내보내기",
+    "pagination": {
+      "allLoaded": "모든 행을 불러왔습니다",
+      "loadMore": "더 불러오기",
+      "loadingMore": "더 불러오는 중…",
+      "loadingNext": "다음 페이지 불러오는 중…",
+      "loadingPrevious": "이전 페이지 불러오는 중…",
+      "next": "다음",
+      "page": "{{page}}페이지",
+      "pageOf": "{{pageCount}}페이지 중 {{page}}페이지",
+      "previous": "이전",
+      "retry": "다시 시도",
+      "rowsLoaded_other": "행 {{count}}개 불러옴",
+      "rowsPerPage": "페이지당 행 수"
+    },
+    "pin": {
+      "end": "끝 쪽에 고정",
+      "groupLabel": "열 고정",
+      "pinnedEnd": "끝",
+      "pinnedStart": "시작",
+      "start": "시작 쪽에 고정",
+      "unpin": "고정 해제"
+    },
+    "resizeColumn": "{{column}} 열 크기 조정",
+    "selectAllRows": "모든 행 선택",
+    "selectRow": "{{row}}행 선택"
+  },
+  "heatmap": {
+    "mark": {
+      "diagonal": "정답",
+      "highlighted": "표시됨"
+    },
+    "noData": "데이터 없음",
+    "rowHeader": "행",
+    "scale": {
+      "higher": "높음",
+      "less": "적음",
+      "lower": "낮음",
+      "more": "많음"
+    }
+  },
+  "interval": {
+    "column": {
+      "against": "비교 기준",
+      "estimate": "추정치",
+      "high": "상한",
+      "item": "항목",
+      "low": "하한",
+      "reading": "판정"
+    },
+    "describeRow": "{{label}}: 추정치 {{estimate}}, 구간 {{low}}~{{high}}, {{reference}}({{referenceValue}}) 대비 {{verdict}}",
+    "key": {
+      "estimate": "추정치",
+      "interval": "구간"
+    },
+    "noEffect": "효과 없음",
+    "verdict": {
+      "above": "높음",
+      "below": "낮음",
+      "better": "개선",
+      "unclear": "아직 불분명",
+      "worse": "악화"
+    }
+  },
+  "sparkline": {
+    "noData": "추세, 데이터 없음",
+    "rangeSuffix": ", {{start}}부터 {{end}}까지",
+    "summaryWithReference_other": "포인트 {{count}}개의 추세, 최근 값 {{latest}}, 기준값 {{reference}}",
+    "summary_other": "포인트 {{count}}개의 추세, 최근 값 {{latest}}"
+  },
+  "statTile": {
+    "live": "실시간",
+    "loadFailed": "불러오지 못함",
+    "point": "{{index}}번째 포인트",
+    "progressOf": "{{max}} 중",
+    "trend": "추세",
+    "trendNamed": "{{label}} 추세"
+  },
+  "timeline": {
+    "column": {
+      "duration": "기간",
+      "end": "종료",
+      "item": "항목",
+      "row": "행",
+      "start": "시작"
+    },
+    "handoff": "인계",
+    "label": "타임라인",
+    "now": "지금",
+    "roleDescription": "타임라인",
+    "status": {
+      "attention": "확인 필요",
+      "done": "완료됨",
+      "failed": "실패함",
+      "running": "실행 중"
+    },
+    "tone": {
+      "danger": "심각",
+      "info": "예정됨",
+      "neutral": "기타",
+      "success": "완료됨",
+      "warning": "위험"
+    }
   }
 }

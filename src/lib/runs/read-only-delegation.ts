@@ -34,6 +34,9 @@ export const READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_get_agent_run",
   // Renders a page offscreen for the caller's own eyes; it saves and shows nothing.
   "stave_preview_html",
+  // Checks a view the caller wrote and returns it; the view is inline data
+  // drawn in the conversation, so nothing is saved, read or executed.
+  "stave_show_view",
 ] as const;
 
 /**

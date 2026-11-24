@@ -114,6 +114,19 @@ export const vars = stylex.defineVars({
   "--aui-color-selection-fill": "oklch(0.93 0.007 89)", // Selection-only fill; §1.7 has the split, the HC fix, and the measured light cap. Do NOT darken light to match dark.
   "--aui-color-accent-soft": "oklch(0.97 0.007 89)",
   "--aui-color-accent-text": "oklch(0.97 0.007 89)",
+  // Host adaptation (chart and data-table install, PROVENANCE.md): the newer
+  // bundle's "on" control and selection roles, written as aliases of roles
+  // every theme and the Stave theme mapping already set, so they follow light,
+  // dark, high contrast and saved themes without per-theme values.
+  "--aui-color-control-on": "var(--aui-color-accent)",
+  "--aui-color-control-on-soft": "var(--aui-color-accent-soft)",
+  "--aui-color-selection-fill-hover":
+    "color-mix(in oklab, var(--aui-color-text) 4%, var(--aui-color-selection-fill))",
+  "--aui-color-selection-fill-strong":
+    "color-mix(in oklab, var(--aui-color-text) 8%, var(--aui-color-selection-fill))",
+  "--aui-color-selection-fill-strong-hover":
+    "color-mix(in oklab, var(--aui-color-text) 12%, var(--aui-color-selection-fill))",
+  "--aui-color-skeleton": "color-mix(in oklab, var(--aui-color-text) 12%, transparent)",
   "--aui-color-info": "oklch(0.546 0.245 262)",
   "--aui-color-info-soft": "oklch(0.943 0.027 292)",
   "--aui-color-info-text": "oklch(0.424 0.194 262)",
@@ -438,6 +451,13 @@ export const vars = stylex.defineVars({
   // 32px row (1.35 → 18.9px lands on half-pixels and reads subtly off), while
   // staying tall enough to never clip descenders under `overflow: hidden`.
   "--aui-line-height-control": "20px",
+  // Host adaptation (chart and data-table install, PROVENANCE.md): the newer
+  // bundle's 14px body line box, its prose size and two loop cadences. Fixed
+  // values, so no theme repeats them.
+  "--aui-line-height-body": "20px",
+  "--aui-font-size-prose": "0.875rem",
+  "--aui-motion-duration-skeleton": "1800ms",
+  "--aui-motion-duration-reveal": "1500ms",
 
   // Motion's primitive layer is `--atelier-motion-*` in styles.css, not a StyleX
   // module: the motion stylesheets read it 75 times, and when this was decided a

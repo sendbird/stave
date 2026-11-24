@@ -762,6 +762,13 @@
     "tableFilterCount": "{{shown}} of {{total}} rows",
     "tableNoMatches": "No rows match the filter."
   },
+  "structuredView": {
+    "drawing": "Drawing the view…",
+    "failed": "This view could not be drawn.",
+    "invalid": "This view could not be drawn, so its source is shown: {{detail}}",
+    "yes": "Yes",
+    "no": "No"
+  },
   "mermaid": {
     "drawing": "Drawing the diagram…",
     "failed": "This diagram could not be drawn, so its source is shown.",

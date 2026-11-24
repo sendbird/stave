@@ -43,6 +43,8 @@ import {
   type MarkdownLineBreaks,
 } from "./message-markdown";
 import { MermaidBlock } from "./mermaid-block";
+import { StructuredViewFence } from "./structured-view-block";
+import { isStructuredViewFenceLanguage } from "@/lib/structured-view/view-spec";
 import { MathBlock } from "./math-block";
 import { RichCodeBlock } from "./rich-code-block";
 import { codeBlockLanguageLabel } from "./code-block-language";
@@ -370,6 +372,11 @@ export function MessageResponse({
         const fenceLanguage = language?.toLowerCase();
         if (fenceLanguage === "mermaid") {
           return <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />;
+        }
+        // A view's JSON is unreadable until the fence closes, so a streaming
+        // fence holds a placeholder instead of growing code.
+        if (isStructuredViewFenceLanguage(fenceLanguage)) {
+          return <StructuredViewFence code={code} isStreaming={Boolean(isStreamingBlock)} source={block} />;
         }
         // A block still being written stays plain code, so it is not
         // re-read as math, JSON or terminal output on every delta.
