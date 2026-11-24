@@ -51,7 +51,7 @@ import {
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
 import { shouldStartFreshCodexGrantThread } from "../electron/providers/codex-thread-session";
-import { WORKSPACE_SCRATCH_INSTRUCTION } from "../src/lib/workspace-scratch";
+import { WORKSPACE_SCRATCH_INSTRUCTION, WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION } from "../src/lib/workspace-scratch";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 import { CodexThreadTokenUsage, mapCodexTokenUsageBreakdown } from "../electron/providers/codex-token-usage";
 import {
@@ -59,6 +59,8 @@ import {
   resolveCodexTurnCompletionStopReason,
   toCodexUserFacingErrorMessage,
 } from "../electron/providers/codex-app-server-errors";
+
+const SCRATCH_WITH_SUBAGENT_LINE = `${WORKSPACE_SCRATCH_INSTRUCTION}\n${WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION}`;
 
 function encodeJwtPayload(payload: Record<string, unknown>) {
   const encoded = Buffer.from(JSON.stringify(payload))
@@ -809,7 +811,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
   test("always appends native browser guidance to developer instructions", () => {
     const withoutBasePrompt = buildCodexDeveloperInstructions({});
     expect(withoutBasePrompt).toBe(
-      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${WORKSPACE_SCRATCH_INSTRUCTION}`,
+      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${SCRATCH_WITH_SUBAGENT_LINE}`,
     );
 
     const withBasePrompt = buildCodexDeveloperInstructions({
@@ -818,7 +820,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       },
     });
     expect(withBasePrompt).toBe(
-      `Base system prompt.\n\n${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${WORKSPACE_SCRATCH_INSTRUCTION}`,
+      `Base system prompt.\n\n${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${SCRATCH_WITH_SUBAGENT_LINE}`,
     );
     expect(withBasePrompt).toContain(
       "Use the runtime's web-search tool for general web research",
@@ -842,6 +844,18 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     expect(secondary).not.toContain(".stave/scratch");
   });
 
+  test("asks the lead to give each subagent its own scratch folder unless subagents are off", () => {
+    // Codex has no hook that can rewrite a subagent's brief, so the lead passes the line on.
+    const primary = buildCodexDeveloperInstructions({});
+    expect(primary).toContain(WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION);
+    expect(WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION).toContain("spawn_agent");
+    expect(WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION).toContain(".stave/scratch/agents/<short-name>/");
+    const withoutSubagents = buildCodexDeveloperInstructions({ runtimeOptions: { nativeSubagents: [] } });
+    expect(withoutSubagents).toContain(WORKSPACE_SCRATCH_INSTRUCTION);
+    expect(withoutSubagents).not.toContain(WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION);
+    expect(buildCodexDeveloperInstructions({ secondaryReadOnly: true })).not.toContain("spawn_agent");
+  });
+
   test("includes Lens guidance only when the Stave local MCP is registered", () => {
     // Without the MCP there are no `stave_lens_*` tools, so the block would be
     // several hundred tokens of instructions about tools that do not exist.
@@ -853,7 +867,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       hasStaveLocalMcp: true,
     });
     expect(withLens).toBe(
-      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${CODEX_STAVE_LENS_INSTRUCTIONS}\n\n${WORKSPACE_SCRATCH_INSTRUCTION}`,
+      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${CODEX_STAVE_LENS_INSTRUCTIONS}\n\n${SCRATCH_WITH_SUBAGENT_LINE}`,
     );
     expect(withLens).toContain(
       "only when a change to the current project requires visual inspection",

@@ -42,6 +42,7 @@ import {
 } from "../electron/providers/claude-browser-instructions";
 import { RESERVED_ENV_VAR_NAMES } from "../src/lib/secrets/secrets";
 import { WORKSPACE_SCRATCH_INSTRUCTION } from "../src/lib/workspace-scratch";
+import { claudeScratchSubagentPreToolUseHook } from "../electron/providers/claude-subagent-hooks";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { BridgeEvent } from "../electron/providers/types";
 import { replayProviderEventsToTaskState } from "../src/lib/session/provider-event-replay";
@@ -1995,7 +1996,7 @@ describe("buildClaudeQueryOptions", () => {
     expect(options.env?.SAFE_SERVICE_TOKEN).toBe("placeholder-value");
   });
 
-  test("always registers the foreground-subagent PreToolUse hook", () => {
+  test("always registers the subagent PreToolUse hook; read-only turns get no scratch folder line", () => {
     const options = buildClaudeQueryOptions({
       cwd: workspaceRoot,
       claudeExecutablePath: "",
@@ -2007,10 +2008,20 @@ describe("buildClaudeQueryOptions", () => {
         hooks: [claudeAskUserQuestionPreToolUseHook],
       },
       {
-        matcher: "^Agent$",
-        hooks: [claudeForegroundSubagentPreToolUseHook],
+        matcher: "^(Agent|Task)$",
+        hooks: [claudeScratchSubagentPreToolUseHook],
       },
     ]);
+
+    const readOnly = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      secondaryReadOnly: true,
+    });
+    expect(readOnly.hooks?.PreToolUse?.[1]).toEqual({
+      matcher: "^(Agent|Task)$",
+      hooks: [claudeForegroundSubagentPreToolUseHook],
+    });
   });
 
   test("omits fallbackModel when it matches the primary model", () => {
