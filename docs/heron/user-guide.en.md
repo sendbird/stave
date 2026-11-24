@@ -39,7 +39,7 @@ Heron documents cannot embed images, so each section's **Screens** link opens th
 Screens: [Whole window](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/overview.png)
 
 ```diagram architecture "Regions of the Stave window"
-box sidebar 1,1 | Sidebar | Repositories and workspaces | Tars · Fleet View · Agents · AI usage
+box sidebar 1,1 | Sidebar | Repositories and workspaces | Tars · Fleet View · Agents · AI usage · Activity
 box topbar 2,1 | Top bar | Path · branch · Create PR | Go to file · Schedules · Notifications
 box center 2,2 primary | Work area | Task · terminal · Lens tabs | Composer at the bottom
 box rail 3,2 | Right panels | Explorer · Source Control · Information | Skills · Workspace Tools · Task · Scratch
@@ -51,7 +51,7 @@ edge rail -> center dashed : context and tools
 
 | Region       | What is there                                                                                                                         |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
-| Sidebar      | **Tars**, **Fleet View**, **Agents** and **AI usage** at the top; repositories and workspaces below. The list has two views: **Repositories** and **Work queue** |
+| Sidebar      | **Tars**, **Fleet View**, **Agents**, **AI usage** and **Activity** at the top; repositories and workspaces below. The list has two views: **Repositories** and **Work queue** |
 | Top bar      | Workspace path and branch, **Commit graph**, **Create PR**, go to file (Cmd/Ctrl+P), Fleet, Issues, Schedules, Standalone CLI, notifications, app update |
 | Work area    | Tasks (conversations), terminals, CLI sessions, editors and Lens open as tabs. The composer for writing messages sits under a task tab |
 | Right panels | **Explorer**, **Source Control**, **Information**, **Skills**, **Workspace Tools**, **Task**, **Scratch**, Lens and **Terminal** buttons. They stay disabled until a repository is open |
@@ -1272,6 +1272,14 @@ When Stave reopens, requests that can no longer be answered move to history. Req
 - **Notifications** in the top bar collect questions, approvals and completions. The bell and Dock badges count tasks with a live action for you. An agent run notifies once each for a sign-off request, blocked, stuck and completed. Choose **Allow once** or **Deny** (A and D keys) for approvals; the row shows the request's summary and command first, and a risk-flagged or long request offers only **Deny** and **Open task**. Click a choice on a short question with up to four fixed options. Use **Open task** for longer questions, multi-step questions, multiple selections, typed answers, and persistent approvals. A sent answer is confirmed briefly before the row moves to History. Unavailable requests move to History without an answer, and delivery errors offer **Open task**. **Answer from notifications** in Desktop Notifications controls these shortcuts. New notices also show as toasts at the top-center. Branch status notices appear at the bottom-right, above the composer and the status bar.
 - **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values, and **Updated** beside it keeps tickets updated today or in the last 7, 30 or 90 days or this month; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues.
 Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/notifications.png)
+
+## Activity outside Stave
+
+**Activity** in the sidebar shows Claude Code and Codex sessions you started outside Stave, such as `claude` in a terminal, and the sub-agents a Claude Code session runs. It is off by default: turn on **Settings > General > Activity outside Stave**, or choose **Turn on** on the page. When it is on, Stave reads those tools' transcript files on this computer, in memory only; nothing is saved or sent anywhere, and nothing is read while it is off.
+
+- Sessions written in the last 30 minutes are grouped by the Stave project whose folder contains them. Each shows its status (**Working**, **Waiting for you**, **Idle**), branch, current action, elapsed time, steps, context size and "N of M agents running", with a card per sub-agent.
+- The sidebar badge counts working sessions plus running sub-agents. Sessions Stave started stay in their tasks and are not listed.
+- It is read-only: there is no way to steer or stop a session from here. Cursor, Kiro and OpenCode sessions are not shown, and Codex has no sub-agents.
 
 
 @page tools | Tools | Workspace tools | reference

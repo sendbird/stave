@@ -19,6 +19,7 @@ export type AppActiveSurface =
   | { kind: "issues" }
   | { kind: "agents" }
   | { kind: "tars" }
+  | { kind: "activity" }
   | { kind: "usage"; providerId?: ProviderId; accountProfileId?: string };
 
 export type AppOverlaySurfaceKind = Exclude<
@@ -48,6 +49,9 @@ export const TARS_APP_SURFACE = { kind: "tars" } satisfies AppActiveSurface;
 
 export const USAGE_APP_SURFACE = { kind: "usage" } satisfies AppActiveSurface;
 
+/** Claude Code and Codex sessions running outside Stave. */
+export const ACTIVITY_APP_SURFACE = { kind: "activity" } satisfies AppActiveSurface;
+
 const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "fleet-view": FLEET_VIEW_APP_SURFACE,
   "automation-center": AUTOMATION_CENTER_APP_SURFACE,
@@ -55,6 +59,7 @@ const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   agents: AGENTS_APP_SURFACE,
   tars: TARS_APP_SURFACE,
   usage: USAGE_APP_SURFACE,
+  activity: ACTIVITY_APP_SURFACE,
 };
 
 export function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
@@ -110,6 +115,8 @@ export interface AppSurfaceActions {
   openAgentPerformance: () => void;
   openUsage: (scope?: { providerId: ProviderId; accountProfileId?: string }) => void;
   closeUsage: () => void;
+  openActivity: () => void;
+  closeActivity: () => void;
   /**
    * Leaves `kind` for the workspace without going back: for actions that
    * finish by showing something in the workspace (a task, a panel), where a
@@ -194,6 +201,8 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
       });
     },
     closeUsage: close("usage"),
+    openActivity: open("activity"),
+    closeActivity: close("activity"),
     exitToWorkspace,
   };
 }

@@ -44,16 +44,22 @@ const SECRET_PATTERNS: ReadonlyArray<[RegExp, string]> = [
   [/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, REDACTED],
 ];
 
+/** Replace credentials (tokens, keys, `password=` pairs, URL userinfo) in text. */
+export function redactCredentials(text: string): string {
+  let result = text;
+  for (const [pattern, replacement] of SECRET_PATTERNS) {
+    result = result.replace(pattern, replacement);
+  }
+  return result;
+}
+
 /** Replace home-directory account names and credentials in diagnostic text. */
 export function redactSensitiveText(text: string): string {
   let result = text;
   for (const [pattern, replacement] of HOME_PATH_PATTERNS) {
     result = result.replace(pattern, replacement);
   }
-  for (const [pattern, replacement] of SECRET_PATTERNS) {
-    result = result.replace(pattern, replacement);
-  }
-  return result;
+  return redactCredentials(result);
 }
 
 interface DescribedError {

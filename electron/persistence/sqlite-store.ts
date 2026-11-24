@@ -99,6 +99,7 @@ import { TurnSpendStore } from "./turn-spend-store";
 import { TurnDigestStore, ensureTurnDigestColumn } from "./turn-digest-store";
 import { TaskHandoffStore } from "./task-handoff-store";
 import { UsageStatisticsStore } from "./usage-statistics-store";
+import { NativeSessionOwnershipReader } from "./native-session-ownership";
 import { beginUsageTrackedTurn, type UsageTrackedTurnArgs } from "./usage-turn-lifecycle";
 import type { RepositoryMemoryKind } from "../../src/lib/repository-memory";
 import type {
@@ -221,6 +222,8 @@ export class SqliteStore {
   readonly turnDigests: TurnDigestStore;
   readonly taskHandoffs: TaskHandoffStore;
   readonly usageStatistics: UsageStatisticsStore;
+  /** Which provider-native session ids Stave started (Activity leaves them out). */
+  readonly nativeSessionOwnership: NativeSessionOwnershipReader;
   readonly dailyUsage: DailyUsageStore;
   readonly turnAdmission: TurnAdmissionStore; readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
@@ -288,6 +291,7 @@ export class SqliteStore {
     this.turnDigests = new TurnDigestStore(this.db);
     this.taskHandoffs = new TaskHandoffStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);
+    this.nativeSessionOwnership = new NativeSessionOwnershipReader(this.db);
     this.dailyUsage = new DailyUsageStore(this.db, this.usageStatistics);
     this.turnAdmission = new TurnAdmissionStore(this.db); this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);

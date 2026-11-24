@@ -22,6 +22,8 @@ import { AutomationCenterView } from "@/components/layout/automation-center/Auto
 import { TarsView } from "@/components/tars/TarsView";
 import { AgentsView } from "@/components/agents/AgentsView";
 import { UsageView } from "@/components/usage/UsageView";
+import { ActivityView } from "@/components/activity/ActivityView";
+import { ExternalActivitySubscription } from "@/store/external-activity-store";
 import {
   RepositoryWorkspaceSidebar,
 } from "@/components/layout/RepositoryWorkspaceSidebar";
@@ -878,6 +880,7 @@ export function AppShell() {
         openAgents: () => openAgents(),
         openAgentPerformance: () => openAgentPerformance(),
         openUsage: () => openUsage(),
+        openActivity: () => useAppStore.getState().openActivity(),
         newAgent: () => {
           openAgents();
           useAgentsUiStore.getState().requestNewAgent();
@@ -1149,6 +1152,7 @@ export function AppShell() {
             className={sx(appShellStyles.lensSurfaceRoot, layers.lensSurface)}
           />
           <TopBar />
+          <ExternalActivitySubscription />
           <div
             ref={panelRowRef}
             className={sx(appShellStyles.panelRow)}
@@ -1172,6 +1176,8 @@ export function AppShell() {
                     <TarsView />
                   ) : showAgents ? (
                     <AgentsView />
+                  ) : activeAppSurface.kind === "activity" ? (
+                    <ActivityView />
                   ) : activeAppSurface.kind === "usage" ? (
                     <UsageView key={`${activeAppSurface.providerId ?? "all"}:${activeAppSurface.accountProfileId ?? "all"}`}
                       initialProvider={activeAppSurface.providerId} initialAccount={activeAppSurface.accountProfileId} />

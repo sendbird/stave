@@ -23,6 +23,7 @@ import {
 import { AUX_INFERENCE_DEFAULT_FIELD_ID } from "@/components/layout/settings-dialog-auxiliary-inference-shared-default";
 import { STANDALONE_CLI_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-standalone-cli-card";
 import { DENSITY_SETTING_FIELD_ID } from "@/components/layout/settings-sections/settings-dialog-density-card";
+import { EXTERNAL_ACTIVITY_SETTING_FIELD_ID } from "@/components/layout/settings-sections/settings-dialog-external-activity-card";
 import { AUTO_ROUTING_SETTING_FIELD_ID, ROUTING_DECISION_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-auto-routing-section";
 import { DEFAULT_ROUTING_DECISION, RoutingDecisionConfigSchema } from "@/lib/providers/routing-decision";
 import {
@@ -481,6 +482,21 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "include",
   } satisfies SettingDefinition<"standaloneCliFolderPath">,
+  {
+    key: "externalActivityEnabled",
+    sectionId: "general",
+    fieldId: EXTERNAL_ACTIVITY_SETTING_FIELD_ID,
+    titleKey: "settings:sections.fields.externalActivity.title",
+    descriptionKey: "settings:sections.fields.externalActivity.description",
+    keywords: ["activity", "outside stave", "external", "terminal", "claude code", "codex", "transcripts", "sessions", "sub-agents", "privacy"],
+    schema: z.boolean(),
+    defaultValue: false,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "immediate",
+    // A consent for this machine: an imported settings file never turns it on.
+    importExport: "exclude",
+  } satisfies SettingDefinition<"externalActivityEnabled">,
   {
     key: "uiDensity",
     sectionId: "theme",

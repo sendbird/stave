@@ -4,7 +4,7 @@ import { CountBadge } from "@/components/system/CountBadge";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
-import { Bot, Gauge, LayoutGrid } from "lucide-react";
+import { Activity, Bot, Gauge, LayoutGrid } from "lucide-react";
 import { TarsMark } from "@/components/tars/TarsMark";
 import { describeTarsNavLabel, TarsNavStatus, useTarsNavCounts } from "@/components/tars/TarsNavStatus";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -23,8 +23,14 @@ import { useFleetAttentionStore } from "@/store/fleet-attention-store";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useAgentsViewStore } from "@/store/agents-view-store";
+import { useExternalActivityStore } from "@/store/external-activity-store";
 
 const MAX_LISTED_AGENTS = 5;
+
+/** Activity's name, with how many agents run outside Stave when any do. */
+function activityNavLabel(running: number) {
+  return running > 0 ? i18n.t("shell:externalActivity.navRunning", { count: running }) : i18n.t("shell:externalActivity.nav");
+}
 
 /**
  * The agents with work running or waiting on the user right now, up to five,
@@ -65,7 +71,8 @@ function useAgentsWithWork() {
 
 /**
  * The sidebar's top navigation: Fleet View, Agents with the agents at work and
- * what waits for you, then AI usage (whose tabs include Agent performance).
+ * what waits for you, then AI usage (whose tabs include Agent performance)
+ * and Activity outside Stave (its badge counts agents running there).
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   useTranslation();
@@ -79,6 +86,8 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const openTars = useAppStore((state) => state.openTars);
   const openAgents = useAppStore((state) => state.openAgents);
   const openUsage = useAppStore((state) => state.openUsage);
+  const openActivity = useAppStore((state) => state.openActivity);
+  const externalRunning = useExternalActivityStore((state) => state.runningCount);
   const selectAgent = useAgentsViewStore((state) => state.selectAgent);
   const selectedAgentId = useAgentsViewStore((state) => state.selectedAgentId);
   const agentsWithWork = useAgentsWithWork();
@@ -168,11 +177,18 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</span>
         </AuiButton></AuiTooltip>
       ) : null}
+      <AuiButton layout="host" type="button" onClick={openActivity} aria-label={activityNavLabel(externalRunning)}
+        aria-current={surface === "activity" ? "page" : undefined} data-external-activity-nav=""
+        xstyle={[repositorySidebarStyles.navButton, transition.colors,
+          surface === "activity" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
+        <Activity className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:externalActivity.nav")}</span>
+        {externalRunning > 0 ? <CountBadge count={externalRunning} tone="neutral" /> : null}
+      </AuiButton>
     </>
   );
 }
 
-/** The collapsed sidebar's rail: Fleet View, Agents and AI usage, with a dot when an agent needs you. */
+/** The collapsed sidebar's rail: Fleet View, Agents, AI usage and Activity, with a dot when an agent needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   useTranslation();
   const fleetShortcut = useShortcutHint("navigation.fleet-view");
@@ -185,6 +201,8 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   const openTars = useAppStore((state) => state.openTars);
   const openAgents = useAppStore((state) => state.openAgents);
   const openUsage = useAppStore((state) => state.openUsage);
+  const openActivity = useAppStore((state) => state.openActivity);
+  const externalRunning = useExternalActivityStore((state) => state.runningCount);
   const agentsWithWork = useAgentsWithWork();
   const agentsNeedYou = agentsWithWork.agents.some((agent) => agent.needsYou);
   const tarsCounts = useTarsNavCounts();
@@ -243,6 +261,11 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")} aria-current={surface === "usage" ? "page" : undefined} />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
           <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.aIUsage")}{usageShortcut}</TooltipContent></Tooltip>
       ) : null}
+      <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "activity")} data-external-activity-nav=""
+        onClick={openActivity} aria-label={activityNavLabel(externalRunning)} aria-current={surface === "activity" ? "page" : undefined}
+        indicator={externalRunning > 0 ? <CountBadge count={externalRunning} tone="neutral" /> : undefined} />}>
+        <Activity className={sx(repositorySidebarStyles.iconMd)} />
+      </TooltipTrigger><TooltipContent side="right">{activityNavLabel(externalRunning)}</TooltipContent></Tooltip>
     </>
   );
 }

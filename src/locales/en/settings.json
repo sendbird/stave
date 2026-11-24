@@ -59,6 +59,12 @@
       "wrongType": "Not a supported audio file",
       "tooLarge": "Larger than {{maxKb}} KB",
       "dismiss": "Dismiss {{name}}"
+    },
+    "externalActivity": {
+      "title": "Activity outside Stave",
+      "description": "Shows Claude Code and Codex sessions you started outside Stave, such as claude in a terminal, and the sub-agents they run. When this is on, Stave reads those tools' transcript files on this computer. What it reads stays in memory: nothing is saved or sent anywhere. While it is off, nothing is read.",
+      "enableTitle": "Show activity outside Stave",
+      "enableDescription": "Reads only transcripts written in the last 30 minutes, from the default Claude Code and Codex folders and the folders of accounts added to Stave."
     }
   },
   "desktopNotifications": {
@@ -1224,6 +1230,10 @@
       "globalTurnLimit": {
         "title": "Global agent turn limit",
         "description": "Limit concurrent turns across all tasks."
+      },
+      "externalActivity": {
+        "title": "Activity outside Stave",
+        "description": "Read local Claude Code and Codex transcripts of sessions Stave did not start, in memory only."
       }
     },
     "accounts": {

@@ -309,6 +309,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   featureTipsEnabled: boolean;
   /** Tips the user closed; each stays closed. */
   dismissedFeatureTips: FeatureTipId[];
+  /**
+   * Activity outside Stave: read the local Claude Code and Codex transcript
+   * files of sessions Stave did not start, in memory only. Off by default;
+   * while off nothing is read.
+   */
+  externalActivityEnabled: boolean;
   /** Lens shortcut that toggles visual comment mode. */
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
@@ -782,6 +788,7 @@ export const defaultSettings: AppSettings = {
   midTurnSteeringEnabled: false,
   featureTipsEnabled: true,
   dismissedFeatureTips: [],
+  externalActivityEnabled: false,
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
