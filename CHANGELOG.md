@@ -1,3 +1,35 @@
+## [0.36.2](https://github.com/sendbird/stave/compare/v0.36.1...v0.36.2) (2026-11-24)
+
+### Changes
+
+- Chat answers render richer content: plain-text Markdown tables sort by column and filter above ten rows, `$…$`/`$$…$$` math renders with KaTeX, JSON folds into a tree and terminal output keeps its ANSI colors. Agents can also call `stave_show_view` to draw tables, charts, stat tiles, timelines and heatmaps from inline data in the theme; nothing in a view is fetched or executed.
+- A Scratch panel on the right rail lists what an agent saves in `.stave/scratch` while it works (screenshots, logs, JSON), live and newest first. Lens screenshots are copied there, sub-agents get their own folders, large logs show their last 256 KB, files can be attached to the next message, run reports keep their own copies of cited files, and the main checkout drops scratch files older than 30 days.
+- Activity (off by default, Settings > General) shows Claude Code and Codex sessions started outside Stave and the sub-agents they run, read-only and in memory only. Codex sub-agents are nested under their parent and internal review sessions are hidden.
+- Usage has a Projects tab with tokens and reported cost per project and workspace, daily bars, disk used by workspaces measured with a time limit, and a Free up space list. Worktrees left by Claude Code sub-agents can be removed from the cleanup dialog without `--force`, keeping their branches.
+- Finished traces fold into one line with the step count, and a failed retry no longer turns the header red. Long pastes always become one chip that can be attached as a file on demand. Notification rows offer Allow once only when they show the whole request.
+- The Task panel scrolls over a live turn and splits details into tabs, delegated questions and workspace preparation settle correctly, and the turn action row stays on one line without a snapshot.
+
+### Features
+
+* **activity:** show claude code and codex sessions running outside stave ([#1084](https://github.com/sendbird/stave/issues/1084)) ([fb230eb](https://github.com/sendbird/stave/commit/fb230eb86e050e3da3ac685240aceaf6c2dfc499))
+* **chat:** render structured views from stave_show_view ([#1088](https://github.com/sendbird/stave/issues/1088)) ([9e4221e](https://github.com/sendbird/stave/commit/9e4221eae277289f5357a16d2e4e19afd4241aff))
+* **chat:** sort tables and render math, json and terminal output ([#1086](https://github.com/sendbird/stave/issues/1086)) ([a275bd0](https://github.com/sendbird/stave/commit/a275bd0d7fab238777bd67ed1c54effffde6ce56))
+* **cleanup:** remove worktrees left by claude code sub-agents ([#1091](https://github.com/sendbird/stave/issues/1091)) ([ef2ca27](https://github.com/sendbird/stave/commit/ef2ca278f4aa069a9d36c925afce3f2e68ce6343))
+* **composer:** attach pasted text chips on demand ([#1079](https://github.com/sendbird/stave/issues/1079)) ([78c4513](https://github.com/sendbird/stave/commit/78c45139086d1711aae7b3ae94c8214357ed6d62))
+* **session:** fold finished traces into one line and restore the cot header ([#1077](https://github.com/sendbird/stave/issues/1077)) ([8db1470](https://github.com/sendbird/stave/commit/8db147007a36784b6a79b295674b6c69e22a600a))
+* **usage:** show tokens, cost and disk by project ([#1087](https://github.com/sendbird/stave/issues/1087)) ([dd12356](https://github.com/sendbird/stave/commit/dd12356d9268f38c06d8dcddb15867829023d7df))
+* **workspace:** collect agent scratch output in a live panel ([#1085](https://github.com/sendbird/stave/issues/1085)) ([6799b8c](https://github.com/sendbird/stave/commit/6799b8c3afdb9647a03d300db092dcad28c887e5))
+* **workspace:** live scratch updates, log tails, sub-agent folders and durable report copies ([#1092](https://github.com/sendbird/stave/issues/1092)) ([14af1e0](https://github.com/sendbird/stave/commit/14af1e0cc54ddb924222c5ad516ced6ab197b417))
+
+### Bug Fixes
+
+* **activity:** nest codex sub-agents under their parent session ([#1090](https://github.com/sendbird/stave/issues/1090)) ([408e9bf](https://github.com/sendbird/stave/commit/408e9bf9a07fcb12badafe224a17f940032b143b))
+* **notifications:** offer allow once only when a row shows the whole request ([#1078](https://github.com/sendbird/stave/issues/1078)) ([bfc9cb0](https://github.com/sendbird/stave/commit/bfc9cb0277586c68a0d491fa80acc9bd84cd7177))
+* **persistence:** keep the sqlite store within its line budget ([#1089](https://github.com/sendbird/stave/issues/1089)) ([6c489e8](https://github.com/sendbird/stave/commit/6c489e828d7b7b10607cb81ab77033b516fe3fe5))
+* **session:** keep the turn action row on one line with a no-snapshot caption ([#1082](https://github.com/sendbird/stave/issues/1082)) ([a3bca10](https://github.com/sendbird/stave/commit/a3bca10ca03c4b177ca9485e7f710e3bb498ed5c))
+* **task-panel:** scroll the panel over a live turn and split details into tabs ([#1080](https://github.com/sendbird/stave/issues/1080)) ([97dda75](https://github.com/sendbird/stave/commit/97dda758003f09e1073edf3a35ee47767afe7fe5))
+* **ui:** settle delegated questions and workspace preparation ([#1081](https://github.com/sendbird/stave/issues/1081)) ([b2f294d](https://github.com/sendbird/stave/commit/b2f294dc0f824be102c41881d1850af41008bc7a))
+
 ## [0.36.1](https://github.com/sendbird/stave/compare/v0.36.0...v0.36.1) (2026-11-23)
 
 ### Features
