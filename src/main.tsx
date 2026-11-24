@@ -35,8 +35,13 @@ function resolveDevPreview(): string | null {
   );
 }
 
-const root = createRoot(document.getElementById("root")!);
+const rootElement = document.getElementById("root")!;
+const root = createRoot(rootElement);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
+if (preview) {
+  // The app shell clips html, body and #root; preview pages are documents and scroll.
+  rootElement.style.overflowY = "auto";
+}
 
 if (preview === "bell-answers") {
   void import("@/dev/bell-answers-preview").then(({ BellAnswersPreview }) => {
