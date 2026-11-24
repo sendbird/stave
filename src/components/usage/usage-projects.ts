@@ -1,6 +1,6 @@
 import { addUsageMetrics, emptyUsageMetrics, type UsageMetrics } from "@/lib/providers/usage-statistics";
 import type { WorkspaceUsageReport } from "@/lib/providers/workspace-usage";
-import type { WorkspaceCleanupRow, WorkspaceDiskUsageReport } from "@/lib/workspace-cleanup-contract";
+import { subAgentWorktreeDiskId, type SubAgentWorktreeRow, type WorkspaceCleanupRow, type WorkspaceDiskUsageReport } from "@/lib/workspace-cleanup-contract";
 
 /** Where a workspace id belongs, from the open projects or the disk report's archived workspaces. */
 export interface UsageWorkspaceEntry {
@@ -141,8 +141,11 @@ export function usageProjectChart(projects: readonly UsageProject[], days: reado
 export interface UsageProjectDisk {
   key: string;
   name: string;
+  /** Workspace folders and sub-agent worktrees together. */
   bytes: number;
   workspaces: number;
+  /** Worktrees Claude Code sub-agents left, counted in `bytes` but not in `workspaces`. */
+  subAgentWorktrees: number;
   /** Folders whose size is a lower bound or not known yet; the total is then at least `bytes`. */
   incomplete: number;
   /** Folders with a size, whole or partial; with none, `bytes` says nothing. */
@@ -155,10 +158,11 @@ export function groupDiskByProject(report: WorkspaceDiskUsageReport): UsageProje
   for (const row of report.rows) {
     let project = projects.get(row.repositoryPath);
     if (!project) {
-      project = { key: row.repositoryPath, name: row.repositoryName, bytes: 0, workspaces: 0, incomplete: 0, measured: 0 };
+      project = { key: row.repositoryPath, name: row.repositoryName, bytes: 0, workspaces: 0, subAgentWorktrees: 0, incomplete: 0, measured: 0 };
       projects.set(row.repositoryPath, project);
     }
-    project.workspaces++;
+    if (row.subAgentWorktree) project.subAgentWorktrees++;
+    else project.workspaces++;
     project.bytes += row.measurement?.bytes ?? 0;
     if (!row.measurement || row.measurement.bytes === null || row.measurement.partial) project.incomplete++;
     if (typeof row.measurement?.bytes === "number") project.measured++;
@@ -167,23 +171,35 @@ export function groupDiskByProject(report: WorkspaceDiskUsageReport): UsageProje
 }
 
 export interface UsageReclaimable {
-  row: WorkspaceCleanupRow;
+  /** The workspace id, or the disk report id of a sub-agent worktree. */
+  id: string;
+  name: string;
+  repositoryPath: string;
+  repositoryName: string;
+  kind: "workspace" | "archived" | "subAgentWorktree";
   bytes: number | null;
   partial: boolean;
 }
 
 /**
- * Workspaces the cleanup checks allow removing now (no blockers) that have a
- * folder on disk, largest first. Sizes come from the disk report; nothing
- * here removes anything.
+ * Workspaces with a folder on disk and sub-agent worktrees that the cleanup
+ * checks allow removing now (no blockers), largest first. Sizes come from the
+ * disk report; nothing here removes anything.
  */
-export function reclaimableWorkspaces(rows: readonly WorkspaceCleanupRow[], disk: WorkspaceDiskUsageReport) {
+export function reclaimableWorkspaces(rows: readonly WorkspaceCleanupRow[], disk: WorkspaceDiskUsageReport, subAgents: readonly SubAgentWorktreeRow[] = []) {
   const sizes = new Map(disk.rows.map((row) => [row.workspaceId, row.measurement]));
-  const items: UsageReclaimable[] = rows.filter((row) => row.blockers.length === 0 && !row.branchOnly && sizes.has(row.id))
-    .map((row) => {
-      const measurement = sizes.get(row.id);
-      return { row, bytes: measurement?.bytes ?? null, partial: Boolean(measurement?.partial) };
-    })
-    .sort((left, right) => (right.bytes ?? -1) - (left.bytes ?? -1) || left.row.name.localeCompare(right.row.name));
+  const workspaces = rows.filter((row) => row.blockers.length === 0 && !row.branchOnly && sizes.has(row.id)).map((row): UsageReclaimable => {
+    const measurement = sizes.get(row.id);
+    return { id: row.id, name: row.name, repositoryPath: row.repositoryPath, repositoryName: row.repositoryName, kind: row.archived ? "archived" : "workspace",
+      bytes: measurement?.bytes ?? null, partial: Boolean(measurement?.partial) };
+  });
+  const worktrees = subAgents.filter((row) => row.blockers.length === 0).map((row): UsageReclaimable => {
+    const id = subAgentWorktreeDiskId(row.path);
+    const measurement = sizes.get(id);
+    return { id, name: row.name, repositoryPath: row.repositoryPath, repositoryName: row.repositoryName, kind: "subAgentWorktree",
+      bytes: measurement?.bytes ?? row.bytes, partial: Boolean(measurement?.partial) };
+  });
+  const items = [...workspaces, ...worktrees]
+    .sort((left, right) => (right.bytes ?? -1) - (left.bytes ?? -1) || left.name.localeCompare(right.name));
   return { items, bytes: items.reduce((sum, item) => sum + (item.bytes ?? 0), 0), incomplete: items.some((item) => item.bytes === null || item.partial) };
 }

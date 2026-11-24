@@ -1418,6 +1418,13 @@
     "summary": "Completed {{done}}; skipped {{skipped}}.",
     "archived": "Archived",
     "selectReady": "Select all ready",
+    "subAgents": {
+      "title": "Left by sub-agents",
+      "description": "Worktrees left by Claude Code sub-agents. The branch is kept.",
+      "detached": "Detached HEAD",
+      "removed": "Worktree removed · branch kept",
+      "confirm": "Remove the selected worktrees left by Claude Code sub-agents. Their branches are kept. Each worktree is checked again first, and Git refuses any worktree that has changes. Git-ignored files in them, such as dependencies and build output, are deleted. This cannot be undone."
+    },
     "moveLeftoverToTrash": "Move to Trash",
     "leftoverTrashed": "Folder moved to Trash. You can restore the workspace.",
     "sensitiveFilesSkipped_one": "{{count}} sensitive file was skipped because of a storage limit or an unsupported link.",
@@ -1454,7 +1461,9 @@
       "deleteBranch_one": "Delete branches ({{count}})",
       "deleteBranch_other": "Delete branches ({{count}})",
       "restore_one": "Restore ({{count}})",
-      "restore_other": "Restore ({{count}})"
+      "restore_other": "Restore ({{count}})",
+      "removeSubAgentWorktree_one": "Remove worktrees ({{count}})",
+      "removeSubAgentWorktree_other": "Remove worktrees ({{count}})"
     },
     "reasons": {
       "defaultWorkspace": "Default workspace",
@@ -1479,6 +1488,12 @@
       "notArchived": "Workspace is not archived",
       "restorePathOccupied": "Restore path is occupied",
       "worktreeRestoreFailed": "Worktree restore failed",
+      "agentRunning": "A sub-agent is still running in this worktree",
+      "recentlyModified": "Changed in the last 30 minutes",
+      "staveWorkspace": "Used by a Stave workspace",
+      "subAgentWorktreeMissing": "Git no longer lists this worktree",
+      "unreachableCommits": "Detached HEAD has commits that are on no branch",
+      "worktreeLocked": "The worktree is locked",
       "notActiveWorkspace": "Workspace is not active",
       "branchHasWorkspace": "Branch has a workspace",
       "unmergedBranch": "Unmerged branch; force deletion was not allowed",

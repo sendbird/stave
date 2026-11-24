@@ -10,11 +10,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Checkbox } from "@/components/aui/components/Checkbox";
 import { sx } from "@/components/aui/utils/stylex";
 import { formatResourceBytes } from "@/lib/performance/resource-manager";
-import type { WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupResult, WorkspaceCleanupRow } from "@/lib/workspace-cleanup-contract";
+import type { SubAgentWorktreeRow, WorkspaceCleanupActArgs, WorkspaceCleanupApi, WorkspaceCleanupResult, WorkspaceCleanupRow } from "@/lib/workspace-cleanup-contract";
 import { useTranslation } from "@/i18n";
 import { formatDate } from "@/i18n/format";
 import { cleanupStyles as styles } from "./workspace-cleanup-center.styles";
 import { notifyWorkspaceCleanupChanged, OPEN_WORKSPACE_CLEANUP_EVENT } from "./workspace-cleanup-events";
+import { removeSubAgentWorktrees, SubAgentRemovalResults, SubAgentWorktreeSection, subAgentRowKey, subAgentRowMatches, subAgentRowReady, type SubAgentRemoval } from "./WorkspaceCleanupSubAgents";
 
 type Snapshot = Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
 const rowKey = (row: Pick<WorkspaceCleanupRow, "repositoryPath" | "id">) => `${row.repositoryPath}\n${row.id}`;
@@ -29,8 +30,12 @@ const canRestore = (row: WorkspaceCleanupRow) => row.archived && row.blockers.ev
 const selectable = (row: WorkspaceCleanupRow) => ready(row) || canArchive(row) || canRestore(row);
 /** Archived rows whose checkout was removed have no disk usage to report. */
 const withoutWorktree = (row: WorkspaceCleanupRow) => row.archived && !row.keptWorktree && !row.bytes;
+/** Removing a sub-agent worktree is not a workspace action; it shares the confirmation flow. */
+const REMOVE_SUBAGENT_WORKTREES = "removeSubAgentWorktree";
+type CleanupAction = WorkspaceCleanupActArgs["action"] | typeof REMOVE_SUBAGENT_WORKTREES;
 const REVERSIBLE_ACTIONS = ["archive", "restore"] as const;
-const DESTRUCTIVE_ACTIONS = ["delete", "deleteBranch"] as const;
+const DESTRUCTIVE_ACTIONS = ["delete", "deleteBranch", REMOVE_SUBAGENT_WORKTREES] as const;
+const NO_SUBAGENT_ROWS: SubAgentWorktreeRow[] = [];
 
 export function WorkspaceCleanupHost() {
   const [open, setOpen] = useState(false);
@@ -71,7 +76,9 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   const [message, setMessage] = useState("");
   const [results, setResults] = useState<WorkspaceCleanupResult[]>([]);
   const [undo, setUndo] = useState<WorkspaceCleanupActArgs[]>([]);
-  const [confirming, setConfirming] = useState<WorkspaceCleanupActArgs["action"] | null>(null);
+  const [confirming, setConfirming] = useState<CleanupAction | null>(null);
+  const [selectedSubAgents, setSelectedSubAgents] = useState(new Set<string>());
+  const [subAgentResults, setSubAgentResults] = useState<SubAgentRemoval[]>([]);
   const [saveChanges, setSaveChanges] = useState(false);
   const [deleteBranch, setDeleteBranch] = useState(false);
   const [forceDeleteBranch, setForceDeleteBranch] = useState(false);
@@ -96,6 +103,8 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   useEffect(() => {
     const blocked = new Set((data?.rows ?? []).filter((row) => !selectable(row)).map(rowKey));
     setSelected((previous) => [...previous].some((key) => blocked.has(key)) ? new Set([...previous].filter((key) => !blocked.has(key))) : previous);
+    const ready = new Set((data?.subAgentWorktrees ?? []).filter(subAgentRowReady).map(subAgentRowKey));
+    setSelectedSubAgents((previous) => [...previous].some((key) => !ready.has(key)) ? new Set([...previous].filter((key) => ready.has(key))) : previous);
   }, [data]);
   const groups = useMemo(() => {
     const map = new Map<string, { name: string; rows: WorkspaceCleanupRow[] }>();
@@ -107,7 +116,15 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     return Array.from(map.entries()).map(([path, value]) => ({ path, ...value }));
   }, [data, query]);
   const rows = groups.flatMap((group) => group.rows);
+  const subAgentRows = useMemo(() => (data?.subAgentWorktrees ?? NO_SUBAGENT_ROWS).filter((row) => subAgentRowMatches(row, query)), [data, query]);
   const selectedRows = (data?.rows ?? []).filter((row) => selected.has(rowKey(row)));
+  const selectedSubAgentRows = (data?.subAgentWorktrees ?? NO_SUBAGENT_ROWS).filter((row) => selectedSubAgents.has(subAgentRowKey(row)) && subAgentRowReady(row));
+  const toggleSubAgent = (row: SubAgentWorktreeRow) => {
+    if (!subAgentRowReady(row)) return;
+    setConfirming(null);
+    const key = subAgentRowKey(row);
+    setSelectedSubAgents((previous) => { const next = new Set(previous); if (next.has(key)) next.delete(key); else next.add(key); return next; });
+  };
   const choose = (row: WorkspaceCleanupRow, event?: MouseEvent) => {
     // Dirty rows require an explicit save choice; other blockers remain protected.
     if (!selectable(row)) return;
@@ -125,16 +142,26 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     });
     anchor.current = key;
   };
-  const actionRows = (action: WorkspaceCleanupActArgs["action"]) => selectedRows.filter((row) => {
+  const actionRows = (action: CleanupAction) => action === REMOVE_SUBAGENT_WORKTREES ? [] : selectedRows.filter((row) => {
     if (action === "archive") return canArchive(row);
     if (action === "restore") return canRestore(row);
     return ready(row) && (action === "deleteBranch" ? row.branchOnly && row.branchDeletable : !row.branchOnly && !row.keptWorktree);
   });
+  /** Confirmed removal of sub-agent worktrees; each result says what happened to that worktree. */
+  const removeSubAgents = async (targets: SubAgentWorktreeRow[]) => {
+    setBusy(true); setConfirming(null); setResults([]); setUndo([]);
+    const removed = await removeSubAgentWorktrees(window.api?.workspaceCleanup, targets);
+    setSubAgentResults(removed);
+    setSelectedSubAgents(new Set());
+    setMessage(t("cleanupCenter.summary", { done: removed.filter((r) => r.ok).length, skipped: removed.filter((r) => !r.ok).length }));
+    notifyWorkspaceCleanupChanged();
+    await refresh();
+  };
   const act = async (action: WorkspaceCleanupActArgs["action"], targets: WorkspaceCleanupActArgs[] = actionRows(action).map((row) => ({
     action, workspaceId: row.id, repositoryPath: row.repositoryPath,
     ...(action === "archive" ? { preserveLocalWork: true, saveChanges: canSaveChanges(row) && saveChanges } : { deleteBranch, forceDeleteBranch }),
   })), retry = false) => {
-    setBusy(true); setConfirming(null);
+    setBusy(true); setConfirming(null); setSubAgentResults([]);
     if (!retry) { setResults([]); archiveRequests.current.clear(); }
     const finished: WorkspaceCleanupResult[] = [];
     const archived: WorkspaceCleanupActArgs[] = [];
@@ -190,7 +217,8 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       {row.leftoverFiles ? trashButton(row) : <span className={sx(withoutWorktree(row) && styles.muted, styles.size)}>{withoutWorktree(row) ? t("cleanupDialog.row.noWorktree") : row.bytes === null ? t("cleanupDialog.row.notScanned") : formatResourceBytes(row.bytes)}</span>}
     </div>;
   };
-  const actionCount = (action: WorkspaceCleanupActArgs["action"]) => actionRows(action).length;
+  const actionCount = (action: CleanupAction) => action === REMOVE_SUBAGENT_WORKTREES ? selectedSubAgentRows.length : actionRows(action).length;
+  const shown = rows.length + subAgentRows.length;
   return <><Dialog open={open} onOpenChange={(next) => { if (!busy) onOpenChange(next); }}>
     <DialogContent xstyle={styles.dialog}>
       <DialogHeader><DialogTitle>{t("cleanupCenter.title")}</DialogTitle><DialogDescription>{t("cleanupCenter.description")}</DialogDescription></DialogHeader>
@@ -198,10 +226,11 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         <Input aria-label={t("cleanupDialog.search.ariaLabel")} placeholder={t("cleanupDialog.search.placeholder")} value={query} onChange={(event) => setQuery(event.target.value)} />
         <div className={sx(styles.actions)}><Button size="sm" variant="secondary" disabled={busy} onClick={() => void refresh(true)}>{t("cleanupDialog.scanDiskUsage")}</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => void refresh()}>{t("cleanupDialog.refreshChecks")}</Button></div>
       </div>
-      <div className={sx(styles.toolbar)}><Button size="sm" variant="ghost" disabled={busy} onClick={() => setSelected(new Set(rows.filter(ready).map(rowKey)))}>{t("cleanupCenter.selectReady")}</Button><span className={sx(styles.muted)}>{t("cleanupDialog.selectionSummary", { selected: selectedRows.length, shown: rows.length })}</span></div>
+      <div className={sx(styles.toolbar)}><Button size="sm" variant="ghost" disabled={busy} onClick={() => { setSelected(new Set(rows.filter(ready).map(rowKey))); setSelectedSubAgents(new Set(subAgentRows.filter(subAgentRowReady).map(subAgentRowKey))); }}>{t("cleanupCenter.selectReady")}</Button><span className={sx(styles.muted)}>{t("cleanupDialog.selectionSummary", { selected: selectedRows.length + selectedSubAgentRows.length, shown })}</span></div>
       <div aria-label={t("cleanupDialog.resultsAriaLabel")} aria-busy={busy} className={sx(styles.list)}>
         {rows.length > 80 ? <GroupedVirtuoso groupCounts={groups.map((group) => group.rows.length)} groupContent={(index) => <div className={sx(styles.heading)}>{groups[index]?.name}</div>} itemContent={(index) => rows[index] ? renderRow(rows[index]) : null} /> : groups.map((group) => <section key={group.path}><div className={sx(styles.heading)}>{group.name}</div>{group.rows.map((row) => <div key={rowKey(row)}>{renderRow(row)}</div>)}</section>)}
-        {!busy && !rows.length && <p>{t("cleanupDialog.empty")}</p>}
+        <SubAgentWorktreeSection rows={subAgentRows} selected={selectedSubAgents} busy={busy} onToggle={toggleSubAgent} />
+        {!busy && !shown && <p>{t("cleanupDialog.empty")}</p>}
       </div>
       {/* Hide actions with nothing to act on, as the Fleet selection bar does. */}
       <div className={sx(styles.footer)} data-cleanup-footer="">
@@ -210,6 +239,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         </div> : null)}
       </div>
       {message && <p role="status" className={sx(styles.status)}>{message}{undo.length > 0 && <Button variant="ghost" size="sm" disabled={busy} onClick={() => void act("restore", undo)}>{t("cleanupCenter.undo")}</Button>}</p>}
+      <SubAgentRemovalResults results={subAgentResults} />
       {results.some((result) => !result.ok || result.reason) && <div className={sx(styles.recent)}>{results.filter((r) => !r.ok || r.reason).map((result, index) => {
         const target = archiveRequests.current.get(result.workspaceId);
         const reason = result.reason ?? "unavailable";
@@ -249,13 +279,14 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       </div></details>
     </DialogContent>
   </Dialog><Dialog open={confirming !== null} onOpenChange={(next) => { if (!next) setConfirming(null); }}>
-    <DialogContent showCloseButton={false} initialFocus={() => cancelRef.current} onKeyDown={(event) => { if (event.key === "Enter" && confirming === "delete") { event.preventDefault(); event.stopPropagation(); } }}>
-      <DialogHeader><DialogTitle>{t("cleanupCenter.confirm")}</DialogTitle><DialogDescription>{t(confirming === "archive" ? "cleanupCenter.archiveConfirm" : confirming === "delete" ? "cleanupCenter.deleteConfirm" : "cleanupCenter.branchConfirm")}</DialogDescription></DialogHeader>
-      <ul>{confirming && actionRows(confirming).map((row) => <li key={rowKey(row)}>{row.name} · {row.path} · {row.branch}</li>)}</ul>
+    <DialogContent showCloseButton={false} initialFocus={() => cancelRef.current} onKeyDown={(event) => { if (event.key === "Enter" && (confirming === "delete" || confirming === REMOVE_SUBAGENT_WORKTREES)) { event.preventDefault(); event.stopPropagation(); } }}>
+      <DialogHeader><DialogTitle>{t("cleanupCenter.confirm")}</DialogTitle><DialogDescription>{t(confirming === "archive" ? "cleanupCenter.archiveConfirm" : confirming === "delete" ? "cleanupCenter.deleteConfirm" : confirming === REMOVE_SUBAGENT_WORKTREES ? "cleanupCenter.subAgents.confirm" : "cleanupCenter.branchConfirm")}</DialogDescription></DialogHeader>
+      <ul>{confirming && actionRows(confirming).map((row) => <li key={rowKey(row)}>{row.name} · {row.path} · {row.branch}</li>)}
+        {confirming === REMOVE_SUBAGENT_WORKTREES && selectedSubAgentRows.map((row) => <li key={subAgentRowKey(row)}>{row.name} · {row.path} · {row.branch ?? t("cleanupCenter.subAgents.detached")}</li>)}</ul>
       {confirming === "archive" && actionRows("archive").some(canSaveChanges) && <Checkbox label={t("cleanupCenter.saveChanges")} description={t("cleanupCenter.saveChangesDescription")} checked={saveChanges} onCheckedChange={(value) => setSaveChanges(Boolean(value))} />}
       {confirming === "delete" && actionRows("delete").every((row) => row.branchDeletable) && <Checkbox label={t("cleanupCenter.alsoDeleteBranch")} checked={deleteBranch} onCheckedChange={(value) => setDeleteBranch(Boolean(value))} />}
       {confirming === "delete" && <Checkbox label={t("cleanupCenter.forceDeleteBranch")} checked={forceDeleteBranch} onCheckedChange={(value) => { setForceDeleteBranch(Boolean(value)); if (value) setDeleteBranch(true); }} />}
-      <div className={sx(styles.actions)}><Button ref={cancelRef} variant="secondary" onClick={() => setConfirming(null)}>{t("common:actions.cancel")}</Button><Button variant="destructive" disabled={busy || (confirming === "archive" && actionRows("archive").some(canSaveChanges) && !saveChanges)} onClick={() => { if (confirming) void act(confirming); }}>{t("cleanupCenter.confirm")}</Button></div>
+      <div className={sx(styles.actions)}><Button ref={cancelRef} variant="secondary" onClick={() => setConfirming(null)}>{t("common:actions.cancel")}</Button><Button variant="destructive" disabled={busy || (confirming === "archive" && actionRows("archive").some(canSaveChanges) && !saveChanges)} onClick={() => { if (confirming === REMOVE_SUBAGENT_WORKTREES) void removeSubAgents(selectedSubAgentRows); else if (confirming) void act(confirming); }}>{t("cleanupCenter.confirm")}</Button></div>
     </DialogContent>
   </Dialog>{history && <WorkspaceArchivedHistory {...history} onClose={() => setHistory(null)} />}</>;
 }

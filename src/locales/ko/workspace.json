@@ -1391,6 +1391,13 @@
     "summary": "{{done}}개 완료, {{skipped}}개 건너뜀.",
     "archived": "보관됨",
     "selectReady": "정리 가능한 항목 모두 선택",
+    "subAgents": {
+      "title": "하위 에이전트가 남긴 워크트리",
+      "description": "Claude Code 하위 에이전트가 남긴 워크트리입니다. 브랜치는 유지합니다.",
+      "detached": "분리된 HEAD",
+      "removed": "워크트리 제거됨 · 브랜치 유지됨",
+      "confirm": "Claude Code 하위 에이전트가 남긴 워크트리 중 선택한 항목을 제거합니다. 브랜치는 유지합니다. 제거 전에 각 워크트리를 다시 확인하며, 변경 사항이 있는 워크트리는 Git이 제거하지 않습니다. 의존성, 빌드 결과물처럼 Git이 무시하는 파일은 함께 삭제됩니다. 이 작업은 되돌릴 수 없습니다."
+    },
     "moveLeftoverToTrash": "휴지통으로 이동",
     "leftoverTrashed": "폴더를 휴지통으로 옮겼습니다. 이제 워크스페이스를 복원할 수 있습니다.",
     "sensitiveFilesSkipped_other": "저장 한도를 초과했거나 지원하지 않는 링크여서 민감 파일 {{count}}개를 저장하지 않았습니다.",
@@ -1422,7 +1429,8 @@
       "archive_other": "보관 ({{count}})",
       "delete_other": "영구 삭제 ({{count}})",
       "deleteBranch_other": "브랜치 삭제 ({{count}})",
-      "restore_other": "복원 ({{count}})"
+      "restore_other": "복원 ({{count}})",
+      "removeSubAgentWorktree_other": "워크트리 제거 ({{count}})"
     },
     "reasons": {
       "defaultWorkspace": "기본 워크스페이스",
@@ -1447,6 +1455,12 @@
       "notArchived": "보관되지 않은 워크스페이스",
       "restorePathOccupied": "복원 경로가 사용 중임",
       "worktreeRestoreFailed": "워크트리 복원 실패",
+      "agentRunning": "이 워크트리에서 하위 에이전트가 아직 실행 중",
+      "recentlyModified": "최근 30분 안에 변경됨",
+      "staveWorkspace": "Stave 워크스페이스가 사용 중",
+      "subAgentWorktreeMissing": "Git 목록에 더 이상 없는 워크트리",
+      "unreachableCommits": "분리된 HEAD에 어느 브랜치에도 없는 커밋이 있음",
+      "worktreeLocked": "잠긴 워크트리",
       "notActiveWorkspace": "활성 워크스페이스가 아님",
       "branchHasWorkspace": "워크스페이스가 있는 브랜치",
       "unmergedBranch": "미병합 브랜치: 강제 삭제가 허용되지 않음",

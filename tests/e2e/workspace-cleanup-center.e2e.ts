@@ -321,3 +321,77 @@ for (const [width, lang, theme] of [[520, "ko", "dark"], [1440, "en", "light"]] 
     await expect(row).not.toContainText(pick("Archived", "보관됨"));
   });
 }
+
+// Worktrees Claude Code sub-agents left: their own section, the shared confirmation, per-row results.
+for (const [width, lang, theme] of [[1440, "en", "light"], [1024, "ko", "dark"], [1440, "en", "dark"], [1024, "ko", "light"]] as const) {
+  test(`sub-agent worktrees are removed only after confirmation at ${width} ${lang} ${theme}`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?stavePreview=command-palette&cleanupPreview=1&cleanupSubAgents=1&lang=${lang}&theme=${theme}`);
+    const pick = (en: string, ko: string) => lang === "en" ? en : ko;
+    const cleanup = pick("Clean up workspaces", "워크스페이스 정리");
+    await page.locator("input[data-slot=command-input]").fill(cleanup);
+    await page.getByText(cleanup, { exact: true }).click();
+    const section = page.locator("[data-cleanup-subagents]");
+    await expect(section).toContainText(pick("Worktrees left by Claude Code sub-agents. The branch is kept.", "Claude Code 하위 에이전트가 남긴 워크트리입니다. 브랜치는 유지합니다."));
+    const blocked = page.getByTestId("cleanup-subagent-row-agent-d4e5f6");
+    await expect(blocked.getByRole("checkbox")).toBeDisabled();
+    await expect(blocked).toContainText(pick("Changed files · Changed in the last 30 minutes", "변경된 파일 · 최근 30분 안에 변경됨"));
+    await expect(page.getByTestId("cleanup-subagent-row-agent-0789ab")).toContainText(pick("Detached HEAD", "분리된 HEAD"));
+    // The section stays inside the dialog, with each checkbox centered on its row text.
+    const dialog = page.getByRole("dialog").last();
+    await page.evaluate(() => document.fonts.ready);
+    const geometry = await dialog.evaluate((element) => {
+      const row = element.querySelector('[data-testid="cleanup-subagent-row-agent-a1b2c3"]')!;
+      const checkbox = row.querySelector('[role="checkbox"]')!.getBoundingClientRect();
+      const text = row.querySelector("button[aria-pressed]")!.getBoundingClientRect();
+      return { overflow: element.scrollWidth > element.clientWidth, centerDifference: Math.abs((checkbox.top + checkbox.bottom) / 2 - (text.top + text.bottom) / 2) };
+    });
+    expect(geometry.overflow).toBe(false);
+    expect(geometry.centerDifference).toBeLessThan(1);
+
+    const ready = page.getByTestId("cleanup-subagent-row-agent-a1b2c3");
+    await ready.getByRole("checkbox").click();
+    await page.locator("[data-cleanup-footer]").getByRole("button", { name: pick("Remove worktrees (1)", "워크트리 제거 (1)"), exact: true }).click();
+    const confirmation = page.getByRole("dialog").last();
+    await expect(confirmation).toContainText(pick("Their branches are kept.", "브랜치는 유지합니다."));
+    await expect(confirmation).toContainText("agent-a1b2c3");
+    await expect(confirmation).not.toContainText("agent-d4e5f6");
+    await expect(confirmation.getByRole("button", { name: pick("Cancel", "취소"), exact: true })).toBeFocused();
+    const shots = process.env.CLEANUP_SCREENSHOT_DIR;
+    if (shots) {
+      const { mkdir } = await import("node:fs/promises");
+      await mkdir(shots, { recursive: true });
+      await page.screenshot({ animations: "disabled", path: `${shots}/subagents-${lang}-${theme}-${width}-confirm.png` });
+    }
+    // Enter never confirms a removal that cannot be undone.
+    const confirm = confirmation.getByRole("button", { name: pick("Confirm action", "작업 확인"), exact: true });
+    await confirm.focus();
+    await page.keyboard.press("Enter");
+    await expect(confirmation).toBeVisible();
+    await confirm.click();
+    await expect(page.locator("[data-cleanup-subagent-results]")).toContainText(pick("agent-a1b2c3 · Worktree removed · branch kept", "agent-a1b2c3 · 워크트리 제거됨 · 브랜치 유지됨"));
+    await expect(ready).toHaveCount(0);
+    await expect(blocked).toBeVisible();
+    if (shots) await page.screenshot({ animations: "disabled", path: `${shots}/subagents-${lang}-${theme}-${width}-result.png` });
+  });
+}
+
+test("a sub-agent worktree that changed after listing is reported and kept", async ({ page }) => {
+  await page.goto("/?stavePreview=command-palette&cleanupPreview=1&cleanupSubAgents=1");
+  await page.getByPlaceholder("Find a command, task, workspace, or setting").fill("Clean up workspaces");
+  await page.getByText("Clean up workspaces", { exact: true }).click();
+  const ready = page.getByTestId("cleanup-subagent-row-agent-a1b2c3");
+  await expect(ready).toBeVisible();
+  // The host checks again right before removing; a file written since the list was read blocks it.
+  await page.evaluate(() => {
+    const api = window.api!.workspaceCleanup!;
+    api.removeSubAgentWorktree = async (args) => ({ ok: false, path: args.path, reason: "changedFiles" });
+  });
+  await page.getByRole("button", { name: "Select all ready" }).click();
+  await expect(page.getByTestId("cleanup-subagent-row-agent-d4e5f6").getByRole("checkbox")).not.toBeChecked();
+  await page.getByRole("button", { name: "Remove worktrees (2)", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm action" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Completed" })).toHaveText("Completed 0; skipped 2.");
+  await expect(page.locator("[data-cleanup-subagent-results]")).toContainText("agent-a1b2c3 · Changed files");
+  await expect(ready).toBeVisible();
+});

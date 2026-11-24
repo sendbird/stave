@@ -1,4 +1,4 @@
-import { DEFAULT_WORKSPACE_CLEANUP_POLICY, type WorkspaceCleanupApi, type WorkspaceCleanupRow } from "@/lib/workspace-cleanup-contract";
+import { DEFAULT_WORKSPACE_CLEANUP_POLICY, type SubAgentWorktreeRow, type WorkspaceCleanupApi, type WorkspaceCleanupRow } from "@/lib/workspace-cleanup-contract";
 
 /** Browser fixture exercises the real view; host and Git effects are simulated. */
 export function installCleanupFixture() {
@@ -15,11 +15,23 @@ export function installCleanupFixture() {
     Object.assign(rows.find(row => row.id === "cleanup-archived")!, { leftoverFiles: true, blockers: ["worktreeLeftoverFiles"] });
     recent[0]!.reason = "worktreeLeftoverFiles";
   }
+  // Worktrees Claude Code sub-agents left; removal is simulated and refuses blocked rows like the host.
+  const agent = (id: string, patch: Partial<SubAgentWorktreeRow> = {}): SubAgentWorktreeRow => ({ repositoryPath: base.repositoryPath, repositoryName: base.repositoryName,
+    path: `${base.repositoryPath}/.claude/worktrees/agent-${id}`, name: `agent-${id}`, branch: `worktree-agent-${id}`, head: "4f1c2d9", lastModified: "2026-11-20T08:00:00.000Z", blockers: [], bytes: 312 * 1024 * 1024, ...patch });
+  let subAgentWorktrees: SubAgentWorktreeRow[] = params.has("cleanupSubAgents")
+    ? [agent("a1b2c3"), agent("d4e5f6", { blockers: ["changedFiles", "recentlyModified"], bytes: 96 * 1024 * 1024 }), agent("0789ab", { branch: null, bytes: null })] : [];
   let policy = DEFAULT_WORKSPACE_CLEANUP_POLICY;
   const api: WorkspaceCleanupApi = {
     onChanged: () => () => {},
     listArchived: async () => structuredClone(rows.filter(row => row.archived)),
-    list: async () => structuredClone({ rows, policy, recent }),
+    list: async () => structuredClone({ rows, policy, recent, subAgentWorktrees }),
+    removeSubAgentWorktree: async (args) => {
+      const row = subAgentWorktrees.find(item => item.path === args.path && item.repositoryPath === args.repositoryPath);
+      if (!row) return { ok: false, path: args.path, reason: "subAgentWorktreeMissing" };
+      if (row.blockers.length) return { ok: false, path: args.path, reason: row.blockers.join(",") };
+      subAgentWorktrees = subAgentWorktrees.filter(item => item !== row);
+      return { ok: true, path: args.path, reason: null };
+    },
     configure: async (next) => { policy = next; return next; },
     runNow: async () => ({ results: [] }),
     trashLeftover: async (args) => {

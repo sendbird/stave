@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { emptyUsageMetrics, type UsageMetrics } from "../src/lib/providers/usage-statistics";
 import type { WorkspaceUsageReport, WorkspaceUsageRow } from "../src/lib/providers/workspace-usage";
-import type { WorkspaceCleanupRow, WorkspaceDiskUsageReport } from "../src/lib/workspace-cleanup-contract";
+import { subAgentWorktreeDiskId, type SubAgentWorktreeRow, type WorkspaceCleanupRow, type WorkspaceDiskUsageReport } from "../src/lib/workspace-cleanup-contract";
 import { usageDelta } from "../src/components/usage/usage-compare";
 import {
   buildUsageWorkspaceDirectory, groupDiskByProject, groupUsageByProject, OTHER_PROJECTS_KEY, reclaimableWorkspaces,
@@ -113,11 +113,31 @@ describe("disk and free space view model", () => {
     readOnly: false, archivedAt: null, lastActive: null, blockers, reasons: [], bytes: null, branchDeletable: false, ...extra,
   });
 
+  const agentPath = "/repos/app/.claude/worktrees/agent-a1";
+  const agentRow = (blockers: string[], extra: Partial<SubAgentWorktreeRow> = {}): SubAgentWorktreeRow => ({
+    repositoryPath: "/repos/app", repositoryName: "app", path: agentPath, name: "agent-a1", branch: "worktree-agent-a1", head: "abc",
+    lastModified: null, blockers, bytes: null, ...extra,
+  });
+  const withAgent: WorkspaceDiskUsageReport = { ...disk, rows: [...disk.rows, { workspaceId: subAgentWorktreeDiskId(agentPath), name: "agent-a1",
+    repositoryPath: "/repos/app", repositoryName: "app", archived: false, subAgentWorktree: true, measurement: measured(1_000) }] };
+
   test("sums disk per project, largest first, and counts folders whose size is unknown or a lower bound", () => {
     expect(groupDiskByProject(disk)).toEqual([
-      { key: "/repos/api", name: "api", bytes: 900, workspaces: 2, incomplete: 2, measured: 1 },
-      { key: "/repos/app", name: "app", bytes: 300, workspaces: 2, incomplete: 1, measured: 1 },
+      { key: "/repos/api", name: "api", bytes: 900, workspaces: 2, subAgentWorktrees: 0, incomplete: 2, measured: 1 },
+      { key: "/repos/app", name: "app", bytes: 300, workspaces: 2, subAgentWorktrees: 0, incomplete: 1, measured: 1 },
     ]);
+  });
+
+  test("counts sub-agent worktrees per project apart from workspaces, with their size in the total", () => {
+    expect(groupDiskByProject(withAgent)[0]).toEqual({ key: "/repos/app", name: "app", bytes: 1_300, workspaces: 2, subAgentWorktrees: 1, incomplete: 1, measured: 2 });
+  });
+
+  test("offers unblocked sub-agent worktrees beside workspaces, biggest first, and never blocked ones", () => {
+    const result = reclaimableWorkspaces([cleanupRow("app-1", [])], withAgent, [agentRow([]), agentRow(["changedFiles"], { path: "/repos/app/.claude/worktrees/agent-b", name: "agent-b" })]);
+    expect(result.items.map((item) => [item.id, item.kind, item.bytes])).toEqual([[subAgentWorktreeDiskId(agentPath), "subAgentWorktree", 1_000], ["app-1", "workspace", 300]]);
+    expect(result.bytes).toBe(1_300);
+    // A worktree the disk report has not reached yet keeps the size the cleanup read reported.
+    expect(reclaimableWorkspaces([], disk, [agentRow([], { bytes: 42 })]).items).toMatchObject([{ name: "agent-a1", bytes: 42, partial: false }]);
   });
 
   test("offers only unblocked workspaces with a folder, biggest first, without measuring or removing anything", () => {
@@ -130,7 +150,8 @@ describe("disk and free space view model", () => {
       cleanupRow("no-folder", []),
     ];
     const result = reclaimableWorkspaces(rows, disk);
-    expect(result.items.map((item) => [item.row.id, item.bytes, item.partial])).toEqual([["archived-1", 900, true], ["app-1", 300, false], ["api-1", null, false]]);
+    expect(result.items.map((item) => [item.id, item.bytes, item.partial])).toEqual([["archived-1", 900, true], ["app-1", 300, false], ["api-1", null, false]]);
+    expect(result.items.map((item) => item.kind)).toEqual(["archived", "workspace", "workspace"]);
     expect(result.bytes).toBe(1200);
     expect(result.incomplete).toBe(true);
     expect(reclaimableWorkspaces([cleanupRow("app-1", [])], disk)).toMatchObject({ bytes: 300, incomplete: false });

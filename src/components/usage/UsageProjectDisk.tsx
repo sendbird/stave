@@ -9,7 +9,7 @@ import { sx } from "@/components/aui/utils/stylex";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import { openWorkspaceCleanup, WORKSPACE_CLEANUP_CHANGED_EVENT } from "@/components/layout/workspace-cleanup-events";
 import { formatResourceBytes } from "@/lib/performance/resource-manager";
-import type { WorkspaceCleanupRow, WorkspaceDiskUsageReport } from "@/lib/workspace-cleanup-contract";
+import type { SubAgentWorktreeRow, WorkspaceCleanupRow, WorkspaceDiskUsageReport } from "@/lib/workspace-cleanup-contract";
 import { groupDiskByProject, reclaimableWorkspaces } from "./usage-projects";
 import { usageStyles as styles } from "./usage.styles";
 
@@ -22,7 +22,7 @@ const RECLAIMABLE_SHOWN = 5;
 
 export interface UsageDiskSources {
   diskUsage?: (args: { refresh?: boolean }) => Promise<WorkspaceDiskUsageReport>;
-  cleanupList?: () => Promise<{ rows: WorkspaceCleanupRow[] }>;
+  cleanupList?: () => Promise<{ rows: WorkspaceCleanupRow[]; subAgentWorktrees?: SubAgentWorktreeRow[] }>;
   openCleanup?: () => void;
 }
 
@@ -32,6 +32,8 @@ export interface UsageDiskState {
   report: WorkspaceDiskUsageReport | null;
   /** Cleanup rows, or null before the first read or when it failed. */
   cleanup: WorkspaceCleanupRow[] | null;
+  /** Worktrees sub-agents left, from the same cleanup read. */
+  subAgentWorktrees: SubAgentWorktreeRow[];
   cleanupFailed: boolean;
   refresh: () => void;
 }
@@ -48,6 +50,7 @@ export function useWorkspaceDiskState(sources?: UsageDiskSources): UsageDiskStat
   const [status, setStatus] = useState<DiskStatus>("loading");
   const [report, setReport] = useState<WorkspaceDiskUsageReport | null>(null);
   const [cleanup, setCleanup] = useState<WorkspaceCleanupRow[] | null>(null);
+  const [subAgentWorktrees, setSubAgentWorktrees] = useState<SubAgentWorktreeRow[]>([]);
   const [cleanupFailed, setCleanupFailed] = useState(false);
   // Only the latest read of each kind may land; unmounting retires both.
   const generations = useRef({ disk: 0, cleanup: 0 });
@@ -69,7 +72,7 @@ export function useWorkspaceDiskState(sources?: UsageDiskSources): UsageDiskStat
     if (!list) return;
     try {
       const next = await list();
-      if (generation === generations.current.cleanup) { setCleanup(next.rows); setCleanupFailed(false); }
+      if (generation === generations.current.cleanup) { setCleanup(next.rows); setSubAgentWorktrees(next.subAgentWorktrees ?? []); setCleanupFailed(false); }
     } catch {
       if (generation === generations.current.cleanup) setCleanupFailed(true);
     }
@@ -98,7 +101,7 @@ export function useWorkspaceDiskState(sources?: UsageDiskSources): UsageDiskStat
     return () => clearTimeout(timer);
   }, [report, readDisk]);
 
-  return { status, report, cleanup, cleanupFailed, refresh };
+  return { status, report, cleanup, subAgentWorktrees, cleanupFailed, refresh };
 }
 
 const size = (bytes: number, atLeast: boolean) => atLeast ? `≥ ${formatResourceBytes(bytes)}` : formatResourceBytes(bytes);
@@ -109,7 +112,7 @@ export function UsageProjectDisk(props: { state: UsageDiskState; openCleanup?: (
   const { state } = props;
   const report = state.report;
   const projects = useMemo(() => report ? groupDiskByProject(report) : [], [report]);
-  const reclaim = useMemo(() => report && state.cleanup ? reclaimableWorkspaces(state.cleanup, report) : null, [report, state.cleanup]);
+  const reclaim = useMemo(() => report && state.cleanup ? reclaimableWorkspaces(state.cleanup, report, state.subAgentWorktrees) : null, [report, state.cleanup, state.subAgentWorktrees]);
   const measuredAt = report?.rows.reduce<string | null>((latest, row) => {
     const at = row.measurement?.measuredAt ?? null;
     return at && (!latest || at > latest) ? at : latest;
@@ -134,7 +137,10 @@ export function UsageProjectDisk(props: { state: UsageDiskState; openCleanup?: (
             <TableHead className={sx(styles.end)}>{t("usage:projects.disk.columnSize")}</TableHead>
           </TableRow></TableHeader>
           <TableBody>{projects.map((project) => <TableRow key={project.key}>
-            <TableCell className={sx(styles.wrap)}>{project.name}</TableCell>
+            <TableCell className={sx(styles.wrap)}>
+              {project.name}
+              {project.subAgentWorktrees > 0 ? <span className={sx(styles.note, local.subNote)} data-usage-disk-subagents="">{t("usage:projects.disk.subAgentWorktrees", { count: project.subAgentWorktrees })}</span> : null}
+            </TableCell>
             <TableCell className={sx(styles.end)}>{formatNumber(project.workspaces)}</TableCell>
             <TableCell className={sx(styles.end)}>{project.measured === 0
               ? <span className={sx(styles.note)}>{t("usage:projects.disk.notMeasured")}</span>
@@ -153,10 +159,11 @@ export function UsageProjectDisk(props: { state: UsageDiskState; openCleanup?: (
     return <>
       <p className={sx(styles.value)} data-usage-reclaimable="">{size(reclaim.bytes, reclaim.incomplete)}</p>
       <ul className={sx(local.list)} aria-label={t("usage:projects.free.listLabel")}>
-        {reclaim.items.slice(0, RECLAIMABLE_SHOWN).map((item) => <li key={`${item.row.repositoryPath}\n${item.row.id}`} className={sx(local.item)} data-usage-reclaimable-row={item.row.id}>
+        {reclaim.items.slice(0, RECLAIMABLE_SHOWN).map((item) => <li key={`${item.repositoryPath}\n${item.id}`} className={sx(local.item)} data-usage-reclaimable-row={item.id}>
           <span className={sx(local.itemName)}>
-            <span className={sx(local.itemTitle)}>{item.row.name}</span>
-            <span className={sx(styles.note)}>{item.row.archived ? t("usage:projects.free.archivedIn", { project: item.row.repositoryName }) : item.row.repositoryName}</span>
+            <span className={sx(local.itemTitle)}>{item.name}</span>
+            <span className={sx(styles.note)}>{item.kind === "archived" ? t("usage:projects.free.archivedIn", { project: item.repositoryName })
+              : item.kind === "subAgentWorktree" ? t("usage:projects.free.subAgentIn", { project: item.repositoryName }) : item.repositoryName}</span>
           </span>
           <span className={sx(styles.number)}>{item.bytes === null ? t("usage:projects.free.notMeasured") : size(item.bytes, item.partial)}</span>
         </li>)}
@@ -202,4 +209,6 @@ const local = stylex.create({
     paddingBlock: vars["--aui-space-8"], borderBlockEndWidth: vars["--aui-border-width-hairline"], borderBlockEndStyle: "solid", borderBlockEndColor: vars["--aui-color-border"] },
   itemName: { display: "grid", gap: vars["--aui-space-4"], minInlineSize: 0 },
   itemTitle: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  /** A second line under the project name. */
+  subNote: { display: "block" },
 });
