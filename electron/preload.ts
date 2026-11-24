@@ -814,6 +814,7 @@ const agentRunsApi: AgentRunsBridgeApi = {
   cancel: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.cancel, args),
   addReportToPullRequest: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.addReportToPullRequest, args),
   shareReport: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.shareReport, args),
+  openSavedFile: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.openSavedFile, args),
   subscribeChanged: (listener) => {
     agentRunChangedSubscribers.add(listener);
     return () => {

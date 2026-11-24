@@ -1,4 +1,4 @@
-import { ipcMain } from "electron";
+import { ipcMain, shell } from "electron";
 import { z } from "zod";
 import type { AgentRunInsights } from "../../../src/lib/agent-runs/insights";
 import {
@@ -13,6 +13,7 @@ import {
 import type { AgentRun } from "../../../src/lib/agent-runs/domain";
 import type { HostAgentRunAction } from "../../host-service/protocol";
 import { ensureAgentRunEventBridge, invokeAgentRun } from "../agent-runs-service";
+import { resolveArchivedReportFile, resolveReportFileArchiveRoot } from "../../host-service/supervision/report-file-artifacts";
 import {
   AgentRunIdArgsSchema,
   AgentRunListArgsSchema,
@@ -87,6 +88,16 @@ export function registerAgentRunHandlers() {
   handleCommand(AGENT_RUN_IPC.acceptRuntime, "accept-runtime", AgentRunIdArgsSchema);
   handleCommand(AGENT_RUN_IPC.noteUserTurn, "note-user-turn", AgentRunNoteUserTurnArgsSchema);
   handleCommand(AGENT_RUN_IPC.cancel, "cancel", AgentRunIdArgsSchema);
+
+  // Only a copy inside the report file archive opens; any other path is refused.
+  ipcMain.handle(AGENT_RUN_IPC.openSavedFile, async (_event, args: unknown) => {
+    const parsed = z.object({ url: z.string().min(1).max(4_096) }).strict().safeParse(args);
+    if (!parsed.success) return { ok: false as const, message: "Invalid saved file request." };
+    const filePath = await resolveArchivedReportFile(parsed.data.url, resolveReportFileArchiveRoot());
+    if (!filePath) return { ok: false as const, message: "The saved file is unavailable." };
+    const failure = await shell.openPath(filePath);
+    return failure ? { ok: false as const, message: failure } : { ok: true as const };
+  });
 
   ipcMain.handle(AGENT_RUN_IPC.shareReport, async (_event, args: unknown): Promise<AgentRunShareReportResponse> => {
     const parsed = z

@@ -1197,6 +1197,8 @@
     "liveLink": "Live link · requires a running server",
     "version": "{{label}} · version {{version}} · {{time}}",
     "unknownTime": "time unavailable",
-    "localOnly": "Saved locally in Stave; open in the app"
+    "localOnly": "Saved locally in Stave; open in the app",
+    "savedFile": "Saved copy",
+    "fileMissing": "The saved copy could not be opened."
   }
 }

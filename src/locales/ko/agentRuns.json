@@ -1159,6 +1159,8 @@
     "liveLink": "실행 중인 서버가 필요한 링크",
     "version": "{{label}} · 버전 {{version}} · {{time}}",
     "unknownTime": "시간 정보 없음",
-    "localOnly": "Stave에 로컬로 보관됨. 앱에서 열 수 있습니다"
+    "localOnly": "Stave에 로컬로 보관됨. 앱에서 열 수 있습니다",
+    "savedFile": "보관된 사본",
+    "fileMissing": "보관된 사본을 열 수 없습니다."
   }
 }

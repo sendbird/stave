@@ -10,6 +10,8 @@ import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { EditorHtmlPreview } from "@/components/layout/editor-html-preview";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
 import { isLocalPreviewUrl, savedHtmlReference } from "@/lib/agent-runs/artifacts";
+import { isSavedReportFileArtifact } from "@/lib/agent-runs/report-file-artifacts";
+import { toast } from "@/lib/notifications/toast";
 import type { AgentRunReportLink } from "@/lib/agent-runs/report";
 import { useAppStore } from "@/store/app.store";
 import { agentRunStyles } from "./agent-runs.styles";
@@ -29,6 +31,14 @@ export function ReportArtifactLink({ link, children, xstyle }: { link: AgentRunR
   const { t } = useTranslation(["agentRuns"]);
   const openShared = useContext(ArtifactPreviewContext);
   const [openLocal, setOpenLocal] = useState(false);
+  // A screenshot, log, JSON or PDF Stave copied into app data opens in the system's default app.
+  if (isSavedReportFileArtifact(link)) return <Button variant="quiet" size="sm" layout="host" xstyle={xstyle ?? agentRunStyles.link} title={link.sourceUrl} data-saved-file-open="" onClick={() => {
+    void window.api?.agentRuns?.openSavedFile({ url: link.url }).then((result) => {
+      if (!result.ok) toast.error(t("artifacts.fileMissing"));
+    }).catch(() => toast.error(t("artifacts.fileMissing")));
+  }}>
+    {children ?? <>{link.label} · {t("artifacts.savedFile")}<ArrowUpRight aria-hidden className={sx(agentRunStyles.iconSm)} /></>}
+  </Button>;
   if (!savedHtmlReference(link.url)) return <ExternalAnchor href={link.url} xstyle={xstyle ?? agentRunStyles.link}>
     {children ?? <>{link.label}{isLocalPreviewUrl(link.url) ? ` · ${t("artifacts.liveLink")}` : ""}<ArrowUpRight aria-hidden className={sx(agentRunStyles.iconSm)} /></>}
   </ExternalAnchor>;

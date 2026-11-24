@@ -1,8 +1,10 @@
+import { rm } from "node:fs/promises";
 import type { ReportArtifact } from "../../../src/lib/agent-runs/artifacts";
 import { buildInlineRenderUrl } from "../../../src/lib/inline-render/inline-render";
 import { savedHtmlReference } from "../../../src/lib/agent-runs/artifacts";
 import type { InlineRenderStore } from "../../main/inline-render/inline-render-store";
 import { assertSelfContainedHtml, bundleHtmlArtifact } from "../../main/inline-render/html-artifact-bundle";
+import { saveReportFileLink } from "./report-file-artifacts";
 
 export interface ArchivedReportArtifacts {
   artifacts: ReportArtifact[];
@@ -19,10 +21,18 @@ export async function archiveReportArtifacts(args: {
   taskId: string;
   turnId: string;
   store: InlineRenderStore;
+  /** Where non-HTML file artifacts are copied (`report-file-artifacts.ts`); without it they stay links. */
+  fileArchiveRoot?: string;
 }): Promise<ArchivedReportArtifacts> {
   const artifacts: ReportArtifact[] = [];
   const allocated: string[] = [];
-  const discard = async () => { await Promise.all(allocated.map((id) => args.store.remove(id))); };
+  const allocatedFiles: string[] = [];
+  const discard = async () => {
+    await Promise.all([
+      ...allocated.map((id) => args.store.remove(id)),
+      ...allocatedFiles.map((directory) => rm(directory, { recursive: true, force: true })),
+    ]);
+  };
   try {
     for (const artifact of args.artifacts) {
       const renderId = savedHtmlReference(artifact.url);
@@ -40,7 +50,14 @@ export async function archiveReportArtifacts(args: {
       } else {
         if (artifact.livePreview) throw new Error("livePreview requires a saved or local HTML artifact.");
         const { sourceUrl: _source, savedAt: _time, ...input } = artifact;
-        artifacts.push(input);
+        // A screenshot, log, JSON or PDF in the workspace is copied so the
+        // report outlives the worktree; if it cannot be, the link stays.
+        const saved = args.fileArchiveRoot
+          ? await saveReportFileLink({ artifact: input, previousArtifacts: [...(args.previousArtifacts ?? []), ...artifacts],
+            workspacePath: args.workspacePath, archiveRoot: args.fileArchiveRoot, agentRunId: args.agentRunId })
+          : { artifact: input, allocatedDirectory: null };
+        if (saved.allocatedDirectory) allocatedFiles.push(saved.allocatedDirectory);
+        artifacts.push(saved.artifact);
         continue;
       }
       let reused: ReportArtifact | undefined;
