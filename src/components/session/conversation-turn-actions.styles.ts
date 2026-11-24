@@ -29,11 +29,17 @@ export const conversationTurnActionsStyles = stylex.create({
     minWidth: 0,
   },
   // Explains a missing file snapshot in the same caption scale as the actions.
+  // It stays on one line beside the turn actions and truncates; the full
+  // reason is in its title attribute. `display: block` lets the ellipsis apply
+  // when the caption sits in a block slot rather than a flex row.
   noSnapshot: {
     color: vars["--aui-color-text-muted"],
+    display: "block",
     fontSize: vars["--aui-font-size-caption"],
     minWidth: 0,
-    overflowWrap: "anywhere",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   groupInline: {
     alignItems: "center",
