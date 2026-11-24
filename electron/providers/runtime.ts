@@ -57,6 +57,7 @@ import {
 } from "../../src/lib/providers/steer-delivery";
 import { registerAgentRunGrant } from "./agent-run-grants";
 import { isToolsDisabledTurn, TOOLLESS_TURN_UNSUPPORTED_MESSAGE } from "./toolless-turn";
+import { ensureWorkspaceScratch } from "../main/utils/workspace-scratch";
 import { createProviderApprovalRouter } from "./provider-approval-router";
 import {
   createProviderTurnLifecycle,
@@ -962,6 +963,17 @@ async function runProviderTurnImpl(
       recoverable: false,
     });
     return finishLifecycle("runtime_failure");
+  }
+  // The scratch folder the Claude and Codex prompts point at. A tool-less or
+  // read-only secondary turn writes nothing, so it does not create one. ACP
+  // providers get the folder too (Lens screenshots land there), though they
+  // have no system prompt to mention it.
+  if (args.executionPolicy !== "secondary-read-only" && !isToolsDisabledTurn(args.runtimeOptions)) {
+    try {
+      await ensureWorkspaceScratch(args.cwd);
+    } catch (error) {
+      console.warn("[provider-runtime] workspace scratch folder unavailable", { error: String(error) });
+    }
   }
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;

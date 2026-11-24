@@ -12,6 +12,7 @@ import {
   CLAUDE_STAVE_LENS_INSTRUCTIONS,
   CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
 } from "./claude-browser-instructions";
+import { WORKSPACE_SCRATCH_INSTRUCTION } from "../../src/lib/workspace-scratch";
 
 /**
  * Cache boundary marker for the claude-agent-sdk systemPrompt string[] API.
@@ -51,6 +52,11 @@ export function buildClaudeSystemPrompt(args: {
    * is included only then, because its tools do not otherwise exist.
    */
   hasStaveLocalMcp?: boolean;
+  /**
+   * A read-only secondary or tool-less turn: it cannot write files, so the
+   * scratch folder instruction is left out. Matches the Codex adapter.
+   */
+  secondaryReadOnly?: boolean;
   /** Instructions of the Agent the task runs as; see `ProviderRuntimeOptions.agentInstructions`. */
   agentInstructions?: string;
   delegationBrief?: string;
@@ -87,6 +93,10 @@ export function buildClaudeSystemPrompt(args: {
   staticParts.push(CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
   if (args.hasStaveLocalMcp) {
     staticParts.push(CLAUDE_STAVE_LENS_INSTRUCTIONS);
+  }
+  // Relative path only, so it stays byte-stable in the cached prefix.
+  if (!args.secondaryReadOnly) {
+    staticParts.push(WORKSPACE_SCRATCH_INSTRUCTION);
   }
 
   // Dynamic suffix — session-specific, not globally cached. Worker mode belongs

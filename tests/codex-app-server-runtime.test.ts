@@ -51,6 +51,7 @@ import {
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
 import { shouldStartFreshCodexGrantThread } from "../electron/providers/codex-thread-session";
+import { WORKSPACE_SCRATCH_INSTRUCTION } from "../src/lib/workspace-scratch";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 import { CodexThreadTokenUsage, mapCodexTokenUsageBreakdown } from "../electron/providers/codex-token-usage";
 import {
@@ -807,7 +808,9 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
 
   test("always appends native browser guidance to developer instructions", () => {
     const withoutBasePrompt = buildCodexDeveloperInstructions({});
-    expect(withoutBasePrompt).toBe(CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
+    expect(withoutBasePrompt).toBe(
+      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${WORKSPACE_SCRATCH_INSTRUCTION}`,
+    );
 
     const withBasePrompt = buildCodexDeveloperInstructions({
       runtimeOptions: {
@@ -815,7 +818,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       },
     });
     expect(withBasePrompt).toBe(
-      `Base system prompt.\n\n${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}`,
+      `Base system prompt.\n\n${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${WORKSPACE_SCRATCH_INSTRUCTION}`,
     );
     expect(withBasePrompt).toContain(
       "Use the runtime's web-search tool for general web research",
@@ -830,6 +833,15 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     expect(withBasePrompt).toContain("desktop UI control");
   });
 
+  test("tells a writing thread about the scratch folder, never a read-only secondary one", () => {
+    const primary = buildCodexDeveloperInstructions({});
+    expect(primary).toContain(WORKSPACE_SCRATCH_INSTRUCTION);
+    expect(primary).toContain(".stave/scratch/");
+    const secondary = buildCodexDeveloperInstructions({ secondaryReadOnly: true });
+    expect(secondary).not.toContain(WORKSPACE_SCRATCH_INSTRUCTION);
+    expect(secondary).not.toContain(".stave/scratch");
+  });
+
   test("includes Lens guidance only when the Stave local MCP is registered", () => {
     // Without the MCP there are no `stave_lens_*` tools, so the block would be
     // several hundred tokens of instructions about tools that do not exist.
@@ -841,7 +853,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       hasStaveLocalMcp: true,
     });
     expect(withLens).toBe(
-      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${CODEX_STAVE_LENS_INSTRUCTIONS}`,
+      `${CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS}\n\n${CODEX_STAVE_LENS_INSTRUCTIONS}\n\n${WORKSPACE_SCRATCH_INSTRUCTION}`,
     );
     expect(withLens).toContain(
       "only when a change to the current project requires visual inspection",
