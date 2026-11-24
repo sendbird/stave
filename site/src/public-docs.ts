@@ -164,6 +164,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         description:
           "Run the real Claude Code and Codex CLIs against any folder from the top bar without registering it as a project.",
       },
+      {
+        routePath: "external-activity",
+        sourcePath: "docs/features/external-activity.md",
+        title: "Activity Outside Stave",
+        description:
+          "See Claude Code and Codex sessions you started outside Stave, and their sub-agents, live and read-only. Off by default.",
+      },
     ],
   },
   {

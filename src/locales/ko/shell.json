@@ -673,7 +673,9 @@
     "addAnApiConnectionDescription": "Vercel AI Gateway처럼 토큰 단위로 과금되는 게이트웨이 키 연결",
     "openTaskReview": "검토 열기",
     "backToTaskConversation": "대화로 돌아가기",
-    "askSideQuestionDescription": "활성 작업을 멈추지 않고 그 작업에 대해 묻습니다"
+    "askSideQuestionDescription": "활성 작업을 멈추지 않고 그 작업에 대해 묻습니다",
+    "openActivity": "활동 열기",
+    "activityDescription": "Stave 밖에서 실행 중인 Claude Code와 Codex 세션"
   },
   "commandPaletteScripts": {
     "local": "{{value1}} · 로컬",
@@ -2976,5 +2978,76 @@
     "prCheckBackDescription": "예약에서 PR을 다시 확인할 일정을 설정합니다.",
     "secretRequests": "시크릿 요청",
     "secretRequestsDescription": "시크릿을 기다리는 작업을 열거나 저장한 시크릿을 관리합니다."
+  },
+  "externalActivity": {
+    "nav": "활동",
+    "navRunning_other": "활동, 에이전트 {{count}}개 실행 중",
+    "title": "활동",
+    "description": "Stave 밖에서 시작한 Claude Code와 Codex 세션, 그리고 그 하위 에이전트입니다. 읽기 전용이며 세션은 시작한 곳에서 계속 실행됩니다.",
+    "close": "활동 닫기",
+    "running_other": "에이전트 {{count}}개 실행 중",
+    "nothingRunning": "실행 중인 에이전트 없음",
+    "summary": "최근 30분 안에 기록된 세션입니다. 로컬 기록 파일을 메모리에서만 읽습니다.",
+    "offTitle": "Stave 밖 활동이 꺼져 있습니다",
+    "offDescription": "켜면 Stave 밖에서 시작한 Claude Code와 Codex 세션을 볼 수 있습니다. 이때 Stave는 이 컴퓨터의 기록 파일을 메모리에서만 읽고 어디에도 보내지 않습니다.",
+    "turnOn": "켜기",
+    "openSetting": "설정 열기",
+    "loading": "세션을 읽는 중…",
+    "emptyTitle": "Stave 밖에서 실행 중인 세션이 없습니다",
+    "emptyDescription": "최근 30분 안에 기록된 Claude Code와 Codex 세션이 여기에 나타납니다. Stave가 시작한 세션은 해당 작업에서 볼 수 있습니다.",
+    "unknownFolder": "알 수 없는 폴더",
+    "untitled": "제목 없는 세션",
+    "sessionsLabel": "{{name}}의 세션",
+    "agentsLabel": "{{name}}의 에이전트",
+    "agentsRunning_other": "에이전트 {{count}}개 중 {{running}}개 실행 중",
+    "steps_other": "{{count}}단계",
+    "context": "컨텍스트 {{tokens}}",
+    "elapsed": "실행 시간",
+    "source": {
+      "claudeCode": "Claude Code",
+      "codex": "Codex"
+    },
+    "status": {
+      "working": "작업 중",
+      "waiting": "입력 대기",
+      "idle": "유휴"
+    },
+    "agentStatus": {
+      "running": "실행 중",
+      "finished": "완료",
+      "failed": "실패",
+      "stopped": "중지됨",
+      "idle": "유휴"
+    },
+    "action": {
+      "read": "{{target}} 읽는 중",
+      "readAny": "파일 읽는 중",
+      "edit": "{{target}} 편집 중",
+      "editAny": "파일 편집 중",
+      "write": "{{target}} 작성 중",
+      "writeAny": "파일 작성 중",
+      "run": "{{target}} 실행 중",
+      "runAny": "명령 실행 중",
+      "search": "{{target}} 검색 중",
+      "searchAny": "검색 중",
+      "find": "{{target}} 찾는 중",
+      "findAny": "파일 찾는 중",
+      "list": "{{target}} 목록 보는 중",
+      "listAny": "파일 목록 보는 중",
+      "fetch": "{{target}} 가져오는 중",
+      "fetchAny": "페이지 가져오는 중",
+      "webSearch": "웹에서 {{target}} 검색 중",
+      "webSearchAny": "웹 검색 중",
+      "agent": "에이전트 시작: {{target}}",
+      "agentAny": "에이전트 시작 중",
+      "plan": "계획 업데이트 중",
+      "planAny": "계획 업데이트 중",
+      "skill": "{{target}} 사용 중",
+      "skillAny": "스킬 사용 중",
+      "message": "{{target}}에게 메시지 보내는 중",
+      "messageAny": "메시지 보내는 중",
+      "tool": "{{tool}}: {{target}}",
+      "toolAny": "{{tool}} 사용 중"
+    }
   }
 }

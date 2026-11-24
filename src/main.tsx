@@ -119,6 +119,10 @@ if (preview === "bell-answers") {
   void import("@/dev/usage-preview").then(({ UsagePreview }) => {
     root.render(<StrictMode><StaveDesignProvider><UsagePreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "activity") {
+  void import("@/dev/activity-preview").then(({ ActivityPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><ActivityPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "results") {
   void import("@/dev/results-preview").then(({ ResultsPreview }) => {
     root.render(

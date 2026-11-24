@@ -8,6 +8,7 @@ import {
   MailCheck,
   Square,
   Bot,
+  Activity,
   Gauge,
   Command as CommandIcon,
   FolderOpen,
@@ -159,6 +160,7 @@ export interface CommandPaletteCommandHandlers {
   openAgents: () => void;
   openAgentPerformance: () => void;
   openUsage: () => void;
+  openActivity: () => void;
   newAgent: () => void;
   startWorkWithAgent: () => void;
   refreshTrackerIssues: () => Promise<void> | void;
@@ -614,6 +616,24 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       icon: Gauge,
       keywords: ["usage", "tokens", "cost", "quota", "account", "model", "AI"],
       run: args.commands.openUsage,
+      source: "core",
+    }),
+  },
+  {
+    id: "navigation.activity",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openActivity"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.activityDescription"); },
+    group: "navigation",
+    icon: Activity,
+    keywords: ["activity", "outside", "external", "terminal", "claude code", "codex", "sessions", "sub-agents"],
+    build: (args) => ({
+      id: "navigation.activity",
+      title: i18n.t("shell:commandPaletteRegistry.openActivity"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.activityDescription"),
+      group: "navigation",
+      icon: Activity,
+      keywords: ["activity", "outside", "external", "terminal", "claude code", "codex", "sessions", "sub-agents"],
+      run: args.commands.openActivity,
       source: "core",
     }),
   },

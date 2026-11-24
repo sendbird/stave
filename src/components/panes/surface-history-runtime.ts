@@ -151,6 +151,9 @@ function openAppSurface(surface: SurfaceHistoryAppSurface) {
     case "agents":
       state.openAgents();
       return;
+    case "activity":
+      state.openActivity();
+      return;
     case "usage":
       state.openUsage(
         surface.providerId

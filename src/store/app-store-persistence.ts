@@ -533,6 +533,10 @@ export function createAppStorePersistenceOptions() {
           ? raw.featureTipsEnabled
           : defaultSettings.featureTipsEnabled;
       state.settings.dismissedFeatureTips = normalizeDismissedFeatureTips(raw.dismissedFeatureTips);
+      state.settings.externalActivityEnabled =
+        typeof raw.externalActivityEnabled === "boolean"
+          ? raw.externalActivityEnabled
+          : defaultSettings.externalActivityEnabled;
       state.settings.blockTurnsWhenAccountLimitReached =
         typeof raw.blockTurnsWhenAccountLimitReached === "boolean"
           ? raw.blockTurnsWhenAccountLimitReached

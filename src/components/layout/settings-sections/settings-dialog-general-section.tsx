@@ -9,6 +9,7 @@ import {
 import { useAppStore } from "@/store/app.store";
 import { StandaloneCliSettingsCard } from "@/components/layout/settings-dialog-standalone-cli-card";
 import { DesktopNotificationsCard } from "./settings-dialog-desktop-notifications-card";
+import { ExternalActivitySettingsCard } from "./settings-dialog-external-activity-card";
 import { LanguageSettingsCard } from "./settings-dialog-language-card";
 import { NotificationSoundControls } from "./settings-dialog-notification-sound-controls";
 import { SectionStack, SettingsCard, SwitchField } from "../settings-dialog.shared";
@@ -70,6 +71,7 @@ export function GeneralSection() {
         />
       </SettingsCard>
       <StandaloneCliSettingsCard />
+      <ExternalActivitySettingsCard />
       <SettingsCard
         title={t("settings:general.notificationSound.title")}
         description={t("settings:general.notificationSound.description")}

@@ -676,7 +676,9 @@
     "addAnApiConnectionDescription": "Connect a gateway key billed per token, such as Vercel AI Gateway",
     "openTaskReview": "Open Review",
     "backToTaskConversation": "Back to conversation",
-    "askSideQuestionDescription": "Ask about the active task without interrupting it"
+    "askSideQuestionDescription": "Ask about the active task without interrupting it",
+    "openActivity": "Open Activity",
+    "activityDescription": "Claude Code and Codex sessions running outside Stave"
   },
   "commandPaletteScripts": {
     "local": "{{value1}} · Local",
@@ -3056,5 +3058,80 @@
     "prCheckBackDescription": "Open Schedules to configure a check-back for a pull request.",
     "secretRequests": "Secret requests",
     "secretRequestsDescription": "Open a task waiting for a secret, or manage saved secrets."
+  },
+  "externalActivity": {
+    "nav": "Activity",
+    "navRunning_one": "Activity, {{count}} agent running",
+    "navRunning_other": "Activity, {{count}} agents running",
+    "title": "Activity",
+    "description": "Claude Code and Codex sessions started outside Stave, and their sub-agents. Read-only: they keep running where you started them.",
+    "close": "Close Activity",
+    "running_one": "{{count}} agent running",
+    "running_other": "{{count}} agents running",
+    "nothingRunning": "No agents running",
+    "summary": "Sessions written in the last 30 minutes, read from local transcript files in memory only.",
+    "offTitle": "Activity outside Stave is off",
+    "offDescription": "Turn it on to see Claude Code and Codex sessions you started outside Stave. Stave then reads their transcript files on this computer, in memory only; nothing is sent anywhere.",
+    "turnOn": "Turn on",
+    "openSetting": "Open setting",
+    "loading": "Reading sessions…",
+    "emptyTitle": "Nothing running outside Stave",
+    "emptyDescription": "Claude Code and Codex sessions written in the last 30 minutes appear here. Sessions Stave started stay in their tasks.",
+    "unknownFolder": "Unknown folder",
+    "untitled": "Untitled session",
+    "sessionsLabel": "Sessions in {{name}}",
+    "agentsLabel": "Agents in {{name}}",
+    "agentsRunning_one": "{{running}} of {{count}} agent running",
+    "agentsRunning_other": "{{running}} of {{count}} agents running",
+    "steps_one": "{{count}} step",
+    "steps_other": "{{count}} steps",
+    "context": "{{tokens}} context",
+    "elapsed": "Running for",
+    "source": {
+      "claudeCode": "Claude Code",
+      "codex": "Codex"
+    },
+    "status": {
+      "working": "Working",
+      "waiting": "Waiting for you",
+      "idle": "Idle"
+    },
+    "agentStatus": {
+      "running": "Running",
+      "finished": "Finished",
+      "failed": "Failed",
+      "stopped": "Stopped",
+      "idle": "Idle"
+    },
+    "action": {
+      "read": "Reading {{target}}",
+      "readAny": "Reading a file",
+      "edit": "Editing {{target}}",
+      "editAny": "Editing files",
+      "write": "Writing {{target}}",
+      "writeAny": "Writing a file",
+      "run": "Running {{target}}",
+      "runAny": "Running a command",
+      "search": "Searching for {{target}}",
+      "searchAny": "Searching",
+      "find": "Finding {{target}}",
+      "findAny": "Finding files",
+      "list": "Listing {{target}}",
+      "listAny": "Listing files",
+      "fetch": "Fetching {{target}}",
+      "fetchAny": "Fetching a page",
+      "webSearch": "Searching the web for {{target}}",
+      "webSearchAny": "Searching the web",
+      "agent": "Starting an agent: {{target}}",
+      "agentAny": "Starting an agent",
+      "plan": "Updating the plan",
+      "planAny": "Updating the plan",
+      "skill": "Using {{target}}",
+      "skillAny": "Using a skill",
+      "message": "Messaging {{target}}",
+      "messageAny": "Sending a message",
+      "tool": "{{tool}}: {{target}}",
+      "toolAny": "Using {{tool}}"
+    }
   }
 }
