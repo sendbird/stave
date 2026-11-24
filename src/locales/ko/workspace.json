@@ -105,7 +105,7 @@
     "title": "워크스페이스 정리",
     "description": "{{repository}} · 제거하기 전에 비활성 워크스페이스를 검토합니다.",
     "currentRepository": "현재 저장소",
-    "scanHint": "디스크 사용량은 요청할 때만 스캔합니다. 중첩된 심볼릭 링크는 따라가지 않습니다.",
+    "scanHint": "디스크 사용량은 요청할 때만 폴더를 하나씩, 폴더마다 최대 30초 동안 스캔합니다. 심볼릭 링크는 따라가지 않습니다.",
     "scanDiskUsage": "디스크 사용량 스캔",
     "refreshChecks": "검사 새로고침",
     "search": {

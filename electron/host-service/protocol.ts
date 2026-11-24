@@ -558,6 +558,7 @@ export interface HostServiceRequestMap {
   "workspace.cleanup-act": WorkspaceCleanupActArgs;
   "workspace.cleanup-configure": WorkspaceCleanupPolicy;
   "workspace.cleanup-run": Record<string, never>;
+  "workspace.disk-usage": { refresh?: boolean };
   "workspace.execution": WorkspaceExecutionArgs;
   "workspace.execution-status": undefined;
   "service.shutdown": undefined;
@@ -1116,6 +1117,7 @@ export interface HostServiceResponseMap {
   "workspace.cleanup-act": Awaited<ReturnType<WorkspaceCleanupApi["act"]>>;
   "workspace.cleanup-configure": WorkspaceCleanupPolicy;
   "workspace.cleanup-run": Awaited<ReturnType<WorkspaceCleanupApi["runNow"]>>;
+  "workspace.disk-usage": import("../../src/lib/workspace-cleanup-contract").WorkspaceDiskUsageReport;
   "workspace.execution": WorkspaceExecutionResult;
   "workspace.execution-status": WorkspaceExecutionState[];
   "service.shutdown": {

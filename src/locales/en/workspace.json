@@ -105,7 +105,7 @@
     "title": "Clean up workspaces",
     "description": "{{repository}} · Review inactive workspaces before removing them.",
     "currentRepository": "Current repository",
-    "scanHint": "Disk usage is scanned on request. Nested symlinks are not followed.",
+    "scanHint": "Disk usage is scanned on request, one folder at a time for up to 30 seconds each. Symlinks are not followed.",
     "scanDiskUsage": "Scan disk usage",
     "refreshChecks": "Refresh checks",
     "search": {
