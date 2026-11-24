@@ -116,6 +116,44 @@ deletion is a separate choice, offered for merged or pushed branches. It uses
 safe deletion; force deletion of an unmerged branch requires explicit opt-in,
 off by default. Local remote-tracking evidence is used without fetching.
 
+### Worktrees left by sub-agents
+
+Claude Code sub-agents started with worktree isolation leave Git worktrees at
+`<project>/.claude/worktrees/agent-<id>`, usually on a `worktree-agent-<id>`
+branch. The cleanup center lists them for every registered project in a
+**Left by sub-agents** section: "Worktrees left by Claude Code sub-agents. The
+branch is kept." Each row shows the folder, project, branch (or **Detached
+HEAD**), path, size when measured, and what blocks removal.
+
+Only entries Git lists whose real path is exactly that folder are shown. A
+worktree reached through a symbolic link (`.claude`, `.claude/worktrees` or the
+worktree folder itself) and any path a Stave workspace, linked worktree or
+archive uses are never listed.
+
+Any one of these blocks removal:
+
+- uncommitted or untracked changes (`git status --porcelain` is not empty);
+- a detached HEAD with commits that are on no branch;
+- a locked worktree;
+- a change in the last 30 minutes (the newest change time of the folder's top
+  level and its Git index);
+- a sub-agent that [Activity outside Stave](external-activity.md) sees
+  unfinished in that worktree, when Activity is on. With Activity off, the
+  30-minute rule is the only activity check;
+- the path is a Stave workspace;
+- a Git command that fails.
+
+Select unblocked rows, choose **Remove worktrees**, and confirm. Confirmation
+opens with Cancel focused and Enter never confirms. The host lists the worktree
+again and runs every check again immediately before removing it, then runs
+`git worktree remove` without `--force` (Git itself also refuses a worktree
+with changes) and `git worktree prune`. The branch and its commits are never
+deleted. Git-ignored files in the worktree, such as dependencies and build
+output, are deleted with it; unlike archive, no sensitive ignored files are
+saved. Each row reports **Worktree removed · branch kept** or why it was
+kept. Automatic cleanup never removes these worktrees, and agents can only list
+them (`stave_list_workspace_cleanup`); there is no removal tool.
+
 ### Automatic cleanup
 
 In **Settings > Workspaces**, each rule has its own toggle and number. All

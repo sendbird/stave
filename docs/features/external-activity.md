@@ -82,6 +82,11 @@ Statuses:
   line Stave cannot read is skipped; an unreadable folder leaves the page empty
   rather than failing.
 - Other agent CLIs (Cursor, Kiro, OpenCode) are not shown.
+- While the setting is on, workspace cleanup will not remove the worktree of a
+  sub-agent listed here that has not finished (see
+  [worktrees left by sub-agents](resource-manager.md#worktrees-left-by-sub-agents)).
+  Sub-agents of tasks Stave runs are not listed, so cleanup protects their
+  worktrees only through its other checks, such as changes in the last 30 minutes.
 
 ## Troubleshooting
 

@@ -98,7 +98,10 @@ workspaces Stave no longer lists, stay counted under **Removed projects and
 tasks**.
 
 **Disk used by workspaces** shows the space each project's workspace folders
-take, active and archived with a kept checkout. A project's own checkout is
+take, active and archived with a kept checkout, plus the worktrees Claude Code
+sub-agents left under `<project>/.claude/worktrees`. Those are counted in the
+project's size and listed under its name ("Includes 2 worktrees left by
+sub-agents"), not in the Workspaces column. A project's own checkout is
 not counted, since workspace folders live inside it. Folders are measured one
 at a time at the lowest CPU priority, each for at most 30 seconds (`du` on
 macOS and Linux, a counted walk on Windows or when `du` is unavailable).
@@ -109,9 +112,11 @@ says **Not measured**.
 
 **Free up space** lists the workspaces the workspace cleanup checks allow
 removing now (no blocker such as changed files, unpushed commits, a running
-turn or an open terminal), largest first, with their total size. It removes
-nothing itself: **Review in cleanup** opens the same cleanup dialog, where you
-choose what to archive or delete.
+turn or an open terminal), largest first, with their total size. Sub-agent
+worktrees with no blocker appear in the same order labeled **Left by
+sub-agents**. It removes nothing itself: **Review in cleanup** opens the same
+cleanup dialog, where you choose what to archive, delete or remove
+([worktrees left by sub-agents](resource-manager.md#worktrees-left-by-sub-agents)).
 
 ## What the numbers mean
 
