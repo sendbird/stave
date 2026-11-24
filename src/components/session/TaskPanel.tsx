@@ -248,6 +248,7 @@ export function TaskPanelView(props: {
             if (isTaskPanelSection(value)) setSection(value);
           }}
           xstyle={styles.tabs}
+          data-testid="task-sections"
         >
           <TabsList aria-label={i18n.t("session:taskPanel.sections")} xstyle={styles.tabList}>
             {TASK_PANEL_SECTIONS.map((item) => (

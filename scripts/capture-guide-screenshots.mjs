@@ -747,7 +747,9 @@ const SHOTS = [
       await openPreview(page, locale, "task-panel&task=agent-run&theme=dark&panelWidth=416");
       await openTaskSection(page, "steps");
       await settle(page);
-      await save(page, page.getByTestId("agent-run-panel"), file, { padding: 12 });
+      await page.getByTestId("agent-run-panel").waitFor();
+      // The strip and its view together: the strip stays over the view it names.
+      await save(page, page.getByTestId("task-sections"), file, { padding: 12 });
     },
   },
   {
@@ -810,7 +812,7 @@ const SHOTS = [
       const entry = outputs.getByText("Tightened the row gaps to 8px and kept the keyboard order; typecheck and the focused tests pass.", { exact: true }).first();
       await entry.click();
       await settle(page);
-      await save(page, outputs, file, { padding: 12 });
+      await save(page, page.getByTestId("task-sections"), file, { padding: 12 });
     },
   },
   {
