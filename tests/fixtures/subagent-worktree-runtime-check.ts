@@ -69,6 +69,7 @@ async function main() {
     assert.equal(existsSync(leftover), false);
     assert.equal(git(repo, "log", "-1", "--format=%s", "worktree-agent-left").trim(), "keep", "The branch and its commit stay");
     assert.deepEqual(calls.flat().filter(arg => arg === "--force" || arg === "-f"), []);
+    assert.equal((await runtime.diskUsage()).rows.some(row => row.subAgentWorktree), false, "A removed worktree leaves the disk report at once");
     store.close();
   } finally {
     workspaceExecutionGate.setArchiveReader(() => []);

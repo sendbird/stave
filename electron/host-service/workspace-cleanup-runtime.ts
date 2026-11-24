@@ -528,13 +528,17 @@ export function createWorkspaceCleanupRuntime(ports: {
     (scanDisk ? await disk.read(subAgentWorktreeDiskId(folder.path), folder.path, 0) : disk.peek(subAgentWorktreeDiskId(folder.path), folder.path))?.bytes ?? null);
   /** Only the cleanup dialog's confirmation calls this; it shares the action queue so removals never overlap. */
   function removeSubAgentWorktree(args: SubAgentWorktreeRemoveArgs, runningAgentWorktrees: readonly string[] = []) {
-    const pending = actionChain.then(() => subAgents.remove(SubAgentWorktreeRemoveArgsSchema.parse(args), runningAgentWorktrees));
+    const pending = actionChain.then(() => subAgents.remove(SubAgentWorktreeRemoveArgsSchema.parse(args), runningAgentWorktrees))
+      .then(result => { if (result.ok) subAgentFolders = null; return result; });
     actionChain = pending.then(() => {}, () => {});
     return pending;
   }
+  // The disk view re-reads every two seconds while measuring; Git lists worktrees at most every 30 seconds for it.
+  let subAgentFolders: { at: number; folders: Awaited<ReturnType<typeof subAgents.discover>> } | null = null;
   /** Disk used by workspace folders and sub-agent worktrees; stale folders are measured in the background (`workspace-disk-usage.ts`). */
   const diskUsage = async (refresh = false) => {
-    const leftByAgents = await subAgents.discover().catch(() => []);
+    if (refresh || !subAgentFolders || Math.abs(now() - subAgentFolders.at) > 30_000) subAgentFolders = { at: now(), folders: await subAgents.discover().catch(() => []) };
+    const leftByAgents = subAgentFolders.folders;
     return readWorkspaceDiskUsage([...workspaceDiskFolders(ports.store()), ...leftByAgents.map(folder => ({ workspaceId: subAgentWorktreeDiskId(folder.path),
       name: folder.name, repositoryPath: folder.repositoryPath, repositoryName: folder.repositoryName, archived: false, subAgentWorktree: true as const, path: folder.path }))], disk, refresh);
   };
