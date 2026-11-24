@@ -7,6 +7,9 @@ import {
   shouldCollapsePastedText,
   splitPastedTextBlocks,
 } from "@/lib/pasted-text-blocks";
+import { getPastedTextBlock, queuePastedTextAttachment, restorePastedTextBlock } from "@/components/ai-elements/prompt-input-pasted-text";
+import { createClipboardReadQueue } from "@/components/ai-elements/prompt-input.clipboard";
+import type { PastedTextAttachment } from "@/types/chat";
 import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
 
 afterEach(() => pastedTextBlockRegistry.clear());
@@ -28,12 +31,12 @@ describe("shouldCollapsePastedText", () => {
 });
 
 describe("pastedTextBlockRegistry", () => {
-  test("numbers blocks per scope, normalizes newlines, and reuses equal text", () => {
+  test("numbers blocks per scope, preserves original line endings, and reuses identical text", () => {
     const first = pastedTextBlockRegistry.register("task-a", "1\r\n2\r\n3\n\n");
     const second = pastedTextBlockRegistry.register("task-a", "other\ntext");
-    const again = pastedTextBlockRegistry.register("task-a", "1\n2\n3");
+    const again = pastedTextBlockRegistry.register("task-a", first.text);
     const otherScope = pastedTextBlockRegistry.register("task-b", "x\ny");
-    expect(first).toEqual({ id: 1, text: "1\n2\n3", lineCount: 3 });
+    expect(first).toEqual({ id: 1, text: "1\r\n2\r\n3\n\n", lineCount: 4 });
     expect(second.id).toBe(2);
     expect(again).toBe(first);
     expect(otherScope.id).toBe(1);
@@ -83,5 +86,79 @@ describe("parsePromptTokenSegments with pasted text", () => {
     });
     expect(segments.map((segment) => segment.type === "token" ? segment.descriptor.kind : "text"))
       .toEqual(["command", "text", "pasted"]);
+  });
+});
+
+describe("composer pasted text conversions", () => {
+  const text = "first\r\nsecond\r\nthird\r\nfourth\r\nfifth\r\n";
+  const attachment: PastedTextAttachment = {
+    kind: "file",
+    filePath: ".stave/attachments/a1b2c3d4/pasted-text.txt",
+    pastedText: { preview: "first", sizeBytes: new TextEncoder().encode(text).length },
+  };
+
+  test("uses the same chip rule on both sides of the retired file thresholds", () => {
+    const pastes = [
+      ...[39, 40, 41].map((lines) => "row\n".repeat(lines)),
+      ...[1999, 2000, 2001].map((length) => "x".repeat(length)),
+    ];
+    for (const paste of pastes) {
+      expect(getPastedTextBlock("task", paste)?.text).toBe(paste);
+      expect(getPastedTextBlock(undefined, paste)).toBeUndefined();
+    }
+    expect(getPastedTextBlock("task", "short paste")).toBeUndefined();
+  });
+
+  test("attaches the exact text and removes the chip only after save completes", async () => {
+    let block = getPastedTextBlock("task", text);
+    const attachments: PastedTextAttachment[] = [];
+    const queue = createClipboardReadQueue();
+    const operation = queuePastedTextAttachment({
+      queue,
+      block: block!,
+      save: async (savedText) => {
+        expect(savedText).toBe(text);
+        expect(block?.text).toBe(text);
+        return attachment;
+      },
+      removeBlock: () => {
+        block = undefined;
+        return true;
+      },
+      addAttachment: (saved) => attachments.push(saved),
+    });
+    expect(queue.isPending()).toBe(true);
+    await operation;
+    expect(queue.isPending()).toBe(false);
+    expect(block).toBeUndefined();
+    expect(attachments).toEqual([attachment]);
+  });
+
+  test("a failed save leaves the chip untouched and makes send available again", async () => {
+    const block = getPastedTextBlock("task", text)!;
+    const queue = createClipboardReadQueue();
+    await expect(queuePastedTextAttachment({
+      queue,
+      block,
+      save: async () => { throw new Error("save failed"); },
+      removeBlock: () => { throw new Error("unexpected chip removal"); },
+      addAttachment: () => { throw new Error("unexpected attachment"); },
+    })).rejects.toThrow("save failed");
+    expect(queue.isPending()).toBe(false);
+    expect(pastedTextBlockRegistry.get("task")).toEqual([block]);
+    expect(block.text).toBe(text);
+  });
+
+  test("restores even a short saved file as a chip before clearing the attachment", () => {
+    let draft = "";
+    const savedText = "original\r\n";
+    let attached = true;
+    restorePastedTextBlock("task", savedText, (value) => { draft = value; }, () => {
+      expect(draft).toBe(savedText);
+      attached = false;
+    });
+    const segments = parsePromptTokenSegments(draft, { pastedTextBlocks: pastedTextBlockRegistry.get("task") });
+    expect(segments).toMatchObject([{ type: "token", descriptor: { kind: "pasted", token: savedText } }]);
+    expect(attached).toBe(false);
   });
 });

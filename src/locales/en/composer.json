@@ -1,6 +1,7 @@
 {
   "pastedText": {
     "label": "Pasted text · {{size}}",
+    "attachAsFile": "Attach as file",
     "keepInline": "Keep as text",
     "remove": "Remove pasted text",
     "saving": "Preparing attachments…",
