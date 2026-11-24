@@ -1681,7 +1681,6 @@ export function RepositoryWorkspaceSidebar(args: {
                                                         );
                                                         const secondary = (
                                                           <WorkspaceRowSecondary
-                                                            workspaceId={workspace.id}
                                                             workspaceName={workspace.name}
                                                             branch={workspace.branch}
                                                             isDefault={workspace.isDefault}

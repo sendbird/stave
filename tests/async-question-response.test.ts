@@ -95,7 +95,7 @@ test("after the turn ended the answer starts the next turn", async () => {
 });
 
 const hostRecord = { workspaceId: "ws-1", taskId: "task-1", requestId: "codex-async:call_1",
-  answers: { "question-0": "Focused" }, denied: undefined, answerDelivered: true };
+  expectedMessageId: "m1", answers: { "question-0": "Focused" }, denied: undefined, answerDelivered: true };
 
 test("a host-owned turn is also recorded through the host, and a failed record is not a chat error", async () => {
   const { sends, hostCalls } = setup({
@@ -190,6 +190,7 @@ test("a persisted Run question is answered once through its host controller on a
   useAppStore.getState().resolveUserInput(args);
   await settle();
   expect(sends).toEqual([]);
-  expect(hostCalls).toEqual([{ workspaceId: "ws-1", taskId: "task-1", requestId, answers: answer.answers, denied: undefined }]);
+  expect(hostCalls).toEqual([{ workspaceId: "ws-1", taskId: "task-1", requestId, expectedMessageId: "m1",
+    answers: answer.answers, denied: undefined }]);
   expect(card()).toMatchObject({ state: "input-responded", answers: answer.answers });
 });

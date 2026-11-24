@@ -1,6 +1,7 @@
 import type { ProviderDecisionResponse } from "@/lib/providers/provider.types";
 import { buildQuestionReply } from "@/lib/question-reply";
 import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
+import { canAnswerUserInputWithoutTurn } from "@/lib/notifications/interaction-policy";
 import { cancelPendingAutoRouting } from "./auto-routing-dispatch";
 import { cancelAgentRunBeforeStop } from "./agent-run-send";
 import type { StoreApi } from "zustand";
@@ -786,20 +787,33 @@ export function createProviderInteractionActions(args: {
         });
       };
 
+      const reportFailure = (message: string, transcriptMessage = message): InteractionAnswerOutcome => {
+        appendUserInputFailure(transcriptMessage);
+        return { status: "failed", message };
+      };
+      const fail = (detail: string) => reportFailure(detail,
+        i18n.t("session:userInputDelivery.failedWithDetail", { detail }));
+      const alreadyAnswering: InteractionAnswerOutcome = {
+        status: "failed",
+        message: i18n.t("notifications:approvalAnswer.alreadyAnswering"),
+      };
+
       if (userInputPart?.delivery === "async" && runQuestionStage(userInputPart.requestId)) {
         const host = window.api?.localMcp?.respondUserInput;
-        if (!host || !workspaceId) return;
+        if (!host || !workspaceId) return reportFailure(i18n.t("session:userInputDelivery.notAccepted"));
         const key = `${workspaceId}:${taskId}:${userInputPart.requestId}`;
-        if (pendingAsyncAnswers.has(key)) return;
+        if (pendingAsyncAnswers.has(key)) return alreadyAnswering;
         pendingAsyncAnswers.add(key);
-        void host({ workspaceId, taskId, requestId: userInputPart.requestId, answers, denied })
-          .then(result => {
-            if (result.ok) applyUserInputResponse(userInputPart.requestId);
-            else appendUserInputFailure(i18n.t("agentRuns:persistentQuestion.deliveryFailed", { reason: result.message ?? "unknown" }));
-          })
-          .catch(error => appendUserInputFailure(i18n.t("agentRuns:persistentQuestion.deliveryFailed", { reason: String(error) })))
-          .finally(() => pendingAsyncAnswers.delete(key));
-        return;
+        try {
+          const result = await host({ workspaceId, taskId, requestId: userInputPart.requestId, expectedMessageId: messageId, answers, denied });
+          if (!result.ok) return reportFailure(i18n.t("agentRuns:persistentQuestion.deliveryFailed", { reason: result.message ?? "unknown" }));
+          applyUserInputResponse(userInputPart.requestId);
+          return { status: "delivered" };
+        } catch (error) {
+          return reportFailure(i18n.t("agentRuns:persistentQuestion.deliveryFailed", { reason: String(error) }));
+        } finally {
+          pendingAsyncAnswers.delete(key);
+        }
       }
       if (userInputPart?.delivery === "async") {
         // An async question did not pause the provider and has no pending
@@ -808,11 +822,10 @@ export function createProviderInteractionActions(args: {
         // as the next turn.
         if (isTaskManaged(task)) {
           // Only the task's controller sends messages to a managed task.
-          appendUserInputFailure(i18n.t("notifications:asyncQuestionAnswer.managedTask"));
-          return;
+          return reportFailure(i18n.t("notifications:asyncQuestionAnswer.managedTask"));
         }
         const key = `${taskId}:${userInputPart.requestId}`;
-        if (pendingAsyncAnswers.has(key)) return;
+        if (pendingAsyncAnswers.has(key)) return alreadyAnswering;
         pendingAsyncAnswers.add(key);
         const asyncRequestId = userInputPart.requestId;
         const content = formatAsyncQuestionAnswer({
@@ -840,6 +853,7 @@ export function createProviderInteractionActions(args: {
             workspaceId,
             taskId,
             requestId: asyncRequestId,
+            expectedMessageId: messageId,
             answers,
             denied,
             answerDelivered: true,
@@ -852,15 +866,14 @@ export function createProviderInteractionActions(args: {
             });
           }
         };
-        void (async () => {
+        try {
           let result = await send(activeTurnId ? "steer" : "queue");
           // Steering is off or was refused: wait for the turn instead.
           if (result.status === "steer-unavailable") result = await send("queue");
           if (result.status === "steer-delivery-unknown") {
             // The provider may still accept it; resending could answer twice.
             await recordAnswer(respondThroughHost);
-            appendUserInputFailure(i18n.t("notifications:asyncQuestionAnswer.deliveryUnconfirmed"));
-            return;
+            return reportFailure(i18n.t("notifications:asyncQuestionAnswer.deliveryUnconfirmed"));
           }
           if (
             result.status === "started" ||
@@ -870,38 +883,34 @@ export function createProviderInteractionActions(args: {
           ) {
             // An answer that starts an agent run hands the transcript to the host.
             await recordAnswer(respondThroughHost || result.status === "run-started");
-            return;
+            return { status: "delivered" };
           }
-          appendUserInputFailure(
-            "message" in result && result.message
-              ? i18n.t("session:userInputDelivery.failedWithDetail", { detail: result.message })
-              : i18n.t("session:userInputDelivery.notAccepted"),
-          );
-        })()
-          .catch((error) =>
-            appendUserInputFailure(`User input delivery failed: ${String(error)}`),
-          )
-          .finally(() => pendingAsyncAnswers.delete(key));
-        return;
+          return "message" in result && result.message
+            ? fail(result.message)
+            : reportFailure(i18n.t("session:userInputDelivery.notAccepted"));
+        } catch (error) {
+          return fail(String(error));
+        } finally {
+          pendingAsyncAnswers.delete(key);
+        }
       }
 
       if (!userInputPart) return { status: "skipped" };
 
-      const fail = (message: string): InteractionAnswerOutcome => {
-        appendUserInputFailure(`User input delivery failed: ${message}`);
-        return { status: "failed", message };
-      };
       const deliver = async (
         send: () => Promise<ProviderDecisionResponse>,
       ): Promise<InteractionAnswerOutcome> => {
         const release = claimInteractionAnswer(taskId, userInputPart.requestId);
-        if (!release) {
-          return { status: "failed", message: i18n.t("notifications:approvalAnswer.alreadyAnswering") };
-        }
+        if (!release) return alreadyAnswering;
         try {
           const result = await send();
           if (!result.ok) {
-            if (onUnanswerable === "close" && (result.unanswerable || result.reason === "already-answered")) {
+            // A Run question can move to a follow-up turn after its live
+            // responder goes away. Keep it available during that transition.
+            const expired = !canAnswerUserInputWithoutTurn(userInputPart) && (
+              result.unanswerable || result.reason === "unknown-request" || result.reason === "request-interrupted"
+            );
+            if (onUnanswerable === "close" && (result.reason === "already-answered" || expired)) {
               applyUserInputResponse(userInputPart.requestId, true);
               return { status: "skipped" };
             }
@@ -923,7 +932,7 @@ export function createProviderInteractionActions(args: {
       }
       const respondThroughLocalMcp = window.api?.localMcp?.respondUserInput;
       if ((respondThroughHost || !activeTurnId) && workspaceId && respondThroughLocalMcp) {
-        return deliver(() => respondThroughLocalMcp({ ...response, workspaceId, taskId }));
+        return deliver(() => respondThroughLocalMcp({ ...response, workspaceId, taskId, expectedMessageId: messageId }));
       }
       return fail("no active turn found for this task.");
     },

@@ -847,9 +847,11 @@ interface WindowLocalMcpApi {
     denied?: boolean;
     /** The answer to an async question was already sent as a user message. */
     answerDelivered?: boolean;
+    expectedMessageId?: string;
   }) => Promise<{
     ok: boolean;
     message?: string;
+    reason?: import("@/lib/providers/provider.types").ProviderDecisionFailureReason;
     result?: {
       ok: boolean;
       workspaceId: string;

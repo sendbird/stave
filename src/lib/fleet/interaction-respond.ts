@@ -8,6 +8,7 @@ import {
 import { findPendingUserInputMessageByRequestId } from "@/store/provider-message.utils";
 import { canAnswerUserInputWithoutTurn } from "@/lib/notifications/interaction-policy";
 import { useAppStore } from "@/store/app.store";
+import type { InteractionAnswerOutcome } from "@/store/app-store.types";
 import type { ApprovalPart, UserInputPart } from "@/types/chat";
 
 /**
@@ -37,7 +38,11 @@ export type FleetInteractionResponse =
 export function respondToFleetInteraction(
   expected: FleetInteractionControlIdentity,
   response: FleetInteractionResponse,
-): FleetControlValidation {
+): Extract<FleetControlValidation, { ok: false }> | {
+  ok: true;
+  messageId: string;
+  delivery: Promise<InteractionAnswerOutcome>;
+} {
   const state = useAppStore.getState();
   const current = resolveFleetCurrentTaskControlState({ state, expected });
   const asyncQuestion =
@@ -60,24 +65,20 @@ export function respondToFleetInteraction(
   if (!validation.messageId) {
     return { ok: false, reason: i18n.t("app:errors.childMissingTarget") };
   }
-  if (response.kind === "approval") {
-    state.resolveApproval({
-      taskId: expected.taskId,
-      messageId: validation.messageId,
-      requestId: expected.requestId,
+  const target = { taskId: expected.taskId, messageId: validation.messageId, requestId: expected.requestId };
+  const delivery = response.kind === "approval"
+    ? state.resolveApproval({
+      ...target,
       approved: response.approved,
       ...(response.approved && response.scope === "always"
         ? { scope: "always" as const }
         : {}),
-    });
-  } else {
-    state.resolveUserInput({
-      taskId: expected.taskId,
-      messageId: validation.messageId,
-      requestId: expected.requestId,
+    })
+    : state.resolveUserInput({
+      ...target,
       answers: response.answers,
       denied: response.denied,
+      onUnanswerable: "close",
     });
-  }
-  return validation;
+  return { ok: true, messageId: validation.messageId, delivery };
 }

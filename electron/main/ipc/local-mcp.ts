@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { ProviderDecisionDeliveryError } from "../../providers/provider-decision-delivery-error";
 import {
   clearStaveMcpRequestLogs,
   getStaveMcpRequestLog,
@@ -157,6 +158,7 @@ export function registerLocalMcpHandlers() {
       return {
         ok: false,
         message: error instanceof Error ? error.message : "Failed to deliver local MCP user input response.",
+        ...(error instanceof ProviderDecisionDeliveryError && error.reason ? { reason: error.reason } : {}),
       };
     }
   });

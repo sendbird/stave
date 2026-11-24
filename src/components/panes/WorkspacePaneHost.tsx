@@ -1,5 +1,5 @@
 import { WorkspaceCreationPanel } from "@/components/layout/WorkspaceCreationProgress";
-import { isWorkspacePreparing, useWorkspaceCreationStore, type WorkspaceCreationProgress } from "@/store/workspace-creation-progress";
+import { isWorkspacePreparing, useWorkspaceCreationStore } from "@/store/workspace-creation-progress";
 import { changeTaskReadState } from "@/components/session/TaskReadIndicator";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
@@ -660,11 +660,11 @@ function buildTabContextMenuItems(
 export function WorkspacePaneHost() {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const progress = useWorkspaceCreationStore((state) => state.byId[workspaceId]);
-  if (progress && isWorkspacePreparing(progress)) return <WorkspaceCreationPanel key={workspaceId} progress={progress} showPrompt />;
-  return <WorkspacePaneDock progress={progress} />;
+  if (progress && isWorkspacePreparing(progress)) return <WorkspaceCreationPanel key={workspaceId} progress={progress} />;
+  return <WorkspacePaneDock />;
 }
 
-function WorkspacePaneDock({ progress }: { progress?: WorkspaceCreationProgress }) {
+function WorkspacePaneDock() {
   useTranslation();
   const apiRef = useRef<DockviewApi | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -1148,22 +1148,19 @@ function WorkspacePaneDock({ progress }: { progress?: WorkspaceCreationProgress 
   return (
     <div
       ref={rootRef}
-      className={sx(styles.root, progress && styles.progressHost)}
+      className={sx(styles.root)}
       data-testid="workspace-pane-host"
     >
-      {progress ? <WorkspaceCreationPanel progress={progress} showPrompt={false} /> : null}
-      <div className={sx(styles.dock, progress && styles.dockWithProgress)}>
-        <DockviewReact
-          theme={STAVE_DOCKVIEW_THEME}
-          components={PANEL_COMPONENTS}
-          defaultTabComponent={PaneTabChip}
-          rightHeaderActionsComponent={PaneHeaderActions}
-          watermarkComponent={PaneWatermark}
-          getTabContextMenuItems={buildTabContextMenuItems}
-          getAnnouncement={announcePaneChange}
-          onReady={handleReady}
-        />
-      </div>
+      <DockviewReact
+        theme={STAVE_DOCKVIEW_THEME}
+        components={PANEL_COMPONENTS}
+        defaultTabComponent={PaneTabChip}
+        rightHeaderActionsComponent={PaneHeaderActions}
+        watermarkComponent={PaneWatermark}
+        getTabContextMenuItems={buildTabContextMenuItems}
+        getAnnouncement={announcePaneChange}
+        onReady={handleReady}
+      />
       <ConfirmDialog
         open={Boolean(cliSessionToClose)}
         title={i18n.t("panes:workspacePaneHost.closeCLISession")}
@@ -1215,10 +1212,6 @@ function WorkspacePaneDock({ progress }: { progress?: WorkspaceCreationProgress 
 }
 
 const styles = stylex.create({
-progressHost: { display: "flex", flexDirection: "column" },
-dock: { height: "100%" },
-dockWithProgress: { height: "auto", flex: 1, minHeight: 0 },
-
 choice: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,color:{default:vars["--aui-color-text-muted"],":hover":vars["--aui-color-text"]},backgroundColor:{default:"transparent",":hover":vars["--aui-color-canvas-subtle"]}},
 selected:{backgroundColor:vars["--aui-color-accent-soft"],color:vars["--aui-color-text"]},
 picker: {display:"flex",minWidth:192,alignItems:"center",gap:4,paddingInline:8,paddingBlock:6},

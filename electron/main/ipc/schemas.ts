@@ -877,6 +877,7 @@ export const LocalMcpApprovalResponseArgsSchema = z
 export const LocalMcpUserInputResponseArgsSchema = z
   .object({
     ...LocalMcpTaskRequestShape,
+    expectedMessageId: z.string().min(1).optional(),
     answers: z.record(z.string(), z.string()).optional(),
     denied: z.boolean().optional(),
     answerDelivered: z.boolean().optional(),

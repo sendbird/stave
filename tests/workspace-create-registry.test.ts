@@ -16,7 +16,7 @@ let pendingCreation: Promise<void> | undefined;
 
 type RegistrySave = { repositories: Array<{ workspaces?: Array<{ id: string }>; workspacePathById?: Record<string, string> }> };
 
-function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean; toplevel?: string; worktreeList?: string; resolvedRepository?: string } = {}) {
+function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean; toplevel?: string; worktreeList?: string; resolvedRepository?: string; copyFallback?: boolean } = {}) {
   const operations: string[] = [];
   const commands: string[] = [];
   const registrySaves: RegistrySave[] = [];
@@ -25,7 +25,10 @@ function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean;
   (globalThis as { window?: unknown }).window = {
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} },
     api: {
-      sourceControl: { createWorktree: async () => null },
+      sourceControl: {
+        createWorktree: async () => null,
+        ...(args.copyFallback ? { seedWorktreeDependencies: async () => ({ status: "fallback" }) } : {}),
+      },
       terminal: {
         runCommand: async ({ command }: { command: string }) => {
           commands.push(command);
@@ -73,6 +76,16 @@ async function waitUntil(condition: () => boolean, label: string, timeoutMs = 20
     await Bun.sleep(1);
   }
 }
+
+test("a dependency-copy fallback runs setup and clears the preparation state", async () => {
+  const { commands } = install({ copyFallback: true });
+  const store = await seedRepository();
+  const result = await store.getState().createWorkspace({ mode: "clean", name: "fallback", initCommand: "bun install" });
+  expect(result).toMatchObject({ ok: true, noticeLevel: "warning" });
+  expect(result.message).toContain("Dependency copy skipped");
+  expect(commands).toContain("bun install");
+  expect(useWorkspaceCreationStore.getState().byId[store.getState().activeWorkspaceId]).toBeUndefined();
+});
 
 async function seedRepository() {
   const { useAppStore } = await import("../src/store/app.store");
@@ -143,7 +156,7 @@ describe("a created workspace is registered before creation resolves", () => {
     expect(repository?.workspacePathById?.[result.workspaceId!]).toBe(store.getState().workspacePathById[result.workspaceId!]);
   });
 
-  test("registers one stable workspace after Git and blocks early turns", async () => {
+  test("keeps the active workspace until preparation finishes", async () => {
     const harness = install();
     const store = await seedRepository();
     let release!: () => void;
@@ -154,20 +167,25 @@ describe("a created workspace is registered before creation resolves", () => {
     const creating = store.getState().createWorkspace({
       name: "feature/staged", mode: "clean",
       initialPromptDraft: { text: "Check changes", attachedFilePaths: [], attachments: [] },
-      onWorkspacePreparing: () => {
-        workspaceId = store.getState().activeWorkspaceId;
+      onWorkspacePreparing: (id) => { workspaceId = id; },
+      onWorkspaceReady: (id) => {
+        expect(store.getState().activeWorkspaceId).toBe(id);
         currentTaskId = store.getState().activeTaskId;
       },
     });
     pendingCreation = creating.then(() => undefined, () => undefined);
     try {
       await waitUntil(() => !!workspaceId, "the pending workspace and task");
-      expect(store.getState().promptDraftByTask[currentTaskId]?.text).toBe("Check changes");
-      expect(await store.getState().sendUserMessage({ taskId: currentTaskId, content: "Too soon" })).toEqual({ status: "blocked" });
+      expect(store.getState().activeWorkspaceId).toBe("");
+      expect(store.getState().workspaces).toEqual([]);
+      expect(useWorkspaceCreationStore.getState().byId[workspaceId]?.prompt).toBe("Check changes");
       await store.getState().flushRepositoryRegistry();
       expect(registryHas(harness.registrySaves.at(-1), workspaceId)).toBe(false);
       release();
-      expect(await creating).toMatchObject({ ok: true, workspaceId, taskId: currentTaskId });
+      const result = await creating;
+      expect(currentTaskId).toBeTruthy();
+      expect(result).toMatchObject({ ok: true, workspaceId, taskId: currentTaskId });
+      expect(store.getState().promptDraftByTask[currentTaskId]?.text).toBe("Check changes");
       expect(registryHas(harness.registrySaves.at(-1), workspaceId)).toBe(true);
     } finally {
       release();
@@ -188,8 +206,7 @@ describe("a created workspace is registered before creation resolves", () => {
     sourceControl.checkoutWorkspacePr = async (args) => {
       checkouts.push(args);
       expect(workspaceId).toMatch(/^worktree:/);
-      expect(store.getState().activeWorkspaceId).toBe(workspaceId);
-      expect(store.getState().activeTaskId).toBe(taskId);
+      expect(store.getState().activeWorkspaceId).toBe("");
       expect(readProgress()).toMatchObject({
         prompt: "Review changes",
         steps: { worktree: { status: "running" }, copy: { status: "waiting" } },
@@ -206,9 +223,10 @@ describe("a created workspace is registered before creation resolves", () => {
       name: "", mode: "pr", prReference: "#123", fromBranch: "origin/main",
       initCommand: "bun install", useRootNodeModulesSymlink: true,
       initialPromptDraft: { text: "Review changes", attachedFilePaths: [], attachments: [] },
-      onWorkspacePreparing: () => {
-        workspaceId = store.getState().activeWorkspaceId;
-        taskId = store.getState().activeTaskId;
+      onWorkspacePreparing: (id) => { workspaceId = id; },
+      onWorkspaceReady: (id) => {
+        expect(store.getState().activeWorkspaceId).toBe(id);
+        expect(store.getState().activeTaskId).toBe(taskId);
         expect(store.getState().promptDraftByTask[taskId]?.text).toBe("Review changes");
       },
       startInitialTask: async (target) => {
@@ -218,6 +236,7 @@ describe("a created workspace is registered before creation resolves", () => {
         return { ok: true, startup: "started", ...target };
       },
     });
+    taskId = result.taskId!;
     const message = describeWorkspacePrCheckoutError(failure);
     expect(result).toEqual({ ok: false, workspaceId, taskId, message });
     expect(checkouts).toEqual([{

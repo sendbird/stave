@@ -76,3 +76,18 @@ test("switching preview cases in one browser does not carry the other case's req
   await slot.getByRole("button", { name: "Close" }).click();
   await expect(slot).toHaveCount(0);
 });
+
+for (const action of ["Continue", "Decline to answer"]) {
+  test(`${action} waits for delivery, explains a failed attempt, and closes on retry`, async ({ page }) => {
+    await page.goto("/?stavePreview=composer-frame&childRequest=live&holdAnswer=1");
+    const slot = page.getByRole("region", { name: "Requests from delegated tasks" });
+    if (action === "Continue") await slot.getByText("Scroll container", { exact: true }).click();
+    const button = slot.getByRole("button", { name: action, exact: true });
+    await button.click();
+    await expect(slot.getByRole("alert")).toContainText("fixture: transport interrupted");
+    await button.click();
+    await expect(button).toBeDisabled();
+    await page.evaluate(() => window.dispatchEvent(new Event("fixture-deliver-answer")));
+    await expect(slot).toHaveCount(0);
+  });
+}

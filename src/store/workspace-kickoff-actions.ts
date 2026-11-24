@@ -71,7 +71,8 @@ export interface KickoffWorkspaceArgs {
   firstTaskProvider?: ProviderId;
   firstTaskRuntimeOverrides?: PromptDraftRuntimeOverrides;
   extraInstructions?: string;
-  onWorkspacePreparing?: () => void;
+  onWorkspacePreparing?: (workspaceId: string) => void;
+  onWorkspaceReady?: (workspaceId: string) => void;
   /**
    * Runs once the task exists and before its first send. Kickoff uses it to record that the task runs as an agent.
    * A rejection stages the task with its prompt and never sends.
@@ -394,6 +395,7 @@ export async function runWorkspaceKickoff(args: {
     initialPromptDraft: { text: prompt, runtimeOverrides, attachedFilePaths: [], attachments: [] },
     workspaceInformation: buildWorkspaceInformationSeed(proposal),
     onWorkspacePreparing: args.input.onWorkspacePreparing,
+    onWorkspaceReady: args.input.onWorkspaceReady,
     startInitialTask: (target) => finishKickoff({ ...args, prompt, result: { ok: true, ...target } }),
   });
   return created.startup ? created : finishKickoff({ ...args, prompt, result: created });

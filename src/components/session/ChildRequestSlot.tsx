@@ -29,10 +29,7 @@ import {
 } from "@/store/provider-message.utils";
 import type { ApprovalPart, ChatMessage, UserInputPart } from "@/types/chat";
 import { childRequestSlotStyles as styles } from "./child-request-slot.styles";
-import {
-  APPROVAL_DELIVERY_GUARD_MS,
-  ToolApprovalCard,
-} from "./ToolApprovalCard";
+import { ToolApprovalCard } from "./ToolApprovalCard";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
@@ -259,15 +256,6 @@ function ChildRequestCard(props: {
       );
   }, [expected, needsRead]);
 
-  useEffect(() => {
-    if (!busy) return;
-    const timer = window.setTimeout(
-      () => setBusy(false),
-      APPROVAL_DELIVERY_GUARD_MS,
-    );
-    return () => window.clearTimeout(timer);
-  }, [busy]);
-
   function respond(response: FleetInteractionResponse) {
     if (busy) return;
     const result = respondToFleetInteraction(expected, response);
@@ -277,6 +265,16 @@ function ChildRequestCard(props: {
     }
     setRespondError(null);
     setBusy(true);
+    const showDeliveryError = (detail: string) => {
+      if (mounted.current) setRespondError(i18n.t("session:childRequestSlot.deliveryFailed", { detail }));
+    };
+    void result.delivery.then((outcome) => {
+      if (outcome.status === "failed") showDeliveryError(outcome.message);
+    }, (error: unknown) => {
+      showDeliveryError(error instanceof Error ? error.message : String(error));
+    }).finally(() => {
+      if (mounted.current) setBusy(false);
+    });
   }
 
   return (

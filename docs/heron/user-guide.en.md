@@ -194,7 +194,7 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 
 The PR head determines the default workspace branch name. PR checkout runs in the **Create worktree** step. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
 
-The new workspace opens as soon as creation begins. Its sidebar row and pane show checkout, reusable file copying, setup, and first-task startup. Select **Open logs** to see details of a failure. After fixing a checkout or setup problem, select **Retry** to continue in the same workspace. If Git reports a branch collision, use the suggested name in a new creation request.
+The creation dialog shows the current preparation step while the existing workspace stays open. When setup finishes, the dialog closes and opens the new task. If checkout or setup fails, select **Open logs** in the dialog for details and **Retry** to continue after fixing the problem. If Git reports a branch collision, use the suggested name in a new creation request.
 Screens: [Workspace creation progress](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-creation-progress.png)
 
 A **Post-Create Command** (for example `bun install`) runs right after creation.
@@ -205,7 +205,7 @@ Before setup runs, new worktrees can reuse ignored `node_modules` (including pac
 To start from existing material such as a Jira issue, a PR or a report, use **Kick off workspace**.
 Paste a link or a description and select **Resolve source**: Stave reads it and proposes the branch, label, Information panel links, and the first task's model and prompt. Edit anything before creating.
 **Skip AI** proposes the same from the link and text alone, without an AI.
-In **Who**, pick **Me** or a saved agent; in **Where**, pick a new workspace or the **Current workspace**. The first prompt appears as soon as the new workspace opens. With **Start now** on, Stave waits for setup before sending it. Turn **Start now** off to keep it in the composer.
+In **Who**, pick **Me** or a saved agent. In **Where**, pick a new workspace or the **Current workspace**. The first prompt appears when the new workspace finishes setup and opens. With **Start now** on, Stave waits for setup before sending it. Turn **Start now** off to keep it in the composer.
 Screens: [Kick off workspace](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/kickoff.png)
 
 ## 2. Open a task and send a request
@@ -1174,7 +1174,7 @@ The Task panel's **Subagents** tab shows whether each is running, waiting, needs
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
-A delegated task's approval or question also appears above the parent task's composer, where you can answer it. If it was already answered elsewhere or expired, the card says so and **Close** (×) removes it; a request still waiting has no Close.
+A delegated task's approval or question also appears above the parent task's composer. **Continue** and **Decline to answer** close the question once the child accepts the response. If delivery fails and the question is still pending, the card shows the reason and lets you retry. A request already answered elsewhere or expired can be removed with **Close** (×).
 
 The parent receives each subagent answer once, including after a restart. Each answer arrives whole; one longer than 4,000 characters arrives as its beginning with a reference to the full answer. An answer that does not fit the turn arrives whole in the next one. An answer counts as received once the provider accepts a parent turn that carried it, even if you stop that turn; a turn that never started leaves it for the next turn. If Stave cannot record that the parent received an answer, it sends the answer again with the next turn; after three failed tries it stops, tells you once on the task, and you can read the answer in the **Subagents** tab.
 
