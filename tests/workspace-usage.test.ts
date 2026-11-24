@@ -95,7 +95,7 @@ describe("workspace usage IPC", () => {
   mock.module("electron", () => ({ ipcMain: { handle: (channel: string, handler: (event: unknown, input: unknown) => Promise<unknown>) => handlers.set(channel, handler) } }));
   mock.module("../electron/main/state", () => ({ ensurePersistenceReady: async () => {
     if (failRead) throw new Error("private database path must stay in main");
-    return { workspaceUsage: store, usageStatistics: usage };
+    return { usageStatistics: usage };
   } }));
   afterAll(() => mock.restore());
 

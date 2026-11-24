@@ -23,7 +23,7 @@ export function registerUsageStatisticsHandlers() {
     if (!parsed.success) return { ok: false, message: "Invalid usage filters. Choose a valid account, timezone and period of at most 366 days." };
     try {
       const store = await ensurePersistenceReady();
-      return { ok: true, report: store.workspaceUsage.read(parsed.data) };
+      return { ok: true, report: store.usageStatistics.workspaceUsage.read(parsed.data) };
     } catch {
       return { ok: false, message: "Project usage could not be read. Try again." };
     }

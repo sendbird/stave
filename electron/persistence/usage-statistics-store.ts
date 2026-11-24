@@ -7,6 +7,7 @@ import {
 } from "../../src/lib/providers/usage-statistics";
 import { METRIC_SUMS, TURN_METRICS, USAGE_CTE } from "./usage-statistics-query";
 import { readTaskTurnUsage } from "./task-turn-usage";
+import { WorkspaceUsageStore } from "./workspace-usage-store";
 import type { BridgeEvent } from "../providers/types";
 
 interface UsageDatabase {
@@ -21,7 +22,11 @@ interface UsageDatabase {
 
 /** Metadata only: no prompts, paths, account credentials or message bodies. */
 export class UsageStatisticsStore {
+  /** The same usage rows, broken down by the workspace each turn ran in. */
+  readonly workspaceUsage: WorkspaceUsageStore;
+
   constructor(private readonly db: UsageDatabase) {
+    this.workspaceUsage = new WorkspaceUsageStore(db);
     db.exec(`
       CREATE TABLE IF NOT EXISTS usage_turns (
         id TEXT PRIMARY KEY, provider_id TEXT NOT NULL, account_profile_id TEXT NOT NULL,
