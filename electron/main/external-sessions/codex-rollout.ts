@@ -13,11 +13,44 @@ export const STAVE_CODEX_ORIGINATOR = "stave";
 
 const str = (value: unknown) => (typeof value === "string" ? value : "");
 
+/**
+ * What a child rollout's `source.subagent` says it is. `thread_spawn` is a
+ * sub-agent the parent started with `spawn_agent`; `internal` is any other
+ * kind (`"guardian"` approval reviews) and is never shown.
+ */
+export interface CodexSubagentInfo {
+  kind: "thread_spawn" | "internal";
+  parentId?: string;
+  nickname?: string;
+  role?: string;
+}
+
+/** Reads `parent_thread_id` and `source.subagent`; unknown or malformed shapes give `undefined`. */
+export function parseCodexSubagent(payload: Record<string, unknown>): CodexSubagentInfo | undefined {
+  const source = payload.source;
+  const subagent = source && typeof source === "object" && !Array.isArray(source) ? (source as Record<string, unknown>).subagent : undefined;
+  if (typeof subagent === "string") return subagent ? { kind: "internal" } : undefined;
+  if (!subagent || typeof subagent !== "object" || Array.isArray(subagent)) return undefined;
+  const fields = subagent as Record<string, unknown>;
+  const spawn = fields.thread_spawn;
+  if (spawn && typeof spawn === "object" && !Array.isArray(spawn)) {
+    const detail = spawn as Record<string, unknown>;
+    const parentId = (str(detail.parent_thread_id) || str(payload.parent_thread_id)).slice(0, 200);
+    if (!parentId) return undefined;
+    const nickname = firstLine(str(detail.agent_nickname))?.slice(0, 200);
+    const role = firstLine(str(detail.agent_role))?.slice(0, 200);
+    return { kind: "thread_spawn", parentId, ...(nickname ? { nickname } : {}), ...(role ? { role } : {}) };
+  }
+  return "other" in fields ? { kind: "internal" } : undefined;
+}
+
 export class CodexRolloutState {
   id?: string;
   originator?: string;
   cwd?: string;
   branch?: string;
+  /** Set on a sub-agent's own rollout. */
+  subagent?: CodexSubagentInfo;
   title?: string;
   model?: string;
   startedAt?: number;
@@ -49,6 +82,7 @@ export class CodexRolloutState {
         if (str(payload.id)) this.id = str(payload.id).slice(0, 200);
         if (str(payload.originator)) this.originator = str(payload.originator);
         if (str(payload.cwd)) this.cwd ??= str(payload.cwd);
+        this.subagent ??= parseCodexSubagent(payload);
         const started = str(payload.timestamp) ? Date.parse(str(payload.timestamp)) : ts;
         if (Number.isFinite(started)) this.startedAt ??= started;
         const git = payload.git as { branch?: unknown } | undefined;

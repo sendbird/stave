@@ -96,6 +96,8 @@ export const ExternalSessionSchema = z.object({
   steps: z.number().int().nonnegative(),
   contextTokens: z.number().int().nonnegative().optional(),
   model: z.string().max(200).optional(),
+  /** A Codex sub-agent whose parent session is not listed, so it stands alone. */
+  subagent: z.boolean().optional(),
   agents: z.array(ExternalAgentSchema).max(12),
 });
 export type ExternalSession = z.infer<typeof ExternalSessionSchema>;

@@ -9,7 +9,7 @@ import {
   type ExternalSessionSource,
 } from "../../../src/lib/external-sessions/external-sessions";
 import { ClaudeTranscriptState, deriveAgentStatus, parseClaudeAgentMeta, type ClaudeAgentMeta } from "./claude-transcript";
-import { CodexRolloutState, STAVE_CODEX_ORIGINATOR } from "./codex-rollout";
+import { CodexRolloutState, STAVE_CODEX_ORIGINATOR, type CodexSubagentInfo } from "./codex-rollout";
 import { nodeExternalSessionsFs, type ExternalSessionsFs } from "./fs-port";
 import { readEndLines, readHeadLines, TranscriptTail } from "./transcript-tail";
 
@@ -103,6 +103,10 @@ interface CodexEntry extends FileFacts {
   /** Known after the head read. */
   id?: string;
   originator?: string;
+  /** Set on a sub-agent's own rollout. */
+  subagent?: CodexSubagentInfo;
+  /** Sub-agent rollouts shown under this session; refilled every scan. */
+  children: CodexEntry[];
   state: CodexRolloutState;
   tail?: TranscriptTail;
   headRead: boolean;
@@ -120,7 +124,7 @@ export class ExternalSessionsWatcher {
   private readonly owned = new Set<string>();
   private readonly notOwnedCheckedAt = new Map<string, number>();
   /** A rollout's first line, read once per file: its id and who started it. */
-  private readonly codexHeads = new Map<string, Pick<CodexRolloutState, "id" | "originator" | "cwd" | "branch" | "startedAt" | "title">>();
+  private readonly codexHeads = new Map<string, Pick<CodexRolloutState, "id" | "originator" | "cwd" | "branch" | "startedAt" | "title" | "subagent">>();
   private readonly timers: ReturnType<typeof setInterval>[] = [];
   private readonly watchers: { close(): void }[] = [];
   private pollSoon: ReturnType<typeof setTimeout> | undefined;
@@ -175,7 +179,7 @@ export class ExternalSessionsWatcher {
     if (previous !== null) {
       // The two modes read differently (a 64 KB peek vs. a followed tail):
       // start every transcript over in the new way.
-      for (const entry of this.sessions.values()) resetEntry(entry);
+      for (const entry of this.flat()) resetEntry(entry);
     }
     if (this.options.timers !== false) this.startTimers(mode);
     void this.scan();
@@ -236,8 +240,18 @@ export class ExternalSessionsWatcher {
     this.pollSoon.unref?.();
   }
 
-  private knows(file: string) {
+  /** Every followed transcript: the sessions, then the Codex sub-agents nested under them. */
+  private flat(): SessionEntry[] {
+    const out: SessionEntry[] = [];
     for (const entry of this.sessions.values()) {
+      out.push(entry);
+      if (entry.source === "codex") out.push(...entry.children);
+    }
+    return out;
+  }
+
+  private knows(file: string) {
+    for (const entry of this.flat()) {
       if (entry.file === file) return true;
       if (entry.source === "claude-code") for (const agent of entry.agents.values()) if (agent.file === file) return true;
     }
@@ -280,19 +294,48 @@ export class ExternalSessionsWatcher {
 
     // Codex names its originator in the first line: read it before deciding.
     for (const entry of found) if (entry.source === "codex" && !entry.headRead) await this.readCodexHead(entry);
-    const candidates = found.filter((entry) => sessionId(entry) && !(entry.source === "codex" && entry.originator === STAVE_CODEX_ORIGINATOR));
-    await this.resolveOwnership(candidates, now);
+    const isStaveRollout = (entry: SessionEntry) => entry.source === "codex" && entry.originator === STAVE_CODEX_ORIGINATOR;
+    const staveParents = new Set(found.filter((entry) => isStaveRollout(entry) && sessionId(entry)).map((entry) => sessionId(entry)!));
+    const candidates = found.filter((entry) => sessionId(entry) && !isStaveRollout(entry));
+    // A sub-agent's parent may be one Stave owns without being in `found`: ask about it too.
+    const parentIds = candidates.flatMap((entry) => (entry.source === "codex" && entry.subagent?.parentId ? [entry.subagent.parentId] : []));
+    await this.resolveOwnership([
+      ...candidates.map((entry) => ({ source: entry.source, id: sessionId(entry)! })),
+      ...parentIds.map((id) => ({ source: "codex" as const, id })),
+    ], now);
     if (generation !== this.generation) return;
 
+    const visible = candidates.filter((entry) => {
+      if (this.owned.has(sessionId(entry)!)) return false;
+      if (entry.source !== "codex" || !entry.subagent) return true;
+      // Internal reviews are never shown; a sub-agent of a Stave-owned parent stays with Stave.
+      if (entry.subagent.kind === "internal") return false;
+      const parentId = entry.subagent.parentId;
+      return !parentId || !(staveParents.has(parentId) || this.owned.has(parentId));
+    });
+    const isChild = (entry: SessionEntry): entry is CodexEntry => entry.source === "codex" && entry.subagent?.kind === "thread_spawn";
+    const byRecent = (a: SessionEntry, b: SessionEntry) => b.mtimeMs - a.mtimeMs;
     const kept = new Map<string, SessionEntry>();
-    const ordered = candidates
-      .filter((entry) => !this.owned.has(sessionId(entry)!))
-      .sort((a, b) => b.mtimeMs - a.mtimeMs);
-    for (const entry of ordered) {
+    for (const entry of visible.filter((candidate) => !isChild(candidate)).sort(byRecent)) {
       const key = `${entry.source}:${sessionId(entry)}`;
       if (kept.has(key)) continue;
       kept.set(key, entry);
       if (kept.size >= EXTERNAL_SESSION_LIMITS.maxSessions) break;
+    }
+    for (const entry of kept.values()) if (entry.source === "codex") entry.children = [];
+    // A sub-agent nests under its parent when that is listed; otherwise it stands alone.
+    const children = new Set<string>();
+    for (const entry of visible.filter(isChild).sort(byRecent)) {
+      const parent = kept.get(`codex:${entry.subagent!.parentId}`);
+      if (parent?.source === "codex" && !children.has(entry.file)) {
+        children.add(entry.file);
+        parent.children.push(entry);
+        continue;
+      }
+      const key = `codex:${sessionId(entry)}`;
+      if (kept.size >= EXTERNAL_SESSION_LIMITS.maxSessions || kept.has(key)) continue;
+      entry.children = [];
+      kept.set(key, entry);
     }
     this.sessions.clear();
     for (const [key, entry] of kept) this.sessions.set(key, entry);
@@ -369,7 +412,7 @@ export class ExternalSessionsWatcher {
   private async findCodex(home: string, now: number, sweep: boolean): Promise<CodexEntry[]> {
     const out: CodexEntry[] = [];
     const known = new Map<string, CodexEntry>();
-    for (const entry of this.sessions.values()) if (entry.source === "codex") known.set(entry.file, entry);
+    for (const entry of this.flat()) if (entry.source === "codex") known.set(entry.file, entry);
     for (const dir of codexDayDirs(home, now)) {
       const { names, changed } = await this.listCached(dir);
       for (const name of names) {
@@ -382,7 +425,7 @@ export class ExternalSessionsWatcher {
           existing.size = facts.size;
           out.push(existing);
         } else {
-          out.push({ source: "codex", ...facts, state: new CodexRolloutState(), headRead: false, readMtimeMs: -1 });
+          out.push({ source: "codex", ...facts, state: new CodexRolloutState(), headRead: false, readMtimeMs: -1, children: [] });
         }
       }
     }
@@ -395,25 +438,27 @@ export class ExternalSessionsWatcher {
     if (!head) {
       const state = new CodexRolloutState();
       state.feed(await readHeadLines(this.fs, entry.file, EXTERNAL_SESSION_LIMITS.codexHeadBytes));
-      head = { id: state.id, originator: state.originator, cwd: state.cwd, branch: state.branch, startedAt: state.startedAt, title: state.title };
+      head = { id: state.id, originator: state.originator, cwd: state.cwd, branch: state.branch, startedAt: state.startedAt, title: state.title, subagent: state.subagent };
       this.codexHeads.set(entry.file, head);
     }
     entry.id = head.id;
     entry.originator = head.originator;
+    entry.subagent = head.subagent;
     entry.state.cwd ??= head.cwd;
     entry.state.branch ??= head.branch;
     entry.state.startedAt ??= head.startedAt;
     entry.state.title ??= head.title;
   }
 
-  private async resolveOwnership(candidates: readonly SessionEntry[], now: number) {
+  private async resolveOwnership(candidates: readonly ExternalSessionCandidate[], now: number) {
     const unresolved: ExternalSessionCandidate[] = [];
-    for (const entry of candidates) {
-      const id = sessionId(entry)!;
-      if (this.owned.has(id)) continue;
+    const asked = new Set<string>();
+    for (const { source, id } of candidates) {
+      if (this.owned.has(id) || asked.has(id)) continue;
       const checkedAt = this.notOwnedCheckedAt.get(id);
       if (checkedAt !== undefined && now - checkedAt < EXTERNAL_SESSION_LIMITS.ownershipRecheckMs) continue;
-      unresolved.push({ source: entry.source, id });
+      asked.add(id);
+      unresolved.push({ source, id });
     }
     if (unresolved.length === 0) return;
     try {
@@ -468,7 +513,7 @@ export class ExternalSessionsWatcher {
   /** Count mode: a changed transcript's last 64 KB, read afresh. Nothing is followed. */
   private async peekChanged() {
     const peekBytes = EXTERNAL_SESSION_LIMITS.peekBytes;
-    for (const entry of this.sessions.values()) {
+    for (const entry of this.flat()) {
       if (entry.readMtimeMs !== entry.mtimeMs) {
         entry.readMtimeMs = entry.mtimeMs;
         if (entry.source === "claude-code") {
@@ -511,7 +556,7 @@ export class ExternalSessionsWatcher {
 
   private async pollOnce() {
     if (this.mode !== "live") return;
-    for (const entry of [...this.sessions.values()]) {
+    for (const entry of this.flat()) {
       if (entry.source === "claude-code") {
         if (!entry.headRead) {
           entry.headRead = true;
@@ -634,10 +679,31 @@ export class ExternalSessionsWatcher {
 function summarizeCodex(entry: CodexEntry, now: number): ExternalSession | null {
   if (!entry.id) return null;
   const { state } = entry;
+  const agents = entry.children
+    .filter((child) => child.id)
+    .map((child): ExternalAgent => {
+      const status = deriveAgentStatus({ lastWriteAt: child.mtimeMs, now, idleMs: EXTERNAL_SESSION_LIMITS.idleMs, final: child.state.final, markedFinished: false });
+      return {
+        id: child.id!,
+        agentType: child.subagent?.role ?? "Agent",
+        description: child.subagent?.nickname ?? child.state.title ?? child.id!,
+        status,
+        startedAt: child.state.startedAt ?? child.mtimeMs,
+        lastAt: child.mtimeMs,
+        ...(child.state.action ? { action: child.state.action } : {}),
+        steps: child.state.steps,
+        ...(child.state.contextTokens ? { contextTokens: child.state.contextTokens } : {}),
+      };
+    })
+    .sort((a, b) => Number(b.status === "running") - Number(a.status === "running") || b.lastAt - a.lastAt)
+    .slice(0, EXTERNAL_SESSION_LIMITS.maxAgents)
+    .sort((a, b) => a.startedAt - b.startedAt || a.id.localeCompare(b.id));
+  const title = state.title ?? (entry.subagent?.kind === "thread_spawn" ? entry.subagent.nickname : undefined);
   return {
     id: entry.id,
     source: "codex",
-    ...(state.title ? { title: state.title } : {}),
+    ...(entry.subagent?.kind === "thread_spawn" ? { subagent: true } : {}),
+    ...(title ? { title } : {}),
     ...(state.cwd ? { cwd: state.cwd } : {}),
     ...(state.branch ? { branch: state.branch } : {}),
     status: sessionStatus(state.final, entry.mtimeMs, now),
@@ -647,7 +713,7 @@ function summarizeCodex(entry: CodexEntry, now: number): ExternalSession | null 
     steps: state.steps,
     ...(state.contextTokens ? { contextTokens: state.contextTokens } : {}),
     ...(state.model ? { model: state.model } : {}),
-    agents: [],
+    agents,
   };
 }
 
