@@ -3,13 +3,20 @@
  * preview a file gets, and when a file counts as just written.
  */
 import {
+  WORKSPACE_SCRATCH_AGENTS_DIRECTORY,
   WORKSPACE_SCRATCH_DIRECTORY,
   type WorkspaceScratchFile,
   type WorkspaceScratchListing,
 } from "@/lib/workspace-scratch";
 
-/** The panel polls this often while it is open and the window is visible. */
+/**
+ * While it is open and the window is visible, the panel lists the folder
+ * this often when change notices are unavailable (no recursive file watching).
+ */
 export const SCRATCH_PANEL_POLL_MS = 1_500;
+
+/** While the folder is watched, the panel still lists it this often in case a change notice was missed. */
+export const SCRATCH_PANEL_SAFETY_POLL_MS = 15_000;
 
 /** The rail checks for new files this often while a turn runs. */
 export const SCRATCH_RAIL_POLL_MS = 5_000;
@@ -61,6 +68,52 @@ export function scratchListingSignature(listing: WorkspaceScratchListing): strin
     listing.truncated ? 1 : 0,
     ...listing.files.map((file) => `${file.path}\u0000${file.sizeBytes}\u0000${file.mtimeMs}`),
   ].join("\n");
+}
+
+/** One line of the panel's list: a file on its own, or a sub-agent's folder with its files. */
+export type ScratchListItem =
+  | { kind: "file"; file: WorkspaceScratchFile }
+  | { kind: "agent"; agentId: string; files: WorkspaceScratchFile[] };
+
+const AGENTS_PREFIX = `${WORKSPACE_SCRATCH_DIRECTORY}/${WORKSPACE_SCRATCH_AGENTS_DIRECTORY}/`;
+
+/** The sub-agent a file belongs to (`agents/<id>/…`), or null. */
+export function scratchAgentId(filePath: string): string | null {
+  if (!filePath.startsWith(AGENTS_PREFIX)) return null;
+  const rest = filePath.slice(AGENTS_PREFIX.length);
+  const slash = rest.indexOf("/");
+  return slash > 0 ? rest.slice(0, slash) : null;
+}
+
+/** A file's name inside its sub-agent's folder, or its scratch-relative name. */
+export function scratchItemName(filePath: string): string {
+  const agentId = scratchAgentId(filePath);
+  return agentId ? filePath.slice(AGENTS_PREFIX.length + agentId.length + 1) : scratchDisplayName(filePath);
+}
+
+/**
+ * Groups a newest-first listing: each sub-agent's files gather under one
+ * group, placed where its newest file falls; other files stay single.
+ */
+export function groupScratchFiles(files: readonly WorkspaceScratchFile[]): ScratchListItem[] {
+  const items: ScratchListItem[] = [];
+  const groups = new Map<string, WorkspaceScratchFile[]>();
+  for (const file of files) {
+    const agentId = scratchAgentId(file.path);
+    if (!agentId) {
+      items.push({ kind: "file", file });
+      continue;
+    }
+    const group = groups.get(agentId);
+    if (group) {
+      group.push(file);
+      continue;
+    }
+    const created: WorkspaceScratchFile[] = [file];
+    groups.set(agentId, created);
+    items.push({ kind: "agent", agentId, files: created });
+  }
+  return items;
 }
 
 /** JSON pretty-printed with two spaces; JSON Lines and invalid JSON stay as written. */

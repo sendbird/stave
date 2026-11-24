@@ -1,10 +1,33 @@
 import { beforeEach, expect, test } from "bun:test";
 import {
   formatScratchJson,
+  groupScratchFiles,
   isScratchFileFresh,
+  scratchAgentId,
   scratchDisplayName,
+  scratchItemName,
   scratchPreviewKind,
 } from "../src/lib/workspace-scratch-view";
+
+test("sub-agents' files gather under one group where the agent's newest file falls", () => {
+  const file = (path: string, mtimeMs: number) => ({ path, sizeBytes: 1, mtimeMs });
+  const files = [
+    file(".stave/scratch/agents/run-tests-1a2b3c/tests.log", 50),
+    file(".stave/scratch/build.log", 40),
+    file(".stave/scratch/agents/review-9f8e7d/notes.md", 30),
+    file(".stave/scratch/agents/run-tests-1a2b3c/shots/a.png", 20),
+    file(".stave/scratch/agents/loose.txt", 10),
+  ];
+  expect(groupScratchFiles(files)).toEqual([
+    { kind: "agent", agentId: "run-tests-1a2b3c", files: [files[0]!, files[3]!] },
+    { kind: "file", file: files[1]! },
+    { kind: "agent", agentId: "review-9f8e7d", files: [files[2]!] },
+    { kind: "file", file: files[4]! },
+  ]);
+  expect(scratchAgentId(".stave/scratch/agents/loose.txt")).toBeNull();
+  expect(scratchItemName(".stave/scratch/agents/run-tests-1a2b3c/shots/a.png")).toBe("shots/a.png");
+  expect(scratchItemName(".stave/scratch/lens/a.png")).toBe("lens/a.png");
+});
 import {
   selectScratchHasUnseen,
   useWorkspaceScratchStore,

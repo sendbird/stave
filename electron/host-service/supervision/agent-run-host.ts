@@ -1,5 +1,6 @@
 import path from "node:path";
 import { archiveReportArtifacts } from "./report-artifacts";
+import { resolveReportFileArchiveRoot } from "./report-file-artifacts";
 import { createInlineRenderStore } from "../../main/inline-render/inline-render-store";
 import { resolveHostServiceUserDataPath } from "../persistence";
 /**
@@ -148,7 +149,7 @@ export function createHostAgentRunRuntime(args: {
   return createAgentRunRuntime({
     dailyUsageLimit: (providerId) => persistence.dailyUsage.refusal(providerId),
     hasPendingControl: (taskId) => persistence.tarsConversations.hasPendingControlForTask(taskId),
-    archiveReportArtifacts: async (request) => archiveReportArtifacts({ ...request, workspacePath: await resolveWorkspacePath(request.workspaceId), store: createInlineRenderStore({ rootDir: () => path.join(resolveHostServiceUserDataPath(), "inline-renders") }) }),
+    archiveReportArtifacts: async (request) => archiveReportArtifacts({ ...request, workspacePath: await resolveWorkspacePath(request.workspaceId), store: createInlineRenderStore({ rootDir: () => path.join(resolveHostServiceUserDataPath(), "inline-renders") }), fileArchiveRoot: resolveReportFileArchiveRoot() }),
     taskAgent: args.taskAgent,
     listWorkspaceActionScripts: async (workspaceId) => {
       for (const repository of await localMcpRuntime.listKnownRepositories()) {

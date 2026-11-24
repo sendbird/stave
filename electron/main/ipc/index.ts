@@ -43,6 +43,7 @@ import { registerToolingHandlers } from "./tooling";
 import { registerTrackerIssuesHandlers } from "./tracker-issues";
 import { registerWindowHandlers } from "./window";
 import { registerWorkspaceScriptHandlers } from "./workspace-scripts";
+import { registerWorkspaceScratchHandlers } from "./workspace-scratch";
 
 export function registerHandlers() {
   registerWindowHandlers();
@@ -73,6 +74,7 @@ export function registerHandlers() {
   registerWorkspaceScriptHandlers();
   registerScmHandlers();
   registerFilesystemHandlers();
+  registerWorkspaceScratchHandlers();
   registerSkillsHandlers();
   registerLspHandlers();
   registerEslintHandlers();

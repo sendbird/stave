@@ -1606,6 +1606,15 @@
     "showingNewest_other": "showing the newest {{formattedCount}}",
     "filesLabel": "Scratch files",
     "new": "New",
-    "railLabelUnseen": "Scratch, new files"
+    "railLabelUnseen": "Scratch, new files",
+    "attachToMessage": "Attach to message",
+    "attached": "Attached to the message: {{name}}",
+    "attachFailed": "Could not attach {{name}}.",
+    "showingTail": "Showing the last {{size}} of {{total}}.",
+    "agentGroup": "Sub-agent {{id}}",
+    "agentGroupLabel": "Files from sub-agent {{id}}",
+    "retentionMainCheckout_one": "Files older than {{count}} day are removed automatically.",
+    "retentionMainCheckout_other": "Files older than {{count}} days are removed automatically.",
+    "retentionWorktree": "The files are removed when this workspace is archived."
   }
 }

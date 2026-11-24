@@ -40,6 +40,8 @@ export const AGENT_RUN_IPC = Object.freeze({
   cancel: "agent-runs:cancel",
   addReportToPullRequest: "agent-runs:add-report-to-pr",
   shareReport: "agent-runs:share-report",
+  /** Opens a report file Stave copied into app data with the system's default app. */
+  openSavedFile: "agent-runs:open-saved-file",
   /** Main → renderer: an `AgentRunChangedEvent`. */
   changed: "agent-runs:changed",
 });
@@ -187,5 +189,7 @@ export interface AgentRunsBridgeApi {
   addReportToPullRequest: (args: AgentRunIdArgs) => Promise<AgentRunReportPublishResponse>;
   /** Posts the ended agent run's report to a Slack thread, through a turn on its lead task. */
   shareReport: (args: { agentRunId: string; threadUrl: string }) => Promise<AgentRunShareReportResponse>;
+  /** Opens a saved report file (a screenshot, log, JSON or PDF copy); refused for any other path. */
+  openSavedFile: (args: { url: string }) => Promise<{ ok: true } | { ok: false; message: string }>;
   subscribeChanged: (listener: (event: AgentRunChangedEvent) => void) => () => void;
 }

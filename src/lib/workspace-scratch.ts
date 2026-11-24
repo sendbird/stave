@@ -22,6 +22,35 @@ export const WORKSPACE_SCRATCH_MAX_FILES = 300;
 /** How many folders deep a listing looks below the scratch folder. */
 export const WORKSPACE_SCRATCH_MAX_DEPTH = 4;
 
+/** Sub-agents save their output in `agents/<short-id>/` under the scratch folder. */
+export const WORKSPACE_SCRATCH_AGENTS_DIRECTORY = "agents";
+
+/** A text preview reads at most this many bytes from the end of a file. */
+export const WORKSPACE_SCRATCH_TAIL_BYTES = 256 * 1024;
+
+/** In a workspace that is never archived (a project's main checkout), files older than this are removed. */
+export const WORKSPACE_SCRATCH_RETENTION_DAYS = 30;
+
+/** Pushed by main to a subscribed window when a watched scratch folder changes. */
+export const WORKSPACE_SCRATCH_CHANGED_CHANNEL = "scratch:changed";
+
+export interface WorkspaceScratchChangedEvent {
+  rootPath: string;
+  /**
+   * false: the folder is no longer watched (the watcher failed or the folder
+   * was removed), so the window lists it on a timer instead.
+   */
+  watching: boolean;
+}
+
+/** The end of a text file in the scratch folder, for a preview. */
+export interface WorkspaceScratchTail {
+  content: string;
+  sizeBytes: number;
+  /** Only the last `WORKSPACE_SCRATCH_TAIL_BYTES` (or fewer) bytes are in `content`. */
+  truncated: boolean;
+}
+
 /** One file in the scratch folder. */
 export interface WorkspaceScratchFile {
   /** Relative to the workspace root, e.g. `.stave/scratch/lens/<name>.png`. */
@@ -53,6 +82,27 @@ export const WORKSPACE_SCRATCH_INSTRUCTION = [
   "- Never write secrets, tokens, credentials or environment dumps (`env`, `printenv`, `.env` contents) there.",
   `- When you mention a scratch file in your reply, cite its path relative to the workspace root, e.g. \`${WORKSPACE_SCRATCH_DIRECTORY}/tests.log\`.`,
 ].join("\n");
+
+/**
+ * The line a sub-agent's brief gets so it keeps its own output apart from the
+ * lead's: `folder` is where it should write.
+ */
+export function buildWorkspaceScratchSubagentInstruction(folder: string): string {
+  return [
+    `Stave scratch folder for this sub-agent: \`${folder}\`. Save screenshots, logs, command output and JSON you produce along the way there (create the folder first) instead of /tmp,`,
+    "never write secrets, tokens or environment dumps there, and cite the paths of any files you mention in your final report.",
+  ].join(" ");
+}
+
+/**
+ * Codex has no hook that can rewrite a sub-agent's brief, so the lead is
+ * asked to pass the same line on when it starts one.
+ */
+export const WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION =
+  "- When you start a subagent (for example with `spawn_agent`), pick a short name for it and add this line to its message: " +
+  `"${buildWorkspaceScratchSubagentInstruction(
+    `${WORKSPACE_SCRATCH_DIRECTORY}/${WORKSPACE_SCRATCH_AGENTS_DIRECTORY}/<short-name>/`,
+  )}"`;
 
 /** The workspace-relative path of `fileName` inside the scratch folder. */
 export function workspaceScratchPath(...parts: string[]): string {

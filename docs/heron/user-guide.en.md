@@ -1296,7 +1296,7 @@ Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/sc
 | Workspace Tools   | **Workspace Tools** in the right panels, Cmd/Ctrl+K then S | Saved commands, processes such as dev servers, and triggers, stored in `.stave/scripts.json` |
 | Lens              | Lens in the right panels, Cmd/Ctrl+K then L                | A built-in browser tab. **Pick element** and **Visual comments** add page context to the task draft |
 | Information panel | **Information** in the right panels, Cmd/Ctrl+K then I     | Todos, notes, links, documents, memory. **Create task** from a link row               |
-| Scratch           | **Scratch** in the right panels                            | Screenshots, logs, command output and JSON an agent saved to `.stave/scratch/`, newest first, with a live preview. Lens screenshots land in `.stave/scratch/lens/`. A dot on the button means files arrived that you have not seen. Files over the preview limit open with **Open in editor** |
+| Scratch           | **Scratch** in the right panels                            | Screenshots, logs, command output and JSON an agent saved to `.stave/scratch/`, newest first, with a live preview. Lens screenshots land in `.stave/scratch/lens/`; sub-agents' files are grouped under **Sub-agent <id>**. A dot on the button means files arrived that you have not seen. A text file over 256 KB shows only its end; **Open in editor** shows all of it. Right-click a row or use the paperclip for **Attach to message**. In a project's main checkout, files older than 30 days are removed automatically |
 | Inline HTML pages | Shown by an agent in the conversation                      | See charts, tables and mockups in the chat; **View source**, **Save as HTML file**    |
 | Data views        | Shown by an agent in the conversation                      | Tables, charts, stat tiles, timelines and heatmaps drawn in your theme; sort, **Filter rows**, page and **Export CSV** a table |
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |
@@ -1431,6 +1431,11 @@ remains available after Stave restarts or the execution workspace is removed.
 Original and revised outputs have separate saved copies. Older reports with only
 localhost links still need their original source; Stave cannot recover a stopped
 server. Saved copies remain in local app data until that app data is removed.
+
+A screenshot, log, text, JSON or PDF file from the execution workspace (up to
+20 MB) is copied the same way and shows its label with **Saved copy**; selecting it
+opens the copy in your system's default app. A larger file, or one outside the
+workspace, stays a link to the original.
 
 The preview states whether the agent reported actual component rendering,
 example data, a capture, or no source. This label is not independent verification.

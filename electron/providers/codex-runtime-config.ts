@@ -1,6 +1,6 @@
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { REPLY_SCREENSHOT_INSTRUCTION } from "../../src/lib/tool-images/tool-images";
-import { WORKSPACE_SCRATCH_INSTRUCTION } from "../../src/lib/workspace-scratch";
+import { WORKSPACE_SCRATCH_INSTRUCTION, WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION } from "../../src/lib/workspace-scratch";
 import { createHash } from "node:crypto";
 import {
   buildNativeSubagentBriefing,
@@ -199,7 +199,13 @@ export function buildCodexDeveloperInstructions(args: {
   }
   // A read-only secondary (or tool-less) run cannot write files, matching the Claude adapter.
   if (!args.secondaryReadOnly) {
-    parts.push(WORKSPACE_SCRATCH_INSTRUCTION);
+    // Codex has no hook that can rewrite a subagent's brief (Claude's does
+    // this in `claude-subagent-hooks.ts`), so the lead passes the line on.
+    parts.push(
+      args.runtimeOptions?.nativeSubagents?.length === 0
+        ? WORKSPACE_SCRATCH_INSTRUCTION
+        : `${WORKSPACE_SCRATCH_INSTRUCTION}\n${WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION}`,
+    );
   }
   // Codex has no per-agent definitions, so the subagents travel as prose the
   // lead passes on when it spawns one.

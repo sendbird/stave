@@ -49,6 +49,8 @@ import { createClaudeCompactionTracker } from "./claude-compaction";
 import { claudeNativePlanEnv } from "./native-plan-options";
 import { readSettledClaudeMcpStatus, observeClaudeMcpReadiness } from "./claude-mcp-readiness-summary";
 import { buildClaudeSystemPrompt } from "./claude-system-prompt";
+import { claudeForegroundSubagentPreToolUseHook, claudeScratchSubagentPreToolUseHook } from "./claude-subagent-hooks";
+export { claudeForegroundSubagentPreToolUseHook, resolveClaudeForegroundSubagentInput } from "./claude-subagent-hooks";
 export { buildClaudeSystemPrompt, STAVE_TURN_BEHAVIOR_DIRECTIVE } from "./claude-system-prompt";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import { claudeFastModeEnabled, claudeModelForcesAdaptiveThinking } from "../../src/lib/providers/claude-model-requirements";
@@ -572,79 +574,6 @@ async function resolveClaudeEnabledPluginsForQuery(args: {
     return undefined;
   }
 }
-
-/**
- * Rewrite built-in Agent tool inputs so spawned subagents run in the
- * foreground.
- *
- * Recent Claude Code CLIs run Agent-tool subagents in the background by
- * default and tell the model "you will be notified when it completes". That
- * notification can only reach the model while the turn is still streaming —
- * Stave drives the provider one turn at a time and closes the query once
- * `result` arrives, so a turn that ends "waiting for the notification" stalls
- * forever and the subagent's work is lost. Forcing `run_in_background: false`
- * makes the Agent tool call block until the subagent finishes, so its result
- * always lands inside the live turn. Parallel fan-out still works: multiple
- * foreground Agent calls issued in one assistant message execute concurrently.
- *
- * Returns the rewritten input, or undefined when no rewrite is needed.
- */
-export function resolveClaudeForegroundSubagentInput(args: {
-  toolName: string;
-  input: unknown;
-}): Record<string, unknown> | undefined {
-  if (!isAgentToolName(args.toolName)) {
-    return undefined;
-  }
-  if (
-    typeof args.input !== "object" ||
-    args.input === null ||
-    Array.isArray(args.input)
-  ) {
-    return undefined;
-  }
-  const input = args.input as Record<string, unknown>;
-  if (input.run_in_background === false) {
-    return undefined;
-  }
-  // Remote isolation always runs in the background at the CLI level; a
-  // foreground rewrite would be contradictory, so leave the input untouched.
-  if (input.isolation === "remote") {
-    return undefined;
-  }
-  return { ...input, run_in_background: false };
-}
-
-/**
- * In-process PreToolUse hook applying the foreground-subagent rewrite above.
- *
- * The hook returns only `updatedInput` — never a `permissionDecision` — so the
- * CLI applies the rewrite and then continues through the normal permission
- * flow (canUseTool, plan-mode gates) for the rewritten call. Registered via
- * `buildClaudeQueryOptions` because the Agent tool is auto-allowed by the CLI
- * and never reaches the canUseTool callback where other input normalization
- * happens.
- */
-export const claudeForegroundSubagentPreToolUseHook: HookCallback = async (
-  input,
-) => {
-  if (input.hook_event_name !== "PreToolUse") {
-    return {};
-  }
-  const updatedInput = resolveClaudeForegroundSubagentInput({
-    toolName: input.tool_name,
-    input: input.tool_input,
-  });
-  if (!updatedInput) {
-    return {};
-  }
-  return {
-    hookSpecificOutput: {
-      hookEventName: "PreToolUse",
-      updatedInput,
-    },
-  };
-};
 
 /**
  * AskUserQuestion is a blocking user interaction, not an action approval.
@@ -1335,7 +1264,8 @@ export function buildClaudeQueryOptions(args: {
     ...(settingSources !== undefined ? { settingSources } : {}),
     // Always-on: force Agent-tool subagents to run in the foreground so a
     // turn can never end waiting for a background-completion notification
-    // that Stave's one-turn-at-a-time loop cannot deliver.
+    // that Stave's one-turn-at-a-time loop cannot deliver. Turns that use the
+    // scratch folder also give each subagent its own folder in it.
     hooks: {
       PreToolUse: [
         {
@@ -1343,8 +1273,8 @@ export function buildClaudeQueryOptions(args: {
           hooks: [claudeAskUserQuestionPreToolUseHook],
         },
         {
-          matcher: "^Agent$",
-          hooks: [claudeForegroundSubagentPreToolUseHook],
+          matcher: "^(Agent|Task)$",
+          hooks: [args.secondaryReadOnly ? claudeForegroundSubagentPreToolUseHook : claudeScratchSubagentPreToolUseHook],
         },
       ],
       ...(args.providerBrowserRequested
@@ -1513,10 +1443,6 @@ function extractStringField(
   return typeof val === "string" && val.trim().length > 0
     ? val.trim()
     : undefined;
-}
-
-function isAgentToolName(name: string): boolean {
-  return name.trim().toLowerCase() === "agent";
 }
 
 function isClaudeSubagentToolName(name: string): boolean {

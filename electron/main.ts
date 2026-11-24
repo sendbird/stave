@@ -10,6 +10,10 @@ import {
   stopStorageCleanupRuntime,
 } from "./main/storage-cleanup";
 import {
+  startWorkspaceScratchRetentionRuntime,
+  stopWorkspaceScratchRetentionRuntime,
+} from "./main/workspace-scratch-retention-runtime";
+import {
   startStaveMcpServer,
   stopStaveMcpServer,
 } from "./main/stave-mcp-server";
@@ -114,6 +118,7 @@ function runBeforeQuitCleanup() {
       Promise.resolve(stopCraneConnectorRuntime()),
       Promise.resolve(stopTrackerIssuesRuntime()),
       Promise.resolve(stopStorageCleanupRuntime()),
+      Promise.resolve(stopWorkspaceScratchRetentionRuntime()),
       stopStaveMcpServer(),
       stopHostService(),
     ]);
@@ -166,6 +171,7 @@ if (hasSingleInstanceLock) {
     createMainWindow();
     startTrackerIssuesRuntime();
     startStorageCleanupRuntime();
+    startWorkspaceScratchRetentionRuntime();
     void startHostService().catch((error) => {
       console.error("[host-service] failed to start", error);
     });

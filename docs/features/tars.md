@@ -2050,6 +2050,16 @@ to be available. A process-start receipt does not prove server readiness. When
 starting fails, the saved comparison remains visible. Ordinary HTTP links stay
 live external links; Stave does not fetch or archive a running application.
 
+A local `file://` screenshot, log, text, JSON or PDF file (for example one the
+agent saved under `.stave/scratch/`) is copied into app data too, up to 20 MB
+per file, and the report points at the copy, so it still opens after the
+execution workspace is archived. The report shows its label with **Saved copy**;
+selecting it opens the copy in the system's default app. Reporting the same
+unchanged file again reuses its copy; a changed file gets a new one. Only regular
+files inside the execution workspace are copied. A larger file, a missing file, a
+file outside the workspace (including through a link) or another type stays a
+plain link to the original, as before, and does not fail the report.
+
 Static exports are bounded to 100 reads and 3 MiB of source assets, and the
 existing 5,120,000-character saved HTML limit. Missing, remote or out-of-workspace
 assets (including escaping symlinks) fail the report call so the agent can repair

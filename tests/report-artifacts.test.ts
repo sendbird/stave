@@ -1,11 +1,13 @@
-import { afterEach, expect, test } from "bun:test";
-import { mkdtemp, mkdir, writeFile, rm, symlink } from "node:fs/promises";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtemp, mkdir, readdir, readFile, realpath, writeFile, rm, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { archiveReportArtifacts } from "../electron/host-service/supervision/report-artifacts";
+import { reportFileArchiveRunKey, resolveArchivedReportFile } from "../electron/host-service/supervision/report-file-artifacts";
 import { createInlineRenderStore } from "../electron/main/inline-render/inline-render-store";
-import { savedHtmlReference } from "../src/lib/agent-runs/artifacts";
+import { savedHtmlReference, type ReportArtifact } from "../src/lib/agent-runs/artifacts";
+import { REPORT_FILE_ARTIFACT_MAX_BYTES, isReportFileArtifactPath, isSavedReportFileArtifact } from "../src/lib/agent-runs/report-file-artifacts";
 
 const roots: string[] = [];
 afterEach(async () => { for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true }); });
@@ -224,4 +226,107 @@ test("preserves the quoting of embedded CSS data URLs", async () => {
   const [saved] = await f.save();
   const html = (await f.store.read(savedHtmlReference(saved!.url)!))!.html;
   expect(html).toContain(`background-image:${image}`);
+});
+
+describe("non-HTML file artifacts", () => {
+  async function fileFixture() {
+    const f = await fixture();
+    const archiveRoot = path.join(f.root, "app-data", "report-files");
+    const archive = (urls: string[], previousArtifacts?: ReportArtifact[]) => archiveReportArtifacts({
+      artifacts: urls.map((url, index) => ({ label: `Proof ${index + 1}`, url, presentation: "capture" as const })),
+      previousArtifacts, workspacePath: f.workspacePath, agentRunId: "run", taskId: "task", turnId: "turn", store: f.store, fileArchiveRoot: archiveRoot,
+    });
+    await mkdir(path.join(f.workspacePath, ".stave", "scratch", "lens"), { recursive: true });
+    return { ...f, archiveRoot, archive };
+  }
+
+  test("copies a scratch screenshot into app data, so the report outlives the worktree", async () => {
+    const f = await fileFixture();
+    const screenshot = path.join(f.workspacePath, ".stave/scratch/lens/login.png");
+    await writeFile(screenshot, "png-bytes");
+    const sourceUrl = pathToFileURL(screenshot).href;
+    const { artifacts } = await f.archive([sourceUrl]);
+    const copy = artifacts[0]!;
+    expect(copy.url).not.toBe(sourceUrl);
+    expect(copy.sourceUrl).toBe(sourceUrl);
+    expect(copy.savedAt).toBeDefined();
+    expect(copy.presentation).toBe("capture");
+    const copyPath = fileURLToPath(copy.url);
+    expect(copyPath.startsWith(f.archiveRoot + path.sep)).toBe(true);
+    expect(path.basename(copyPath)).toBe("login.png");
+    await rm(f.workspacePath, { recursive: true });
+    expect(await readFile(copyPath, "utf8")).toBe("png-bytes");
+    expect(await resolveArchivedReportFile(copy.url, f.archiveRoot)).toBe(await realpath(copyPath));
+    expect(isSavedReportFileArtifact(copy)).toBe(true);
+  });
+
+  test("reporting the same file again reuses its copy; a changed file gets a new one", async () => {
+    const f = await fileFixture();
+    const log = path.join(f.workspacePath, ".stave/scratch/tests.log");
+    await writeFile(log, "ok 1\n");
+    const first = (await f.archive([pathToFileURL(log).href])).artifacts[0]!;
+    const again = await f.archive([pathToFileURL(log).href]);
+    expect(again.artifacts[0]!.url).toBe(first.url);
+    // A report that cites the saved copy itself keeps its recorded original.
+    const cited = await f.archive([first.url], [first]);
+    expect(cited.artifacts[0]).toMatchObject({ url: first.url, sourceUrl: first.sourceUrl, savedAt: first.savedAt });
+    expect((await f.archive([first.url])).artifacts[0]!.sourceUrl).toBeUndefined();
+    // Discarding a batch that only reused a copy never removes it.
+    await again.discard();
+    expect(await readFile(fileURLToPath(first.url), "utf8")).toBe("ok 1\n");
+    await writeFile(log, "ok 1\nok 2\n");
+    const changed = await f.archive([pathToFileURL(log).href]);
+    expect(changed.artifacts[0]!.url).not.toBe(first.url);
+    await changed.discard();
+    expect(await resolveArchivedReportFile(changed.artifacts[0]!.url, f.archiveRoot)).toBeNull();
+    expect(await resolveArchivedReportFile(first.url, f.archiveRoot)).not.toBeNull();
+  });
+
+  test("keeps the link when the file is too large, missing, outside the workspace or not a copied type", async () => {
+    const f = await fileFixture();
+    const large = path.join(f.workspacePath, ".stave/scratch/huge.json");
+    await writeFile(large, Buffer.alloc(REPORT_FILE_ARTIFACT_MAX_BYTES + 1));
+    const outside = path.join(f.root, "outside.txt");
+    await writeFile(outside, "outside");
+    const linked = path.join(f.workspacePath, ".stave/scratch/linked.txt");
+    await symlink(outside, linked);
+    const archive = path.join(f.workspacePath, "bundle.zip");
+    await writeFile(archive, "zip");
+    const urls = [
+      pathToFileURL(large).href,
+      pathToFileURL(path.join(f.workspacePath, ".stave/scratch/missing.png")).href,
+      pathToFileURL(outside).href,
+      pathToFileURL(linked).href,
+      pathToFileURL(archive).href,
+      "https://example.test/report.pdf",
+    ];
+    const { artifacts } = await f.archive(urls);
+    expect(artifacts.map((artifact) => artifact.url)).toEqual(urls);
+    expect(artifacts.every((artifact) => artifact.sourceUrl === undefined && artifact.savedAt === undefined)).toBe(true);
+    expect(artifacts.some((artifact) => isSavedReportFileArtifact(artifact))).toBe(false);
+  });
+
+  test("a failed batch removes the copies it made", async () => {
+    const f = await fileFixture();
+    const pdf = path.join(f.workspacePath, ".stave/scratch/report.pdf");
+    await writeFile(pdf, "%PDF-1.7");
+    await writeFile(f.page, '<img src="missing.png">');
+    await expect(f.archive([pathToFileURL(pdf).href, pathToFileURL(f.page).href])).rejects.toThrow();
+    expect(await readdir(path.join(f.archiveRoot, reportFileArchiveRunKey("run")))).toEqual([]);
+  });
+
+  test("only files inside the archive open", async () => {
+    const f = await fileFixture();
+    await mkdir(f.archiveRoot, { recursive: true });
+    const outside = path.join(f.root, "outside.txt");
+    await writeFile(outside, "outside");
+    await symlink(outside, path.join(f.archiveRoot, "escape.txt"));
+    expect(await resolveArchivedReportFile(pathToFileURL(outside).href, f.archiveRoot)).toBeNull();
+    expect(await resolveArchivedReportFile(pathToFileURL(path.join(f.archiveRoot, "escape.txt")).href, f.archiveRoot)).toBeNull();
+    expect(await resolveArchivedReportFile(pathToFileURL(f.archiveRoot).href, f.archiveRoot)).toBeNull();
+    expect(await resolveArchivedReportFile("https://example.test/a.png", f.archiveRoot)).toBeNull();
+    expect(isReportFileArtifactPath("/a/b/shot.PNG")).toBe(true);
+    expect(isReportFileArtifactPath("/a/b/bundle.zip")).toBe(false);
+    expect(isSavedReportFileArtifact({ url: "file:///a.png" })).toBe(false);
+  });
 });
