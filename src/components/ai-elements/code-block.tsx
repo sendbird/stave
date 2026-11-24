@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
-import type { HTMLAttributes } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { createContext, memo, useContext, useEffect, useRef, useState, type RefObject } from "react";
 import { Check, Copy } from "lucide-react";
 import { cx, sx } from "@/components/aui/utils/stylex";
@@ -49,21 +49,28 @@ interface CodeBlockProps extends HTMLAttributes<HTMLDivElement> {
    * delta nor fills the highlight cache with partial code.
    */
   isStreaming?: boolean;
+  /**
+   * A body drawn in place of the code (a JSON tree, terminal output). The
+   * header and its copy button still act on `code`.
+   */
+  body?: ReactNode;
 }
 
-export function CodeBlock({ code, language, showLineNumbers, isStreaming, fontSize, className, children, ...props }: CodeBlockProps) {
+export function CodeBlock({ code, language, showLineNumbers, isStreaming, fontSize, body, className, children, ...props }: CodeBlockProps) {
   useTranslation();
   return (
     <CodeBlockContext.Provider value={{ code }}>
       <div className={cx(sx(styles.root), className)} data-code-block="" {...props}>
         {children}
-        <CodeBlockContent
-          code={code}
-          language={language}
-          showLineNumbers={showLineNumbers}
-          isStreaming={isStreaming}
-          fontSize={fontSize}
-        />
+        {body ?? (
+          <CodeBlockContent
+            code={code}
+            language={language}
+            showLineNumbers={showLineNumbers}
+            isStreaming={isStreaming}
+            fontSize={fontSize}
+          />
+        )}
       </div>
     </CodeBlockContext.Provider>
   );
@@ -97,7 +104,7 @@ interface CodeBlockContentProps {
  * region in the tab order, so the keyboard can reach it and move it with the
  * arrow keys.
  */
-function useCodeScrollRegion(ref: RefObject<HTMLElement | null>, content: string, label: string) {
+export function useCodeScrollRegion(ref: RefObject<HTMLElement | null>, content: string, label: string) {
   useEffect(() => {
     const host = ref.current;
     const pre = host instanceof HTMLPreElement ? host : host?.querySelector("pre");

@@ -43,6 +43,8 @@ import {
   type MarkdownLineBreaks,
 } from "./message-markdown";
 import { MermaidBlock } from "./mermaid-block";
+import { MathBlock } from "./math-block";
+import { RichCodeBlock } from "./rich-code-block";
 import { codeBlockLanguageLabel } from "./code-block-language";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import {
@@ -326,6 +328,28 @@ export function MessageResponse({
         resolvedFileLink,
         isStreaming: isStreamingBlock,
       }) => {
+        const title = (
+          <CodeBlockTitle className={sx(styles.codeTitle)}>
+            {resolvedFileLink ? (
+              <MessageFileLink
+                href={fileHref ?? resolvedFileLink.filePath}
+                filePath={resolvedFileLink.filePath}
+                fileName={resolvedFileLink.fileName}
+                line={resolvedFileLink.line}
+                column={resolvedFileLink.column}
+                onClick={(event) =>
+                  void handleFileLinkClick({
+                    event,
+                    href: fileHref ?? resolvedFileLink.filePath,
+                    resolvedFileLink,
+                    code,
+                  })
+                }
+              />
+            ) : null}
+            <span className={sx(styles.codeLanguage)}>{language ? codeBlockLanguageLabel(language) : i18n.t("composer:message.copy")}</span>
+          </CodeBlockTitle>
+        );
         const block = (
           <CodeBlock
             code={code}
@@ -333,26 +357,7 @@ export function MessageResponse({
             isStreaming={isStreamingBlock}
           >
             <CodeBlockHeader>
-              <CodeBlockTitle className={sx(styles.codeTitle)}>
-                {resolvedFileLink ? (
-                  <MessageFileLink
-                    href={fileHref ?? resolvedFileLink.filePath}
-                    filePath={resolvedFileLink.filePath}
-                    fileName={resolvedFileLink.fileName}
-                    line={resolvedFileLink.line}
-                    column={resolvedFileLink.column}
-                    onClick={(event) =>
-                      void handleFileLinkClick({
-                        event,
-                        href: fileHref ?? resolvedFileLink.filePath,
-                        resolvedFileLink,
-                        code,
-                      })
-                    }
-                  />
-                ) : null}
-                <span className={sx(styles.codeLanguage)}>{language ? codeBlockLanguageLabel(language) : i18n.t("composer:message.copy")}</span>
-              </CodeBlockTitle>
+              {title}
               <CodeBlockActions>
                 <CodeBlockCopyButton />
               </CodeBlockActions>
@@ -362,11 +367,19 @@ export function MessageResponse({
         // Code and diagrams keep the column's edges: a long line scrolls
         // inside the block and a diagram scales down, so neither sticks out
         // past the prose around it.
-        return language?.toLowerCase() === "mermaid" ? (
-          <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
-        ) : (
-          block
-        );
+        const fenceLanguage = language?.toLowerCase();
+        if (fenceLanguage === "mermaid") {
+          return <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />;
+        }
+        // A block still being written stays plain code, so it is not
+        // re-read as math, JSON or terminal output on every delta.
+        if (isStreamingBlock) {
+          return block;
+        }
+        if (fenceLanguage === "math") {
+          return <MathBlock tex={code} source={block} />;
+        }
+        return <RichCodeBlock code={code} language={language} title={title} fallback={block} />;
       }}
       className={className}
       style={style}

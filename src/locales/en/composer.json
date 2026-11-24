@@ -746,6 +746,22 @@
       }
     }
   },
+  "richBlock": {
+    "showCode": "Show code",
+    "showTree": "Show tree",
+    "showFormula": "Show formula",
+    "mathFailed": "This formula could not be drawn, so its source is shown.",
+    "jsonKeys_one": "{{count}} key",
+    "jsonKeys_other": "{{count}} keys",
+    "jsonItems_one": "{{count}} item",
+    "jsonItems_other": "{{count}} items",
+    "jsonShowMore_one": "Show {{count}} more",
+    "jsonShowMore_other": "Show {{count}} more",
+    "tableFilterLabel": "Filter table rows",
+    "tableFilterPlaceholder": "Filter rows",
+    "tableFilterCount": "{{shown}} of {{total}} rows",
+    "tableNoMatches": "No rows match the filter."
+  },
   "mermaid": {
     "drawing": "Drawing the diagram…",
     "failed": "This diagram could not be drawn, so its source is shown.",
