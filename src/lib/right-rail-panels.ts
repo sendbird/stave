@@ -4,6 +4,7 @@ import {
   FolderTree,
   GitBranch,
   Info,
+  NotebookPen,
   SearchCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -15,7 +16,8 @@ export type RightRailPanelId =
   | "information"
   | "skills"
   | "scripts"
-  | "task";
+  | "task"
+  | "scratch";
 
 /** Panels the right rail actually renders as sidebar overlays. */
 export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
@@ -25,6 +27,7 @@ export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
   "skills",
   "scripts",
   "task",
+  "scratch",
 ];
 
 export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
@@ -34,6 +37,7 @@ export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
   get skills() { return i18n.t("shell:rightRailPanels.skills"); },
   get scripts() { return WORKSPACE_TOOLS_PRESENTATION.label; },
   get task() { return i18n.t("shell:rightRailPanels.task"); },
+  get scratch() { return i18n.t("shell:rightRailPanels.scratch"); },
 };
 
 export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
@@ -43,6 +47,7 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
   skills: SearchCheck,
   scripts: WORKSPACE_TOOLS_PRESENTATION.icon,
   task: ClipboardList,
+  scratch: NotebookPen,
 };
 
 /** The layout patch that opens the Task panel. */

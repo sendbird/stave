@@ -25,6 +25,13 @@ import { workspaceToolsRunningLabel } from "@/lib/workspace-tools-presentation";
 import { cx, sx } from "@/components/aui/utils/stylex";
 import { rightRailStyles } from "@/components/layout/right-rail.styles";
 import { CountBadge } from "@/components/system/CountBadge";
+import { StatusDot } from "@/components/aui/components/StatusDot";
+import { SCRATCH_RAIL_POLL_MS } from "@/lib/workspace-scratch-view";
+import {
+  selectScratchHasUnseen,
+  useWorkspaceScratchStore,
+} from "@/store/workspace-scratch-store";
+import { useWorkspaceScratchPolling } from "@/components/layout/useWorkspaceScratchPolling";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { useAppStore } from "@/store/app.store";
 
@@ -157,6 +164,60 @@ function RightRailWorkspaceToolsButton(props: {
 }
 
 /**
+ * The Scratch toggle. While a turn runs in the workspace and the panel is
+ * closed, it checks the scratch folder every 5 s and shows a dot when a file
+ * arrived that the user has not seen in the panel yet.
+ */
+function RightRailScratchButton(props: {
+  disabled: boolean;
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const { t } = useTranslation(["workspace"]);
+  const [workspaceId, rootPath, turnRunning] = useAppStore(
+    useShallow(
+      (state) =>
+        [
+          state.activeWorkspaceId,
+          state.workspacePathById[state.activeWorkspaceId] ??
+            state.repositoryPath ??
+            undefined,
+          Object.values(state.activeTurnIdsByTask).some(Boolean),
+        ] as const,
+    ),
+  );
+  const hasUnseen = useWorkspaceScratchStore((state) =>
+    selectScratchHasUnseen(state, workspaceId),
+  );
+  useWorkspaceScratchPolling({
+    workspaceId,
+    rootPath,
+    intervalMs: SCRATCH_RAIL_POLL_MS,
+    enabled: turnRunning && !props.isActive,
+    pollAfterDisable: true,
+  });
+  const showDot = hasUnseen && !props.isActive;
+  const title = RIGHT_RAIL_PANEL_TITLES.scratch;
+  return (
+    <RailToggle
+      label={showDot ? t("workspaceScratchPanel.railLabelUnseen") : title}
+      shortcut={null}
+      icon={RIGHT_RAIL_PANEL_ICONS.scratch}
+      pressed={props.isActive}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      indicator={
+        showDot ? (
+          <span data-testid="workspace-scratch-unseen">
+            <StatusDot tone="accent" size="md" />
+          </span>
+        ) : null
+      }
+    />
+  );
+}
+
+/**
  * The workspace rail: one toolbar, so it is a single Tab stop and the arrow
  * keys move between its toggles. The panel toggles form one group and the
  * Lens and Terminal surfaces another.
@@ -218,6 +279,17 @@ export function RightRail() {
           {RIGHT_RAIL_PANEL_IDS.map((panelId) => {
             const isActive =
               sidebarOverlayVisible && sidebarOverlayTab === panelId;
+
+            if (panelId === "scratch") {
+              return (
+                <RightRailScratchButton
+                  key={panelId}
+                  disabled={!hasRepository}
+                  isActive={isActive}
+                  onClick={() => toggleSidebarTab(panelId)}
+                />
+              );
+            }
 
             if (panelId === "scripts") {
               return (

@@ -43,12 +43,17 @@ import {
   writeFileWithExpectedRevision,
 } from "../utils/filesystem";
 import { registerFilesystemSearchHandlers } from "./filesystem-search-ipc";
+import { listWorkspaceScratch } from "../utils/workspace-scratch";
+import { isKnownWorkspaceRoot } from "../workspace-roots";
 
 const FilesystemReadPreviewRangeArgsSchema = FilesystemFileArgsSchema.extend({
   offset: z.number().int().nonnegative(),
   length: z.number().int().nonnegative(),
   revision: z.string().max(256).optional(),
 });
+
+/** `fs:list-scratch`: the workspace root whose `.stave/scratch` folder is listed. */
+const FilesystemListScratchArgsSchema = FilesystemRootArgsSchema;
 
 const FilesystemReadFileArgsSchema = FilesystemFileArgsSchema.extend({
   pastedText: z.literal(true).optional(),
@@ -65,7 +70,13 @@ async function statIfExists(targetPath: string) {
   }
 }
 
-export function registerFilesystemHandlers() {
+export function registerFilesystemHandlers(
+  deps: {
+    /** Whether a renderer-supplied root is a registered workspace folder. */
+    isKnownWorkspaceRoot?: (rootPath: string) => Promise<boolean>;
+  } = {},
+) {
+  const isKnownRoot = deps.isKnownWorkspaceRoot ?? isKnownWorkspaceRoot;
   ipcMain.handle("fs:pick-root", async () => {
     const selected = await dialog.showOpenDialog({
       properties: ["openDirectory"],
@@ -349,6 +360,23 @@ export function registerFilesystemHandlers() {
       return { ok: true, files };
     } catch (error) {
       return { ok: false, files: [], stderr: String(error) };
+    }
+  });
+
+  // Lists `<workspace>/.stave/scratch` only, and only for a workspace Stave
+  // has registered: the renderer polls it while the Scratch panel is open.
+  ipcMain.handle("fs:list-scratch", async (_event, args: unknown) => {
+    const parsed = FilesystemListScratchArgsSchema.safeParse(args);
+    if (!parsed.success || !path.isAbsolute(parsed.data.rootPath)) {
+      return { ok: false as const, stderr: "Invalid scratch listing request." };
+    }
+    try {
+      if (!(await isKnownRoot(parsed.data.rootPath))) {
+        return { ok: false as const, stderr: "Not a known workspace folder." };
+      }
+      return { ok: true as const, ...(await listWorkspaceScratch(parsed.data.rootPath)) };
+    } catch (error) {
+      return { ok: false as const, stderr: String(error) };
     }
   });
 

@@ -779,7 +779,8 @@
     "sourceControl": "소스 제어",
     "information": "정보",
     "skills": "스킬",
-    "task": "작업"
+    "task": "작업",
+    "scratch": "스크래치"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter로 대기열에 추가, Tab으로 방향 조정",

@@ -1542,5 +1542,20 @@
     "commandUnavailable": "터미널에 연결할 수 없습니다. 연결한 다음 다시 시도하세요.",
     "commandFailed": "단계가 실패했으며 출력이 없습니다.",
     "repositoryChanged": "생성을 시작하기 전에 프로젝트가 바뀌었습니다. 원래 프로젝트에서 다시 시도하세요."
+  },
+  "workspaceScratchPanel": {
+    "previewLabel": "{{name}} 미리보기",
+    "openInEditor": "편집기에서 열기",
+    "tooLargeToPreview": "파일이 커서 여기서 미리 볼 수 없습니다({{size}}).",
+    "noPreview": "이 파일 형식은 미리 볼 수 없습니다.",
+    "previewFailed": "파일을 읽지 못했습니다.",
+    "loading": "스크래치 파일을 불러오는 중…",
+    "emptyTitle": "아직 스크래치 파일이 없습니다",
+    "emptyDescription": "에이전트가 작업하면서 저장한 스크린샷, 로그, 명령 출력, 가져온 JSON이 {{folder}}/에 쌓이고, 저장되는 대로 여기에 표시됩니다. Lens 스크린샷도 여기에 저장됩니다. 이 폴더는 git에 포함되지 않습니다.",
+    "summary_other": "파일 {{formattedCount}}개 · {{size}}",
+    "showingNewest_other": "최신 {{formattedCount}}개 표시",
+    "filesLabel": "스크래치 파일",
+    "new": "새 파일",
+    "railLabelUnseen": "스크래치, 새 파일 있음"
   }
 }
