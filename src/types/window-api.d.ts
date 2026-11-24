@@ -3063,6 +3063,8 @@ interface WindowApi {
   localMcp?: WindowLocalMcpApi;
   craneConnector?: WindowCraneConnectorApi;
   trackerIssues?: WindowTrackerIssuesApi;
+  /** Claude Code and Codex sessions running outside Stave; read only while a window subscribes. */
+  externalSessions?: import("@/lib/external-sessions/external-sessions-bridge").ExternalSessionsApi;
   repositoryMemory?: WindowRepositoryMemoryApi;
   jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;

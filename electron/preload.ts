@@ -19,6 +19,7 @@ import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewReque
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
 import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
+import { createExternalSessionsBridge } from "../src/lib/external-sessions/external-sessions-bridge";
 import { turnHistoryPreload } from "./persistence/turn-history-preload";
 import { taskHandoffPreload } from "./persistence/task-handoff-preload";
 import { taskSearchPreload } from "./persistence/task-search-preload";
@@ -2171,6 +2172,13 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
+  externalSessions: createExternalSessionsBridge({
+    invoke: (channel) => ipcRenderer.invoke(channel),
+    send: (channel, args) => ipcRenderer.send(channel, args),
+    on: (channel, listener) => {
+      ipcRenderer.on(channel, (_event, payload: unknown) => listener(payload));
+    },
+  }),
   trackerIssues: {
     getStatus: () =>
       ipcRenderer.invoke("tracker-issues:get-status") as Promise<{

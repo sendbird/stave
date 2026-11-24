@@ -1,3 +1,4 @@
+import { registerExternalSessionsHandlers } from "./external-sessions";
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
 import { registerInlineRenderHandlers } from "./inline-render";
@@ -60,6 +61,7 @@ export function registerHandlers() {
   registerAgentHandlers();
   registerPersistenceHandlers();
   registerUsageStatisticsHandlers();
+  registerExternalSessionsHandlers();
   registerTurnHistoryHandlers();
   registerTaskHandoffHandlers();
   registerSideQuestionHandlers();
