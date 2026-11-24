@@ -73,6 +73,18 @@ bounds; the store owns which tokens count).
 account switch and tracks reads in flight. Focused checks are
 `tests/status-bar-usage-strip.test.ts`, `tests/turn-spend.test.ts`,
 `tests/rate-limits-account-reset.test.ts`, and `tests/status-bar-usage-utils.test.ts`.
+
+The AI usage **Projects** tab (`src/components/usage/UsageProjects.tsx` and
+`UsageProjectDisk.tsx`) groups tokens and cost per workspace from
+`electron/persistence/workspace-usage-store.ts` through
+`persistence:workspace-usage` (`src/lib/providers/workspace-usage.ts` owns the
+arguments schema; `usage-statistics-query.ts` owns which tokens count for every
+usage report). Disk use comes from `workspace:disk-usage`, measured by
+`electron/host-service/workspace-disk-usage.ts`, which also bounds the cleanup
+dialog's disk scan. `src/components/usage/usage-projects.ts` holds the grouping,
+sorting, chart and free-space view model. Focused checks are
+`tests/workspace-usage.test.ts`, `tests/workspace-disk-usage.test.ts`,
+`tests/usage-projects.test.ts` and `tests/e2e/usage-projects.e2e.ts`.
 The bar's shrink order (tokens, then usage detail, then the Resource Manager
 label, then clipping the strip's end) is `status-bar-shrink.ts`, with its
 container-query rules in `status-bar-shrink.styles.ts`;

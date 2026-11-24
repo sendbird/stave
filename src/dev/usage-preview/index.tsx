@@ -4,13 +4,14 @@ import * as stylex from "@stylexjs/stylex";
 import { Button } from "@/components/aui/components/Button";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
-import { UsageView } from "@/components/usage/UsageView";
+import { UsageView, type UsageViewTab } from "@/components/usage/UsageView";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { USAGE_PREVIEW_NOW, USAGE_PREVIEW_PROFILES, usagePreviewReport } from "./fixtures";
+import { usagePreviewProjectSources } from "./projects-fixtures";
 
-/** Dev-only: ?stavePreview=usage&theme=dark&width=384&state=empty|failed|loading|unavailable. */
+/** Dev-only: ?stavePreview=usage&theme=dark&width=384&state=empty|failed|loading|unavailable&view=projects&lang=ko. */
 export function UsagePreview() {
   const params = new URLSearchParams(window.location.search);
   const builtin = BUILTIN_CUSTOM_THEMES.find((theme) => theme.id === params.get("theme")) ?? null;
@@ -28,6 +29,8 @@ export function UsagePreview() {
     if (failed) throw new Error("The usage database is temporarily locked.");
     return usagePreviewReport(args, state === "empty");
   }, [state, failed, delay]);
+  const diskMeasuring = params.get("disk") === "measuring";
+  const projects = useMemo(() => usagePreviewProjectSources({ empty: state === "empty", measuring: diskMeasuring }), [state, diskMeasuring]);
   return <div className={sx(styles.page)}>
     <div className={sx(styles.toolbar)}><strong>Usage preview · fixture data</strong>
       <Button variant="quiet" size="sm" onClick={() => setDark((value) => !value)}>{dark ? "Light theme" : "Dark theme"}</Button>
@@ -37,6 +40,7 @@ export function UsagePreview() {
     <div className={sx(styles.frame)} style={width ? { maxInlineSize: width } : undefined}>
       <div className={sx(appShellStyles.mainSurface)}>
         <UsageView load={load} profiles={USAGE_PREVIEW_PROFILES} now={USAGE_PREVIEW_NOW} onClose={() => {}}
+          initialView={(params.get("view") ?? undefined) as UsageViewTab | undefined} projects={projects}
           readQuota={async () => ({ error: quotaFailed ? "Quota endpoint temporarily unavailable." : null,
             feedback: { status: quotaFailed ? "unavailable" : params.get("quota") === "cached" ? "cached" : "fresh",
               reason: params.get("quota") === "cached" ? "manual-floor" : "request",

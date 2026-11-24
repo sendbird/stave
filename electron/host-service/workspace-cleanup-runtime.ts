@@ -3,7 +3,8 @@ import { hasWorkspaceArchiveLeftover } from "./workspace-archive-leftovers";
 import { saveWorkspaceChanges, clearSavedWorkspaceChanges, applySavedWorkspaceChanges, assertWorkspaceArchiveFilesSafe, deleteSavedWorkspaceChanges, discardPartialSavedWorkspaceChanges, listWorkspaceArchiveIgnoredFiles } from "./workspace-archive-snapshot";
 import { existsSync, realpathSync } from "node:fs";
 import { workspaceRunningCleanupBlockers } from "./workspace-cleanup-running";
-import { lstat, readdir, symlink } from "node:fs/promises";
+import { createWorkspaceDiskUsage, readWorkspaceDiskUsage, workspaceDiskFolders, type WorkspaceDiskUsage } from "./workspace-disk-usage";
+import { lstat, symlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { SqliteStore } from "../persistence/sqlite-store";
 import { runWorkspaceLifecycleGit, removeWorkspaceLifecycleWorktree, fetchGitHubPrStatus } from "./scm-runtime";
@@ -18,13 +19,6 @@ import { DEFAULT_WORKSPACE_CLEANUP_POLICY, WorkspaceCleanupStateSchema, Workspac
 
 const DAY = 86400_000;
 const canonical = (path: string) => { try { return realpathSync(path); } catch { return resolve(path); } };
-export async function workspaceDiskBytes(path: string): Promise<number> {
-  const stat = await lstat(path);
-  if (!stat.isDirectory() || stat.isSymbolicLink()) return stat.size;
-  let size = stat.size;
-  for (const entry of await readdir(path)) size += await workspaceDiskBytes(join(path, entry));
-  return size;
-}
 
 export function responsibilityCleanupBlocker(responsibilities: Array<{ executionWorkspaceId: string | null; state: string; publication?: { state: string; watch?: unknown; checks?: unknown } }>, workspaceId: string): string | null {
   for (const work of responsibilities.filter(work => work.executionWorkspaceId === workspaceId)) {
@@ -41,6 +35,7 @@ export function createWorkspaceCleanupRuntime(ports: {
   git?: typeof runWorkspaceLifecycleGit;
   pr?: typeof fetchGitHubPrStatus;
   now?: () => number;
+  diskUsage?: WorkspaceDiskUsage;
   changed?: (event: { workspaceId: string; repositoryPath: string; stage?: "preparing" | "prepared" | "preparationFailed"; command?: string }) => void;
 }) {
   workspaceExecutionGate.setArchiveReader(() => ports.store().listArchivedWorkspacesPersistence()
@@ -50,6 +45,7 @@ export function createWorkspaceCleanupRuntime(ports: {
   const git = ports.git ?? runWorkspaceLifecycleGit;
   const pr = ports.pr ?? fetchGitHubPrStatus;
   const now = ports.now ?? Date.now;
+  const disk = ports.diskUsage ?? createWorkspaceDiskUsage();
   const mergedAtByWorkspace = new Map<string, number>();
   const prSavedTips = new Set<string>();
   let running = false;
@@ -194,7 +190,8 @@ export function createWorkspaceCleanupRuntime(ports: {
       if (responsibilities.some(work => work.publication?.state === "opened") && (!status.ok || !status.pr || !["MERGED", "CLOSED"].includes(status.pr.state))) blockers.push("publicationPending");
     }
     let bytes: number | null = null;
-    if (scanDisk && row.path && existsSync(row.path)) { try { bytes = await workspaceDiskBytes(row.path); } catch { /* Size is informational. */ } }
+    // An explicit scan measures again; folders are measured one at a time with a time limit each.
+    if (scanDisk && row.path && existsSync(row.path)) bytes = (await disk.read(row.id, row.path, 0)).bytes;
     return { ...row, canSaveChanges: !linked && !row.archived && !row.branchOnly && blockers.includes("changedFiles") && blockers.every(blocker => blocker === "changedFiles" || blocker === "unpushedCommits"), blockers: [...new Set(blockers)], reasons, bytes, branchDeletable };
   }
   async function list(scanDisk = false, checkPr = false, target?: { id: string; repositoryPath: string }) {
@@ -524,5 +521,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     timer.unref();
     return () => clearInterval(timer);
   }
-  return { list, act, configure, runNow, runScheduled, start };
+  /** Disk used by workspace folders; stale folders are measured in the background (`workspace-disk-usage.ts`). */
+  const diskUsage = (refresh = false) => readWorkspaceDiskUsage(workspaceDiskFolders(ports.store()), disk, refresh);
+  return { list, act, configure, runNow, runScheduled, start, diskUsage };
 }

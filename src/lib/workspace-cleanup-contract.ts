@@ -51,7 +51,27 @@ export const WorkspaceCleanupListResultSchema = z.object({
   rows: z.array(WorkspaceCleanupRowSchema), policy: WorkspaceCleanupPolicySchema,
   recent: z.array(WorkspaceCleanupRecentSchema),
 }).strict();
-export const WorkspaceCleanupRunResultSchema = z.object({ results: z.array(WorkspaceCleanupResultSchema) }).strict();
+/** One folder's measured disk use. `partial` means the count stopped early or skipped unreadable folders, so it is a lower bound. */
+export const WorkspaceDiskMeasurementSchema = z.object({
+  bytes: z.number().nonnegative().nullable(), partial: z.boolean(),
+  status: z.enum(["measured", "timeout", "unavailable"]), measuredAt: z.string(),
+}).strict();
+export type WorkspaceDiskMeasurement = z.infer<typeof WorkspaceDiskMeasurementSchema>;
+/** `refresh` measures again even when a measurement is younger than five minutes. */
+export const WorkspaceDiskUsageArgsSchema = z.object({ refresh: z.boolean().optional() }).strict();
+export const WorkspaceDiskUsageRowSchema = z.object({
+  workspaceId: Id, name: z.string(), repositoryPath: Id, repositoryName: z.string(), archived: z.boolean(),
+  /** Null until the first measurement of this folder finishes. */
+  measurement: WorkspaceDiskMeasurementSchema.nullable(),
+}).strict();
+export type WorkspaceDiskUsageRow = z.infer<typeof WorkspaceDiskUsageRowSchema>;
+export const WorkspaceDiskUsageReportSchema = z.object({
+  rows: z.array(WorkspaceDiskUsageRowSchema),
+  /** True while folders are still being measured; read again to see them fill in. */
+  measuring: z.boolean(),
+}).strict();
+export type WorkspaceDiskUsageReport = z.infer<typeof WorkspaceDiskUsageReportSchema>;
+export const WorkspaceCleanupRunResultSchema =z.object({ results: z.array(WorkspaceCleanupResultSchema) }).strict();
 export const WorkspaceCleanupChangedSchema = z.object({ workspaceId: Id, repositoryPath: Id, stage: z.enum(["preparing", "prepared", "preparationFailed"]).optional(), command: z.string().optional() }).strict();
 export interface WorkspaceCleanupApi {
   onChanged(listener: (event: z.infer<typeof WorkspaceCleanupChangedSchema>) => void): () => void;
@@ -61,4 +81,6 @@ export interface WorkspaceCleanupApi {
   act(args: WorkspaceCleanupActArgs): Promise<WorkspaceCleanupResult>;
   configure(policy: WorkspaceCleanupPolicy): Promise<WorkspaceCleanupPolicy>;
   runNow(): Promise<z.infer<typeof WorkspaceCleanupRunResultSchema>>;
+  /** Disk used by each workspace folder (not the project's own checkout), measured in the background. */
+  diskUsage?(args?: z.infer<typeof WorkspaceDiskUsageArgsSchema>): Promise<WorkspaceDiskUsageReport>;
 }

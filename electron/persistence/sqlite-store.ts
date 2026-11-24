@@ -96,6 +96,7 @@ import { LensReviewRecordStore } from "./lens-review-record-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { WorkspaceDocumentStore } from "./workspace-document-store";
 import { TurnSpendStore } from "./turn-spend-store";
+import { WorkspaceUsageStore } from "./workspace-usage-store";
 import { TurnDigestStore, ensureTurnDigestColumn } from "./turn-digest-store";
 import { TaskHandoffStore } from "./task-handoff-store";
 import { UsageStatisticsStore } from "./usage-statistics-store";
@@ -219,6 +220,7 @@ export class SqliteStore {
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly documents: WorkspaceDocumentStore;
   readonly turnSpend: TurnSpendStore;
+  readonly workspaceUsage: WorkspaceUsageStore;
   readonly turnDigests: TurnDigestStore;
   readonly taskHandoffs: TaskHandoffStore;
   readonly usageStatistics: UsageStatisticsStore;
@@ -288,6 +290,7 @@ export class SqliteStore {
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
     this.documents = new WorkspaceDocumentStore(this.db);
     this.turnSpend = new TurnSpendStore(this.db);
+    this.workspaceUsage = new WorkspaceUsageStore(this.db);
     this.turnDigests = new TurnDigestStore(this.db);
     this.taskHandoffs = new TaskHandoffStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);

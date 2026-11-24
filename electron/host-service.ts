@@ -9,7 +9,7 @@ import { createQueuedTurnRecoveryHandlers } from "./host-service/turn-admission-
 import { TurnAdmissionWaitResultSchema } from "./host-service/turn-admission";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
-import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema } from "../src/lib/workspace-cleanup-contract";
+import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceDiskUsageArgsSchema } from "../src/lib/workspace-cleanup-contract";
 import { z as cleanupZ } from "zod";
 import { undoTarsAction } from "./host-service/tars-action-undo";
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
@@ -1814,6 +1814,8 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await workspaceCleanupRuntime.act(WorkspaceCleanupActArgsSchema.parse(request.params))); return;
     case "workspace.cleanup-configure":
       await respond(request.id, workspaceCleanupRuntime.configure(WorkspaceCleanupPolicySchema.parse(request.params))); return;
+    case "workspace.disk-usage":
+      await respond(request.id, workspaceCleanupRuntime.diskUsage(WorkspaceDiskUsageArgsSchema.parse(request.params ?? {}).refresh)); return;
     case "workspace.cleanup-run":
       cleanupZ.object({}).strict().parse(request.params);
       await respond(request.id, await workspaceCleanupRuntime.runNow()); return;

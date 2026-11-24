@@ -2,7 +2,7 @@ import { hasWorkspaceArchiveLeftover, trashWorkspaceArchiveLeftover } from "../.
 import { runWorkspaceLifecycleGit } from "../../host-service/scm-runtime";
 import { ensurePersistenceReady } from "../state";
 import { z } from "zod";
-import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema, WorkspaceCleanupStateSchema, WorkspaceCleanupTrashResultSchema } from "../../../src/lib/workspace-cleanup-contract";
+import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema, WorkspaceCleanupStateSchema, WorkspaceCleanupTrashResultSchema, WorkspaceDiskUsageArgsSchema, WorkspaceDiskUsageReportSchema } from "../../../src/lib/workspace-cleanup-contract";
 import { WorkspaceExecutionArgsSchema, WorkspaceCleanupTrashArgsSchema } from "./schemas";
 import { ipcMain, shell, webContents } from "electron";
 import {
@@ -138,6 +138,7 @@ export function registerTerminalHandlers() {
     })));
   });
   ipcMain.handle("workspace:cleanup-list", async (_event, input: unknown) => WorkspaceCleanupListResultSchema.parse(await invokeHostService("workspace.cleanup-list", WorkspaceCleanupListArgsSchema.parse(input ?? {}))));
+  ipcMain.handle("workspace:disk-usage", async (_event, input: unknown) => WorkspaceDiskUsageReportSchema.parse(await invokeHostService("workspace.disk-usage", WorkspaceDiskUsageArgsSchema.parse(input ?? {}))));
   ipcMain.handle("workspace:cleanup-act", async (_event, input: unknown) => WorkspaceCleanupResultSchema.parse(await invokeHostService("workspace.cleanup-act", WorkspaceCleanupActArgsSchema.parse(input))));
   ipcMain.handle("workspace:cleanup-trash-leftover", async (_event, input: unknown) => {
     const args = WorkspaceCleanupTrashArgsSchema.parse(input);

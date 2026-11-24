@@ -2231,6 +2231,10 @@ interface WindowPersistenceApi {
   usageStatistics?: (
     args: import("@/lib/providers/usage-statistics").UsageStatisticsArgs,
   ) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsResponse>;
+  /** Tokens and reported cost per workspace and calendar day, under the usage report's provider and account filters. */
+  workspaceUsage?: (
+    args: import("@/lib/providers/workspace-usage").WorkspaceUsageArgs,
+  ) => Promise<import("@/lib/providers/workspace-usage").WorkspaceUsageResponse>;
   dailyUsage?: import("@/lib/usage/daily-limit").DailyUsageApi;
   /** Activity's turn picker: a task's turns, newest first. */
   listTaskTurnHistory?: (

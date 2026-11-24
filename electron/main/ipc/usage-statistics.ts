@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import { DailyLimitUpdateSchema } from "../../../src/lib/usage/daily-limit";
 import { ensurePersistenceReady } from "../state";
 import { UsageStatisticsArgsSchema, USAGE_STATISTICS_IPC, type UsageStatisticsResponse } from "../../../src/lib/providers/usage-statistics";
+import { WorkspaceUsageArgsSchema, WORKSPACE_USAGE_IPC, type WorkspaceUsageResponse } from "../../../src/lib/providers/workspace-usage";
 
 export function registerUsageStatisticsHandlers() {
   ipcMain.handle("persistence:daily-usage", async () => (await ensurePersistenceReady()).dailyUsage.read());
@@ -15,6 +16,16 @@ export function registerUsageStatisticsHandlers() {
       return { ok: true, report: store.usageStatistics.read(parsed.data) };
     } catch {
       return { ok: false, message: "Usage history could not be read. Try again." };
+    }
+  });
+  ipcMain.handle(WORKSPACE_USAGE_IPC, async (_event, input: unknown): Promise<WorkspaceUsageResponse> => {
+    const parsed = WorkspaceUsageArgsSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Invalid usage filters. Choose a valid account, timezone and period of at most 366 days." };
+    try {
+      const store = await ensurePersistenceReady();
+      return { ok: true, report: store.workspaceUsage.read(parsed.data) };
+    } catch {
+      return { ok: false, message: "Project usage could not be read. Try again." };
     }
   });
 }
