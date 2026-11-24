@@ -95,12 +95,14 @@ beforeEach(() => {
   useAppStore.getState().setLayout({ patch: { sidebarOverlayVisible: false } });
 });
 
-test("the rail has one Task entry, read as one screen with no tabs", () => {
+test("the rail has one Task entry: the summary on top, then one tab per record view", () => {
   expect(RIGHT_RAIL_PANEL_IDS).toEqual(["explorer", "changes", "information", "skills", "scripts", "task"]);
   expect(RIGHT_RAIL_PANEL_TITLES.task).toBe("Task");
   const html = render();
-  expect(html).not.toContain('role="tablist"');
-  expect(html).not.toContain('role="tab"');
+  expect(html.match(/role="tablist"/g)).toHaveLength(1);
+  expect(html.match(/role="tab"/g)).toHaveLength(5);
+  for (const label of ["Activity", "Steps", "Subagents", "Background", "Outputs"]) expect(html).toContain(label);
+  expect(html).not.toContain("<details");
   expect(html).not.toContain("Handoff");
   // One bar with the panel's title; the caption follows it.
   expect(html.match(/<header/g)).toHaveLength(1);
@@ -118,12 +120,24 @@ test("a caption under the bar names the task and its workspace", () => {
   expect(other).not.toContain("Add CSV export");
 });
 
-test("Details start collapsed and mount nothing until opened", () => {
+test("the panel opens on Activity and mounts only that view", () => {
   const html = render({ repositoryPath: "/tmp/repo", agentRun: agentRun() });
-  expect(html).toMatch(/<details[^>]*data-testid="task-details"(?![^>]*\sopen)/);
-  expect(html).toContain(">Details<");
+  expect(html).toMatch(/role="tab"[^>]*aria-selected="true"[^>]*>Activity/);
+  expect(html).toContain('data-testid="turn-activity-panel-idle"');
   expect(html).not.toContain('data-testid="agent-run-panel"');
   expect(html).not.toContain('aria-label="Flow"');
+});
+
+test("a request to focus the run opens Steps on it", () => {
+  const detail = agentRun();
+  const html = render({
+    repositoryPath: "/tmp/repo",
+    agentRun: detail,
+    runFocus: { taskId: TASK_ID, agentRunId: detail.agentRun.id, nonce: 1 } as never,
+  });
+  expect(html).toMatch(/role="tab"[^>]*aria-selected="true"[^>]*>Steps/);
+  expect(html).toContain('data-testid="agent-run-panel"');
+  expect(html).not.toContain('data-testid="turn-activity-panel-idle"');
 });
 
 test("a never-run task says so instead of claiming a state", () => {
@@ -157,10 +171,6 @@ test("the turn's saved record decides how it ended, so the state never contradic
   expect(status({}).status).toMatchObject({ state: "finished" });
   const failed = status({ history: [turn("turn-2", "failed", "Stream closed before the turn finished.")] });
   expect(failed.status).toEqual({ state: "stopped", waitingOn: null, reason: "Stream closed before the turn finished.", result: null });
-  // Opened on that failure: Details open on it.
-  expect(failed.focusDetails).toBe(true);
-  // A stop the user made is not a failure to open on.
-  expect(status({ history: [turn("turn-2", "cancelled")] }).focusDetails).toBe(false);
 });
 
 test("a finished turn leads with the pull request, the files it changed and its answer", () => {
@@ -172,7 +182,6 @@ test("a finished turn leads with the pull request, the files it changed and its 
     state: "finished",
     result: { pullRequest: { url: "https://example.test/128", number: 128, title: "Add CSV export" }, changedFiles: 2, answerMessageId: "a1" },
   });
-  expect(view.focusDetails).toBe(false);
 });
 
 test("picking an earlier turn moves the title and the state to that turn", () => {
@@ -186,7 +195,6 @@ test("picking an earlier turn moves the title and the state to that turn", () =>
     pastTurnAt: "2026-09-29T08:30:00.000Z",
     status: { state: "finished", result: { pullRequest: null, changedFiles: 0, answerMessageId: "a0" } },
     remaining: [],
-    focusDetails: false,
   });
   // Picking the current turn again is no past turn.
   expect(status({ messages: [earlier, REPLY], history, selectedTurnId: "turn-2" }).pastTurnAt).toBeNull();

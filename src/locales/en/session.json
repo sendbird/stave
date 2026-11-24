@@ -492,7 +492,7 @@
     "changedFiles_other": "{{count}} files changed",
     "reviewChanges": "Review changes",
     "showAnswer": "Show answer",
-    "details": "Details",
+    "sections": "Task records",
     "activity": "Activity",
     "steps": "Steps",
     "subagents": "Subagents",

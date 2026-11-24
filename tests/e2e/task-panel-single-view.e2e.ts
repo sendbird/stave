@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The Task panel as one screen on the preview, at rail width: the state on
- * one line (one status function decides it), what the user must do only
- * while something waits, the result or why it stopped, the conditions still
- * open, and everything else under a collapsed Details. A past turn picked in
- * Details moves the state with it.
+ * The Task panel on the preview, at rail width: the state on one line (one
+ * status function decides it), what the user must do only while something
+ * waits, the result or why it stopped, the conditions still open, and the
+ * record views one tab at a time, Activity first. A past turn picked under
+ * Activity moves the state with it.
  */
 const COPY = {
   en: {
@@ -19,7 +19,6 @@ const COPY = {
     needs: "What you need to do",
     result: "Result",
     remaining: "Still open",
-    details: "Details",
     earlier: "Earlier turn",
     latest: "Back to latest",
     answer: "Answer",
@@ -37,7 +36,6 @@ const COPY = {
     needs: "해야 할 일",
     result: "결과",
     remaining: "남은 조건",
-    details: "자세히",
     earlier: "이전 턴",
     latest: "최신 턴으로",
     answer: "답변하기",
@@ -59,7 +57,9 @@ for (const lang of ["en", "ko"] as const) {
   for (const theme of ["light", "dark"] as const) {
     test(`a failed last turn reads Stopped with its reason and opens on that failure (${lang}, ${theme})`, async ({ page }) => {
       const frame = await open(page, `task=plain&lang=${lang}&theme=${theme}`);
-      await expect(frame.getByRole("tablist")).toHaveCount(0);
+      await expect(frame.getByRole("tablist")).toHaveCount(1);
+      await expect(frame.getByRole("tab")).toHaveCount(5);
+      await expect(frame.locator("details[data-testid='task-details']")).toHaveCount(0);
       const state = frame.getByTestId("task-state");
       await expect(state).toContainText(copy.stopped);
       // One status: the run header's "Completed" no longer sits beside the failed turn.
@@ -67,8 +67,8 @@ for (const lang of ["en", "ko"] as const) {
       await expect(state).not.toContainText(copy.finished);
       const result = frame.getByRole("region", { name: copy.result });
       await expect(result).toContainText("Stream closed before the turn finished.");
-      // Opened on that failure: Details is open on the failed turn's record.
-      await expect(frame.getByTestId("task-details")).toHaveAttribute("open", "");
+      // Opened on that failure: Activity is selected, on the failed turn's record.
+      await expect(frame.getByTestId("task-section-activity")).toHaveAttribute("aria-selected", "true");
       await expect(frame.getByTestId("turn-record")).toBeVisible();
       // Removed: the list/timeline switch, the approval tallies and the record's internal notes.
       await expect(frame.getByTestId("turn-activity-view")).toHaveCount(0);
@@ -85,22 +85,21 @@ for (const lang of ["en", "ko"] as const) {
     const result = frame.getByRole("region", { name: copy.result });
     await expect(result.getByRole("link", { name: new RegExp(copy.pr) })).toBeVisible();
     await expect(result.getByRole("button", { name: copy.showAnswer })).toBeVisible();
-    await expect(frame.getByTestId("task-details")).not.toHaveAttribute("open", "");
+    await expect(frame.getByTestId("task-section-activity")).toHaveAttribute("aria-selected", "true");
   });
 
-  test(`a running agent run lists only open conditions and keeps Details collapsed (${lang})`, async ({ page }) => {
+  test(`a running agent run lists only open conditions and shows its steps under Steps (${lang})`, async ({ page }) => {
     const frame = await open(page, `task=agent-run&lang=${lang}`);
     await expect(frame.getByTestId("task-state")).toContainText(copy.working);
     const remaining = frame.getByRole("region", { name: copy.remaining });
     await expect(remaining).toContainText("The default page size is documented");
     await expect(remaining).not.toContainText("/users accepts limit and offset");
     await expect(frame.getByRole("region", { name: copy.result })).toHaveCount(0);
-    const details = frame.getByTestId("task-details");
-    await expect(details).not.toHaveAttribute("open", "");
-    await expect(details.getByText("bun test tests/users", { exact: false })).toHaveCount(0);
-    await details.locator("summary").click();
-    await expect(details).toHaveAttribute("open", "");
-    await expect(details.getByText("bun test tests/users", { exact: false }).first()).toBeVisible();
+    // The live turn's steps are on screen without opening anything.
+    await expect(frame.getByRole("tabpanel").getByText("bun test tests/users", { exact: false }).first()).toBeVisible();
+    await expect(frame.getByTestId("agent-run-panel")).toHaveCount(0);
+    await frame.getByTestId("task-section-steps").click();
+    await expect(frame.getByTestId("agent-run-panel")).toBeVisible();
     // The run's stages are listed once: no badge row or stage track repeats the state.
     await expect(frame.getByTestId("agent-run-panel").locator("[data-stage-track]")).toHaveCount(0);
   });
@@ -172,8 +171,8 @@ for (const [lang, theme, panelWidth, density] of [["en", "light", 420, "regular"
     await page.setViewportSize({ width: 720, height: 1000 });
     await page.goto(`/?stavePreview=task-panel&task=agent-run&background=1&panelWidth=${panelWidth}&lang=${lang}&theme=${theme}&density=${density}`);
     const frame = page.getByTestId("task-panel-frame");
-    await frame.getByText(COPY[lang].details, { exact: true }).click();
-    const section = frame.getByRole("region", { name: lang === "en" ? "Background" : "백그라운드", exact: true });
+    await frame.getByTestId("task-section-background").click();
+    const section = frame.getByRole("tabpanel", { name: lang === "en" ? "Background" : "백그라운드", exact: true });
     const rows = section.getByTestId("background-task-row");
     await expect(rows).toHaveCount(3);
     await expect(rows.nth(0)).toContainText(lang === "en" ? "Provider confirmed" : "프로바이더 확인");

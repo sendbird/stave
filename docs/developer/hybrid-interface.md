@@ -66,7 +66,7 @@ inspector-tab store: the selected tab is layout state, and a retired panel id
 in a saved layout is read as the tab that replaced it. Record views load only
 while their tab is mounted; changing task identity remounts the view. Delayed listings remain
 invalidated when scope changes or a listing is disabled. No extra transcript
-store is created. The Subagents part of the Task panel's Details lists durable and in-turn subagents as one
+store is created. The Task panel's Subagents tab lists durable and in-turn subagents as one
 list, live first: who (agent or model), what it is doing and its state, with
 the answer folded under the row and Open transcript / Stop as its only
 controls. It never invents a provider-native transcript or exposes

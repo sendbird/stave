@@ -1,14 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
-/** The Task panel's outputs sit in its Details; open them unless already open. */
-async function openDetails(page: Page) {
-  const details = page.getByTestId("task-details");
-  // A task whose saved history ends in a failure opens Details by itself once
-  // the history loads; a click racing it would close them again.
-  await expect(async () => {
-    if ((await details.getAttribute("open")) === null) await details.locator("summary").click();
-    await expect(details).toHaveAttribute("open", "", { timeout: 1_000 });
-  }).toPass();
+/** The Task panel's outputs sit under its Outputs tab. */
+async function openOutputs(page: Page) {
+  await page.getByTestId("task-section-outputs").click();
 }
 
 const summary = "Tightened the row gaps to 8px and kept the keyboard order; typecheck and the focused tests pass.";
@@ -38,7 +32,7 @@ for (const lang of ["en", "ko"] as const) {
   for (const theme of ["light", "dark"] as const) {
     test(`task outputs: read and draft-only follow-up, with no review marks (${lang}, ${theme}, 320px)`, async ({ page }, testInfo) => {
       await page.goto(`/?stavePreview=task-panel&panelWidth=320&lang=${lang}&theme=${theme}`);
-      await openDetails(page);
+      await openOutputs(page);
       const outputs = page.getByRole("region", { name: ko ? "작업 산출물" : "Task outputs" });
       await expect(outputs.getByRole("radio")).toHaveCount(0);
       await expect(outputs.getByRole("button", { name: ko ? "읽음 표시" : "Mark read", exact: true })).toHaveCount(0);
@@ -72,7 +66,7 @@ for (const lang of ["en", "ko"] as const) {
 
 test("auto-read outputs remain listed", async ({ page }) => {
   await page.goto("/?stavePreview=task-panel&panelWidth=320");
-  await openDetails(page);
+  await openOutputs(page);
   const outputs = page.getByRole("region", { name: "Task outputs" });
   await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
   const marked = await page.evaluate(async () => {
@@ -111,7 +105,7 @@ test("overview empty and failure states explain the next action", async ({ page 
 
 test("a finished agent report stays available behind its disclosure", async ({ page }) => {
   await page.goto("/?stavePreview=task-panel&task=agent-run&panelWidth=384");
-  await openDetails(page);
+  await openOutputs(page);
   await expect(page.getByRole("region", { name: "Task outputs" })).toBeVisible();
   await page.evaluate(async () => {
     const { useAppStore } = await import("/src/store/app.store.ts");

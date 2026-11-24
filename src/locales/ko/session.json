@@ -482,7 +482,7 @@
     "changedFiles_other": "파일 {{count}}개 변경",
     "reviewChanges": "변경 검토",
     "showAnswer": "답변 보기",
-    "details": "자세히",
+    "sections": "작업 기록",
     "activity": "활동",
     "steps": "단계",
     "subagents": "하위 에이전트",

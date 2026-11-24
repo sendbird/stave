@@ -495,15 +495,11 @@ async function openPreview(page, locale, query) {
   await settle(page);
 }
 
-/** Open the Task panel's Details; a failed last turn may have opened them already. */
-async function openTaskDetails(page) {
-  const details = page.getByTestId("task-details");
-  await details.waitFor();
-  for (let attempt = 0; attempt < 10 && (await details.getAttribute("open")) === null; attempt += 1) {
-    await details.locator("summary").click();
-    await page.waitForTimeout(300);
-  }
-  if ((await details.getAttribute("open")) === null) throw new Error("The Task panel's Details did not open.");
+/** Open one of the Task panel's record tabs. */
+async function openTaskSection(page, section) {
+  const tab = page.getByTestId(`task-section-${section}`);
+  await tab.waitFor();
+  await tab.click();
 }
 
 async function settle(page) {
@@ -743,9 +739,9 @@ const SHOTS = [
     name: "agent-run-panel",
     viewport: { width: 448, height: 900 },
     async capture({ page, locale, file }) {
-      // The Task panel is one screen: the run's steps sit in its Details.
+      // The run's steps sit under the Task panel's Steps tab.
       await openPreview(page, locale, "task-panel&task=agent-run&theme=dark&panelWidth=416");
-      await openTaskDetails(page);
+      await openTaskSection(page, "steps");
       await settle(page);
       await save(page, page.getByTestId("agent-run-panel"), file, { padding: 12 });
     },
@@ -802,11 +798,11 @@ const SHOTS = [
     name: "results",
     viewport: { width: 448, height: 900 },
     async capture({ page, locale, file, t }) {
-      // The outputs sit in the Task panel's Details; the preview's bridge stub
+      // The outputs sit under the Task panel's Outputs tab; the preview's bridge stub
       // serves the results it seeded.
       await openPreview(page, locale, "task-panel&outcome=completed&theme=dark&panelWidth=416");
-      await openTaskDetails(page);
-      const outputs = page.getByRole("region", { name: await t("session:taskPanel.outputs"), exact: true });
+      await openTaskSection(page, "outputs");
+      const outputs = page.getByRole("tabpanel", { name: await t("session:taskPanel.outputs"), exact: true });
       const entry = outputs.getByText("Tightened the row gaps to 8px and kept the keyboard order; typecheck and the focused tests pass.", { exact: true }).first();
       await entry.click();
       await settle(page);

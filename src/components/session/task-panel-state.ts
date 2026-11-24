@@ -44,8 +44,6 @@ export interface TaskPanelStatus {
   request: TaskPanelRequest | null;
   /** Done-when lines still unmet or unverified (current turn only). */
   remaining: AgentRunDoneWhenLine[];
-  /** The current work stopped on its own (not by the user): Details open on it. */
-  focusDetails: boolean;
   /**
    * The run stage whose diff the result's file count is, for Review changes;
    * null when the count is the followed turn's own edits (the turn's review).
@@ -278,7 +276,6 @@ export function buildTaskPanelStatus(args: {
       pastTurnAt: entry?.createdAt ?? message?.startedAt ?? null,
       request: null,
       remaining: [],
-      focusDetails: false,
       reviewStage: null,
     };
   }
@@ -310,12 +307,10 @@ export function buildTaskPanelStatus(args: {
     },
   };
   const status = resolveTaskUserState(facts);
-  const stoppedByUser = lastTurn?.ending === "cancelled" || args.agentRun?.agentRun.state === "cancelled";
   return {
     status,
     turnId,
     pastTurnAt: null,
-    focusDetails: status?.state === "stopped" && !stoppedByUser,
     reviewStage,
     request: requestOfStatus(status, pending),
     remaining: run?.doneWhen.filter((line) => line.status === "unmet" || line.status === "unverified") ?? [],

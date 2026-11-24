@@ -1367,6 +1367,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             data-testid="turn-activity-list"
             className={sx(
               styles.list,
+              variant !== "panel" && styles.listContained,
               variant === "docked" && (inline ? styles.listInline : styles.listDocked),
               variant === "floating" && styles.listFloating,
               variant === "panel" && styles.listPanel,
