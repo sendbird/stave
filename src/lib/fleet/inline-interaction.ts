@@ -28,7 +28,12 @@ export interface FleetShortQuestionOption {
  *   numbers, links, or a request no longer pending — is answered in the task.
  */
 export type FleetInlineInteraction =
-  | { kind: "approval"; part: ApprovalPart }
+  | {
+      kind: "approval";
+      part: ApprovalPart;
+      /** The whole request as one readable line, or null when Allow needs the task. */
+      summary: string | null;
+    }
   | {
       kind: "short-question";
       part: UserInputPart;
@@ -47,6 +52,43 @@ const TYPED_INPUT_TYPES: ReadonlySet<UserInputQuestion["inputType"]> = new Set([
   "url_notice",
 ]);
 
+const INLINE_APPROVAL_SUMMARY_MAX = 160;
+const INLINE_APPROVAL_COMMAND_MAX = 120;
+
+function readApprovalCommand(input: string | undefined): string | null {
+  if (!input) return null;
+  try {
+    const parsed: unknown = JSON.parse(input);
+    if (!parsed || typeof parsed !== "object") return null;
+    const command = (parsed as { command?: unknown }).command;
+    if (typeof command === "string") return command.trim() || null;
+    if (Array.isArray(command) && command.every((item) => typeof item === "string")) {
+      return command.join(" ").trim() || null;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * What a row shows before it offers Allow once. A row answers an approval only
+ * when it can show the whole request: nothing marks it risky, the summary is
+ * one line, and any command is short enough to read in full. Otherwise Allow
+ * is left to the task, as macOS notification actions already do; Deny stays.
+ */
+export function readInlineApprovalSummary(part: ApprovalPart): string | null {
+  if (part.risk) return null;
+  const description = part.description.trim();
+  const command = readApprovalCommand(part.input);
+  if (!description && !command) return null;
+  if (description.includes("\n") || description.length > INLINE_APPROVAL_SUMMARY_MAX) return null;
+  if (command && (command.includes("\n") || command.length > INLINE_APPROVAL_COMMAND_MAX)) return null;
+  return command && !description.includes(command)
+    ? [description, command].filter(Boolean).join(" · ")
+    : description;
+}
+
 export function classifyFleetInlineInteraction(
   part: ApprovalPart | UserInputPart | null | undefined,
   optionCount: { min: number; max: number } = FLEET_SHORT_QUESTION_OPTIONS,
@@ -55,7 +97,9 @@ export function classifyFleetInlineInteraction(
     return OPEN;
   }
   if (part.type === "approval") {
-    return part.state === "approval-requested" ? { kind: "approval", part } : OPEN;
+    return part.state === "approval-requested"
+      ? { kind: "approval", part, summary: readInlineApprovalSummary(part) }
+      : OPEN;
   }
   if (part.state !== "input-requested" || part.questions.length !== 1) {
     return OPEN;

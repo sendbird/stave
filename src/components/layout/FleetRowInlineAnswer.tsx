@@ -75,7 +75,7 @@ export function resolveFleetRowKey(
   const { inline } = interaction;
   if (inline.kind === "approval") {
     const approved = resolveApprovalRowKey(event);
-    if (approved === null) return null;
+    if (approved === null || (approved && inline.summary === null)) return null;
     return approved
       ? { kind: "approval", approved: true, scope: "once" }
       : { kind: "approval", approved: false };
@@ -97,7 +97,7 @@ export function describeFleetRowKeys(
   interaction: Pick<FleetRowInteraction, "inline">,
 ) {
   const { inline } = interaction;
-  if (inline.kind === "approval") return "A D";
+  if (inline.kind === "approval") return inline.summary === null ? "D" : "A D";
   if (inline.kind === "short-question") {
     return inline.options
       .slice(0, 9)
@@ -116,13 +116,15 @@ export function ApprovalRowButtons(props: {
   denyLabel: string;
   disabled?: boolean;
   compact?: boolean;
+  /** False when the row cannot show the whole request: only Deny is offered. */
+  canAllow?: boolean;
   onAllow: () => void;
   onDeny: () => void;
 }) {
   useTranslation();
   return (
     <>
-      <Button
+      {props.canAllow === false ? null : <Button
         aria-keyshortcuts="A"
         aria-label={props.allowLabel}
         disabled={props.disabled}
@@ -133,7 +135,7 @@ export function ApprovalRowButtons(props: {
       >
         <Kbd aria-hidden="true">A</Kbd>
         {i18n.t(props.compact === false ? "shell:topBarNotifications.allowOnce" : "fleet:inlineAnswer.allow")}
-      </Button>
+      </Button>}
       <Button
         aria-keyshortcuts="D"
         aria-label={props.denyLabel}
@@ -179,6 +181,8 @@ export function FleetRowInlineAnswer(props: {
           ? i18n.t("fleet:inlineAnswer.answered")
           : interaction.pending && inline.kind === "open"
             ? i18n.t("fleet:inlineAnswer.openInTask")
+            : interaction.pending && inline.kind === "approval" && inline.summary === null && !interaction.busy
+              ? i18n.t("fleet:inlineAnswer.reviewToAllow")
             : interaction.busy && inline.kind === "short-question"
               ? i18n.t("fleet:inlineAnswer.sending")
               : null;
@@ -193,6 +197,7 @@ export function FleetRowInlineAnswer(props: {
         <ApprovalRowButtons
           allowLabel={i18n.t("fleet:inlineAnswer.allowOnceLabel", { tool: inline.part.toolName })}
           denyLabel={i18n.t("fleet:inlineAnswer.denyLabel", { tool: inline.part.toolName })}
+          canAllow={inline.summary !== null}
           onAllow={() => onAnswer({ kind: "approval", approved: true, scope: "once" })}
           onDeny={() => onAnswer({ kind: "approval", approved: false })}
         />

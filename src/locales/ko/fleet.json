@@ -234,6 +234,7 @@
     "loadFailed": "이 요청을 불러오지 못했습니다. 작업을 열어 응답하세요.",
     "answered": "이 요청에 응답했거나 요청이 만료되었습니다.",
     "openInTask": "작업에서 응답하세요.",
+    "reviewToAllow": "허용하려면 태스크에서 요청 전체를 확인하세요.",
     "sending": "응답을 보내는 중…",
     "open": "열기",
     "openLabel": "{{workspace}}의 {{title}} 열기",

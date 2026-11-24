@@ -46,11 +46,19 @@ function makeFixtures(ko: boolean) {
     description: ko ? "프로젝트 설정 읽기" : "Read project settings", state: "approval-requested",
     supportsAllowAlways: true,
   };
+  // Flagged as risky, so the row cannot offer Allow once: Deny and Open task only.
+  const risky: ApprovalPart = {
+    type: "approval", requestId: "risky", toolName: "Bash",
+    description: ko ? "릴리스 노트 내려받기" : "Download the release notes",
+    input: JSON.stringify({ command: "curl -sSL https://example.com/notes" }),
+    risk: "network-access", state: "approval-requested",
+  };
   const fixtures = [
     { id: "short", title: ko ? "데이터 내보내기" : "Export data", part: short },
     { id: "long", title: ko ? "내보내기 설정 검토" : "Review export requirements", part: long },
     { id: "approval", title: ko ? "설정 확인" : "Check settings", part: approval },
     { id: "stale", title: ko ? "종료된 작업" : "Ended task", part: { ...approval, requestId: "stale" } },
+    { id: "risky", title: ko ? "릴리스 확인" : "Check release", part: risky },
   ];
   const tasks: Task[] = fixtures.map(({ id, title }) => ({
     id, title, updatedAt: new Date().toISOString(), unread: false,
@@ -99,7 +107,7 @@ export function BellAnswersPreview() {
       useAppStore.setState((state) => ({
         ...fixtures, activeWorkspaceId: workspaceId, repositoryPath,
         hasHydratedWorkspaces: true, workspaces: [{ id: workspaceId, name: "main", updatedAt: new Date().toISOString() }],
-        activeTurnIdsByTask: { short: "turn-short", long: "turn-long", approval: "turn-approval" },
+        activeTurnIdsByTask: { short: "turn-short", long: "turn-long", approval: "turn-approval", risky: "turn-risky" },
         notificationsLoad: { status: "ready" },
         openNotificationContext: async ({ notificationId }) => {
           useAppStore.setState({ activeTaskId: notificationId });

@@ -53,6 +53,7 @@ export function BellInboxRow(props: {
 
   function handleRowKeyDown(event: KeyboardEvent<HTMLLIElement>) {
     if (event.defaultPrevented || busy || failed || inline?.kind !== "approval") return;
+    // Allow needs the whole request on screen; Deny never does.
     const approved = resolveApprovalRowKey({
       key: event.key,
       altKey: event.altKey,
@@ -63,14 +64,16 @@ export function BellInboxRow(props: {
       isComposing: event.nativeEvent.isComposing,
       target: event.target,
     });
-    if (approved === null) return;
+    if (approved === null || (approved && inline.summary === null)) return;
     event.preventDefault();
     props.onAnswer({ approved });
   }
 
-  const canApprove = !failed && inline?.kind === "approval";
+  const approval = !failed && inline?.kind === "approval" ? inline : null;
+  const canApprove = approval !== null;
+  const canAllow = approval?.summary != null;
   const shortQuestion = !failed && inline?.kind === "short-question" ? inline : null;
-  const showOpenTask = interaction && (failed || (!feedback && !stale && !canApprove && !shortQuestion));
+  const showOpenTask = interaction && (failed || (!feedback && !stale && !canAllow && !shortQuestion));
   const note = sending ? t("fleet:inlineAnswer.sending")
     : feedback === "delivered" ? t("shell:topBarNotifications.answerSent")
     : feedback === "skipped" ? t("shell:topBarNotifications.requestUnavailable")
@@ -78,15 +81,17 @@ export function BellInboxRow(props: {
 
   return (
     <InboxRow
-      entry={shortQuestion ? { ...entry, detail: shortQuestion.question.question } : entry}
+      entry={shortQuestion
+        ? { ...entry, detail: shortQuestion.question.question }
+        : canAllow ? { ...entry, detail: approval.summary } : entry}
       triggerId={`notification-entry-${entry.id}`}
       triggerLabel={props.triggerLabel}
-      triggerProps={canApprove ? { "aria-keyshortcuts": "A D" } : undefined}
+      triggerProps={canApprove ? { "aria-keyshortcuts": canAllow ? "A D" : "D" } : undefined}
       busy={busy}
       onActivate={props.onActivate}
       onKeyDown={handleRowKeyDown}
       supplement={props.supplement}
-      wrapDetail={Boolean(shortQuestion)}
+      wrapDetail={Boolean(shortQuestion) || canAllow}
       actions={interaction || entry.unread ? (
         <>
           {canApprove ? (
@@ -95,6 +100,7 @@ export function BellInboxRow(props: {
               allowLabel={t("shell:topBarNotifications.allowOnceFor", { title: entry.title })}
               denyLabel={t("shell:topBarNotifications.denyFor", { title: entry.title })}
               disabled={busy}
+              canAllow={canAllow}
               onAllow={() => props.onAnswer({ approved: true })}
               onDeny={() => props.onAnswer({ approved: false })}
             />
