@@ -89,14 +89,27 @@ test("a finished turn keeps every step folded, and opening it keeps the reading 
   await expect(history).toHaveAttribute("aria-expanded", "false");
   // A failed step folds with the rest; it is not pinned outside the history.
   await expect(failed).toHaveCount(0);
-  await history.evaluate((node) => node.scrollIntoView({ block: "center" }));
+  // Scroll as a reader would. A DOM scrollIntoView does not stop the
+  // conversation from following the latest output.
   const headerTop = () => history.evaluate((node) =>
     node.getBoundingClientRect().top - node.closest("[data-transcript-scroller]")!.getBoundingClientRect().top,
   );
-  const before = await headerTop();
-  await history.evaluate((button: HTMLButtonElement) => button.click());
+  await scroller.hover();
+  const viewportMiddle = await scroller.evaluate((node) => node.clientHeight / 2);
+  await page.mouse.wheel(0, (await headerTop()) - viewportMiddle);
+  await expect(history).toBeInViewport({ ratio: 1 });
+  // Measure on the click itself, before the disclosure changes the layout.
+  await history.evaluate((button: HTMLButtonElement) => {
+    button.addEventListener("click", () => {
+      const viewport = button.closest("[data-transcript-scroller]")!;
+      button.dataset.topBeforeDisclosure = String(button.getBoundingClientRect().top - viewport.getBoundingClientRect().top);
+    }, { capture: true, once: true });
+  });
+  await history.click();
   await expect(history).toHaveAttribute("aria-expanded", "true");
-  await expect.poll(headerTop).toBeCloseTo(before, 0);
+  const before = await history.getAttribute("data-top-before-disclosure");
+  expect(before).toMatch(/^\d+(\.\d+)?$/);
+  await expect.poll(headerTop).toBeCloseTo(Number(before), 0);
   // Opened history reads in the order the work happened.
   const order = await message.locator("[data-folded-trace-history] [data-tool-use-id]").evaluateAll(
     (rows) => rows.map((row) => row.getAttribute("data-tool-use-id")),
