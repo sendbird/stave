@@ -144,6 +144,7 @@ import {
  * mounts the real `ChildRequestSlot` on a seeded store: a child approval that
  * was already answered (with the close control), and a still-pending one
  * queued behind it (add `&queued=0` to drop the queued one).
+ * `&childRequest=live` exercises a question with a failed first delivery and a retry.
  * `&draft=empty` starts with an empty draft, so the placeholder shows. With
  * `&case=needs-input` the composer stays usable and sending redirects the agent;
  * `&redirect=queue` shows the variant for a turn that cannot be steered.
@@ -256,6 +257,7 @@ const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
 const CHILD_REQUEST_CASE = previewParams.get("childRequest");
 const CHILD_REQUEST = CHILD_REQUESTS[CHILD_REQUEST_CASE ?? ""] ?? null;
 const CHILD_REQUEST_SETTLED = CHILD_REQUEST_CASE === "answered";
+const CHILD_REQUEST_LIVE = CHILD_REQUEST_CASE === "live";
 const CHILD_REQUEST_QUEUED = previewParams.get("queued") === "0" ? 0 : 1;
 const PREVIEW_REPOSITORY_PATH = "/tmp/preview-repo";
 
@@ -268,15 +270,19 @@ const PREVIEW_REPOSITORY_PATH = "/tmp/preview-repo";
  * so a reload shows what was saved: a closed request stays closed. The slot,
  * its loading and its close are the real ones.
  */
-function seedSettledChildRequest() {
+function seedChildRequest() {
   // Each case keeps its own saved rows; the other case's are removed so a
   // switch between them in one browser does not show both.
-  const childWorkspaceId = `preview-child-workspace-${CHILD_REQUEST_QUEUED ? "queued" : "single"}`;
-  const otherWorkspaceId = `preview-child-workspace-${CHILD_REQUEST_QUEUED ? "single" : "queued"}`;
+  const scenario = CHILD_REQUEST_LIVE ? "question" : CHILD_REQUEST_QUEUED ? "queued" : "single";
+  const childWorkspaceId = `preview-child-workspace-${scenario}`;
+  const otherWorkspaceIds = ["queued", "single", "question"].filter((key) => key !== scenario).map((key) => `preview-child-workspace-${key}`);
   const childTaskId = "preview-child-task";
   const turnId = "preview-child-turn";
   const at = (second: number) => `2026-10-02T09:00:0${second}.000Z`;
-  const messages = [
+  const question = PREVIEW_CHILD_QUESTION_WITH_PREVIEW;
+  const messages = CHILD_REQUEST_LIVE
+    ? [{ id: question.messageId, role: "assistant" as const, providerId: "codex" as const, model: question.model ?? "", content: "", parts: [question.part] }]
+    : [
     { id: "preview-child-answered-message", role: "assistant" as const, providerId: "codex" as const, model: "gpt-5.5-codex", content: "",
       parts: [{ type: "approval" as const, requestId: "preview-child-answered", toolName: "Bash", description: "bun run lint", state: "approval-responded" as const }] },
     ...(CHILD_REQUEST_QUEUED
@@ -295,6 +301,10 @@ function seedSettledChildRequest() {
   });
   useAppStore.setState((state) => ({
     repositoryPath: PREVIEW_REPOSITORY_PATH,
+    workspaces: [
+      ...state.workspaces.filter(({ id }) => id !== childWorkspaceId),
+      { id: childWorkspaceId, name: "Child", updatedAt: at(0) },
+    ],
     taskWorkspaceIdById: { ...state.taskWorkspaceIdById, [childTaskId]: childWorkspaceId },
     workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [childWorkspaceId]: {
       ...createEmptyWorkspaceState(), nativeSessionReadyByTask: {},
@@ -306,15 +316,36 @@ function seedSettledChildRequest() {
       activeTurnIdsByTask: { [childTaskId]: turnId },
     } },
   }));
-  const notifications = [
+  const notifications = CHILD_REQUEST_LIVE ? [{
+    ...notification("preview-child-ask", question.part.requestId, question.messageId, at(1)),
+    kind: "task.user_input_requested" as const,
+    action: null,
+    payload: { ...root, requestId: question.part.requestId, messageId: question.messageId },
+  }] : [
     notification("preview-child-answered-notification", "preview-child-answered", "preview-child-answered-message", at(1)),
     ...(CHILD_REQUEST_QUEUED
       ? [notification("preview-child-pending-notification", PREVIEW_CHILD_APPROVAL.part.requestId, PREVIEW_CHILD_APPROVAL.messageId, at(2))]
       : []),
   ];
+  if (CHILD_REQUEST_LIVE && window.api) {
+    let attempts = 0;
+    window.api.localMcp = {
+      respondUserInput: async (answer) => {
+        if (++attempts === 1) return { ok: false, message: "fixture: transport interrupted", reason: "write-failed" };
+        if (previewParams.has("holdAnswer")) {
+          await new Promise<void>((resolve) => window.addEventListener("fixture-deliver-answer", () => resolve(), { once: true }));
+        }
+        return {
+          ok: answer.taskId === childTaskId && answer.workspaceId === childWorkspaceId &&
+            answer.requestId === question.part.requestId && answer.expectedMessageId === question.messageId &&
+            Boolean(answer.denied || answer.answers?.layout === "Scroll container"),
+        };
+      },
+    };
+  }
   // An existing row (same dedupe key) is kept as saved, closed or not.
   // `preview-child-workspace` held both cases' rows before they were split.
-  void deleteNotificationsForWorkspaces({ workspaceIds: [otherWorkspaceId, "preview-child-workspace"] })
+  void deleteNotificationsForWorkspaces({ workspaceIds: [...otherWorkspaceIds, "preview-child-workspace"] })
     .then(() => Promise.all(notifications.map((item) => createNotification({ notification: item }))))
     .then(() => useAppStore.getState().hydrateNotifications());
 }
@@ -438,7 +469,7 @@ export function ComposerFramePreviewApp() {
   }, []);
   useLayoutEffect(() => {
     seedShelfCase({ caseId, placement, detailsOpen: previewParams.get("open") === "1" });
-    if (CHILD_REQUEST_SETTLED) seedSettledChildRequest();
+    if (CHILD_REQUEST_SETTLED || CHILD_REQUEST_LIVE) seedChildRequest();
     if (previewParams.get("attachments") === "all") {
       // One chip of each context kind, so the shared chip shape can be compared.
       const document = buildDocumentMentionOptions({ entries: PREVIEW_DOCUMENT_CATALOG, attachments: [] })[1]!;
@@ -659,7 +690,7 @@ export function ComposerFramePreviewApp() {
                     onRespond={() => {}}
                   />
                 ) : null}
-                {CHILD_REQUEST_SETTLED ? <ChildRequestSlot taskId={PREVIEW_TASK_ID} /> : null}
+                {CHILD_REQUEST_SETTLED || CHILD_REQUEST_LIVE ? <ChildRequestSlot taskId={PREVIEW_TASK_ID} /> : null}
                 {SECRET_REQUEST ? (
                   <SecretRequestCard
                     request={SECRET_REQUEST}

@@ -12,7 +12,7 @@ import { answerRunQuestion } from "./run-question-answer";
 export interface HostUserInputArgs {
   workspaceId: string; taskId: string; requestId: string;
   answers?: Record<string, string>; denied?: boolean; answerDelivered?: boolean;
-  /** Tars: the question must still be the one in this message, since a provider may reuse a request id. */
+  /** The question must still be the one in this message, since a provider may reuse a request id. */
   expectedMessageId?: string;
 }
 
@@ -41,7 +41,12 @@ export async function respondHostUserInput(args: HostUserInputArgs, ports: HostU
       requestId: args.requestId,
     });
     if (!userInput || (args.expectedMessageId && userInput.messageId !== args.expectedMessageId)) {
-      throw new Error(`Pending user input not found: ${args.requestId}`);
+      const message = messages.find(({ id }) => id === args.expectedMessageId);
+      const settled = message?.parts.find((part) => part.type === "user_input" &&
+        part.requestId === args.requestId && part.state !== "input-requested");
+      throw new ProviderDecisionDeliveryError(`Pending user input not found: ${args.requestId}`, settled
+        ? "already-answered"
+        : undefined);
     }
 
     if (!activeTurnId && runQuestionStage(args.requestId) && userInput.part.delivery !== "async") {
@@ -60,7 +65,9 @@ export async function respondHostUserInput(args: HostUserInputArgs, ports: HostU
       throw new Error(`Question ${args.requestId} did not pause the task. Send the answer as a follow-up message to the task instead.`);
     }
     if (userInput.part.delivery !== "async") {
-      if (!activeTurnId) throw new Error(`No active turn found for task ${args.taskId}.`);
+      if (!activeTurnId) {
+        throw new ProviderDecisionDeliveryError(`No active turn found for task ${args.taskId}.`, "request-interrupted");
+      }
       const result = await ports.respond({
         turnId: activeTurnId,
         requestId: args.requestId,

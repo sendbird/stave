@@ -448,7 +448,7 @@ export function createWorkspaceCreateActions(args: {
             if (result.status === "fallback") {
               const detail = i18n.t("workspace:dependencyCopyFallback");
               creationNotices.push({ level: "warning", message: detail });
-              return { status: "failed", detail };
+              return { status: "skipped" };
             }
             return { status: result.status === "skipped" ? "skipped" : "complete" };
           },
@@ -499,10 +499,8 @@ export function createWorkspaceCreateActions(args: {
             if (!startInitialTask) return { status: "skipped" };
             const startup = await startInitialTask(target);
             taskStartup.result = startup;
-            if (startup.startup === "blocked" || startup.startup === "unknown") {
-              return { status: "failed", detail: startup.message ?? i18n.t("workspace:creationProgress.commandFailed") };
-            }
-            if (startup.startup === "staged") return { status: "skipped" };
+            // Kickoff surfaces a failed or unconfirmed send through its warning.
+            if (startup.startup !== "started" && startup.startup !== "queued") return { status: "skipped" };
           },
         });
       } catch (error) {

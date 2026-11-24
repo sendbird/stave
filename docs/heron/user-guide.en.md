@@ -194,7 +194,7 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 
 The PR head determines the default workspace branch name. PR checkout runs in the **Create worktree** step. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
 
-The new workspace opens as soon as creation begins. Its sidebar row and pane show checkout, reusable file copying, setup, and first-task startup. Select **Open logs** to see details of a failure. After fixing a checkout or setup problem, select **Retry** to continue in the same workspace. If Git reports a branch collision, use the suggested name in a new creation request.
+The new workspace opens as soon as creation begins. The sidebar row shows the current step, and the workspace pane centers the preparation status until setup finishes and the task opens. Select **Open logs** for checkout or setup failure details, then select **Retry** after fixing the problem to continue in the same workspace. If Git reports a branch collision, use the suggested name in a new creation request.
 Screens: [Workspace creation progress](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-creation-progress.png)
 
 A **Post-Create Command** (for example `bun install`) runs right after creation.
@@ -1174,7 +1174,7 @@ The Task panel's **Subagents** tab shows whether each is running, waiting, needs
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
 When a delegated agent waits for a person, the shelf tells you; answer in that task or with Reply to the delegated Agent.
-A delegated task's approval or question also appears above the parent task's composer, where you can answer it. If it was already answered elsewhere or expired, the card says so and **Close** (×) removes it; a request still waiting has no Close.
+A delegated task's approval or question also appears above the parent task's composer. **Continue** and **Decline to answer** close the question once the child accepts the response. If delivery fails and the question is still pending, the card shows the reason and lets you retry. A request already answered elsewhere or expired can be removed with **Close** (×).
 
 The parent receives each subagent answer once, including after a restart. Each answer arrives whole; one longer than 4,000 characters arrives as its beginning with a reference to the full answer. An answer that does not fit the turn arrives whole in the next one. An answer counts as received once the provider accepts a parent turn that carried it, even if you stop that turn; a turn that never started leaves it for the next turn. If Stave cannot record that the parent received an answer, it sends the answer again with the next turn; after three failed tries it stops, tells you once on the task, and you can read the answer in the **Subagents** tab.
 

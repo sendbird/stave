@@ -888,7 +888,7 @@ export interface AppState
     answers?: Record<string, string>;
     denied?: boolean;
     onUnanswerable?: "report" | "close";
-  }) => Promise<InteractionAnswerOutcome | void>;
+  }) => Promise<InteractionAnswerOutcome>;
   resolveDiff: (args: {
     taskId: string;
     messageId: string;

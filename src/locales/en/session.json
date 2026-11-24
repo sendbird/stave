@@ -236,7 +236,8 @@
     "extraCopy88": "This request could not be loaded.",
     "extraCopy89": "Sending the response to the delegated task…",
     "dismiss": "Close",
-    "dismissFailed": "Could not close this request. Try again."
+    "dismissFailed": "Could not close this request. Try again.",
+    "deliveryFailed": "Could not send the response. {{detail}}"
   },
   "composerContextDock": {
     "copy": "Could not compact context",

@@ -27,7 +27,8 @@ test("a maximum-length workflow stage's question identity fits both answer IPC b
   const stage = { agentRunId: "12345678-1234-4123-8123-123456789012", stageId: "s".repeat(48), attempt: 30 };
   const requestId = runQuestionRequestId(stage, "toolu_01KCorp7PdBJ1vZjQRJHzQA1", "22345678-1234-4123-8123-123456789012");
   expect(runQuestionStage(requestId)).toEqual(stage);
-  expect(LocalMcpUserInputResponseArgsSchema.safeParse({ workspaceId: "workspace", taskId: "task", requestId, answers: { file: "B.md" } }).success).toBe(true);
+  expect(LocalMcpUserInputResponseArgsSchema.safeParse({ workspaceId: "workspace", taskId: "task", requestId,
+    expectedMessageId: "question-message", answers: { file: "B.md" } }).success).toBe(true);
   expect(UserInputResponseArgsSchema.safeParse({ turnId: "turn", requestId, answers: { file: "B.md" } }).success).toBe(true);
 });
 

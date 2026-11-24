@@ -670,7 +670,7 @@ const SHOTS = [
       const panel = page.getByRole("region", { name: await t("workspace:creationProgress.title") });
       await panel.getByText(await t("workspace:creationProgress.status.running"), { exact: true }).waitFor();
       await settle(page);
-      await save(page, panel, file, { padding: 16 });
+      await save(page, panel.getByRole("heading", { level: 2 }).locator(".."), file, { padding: 24 });
     },
   },
   {

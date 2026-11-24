@@ -16,7 +16,7 @@ let pendingCreation: Promise<void> | undefined;
 
 type RegistrySave = { repositories: Array<{ workspaces?: Array<{ id: string }>; workspacePathById?: Record<string, string> }> };
 
-function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean; toplevel?: string; worktreeList?: string; resolvedRepository?: string } = {}) {
+function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean; toplevel?: string; worktreeList?: string; resolvedRepository?: string; copyFallback?: boolean } = {}) {
   const operations: string[] = [];
   const commands: string[] = [];
   const registrySaves: RegistrySave[] = [];
@@ -25,7 +25,10 @@ function install(args: { holdRegistrySave?: boolean; failRegistrySave?: boolean;
   (globalThis as { window?: unknown }).window = {
     localStorage: { getItem: () => null, setItem: () => {}, removeItem: () => {}, clear: () => {} },
     api: {
-      sourceControl: { createWorktree: async () => null },
+      sourceControl: {
+        createWorktree: async () => null,
+        ...(args.copyFallback ? { seedWorktreeDependencies: async () => ({ status: "fallback" }) } : {}),
+      },
       terminal: {
         runCommand: async ({ command }: { command: string }) => {
           commands.push(command);
@@ -73,6 +76,16 @@ async function waitUntil(condition: () => boolean, label: string, timeoutMs = 20
     await Bun.sleep(1);
   }
 }
+
+test("a dependency-copy fallback runs setup and clears the preparation state", async () => {
+  const { commands } = install({ copyFallback: true });
+  const store = await seedRepository();
+  const result = await store.getState().createWorkspace({ mode: "clean", name: "fallback", initCommand: "bun install" });
+  expect(result).toMatchObject({ ok: true, noticeLevel: "warning" });
+  expect(result.message).toContain("Dependency copy skipped");
+  expect(commands).toContain("bun install");
+  expect(useWorkspaceCreationStore.getState().byId[store.getState().activeWorkspaceId]).toBeUndefined();
+});
 
 async function seedRepository() {
   const { useAppStore } = await import("../src/store/app.store");

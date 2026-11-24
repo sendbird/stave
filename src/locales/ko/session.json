@@ -233,7 +233,8 @@
     "extraCopy88": "이 요청을 불러오지 못했습니다.",
     "extraCopy89": "위임 작업에 응답 전송 중…",
     "dismiss": "닫기",
-    "dismissFailed": "이 요청을 닫지 못했습니다. 다시 시도해 주세요."
+    "dismissFailed": "이 요청을 닫지 못했습니다. 다시 시도해 주세요.",
+    "deliveryFailed": "응답을 보내지 못했습니다. {{detail}}"
   },
   "composerContextDock": {
     "copy": "컨텍스트를 압축하지 못했습니다",

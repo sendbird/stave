@@ -367,7 +367,10 @@ working there. It appears in these places:
   offers the usual `Allow once` / `Deny` or answer controls.
   Answering there responds to the child without selecting it or switching
   workspaces, including for a child running in its own worktree. Further
-  requests wait behind it as `+N more`. A request the child already answered,
+  requests wait behind it as `+N more`. **Continue** and **Decline to answer**
+  close the question once the child accepts the response. If delivery fails
+  while the question is still pending, the card shows the reason and lets you
+  retry. A request the child already answered,
   or one that expired, reads "This request was answered or expired." and
   offers a close (×) button; closing it resolves its notification, so it stays
   gone after a restart and the next request takes its place. The button only

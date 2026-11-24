@@ -78,3 +78,16 @@ test("an answer bound to a message is refused when the request id now names a qu
     .rejects.toThrow("Pending user input not found");
   expect(persisted).toHaveLength(0);
 });
+
+test("a question answered elsewhere is reported as settled only for the same message", async () => {
+  const session = sessionWith();
+  const message = session.messagesByTask["task-1"]![0]!;
+  message.parts = message.parts.map((part) => part.type === "user_input" ? { ...part, state: "input-responded" } : part);
+  const { ports, persisted } = harness(session);
+  const target = { workspaceId: "ws", taskId: "task-1", requestId, denied: true };
+  await expect(respondHostUserInput({ ...target, expectedMessageId: "m1" }, ports))
+    .rejects.toMatchObject({ reason: "already-answered" });
+  await expect(respondHostUserInput({ ...target, expectedMessageId: "m0" }, ports))
+    .rejects.toMatchObject({ reason: undefined });
+  expect(persisted).toHaveLength(0);
+});

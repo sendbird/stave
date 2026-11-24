@@ -110,7 +110,7 @@ describe("child requests in the parent composer", () => {
     expect(request.identity).toEqual({ repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child",
       turnId: "child-turn", kind: "approval", requestId: "approval-1", messageId: "approval-message" });
 
-    expect(respondToFleetInteraction(request.identity, { kind: "approval", approved: true })).toEqual({ ok: true, messageId: "approval-message" });
+    expect(respondToFleetInteraction(request.identity, { kind: "approval", approved: true })).toMatchObject({ ok: true, messageId: "approval-message" });
     await flush();
 
     expect(responses).toEqual([{ kind: "approval", workspaceId: "child-workspace", taskId: "child", requestId: "approval-1", approved: true }]);
@@ -119,14 +119,52 @@ describe("child requests in the parent composer", () => {
     expect([state.activeWorkspaceId, state.activeTaskId]).toEqual(["parent-workspace", "parent"]);
   });
 
-  test("answering the child's question carries the child identity and answers", async () => {
+  for (const response of [{ answers: { "Which branch?": "Current" } }, { denied: true }]) {
+    test(`a child's question settles after the host accepts ${response.denied ? "a decline" : "an answer"}`, async () => {
+      const { useAppStore } = await import("@/store/app.store");
+      const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
+      const identity = { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
+        kind: "user-input" as const, requestId: "question-1", messageId: "question-message" };
+      const dispatch = respondToFleetInteraction(identity, { kind: "user-input", ...response });
+      if (!dispatch.ok) throw new Error(dispatch.reason);
+      await expect(dispatch.delivery).resolves.toEqual({ status: "delivered" });
+      expect(responses).toMatchObject([{ kind: "user-input", workspaceId: "child-workspace", taskId: "child", requestId: "question-1",
+        expectedMessageId: "question-message", ...response }]);
+      expect(useAppStore.getState().notifications.find(({ id }) => id === questionNotification.id)?.resolvedAt).toEqual(expect.any(String));
+    });
+  }
+
+  test("a transport failure stays answerable and is reported to the parent", async () => {
+    const { useAppStore } = await import("@/store/app.store");
     const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
+    window.api.localMcp!.respondUserInput = async () => ({
+      ok: false, reason: "write-failed", message: "Provider connection closed",
+    });
     const identity = { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
       kind: "user-input" as const, requestId: "question-1", messageId: "question-message" };
-    expect(respondToFleetInteraction(identity, { kind: "user-input", answers: { "Which branch?": "Current" } }).ok).toBe(true);
+    const dispatch = respondToFleetInteraction(identity, { kind: "user-input", denied: true });
+    if (!dispatch.ok) throw new Error(dispatch.reason);
+    await expect(dispatch.delivery).resolves.toEqual({ status: "failed", message: "Provider connection closed" });
+    const state = useAppStore.getState();
+    expect(state.notifications.find(({ id }) => id === questionNotification.id)?.resolvedAt).toBeNull();
+    expect(state.workspaceRuntimeCacheById["child-workspace"]?.messagesByTask.child?.[1]?.parts[0])
+      .toMatchObject({ state: "input-requested" });
+  });
+
+  test("a definitive host refusal settles the expired question without recording the selected answer", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
+    window.api.localMcp!.respondUserInput = async () => ({
+      ok: false, reason: "request-interrupted", message: "The child turn ended",
+    });
+    const identity = { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
+      kind: "user-input" as const, requestId: "question-1", messageId: "question-message" };
+    expect(respondToFleetInteraction(identity, { kind: "user-input", denied: true }).ok).toBe(true);
     await flush();
-    expect(responses).toEqual([{ kind: "user-input", workspaceId: "child-workspace", taskId: "child", requestId: "question-1",
-      answers: { "Which branch?": "Current" }, denied: undefined }]);
+    const state = useAppStore.getState();
+    expect(state.notifications.find(({ id }) => id === questionNotification.id)?.resolvedAt).toEqual(expect.any(String));
+    expect(state.workspaceRuntimeCacheById["child-workspace"]?.messagesByTask.child?.[1]?.parts[0])
+      .toMatchObject({ state: "input-interrupted" });
   });
 
   test("a response prepared for another child turn is refused", async () => {

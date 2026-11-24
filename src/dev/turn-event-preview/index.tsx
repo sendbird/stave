@@ -60,7 +60,7 @@ export function TurnEventPreview() {
         );
         return { status: "delivered" as const };
       },
-      resolveUserInput: async ({ requestId, answers, denied }) =>
+      resolveUserInput: async ({ requestId, answers, denied }) => {
         setSamples((rows) =>
           rows.map((row) => ({
             ...row,
@@ -74,7 +74,9 @@ export function TurnEventPreview() {
                 : part,
             ),
           })),
-        ),
+        );
+        return { status: "delivered" };
+      },
       ...(toolDetails ? {
         openFileFromTree: async ({ filePath, line }) => {
           setOpenedFiles((rows) => [...rows, JSON.stringify({ filePath, line })]);
