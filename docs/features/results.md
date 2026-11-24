@@ -1,7 +1,7 @@
 # Agent performance and task outputs
 
 Use the **Performance** tab of **Agents** to understand how delegated work has
-been going across workspaces. Use **Outputs** under **Details** in a task's Task panel
+been going across workspaces. Use the **Outputs** tab of a task's Task panel
 to read that task's saved answers and file changes and choose a follow-up.
 These screens used to share the name **Results**. Their scope and purpose differ.
 
@@ -9,9 +9,9 @@ These screens used to share the name **Results**. Their scope and purpose differ
 | --- | --- | --- |
 | How often does an agent finish its assignment? | Agent performance | Completion rate, ended run count and stop reasons. |
 | What effort does delegation take? | Agent performance | Completion time, reported spend and follow-ups, together. |
-| What did this task produce? | Task panel → Result, or Details → Outputs | The pull request, changed files and answer; every saved answer and file change. |
-| Do I want another change? | Task panel → Details → Outputs | Draft follow-up. |
-| What happened during execution? | Task panel → Details → Activity, or View execution from an output | Prompt, tools and answer for the execution. |
+| What did this task produce? | Task panel → Result, or Outputs | The pull request, changed files and answer; every saved answer and file change. |
+| Do I want another change? | Task panel → Outputs | Draft follow-up. |
+| What happened during execution? | Task panel → Activity, or View execution from an output | Prompt, tools and answer for the execution. |
 
 ## Agent performance
 
@@ -66,7 +66,7 @@ do not establish poor quality.
 
 ## Task outputs
 
-Open the task's **Task** panel, open **Details** and find **Outputs**. The
+Open the task's **Task** panel and its **Outputs** tab. The
 panel's **Result** line already leads with the latest pull request, changed
 files and answer; Outputs keeps every execution. This history includes
 ordinary task executions, failed attempts and executions belonging to agent

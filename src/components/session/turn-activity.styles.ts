@@ -273,6 +273,11 @@ export const turnActivityStyles = stylex.create({
     backgroundColor: `color-mix(in oklch, ${vars["--aui-color-surface-tint"]} 10%, transparent)`,
     minHeight: 0,
     overflowY: "auto",
+  },
+  // A capped list keeps the wheel to itself. The panel's list is not capped:
+  // in the Task panel it is as tall as its rows, and a scroll container that
+  // holds the wheel without scrolling would freeze the column around it.
+  listContained: {
     overscrollBehavior: "contain",
   },
   listDocked: {

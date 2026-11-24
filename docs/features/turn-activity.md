@@ -7,7 +7,7 @@ tools, delegated tasks, todos, and elapsed time. While anything is in flight,
 a one-line summary sits on the **composer shelf** directly above the prompt
 input, with the queue of messages waiting to send beneath it. The details —
 every row the turn reported — open inline under that line, in a floating card
-over the chat, or in the right rail's Task panel, under **Details**.
+over the chat, or in the right rail's Task panel, under its **Activity** tab.
 
 ## When To Use It
 
@@ -79,7 +79,7 @@ when there is no run, usage-limit pause, review or queued message to show.
 | A review runs in its own task | One line per review: `Reviewing · <model> · <elapsed>` with **View** and **Stop**, then `Review ready` with **Attach**, **View** and **Dismiss**. **View** shows the review's answer and activity in a dialog. It shows when the task is idle too. See [Review Tasks](review-tasks.md). |
 
 There is exactly one status line for a run. The Task panel lists the rows
-under **Details** without repeating it; its own state line uses the same
+under **Activity** without repeating it; its own state line uses the same
 facts.
 
 ### Where The Details Open
@@ -290,12 +290,14 @@ is cut short; hover the line to read all of it.
    waits for and when it resumes.
 4. **Still open**: the run's completion conditions that are not met or not
    verified yet. Met ones are not repeated here.
-5. **Details**, collapsed: the activity (with the **Turn** picker), the steps
-   (the agent run's stages and reports, or a direct task's plan and flow, and
-   the task's wake-up), the subagents and the outputs.
+5. Five tabs, one view at a time: **Activity** (with the **Turn** picker),
+   **Steps** (the agent run's stages and reports, or a direct task's plan and
+   flow, and the task's wake-up), **Subagents**, **Background** and
+   **Outputs**.
 
-Details stay collapsed until you open them, except when the last work failed:
-then the panel opens Details on that failure. Picking an earlier turn in the
+The panel is one scrolling column: the tabs stay at its top while the selected
+view scrolls under them. It opens on **Activity**, so a task whose last work
+failed shows that failure without opening anything. Picking an earlier turn in the
 **Turn** picker moves the state and result to that turn, under an
 `Earlier turn · <time>` title; **Back to latest** returns to the current one.
 
@@ -420,7 +422,7 @@ badge — instead of listing a row per run.
 
 ### Background work
 
-Open **Task → Details → Background** to see tasks Claude reported during the
+Open **Task → Background** to see tasks Claude reported during the
 current turn or the most recently finished turn in this app session. Each row
 shows the provider, a description, the first time Stave saw it, and elapsed
 time. A provider event confirms whether a task is running, completed, failed,
@@ -435,7 +437,7 @@ Codex tool execution remains visible in **Activity**.
 
 ### The Last Turn
 
-When a turn ends, the Task panel's Details keep it on screen instead
+When a turn ends, the Task panel's **Activity** tab keeps it on screen instead
 of emptying. The header
 shows a `Last turn` marker and names the outcome — `Turn finished`, `Turn
 stopped`, or `Turn failed` — and the rows, agent tree, timings and metrics stay
@@ -453,7 +455,7 @@ exactly as the turn left them. The next turn replaces it.
 
 ### Earlier Turns
 
-The **Turn** picker at the top of the Task panel's Details lists the task's turns,
+The **Turn** picker at the top of the Task panel's **Activity** tab lists the task's turns,
 newest first, each named by when it started and how it ended, with the request
 that started it (when that part of the conversation is loaded), the provider
 and the first characters of the turn's id. Type to search: the search matches
@@ -465,7 +467,7 @@ without interrupting the turn.
 - The running turn, and the last turn while Stave still holds it, open the
   activity described above.
 - Any other turn opens its record, marked `Saved record`. After a restart the
-  newest turn opens as a record, so Details are not empty.
+  newest turn opens as a record, so Activity is not empty.
 - Choosing a turn keeps it on screen while you read, and the panel's state and
   result follow it; a new turn does not take the panel away. The run line
   above the prompt still shows the new turn.
@@ -535,7 +537,7 @@ out rather than drawn empty. They stay two-up while the rail is at least
 
 ### Read a turn back after it ends
 
-1. Open the Task panel and its **Details**.
+1. Open the Task panel's **Activity** tab.
 2. Let the turn finish. The state line says how it ended, and the list stays,
    headed `Last turn`.
 3. Choose a row to open its details, then **Show in conversation** to jump to
@@ -544,7 +546,7 @@ out rather than drawn empty. They stay two-up while the rail is at least
 
 ### Read an earlier turn after a restart
 
-1. Open the Task panel and its **Details**. After a restart the newest turn
+1. Open the Task panel's **Activity** tab. After a restart the newest turn
    opens as a record.
 2. Choose the **Turn** picker and pick a turn, or type part of its request,
    its id or the error it failed with.

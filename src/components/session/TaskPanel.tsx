@@ -1,12 +1,12 @@
 import { TaskTurnPlan } from "./TaskTurnPlan";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { ChevronRight } from "lucide-react";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { vars } from "../aui/tokens/tokens.stylex";
 import { sx } from "../aui/utils/stylex";
-import { focusRing } from "../aui/recipes/focus-ring";
+import { localStack } from "@/lib/ui-layers.stylex";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RightRailPanelHeader, RightRailPanelTitle } from "@/components/layout/RightRailPanelShell";
 import { formatWorkQueueWorkspaceLabel } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { FlowPanel } from "@/components/agents/FlowPanel";
@@ -58,13 +58,37 @@ export function selectTaskPanelSettled(taskId: string, followsSettledTurn: boole
       : NO_SETTLED;
 }
 
+/** The record views under the summary, in the order their tabs are drawn. */
+export const TASK_PANEL_SECTIONS = ["activity", "steps", "subagents", "background", "outputs"] as const;
+export type TaskPanelSection = (typeof TASK_PANEL_SECTIONS)[number];
+
+function isTaskPanelSection(value: unknown): value is TaskPanelSection {
+  return TASK_PANEL_SECTIONS.some((section) => section === value);
+}
+
+function taskPanelSectionLabel(section: TaskPanelSection) {
+  switch (section) {
+    case "activity":
+      return i18n.t("session:taskPanel.activity");
+    case "steps":
+      return i18n.t("session:taskPanel.steps");
+    case "subagents":
+      return i18n.t("session:taskPanel.subagents");
+    case "background":
+      return i18n.t("session:backgroundTasks.title");
+    case "outputs":
+      return i18n.t("session:taskPanel.outputs");
+  }
+}
+
 /**
- * The right rail's Task panel, one screen read top to bottom: where the task
- * stands (one line, from the one status function), what the user must do when
- * something waits on them, the result or why it stopped, the conditions still
- * open, then Details, collapsed, with the activity, steps, subagents and
- * outputs. A caption under the bar names the task and its workspace, so
- * switching tasks never leaves the panel ambiguous.
+ * The right rail's Task panel, one scrolling column read top to bottom: where
+ * the task stands (one line, from the one status function), what the user
+ * must do when something waits on them, the result or why it stopped, the
+ * conditions still open, then the record views (activity, steps, subagents,
+ * background work and outputs) one tab at a time. A caption under the bar
+ * names the task and its workspace, so switching tasks never leaves the panel
+ * ambiguous.
  */
 export function TaskPanel() {
   useTranslation();
@@ -115,9 +139,10 @@ export function selectTaskPanelWorkspaceLabel(
 
 /**
  * The panel for one task. It owns the turn the panel follows: picking an
- * earlier turn in Details moves the title and the state to that turn. Details
- * start collapsed, except on a task whose last work failed, which opens on
- * that failure.
+ * earlier turn under Activity moves the title and the state to that turn. It
+ * opens on Activity, so a task whose last work failed shows that failure; a
+ * request to focus a run moves it to Steps. Only the selected tab's view is
+ * mounted, so each record view reads its own records while it is on screen.
  */
 export function TaskPanelView(props: {
   workspaceId: string;
@@ -135,7 +160,7 @@ export function TaskPanelView(props: {
   const { workspaceId, taskId, repositoryPath, agentRun } = props;
   const history = useTaskTurnHistory(workspaceId, taskId);
   const [selectedTurnId, setSelectedTurnId] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState<boolean | null>(null);
+  const [section, setSection] = useState<TaskPanelSection>("activity");
   const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? null);
   const prInfo = useAppStore((state) => state.workspacePrInfoById[workspaceId]);
   // Strings and a primitive: equal across text deltas, so they re-render nothing.
@@ -178,11 +203,11 @@ export function TaskPanelView(props: {
   const [openedForNonce, setOpenedForNonce] = useState<number | undefined>();
   const { runFocus } = props;
   const focusingRun = Boolean(runFocus && runFocus.nonce !== openedForNonce);
-  const open = focusingRun || (detailsOpen ?? view.focusDetails);
+  const shownSection = focusingRun ? "steps" : section;
   useEffect(() => {
     if (!focusingRun || !runFocus || !runDetailsRef.current) return;
     setOpenedForNonce(runFocus.nonce);
-    setDetailsOpen(true);
+    setSection("steps");
     runDetailsRef.current.scrollIntoView({ block: "nearest" });
     runDetailsRef.current.focus({ preventScroll: true });
     if (runFocus.notificationId) void useAppStore.getState().markNotificationRead({ id: runFocus.notificationId });
@@ -192,7 +217,7 @@ export function TaskPanelView(props: {
       <RightRailPanelHeader>
         <RightRailPanelTitle panelId="task" />
       </RightRailPanelHeader>
-      <div className={sx(styles.body)}>
+      <div className={sx(styles.body)} data-testid="task-panel-scroll">
         <p
           className={sx(styles.caption)}
           title={[props.taskTitle, props.workspaceLabel].filter(Boolean).join(" · ")}
@@ -215,77 +240,70 @@ export function TaskPanelView(props: {
           agentRun={agentRun}
           onShowLatest={() => setSelectedTurnId(null)}
         />
-        <details
-          className={sx(styles.details)}
-          data-testid="task-details"
-          open={open}
-          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+        <Tabs
+          variant="line"
+          size="xs"
+          value={shownSection}
+          onValueChange={(value) => {
+            if (isTaskPanelSection(value)) setSection(value);
+          }}
+          xstyle={styles.tabs}
         >
-          <summary className={sx(styles.detailsSummary, focusRing.ring)}>
-            <ChevronRight aria-hidden className={sx(styles.chevron, open && styles.chevronOpen)} />
-            {i18n.t("session:taskPanel.details")}
-          </summary>
-          {/* Mounted only while open: each part reads its own records. */}
-          {open ? (
-            <div className={sx(styles.detailsBody)}>
-              <DetailsPart label={i18n.t("session:taskPanel.activity")}>
-                <TurnActivityHistory
-                  workspaceId={workspaceId}
-                  taskId={taskId}
-                  history={history}
-                  selected={selectedTurnId}
-                  onSelect={setSelectedTurnId}
-                />
-              </DetailsPart>
-              <DetailsPart label={i18n.t("session:taskPanel.steps")} padded>
-                {agentRun ? (
-                  <div ref={runDetailsRef} tabIndex={-1}><AgentRunPanel taskId={taskId} detail={agentRun} /></div>
-                ) : (
-                  <>
-                    <TaskTurnPlan taskId={taskId} />
-                    <FlowPanel workspaceId={workspaceId} taskId={taskId} repositoryPath={repositoryPath} />
-                  </>
-                )}
-                <WakeUpSection workspaceId={workspaceId} taskId={taskId} />
-              </DetailsPart>
-              <DetailsPart label={i18n.t("session:taskPanel.subagents")} padded>
-                {repositoryPath ? (
-                  <SubagentsSection
-                    workspaceId={workspaceId}
-                    taskId={taskId}
-                    repositoryPath={repositoryPath}
-                    readOnly={props.managed}
-                  />
-                ) : (
-                  <p className={sx(styles.notice)}>{i18n.t("session:taskPanel.taskPanelView")}</p>
-                )}
-              </DetailsPart>
-              <DetailsPart label={i18n.t("session:backgroundTasks.title")} padded>
-                <BackgroundTasksSection workspaceId={workspaceId} taskId={taskId} />
-              </DetailsPart>
-              <DetailsPart label={i18n.t("session:taskPanel.outputs")} padded>
-                <TaskResultReviews workspaceId={workspaceId} taskId={taskId} />
-              </DetailsPart>
-            </div>
-          ) : null}
-        </details>
+          <TabsList aria-label={i18n.t("session:taskPanel.sections")} xstyle={styles.tabList}>
+            {TASK_PANEL_SECTIONS.map((item) => (
+              <TabsTrigger key={item} value={item} xstyle={styles.tab} data-testid={`task-section-${item}`}>
+                {taskPanelSectionLabel(item)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          <TabsContent value="activity" xstyle={styles.section}>
+            <TurnActivityHistory
+              workspaceId={workspaceId}
+              taskId={taskId}
+              history={history}
+              selected={selectedTurnId}
+              onSelect={setSelectedTurnId}
+            />
+          </TabsContent>
+          <TabsContent value="steps" xstyle={[styles.section, styles.sectionPadded]}>
+            {agentRun ? (
+              <div ref={runDetailsRef} tabIndex={-1}><AgentRunPanel taskId={taskId} detail={agentRun} /></div>
+            ) : (
+              <>
+                <TaskTurnPlan taskId={taskId} />
+                <FlowPanel workspaceId={workspaceId} taskId={taskId} repositoryPath={repositoryPath} />
+              </>
+            )}
+            <WakeUpSection workspaceId={workspaceId} taskId={taskId} />
+          </TabsContent>
+          <TabsContent value="subagents" xstyle={[styles.section, styles.sectionPadded]}>
+            {repositoryPath ? (
+              <SubagentsSection
+                workspaceId={workspaceId}
+                taskId={taskId}
+                repositoryPath={repositoryPath}
+                readOnly={props.managed}
+              />
+            ) : (
+              <p className={sx(styles.notice)}>{i18n.t("session:taskPanel.taskPanelView")}</p>
+            )}
+          </TabsContent>
+          <TabsContent value="background" xstyle={[styles.section, styles.sectionPadded]}>
+            <BackgroundTasksSection workspaceId={workspaceId} taskId={taskId} />
+          </TabsContent>
+          <TabsContent value="outputs" xstyle={[styles.section, styles.sectionPadded]}>
+            <TaskResultReviews workspaceId={workspaceId} taskId={taskId} />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
 }
 
-function DetailsPart(props: { label: string; padded?: boolean; children: ReactNode }) {
-  return (
-    <section aria-label={props.label} className={sx(styles.part)}>
-      <h3 className={sx(styles.partLabel)}>{props.label}</h3>
-      <div className={sx(styles.partBody, props.padded && styles.partBodyPadded)}>{props.children}</div>
-    </section>
-  );
-}
-
 const styles = stylex.create({
   root: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0 },
-  // One scrolling column: the summary on top, then Details.
+  // One scrolling column: the summary on top, then the tabs and the selected
+  // view. Nothing inside it scrolls on its own, so a wheel anywhere moves it.
   body: {
     display: "flex",
     flex: "1 1 0",
@@ -330,45 +348,36 @@ const styles = stylex.create({
     lineHeight: vars["--aui-line-height-normal"],
     color: vars["--aui-color-text-muted"],
   },
-  details: {
+  tabs: {
     borderTopColor: vars["--aui-color-border-subtle"],
     borderTopStyle: "solid",
     borderTopWidth: vars["--aui-border-width-hairline"],
     flexShrink: 0,
+    gap: 0,
+    gridTemplateColumns: "minmax(0, 1fr)",
   },
-  detailsSummary: {
-    alignItems: "center",
-    color: vars["--aui-color-text-muted"],
-    cursor: "pointer",
-    display: "flex",
-    fontSize: vars["--aui-font-size-caption"],
-    fontWeight: vars["--aui-font-weight-medium"],
-    gap: vars["--aui-space-4"],
-    listStyle: "none",
-    paddingBlock: vars["--aui-space-8"],
+  // The strip stays at the top of the column while the selected view scrolls
+  // under it. A rail narrower than the five labels scrolls the strip sideways
+  // instead of clipping Outputs.
+  tabList: {
+    backgroundColor: vars["--aui-color-surface"],
+    borderRadius: 0,
+    gap: vars["--aui-space-16"],
+    insetBlockStart: 0,
+    minWidth: 0,
+    overflowX: "auto",
+    overflowY: "hidden",
+    paddingBlock: 0,
     paddingInline: vars["--aui-space-12"],
+    position: "sticky",
+    scrollbarWidth: "none",
+    zIndex: localStack["--stave-stack-overlay"],
   },
-  chevron: {
-    blockSize: vars["--aui-space-12"],
-    flexShrink: 0,
-    inlineSize: vars["--aui-space-12"],
-    transitionDuration: vars["--aui-motion-duration-fast"],
-    transitionProperty: "transform",
-  },
-  chevronOpen: { transform: "rotate(90deg)" },
-  detailsBody: { display: "flex", flexDirection: "column", gap: vars["--aui-space-16"], paddingBlockEnd: vars["--aui-space-16"] },
-  part: { display: "flex", flexDirection: "column", minWidth: 0 },
-  partLabel: {
-    color: vars["--aui-color-text"],
-    fontSize: vars["--aui-font-size-caption"],
-    fontWeight: vars["--aui-font-weight-semibold"],
-    margin: 0,
-    paddingInline: vars["--aui-space-12"],
-  },
-  partBody: { display: "flex", flexDirection: "column", minWidth: 0 },
-  partBodyPadded: {
+  tab: { flex: "none", paddingInline: 0 },
+  section: { display: "flex", flexDirection: "column", minWidth: 0, paddingBlockEnd: vars["--aui-space-16"] },
+  sectionPadded: {
     gap: vars["--aui-space-20"],
-    paddingBlockStart: vars["--aui-space-8"],
+    paddingBlockStart: vars["--aui-space-12"],
     paddingInline: vars["--aui-space-12"],
   },
 });

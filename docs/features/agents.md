@@ -305,7 +305,7 @@ the agent in the file to use it. Duplicate a repository agent to edit a copy.
 
 ### Flow
 
-The steps in the right rail's Task panel (under **Details**) show one task's flow while
+The **Steps** tab of the right rail's Task panel shows one task's flow while
 the task has no [agent run](agent-runs.md); once it has one, the agent run takes that
 place. Every task has a base flow, drawn from records that already exist:
 

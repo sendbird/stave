@@ -154,13 +154,13 @@ its helpers on its own provider.
 2. Type the outcome, for example
    `Fix the billing table overflow on narrow screens.`, and send.
 3. The run starts at once. With more than one stage, the status line above the
-   composer shows the stage track and the Task panel's **Details** name the
+   composer shows the stage track and the Task panel's **Steps** tab names the
    workflow (`Workflow: Work → Review → Fix review findings`) and lists each stage and its
    report. A one-stage run shows the agent's own plan instead: its latest to-do
    list (Claude's to-do tool, Codex's plan updates) as **Plan 3/5 · Now: Run
    the checks** on the status line and Fleet, between turns too. Until the
    first plan arrives the line says **Planning…**. A single step counts.
-   The Task panel's Details show the plan with its count (`1 / 3`), marks the step in
+   The Task panel's **Steps** tab shows the plan with its count (`1 / 3`), marks the step in
    progress as the current one, and tells a screen reader only what changed
    after it first appears. It updates as the agent works and keeps the saved
    plan between turns; the report carries the final plan. Multi-step work uses
@@ -356,7 +356,7 @@ the turns used of the limit and what the agent run has spent, such as
 The right rail's Task panel, while the task has an agent run. Its top says
 where the run stands in one line, what you need to do when it waits on you,
 the result or why it stopped, and the **Done when** lines still not met or not
-verified (**Still open**). Its collapsed **Details** hold the steps (a task
+verified (**Still open**). Its **Steps** tab holds the steps (a task
 without a run shows its flow there):
 
 - The goal and the run's commands. The state and progress are not repeated:
@@ -390,7 +390,7 @@ without a run shows its flow there):
   A note says when a turn reported no usage.
 - The task's wake-up, the other thing that can start turns on the task.
 
-The task's subagents are under **Subagents** in the same Details.
+The task's subagents are under the panel's **Subagents** tab.
 
 ### Acceptance and check evidence
 
@@ -531,8 +531,8 @@ prepared.
 
 ### Agent run report
 
-When an agent run ends, its report is shown in the Task panel's Details, under
-the run's steps and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
+When an agent run ends, its report is shown in the Task panel, under
+the run's steps in **Steps** and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
 starts collapsed so saved task answers stay easy to scan. The report contains
 outcome, figures (active time, stages, turns, verified evidence, what it spent), links,
 decisions, what is still open, what was left behind, any account-pool switches,
@@ -584,7 +584,7 @@ sample limits and examples of when each screen helps.
 
 ### Recover a stuck or blocked stage
 
-1. Open the Task panel: it reads `Blocked` and says why; its **Details** show
+1. Open the Task panel: it reads `Blocked` and says why; its **Steps** tab shows
    the stage.
 2. Answer the question in the task, or fix what it names.
 3. Click **Retry stage**, or **Skip stage** to move on.

@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 /**
- * The Task panel's Subagents (in Details) with delegated children that ask a question and that
+ * The Task panel's Subagents tab with delegated children that ask a question and that
  * failed, and in-turn subagents that wait on an approval and that failed
  * (`stuck=1` on the task panel preview).
  */
@@ -9,7 +9,7 @@ async function open(page: Page, args: { lang?: "en" | "ko"; theme?: "light" | "d
   await page.goto(
     `/?stavePreview=task-panel&task=agent-run&stuck=1&panelWidth=${args.width ?? 384}&lang=${args.lang ?? "en"}&theme=${args.theme ?? "light"}`,
   );
-  await page.getByTestId("task-details").locator("summary").click();
+  await page.getByTestId("task-section-subagents").click();
 }
 
 test("a subagent waiting on the user reads as needing you, and the tray filters by state", async ({ page }) => {
@@ -63,7 +63,7 @@ test("Retry failed retries each failed delegated task once and leaves the in-tur
 
 test("a refused retry is said once, and its reason stays on the task's row", async ({ page }) => {
   await page.goto("/?stavePreview=task-panel&task=agent-run&stuck=1&panelWidth=384&retry=refuse");
-  await page.getByTestId("task-details").locator("summary").click();
+  await page.getByTestId("task-section-subagents").click();
   await page.getByTestId("subagents-retry-failed").click();
   await page.getByRole("textbox", { name: "Retry instructions" }).fill("Try the migration again.");
   await page.getByRole("button", { name: "Retry 1 task", exact: true }).click();
