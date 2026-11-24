@@ -21,13 +21,13 @@ produces a usable preview.
    first task model, effort, Codex Fast mode (for GPT models), and prompt.
 6. Create the workspace.
 
-The new workspace row shows a step while it is running. The workspace pane centers the
-active preparation step and the first task's draft until setup finishes. With
-**Start now** enabled, Stave sends it after setup succeeds. Turn **Start now**
-off to keep it as a draft in the composer.
+The creation dialog shows the current preparation step while the existing
+workspace stays open. The dialog closes and the new task opens when setup
+finishes. With **Start now** enabled, Stave sends the prompt after setup
+succeeds. Turn **Start now** off to keep it as a draft in the composer.
 
-If checkout or setup fails, open the workspace to see the reason and its logs.
-Retry from the pane after addressing the cause. If Git
+If checkout or setup fails, the creation dialog shows the reason and its logs.
+Select **Retry** after addressing the cause. If Git
 reports a branch collision, use the suggested name in a new creation request.
 If reusable files cannot be copied, Stave shows a warning and continues normal
 setup. The task opens as soon as setup finishes. A first-task startup warning

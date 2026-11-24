@@ -194,7 +194,7 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 
 The PR head determines the default workspace branch name. PR checkout runs in the **Create worktree** step. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
 
-The new workspace opens as soon as creation begins. The sidebar row shows a step while it is running. The workspace pane centers the preparation status until setup finishes and the task opens. Select **Open logs** in the workspace for checkout or setup failure details, then select **Retry** after fixing the problem to continue in the same workspace. If Git reports a branch collision, use the suggested name in a new creation request.
+The creation dialog shows the current preparation step while the existing workspace stays open. When setup finishes, the dialog closes and opens the new task. If checkout or setup fails, select **Open logs** in the dialog for details and **Retry** to continue after fixing the problem. If Git reports a branch collision, use the suggested name in a new creation request.
 Screens: [Workspace creation progress](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-creation-progress.png)
 
 A **Post-Create Command** (for example `bun install`) runs right after creation.
@@ -205,7 +205,7 @@ Before setup runs, new worktrees can reuse ignored `node_modules` (including pac
 To start from existing material such as a Jira issue, a PR or a report, use **Kick off workspace**.
 Paste a link or a description and select **Resolve source**: Stave reads it and proposes the branch, label, Information panel links, and the first task's model and prompt. Edit anything before creating.
 **Skip AI** proposes the same from the link and text alone, without an AI.
-In **Who**, pick **Me** or a saved agent; in **Where**, pick a new workspace or the **Current workspace**. The first prompt appears as soon as the new workspace opens. With **Start now** on, Stave waits for setup before sending it. Turn **Start now** off to keep it in the composer.
+In **Who**, pick **Me** or a saved agent. In **Where**, pick a new workspace or the **Current workspace**. The first prompt appears when the new workspace finishes setup and opens. With **Start now** on, Stave waits for setup before sending it. Turn **Start now** off to keep it in the composer.
 Screens: [Kick off workspace](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/kickoff.png)
 
 ## 2. Open a task and send a request

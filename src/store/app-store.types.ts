@@ -372,7 +372,8 @@ export interface AppState
     initialTaskTitle?: string;
     initialTaskProvider?: ProviderId;
     initialPromptDraft?: PromptDraft;
-    onWorkspacePreparing?: () => void;
+    onWorkspacePreparing?: (workspaceId: string) => void;
+    onWorkspaceReady?: (workspaceId: string) => void;
     startInitialTask?: (target: { workspaceId: string; taskId: string }) => Promise<KickoffWorkspaceResult>;
     workspaceInformation?: WorkspaceInformationState;
   }) => Promise<KickoffWorkspaceResult>;

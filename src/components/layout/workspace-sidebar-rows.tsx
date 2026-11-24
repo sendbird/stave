@@ -1,5 +1,4 @@
 import { i18n, useTranslation } from "@/i18n";
-import { WorkspaceCreationRowStatus } from "./WorkspaceCreationProgress";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import {
   AlertTriangle,
@@ -619,7 +618,6 @@ export function WorkQueueRow(args: {
             >
               {args.secondaryLabel ?? entry.repositoryName}
             </span>
-            <WorkspaceCreationRowStatus workspaceId={entry.workspaceId} />
             <WorkspaceUnansweredCount workspaceId={entry.workspaceId} />
             <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
             {/* The revealed menu's room, so the counts step aside instead of sitting under it. */}
@@ -866,7 +864,6 @@ export function InlineWorkspaceLabel(args: {
 
 /** The default workspace's branch follows its title on the same line. */
 export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
-  workspaceId: string;
   workspaceName: string;
   branch?: string;
   isDefault: boolean;
@@ -877,11 +874,10 @@ export const WorkspaceRowSecondary = memo(function WorkspaceRowSecondary(args: {
     isDefault: args.isDefault,
   });
   if (!branch) {
-    return <WorkspaceCreationRowStatus workspaceId={args.workspaceId} />;
+    return null;
   }
   return (
     <>
-      <WorkspaceCreationRowStatus workspaceId={args.workspaceId} />
       <span className={sx(repositorySidebarStyles.rowSeparator)} aria-hidden="true">·</span>
       <span
         className={sx(repositorySidebarStyles.rowSecondary)}

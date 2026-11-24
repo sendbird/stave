@@ -1,3 +1,4 @@
+import { WorkspaceCreationPanel, useWorkspaceCreationDialogProgress } from "./WorkspaceCreationProgress";
 import { Button as AuiButton } from "@/components/aui/components/Button";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { FolderSymlink, GitBranch, X } from "lucide-react";
@@ -34,7 +35,8 @@ interface CreateWorkspaceDialogProps {
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
     initCommand?: string;
-    onWorkspacePreparing?: () => void;
+    onWorkspacePreparing?: (workspaceId: string) => void;
+    onWorkspaceReady?: (workspaceId: string) => void;
     useRootNodeModulesSymlink?: boolean;
   }) => Promise<{
     ok: boolean;
@@ -81,6 +83,8 @@ export function CreateWorkspaceDialog({
     string | null
   >(null);
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
+  const preparation = useWorkspaceCreationDialogProgress(() => onOpenChange(false));
+  const busy = creatingWorkspace || preparation.running;
   const [creationMode, setCreationMode] =
     useState<CreateWorkspaceCreationMode>("branch");
   const [fromBranch, setFromBranch] = useState("main");
@@ -234,6 +238,7 @@ export function CreateWorkspaceDialog({
       : "Ctrl+Enter";
 
   function closeDialog() {
+    preparation.reset();
     setCreateWorkspaceError(null);
     onOpenChange(false);
   }
@@ -261,7 +266,7 @@ export function CreateWorkspaceDialog({
     }
     setCreatingWorkspace(true);
     setCreateWorkspaceError(null);
-    let published = false;
+    let preparing = false;
     try {
       const result =
         creationMode === "link"
@@ -277,14 +282,15 @@ export function CreateWorkspaceDialog({
               fromBranch,
               fromBranchKind,
               initCommand,
-              onWorkspacePreparing: () => {
-                published = true;
-                onOpenChange(false);
+              onWorkspacePreparing: (workspaceId) => {
+                preparing = true;
+                preparation.begin(workspaceId);
               },
+              onWorkspaceReady: preparation.ready,
               useRootNodeModulesSymlink,
             });
       if (!result.ok) {
-        if (published) return;
+        if (preparing) return;
         setCreateWorkspaceError(
           result.message ?? t("createDialog.errors.failed"),
         );
@@ -304,7 +310,7 @@ export function CreateWorkspaceDialog({
           );
         }
       }
-      if (!published) onOpenChange(false);
+      if (!preparing) onOpenChange(false);
     } catch (error) {
       setCreateWorkspaceError(
         error instanceof Error ? error.message : t("createDialog.errors.failed"),
@@ -351,9 +357,7 @@ export function CreateWorkspaceDialog({
       aria-modal="true"
       aria-labelledby={titleId}
       onMouseDown={() => {
-        if (creatingWorkspace) {
-          return;
-        }
+        if (busy) return;
         closeDialog();
       }}
     >
@@ -367,25 +371,29 @@ export function CreateWorkspaceDialog({
           ),
         )}
         onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && preparation.progress && !busy) closeDialog();
+        }}
       >
-        <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
-          <div className={sx(createWorkspaceStyles.headerRow)}>
-            <h3 id={titleId} className={sx(createWorkspaceStyles.title)}>
-              {t("createDialog.title")}
-            </h3>
-            <Tooltip content={t("common:actions.close")}>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                disabled={creatingWorkspace}
-                onClick={closeDialog}
-                aria-label={t("common:actions.close")}
-              >
-                <X className={sx(createWorkspaceStyles.closeIcon)} />
-              </Button>
-            </Tooltip>
-          </div>
+        <div className={sx(createWorkspaceStyles.headerRow)}>
+          <h3 id={titleId} className={sx(createWorkspaceStyles.title)}>
+            {t("createDialog.title")}
+          </h3>
+          <Tooltip content={t("common:actions.close")}>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={closeDialog}
+              aria-label={t("common:actions.close")}
+            >
+              <X className={sx(createWorkspaceStyles.closeIcon)} />
+            </Button>
+          </Tooltip>
+        </div>
+        {preparation.progress ? <WorkspaceCreationPanel progress={preparation.progress} inDialog /> : (
+          <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
           <p className={sx(createWorkspaceStyles.lead)}>
             {t("createDialog.lead")}
           </p>
@@ -678,7 +686,8 @@ export function CreateWorkspaceDialog({
               {createWorkspaceError}
             </p>
           ) : null}
-        </form>
+          </form>
+        )}
       </section>
     </div>
   );

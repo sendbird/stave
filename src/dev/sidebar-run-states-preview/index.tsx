@@ -215,7 +215,6 @@ export function SidebarRunStatesPreview() {
                       onRename={async () => ({ ok: true })}
                     />
                     <WorkspaceRowSecondary
-                      workspaceId={row.id}
                       workspaceName={row.name}
                       branch={row.branch}
                       isDefault={Boolean(row.isDefault)}

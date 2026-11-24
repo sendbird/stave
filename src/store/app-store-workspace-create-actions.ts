@@ -109,6 +109,7 @@ export function createWorkspaceCreateActions(args: {
       initialTaskProvider,
       initialPromptDraft,
       onWorkspacePreparing,
+      onWorkspaceReady,
       startInitialTask,
       workspaceInformation,
     }) => {
@@ -225,11 +226,9 @@ export function createWorkspaceCreateActions(args: {
         },
         providerSessionByTask: snapshot.providerSessionByTask ?? {},
       });
-      const workspaceState = buildWorkspaceSessionState({ snapshot });
-
-      // Flush the previous workspace before the optimistic switch changes the
-      // target of the app-level persistence debounce.
-      await current.flushActiveWorkspaceSnapshot();
+      const prepareInDialog = onWorkspacePreparing !== undefined;
+      let createdBranch = branchName;
+      if (!prepareInDialog) await current.flushActiveWorkspaceSnapshot();
       if (get().repositoryPath !== repositoryPath) {
         return { ok: false, message: i18n.t("workspace:creationProgress.repositoryChanged") };
       }
@@ -237,7 +236,7 @@ export function createWorkspaceCreateActions(args: {
         taskTitle: seededTask.title,
         prompt: initialPromptDraft?.text,
       });
-      set((state) => {
+      const publishWorkspace = (activate: boolean) => set((state) => {
         if (state.repositoryPath !== current.repositoryPath) {
           const repository = state.recentRepositories.find((entry) => entry.repositoryPath === current.repositoryPath);
           if (!repository) return state;
@@ -245,8 +244,10 @@ export function createWorkspaceCreateActions(args: {
             recentRepositories: captureCurrentRepositoryState({
               ...repository,
               recentRepositories: state.recentRepositories,
-              workspaces: [...repository.workspaces, { id: workspaceId, name: workspaceDisplayName, updatedAt: new Date().toISOString() }],
-              workspaceBranchById: { ...repository.workspaceBranchById, [workspaceId]: branchName },
+              workspaces: repository.workspaces.some(({ id }) => id === workspaceId)
+                ? repository.workspaces
+                : [...repository.workspaces, { id: workspaceId, name: workspaceDisplayName, updatedAt: new Date().toISOString() }],
+              workspaceBranchById: { ...repository.workspaceBranchById, [workspaceId]: createdBranch },
               workspacePathById: { ...repository.workspacePathById, [workspaceId]: workspacePath },
               workspaceDefaultById: { ...repository.workspaceDefaultById, [workspaceId]: false },
               archivedWorkspacePathsToRemove: [workspacePath],
@@ -267,7 +268,7 @@ export function createWorkspaceCreateActions(args: {
             ];
         const nextBranchById = {
           ...state.workspaceBranchById,
-          [workspaceId]: branchName,
+          [workspaceId]: createdBranch,
         };
         const nextPathById = {
           ...state.workspacePathById,
@@ -277,16 +278,14 @@ export function createWorkspaceCreateActions(args: {
           ...state.workspaceDefaultById,
           [workspaceId]: false,
         };
-        const nextWorkspaceLastActiveAtById = stampWorkspaceActive({
-          current: state.workspaceLastActiveAtById,
-          workspaceId,
-        });
+        const activateHere = activate && state.activeWorkspaceId !== workspaceId;
+        const activeWorkspaceId = activateHere ? workspaceId : state.activeWorkspaceId;
+        const nextWorkspaceLastActiveAtById = activateHere
+          ? stampWorkspaceActive({ current: state.workspaceLastActiveAtById, workspaceId })
+          : state.workspaceLastActiveAtById;
         return {
-          workspaceSnapshotVersion: 0,
           workspaces: nextWorkspaces,
-          activeWorkspaceId: workspaceId,
-          // Creating a workspace is deliberate work in it, and it becomes
-          // active here without routing through switchWorkspace.
+          activeWorkspaceId,
           workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
           workspaceBranchById: nextBranchById,
           workspacePathById: nextPathById,
@@ -297,29 +296,35 @@ export function createWorkspaceCreateActions(args: {
             repositoryName: state.repositoryName,
             defaultBranch: state.defaultBranch,
             workspaces: nextWorkspaces,
-            activeWorkspaceId: workspaceId,
+            activeWorkspaceId,
             workspaceBranchById: nextBranchById,
             workspacePathById: nextPathById,
             workspaceDefaultById: nextDefaultById,
             workspaceLastActiveAtById: nextWorkspaceLastActiveAtById,
             archivedWorkspacePathsToRemove: [workspacePath],
           }),
-          workspaceRuntimeCacheById:
-            saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state }),
-          activeAppSurface: WORKSPACE_APP_SURFACE,
           taskWorkspaceIdById: registerTaskWorkspaceOwnership({
             taskWorkspaceIdById: state.taskWorkspaceIdById,
             workspaceId,
-            tasks: workspaceState.tasks,
+            tasks: snapshot.tasks,
           }),
-          ...workspaceState,
-          repositoryFiles: [],
+          ...(activateHere && {
+            workspaceSnapshotVersion: 0,
+            workspaceRuntimeCacheById: saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state }),
+            activeAppSurface: WORKSPACE_APP_SURFACE,
+            ...buildWorkspaceSessionState({ snapshot: { ...snapshot, workspaceInformation: workspaceInformation ?? snapshot.workspaceInformation } }),
+            repositoryFiles: [],
+          }),
         };
       });
-      // Route path-based operations to this workspace even before its directory
-      // exists. In particular they must never point at the outgoing checkout.
-      void workspaceFsAdapter.setRoot?.({ rootPath: workspacePath, rootName: workspaceDisplayName, files: [] })?.catch(() => {});
-      onWorkspacePreparing?.();
+      const activateWorkspace = () => {
+        publishWorkspace(true);
+        if (get().activeWorkspaceId === workspaceId) {
+          void workspaceFsAdapter.setRoot?.({ rootPath: workspacePath, rootName: workspaceDisplayName, files: [] })?.catch(() => {});
+        }
+      };
+      if (!prepareInDialog) activateWorkspace();
+      onWorkspacePreparing?.(workspaceId);
       let checkoutCreated = false;
       let linkedDependencies = false;
       const taskStartup: { result?: KickoffWorkspaceResult } = {};
@@ -341,7 +346,8 @@ export function createWorkspaceCreateActions(args: {
 
                 const name = workspaceLabel || result.branch;
                 workspaceDisplayName = name;
-                set((state) => {
+                createdBranch = result.branch;
+                if (!prepareInDialog) set((state) => {
                   const updateRows = (rows: AppState["workspaces"]) => rows.map((row) =>
                     row.id === workspaceId ? { ...row, name } : row,
                   );
@@ -368,7 +374,7 @@ export function createWorkspaceCreateActions(args: {
                   current: liveInformation ?? snapshot.workspaceInformation ?? createEmptyWorkspaceInformation(),
                   input: { kind: "pull_request", title: result.title, url: result.url },
                 }).state;
-                latest.applyExternalWorkspaceInformationUpdate({ workspaceId, workspaceInformation });
+                if (!prepareInDialog) latest.applyExternalWorkspaceInformationUpdate({ workspaceId, workspaceInformation });
                 if (latest.activeWorkspaceId === workspaceId) {
                   void workspaceFsAdapter.setRoot?.({ rootPath: workspacePath, rootName: name })?.catch(() => {});
                 }
@@ -436,6 +442,7 @@ export function createWorkspaceCreateActions(args: {
             await persistInitialTask();
           },
           copy: async () => {
+            if (prepareInDialog) publishWorkspace(false);
             await registerCreatedWorkspace(get, workspaceId);
             if (pr) {
               if (get().repositoryPath === repositoryPath) void get().fetchWorkspacePrStatus({ workspaceId });
@@ -483,6 +490,15 @@ export function createWorkspaceCreateActions(args: {
             });
           },
           task: async () => {
+            if (prepareInDialog) {
+              const stillOnSource = () => get().repositoryPath === repositoryPath &&
+                get().activeWorkspaceId === current.activeWorkspaceId;
+              if (stillOnSource()) {
+                await get().flushActiveWorkspaceSnapshot();
+                if (stillOnSource()) activateWorkspace();
+              }
+              onWorkspaceReady?.(workspaceId);
+            }
             if (get().activeWorkspaceId === workspaceId && workspaceFsAdapter.getRootPath?.() === workspacePath) {
               void workspaceFsAdapter.listFiles().then((files) => {
                 set((state) => state.activeWorkspaceId === workspaceId ? {
@@ -497,6 +513,10 @@ export function createWorkspaceCreateActions(args: {
               workspaceId, trigger: "task.created", taskId: seededTask.id, taskTitle: seededTask.title,
             });
             if (!startInitialTask) return { status: "skipped" };
+            if (prepareInDialog && get().activeWorkspaceId !== workspaceId) {
+              taskStartup.result = { ok: true, startup: "staged" };
+              return { status: "skipped" };
+            }
             const startup = await startInitialTask(target);
             taskStartup.result = startup;
             // Kickoff surfaces a failed or unconfirmed send through its warning.
