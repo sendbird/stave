@@ -19,6 +19,7 @@
 @import "./sidebar-motion.css";
 @import "./overlay-motion.css";
 @import "./inline-disclosure-motion.css";
+@import "./chart-entrance-motion.css";
 
 /*
  * Corner geometry is published to a button as custom properties, and custom
@@ -316,6 +317,26 @@
   }
 }
 
+/* Content arriving where a skeleton stood (`Skeleton.motion.ts`, installed
+   with the chart and data table families): a short fade, and the same fade
+   held back one step for a placeholder that should not flash. */
+.atelier-motion-arrive {
+  animation: atelier-arrive var(--atelier-motion-duration-fast)
+    var(--atelier-motion-ease-standard);
+}
+
+.atelier-motion-show-delayed {
+  animation: atelier-arrive var(--atelier-motion-duration-fast)
+    var(--atelier-motion-ease-standard) var(--atelier-motion-duration-fast)
+    backwards;
+}
+
+@keyframes atelier-arrive {
+  from {
+    opacity: 0;
+  }
+}
+
 /* Small inline progress affordance used by buttons and pending menu items.
    Same revolution as the Loader spinner (`--atelier-motion-duration-spin`). */
 .atelier-icon-spinner {
@@ -347,6 +368,14 @@
 @media (prefers-reduced-motion: reduce) {
   .atelier-motion-skeleton::after {
     animation: none;
+  }
+
+  .atelier-motion-arrive {
+    animation: none;
+  }
+
+  .atelier-motion-show-delayed {
+    animation-duration: 0s;
   }
 
   .atelier-icon-spinner {

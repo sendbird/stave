@@ -15,6 +15,11 @@ export type {
 } from "./Skeleton.surface";
 
 export type SkeletonProps = Omit<SkeletonRootProps, "className"> & {
+  /**
+   * Element to render. `span` is an inline-block placeholder for a slot inside
+   * running text or an inline row; `div` is a block. @default "div"
+   */
+  as?: "div" | "span";
   className?: string;
   /** Logical inline size of the placeholder. */
   width?: React.CSSProperties["inlineSize"];
@@ -49,6 +54,7 @@ export type SkeletonProps = Omit<SkeletonRootProps, "className"> & {
  * placeholder.
  */
 function SkeletonRoot({
+  as: Component = "div",
   className,
   height,
   lines = 1,
@@ -73,13 +79,14 @@ function SkeletonRoot({
   // out: a multi-line text skeleton is N placeholders in a grid, and a brand
   // filling the grid instead would also fill the gaps between the lines.
   const theme = themeProps("skeleton", { variant });
+  const inline = Component === "span";
 
   if (variant === "text" && lines > 1) {
     return (
-      <div
+      <Component
         {...props}
         aria-hidden
-        className={cx(sx(styles.stack, xstyle), className)}
+        className={cx(sx(styles.stack, inline && styles.inlineStack, xstyle), className)}
         style={placeholderStyle}
       >
         {Array.from({ length: lines }).map((_, index) => (
@@ -98,17 +105,17 @@ function SkeletonRoot({
             style={lineStyle}
           />
         ))}
-      </div>
+      </Component>
     );
   }
 
   return (
-    <div
+    <Component
       {...props}
       {...theme}
       aria-hidden
       className={cx(
-        sx(styles.root, variantStyles[variant], xstyle),
+        sx(styles.root, variantStyles[variant], inline && styles.inline, xstyle),
         "atelier-motion-skeleton",
         theme.className,
         className,
@@ -259,6 +266,15 @@ const styles = stylex.create({
     display: "grid",
     gap: vars["--aui-space-8"],
     inlineSize: "100%",
+  },
+  // Inline shapes (`as="span"`) sit on the line like a replaced element.
+  inline: {
+    display: "inline-block",
+    verticalAlign: "middle",
+  },
+  inlineStack: {
+    display: "inline-grid",
+    verticalAlign: "top",
   },
   lastLine: {
     inlineSize: "68%",

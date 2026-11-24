@@ -473,5 +473,178 @@
   "runRecap": {
     "reviewed": "reviewed",
     "unreviewed": "not yet reviewed"
+  },
+  "barList": {
+    "label": "Bar chart"
+  },
+  "chart": {
+    "column": {
+      "category": "Category",
+      "item": "Item",
+      "value": "Value"
+    },
+    "currentSeries": "Current",
+    "downloadCsv": "Download CSV",
+    "downloadImage": "Download image",
+    "emptyTitle": "No data for this selection",
+    "exploreHint": "Use the arrow keys to move between points, Home and End to reach the first and last.",
+    "exploreHintSelectable": "Use the arrow keys to move between points, Home and End to reach the first and last, Enter to open a point.",
+    "invalidSpec": "This chart could not be drawn: {{detail}}",
+    "invalidSpecFallback": "invalid spec",
+    "legend": "Chart legend",
+    "loadFailed": "Could not load this chart",
+    "loading": "Loading chart data",
+    "other": "Other",
+    "paused": "Paused",
+    "previousPeriod": "Previous period",
+    "retry": "Retry",
+    "roleDescription": "chart",
+    "seriesLegend": "Chart series",
+    "showChart": "Show chart",
+    "showTable": "Show table",
+    "stale": "Stale",
+    "tooManySeries": "SeriesChart supports up to {{max}} series. Split additional measures into small multiples.",
+    "tooltip": {
+      "change": "Change"
+    },
+    "total": "Total",
+    "updated": "Updated",
+    "visibleRange": "Visible range"
+  },
+  "dataError": {
+    "retry": "Retry"
+  },
+  "dataTable": {
+    "actionsColumn": "Actions",
+    "collapseRow": "Collapse row {{row}}",
+    "columnMoved": "Column {{column}} moved to position {{position}} of {{total}}",
+    "columnWidth_one": "{{count}} pixel",
+    "columnWidth_other": "{{count}} pixels",
+    "columns": "Columns",
+    "density": {
+      "comfortable": "Comfortable rows",
+      "compact": "Compact rows",
+      "label": "Row density"
+    },
+    "editCell": "Edit {{column}}, {{row}}",
+    "editCellRowId": "Edit {{column}}, row {{rowId}}",
+    "empty": {
+      "description": "Rows appear here once this table has data.",
+      "filteredDescription": "No rows match the current filters.",
+      "filteredTitle": "No matching rows",
+      "title": "Nothing here yet"
+    },
+    "error": {
+      "message": "Something went wrong while loading.",
+      "title": "Couldn't load rows"
+    },
+    "expandColumn": "Expand",
+    "expandRow": "Expand row {{row}}",
+    "exportCsv": "Export CSV",
+    "pagination": {
+      "allLoaded": "All rows loaded",
+      "loadMore": "Load more",
+      "loadingMore": "Loading more…",
+      "loadingNext": "Loading next…",
+      "loadingPrevious": "Loading previous…",
+      "next": "Next",
+      "page": "Page {{page}}",
+      "pageOf": "Page {{page}} of {{pageCount}}",
+      "previous": "Previous",
+      "retry": "Retry",
+      "rowsLoaded_one": "{{count}} row loaded",
+      "rowsLoaded_other": "{{count}} rows loaded",
+      "rowsPerPage": "Rows per page"
+    },
+    "pin": {
+      "end": "Pin to end",
+      "groupLabel": "Pin column",
+      "pinnedEnd": "End",
+      "pinnedStart": "Start",
+      "start": "Pin to start",
+      "unpin": "Unpin"
+    },
+    "resizeColumn": "Resize {{column}} column",
+    "selectAllRows": "Select all rows",
+    "selectRow": "Select row {{row}}"
+  },
+  "heatmap": {
+    "mark": {
+      "diagonal": "correct",
+      "highlighted": "flagged"
+    },
+    "noData": "No data",
+    "rowHeader": "Row",
+    "scale": {
+      "higher": "Higher",
+      "less": "Less",
+      "lower": "Lower",
+      "more": "More"
+    }
+  },
+  "interval": {
+    "column": {
+      "against": "Against",
+      "estimate": "Estimate",
+      "high": "High",
+      "item": "Item",
+      "low": "Low",
+      "reading": "Reading"
+    },
+    "describeRow": "{{label}}: estimate {{estimate}}, interval {{low}} to {{high}}, {{verdict}} against {{reference}} ({{referenceValue}})",
+    "key": {
+      "estimate": "Estimate",
+      "interval": "Interval"
+    },
+    "noEffect": "No effect",
+    "verdict": {
+      "above": "Above",
+      "below": "Below",
+      "better": "Better",
+      "unclear": "Not clear yet",
+      "worse": "Worse"
+    }
+  },
+  "sparkline": {
+    "noData": "Trend, no data",
+    "rangeSuffix": ", {{start}} to {{end}}",
+    "summaryWithReference_one": "Trend of {{count}} point, latest {{latest}}, reference {{reference}}",
+    "summaryWithReference_other": "Trend of {{count}} points, latest {{latest}}, reference {{reference}}",
+    "summary_one": "Trend of {{count}} point, latest {{latest}}",
+    "summary_other": "Trend of {{count}} points, latest {{latest}}"
+  },
+  "statTile": {
+    "live": "Live",
+    "loadFailed": "Couldn't load",
+    "point": "Point {{index}}",
+    "progressOf": "of {{max}}",
+    "trend": "Trend",
+    "trendNamed": "{{label}} trend"
+  },
+  "timeline": {
+    "column": {
+      "duration": "Duration",
+      "end": "End",
+      "item": "Item",
+      "row": "Row",
+      "start": "Start"
+    },
+    "handoff": "Hand-off",
+    "label": "Timeline",
+    "now": "now",
+    "roleDescription": "timeline",
+    "status": {
+      "attention": "Needs you",
+      "done": "Done",
+      "failed": "Failed",
+      "running": "Running"
+    },
+    "tone": {
+      "danger": "Critical",
+      "info": "Planned",
+      "neutral": "Other",
+      "success": "Done",
+      "warning": "At risk"
+    }
   }
 }

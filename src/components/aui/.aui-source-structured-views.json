@@ -1,0 +1,631 @@
+{
+  "bundleIntegrity": "sha256-5af94041e980258dc2513d41ebc7bdde6cf7e9202df2eda6c3f3d6f7684f7fff",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@tanstack/react-virtual": "^3.14.4",
+    "recharts": "^3.9.0"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "chartspec",
+      "kind": "component",
+      "name": "Chart Spec",
+      "path": "src/components/aui/components/ChartSpec.tsx"
+    },
+    {
+      "id": "datatable",
+      "kind": "component",
+      "name": "Data Table",
+      "path": "src/components/aui/components/DataTable.tsx"
+    },
+    {
+      "id": "stattile",
+      "kind": "component",
+      "name": "Stat Tile",
+      "path": "src/components/aui/components/StatTile.tsx"
+    },
+    {
+      "id": "timelinechart",
+      "kind": "component",
+      "name": "Timeline Chart",
+      "path": "src/components/aui/components/Charts.timeline.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-01860cd84d6aa2a8ace05a4d39832329ccd7926b877cbb388c958678fb44dc5c",
+      "path": "src/components/aui/chart-entrance-motion.css",
+      "sourcePath": "packages/design-system/src/chart-entrance-motion.css"
+    },
+    {
+      "integrity": "sha256-d4e6ab74e8411e17c40d04386925fc2f22b3be28ed4dd0615ac69ff6d5d9cda4",
+      "path": "src/components/aui/components/BarList.tsx",
+      "sourcePath": "packages/design-system/src/components/BarList.tsx"
+    },
+    {
+      "integrity": "sha256-a75c10f092b66dad90114dbc2d8c45cb3ede68930d861c404b49a04a51947715",
+      "path": "src/components/aui/components/ChartSpec.tsx",
+      "sourcePath": "packages/design-system/src/components/ChartSpec.tsx"
+    },
+    {
+      "integrity": "sha256-9240c7ab282c39ebb84ff39f9f25f04eb28ef3b7d70e6eba91eaed64c30213b8",
+      "path": "src/components/aui/components/ChartSpec.validate.ts",
+      "sourcePath": "packages/design-system/src/components/ChartSpec.validate.ts"
+    },
+    {
+      "integrity": "sha256-4b7372b175ca76f930b692855c88c40cc0721bbb0e51858d26096f3e8eeb73b3",
+      "path": "src/components/aui/components/Charts.axes.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.axes.tsx"
+    },
+    {
+      "integrity": "sha256-29c2d9b63089455f5443588b21447d408c0af2b9c4884148197f4e1ad7371de7",
+      "path": "src/components/aui/components/Charts.basic.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.basic.tsx"
+    },
+    {
+      "integrity": "sha256-3ea87d094cc3a80c261c66eade84ed297105c145575e51a20cc4d01a882a78e0",
+      "path": "src/components/aui/components/Charts.card.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.card.tsx"
+    },
+    {
+      "integrity": "sha256-9870e6c300d583744403797a7f52a8a491e66ac3bb92b1c1948b8c44193b92ea",
+      "path": "src/components/aui/components/Charts.cartesian.marks.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.cartesian.marks.tsx"
+    },
+    {
+      "integrity": "sha256-98179d0b6e61aac54ed53d5f4adbe34df154e5d83a79603a63cfd50a586eced0",
+      "path": "src/components/aui/components/Charts.cartesian.prepare.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.cartesian.prepare.ts"
+    },
+    {
+      "integrity": "sha256-7cfe07364141c2cf1fa55fe6c85f82c7ae485760c53623c288a9e049881c4917",
+      "path": "src/components/aui/components/Charts.cartesian.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.cartesian.tsx"
+    },
+    {
+      "integrity": "sha256-97c3a041ef73f8a5598b29989de7aa7e2fdb220b235e3dc3bd5e0b03bf0a571e",
+      "path": "src/components/aui/components/Charts.config.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.config.ts"
+    },
+    {
+      "integrity": "sha256-48b0b6a2e9c74aba7bdda0e9a2c764ee33e09c44ec0a3eb33b1078cf54af5f0d",
+      "path": "src/components/aui/components/Charts.cursor.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.cursor.tsx"
+    },
+    {
+      "integrity": "sha256-d7235dfff6dbf8832c08f11dbee6b4f0f43b4bfac09c0e44cf17b5b61c0b9f4d",
+      "path": "src/components/aui/components/Charts.emptyState.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.emptyState.tsx"
+    },
+    {
+      "integrity": "sha256-7f9d5ffe5f067b50916cb93a1b7474199df5c66c688960982930d1be929c4197",
+      "path": "src/components/aui/components/Charts.entrance.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.entrance.ts"
+    },
+    {
+      "integrity": "sha256-54d0b0f62a8ba2b389559a401f241ed91b2e96376bf83770d73d5011837f28f4",
+      "path": "src/components/aui/components/Charts.explore.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.explore.tsx"
+    },
+    {
+      "integrity": "sha256-62aeabf0daef2fc751e3175fb3138185d707f2191cf09daaef2f97e0db5b4c23",
+      "path": "src/components/aui/components/Charts.focus.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.focus.tsx"
+    },
+    {
+      "integrity": "sha256-263d57eedda297c8cffcfd2c029eb87d67482151102a95453cb9d1b9352171c2",
+      "path": "src/components/aui/components/Charts.format.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.format.ts"
+    },
+    {
+      "integrity": "sha256-dc2a4d09f1705a42f0c0db7b30baf51cc02ad0eee9ac45e5c4adb723d053a2bc",
+      "path": "src/components/aui/components/Charts.frame.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.frame.tsx"
+    },
+    {
+      "integrity": "sha256-6f12ff39c17e33816ce69338951a0ab19be5fd6321b20ca00d784db4cf8cb842",
+      "path": "src/components/aui/components/Charts.header.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.header.tsx"
+    },
+    {
+      "integrity": "sha256-2b31e6ca925734649e25968a4fb8bb5855ac2cc12b3e59d794cc79205a79867e",
+      "path": "src/components/aui/components/Charts.headline.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.headline.tsx"
+    },
+    {
+      "integrity": "sha256-c9a27a01fc275a32fae04f267282426ba14d90d39bccc84d24e7a2d023f12457",
+      "path": "src/components/aui/components/Charts.identity.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.identity.tsx"
+    },
+    {
+      "integrity": "sha256-59081e4560d38c66616543c37536c2755463905f5c7a603e22eab87acb959905",
+      "path": "src/components/aui/components/Charts.interval.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.interval.tsx"
+    },
+    {
+      "integrity": "sha256-641f051a60079052bff9d6d8f9a077debe4080e36bd4ff748a7aa4597d5de6d5",
+      "path": "src/components/aui/components/Charts.legend.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.legend.tsx"
+    },
+    {
+      "integrity": "sha256-98182bd8d7e9ae5fb6b87d48f4417d384d3bdf5a996d57beb94e0b4210e06580",
+      "path": "src/components/aui/components/Charts.loading.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.loading.tsx"
+    },
+    {
+      "integrity": "sha256-8bf760f90f8ba94fa8584bd7d5d24271e56d8de6077d632bdd860279475d0a19",
+      "path": "src/components/aui/components/Charts.marks.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.marks.tsx"
+    },
+    {
+      "integrity": "sha256-ad39ba480115106bcbc45c7aca5a5ebe093fc3232b5f9a5c6c768a9f2260d06c",
+      "path": "src/components/aui/components/Charts.options.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.options.ts"
+    },
+    {
+      "integrity": "sha256-e153131859e5f8816c7927a5e251dec66c9db84737b297a5ff20abaac9208bbe",
+      "path": "src/components/aui/components/Charts.props.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.props.ts"
+    },
+    {
+      "integrity": "sha256-3c990a817e6904d90727f42427750da2dcc022c7fa142cadbef93a3616ddbb91",
+      "path": "src/components/aui/components/Charts.radial.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.radial.tsx"
+    },
+    {
+      "integrity": "sha256-cea6bd5153d740b75402f8fcd8a364251bc6a196efdcc27ae77075cdf8d77d7e",
+      "path": "src/components/aui/components/Charts.reference.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.reference.tsx"
+    },
+    {
+      "integrity": "sha256-fc929e2aaac884114c10c977984d21a74455155c018ddc69b26d912f73241561",
+      "path": "src/components/aui/components/Charts.rows.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.rows.styles.ts"
+    },
+    {
+      "integrity": "sha256-b24cd4ae0a4c2488ab97639d18b6489663aa46ac40b48b13477e3a2ee7495290",
+      "path": "src/components/aui/components/Charts.series.extras.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.series.extras.tsx"
+    },
+    {
+      "integrity": "sha256-dfe88783ae24d825411d78c69eb6a58fb83a3b65902c11d099ede9469aec056a",
+      "path": "src/components/aui/components/Charts.series.marks.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.series.marks.tsx"
+    },
+    {
+      "integrity": "sha256-af4182aff16daeca55931c79fc77048031fd12282a51ac2394629cbc6a688a75",
+      "path": "src/components/aui/components/Charts.series.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.series.tsx"
+    },
+    {
+      "integrity": "sha256-ea3218e427c9ba06708fc02720fdf4a24c922361503dcf8822de17d08d032ffc",
+      "path": "src/components/aui/components/Charts.share.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.share.tsx"
+    },
+    {
+      "integrity": "sha256-f31d4531758c9fb13fb4190e6fc98bfc6d4018ac752689f1fa2c7f78952363fc",
+      "path": "src/components/aui/components/Charts.states.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.states.tsx"
+    },
+    {
+      "integrity": "sha256-5ebf338136c1852bc346228755c4a08b6e3cecd26e935cabb668a59f2e6c95b2",
+      "path": "src/components/aui/components/Charts.stream.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.stream.ts"
+    },
+    {
+      "integrity": "sha256-e6c3f0b85bec0eec80354a40b1ee26e55ce797694d7c24a5d05d432103f3a735",
+      "path": "src/components/aui/components/Charts.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.styles.ts"
+    },
+    {
+      "integrity": "sha256-dc3914b139011aa4c285656a0f4d95390488170bbd056af8508880ce2e5d9e43",
+      "path": "src/components/aui/components/Charts.time.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.time.tsx"
+    },
+    {
+      "integrity": "sha256-7a1c17a5c90382c054c517d59d394f36b823a766eac7aa0a74d3366f7519b2ad",
+      "path": "src/components/aui/components/Charts.timeAxis.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.timeAxis.styles.ts"
+    },
+    {
+      "integrity": "sha256-c36543df65266b1a19e891f920d7c2a1e28e6f1b3c990a252b681d4528958c3f",
+      "path": "src/components/aui/components/Charts.timeline.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.timeline.styles.ts"
+    },
+    {
+      "integrity": "sha256-feed919b4489d959d649501c6bb134e11a350692143b9980126344907c26a528",
+      "path": "src/components/aui/components/Charts.timeline.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.timeline.tsx"
+    },
+    {
+      "integrity": "sha256-b227e4446210b221df36da9739df4c04c26827811845ebb0c2bafdcd661dd127",
+      "path": "src/components/aui/components/Charts.timeline.utils.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.timeline.utils.ts"
+    },
+    {
+      "integrity": "sha256-a1a29203c27355cec73f82c7213b072e2a3ea48a9ba65acebd6c8536fa351f91",
+      "path": "src/components/aui/components/Charts.timelineLanes.styles.ts",
+      "sourcePath": "packages/design-system/src/components/Charts.timelineLanes.styles.ts"
+    },
+    {
+      "integrity": "sha256-705f7d5de2371407d69f6a3c673da345ee103a8c26cb9b1a1c4dec555cfc3f18",
+      "path": "src/components/aui/components/Charts.timelineLanes.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.timelineLanes.tsx"
+    },
+    {
+      "integrity": "sha256-762877adc9cc28bacedcf86898d73d96b3317731ed85fb1989ec00ce73fc7606",
+      "path": "src/components/aui/components/Charts.tooltip.tsx",
+      "sourcePath": "packages/design-system/src/components/Charts.tooltip.tsx"
+    },
+    {
+      "integrity": "sha256-f8d8f530ab5e45affeb829cf0d41f6bb0a93a50fe4f94ec596ef00a0e0113e19",
+      "path": "src/components/aui/components/DataTable.cell.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.cell.tsx"
+    },
+    {
+      "integrity": "sha256-1c4cff71e5d82241816700e0b91e1ed41c7f79fb36fe44fdb6d85f10a80718ed",
+      "path": "src/components/aui/components/DataTable.cellLayout.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.cellLayout.ts"
+    },
+    {
+      "integrity": "sha256-a80158061e723309dd6f2c5f133f6e3681baf229ffe9e8e21252e6785d72790a",
+      "path": "src/components/aui/components/DataTable.columns.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.columns.ts"
+    },
+    {
+      "integrity": "sha256-7214f02561d0b895171124518dd97d0d026234c2ef829278a668ac07a58d447d",
+      "path": "src/components/aui/components/DataTable.csv.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.csv.ts"
+    },
+    {
+      "integrity": "sha256-23cb8929855aa48eaee41e0cecc5a86d9bafe6b1ae1119ede8463dfd2511790c",
+      "path": "src/components/aui/components/DataTable.editing.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.editing.tsx"
+    },
+    {
+      "integrity": "sha256-d6cdc46b2ec0fc5b9ceaeb1b5fd14b7c52742c95adedcc874d24cc82027be51d",
+      "path": "src/components/aui/components/DataTable.empty.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.empty.ts"
+    },
+    {
+      "integrity": "sha256-9d9ee9de108b165867b77fa55cfaf7c320f1fecbc69248af3ba1fafc01bf23f9",
+      "path": "src/components/aui/components/DataTable.error.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.error.tsx"
+    },
+    {
+      "integrity": "sha256-24684cced70dee0c8f9135c35100276572d245edab6845b2f6c65510c3b36c24",
+      "path": "src/components/aui/components/DataTable.footer.styles.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.footer.styles.ts"
+    },
+    {
+      "integrity": "sha256-47794bf371fa4bd4a4a120618971d37aa3345f50a527bbb96c230a5c3971825a",
+      "path": "src/components/aui/components/DataTable.footer.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.footer.tsx"
+    },
+    {
+      "integrity": "sha256-7d0cd40172cf64cfb96d19899b3b2205a3bfcb9233eadf1fd15e7d018b82f034",
+      "path": "src/components/aui/components/DataTable.gridKeyboard.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.gridKeyboard.ts"
+    },
+    {
+      "integrity": "sha256-fb79e7e57b3c3aa4bf98e64a80f5a91a4e49e575d8e0891aabb41cb6310ef2f4",
+      "path": "src/components/aui/components/DataTable.gridNavigation.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.gridNavigation.ts"
+    },
+    {
+      "integrity": "sha256-f09d57f3f3630df155373c45093e766fb750a8ad7ef41e8d34e13981b7a9642b",
+      "path": "src/components/aui/components/DataTable.headRow.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.headRow.tsx"
+    },
+    {
+      "integrity": "sha256-39e0a28398d2620d1aaa9787d3004fbbe81efaf4b0515a57a4abf2e31211b24b",
+      "path": "src/components/aui/components/DataTable.header.styles.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.header.styles.ts"
+    },
+    {
+      "integrity": "sha256-d5b488168b50d592732be71d434039034ac26e4ec6f6cd97d61220e1a8428d68",
+      "path": "src/components/aui/components/DataTable.header.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.header.tsx"
+    },
+    {
+      "integrity": "sha256-d27abf67374751ce9c67b798ca4113ccf10048272478a387a6242972cb5071fe",
+      "path": "src/components/aui/components/DataTable.helpers.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.helpers.ts"
+    },
+    {
+      "integrity": "sha256-fbd0e4603e204d0085e7cd18d4e8b0a3eef82c7887af9a93bab4eeea3ba3e95e",
+      "path": "src/components/aui/components/DataTable.loadMoreReveal.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.loadMoreReveal.ts"
+    },
+    {
+      "integrity": "sha256-131bc7dcf5e3011a057523b905f8b0bd6b9384dbe640531a9fc3aadac7705a13",
+      "path": "src/components/aui/components/DataTable.loadingRows.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.loadingRows.tsx"
+    },
+    {
+      "integrity": "sha256-0ace1e81db1b74d7175959ed3b64ce1f090fde4b6f765830574e229f74be7187",
+      "path": "src/components/aui/components/DataTable.loadingSample.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.loadingSample.tsx"
+    },
+    {
+      "integrity": "sha256-a561df7f9866ffd7faf8a1cbd89a5a2b8ad0efcba0bcf9b4b013fde8d0103381",
+      "path": "src/components/aui/components/DataTable.pagination.types.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.pagination.types.ts"
+    },
+    {
+      "integrity": "sha256-f723b64bc4e1fcbce3b87aea38fc836d2104b2aa18c998b9931dcdc988fb66e8",
+      "path": "src/components/aui/components/DataTable.panel.styles.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.panel.styles.ts"
+    },
+    {
+      "integrity": "sha256-e3394be7ae97059a5fc9ec21118ce71bb1d2f2e5abb1e681058610b2f0b31300",
+      "path": "src/components/aui/components/DataTable.parts.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.parts.tsx"
+    },
+    {
+      "integrity": "sha256-2bbe6c53ac5973b6ea727f08df3866f20ec6f81ddfcb83e7e7b84b2bca0ba6c5",
+      "path": "src/components/aui/components/DataTable.pinning.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.pinning.ts"
+    },
+    {
+      "integrity": "sha256-5a0e99f1a6e7348f484f817f8a46ba22d865b4c774b63a57ef4a07f6f8d4ea6d",
+      "path": "src/components/aui/components/DataTable.reorder.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.reorder.tsx"
+    },
+    {
+      "integrity": "sha256-e7d0f5f553f33553ea78a98456d1304d54de92b6ad36be0988a5974f6f485a4c",
+      "path": "src/components/aui/components/DataTable.responsive.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.responsive.ts"
+    },
+    {
+      "integrity": "sha256-189903633fd856a523448b8d1e594455d14ad880a8c25d68f0658d835580b478",
+      "path": "src/components/aui/components/DataTable.root.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.root.tsx"
+    },
+    {
+      "integrity": "sha256-ff7d9a834df03adbf5164f7feab4b7cb9cd50a64720cbe3dd66aad30c8e2b53e",
+      "path": "src/components/aui/components/DataTable.rootState.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.rootState.ts"
+    },
+    {
+      "integrity": "sha256-6fa4fab35c82f2d37d378c0fc9073b5ab4a446df2848bec75cfe181be490f4e0",
+      "path": "src/components/aui/components/DataTable.row.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.row.tsx"
+    },
+    {
+      "integrity": "sha256-47a4e6c2f279b3af8a653151624f7068fc0af35e2e7d458b1bc391b9b7eb2bd7",
+      "path": "src/components/aui/components/DataTable.scrollEdges.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.scrollEdges.tsx"
+    },
+    {
+      "integrity": "sha256-63ea7db063352eac7fb692b52bc3386006cdd240177f50e305305f4050209512",
+      "path": "src/components/aui/components/DataTable.sizing.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.sizing.ts"
+    },
+    {
+      "integrity": "sha256-a24070f542c7427792a0c565d0af6f121edbb7f3c7da95f257aef3369f20baef",
+      "path": "src/components/aui/components/DataTable.sizingWarnings.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.sizingWarnings.ts"
+    },
+    {
+      "integrity": "sha256-74a040b710430d51bf21f6359cc53ba9f1b7b6298d0f96d44fb1d07a1faa3787",
+      "path": "src/components/aui/components/DataTable.stacked.styles.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.stacked.styles.ts"
+    },
+    {
+      "integrity": "sha256-73c0fa0b97f9dc9751d3a64fa2eee0c83a0a2566beeb9eaf2b9158b94cb57193",
+      "path": "src/components/aui/components/DataTable.styles.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.styles.ts"
+    },
+    {
+      "integrity": "sha256-567fe806bfcf0d3a2f4b2dbe8e8586fe97ec71d74d77d686804ec08527c0283f",
+      "path": "src/components/aui/components/DataTable.toolbar.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.toolbar.tsx"
+    },
+    {
+      "integrity": "sha256-2e5ed9b813f6e6412ecdd00e3dd3ad197917909b27c5f9c981eeeaf0f8e362b3",
+      "path": "src/components/aui/components/DataTable.tools.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.tools.ts"
+    },
+    {
+      "integrity": "sha256-0fd0f4f45bc6d1b4c720ecdf09c5af96379f346894f53992c0dd7f75d03849f9",
+      "path": "src/components/aui/components/DataTable.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.tsx"
+    },
+    {
+      "integrity": "sha256-fe25310b63c4cd4606c24c9d5c1d0d440810c3d67b59bd7edb85afe45c69c2e2",
+      "path": "src/components/aui/components/DataTable.types.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.types.ts"
+    },
+    {
+      "integrity": "sha256-741496c3f971e7b1e403b7fc75d4e111e92e0033985fda16196b08655a2413b5",
+      "path": "src/components/aui/components/DataTable.vars.stylex.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.vars.stylex.ts"
+    },
+    {
+      "integrity": "sha256-2c51a0d97f93f620aab5c0b27fb158643a82fe881b666008994de7f310b53c31",
+      "path": "src/components/aui/components/DataTable.view.tsx",
+      "sourcePath": "packages/design-system/src/components/DataTable.view.tsx"
+    },
+    {
+      "integrity": "sha256-f9983a108e6c1401d8d6e87bd9728d40c93fcc0adb13bb4b4c632ea68dd09c6f",
+      "path": "src/components/aui/components/DataTable.view.types.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.view.types.ts"
+    },
+    {
+      "integrity": "sha256-e69d254de9446d645fa5b3b2ec3108b0fb54653351e83f19d3e1e71cc05c83ac",
+      "path": "src/components/aui/components/DataTable.virtualization.ts",
+      "sourcePath": "packages/design-system/src/components/DataTable.virtualization.ts"
+    },
+    {
+      "integrity": "sha256-192cd786b4257d91ca95aad9cece91f05b4db709a26bd06bd9dd27344ea7105d",
+      "path": "src/components/aui/components/DropdownMenu.row.tsx",
+      "sourcePath": "packages/design-system/src/components/DropdownMenu.row.tsx"
+    },
+    {
+      "integrity": "sha256-5e19d8d57d06733840e5d12ca07cd2edae33dca50985876c7b9d45c964a01464",
+      "path": "src/components/aui/components/Heatmap.matrix.ts",
+      "sourcePath": "packages/design-system/src/components/Heatmap.matrix.ts"
+    },
+    {
+      "integrity": "sha256-eb597a9f912a875d5cf83fa3a4a36dbd434f15b98790160af2cd9ee4da509da8",
+      "path": "src/components/aui/components/Heatmap.ramp.ts",
+      "sourcePath": "packages/design-system/src/components/Heatmap.ramp.ts"
+    },
+    {
+      "integrity": "sha256-74bc5d6f65832fe5c5183ffe4c716735072fba62d003ebea86d744c2efdcae08",
+      "path": "src/components/aui/components/Heatmap.tsx",
+      "sourcePath": "packages/design-system/src/components/Heatmap.tsx"
+    },
+    {
+      "integrity": "sha256-7f41aee417ef0eb4320c563165df71269c8e07a08c065c2171c441e06e8af085",
+      "path": "src/components/aui/components/Skeleton.measured.geometry.ts",
+      "sourcePath": "packages/design-system/src/components/Skeleton.measured.geometry.ts"
+    },
+    {
+      "integrity": "sha256-737b2d50fa961598794d103b4109ee81d895d855ee1f7b520414cf7a5cdc1149",
+      "path": "src/components/aui/components/Skeleton.measured.measure.ts",
+      "sourcePath": "packages/design-system/src/components/Skeleton.measured.measure.ts"
+    },
+    {
+      "integrity": "sha256-fa2cb9af1b37e36d07ea786a190ae7475cc5909d2977adb99cfa8008f67e6b3c",
+      "path": "src/components/aui/components/Skeleton.motion.ts",
+      "sourcePath": "packages/design-system/src/components/Skeleton.motion.ts"
+    },
+    {
+      "integrity": "sha256-a671a81bf18c0b833a83bd17a45e5848c593e8f03ffe6edb30a4111f13eb8013",
+      "path": "src/components/aui/components/Sparkline.tsx",
+      "sourcePath": "packages/design-system/src/components/Sparkline.tsx"
+    },
+    {
+      "integrity": "sha256-c2765e5fdff495c6441e2f9e9af4d0819a8870792081586b793b4fa9ae024a5c",
+      "path": "src/components/aui/components/StatTile.delta.ts",
+      "sourcePath": "packages/design-system/src/components/StatTile.delta.ts"
+    },
+    {
+      "integrity": "sha256-b818ceecaf085e0b9c14aa533eeac68741f2187df408cb4836a535abf9fcfa9f",
+      "path": "src/components/aui/components/StatTile.error.tsx",
+      "sourcePath": "packages/design-system/src/components/StatTile.error.tsx"
+    },
+    {
+      "integrity": "sha256-caad0243dce96545f8936e5a94aeaaf639c50a6bf188d5c4a2dd8c930c718d78",
+      "path": "src/components/aui/components/StatTile.loading.tsx",
+      "sourcePath": "packages/design-system/src/components/StatTile.loading.tsx"
+    },
+    {
+      "integrity": "sha256-a1f001b5d54196f498ac567ac7b6d81d7e8356b3157fd6294e9ba90d2b6be9dc",
+      "path": "src/components/aui/components/StatTile.rowVariant.tsx",
+      "sourcePath": "packages/design-system/src/components/StatTile.rowVariant.tsx"
+    },
+    {
+      "integrity": "sha256-557010294f4842556d6e637bc9bfac1cfec8f56aa0dfe4c99517826e1f3f1fbd",
+      "path": "src/components/aui/components/StatTile.tsx",
+      "sourcePath": "packages/design-system/src/components/StatTile.tsx"
+    },
+    {
+      "integrity": "sha256-c4e52da30f6b598bce2307a7efed1899c395c49e27cc31e6ed481050813a6aa2",
+      "path": "src/components/aui/components/StatTile.types.ts",
+      "sourcePath": "packages/design-system/src/components/StatTile.types.ts"
+    },
+    {
+      "integrity": "sha256-25f2fdb9786bec22e54d3f0abf91538e4325d571a748b64ad665c166660e3072",
+      "path": "src/components/aui/components/Typography.tsx",
+      "sourcePath": "packages/design-system/src/components/Typography.tsx"
+    },
+    {
+      "integrity": "sha256-d0826115a11e2d808e4845a0a0bd77f4a0c64e5b62e53c8a4a53d145e037b1e4",
+      "path": "src/components/aui/components/data-error.tsx",
+      "sourcePath": "packages/design-system/src/components/data-error.tsx"
+    },
+    {
+      "integrity": "sha256-6ac4d17297c3daab5a90165e63cb43222f9202e96be7738f14ea6e27ad82e112",
+      "path": "src/components/aui/recipes/action-gap.ts",
+      "sourcePath": "packages/design-system/src/recipes/action-gap.ts"
+    },
+    {
+      "integrity": "sha256-d1bf26890c31524b67bd70cdbc509b9fe99ed180d3760ca4b3fdd63b366f5637",
+      "path": "src/components/aui/recipes/data-mark.ts",
+      "sourcePath": "packages/design-system/src/recipes/data-mark.ts"
+    },
+    {
+      "integrity": "sha256-2192828062d87e88b7dfb9e33d9a62095d7f803b26719c784404eee6491db25d",
+      "path": "src/components/aui/recipes/live-breath-keyframes.ts",
+      "sourcePath": "packages/design-system/src/recipes/live-breath-keyframes.ts"
+    },
+    {
+      "integrity": "sha256-7826fb3cbf5493043c8ffa3fa770a04fd81b9233c0b4fdeea2a730a70b707012",
+      "path": "src/components/aui/recipes/live-breath.ts",
+      "sourcePath": "packages/design-system/src/recipes/live-breath.ts"
+    },
+    {
+      "integrity": "sha256-5e3bc9331fde2f5b39e8a9040e89ac031846eeea4f65d01b87008993f6c8f4db",
+      "path": "src/components/aui/recipes/measured.ts",
+      "sourcePath": "packages/design-system/src/recipes/measured.ts"
+    },
+    {
+      "integrity": "sha256-5595992a1efcb5c54579ae0852a95569d5b74b6b5ff142a57b4601f44357c7b1",
+      "path": "src/components/aui/recipes/metric.ts",
+      "sourcePath": "packages/design-system/src/recipes/metric.ts"
+    },
+    {
+      "integrity": "sha256-b878d6ac4f2e9fc08d9f22b697c7c9012fb2c38d12e663fedba26e313490f001",
+      "path": "src/components/aui/recipes/reveal-motion.ts",
+      "sourcePath": "packages/design-system/src/recipes/reveal-motion.ts"
+    },
+    {
+      "integrity": "sha256-011456de63f6cd3c410b0d33f9476665e43a7016016a6c8b71d381bb48a7033c",
+      "path": "src/components/aui/recipes/scroll-edge-shade.ts",
+      "sourcePath": "packages/design-system/src/recipes/scroll-edge-shade.ts"
+    },
+    {
+      "integrity": "sha256-9845ae8e79e62a4b9087bb46203f76c2af396f9ba7e79688a26d56ff443bae4f",
+      "path": "src/components/aui/recipes/table-head.ts",
+      "sourcePath": "packages/design-system/src/recipes/table-head.ts"
+    },
+    {
+      "integrity": "sha256-2b55e89f89b1903f8bca3390c7b65b92691acd187b30434e7eed28db665f1196",
+      "path": "src/components/aui/utils/chart-math.ts",
+      "sourcePath": "packages/design-system/src/utils/chart-math.ts"
+    },
+    {
+      "integrity": "sha256-c7397118c313db34713efa7ca9da10463cb9a3215e975b78cb897014187fb1ab",
+      "path": "src/components/aui/utils/chart-transform.ts",
+      "sourcePath": "packages/design-system/src/utils/chart-transform.ts"
+    },
+    {
+      "integrity": "sha256-b8ec161a54fe201c6d227fc1c89f4643773a881b083e34260a4c194afe0c439d",
+      "path": "src/components/aui/utils/element-width.ts",
+      "sourcePath": "packages/design-system/src/utils/element-width.ts"
+    },
+    {
+      "integrity": "sha256-0027ebdee634d77368911cbc1f72acfb68ae4f68afd78fe702929639d82ebb83",
+      "path": "src/components/aui/utils/histogram-bins.ts",
+      "sourcePath": "packages/design-system/src/utils/histogram-bins.ts"
+    },
+    {
+      "integrity": "sha256-982a99b0db50506409b02757fe2f483cb9a7ddd146a6a3e049d17d2c7ad6a8f5",
+      "path": "src/components/aui/utils/scroll-edges.ts",
+      "sourcePath": "packages/design-system/src/utils/scroll-edges.ts"
+    },
+    {
+      "integrity": "sha256-67939b7b83c68baece9e8509dcb4882fae721162cb2a80cf66f5ec36eed66571",
+      "path": "src/components/aui/utils/windowed-list.helpers.ts",
+      "sourcePath": "packages/design-system/src/utils/windowed-list.helpers.ts"
+    },
+    {
+      "integrity": "sha256-3eb72e06efd5c47edf6dbd5868bb612e2dfcee985b0e3d6bada97bcff90afb11",
+      "path": "src/components/aui/utils/windowed-list.ts",
+      "sourcePath": "packages/design-system/src/utils/windowed-list.ts"
+    }
+  ],
+  "generatorVersion": "3",
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-34f628513bc8f2f86fcefb3de58f44f8468a28ff2a08d6c8b2ee994435e6141f",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/aui"
+}
