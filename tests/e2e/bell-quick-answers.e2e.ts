@@ -6,11 +6,13 @@ const copy = {
     bell: "notifications", short: "Export data", long: "Review export requirements",
     stale: "Ended task", unavailable: "Request unavailable", openTask: "Open task",
     sent: "Answer sent", failed: "Could not answer the request.", allowOnce: "Allow the request in Check settings once",
+    risky: "Check release", deny: "Deny",
   },
   ko: {
     bell: "알림", short: "데이터 내보내기", long: "내보내기 설정 검토",
     stale: "종료된 작업", unavailable: "응답할 수 없는 요청", openTask: "작업 열기",
     sent: "응답을 보냈습니다", failed: "요청에 응답하지 못했습니다.", allowOnce: "설정 확인 작업의 요청 한 번 허용",
+    risky: "릴리스 확인", deny: "거부",
   },
 };
 
@@ -39,6 +41,11 @@ for (const lang of ["en", "ko"] as const) {
       await expect(stale.getByRole("button", { name: /allow|허용/i })).toHaveCount(0);
       await expect(openTask).toBeEnabled();
       await expect(long.getByRole("button", { name: "JSON", exact: true })).toHaveCount(0);
+      // A risk-flagged approval cannot be allowed from the bell; Deny stays.
+      const risky = panel.getByRole("listitem").filter({ hasText: labels.risky });
+      await expect(risky.getByRole("button", { name: /allow|허용/i })).toHaveCount(0);
+      await expect(risky.getByRole("button", { name: labels.openTask, exact: true })).toBeEnabled();
+      await expect(risky.getByText(labels.deny, { exact: true })).toBeVisible();
 
       await page.evaluate(() => document.fonts.ready);
       for (const control of [choice, openTask, unavailable, allowOnce]) {
@@ -87,7 +94,7 @@ test("the setting disables both types of shortcut", async ({ page }) => {
   const panel = await openBell(page, "actions=off", "en");
   await expect(panel.getByRole("button", { name: "JSON", exact: true })).toHaveCount(0);
   await expect(panel.getByRole("button", { name: copy.en.allowOnce, exact: true })).toHaveCount(0);
-  await expect(panel.getByRole("button", { name: copy.en.openTask, exact: true })).toHaveCount(3);
+  await expect(panel.getByRole("button", { name: copy.en.openTask, exact: true })).toHaveCount(4);
 });
 
 test("the approval shortcut answers once from the bell", async ({ page }) => {

@@ -41,7 +41,9 @@ each question and approval separately.
    ahead of the folded `In review` group.
 3. Select an item to open its exact task or workspace.
 4. Answer approval requests (`Allow once` or `Deny`), mark results as read, or
-   open the linked pull request from the item actions.
+   open the linked pull request from the item actions. A collapsed row shows the
+   request's summary and command before it offers `Allow once`; a risk-flagged
+   or long request offers only `Deny` there and is allowed from the open card.
 
 ## Interface Walkthrough
 

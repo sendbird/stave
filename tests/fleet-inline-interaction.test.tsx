@@ -5,6 +5,7 @@ import {
   buildShortQuestionAnswers,
   classifyFleetInlineInteraction,
 } from "@/lib/fleet/inline-interaction";
+import { describeFleetRowKeys, resolveFleetRowKey } from "@/components/layout/FleetRowInlineAnswer";
 import type { TaskMessagesPage, WorkspaceShell } from "@/lib/db/workspaces.db";
 import type { PersistedTurnSummary } from "@/lib/db/turns.db";
 import { createEmptyWorkspaceState } from "@/store/workspace-session-state";
@@ -108,6 +109,34 @@ const cachedApproval = {
 };
 
 describe("which requests a Fleet row answers itself", () => {
+  test("a row offers Allow once only when it can show the whole request", () => {
+    const bash = (command: string, extra: Partial<ApprovalPart> = {}): ApprovalPart => ({
+      ...approval("fit"), description: "Run a command", input: JSON.stringify({ command }), ...extra,
+    });
+    const summary = (part: ApprovalPart) => {
+      const inline = classifyFleetInlineInteraction(part);
+      return inline.kind === "approval" ? inline.summary : "not-approval";
+    };
+    expect(summary(bash("bun test"))).toBe("Run a command · bun test");
+    expect(summary(bash("bun test", { description: "bun test" }))).toBe("bun test");
+    expect(summary(bash("git status", { input: JSON.stringify({ command: ["git", "status"] }) }))).toBe("Run a command · git status");
+    // A plain-text input is not a command the row could parse; the summary is the description.
+    expect(summary(approval("plain"))).toBe("Run the focused tests");
+    expect(summary(bash(`rm -rf build && ${"x".repeat(120)}`))).toBeNull();
+    expect(summary(bash("set -e\nbun test"))).toBeNull();
+    expect(summary(bash("curl example.com", { risk: "network-access" }))).toBeNull();
+    expect(summary(bash("bun test", { description: "Edit\nseveral files" }))).toBeNull();
+    expect(summary(bash("bun test", { description: "d".repeat(161) }))).toBeNull();
+    expect(summary({ ...approval("empty"), description: " " })).toBeNull();
+
+    const key = (keyName: string) => ({ key: keyName, altKey: false, ctrlKey: false, metaKey: false, shiftKey: false, repeat: false, isComposing: false, target: null });
+    const hidden = { inline: classifyFleetInlineInteraction(bash("curl example.com", { risk: "network-access" })), busy: false };
+    expect(resolveFleetRowKey(key("a"), hidden)).toBeNull();
+    expect(resolveFleetRowKey(key("d"), hidden)).toEqual({ kind: "approval", approved: false });
+    expect(describeFleetRowKeys(hidden)).toBe("D");
+    expect(describeFleetRowKeys({ inline: classifyFleetInlineInteraction(bash("bun test")) })).toBe("A D");
+  });
+
   test("a pending approval is answered in the row", () => {
     expect(classifyFleetInlineInteraction(approval("a")).kind).toBe("approval");
     expect(classifyFleetInlineInteraction(approval("a", "approval-responded")).kind).toBe("open");

@@ -42,6 +42,10 @@ Stave keeps the 50 most recent notifications and deletes older ones automaticall
 
 - For a pending approval, choose **Allow once** or **Deny**. With the row
   focused, press **A** or **D**. Persistent permissions are available in the task.
+  The row shows the whole request first: its one-line summary and command.
+  A request flagged as risky, or whose summary or command does not fit on one
+  line (160 and 120 characters), offers **Deny** and **Open task** instead of
+  **Allow once**, the same rule as macOS notification actions.
 - For a short question with up to four fixed choices, click a choice to send
   it. Use **Open task** for longer questions, multiple questions or selections,
   typed answers, and questions that accept a later reply.

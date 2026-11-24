@@ -192,9 +192,12 @@ function FleetNeedRow(args: {
       }
     : null;
 
+  // The row shows the whole request whenever it offers Allow once.
+  const approvalSummary = interaction.inline.kind === "approval" ? interaction.inline.summary : null;
   return (
     <InboxRow
-      entry={entry}
+      entry={approvalSummary ? { ...entry, detail: approvalSummary } : entry}
+      wrapDetail={Boolean(approvalSummary)}
       selectionKey={item.taskId ? getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId) : undefined}
       leading={item.taskId ? <span className={sx(fleetSelectionColumn.cell, fleetSelectionColumn.leading)}><FleetSelectionCheckbox itemKey={getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId)} title={item.taskTitle || title} /></span> : undefined}
       compact
