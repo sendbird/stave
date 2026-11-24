@@ -206,6 +206,19 @@ describe("ExternalSessionsWatcher", () => {
     expect(calls.length).toBe(before);
   });
 
+  test("reports worktrees of sub-agents that have not finished, and none while off", async () => {
+    const { watcher, dirs } = createWatcher(tempRoot());
+    const agents = path.join(dirs.projectDir, CLAUDE_ID, "subagents");
+    writeFileSync(path.join(agents, "agent-a1.meta.json"), JSON.stringify({ agentType: "Explore", toolUseId: "launch-1", worktreePath: "/tmp/project/.claude/worktrees/agent-a1" }));
+    writeFileSync(path.join(agents, "agent-a2.meta.json"), JSON.stringify({ worktreePath: "/tmp/project/.claude/worktrees/agent-a2", finished: true }));
+    expect(watcher.runningAgentWorktrees()).toEqual([]);
+    watcher.setMode("count");
+    await watcher.scan();
+    expect(watcher.runningAgentWorktrees()).toEqual(["/tmp/project/.claude/worktrees/agent-a1"]);
+    watcher.setMode(null);
+    expect(watcher.runningAgentWorktrees()).toEqual([]);
+  });
+
   test("a failing ownership lookup does not throw out of the watcher", async () => {
     const root = tempRoot();
     const dirs = writeFixtures(root, Date.now());

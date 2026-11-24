@@ -278,8 +278,10 @@
     "columnLastActive": "Last active",
     "disk": {
       "title": "Disk used by workspaces",
-      "description": "Workspace folders, measured one at a time at low priority for up to 30 seconds each. A project's own checkout is not counted.",
+      "description": "Workspace folders and worktrees left by sub-agents, measured one at a time at low priority for up to 30 seconds each. A project's own checkout is not counted.",
       "refresh": "Measure again",
+      "subAgentWorktrees_one": "Includes {{count}} worktree left by sub-agents",
+      "subAgentWorktrees_other": "Includes {{count}} worktrees left by sub-agents",
       "reading": "Reading disk usage…",
       "measuring": "Measuring workspace folders…",
       "measuredAt": "Measured {{time}}",
@@ -295,9 +297,10 @@
     },
     "free": {
       "title": "Free up space",
-      "description": "Workspaces the cleanup checks allow removing now, largest first. Review and remove them in workspace cleanup.",
+      "description": "Workspaces and worktrees left by sub-agents that the cleanup checks allow removing now, largest first. Review and remove them in workspace cleanup.",
       "review": "Review in cleanup",
       "reading": "Checking which workspaces can be removed…",
+      "subAgentIn": "Left by sub-agents · {{project}}",
       "failed": "Cleanup checks could not be read. Open workspace cleanup to try again.",
       "none": "Nothing to free up: every workspace folder is in use or has work to keep.",
       "listLabel": "Workspaces that can be removed",

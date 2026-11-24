@@ -47,9 +47,31 @@ export const WorkspaceCleanupStateSchema = z.object({
   automaticFailureAt: z.record(z.string(), z.number()).optional(),
   policy: WorkspaceCleanupPolicySchema.strip().extend({ merged: CleanupRuleSchema.strip(), inactive: CleanupRuleSchema.strip(), archived: CleanupRuleSchema.strip(), maximum: CleanupRuleSchema.strip() }), recent: z.array(WorkspaceCleanupRecentSchema.strip()).max(200), lastRun: z.number(),
 }).strip();
+/**
+ * A worktree a Claude Code sub-agent left at `<project>/.claude/worktrees/agent-<id>`.
+ * Empty `blockers` means it can be removed now; removal keeps its branch.
+ */
+export const SubAgentWorktreeRowSchema = z.object({
+  repositoryPath: Id, repositoryName: z.string(), path: Id, name: z.string(),
+  /** Null while HEAD is detached. */
+  branch: z.string().nullable(), head: z.string().nullable(),
+  /** Newest change seen in the folder's top level or its Git index; null when unreadable. */
+  lastModified: z.string().nullable(),
+  blockers: z.array(z.string()), bytes: z.number().nonnegative().nullable(),
+}).strict();
+export type SubAgentWorktreeRow = z.infer<typeof SubAgentWorktreeRowSchema>;
+export const SubAgentWorktreeRemoveArgsSchema = z.object({ repositoryPath: Id, path: Id }).strict();
+export type SubAgentWorktreeRemoveArgs = z.infer<typeof SubAgentWorktreeRemoveArgsSchema>;
+export const SubAgentWorktreeRemoveResultSchema = z.object({ ok: z.boolean(), path: Id, reason: z.string().nullable() }).strict();
+export type SubAgentWorktreeRemoveResult = z.infer<typeof SubAgentWorktreeRemoveResultSchema>;
+/** Worktree folders of sub-agents Activity sees unfinished; main adds them to host requests, never the renderer. */
+export const RunningAgentWorktreesSchema = z.array(z.string().min(1).max(4096)).max(1000);
+/** The disk report's id for a sub-agent worktree folder. */
+export const subAgentWorktreeDiskId = (path: string) => `subAgentWorktree:${path}`;
 export const WorkspaceCleanupListResultSchema = z.object({
   rows: z.array(WorkspaceCleanupRowSchema), policy: WorkspaceCleanupPolicySchema,
   recent: z.array(WorkspaceCleanupRecentSchema),
+  subAgentWorktrees: z.array(SubAgentWorktreeRowSchema).optional(),
 }).strict();
 /** One folder's measured disk use. `partial` means the count stopped early or skipped unreadable folders, so it is a lower bound. */
 export const WorkspaceDiskMeasurementSchema = z.object({
@@ -61,6 +83,8 @@ export type WorkspaceDiskMeasurement = z.infer<typeof WorkspaceDiskMeasurementSc
 export const WorkspaceDiskUsageArgsSchema = z.object({ refresh: z.boolean().optional() }).strict();
 export const WorkspaceDiskUsageRowSchema = z.object({
   workspaceId: Id, name: z.string(), repositoryPath: Id, repositoryName: z.string(), archived: z.boolean(),
+  /** A worktree a sub-agent left; `workspaceId` is then `subAgentWorktreeDiskId(path)`. */
+  subAgentWorktree: z.literal(true).optional(),
   /** Null until the first measurement of this folder finishes. */
   measurement: WorkspaceDiskMeasurementSchema.nullable(),
 }).strict();
@@ -79,8 +103,10 @@ export interface WorkspaceCleanupApi {
   listArchived(): Promise<WorkspaceCleanupRow[]>;
   trashLeftover?(args: WorkspaceCleanupTrashArgs): Promise<z.infer<typeof WorkspaceCleanupTrashResultSchema>>;
   act(args: WorkspaceCleanupActArgs): Promise<WorkspaceCleanupResult>;
+  /** Removes one listed sub-agent worktree after checking it again; never forced, the branch is kept. */
+  removeSubAgentWorktree?(args: SubAgentWorktreeRemoveArgs): Promise<SubAgentWorktreeRemoveResult>;
   configure(policy: WorkspaceCleanupPolicy): Promise<WorkspaceCleanupPolicy>;
   runNow(): Promise<z.infer<typeof WorkspaceCleanupRunResultSchema>>;
-  /** Disk used by each workspace folder (not the project's own checkout), measured in the background. */
+  /** Disk used by each workspace folder and sub-agent worktree (not the project's own checkout), measured in the background. */
   diskUsage?(args?: z.infer<typeof WorkspaceDiskUsageArgsSchema>): Promise<WorkspaceDiskUsageReport>;
 }

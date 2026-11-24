@@ -11,6 +11,8 @@ export const cleanupStyles = stylex.create({
   footer: { display: "flex", alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", gap: vars["--aui-space-16"], minBlockSize: vars["--aui-control-height-sm"] },
   list: { height: "42vh", minHeight: "12rem", overflowY: "auto", borderBlockWidth: 1, borderBlockStyle: "solid", borderBlockColor: vars["--aui-color-border"] },
   heading: { paddingBlock: vars["--aui-space-8"], paddingInline: vars["--aui-space-8"], backgroundColor: vars["--aui-color-surface"], color: vars["--aui-color-text"], fontWeight: 600 },
+  /** A section heading's explanation line, in regular weight under the bold heading. */
+  headingNote: { margin: 0, fontWeight: vars["--aui-font-weight-regular"] },
   row: { display: "flex", alignItems: "center", gap: vars["--aui-space-12"], padding: vars["--aui-space-8"], borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border"], minWidth: 0 },
   checkbox: { width: vars["--aui-control-height-xs"], height: vars["--aui-control-height-xs"], flexShrink: 0 },
   selected: { backgroundColor: vars["--aui-color-selection-fill"] },

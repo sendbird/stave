@@ -625,21 +625,47 @@ export class ExternalSessionsWatcher {
     return out.sort((a, b) => isLive(b) - isLive(a) || b.lastAt - a.lastAt).slice(0, EXTERNAL_SESSION_LIMITS.maxSessions);
   }
 
+  private agentStatus(entry: ClaudeEntry, agent: AgentEntry, now: number) {
+    const toolUseId = agent.meta.toolUseId;
+    return deriveAgentStatus({
+      lastWriteAt: agent.mtimeMs,
+      now,
+      idleMs: EXTERNAL_SESSION_LIMITS.idleMs,
+      final: agent.state.final,
+      markedFinished: agent.meta.finished === true,
+      ...(toolUseId && entry.state.results.get(toolUseId) ? { result: entry.state.results.get(toolUseId) } : {}),
+      ...(toolUseId && entry.state.notices.get(toolUseId) ? { notice: entry.state.notices.get(toolUseId) } : {}),
+    });
+  }
+
+  /**
+   * Worktree folders of the sub-agents this watcher follows that have not
+   * finished (running, or quiet without a finish). Empty while Activity is
+   * off, since nothing is watched then. Workspace cleanup refuses to remove
+   * these worktrees.
+   */
+  runningAgentWorktrees(): string[] {
+    if (this.mode === null) return [];
+    const now = this.now();
+    const paths = new Set<string>();
+    for (const entry of this.sessions.values()) {
+      if (entry.source !== "claude-code") continue;
+      for (const agent of entry.agents.values()) {
+        if (!agent.meta.worktreePath) continue;
+        const status = this.agentStatus(entry, agent, now);
+        if (status === "running" || status === "idle") paths.add(agent.meta.worktreePath);
+      }
+    }
+    return [...paths];
+  }
+
   private summarizeClaude(entry: ClaudeEntry, now: number): ExternalSession | null {
     const { state } = entry;
     const agents: ExternalAgent[] = [];
     for (const agent of entry.agents.values()) {
       const toolUseId = agent.meta.toolUseId;
       const launch = toolUseId ? state.launches.get(toolUseId) : undefined;
-      const status = deriveAgentStatus({
-        lastWriteAt: agent.mtimeMs,
-        now,
-        idleMs: EXTERNAL_SESSION_LIMITS.idleMs,
-        final: agent.state.final,
-        markedFinished: agent.meta.finished === true,
-        ...(toolUseId && state.results.get(toolUseId) ? { result: state.results.get(toolUseId) } : {}),
-        ...(toolUseId && state.notices.get(toolUseId) ? { notice: state.notices.get(toolUseId) } : {}),
-      });
+      const status = this.agentStatus(entry, agent, now);
       if (status !== "running" && now - agent.mtimeMs > EXTERNAL_SESSION_LIMITS.activeMs) continue;
       agents.push({
         id: agent.id,

@@ -1,6 +1,6 @@
 import { addUsageMetrics, emptyUsageMetrics, usageBucketKey } from "@/lib/providers/usage-statistics";
 import type { WorkspaceUsageArgs, WorkspaceUsageReport, WorkspaceUsageRow } from "@/lib/providers/workspace-usage";
-import type { WorkspaceCleanupRow, WorkspaceDiskUsageReport } from "@/lib/workspace-cleanup-contract";
+import { subAgentWorktreeDiskId, type SubAgentWorktreeRow, type WorkspaceCleanupRow, type WorkspaceDiskUsageReport } from "@/lib/workspace-cleanup-contract";
 import type { UsageProjectsSources } from "@/components/usage/UsageProjects";
 import { USAGE_PREVIEW_NOW, usagePreviewTurns } from "./fixtures";
 
@@ -57,12 +57,28 @@ const DISK: Array<[string, string, string, boolean, number | null, boolean]> = [
   ["ws-mobile-push", "feat/push-settings", "mobile-app", false, 3_420 * MB, false],
 ];
 
+/** Worktrees sub-agents left: one quiet and clean, one with changes the cleanup checks protect. */
+const SUBAGENT_WORKTREES: Array<[string, string, number, string[]]> = [
+  ["agent-a5f2c91", "web-dashboard", 2_640 * MB, []],
+  ["agent-b81d0e4", "api-server", 120 * MB, ["changedFiles"]],
+];
+const subAgentPath = (name: string, repositoryName: string) => `/tmp/preview/${repositoryName}/.claude/worktrees/${name}`;
+
 export function usagePreviewDisk(measuring = false): WorkspaceDiskUsageReport {
-  return { measuring, rows: DISK.map(([workspaceId, name, repositoryName, archived, bytes, partial], index) => ({
+  const measuredAt = new Date(USAGE_PREVIEW_NOW - 60_000).toISOString();
+  return { measuring, rows: [...DISK.map(([workspaceId, name, repositoryName, archived, bytes, partial], index) => ({
     workspaceId, name, repositoryName, archived, repositoryPath: `/tmp/preview/${repositoryName}`,
-    measurement: measuring && index > 5 ? null : { bytes, partial, status: bytes === null ? "timeout" : "measured",
-      measuredAt: new Date(USAGE_PREVIEW_NOW - 60_000).toISOString() },
-  })) };
+    measurement: measuring && index > 5 ? null : { bytes, partial, status: bytes === null ? "timeout" as const : "measured" as const, measuredAt },
+  })), ...SUBAGENT_WORKTREES.map(([name, repositoryName, bytes]) => ({
+    workspaceId: subAgentWorktreeDiskId(subAgentPath(name, repositoryName)), name, repositoryName, archived: false, subAgentWorktree: true as const,
+    repositoryPath: `/tmp/preview/${repositoryName}`, measurement: { bytes, partial: false, status: "measured" as const, measuredAt },
+  }))] };
+}
+
+export function usagePreviewSubAgentWorktrees(): SubAgentWorktreeRow[] {
+  return SUBAGENT_WORKTREES.map(([name, repositoryName, bytes, blockers]) => ({ repositoryPath: `/tmp/preview/${repositoryName}`, repositoryName,
+    path: subAgentPath(name, repositoryName), name, branch: `worktree-${name}`, head: "9c1e7a2", lastModified: new Date(USAGE_PREVIEW_NOW - 3 * 86_400_000).toISOString(),
+    blockers, bytes }));
 }
 
 export function usagePreviewCleanupRows(): WorkspaceCleanupRow[] {
@@ -85,7 +101,7 @@ export function usagePreviewProjectSources(options: { empty?: boolean; measuring
       measuring = false;
       return report;
     },
-    cleanupList: async () => ({ rows: usagePreviewCleanupRows() }),
+    cleanupList: async () => ({ rows: usagePreviewCleanupRows(), subAgentWorktrees: usagePreviewSubAgentWorktrees() }),
     openCleanup: () => console.info("[usage-preview] workspace cleanup would open"),
     repositories: REPOSITORIES,
   };

@@ -32,6 +32,7 @@ import {
 } from "../../src/lib/repository-memory";
 import { registerAgentRunTools } from "./stave-agent-run-tools";
 import { registerWorkspaceCleanupTools } from "./stave-workspace-cleanup-tools";
+import { runningExternalAgentWorktrees } from "./ipc/external-sessions";
 import { invokeHostService } from "./host-service-client";
 import {
   blockAgentRunStage,
@@ -697,7 +698,7 @@ function createToolServer(options?: {
   );
 
   registerWorkspaceCleanupTools(server, {
-    list: () => invokeHostService("workspace.cleanup-list", {}),
+    list: () => invokeHostService("workspace.cleanup-list", { runningAgentWorktrees: runningExternalAgentWorktrees() }),
     act: (args) => invokeHostService("workspace.cleanup-act", args),
   });
 

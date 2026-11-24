@@ -12,7 +12,7 @@ import { FleetStopPreviewArgsSchema, FleetStopPreviewResultSchema, type FleetSto
 import { FleetTaskControlArgsSchema, FleetTaskControlResultSchema, FleetStopChildrenResultSchema, type FleetTaskControlArgs } from "../src/lib/fleet/host-control";
 import { contentSearchPreload } from "./persistence/content-search-preload";
 import { TarsBatchInputSchema, TarsBatchRecordSchema, TarsBatchRecordsSchema } from "../src/lib/tars/batch";
-import { WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema, WorkspaceCleanupTrashArgsSchema, WorkspaceCleanupTrashResultSchema, WorkspaceDiskUsageArgsSchema, WorkspaceDiskUsageReportSchema, type WorkspaceCleanupTrashArgs } from "../src/lib/workspace-cleanup-contract";
+import { SubAgentWorktreeRemoveArgsSchema, SubAgentWorktreeRemoveResultSchema, WorkspaceCleanupRowSchema, WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupListResultSchema, WorkspaceCleanupResultSchema, WorkspaceCleanupRunResultSchema, WorkspaceCleanupChangedSchema, WorkspaceCleanupTrashArgsSchema, WorkspaceCleanupTrashResultSchema, WorkspaceDiskUsageArgsSchema, WorkspaceDiskUsageReportSchema, type WorkspaceCleanupTrashArgs } from "../src/lib/workspace-cleanup-contract";
 import { TarsUndoActionInputSchema } from "../src/lib/tars/action-undo";
 import { TarsUndoActionResultSchema } from "../src/lib/tars/conversation";
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
@@ -2902,6 +2902,7 @@ contextBridge.exposeInMainWorld("api", {
     list: async (args = {}) => WorkspaceCleanupListResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-list", WorkspaceCleanupListArgsSchema.parse(args))),
     trashLeftover: async (args: WorkspaceCleanupTrashArgs) => WorkspaceCleanupTrashResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-trash-leftover", WorkspaceCleanupTrashArgsSchema.parse(args))),
     act: async (args: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupActArgs) => WorkspaceCleanupResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-act", WorkspaceCleanupActArgsSchema.parse(args))),
+    removeSubAgentWorktree: async (args: import("../src/lib/workspace-cleanup-contract").SubAgentWorktreeRemoveArgs) => SubAgentWorktreeRemoveResultSchema.parse(await ipcRenderer.invoke("workspace:subagent-worktree-remove", SubAgentWorktreeRemoveArgsSchema.parse(args))),
     configure: async (policy: import("../src/lib/workspace-cleanup-contract").WorkspaceCleanupPolicy) => WorkspaceCleanupPolicySchema.parse(await ipcRenderer.invoke("workspace:cleanup-configure", WorkspaceCleanupPolicySchema.parse(policy))),
     runNow: async () => WorkspaceCleanupRunResultSchema.parse(await ipcRenderer.invoke("workspace:cleanup-run", {})),
     diskUsage: async (args = {}) => WorkspaceDiskUsageReportSchema.parse(await ipcRenderer.invoke("workspace:disk-usage", WorkspaceDiskUsageArgsSchema.parse(args))),

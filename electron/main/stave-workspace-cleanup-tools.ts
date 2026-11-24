@@ -4,7 +4,9 @@
  * an agent cannot skip a check the user's own click goes through. Archive is
  * reversible: Stave keeps the workspace's tasks and history under Archived and
  * the user restores it from the cleanup center. Nothing here deletes a
- * workspace permanently or forces a branch deletion.
+ * workspace permanently or forces a branch deletion. Worktrees Claude Code
+ * sub-agents left are listed read-only; only the user removes them, through
+ * the cleanup dialog's confirmation.
  *
  * Used by: `electron/main/stave-mcp-server.ts`.
  */
@@ -13,6 +15,7 @@ import { z } from "zod";
 import {
   WorkspaceCleanupListResultSchema,
   WorkspaceCleanupResultSchema,
+  type SubAgentWorktreeRow,
   type WorkspaceCleanupActArgs,
   type WorkspaceCleanupRow,
 } from "../../src/lib/workspace-cleanup-contract";
@@ -46,6 +49,16 @@ export function selectWorkspaceCleanupRows(rows: readonly WorkspaceCleanupRow[],
     (!repository || normalizeComparablePath(row.repositoryPath) === repository)).map(projectWorkspaceCleanupRow);
 }
 
+/** Sub-agent worktrees as the agent reads them: no removal action exists for agents. */
+export function selectSubAgentWorktrees(rows: readonly SubAgentWorktreeRow[], filter: { repositoryPath?: string }) {
+  const repository = filter.repositoryPath ? normalizeComparablePath(filter.repositoryPath) : null;
+  return rows.filter((row) => !repository || normalizeComparablePath(row.repositoryPath) === repository).map((row) => ({
+    repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, lastModified: row.lastModified,
+    /** Empty means the user can remove it in the cleanup dialog now. */
+    blockers: row.blockers,
+  }));
+}
+
 function toStructuredResult<T>(value: T) {
   return { content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }], structuredContent: value };
 }
@@ -55,7 +68,7 @@ export function registerWorkspaceCleanupTools(server: McpServer, handlers: Works
     "stave_list_workspace_cleanup",
     {
       description:
-        "List the workspaces of registered projects with what blocks archiving each one and why it may be finished. Read only. A workspace with no blockers can be archived with `stave_archive_workspace`.",
+        "List the workspaces of registered projects with what blocks archiving each one and why it may be finished. Read only. A workspace with no blockers can be archived with `stave_archive_workspace`. `subAgentWorktrees` lists worktrees Claude Code sub-agents left under `.claude/worktrees` with their blockers; no tool removes them, so ask the user to remove them in Clean up workspaces, which keeps their branches.",
       inputSchema: {
         repositoryPath: z.string().min(1).optional().describe("Only this project's workspaces. Omit for every registered project."),
         includeArchived: z.boolean().optional().describe("Also list workspaces that are already archived."),
@@ -63,7 +76,8 @@ export function registerWorkspaceCleanupTools(server: McpServer, handlers: Works
     },
     async ({ repositoryPath, includeArchived }) => {
       const result = WorkspaceCleanupListResultSchema.parse(await handlers.list());
-      return toStructuredResult({ workspaces: selectWorkspaceCleanupRows(result.rows, { repositoryPath, includeArchived }) });
+      return toStructuredResult({ workspaces: selectWorkspaceCleanupRows(result.rows, { repositoryPath, includeArchived }),
+        subAgentWorktrees: selectSubAgentWorktrees(result.subAgentWorktrees ?? [], { repositoryPath }) });
     },
   );
 

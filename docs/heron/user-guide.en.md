@@ -1502,14 +1502,28 @@ Cmd/Ctrl+W does not archive its task or workspace.
 
 Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
 
+**Left by sub-agents** lists the worktrees Claude Code sub-agents left at
+`<project>/.claude/worktrees/agent-<id>`: "Worktrees left by Claude Code
+sub-agents. The branch is kept." Stave's own workspaces and folders reached
+through a symbolic link are never listed. Uncommitted or untracked changes,
+a detached HEAD with commits on no branch, a locked worktree, a change in the
+last 30 minutes, a sub-agent Activity outside Stave sees unfinished (when that
+setting is on) or a failed Git check blocks a row. Select rows, choose
+**Remove worktrees** and confirm; Enter never confirms. Stave checks each
+worktree again, removes it without forcing and keeps its branch, then reports
+each row. Git-ignored files in it, such as dependencies and build output, are
+deleted with it. Automatic cleanup never removes them.
+
 **AI usage > Projects** splits the period's tokens and cost by project and
 workspace. It compares totals with the earlier period of equal length, stacks
 each day's bar by project, and **Sort by** orders the table by tokens, cost or
 recent activity. Tokens count for every provider; cost appears only where the
 provider reports it (Claude) and is never estimated. On the same view,
-**Disk used by workspaces** measures workspace folders one at a time, each for
-at most 30 seconds, re-reads them every five minutes and measures now with
-**Measure again**. **Free up space** lists workspaces the cleanup checks do not
+**Disk used by workspaces** measures workspace folders and worktrees left by
+sub-agents one at a time, each for at most 30 seconds, re-reads them every five
+minutes and measures now with **Measure again**. A project that has sub-agent
+worktrees says how many under its name. **Free up space** lists workspaces and
+sub-agent worktrees (labeled **Left by sub-agents**) the cleanup checks do not
 block, largest first. It deletes nothing; **Review in cleanup** opens this
 workspace cleanup dialog.
 

@@ -42,6 +42,15 @@ for (const theme of ["light", "dark"]) {
     // Blocked workspaces (current, changed files, running turn) are not offered.
     await expect(free.locator("[data-usage-reclaimable-row]")).toHaveCount(5);
     await expect(free.locator("[data-usage-reclaimable-row]").first()).toContainText("feat/push-settings");
+    // An unblocked sub-agent worktree is offered in size order with its label; one with changes is not.
+    await expect(free.locator("[data-usage-reclaimable-row]").nth(1)).toContainText("agent-a5f2c91");
+    await expect(free.locator("[data-usage-reclaimable-row]").nth(1)).toContainText("Left by sub-agents · web-dashboard");
+    await expect(free).not.toContainText("agent-b81d0e4");
+    await expect(free).toContainText("1 more in workspace cleanup");
+    // The disk card counts sub-agent worktrees per project, apart from workspaces.
+    const dashboard = disk.locator("[data-usage-disk-table] tbody tr").filter({ hasText: "web-dashboard" });
+    await expect(dashboard.locator("[data-usage-disk-subagents]")).toHaveText("Includes 1 worktree left by sub-agents");
+    await expect(dashboard.locator("td").nth(1)).toHaveText("3");
     await expect(free.getByRole("button", { name: "Review in cleanup" })).toBeEnabled();
 
     await disk.getByRole("button", { name: "Measure again" }).click();
@@ -63,6 +72,8 @@ test("projects tab fits a narrow surface in Korean", async ({ page }) => {
   await expect(projects.getByRole("heading", { name: "프로젝트별 일일 토큰" })).toBeVisible();
   await expect(projects.getByRole("heading", { name: "워크스페이스 디스크 사용량" })).toBeVisible();
   await expect(projects.getByRole("button", { name: "정리에서 검토" })).toBeVisible();
+  await expect(projects.locator("[data-usage-reclaimable-row]").nth(1)).toContainText("하위 에이전트가 남김 · web-dashboard");
+  await expect(projects.locator("[data-usage-disk-subagents]").first()).toHaveText("하위 에이전트가 남긴 워크트리 1개 포함");
   const main = page.getByRole("main");
   const overflow = await main.evaluate((element) => element.scrollWidth - element.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);

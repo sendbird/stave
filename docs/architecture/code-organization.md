@@ -85,6 +85,19 @@ dialog's disk scan. `src/components/usage/usage-projects.ts` holds the grouping,
 sorting, chart and free-space view model. Focused checks are
 `tests/workspace-usage.test.ts`, `tests/workspace-disk-usage.test.ts`,
 `tests/usage-projects.test.ts` and `tests/e2e/usage-projects.e2e.ts`.
+
+Worktrees Claude Code sub-agents left at `<project>/.claude/worktrees/agent-*`
+are discovered, checked and removed by
+`electron/host-service/subagent-worktrees.ts`; the cleanup runtime lists them
+beside workspace rows (`subAgentWorktrees`), measures them in the disk report
+and serializes removal (`workspace:subagent-worktree-remove`) with its other
+actions. Main adds the worktrees of unfinished sub-agents from the Activity
+watcher (`ExternalSessionsWatcher.runningAgentWorktrees`) to those host
+requests. The dialog section is `src/components/layout/WorkspaceCleanupSubAgents.tsx`.
+Focused checks are `tests/subagent-worktrees.test.ts` (real temporary Git
+repositories), `tests/subagent-worktree-runtime.test.ts` (real SQLite registry),
+`tests/external-sessions-watcher.test.ts` and
+`tests/e2e/workspace-cleanup-center.e2e.ts`.
 The bar's shrink order (tokens, then usage detail, then the Resource Manager
 label, then clipping the strip's end) is `status-bar-shrink.ts`, with its
 container-query rules in `status-bar-shrink.styles.ts`;
