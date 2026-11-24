@@ -4,6 +4,7 @@ import { applyAppLocale } from "@/i18n";
 import { TurnFileActions, UndoFileRestore } from "@/components/session/TurnFileActions";
 import { ForkReturnAction } from "@/components/session/ForkReturnAction";
 import { ConversationTurnActions } from "@/components/session/ConversationTurnActions";
+import { chatPanelStyles } from "@/components/session/chat-panel.styles";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { TooltipProvider } from "@/components/ui";
 import { sx } from "@/components/aui/utils/stylex";
@@ -66,20 +67,46 @@ useAppStore.setState({
   messageCountByTask: { [taskId]: messages.length },
   providerSessionByTask: { [taskId]: { [providerId]: { nativeSessionId: "session", syncedThroughMessageId: "assistant-second" } } },
 });
-const state = buildConversationTurnActionStateByMessageId({ messages, providerSession: useAppStore.getState().providerSessionByTask[taskId], hasActiveTurn: false }).get("assistant-first")!;
+const actionStates = buildConversationTurnActionStateByMessageId({ messages, providerSession: useAppStore.getState().providerSessionByTask[taskId], hasActiveTurn: false });
+const state = actionStates.get("assistant-first")!;
+const secondState = actionStates.get("assistant-second")!;
 const styles = stylex.create({
   frame: { minHeight: "100vh", backgroundColor: vars["--aui-color-canvas"], color: vars["--aui-color-text"], padding: vars["--aui-space-24"] },
   row: { maxWidth: "48rem", marginInline: "auto" },
+  stack: { display: "grid", gap: vars["--aui-space-24"] },
+  // Stands in for the turn model chip that leads ChatPanel's action row.
+  chip: { fontSize: vars["--aui-font-size-caption"], whiteSpace: "nowrap", paddingInline: vars["--aui-space-8"] },
+  // Same width as the conversation rail's preview card.
+  previewCard: { width: "20rem" },
 });
+// `layout=inline-row` mirrors ChatPanel's assistant action row (with and
+// without thread actions) and the rail preview card for a no-snapshot turn.
+const inlineRow = (
+  <div className={sx(styles.stack)}>
+    <div data-testid="inline-turn-actions" className={sx(chatPanelStyles.actionRow)}>
+      <span className={sx(styles.chip)}>Codex · gpt-5.5 · high</span>
+      <ConversationTurnActions taskId={taskId} messageId="assistant-second" state={secondState} />
+    </div>
+    <div data-testid="inline-turn-files" className={sx(chatPanelStyles.actionRow)}>
+      <span className={sx(styles.chip)}>Codex · gpt-5.5 · high</span>
+      <TurnFileActions taskId={taskId} messageId="assistant-second" />
+    </div>
+    <div data-testid="preview-turn-actions" className={sx(styles.previewCard)}>
+      <ConversationTurnActions taskId={taskId} messageId="assistant-second" state={secondState} variant="preview" />
+    </div>
+  </div>
+);
 createRoot(document.getElementById("root")!).render(
   <StaveDesignProvider>
     <TooltipProvider>
       <main className={sx(styles.frame)}>
         <div className={sx(styles.row)}>
-          <ConversationTurnActions taskId={taskId} messageId="assistant-first" state={state} variant="preview" />
-          <div data-testid="second-turn-files"><TurnFileActions taskId={taskId} messageId="assistant-second" /></div>
-          <ForkReturnAction taskId={taskId} messageId="assistant-second" />
-          <UndoFileRestore taskId={taskId} />
+          {params.get("layout") === "inline-row" ? inlineRow : <>
+            <ConversationTurnActions taskId={taskId} messageId="assistant-first" state={state} variant="preview" />
+            <div data-testid="second-turn-files"><TurnFileActions taskId={taskId} messageId="assistant-second" /></div>
+            <ForkReturnAction taskId={taskId} messageId="assistant-second" />
+            <UndoFileRestore taskId={taskId} />
+          </>}
         </div>
       </main>
     </TooltipProvider>
