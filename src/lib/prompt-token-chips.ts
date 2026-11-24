@@ -248,7 +248,7 @@ export function describePastedTextBlock(
       id: block.id,
       count: block.lineCount,
     }),
-    detail: block.text.split("\n", 3).map((line) =>
+    detail: block.text.split(/\r\n|\r|\n/, 3).map((line) =>
       line.length > 120 ? line.slice(0, 120) + "…" : line,
     ).join("\n"),
     pastedTextBlock: block,

@@ -2,6 +2,7 @@ import type { SelectionMentions } from "./prompt-input-mentions";
 import type { ReactNode } from "react";
 import type {
   Attachment,
+  PastedTextAttachment,
   PromptDraftBatchItem,
   UserInputPart,
 } from "@/types/chat";
@@ -150,9 +151,8 @@ export interface PromptInputProps {
     attachments: Attachment[] | ((current: Attachment[]) => Attachment[]);
   }) => void;
   pastedTextFiles?: {
-    save: (text: string) => Promise<Extract<Attachment, { kind: "file" }>>;
+    save: (text: string) => Promise<PastedTextAttachment>;
     read: (filePath: string) => Promise<string>;
-    recover: (text: string) => void;
   };
   onPasteFiles?: (args: { files: File[] }) => void | Promise<void>;
   onProviderModeSelect?: (presetId: ProviderModePresetId) => void;

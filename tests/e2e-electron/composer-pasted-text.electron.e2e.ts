@@ -7,7 +7,7 @@ import { E2E_WORKSPACE_ID, launchStave, seedRepository } from "./harness/stave-a
 test("a pasted file and its preview survive a renderer reload", async () => {
   const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-paste-e2e-"));
   const stave = await launchStave();
-  const log = ["Worker started", "Reading records", "Writing output", "한".repeat(2100)].join("\n");
+  const log = ["Worker started", "Reading records", "Writing output", "한".repeat(2100)].join("\r\n") + "\r\n";
   try {
     const { page } = stave;
     await seedRepository(page, { repositoryPath });
@@ -20,6 +20,10 @@ test("a pasted file and its preview survive a renderer reload", async () => {
       clipboardData.setData("text/plain", text);
       element.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
     }, log);
+    const inlineBlock = editor.locator("[data-pasted-text-block]");
+    await expect(inlineBlock).toHaveText("Pasted text #1 · 4 lines");
+    await inlineBlock.click();
+    await page.getByRole("menuitem", { name: "Attach as file" }).click();
     await expect(chip).toContainText("Pasted text · 6.2 KB");
     await expect(editor).toHaveText("");
 
@@ -38,7 +42,7 @@ test("a pasted file and its preview survive a renderer reload", async () => {
     await expect(chip.locator("pre")).toHaveText("Worker started Reading records Writing output");
     await chip.getByRole("button", { name: "Keep as text" }).click();
     await expect(chip).toHaveCount(0);
-    await expect(editor).toHaveText(log, { useInnerText: true });
+    await expect(inlineBlock).toHaveText("Pasted text #1 · 4 lines");
   } finally {
     await stave.close();
     await rm(repositoryPath, { recursive: true, force: true });

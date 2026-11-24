@@ -1,5 +1,4 @@
 import { expect, test, type Page } from "@playwright/test";
-import { PASTED_TEXT_MAX_INLINE_CHARACTERS, PASTED_TEXT_MAX_INLINE_LINES } from "../../src/lib/fs/pasted-text";
 import { PASTED_TEXT_COLLAPSE_MIN_LINES } from "../../src/lib/pasted-text-blocks";
 
 const editor = (page: Page) => page.locator("[data-prompt-lexical-editor]");
@@ -9,7 +8,7 @@ const lastSubmit = (page: Page) => page.evaluate(() => document.documentElement.
 const log = ["Worker started", "Reading records", "Writing output", "Finished " + "한".repeat(2100)].join("\n");
 
 async function openComposer(page: Page, paste = "1", options = "") {
-  await page.goto("/?stavePreview=composer-frame&case=idle&draft=empty&paste=" + paste + options);
+  await page.goto("/?stavePreview=composer-frame&case=idle&draft=empty&paste=" + paste + options, { waitUntil: "domcontentloaded" });
   await expect(editor(page)).toBeVisible();
 }
 
@@ -30,59 +29,81 @@ test("keeps short pastes as text and collapses longer inline pastes into one chi
   await paste(page, short);
   await expect(editor(page)).toHaveText(short, { useInnerText: true });
   await expect(inlineBlock(page)).toHaveCount(0);
+  await editor(page).fill("");
 
-  const chars = "x".repeat(PASTED_TEXT_MAX_INLINE_CHARACTERS);
-  const lines = "x\n".repeat(PASTED_TEXT_MAX_INLINE_LINES);
-  for (const inline of [chars, lines]) {
-    await openComposer(page);
+  for (const inline of ["x".repeat(2000), "x".repeat(2001), "x\n".repeat(40), "x\n".repeat(41)]) {
     await paste(page, inline);
     await expect(inlineBlock(page)).toHaveCount(1);
-    await expect(editor(page)).not.toContainText("xxxx");
     await expect(chip(page)).toHaveCount(0);
+    await editor(page).press("Backspace");
+    await expect(editor(page)).toHaveText("");
   }
-  await openComposer(page);
-  await paste(page, chars + "x");
-  await paste(page, lines + "x");
-  await expect(chip(page)).toHaveCount(2);
-  await expect(editor(page)).toHaveText("");
 });
 
-test("keeps image and text chip order, and restores all text with one action", async ({ page }) => {
+async function attachAsFile(page: Page) {
+  await inlineBlock(page).and(page.getByRole("button")).click();
+  await page.getByRole("menuitem", { name: "Attach as file" }).click();
+}
+
+test("attaches a chip by keyboard and keeps the complete text as a chip again", async ({ page }) => {
   await openComposer(page);
-  await paste(page, log, true);
+  const original = "  " + log.replaceAll("\n", "\r\n") + "\r\n";
+  await paste(page, original, true);
+  await expect(page.getByRole("img", { name: "after.png" })).toBeVisible();
+  const trigger = page.getByRole("button", { name: "Pasted text #1 · 4 lines" });
+  await expect(trigger).toBeVisible();
+  await editor(page).press("Tab");
+  await expect(trigger).toBeFocused();
+  await trigger.press("Enter");
+  const action = page.getByRole("menuitem", { name: "Attach as file" });
+  await expect(action).toBeFocused();
+  await action.press("Enter");
   await expect(chip(page)).toContainText("Pasted text · 6.2 KB");
   await expect(chip(page).locator("pre")).toHaveText("Worker started Reading records Writing output");
-  const group = page.locator("[data-pasted-text-chip], img[alt='before.png'], img[alt='after.png']");
-  expect(await group.evaluateAll((items) => items.map((node) => node.getAttribute("alt") ?? "text")))
-    .toEqual(["before.png", "text", "after.png"]);
-  await expect(editor(page)).toHaveText("");
+  await expect(inlineBlock(page)).toHaveCount(0);
   await chip(page).getByRole("button", { name: "Keep as text" }).click();
   await expect(chip(page)).toHaveCount(0);
-  await expect(editor(page)).toHaveText(log, { useInnerText: true });
-  await expect(group).toHaveCount(2);
+  await expect(inlineBlock(page)).toHaveText("Pasted text #1 · 4 lines");
+  await expect(page.getByRole("img", { name: "before.png" })).toBeVisible();
+  await page.keyboard.type("done");
+  await editor(page).press("Enter");
+  expect(await lastSubmit(page)).toBe(original.trimStart() + "done");
 });
 
-test("a failed save puts the original text inline and preserves the images", async ({ page }) => {
+test("leaves the chip and its original text in the draft when a save fails", async ({ page }) => {
   await openComposer(page, "fail");
-  await paste(page, log, true);
+  await paste(page, log);
+  await attachAsFile(page);
   await expect(page.getByText("Pasted text could not be saved as a file. It was kept in the draft.")).toBeVisible();
   await expect(inlineBlock(page)).toHaveCount(1);
-  await expect(editor(page)).not.toContainText("Worker started");
   await expect(chip(page)).toHaveCount(0);
-  await expect(page.getByRole("img", { name: "after.png" })).toBeVisible();
+  await editor(page).press("Enter");
+  expect(await lastSubmit(page)).toBe(log);
 });
 
-test("an attempt to send while saving keeps the draft and the finished attachment", async ({ page }) => {
+test("blocks send while saving or reading a pasted text file", async ({ page }) => {
   await openComposer(page, "pending");
-  await editor(page).fill("Read this log");
+  await editor(page).fill("Read this log ");
   await paste(page, log);
+  await attachAsFile(page);
   await expect(page.getByText("Preparing attachments…")).toBeVisible();
   await editor(page).press("Enter");
   await expect(page.getByText("Attachments are still being prepared. Try again when they’re ready.")).toBeVisible();
   await expect(chip(page)).toHaveCount(1);
-  await expect(editor(page)).toHaveText("Read this log");
+  await expect(editor(page)).toHaveText("Read this log ");
+  await chip(page).getByRole("button", { name: "Keep as text" }).click();
+  await expect(page.getByText("Preparing attachments…")).toBeVisible();
   await editor(page).press("Enter");
-  await expect(editor(page)).toHaveText("");
+  await expect(inlineBlock(page)).toHaveCount(1);
+  await expect(chip(page)).toHaveCount(0);
+  expect(await lastSubmit(page)).toBeUndefined();
+});
+
+test("hides the file action when the workspace is unavailable", async ({ page }) => {
+  await openComposer(page, "");
+  await paste(page, log);
+  await expect(inlineBlock(page)).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Pasted text #1 · 4 lines" })).toHaveCount(0);
   await expect(chip(page)).toHaveCount(0);
 });
 
@@ -101,7 +122,7 @@ test("a collapsed paste shows a numbered chip and still sends the original text"
   await expect(inlineBlock(page).nth(1)).toContainText("Pasted text #2 · 6 lines");
   await editor(page).press("Enter");
   await expect(editor(page)).toHaveText("");
-  expect(await lastSubmit(page)).toBe(`Read this ${lines} please${"\nsecond".repeat(6).slice(1)}`);
+  expect(await lastSubmit(page)).toBe(`Read this ${lines} please${"second\n".repeat(6).trimEnd()}`);
 });
 
 test("backspace removes a collapsed paste as one unit", async ({ page }) => {
@@ -125,6 +146,18 @@ for (const sample of [
       await document.fonts.ready;
     }, sample.density);
     await paste(page, "로그 내용 ".repeat(500));
+    await expect(inlineBlock(page)).toBeVisible();
+    const chipGeometry = await inlineBlock(page).evaluate((node) => {
+      const box = node.getBoundingClientRect();
+      const { right } = node.closest("[data-prompt-lexical-editor]")!.getBoundingClientRect();
+      const [icon, label] = Array.from(node.children).map((item) => item.getBoundingClientRect());
+      const center = (rect: DOMRect) => rect.top + rect.height / 2;
+      return { rightOverflow: box.right - right, centerDelta: Math.abs(center(icon!) - center(label!)) };
+    });
+    expect(chipGeometry.rightOverflow).toBeLessThanOrEqual(1);
+    expect(chipGeometry.centerDelta).toBeLessThanOrEqual(1);
+    await inlineBlock(page).click();
+    await page.getByRole("menuitem", { name: sample.locale === "en" ? "Attach as file" : "파일로 첨부" }).click();
     await expect(chip(page)).toBeVisible();
     const geometry = await chip(page).evaluate((node) => {
       const box = node.getBoundingClientRect();

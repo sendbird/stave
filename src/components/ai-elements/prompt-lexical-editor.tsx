@@ -1,6 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import {
+  createContext,
   forwardRef,
+  useContext,
   type ClipboardEvent,
   type ForwardedRef,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -24,6 +26,7 @@ import {
   $createRangeSelection,
   $createTabNode,
   $createTextNode,
+  $getNodeByKey,
   $getRoot,
   $getSelection,
   $isElementNode,
@@ -34,7 +37,9 @@ import {
   COMMAND_PRIORITY_LOW,
   DecoratorNode,
   KEY_BACKSPACE_COMMAND,
+  KEY_DOWN_COMMAND,
   SELECTION_CHANGE_COMMAND,
+  SKIP_DOM_SELECTION_TAG,
   type EditorState,
   type ElementNode,
   type LexicalEditor,
@@ -110,6 +115,7 @@ interface PromptLexicalEditorProps {
   workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
   /** Pasted text the editor shows as one collapsed chip. */
   pastedTextBlocks?: readonly PastedTextBlock[];
+  onAttachPastedText?: AttachPastedText;
   onChange: (value: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
@@ -127,6 +133,35 @@ type SerializedPromptTokenNode = Spread<
   },
   SerializedLexicalNode
 >;
+
+type AttachPastedText = (block: PastedTextBlock, removeBlock: () => boolean) => void;
+const AttachPastedTextContext = createContext<AttachPastedText | undefined>(undefined);
+
+function EditablePromptTokenChip({ descriptor, nodeKey }: {
+  descriptor: PromptTokenDescriptor;
+  nodeKey: NodeKey;
+}) {
+  const [editor] = useLexicalComposerContext();
+  const attach = useContext(AttachPastedTextContext);
+  const block = descriptor.pastedTextBlock;
+  return (
+    <PromptTokenChip
+      descriptor={descriptor}
+      compact
+      xstyle={coreStyles.tokenMargin}
+      onAttachAsFile={block && attach ? () => attach(block, () => {
+        let removed = false;
+        editor.update(() => {
+          const node = $getNodeByKey(nodeKey);
+          if (!$isPromptTokenNode(node) || node.getDescriptor().pastedTextBlock !== block) return;
+          node.remove();
+          removed = true;
+        }, { discrete: true, tag: SKIP_DOM_SELECTION_TAG });
+        return removed;
+      }) : undefined}
+    />
+  );
+}
 
 class PromptTokenNode extends DecoratorNode<ReactNode> {
   __descriptor: PromptTokenDescriptor;
@@ -173,13 +208,7 @@ class PromptTokenNode extends DecoratorNode<ReactNode> {
   }
 
   decorate(): ReactNode {
-    return (
-      <PromptTokenChip
-        descriptor={this.__descriptor}
-        compact
-        className={sx(coreStyles.tokenMargin)}
-      />
-    );
+    return <EditablePromptTokenChip descriptor={this.__descriptor} nodeKey={this.__key} />;
   }
 
   exportJSON(): SerializedPromptTokenNode {
@@ -303,19 +332,28 @@ function getPromptTokenSignatureInEditor() {
   return output.join("|");
 }
 
-function getPromptTextContentFromElement(element: ElementNode): string {
-  return element
-    .getChildren()
-    .map((child) =>
-      $isElementNode(child)
-        ? getPromptTextContentFromElement(child)
-        : child.getTextContent(),
-    )
-    .join(element.getKey() === "root" ? "\n" : "");
+function getPromptTextContentFromElement(element: ElementNode, trimEnd = false): string {
+  const children = element.getChildren();
+  const separator = element.getKey() === "root" ? "\n" : "";
+  let suffix = "";
+  for (let index = children.length - 1; index >= 0; index--) {
+    const child = children[index]!;
+    const trimChild = trimEnd && !suffix;
+    const text = $isElementNode(child)
+      ? getPromptTextContentFromElement(child, trimChild)
+      : child.getTextContent();
+    // Trim trailing editor line breaks while preserving the bytes inside a chip.
+    if (trimChild && !$isPromptTokenNode(child) && !$isElementNode(child)) {
+      suffix = text.replace(/\n+$/, "");
+    } else {
+      suffix = text + (!trimChild && index < children.length - 1 ? separator : "") + suffix;
+    }
+  }
+  return suffix;
 }
 
 function getEditorTextContent() {
-  return getPromptTextContentFromElement($getRoot()).replace(/\n+$/, "");
+  return getPromptTextContentFromElement($getRoot(), true);
 }
 
 function getCharacterOffsetForElementPoint(
@@ -618,7 +656,20 @@ function PromptLexicalPreventedEnterPlugin() {
   useTranslation();
   const [editor] = useLexicalComposerContext();
 
-  useEffect(() => registerPromptLexicalPreventedEnterCommand(editor), [editor]);
+  useEffect(() => {
+    const unregisterEnter = registerPromptLexicalPreventedEnterCommand(editor);
+    // A focusable decorator owns its keystrokes. Let the menu and browser
+    // handle them without dispatching editor shortcuts such as Insert Line Break.
+    const unregisterChipKeys = editor.registerCommand(
+      KEY_DOWN_COMMAND,
+      (event) => event.target instanceof HTMLElement && Boolean(event.target.closest("button[data-pasted-text-block]")),
+      COMMAND_PRIORITY_HIGH,
+    );
+    return () => {
+      unregisterEnter();
+      unregisterChipKeys();
+    };
+  }, [editor]);
 
   return null;
 }
@@ -811,7 +862,7 @@ export const PromptLexicalEditor = forwardRef<
 
   const placeholder = props.placeholder?.trim() ? props.placeholder : null;
 
-  return (
+  const composer = (
     <LexicalComposer initialConfig={initialConfig}>
       <div className={sx(lexicalEditorStyles.wrapper)}>
         <PlainTextPlugin
@@ -826,7 +877,9 @@ export const PromptLexicalEditor = forwardRef<
               data-prompt-lexical-editor="true"
               onBlur={props.onBlur}
               onFocus={props.onFocus}
-              onKeyDownCapture={props.onKeyDown}
+              onKeyDownCapture={(event) => {
+                if (event.target === event.currentTarget) props.onKeyDown?.(event);
+              }}
               onPasteCapture={props.onPaste}
               spellCheck={false}
             />
@@ -873,5 +926,11 @@ export const PromptLexicalEditor = forwardRef<
         onSelectionChange={props.onSelectionChange}
       />
     </LexicalComposer>
+  );
+
+  return (
+    <AttachPastedTextContext.Provider value={props.disabled ? undefined : props.onAttachPastedText}>
+      {composer}
+    </AttachPastedTextContext.Provider>
   );
 });

@@ -640,6 +640,7 @@ export function PromptInput(args: PromptInputProps) {
                       }
                       syncNonce={editorSyncNonce}
                       pastedTextBlocks={pastedTextBlocks}
+                      onAttachPastedText={clipboard.attachPastedText}
                       onChange={(nextValue) => {
                         const guard = shortcutEchoGuardRef.current;
                         if (guard) {

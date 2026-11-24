@@ -350,6 +350,7 @@ export function ComposerFramePreviewApp() {
         return { ok: true, filePaths, failures: [] };
       },
       async readFile({ filePath }) {
+        if (pastePreview === "pending") await new Promise((resolve) => setTimeout(resolve, 1_500));
         const content = files.get(filePath);
         return { ok: content !== undefined, content: content ?? "", revision: "" };
       },
@@ -714,7 +715,7 @@ export function ComposerFramePreviewApp() {
                   effortValue={effort}
                   {...(PREVIEW_EFFORT_LABEL ? { effortLabel: PREVIEW_EFFORT_LABEL } : {})}
                   attachedFilePaths={pastedFiles ? reconcilePastedTextPaths([], [], attachments) : []}
-                  pastedTextFiles={pastedFiles ? { ...pastedFiles, recover: (text) => setDraft((current) => current + text) } : undefined}
+                  pastedTextFiles={pastedFiles}
                   attachments={attachments}
                   onAttachmentsChange={({ attachments: next }) => setAttachments(next)}
                   taskMentionOptions={PREVIEW_TASK_MENTIONS}

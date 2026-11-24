@@ -31,14 +31,6 @@ export function shouldCollapsePastedText(text: string): boolean {
 }
 
 /**
- * The editor stores `\r\n` and `\r` as `\n` and drops trailing newlines from
- * the draft, so a block must use that form or it stops matching the draft.
- */
-export function normalizePastedText(text: string): string {
-  return text.replace(/\r\n?/g, "\n").replace(/\n+$/, "");
-}
-
-/**
  * Splits `text` at every occurrence of a registered block. When two blocks
  * start at the same index, the longer one wins.
  */
@@ -93,8 +85,7 @@ const listeners = new Set<() => void>();
  * a restart the draft keeps its full text and shows it uncollapsed.
  */
 export const pastedTextBlockRegistry = {
-  register(scopeId: string, rawText: string): PastedTextBlock {
-    const text = normalizePastedText(rawText);
+  register(scopeId: string, text: string): PastedTextBlock {
     const scope = scopes.get(scopeId) ?? { nextId: 1, blocks: [] };
     const existing = scope.blocks.find((block) => block.text === text);
     if (existing) return existing;
