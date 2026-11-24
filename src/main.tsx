@@ -185,6 +185,10 @@ if (preview === "bell-answers") {
   void import("@/dev/markdown-streaming-preview").then(({ MarkdownStreamingPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><MarkdownStreamingPreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "rich-markdown") {
+  void import("@/dev/rich-markdown-preview").then(({ RichMarkdownPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><RichMarkdownPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "agent-messages") {
   void import("@/dev/agent-preview").then(({ AgentPreviewApp }) => {
     root.render(

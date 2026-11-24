@@ -1,11 +1,13 @@
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 
 /**
  * Top-level Markdown blocks of a message, found with the same parser the
- * renderer uses (remark-parse + remark-gfm), so fenced code, lists and tables
- * are never cut in half the way splitting on blank lines would.
+ * renderer uses (remark-parse + remark-gfm + remark-math), so fenced code,
+ * math blocks, lists and tables are never cut in half the way splitting on
+ * blank lines would.
  *
  * Rendering a reply block by block lets a streaming message render each
  * finished block once and re-render only the block that is still growing.
@@ -35,7 +37,11 @@ export interface MarkdownBlockSplit {
   blocks: readonly MarkdownSourceBlock[];
 }
 
-const parser = unified().use(remarkParse).use(remarkGfm).freeze();
+const parser = unified()
+  .use(remarkParse)
+  .use(remarkGfm)
+  .use(remarkMath)
+  .freeze();
 
 type MarkdownNode = ReturnType<typeof parser.parse>["children"][number];
 

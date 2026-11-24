@@ -248,7 +248,7 @@ S --> U: Reply · changed files · summary
 @caption A simplified turn. The approval step may not appear, depending on the permission preset.
 ```
 
-**Reading and composing**: code blocks without a language have no syntax colors. The composer follows the conversation reading size, including the smaller Task panel size; the minimal composer scales its monospace text and caret together.
+**Reading and composing**: code blocks without a language have no syntax colors. In a finished reply, a table of plain text sorts when you select a column header and gets a **Filter rows** field past 10 rows; `$…$`, `$$` blocks and `math` fences are typeset as math; `json` fences show a folding tree with **Show code**; and `ansi`, `console`, `terminal` and `output` fences show terminal colors. The composer follows the conversation reading size, including the smaller Task panel size; the minimal composer scales its monospace text and caret together.
 
 **Task header** shows **Needs you**, **Problem**, **Working**, **Done · unseen**, or **Idle**. Select **Needs you** or **Problem** to jump to the waiting request, failed turn, Agent Run, or Tars decision or report. The header works in Review too. Approvals and delegated requests open in the composer, and stage sign-offs open the stage in Review. Use the PR status control for check failures, conflicts and requested changes.
 

@@ -15,8 +15,10 @@ import {
   useRef,
 } from "react";
 import { ExternalLink, Globe2 } from "lucide-react";
+import type { Element } from "hast";
 import Markdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { WorkspaceFileIcon } from "@/components/layout/explorer-entry-icon";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
 import { normalizeExternalUrl } from "@/lib/external-links";
@@ -27,6 +29,8 @@ import {
   type ResolvedWorkspaceFileLink,
 } from "@/lib/message-file-links";
 import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
+import { prepareMarkdownMath } from "@/lib/markdown/math";
+import { plainTableFromHast } from "@/lib/markdown/table-sort";
 import { cx, sx } from "@/components/aui/utils/stylex";
 import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { transition } from "@/components/aui/recipes/transition";
@@ -56,6 +60,12 @@ import {
   type MarkdownBlockSplit,
 } from "./message-markdown-blocks";
 import { TranscriptWideBlock, TranscriptWideScope } from "./transcript-wide";
+import { MathInline } from "./math-block";
+import {
+  MarkdownTableBodyRows,
+  SortableMarkdownTable,
+  useMarkdownTableHeaderSort,
+} from "./markdown-sortable-table";
 
 export interface MarkdownMessageProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
@@ -433,6 +443,10 @@ const markdownComponents: Components = {
     const fileHrefFromMeta = parseCodeFenceMetaForFilePath(meta);
     const text = String(children ?? "");
     const code = text.replace(/\n$/, "");
+    // `$…$` in a line (remark-math): typeset inline, never a code block.
+    if (codeClassName?.split(/\s+/).includes("math-inline")) {
+      return <MathInline tex={code} />;
+    }
     const fileHref = fileHrefFromMeta ?? fileHrefFromClassName ?? undefined;
     const isBlock =
       Boolean(languageFromClassName) ||
@@ -579,27 +593,65 @@ const markdownComponents: Components = {
       </ExternalAnchor>
     );
   },
-  table: ({ children }: { children?: ReactNode }) => (
-    <TranscriptWideBlock>
-      <Table xstyle={styles.table}>
+  table: function MarkdownTable({
+    node,
+    children,
+  }: {
+    node?: Element;
+    children?: ReactNode;
+  }) {
+    // A table the reply is still writing renders as written; it can sort
+    // once its block is finished.
+    const isStreamingBlock = useContext(MarkdownStreamingBlockContext);
+    const plainTable = useMemo(
+      () => (isStreamingBlock || !node ? null : plainTableFromHast(node)),
+      [isStreamingBlock, node],
+    );
+    const renderTable = (content: ReactNode) => (
+      <TranscriptWideBlock>
+        <Table xstyle={styles.table}>
+          {content}
+        </Table>
+      </TranscriptWideBlock>
+    );
+    if (!plainTable || !node) {
+      return renderTable(children);
+    }
+    return (
+      <SortableMarkdownTable node={node} table={plainTable} renderTable={renderTable}>
         {children}
-      </Table>
-    </TranscriptWideBlock>
-  ),
+      </SortableMarkdownTable>
+    );
+  },
   thead: ({ children }: { children?: ReactNode }) => (
     <TableHeader xstyle={styles.tableHeader}>{children}</TableHeader>
   ),
   tbody: ({ children }: { children?: ReactNode }) => (
-    <TableBody>{children}</TableBody>
+    <TableBody>
+      <MarkdownTableBodyRows>{children}</MarkdownTableBodyRows>
+    </TableBody>
   ),
   tr: ({ children }: { children?: ReactNode }) => (
     <TableRow xstyle={styles.tableRow}>{children}</TableRow>
   ),
-  th: ({ children }: { children?: ReactNode }) => (
-    <TableHead xstyle={styles.tableHead}>
-      {children}
-    </TableHead>
-  ),
+  th: function MarkdownTableHead({
+    node,
+    children,
+  }: {
+    node?: Element;
+    children?: ReactNode;
+  }) {
+    const sort = useMarkdownTableHeaderSort(node);
+    return (
+      <TableHead
+        xstyle={styles.tableHead}
+        onSort={sort?.onSort}
+        sortDirection={sort?.direction ?? null}
+      >
+        {children}
+      </TableHead>
+    );
+  },
   td: ({ children }: { children?: ReactNode }) => (
     <MarkdownTableCellContext.Provider value>
       <TableCell xstyle={styles.tableCell}>
@@ -612,8 +664,8 @@ const markdownComponents: Components = {
 export type MarkdownLineBreaks = "line" | "paragraph";
 
 const remarkPlugins = {
-  line: [remarkGfm],
-  paragraph: [remarkGfm, remarkLineParagraphs],
+  line: [remarkGfm, remarkMath],
+  paragraph: [remarkGfm, remarkMath, remarkLineParagraphs],
 } satisfies Record<MarkdownLineBreaks, unknown[]>;
 
 /**
@@ -683,7 +735,7 @@ export function MarkdownMessage({
 
   const previousSplit = useRef<MarkdownBlockSplit | null>(null);
   const split = useMemo(() => {
-    const source = hardenSetextHeadings(content);
+    const source = prepareMarkdownMath(hardenSetextHeadings(content));
     if (isStreaming) {
       return splitMessageMarkdown(source, previousSplit.current, true);
     }

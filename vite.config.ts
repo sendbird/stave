@@ -78,6 +78,11 @@ export default defineConfig({
                 ) {
                   return "react-core";
                 }
+                // Math in replies loads KaTeX (with its stylesheet) on first
+                // use; inside `vendor` it would load with the app.
+                if (id.includes("/node_modules/katex/")) {
+                  return "katex";
+                }
                 if (id.includes("zustand") || id.includes("zod")) {
                   return "state-runtime";
                 }
