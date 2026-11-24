@@ -23,15 +23,15 @@ over the chat, or in the right rail's Task panel, under its **Activity** tab.
 ## Before You Start
 
 The conversation trace header shows the current activity while the turn runs.
-When the turn ends, the header shows **Finished** and reports any failed steps.
-The final answer is in the message body.
+When the turn ends, it folds into one line: **Worked for** and the elapsed time,
+with the number of steps on the right. The final answer is in the message body.
 
-With more than three tool steps, successful steps and earlier interim messages
-fold into history. Open the header to read them. The label shows the number of
-folded steps and the turn's elapsed time when available. The latest interim
-message stays visible while work runs. Failed steps, subagents, and questions
-remain visible outside the history. Activity and conversation search can open
-the history and take you to a matching row.
+Open the header to read every step, in the order it happened. While work runs,
+the latest interim message and any running subagents stay visible under the
+header. A failed tool call is marked on its own row; it does not change the
+header, because agents often retry a failed call. Approvals and file changes
+that wait for your decision stay visible. Activity and conversation search can
+open the history and take you to a matching row.
 Thinking bodies render Markdown while streaming and after completion, including
 bold text, lists and code. Tool argument/output blocks and command lines have
 a copy icon beside their content; it changes to a check mark after copying the

@@ -785,12 +785,9 @@
   },
   "assistantTrace": {
     "finished": "Finished",
-    "finishedWithFailures_one": "Finished with {{steps}} failed step",
-    "finishedWithFailures_other": "Finished with {{steps}} failed steps",
-    "runningAfterFailure": "Running · Last step failed",
+    "workedFor": "Worked for {{time}}",
     "foldedSteps_one": "{{steps}} step",
     "foldedSteps_other": "{{steps}} steps",
-    "timedSteps": "{{steps}} · {{time}}",
     "title": "System",
     "title2": "System",
     "baseTitle": "Subagent",
@@ -844,7 +841,6 @@
       "web": "Looking up {{target}}",
       "tool": "Using {{tool}}"
     },
-    "workHistory": "Work history",
     "subagents": "Subagent results",
     "openChild": "Open task",
     "noResult": "No result recorded",

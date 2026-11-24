@@ -1,41 +1,38 @@
 import type { ChatMessage } from "@/types/chat";
 import { getTraceToolStep, type AssistantTraceEntry } from "./assistant-trace-builder";
-import { isTraceToolFailure } from "./turn-event-state";
 
-const SHORT_TRACE_STEP_LIMIT = 3;
+/**
+ * A request someone still has to answer never folds away. A pending file
+ * change needs the trace only while the turn runs; afterwards the changed-file
+ * block below the trace carries it.
+ */
+function awaitsDecision(entry: AssistantTraceEntry, isRunning: boolean): boolean {
+  if (entry.kind === "approval") return entry.part.state === "approval-requested";
+  return isRunning && entry.kind === "diff" && entry.parts.some((part) => part.status === "pending");
+}
 
+/**
+ * The whole trace is history, kept in the order it happened. While a turn runs,
+ * the collapsed trace still shows what steering needs: the latest interim
+ * message and the subagents still working. Apart from pending decisions, a
+ * finished turn shows no rows until the header opens. Tool failures stay on
+ * their own rows inside the history.
+ */
 export function foldAssistantTrace(
   entries: readonly AssistantTraceEntry[],
   { isRunning, hasTrailingResponse }: { isRunning: boolean; hasTrailingResponse: boolean },
 ) {
-  const stepCount = entries.filter(getTraceToolStep).length;
+  // Question cards already have their own position beside the trace.
+  const history = entries.filter((entry) => entry.kind !== "user_input");
   const latestInterim = isRunning && !hasTrailingResponse
-    ? entries.findLast((entry) => entry.kind === "assistant_text")
+    ? history.findLast((entry) => entry.kind === "assistant_text")
     : undefined;
-  const history: AssistantTraceEntry[] = [];
-  const visible: AssistantTraceEntry[] = [];
-  let foldedStepCount = 0;
-  let failureCount = 0;
-
-  for (const entry of entries) {
-    // Question cards already have their own position beside the trace.
-    if (entry.kind === "user_input") continue;
-    const tool = getTraceToolStep(entry);
-    const failed = tool !== undefined && isTraceToolFailure(tool);
-    if (failed) failureCount += 1;
-    const finishedStep = tool?.state === "output-available" && !failed && entry.kind !== "subagent";
-    if (stepCount > SHORT_TRACE_STEP_LIMIT && (
-      finishedStep ||
-      (entry.kind === "assistant_text" && entry !== latestInterim) ||
-      (entry.kind === "reasoning" && (!isRunning || !entry.isStreaming))
-    )) {
-      history.push(entry);
-      if (finishedStep) foldedStepCount += 1;
-    } else {
-      visible.push(entry);
-    }
-  }
-  return { history, visible, foldedStepCount, failureCount };
+  const visible = history.filter((entry) =>
+    awaitsDecision(entry, isRunning) || (isRunning && (
+      entry === latestInterim ||
+      (entry.kind === "subagent" && getTraceToolStep(entry)?.state !== "output-available")
+    )));
+  return { history, visible, stepCount: history.filter(getTraceToolStep).length };
 }
 
 export function getTraceElapsedMs(

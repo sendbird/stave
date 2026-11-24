@@ -88,19 +88,25 @@ describe("AssistantMessageBody", () => {
     expect(html).not.toContain('data-tool-use-id="read-0"');
   });
 
-  test("keeps short traces inline and reports a failed step even without a final reply", async () => {
+  test("folds short traces too and keeps a failed tool step out of the header", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
-    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
-      message: createAssistantMessage({ parts: [
-        ...completedReadSteps(2),
-        { type: "tool_use", toolUseId: "failure", toolName: "Bash", input: "bun test", state: "output-error", output: "failed" },
-      ] }), taskId: "parent", messageId: "reply", streamingEnabled: false,
+    const parts: ToolUsePart[] = [
+      ...completedReadSteps(2),
+      { type: "tool_use", toolUseId: "failure", toolName: "Bash", input: "bun test", state: "output-error", output: "failed" },
+    ];
+    const render = (revealToolUseId?: string) => renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ parts }), taskId: "parent", messageId: "reply", streamingEnabled: false,
+      revealToolUseId,
     }));
-    expect(html).toContain(">Finished with 1 failed step<");
-    expect(html).toContain('data-tool-use-id="read-0"');
-    expect(html).toContain('data-tool-use-id="read-1"');
-    expect(html).toMatch(/data-tool-use-id="failure"[\s\S]*?data-tool-run-status="failed"/);
-    expect(html).not.toContain("data-folded-trace-history");
+    const folded = render();
+    expect(folded).toContain(">Finished<");
+    expect(folded).toContain(">3 steps<");
+    expect(folded).not.toContain("failed step");
+    expect(folded).not.toContain('data-tool-use-id="read-0"');
+    expect(folded).not.toContain('data-tool-use-id="failure"');
+    const opened = render("failure");
+    expect(opened).toMatch(/data-tool-use-id="read-0"[\s\S]*?data-tool-use-id="read-1"[\s\S]*?data-tool-use-id="failure"/);
+    expect(opened).toMatch(/data-tool-use-id="failure"[\s\S]*?data-tool-run-status="failed"/);
   });
 
   test("a pending question stays visible when history is manually collapsed", async () => {
@@ -252,12 +258,13 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode: "auto",
     }));
 
     expect(html).toContain('data-thinking-status="thinking"');
     expect(html).not.toContain("Inspecting files.");
-    expect(html).not.toContain("data-folded-trace-history");
-    expect(html.match(/<button/g)?.length ?? 0).toBe(1);
+    // The trace header and the reasoning row.
+    expect(html.match(/<button/g)?.length ?? 0).toBe(2);
   });
 
   test("does not repeat a one-line system event inside its accordion", async () => {
@@ -271,10 +278,12 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode: "auto",
     }));
 
     expect(html.match(/Context window at 62%/g)?.length ?? 0).toBe(1);
-    expect(html).not.toContain("<button");
+    // Only the trace header is a button; the one-line notice has no accordion.
+    expect(html.match(/<button/g)?.length ?? 0).toBe(1);
   });
 
   test("does not repeat other one-line provider notices inside their accordions", async () => {
@@ -294,6 +303,7 @@ describe("AssistantMessageBody", () => {
         taskId: "task-1",
         messageId: "message-1",
         streamingEnabled: true,
+        traceExpansionMode: "auto",
       }));
 
       expect(html.split(notice).length - 1).toBe(1);
@@ -325,6 +335,7 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode: "auto",
     }));
 
     expect(html.split(checkpointNotice).length - 1).toBe(1);
@@ -364,6 +375,7 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode: "auto",
     }));
 
     expect(html).toContain("Check page state");
@@ -392,7 +404,7 @@ describe("AssistantMessageBody", () => {
     expect(html).not.toContain("<a");
   });
 
-  test("reads finished wall-clock time in the history header without rounding it up", async () => {
+  test("reads finished wall-clock time in the trace header without rounding it up", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const render = (spanMs: number) => renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: {
@@ -406,11 +418,12 @@ describe("AssistantMessageBody", () => {
       messageId: "message-1",
       streamingEnabled: true,
     }));
-    expect(render(59_900)).toContain(">4 steps · 59s<");
-    expect(render(400)).toContain(">4 steps · &lt;1s<");
+    expect(render(59_900)).toContain(">Worked for 59s<");
+    expect(render(59_900)).toContain(">4 steps<");
+    expect(render(400)).toContain(">Worked for &lt;1s<");
   });
 
-  test("keeps completed trace history collapsed in manual expansion mode", async () => {
+  test("keeps a running trace to its header in manual expansion mode", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
@@ -428,7 +441,7 @@ describe("AssistantMessageBody", () => {
 
     expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
     expect(html).not.toContain('data-tool-use-id="read-0"');
-    expect(html).toContain('data-thinking-status="thinking"');
+    expect(html).not.toContain('data-thinking-status="thinking"');
     expect(html).not.toContain("Inspecting files.");
   });
 
@@ -482,9 +495,9 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Patched the issue.");
   });
 
-  test("keeps collapsible turn events closed while they run and leaves interim prose open", async () => {
+  test("keeps a running trace to its latest interim message and opens collapsed rows in auto mode", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
-    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+    const render = (traceExpansionMode: "auto" | "manual") => renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({
         isStreaming: true,
         parts: [
@@ -517,29 +530,23 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode,
     }));
 
-    expect(html).toContain("Inspecting the repo.");
-    expect(html).not.toContain("Earlier update.");
-    expect(html).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
-    expect(html).toContain('data-thinking-status="thinking"');
-    expect(html).toContain('data-tool-run-status="running"');
-    expect(html).toContain('data-tool-run-status="failed"');
+    const folded = render("manual");
+    expect(folded).toContain("Inspecting the repo.");
+    expect(folded).not.toContain("Earlier update.");
+    expect(folded).toMatch(/<button[^>]*aria-expanded="false"[^>]*data-trace-anchor="header"/);
+    expect(folded).not.toContain('data-thinking-status="thinking"');
+    expect(folded).not.toContain('data-tool-run-status="running"');
+    expect(folded).not.toContain('data-tool-run-status="failed"');
 
-    const expanded = [...html.matchAll(/aria-expanded="(true|false)"/g)].map(
-      (match) => match[1],
-    );
-    expect(expanded).toContain("false");
-    expect(expanded).not.toContain("true");
-    expect(html).toMatch(
-      /data-thinking-status="thinking"[\s\S]*?aria-expanded="false"/,
-    );
-    expect(html).toMatch(
-      /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
-    );
-    expect(html).toMatch(
-      /data-tool-run-status="failed"[\s\S]*?aria-expanded="false"/,
-    );
+    const open = render("auto");
+    expect(open).toMatch(/<button[^>]*aria-expanded="true"[^>]*data-trace-anchor="header"/);
+    expect(open).toMatch(/Earlier update\.[\s\S]*?Inspecting the repo\.[\s\S]*?data-thinking-status="thinking"[\s\S]*?data-tool-run-status="running"[\s\S]*?data-tool-run-status="failed"/);
+    expect(open).toMatch(/data-thinking-status="thinking"[\s\S]*?aria-expanded="false"/);
+    expect(open).toMatch(/data-tool-run-status="running"[\s\S]*?aria-expanded="false"/);
+    expect(open).toMatch(/data-tool-run-status="failed"[\s\S]*?aria-expanded="false"/);
   });
 
   test("keeps Stave MCP capture and snapshot rows collapsed unless the reader opens them", async () => {
@@ -575,6 +582,7 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode: "auto",
     }));
 
     expect(html).toContain("Capture screen");
@@ -643,7 +651,7 @@ describe("AssistantMessageBody", () => {
   });
 
 
-  test("the history trigger starts with the current state mark and ends with a chevron", async () => {
+  test("the finished trace header starts with the reasoning mark and ends with the step count", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
       message: createAssistantMessage({ parts: completedReadSteps() }),
@@ -656,8 +664,8 @@ describe("AssistantMessageBody", () => {
     const historyId = header?.match(/aria-controls="([^"]+)"/)?.[1];
     expect(historyId).toBeDefined();
     expect(html).toContain(`id="${historyId}" hidden=""`);
-    expect(header).toMatch(/^<button[^>]*><span[^>]*data-state="ready"/);
-    expect(header).toMatch(/4 steps<\/span><svg[^>]*class="[^"]*lucide-chevron-right/);
+    expect(header).toMatch(/^<button[^>]*><span[^>]*data-aui-inline-disclosure-icon=""[\s\S]*?lucide-brain/);
+    expect(header).toMatch(/4 steps<\/span><\/button>$/);
   });
 
   /*
@@ -716,6 +724,7 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode: "auto",
     }));
 
     expect(html).toContain('data-tool-run-status="denied"');
@@ -740,6 +749,7 @@ describe("AssistantMessageBody", () => {
       taskId: "task-1",
       messageId: "message-1",
       streamingEnabled: true,
+      traceExpansionMode: "auto",
     }));
 
     expect(html).toContain('data-tool-run-status="completed"');
