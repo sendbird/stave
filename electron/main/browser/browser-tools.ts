@@ -2,6 +2,9 @@ import { LensViewportArgsSchema, type LensViewport } from "../../../src/lib/lens
 import { readLensViewport, setLensViewportWidth } from "./browser-viewport";
 import { buildToolImageReferenceText } from "../../../src/lib/tool-images/tool-images";
 import { getToolImageStore } from "../tool-images/tool-image-service";
+import { writeWorkspaceScratchFile } from "../utils/workspace-scratch";
+import { resolveKnownWorkspaceRoot } from "../workspace-roots";
+import { WORKSPACE_SCRATCH_LENS_DIRECTORY } from "../../../src/lib/workspace-scratch";
 import { controlledLensTools } from "./browser-controlled-tools";
 import { assertLensAutomationAllowed } from "./browser-automation-control";
 // ---------------------------------------------------------------------------
@@ -150,6 +153,28 @@ function truncateWithMarker(value: string, maxChars: number) {
 // ---------------------------------------------------------------------------
 // Registration
 // ---------------------------------------------------------------------------
+
+/**
+ * Keeps a copy of a Lens screenshot in the workspace scratch folder
+ * (`.stave/scratch/lens/`), where the Scratch panel shows it and every
+ * provider can cite it by path. Best-effort: the screenshot tool never fails
+ * because of it, and an unknown workspace or a refused folder saves nothing.
+ */
+async function saveLensScreenshotToScratch(workspaceId: string, base64: string) {
+  try {
+    const rootPath = await resolveKnownWorkspaceRoot(workspaceId);
+    if (!rootPath) return null;
+    return await writeWorkspaceScratchFile({
+      rootPath,
+      subdirectory: WORKSPACE_SCRATCH_LENS_DIRECTORY,
+      extension: "png",
+      data: Buffer.from(base64, "base64"),
+    });
+  } catch (error) {
+    console.warn("[lens] screenshot not saved to the scratch folder", { error: String(error) });
+    return null;
+  }
+}
 
 export function registerBrowserTools(rawServer: McpServer): void {
   const server = controlledLensTools(rawServer);
@@ -510,15 +535,21 @@ export function registerBrowserTools(rawServer: McpServer): void {
       // Kept so the conversation can show the screenshot: providers either
       // drop image blocks or cut them short. The reference goes first, where
       // truncation cannot reach it.
-      const reference = await getToolImageStore()
-        .save({ workspaceId, mimeType: "image/png", base64 })
-        .catch(() => null);
+      const [reference, scratchPath] = await Promise.all([
+        getToolImageStore()
+          .save({ workspaceId, mimeType: "image/png", base64 })
+          .catch(() => null),
+        saveLensScreenshotToScratch(workspaceId, base64),
+      ]);
 
       return {
         structuredContent: { viewport },
         content: [
           ...(reference
             ? [{ type: "text" as const, text: buildToolImageReferenceText(reference) }]
+            : []),
+          ...(scratchPath
+            ? [{ type: "text" as const, text: `Saved to ${scratchPath} (relative to the workspace root).` }]
             : []),
           {
             type: "text" as const,

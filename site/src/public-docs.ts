@@ -369,6 +369,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Inspect a live page in the right rail and send DOM, console, or element context into a task draft.",
       },
       {
+        routePath: "workspace-scratch",
+        sourcePath: "docs/features/workspace-scratch.md",
+        title: "Scratch Panel",
+        description:
+          "Watch the screenshots, logs and command output an agent saves to the workspace scratch folder as they land.",
+      },
+      {
         routePath: "local-mcp",
         sourcePath: "docs/features/local-mcp-user-guide.md",
         title: "Local MCP",

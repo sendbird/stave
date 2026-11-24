@@ -1,5 +1,6 @@
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { REPLY_SCREENSHOT_INSTRUCTION } from "../../src/lib/tool-images/tool-images";
+import { WORKSPACE_SCRATCH_INSTRUCTION } from "../../src/lib/workspace-scratch";
 import { createHash } from "node:crypto";
 import {
   buildNativeSubagentBriefing,
@@ -195,6 +196,10 @@ export function buildCodexDeveloperInstructions(args: {
   if (!args.secondaryReadOnly && args.mcpDelegationPrompt) parts.push(args.mcpDelegationPrompt);
   if (args.hasStaveLocalMcp) {
     parts.push(CODEX_STAVE_LENS_INSTRUCTIONS);
+  }
+  // A read-only secondary (or tool-less) run cannot write files, matching the Claude adapter.
+  if (!args.secondaryReadOnly) {
+    parts.push(WORKSPACE_SCRATCH_INSTRUCTION);
   }
   // Codex has no per-agent definitions, so the subagents travel as prose the
   // lead passes on when it spawns one.

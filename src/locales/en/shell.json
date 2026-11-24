@@ -783,7 +783,8 @@
     "sourceControl": "Source Control",
     "information": "Information",
     "skills": "Skills",
-    "task": "Task"
+    "task": "Task",
+    "scratch": "Scratch"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter queues, Tab steers",

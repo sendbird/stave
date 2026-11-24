@@ -26,6 +26,7 @@ import { RightRailPanelShell } from "./RightRailPanelShell";
 import { layoutShellStyles } from "./layout-shell.styles";
 import * as stylex from "@stylexjs/stylex";
 import { WorkspaceScriptsPanel } from "./WorkspaceScriptsPanel";
+import { WorkspaceScratchPanel } from "./WorkspaceScratchPanel";
 import { WorkspaceSkillsPanel } from "./WorkspaceSkillsPanel";
 import { WorkspaceChangesPanel, type WorkspaceChecksViewModel } from "./WorkspaceChangesPanel";
 import { WorkspaceExplorerPanel } from "./WorkspaceExplorerPanel";
@@ -1116,6 +1117,9 @@ export function EditorPanel(props: EditorPanelProps) {
             <WorkspaceScriptsPanel visible={sidebarOverlayVisible} onOpenSettings={props.onOpenSettings} />
           ) : null}
           {rightTab === "task" ? <TaskPanel /> : null}
+          {rightTab === "scratch" ? (
+            <WorkspaceScratchPanel key={activeWorkspaceId} visible={sidebarOverlayVisible} />
+          ) : null}
         </RightRailPanelShell>
       </div>
       <ConfirmDialog

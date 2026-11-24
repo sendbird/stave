@@ -3270,6 +3270,7 @@ export async function streamClaudeWithSdk(
       // Gates the Lens block: its tools only exist when the Stave local MCP
       // is registered, so this must be resolved before the prompt is built.
       hasStaveLocalMcp: resolvedMcpServers.hasStaveLocalMcp,
+      secondaryReadOnly,
     });
     const claudePermissionMode = resolveClaudePermissionMode({
       runtimeValue: args.runtimeOptions?.claudePermissionMode,

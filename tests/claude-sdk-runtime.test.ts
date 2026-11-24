@@ -41,6 +41,7 @@ import {
   CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
 } from "../electron/providers/claude-browser-instructions";
 import { RESERVED_ENV_VAR_NAMES } from "../src/lib/secrets/secrets";
+import { WORKSPACE_SCRATCH_INSTRUCTION } from "../src/lib/workspace-scratch";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { BridgeEvent } from "../electron/providers/types";
 import { replayProviderEventsToTaskState } from "../src/lib/session/provider-event-replay";
@@ -1364,6 +1365,7 @@ describe("buildClaudeSystemPrompt", () => {
       [
         parts[0].split("\n\n")[0],
         CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
+        WORKSPACE_SCRATCH_INSTRUCTION,
       ].join("\n\n"),
     );
     // The current Claude tool contract, not Codex's cua_repl.
@@ -1404,6 +1406,23 @@ describe("buildClaudeSystemPrompt", () => {
     expect(joined).toContain(
       "never inspect or expose raw cookies, passwords, or session tokens",
     );
+  });
+
+  test("tells a writing turn about the scratch folder in the cacheable prefix", () => {
+    const parts = buildClaudeSystemPrompt({ cwd: workspaceRoot });
+    expect(parts[0]).toContain(WORKSPACE_SCRATCH_INSTRUCTION);
+    expect(parts[0]).toContain(".stave/scratch/");
+    // Relative only: the workspace path stays in the dynamic suffix.
+    expect(WORKSPACE_SCRATCH_INSTRUCTION).not.toContain(workspaceRoot);
+    expect(parts[2]).not.toContain(WORKSPACE_SCRATCH_INSTRUCTION);
+    // The static prefix is the same text in every workspace.
+    expect(buildClaudeSystemPrompt({ cwd: "/tmp/another-workspace" })[0]).toBe(parts[0]);
+  });
+
+  test("leaves the scratch folder out of a read-only secondary turn", () => {
+    const joined = buildClaudeSystemPrompt({ cwd: workspaceRoot, secondaryReadOnly: true }).join("\n");
+    expect(joined).not.toContain(WORKSPACE_SCRATCH_INSTRUCTION);
+    expect(joined).not.toContain(".stave/scratch");
   });
 
   test("includes the Lens block only when the Stave local MCP is registered", () => {

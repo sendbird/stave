@@ -1,0 +1,163 @@
+import * as stylex from "@stylexjs/stylex";
+
+import { vars } from "../aui/tokens/tokens.stylex";
+
+/**
+ * The Scratch panel: a summary line, the file list, and a preview of the
+ * selected file under it. The list and the preview each scroll on their own,
+ * so a long log never pushes the list out of view.
+ */
+export const scratchPanelStyles = stylex.create({
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+  },
+  summary: {
+    alignItems: "center",
+    color: vars["--aui-color-text-muted"],
+    display: "flex",
+    flexShrink: 0,
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
+    lineHeight: vars["--aui-line-height-caption"],
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-16"],
+  },
+  summaryText: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  /** The list's scroll box: it holds the gutter so the `<ul>` stays a bare list. */
+  listScroller: {
+    borderBottomColor: vars["--aui-color-border"],
+    borderBottomStyle: "solid",
+    borderBottomWidth: vars["--aui-border-width-hairline"],
+    flexShrink: 0,
+    maxHeight: "40%",
+    overflowY: "auto",
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-8"],
+  },
+  list: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--aui-space-2"],
+  },
+  /** Geometry only: the AUI Button host owns hover, press, focus and their transition. */
+  row: {
+    alignItems: "center",
+    borderRadius: vars["--aui-radius-control"],
+    color: vars["--aui-color-text"],
+    display: "flex",
+    gap: vars["--aui-space-8"],
+    inlineSize: "100%",
+    minHeight: vars["--aui-control-height-sm"],
+    minWidth: 0,
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-8"],
+    textAlign: "start",
+  },
+  rowSelected: {
+    backgroundColor: vars["--aui-color-selection-fill"],
+  },
+  rowIcon: {
+    blockSize: vars["--aui-control-icon-size-sm"],
+    color: vars["--aui-color-text-muted"],
+    flexShrink: 0,
+    inlineSize: vars["--aui-control-icon-size-sm"],
+  },
+  rowName: {
+    flex: 1,
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-caption"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  rowMeta: {
+    color: vars["--aui-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--aui-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+    lineHeight: vars["--aui-line-height-caption"],
+    whiteSpace: "nowrap",
+  },
+  preview: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    minHeight: 0,
+  },
+  previewHeader: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: vars["--aui-space-8"],
+    paddingBlock: vars["--aui-space-4"],
+    paddingInlineEnd: vars["--aui-space-8"],
+    paddingInlineStart: vars["--aui-space-16"],
+  },
+  previewTitle: {
+    color: vars["--aui-color-text"],
+    flex: 1,
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-caption"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  previewBody: {
+    flex: 1,
+    minHeight: 0,
+    overflow: "auto",
+    paddingBlockEnd: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-16"],
+  },
+  previewImage: {
+    blockSize: "auto",
+    borderColor: vars["--aui-color-media-edge"],
+    borderRadius: vars["--aui-radius-mark"],
+    borderStyle: "solid",
+    borderWidth: vars["--aui-border-width-hairline"],
+    display: "block",
+    maxInlineSize: "100%",
+  },
+  previewText: {
+    color: vars["--aui-color-text"],
+    fontFamily: vars["--aui-font-mono"],
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-caption"],
+    margin: 0,
+    overflowWrap: "anywhere",
+    whiteSpace: "pre-wrap",
+  },
+  previewNotice: {
+    alignItems: "flex-start",
+    color: vars["--aui-color-text-muted"],
+    display: "flex",
+    flexDirection: "column",
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
+    lineHeight: vars["--aui-line-height-caption"],
+    paddingBlock: vars["--aui-space-8"],
+  },
+  empty: {
+    flex: 1,
+    minHeight: 0,
+    overflowY: "auto",
+    paddingBlock: vars["--aui-space-24"],
+    paddingInline: vars["--aui-space-16"],
+  },
+  emptyPath: {
+    fontFamily: vars["--aui-font-mono"],
+  },
+});

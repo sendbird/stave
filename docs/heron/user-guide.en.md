@@ -42,7 +42,7 @@ Screens: [Whole window](https://github.com/sendbird/stave/blob/main/docs/screens
 box sidebar 1,1 | Sidebar | Repositories and workspaces | Tars · Fleet View · Agents · AI usage
 box topbar 2,1 | Top bar | Path · branch · Create PR | Go to file · Schedules · Notifications
 box center 2,2 primary | Work area | Task · terminal · Lens tabs | Composer at the bottom
-box rail 3,2 | Right panels | Explorer · Source Control · Information | Skills · Workspace Tools · Task
+box rail 3,2 | Right panels | Explorer · Source Control · Information | Skills · Workspace Tools · Task · Scratch
 edge sidebar -> center : pick a workspace
 edge topbar -> center dashed : navigate and PR
 edge rail -> center dashed : context and tools
@@ -54,7 +54,7 @@ edge rail -> center dashed : context and tools
 | Sidebar      | **Tars**, **Fleet View**, **Agents** and **AI usage** at the top; repositories and workspaces below. The list has two views: **Repositories** and **Work queue** |
 | Top bar      | Workspace path and branch, **Commit graph**, **Create PR**, go to file (Cmd/Ctrl+P), Fleet, Issues, Schedules, Standalone CLI, notifications, app update |
 | Work area    | Tasks (conversations), terminals, CLI sessions, editors and Lens open as tabs. The composer for writing messages sits under a task tab |
-| Right panels | **Explorer**, **Source Control**, **Information**, **Skills**, **Workspace Tools**, **Task**, Lens and **Terminal** buttons. They stay disabled until a repository is open |
+| Right panels | **Explorer**, **Source Control**, **Information**, **Skills**, **Workspace Tools**, **Task**, **Scratch**, Lens and **Terminal** buttons. They stay disabled until a repository is open |
 | Status bar   | Account and usage per provider                                                                                                        |
 
 @page install | Getting started | Install and first setup | guide
@@ -1288,6 +1288,7 @@ Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/sc
 | Workspace Tools   | **Workspace Tools** in the right panels, Cmd/Ctrl+K then S | Saved commands, processes such as dev servers, and triggers, stored in `.stave/scripts.json` |
 | Lens              | Lens in the right panels, Cmd/Ctrl+K then L                | A built-in browser tab. **Pick element** and **Visual comments** add page context to the task draft |
 | Information panel | **Information** in the right panels, Cmd/Ctrl+K then I     | Todos, notes, links, documents, memory. **Create task** from a link row               |
+| Scratch           | **Scratch** in the right panels                            | Screenshots, logs, command output and JSON an agent saved to `.stave/scratch/`, newest first, with a live preview. Lens screenshots land in `.stave/scratch/lens/`. A dot on the button means files arrived that you have not seen. Files over the preview limit open with **Open in editor** |
 | Inline HTML pages | Shown by an agent in the conversation                      | See charts, tables and mockups in the chat; **View source**, **Save as HTML file**    |
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |
 | MCP               | Settings > MCP                                             | **Add server**, then **Review change** and **Apply change**. The **Local MCP Server** card |

@@ -1575,5 +1575,22 @@
     "commandUnavailable": "The terminal bridge is unavailable. Retry once it is connected.",
     "commandFailed": "The step failed without returning any output.",
     "repositoryChanged": "You switched projects before creation started. Open the original project to try again."
+  },
+  "workspaceScratchPanel": {
+    "previewLabel": "Preview of {{name}}",
+    "openInEditor": "Open in editor",
+    "tooLargeToPreview": "This file is too large to preview here ({{size}}).",
+    "noPreview": "No preview for this file type.",
+    "previewFailed": "This file could not be read.",
+    "loading": "Loading scratch files…",
+    "emptyTitle": "No scratch files yet",
+    "emptyDescription": "Screenshots, logs, command output and fetched JSON the agent saves while it works land in {{folder}}/ and show up here as they are written. Lens screenshots are saved here too. The folder stays out of git.",
+    "summary_one": "{{formattedCount}} file · {{size}}",
+    "summary_other": "{{formattedCount}} files · {{size}}",
+    "showingNewest_one": "showing the newest {{formattedCount}}",
+    "showingNewest_other": "showing the newest {{formattedCount}}",
+    "filesLabel": "Scratch files",
+    "new": "New",
+    "railLabelUnseen": "Scratch, new files"
   }
 }

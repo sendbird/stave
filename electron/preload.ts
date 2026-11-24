@@ -1907,6 +1907,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:read-preview-range", args),
     readFileDataUrl: (args: { rootPath: string; filePath: string }) =>
       ipcRenderer.invoke("fs:read-file-data-url", args),
+    listScratch: (args: { rootPath: string }) =>
+      ipcRenderer.invoke("fs:list-scratch", args),
     writeFile: (args: {
       rootPath: string;
       filePath: string;

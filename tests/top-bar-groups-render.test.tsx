@@ -9,6 +9,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { topBarStyles } from "@/components/layout/top-bar.styles";
 import { resolveKeybindingDisplay } from "@/lib/keybindings/keybinding-settings";
 import { useAppStore } from "@/store/app.store";
+import { useWorkspaceScratchStore } from "@/store/workspace-scratch-store";
 import type { AppState } from "@/store/app-store.types";
 
 const originalWindow = globalThis.window;
@@ -133,11 +134,59 @@ describe("right rail toolbar", () => {
       "Skills",
       "Workspace Tools",
       "Task",
+      "Scratch",
       "Lens",
       "Terminal",
     ]);
     // Every toggle states whether it is pressed, Lens included.
-    expect(html.match(/<button[^>]*aria-pressed="false"/g)).toHaveLength(8);
+    expect(html.match(/<button[^>]*aria-pressed="false"/g)).toHaveLength(9);
+  });
+
+  test("Scratch shows a dot for a file the user has not seen, and drops it once the panel is open", () => {
+    const newest = Date.now() + 60_000;
+    // Server rendering reads the store's initial state, as `renderWithState` does for the app store.
+    const scratch = useWorkspaceScratchStore.getInitialState() as unknown as Record<string, unknown>;
+    const saved = {
+      listingByWorkspace: scratch.listingByWorkspace,
+      seenMtimeByWorkspace: scratch.seenMtimeByWorkspace,
+    };
+    Object.assign(scratch, {
+      listingByWorkspace: {
+        "ws-1": {
+          files: [{ path: ".stave/scratch/tests.log", sizeBytes: 3, mtimeMs: newest }],
+          fileCount: 1,
+          totalBytes: 3,
+          truncated: false,
+          signature: "fixture",
+        },
+      },
+      seenMtimeByWorkspace: {},
+    });
+    try {
+      const closed = renderWithState(REPOSITORY_STATE, createElement(RightRail));
+      expect(closed).toContain('data-testid="workspace-scratch-unseen"');
+      expect(closed).toContain('aria-label="Scratch, new files"');
+
+      const open = renderWithState(
+        {
+          ...REPOSITORY_STATE,
+          layout: {
+            ...useAppStore.getInitialState().layout,
+            sidebarOverlayVisible: true,
+            sidebarOverlayTab: "scratch",
+          },
+        },
+        createElement(RightRail),
+      );
+      expect(open).not.toContain('data-testid="workspace-scratch-unseen"');
+      expect(open).toMatch(/aria-label="Scratch" aria-pressed="true"/);
+
+      Object.assign(scratch, { seenMtimeByWorkspace: { "ws-1": newest } });
+      expect(renderWithState(REPOSITORY_STATE, createElement(RightRail)))
+        .not.toContain('data-testid="workspace-scratch-unseen"');
+    } finally {
+      Object.assign(scratch, saved);
+    }
   });
 
   test("a pressed panel shows the soft accent look, not a solid fill", () => {

@@ -732,6 +732,11 @@ interface WindowFsApi {
     maxSizeBytes?: number;
     stderr?: string;
   }>;
+  /** The workspace's `.stave/scratch` files, newest first; refused for a folder Stave has not registered. */
+  listScratch?: (args: { rootPath: string }) => Promise<
+    | ({ ok: true } & import("@/lib/workspace-scratch").WorkspaceScratchListing)
+    | { ok: false; stderr: string }
+  >;
   writeFile?: (args: {
     rootPath: string;
     filePath: string;
