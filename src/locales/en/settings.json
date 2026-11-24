@@ -158,7 +158,7 @@
       },
       "reasoningExpansion": {
         "title": "Reasoning expansion",
-        "description": "Auto opens earlier history while a turn streams and closes it when the turn finishes. Manual opens history on demand. With Streaming UI off, Auto behaves like Manual.",
+        "description": "Auto opens the trace while a turn streams and closes it when the turn finishes. Manual opens it on demand. With Streaming UI off, Auto behaves like Manual.",
         "manual": "Manual"
       },
       "interimMessages": {

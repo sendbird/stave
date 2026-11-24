@@ -109,11 +109,11 @@ test.describe("transcript column", () => {
     });
   }
 
-  test("a finished turn's status and history label stay on one line", async ({ page }) => {
+  test("a finished turn's summary and step count stay on one line", async ({ page }) => {
     await seedConversation(page);
     await openConversation(page, 1024);
     const reply = page.locator('[data-message-id="a2"]');
-    const trigger = reply.getByRole("button", { name: "Finished 4 steps · 42s", exact: true });
+    const trigger = reply.getByRole("button", { name: "Worked for 42s 4 steps", exact: true });
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
     await expect(reply.getByText("One spec asserted the old 280px sidebar width, so I updated the expectation and re-ran the suite.", { exact: true })).toHaveCount(1);
     const line = await trigger.evaluate((element) => {
@@ -125,7 +125,7 @@ test.describe("transcript column", () => {
       });
       return { height: own.height, maxOffset: Math.max(...offsets), parts: offsets.length };
     });
-    // Glyph and history label sit on the trigger's own middle line.
+    // Glyph, summary and step count sit on the trigger's own middle line.
     expect(line.parts).toBeGreaterThanOrEqual(2);
     expect(line.maxOffset).toBeLessThanOrEqual(2);
     expect(line.height).toBeLessThanOrEqual(36);

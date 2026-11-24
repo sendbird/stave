@@ -767,10 +767,8 @@
   },
   "assistantTrace": {
     "finished": "완료",
-    "finishedWithFailures_other": "종료 · {{steps}}개 단계 실패",
-    "runningAfterFailure": "실행 중 · 마지막 단계 실패",
+    "workedFor": "{{time}} 동안 작업",
     "foldedSteps_other": "{{steps}}개 단계",
-    "timedSteps": "{{steps}} · {{time}}",
     "title": "시스템",
     "title2": "시스템",
     "baseTitle": "하위 에이전트",
@@ -808,7 +806,6 @@
       "web": "{{target}} 조회 중",
       "tool": "{{tool}} 사용 중"
     },
-    "workHistory": "작업 이력",
     "subagents": "하위 작업 결과",
     "openChild": "작업 열기",
     "noResult": "기록된 결과 없음",

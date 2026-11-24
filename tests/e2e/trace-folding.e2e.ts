@@ -53,7 +53,8 @@ async function openTranscript(page: Page) {
 
 test("Activity reveals and focuses the exact step inside collapsed history", async ({ page }) => {
   const message = await openTranscript(page);
-  const history = message.getByRole("button", { name: /Finished with 1 failed step 22 steps · / });
+  // A failed tool step does not turn the summary into a failure.
+  const history = message.getByRole("button", { name: "Worked for 1m 30s 24 steps", exact: true });
   await expect(history).toHaveAttribute("aria-expanded", "false");
   const target = message.locator('[data-tool-use-id="read-11"]');
   await expect(target).toHaveCount(0);
@@ -80,14 +81,30 @@ test("conversation find opens and lands on an interim message in history", async
   await expect(target).toBeInViewport({ ratio: 1 });
 });
 
-test("late completion and history toggles preserve the surviving reading row", async ({ page }) => {
+test("a finished turn keeps every step folded, and opening it keeps the reading position", async ({ page }) => {
   const message = await openTranscript(page);
+  const history = message.getByRole("button", { name: "Worked for 1m 30s 24 steps", exact: true });
   const failed = message.locator('[data-tool-use-id="failed"]');
   const scroller = page.getByTestId(scrollId);
-  await expect(failed).toBeVisible();
-  await scroller.hover();
-  await page.mouse.wheel(0, -4000);
-  await expect.poll(() => scroller.evaluate((node) => node.scrollTop)).toBe(0);
+  await expect(history).toHaveAttribute("aria-expanded", "false");
+  // A failed step folds with the rest; it is not pinned outside the history.
+  await expect(failed).toHaveCount(0);
+  await history.evaluate((node) => node.scrollIntoView({ block: "center" }));
+  const headerTop = () => history.evaluate((node) =>
+    node.getBoundingClientRect().top - node.closest("[data-transcript-scroller]")!.getBoundingClientRect().top,
+  );
+  const before = await headerTop();
+  await history.evaluate((button: HTMLButtonElement) => button.click());
+  await expect(history).toHaveAttribute("aria-expanded", "true");
+  await expect.poll(headerTop).toBeCloseTo(before, 0);
+  // Opened history reads in the order the work happened.
+  const order = await message.locator("[data-folded-trace-history] [data-tool-use-id]").evaluateAll(
+    (rows) => rows.map((row) => row.getAttribute("data-tool-use-id")),
+  );
+  expect(order.slice(-3)).toEqual(["read-21", "late", "failed"]);
+  await expect(failed.locator('[data-tool-run-status="failed"]')).toHaveCount(1);
+  // Let the header's disclosure hold finish before reading further down.
+  await page.waitForTimeout(600);
   const relativeTop = () => failed.evaluate((node) =>
     node.getBoundingClientRect().top - node.closest("[data-transcript-scroller]")!.getBoundingClientRect().top,
   );
@@ -96,6 +113,7 @@ test("late completion and history toggles preserve the surviving reading row", a
     scroller.scrollTop += node.getBoundingClientRect().top - scroller.getBoundingClientRect().top + 5;
   });
   await expect.poll(relativeTop).toBeCloseTo(-5, 0);
+  // A step above the reading row completes late; the reading row stays put.
   await page.evaluate(({ messageId, completed }) => {
     const store = window.__contentSearchFixtureStore;
     const { activeTaskId, messagesByTask } = store.getState();
@@ -108,16 +126,9 @@ test("late completion and history toggles preserve the surviving reading row", a
       },
     });
   }, { messageId, completed: tool("late") });
-  await expect(message.locator('[data-tool-use-id="late"]')).toHaveCount(0);
+  await expect(message.locator('[data-tool-use-id="late"] [data-tool-run-status="done"]')).toHaveCount(1);
   await expect.poll(relativeTop).toBeCloseTo(-5, 0);
-  const history = message.getByRole("button", { name: /Finished with 1 failed step 23 steps · / });
-  const original = await scroller.evaluate((node) => node.scrollTop);
-  await history.evaluate((button: HTMLButtonElement) => button.click());
-  await expect(history).toHaveAttribute("aria-expanded", "true");
-  await expect.poll(() => scroller.evaluate((node) => node.scrollTop)).toBeCloseTo(original, 0);
-  await history.evaluate((button: HTMLButtonElement) => button.click());
-  await expect(history).toHaveAttribute("aria-expanded", "false");
-  await expect.poll(relativeTop).toBeCloseTo(-5, 0);
+  expect(await scroller.evaluate((node) => node.scrollTop)).toBeGreaterThan(0);
 });
 
 for (const { locale, theme, density, width } of [
@@ -131,26 +142,33 @@ for (const { locale, theme, density, width } of [
     await page.goto(`/?stavePreview=trace-folding&locale=${locale}&theme=${theme}&density=${density}`);
     await page.evaluate(() => document.fonts.ready);
     const running = page.locator("#running").locator("..");
-    const header = running.getByRole("button", { name: /test:ui-layout.*24/ });
+    const header = running.locator('button[data-trace-anchor="header"]');
     await expect(header).toHaveAttribute("aria-expanded", "false");
-    const geometry = await header.evaluate((node) => {
-      const [mark, label, summary, chevron] = Array.from(node.children, (child) => child.getBoundingClientRect());
-      const centers = [mark, label, summary, chevron].map((box) => box.y + box.height / 2);
-      return {
-        drift: Math.max(...centers) - Math.min(...centers),
-        contained: chevron.right <= node.getBoundingClientRect().right + 0.5,
-        gap: getComputedStyle(node).columnGap,
-        tokenGap: `${parseFloat(getComputedStyle(node).getPropertyValue("--aui-space-8")) *
-          parseFloat(getComputedStyle(document.documentElement).fontSize)}px`,
-      };
-    });
-    expect(geometry.drift).toBeLessThanOrEqual(1);
-    expect(geometry.contained).toBe(true);
-    expect(geometry.gap).toBe(geometry.tokenGap);
+    await expect(header.locator('[data-loader-variant="reason"]')).toHaveCount(1);
+    const finished = page.locator("#finished-with-failure").locator("..").locator('button[data-trace-anchor="header"]');
+    await expect(finished).toHaveAttribute("aria-expanded", "false");
+    await expect(finished.locator(".lucide-brain")).toHaveCount(1);
+    for (const node of [header, finished]) {
+      const geometry = await node.evaluate((element) => {
+        const boxes = Array.from(element.children, (child) => child.getBoundingClientRect());
+        const centers = boxes.map((box) => box.y + box.height / 2);
+        return {
+          drift: Math.max(...centers) - Math.min(...centers),
+          contained: boxes.at(-1)!.right <= element.getBoundingClientRect().right + 0.5,
+        };
+      });
+      expect(geometry.drift).toBeLessThanOrEqual(1);
+      expect(geometry.contained).toBe(true);
+    }
+    // While it runs, only the latest interim message shows below the header.
+    await expect(running.locator('[data-tool-use-id="read-0"]')).toHaveCount(0);
     await header.focus();
     await page.keyboard.press("Enter");
     await expect(header).toHaveAttribute("aria-expanded", "true");
     await expect(running.locator('[data-tool-use-id="read-0"]')).toBeVisible();
-    await expect(page.locator("#short").locator("..").locator("[data-folded-trace-history]")).toHaveCount(0);
+    // Short finished traces fold as well.
+    const short = page.locator("#short").locator("..");
+    await expect(short.locator('button[data-trace-anchor="header"]')).toHaveAttribute("aria-expanded", "false");
+    await expect(short.locator("[data-tool-use-id]")).toHaveCount(0);
   });
 }

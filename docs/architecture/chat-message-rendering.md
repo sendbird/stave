@@ -100,14 +100,16 @@ mirror the Codex investigation:
 
 ## Trace Presentation
 
-- The header uses AUI's state mark, inline disclosure, and semantic theme
-  tokens. It shows the newest active step while a turn runs and the completion
-  status and failed-step count when it ends. Long activity labels ellipsize.
-- Traces with more than three tool steps fold successful steps, settled
-  reasoning, and earlier interim text. The history label shows the folded
-  step count and elapsed wall-clock time when available. Failed and running
-  steps, subagents, and decisions stay visible alongside the latest live
-  interim update. The final response lives in the body.
+- The header keeps the chain-of-thought anatomy: the AUI `reason` loader and
+  the newest active step while a turn runs, a Brain mark, "Worked for" with
+  the elapsed wall-clock time, and the step count once it ends. Long activity
+  labels ellipsize. Tool failures do not change the header; agents retry
+  failed calls routinely, so the failure stays marked on its own row.
+- The whole trace is history, in the order it happened, whatever the step
+  count. Collapsed, a running trace still shows the latest interim update and
+  running subagents for steering, and a finished trace shows only its header.
+  Pending approvals and file changes awaiting a decision stay visible in both.
+  The final response lives in the body.
 - Activity jumps and transcript search open the matching history before
   focusing its row. The conversation holds a clicked disclosure in place.
   When a tool settles while the reader is inside its message, a surviving row

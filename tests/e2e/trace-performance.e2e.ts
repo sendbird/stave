@@ -35,7 +35,8 @@ test("streaming reuses settled rows and closed payloads mount on demand without 
   });
   expect(changedReads[0]).toBeGreaterThan(0);
   expect(changedReads.slice(1).every((count) => count === 0)).toBe(true);
-  await expect(row.getByText("updated.ts", { exact: true })).toBeVisible();
+  // The failed row keeps its place and its open state, so its detail shows the path too.
+  await expect(row.getByTitle("updated.ts", { exact: true })).toBeVisible();
   const draft = page.getByRole("textbox", { name: "Reasoning draft" });
   await expect(draft).toHaveCount(0);
   const thinking = page.getByRole("button", { name: /Finished thinking/ }).last();

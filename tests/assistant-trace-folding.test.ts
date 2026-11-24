@@ -17,42 +17,63 @@ function interim(text: string): AssistantTraceEntry {
 
 const finished = [step("one"), step("two"), step("three"), step("four")];
 const completedTurn = { isRunning: false, hasTrailingResponse: true };
+const runningTurn = { isRunning: true, hasTrailingResponse: false };
 
-test("starts folding at four tool steps, independent of intervening prose", () => {
+test("keeps every entry in history in the order it happened, whatever the step count", () => {
   const prose = interim("Intermediate note");
-  const short = [...finished.slice(0, 3), prose];
-  expect(foldAssistantTrace(short, completedTurn)).toMatchObject({ visible: short, history: [], foldedStepCount: 0 });
+  const short = [step("one"), prose, step("two")];
+  expect(foldAssistantTrace(short, completedTurn)).toEqual({ visible: [], history: short, stepCount: 2 });
   const long = [...finished, prose];
-  expect(foldAssistantTrace(long, completedTurn)).toMatchObject({ visible: [], history: long, foldedStepCount: 4 });
+  expect(foldAssistantTrace(long, completedTurn)).toEqual({ visible: [], history: long, stepCount: 4 });
 });
 
-test("keeps failed and subagent steps visible through turn completion", () => {
+test("keeps failed tool steps inside history instead of pinning them outside", () => {
   const failure = step("failure", "output-error");
   const nonzeroExit = step("nonzero", "output-available", { exitCode: 1 });
-  const doneAgent = { ...step("agent"), kind: "subagent" } as AssistantTraceEntry;
   const running = step("running", "input-available");
-  const entries = [...finished, failure, nonzeroExit, doneAgent, running];
-  expect(foldAssistantTrace(entries, { isRunning: true, hasTrailingResponse: false })).toMatchObject({
-    visible: [failure, nonzeroExit, doneAgent, running],
-    history: finished,
-    failureCount: 2,
-  });
-  expect(foldAssistantTrace(entries, completedTurn)).toMatchObject({
-    visible: [failure, nonzeroExit, doneAgent, running],
-    history: finished,
-    failureCount: 2,
-  });
+  const entries = [step("one"), failure, nonzeroExit, step("two"), running];
+  expect(foldAssistantTrace(entries, runningTurn)).toEqual({ visible: [], history: entries, stepCount: 5 });
+  expect(foldAssistantTrace(entries, completedTurn).visible).toEqual([]);
 });
 
-test("keeps the latest interim visible until newer prose or the end of the turn", () => {
+test("shows running subagents while the turn runs and folds finished ones", () => {
+  const doneAgent = { ...step("done-agent"), kind: "subagent" } as AssistantTraceEntry;
+  const liveAgent = { ...step("live-agent", "input-available"), kind: "subagent" } as AssistantTraceEntry;
+  const entries = [...finished, doneAgent, liveAgent];
+  expect(foldAssistantTrace(entries, runningTurn).visible).toEqual([liveAgent]);
+  expect(foldAssistantTrace(entries, completedTurn).visible).toEqual([]);
+});
+
+test("keeps only the latest interim visible until newer prose or the end of the turn", () => {
   const old = interim("Earlier update");
   const latest = interim("Latest update");
   const entries = [old, ...finished, latest, step("running", "input-available")];
-  const running = { isRunning: true, hasTrailingResponse: false };
-  expect(foldAssistantTrace(entries, running).visible).toContain(latest);
-  expect(foldAssistantTrace(entries, running).history).toContain(old);
-  expect(foldAssistantTrace(entries, { ...running, hasTrailingResponse: true }).history).toContain(latest);
-  expect(foldAssistantTrace(entries, completedTurn).history).toContain(latest);
+  expect(foldAssistantTrace(entries, runningTurn).visible).toEqual([latest]);
+  expect(foldAssistantTrace(entries, { ...runningTurn, hasTrailingResponse: true }).visible).toEqual([]);
+  expect(foldAssistantTrace(entries, completedTurn).visible).toEqual([]);
+});
+
+test("keeps requests that still need a decision visible while folded", () => {
+  const approval = (state: string) => ({
+    id: `approval-${state}`, kind: "approval",
+    part: { type: "approval", toolName: "Bash", description: "", requestId: state, state },
+  }) as AssistantTraceEntry;
+  const diff = (status: string) => ({
+    id: `diff-${status}`, kind: "diff",
+    parts: [{ type: "code_diff", filePath: "a.ts", oldContent: "", newContent: "", status }],
+  }) as AssistantTraceEntry;
+  const pending = approval("approval-requested");
+  const answered = approval("approval-responded");
+  const pendingDiff = diff("pending");
+  const entries = [step("one"), pending, answered, pendingDiff, diff("accepted")];
+  expect(foldAssistantTrace(entries, runningTurn).visible).toEqual([pending, pendingDiff]);
+  // A settled turn shows pending file changes in the block below the trace.
+  expect(foldAssistantTrace(entries, completedTurn).visible).toEqual([pending]);
+});
+
+test("leaves question cards out of the trace", () => {
+  const question = { id: "question", kind: "user_input" } as AssistantTraceEntry;
+  expect(foldAssistantTrace([step("one"), question], completedTurn).history).toEqual([step("one")]);
 });
 
 test("finds indexed interim prose and tool names for exact row reveal", () => {

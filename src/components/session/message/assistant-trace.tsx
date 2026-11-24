@@ -43,7 +43,6 @@ import type {
 } from "@/types/chat";
 import {
   buildAssistantTrace,
-  getTraceToolStep,
   joinReasoningText,
   traceHasToolStep,
   type AssistantTraceEntry,
@@ -55,7 +54,7 @@ import { TraceApproval, TraceClarification } from "./turn-event-decisions";
 import { TraceSystemNotice } from "./turn-event-notice";
 import { resolveTraceActivity } from "./trace-activity";
 import { ReasoningRow, TurnSources } from "./turn-event-rows";
-import { collectTurnWebSources, isTraceToolFailure, toMeasuredDurationMs } from "./turn-event-state";
+import { collectTurnWebSources, toMeasuredDurationMs } from "./turn-event-state";
 import {
   TRACE_GLYPH_SIZE,
   TraceSubagentRun,
@@ -536,7 +535,7 @@ export function AssistantMessageBody(args: {
     () => buildAssistantTrace({ message, translate: t }),
     [message, t],
   );
-  const { history, visible, foldedStepCount, failureCount } = useMemo(
+  const { history, visible, stepCount } = useMemo(
     () => foldAssistantTrace(trace.entries, {
       isRunning: isActivelyStreaming,
       hasTrailingResponse: trace.responseParts.length > 0,
@@ -564,8 +563,6 @@ export function AssistantMessageBody(args: {
     () => isStreaming ? resolveTraceActivity(trace.entries, t) : null,
     [isStreaming, trace.entries, t],
   );
-  const latestStep = trace.entries.findLast(getTraceToolStep);
-  const latestTool = latestStep && getTraceToolStep(latestStep);
   const allDiffParts = useMemo<CodeDiffPart[]>(
     () =>
       trace.entries.flatMap((entry) =>
@@ -701,18 +698,16 @@ export function AssistantMessageBody(args: {
           <AssistantTraceHeader
             activity={streamingActivity}
             isRunning={isStreaming}
-            failureCount={failureCount}
             runFailed={hasActionableCapacityFailure}
-            lastStepFailed={latestTool !== undefined && isTraceToolFailure(latestTool)}
             timing={message}
             history={history.length > 0 ? {
               id: historyId,
               open: historyOpen,
               toggle: () => setHistoryOverride(!historyOpen),
-              stepCount: foldedStepCount,
+              stepCount,
             } : undefined}
           />
-          {visible.length > 0 ? renderRows(visible) : null}
+          {!historyOpen && visible.length > 0 ? renderRows(visible) : null}
           {history.length > 0 ? (
             <div
               id={historyId}
