@@ -50,7 +50,7 @@ here; they stay in their own tasks.
 - Sessions are grouped by the Stave project whose folder contains them;
   sessions in other folders are grouped by folder.
 - Each session shows its tool (Claude Code or Codex), title, status, workspace
-  and branch when known, the current action ("Reading src/app.ts"), elapsed
+  and branch when known, the current action (for example "Running npm test"), elapsed
   time, step count, context size, and "N of M agents running".
 - Each sub-agent card shows its agent type, status, description, current
   action, elapsed time, steps and context.
