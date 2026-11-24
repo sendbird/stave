@@ -968,12 +968,15 @@ async function runProviderTurnImpl(
   // read-only secondary turn writes nothing, so it does not create one. ACP
   // providers get the folder too (Lens screenshots land there), though they
   // have no system prompt to mention it.
+  //
+  // Not awaited: the turn's abort and lifecycle wiring must not wait on disk
+  // I/O. The folder takes milliseconds, long before the model's first write
+  // there; a missing workspace folder is the turn's own problem, not this one's.
   if (args.executionPolicy !== "secondary-read-only" && !isToolsDisabledTurn(args.runtimeOptions)) {
-    try {
-      await ensureWorkspaceScratch(args.cwd);
-    } catch (error) {
+    void ensureWorkspaceScratch(args.cwd).catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") return;
       console.warn("[provider-runtime] workspace scratch folder unavailable", { error: String(error) });
-    }
+    });
   }
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;
