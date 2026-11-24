@@ -3000,6 +3000,8 @@
     "untitled": "제목 없는 세션",
     "sessionsLabel": "{{name}}의 세션",
     "agentsLabel": "{{name}}의 에이전트",
+    "subagent": "서브에이전트",
+    "subagentHint": "Codex 서브에이전트입니다. 상위 세션이 이 목록에 없어 따로 표시됩니다.",
     "agentsRunning_other": "에이전트 {{count}}개 중 {{running}}개 실행 중",
     "steps_other": "{{count}}단계",
     "context": "컨텍스트 {{tokens}}",

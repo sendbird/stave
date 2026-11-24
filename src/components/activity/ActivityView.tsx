@@ -140,6 +140,7 @@ function SessionCard({ row }: { row: ExternalSessionRow}) {
     <li className={sx(styles.session)} data-external-session={session.id}>
       <div className={sx(styles.row)}>
         <Badge size="sm">{i18n.t(SOURCE_KEYS[session.source])}</Badge>
+        {session.subagent ? <span title={i18n.t("shell:externalActivity.subagentHint")}><Badge size="sm" variant="outlined">{i18n.t("shell:externalActivity.subagent")}</Badge></span> : null}
         <h4 className={sx(styles.sessionTitle)} title={title}>{title}</h4>
         <SessionStatusDot status={session.status} />
       </div>

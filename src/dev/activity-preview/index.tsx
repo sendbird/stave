@@ -18,7 +18,7 @@ const NOW = Date.now();
 const FIXTURE: ExternalSessionsSnapshot = {
   state: "live",
   generatedAt: NOW,
-  runningCount: 3,
+  runningCount: 5,
   sessions: [
     {
       id: "claude-1", source: "claude-code", title: "Refactor the provider runtime so retries share one queue", cwd: "/work/stave/.stave/workspaces/feat",
@@ -34,7 +34,16 @@ const FIXTURE: ExternalSessionsSnapshot = {
     },
     {
       id: "codex-1", source: "codex", title: "Check why the desktop build fails on Linux", cwd: "/tmp/scratch", branch: "main", status: "waiting",
-      startedAt: NOW - 25 * 60_000, lastAt: NOW - 2 * 60_000, action: { verb: "run", target: "bun run build:desktop" }, steps: 11, contextTokens: 12_800, agents: [],
+      startedAt: NOW - 25 * 60_000, lastAt: NOW - 2 * 60_000, action: { verb: "run", target: "bun run build:desktop" }, steps: 11, contextTokens: 12_800,
+      agents: [
+        { id: "ca1", agentType: "explorer", description: "Euler", status: "running", startedAt: NOW - 4 * 60_000, lastAt: NOW - 6_000,
+          action: { verb: "read", target: "package.json" }, steps: 6, contextTokens: 9_400 },
+        { id: "ca2", agentType: "Agent", description: "Noether", status: "finished", startedAt: NOW - 9 * 60_000, lastAt: NOW - 5 * 60_000, steps: 12 },
+      ],
+    },
+    {
+      id: "codex-2", source: "codex", subagent: true, title: "Euler", cwd: "/tmp/scratch", status: "working",
+      startedAt: NOW - 3 * 60_000, lastAt: NOW - 4_000, action: { verb: "search", target: "build:desktop" }, steps: 5, agents: [],
     },
     {
       id: "claude-2", source: "claude-code", title: "Draft release notes", cwd: "/work/other", status: "idle", startedAt: NOW - 28 * 60_000,

@@ -3082,6 +3082,8 @@
     "untitled": "Untitled session",
     "sessionsLabel": "Sessions in {{name}}",
     "agentsLabel": "Agents in {{name}}",
+    "subagent": "Sub-agent",
+    "subagentHint": "A Codex sub-agent. Its parent session is not listed, so it is shown on its own.",
     "agentsRunning_one": "{{running}} of {{count}} agent running",
     "agentsRunning_other": "{{running}} of {{count}} agents running",
     "steps_one": "{{count}} step",

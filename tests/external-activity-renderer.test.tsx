@@ -166,6 +166,14 @@ describe("ActivityView", () => {
     expect(html).toContain(i18n.t("shell:externalActivity.status.waiting"));
   });
 
+  test("a Codex sub-agent without a listed parent carries a sub-agent label", () => {
+    const snapshot = { ...liveSnapshot, sessions: [session({ id: "codex-2", source: "codex", subagent: true, title: "Euler", cwd: "/tmp/scratch" })] };
+    expect(ExternalSessionsSnapshotSchema.safeParse(snapshot).success).toBe(true);
+    const html = renderToStaticMarkup(createElement(ActivityView, { enabled: true, snapshot }));
+    expect(html).toContain(i18n.t("shell:externalActivity.subagent"));
+    expect(renderToStaticMarkup(createElement(ActivityView, { enabled: true, snapshot: liveSnapshot }))).not.toContain(i18n.t("shell:externalActivity.subagent"));
+  });
+
   test("nothing running and still starting each have their own state", () => {
     const empty = renderToStaticMarkup(createElement(ActivityView, { enabled: true, snapshot: { ...liveSnapshot, runningCount: 0, sessions: [] } }));
     expect(empty).toContain(i18n.t("shell:externalActivity.emptyTitle"));

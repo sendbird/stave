@@ -4,14 +4,14 @@
 
 **Activity** shows the Claude Code and Codex sessions you started outside
 Stave, such as `claude` or `codex` in a terminal, and the sub-agents a Claude
-Code session runs. It is read-only: the sessions keep running where you started
+Code or Codex session runs. It is read-only: the sessions keep running where you started
 them. The feature is off until you turn it on.
 
 ## When To Use It
 
 - You run agents in a terminal next to Stave and want one place that says which
   of them are working, which wait for you, and what each is doing now.
-- A Claude Code session started several sub-agents and you want to see which are
+- A Claude Code or Codex session started several sub-agents and you want to see which are
   still running.
 
 Sessions Stave starts (tasks, delegated tasks, CLI session tabs) are not listed
@@ -64,12 +64,26 @@ Statuses:
 | Idle | Not written for five minutes |
 | Running / Finished / Failed / Stopped (sub-agents) | From the session's report on the agent, its final answer, or how recently it wrote |
 
+## Codex sub-agents
+
+Codex records a sub-agent as its own rollout file that names its parent
+session. Stave nests those under the parent:
+
+- A sub-agent started with `spawn_agent` appears as an agent card under its
+  parent session (type is its role, title is its nickname) and counts in
+  "N of M agents running". Status, current action, steps and context come from
+  its own rollout.
+- Internal approval-review sessions (`guardian`) are not shown or counted.
+- When the parent is not listed (for example it was last written before the
+  window), the sub-agent appears as its own session with a "Sub-agent" label.
+- When the parent is a session Stave started, its sub-agents are left out too.
+
 ## Limits
 
 - Only sessions written in the last 30 minutes are listed (up to 30), with up
   to 12 sub-agents each. Files untouched for six hours are skipped.
 - Codex sessions are read from the last seven days of
-  `sessions/YYYY/MM/DD/rollout-*.jsonl`. Codex sub-agents are not shown.
+  `sessions/YYYY/MM/DD/rollout-*.jsonl`. See Codex sub-agents below.
 - Step counts and titles come from the part of each transcript Stave reads (its
   last 2 MB, or 512 KB for a sub-agent, when the page opens, then what is
   appended).
