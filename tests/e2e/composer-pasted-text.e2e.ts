@@ -29,12 +29,14 @@ test("keeps short pastes as text and collapses longer inline pastes into one chi
   await paste(page, short);
   await expect(editor(page)).toHaveText(short, { useInnerText: true });
   await expect(inlineBlock(page)).toHaveCount(0);
+  await editor(page).fill("");
 
   for (const inline of ["x".repeat(2000), "x".repeat(2001), "x\n".repeat(40), "x\n".repeat(41)]) {
-    await openComposer(page);
     await paste(page, inline);
     await expect(inlineBlock(page)).toHaveCount(1);
     await expect(chip(page)).toHaveCount(0);
+    await editor(page).press("Backspace");
+    await expect(editor(page)).toHaveText("");
   }
 });
 
