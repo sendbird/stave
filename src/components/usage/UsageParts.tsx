@@ -26,23 +26,23 @@ export const reportedCost = (value: number | null) => value === null ? i18n.t("u
 const summaryCost = (value: number | null) => value === null ? i18n.t("usage:usageParts.notReported") : formatCost(value);
 
 /** Token counts read as `6.8M`, `69k`; hovering shows every digit. */
-function Tokens({ value }: { value: number }) {
+export function Tokens({ value }: { value: number }) {
   return <span title={exactNumber(value)}>{formatTokenCount(value)}</span>;
 }
 /** `cell` marks a table or row slot, where a missing amount reads as a dash. */
-function Cost({ value, cell = false }: { value: number | null; cell?: boolean }) {
+export function Cost({ value, cell = false }: { value: number | null; cell?: boolean }) {
   if (value === null) return cell ? <NotReported /> : <>{summaryCost(value)}</>;
   return <span title={reportedCost(value)}>{summaryCost(value)}</span>;
 }
 
 /** One reading a figure compares: how it is measured, read and written. */
-type FigureReading = { measurement: UsageMeasurement; read: (metrics: UsageMetrics) => number; format: (value: number) => string };
-const TOKENS: FigureReading = { measurement: "tokens", read: (metrics) => metrics.tokens, format: (value) => formatTokenCount(value) };
+export type FigureReading = { measurement: UsageMeasurement; read: (metrics: UsageMetrics) => number; format: (value: number) => string };
+export const TOKENS: FigureReading = { measurement: "tokens", read: (metrics) => metrics.tokens, format: (value) => formatTokenCount(value) };
 const INPUT: FigureReading = { measurement: "tokens", read: (metrics) => metrics.inputTokens, format: (value) => formatTokenCount(value) };
 const OUTPUT: FigureReading = { measurement: "tokens", read: (metrics) => metrics.outputTokens, format: (value) => formatTokenCount(value) };
 const CACHE_READ: FigureReading = { measurement: "tokens", read: (metrics) => metrics.cacheReadTokens, format: (value) => formatTokenCount(value) };
 const CACHE_WRITE: FigureReading = { measurement: "tokens", read: (metrics) => metrics.cacheCreationTokens, format: (value) => formatTokenCount(value) };
-const COST: FigureReading = { measurement: "cost", read: (metrics) => metrics.costUsd ?? 0, format: (value) => formatCost(value) };
+export const COST: FigureReading = { measurement: "cost", read: (metrics) => metrics.costUsd ?? 0, format: (value) => formatCost(value) };
 
 const NOT_COMPARED = {
   "no-earlier-turns": "usage:compare.notCompared.noEarlierTurns",
@@ -73,7 +73,7 @@ function deltaWords(delta: Exclude<UsageDelta, { kind: "not-compared" }>) {
  * by itself), the earlier period's dates and, for a single reading, its
  * value. A reading either period did not measure is not compared.
  */
-function FigureDelta(props: { readings: readonly FigureReading[]; current: UsageMetrics; previous: UsageMetrics | null; period: string }) {
+export function FigureDelta(props: { readings: readonly FigureReading[]; current: UsageMetrics; previous: UsageMetrics | null; period: string }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   if (!props.previous) return null;
   const previous = props.previous;

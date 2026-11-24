@@ -11,7 +11,7 @@ export const USAGE_PREVIEW_PROFILES: ProviderAccountProfile[] = [
   { providerId: "codex", id: "e1c06d30-cf21-4362-887a-5679b9fdfae2", label: "Personal", kind: "managed" },
 ];
 
-function turns(): UsageTurn[] {
+export function usagePreviewTurns(): UsageTurn[] {
   return Array.from({ length: 180 }, (_, index) => {
     const profile = USAGE_PREVIEW_PROFILES[index % 4]!;
     const createdAt = new Date(USAGE_PREVIEW_NOW - (index % 30) * 86_400_000 - (index % 8) * 3_600_000).toISOString();
@@ -56,7 +56,7 @@ function quota(): QuotaObservation[] {
 
 /** Deterministic fixture for the actual UsageView, never installed as product data. */
 export function usagePreviewReport(args: UsageStatisticsArgs, empty = false): UsageStatisticsReport {
-  const all = empty ? [] : turns();
+  const all = empty ? [] : usagePreviewTurns();
   const inScope = (row: { providerId: string; accountProfileId: string }) => (!args.providerId || row.providerId === args.providerId) && (!args.accountProfileId || row.accountProfileId === args.accountProfileId);
   const within = (from: string, to: string) => all.filter((row) => inScope(row) && row.createdAt >= from && row.createdAt < to
     && (args.modelId === undefined || row.modelId === args.modelId));

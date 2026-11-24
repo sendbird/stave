@@ -3,19 +3,20 @@ const valid = (field: string) => `typeof(${field}) IN ('integer', 'real') AND ${
 const number = (field: string) => `CASE WHEN ${valid(field)} THEN ${field} ELSE 0 END`;
 const extract = (field: string) => `json_extract(CASE WHEN json_valid(usage_json) THEN usage_json ELSE '{}' END, '$.${field}')`;
 
-export const USAGE_CTE = `WITH raw AS (
-  SELECT *,
-    ${extract("inputTokens")} AS raw_input,
+/** The raw counters read from a row's `usage_json`; a `raw` source selects these beside its own columns. */
+export const RAW_USAGE_COUNTERS = `${extract("inputTokens")} AS raw_input,
     ${extract("outputTokens")} AS raw_output,
     ${extract("cacheReadTokens")} AS raw_read,
     ${extract("cacheCreationTokens")} AS raw_write,
     ${extract("thoughtTokens")} AS raw_thought,
-    ${extract("totalCostUsd")} AS raw_cost
-  FROM usage_turns
-  WHERE created_at >= ? AND created_at < ? AND completed_at IS NOT NULL
-    AND (? IS NULL OR provider_id = ?) AND (? IS NULL OR account_profile_id = ?)
-    AND (? = 0 OR model_id IS ?)
-), counters AS (
+    ${extract("totalCostUsd")} AS raw_cost`;
+
+/**
+ * The shared measured-token and reported-cost layers over any `raw` source
+ * that selects `provider_id` and `RAW_USAGE_COUNTERS`, so every report counts
+ * tokens and cost the same way.
+ */
+export const usageCte = (raw: string) => `WITH raw AS (${raw}), counters AS (
   SELECT *,
     CASE WHEN ${valid("raw_input")} AND ${valid("raw_output")} THEN 1 ELSE 0 END AS measured,
     ${number("raw_input")} AS input, ${number("raw_output")} AS output,
@@ -30,6 +31,13 @@ export const USAGE_CTE = `WITH raw AS (
     ELSE input END ELSE 0 END AS tokens
   FROM counters
 )`;
+
+export const USAGE_CTE = usageCte(`
+  SELECT *, ${RAW_USAGE_COUNTERS}
+  FROM usage_turns
+  WHERE created_at >= ? AND created_at < ? AND completed_at IS NOT NULL
+    AND (? IS NULL OR provider_id = ?) AND (? IS NULL OR account_profile_id = ?)
+    AND (? = 0 OR model_id IS ?)`);
 
 export const METRIC_SUMS = `COUNT(*) AS turns, SUM(measured) AS measuredTurns,
   COALESCE(SUM(input), 0) AS inputTokens, COALESCE(SUM(output), 0) AS outputTokens,

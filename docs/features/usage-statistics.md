@@ -6,8 +6,9 @@ opens the report for that provider and account. Close the page or press Escape
 to return to your workspace.
 
 Use **Tokens & cost** for totals, trends and account/model breakdowns,
-**Quota** to compare subscription windows and upcoming resets, and
-**History** for individual runs. A status-bar usage popover opens the
+**Quota** to compare subscription windows and upcoming resets, **Projects**
+for usage and disk per project and workspace, and **History** for individual
+runs. A status-bar usage popover opens the
 account-quota view directly.
 
 ## Daily provider limits
@@ -75,6 +76,42 @@ running turns, queued work or terminal sessions. Account names follow the
 registry; removed accounts keep their history. Identity is the registered
 account profile: signing in as a different person in the same profile does not
 create a new statistics identity. Use separate profiles to keep totals separate.
+
+## Projects
+
+**Projects** reads the same period, provider, account, model and timezone as
+the other views and splits the totals by the workspace each turn ran in,
+grouped by project. The top figures show tokens (excluding cache reads) and
+provider-reported cost with the same comparison against the earlier period as
+**Tokens & cost**, plus how many workspaces had turns.
+
+**Tokens by project per day** stacks each day's tokens by project. The six
+largest projects keep a color each; the rest share **Other projects**. Hover or
+use a screen reader on a bar to read the day's value per project.
+**By project** lists each project with its workspaces underneath: tokens,
+reported USD and the start of the latest turn in the period. **Sort by**
+orders it by **Tokens**, **Cost** or **Recent**; rows that reported no tokens
+or no cost go last instead of reading as zero. Tokens count for every
+provider. Cost appears only where the provider reports one (Claude); other
+rows show a dash and cost is never estimated. Turns of deleted tasks, and
+workspaces Stave no longer lists, stay counted under **Removed projects and
+tasks**.
+
+**Disk used by workspaces** shows the space each project's workspace folders
+take, active and archived with a kept checkout. A project's own checkout is
+not counted, since workspace folders live inside it. Folders are measured one
+at a time at the lowest CPU priority, each for at most 30 seconds (`du` on
+macOS and Linux, a counted walk on Windows or when `du` is unavailable).
+Results are kept and measured again at most every five minutes while the view
+is open; **Measure again** measures now. A folder that is not fully measured
+makes its total a lower bound (`≥`), and a project with no measured folder
+says **Not measured**.
+
+**Free up space** lists the workspaces the workspace cleanup checks allow
+removing now (no blocker such as changed files, unpushed commits, a running
+turn or an open terminal), largest first, with their total size. It removes
+nothing itself: **Review in cleanup** opens the same cleanup dialog, where you
+choose what to archive or delete.
 
 ## What the numbers mean
 

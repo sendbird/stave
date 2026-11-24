@@ -20,6 +20,8 @@ import { UsageBreakdowns, UsageFigures, UsageTimeline, UsageTurnHistory } from "
 import { UsageQuota } from "./UsageQuota";
 import { UsageInfo } from "./UsageInfo";
 import { UsageDateRangeField } from "./UsageDateRangeField";
+import { UsageProjects, type UsageProjectsSources } from "./UsageProjects";
+import type { WorkspaceUsageArgs } from "@/lib/providers/workspace-usage";
 import { previousUsageRange } from "./usage-compare";
 import { dateInputValue, loadUsageStatistics, USAGE_PERIOD_OPTIONS, USAGE_TURN_PAGE_SIZE, usageAccountLabel, usageRange, type UsagePeriod, type UsageStatisticsLoader } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
@@ -27,12 +29,13 @@ import { readQuota, type QuotaReader } from "./quota-read-feedback";
 export type { QuotaReader } from "./quota-read-feedback";
 
 const ALL = "all";
+export type UsageViewTab = "quota" | "tokens" | "projects" | "history";
 const localTimeZone = () => Intl.DateTimeFormat().resolvedOptions().timeZone;
 type ReadState = { status: "loading" | "unavailable" } | { status: "failed"; message: string } | { status: "ready"; report: UsageStatisticsReport };
 
 /** Browsing usage never modifies execution-account settings. */
 export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: QuotaReader; profiles?: ProviderAccountProfile[];
-  initialProvider?: ProviderId; initialAccount?: string; now?: number; onClose?: () => void } = {}) {
+  initialProvider?: ProviderId; initialAccount?: string; initialView?: UsageViewTab; now?: number; onClose?: () => void; projects?: UsageProjectsSources } = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const storeClose = useAppStore((state) => state.closeUsage);
   const close = props.onClose ?? storeClose;
@@ -45,7 +48,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const [account, setAccount] = useState(props.initialAccount ?? ALL);
   const [modelId, setModelId] = useState<string | null | undefined>();
   // Quota answers "can I keep working?", so it opens first; tokens and history explain the past.
-  const [view, setView] = useState("quota");
+  const [view, setView] = useState<string>(props.initialView ?? "quota");
   const [period, setPeriod] = useState<UsagePeriod>("30");
   const [zone, setZone] = useState(localTimeZone);
   const [granularity, setGranularity] = useState<"day" | "hour">("day");
@@ -71,6 +74,11 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
     ...(modelId !== undefined ? { modelId } : {}),
     previous: previousUsageRange(range, utc),
     limit: USAGE_TURN_PAGE_SIZE, offset }) : null, [range?.from, range?.to, zone, granularity, provider, account, modelId, offset, utc]);
+  // Projects reads the same period and filters, by workspace; paging and grouping do not apply to it.
+  const projectArgs = useMemo<WorkspaceUsageArgs | null>(() => range ? ({ ...range, timeZone: zone,
+    ...(provider !== ALL ? { providerId: provider } : {}), ...(provider !== ALL && account !== ALL ? { accountProfileId: account } : {}),
+    ...(modelId !== undefined ? { modelId } : {}), previous: previousUsageRange(range, utc) }) : null,
+  [range?.from, range?.to, zone, provider, account, modelId, utc]);
 
   useEffect(() => {
     if (!args) return;
@@ -153,6 +161,9 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
         <UsageBreakdowns report={report} profiles={profiles} onAccount={selectAccount} onModel={selectModel} />
       </>}
       </Tabs.Panel>
+      <Tabs.Panel value="projects" xstyle={styles.section}>
+        {projectArgs ? <UsageProjects args={projectArgs} refreshKey={attempt} sources={props.projects} now={now} /> : null}
+      </Tabs.Panel>
       <Tabs.Panel value="history" xstyle={styles.section}>
         <UsageTurnHistory report={report} profiles={profiles} timeZone={zone} offset={offset} onPage={setOffset} />
       </Tabs.Panel>
@@ -164,7 +175,7 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
     <GlobalPageHeader title={t("usage:usageView.aiUsage")} description={t("usage:usageView.accountLimitsTokenUsageAndWhen")} actions={      <div className={sx(styles.row)}><Tooltip content={t("usage:usageView.refreshUsageHistory")}><Button variant="quiet" size="sm" aria-label={t("usage:usageView.refreshUsageHistory")} disabled={pending} onClick={() => setAttempt((value) => value + 1)}><RefreshCw /></Button></Tooltip>
         <Tooltip content={t("usage:usageView.closeUsage")}><Button variant="quiet" size="sm" aria-label={t("usage:usageView.closeUsage")} onClick={close}><X /></Button></Tooltip></div>} />
     <Tabs.List aria-label={t("usage:usageView.usageViews")} xstyle={styles.viewTabs}>
-      <Tabs.Tab value="quota">{t("usage:usageView.quota")}</Tabs.Tab><Tabs.Tab value="tokens">{t("usage:usageView.tokensCost")}</Tabs.Tab><Tabs.Tab value="history">{t("usage:usageView.history")}</Tabs.Tab><Tabs.Indicator />
+      <Tabs.Tab value="quota">{t("usage:usageView.quota")}</Tabs.Tab><Tabs.Tab value="tokens">{t("usage:usageView.tokensCost")}</Tabs.Tab><Tabs.Tab value="projects">{t("usage:projects.tab")}</Tabs.Tab><Tabs.Tab value="history">{t("usage:usageView.history")}</Tabs.Tab><Tabs.Indicator />
     </Tabs.List>
     <div className={sx(styles.filters)} aria-label={t("usage:usageView.usageFilters")}>
       <Select label={t("settingsProviders:mcpConfigEditor.editor.provider")} size="sm" value={provider} options={[{ value: ALL, label: t("usage:usageView.allProviders") }, ...Object.entries(USAGE_PROVIDER_NAMES).map(([value, label]) => ({ value, label }))]}

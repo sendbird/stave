@@ -1492,6 +1492,17 @@ Cmd/Ctrl+W does not archive its task or workspace.
 
 Archived workspace history remains available in message search. Archived hits open read-only; Restore restores the workspace before editing. Bulk task archive skips archived workspaces until restored. Cleanup refuses work with unfinished turns, running children or active runs.
 
+**AI usage > Projects** splits the period's tokens and cost by project and
+workspace. It compares totals with the earlier period of equal length, stacks
+each day's bar by project, and **Sort by** orders the table by tokens, cost or
+recent activity. Tokens count for every provider; cost appears only where the
+provider reports it (Claude) and is never estimated. On the same view,
+**Disk used by workspaces** measures workspace folders one at a time, each for
+at most 30 seconds, re-reads them every five minutes and measures now with
+**Measure again**. **Free up space** lists workspaces the cleanup checks do not
+block, largest first. It deletes nothing; **Review in cleanup** opens this
+workspace cleanup dialog.
+
 
 ### Global agent turn limit
 
