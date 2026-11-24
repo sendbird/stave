@@ -1556,6 +1556,14 @@
     "showingNewest_other": "최신 {{formattedCount}}개 표시",
     "filesLabel": "스크래치 파일",
     "new": "새 파일",
-    "railLabelUnseen": "스크래치, 새 파일 있음"
+    "railLabelUnseen": "스크래치, 새 파일 있음",
+    "attachToMessage": "메시지에 첨부",
+    "attached": "메시지에 첨부했습니다: {{name}}",
+    "attachFailed": "첨부하지 못했습니다: {{name}}",
+    "showingTail": "{{total}} 중 마지막 {{size}}만 표시합니다.",
+    "agentGroup": "하위 에이전트 {{id}}",
+    "agentGroupLabel": "하위 에이전트 {{id}}의 파일",
+    "retentionMainCheckout_other": "{{count}}일이 지난 파일은 자동으로 삭제됩니다.",
+    "retentionWorktree": "이 워크스페이스를 보관하면 파일도 함께 삭제됩니다."
   }
 }

@@ -8,8 +8,10 @@
  * Listings never follow links either.
  *
  * Used by: `electron/providers/runtime.ts` (before each turn),
- * `electron/main/browser/browser-tools.ts` (Lens screenshots) and
- * `electron/main/ipc/filesystem.ts` (`fs:list-scratch`).
+ * `electron/main/browser/browser-tools.ts` (Lens screenshots),
+ * `electron/main/ipc/filesystem.ts` (`fs:list-scratch`) and the phase-two
+ * helpers next to this file (`workspace-scratch-tail.ts`,
+ * `workspace-scratch-watch.ts`, `workspace-scratch-retention.ts`).
  */
 import { promises as fs, type Dirent } from "node:fs";
 import path from "node:path";
@@ -24,7 +26,9 @@ import {
 /** Stops a runaway folder from making each listing walk forever. */
 const WORKSPACE_SCRATCH_MAX_SCANNED_FILES = 5_000;
 
-const GITIGNORE_NAME = ".gitignore";
+/** The folder's own `.gitignore`; never listed, previewed or removed. */
+export const WORKSPACE_SCRATCH_GITIGNORE_NAME = ".gitignore";
+const GITIGNORE_NAME = WORKSPACE_SCRATCH_GITIGNORE_NAME;
 
 export class WorkspaceScratchRefusedError extends Error {
   constructor(message: string) {
@@ -153,6 +157,20 @@ export async function writeWorkspaceScratchFile(args: {
   throw new Error("Could not find a free scratch file name.");
 }
 
+/**
+ * The absolute scratch folder of `rootPath` when it exists and every folder
+ * on the way to it is a real folder, without creating anything; else null.
+ */
+export async function findWorkspaceScratchRoot(rootPath: string): Promise<string | null> {
+  let current = path.resolve(rootPath);
+  for (const part of scratchParts()) {
+    current = path.join(current, part);
+    const stat = await lstatIfExists(current);
+    if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) return null;
+  }
+  return current;
+}
+
 function emptyListing(): WorkspaceScratchListing {
   return { files: [], fileCount: 0, totalBytes: 0, truncated: false };
 }
@@ -164,13 +182,8 @@ function emptyListing(): WorkspaceScratchListing {
  */
 export async function listWorkspaceScratch(rootPath: string): Promise<WorkspaceScratchListing> {
   const root = path.resolve(rootPath);
-  let current = root;
-  for (const part of scratchParts()) {
-    current = path.join(current, part);
-    const stat = await lstatIfExists(current);
-    if (!stat || stat.isSymbolicLink() || !stat.isDirectory()) return emptyListing();
-  }
-  const scratchRoot = current;
+  const scratchRoot = await findWorkspaceScratchRoot(root);
+  if (!scratchRoot) return emptyListing();
 
   const files: WorkspaceScratchFile[] = [];
   let totalBytes = 0;

@@ -65,6 +65,41 @@ export const scratchPanelStyles = stylex.create({
   rowSelected: {
     backgroundColor: vars["--aui-color-selection-fill"],
   },
+  /** The context-menu trigger around a row: layout only, the row keeps its own geometry. */
+  rowShell: {
+    display: "flex",
+    minWidth: 0,
+  },
+  /** A file inside a sub-agent group, indented under the group's label. */
+  rowNested: {
+    paddingInlineStart: vars["--aui-space-24"],
+  },
+  contextMenu: {
+    minInlineSize: "12rem",
+  },
+  group: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--aui-space-2"],
+  },
+  groupHeader: {
+    alignItems: "center",
+    color: vars["--aui-color-text-muted"],
+    display: "flex",
+    fontSize: vars["--aui-font-size-caption"],
+    gap: vars["--aui-space-8"],
+    lineHeight: vars["--aui-line-height-caption"],
+    minWidth: 0,
+    paddingBlock: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-8"],
+  },
+  groupName: {
+    flex: 1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   rowIcon: {
     blockSize: vars["--aui-control-icon-size-sm"],
     color: vars["--aui-color-text-muted"],
@@ -114,6 +149,29 @@ export const scratchPanelStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  /** "Showing the last 256 KB": stays above the scrolling text. */
+  previewNote: {
+    color: vars["--aui-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-caption"],
+    margin: 0,
+    paddingBlockEnd: vars["--aui-space-4"],
+    paddingInline: vars["--aui-space-16"],
+  },
+  /** The retention note under the preview. */
+  footer: {
+    borderTopColor: vars["--aui-color-border"],
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--aui-border-width-hairline"],
+    color: vars["--aui-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--aui-font-size-caption"],
+    lineHeight: vars["--aui-line-height-caption"],
+    margin: 0,
+    paddingBlock: vars["--aui-space-8"],
+    paddingInline: vars["--aui-space-16"],
   },
   previewBody: {
     flex: 1,

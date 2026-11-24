@@ -1,52 +1,41 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import {
-  File,
-  FileImage,
-  FileJson,
-  FileText,
-  NotebookPen,
-  ScrollText,
-  SquareArrowOutUpRight,
-  type LucideIcon,
-} from "lucide-react";
+import { Bot, NotebookPen, Paperclip, SquareArrowOutUpRight } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatAgeCompact, formatNumber } from "@/i18n/format";
 import { Badge } from "@/components/aui/components/Badge";
 import { Button } from "@/components/aui/components/Button";
 import { EmptyState } from "@/components/aui/components/EmptyState";
 import { iconTileGlyphSizes } from "@/components/aui/components/IconTile";
-import { Tooltip } from "@/components/aui/components/Tooltip";
 import { sx } from "@/components/aui/utils/stylex";
-import { formatFileSize } from "@/lib/fs/file-preview-limits";
-import { WORKSPACE_SCRATCH_DIRECTORY, type WorkspaceScratchFile } from "@/lib/workspace-scratch";
 import {
-  formatScratchJson,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { formatFileSize } from "@/lib/fs/file-preview-limits";
+import {
+  WORKSPACE_SCRATCH_DIRECTORY,
+  WORKSPACE_SCRATCH_RETENTION_DAYS,
+  type WorkspaceScratchFile,
+} from "@/lib/workspace-scratch";
+import {
+  groupScratchFiles,
   isScratchFileFresh,
   SCRATCH_FRESH_MS,
-  SCRATCH_PANEL_POLL_MS,
-  scratchDisplayName,
+  scratchItemName,
   scratchPreviewKind,
-  type ScratchPreviewKind,
 } from "@/lib/workspace-scratch-view";
 import { useAppStore } from "@/store/app.store";
 import {
   selectScratchNewestMtime,
   useWorkspaceScratchStore,
 } from "@/store/workspace-scratch-store";
-import { useWorkspaceScratchPolling } from "./useWorkspaceScratchPolling";
+import { useWorkspaceScratchLive } from "./useWorkspaceScratchLive";
+import { attachScratchFileToComposer } from "./workspace-scratch-attach";
+import { SCRATCH_PREVIEW_ICONS, ScratchFilePreview } from "./WorkspaceScratchPreview";
 import { scratchPanelStyles as styles } from "./workspace-scratch-panel.styles";
-
-const PREVIEW_ICONS: Record<ScratchPreviewKind, LucideIcon> = {
-  image: FileImage,
-  json: FileJson,
-  log: ScrollText,
-  text: FileText,
-  other: File,
-};
-
-/** A log follows its end while the reader is within this many pixels of it. */
-const STICK_TO_BOTTOM_SLACK_PX = 24;
 
 /** Re-renders on an interval while `enabled`, so ages and the "new" marker stay current. */
 function useNow(enabled: boolean, intervalMs: number) {
@@ -60,155 +49,84 @@ function useNow(enabled: boolean, intervalMs: number) {
   return now;
 }
 
-type PreviewState =
-  | { status: "loading" }
-  | { status: "image"; dataUrl: string }
-  | { status: "text"; content: string }
-  | { status: "too-large" }
-  | { status: "unsupported" }
-  | { status: "error" };
-
-function ScratchFilePreview(props: {
-  rootPath: string;
+/** One file row; right-click (or the context-menu key) offers its actions. */
+function ScratchFileRow(props: {
   file: WorkspaceScratchFile;
-  onOpenInEditor: (filePath: string) => void;
+  selected: boolean;
+  nested: boolean;
+  now: number;
+  onSelect: () => void;
+  onOpenInEditor: () => void;
+  onAttach: () => void;
 }) {
   const { t } = useTranslation(["workspace"]);
-  const { rootPath, file } = props;
-  const kind = scratchPreviewKind(file.path);
-  const [state, setState] = useState<PreviewState>({ status: "loading" });
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const followEndRef = useRef(true);
-  const shownPathRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    // A new file starts blank; the same file written again keeps its old
-    // content on screen until the new one arrives, so a growing log does not flash.
-    if (shownPathRef.current !== file.path) {
-      shownPathRef.current = file.path;
-      followEndRef.current = true;
-      setState({ status: "loading" });
-    }
-    const fs = window.api?.fs;
-    if (kind === "other") {
-      setState({ status: "unsupported" });
-      return;
-    }
-    if (kind === "image") {
-      void fs?.readFileDataUrl?.({ rootPath, filePath: file.path })
-        .then((result) => {
-          if (cancelled) return;
-          if (result.ok) setState({ status: "image", dataUrl: result.dataUrl });
-          else setState({ status: result.tooLarge ? "too-large" : "error" });
-        })
-        .catch(() => !cancelled && setState({ status: "error" }));
-    } else {
-      void fs?.readFile?.({ rootPath, filePath: file.path })
-        .then((result) => {
-          if (cancelled) return;
-          if (result.ok) {
-            setState({
-              status: "text",
-              content: kind === "json" ? formatScratchJson(result.content) : result.content,
-            });
-          } else {
-            setState({ status: result.tooLarge ? "too-large" : "error" });
-          }
-        })
-        .catch(() => !cancelled && setState({ status: "error" }));
-    }
-    return () => {
-      cancelled = true;
-    };
-  }, [rootPath, file.path, file.mtimeMs, file.sizeBytes, kind]);
-
-  // A log stays pinned to its end while the reader is there; scrolling up
-  // to read earlier lines stops the follow until they scroll back down.
-  useLayoutEffect(() => {
-    const element = scrollRef.current;
-    if (!element || kind !== "log" || state.status !== "text") return;
-    if (followEndRef.current) element.scrollTop = element.scrollHeight;
-  }, [kind, state]);
-
-  const Icon = PREVIEW_ICONS[kind];
-  const name = scratchDisplayName(file.path);
-  const openInEditor = () => props.onOpenInEditor(file.path);
-
+  const { file, now } = props;
+  const Icon = SCRATCH_PREVIEW_ICONS[scratchPreviewKind(file.path)];
   return (
-    <section className={sx(styles.preview)} aria-label={t("workspaceScratchPanel.previewLabel", { name })}>
-      <div className={sx(styles.previewHeader)}>
-        <Icon aria-hidden className={sx(styles.rowIcon)} />
-        <span className={sx(styles.previewTitle)} title={file.path}>
-          {name}
-        </span>
-        <Tooltip content={t("workspaceScratchPanel.openInEditor")}>
+    <li>
+      <ContextMenu>
+        <ContextMenuTrigger render={<div className={sx(styles.rowShell)} />}>
           <Button
-            size="xs"
-            variant="quiet"
-            iconOnly
-            aria-label={t("workspaceScratchPanel.openInEditor")}
-            onClick={openInEditor}
+            layout="host"
+            type="button"
+            xstyle={[styles.row, props.nested && styles.rowNested, props.selected && styles.rowSelected]}
+            aria-current={props.selected ? "true" : undefined}
+            title={file.path}
+            onClick={props.onSelect}
+            onDoubleClick={props.onOpenInEditor}
           >
-            <SquareArrowOutUpRight />
+            <Icon aria-hidden className={sx(styles.rowIcon)} />
+            <span className={sx(styles.rowName)}>{scratchItemName(file.path)}</span>
+            {isScratchFileFresh(file, now) ? (
+              <Badge size="sm" tone="accent" variant="soft">
+                {t("workspaceScratchPanel.new")}
+              </Badge>
+            ) : null}
+            <span className={sx(styles.rowMeta)}>{formatAgeCompact(Math.min(file.mtimeMs, now), now)}</span>
+            <span className={sx(styles.rowMeta)}>{formatFileSize(file.sizeBytes)}</span>
           </Button>
-        </Tooltip>
-      </div>
-      <div
-        ref={scrollRef}
-        className={sx(styles.previewBody)}
-        data-testid="scratch-preview-body"
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          followEndRef.current =
-            element.scrollHeight - element.scrollTop - element.clientHeight <= STICK_TO_BOTTOM_SLACK_PX;
-        }}
-      >
-        {state.status === "image" ? (
-          <img className={sx(styles.previewImage)} src={state.dataUrl} alt={name} />
-        ) : state.status === "text" ? (
-          <pre className={sx(styles.previewText)}>{state.content}</pre>
-        ) : state.status === "loading" ? null : (
-          <div className={sx(styles.previewNotice)}>
-            <span>
-              {state.status === "too-large"
-                ? t("workspaceScratchPanel.tooLargeToPreview", { size: formatFileSize(file.sizeBytes) })
-                : state.status === "unsupported"
-                  ? t("workspaceScratchPanel.noPreview")
-                  : t("workspaceScratchPanel.previewFailed")}
-            </span>
-            <Button size="sm" variant="outlined" onClick={openInEditor}>
-              {t("workspaceScratchPanel.openInEditor")}
-            </Button>
-          </div>
-        )}
-      </div>
-    </section>
+        </ContextMenuTrigger>
+        <ContextMenuContent className={sx(styles.contextMenu)}>
+          <ContextMenuItem onSelect={props.onAttach}>
+            <Paperclip aria-hidden className={sx(styles.rowIcon)} />
+            {t("workspaceScratchPanel.attachToMessage")}
+          </ContextMenuItem>
+          <ContextMenuItem onSelect={props.onOpenInEditor}>
+            <SquareArrowOutUpRight aria-hidden className={sx(styles.rowIcon)} />
+            {t("workspaceScratchPanel.openInEditor")}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    </li>
   );
 }
 
 /**
  * The right-rail Scratch panel: what the agent saved to the workspace's
- * `.stave/scratch/` folder, newest first, with a live preview of one file.
- * It lists the folder every 1.5 s while it is open and the window is visible.
+ * `.stave/scratch/` folder, newest first, with sub-agents' files grouped by
+ * agent and a live preview of one file. While it is open, main watches the
+ * folder and the panel lists it again on each change (a timer stands in when
+ * the folder cannot be watched).
  */
 export function WorkspaceScratchPanel(props: { visible: boolean }) {
   const { t } = useTranslation(["workspace"]);
-  const [workspaceId, rootPath, openFileFromTree] = useAppStore(
-    useShallow((state) => [
-      state.activeWorkspaceId,
-      state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath ?? undefined,
-      state.openFileFromTree,
-    ] as const),
+  const [workspaceId, rootPath, isMainCheckout, openFileFromTree] = useAppStore(
+    useShallow((state) => {
+      const workspacePath = state.workspacePathById[state.activeWorkspaceId];
+      return [
+        state.activeWorkspaceId,
+        workspacePath ?? state.repositoryPath ?? undefined,
+        // The project's main checkout is never archived, so retention covers it.
+        state.workspaceDefaultById[state.activeWorkspaceId] === true ||
+          !workspacePath ||
+          workspacePath === state.repositoryPath,
+        state.openFileFromTree,
+      ] as const;
+    }),
   );
   const listing = useWorkspaceScratchStore((state) => state.listingByWorkspace[workspaceId]);
   const newestMtime = useWorkspaceScratchStore((state) => selectScratchNewestMtime(state, workspaceId));
-  const { error } = useWorkspaceScratchPolling({
-    workspaceId,
-    rootPath,
-    intervalMs: SCRATCH_PANEL_POLL_MS,
-    enabled: props.visible,
-  });
+  const { error, mode } = useWorkspaceScratchLive({ workspaceId, rootPath, enabled: props.visible });
   const now = useNow(props.visible, SCRATCH_FRESH_MS / 3);
   const [selection, setSelection] = useState<{ workspaceId: string; path: string } | null>(null);
 
@@ -225,23 +143,30 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
     return () => document.removeEventListener("visibilitychange", markSeen);
   }, [props.visible, workspaceId, newestMtime]);
 
-  const files = listing?.files ?? [];
+  const files = useMemo(() => listing?.files ?? [], [listing]);
+  const items = useMemo(() => groupScratchFiles(files), [files]);
   // Follows the newest file until the user picks one; a picked file that
   // disappears falls back to the newest again.
   const picked = selection?.workspaceId === workspaceId
     ? files.find((file) => file.path === selection.path)
     : undefined;
   const selected = picked ?? files[0];
+  const retention = isMainCheckout
+    ? t("workspaceScratchPanel.retentionMainCheckout", { count: WORKSPACE_SCRATCH_RETENTION_DAYS })
+    : t("workspaceScratchPanel.retentionWorktree");
 
   const openInEditor = (filePath: string) => {
     void openFileFromTree({ filePath });
+  };
+  const attach = (filePath: string) => {
+    if (rootPath) void attachScratchFileToComposer({ rootPath, filePath });
   };
 
   if (!rootPath) return null;
 
   if (!listing || files.length === 0) {
     return (
-      <div className={sx(styles.empty)} data-testid="workspace-scratch-empty">
+      <div className={sx(styles.empty)} data-testid="workspace-scratch-empty" data-scratch-refresh={mode}>
         <EmptyState.Root variant="plain">
           <EmptyState.Media>
             <NotebookPen size={iconTileGlyphSizes.xl} />
@@ -251,7 +176,7 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
               {listing || error ? t("workspaceScratchPanel.emptyTitle") : t("workspaceScratchPanel.loading")}
             </EmptyState.Title>
             <EmptyState.Description>
-              {t("workspaceScratchPanel.emptyDescription", { folder: WORKSPACE_SCRATCH_DIRECTORY })}
+              {t("workspaceScratchPanel.emptyDescription", { folder: WORKSPACE_SCRATCH_DIRECTORY })} {retention}
             </EmptyState.Description>
           </EmptyState.Header>
         </EmptyState.Root>
@@ -259,8 +184,21 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
     );
   }
 
+  const renderRow = (file: WorkspaceScratchFile, nested: boolean) => (
+    <ScratchFileRow
+      key={file.path}
+      file={file}
+      nested={nested}
+      now={now}
+      selected={file.path === selected?.path}
+      onSelect={() => setSelection({ workspaceId, path: file.path })}
+      onOpenInEditor={() => openInEditor(file.path)}
+      onAttach={() => attach(file.path)}
+    />
+  );
+
   return (
-    <div className={sx(styles.root)} data-testid="workspace-scratch-panel">
+    <div className={sx(styles.root)} data-testid="workspace-scratch-panel" data-scratch-refresh={mode}>
       <div className={sx(styles.summary)}>
         <span className={sx(styles.summaryText)}>
           {t("workspaceScratchPanel.summary", {
@@ -275,41 +213,40 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
       </div>
       <div className={sx(styles.listScroller)}>
         <ul className={sx(styles.list)} aria-label={t("workspaceScratchPanel.filesLabel")}>
-          {files.map((file) => {
-            const isSelected = file.path === selected?.path;
-            const Icon = PREVIEW_ICONS[scratchPreviewKind(file.path)];
-            const fresh = isScratchFileFresh(file, now);
-            return (
-              <li key={file.path}>
-                <Button
-                  layout="host"
-                  type="button"
-                  xstyle={[styles.row, isSelected && styles.rowSelected]}
-                  aria-current={isSelected ? "true" : undefined}
-                  title={file.path}
-                  onClick={() => setSelection({ workspaceId, path: file.path })}
-                  onDoubleClick={() => openInEditor(file.path)}
-                >
-                  <Icon aria-hidden className={sx(styles.rowIcon)} />
-                  <span className={sx(styles.rowName)}>{scratchDisplayName(file.path)}</span>
-                  {fresh ? (
-                    <Badge size="sm" tone="accent" variant="soft">
-                      {t("workspaceScratchPanel.new")}
-                    </Badge>
-                  ) : null}
-                  <span className={sx(styles.rowMeta)}>
-                    {formatAgeCompact(Math.min(file.mtimeMs, now), now)}
+          {items.map((item) =>
+            item.kind === "file" ? (
+              renderRow(item.file, false)
+            ) : (
+              <li key={`agent:${item.agentId}`} className={sx(styles.group)}>
+                <div className={sx(styles.groupHeader)} title={item.agentId}>
+                  <Bot aria-hidden className={sx(styles.rowIcon)} />
+                  <span className={sx(styles.groupName)}>
+                    {t("workspaceScratchPanel.agentGroup", { id: item.agentId })}
                   </span>
-                  <span className={sx(styles.rowMeta)}>{formatFileSize(file.sizeBytes)}</span>
-                </Button>
+                  <span className={sx(styles.rowMeta)}>{formatNumber(item.files.length)}</span>
+                </div>
+                <ul
+                  className={sx(styles.list)}
+                  aria-label={t("workspaceScratchPanel.agentGroupLabel", { id: item.agentId })}
+                >
+                  {item.files.map((file) => renderRow(file, true))}
+                </ul>
               </li>
-            );
-          })}
+            ),
+          )}
         </ul>
       </div>
       {selected ? (
-        <ScratchFilePreview rootPath={rootPath} file={selected} onOpenInEditor={openInEditor} />
+        <ScratchFilePreview
+          rootPath={rootPath}
+          file={selected}
+          onOpenInEditor={openInEditor}
+          onAttach={attach}
+        />
       ) : null}
+      <p className={sx(styles.footer)} data-testid="workspace-scratch-footer">
+        {retention}
+      </p>
     </div>
   );
 }

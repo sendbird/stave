@@ -737,6 +737,17 @@ interface WindowFsApi {
     | ({ ok: true } & import("@/lib/workspace-scratch").WorkspaceScratchListing)
     | { ok: false; stderr: string }
   >;
+  /**
+   * The last 256 KB (at most `maxBytes`) of a text file in the workspace's
+   * `.stave/scratch` folder; refused outside that folder, through a link, or
+   * for a folder Stave has not registered.
+   */
+  readScratchTail?: (args: { rootPath: string; filePath: string; maxBytes?: number }) => Promise<
+    | ({ ok: true } & import("@/lib/workspace-scratch").WorkspaceScratchTail)
+    | { ok: false; reason: "invalid" | "missing" | "unreadable"; stderr: string }
+  >;
+  /** Change notices for a workspace's scratch folder while the Scratch panel is open. */
+  scratchLive?: import("@/lib/workspace-scratch-bridge").WorkspaceScratchLiveApi;
   writeFile?: (args: {
     rootPath: string;
     filePath: string;

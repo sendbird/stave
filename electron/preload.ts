@@ -20,6 +20,7 @@ import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review
 import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { createExternalSessionsBridge } from "../src/lib/external-sessions/external-sessions-bridge";
+import { createWorkspaceScratchBridge } from "../src/lib/workspace-scratch-bridge";
 import { turnHistoryPreload } from "./persistence/turn-history-preload";
 import { taskHandoffPreload } from "./persistence/task-handoff-preload";
 import { taskSearchPreload } from "./persistence/task-search-preload";
@@ -1910,6 +1911,14 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:read-file-data-url", args),
     listScratch: (args: { rootPath: string }) =>
       ipcRenderer.invoke("fs:list-scratch", args),
+    readScratchTail: (args: { rootPath: string; filePath: string; maxBytes?: number }) =>
+      ipcRenderer.invoke("fs:read-scratch-tail", args),
+    scratchLive: createWorkspaceScratchBridge({
+      invoke: (channel, args) => ipcRenderer.invoke(channel, args),
+      on: (channel, listener) => {
+        ipcRenderer.on(channel, (_event, payload: unknown) => listener(payload));
+      },
+    }),
     writeFile: (args: {
       rootPath: string;
       filePath: string;
