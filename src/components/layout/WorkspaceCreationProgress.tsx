@@ -11,23 +11,20 @@ import {
   type WorkspaceCreationStep,
 } from "@/store/workspace-creation-progress";
 
-function currentStep(progress: WorkspaceCreationProgress | undefined) {
-  if (!progress) return undefined;
+function currentStep(progress: WorkspaceCreationProgress) {
   return WORKSPACE_CREATION_STEPS.find((key) => progress.steps[key].status === "running")
     ?? WORKSPACE_CREATION_STEPS.find((key) => progress.steps[key].status === "failed")
     ?? WORKSPACE_CREATION_STEPS.find((key) => progress.steps[key].status === "waiting");
 }
 
 export function WorkspaceCreationRowStatus({ workspaceId }: { workspaceId: string }) {
-  const progress = useWorkspaceCreationStore((state) => state.byId[workspaceId]);
+  const step = useWorkspaceCreationStore((state) =>
+    WORKSPACE_CREATION_STEPS.find((key) => state.byId[workspaceId]?.steps[key].status === "running"),
+  );
   const { t } = useTranslation("workspace");
-  const step = currentStep(progress);
-  if (!progress || !step) return null;
-  const failed = progress.steps[step].status === "failed";
-  const label = failed
-    ? t("creationProgress.failedRow", { step: t(`creationProgress.steps.${step}`) })
-    : t(`creationProgress.steps.${step}`);
-  return <span role="status" title={label} className={sx(styles.row, failed && styles.failed)}>{label}</span>;
+  if (!step) return null;
+  const label = t(`creationProgress.steps.${step}`);
+  return <span role="status" title={label} className={sx(styles.row)}>{label}</span>;
 }
 
 export function WorkspaceCreationPanel({ progress }: { progress: WorkspaceCreationProgress }) {

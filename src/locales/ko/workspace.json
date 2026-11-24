@@ -1537,7 +1537,6 @@
       "skipped": "건너뜀",
       "failed": "실패"
     },
-    "failedRow": "{{step}} 실패",
     "openLogs": "로그 열기",
     "hideLogs": "로그 닫기",
     "commandUnavailable": "터미널에 연결할 수 없습니다. 연결한 다음 다시 시도하세요.",

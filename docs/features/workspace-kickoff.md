@@ -21,7 +21,7 @@ produces a usable preview.
    first task model, effort, Codex Fast mode (for GPT models), and prompt.
 6. Create the workspace.
 
-The new workspace row shows the current step. The workspace pane centers the
+The new workspace row shows a step while it is running. The workspace pane centers the
 active preparation step and the first task's draft until setup finishes. With
 **Start now** enabled, Stave sends it after setup succeeds. Turn **Start now**
 off to keep it as a draft in the composer.

@@ -36,8 +36,8 @@ for (const lang of ["en", "ko"]) {
       await page.getByTestId("preview-copy").click();
       await expect(row.getByRole("status")).toHaveText(ko ? "설정 실행" : "Run setup");
       await page.getByTestId("preview-setup").click();
-      await expect(row.getByRole("status")).toHaveText(ko ? "설정 실행 실패" : "Failed to finish: Run setup");
       await expect(progress.getByText("fixture: dependency install failed", { exact: false })).toBeVisible();
+      await expect(row.getByRole("status")).toHaveCount(0);
       const logs = progress.getByRole("button", { name: ko ? "로그 열기" : "Open logs" });
       await expect(logs).toBeInViewport();
       await logs.click();
