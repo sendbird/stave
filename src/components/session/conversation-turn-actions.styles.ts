@@ -29,17 +29,34 @@ export const conversationTurnActionsStyles = stylex.create({
     minWidth: 0,
   },
   // Explains a missing file snapshot in the same caption scale as the actions.
+  // The rail preview card lets it wrap by words across the full card width.
   noSnapshot: {
     color: vars["--aui-color-text-muted"],
     fontSize: vars["--aui-font-size-caption"],
     minWidth: 0,
     overflowWrap: "anywhere",
   },
+  // In an inline action row the caption takes only the space the actions
+  // leave and truncates. `width: 0` keeps its text out of the row's intrinsic
+  // width, so a long reason never pushes the actions onto a new line;
+  // `flexGrow` then hands it the remaining space.
+  noSnapshotInline: {
+    flexGrow: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    width: 0,
+  },
+  // Fills the rest of the message action row and packs the actions at its
+  // end, so a no-snapshot caption can take the free space between them. The
+  // actions wrap only when they cannot fit side by side at all.
   groupInline: {
     alignItems: "center",
     display: "flex",
+    flexGrow: 1,
+    flexWrap: "wrap",
     gap: vars["--aui-space-2"],
-    marginLeft: "auto",
+    justifyContent: "flex-end",
   },
   // Preview actions are full bordered cards on a translucent surface; the
   // inline variant is a compact text action with no border.
@@ -55,7 +72,10 @@ export const conversationTurnActionsStyles = stylex.create({
     justifyContent: "flex-start",
     paddingInline: vars["--aui-space-8"],
   },
+  // `flexShrink: 0` keeps labels whole: the Button root clips its overflow,
+  // so a shrinking row would otherwise cut "Fork here" or "Rollback here".
   actionInline: {
+    flexShrink: 0,
     fontSize: vars["--aui-font-size-caption"],
     gap: vars["--aui-space-4"],
     height: 28,

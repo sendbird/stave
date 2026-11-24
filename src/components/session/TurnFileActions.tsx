@@ -28,7 +28,9 @@ export function TurnFileActions(props: { taskId: string; messageId: string; vari
   const action = resolveTurnFileAction({ turnId, catalog });
   if (!workspaceId || action.kind === "none") return null;
   if (action.kind === "noSnapshot") {
-    return <span className={sx(styles.noSnapshot)}>{i18n.t("session:turnFiles.noSnapshot", { reason: i18n.t(`session:turnFiles.skipReason.${action.reason}`) })}</span>;
+    const text = i18n.t("session:turnFiles.noSnapshot", { reason: i18n.t(`session:turnFiles.skipReason.${action.reason}`) });
+    // Inline rows truncate the caption; the title keeps the whole reason.
+    return <span className={sx(styles.noSnapshot, props.variant !== "preview" && styles.noSnapshotInline)} title={text}>{text}</span>;
   }
 
   async function restore(rollback: boolean) {

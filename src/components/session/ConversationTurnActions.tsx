@@ -148,7 +148,13 @@ export function ConversationTurnActions(props: {
         >
           <Undo2 className={sx(styles.iconSm)} />
           {i18n.t("session:conversationTurnActions.conversationTurnActions2")}</MessageAction>
-        <div className={sx(styles.fileSlot, preview && styles.fullRow)}><TurnFileActions taskId={props.taskId} messageId={props.messageId} variant={preview ? "preview" : "inline"} /></div>
+        {/* Inline, the file action is a direct flex item so a no-snapshot
+            caption can take the free space between the actions. */}
+        {preview ? (
+          <div className={sx(styles.fileSlot, styles.fullRow)}><TurnFileActions taskId={props.taskId} messageId={props.messageId} variant="preview" /></div>
+        ) : (
+          <TurnFileActions taskId={props.taskId} messageId={props.messageId} variant="inline" />
+        )}
         <ForkReturnAction taskId={props.taskId} messageId={props.messageId} variant={preview ? "preview" : "inline"} />
       </div>
 
