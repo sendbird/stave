@@ -15,7 +15,7 @@ import type { ChatMessage } from "@/types/chat";
 import { getTraceElapsedMs } from "./assistant-trace-folding";
 
 /**
- * The chain-of-thought header: the `reason` loader and the current activity
+ * The chain-of-thought header: the matrix loader and the current activity
  * while the turn runs, a Brain mark and a one-line work summary once it ends.
  * Agents retry failed tool calls routinely, so a tool failure does not change
  * the header; it stays marked on its own row inside the history.
@@ -32,7 +32,7 @@ export function AssistantTraceHeader({
   const { t } = useTranslation(["session", "ui"]);
   const elapsed = useElapsed(timing, isRunning);
   const glyph = isRunning
-    ? <Loader aria-hidden cadence="reduced" size="xs" variant="reason" />
+    ? <Loader aria-hidden cadence="reduced" size="xs" variant="matrix" />
     : <Brain aria-hidden size={controlIconSizes.md} />;
   const label = isRunning
     ? activity ?? t("ui:thinking.thinking")

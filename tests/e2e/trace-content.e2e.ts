@@ -88,6 +88,8 @@ test("reasoning renders Markdown while streaming, after appending and after sett
     (window as any).traceContent = mountTraceContent();
   });
   const reasoning = page.locator("[data-reasoning-fixture]");
+  const matrix = reasoning.locator('[data-aui-loader-variant="matrix"] [data-aui-loader-mark]');
+  await expect(matrix.locator(":scope > span")).toHaveCount(25);
   await reasoning.getByRole("button", { name: "Thinking", exact: true }).click();
   await expect(reasoning.locator("strong")).toHaveText("Important");
   await expect(reasoning.locator("li")).toHaveCount(2);
@@ -100,6 +102,7 @@ test("reasoning renders Markdown while streaming, after appending and after sett
   await page.evaluate(() => (window as any).traceContent.settle());
   await expect(reasoning.locator("strong")).toHaveText("Important");
   await expect(reasoning.locator('[aria-busy="true"]')).toHaveCount(0);
+  await expect(matrix).toHaveCount(0);
 });
 
 test("failed copy announces failure and can be retried", async ({ page }) => {

@@ -74,21 +74,13 @@ describe("ChainOfThoughtContent", () => {
 });
 
 describe("ChainOfThoughtTrigger", () => {
-  test("renders a reduced-cadence reason loader while streaming and drops it when complete", () => {
+  test("renders a reduced-cadence matrix loader while streaming and drops it when complete", () => {
     const streaming = renderTrace({ isStreaming: true });
-    /*
-     * `reason` — a written chain of thought — because this mark stands for
-     * the CoT header. `think` is open-ended contemplation, which is the
-     * reasoning row's own mark *inside* this trace, so sharing it would draw
-     * the identical animation twice and make the header read as a copy of
-     * its first step.
-     */
-    expect(streaming).toContain('data-loader-variant="reason"');
+    expect(streaming).toContain('data-loader-variant="matrix"');
     expect(streaming).toContain('data-loader-cadence="reduced"');
-    expect(streaming).not.toContain('data-loader-variant="think"');
 
     expect(renderTrace({ isStreaming: false })).not.toContain(
-      'data-loader-variant="reason"',
+      'data-loader-variant="matrix"',
     );
   });
 
