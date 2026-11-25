@@ -34,7 +34,7 @@ import {
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import { ShelfQueue, type ComposerShelfQueueProps } from "./ShelfQueue";
-import { ReviewActivityDialog, ShelfReviews } from "./ShelfReviews";
+import { ShelfReviews } from "./ShelfReviews";
 import { ShelfUsageLimit } from "./ShelfUsageLimit";
 import { ShelfAccountNotice } from "./ShelfAccountNotice";
 import { ShelfProviderSwitch } from "./ShelfProviderSwitch";
@@ -217,17 +217,8 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   useEffect(() => {
     shownBefore.current = surfaceVisible;
   }, [surfaceVisible]);
-  // Outside the rows, so an open review stays open when its row leaves.
-  const reviewDialog = reviews.viewing ? (
-    <ReviewActivityDialog
-      item={reviews.viewing}
-      attached={reviews.attachedTaskIds.has(reviews.viewing.child.delegatedTaskId)}
-      actions={reviews.actions}
-      onClose={reviews.closeView}
-    />
-  ) : null;
   if (!surfaceVisible) {
-    return reviewDialog;
+    return null;
   }
   // Only the run line is left and it is on its way out: the whole shelf goes.
   const surfaceLeaving =
@@ -325,7 +316,6 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
           />
         </ShelfRow>
       ) : null}
-      {reviewDialog}
       {props.queue && queueCount > 0 ? (
         <ShelfRow joining={shownBefore.current}>
           <ShelfQueue {...props.queue} />

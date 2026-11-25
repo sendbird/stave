@@ -1,10 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo } from "react";
 import {
   Check,
-  PanelTopOpen,
+  PanelRight,
   Paperclip,
-  RotateCcw,
   Square,
   X,
 } from "lucide-react";
@@ -13,22 +12,14 @@ import { StateMark } from "@/components/aui/components/StateMark";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { sx } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
-import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
-import { Loader, toast } from "@/components/ui";
-import type { DelegationActionId } from "@/lib/delegation/exchange";
+import { Loader } from "@/components/ui";
 import { REVIEW_SHELF_WORK_STATE, type ReviewShelfItem } from "@/lib/reviews/review-task";
-import { useAppStore } from "@/store/app.store";
-import { recheckReviewTask, rerunReviewTask } from "@/store/review-task-runtime";
-import { reviewFindingsToRecheck } from "@/lib/reviews/review-findings";
 import {
-  buildReviewExchange,
   describeReviewShelfFindings,
   describeReviewShelfLine,
 } from "./composer-shelf.utils";
-import { ReviewFindingsPanel } from "./ReviewFindingsPanel";
 import { useReviewTranscript } from "./use-review-transcript";
 import { useReviewRevision } from "./use-review-revision";
-import { ReviewRevisionNotice } from "./ReviewRevisionNotice";
 import { describeReviewRevision, reviewRevisionLabel } from "@/lib/reviews/review-revision";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import type { ShelfReviewActions } from "./use-shelf-reviews";
@@ -49,8 +40,8 @@ const TONE_INK = {
 /**
  * Reviews this task started in their own read-only task: one line each while
  * it runs (View, Stop) and once it settles (Attach the findings to the next
- * message, View, Dismiss). View opens `ReviewActivityDialog` over the current
- * task, so checking how it reviewed never leaves this one.
+ * message, View, Dismiss). View opens the review in the Agent panel beside
+ * the conversation, so checking how it reviewed never leaves this task.
  */
 export const ShelfReviews = memo(function ShelfReviews(props: ShelfReviewsProps) {
   useTranslation();
@@ -72,156 +63,6 @@ export const ShelfReviews = memo(function ShelfReviews(props: ShelfReviewsProps)
     </div>
   );
 });
-
-/**
- * A review's answer, assignment and activity over the current task. The shelf
- * owns it, not the review's row, so it stays open when the row leaves.
- */
-export function ReviewActivityDialog(props: {
-  item: ReviewShelfItem;
-  attached: boolean;
-  actions: ShelfReviewActions;
-  onClose: () => void;
-}) {
-  useTranslation();
-  const { item, actions, onClose } = props;
-  const taskTitle = useAppStore(
-    (state) => state.tasks.find((task) => task.id === item.child.delegatedTaskId)?.title,
-  );
-  const repositoryPath = useAppStore((state) => state.repositoryPath);
-  const title = taskTitle?.trim() || i18n.t("composer:shelfReviews.title");
-  const { transcript, findings } = useReviewTranscript(item);
-  const { state: revision, refresh: refreshRevision } = useReviewRevision(item);
-  const attachedFindingIds = useAppStore((state) => {
-    const chip = state.promptDraftByTask[item.child.parentTaskId]?.attachments.find(
-      (attachment) =>
-        attachment.kind === "task-context" && attachment.taskId === item.child.delegatedTaskId,
-    );
-    return chip?.kind === "task-context" ? (chip.findingIds ?? null) : null;
-  });
-  const exchange = useMemo(
-    () => buildReviewExchange({ item, title, transcript }),
-    [item, title, transcript, i18n.language],
-  );
-  const onAction = useCallback(
-    (action: DelegationActionId) => {
-      if (action === "open") {
-        onClose();
-        actions.open(item);
-      } else if (action === "stop") {
-        actions.stop(item);
-      }
-    },
-    [actions, item, onClose],
-  );
-  const [rerunning, setRerunning] = useState(false);
-  const rerun = useCallback(async () => {
-    const prompt = transcript?.prompt;
-    if (!prompt || rerunning) return;
-    setRerunning(true);
-    const started = await rerunReviewTask({
-      getState: useAppStore.getState,
-      review: item.child,
-      prompt,
-      title,
-    });
-    setRerunning(false);
-    if (!started.ok) {
-      toast.error(i18n.t("composer:shelfReviews.copy"), { description: started.error });
-      return;
-    }
-    toast.success(i18n.t("composer:shelfReviews.copy2"));
-    onClose();
-  }, [item.child, onClose, rerunning, title, transcript?.prompt, i18n.language]);
-  const [rechecking, setRechecking] = useState(false);
-  const recheck = useCallback(async () => {
-    const prompt = transcript?.prompt;
-    if (!prompt || !findings?.ok || rechecking) return;
-    setRechecking(true);
-    const started = await recheckReviewTask({
-      getState: useAppStore.getState,
-      review: item.child,
-      originalPrompt: prompt,
-      report: findings.report,
-      title,
-    });
-    setRechecking(false);
-    if (!started.ok) {
-      toast.error(i18n.t("composer:shelfReviews.copy3"), { description: started.error });
-      return;
-    }
-    toast.success(i18n.t("composer:shelfReviews.copy4"));
-    onClose();
-  }, [findings, item.child, onClose, rechecking, title, transcript?.prompt, i18n.language]);
-  const leadContent =
-    item.status === "ready" && findings ? (
-      <ReviewFindingsPanel
-        key={`${item.child.delegationKey}:${attachedFindingIds?.join(",") ?? ""}`}
-        findings={findings}
-        attachedFindingIds={attachedFindingIds}
-        onAttachSelected={(findingIds) => {
-          actions.attach(item, { findingIds, replyId: transcript?.replyId ?? null });
-          onClose();
-        }}
-        onRecheck={
-          findings.ok && reviewFindingsToRecheck(findings.report).length > 0 && transcript?.prompt
-            ? () => void recheck()
-            : null
-        }
-        recheckBusy={rechecking}
-      />
-    ) : null;
-  const renderExtraActions = useCallback(
-    () => (
-      <>
-        {item.status !== "ready" ? null : props.attached ? (
-          <span className={sx(styles.meta, styles.metaWithIcon)}>
-            <Check aria-hidden className={sx(styles.markIcon)} />
-            <span>{i18n.t("composer:shelfReviews.copy5")}</span>
-          </span>
-        ) : (
-          <Button
-            variant="quiet"
-            size="sm"
-            title={i18n.t("composer:shelfReviews.title2")}
-            onClick={() => {
-              actions.attach(item);
-              onClose();
-            }}
-            xstyle={styles.itemAccent}
-          >
-            <Paperclip aria-hidden />
-            {i18n.t("composer:shelfReviews.copy6")}</Button>
-        )}
-        {item.status !== "running" && transcript?.prompt ? (
-          <Button
-            variant="quiet"
-            size="sm"
-            disabled={rerunning}
-            title={i18n.t("composer:shelfReviews.title3")}
-            onClick={() => void rerun()}
-          >
-            <RotateCcw aria-hidden />
-            {i18n.t("composer:shelfReviews.copy7")}</Button>
-        ) : null}
-      </>
-    ),
-    [actions, item, onClose, props.attached, rerun, rerunning, transcript?.prompt, i18n.language],
-  );
-  return (
-    <ActivityDetailDialog
-      key={item.child.delegationKey}
-      selection={{ title, exchange }}
-      taskId={item.child.parentTaskId}
-      repositoryPath={repositoryPath ?? undefined}
-      onClose={onClose}
-      onAction={onAction}
-      onRefresh={refreshRevision}
-      renderExtraActions={renderExtraActions}
-      leadContent={<><ReviewRevisionNotice state={revision} />{leadContent}</>}
-    />
-  );
-}
 
 /**
  * A running review wears the verify loader, as a shelf run line draws work in
@@ -296,7 +137,7 @@ function ReviewLine(props: {
           onClick={() => props.onView(item)}
           xstyle={styles.quiet}
         >
-          <PanelTopOpen aria-hidden />
+          <PanelRight aria-hidden />
           <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine3")}</span>
         </Button>
         {item.status === "running" ? (

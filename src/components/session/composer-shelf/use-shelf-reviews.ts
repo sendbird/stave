@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { toast } from "@/components/ui";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import { useNow } from "@/components/agent-runs/useAgentRun";
@@ -20,6 +20,7 @@ import {
   type ReviewDismissals,
 } from "@/store/review-dismissals-store";
 import { attachReviewResultToDraft } from "@/store/review-task-runtime";
+import { openAgentProgress } from "@/store/agent-progress-panel-store";
 
 const NO_DISMISSALS: ReviewDismissals = {};
 
@@ -75,23 +76,18 @@ export function useShelfReviews(taskId: string) {
     [carriedKey, dismissedKeys, historyLoaded, listing.children, now],
   );
   const attachedTaskIds = useMemo(() => splitTaskIds(attachedKey), [attachedKey]);
-  // The review open in the dialog, per task. It follows its row while the row
-  // is on the shelf, so a running review settles in place, and keeps the last
-  // copy once the row leaves (sent, dismissed or expired).
-  const [viewingState, setViewingState] = useState<{
-    taskId: string;
-    item: ReviewShelfItem;
-  } | null>(null);
-  const viewingSnapshot = viewingState?.taskId === taskId ? viewingState.item : null;
-  const viewing = viewingSnapshot
-    ? (items.find((item) => item.child.delegationKey === viewingSnapshot.child.delegationKey) ??
-      viewingSnapshot)
-    : null;
+  // View opens the review in the Agent panel beside the conversation. The
+  // panel follows the row while it is on the shelf, so a running review
+  // settles in place, and keeps this copy once the row leaves.
   const view = useCallback(
-    (item: ReviewShelfItem) => setViewingState({ taskId, item }),
+    (item: ReviewShelfItem) => openAgentProgress({
+      kind: "review",
+      parentTaskId: taskId,
+      delegationKey: item.child.delegationKey,
+      snapshot: item,
+    }),
     [taskId],
   );
-  const closeView = useCallback(() => setViewingState(null), []);
 
   const stopDelegation = listing.actions.stop;
   const attach = useCallback(
@@ -158,5 +154,5 @@ export function useShelfReviews(taskId: string) {
     () => ({ attach, open, stop, dismiss }),
     [attach, dismiss, open, stop],
   );
-  return { items, attachedTaskIds, actions, viewing, view, closeView };
+  return { items, attachedTaskIds, actions, view };
 }

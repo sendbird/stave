@@ -776,9 +776,6 @@
     "src/components/session/turn-document-revisions.styles.ts": {
       "icon-metric": 2
     },
-    "src/components/session/activity-detail.styles.ts": {
-      "tracking": 1
-    },
     "src/components/session/chat-panel-message-parts.styles.ts": {
       "icon-metric": 4
     },

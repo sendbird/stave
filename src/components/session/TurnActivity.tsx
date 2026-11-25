@@ -1,4 +1,4 @@
-import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
+import { openExchangeProgress, openSubagentCallProgress, openWorkGraphAgentProgress } from "@/components/agent-progress/open-agent-progress";
 import { i18n, useTranslation } from "@/i18n";
 import { ActivityDetailDialog, type ActivityDetailSelection } from "./ActivityDetailDialog";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -1396,7 +1396,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   key={item.id}
                   item={item}
                   onSelectTool={props.onSelectTool}
-                  onInspect={props.taskId ? () => setDetailSelection({ title: item.title, toolUseId: item.toolUseId, detail: [item.detail, item.providerDetail].filter(Boolean).join("\n") }) : undefined}
+                  onInspect={props.taskId ? () => {
+                    // A subagent's row opens its progress; a plain call its detail.
+                    if (item.iconKey === "subagent" && item.toolUseId) {
+                      openSubagentCallProgress({ taskId: props.taskId!, workspaceId: props.workspaceId ?? undefined, toolUseId: item.toolUseId, title: item.title, providerId: props.workGraph?.providerId });
+                      return;
+                    }
+                    setDetailSelection({ title: item.title, toolUseId: item.toolUseId, detail: [item.detail, item.providerDetail].filter(Boolean).join("\n") });
+                  } : undefined}
                   showStartOffset={variant === "panel"}
                   expandCopy={variant === "panel"}
                 />
@@ -1409,7 +1416,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 nowMs={props.activity?.completedAt ?? now}
                 expandCopy={variant === "panel"}
                 onAction={handleDelegationAction}
-                onInspect={exchange => setDetailSelection({ title: exchange.title, exchange })}
+                onInspect={props.taskId ? exchange => openExchangeProgress({ exchange, taskId: props.taskId!, workspaceId: props.workspaceId ?? undefined }) : undefined}
                 renderExtraActions={renderDelegationExtraActions}
                 statusNoteFor={delegationStatusNoteFor}
                 busyExchangeId={
@@ -1428,7 +1435,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     }
                     onControl={props.onWorkGraphControl}
                     onSelectTool={props.onSelectTool}
-                    onInspectAgent={node => setDetailSelection({ title: getWorkGraphFallbackLabel(node.label), nodeKey: node.key })}
+                    onInspectAgent={props.taskId ? node => openWorkGraphAgentProgress({ node, graph: props.workGraph, taskId: props.taskId!, workspaceId: props.workspaceId ?? undefined }) : undefined}
                     controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
                     className={sx(styles.childBlockNested)}
                     showHeading={!hasDelegationRows}
@@ -1462,11 +1469,10 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         ) : null}
       </section>
       {detailSelection && props.taskId ? <ActivityDetailDialog
-        key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.toolUseId ?? detailSelection.title}
-        selection={detailSelection.exchange ? { ...detailSelection, exchange: delegationExchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
-        taskId={props.taskId} workspaceId={props.workspaceId ?? undefined} repositoryPath={props.repositoryPath ?? undefined}
-        onAction={handleDelegationAction} renderExtraActions={renderDelegationExtraActions} statusNoteFor={delegationStatusNoteFor}
-        graph={props.workGraph} onClose={() => setDetailSelection(null)} onShowInConversation={props.onSelectTool}
+        key={detailSelection.toolUseId ?? detailSelection.title}
+        selection={detailSelection}
+        taskId={props.taskId}
+        onClose={() => setDetailSelection(null)} onShowInConversation={props.onSelectTool}
       /> : null}
     </div>
   );
