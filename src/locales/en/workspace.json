@@ -446,6 +446,17 @@
     "slackThread": "Slack thread"
   },
   "repositoryWorkspaceSidebar": {
+    "nesting": {
+      "showChildren_one": "Show {{count}} subagent workspace under {{name}}",
+      "showChildren_other": "Show {{count}} subagent workspaces under {{name}}",
+      "hideChildren_one": "Hide {{count}} subagent workspace under {{name}}",
+      "hideChildren_other": "Hide {{count}} subagent workspaces under {{name}}",
+      "childOf": "Subagent workspace of {{parent}}",
+      "archiveChildren_one": "Also archive {{count}} subagent workspace",
+      "archiveChildren_other": "Also archive {{count}} subagent workspaces",
+      "archiveChildrenDescription": "Each one is archived first, with the same checks. If one cannot be archived, this workspace stays as well.",
+      "childArchiveFailed": "Could not archive {{name}}: {{reason}}. This workspace was not archived."
+    },
     "openRepository": "Open Repository",
     "collapseRepositoryList": "Collapse Repository List",
     "workspaceRowDisplay": "Workspace row display",
@@ -1531,8 +1542,17 @@
       "sensitiveFilesCleanupFailed": "The saved sensitive files could not be removed from Stave’s app data",
       "gitOperationInProgress": "A Git operation is in progress in this worktree",
       "hiddenChanges": "Git is hiding tracked files from its normal change check",
-      "keptWorktree": "Restore the workspace before removing its retained files"
+      "keptWorktree": "Restore the workspace before removing its retained files",
+      "subagentActive": "The subagent is still working",
+      "subagentRetryable": "The subagent ended without success and can still be retried here",
+      "subagentResultPending": "The parent task has not received the result yet",
+      "subagentHasNested": "Another subagent workspace is nested under it",
+      "subagentChangedFiles": "Uncommitted or untracked files",
+      "subagentUniqueCommits": "Commits that are not in the parent workspace or the default branch",
+      "subagentChecksUnavailable": "Could not check the worktree"
     },
+    "subagentRow": "Subagent workspace of {{parent}}",
+    "subagentKept": "Not cleaned up automatically: {{reasons}}",
     "historyTitle": "Read-only workspace history",
     "historyDescription": "The branch is no longer available. Your history is preserved. Create a new workspace to continue.",
     "createFromHistory": "Create a workspace from this history",

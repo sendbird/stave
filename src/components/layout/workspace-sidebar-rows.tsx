@@ -35,7 +35,7 @@ import {
   type SidebarWorkQueueEntry,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
-import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
+import { WORK_STATE, type WorkState } from "@/components/aui/components/state-vocabulary";
 import { StateMark } from "@/components/aui/components/StateMark";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
@@ -442,6 +442,8 @@ export const WorkspaceLeadingStatusIcon = memo(
     rowId: string;
     busy?: "opening" | "creating";
     attentionKind?: FleetAttentionKind;
+    /** A nested delegated child's phase (`delegationWorkState`), shown when nothing more specific is. */
+    delegationState?: WorkState;
   }) {
     useTranslation();
     const { respondingTaskCount, respondingToneClass, prStatus } =
@@ -519,6 +521,7 @@ export const WorkspaceLeadingStatusIcon = memo(
       );
     }
 
+    if (args.delegationState) return renderStatus(WORK_STATE[args.delegationState].label, <StateMark state={args.delegationState} size="md" />);
     if (!args.isDefault && prStatus) {
       return renderStatus(
         PR_STATUS_VISUAL[prStatus].label,

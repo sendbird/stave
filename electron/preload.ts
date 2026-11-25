@@ -1187,6 +1187,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("delegations:create", args, context),
     listDelegatedTasks: (args: DelegatedTaskListArgs): Promise<DelegatedTaskList> =>
       ipcRenderer.invoke("delegations:list", args),
+    listDelegatedWorkspaceLinks: (): Promise<import("../src/lib/workspace-delegation-tree").DelegatedWorkspaceLink[]> =>
+      ipcRenderer.invoke("delegations:list-workspace-links"),
     collectDelegatedTaskAnswers: (args: import("../src/lib/runs/delegated-task-answers").DelegatedTaskAnswersArgs): Promise<import("../src/lib/runs/delegated-task-answers").OwedDelegatedTaskAnswers> =>
       ipcRenderer.invoke("delegations:collect-answers", args),
     getReviewRevision: (args: import("../src/lib/reviews/review-revision").ReviewRevisionArgs): Promise<import("../src/lib/reviews/review-revision").ReviewRevisionState | null> =>

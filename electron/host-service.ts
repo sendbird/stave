@@ -693,6 +693,8 @@ setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
 // One whose record keeps failing stops being resent, and the task says so once.
 setProviderTurnCommittedListener((turn) => {
   const unrecordable = recordCommittedTurnAnswers(turn);
+  // A delivered answer can make its subagent's workspace eligible for automatic cleanup.
+  if (turn.subagentAnswers.length > unrecordable.length) workspaceCleanupRuntime.scheduleDelegatedSweep();
   if (unrecordable.length === 0 || !turn.workspaceId) return;
   void localMcpRuntime.notifySupervisorProblem({
     workspaceId: turn.workspaceId,
@@ -1812,7 +1814,13 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       // Main adds the sub-agent worktrees Activity sees running; the renderer's own arguments stay strict.
       const { runningAgentWorktrees, ...args } = WorkspaceCleanupListArgsSchema.extend({ runningAgentWorktrees: RunningAgentWorktreesSchema.optional() }).parse(request.params);
       const [listed, subAgentWorktrees] = await Promise.all([workspaceCleanupRuntime.list(args.scanDisk), workspaceCleanupRuntime.listSubAgentWorktrees(runningAgentWorktrees, args.scanDisk)]);
-      await respond(request.id, { ...listed, subAgentWorktrees }); return;
+      await respond(request.id, { ...listed, rows: await workspaceCleanupRuntime.annotateDelegatedChildren(listed.rows), subAgentWorktrees }); return;
+    }
+    // Main asks after a delegation changes phase; the sweep runs shortly and coalesces repeats.
+    case "workspace.delegated-cleanup-sweep": {
+      cleanupZ.object({}).strict().parse(request.params ?? {});
+      workspaceCleanupRuntime.scheduleDelegatedSweep();
+      await respond(request.id, { scheduled: true }); return;
     }
     case "workspace.subagent-worktree-remove": {
       const { runningAgentWorktrees, ...args } = SubAgentWorktreeRemoveArgsSchema.extend({ runningAgentWorktrees: RunningAgentWorktreesSchema.optional() }).parse(request.params);

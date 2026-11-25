@@ -2,6 +2,8 @@ import { SidebarVirtualList } from "./SidebarVirtualList";
 import { WorkspaceArchiveRecovery } from "./WorkspaceArchiveRecovery";
 import { ArchivedWorkspaceShelf } from "./ArchivedWorkspaceShelf";
 import { openWorkspaceCleanup } from "./workspace-cleanup-events";
+import { workspaceCleanupReasonText } from "./workspace-cleanup-reasons";
+import { ArchiveNestedWorkspacesOption, delegationWorkState, nestedWorkspaceIndent, topLevelReorderSteps, useDelegatedWorkspaceNesting, WorkspaceChildrenToggle } from "./workspace-sidebar-nesting";
 import { SegmentedControl } from "@/components/system/SegmentedControl";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -163,7 +165,10 @@ export function RepositoryWorkspaceSidebar(args: {
     id: string;
     name: string;
     path?: string;
+    /** Delegated children nested under it, deepest first. */
+    nested: { id: string; name: string }[];
   } | null>(null);
+  const [nestedArchive, setNestedArchive] = useState<{ include: boolean; failure: { name: string; reason: string } | null }>({ include: true, failure: null });
   const [closingWorkspaceId, setClosingWorkspaceId] = useState<string | null>(
     null,
   );
@@ -337,6 +342,7 @@ export function RepositoryWorkspaceSidebar(args: {
       }),
     [repositories, workspaceSearchQuery, i18n.resolvedLanguage],
   );
+  const nesting = useDelegatedWorkspaceNesting({ repositories, visibleRepositories });
   // Archive treats linked worktrees as externally owned, so the confirmation
   // must not promise a branch deletion that `performWorkspaceArchiveCleanup`
   // will never perform.
@@ -360,10 +366,11 @@ export function RepositoryWorkspaceSidebar(args: {
   const collapsedWorkspaceEntries = useMemo(
     () =>
       buildCollapsedWorkspaceEntries({
-        repositories,
+        // Tree order, without rows under a collapsed parent.
+        repositories: nesting.displayRepositories,
         activeWorkspaceId,
       }),
-    [activeWorkspaceId, repositories, i18n.resolvedLanguage],
+    [activeWorkspaceId, nesting.displayRepositories, i18n.resolvedLanguage],
   );
   const recentRepositoryLastOpenedAtByPath = useMemo(() => {
     const map: Record<string, string> = {};
@@ -477,9 +484,9 @@ export function RepositoryWorkspaceSidebar(args: {
       buildVisibleWorkspaceShortcutTargets({
         collapsed: args.collapsed,
         collapsedByRepositoryPath,
-        repositories,
+        repositories: nesting.displayRepositories,
       }),
-    [args.collapsed, collapsedByRepositoryPath, repositories, i18n.resolvedLanguage],
+    [args.collapsed, collapsedByRepositoryPath, nesting.displayRepositories, i18n.resolvedLanguage],
   );
   // Each tree row's box, so its hover preview opens past the row's counts and menu.
   const workspaceRowElementsRef = useRef(new Map<string, HTMLDivElement>());
@@ -576,11 +583,15 @@ export function RepositoryWorkspaceSidebar(args: {
         });
       }
       const workspaceName = repository.workspaces[fromIndex]?.name ?? i18n.t("workspace:repositoryWorkspaceSidebar.workspaceFallbackName");
+      // Positions count top-level rows; nested rows follow their parent.
+      const topLevelIds = new Set((nesting.entriesByRepositoryPath.get(repositoryPath) ?? []).filter((entry) => entry.depth === 0).map((entry) => entry.item.id));
+      const moved = repository.workspaces.filter((workspace) => workspace.id !== sourceId);
+      moved.splice(destinationIndex, 0, repository.workspaces[fromIndex]!);
       setReorderAnnouncement(
         i18n.t("workspace:repositoryWorkspaceSidebar.movedToPosition", {
           name: workspaceName,
-          position: destinationIndex + 1,
-          total: repository.workspaces.length,
+          position: moved.slice(0, destinationIndex + 1).filter((workspace) => topLevelIds.size === 0 || topLevelIds.has(workspace.id)).length,
+          total: topLevelIds.size || repository.workspaces.length,
         }),
       );
       suppressNextRowClick();
@@ -706,12 +717,26 @@ export function RepositoryWorkspaceSidebar(args: {
 
   const archiveSelectedWorkspace = (keepWorktree = false) => {
     if (!workspaceToClose) return;
-    setClosingWorkspaceId(workspaceToClose.id);
-    void closeWorkspace({ workspaceId: workspaceToClose.id, preserveLocalWork: true, keepWorktree })
+    const target = workspaceToClose;
+    setClosingWorkspaceId(target.id);
+    setNestedArchive((current) => ({ ...current, failure: null }));
+    void (async () => {
+      // Nested subagent workspaces first, deepest first, through the same archive and its checks.
+      // The first one refused stops before the parent, so nothing is left nested under an archived row.
+      for (const child of nestedArchive.include && !keepWorktree ? target.nested : []) {
+        if (!useAppStore.getState().workspaces.some((workspace) => workspace.id === child.id)) continue;
+        try { await closeWorkspace({ workspaceId: child.id, preserveLocalWork: true }); }
+        catch (error) {
+          setNestedArchive((current) => ({ ...current, failure: { name: child.name, reason: workspaceCleanupReasonText(error instanceof Error ? error.message : "cleanupFailed") } }));
+          return;
+        }
+      }
+      const outcome = await closeWorkspace({ workspaceId: target.id, preserveLocalWork: true, keepWorktree });
       // Archived either way; a leftover folder keeps the dialog open to say so.
-      .then((outcome) => outcome?.leftoverFiles ? setArchiveError("worktreeLeftoverFiles") : setWorkspaceToClose(null), (error: unknown) => {
-        setArchiveError(error instanceof Error ? error.message : "cleanupFailed");
-      }).finally(() => setClosingWorkspaceId(null));
+      if (outcome?.leftoverFiles) setArchiveError("worktreeLeftoverFiles"); else setWorkspaceToClose(null);
+    })().catch((error: unknown) => {
+      setArchiveError(error instanceof Error ? error.message : "cleanupFailed");
+    }).finally(() => setClosingWorkspaceId(null));
   };
 
   return (
@@ -1045,6 +1070,9 @@ export function RepositoryWorkspaceSidebar(args: {
                       // the row actions the way the workspace count does.
                       const repositoryAlertPinnedOnHover =
                         repositoryAttentionAlert?.tier === "blocking";
+                      // Delegated children nest under their parent (`workspace-sidebar-nesting.tsx`).
+                      const nestedEntries = nesting.entriesByRepositoryPath.get(repository.repositoryPath) ?? [];
+                      const topLevelCount = nestedEntries.reduce((count, entry) => count + (entry.depth === 0 ? 1 : 0), 0);
 
                       return (
                         <SortableSidebarItem
@@ -1411,7 +1439,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                       repositorySidebarStyles.workspaceListInner,
                                     )}
                                   >
-                                    <SidebarVirtualList gap={4} items={repository.workspaces} itemKey={(workspace) => workspace.id} renderItem={(workspace) => {
+                                    <SidebarVirtualList gap={4} items={nestedEntries} itemKey={(entry) => entry.item.id} renderItem={(entry) => {
+                                      const workspace = entry.item;
                                       const workspaceShortcutLabel =
                                         workspaceShortcutLabels.get(
                                           `${repository.repositoryPath}:${workspace.id}`,
@@ -1425,10 +1454,12 @@ export function RepositoryWorkspaceSidebar(args: {
                                         workspace.id === activeWorkspaceId;
                                       const isCurrentPlace =
                                         isActive && showingWorkspace;
+                                      // A nested row follows its parent; only top-level rows reorder.
                                       const workspaceReorderingDisabled =
                                         repositoryBusy ||
                                         workspaceBusy ||
-                                        repository.workspaces.length < 2;
+                                        entry.depth > 0 ||
+                                        topLevelCount < 2;
                                       const canArchiveWorkspace =
                                         repository.isCurrent &&
                                         !workspace.isDefault;
@@ -1470,8 +1501,11 @@ export function RepositoryWorkspaceSidebar(args: {
                                             <div
                                               data-workspace-item={workspace.id}
                                               data-active={isActive ? "" : undefined}
+                                              data-workspace-depth={entry.depth}
+                                              data-workspace-parent={entry.parentId ?? undefined}
                                               className={sx(
                                                 repositorySidebarStyles.workspaceItem,
+                                                nestedWorkspaceIndent[entry.indent as 0 | 1 | 2],
                                                 // The row and its open tasks are one selected item.
                                                 isCurrentPlace &&
                                                   repositorySidebarStyles.workspaceGroupActive,
@@ -1528,7 +1562,9 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       aria-description={
                                                         !workspaceReorderingDisabled
                                                           ? tI18n("workspace:repositoryWorkspaceSidebar.useAltPlusArrowUpOrArrow")
-                                                          : undefined
+                                                          : entry.parentId
+                                                            ? tI18n("workspace:repositoryWorkspaceSidebar.nesting.childOf", { parent: repository.workspaces.find((candidate) => candidate.id === entry.parentId)?.name ?? "" })
+                                                            : undefined
                                                       }
                                                       className={sx(
                                                         repositorySidebarStyles.workspaceOpen,
@@ -1568,45 +1604,18 @@ export function RepositoryWorkspaceSidebar(args: {
                                                           }
                                                           event.preventDefault();
                                                           event.stopPropagation();
-                                                          const currentIndex =
-                                                            repository.workspaces.findIndex(
-                                                              (candidate) =>
-                                                                candidate.id ===
-                                                                workspace.id,
-                                                            );
-                                                          const direction =
-                                                            event.key ===
-                                                            "ArrowUp"
-                                                              ? "up"
-                                                              : "down";
-                                                          const nextIndex =
-                                                            direction === "up"
-                                                              ? currentIndex - 1
-                                                              : currentIndex +
-                                                                1;
-                                                          if (
-                                                            currentIndex < 0 ||
-                                                            nextIndex < 0 ||
-                                                            nextIndex >=
-                                                              repository.workspaces
-                                                                .length
-                                                          ) {
-                                                            return;
+                                                          const direction = event.key === "ArrowUp" ? "up" : "down";
+                                                          // Past the neighbouring top-level row, skipping rows nested elsewhere.
+                                                          const move = topLevelReorderSteps({ entries: nestedEntries, workspaces: repository.workspaces, workspaceId: workspace.id, direction });
+                                                          if (!move) return;
+                                                          for (let step = 0; step < move.steps; step += 1) {
+                                                            moveWorkspaceInRepositoryList({ repositoryPath: repository.repositoryPath, workspaceId: workspace.id, direction });
                                                           }
-                                                          moveWorkspaceInRepositoryList(
-                                                            {
-                                                              repositoryPath:
-                                                                repository.repositoryPath,
-                                                              workspaceId:
-                                                                workspace.id,
-                                                              direction,
-                                                            },
-                                                          );
                                                           setReorderAnnouncement(
                                                             i18n.t("workspace:repositoryWorkspaceSidebar.movedToPosition", {
                                                               name: workspace.isDefault ? i18n.t("workspace:repositoryWorkspaceSidebar.default") : workspace.name,
-                                                              position: nextIndex + 1,
-                                                              total: repository.workspaces.length,
+                                                              position: move.position,
+                                                              total: move.total,
                                                             }),
                                                           );
                                                           return;
@@ -1658,6 +1667,7 @@ export function RepositoryWorkspaceSidebar(args: {
                                                               workspace.id
                                                             ]?.kind
                                                           }
+                                                          delegationState={delegationWorkState(entry.link?.phase)}
                                                         />
                                                       </span>
                                                       {(() => {
@@ -1695,6 +1705,10 @@ export function RepositoryWorkspaceSidebar(args: {
                                                       })()}
                                                     </div>
                                                   </WorkspaceHoverPreviewTooltip>
+                                                  {entry.descendantCount > 0 ? (
+                                                    <WorkspaceChildrenToggle workspaceId={workspace.id} workspaceName={workspace.isDefault ? tI18n("workspace:repositoryWorkspaceSidebar.default") : workspace.name}
+                                                      count={entry.descendantCount} collapsed={entry.collapsed} onToggle={nesting.toggle} />
+                                                  ) : null}
                                                   <WorkspaceAccountLimitIcon
                                                     workspaceId={workspace.id}
                                                   />
@@ -1719,7 +1733,8 @@ export function RepositoryWorkspaceSidebar(args: {
                                                     closingWorkspaceId={closingWorkspaceId}
                                                     onArchive={() => {
                                                       setArchiveError(null);
-                                                      setWorkspaceToClose({ id: workspace.id, name: workspace.name, path: workspacePathById[workspace.id] });
+                                                      setNestedArchive({ include: true, failure: null });
+                                                      setWorkspaceToClose({ id: workspace.id, name: workspace.name, path: workspacePathById[workspace.id], nested: nesting.descendantsOf(repository, workspace.id) });
                                                     }}
                                                     onRename={renameWorkspace}
                                                   />
@@ -1839,6 +1854,10 @@ export function RepositoryWorkspaceSidebar(args: {
         // The workspace is already archived; only its leftover folder remains.
         onConfirm={() => archiveError === "worktreeLeftoverFiles" ? setWorkspaceToClose(null) : archiveSelectedWorkspace()}
       >
+        {!archiveError && workspaceToClose ? (
+          <ArchiveNestedWorkspacesOption nested={workspaceToClose.nested} checked={nestedArchive.include} failure={nestedArchive.failure}
+            onCheckedChange={(include) => setNestedArchive({ include, failure: null })} />
+        ) : null}
         {archiveError && workspaceToClose && (
           <WorkspaceArchiveRecovery
             reason={archiveError}

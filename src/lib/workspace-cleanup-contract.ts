@@ -35,6 +35,12 @@ export const WorkspaceCleanupRowSchema = z.object({
   archived: z.boolean(), branchOnly: z.boolean(), readOnly: z.boolean(), archivedAt: z.string().nullable(),
   lastActive: z.string().nullable(), blockers: z.array(z.string()), reasons: z.array(z.string()),
   bytes: z.number().nonnegative().nullable(), branchDeletable: z.boolean(),
+  /**
+   * Set when Stave created this workspace for a delegated child. `kept` lists
+   * why automatic cleanup left it (`delegated-workspace-cleanup.ts`); empty
+   * when only the row's blockers stand in the way.
+   */
+  subagent: z.object({ parentWorkspaceId: Id, parentName: z.string(), kept: z.array(z.string()) }).strict().optional(),
 }).strict();
 export type WorkspaceCleanupRow = z.infer<typeof WorkspaceCleanupRowSchema>;
 export const WorkspaceCleanupResultSchema = z.object({

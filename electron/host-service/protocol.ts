@@ -560,6 +560,7 @@ export interface HostServiceRequestMap {
   "workspace.subagent-worktree-remove": SubAgentWorktreeRemoveArgs & { runningAgentWorktrees?: string[] };
   "workspace.cleanup-configure": WorkspaceCleanupPolicy;
   "workspace.cleanup-run": Record<string, never>;
+  "workspace.delegated-cleanup-sweep": Record<string, never>;
   "workspace.disk-usage": { refresh?: boolean };
   "workspace.execution": WorkspaceExecutionArgs;
   "workspace.execution-status": undefined;
@@ -1120,6 +1121,7 @@ export interface HostServiceResponseMap {
   "workspace.subagent-worktree-remove": SubAgentWorktreeRemoveResult;
   "workspace.cleanup-configure": WorkspaceCleanupPolicy;
   "workspace.cleanup-run": Awaited<ReturnType<WorkspaceCleanupApi["runNow"]>>;
+  "workspace.delegated-cleanup-sweep": { scheduled: true };
   "workspace.disk-usage": import("../../src/lib/workspace-cleanup-contract").WorkspaceDiskUsageReport;
   "workspace.execution": WorkspaceExecutionResult;
   "workspace.execution-status": WorkspaceExecutionState[];

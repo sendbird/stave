@@ -19,6 +19,7 @@ import {
   describeDelegatedTaskRejection,
 } from "../../../src/lib/runs/delegated-task";
 import { invokeHostService } from "../host-service-client";
+import { ensurePersistenceReady } from "../state";
 import {
   getDelegatedTaskCoordinator,
   reconcileDelegatedTasks,
@@ -140,6 +141,15 @@ export function registerRunHandlers() {
   ipcMain.handle("delegations:list", async (_event, rawArgs: unknown) => {
     const args = DelegatedTaskListArgsSchema.safeParse(rawArgs);
     return args.success ? await getDelegatedTaskCoordinator().list(args.data) : [];
+  });
+  // Workspaces created for delegated children, for the sidebar's nesting; read from the ledger.
+  ipcMain.handle("delegations:list-workspace-links", async () => {
+    try {
+      return (await ensurePersistenceReady()).delegatedAnswers.listWorkspaceLinks();
+    } catch (error) {
+      console.warn(`[delegated-task] could not read delegated workspace links: ${String(error)}`);
+      return [];
+    }
   });
   // A parent turn's owed subagent answers; the host records the ones a turn carried once the turn is committed to its provider,
   // and stops carrying one whose record keeps failing.
