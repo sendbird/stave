@@ -267,6 +267,7 @@ export function ActivityView(props: { snapshot?: ExternalSessionsSnapshot; enabl
     <div className={sx(styles.scroll)}>
       <main className={sx(styles.page)} aria-label={t("shell:externalActivity.title")} data-external-activity="">
         <GlobalPageHeader
+          placement="column"
           title={t("shell:externalActivity.title")}
           description={t("shell:externalActivity.description")}
           actions={
