@@ -1,5 +1,6 @@
 import { AttachmentContextsSchema, type AttachmentContext } from "@/lib/providers/attachment-context";
-import type { TrackerIssue } from "@/lib/tracker-issues/types";
+import type { TrackerIssue, TrackerIssueDetail } from "@/lib/tracker-issues/types";
+import { trackerIssuePullRequestLinks } from "@/lib/tracker-issues/context";
 
 export const TARS_ISSUE_EXCERPT_MAX_CHARS = 6_000;
 export const TARS_DOCUMENT_MAX_BYTES = 32_000;
@@ -22,14 +23,15 @@ function boundedSourceText(value: string, limit: number): string {
 
 /** Source text is quoted context. Only the user's eventual send commissions work. */
 export function buildTarsIssueDraft(args: {
-  task: TrackerIssue; description?: string; request: string;
+  task: TrackerIssue; detail?: TrackerIssueDetail | null; description?: string; request: string;
   repositoryPath?: string | null; workspaceId?: string | null;
 }): TarsIntakeDraft {
   const { task } = args;
-  const body = args.description ?? "";
+  const body = args.detail?.description ?? args.description ?? "";
   const excerpt = boundedSourceText(body, TARS_ISSUE_EXCERPT_MAX_CHARS);
   // i18n-ignore: model-facing source context and provenance labels
   const context = { source: task.source, title: boundedSourceText(task.title, 500), url: task.url.slice(0, TARS_SOURCE_URL_MAX_CHARS),
+    linkedPullRequests: trackerIssuePullRequestLinks(task, args.detail),
     suggestedRepository: args.repositoryPath ? boundedSourceText(args.repositoryPath, 4_096) : null,
     suggestedWorkspace: args.workspaceId ? boundedSourceText(args.workspaceId, 256) : null,
     excerpt, truncated: excerpt.length < body.length };

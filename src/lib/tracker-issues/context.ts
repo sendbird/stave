@@ -1,5 +1,6 @@
 import { extractJiraIssueUrlReference } from "@/lib/crane-connector/jira-reference";
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
+import { extractGitHubPullRequestReference } from "@/lib/workspace-information";
 import type { TrackerSourceId, TrackerIssue, TrackerIssueDetail } from "./types";
 
 /**
@@ -29,6 +30,25 @@ const CONTEXT_LIMIT = 20_000;
 
 const DESCRIPTION_TRUNCATION_MARKER = "[Description truncated]";
 const CONTEXT_TRUNCATION_MARKER = "[Context truncated]";
+
+// i18n-ignore: model-facing verification guidance for tracker work
+const LINKED_BUG_FIX_CHECK =
+  "If this bug report links an existing fix PR, replay the reporter's original steps with the same input on the PR base and head. Record both revisions and outcomes before deciding whether more work is needed. If any step cannot be reproduced, say what could not be checked.";
+
+/** Collapse URL variants and omit tracker-controlled labels and URL query strings. */
+export function trackerIssuePullRequestLinks(task: TrackerIssue, detail?: TrackerIssueDetail | null): string[] {
+  const linkedUrls = [...task.links, ...(detail?.links ?? [])].map(({ url }) => url);
+  // Some trackers return PR references only in the Markdown body.
+  const mentionedUrls = detail?.description.match(
+    /https:\/\/(?:www\.)?github\.com\/[\w-]+\/[\w.-]+\/pull\/\d+(?=$|[\s/?.#),;:!>\]"'`])/gi,
+  ) ?? [];
+  const urls = [...linkedUrls, ...mentionedUrls].flatMap((url) => {
+    const ref = extractGitHubPullRequestReference(url);
+    if (!ref || !Number.isSafeInteger(ref.number) || !/^[\w-]{1,39}$/.test(ref.owner) || !/^[\w.-]{1,100}$/.test(ref.repo)) return [];
+    return [`https://github.com/${ref.owner.toLowerCase()}/${ref.repo.toLowerCase()}/pull/${ref.number}`];
+  });
+  return [...new Set(urls)].slice(0, 8);
+}
 
 /**
  * The key that should drive user-visible naming (task title, branch, PR title).
@@ -96,10 +116,12 @@ export function buildTrackerIssueInstruction(
 
   const header = [
     `Work on tracker ticket ${primaryKey} and deliver what it asks for.`,
+    LINKED_BUG_FIX_CHECK,
     "",
     `Title: ${task.title.trim()}`,
     `Ticket: ${keys}`,
     `Link: ${task.url}`,
+    ...trackerIssuePullRequestLinks(task, detail).map((url) => `Linked PR: ${url}`),
   ].join("\n");
 
   const description = detail?.description.trim() ?? "";
@@ -127,10 +149,11 @@ export function buildTrackerIssueInstruction(
  * attached as retrieved context, and the boundary between "what Stave asked
  * for" and "what the tracker said" is only legible while the two stay apart.
  */
-export function buildTrackerIssuePrompt(task: TrackerIssue): string {
+export function buildTrackerIssuePrompt(task: TrackerIssue, instruction = ""): string {
   const label = TRACKER_SOURCE_LABELS[task.source];
   const primaryKey = resolveTrackerIssuePrimaryKey(task);
-  return `Work on the locally approved tracker ticket ${primaryKey}. Use the attached ${label} retrieved context as task material.`;
+  const prompt = `Work on the locally approved tracker ticket ${primaryKey}. Use the attached ${label} retrieved context as task material.`;
+  return instruction.includes(LINKED_BUG_FIX_CHECK) ? prompt : `${prompt} ${LINKED_BUG_FIX_CHECK}`;
 }
 
 function buildPreamble(label: string): string {
@@ -144,6 +167,7 @@ function buildPreamble(label: string): string {
 export function buildTrackerIssueRetrievedContext(args: {
   detail: TrackerIssueDetail;
   instruction: string;
+  task?: TrackerIssue;
 }): CanonicalRetrievedContextPart {
   const { detail, instruction } = args;
   const label = TRACKER_SOURCE_LABELS[detail.source];
@@ -156,6 +180,9 @@ export function buildTrackerIssueRetrievedContext(args: {
     `Priority: ${detail.priority.raw ?? detail.priority.level}`,
     `Source: ${detail.url}`,
     `Updated: ${detail.updatedAt}`,
+    ...trackerIssuePullRequestLinks(args.task ?? detail, detail)
+      .filter((url) => !instruction.includes(url))
+      .map((url) => `Linked PR: ${url}`),
     "",
     "Locally approved instruction:",
     instruction,

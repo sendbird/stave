@@ -34,6 +34,12 @@ At least one tracker has to be connected and turned on. Jira is turned on with i
 
 The workspace is created, the ticket is filed in the workspace Information panel, and Stave jumps to the new task with the turn already running.
 
+When a bug ticket links an existing fix PR, ask the agent to check whether it
+already resolves the report. The issue draft includes that comparison
+guidance and GitHub PR URLs supplied in the ticket's links or description. The
+agent should replay the reporter's original steps on the PR base and head,
+then report both revisions, their results and any step it could not reproduce.
+
 ## Interface Walkthrough
 
 ### Entry Points
