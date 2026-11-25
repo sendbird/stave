@@ -85,7 +85,7 @@ describe("Supervisor", () => {
     expect(DEEPER_BRIEF_RULE).toContain("product or preference choices");
     // Only the leads brief helpers; workers keep their own instructions.
     expect(getBuiltinAgent("implementer")!.instructions).not.toContain(DEEPER_BRIEF_RULE);
-    expect(supervisor().instructions).toContain("something other than your own judgment can check");
+    expect(supervisor().instructions).toContain("Make each criterion checkable with a test, command output, rendered result or real run.");
   });
 
   test("is a main agent that routes through Auto with no fixed or preferred provider", () => {
