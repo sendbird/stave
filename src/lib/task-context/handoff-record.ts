@@ -191,7 +191,7 @@ export function buildHandoffRecordContextPart(
       // i18n-ignore: model-facing notice, sent to the provider as-is
       ...(update ? ["The user changed this record since you last received it. This version replaces the earlier one."] : []),
       // i18n-ignore: model-facing instruction, sent to the provider as-is
-      "This user-approved record takes precedence over conflicting excerpts; flag conflicts. Match prior checks to the current source state before relying on them. Start with the first outstanding action.",
+      "This user-approved record takes precedence over conflicting excerpts; flag conflicts. Match prior checks to the current source state before relying on them. Act on remaining work only when the current request calls for it.",
       ...blocks,
     ].join("\n\n"),
   };
@@ -312,7 +312,7 @@ export function buildHandoffUpdateRequest(record: TaskHandoffRecord | null) {
   return [
     // i18n-ignore: model-facing request; the user sends it to the task's agent
     "Please propose an updated handoff record for this task, for someone who picks it up without this conversation.",
-    "Keep current decisions. In verified, pair each result with its known commit or working-tree state. Put the next action first in remaining. Drop stale entries. Do not edit files.",
+    "Keep what is still true, add what this task has since decided, verified or left to do, and remove what is no longer true. Do not change any files for this.",
     `Reply with one fenced \`${HANDOFF_PROPOSAL_FENCE}\` block holding a JSON object with the string fields goal, decisions, verified, remaining and cautions (use "- " lines for lists, at most ${HANDOFF_SECTION_MAX_CHARS} characters each). I will review it before it is saved.`,
     "The current record:",
     `\`\`\`json\n${current}\n\`\`\``,
