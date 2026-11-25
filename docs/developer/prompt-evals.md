@@ -118,8 +118,15 @@ status 1 and preserves available diagnostics.
 
 On November 25, 2026, two runs produced eight scoreable pairs from 16 calls.
 Codex App Server reported `gpt-6-luna` for all 16. The second run used the
-explicitly resolved Codex CLI 0.172.0. One reviewer scored each A/B packet before
-looking at its depth key.
+explicitly resolved Codex CLI 0.172.0. The first run recorded the version on
+PATH, so its executable version is unconfirmed.
+
+The [evaluation record](../../evals/evidence/prompt-enhancement-2026-11-25.json)
+contains each run's ID, anonymous packet, original score sheet and depth key
+with raw and parsed outputs. Match the case ID and A/B label across these
+fields to reproduce the comparison. The reviewer recorded scoring before
+opening each key. The runner did not log key access, so the ordering rests on
+the reviewer's account.
 
 | Draft | Clarify | Sharpen |
 | --- | --- | --- |
