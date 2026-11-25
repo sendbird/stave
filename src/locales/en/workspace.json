@@ -1592,6 +1592,13 @@
     "repositoryChanged": "You switched projects before creation started. Open the original project to try again."
   },
   "workspaceScratchPanel": {
+    "filter": "File type",
+    "results": "Results",
+    "html": "HTML",
+    "image": "Images",
+    "markdown": "Markdown",
+    "all": "All files",
+    "noMatches": "No files match this view.",
     "previewLabel": "Preview of {{name}}",
     "openInEditor": "Open in editor",
     "tooLargeToPreview": "This file is too large to preview here ({{size}}).",

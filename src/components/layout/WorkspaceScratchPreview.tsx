@@ -1,3 +1,6 @@
+import { EditorHtmlPreview } from "./editor-html-preview";
+import { EditorMarkdownPreview } from "./editor-markdown-preview";
+import { scratchArtifactKind } from "@/lib/workspace-scratch";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   File,
@@ -79,6 +82,7 @@ export function ScratchFilePreview(props: {
   const { t } = useTranslation(["workspace"]);
   const { rootPath, file } = props;
   const kind = scratchPreviewKind(file.path);
+  const artifactKind = scratchArtifactKind(file.path);
   const [state, setState] = useState<PreviewState>({ status: "loading" });
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const followEndRef = useRef(true);
@@ -188,6 +192,10 @@ export function ScratchFilePreview(props: {
       >
         {state.status === "image" ? (
           <img className={sx(styles.previewImage)} src={state.dataUrl} alt={name} />
+        ) : state.status === "text" && state.tailOfBytes === null && artifactKind === "html" ? (
+          <EditorHtmlPreview content={state.content} frameTitle={name} networkPolicy="blocked" />
+        ) : state.status === "text" && state.tailOfBytes === null && artifactKind === "markdown" ? (
+          <EditorMarkdownPreview content={state.content} fontSize={14} variant="embedded" />
         ) : state.status === "text" ? (
           <pre className={sx(styles.previewText)}>{state.content}</pre>
         ) : state.status === "loading" ? null : (

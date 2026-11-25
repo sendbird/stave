@@ -7,6 +7,8 @@
 - Sub-agents save to their own folders, and the panel groups their files by agent.
 - **Attach to message** adds a scratch file to your next message.
 
+Results shows HTML, Markdown, images and files saved under `.stave/scratch/artifacts/`. Choose a file type to narrow the view or **All files** to inspect logs and other intermediate output.
+
 ## When To Use It
 
 - Follow a test run or build while it happens: a log the agent writes with `tee` grows in the preview.

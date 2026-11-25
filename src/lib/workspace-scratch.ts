@@ -59,7 +59,17 @@ export interface WorkspaceScratchFile {
   mtimeMs: number;
 }
 
+export function scratchArtifactKind(path: string) {
+  if (/\.html?$/i.test(path)) return "html";
+  if (/\.(md|markdown)$/i.test(path)) return "markdown";
+  if (/\.(png|jpe?g|gif|webp|bmp|svg|avif|ico)$/i.test(path)) return "image";
+  if (path.startsWith(workspaceScratchPath("artifacts") + "/")) return "artifact";
+  return undefined;
+}
+
 export interface WorkspaceScratchListing {
+  /** Additional results older than the newest files in the general listing. */
+  olderArtifacts?: WorkspaceScratchFile[];
   /** Newest first, at most `WORKSPACE_SCRATCH_MAX_FILES`. */
   files: WorkspaceScratchFile[];
   /** Every regular file found within the depth limit, including any past the cap. */
@@ -78,6 +88,7 @@ export const WORKSPACE_SCRATCH_INSTRUCTION = [
   "## Workspace scratch folder",
   `- \`${WORKSPACE_SCRATCH_DIRECTORY}/\` in the workspace root is your scratch folder. Stave creates it, keeps it out of git, and shows it to the user live while you work.`,
   `- Save what you produce along the way that is not the deliverable there: screenshots, rendered previews, logs, command output and JSON you fetched or generated. For example, run tests as \`<command> 2>&1 | tee ${WORKSPACE_SCRATCH_DIRECTORY}/tests.log\`.`,
+  `- Put files intended for the user to inspect in ${WORKSPACE_SCRATCH_DIRECTORY}/artifacts/. Keep diagnostic logs and intermediate output outside that subfolder.`,
   "- Use short descriptive file names such as `login-page.png`, `api-response.json` or `build.log`, and write as you go rather than only to /tmp.",
   "- Never write secrets, tokens, credentials or environment dumps (`env`, `printenv`, `.env` contents) there.",
   `- When you mention a scratch file in your reply, cite its path relative to the workspace root, e.g. \`${WORKSPACE_SCRATCH_DIRECTORY}/tests.log\`.`,

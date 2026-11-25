@@ -4,6 +4,9 @@ const FIXTURE = "/tests/e2e/fixtures/workspace-scratch.html";
 
 test("lists scratch files newest first and previews the newest until one is picked", async ({ page }) => {
   await page.goto(FIXTURE);
+  await expect(page.getByRole("combobox")).toHaveValue("results");
+  await expect(page.getByRole("button", { name: /tests\.log/ })).toHaveCount(0);
+  await page.getByRole("combobox").selectOption("all");
   const panel = page.getByTestId("workspace-scratch-panel");
   await expect(panel).toContainText("3 files");
   await expect(panel).toHaveAttribute("data-scratch-refresh", "watch");
@@ -29,6 +32,7 @@ test("lists scratch files newest first and previews the newest until one is pick
 
 test("while the folder is watched the panel lists only on change notices, and polls when it cannot watch", async ({ page }) => {
   await page.goto(FIXTURE);
+  await page.getByRole("combobox").selectOption("all");
   const panel = page.getByTestId("workspace-scratch-panel");
   await expect(panel).toHaveAttribute("data-scratch-refresh", "watch");
   const listCalls = () => page.evaluate(() => (window as any).scratchFixture.listCalls() as number);
@@ -40,6 +44,7 @@ test("while the folder is watched the panel lists only on change notices, and po
   await expect(page.getByRole("button", { name: /notice\.txt/ })).toBeVisible({ timeout: 1_000 });
 
   await page.goto(`${FIXTURE}?watch=0`);
+  await page.getByRole("combobox").selectOption("all");
   await expect(page.getByTestId("workspace-scratch-panel")).toHaveAttribute("data-scratch-refresh", "poll");
   const before = await listCalls();
   await page.waitForTimeout(3_500);
@@ -50,6 +55,7 @@ test("while the folder is watched the panel lists only on change notices, and po
 
 test("a log follows its end while the reader stays at the bottom", async ({ page }) => {
   await page.goto(FIXTURE);
+  await page.getByRole("combobox").selectOption("all");
   await page.getByRole("button", { name: /tests\.log/ }).click();
   const body = page.getByTestId("scratch-preview-body");
   await expect(body).toContainText("ok 80 - renders row 80");
@@ -73,6 +79,7 @@ test("a log follows its end while the reader stays at the bottom", async ({ page
 
 test("a large log previews only its end, with a note", async ({ page }) => {
   await page.goto(`${FIXTURE}?agents=1`);
+  await page.getByRole("combobox").selectOption("all");
   await page.getByRole("button", { name: /^build\.log/ }).click();
   await expect(page.getByTestId("scratch-preview-tail-note")).toHaveText("Showing the last 256 KB of 3.0 MB.");
   await expect(page.getByTestId("scratch-preview-body")).toContainText("[build] step 1000 of 1000 done");
@@ -80,12 +87,14 @@ test("a large log previews only its end, with a note", async ({ page }) => {
   await page.getByRole("button", { name: /tests\.log/ }).click();
   await expect(page.getByTestId("scratch-preview-tail-note")).toHaveCount(0);
   await page.goto(`${FIXTURE}?agents=1&locale=ko`);
+  await page.getByRole("combobox").selectOption("all");
   await page.getByRole("button", { name: /^build\.log/ }).click();
   await expect(page.getByTestId("scratch-preview-tail-note")).toHaveText("3.0 MB 중 마지막 256 KB만 표시합니다.");
 });
 
 test("sub-agents' files are grouped by agent", async ({ page }) => {
   await page.goto(`${FIXTURE}?agents=1`);
+  await page.getByRole("combobox").selectOption("all");
   const group = page.getByRole("list", { name: "Files from sub-agent run-ui-tests-1a2b3c" });
   await expect(group.getByRole("button")).toHaveCount(2);
   await expect(group.getByRole("button").nth(0)).toContainText("playwright.log");
@@ -102,6 +111,7 @@ test("sub-agents' files are grouped by agent", async ({ page }) => {
 
 test("attaches a scratch file to the task's message from the row menu or the preview", async ({ page }) => {
   await page.goto(FIXTURE);
+  await page.getByRole("combobox").selectOption("all");
   await page.getByRole("button", { name: /tests\.log/ }).click({ button: "right" });
   await page.getByRole("menuitem", { name: "Attach to message" }).click();
   await expect.poll(() => page.evaluate(() => (window as any).scratchFixture.attachedFilePaths())).toEqual([
@@ -122,10 +132,13 @@ test("attaches a scratch file to the task's message from the row menu or the pre
 
 test("explains retention: 30 days in the main checkout, archiving in a worktree", async ({ page }) => {
   await page.goto(FIXTURE);
+  await page.getByRole("combobox").selectOption("all");
   await expect(page.getByTestId("workspace-scratch-footer")).toHaveText("Files older than 30 days are removed automatically.");
   await page.goto(`${FIXTURE}?worktree=1`);
+  await page.getByRole("combobox").selectOption("all");
   await expect(page.getByTestId("workspace-scratch-footer")).toHaveText("The files are removed when this workspace is archived.");
   await page.goto(`${FIXTURE}?locale=ko`);
+  await page.getByRole("combobox").selectOption("all");
   await expect(page.getByTestId("workspace-scratch-footer")).toHaveText("30일이 지난 파일은 자동으로 삭제됩니다.");
 });
 
@@ -143,6 +156,7 @@ test("an empty folder explains what lands there, in both languages", async ({ pa
 test("rows keep their name, age and size on one line at rail width", async ({ page }) => {
   for (const query of ["", "?theme=dark&locale=ko"]) {
     await page.goto(`${FIXTURE}${query}`);
+    await page.getByRole("combobox").selectOption("all");
     await page.evaluate(() => document.fonts.ready);
     const row = page.getByRole("button", { name: /tests\.log/ });
     await expect(row).toBeVisible();
@@ -169,6 +183,7 @@ test("rows keep their name, age and size on one line at rail width", async ({ pa
 test("a nested sub-agent row is indented, stays on one line and inside the rail", async ({ page }) => {
   for (const query of ["?agents=1", "?agents=1&theme=dark&locale=ko"]) {
     await page.goto(`${FIXTURE}${query}`);
+    await page.getByRole("combobox").selectOption("all");
     await page.evaluate(() => document.fonts.ready);
     const topLevel = await page.getByRole("button", { name: /tests\.log/ }).boundingBox();
     const nested = page.getByRole("button", { name: /playwright\.log/ });
@@ -189,4 +204,17 @@ test("a nested sub-agent row is indented, stays on one line and inside the rail"
       });
     }
   }
+});
+
+test("filters and renders HTML and Markdown results", async ({ page }) => {
+  await page.goto(FIXTURE);
+  await page.evaluate(() => {
+    const fixture = (window as any).scratchFixture;
+    fixture.addFile(".stave/scratch/design.html", "<h1>Design draft</h1>");
+    fixture.addFile(".stave/scratch/notes.md", "# Review notes");
+  });
+  await page.getByRole("combobox").selectOption("html");
+  await expect(page.frameLocator("iframe").getByRole("heading", { name: "Design draft" })).toBeVisible();
+  await page.getByRole("combobox").selectOption("markdown");
+  await expect(page.getByRole("heading", { name: "Review notes" })).toBeVisible();
 });

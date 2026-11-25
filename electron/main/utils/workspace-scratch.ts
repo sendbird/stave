@@ -13,12 +13,13 @@
  * helpers next to this file (`workspace-scratch-tail.ts`,
  * `workspace-scratch-watch.ts`, `workspace-scratch-retention.ts`).
  */
-import { promises as fs, type Dirent } from "node:fs";
+import { promises as fs, type Dir } from "node:fs";
 import path from "node:path";
 import {
   WORKSPACE_SCRATCH_DIRECTORY,
   WORKSPACE_SCRATCH_MAX_DEPTH,
   WORKSPACE_SCRATCH_MAX_FILES,
+  scratchArtifactKind,
   type WorkspaceScratchFile,
   type WorkspaceScratchListing,
 } from "../../../src/lib/workspace-scratch";
@@ -186,17 +187,27 @@ export async function listWorkspaceScratch(rootPath: string): Promise<WorkspaceS
   if (!scratchRoot) return emptyListing();
 
   const files: WorkspaceScratchFile[] = [];
+  const artifacts: WorkspaceScratchFile[] = [];
+  const newestFirst = (a: WorkspaceScratchFile, b: WorkspaceScratchFile) =>
+    b.mtimeMs - a.mtimeMs || a.path.localeCompare(b.path);
+  function retain(batch: WorkspaceScratchFile[], file: WorkspaceScratchFile) {
+    batch.push(file);
+    if (batch.length >= WORKSPACE_SCRATCH_MAX_FILES * 2) {
+      batch.sort(newestFirst).length = WORKSPACE_SCRATCH_MAX_FILES;
+    }
+  }
+  let fileCount = 0;
   let totalBytes = 0;
   let scanLimitReached = false;
 
   async function walk(directory: string, depth: number): Promise<void> {
-    let entries: Dirent[];
+    let entries: Dir;
     try {
-      entries = await fs.readdir(directory, { withFileTypes: true });
+      entries = await fs.opendir(directory);
     } catch {
       return;
     }
-    for (const entry of entries) {
+    for await (const entry of entries) {
       if (scanLimitReached) return;
       // `Dirent` reports a link as a link; it is never followed.
       if (entry.isSymbolicLink()) continue;
@@ -214,22 +225,29 @@ export async function listWorkspaceScratch(rootPath: string): Promise<WorkspaceS
         continue; // Removed between the read and the stat.
       }
       if (!stat.isFile()) continue;
-      files.push({
+      const file = {
         path: path.relative(root, absolute).split(path.sep).join("/"),
         sizeBytes: stat.size,
         mtimeMs: Math.floor(stat.mtimeMs),
-      });
+      };
+      retain(files, file);
+      if (scratchArtifactKind(file.path)) retain(artifacts, file);
+      fileCount++;
       totalBytes += stat.size;
-      if (files.length >= WORKSPACE_SCRATCH_MAX_SCANNED_FILES) scanLimitReached = true;
+      if (fileCount >= WORKSPACE_SCRATCH_MAX_SCANNED_FILES) scanLimitReached = true;
     }
   }
 
   await walk(scratchRoot, 0);
-  files.sort((left, right) => right.mtimeMs - left.mtimeMs || left.path.localeCompare(right.path));
+  const newest = files.sort(newestFirst).slice(0, WORKSPACE_SCRATCH_MAX_FILES);
+  const included = new Set(newest);
+  const olderArtifacts = artifacts.sort(newestFirst).slice(0, WORKSPACE_SCRATCH_MAX_FILES)
+    .filter((file) => !included.has(file));
   return {
-    files: files.slice(0, WORKSPACE_SCRATCH_MAX_FILES),
-    fileCount: files.length,
+    files: newest,
+    ...(olderArtifacts.length ? { olderArtifacts } : {}),
+    fileCount,
     totalBytes,
-    truncated: files.length > WORKSPACE_SCRATCH_MAX_FILES || scanLimitReached,
+    truncated: fileCount > WORKSPACE_SCRATCH_MAX_FILES || scanLimitReached,
   };
 }
