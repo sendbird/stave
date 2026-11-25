@@ -15,7 +15,7 @@ import { applyThemeClass } from "@/lib/themes/apply";
 import { isTarsAnswerRetryable, tarsMessageView, type TarsActInput, type TarsAnswerResult, type TarsConversation, type TarsDecision, type TarsDecisionAnswer, type TarsMessage,
   type TarsReprioritizeInput } from "@/lib/tars/conversation";
 import { planTarsQueueMove, tarsQueueOf } from "@/lib/tars/queue-order";
-import { isTarsWorkProposal, parseTarsDecisionId, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
+import { isTarsWorkProposal, parseTarsDecisionId, previewTarsQuestion, tarsAnswerActRequestId, tarsUnverifiedDecisionId } from "@/lib/tars/decisions";
 import { matchTarsNeverRules, tarsActionDisposition, tarsActionKey } from "@/lib/tars/autonomy";
 import { collectFleetTarsAttentionItems, type FleetAttentionItem, type FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { collectTarsAttention } from "@/lib/tars/attention";
@@ -490,6 +490,7 @@ export function TarsPreview() {
             decision.reply = korean ? "릴리스 확인이 아직 실행 중입니다. 어떻게 할지 골라 주세요." : "The release check is still running. Choose how to continue.";
             decision.actions.push({ kind: "ask", recommended: 1,
               question: korean ? "스테이징 배포가 끝날 때까지 릴리스 확인을 멈출까요?" : "Should I pause the release check until the staging deploy finishes?",
+              priorEvidence: korean ? "릴리스 로그에서 스테이징 배포가 아직 진행 중인 것을 확인했습니다." : "The release log shows that staging is still deploying.",
               options: [
                 { label: korean ? "지금 멈추기" : "Pause it now", rationale: korean ? "스테이징이 끝난 뒤 이어서 확인합니다." : "The check resumes after staging finishes.",
                   effect: { kind: "control", responsibilityId: "preview-responsibility", expectedRevision: revision, operation: "pause" } },
@@ -518,7 +519,7 @@ export function TarsPreview() {
             snapshot = { ...snapshot, pendingDecisions: [...(snapshot.pendingDecisions ?? []), proposed.kind === "control"
               ? { responsibilityId: proposed.responsibilityId, messageId: message.id, actionIndex: 0, operation: proposed.operation, expectedRevision: proposed.expectedRevision, proposedAt: createdAt }
               : { kind: "ask", responsibilityId: target.responsibilityId, messageId: message.id, actionIndex: 0, operation: null, expectedRevision: target.expectedRevision,
-                proposedAt: createdAt, question: proposed.question, optionCount: proposed.options.length }] };
+                proposedAt: createdAt, question: proposed.question, optionCount: proposed.options.length, questionPreview: previewTarsQuestion(proposed) }] };
             publishTarsSnapshot(structuredClone(snapshot));
             publishAttention();
           }

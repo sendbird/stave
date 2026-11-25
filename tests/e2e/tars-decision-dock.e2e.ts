@@ -32,6 +32,22 @@ async function queue(page: Page, query = "") {
   await expect(dock(page).getByRole("status")).toContainText(/1 of 3|3개 중 1번째/);
 }
 
+test("a Tars question keeps its evidence and choices inside the card", async ({ page }) => {
+  await page.goto("/?stavePreview=tars&decision=ask&lang=en&theme=dark&density=compact");
+  await editor(page).fill("Review the release check");
+  await editor(page).press("Enter");
+  const evidence = active(page).locator("[data-tars-prior-evidence]");
+  await expect(evidence).toHaveText("Prior evidence The release log shows that staging is still deploying.");
+  await expect(active(page).getByRole("radio")).toHaveCount(3);
+  await expect(active(page).getByRole("radio").nth(1)).toBeChecked();
+  await page.evaluate(() => document.fonts.ready.then(() => undefined));
+  for (const width of [390, 1280]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect.poll(() => evidence.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(1);
+  }
+  await expect(editor(page)).toHaveText("");
+});
+
 test("one keyboard-active form, navigation preserves choices, answering advances and history remains readable", async ({ page }) => {
   await queue(page);
   await expect(page.locator("[data-tars-waiting-record]")).toHaveCount(3);

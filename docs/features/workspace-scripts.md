@@ -55,6 +55,26 @@ This rendered example shows the right-rail Workspace Tools panel with a running 
 
 ## Common Workflows
 
+### Reuse a product journey as a workspace check
+
+In the Stave checkout, copy the action you need from
+`config/workspace-check-candidates.json` into the existing `actions` object in
+`.stave/scripts.json`. If there is no configuration, use the version 2 file as
+a starting point. The candidates are opt-in. Run the command from **Workspace
+Tools**, then select it under **Workspace checks** in an AI stage. Select
+**All must pass** if the stage requires both journeys.
+
+| Candidate | What success proves | What the check rejects |
+| --- | --- | --- |
+| `decision-journeys` | Electron persists a Tars decision across restart and archives and restores a Fleet task. Chromium opens the same Tars question from Fleet and the return summary | A stale undo and a refused Tars answer do not apply. An old workspace save cannot restore a permanently deleted task |
+| `lens-capture-journey` | Concurrent Electron Lens captures preserve viewport and page state | A failed full-page capture must restore scroll and page styles |
+
+Both actions build the desktop app and use isolated Electron profiles.
+Install dependencies with `bun install --frozen-lockfile` first. The decision
+action also needs Playwright Chromium (`bunx --bun playwright install chromium`).
+These checks use local fixtures, a test provider and a local page. A pass
+covers the exercised paths on the tested revision.
+
 ### Create A Command
 
 1. Open `Settings > Projects > Workspace Tools`, select the `Commands` tab, and click `Add command`.

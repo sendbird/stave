@@ -552,6 +552,22 @@ export type TarsResponsibilityPatch = z.infer<typeof TarsResponsibilityPatchSche
 export const TarsDecisionKindSchema = z.enum(["confirm", "unverifiedCompletion", "ask"]);
 export type TarsDecisionKind = z.infer<typeof TarsDecisionKindSchema>;
 
+export const TarsQuestionOptionCopySchema = z.object({
+  label: z.string().trim().min(1).max(60),
+  rationale: z.string().trim().min(1).max(200),
+}).strict();
+
+/** An observation the decision cites. The text itself does not verify an outcome. */
+export const TarsDecisionEvidenceSchema = z.string().trim().min(1).max(500);
+
+const TarsQuestionPreviewSchema = z.object({
+  question: z.string().trim().min(1).max(500),
+  options: z.array(TarsQuestionOptionCopySchema).min(2).max(4),
+  recommended: z.number().int().min(0).nullable(),
+  priorEvidence: TarsDecisionEvidenceSchema.optional(),
+}).strict().refine((preview) => preview.recommended === null || preview.recommended < preview.options.length);
+export type TarsQuestionPreview = z.infer<typeof TarsQuestionPreviewSchema>;
+
 /**
  * A decision that waits on the user and is bound to a responsibility. Fleet
  * and the tray show it as "Tars decision waiting". Rows saved before kinds
@@ -571,6 +587,7 @@ export const TarsPendingDecisionSchema = z.object({
   /** An ask's question, as the model wrote it. */
   question: z.string().trim().min(1).max(500).optional(),
   optionCount: z.number().int().min(1).max(4).optional(),
+  questionPreview: TarsQuestionPreviewSchema.optional(),
 }).strict();
 export type TarsPendingDecision = z.infer<typeof TarsPendingDecisionSchema>;
 

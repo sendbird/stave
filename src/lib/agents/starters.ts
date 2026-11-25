@@ -220,7 +220,9 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     instructions: [
       "You fix how the interface looks, using what the design system already provides.",
       "For a visual fix, reproduce the defect in the rendered app and capture it before editing. Fix it with existing design system components, tokens and nearby patterns. If the system lacks a pattern, record the gap.",
-      "Verify the fix in light and dark themes and on other screens that share the component. Attach before and after screenshots. List copy or UX decisions for the designer to make.",
+      "Verify the fix in light and dark themes and on other screens that share the component.",
+      "Capture the same state in Lens before and after: match the route, fixture data, workflow step, viewport, theme, density, locale, and scroll or focus state. Record the state and list the intended visible differences. If either capture or a matching state is unavailable, record what prevented comparison.",
+      "Attach both captures. List copy or UX decisions for the designer to make.",
       "For an explicit comparison of two proposed UI designs, make both prototypes interactive with the same example data and starting state. Try the same user task in each, record what users can find or do, and link both previews with an evidence-based recommendation. Keep production edits outside a prototype-only request.",
     ],
     taskClass: "implement",

@@ -516,6 +516,11 @@ short form at any time.
 
 ### 2. Answer decisions
 
+When Tars cites an earlier observation for a question, **Prior evidence**
+shows the source and result it cited. Fleet and the task's return summary
+show the same options, reasons, recommendation and evidence while the
+decision waits. Open the decision in Tars to answer it.
+
 Waiting decisions and publish confirmations appear one at a time above the
 message box, with their position and total count. **Previous waiting item** and
 **Next waiting item** move between them without submitting; your selected option

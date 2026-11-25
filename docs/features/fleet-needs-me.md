@@ -19,6 +19,10 @@ each question and approval separately.
 
 ## When To Use It
 
+A Tars question shows its choices, reasons, recommendation and any prior
+evidence in the row. **Open in Tars** opens the same decision to answer it. An unverified completion shows the choices available for that deliverable.
+
+
 - Use Fleet when several repositories or workspaces are active at once.
 - Use it to find the next task that needs a response without opening every
   workspace.

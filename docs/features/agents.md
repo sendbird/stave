@@ -142,8 +142,11 @@ An agent's **Workflow** is the ordered list of stages its run follows. By
 default, Implementer, Lead, Supervisor, Debugger and UI Polisher each own one
 **Work** stage, followed by independent review when they change files.
 Debugger reproduces the problem, finds its cause, fixes it and verifies the fix
-in the same stage. UI Polisher captures the defect, fixes it and reports the
-before-and-after evidence in the same stage. Researcher and Reviewer run a
+in the same stage. UI Polisher captures the defect in Lens and reports a
+before-and-after pair for the same state. The report names the route, fixture
+data, workflow step, viewport, theme, density, locale, scroll or focus state,
+and the intended visible differences. If the states cannot be matched, the
+report identifies the gap. Researcher and Reviewer run a
 single read-only stage. Shipper uses a publication workflow: Validate → Open
 draft PR → Watch checks → Ready for review.
 

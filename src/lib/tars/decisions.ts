@@ -5,11 +5,11 @@ import {
 } from "./conversation";
 import { z } from "zod";
 import type {
-  TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
+  TarsAskAction, TarsActionReceipt, TarsActionRecord, TarsControlAction, TarsDecisionAction, TarsDecisionAnswer, TarsMessage, TarsMessageDelivery, TarsMessageOrigin,
 } from "./conversation";
 import type { TarsNeverRuleMatch } from "./autonomy";
 import { canContinueTarsControl } from "./continuation";
-import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsResponsibility } from "./types";
+import type { TarsActivity, TarsDecisionKind, TarsPendingRequest, TarsQuestionPreview, TarsResponsibility } from "./types";
 
 /**
  * One decision shape for three sources: a control the model proposed that
@@ -110,6 +110,7 @@ export interface TarsDecisionView {
   actionIndex: number | null;
   /** An ask's question as the model wrote it; null for Stave's own decisions. */
   question: string | null;
+  priorEvidence?: string;
   targets: Array<{ responsibilityId: string; expectedRevision: number }>;
   options: TarsDecisionOption[];
   recommended: number | null;
@@ -314,7 +315,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
       for (const option of action.options) if (option.effect.kind === "control" && !targets.has(option.effect.responsibilityId))
         targets.set(option.effect.responsibilityId, option.effect.expectedRevision);
       const retiredBy = !answer && retiredBySibling(receipt, id) ? "settled" : null;
-      const safe = withoutIrreversibleRecommendation(action);
+      const preview = previewTarsQuestion(action);
       views.push(settle({ id, kind: "ask", messageId: receipt.messageId, actionIndex: receipt.actionIndex, question: action.question,
         targets: [...targets].map(([responsibilityId, expectedRevision]) => ({ responsibilityId, expectedRevision })),
         options: action.options.map((option): TarsDecisionOption => option.effect.kind === "control"
@@ -322,7 +323,7 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
             operation: option.effect.operation, ...(option.effect.input ? { input: option.effect.input } : {}) }, label: option.label, rationale: option.rationale }
           : option.effect.kind === "prReview" ? { kind: "prReview", effect: option.effect, label: option.label, rationale: option.rationale }
           : { kind: "reply", label: option.label, rationale: option.rationale }),
-        recommended: safe.recommended ?? null, answer, record: null, since: receipt.updatedAt }, retiredBy, message.origin, later));
+        recommended: preview.recommended, priorEvidence: preview.priorEvidence, answer, record: null, since: receipt.updatedAt }, retiredBy, message.origin, later));
     }
   }
   // Stave's unverified-completion decision: the one waiting now, and those the conversation recorded.
@@ -342,6 +343,17 @@ export function projectTarsDecisions(sources: TarsDecisionSources): TarsDecision
     current ? null : "settled", undefined));
   }
   return views;
+}
+
+/** Only presentation data crosses into attention summaries. Effects stay on the saved decision. */
+export function previewTarsQuestion(ask: TarsAskAction): TarsQuestionPreview {
+  const safe = withoutIrreversibleRecommendation(ask);
+  return {
+    question: safe.question,
+    options: safe.options.map(({ label, rationale }) => ({ label, rationale })),
+    recommended: safe.recommended ?? null,
+    ...(safe.priorEvidence ? { priorEvidence: safe.priorEvidence } : {}),
+  };
 }
 
 /** The decisions the user can answer now. */

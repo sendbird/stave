@@ -1837,6 +1837,7 @@
     },
     "acceptCompletion": "완료로 인정",
     "decision": {
+      "priorEvidence": "앞서 확인한 근거",
       "waiting": "답변 대기",
       "enterKey": "Enter",
       "keysHint": {

@@ -1,6 +1,6 @@
 import { canAcceptTarsCompletion } from "./completion";
 import { tarsAskDecisionId, tarsUnverifiedDecisionId, tarsConfirmationRequestId } from "./decision-ids";
-import type { TarsControlOperation, TarsPendingDecision, TarsResponsibility, TarsSnapshot } from "./types";
+import type { TarsControlOperation, TarsPendingDecision, TarsQuestionPreview, TarsResponsibility, TarsSnapshot } from "./types";
 
 /**
  * The one rule for Tars-owned work that waits on the user. Fleet's attention
@@ -32,7 +32,7 @@ export interface TarsAttentionSignal {
   /** Set on a single-action decision (a proposed control): what Confirm applies. */
   decision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
   /** Set on a decision with several options; it is answered in the Tars conversation. */
-  prompt?: { kind: "unverifiedCompletion" } | { kind: "ask"; question: string } | { kind: "resultReady"; canAcceptCompletion: boolean; notificationId?: string };
+  prompt?: { kind: "unverifiedCompletion"; revision: number; goal: TarsResponsibility["completionGoal"] } | { kind: "ask"; question: string; preview?: TarsQuestionPreview } | { kind: "resultReady"; canAcceptCompletion: boolean; notificationId?: string };
 }
 
 /** Fleet's row id for a pending decision; a proposal keeps the id it had before decision kinds existed. */
@@ -99,7 +99,7 @@ export function collectTarsAttention(
       since: decision.proposedAt,
       ...(single ? { decision: { messageId: decision.messageId!, actionIndex: decision.actionIndex!, operation: decision.operation!,
         expectedRevision: decision.expectedRevision } }
-        : { prompt: kind === "ask" ? { kind: "ask" as const, question: decision.question ?? "" } : { kind: "unverifiedCompletion" as const } }),
+        : { prompt: kind === "ask" ? { kind: "ask" as const, question: decision.question ?? "", preview: decision.questionPreview } : { kind: "unverifiedCompletion" as const, revision: decision.expectedRevision, goal: row.completionGoal } }),
     }];
   });
   // Work blocked on an unverified completion is said by its decision row: one fact, one row.

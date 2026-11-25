@@ -13,6 +13,8 @@ import {
 } from "@/lib/task-context/return-summary";
 import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segments";
 import { useAppStore } from "@/store/app.store";
+import { TarsQuestionPreview } from "@/components/tars/TarsQuestionPreview";
+import { openTarsAt } from "@/store/tars-notification-focus-store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { useSideChatStore } from "@/store/side-chat-store";
 import { taskHandoffKey, useTaskHandoffStore } from "@/store/task-handoff-store";
@@ -33,6 +35,8 @@ export function followReturnLink(target: ReturnLinkTarget, workspaceId: string, 
     openTaskInspection(workspaceId, taskId);
   } else if (target.kind === "request") {
     void useAppStore.getState().focusTaskAttention({ taskId, workspaceId });
+  } else if (target.kind === "tars-decision") {
+    openTarsAt({ kind: "decision", responsibilityId: target.responsibilityId, decisionId: target.decisionId });
   } else if (target.kind === "decision") {
     useAppStore.getState().focusTranscriptDecision({ taskId, messageId: target.messageId, requestId: target.requestId });
   } else if (target.kind === "message") {
@@ -207,7 +211,8 @@ export function ReturnSummaryCard(props: { taskId: string }) {
             <RowMark row={row} />
             <div className={sx(styles.rowText)}>
               <p className={sx(styles.rowTitle)} title={row.title}>{row.title}</p>
-              {row.detail ? <p className={sx(styles.rowDetail)} title={row.detail}>{row.detail}</p> : null}
+              {row.detail && !row.tarsQuestionPreview ? <p className={sx(styles.rowDetail)} title={row.detail}>{row.detail}</p> : null}
+              {row.tarsQuestionPreview ? <TarsQuestionPreview question={row.tarsQuestionPreview} /> : null}
             </div>
             {row.action ? (
               <AuiButton

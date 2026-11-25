@@ -32,6 +32,11 @@
 
 ## Interface Walkthrough
 
+A waiting Tars question can appear in the first row. It carries the choices,
+reasons, recommendation and any prior evidence from the Tars card. **Open in
+Tars** opens the exact waiting decision. The same applies to a choice about unverified completion.
+
+
 ### Entry Points
 
 - The card sits in the conversation, right after the last message you had

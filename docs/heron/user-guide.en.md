@@ -457,7 +457,9 @@ Fix | Fixes what the review found. A fix that changed files goes back to Review 
 
 Implementer, Lead, Supervisor, Debugger and UI Polisher each own a single Work
 stage. Debugger reproduces, diagnoses and verifies the fix in that stage. UI
-Polisher captures the defect, fixes it and records the visible result there.
+Polisher captures the defect in Lens, then captures the same page and workflow
+state after the fix. The report gives both images, the matching conditions and
+the intended visible differences.
 When Lead or Supervisor delegates work, the brief names the problem, the
 evidence to start from and how the helper can verify the result. An AI
 planning stage defines acceptance criteria that a test, command, rendered
@@ -1017,7 +1019,14 @@ inside the dock while the message box stays reachable.
 
 When Tars needs you to choose, it shows a decision card above the message box:
 a question with two to four options, each with a short reason, and a
-recommended option when Tars has one. A confirmation (a control Tars proposed,
+recommended option when Tars has one. When Tars cites an earlier observation,
+**Prior evidence** shows the source and result it cited. Fleet and the task's
+return summary show the same choices, reasons, recommendation and evidence.
+Choose **Open in Tars** to answer that decision. These summaries also show the choices for an unverified completion.
+
+[Tars question](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/tars-question.png)
+
+A confirmation (a control Tars proposed,
 or a completion Stave could not verify) leads with what will happen: what it
 does, such as "Cancel this work?", the work it is about, and the effect in one
 sentence. A tool request it approves shows as a code block; the repository
@@ -1341,6 +1350,8 @@ The AI can use Stave features such as the Information panel, workspace documents
 
 With Lens CDP tools enabled, loopback addresses and active Orbit service hosts for the current workspace skip approval by default. Change this in **Settings > Browser > Lens > Developer Mode > Advanced options** under **Skip CDP prompts for local development**. When prompted, **Allow once** grants access in that workspace for 15 minutes after the last CDP action on that host.
 ```
+
+In the Stave checkout, you can copy the decision and Lens journey commands from `config/workspace-check-candidates.json` into Workspace Tools and select them as workspace checks. They run the desktop app with local fixtures and check both successful behavior and recovery or refusal.
 
 In the desktop app, **Workspace Tools > Processes > Listening ports** shows local servers associated with the workspace, even when an agent or terminal started them directly. Check the bind address and process name, then select **Open in Lens**. **Owned by Stave** identifies a registered terminal or script. **Inferred** uses the process's working directory or a parent process.
 

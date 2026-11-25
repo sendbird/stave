@@ -41,7 +41,13 @@ export interface ReturnBaseline {
 }
 
 export type ReturnStop =
-  | { kind: "need"; need: FleetAttentionKind; since: string | null; detail: string | null }
+  | {
+      kind: "need";
+      need: FleetAttentionKind;
+      since: string | null;
+      detail: string | null;
+      tarsDecision?: { responsibilityId: string; decisionId: string; preview?: FleetAttentionItem["tarsQuestionPreview"] };
+    }
   | { kind: "running" }
   | { kind: "finished" | "failed" | "stopped"; at: string | null }
   | { kind: "none" };
@@ -316,6 +322,11 @@ function resolveStop(args: {
       need: args.need.kind,
       since: args.need.waitingSince ?? null,
       detail: args.need.detail?.trim() || null,
+      ...(args.need.tarsResponsibilityId && args.need.tarsDecisionId ? { tarsDecision: {
+        responsibilityId: args.need.tarsResponsibilityId,
+        decisionId: args.need.tarsDecisionId,
+        preview: args.need.tarsQuestionPreview,
+      } } : {}),
     };
   }
   if (args.running) return { kind: "running" };

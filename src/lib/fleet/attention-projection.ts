@@ -22,7 +22,9 @@ import {
   userInputInteractionId,
 } from "@/lib/work-graph/work-graph-reducer";
 import type { ChatMessage, Task } from "@/types/chat";
-import type { TarsControlOperation } from "@/lib/tars/types";
+import type { TarsControlOperation, TarsQuestionPreview } from "@/lib/tars/types";
+import { describeTarsDecisionOption, tarsOptionRationale } from "@/lib/tars/decision-option-copy";
+import { tarsUnverifiedOptions } from "@/lib/tars/decisions";
 import type { TarsAttentionSignal } from "@/lib/tars/attention";
 import { classifyTaskStatus } from "./task-status";
 
@@ -120,6 +122,7 @@ export interface FleetAttentionItem {
   /** The Tars responsibility a `tars-*` row speaks for. */
   tarsResponsibilityId?: string;
   tarsDecisionId?: string;
+  tarsQuestionPreview?: TarsQuestionPreview;
   tarsResult?: { canAcceptCompletion: boolean; notificationId?: string };
   /** The proposed control a `tars-decision` row confirms, at the revision it was proposed for. */
   tarsDecision?: { messageId: string; actionIndex: number; operation: TarsControlOperation; expectedRevision: number };
@@ -757,6 +760,15 @@ export function collectFleetTarsAttentionItems(
 ): FleetAttentionItem[] {
   return signals.map((signal): FleetAttentionItem => {
     const names = namesByWorkspaceId?.get(signal.workspaceId);
+    const prompt = signal.prompt;
+    const questionPreview = prompt?.kind === "ask" ? prompt.preview : prompt?.kind === "unverifiedCompletion" ? {
+      question: i18n.t("shell:tars.decision.unverified.question", { title: signal.title }),
+      options: tarsUnverifiedOptions(signal.responsibilityId, prompt.revision, prompt.goal).map((option) => ({
+        label: describeTarsDecisionOption(prompt, option),
+        rationale: tarsOptionRationale(option) ?? "",
+      })),
+      recommended: null,
+    } : undefined;
     return {
       id: signal.id,
       kind: signal.kind,
@@ -783,6 +795,7 @@ export function collectFleetTarsAttentionItems(
       ...(signal.prompt?.kind === "resultReady" ? { tarsResult: {
         canAcceptCompletion: signal.prompt.canAcceptCompletion, notificationId: signal.prompt.notificationId,
       } } : {}),
+      ...(questionPreview ? { tarsQuestionPreview: questionPreview } : {}),
       ...(signal.decisionId ? { tarsDecisionId: signal.decisionId } : {}),
       ...(signal.decision ? { tarsDecision: { ...signal.decision } } : {}),
     };

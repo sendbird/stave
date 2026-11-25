@@ -1,3 +1,4 @@
+import { TarsQuestionPreview } from "@/components/tars/TarsQuestionPreview";
 import { useMemo } from "react";
 import { fleetSelectionColumn } from "./fleet-selection.stylex";
 import { useAppStore } from "@/store/app.store";
@@ -197,6 +198,7 @@ function FleetNeedRow(args: {
   return (
     <InboxRow
       entry={approvalSummary ? { ...entry, detail: approvalSummary } : entry}
+      hideDetail={Boolean(item.tarsQuestionPreview)}
       wrapDetail={Boolean(approvalSummary)}
       selectionKey={item.taskId ? getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId) : undefined}
       leading={item.taskId ? <span className={sx(fleetSelectionColumn.cell, fleetSelectionColumn.leading)}><FleetSelectionCheckbox itemKey={getFleetTaskKey(item.repositoryPath, item.workspaceId, item.taskId)} title={item.taskTitle || title} /></span> : undefined}
@@ -223,9 +225,8 @@ function FleetNeedRow(args: {
         ) : undefined
       }
       body={
-        selected ? null : (
-          <FleetRowInlineAnswer interaction={interaction} onAnswer={answer} />
-        )
+        item.tarsQuestionPreview ? <TarsQuestionPreview question={item.tarsQuestionPreview} />
+          : selected ? null : <FleetRowInlineAnswer interaction={interaction} onAnswer={answer} />
       }
       onFocus={interaction.ensureLoaded}
       onKeyDown={handleRowKeyDown}

@@ -12,7 +12,7 @@ import { SecondaryRunRuntimeHintsSchema } from "../runs/secondary-run";
 import {
   TARS_MESSAGE_ATTACHMENTS_MAX, TARS_MESSAGE_MAX_CHARS, TarsActivitySchema, TarsAttachmentSummarySchema, type TarsAttachmentSummary,
   TarsAgentIdSchema, TarsControlInputSchema, TarsControlOperationSchema, TarsSnapshotSchema, TarsStageWaitSchema,
-  tarsControlInputProblem,
+  TarsDecisionEvidenceSchema, TarsQuestionOptionCopySchema, tarsControlInputProblem,
 } from "./types";
 import { TarsEventSchema, TarsFollowUpReasonSchema } from "./events";
 import { TarsPublishActionSchema, TarsPublishReasonSchema, TarsPublishRecordSchema } from "./publication";
@@ -192,11 +192,7 @@ export type TarsAskEffect = z.infer<typeof TarsAskEffectSchema>;
 export const TARS_ASK_MIN_OPTIONS = 2;
 export const TARS_ASK_MAX_OPTIONS = 4;
 
-export const TarsAskOptionSchema = z.object({
-  label: z.string().trim().min(1).max(60),
-  rationale: z.string().trim().min(1).max(200),
-  effect: TarsAskEffectSchema,
-}).strict();
+export const TarsAskOptionSchema = TarsQuestionOptionCopySchema.extend({ effect: TarsAskEffectSchema });
 export type TarsAskOption = z.infer<typeof TarsAskOptionSchema>;
 
 /**
@@ -206,6 +202,7 @@ export type TarsAskOption = z.infer<typeof TarsAskOptionSchema>;
 export const TarsAskActionSchema = z.object({
   kind: z.literal("ask"),
   question: z.string().trim().min(1).max(500),
+  priorEvidence: TarsDecisionEvidenceSchema.optional(),
   options: z.array(TarsAskOptionSchema).min(TARS_ASK_MIN_OPTIONS).max(TARS_ASK_MAX_OPTIONS),
   recommended: z.number().int().min(0).max(TARS_ASK_MAX_OPTIONS - 1).optional(),
 }).strict().superRefine((ask, context) => {
