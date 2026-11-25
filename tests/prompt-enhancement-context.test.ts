@@ -193,6 +193,38 @@ describe("prompt enhancement depth", () => {
     expect(sharpen).toContain("<draft>deep</draft>");
     expect(sharpen).not.toContain("<draft>old</draft>");
   });
+
+  test("preserves the verification step in a multi-step Sharpen example", () => {
+    const verification = "Verify the fix by replaying the failing session.";
+    const enhanced = "Read the restore path and reproduce the failure. ".repeat(8) + verification;
+    const exemplars = recordPromptEnhancementExemplar([], {
+      source: "fix restore",
+      enhanced,
+      outcome: "kept",
+      depth: "sharpen",
+    });
+    const selected = selectPromptEnhancementExemplars(exemplars, "sharpen");
+    const blocks = renderPromptEnhancementContextBlocks({ depth: "sharpen", exemplars: selected });
+    expect(blocks).toContain(`<rewrite>${enhanced}</rewrite>`);
+  });
+
+  test("keeps both ends of oversized Sharpen rewrites within the limit", () => {
+    const goal = "Fix terminal restore.";
+    const verification = "Verify the fix by replaying the failing session.";
+    const enhanced = goal + " Inspect the restore trace.".repeat(100) + " " + verification;
+    const exemplars = normalizePromptEnhancementExemplars([
+      { source: "restore", enhanced, outcome: "undone", at: "1", depth: "sharpen" },
+      { source: "restore", enhanced, outcome: "undone", at: "1" },
+    ]);
+    const sharpen = selectPromptEnhancementExemplars(exemplars, "sharpen")![0].enhanced;
+    const clarify = selectPromptEnhancementExemplars(exemplars, "clarify")![0].enhanced;
+    expect(sharpen).toHaveLength(900);
+    expect(sharpen).toStartWith(goal);
+    expect(sharpen).toEndWith(verification);
+    expect(sharpen).toContain("…");
+    expect(clarify).toHaveLength(300);
+    expect(clarify).toEndWith("…");
+  });
 });
 
 describe("prompt enhancement context in the instruction", () => {

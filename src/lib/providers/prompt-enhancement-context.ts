@@ -62,14 +62,15 @@ export interface PromptEnhancementContext {
   exemplars?: PromptEnhancementExemplar[];
 }
 
-// Caps are in characters. Worst case (every source present) stays under ~7k
-// characters, roughly 2k tokens, on top of the draft.
+// Reference material is character-capped, including 3,000 characters of
+// Clarify examples or 6,000 characters of Sharpen examples before markup.
 export const PROMPT_ENHANCEMENT_HISTORY_MESSAGES = 6;
 export const PROMPT_ENHANCEMENT_HISTORY_MESSAGE_CHARS = 300;
 export const PROMPT_ENHANCEMENT_WORKSPACE_SUMMARY_CHARS = 1_200;
 export const PROMPT_ENHANCEMENT_REPO_GUIDANCE_CHARS = 1_500;
 export const PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS = 800;
 export const PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS = 300;
+const SHARPEN_EXEMPLAR_REWRITE_CHARS = 900;
 /** Ring-buffer size of remembered rewrites. */
 export const PROMPT_ENHANCEMENT_EXEMPLAR_MEMORY = 12;
 export const PROMPT_ENHANCEMENT_KEPT_EXEMPLARS = 3;
@@ -78,6 +79,15 @@ export const PROMPT_ENHANCEMENT_UNDONE_EXEMPLARS = 2;
 function clip(text: string, max: number) {
   const trimmed = text.trim();
   return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
+}
+
+function clipSharpenRewrite(text: string) {
+  const trimmed = text.trim();
+  if (trimmed.length <= SHARPEN_EXEMPLAR_REWRITE_CHARS) return trimmed;
+  // Keep the goal at the start and the verification instructions at the end.
+  const openingChars = Math.floor(SHARPEN_EXEMPLAR_REWRITE_CHARS / 2);
+  const closingChars = SHARPEN_EXEMPLAR_REWRITE_CHARS - openingChars - 1;
+  return `${trimmed.slice(0, openingChars)}…${trimmed.slice(-closingChars)}`;
 }
 
 export function buildPromptEnhancementHistory(
@@ -231,10 +241,10 @@ export function selectPromptEnhancementExemplars(
       .map((exemplar) => ({
         ...exemplar,
         source: clip(exemplar.source, PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS),
-        enhanced: clip(
-          exemplar.enhanced,
-          PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS,
-        ),
+        enhanced:
+          depth === "sharpen"
+            ? clipSharpenRewrite(exemplar.enhanced)
+            : clip(exemplar.enhanced, PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS),
       }));
   const selected = [
     ...pick("kept", PROMPT_ENHANCEMENT_KEPT_EXEMPLARS),
