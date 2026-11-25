@@ -1,3 +1,4 @@
+import { consumeClaudeReadOnlyPromptStream } from "../electron/providers/claude-read-only-prompt-stream";
 import { describe, expect, setSystemTime, test } from "bun:test";
 import path from "node:path";
 import type { PreToolUseHookInput, SubagentStartHookInput } from "@anthropic-ai/claude-agent-sdk";
@@ -6,7 +7,6 @@ import {
   buildClaudeApprovalTimeoutBridgeEvent,
   buildClaudeQueryOptions,
   buildClaudeReadOnlyPromptOptions,
-  consumeClaudeReadOnlyPromptStream,
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   claudeAskUserQuestionPreToolUseHook,
   claudeWebFetchAuthWallPostToolUseHook,
@@ -2242,6 +2242,7 @@ describe("consumeClaudeReadOnlyPromptStream", () => {
         subtype: "success",
         is_error: false,
         result: "Use a longer effort-aware deadline.",
+        modelUsage: { "actual-haiku": {} },
         usage: { input_tokens: 12, output_tokens: 4 },
       } as SDKMessage;
     }
@@ -2258,6 +2259,7 @@ describe("consumeClaudeReadOnlyPromptStream", () => {
     expect(result).toMatchObject({
       ok: true,
       text: "Use a longer effort-aware deadline.",
+      model: "actual-haiku",
       usage: { type: "usage", inputTokens: 12, outputTokens: 4 },
     });
     expect(progress).toEqual(["assistant", "result"]);

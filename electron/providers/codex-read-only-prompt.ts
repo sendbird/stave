@@ -109,6 +109,8 @@ export const CODEX_TOOLLESS_CONFIG_OVERRIDES: CodexConfigOverrides = {
 export type CodexReadOnlyPromptResult = {
   ok: boolean;
   text?: string;
+  /** Model reported by App Server for the isolated thread. */
+  model?: string;
   usage?: UsageEvent;
   nativeSessionId?: string;
   sessionReused?: boolean;
@@ -288,7 +290,7 @@ export async function runCodexReadOnlyPromptWithClient(
 
     const resumeSessionId = args.resumeSessionId?.trim();
     const threadResponse = resumeSessionId && args.buildThreadResumeParams
-      ? await args.request<{ thread: { id: string } }>(
+      ? await args.request<{ thread: { id: string }; model?: string }>(
           "thread/resume",
           args.buildThreadResumeParams({
             threadId: resumeSessionId,
@@ -300,7 +302,7 @@ export async function runCodexReadOnlyPromptWithClient(
             secondaryReadOnly: true,
           }),
         )
-      : await args.request<{ thread: { id: string } }>(
+      : await args.request<{ thread: { id: string }; model?: string }>(
           "thread/start",
           args.buildThreadStartParams({
             cwd: args.runtimeCwd,
@@ -322,6 +324,8 @@ export async function runCodexReadOnlyPromptWithClient(
       return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }
 
+    let resolvedModel = toTrimmedString(threadResponse.model);
+    const earlyModelByTurn = new Map<string, string | null>();
     let latestAgentMessageText = "";
     let latestUsage: UsageEvent | undefined;
     let failureMessage: string | null = null;
@@ -359,6 +363,13 @@ export async function runCodexReadOnlyPromptWithClient(
             "Codex App Server read-only turn failed.";
           resolveCompletion?.();
         }
+        return;
+      }
+
+      if (message.method === "model/rerouted" && typeof params.turnId === "string") {
+        const rerouted = toTrimmedString(params.toModel);
+        if (!turnId) earlyModelByTurn.set(params.turnId, rerouted);
+        else if (params.turnId === turnId) resolvedModel = rerouted;
         return;
       }
 
@@ -437,6 +448,7 @@ export async function runCodexReadOnlyPromptWithClient(
     }
     const turnResponse = turnOutcome.value;
     turnId = turnResponse.turn.id;
+    if (earlyModelByTurn.has(turnId)) resolvedModel = earlyModelByTurn.get(turnId) ?? null;
     if (aborted) {
       requestInterrupt();
       return { ok: false, aborted: true, detail: `${label} was aborted.` };
@@ -474,6 +486,7 @@ export async function runCodexReadOnlyPromptWithClient(
     return {
       ok: true,
       text: latestAgentMessageText,
+      ...(resolvedModel ? { model: resolvedModel } : {}),
       usage: latestUsage,
       nativeSessionId: threadId,
       sessionReused,

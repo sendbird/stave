@@ -71,7 +71,12 @@ The rewrite model has no tools, so Sharpen never adds links or citations it coul
 - Enhancement expands terse drafts into complete agent instructions using what the draft says plus reference material that exists for the task: the last few conversation turns, the Information panel (notes, open todos, linked issues), and the repo's `AGENTS.md` or `CLAUDE.md`. Each source is attached only when present and is clipped, so an empty workspace sends only the draft. It does not invent requirements, files, or `$skill` / `@info` tokens the draft did not already contain. Under **Clarify** it also adds no constraints or acceptance criteria; under **Sharpen** it may add how the agent should work and verify, as described in [Rewrite Depth](#rewrite-depth).
 - **Settings → Models → Background AI → Prompt enhancement** holds the **Rewrite depth**, your **Prompt style** (language, tone, what to always include) and the **Learn from kept and undone rewrites** switch. When learning is on, the last few rewrites you kept are shown to the model as examples to match and the ones you undid as examples to avoid, separately for each depth, so a short Clarify rewrite you kept does not hold Sharpen back. Both are stored locally with your settings; **Forget remembered rewrites** clears the memory.
 - The action depends on an available utility runner. Auto uses Codex Luna, then Claude Haiku 5.5, then Cursor or Kiro. A later runner is used only when that provider is signed in.
-- A rewrite can still be incomplete or inaccurate, so review it before sending.
+- Review the output for language changes, altered scope, and missing literal
+  tokens before sending. In an eight-pair English and Korean evaluation,
+  Sharpen gave more concrete checks for the implementation drafts. One English
+  draft came back in Korean and a Korean rewrite lost a literal skill token
+  during formatting cleanup. The evaluation used two samples per
+  depth and draft on one utility model.
 
 ## Troubleshooting
 
