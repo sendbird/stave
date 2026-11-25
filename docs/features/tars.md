@@ -155,8 +155,7 @@ HTML nor a second execution engine.
    independent read-only **Review** on the provider that did not write them,
    also when you pinned an execution model;
    the **Fix review findings** stage runs only when that review asks for
-   changes. A fix that changed files returns once to the Reviewer for the fix
-   commits only, so the run ends on a revision an independent review passed. The Reviewer confirms the reported evidence and runs only checks
+   changes. A fix that changed files returns once to the Reviewer to check the fixes. If the first independent review lacks matching delegation evidence, the Reviewer checks the original work as well. The result card uses the same review evidence as the host. The Reviewer confirms the reported evidence and runs only checks
    covering the changed files when its read-only policy permits those commands.
    Claude reviewers may run the approved test, lint and typecheck scripts from
    `package.json`; other commands require existing permission. When no check

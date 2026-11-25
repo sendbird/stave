@@ -162,6 +162,17 @@ test("a repair that changed the reviewed work returns to the Reviewer once, whic
   }).changes).toEqual({ files: 2, lines: null });
 });
 
+test("a repair without a matching first review sends the whole assignment back to the reviewer", () => {
+  const aggregate = repaired();
+  const review = aggregate.stages[1]!;
+  if (review.report?.outcome !== "complete") throw new Error("Expected report");
+  delete review.report.independentReview;
+  const change = applyAgentRunDecision({ aggregate, decision: decide(aggregate), now: AGENT_RUN_NOW });
+  expect(change.upserts[1]!.feedback).toContain("original work and all repairs");
+  expect(change.upserts[1]!.feedback).not.toContain("fix only");
+  expect(change.upserts[1]!.feedback).toContain("Unmount guard missing.");
+});
+
 test("a re-review that still asks changes gets one more repair, and the run then finishes without a third review", () => {
   const aggregate = repaired();
   const firstReview = aggregate.stages[1]!;

@@ -1,4 +1,4 @@
-import { isPinnedReviewerStage, matchingIndependentReview } from "../../src/lib/agent-runs/review-finalization";
+import { stageReviewVerdict } from "../../src/lib/agent-runs/review-finalization";
 import { createHash } from "node:crypto";
 import { parseGitRemoteRepository } from "./git-remote-repository";
 import { tarsSourceLinkGuidance } from "../../src/lib/tars/intake";
@@ -278,8 +278,7 @@ export function hasStaveVerifiedOutcome(detail: AgentRunDetail, final: StageReco
     classifyStageEvidence(record.report?.outcome === "complete" ? record.report : null, record.facts ?? null).some(isVerifiedEvidence))) return true;
   const reviewStage = detail.agentRun.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer");
   const review = reviewStage ? latestStageRecord(detail.stages, reviewStage.id) : undefined;
-  if (review?.report?.outcome === "complete" && review.report.reviewVerdict === "passed" && startedSince(review, reverifyAfter) &&
-    (!isPinnedReviewerStage(reviewStage) || matchingIndependentReview(review.report)?.verdict === "passed") &&
+  if (review?.report?.outcome === "complete" && stageReviewVerdict(reviewStage, review.report) === "passed" && startedSince(review, reverifyAfter) &&
     // An unknown final revision cannot show the reviewed revision is the one being completed.
     revisionsMatch(review.report.workspaceRevision, finalRevision)) return true;
   return endedOnUnchangedWork(detail, final, reverifyAfter);
@@ -510,7 +509,7 @@ export function tarsRunResult(detail: AgentRunDetail, observation: TarsExecution
   const reviewStage = run.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer");
   const review = reviewStage ? latestStageRecord(detail.stages, reviewStage.id) : undefined;
   const reviewReport = review?.report?.outcome === "complete" ? review.report : undefined;
-  const reviewVerdict = isPinnedReviewerStage(reviewStage) ? matchingIndependentReview(reviewReport)?.verdict : reviewReport?.reviewVerdict;
+  const reviewVerdict = stageReviewVerdict(reviewStage, reviewReport);
   const part = (facts: unknown) => createHash("sha256").update(JSON.stringify(facts)).digest("hex").slice(0, 12);
   const outcome = part([observation.state, observation.detailCode ?? "", run.stopReason ?? "",
     observation.resultVerifiedRunId ? "verified" : observation.resultUnverifiedRunId ? "unverified" : "", final?.stageId ?? ""]);

@@ -86,8 +86,7 @@ stages yourself, give the agent three stages (Agents → the agent →
 3. **Fix review findings**: fix each defect at its cause, run the workspace
    check, commit. Done when every defect is fixed and the check passes.
    When the fix changed the reviewed commit, the run returns once to
-   **Review** (attempt 2), which checks only the fix commits against the
-   earlier findings. A passed re-review finishes the run and skips the second,
+   **Review** (attempt 2), which checks the fix commits against the earlier findings when the host can verify the first independent review. Otherwise the Reviewer checks the original work and all repairs. A passed re-review finishes the run and skips the second,
    empty repair; findings get one more repair, then the run finishes without a
    third review. The fix stage does not start its own review.
 

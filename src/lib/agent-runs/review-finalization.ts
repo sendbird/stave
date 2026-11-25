@@ -23,6 +23,10 @@ export function matchingIndependentReview(report?: Pick<CompleteStageReport, "re
   }
 }
 
+export function stageReviewVerdict(stage: WorkflowStage | undefined, report: CompleteStageReport | null | undefined) {
+  return isPinnedReviewerStage(stage) ? matchingIndependentReview(report)?.verdict : report?.reviewVerdict;
+}
+
 /**
  * The review stage to return to after the final repair stage changed the work
  * its Reviewer asked changes to: the Reviewer checks the fix once, so the run
@@ -87,11 +91,14 @@ export function reReviewFeedback(aggregate: AgentRunAggregate): string {
   const reviewId = aggregate.agentRun.workflow.stages[reviewIndex]?.id;
   const latest = aggregate.stages.filter((record) => record.stageId === reviewId).at(-1);
   const report = latest?.report?.outcome === "complete" ? latest.report : undefined;
-  const commit = matchingIndependentReview(report)?.revision.cleanCommit ?? latest?.startHeadSha;
+  const commit = matchingIndependentReview(report)?.revision.cleanCommit;
   // i18n-ignore: model-facing stage feedback
+  const scope = commit
+    ? `Re-review of the fix only. Review the commits made after ${commit} up to the pinned commit. Do not re-review unchanged work.`
+    : "Review the original work and all repairs up to the pinned commit. The earlier report has no matching independent review.";
   return [
-    `Re-review of the fix only. Review the commits made after ${commit ?? "the commit you reviewed before"} up to the pinned commit:`,
-    "confirm each earlier finding is resolved at its cause and the fix adds no defect. Do not re-review unchanged work.",
+    scope,
+    "Confirm each earlier finding is resolved at its cause and the fix adds no defect.",
     report?.summary ? `Earlier review: ${report.summary.slice(0, 1_500)}` : "",
   ].filter(Boolean).join(" ");
 }
