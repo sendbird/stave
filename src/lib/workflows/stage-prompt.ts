@@ -63,7 +63,7 @@ const PUBLISH_RULE =
   "This stage has an external effect. Do it once: before writing to an external system, check whether an earlier attempt already did, and report the existing result instead of repeating it.";
 
 const PLAN_RULE =
-  "This is a planning stage. Do not change files; report the acceptance criteria the remaining stages will be judged against.";
+  "This is a planning stage. Do not change files; report the acceptance criteria the remaining stages will be judged against. Write each criterion so something other than the agent's own judgment can check it: a test, a command's output, a rendered page or a real run. Name choices an experiment can settle for a later stage to try, and list product or preference choices for the user.";
 
 const TEAM_RULES: Record<Workflow["team"], string> = {
   solo: "Keep the work in this task. Do not start workers or delegated tasks.",

@@ -9,7 +9,7 @@ import { blankCustomAgent, duplicateAgent, listAgents, upsertCustomAgent } from 
 import { selectableMainAgents } from "@/lib/agents/selector-choice";
 import { getSdkModelOptions } from "@/lib/providers/model-catalog";
 import { isUsableAs } from "@/lib/agents/schema";
-import { BUILTIN_AGENTS, currentAgentId, getBuiltinAgent } from "@/lib/agents/starters";
+import { BUILTIN_AGENTS, DEEPER_BRIEF_RULE, currentAgentId, getBuiltinAgent } from "@/lib/agents/starters";
 
 const ORDER = ["implementer", "lead", "supervisor", "debugger", "ui-polisher", "reviewer", "researcher", "shipper"];
 
@@ -75,6 +75,18 @@ describe("built-in agents", () => {
 
 describe("Supervisor", () => {
   const supervisor = () => getBuiltinAgent("supervisor")!;
+
+  test("Lead and Supervisor brief helpers deeper, not bigger, with an outside check", () => {
+    for (const id of ["lead", "supervisor"]) {
+      expect(getBuiltinAgent(id)!.instructions).toContain(DEEPER_BRIEF_RULE);
+    }
+    expect(DEEPER_BRIEF_RULE).toContain("first-hand material");
+    expect(DEEPER_BRIEF_RULE).toContain("settle by experiment");
+    expect(DEEPER_BRIEF_RULE).toContain("product or preference choices");
+    // Only the leads brief helpers; workers keep their own instructions.
+    expect(getBuiltinAgent("implementer")!.instructions).not.toContain(DEEPER_BRIEF_RULE);
+    expect(supervisor().instructions).toContain("something other than your own judgment can check");
+  });
 
   test("is a main agent that routes through Auto with no fixed or preferred provider", () => {
     // A fixed model would lock every helper to the run's provider and model

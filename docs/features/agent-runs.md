@@ -113,7 +113,15 @@ stage keeps the run waiting: open it from **Subagents** and answer or retry
 it there.
 
 For goals with separate parts, assign **Lead**, which splits the work across
-agents and checks each result before it reports. **Supervisor** works like
+agents and checks each result before it reports. Lead and Supervisor write
+each helper's brief deeper, not bigger: the problem in the field's precise
+terms, the first-hand material to start from (the failing run, logs, source or
+real data), the methods to use, and the check other than the helper's own
+judgment that shows the result is right. A helper settles by experiment any
+choice an experiment can settle and recommends an option from what it observed;
+product and preference choices come back to the lead. A planning stage writes
+its acceptance criteria the same way: each one checkable by a test, a
+command's output, a rendered page or a real run. **Supervisor** works like
 Lead but owns one goal until it is really done: it plans, does small or tightly
 coupled work itself and delegates only independent or large parts, picking
 each part's provider and model from what the work needs and how much account
