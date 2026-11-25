@@ -499,12 +499,17 @@ export function FleetTaskControlPanel(args: {
           : {}),
       });
     } else {
-      resolveUserInput({
+      void resolveUserInput({
         taskId: args.target.taskId,
         messageId: validation.messageId,
         requestId: expected.requestId,
         answers: input.answers,
         denied: input.denied,
+      }).then((outcome) => {
+        // An earlier answer to the same delegated question went out instead of this one.
+        if (outcome.status === "delivered" && outcome.earlierAnswer) {
+          setStatus({ tone: "neutral", text: i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered") });
+        }
       });
     }
     setSentRequestId(expected.requestId);
