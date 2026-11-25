@@ -163,15 +163,17 @@ describe("listWorkspaceScratch", () => {
   test("returns the newest 300 and counts the rest", async () => {
     const root = await tempRoot();
     await ensureWorkspaceScratch(root);
-    const total = WORKSPACE_SCRATCH_MAX_FILES + 5;
+    await writeAt(root, ".stave/scratch/brief.md", "x", 1);
+    const total = WORKSPACE_SCRATCH_MAX_FILES * 2 + 5;
     for (let index = 0; index < total; index += 1) {
       await writeAt(root, `.stave/scratch/file-${String(index).padStart(3, "0")}.txt`, "x", 1_000 + index);
     }
     const listing = await listWorkspaceScratch(root);
     expect(listing.files).toHaveLength(WORKSPACE_SCRATCH_MAX_FILES);
     expect(listing.files[0]?.path).toBe(`.stave/scratch/file-${String(total - 1).padStart(3, "0")}.txt`);
-    expect(listing.fileCount).toBe(total);
-    expect(listing.totalBytes).toBe(total);
+    expect(listing.olderArtifacts?.map((file) => file.path)).toEqual([".stave/scratch/brief.md"]);
+    expect(listing.fileCount).toBe(total + 1);
+    expect(listing.totalBytes).toBe(total + 1);
     expect(listing.truncated).toBe(true);
   });
 });

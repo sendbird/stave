@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/context-menu";
 import { formatFileSize } from "@/lib/fs/file-preview-limits";
 import {
+  scratchArtifactKind,
   WORKSPACE_SCRATCH_DIRECTORY,
   WORKSPACE_SCRATCH_RETENTION_DAYS,
   type WorkspaceScratchFile,
@@ -143,7 +144,17 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
     return () => document.removeEventListener("visibilitychange", markSeen);
   }, [props.visible, workspaceId, newestMtime]);
 
-  const files = useMemo(() => listing?.files ?? [], [listing]);
+  const [filter, setFilter] = useState("results");
+  const files = useMemo(() => {
+    if (!listing) return [];
+    if (filter === "all") return listing.files;
+    return [...listing.files, ...(listing.olderArtifacts ?? [])].filter((file) => {
+      const kind = scratchArtifactKind(file.path);
+      return kind && (filter === "results" || filter === kind);
+    });
+  }, [listing, filter]);
+  const shownCount = filter === "all" ? listing?.fileCount ?? 0 : files.length;
+  const shownBytes = filter === "all" ? listing?.totalBytes ?? 0 : files.reduce((sum, file) => sum + file.sizeBytes, 0);
   const items = useMemo(() => groupScratchFiles(files), [files]);
   // Follows the newest file until the user picks one; a picked file that
   // disappears falls back to the newest again.
@@ -164,7 +175,7 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
 
   if (!rootPath) return null;
 
-  if (!listing || files.length === 0) {
+  if (!listing || listing.fileCount === 0) {
     return (
       <div className={sx(styles.empty)} data-testid="workspace-scratch-empty" data-scratch-refresh={mode}>
         <EmptyState.Root variant="plain">
@@ -199,14 +210,20 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
 
   return (
     <div className={sx(styles.root)} data-testid="workspace-scratch-panel" data-scratch-refresh={mode}>
+      <select aria-label={t("workspaceScratchPanel.filter")} value={filter} onChange={(event) => setFilter(event.target.value)}>
+        {(["results", "html", "image", "markdown", "all"] as const).map((value) => (
+          <option key={value} value={value}>{t(`workspaceScratchPanel.${value}`)}</option>
+        ))}
+      </select>
+      {files.length === 0 && <p>{t("workspaceScratchPanel.noMatches")}</p>}
       <div className={sx(styles.summary)}>
         <span className={sx(styles.summaryText)}>
           {t("workspaceScratchPanel.summary", {
-            count: listing.fileCount,
-            formattedCount: formatNumber(listing.fileCount),
-            size: formatFileSize(listing.totalBytes),
+            count: shownCount,
+            formattedCount: formatNumber(shownCount),
+            size: formatFileSize(shownBytes),
           })}
-          {listing.truncated
+          {filter === "all" && listing.truncated
             ? ` · ${t("workspaceScratchPanel.showingNewest", { count: files.length, formattedCount: formatNumber(files.length) })}`
             : null}
         </span>
@@ -236,8 +253,9 @@ export function WorkspaceScratchPanel(props: { visible: boolean }) {
           )}
         </ul>
       </div>
-      {selected ? (
+      {props.visible && selected ? (
         <ScratchFilePreview
+          key={selected.path}
           rootPath={rootPath}
           file={selected}
           onOpenInEditor={openInEditor}

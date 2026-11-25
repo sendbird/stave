@@ -744,7 +744,7 @@ const SHOTS = [
     viewport: { width: 448, height: 900 },
     async capture({ page, locale, file }) {
       // The run's steps sit under the Task panel's Steps tab.
-      await openPreview(page, locale, "task-panel&task=agent-run&theme=dark&panelWidth=416");
+      await openPreview(page, locale, "task-panel&task=agent-run&run=blocked-evidence&theme=dark&panelWidth=416");
       await openTaskSection(page, "steps");
       await settle(page);
       await page.getByTestId("agent-run-panel").waitFor();

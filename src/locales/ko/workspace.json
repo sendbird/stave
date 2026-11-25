@@ -1558,6 +1558,17 @@
     "repositoryChanged": "생성을 시작하기 전에 프로젝트가 바뀌었습니다. 원래 프로젝트에서 다시 시도하세요."
   },
   "workspaceScratchPanel": {
+    "expand": "크게 보기",
+    "loadHtml": "HTML 미리보기 열기 ({{size}})",
+    "nextPage": "이어서 읽기",
+    "firstPage": "처음으로",
+    "filter": "파일 종류",
+    "results": "결과물",
+    "html": "HTML",
+    "image": "이미지",
+    "markdown": "Markdown",
+    "all": "전체 파일",
+    "noMatches": "이 보기에 표시할 파일이 없습니다.",
     "previewLabel": "{{name}} 미리보기",
     "openInEditor": "편집기에서 열기",
     "tooLargeToPreview": "파일이 커서 여기서 미리 볼 수 없습니다({{size}}).",

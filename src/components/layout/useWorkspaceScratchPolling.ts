@@ -20,6 +20,7 @@ export function pollWorkspaceScratch(workspaceId: string, rootPath: string): Pro
       if (!result.ok) return { ok: false, error: result.stderr };
       useWorkspaceScratchStore.getState().applyListing(workspaceId, {
         files: result.files,
+        olderArtifacts: result.olderArtifacts,
         fileCount: result.fileCount,
         totalBytes: result.totalBytes,
         truncated: result.truncated,

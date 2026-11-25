@@ -2355,7 +2355,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await retargetPullRequestStack(request.params));
       return;
     case "scm.get-pr-status":
-      await respond(request.id, await fetchGitHubPrStatus(request.params));
+      await respond(request.id, await fetchGitHubPrStatus({ ...request.params, includeTrackedBranch: true }));
       return;
     case "scm.get-repo-merge-settings":
       await respond(request.id, await fetchRepoMergeSettings(request.params));

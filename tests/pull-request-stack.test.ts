@@ -59,6 +59,26 @@ describe("pull request stack shape", () => {
 });
 
 describe("stack parents exclude long-lived integration branches (critical)", () => {
+  test("finds the selected merged PR even when the local and reused remote branches have other PRs", async () => {
+    const selected = pr(1, "remote-parent", "main", { state: "MERGED", createdAt: T(1), mergedAt: T(30) });
+    const { cwd, gh } = setup([
+      selected,
+      pr(2, "child", "remote-parent", { createdAt: T(2) }),
+      pr(3, "local-copy", "main", { createdAt: T(3) }),
+      pr(4, "remote-parent", "main", { createdAt: T(35) }),
+    ], "local-copy");
+    const request = { cwd, prUrl: selected.url };
+    const result = await getPullRequestStack(request, gh.run);
+    expect(result.stack?.current).toBe(1);
+    expect(result.stack?.retarget?.children.map(child => child.number)).toEqual([2]);
+    expect(gh.calls()).toContainEqual(["repo", "view", "https://github.com/example/repo", "--json", "defaultBranchRef,owner,url"]);
+    expect(gh.calls()).toContainEqual(expect.arrayContaining(["list", "--repo", "github.com/example/repo"]));
+    expect(gh.calls()).toContainEqual(expect.arrayContaining(["view", "1", "--repo", "github.com/example/repo"]));
+
+    const rejected = await retargetPullRequestStack({ cwd, parentNumber: 3, parentUrl: selected.url, children: [{ number: 2, fromBase: "remote-parent", toBase: "main" }] }, gh.run);
+    expect(rejected).toEqual({ ok: false, code: "invalid-response", results: [] });
+    expect(gh.calls().some(args => args[1] === "edit")).toBe(false);
+  });
   test("a merged develop release PR is not the parent of PRs targeting develop", async () => {
     const { cwd, gh } = setup([
       pr(10, "develop", "main", { state: "MERGED", createdAt: T(5), mergedAt: T(30) }),

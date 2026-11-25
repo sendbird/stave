@@ -2,7 +2,9 @@ import { expect, test } from "bun:test";
 import { buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
 import { createStageRecord, EMPTY_STAGE_FACTS } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction, applyAgentRunDecision } from "../src/lib/agent-runs/policy";
-import { AGENT_RUN_NOW, agentRunFixture, COMPLETE_REPORT, observe, turn } from "./fixtures/agent-run-fixtures";
+import { agentRunChangesStage, describeAgentRunResult } from "../src/lib/agent-runs/agent-run-status";
+import { projectTarsResult } from "../src/lib/tars/result-model";
+import { AGENT_RUN_NOW, agentRunDetail, agentRunFixture, applyChange, COMPLETE_REPORT, observe, turn } from "./fixtures/agent-run-fixtures";
 
 function reviewed() {
   const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: AGENT_RUN_NOW });
@@ -72,14 +74,17 @@ function repaired(fixedTree: string | null = "fixed-tree") {
   aggregate.agentRun.currentStageIndex = 2;
   const tree = fixedTree ? { status: "known" as const, revision: fixedTree } : undefined;
   aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "fix-review", attempt: 1 }), status: "running",
-    report: { ...COMPLETE_REPORT, ...(tree ? { workspaceRevision: tree } : {}), acceptanceCriteria: [] },
-    facts: { ...EMPTY_STAGE_FACTS, changedPaths: fixedTree ? ["src/hook.ts"] : [], ...(tree ? { workspaceRevision: tree } : {}) } });
+    report: { ...COMPLETE_REPORT, summary: "Added the unmount guard.", ...(tree ? { workspaceRevision: tree } : {}), acceptanceCriteria: [] },
+    facts: { ...EMPTY_STAGE_FACTS, changedPaths: fixedTree ? ["src/hook.ts"] : [],
+      ...(tree ? { workspaceRevision: tree, diff: { filesChanged: 1, insertions: 3, deletions: 0 } } : {}) } });
   return aggregate;
 }
 
 test("a repair that changed the reviewed work returns to the Reviewer once, which then finishes the run on the fixed revision", () => {
   // Recorded failure: work, review (changes requested), fix ended on a revision no Reviewer saw, so Tars blocked it as unverified.
   const aggregate = repaired();
+  aggregate.stages[0]!.facts = { ...EMPTY_STAGE_FACTS, changedPaths: ["src/table.ts"], diff: { filesChanged: 1, insertions: 10, deletions: 1 } };
+  aggregate.stages[2]!.startHeadSha = "b".repeat(40);
   const decision = decide(aggregate);
   expect(decision).toEqual({ action: "complete-stage", next: "start", reReview: true });
   const change = applyAgentRunDecision({ aggregate, decision, now: AGENT_RUN_NOW });
@@ -96,7 +101,25 @@ test("a repair that changed the reviewed work returns to the Reviewer once, whic
     report: { ...COMPLETE_REPORT, reviewVerdict: "passed" as const, workspaceRevision: { status: "known" as const, revision: "fixed-tree" }, acceptanceCriteria: [] },
     facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: { status: "known" as const, revision: "fixed-tree" } } }];
   const atReReview = { agentRun: change.agentRun, stages };
-  expect(decide(atReReview)).toEqual({ action: "complete-stage", next: "finish", skipReviewFix: true });
+  const decisionAfterReReview = decide(atReReview);
+  expect(decisionAfterReReview).toEqual({ action: "complete-stage", next: "finish", skipReviewFix: true });
+  const finished = applyChange(atReReview, applyAgentRunDecision({
+    aggregate: atReReview, decision: decisionAfterReReview, now: new Date(AGENT_RUN_NOW.getTime() + 1_000),
+  }));
+  const detail = agentRunDetail(finished);
+  const result = describeAgentRunResult(detail, AGENT_RUN_NOW.getTime() + 1_000);
+  expect(result.summaries).toEqual([
+    expect.objectContaining({ stageId: "work", text: COMPLETE_REPORT.summary }),
+    expect.objectContaining({ stageId: "fix-review", text: "Added the unmount guard." }),
+    expect.objectContaining({ stageId: "review", reviewVerdict: "passed" }),
+  ]);
+  expect(result.changes).toBeNull();
+  expect(agentRunChangesStage(detail)).toBeNull();
+  expect(projectTarsResult({
+    outcome: "completed",
+    row: { agentRunId: detail.agentRun.id, acceptanceCriteria: [] },
+    run: detail,
+  }).changes).toEqual({ files: 2, lines: null });
 });
 
 test("a re-review that still asks changes gets one more repair, and the run then finishes without a third review", () => {

@@ -9,12 +9,23 @@ import {
   planAgentPromptSend,
 } from "../src/lib/agent-runs/agent-run";
 import { compileAgentRunStagePrompt } from "../src/lib/agent-runs/briefing";
-import { createAgentRun, AGENT_RUN_LIMITS, AgentRunStartInputSchema } from "../src/lib/agent-runs/domain";
+import { createAgentRun, AGENT_RUN_LIMITS, AgentRunStartInputSchema, StageReportSchema } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction, type AgentRunObservation } from "../src/lib/agent-runs/policy";
 import { WorkflowSchema } from "../src/lib/workflows/schema";
 
 const NOW = new Date("2026-10-01T09:00:00.000Z");
 const AGENT = { name: "Implementer" };
+
+test("existing environment block reports can still be read without evidence", () => {
+  const report = {
+    outcome: "blocked",
+    kind: "environment",
+    missing: "Restore the integration service.",
+    reportedAt: NOW.toISOString(),
+    turnId: "turn-1",
+  };
+  expect(StageReportSchema.parse(report)).toEqual(report);
+});
 
 describe("agent run: implicit workflow", () => {
   test("is one AI stage, Work, that only checks in when stuck", () => {

@@ -294,7 +294,7 @@ Task panel > **Background** shows work Claude reported for the current turn or t
 1. Use **Source Control** in the right panels to see changed files and history.
 2. Open Review mode with the **Conversation / Review** switch above the task tab (Cmd/Ctrl+Alt+R). Leave line comments on the diff and send them with **Send review to agent**. See [Review and delegation](#review).
 3. Select **Create PR** in the top bar to open the pull request dialog, where you pick the merge method and auto-merge. If the workspace has uncommitted changes, choose which files to commit. Unchecked staged changes stay staged. GitHub CLI (`gh`) must be signed in.
-4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub.
+4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub. Stave also checks the workspace branch's tracked remote branch if it has a different name.
 5. When the work is done, choose **Archive Workspace** from the workspace row's ⋮ menu. Turn on **Delete the git branch too** to delete the branch as well.
 
 Open **Source Control → Reviews**, select a PR, and use **Conversation** to post a comment, reply to a review thread, or resolve or unresolve it. The thread retains its file location, comment dates, and outdated status. In **Checks**, expand a GitHub Actions run to see jobs and failed steps, open a failed log tail, or choose **Re-run failed jobs**. Use **Refresh** to see the latest attempt. **Draft a fix request** opens a Tars draft you can review and send. GitHub actions use the account signed in to GitHub CLI.
@@ -464,6 +464,10 @@ Only an AI stage followed by another AI stage may leave criteria it adds for
 later stages. The stage before a Stave action must meet the criteria it adds.
 Each stage still reports its result and meets its own configured requirements.
 
+The result card at the end of the task conversation shows what the run did,
+including the original work, any repair, the latest review outcome and the
+checks Stave confirmed on the final revision.
+
 You can define stages for a custom agent. A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.
 
 An Agent send uses Claude or Codex. For another provider, Stave keeps the draft and asks you to switch models or choose Chat before sending. The run receives long requests in full and saves the first 8,000 characters as its assignment in Run history.
@@ -495,6 +499,8 @@ edge halted -> stopped dashed : stop
 | Stopped           | Cancelled, or ended with a reason card                                             | **Retry** or **Take control**             |
 
 A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Steps** shows what its turns spent: a cost for Claude, tokens for Codex.
+
+An agent reports a block when a specific prerequisite prevents progress. For an environment or external service problem, Stave requires the agent to describe what failed or which dependency was unavailable. The blocked stage card shows the agent's evidence, and Tars can use it when deciding what to check next.
 
 The run line above the composer shows the buttons that fit: **Retry**, **Resume**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model). On a run Tars holds, marked **Tars**, **Stop** (here, in the composer or with Esc) pauses the work in Tars instead of cancelling the run, and **Take control** is Tars's take over, which keeps the run paused for you.
 The Task panel's top shows the run's state and the **Done when** lines still open; its **Steps** tab shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
@@ -1297,7 +1303,7 @@ Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/sc
 | Workspace Tools   | **Workspace Tools** in the right panels, Cmd/Ctrl+K then S | Saved commands, processes such as dev servers, and triggers, stored in `.stave/scripts.json` |
 | Lens              | Lens in the right panels, Cmd/Ctrl+K then L                | A built-in browser tab. **Pick element** and **Visual comments** add page context to the task draft |
 | Information panel | **Information** in the right panels, Cmd/Ctrl+K then I     | Todos, notes, links, documents, memory. **Create task** from a link row               |
-| Scratch           | **Scratch** in the right panels                            | Screenshots, logs, command output and JSON an agent saved to `.stave/scratch/`, newest first, with a live preview. Lens screenshots land in `.stave/scratch/lens/`; sub-agents' files are grouped under **Sub-agent <id>**. For Claude sub-agents, Stave names the scratch folder using the agent type and a short hash. A dot on the button means files arrived that you have not seen. A text file over 256 KB shows only its end; **Open in editor** shows all of it. Right-click a row or use the paperclip for **Attach to message**. In a project's main checkout, files older than 30 days are removed automatically |
+| Scratch           | **Scratch** in the right panels                            | Results shows HTML, images, Markdown and files in `artifacts/`. Choose a type or select **All files** for screenshots, logs, command output and JSON an agent saved to `.stave/scratch/`, newest first, with a live preview. Lens screenshots land in `.stave/scratch/lens/`; sub-agents' files are grouped under **Sub-agent <id>**. For Claude sub-agents, Stave names the scratch folder using the agent type and a short hash. A dot on the button means files arrived that you have not seen. Expand the preview for more space or zoom into an image. Read long Markdown in sections and open larger HTML on demand (up to 10 MiB). A log over 256 KB shows only its end; **Open in editor** shows all of it. Right-click a row or use the paperclip for **Attach to message**. In a project's main checkout, files older than 30 days are removed automatically |
 | Inline HTML pages | Shown by an agent in the conversation                      | See charts, tables and mockups in the chat; **View source**, **Save as HTML file**    |
 | Data views        | Shown by an agent in the conversation                      | Tables, charts, stat tiles, timelines and heatmaps drawn in your theme; sort, **Filter rows**, page and **Export CSV** a table |
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |

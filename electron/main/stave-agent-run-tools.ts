@@ -79,8 +79,8 @@ export function registerAgentRunTools(
     AGENT_RUN_TOOL_NAMES.block,
     {
       description:
-        "Report that you cannot finish the current run stage, and name exactly what is missing: input from the user, a permission, something in the environment, or an external system. The run waits for the user, and a reply in the task resumes the stage.",
-      inputSchema: StageBlockInputSchema.shape,
+        "Use only when a specific missing decision, permission, environment prerequisite, or external dependency prevents further work. Continue unfinished implementation and verification in this turn. Environment and external blocks require evidence of the observed blocker. The run waits for the user, and a reply in the task resumes the stage.",
+      inputSchema: StageBlockInputSchema,
     },
     async (block) =>
       toStructuredResult({

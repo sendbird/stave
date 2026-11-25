@@ -42,11 +42,12 @@ interface StackResult { identity: string; stack: PullRequestStack | null; code: 
 export function usePullRequestStack(args: {
   cwd: string;
   branch?: string;
+  prUrl?: string;
   enabled: boolean;
   revision?: string | number;
 }) {
   const patterns = useLongLivedBranchPatterns();
-  const identity = JSON.stringify([args.cwd, args.branch ?? ""]);
+  const identity = JSON.stringify([args.cwd, args.prUrl ?? args.branch ?? ""]);
   const [result, setResult] = useState<StackResult>({ identity: "", stack: null, code: null });
   const [loading, setLoading] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -62,7 +63,7 @@ export function usePullRequestStack(args: {
     let current = true;
     setLoading(true);
     void limitStackRead(() => current
-      ? getPrStack({ cwd: args.cwd, ...(args.branch ? { branch: args.branch } : {}), longLivedBranchPatterns: patternsRef.current })
+      ? getPrStack({ cwd: args.cwd, ...(args.prUrl ? { prUrl: args.prUrl } : args.branch ? { branch: args.branch } : {}), longLivedBranchPatterns: patternsRef.current })
       : Promise.resolve(null))
       .then((read) => {
         if (!current || !read) return;
@@ -76,7 +77,7 @@ export function usePullRequestStack(args: {
       })
       .finally(() => { if (current) setLoading(false); });
     return () => { current = false; };
-  }, [args.cwd, args.branch, args.enabled, args.revision, identity, refresh, patternsKey]);
+  }, [args.cwd, args.branch, args.prUrl, args.enabled, args.revision, identity, refresh, patternsKey]);
   const same = result.identity === identity && args.enabled;
   return {
     stack: same ? result.stack : null,

@@ -26,6 +26,8 @@ const ScratchTailArgsSchema = z
   .object({
     rootPath: z.string().min(1).max(4096),
     filePath: z.string().min(1).max(4096),
+    wholeHtml: z.boolean().optional(),
+    offset: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(),
     maxBytes: z.number().int().positive().max(WORKSPACE_SCRATCH_TAIL_BYTES).optional(),
   })
   .strict();

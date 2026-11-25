@@ -742,7 +742,7 @@ interface WindowFsApi {
    * `.stave/scratch` folder; refused outside that folder, through a link, or
    * for a folder Stave has not registered.
    */
-  readScratchTail?: (args: { rootPath: string; filePath: string; maxBytes?: number }) => Promise<
+  readScratchTail?: (args: { rootPath: string; filePath: string; offset?: number; wholeHtml?: boolean; maxBytes?: number }) => Promise<
     | ({ ok: true } & import("@/lib/workspace-scratch").WorkspaceScratchTail)
     | { ok: false; reason: "invalid" | "missing" | "unreadable"; stderr: string }
   >;
@@ -1645,7 +1645,7 @@ interface WindowSourceControlApi {
   }>;
   getPrStack?: (args: GetPrStackArgs) => Promise<GetPrStackResult>;
   retargetPrStack?: (args: RetargetPrStackArgs) => Promise<RetargetPrStackResult>;
-  getRepoMergeSettings?: (args: { cwd?: string }) => Promise<{
+  getRepoMergeSettings?: (args: { cwd?: string; prUrl?: string }) => Promise<{
     ok: boolean;
     squashMergeAllowed?: boolean;
     mergeCommitAllowed?: boolean;
@@ -1699,11 +1699,12 @@ interface WindowSourceControlApi {
     body?: string;
     cwd?: string;
   }) => Promise<GitHubPrReviewSubmitResult>;
-  setPrReady?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
+  setPrReady?: (args: { cwd?: string; prUrl?: string }) => Promise<SourceControlCommandResult>;
   mergePr?: (args: {
     method?: "default" | "merge" | "squash" | "rebase";
     /** Head commit the PR must still point at (`--match-head-commit`). */
     expectedHeadOid?: string | null;
+    prUrl?: string;
     cwd?: string;
   }) => Promise<{
     ok: boolean;
@@ -1716,7 +1717,7 @@ interface WindowSourceControlApi {
     remoteBranchDeleted?: boolean;
     warning?: string;
   }>;
-  updatePrBranch?: (args: { cwd?: string }) => Promise<{
+  updatePrBranch?: (args: { cwd?: string; prUrl?: string }) => Promise<{
     ok: boolean;
     code?: number;
     stdout?: string;
