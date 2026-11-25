@@ -60,7 +60,10 @@
   },
   "asyncQuestionAnswer": {
     "managedTask": "답변하지 못했습니다. 관리 중인 작업이므로 직접 진행한 뒤 질문에 답해야 합니다.",
-    "deliveryUnconfirmed": "답변을 보냈지만 전달 여부를 확인하지 못했습니다. 응답에 반영되지 않았다면 답변을 메시지로 다시 보내야 합니다."
+    "deliveryUnconfirmed": "답변을 보냈지만 전달 여부를 확인하지 못했습니다. 응답에 반영되지 않았다면 답변을 메시지로 다시 보내야 합니다.",
+    "delegationClosed": "이 질문에는 더 이상 답할 수 없습니다. 이 하위 에이전트를 실행한 위임이 끝났습니다. 질문을 닫고, 답이 아직 필요하면 상위 작업에 전달해야 합니다.",
+    "delegationRunning": "하위 에이전트가 아직 작업 중입니다. 작업이 멈춘 뒤 다시 답해야 합니다.",
+    "delegationRefused": "위임이 답변을 받지 않았습니다. {{detail}}"
   },
   "utilityTextTurn": {
     "cancelled": "취소되었습니다.",

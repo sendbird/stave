@@ -849,6 +849,7 @@ interface WindowLocalMcpApi {
   }) => Promise<{
     ok: boolean;
     message?: string;
+    reason?: import("@/lib/providers/provider.types").ProviderDecisionFailureReason;
     result?: {
       ok: boolean;
       workspaceId: string;

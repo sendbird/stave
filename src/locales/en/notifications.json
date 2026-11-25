@@ -60,7 +60,10 @@
   },
   "asyncQuestionAnswer": {
     "managedTask": "Could not answer: this task is managed. Take over the task to answer its question.",
-    "deliveryUnconfirmed": "Your answer was sent, but its delivery could not be confirmed. If the reply does not reflect it, send the answer again as a message."
+    "deliveryUnconfirmed": "Your answer was sent, but its delivery could not be confirmed. If the reply does not reflect it, send the answer again as a message.",
+    "delegationClosed": "This question can no longer be answered: the delegation that ran this subagent has ended. Close it, and send the answer to the parent task if it still matters.",
+    "delegationRunning": "The subagent is still working. Answer again after it stops.",
+    "delegationRefused": "The delegation did not accept the answer: {{detail}}"
   },
   "utilityTextTurn": {
     "cancelled": "Cancelled.",

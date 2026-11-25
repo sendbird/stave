@@ -13,6 +13,7 @@ import {
 } from "@/lib/providers/turn-status";
 import { i18n } from "@/i18n/runtime";
 import { formatAsyncQuestionAnswer } from "@/lib/async-question-answer";
+import { sendDelegatedQuestionFollowUp } from "@/lib/runs/delegated-question-follow-up";
 import { isTaskManaged } from "@/lib/tasks";
 import {
   approvalInteractionId,
@@ -594,6 +595,14 @@ export function createProviderInteractionActions(args: {
             ...(decidedBy ? { decidedBy } : {}),
           });
           if (!result.ok) {
+            // The host no longer has this approval waiting: its turn ended or
+            // it was answered elsewhere. Retrying cannot deliver it.
+            const gone = result.reason === "already-answered" || result.reason === "unknown-request" ||
+              result.reason === "request-interrupted";
+            if (gone && onUnanswerable === "close") {
+              applyApprovalResponse(approvalPart.requestId, undefined, true);
+              return { status: "skipped" };
+            }
             return fail(result.message ?? "unknown");
           }
           applyApprovalResponse(approvalPart.requestId);
@@ -820,8 +829,11 @@ export function createProviderInteractionActions(args: {
         // request to resolve. Its answer is an ordinary user message: steered
         // into the running turn when there is one, otherwise sent (or queued)
         // as the next turn.
-        if (isTaskManaged(task)) {
-          // Only the task's controller sends messages to a managed task.
+        // Only the task's controller sends messages to a managed task. A
+        // delegated child's controller is its parent's delegation, which is
+        // the only path that can carry this answer.
+        const parentTaskId = isTaskManaged(task) ? task?.parentTaskId?.trim() : undefined;
+        if (isTaskManaged(task) && !parentTaskId) {
           return reportFailure(i18n.t("notifications:asyncQuestionAnswer.managedTask"));
         }
         const key = `${taskId}:${userInputPart.requestId}`;
@@ -866,6 +878,35 @@ export function createProviderInteractionActions(args: {
             });
           }
         };
+        if (parentTaskId) {
+          try {
+            const followUp = await sendDelegatedQuestionFollowUp({
+              parentTaskId,
+              taskId,
+              prompt: content,
+              accounts: get().settings,
+            });
+            // The question did not pause the child, so a decline that no
+            // delegation can carry still ends it: nothing waits on the answer.
+            if (followUp.status === "sent" || (denied && followUp.status === "closed")) {
+              await recordAnswer(true);
+              return { status: "delivered" };
+            }
+            if (followUp.status === "closed") {
+              return {
+                ...reportFailure(i18n.t("notifications:asyncQuestionAnswer.delegationClosed")),
+                unanswerable: true,
+              };
+            }
+            return reportFailure(followUp.status === "running"
+              ? i18n.t("notifications:asyncQuestionAnswer.delegationRunning")
+              : i18n.t("notifications:asyncQuestionAnswer.delegationRefused", { detail: followUp.message }));
+          } catch (error) {
+            return fail(String(error));
+          } finally {
+            pendingAsyncAnswers.delete(key);
+          }
+        }
         try {
           let result = await send(activeTurnId ? "steer" : "queue");
           // Steering is off or was refused: wait for the turn instead.

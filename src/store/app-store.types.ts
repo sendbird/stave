@@ -114,12 +114,14 @@ export interface SendBlockedUsageLimit {
 
 /**
  * How an approval or question answer ended. `skipped`: the request was no longer pending,
- * or the provider could no longer answer it and the caller asked to close it.
+ * or the provider could no longer answer it and the caller asked to close it. `unanswerable`
+ * on a failure: nothing can deliver an answer any more, so retrying cannot succeed and the
+ * caller may offer to close the request instead.
  */
 export type InteractionAnswerOutcome =
   | { status: "delivered" }
   | { status: "skipped" }
-  | { status: "failed"; message: string };
+  | { status: "failed"; message: string; unanswerable?: true };
 
 export type SendUserMessageResult =
   | {

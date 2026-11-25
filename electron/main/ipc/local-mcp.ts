@@ -129,6 +129,7 @@ export function registerLocalMcpHandlers() {
       return {
         ok: false,
         message: error instanceof Error ? error.message : "Failed to deliver local MCP approval response.",
+        ...(error instanceof ProviderDecisionDeliveryError && error.reason ? { reason: error.reason } : {}),
       };
     }
   });

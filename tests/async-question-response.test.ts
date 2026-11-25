@@ -194,3 +194,93 @@ test("a persisted Run question is answered once through its host controller on a
     answers: answer.answers, denied: undefined }]);
   expect(card()).toMatchObject({ state: "input-responded", answers: answer.answers });
 });
+
+// A delegated child is managed by its parent's delegation, which is the only
+// path that can carry an answer to its asynchronous question.
+function delegatedChild(args: {
+  delegation: Partial<import("../src/lib/runs/delegated-task").DelegatedTaskSummary> | null;
+  followUp?: import("../src/lib/runs/delegated-task").DelegatedTaskActionResponse;
+}) {
+  const { sends, hostCalls } = setup({
+    task: { controlMode: "managed", controlOwner: "external", parentTaskId: "parent-1" },
+    send: async () => { throw new Error("Only the delegation may send to a managed child"); },
+  });
+  const followUps: Array<Record<string, unknown>> = [];
+  const lists: Array<Record<string, unknown>> = [];
+  const child = args.delegation && {
+    runId: "run-1", stepId: "step-1", parentTaskId: "parent-1", delegationKey: "slice-1",
+    delegatedTaskId: "task-1", delegatedWorkspaceId: "ws-1", delegatedTurnId: "turn-1", providerId: "codex",
+    lifecycle: "one-turn", phase: "cancelled", reason: null, attempt: 1,
+    createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", completedAt: null,
+    ...args.delegation,
+  };
+  const api = (globalThis.window as unknown as { api: Record<string, unknown> }).api;
+  api.runs = {
+    listDelegatedTasks: async (request: Record<string, unknown>) => { lists.push(request); return child ? [child] : []; },
+    followUpDelegatedTask: async (request: Record<string, unknown>) => {
+      followUps.push(request);
+      return args.followUp ?? { accepted: true, duplicate: false, reason: null, message: null, child };
+    },
+  };
+  return { sends, hostCalls, followUps, lists };
+}
+
+test("a delegated child's answer goes out as a follow-up of its delegation and is recorded through the host", async () => {
+  const { sends, hostCalls, followUps, lists } = delegatedChild({
+    delegation: { phase: "waiting", mcpAnswerAt: "2026-01-01T00:00:00.000Z" },
+  });
+  const outcome = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
+  expect(outcome).toEqual({ status: "delivered" });
+  expect(sends).toEqual([]);
+  expect(lists).toEqual([{ parentTaskId: "parent-1", includeFinished: true }]);
+  expect(followUps).toEqual([{
+    parentTaskId: "parent-1", delegationKey: "slice-1", prompt: "> Which scope?\n\nFocused",
+    expected: { delegatedTaskId: "task-1", delegatedWorkspaceId: "ws-1", attempt: 1, phase: "waiting" },
+  }]);
+  expect(hostCalls).toEqual([hostRecord]);
+  expect(card()).toMatchObject({ state: "input-responded" });
+});
+
+test("an answer to a child whose delegation ended reports that it can no longer be answered", async () => {
+  const { sends, hostCalls, followUps } = delegatedChild({ delegation: { phase: "cancelled" } });
+  const outcome = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
+  expect(outcome).toMatchObject({ status: "failed", unanswerable: true });
+  expect(outcome.status === "failed" && outcome.message).toContain("can no longer be answered");
+  expect(sends).toEqual([]);
+  expect(followUps).toEqual([]);
+  expect(hostCalls).toEqual([]);
+  // The answer was not delivered, so the question is not recorded as answered.
+  expect(card()).toMatchObject({ state: "input-requested" });
+});
+
+test("declining a child's question whose delegation ended closes it without sending anything", async () => {
+  const { sends, hostCalls, followUps } = delegatedChild({ delegation: null });
+  const outcome = await useAppStore.getState().resolveUserInput({
+    taskId: "task-1", messageId: "m1", requestId: "codex-async:call_1", denied: true, onUnanswerable: "close",
+  });
+  expect(outcome).toEqual({ status: "delivered" });
+  expect(sends).toEqual([]);
+  expect(followUps).toEqual([]);
+  expect(hostCalls).toEqual([{ ...hostRecord, answers: undefined, denied: true }]);
+  expect(card()).toMatchObject({ state: "input-denied" });
+});
+
+test("an answer to a child that is still working can be sent again later", async () => {
+  const { followUps } = delegatedChild({ delegation: { phase: "running" } });
+  const outcome = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
+  expect(outcome).toMatchObject({ status: "failed" });
+  expect(outcome.status === "failed" && outcome.unanswerable).toBeFalsy();
+  expect(followUps).toEqual([]);
+  expect(card()).toMatchObject({ state: "input-requested" });
+});
+
+test("a refused follow-up keeps the question open and says why", async () => {
+  const { hostCalls } = delegatedChild({
+    delegation: { phase: "waiting", lifecycle: "detached" },
+    followUp: { accepted: false, duplicate: false, reason: "stale-execution", message: "The child moved on.", child: null },
+  });
+  const outcome = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
+  expect(outcome).toEqual({ status: "failed", message: "The delegation did not accept the answer: The child moved on." });
+  expect(hostCalls).toEqual([]);
+  expect(card()).toMatchObject({ state: "input-requested" });
+});

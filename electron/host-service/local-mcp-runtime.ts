@@ -2575,8 +2575,10 @@ export async function respondApproval(args: HostApprovalArgs) {
   return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
     const session = await loadTaskInteractionSession(args.workspaceId, args.taskId, args.expectedMessageId != null);
     const activeTurnId = session.activeTurnIdsByTask[args.taskId];
+    // The reasons let a caller tell an approval that is gone from one that
+    // failed to deliver, as the user-input path does.
     if (!activeTurnId) {
-      throw new Error(`No active turn found for task ${args.taskId}.`);
+      throw new ProviderDecisionDeliveryError(`No active turn found for task ${args.taskId}.`, "request-interrupted");
     }
 
     const messages = session.messagesByTask[args.taskId] ?? [];
@@ -2585,7 +2587,10 @@ export async function respondApproval(args: HostApprovalArgs) {
       requestId: args.requestId,
     });
     if (!approval || (args.expectedMessageId && approval.messageId !== args.expectedMessageId)) {
-      throw new Error(`Pending approval not found: ${args.requestId}`);
+      const answered = messages.some((message) => message.parts.some((part) => part.type === "approval" &&
+        part.requestId === args.requestId && part.state !== "approval-requested"));
+      throw new ProviderDecisionDeliveryError(`Pending approval not found: ${args.requestId}`,
+        answered ? "already-answered" : "unknown-request");
     }
 
     const result = await providerRuntime.respondApproval({

@@ -378,6 +378,14 @@ working there. It appears in these places:
   is no longer pending. A request still waiting, one that could not be loaded,
   or an asynchronous question that outlived its turn and can still be answered
   has no close button.
+  A child takes messages only from its delegation, so an answer to its
+  asynchronous question is sent as a follow-up of that delegation. When the
+  delegation has ended or no longer accepts follow-ups, **Decline to answer**
+  closes the question, and **Continue** reads "This question can no longer be
+  answered" and offers the close button. While the child is still working, the
+  card asks you to answer again after it stops.
+  An approval that the child no longer has waiting (its turn ended, or it was
+  answered elsewhere) closes when you answer it instead of failing again.
 - **Notifications.** The item reads as the root task, with the delegated task
   named in its detail. Opening it focuses the root task rather than the
   child's workspace.

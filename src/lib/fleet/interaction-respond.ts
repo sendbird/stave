@@ -73,6 +73,7 @@ export function respondToFleetInteraction(
       ...(response.approved && response.scope === "always"
         ? { scope: "always" as const }
         : {}),
+      onUnanswerable: "close",
     })
     : state.resolveUserInput({
       ...target,

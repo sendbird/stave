@@ -2009,6 +2009,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("local-mcp:respond-approval", args) as Promise<{
         ok: boolean;
         message?: string;
+        reason?: import("../src/lib/providers/provider.types").ProviderDecisionFailureReason;
         result?: {
           ok: boolean;
           workspaceId: string;
