@@ -14,6 +14,7 @@ export const BackgroundTaskEventSchema = z.object({
   type: z.literal("background_task"),
   id: backgroundTaskIdSchema,
   providerId: z.enum(["claude-code", "codex"]),
+  parentToolUseId: z.string().min(1).optional(),
   description: z.string().max(512),
   startedAt: z.number().int().nonnegative(),
   endedAt: z.number().int().nonnegative().optional(),

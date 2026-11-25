@@ -19,7 +19,11 @@ import { useAppStore } from "@/store/app.store";
 const EMPTY: readonly BackgroundTaskEvent[] = [];
 
 export function BackgroundTasksSection({ workspaceId, taskId }: { workspaceId: string; taskId: string }) {
-  const { t } = useTranslation("session");
+  const { liveTurnId, turnId, rows } = useTaskBackground(taskId);
+  return <BackgroundTaskList workspaceId={workspaceId} taskId={taskId} liveTurnId={liveTurnId} turnId={turnId} rows={rows} />;
+}
+
+export function useTaskBackground(taskId: string) {
   const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId]);
   const turnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? state.retainedTurnActivityByTask[taskId]?.snapshot.turnId);
   const rows = useAppStore((state) => {
@@ -28,6 +32,14 @@ export function BackgroundTasksSection({ workspaceId, taskId }: { workspaceId: s
     const snapshot = state.providerTurnActivityByTask[taskId];
     return snapshot?.turnId === activeTurnId ? snapshot.backgroundTasks ?? EMPTY : EMPTY;
   });
+  return { liveTurnId, turnId, rows };
+}
+
+export function BackgroundTaskList({ workspaceId, taskId, liveTurnId, turnId, rows, readOnly }: {
+  workspaceId: string; taskId: string; liveTurnId?: string | null; turnId?: string | null;
+  rows: readonly BackgroundTaskEvent[]; readOnly?: boolean;
+}) {
+  const { t } = useTranslation("session");
   const now = useNow(Boolean(liveTurnId && rows.some((row) => row.endedAt === undefined)), 1000);
 
   if (!turnId || rows.length === 0) {
@@ -38,19 +50,20 @@ export function BackgroundTasksSection({ workspaceId, taskId }: { workspaceId: s
     <ul className={sx(styles.list)}>
       {rows.toReversed().map((row) => (
         <BackgroundTaskRow key={row.id} row={row} live={liveTurnId === turnId}
-          workspaceId={workspaceId} taskId={taskId} turnId={turnId} now={now} />
+          workspaceId={workspaceId} taskId={taskId} turnId={turnId} now={now} readOnly={readOnly} />
       ))}
     </ul>
   );
 }
 
-function BackgroundTaskRow({ row, live, workspaceId, taskId, turnId, now }: {
+function BackgroundTaskRow({ row, live, workspaceId, taskId, turnId, now, readOnly }: {
   row: BackgroundTaskEvent;
   live: boolean;
   workspaceId: string;
   taskId: string;
   turnId: string;
   now: number;
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation("session");
   const request = window.api?.provider?.backgroundTask;
@@ -110,7 +123,7 @@ function BackgroundTaskRow({ row, live, workspaceId, taskId, turnId, now }: {
           elapsed: formatElapsed(row.startedAt, row.endedAt ?? now),
         })}
       </p>
-      {request && canStopBackgroundTask(row, live) ? (
+      {!readOnly && request && canStopBackgroundTask(row, live) ? (
         <div>
           <Button size="xs" variant="quiet" tone="danger" disabled={stopState === "pending"} onClick={() => { void stop(); }}>
             {t(stopState === "pending" ? "backgroundTasks.stopping" : "backgroundTasks.stop")}

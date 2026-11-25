@@ -108,6 +108,8 @@ export const agentProgressStyles = stylex.create({
     fontSize: vars["--aui-font-size-caption"],
     margin: 0,
   },
+  tabRoot: { flex: "1 1 0", minHeight: 0, gridTemplateRows: "auto minmax(0, 1fr)" },
+  progressPane: { display: "flex", flexDirection: "column", minHeight: 0, overflow: "hidden" },
   viewport: {
     flex: "1 1 0",
     minHeight: 0,

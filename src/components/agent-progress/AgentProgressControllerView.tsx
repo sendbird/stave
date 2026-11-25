@@ -1,6 +1,7 @@
 import { useCallback, type ReactNode } from "react";
 import type { AgentStep } from "@/lib/agent-progress";
 import type { AgentProgressTarget } from "@/store/agent-progress-panel-store";
+import { useAgentResourceViews } from "./use-agent-resource-views";
 import { AgentProgressView } from "./AgentProgressView";
 import { placeholderProgress, type AgentStepContext } from "./agent-progress-targets";
 import type { AgentProgressController } from "./use-agent-progress";
@@ -25,6 +26,8 @@ export function AgentProgressControllerView(props: {
 }) {
   const { controller, chrome } = props;
   const { context } = controller;
+  const extraViews = useAgentResourceViews(controller, controller.progress?.readOnly !== false ||
+    (props.target.kind === "delegated-task" && Boolean(props.target.readOnly)));
   const openChild = chrome.onOpenChild;
   const onOpenChild = useCallback((step: AgentStep) => openChild(step, context), [openChild, context]);
   return (
@@ -43,6 +46,7 @@ export function AgentProgressControllerView(props: {
       onLoadOlder={controller.onLoadOlder}
       actionError={controller.actionError}
       lead={props.lead}
+      extraViews={extraViews}
       extraActions={props.extraActions}
     />
   );

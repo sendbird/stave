@@ -78,8 +78,8 @@ async function readScratchText(rootPath: string, filePath: string, offset?: numb
 export function ScratchFilePreview(props: {
   rootPath: string;
   file: WorkspaceScratchFile;
-  onOpenInEditor: (filePath: string) => void;
-  onAttach: (filePath: string) => void;
+  onOpenInEditor?: (filePath: string) => void;
+  onAttach?: (filePath: string) => void;
 }) {
   const { t } = useTranslation(["workspace"]);
   const { rootPath, file } = props;
@@ -152,7 +152,7 @@ export function ScratchFilePreview(props: {
 
   const Icon = SCRATCH_PREVIEW_ICONS[kind];
   const name = scratchDisplayName(file.path);
-  const openInEditor = () => props.onOpenInEditor(file.path);
+  const openInEditor = () => props.onOpenInEditor?.(file.path);
 
   return (
     <section ref={sectionRef} className={sx(styles.preview)} aria-label={t("workspaceScratchPanel.previewLabel", { name })}>
@@ -168,18 +168,18 @@ export function ScratchFilePreview(props: {
             else void sectionRef.current?.requestFullscreen();
           }}><Maximize2 /></Button>
         </Tooltip>
-        <Tooltip content={t("workspaceScratchPanel.attachToMessage")}>
+        {props.onAttach && <Tooltip content={t("workspaceScratchPanel.attachToMessage")}>
           <Button
             size="xs"
             variant="quiet"
             iconOnly
             aria-label={t("workspaceScratchPanel.attachToMessage")}
-            onClick={() => props.onAttach(file.path)}
+            onClick={() => props.onAttach?.(file.path)}
           >
             <Paperclip />
           </Button>
-        </Tooltip>
-        <Tooltip content={t("workspaceScratchPanel.openInEditor")}>
+        </Tooltip>}
+        {props.onOpenInEditor && <Tooltip content={t("workspaceScratchPanel.openInEditor")}>
           <Button
             size="xs"
             variant="quiet"
@@ -189,7 +189,7 @@ export function ScratchFilePreview(props: {
           >
             <SquareArrowOutUpRight />
           </Button>
-        </Tooltip>
+        </Tooltip>}
       </div>
       {state.status === "text" && state.tailOfBytes !== null ? (
         <p className={sx(styles.previewNote)} data-testid="scratch-preview-tail-note">
@@ -233,9 +233,9 @@ export function ScratchFilePreview(props: {
                   ? t("workspaceScratchPanel.noPreview")
                   : t("workspaceScratchPanel.previewFailed")}
             </span>
-            <Button size="sm" variant="outlined" onClick={openInEditor}>
+            {props.onOpenInEditor && <Button size="sm" variant="outlined" onClick={openInEditor}>
               {t("workspaceScratchPanel.openInEditor")}
-            </Button>
+            </Button>}
           </div>
         )}
       </div>

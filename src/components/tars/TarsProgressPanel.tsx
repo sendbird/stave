@@ -16,7 +16,7 @@ import type { ChatMessage } from "@/types/chat";
 const RUN_STATE = { running: "working", paused: "paused", completed: "ready", stopped: "stopped", cancelled: "stopped" } as const;
 
 /** A single lead task can hold ordinary turns and several runs. Only read this run's responses. */
-export function tarsRunMessages(detail: AgentRunDetail, messages: readonly ChatMessage[]) {
+function tarsRunTurnIds(detail: AgentRunDetail, messages: readonly ChatMessage[]) {
   const turns = new Set<string>();
   for (const event of detail.events) {
     if (event.kind === "turn-linked" && typeof event.detail.turnId === "string") turns.add(event.detail.turnId);
@@ -24,6 +24,11 @@ export function tarsRunMessages(detail: AgentRunDetail, messages: readonly ChatM
   for (const message of messages) {
     if (message.turnId && message.agentRunPrompt?.agentRunId === detail.agentRun.id) turns.add(message.turnId);
   }
+  return turns;
+}
+
+export function tarsRunMessages(detail: AgentRunDetail, messages: readonly ChatMessage[]) {
+  const turns = tarsRunTurnIds(detail, messages);
   return messages.filter((message) => message.role === "assistant" && message.turnId && turns.has(message.turnId));
 }
 
@@ -52,6 +57,7 @@ export function TarsProgressPanel({ target, chrome }: {
       startedAt: Date.parse(record.startedAt), status: record.status === "running" ? "running" : record.status === "blocked" || record.status === "stuck" ? "error" : "done" })];
   });
   return <AgentProgressControllerView target={target} chrome={chrome} controller={{
+    resourceScope: { turnIds: [...tarsRunTurnIds(detail, read.messages)] },
     context, loading: read.loading, hasOlder: read.hasOlder, onLoadOlder: read.loadOlder,
     notice: read.error ? t("session:agentProgress.panel.historyUnavailable", { detail: read.error }) : null,
     progress: { id: run.id, source: "tars", title: target.title, ask: run.assignment, result: trace.result,

@@ -74,7 +74,7 @@ describe("Claude background tasks", () => {
     const ids: string[] = [];
     const { tracker, events } = setup(async (id) => { ids.push(id); });
     try {
-      await tracker.observe(sdk({ type: "assistant", message: { content: [{ type: "tool_use", name: "Bash", id: "tool" }] } }));
+      await tracker.observe(sdk({ type: "assistant", parent_tool_use_id: "spawn-worker", message: { content: [{ type: "tool_use", name: "Bash", id: "tool" }] } }));
       await tracker.observe(sdk({
         type: "user", tool_use_result: { backgroundTaskId: nativeId },
         message: { content: [{ type: "tool_result", tool_use_id: "tool", content: "" }] },
@@ -83,6 +83,7 @@ describe("Claude background tasks", () => {
       expect(canStopBackgroundTask(events[0], true)).toBe(false);
       expect(await requestClaudeBackgroundTask(stop)).toEqual({ ok: false });
       await tracker.observe(system("task_started", { task_id: nativeId, description: "Run tests", is_backgrounded: true }));
+      expect(events.at(-1)?.parentToolUseId).toBe("spawn-worker");
       expect(canStopBackgroundTask(events.at(-1)!, true)).toBe(true);
       expect(await requestClaudeBackgroundTask({ ...stop, workspaceId: "unrelated" })).toEqual({ ok: false });
       expect(await requestClaudeBackgroundTask(stop)).toEqual({ ok: true });
