@@ -108,6 +108,30 @@ for (const lang of ["en", "ko"] as const) {
   }
 }
 
+test("View in the Task panel's Subagents tab opens delegated and in-turn subagents in the Agent panel", async ({ page }) => {
+  await page.setViewportSize({ width: 460, height: 960 });
+  await page.goto("/?stavePreview=task-panel&task=agent-run&stuck=1&panelWidth=372");
+  const frame = page.getByTestId("task-panel-frame");
+  await frame.getByRole("tab", { name: /Subagents/ }).click();
+  const list = frame.getByTestId("subagents-list");
+  // A delegated task: the ledger's state, its controls, and the way back.
+  await list.getByRole("button", { name: "View" }).first().click();
+  const panel = frame.getByTestId("agent-progress-panel");
+  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("Write changelog entry");
+  await expect(panel.getByTestId("agent-progress-facts").locator('[data-fact="kind"]')).toHaveText("Delegated task");
+  await expect(panel.getByRole("button", { name: "Stop" })).toBeVisible();
+  await expect(panel.getByRole("button", { name: "Open task" })).toBeVisible();
+  await panel.getByRole("button", { name: "Close" }).click();
+  await expect(frame.getByTestId("agent-progress-panel")).toHaveCount(0);
+  // An in-turn subagent: its type in the fact row, not repeated in the title.
+  await frame.getByRole("tab", { name: /Subagents/ }).click();
+  await list.locator("li, [role=listitem], article, div").filter({ hasText: "Explore the users router" })
+    .getByRole("button", { name: "View" }).first().click();
+  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("Explore the users router");
+  await expect(panel.getByTestId("agent-progress-facts").locator('[data-fact="kind"]')).toHaveText("Explore");
+  await expect(panel.getByRole("button", { name: "Stop" })).toHaveCount(0);
+});
+
 test("the panel reads an in-turn subagent from the conversation and opens the agent it started", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 760 });
   await page.goto("/tests/e2e/fixtures/agent-progress-panel.html");

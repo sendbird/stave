@@ -4,6 +4,7 @@ import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { RightRailPanelShell } from "@/components/layout/RightRailPanelShell";
 import { TaskPanel } from "@/components/session/TaskPanel";
+import { AgentProgressPanel } from "@/components/agent-progress/AgentProgressPanel";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { applyCustomTheme, applyThemeClass, applyUiDensity } from "@/lib/themes/apply";
@@ -978,6 +979,8 @@ export function TaskPanelPreview() {
   const requestedWidth = Number(params.get("panelWidth"));
   const panelWidth = Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : 320;
   const [seeded, setSeeded] = useState(false);
+  // View on a subagent opens the Agent panel in the rail; the frame follows it.
+  const railTab = useAppStore((state) => state.layout.sidebarOverlayTab);
   useLayoutEffect(() => {
     applyAppLocale(params.get("lang") ?? "en");
     if (params.has("background")) applyUiDensity({ density: params.get("density") === "compact" ? "compact" : "regular" });
@@ -1048,9 +1051,15 @@ export function TaskPanelPreview() {
             style={{ width: panelWidth }}
             data-testid="task-panel-frame"
           >
-            <RightRailPanelShell panelId="task" ownHeader>
-              <TaskPanel />
-            </RightRailPanelShell>
+            {railTab === "agent" ? (
+              <RightRailPanelShell panelId="agent" ownHeader>
+                <AgentProgressPanel />
+              </RightRailPanelShell>
+            ) : (
+              <RightRailPanelShell panelId="task" ownHeader>
+                <TaskPanel />
+              </RightRailPanelShell>
+            )}
           </div>
         </div>
       ) : null}

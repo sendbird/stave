@@ -146,18 +146,21 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
     // Sentences are worded in the display language.
   }, [history.items, live, cwd, providerId, context, messages.messages, target.toolUseId, spawn, agentId, exchange, i18n.language]);
 
+  const node = exchange?.ref.nodeKey ? graph?.nodesByKey[exchange.ref.nodeKey] : undefined;
   const progress = useMemo(() => {
     if (!exchange) return null;
-    const title = target.title?.trim() || parsed?.description || exchange.title;
+    // The graph keeps the agent's type (`badge`) apart from what it was asked (`label`).
+    const title = parsed?.description || node?.label || target.title?.trim() || exchange.title;
+    // Codex names the task where Claude names the agent type; a task name is the title, not a kind.
+    const kindLabel = parsed?.subagentType && parsed.subagentType !== parsed.description
+      ? parsed.subagentType
+      : node?.badge || i18n.t("session:agentProgress.panel.kindSubagent");
     return progressFromExchange({ ...exchange, title }, {
       steps: read.steps,
       source: "subagent",
       ask: read.ask ?? parsed?.prompt ?? undefined,
       ...(read.result ? { result: read.result } : {}),
-      // Codex names the task where Claude names the agent type; a task name is the title, not a kind.
-      kindLabel: parsed?.subagentType && parsed.subagentType !== parsed.description
-        ? parsed.subagentType
-        : i18n.t("session:agentProgress.panel.kindSubagent"),
+      kindLabel,
       parent: {
         label: parentTitle?.trim() || i18n.t("session:agentProgress.panel.thisTurn"),
         taskId,
@@ -167,7 +170,7 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
       ...(history.model ? { model: history.model } : {}),
       ...(history.effort ? { effort: history.effort } : {}),
     });
-  }, [exchange, read, parsed, parentTitle, taskId, target.title, target.toolUseId, history.model, history.effort, i18n.language]);
+  }, [exchange, node, read, parsed, parentTitle, taskId, target.title, target.toolUseId, history.model, history.effort, i18n.language]);
 
   const toolUseId = target.toolUseId ?? spawn?.toolUseId;
   const onOpenParent = useCallback(() => {
