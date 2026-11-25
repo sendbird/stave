@@ -1573,6 +1573,8 @@
     "hideLogs": "로그 닫기",
     "position": "{{total}}단계 중 {{current}}단계: {{step}}",
     "positionWithBranch": "{{branch}} · {{total}}단계 중 {{current}}단계: {{step}}",
+    "positionFailed": "{{total}}단계 중 {{current}}단계 실패: {{step}}",
+    "positionWithBranchFailed": "{{branch}} · {{total}}단계 중 {{current}}단계 실패: {{step}}",
     "setupCommandLabel": "설정 명령",
     "backgroundHint": "창을 닫아도 준비는 계속됩니다.",
     "background": "백그라운드에서 계속",

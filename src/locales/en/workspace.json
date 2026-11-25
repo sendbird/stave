@@ -1610,6 +1610,8 @@
     "hideLogs": "Hide logs",
     "position": "Step {{current}} of {{total}}: {{step}}",
     "positionWithBranch": "{{branch}} · Step {{current}} of {{total}}: {{step}}",
+    "positionFailed": "Step {{current}} of {{total}} failed: {{step}}",
+    "positionWithBranchFailed": "{{branch}} · Step {{current}} of {{total}} failed: {{step}}",
     "setupCommandLabel": "Setup command",
     "backgroundHint": "Preparation continues after you close this window.",
     "background": "Continue in background",

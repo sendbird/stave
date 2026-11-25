@@ -93,7 +93,10 @@ export function WorkspaceCreationPanel({ progress, inDialog = false, onBackgroun
   const now = useNow(anyRunning);
   const position = step ? WORKSPACE_CREATION_STEPS.indexOf(step) + 1 : WORKSPACE_CREATION_STEPS.length;
   const statusText = step
-    ? t(progress.branch ? "creationProgress.positionWithBranch" : "creationProgress.position", {
+    // A failed step changes the words, so the status region announces the failure.
+    ? t(progress.steps[step].status === "failed"
+        ? (progress.branch ? "creationProgress.positionWithBranchFailed" : "creationProgress.positionFailed")
+        : (progress.branch ? "creationProgress.positionWithBranch" : "creationProgress.position"), {
         branch: progress.branch,
         current: position,
         total: WORKSPACE_CREATION_STEPS.length,

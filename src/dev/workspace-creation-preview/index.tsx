@@ -26,17 +26,19 @@ function deferred() {
 const checkout = deferred();
 const copy = deferred();
 const setup = deferred();
-let setupAttempts = 0;
+// Each workspace's first setup run fails; a retry succeeds.
+const setupAttemptsByPath = new Map<string, number>();
 window.api = {
   sourceControl: {
     createWorktree: async () => { await checkout.promise; return null; },
     seedWorktreeDependencies: async () => { await copy.promise; return { status: copyFallback ? "fallback" : "copied" }; },
   },
   terminal: {
-    runCommand: async () => {
-      setupAttempts++;
+    runCommand: async ({ cwd }: { cwd?: string }) => {
+      const attempt = (setupAttemptsByPath.get(cwd ?? "") ?? 0) + 1;
+      setupAttemptsByPath.set(cwd ?? "", attempt);
       await setup.promise;
-      return setupAttempts === 1
+      return attempt === 1
         ? { ok: false, code: 1, stdout: "", stderr: "fixture: dependency install failed" }
         : { ok: true, code: 0, stdout: "", stderr: "" };
     },

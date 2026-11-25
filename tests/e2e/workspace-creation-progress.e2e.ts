@@ -38,6 +38,8 @@ for (const lang of ["en", "ko"]) {
       await expect(active).toHaveAttribute("data-workspace-id", "preview-existing");
       await release(page, "setup");
       await expect(progress.getByText("fixture: dependency install failed", { exact: false })).toBeVisible();
+      // The status region's words change, so a screen reader announces the failure.
+      await expect(progress.getByRole("status")).toContainText(ko ? "3단계 실패: 설정 실행" : "Step 3 of 4 failed: Run setup");
       await expect(active).toHaveAttribute("data-workspace-id", "preview-existing");
       const logs = progress.getByRole("button", { name: ko ? "로그 열기" : "Open logs" });
       await expect(logs).toBeInViewport();
@@ -122,4 +124,24 @@ test("continuing in the background closes the dialog, keeps preparing and report
     }));
   });
   expect(kept).toEqual([{ status: "failed", retry: "function" }]);
+});
+
+test("a workspace created after another went to the background still reports the first one's failure", async ({ page }) => {
+  await page.goto("/?stavePreview=workspace-creation&lang=en&theme=light");
+  const dialog = await createWorkspace(page, "en");
+  await release(page, "checkout");
+  await dialog.getByRole("button", { name: "Continue in background" }).click();
+  await expect(dialog).toHaveCount(0);
+  // A second workspace while the first keeps preparing.
+  await page.getByTestId("preview-start").click();
+  await dialog.getByRole("textbox", { name: "Workspace Branch Name" }).fill("feature/other");
+  await dialog.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(dialog.getByRole("region", { name: "Preparing workspace" })).toBeVisible();
+  // Both setups run once and fail; only the backgrounded one reports through a notification.
+  await release(page, "copy");
+  await release(page, "setup");
+  const title = (name: string) => page.locator('[data-aui-slot="title"]', { hasText: `Preparing ${name} failed` });
+  await expect(title("feature/review")).toBeVisible();
+  await expect(dialog.getByText("fixture: dependency install failed", { exact: false })).toBeVisible();
+  await expect(title("feature/other")).toHaveCount(0);
 });
