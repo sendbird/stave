@@ -43,7 +43,11 @@ if (preview) {
   rootElement.style.overflowY = "auto";
 }
 
-if (preview === "bell-answers") {
+if (preview === "agent-progress") {
+  void import("@/dev/agent-progress-preview").then(({ AgentProgressPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><AgentProgressPreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "bell-answers") {
   void import("@/dev/bell-answers-preview").then(({ BellAnswersPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><BellAnswersPreview /></StaveDesignProvider></StrictMode>);
   });
