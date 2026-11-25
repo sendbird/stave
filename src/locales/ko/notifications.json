@@ -64,9 +64,9 @@
     "delegationClosed": "이 질문에는 더 이상 답할 수 없습니다. 이 하위 에이전트를 실행한 위임이 끝났습니다. 질문을 닫고, 답이 아직 필요하면 상위 작업에 전달해야 합니다.",
     "delegationRunning": "하위 에이전트가 아직 작업 중입니다. 작업이 멈춘 뒤 다시 답해야 합니다.",
     "delegationRefused": "위임이 답변을 받지 않았습니다. {{detail}}",
-    "delegationNotStarted": "위임이 답변을 받았지만 하위 작업의 턴이 시작되지 않았습니다. {{detail}} 답변은 기록되지 않았으니 다시 답해 주세요.",
-    "delegationNotStartedUnknown": "위임이 답변을 받았지만 하위 작업의 턴이 시작되지 않았습니다. 답변은 기록되지 않았으니 다시 답해 주세요.",
-    "delegationUnconfirmed": "위임이 답변을 받았지만 하위 작업의 턴이 아직 시작되지 않았습니다. 하위 작업을 확인하고, 이어서 진행되지 않으면 작업이 멈춘 뒤 다시 답해 주세요."
+    "delegationNotStarted": "위임이 답변을 받았지만 하위 작업의 턴이 답변을 쓰기 전에 끝났습니다. {{detail}} 답변은 기록되지 않았으니 다시 답해 주세요.",
+    "delegationNotStartedUnknown": "위임이 답변을 받았지만 하위 작업의 턴이 답변을 쓰기 전에 끝났습니다. 답변은 기록되지 않았으니 다시 답해 주세요.",
+    "delegationUnconfirmed": "하위 작업이 답변을 받았는지 아직 확인되지 않았습니다. 다시 답하면 같은 턴을 기다리며, 답변을 두 번 보내지 않습니다."
   },
   "utilityTextTurn": {
     "cancelled": "취소되었습니다.",

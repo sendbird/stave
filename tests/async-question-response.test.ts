@@ -202,6 +202,8 @@ function delegatedChild(args: {
   followUp?: import("../src/lib/runs/delegated-task").DelegatedTaskActionResponse;
   /** What the delegation reads as once it took the follow-up; by default its next turn started. */
   afterFollowUp?: Partial<import("../src/lib/runs/delegated-task").DelegatedTaskSummary>;
+  /** What the child's turn emits once the follow-up is taken; by default the provider answers with text. */
+  turnUpdates?: Array<Partial<import("../src/lib/local-mcp/task-turn-update").LocalMcpTaskTurnUpdate>>;
 }) {
   const { sends, hostCalls } = setup({
     task: { controlMode: "managed", controlOwner: "external", parentTaskId: "parent-1" },
@@ -216,7 +218,16 @@ function delegatedChild(args: {
     createdAt: "2026-01-01T00:00:00.000Z", updatedAt: "2026-01-01T00:00:00.000Z", completedAt: null,
     ...args.delegation,
   };
-  const api = (globalThis.window as unknown as { api: Record<string, unknown> }).api;
+  const api = (globalThis.window as unknown as { api: Record<string, Record<string, unknown>> }).api;
+  const listeners = new Set<(update: import("../src/lib/local-mcp/task-turn-update").LocalMcpTaskTurnUpdate) => void>();
+  const emit = (update: Partial<import("../src/lib/local-mcp/task-turn-update").LocalMcpTaskTurnUpdate>) => {
+    for (const listener of listeners) listener({ workspaceId: "ws-1", taskId: "task-1", turnId: "turn-2", providerId: "codex",
+      model: "m", sequence: 1, eventType: "text", done: false, ...update });
+  };
+  api.localMcp!.subscribeTaskTurnUpdates = (listener: (update: never) => void) => {
+    listeners.add(listener);
+    return () => listeners.delete(listener);
+  };
   api.runs = {
     // The parent's list is bounded; the child is always looked up by its own id.
     listDelegatedTasks: async () => { throw new Error("The child must be looked up by its own id"); },
@@ -224,11 +235,14 @@ function delegatedChild(args: {
     followUpDelegatedTask: async (request: Record<string, unknown>) => {
       followUps.push(request);
       const response = args.followUp ?? { accepted: true, duplicate: false, reason: null, message: null, child };
-      if (response.accepted && child) child = { ...child, ...(args.afterFollowUp ?? { delegatedTurnId: "turn-2" }) };
+      if (response.accepted && child) {
+        child = { ...child, ...(args.afterFollowUp ?? { delegatedTurnId: "turn-2" }) };
+        for (const update of args.turnUpdates ?? [{ eventType: "text" }]) emit(update);
+      }
       return response;
     },
   };
-  return { sends, hostCalls, followUps, lookups };
+  return { sends, hostCalls, followUps, lookups, emit };
 }
 
 test("a delegated child's answer goes out as a follow-up of its delegation and is recorded through the host", async () => {
@@ -238,8 +252,9 @@ test("a delegated child's answer goes out as a follow-up of its delegation and i
   const outcome = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
   expect(outcome).toEqual({ status: "delivered" });
   expect(sends).toEqual([]);
-  // Once before the follow-up, then until the child's next turn has an id.
-  expect(lookups).toEqual([{ delegatedTaskId: "task-1" }, { delegatedTaskId: "task-1" }]);
+  // Always by the child's own id: before the follow-up, then until its turn shows the provider took the answer.
+  expect(lookups.length).toBeGreaterThanOrEqual(2);
+  expect(lookups.every((lookup) => lookup.delegatedTaskId === "task-1")).toBe(true);
   expect(followUps).toEqual([{
     parentTaskId: "parent-1", delegationKey: "slice-1", prompt: "> Which scope?\n\nFocused",
     expected: { delegatedTaskId: "task-1", delegatedWorkspaceId: "ws-1", attempt: 1, phase: "waiting" },
@@ -313,15 +328,51 @@ test("a child delegation of another parent is not answered through this one", as
   expect(followUps).toEqual([]);
 });
 
-test("an accepted answer whose child turn has not started within the wait is unconfirmed", async () => {
-  const { followUps } = delegatedChild({
+test("a child turn that ends without output after its id was assigned keeps the question open", async () => {
+  // The turn id exists once the turn is registered; the provider then refused the prompt.
+  const { hostCalls, followUps } = delegatedChild({
     delegation: { phase: "waiting", mcpAnswerAt: "2026-01-01T00:00:00.000Z" },
-    afterFollowUp: { delegatedTurnId: null },
+    turnUpdates: [{ eventType: "started" }, { eventType: "error" }, { eventType: "done", done: true, terminalReceipt: {
+      version: 1, completedAt: "2026-01-01T00:00:01.000Z", outcome: "failed", outputObserved: false, error: null,
+      lastError: { message: "Not signed in.", recoverable: false }, stopReason: "runtime_failure", doneObserved: true, nativeTurnId: null, responseText: null,
+    } }],
   });
-  const { sendDelegatedQuestionFollowUp } = await import("../src/lib/runs/delegated-question-follow-up");
-  const outcome = await sendDelegatedQuestionFollowUp({
-    parentTaskId: "parent-1", taskId: "task-1", prompt: "Focused", turnStartWaitMs: 0, turnStartPollMs: 0,
-  });
-  expect(outcome).toEqual({ status: "unconfirmed" });
+  const outcome = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
   expect(followUps).toHaveLength(1);
+  expect(outcome).toMatchObject({ status: "failed" });
+  expect(outcome.status === "failed" && outcome.message).toContain("Not signed in.");
+  expect(hostCalls).toEqual([]);
+  expect(card()).toMatchObject({ state: "input-requested" });
+});
+
+test("an answer recorded for the child's new turn counts as delivered without its live events", async () => {
+  const { hostCalls } = delegatedChild({
+    delegation: { phase: "waiting", mcpAnswerAt: "2026-01-01T00:00:00.000Z" },
+    afterFollowUp: { delegatedTurnId: "turn-2", resultTurnId: "turn-2" },
+    turnUpdates: [],
+  });
+  const outcome = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
+  expect(outcome).toEqual({ status: "delivered" });
+  expect(hostCalls).toEqual([hostRecord]);
+});
+
+test("an unconfirmed answer is not sent again: answering again waits on the same turn", async () => {
+  const { followUps, emit } = delegatedChild({
+    delegation: { phase: "waiting", mcpAnswerAt: "2026-01-01T00:00:00.000Z" },
+    turnUpdates: [{ eventType: "started" }],
+  });
+  const { sendDelegatedQuestionFollowUp, resetDelegatedQuestionFollowUps } = await import("../src/lib/runs/delegated-question-follow-up");
+  resetDelegatedQuestionFollowUps();
+  const attempt = () => sendDelegatedQuestionFollowUp({
+    parentTaskId: "parent-1", taskId: "task-1", prompt: "Focused", attemptKey: "task-1:q1", turnEvidenceWaitMs: 0, turnEvidencePollMs: 0,
+  });
+  expect(await attempt()).toEqual({ status: "unconfirmed" });
+  expect(await attempt()).toEqual({ status: "unconfirmed" });
+  expect(followUps).toHaveLength(1);
+  // The late turn answers while the second wait listens.
+  const third = attempt();
+  emit({ eventType: "tool" });
+  expect(await third).toEqual({ status: "sent" });
+  expect(followUps).toHaveLength(1);
+  resetDelegatedQuestionFollowUps();
 });

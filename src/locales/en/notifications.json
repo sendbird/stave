@@ -64,9 +64,9 @@
     "delegationClosed": "This question can no longer be answered: the delegation that ran this subagent has ended. Close it, and send the answer to the parent task if it still matters.",
     "delegationRunning": "The subagent is still working. Answer again after it stops.",
     "delegationRefused": "The delegation did not accept the answer: {{detail}}",
-    "delegationNotStarted": "The delegation accepted the answer, but the subagent's turn did not start: {{detail}} Your answer was not recorded; answer again.",
-    "delegationNotStartedUnknown": "The delegation accepted the answer, but the subagent's turn did not start. Your answer was not recorded; answer again.",
-    "delegationUnconfirmed": "The delegation accepted the answer, but the subagent's turn has not started yet. Check the subagent; if it does not continue, answer again after it stops."
+    "delegationNotStarted": "The delegation accepted the answer, but the subagent's turn ended before it could use it: {{detail}} Your answer was not recorded; answer again.",
+    "delegationNotStartedUnknown": "The delegation accepted the answer, but the subagent's turn ended before it could use it. Your answer was not recorded; answer again.",
+    "delegationUnconfirmed": "The subagent has not shown that it received your answer yet. Answering again waits for the same turn and does not send the answer twice."
   },
   "utilityTextTurn": {
     "cancelled": "Cancelled.",

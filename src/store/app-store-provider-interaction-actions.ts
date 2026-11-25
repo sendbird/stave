@@ -884,6 +884,7 @@ export function createProviderInteractionActions(args: {
               parentTaskId,
               taskId,
               prompt: content,
+              attemptKey: key,
               accounts: get().settings,
             });
             // The question did not pause the child, so a decline that no
