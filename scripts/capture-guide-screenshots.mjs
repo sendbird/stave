@@ -645,6 +645,19 @@ const SHOTS = [
     },
   },
   {
+    name: "agent-progress-outputs",
+    async capture({ page, locale, file, t }) {
+      await page.goto(`${baseUrl}/tests/e2e/fixtures/agent-progress-panel.html?resources=1&lang=${locale}`);
+      await page.getByTestId("agent-progress-panel-empty").waitFor();
+      await page.evaluate(() => window.agentPanelFixture.openSubagent());
+      const panel = page.getByTestId("agent-progress-panel");
+      await panel.getByRole("tab", { name: await t("session:agentProgress.panel.tabOutputs") }).click();
+      await panel.getByTestId("scratch-preview-body").getByText("Expiry checked").waitFor();
+      await settle(page);
+      await save(page, panel, file, { padding: 8 });
+    },
+  },
+  {
     name: "agent-progress-timeline",
     async capture({ page, locale, file, t }) {
       await openPreview(page, locale, "agent-progress&scenario=finished&theme=dark");

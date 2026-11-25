@@ -49,7 +49,7 @@ export function trackClaudeBackgroundTasks(args: {
 }) {
   const now = args.now ?? Date.now;
   const nativeTasks = new Map<string, ObservedTask>();
-  const nativeTools = new Map<string, { name: string; description: string }>();
+  const nativeTools = new Map<string, { name: string; description: string; parentToolUseId?: string }>();
   let sessionId: string | undefined;
   let active = true;
   let controlsOpen = true;
@@ -194,7 +194,7 @@ export function trackClaudeBackgroundTasks(args: {
           if (block.type !== "tool_use" || (block.name !== "Bash" && block.name !== "Monitor")) continue;
           const input = block.input as { description?: unknown; command?: unknown } | undefined;
           const description = typeof input?.description === "string" ? input.description : input?.command;
-          nativeTools.set(block.id, { name: block.name, description: typeof description === "string" ? description.slice(0, 512) : "" });
+          nativeTools.set(block.id, { name: block.name, parentToolUseId: message.parent_tool_use_id ?? undefined, description: typeof description === "string" ? description.slice(0, 512) : "" });
           if (nativeTools.size > 128) {
             const oldest = nativeTools.keys().next().value;
             if (oldest !== undefined) nativeTools.delete(oldest);
@@ -213,6 +213,7 @@ export function trackClaudeBackgroundTasks(args: {
         sessionId ??= message.session_id;
         if (message.session_id !== sessionId) return;
         const task = observeTask(nativeId, undefined, tool?.description ?? "", false);
+        if (task && tool?.parentToolUseId) update(task, { parentToolUseId: tool.parentToolUseId });
         // The bundled CLI includes an output path in the launch receipt. Join
         // it to the structured task ID and validate its location when reading.
         const receipt = typeof block.content === "string" ? block.content : "";

@@ -120,3 +120,11 @@ export const WORKSPACE_SCRATCH_SUBAGENT_DELEGATION_INSTRUCTION =
 export function workspaceScratchPath(...parts: string[]): string {
   return [WORKSPACE_SCRATCH_DIRECTORY, ...parts].join("/");
 }
+
+/** Folder assigned by the Claude subagent start hook. */
+export function formatClaudeScratchFolder(hash: string, agentType: unknown): string {
+  const slug = typeof agentType === "string"
+    ? agentType.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24).replace(/-+$/g, "")
+    : "";
+  return slug ? `${slug}-${hash}` : hash;
+}

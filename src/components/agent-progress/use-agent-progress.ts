@@ -32,6 +32,10 @@ import { useTaskMessages } from "./use-task-messages";
 
 /** Everything the panel needs for one agent, read from the live stores. */
 export interface AgentProgressController {
+  resourceScope?: {
+    subagent?: { agentId?: string; toolUseId?: string; providerId?: ProviderId; type?: string | null; prompt?: string | null };
+    turnIds?: readonly string[];
+  };
   progress: AgentProgress | null;
   loading: boolean;
   notice: string | null;
@@ -187,6 +191,8 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
       : null;
   return {
     progress,
+    resourceScope: { subagent: { agentId, toolUseId, providerId, type: parsed?.subagentType, prompt: parsed?.prompt },
+      ...(owner?.turnId ? { turnIds: [owner.turnId] } : {}) },
     loading: messages.loading || history.loading,
     notice,
     context,
