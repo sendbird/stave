@@ -6,6 +6,7 @@ import type {
   MessagePart,
 } from "@/types/chat";
 import {
+  MAX_PROVIDER_MESSAGE_PARTS,
   sanitizeChatMessagePayload,
   sanitizeFileContextPayload,
 } from "@/lib/file-context-sanitization";
@@ -162,6 +163,23 @@ function deriveCanonicalMessageContent(message: ChatMessage) {
   return trailingText.trim().length > 0 ? trailingText : message.content;
 }
 
+/**
+ * Keep a message within the request schema's part limit. A long agent turn can
+ * record more tool calls than one request may carry; its latest parts hold the
+ * answer, so the earliest are replaced by one note. Without this, every later
+ * turn of the task fails request validation.
+ */
+function boundCanonicalMessageParts(parts: MessagePart[]): MessagePart[] {
+  if (parts.length <= MAX_PROVIDER_MESSAGE_PARTS) return parts;
+  const kept = parts.slice(parts.length - (MAX_PROVIDER_MESSAGE_PARTS - 1));
+  const omitted = parts.length - kept.length;
+  return [
+    // i18n-ignore: provider history note, not display copy
+    { type: "text", text: `[${omitted} earlier parts of this message were omitted to fit the request limit.]` },
+    ...kept,
+  ];
+}
+
 export function toCanonicalConversationMessage(args: {
   message: ChatMessage;
 }): CanonicalConversationMessage {
@@ -172,10 +190,10 @@ export function toCanonicalConversationMessage(args: {
     providerId: sanitizedMessage.providerId,
     model: sanitizedMessage.model,
     content: deriveCanonicalMessageContent(sanitizedMessage),
-    parts: sanitizedMessage.parts.flatMap((part) => {
+    parts: boundCanonicalMessageParts(sanitizedMessage.parts.flatMap((part) => {
       const clonedPart = cloneMessagePart(part);
       return clonedPart ? [clonedPart] : [];
-    }),
+    })),
   };
 }
 

@@ -877,6 +877,8 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
       return lifecycle.events();
     }
     const refusal = error instanceof Error && error.name === "AgentRunCommandError" ? error.message : null;
+    // The shown message is generic; keep the cause (admission validation, Agent compile) diagnosable.
+    if (!refusal) console.error("[provider-turn] turn preparation failed", { turnId: rawArgs.turnId, taskId: rawArgs.taskId, error });
     lifecycle.emit({ type: "error", recoverable: false,
       message: refusal ?? "The task's Agent configuration could not be applied. Check its assignment and provider before retrying." });
     lifecycle.finish("runtime_failure");

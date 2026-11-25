@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAX_PROVIDER_MESSAGE_PARTS } from "../../../src/lib/file-context-sanitization";
 import { DelegatedTaskAnswerRefsSchema } from "../../../src/lib/runs/delegated-task-answers";
 import { MAX_OPTION_PREVIEW_LENGTH } from "../../../src/lib/user-input-options";
 import { ProviderIdSchema, RuntimeOptionsSchema } from "./provider-runtime-schemas";
@@ -233,7 +234,7 @@ const CanonicalConversationMessageSchema = z
     providerId: z.union([ProviderIdSchema, z.literal("user")]).optional(),
     model: z.string().max(200).optional(),
     content: z.string().max(500_000),
-    parts: z.array(CanonicalMessagePartSchema).max(500),
+    parts: z.array(CanonicalMessagePartSchema).max(MAX_PROVIDER_MESSAGE_PARTS),
   })
   .strict();
 
