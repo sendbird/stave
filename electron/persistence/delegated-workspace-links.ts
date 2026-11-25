@@ -23,8 +23,12 @@ interface Database {
  *
  * The parent workspace is looked up by primary key per live workspace rather
  * than by scanning every task row for a suffix.
+ *
+ * `includeArchivedParents` keeps links whose parent workspace is archived:
+ * cleanup still has to protect a child its delegation holds after the
+ * parent went away, while the sidebar shows such a child top-level.
  */
-export function listDelegatedWorkspaceLinks(database: unknown): DelegatedWorkspaceLink[] {
+export function listDelegatedWorkspaceLinks(database: unknown, options: { includeArchivedParents?: boolean } = {}): DelegatedWorkspaceLink[] {
   const rows = (database as Database).prepare(`
     SELECT run.workspace_id AS childWorkspaceId, parentWorkspace.id AS parentWorkspaceId,
       run.origin_id AS parentTaskId, run.task_id AS childTaskId, step.status AS phase,
@@ -37,10 +41,10 @@ export function listDelegatedWorkspaceLinks(database: unknown): DelegatedWorkspa
     WHERE run.kind = ? AND run.origin_kind = 'task' AND run.task_id IS NOT NULL
       AND NOT (step.status = 'cancelled' AND COALESCE(step.error, '') = ?)
       AND run.workspace_id NOT IN (SELECT workspace_id FROM workspace_archives)
-      AND parentWorkspace.id NOT IN (SELECT workspace_id FROM workspace_archives)
+      AND (? = 1 OR parentWorkspace.id NOT IN (SELECT workspace_id FROM workspace_archives))
     ORDER BY run.created_at ASC, run.id ASC
     LIMIT 5000
-  `).all(DELEGATED_TASK_RUN_KIND, DELEGATED_TASK_DETACHED_REASON);
+  `).all(DELEGATED_TASK_RUN_KIND, DELEGATED_TASK_DETACHED_REASON, options.includeArchivedParents ? 1 : 0);
   const parsed = DelegatedWorkspaceLinkListSchema.safeParse(rows);
   return parsed.success ? parsed.data : [];
 }

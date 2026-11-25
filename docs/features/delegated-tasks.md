@@ -530,8 +530,10 @@ cleanup**.
 
 The optional inactivity, maximum and merged-PR cleanup policies also leave a
 child the delegation still holds: one still working, one that can be retried,
-one with an answer no parent turn carried yet, and one with workspaces nested
-under it. That check runs again inside the archive.
+one with an answer no parent turn carried yet, one with workspaces nested
+under it, and one the user restored. A child stays held after its parent
+workspace is archived, so archiving the parent first in the same cleanup does
+not release it. That check runs again inside the archive.
 
 ## Troubleshooting
 

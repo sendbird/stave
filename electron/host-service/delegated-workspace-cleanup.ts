@@ -26,7 +26,9 @@
  *
  * The optional inactivity, maximum and merged-PR policies never archive a
  * child the delegation still holds (`held`): one still working, retryable,
- * with an answer the parent has not received, or with children of its own.
+ * with an answer the parent has not received, or with children of its own,
+ * even after its parent workspace was archived; nor a child the user
+ * restored.
  *
  * Used by: `workspace-cleanup-runtime.ts`, wired in `electron/host-service.ts`.
  */
@@ -137,7 +139,7 @@ export interface DelegatedCleanupStore {
     workspacePathById: Record<string, string>;
   }>;
   delegatedAnswers: {
-    listWorkspaceLinks(): DelegatedWorkspaceLink[];
+    listWorkspaceLinks(options?: { includeArchivedParents?: boolean }): DelegatedWorkspaceLink[];
     hasOwedAnswer(runId: string): boolean;
   };
 }
@@ -219,18 +221,23 @@ export function createDelegatedWorkspaceCleanup(ports: {
 
   /**
    * What keeps a delegated child from the optional cleanup policies, read
-   * fresh; null for a workspace no delegation holds. Git state is left to the
-   * archive's own blockers there.
+   * fresh; null for a workspace no delegation holds. Unlike the sweep, a
+   * child whose parent workspace is archived still counts: archiving the
+   * parent first must not release it. Git state is left to the archive's own
+   * blockers there.
    */
   function held(workspaceId: string, repositoryPath: string): string | null {
-    const candidate = candidates().find((item) => item.link.childWorkspaceId === workspaceId && item.repositoryPath === repositoryPath);
-    if (!candidate) return null;
-    const { input } = candidate;
+    const store = ports.store();
+    const links = store.delegatedAnswers.listWorkspaceLinks({ includeArchivedParents: true });
+    // The oldest link names the child, as in `candidates`.
+    const link = links.find((item) => item.childWorkspaceId === workspaceId);
+    if (!link) return null;
     const reasons: DelegatedChildKeepReason[] = [];
-    if (ACTIVE.has(input.phase)) reasons.push("subagentActive");
-    if (RETRYABLE.has(input.phase)) reasons.push("subagentRetryable");
-    if (input.answerOwed) reasons.push("subagentResultPending");
-    if (input.hasNestedChildren) reasons.push("subagentHasNested");
+    if (ACTIVE.has(link.phase)) reasons.push("subagentActive");
+    if (RETRYABLE.has(link.phase)) reasons.push("subagentRetryable");
+    if (store.delegatedAnswers.hasOwedAnswer(link.runId)) reasons.push("subagentResultPending");
+    if (links.some((item) => item.parentWorkspaceId === workspaceId)) reasons.push("subagentHasNested");
+    if (ports.restoredByUser?.(repositoryPath, workspaceId)) reasons.push("subagentRestored");
     return reasons.length ? reasons.join(",") : null;
   }
 

@@ -100,6 +100,10 @@ describe("delegated workspace links from the run ledger", () => {
     archive("ws-parent");
     archive("ws-third-child");
     expect(answers.listWorkspaceLinks().map((link) => link.childWorkspaceId)).toEqual(["ws-other-child"]);
+    // Cleanup still sees the child of an archived parent; an archived child stays out.
+    expect(answers.listWorkspaceLinks({ includeArchivedParents: true }).map((link) => [link.childWorkspaceId, link.parentWorkspaceId])).toEqual([
+      ["ws-other-child", "ws-other-parent"], ["ws-child", "ws-parent"],
+    ]);
     // A permanently deleted parent task removes its task row.
     db.prepare("DELETE FROM tasks WHERE id = ?").run("ws-other-parent:other-task");
     expect(answers.listWorkspaceLinks()).toEqual([]);

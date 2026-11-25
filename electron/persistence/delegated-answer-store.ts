@@ -138,8 +138,8 @@ export class DelegatedAnswerStore {
    * Workspaces created for delegated children and the workspace each nests
    * under (`delegated-workspace-links.ts`). Read here, beside the ledger.
    */
-  listWorkspaceLinks() {
-    return listDelegatedWorkspaceLinks(this.db);
+  listWorkspaceLinks(options?: { includeArchivedParents?: boolean }) {
+    return listDelegatedWorkspaceLinks(this.db, options);
   }
 
   /** Whether a delegation still owes its parent an answer: one with text that no parent turn carried. */

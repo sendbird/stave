@@ -203,4 +203,27 @@ describe("delegated child sweep", () => {
     expect(annotated[0]!.subagent).toBeUndefined();
     expect(annotated[1]!.subagent).toEqual({ parentWorkspaceId: "ws-parent", parentName: "Parent work", kept: ["subagentResultPending", "subagentUniqueCommits"] });
   });
+
+  test("the optional policies keep a child its delegation holds, after its parent is archived too, and a restored child", () => {
+    // Links as the store reads them once the parent was archived: only cleanup's own read keeps it.
+    const held = (links: DelegatedWorkspaceLink[], options: { owed?: boolean; restored?: boolean } = {}) => createDelegatedWorkspaceCleanup({
+      store: () => ({
+        loadRepositoryRegistry: () => [{ repositoryPath: repo, defaultBranch: "main", workspaces: [{ id: "ws-child", name: "subagent-key" }],
+          workspacePathById: { "ws-child": child }, workspaceBranchById: { "ws-child": "subagent-key" } }],
+        delegatedAnswers: {
+          listWorkspaceLinks: (read?: { includeArchivedParents?: boolean }) => read?.includeArchivedParents ? links : [],
+          hasOwedAnswer: () => options.owed ?? false,
+        },
+      }),
+      git: runner, blockers: async () => [], archive: async () => { throw new Error("not archived here"); }, recentlyFailed: () => false,
+      restoredByUser: () => options.restored ?? false,
+    }).held("ws-child", repo);
+    expect(held([link({ phase: "failed" })])).toBe("subagentRetryable");
+    expect(held([link({ phase: "running" })])).toBe("subagentActive");
+    expect(held([link()], { owed: true })).toBe("subagentResultPending");
+    expect(held([link()], { restored: true })).toBe("subagentRestored");
+    expect(held([link(), link({ childWorkspaceId: "ws-grandchild", parentWorkspaceId: "ws-child", runId: "child-task:child-task:nested" })])).toBe("subagentHasNested");
+    expect(held([link()])).toBeNull();
+    expect(held([])).toBeNull();
+  });
 });
