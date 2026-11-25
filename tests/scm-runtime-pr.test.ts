@@ -309,11 +309,14 @@ describe("fetchGitHubPrStatus", () => {
   });
 
   const trackedHead = "a".repeat(40);
+  const unrelatedHead = "b".repeat(40);
   const tracked = { ...merged, headRefOid: trackedHead, isCrossRepository: false };
 
   test.each([
     { name: "a merged PR after the remote-tracking ref is pruned", rows: [tracked], number: 3 },
     { name: "an open PR before merged history", rows: [tracked, { ...tracked, number: 5, state: "OPEN", mergedAt: null }], number: 5 },
+    { name: "merged history after rejecting an unrelated open PR", rows: [tracked, { ...tracked, number: 5, state: "OPEN", headRefOid: unrelatedHead }], number: 3 },
+    { name: "older matching history after rejecting a newer merged PR", rows: [{ ...tracked, number: 5, headRefOid: unrelatedHead }, tracked], number: 3 },
     { name: "only a fork's PR with the same head name", rows: [{ ...tracked, isCrossRepository: true }], number: null },
     { name: "a different branch in the same repository", rows: [{ ...tracked, headRefName: "fix/y" }], number: null },
   ])("checks the tracked repository for $name", async ({ rows, number }) => {
@@ -324,7 +327,7 @@ describe("fetchGitHubPrStatus", () => {
         return ok("refs/heads/work-copy\tupstream/team\trefs/heads/fix/x\trefs/remotes/upstream/team/fix/x");
       }
       if (command === "git" && args[0] === "remote") return ok("git@github.com:acme/repo.git");
-      if (command === "git" && args[0] === "merge-base") return ok();
+      if (command === "git" && args[0] === "merge-base") return args.includes(unrelatedHead) ? fail("", 1) : ok();
       if (command === "gh" && args[0] === "auth") return ok();
       if (command === "gh" && args[1] === "view") return fail("no pull requests found for branch work-copy");
       if (command === "gh" && args[1] === "list") return ok(JSON.stringify(args.includes("--repo") ? rows : []));

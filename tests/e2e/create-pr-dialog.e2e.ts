@@ -5,10 +5,16 @@ test("the top bar shows and addresses a PR whose head differs from the workspace
   await page.addInitScript((url) => {
     const w = window as unknown as Record<string, unknown>;
     const readyRequests: Array<{ prUrl?: string }> = [];
+    const stackRequests: Array<{ prUrl?: string }> = [];
     w.__prHarness = readyRequests;
+    w.__stackRequests = stackRequests;
     w.api = {
       provider: {}, terminal: {}, scripts: {}, shell: {},
       sourceControl: {
+        getPrStack: async (args: { prUrl?: string }) => {
+          stackRequests.push(args);
+          return { ok: true, stack: null, code: null };
+        },
         getPrStatus: async () => ({
           ok: true,
           stderr: "",
@@ -29,6 +35,7 @@ test("the top bar shows and addresses a PR whose head differs from the workspace
   const preview = page.getByTestId("create-pr-preview");
   const status = preview.getByRole("button", { name: "Open PR status menu" });
   await expect(status).toContainText("Draft");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __stackRequests: Array<{ prUrl?: string }> }).__stackRequests)).toContainEqual(expect.objectContaining({ prUrl }));
   await expect(preview.getByRole("button", { name: "Create PR" })).toHaveCount(0);
   await status.click();
   const menu = page.getByRole("menu");

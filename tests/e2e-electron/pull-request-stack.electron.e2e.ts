@@ -26,8 +26,10 @@ test("PR stack discovery and confirmed retarget cross real preload, main and hos
   const stave = await launchStave({ env: { PATH: `${bin}${path.delimiter}${process.env.PATH ?? ""}`, ...gh.env } });
   try {
     await stave.page.waitForFunction(() => Boolean(window.api?.sourceControl?.getPrStack));
-    const result = await stave.page.evaluate(cwd => window.api.sourceControl!.getPrStack!({ cwd }), cwd);
+    const parentUrl = "https://github.com/example/repo/pull/1";
+    const result = await stave.page.evaluate(({ cwd, prUrl }) => window.api.sourceControl!.getPrStack!({ cwd, prUrl }), { cwd, prUrl: parentUrl });
     expect(result.ok, String(result.code)).toBe(true);
+    expect(result.stack?.current).toBe(1);
     expect(result.stack?.retarget).toMatchObject({ parent: { number: 1 }, toBase: "main", children: [{ number: 2 }], excluded: [{ pr: { number: 3 }, reason: "not-yours" }] });
     const rejected = await stave.page.evaluate(async cwd => {
       try {
@@ -39,11 +41,11 @@ test("PR stack discovery and confirmed retarget cross real preload, main and hos
     // A long-lived parent is refused by the host even when the renderer asks.
     const refused = await stave.page.evaluate(cwd => window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 10, children: [{ number: 11, fromBase: "develop", toBase: "main" }] }), cwd);
     expect(refused).toMatchObject({ ok: false, code: "parent-ineligible", results: [] });
-    const updated = await stave.page.evaluate(cwd => window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 1, children: [{ number: 2, fromBase: "parent", toBase: "main" }, { number: 3, fromBase: "parent", toBase: "main" }] }), cwd);
+    const updated = await stave.page.evaluate(({ cwd, parentUrl }) => window.api.sourceControl!.retargetPrStack!({ cwd, parentNumber: 1, parentUrl, children: [{ number: 2, fromBase: "parent", toBase: "main" }, { number: 3, fromBase: "parent", toBase: "main" }] }), { cwd, parentUrl });
     expect(updated).toEqual({ ok: false, code: null, results: [{ number: 2, status: "updated", reason: null }, { number: 3, status: "skipped", reason: "not-yours" }] });
     const calls = gh.calls();
-    expect(calls).toContainEqual(["pr", "update-branch", "2"]);
-    expect(calls.filter(args => args[1] === "edit").map(args => args[2])).toEqual(["2"]);
+    expect(calls).toContainEqual(["pr", "update-branch", "https://github.com/example/repo/pull/2"]);
+    expect(calls.filter(args => args[1] === "edit").map(args => args[2])).toEqual(["https://github.com/example/repo/pull/2"]);
     expect(calls.flat().some(arg => arg.includes("force"))).toBe(false);
     expect(git("branch", "--show-current")).toBe("child");
   } finally { await stave.close(); await rm(directory, { recursive: true, force: true }); }

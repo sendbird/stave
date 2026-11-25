@@ -19,7 +19,7 @@ export const OPEN_PULL_REQUEST_LIMIT = 100;
 const MERGED_PULL_REQUEST_LIMIT = 50;
 export const PULL_REQUEST_LIST_FIELDS = "number,title,url,headRefName,baseRefName,state,createdAt,mergedAt,isCrossRepository,headRepositoryOwner,author";
 
-export interface RepositoryInfo { key: string; defaultBranch: string; owner: string; host: string }
+export interface RepositoryInfo { key: string; defaultBranch: string; owner: string; host: string; selector?: string }
 export class PullRequestReadError extends Error {
   constructor(readonly code: "auth" | "read-failed" | "invalid-response", message: string) { super(message); }
 }
@@ -81,15 +81,20 @@ async function repositoryKey(cwd: string, run: ScmCommandRunner, now: number) {
   });
 }
 
-export async function readRepositoryInfo(args: { cwd: string; run?: ScmCommandRunner; now?: number }): Promise<RepositoryInfo> {
+export async function readRepositoryInfo(args: { cwd: string; selector?: string; run?: ScmCommandRunner; now?: number }): Promise<RepositoryInfo> {
   const run = runner(args.run);
   const now = args.now ?? Date.now();
   const key = await repositoryKey(args.cwd, run, now);
-  return cached(repositoryCache, key, REPOSITORY_TTL_MS, now, async () => {
-    const parsed = RepoViewSchema.safeParse(await gh(run, args.cwd, ["repo", "view", "--json", "defaultBranchRef,owner,url"]));
+  return cached(repositoryCache, JSON.stringify([key, args.selector]), REPOSITORY_TTL_MS, now, async () => {
+    const parsed = RepoViewSchema.safeParse(await gh(run, args.cwd, ["repo", "view", ...(args.selector ? [`https://${args.selector}`] : []), "--json", "defaultBranchRef,owner,url"]));
     if (!parsed.success) throw new PullRequestReadError("invalid-response", "Could not read the repository");
-    return { key, defaultBranch: parsed.data.defaultBranchRef.name, owner: parsed.data.owner.login, host: new URL(parsed.data.url).host };
+    const url = new URL(parsed.data.url);
+    return { key: JSON.stringify([key, url.href.toLowerCase()]), defaultBranch: parsed.data.defaultBranchRef.name, owner: parsed.data.owner.login, host: url.host, selector: args.selector };
   });
+}
+
+function repositoryFlag(repository: RepositoryInfo) {
+  return repository.selector ? ["--repo", repository.selector] : [];
 }
 
 /** The signed-in login for the repository's host. */
@@ -122,7 +127,7 @@ export async function readRepositoryPullRequests(args: { cwd: string; repository
   if (args.fresh) listCache.delete(key);
   return cached(listCache, key, PULL_REQUEST_LIST_TTL_MS, now, async () => {
     const limit = args.state === "open" ? OPEN_PULL_REQUEST_LIMIT : MERGED_PULL_REQUEST_LIMIT;
-    const rows = await gh(run, args.cwd, ["pr", "list", "--state", args.state, "--limit", String(limit), "--json", PULL_REQUEST_LIST_FIELDS]);
+    const rows = await gh(run, args.cwd, ["pr", "list", ...repositoryFlag(args.repository), "--state", args.state, "--limit", String(limit), "--json", PULL_REQUEST_LIST_FIELDS]);
     if (!Array.isArray(rows)) throw new PullRequestReadError("invalid-response", "gh returned a non-list");
     return rows.flatMap(row => normalizePullRequest(row, args.repository.owner) ?? []);
   });
@@ -136,7 +141,7 @@ export async function readBranchPullRequests(args: { cwd: string; repository: Re
 
 /** One PR, read fresh: retargeting revalidates against current state. */
 export async function readPullRequest(args: { cwd: string; repository: RepositoryInfo; number: number; run?: ScmCommandRunner }) {
-  const raw = await gh(runner(args.run), args.cwd, ["pr", "view", String(args.number), "--json", PULL_REQUEST_LIST_FIELDS]);
+  const raw = await gh(runner(args.run), args.cwd, ["pr", "view", String(args.number), ...repositoryFlag(args.repository), "--json", PULL_REQUEST_LIST_FIELDS]);
   const pr = normalizePullRequest(raw, args.repository.owner);
   if (!pr) throw new PullRequestReadError("invalid-response", `Could not read pull request #${args.number}`);
   return pr;

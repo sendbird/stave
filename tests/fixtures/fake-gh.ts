@@ -90,6 +90,7 @@ if (args[0] === "repo" && args[1] === "view") {
 if (args[0] !== "pr") fail("unexpected fake command " + args.join(" "));
 const target = args[2] && !args[2].startsWith("-") ? args[2] : undefined;
 const find = () => {
+  if (target?.startsWith("https://")) return state.prs.find((pr) => pr.url === target);
   if (target && /^\d+$/.test(target)) return state.prs.find((pr) => pr.number === Number(target));
   const branch = target ?? execFileSync("git", ["branch", "--show-current"], { encoding: "utf8" }).trim();
   const matches = state.prs.filter((pr) => pr.headRefName === branch);

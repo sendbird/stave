@@ -372,26 +372,29 @@ async function readTrackedBranchPr(args: { branch: string; cwd?: string; run: Sc
   invalidateCachedGhAuthOnFailure(result, cwd);
   if (!result.ok) return { ok: false, pr: null, stderr: result.stderr };
 
-  let pr: GitHubPrPayload | undefined;
+  let candidates: GitHubPrPayload[];
   try {
     const rows = JSON.parse(result.stdout) as Record<string, unknown>[];
-    const candidates = rows.filter((item) => item.headRefName === head && item.isCrossRepository === false);
-    const match = candidates.find((item) => item.state === "OPEN") ?? candidates[0];
-    if (match) pr = parseGitHubPrPayload(match);
+    candidates = rows
+      .filter((item) => item.headRefName === head && item.isCrossRepository === false)
+      .map(parseGitHubPrPayload)
+      .sort((a, b) => Number(b.state === "OPEN") - Number(a.state === "OPEN"));
   } catch {
     return { ok: false, pr: null, stderr: "Failed to parse PR status JSON." };
   }
 
-  if (!pr?.headRefOid || !/^[0-9a-f]{40,64}$/i.test(pr.headRefOid)) return null;
-  // Tracking can outlive a branch's previous work. Only use a related PR head.
-  // An open PR can be behind local commits that have yet to be pushed.
-  const covered = await run({ command: "git", commandArgs: ["merge-base", "--is-ancestor", "HEAD", pr.headRefOid], cwd });
-  if (!covered.ok) {
-    if (pr.state !== "OPEN" || covered.code !== 1) return null;
-    const ahead = await run({ command: "git", commandArgs: ["merge-base", "--is-ancestor", pr.headRefOid, "HEAD"], cwd });
-    if (!ahead.ok) return null;
+  for (const pr of candidates) {
+    if (!pr.headRefOid || !/^[0-9a-f]{40,64}$/i.test(pr.headRefOid)) continue;
+    // A reused head branch can have unrelated PRs. Keep looking after a mismatch.
+    const covered = await run({ command: "git", commandArgs: ["merge-base", "--is-ancestor", "HEAD", pr.headRefOid], cwd });
+    if (covered.ok) return { ok: true, pr, stderr: "" };
+    if (pr.state === "OPEN" && covered.code === 1) {
+      // An open PR can be behind local commits that have yet to be pushed.
+      const ahead = await run({ command: "git", commandArgs: ["merge-base", "--is-ancestor", pr.headRefOid, "HEAD"], cwd });
+      if (ahead.ok) return { ok: true, pr, stderr: "" };
+    }
   }
-  return { ok: true, pr, stderr: "" };
+  return null;
 }
 
 export async function fetchGitHubPrStatus(args: {

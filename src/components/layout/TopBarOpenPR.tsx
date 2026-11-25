@@ -283,7 +283,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const prHead = prInfo?.pr?.headRefName || currentBranch;
   const actionPrUrl = prHead !== currentBranch ? prInfo?.pr?.url : undefined;
   // Re-read the stack only when the PR changed (number, state, base), not on every status poll.
-  const prStack = usePullRequestStack({ cwd: workspaceCwd, enabled: Boolean(prInfo?.pr), revision: pullRequestStackRevision(prInfo?.pr) });
+  const prStack = usePullRequestStack({ cwd: workspaceCwd, prUrl: prInfo?.pr?.url, enabled: Boolean(prInfo?.pr), revision: pullRequestStackRevision(prInfo?.pr) });
   const [stackRetargetOpen, setStackRetargetOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const stackedParent = usePullRequestStack({ cwd: workspaceCwd, branch: targetBranch, enabled: dialogOpen && createStackedPr && Boolean(targetBranch) && targetBranch !== defaultBaseBranch });
