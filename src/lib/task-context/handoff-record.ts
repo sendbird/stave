@@ -191,7 +191,7 @@ export function buildHandoffRecordContextPart(
       // i18n-ignore: model-facing notice, sent to the provider as-is
       ...(update ? ["The user changed this record since you last received it. This version replaces the earlier one."] : []),
       // i18n-ignore: model-facing instruction, sent to the provider as-is
-      "This user-approved record takes precedence over conflicting excerpts; flag conflicts. Match prior checks to the current source state before relying on them. Act on remaining work only when the current request calls for it.",
+      "This user-approved record takes precedence over conflicting excerpts; flag conflicts. On resumption, state the last verified source state and the first check needed for the current request. Compare the current commit and working-tree changes with what was verified. If files changed, rerun the checks affected by those changes before relying on the old result. Act on remaining work only when the current request calls for it.",
       ...blocks,
     ].join("\n\n"),
   };
@@ -313,6 +313,7 @@ export function buildHandoffUpdateRequest(record: TaskHandoffRecord | null) {
     // i18n-ignore: model-facing request; the user sends it to the task's agent
     "Please propose an updated handoff record for this task, for someone who picks it up without this conversation.",
     "Keep what is still true, add what this task has since decided, verified or left to do, and remove what is no longer true. Do not change any files for this.",
+    "In verified, record the last checked commit and relevant working-tree changes, the check and its result. In remaining, start with the first action needed to resume and name the checks to repeat if their covered files changed.",
     `Reply with one fenced \`${HANDOFF_PROPOSAL_FENCE}\` block holding a JSON object with the string fields goal, decisions, verified, remaining and cautions (use "- " lines for lists, at most ${HANDOFF_SECTION_MAX_CHARS} characters each). I will review it before it is saved.`,
     "The current record:",
     `\`\`\`json\n${current}\n\`\`\``,
