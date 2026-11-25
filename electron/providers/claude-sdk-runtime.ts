@@ -49,8 +49,8 @@ import { createClaudeCompactionTracker } from "./claude-compaction";
 import { claudeNativePlanEnv } from "./native-plan-options";
 import { readSettledClaudeMcpStatus, observeClaudeMcpReadiness } from "./claude-mcp-readiness-summary";
 import { buildClaudeSystemPrompt } from "./claude-system-prompt";
-import { claudeForegroundSubagentPreToolUseHook, claudeScratchSubagentPreToolUseHook } from "./claude-subagent-hooks";
-export { claudeForegroundSubagentPreToolUseHook, resolveClaudeForegroundSubagentInput } from "./claude-subagent-hooks";
+import { createClaudeSubagentPreToolUseHook, createClaudeSubagentStartHook } from "./claude-subagent-hooks";
+export { resolveClaudeForegroundSubagentInput } from "./claude-subagent-hooks";
 export { buildClaudeSystemPrompt, STAVE_TURN_BEHAVIOR_DIRECTIVE } from "./claude-system-prompt";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import { claudeFastModeEnabled, claudeModelForcesAdaptiveThinking } from "../../src/lib/providers/claude-model-requirements";
@@ -1262,10 +1262,7 @@ export function buildClaudeQueryOptions(args: {
     // call) and not `agent` (replaces the main loop): the lead stays in charge.
     ...(subagentAgents ? { agents: subagentAgents } : {}),
     ...(settingSources !== undefined ? { settingSources } : {}),
-    // Always-on: force Agent-tool subagents to run in the foreground so a
-    // turn can never end waiting for a background-completion notification
-    // that Stave's one-turn-at-a-time loop cannot deliver. Turns that use the
-    // scratch folder also give each subagent its own folder in it.
+    // SubagentStart delivers scratch instructions after Claude approves the call.
     hooks: {
       PreToolUse: [
         {
@@ -1273,10 +1270,13 @@ export function buildClaudeQueryOptions(args: {
           hooks: [claudeAskUserQuestionPreToolUseHook],
         },
         {
-          matcher: "^(Agent|Task)$",
-          hooks: [args.secondaryReadOnly ? claudeForegroundSubagentPreToolUseHook : claudeScratchSubagentPreToolUseHook],
+          matcher: "^Agent$",
+          hooks: [createClaudeSubagentPreToolUseHook({ permissionMode })],
         },
       ],
+      SubagentStart: [{
+        hooks: [createClaudeSubagentStartHook(args.secondaryReadOnly ? {} : { scratchRoot: args.cwd })],
+      }],
       ...(args.providerBrowserRequested
         ? {
             PostToolUse: [
