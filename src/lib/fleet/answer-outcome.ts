@@ -8,13 +8,15 @@ import type { InteractionAnswerOutcome } from "@/store/app-store.types";
  * unconfirmed records the earlier answer (`earlierAnswer`), and saying
  * "delivered" first would tell the user their new answer went out.
  *
- * - `earlier`: the earlier answer went out instead. A panel that closed in
- *   the meantime (the request left the attention list) says it as a toast.
+ * - `earlier`: the earlier answer went out instead. When the panel no longer
+ *   shows this request (it closed as the request left the attention list, or
+ *   it moved on to another request or task), it is said as a toast.
  * - `delivered`: this answer went out.
  * - `failed`: the answer was not delivered; `message` says why.
  * - `changed`: skipped, or failed without words: the request changed and
  *   delivery cannot be confirmed.
- * - `none`: the panel closed and there is nothing it must still say.
+ * - `none`: the panel no longer shows this request and there is nothing it
+ *   must still say; the panel's current controls are left alone.
  */
 export type FleetAnswerNotice =
   | { kind: "earlier"; via: "status" | "toast" }
@@ -23,11 +25,11 @@ export type FleetAnswerNotice =
   | { kind: "changed" }
   | { kind: "none" };
 
-export function fleetAnswerNotice(outcome: InteractionAnswerOutcome, panelOpen: boolean): FleetAnswerNotice {
+export function fleetAnswerNotice(outcome: InteractionAnswerOutcome, shownInPanel: boolean): FleetAnswerNotice {
   if (outcome.status === "delivered") {
-    if (outcome.earlierAnswer) return { kind: "earlier", via: panelOpen ? "status" : "toast" };
-    return panelOpen ? { kind: "delivered" } : { kind: "none" };
+    if (outcome.earlierAnswer) return { kind: "earlier", via: shownInPanel ? "status" : "toast" };
+    return shownInPanel ? { kind: "delivered" } : { kind: "none" };
   }
-  if (!panelOpen) return { kind: "none" };
+  if (!shownInPanel) return { kind: "none" };
   return outcome.status === "failed" && outcome.message ? { kind: "failed", message: outcome.message } : { kind: "changed" };
 }

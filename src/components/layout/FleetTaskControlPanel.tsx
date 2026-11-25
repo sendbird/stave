@@ -408,6 +408,10 @@ export function FleetTaskControlPanel(args: {
   // A user-input answer whose outcome is still out; its outcome, not the card, says it was delivered.
   const awaitingOutcome = useRef<string | null>(null);
   const panelOpen = useRef(true);
+  // The request this panel last sent, as `taskId:requestId`. A card reuses one
+  // panel for its tasks, so a late outcome may belong to a request it no
+  // longer shows; that outcome must not touch the current controls.
+  const lastSentRequest = useRef<string | null>(null);
   useEffect(() => {
     panelOpen.current = true;
     return () => { panelOpen.current = false; };
@@ -496,6 +500,8 @@ export function FleetTaskControlPanel(args: {
     }
     setBusyAction(input.kind);
     setStatus({ tone: "neutral", text: tI18n("fleet:fleetTaskControlPanel.sendingResponse") });
+    const sentKey = `${args.target.taskId}:${expected.requestId}`;
+    lastSentRequest.current = sentKey;
     if (input.kind === "approval") {
       resolveApproval({
         taskId: args.target.taskId,
@@ -510,7 +516,8 @@ export function FleetTaskControlPanel(args: {
       awaitingOutcome.current = expected.requestId;
       const settle = (outcome: Parameters<typeof fleetAnswerNotice>[0]) => {
         if (awaitingOutcome.current === expected.requestId) awaitingOutcome.current = null;
-        const notice = fleetAnswerNotice(outcome, panelOpen.current);
+        // Shown here only while the panel is open and its last request is still this one.
+        const notice = fleetAnswerNotice(outcome, panelOpen.current && lastSentRequest.current === sentKey);
         const earlierText = i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered");
         if (notice.kind === "earlier" && notice.via === "toast") toast.info(earlierText);
         if (notice.kind === "none" || (notice.kind === "earlier" && notice.via === "toast")) return;
