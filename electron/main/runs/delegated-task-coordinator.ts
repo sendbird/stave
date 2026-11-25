@@ -495,7 +495,7 @@ function acceptedReceiptForRun(
 }
 
 /** Store only a read-only Reviewer's verdict on the clean commit it was pinned to. */
-function pinnedReviewerResult(detail: AgentRunDetail, claim: RunReceiptDetail | null | undefined, providerId: ProviderId) {
+function pinnedReviewerResult(detail: AgentRunDetail, claim: RunReceiptDetail | null | undefined, providerId: RunStepTarget["providerId"]) {
   if (claim?.agentConfigId !== REVIEW_AGENT_ID || claim.workspaceMode !== "same-workspace" || !claim.expectedHead ||
       !isReadOnlyDelegationPolicy(providerId, claim.permissionPolicy)) return;
   const record = currentStageRecord(detail);
