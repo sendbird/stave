@@ -42,6 +42,7 @@ import {
 } from "../main/utils/command";
 import { resolveRootFilePath } from "../main/utils/filesystem";
 import { ensureGhAuth, invalidateGhAuthCache } from "./gh-auth";
+import { parseGitRemoteRepository } from "./git-remote-repository";
 
 const GIT_STATUS_PORCELAIN_ALL_UNTRACKED_ARGS = [
   "status",
@@ -324,6 +325,75 @@ export function isTerminalPullRequestSuperseded(ancestorCheck: {
   return ancestorCheck.code === 1;
 }
 
+async function readBranchUpstream(args: { branch: string; cwd?: string; run: ScmCommandRunner }) {
+  const { branch, cwd, run } = args;
+  // The config-backed fields still resolve after the remote-tracking ref is pruned.
+  const tracking = await run({
+    command: "git",
+    commandArgs: [
+      "for-each-ref",
+      "--format=%(refname)%09%(upstream:remotename)%09%(upstream:remoteref)%09%(upstream)",
+      `refs/heads/${branch}`,
+    ],
+    cwd,
+  });
+  if (!tracking.ok) return null;
+  const row = tracking.stdout.split("\n").find((line) => line.startsWith(`refs/heads/${branch}\t`));
+  const [, remote, ref, trackingRef] = row?.split("\t") ?? [];
+  if (!remote || remote === "." || !ref?.startsWith("refs/heads/")) return null;
+  return { remote, head: ref.slice("refs/heads/".length), trackingRef };
+}
+
+async function readRemoteRepository(args: { remote: string; cwd?: string; run: ScmCommandRunner }) {
+  const result = await args.run({
+    command: "git",
+    commandArgs: ["remote", "get-url", "--", args.remote],
+    cwd: args.cwd,
+  });
+  const repository = result.ok ? parseGitRemoteRepository(result.stdout) : null;
+  return repository ? `${repository.host}/${repository.owner}/${repository.name}` : null;
+}
+
+async function readTrackedBranchPr(args: { branch: string; cwd?: string; run: ScmCommandRunner }) {
+  const { branch, cwd, run } = args;
+  const upstream = await readBranchUpstream(args);
+  if (!upstream || upstream.head === branch) return null;
+  const { remote, head } = upstream;
+  const repository = await readRemoteRepository({ remote, cwd, run });
+  if (!repository) return null;
+  const result = await run({
+    command: "gh",
+    commandArgs: [
+      "pr", "list", "--repo", repository, "--head", head,
+      "--state", "all", "--json", `${GITHUB_PR_JSON_FIELDS},isCrossRepository`,
+    ],
+    cwd,
+  });
+  invalidateCachedGhAuthOnFailure(result, cwd);
+  if (!result.ok) return { ok: false, pr: null, stderr: result.stderr };
+
+  let pr: GitHubPrPayload | undefined;
+  try {
+    const rows = JSON.parse(result.stdout) as Record<string, unknown>[];
+    const candidates = rows.filter((item) => item.headRefName === head && item.isCrossRepository === false);
+    const match = candidates.find((item) => item.state === "OPEN") ?? candidates[0];
+    if (match) pr = parseGitHubPrPayload(match);
+  } catch {
+    return { ok: false, pr: null, stderr: "Failed to parse PR status JSON." };
+  }
+
+  if (!pr?.headRefOid || !/^[0-9a-f]{40,64}$/i.test(pr.headRefOid)) return null;
+  // Tracking can outlive a branch's previous work. Only use a related PR head.
+  // An open PR can be behind local commits that have yet to be pushed.
+  const covered = await run({ command: "git", commandArgs: ["merge-base", "--is-ancestor", "HEAD", pr.headRefOid], cwd });
+  if (!covered.ok) {
+    if (pr.state !== "OPEN" || covered.code !== 1) return null;
+    const ahead = await run({ command: "git", commandArgs: ["merge-base", "--is-ancestor", pr.headRefOid, "HEAD"], cwd });
+    if (!ahead.ok) return null;
+  }
+  return { ok: true, pr, stderr: "" };
+}
+
 export async function fetchGitHubPrStatus(args: {
   cwd?: string;
   target?: string;
@@ -333,6 +403,8 @@ export async function fetchGitHubPrStatus(args: {
    * is a failed read, not "no pull request".
    */
   repository?: string;
+  /** Workspace UI can discover PRs published under a differently named upstream. */
+  includeTrackedBranch?: boolean;
   runCommand?: ScmCommandRunner;
 }) {
   if (args.repository && !args.target) {
@@ -352,10 +424,11 @@ export async function fetchGitHubPrStatus(args: {
     };
   }
 
+  let branch: string | null = null;
   if (!args.target) {
     // Prefer the open PR for this branch; the state-agnostic `gh pr view`
     // lookup below is only a fallback for merged/closed history.
-    const branch = await resolveCurrentScmBranch({
+    branch = await resolveCurrentScmBranch({
       cwd: args.cwd,
       runCommand: args.runCommand,
     });
@@ -428,6 +501,10 @@ export async function fetchGitHubPrStatus(args: {
         result.stderr.includes("Could not resolve") ||
         result.stderr.includes("no open pull requests"));
     if (noPr) {
+      if (branch && args.includeTrackedBranch) {
+        const tracked = await readTrackedBranchPr({ branch, cwd: args.cwd, run });
+        if (tracked) return tracked;
+      }
       return { ok: true, pr: null, stderr: "" };
     }
     return { ok: false, pr: null, stderr: result.stderr };
@@ -447,7 +524,10 @@ export async function fetchGitHubPrStatus(args: {
       cwd: args.cwd,
     });
     if (isTerminalPullRequestSuperseded(ancestorCheck)) {
-      return { ok: true, pr: null, stderr: "" };
+      const tracked = branch && args.includeTrackedBranch
+        ? await readTrackedBranchPr({ branch, cwd: args.cwd, run })
+        : null;
+      return tracked ?? { ok: true, pr: null, stderr: "" };
     }
   }
 
@@ -1986,14 +2066,24 @@ export async function updateScmPrBody(args: {
     : { ok: false, stderr: result.stderr.trim() || "Failed to update the pull request." };
 }
 
-export async function setScmPrReady(args: { cwd?: string }) {
-  const authResult = await ensureGhAuth({ cwd: args.cwd });
+// An explicit top-bar target must be a PR URL, never a gh option or a branch name.
+function isPrActionUrl(url: unknown): url is string {
+  return typeof url === "string" &&
+    /^https:\/\/[a-z0-9.-]+\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*$/i.test(url) &&
+    parseGitRemoteRepository(url) !== null;
+}
+
+export async function setScmPrReady(args: { cwd?: string; prUrl?: string; runCommand?: ScmCommandRunner }) {
+  if (args.prUrl !== undefined && !isPrActionUrl(args.prUrl)) {
+    return { ok: false, stderr: "Invalid pull request URL." };
+  }
+  const authResult = await ensureGhAuth({ cwd: args.cwd, runCommand: args.runCommand });
   if (!authResult.ok) {
     return { ok: false, stderr: describeGhAuthFailure(authResult) };
   }
-  const result = await runCommandArgs({
+  const result = await (args.runCommand ?? runCommandArgs)({
     command: "gh",
-    commandArgs: ["pr", "ready"],
+    commandArgs: ["pr", "ready", ...(args.prUrl ? [args.prUrl] : [])],
     cwd: args.cwd,
   });
   invalidateCachedGhAuthOnFailure(result, args.cwd);
@@ -2008,11 +2098,12 @@ interface PullRequestMergeSnapshot {
 
 async function readPullRequestMergeSnapshot(args: {
   cwd?: string;
+  prUrl?: string;
   run: ScmCommandRunner;
 }): Promise<PullRequestMergeSnapshot | null> {
   const result = await args.run({
     command: "gh",
-    commandArgs: ["pr", "view", "--json", "state,mergedAt,headRefName"],
+    commandArgs: ["pr", "view", ...(args.prUrl ? [args.prUrl] : []), "--json", "state,mergedAt,headRefName"],
     cwd: args.cwd,
   });
   if (!result.ok) {
@@ -2057,6 +2148,7 @@ async function runDirectPullRequestMerge(args: {
   method: ConcretePrMergeMethod;
   cwd?: string;
   expectedHeadOid?: string | null;
+  prUrl?: string;
   deleteRemoteBranch?: boolean;
   run: ScmCommandRunner;
 }): Promise<DirectPullRequestMergeResult> {
@@ -2064,16 +2156,14 @@ async function runDirectPullRequestMerge(args: {
     command: "gh",
     commandArgs: buildMergePullRequestArgs(args.method, {
       matchHeadCommit: args.expectedHeadOid,
+      prUrl: args.prUrl,
     }),
     cwd: args.cwd,
   });
   invalidateCachedGhAuthOnFailure(mergeResult, args.cwd);
   const mergeDetail = `${mergeResult.stderr}\n${mergeResult.stdout}`.trim();
 
-  const snapshot = await readPullRequestMergeSnapshot({
-    cwd: args.cwd,
-    run: args.run,
-  });
+  const snapshot = await readPullRequestMergeSnapshot(args);
   let warning: string | undefined;
   if (!mergeResult.ok) {
     if (!isPullRequestMergedSnapshot(snapshot)) {
@@ -2091,7 +2181,8 @@ async function runDirectPullRequestMerge(args: {
   }
 
   let remoteBranchDeleted = false;
-  if (args.deleteRemoteBranch !== false && snapshot?.headRefName) {
+  // Explicit targets may live outside origin. Leave their branch cleanup to GitHub.
+  if (args.deleteRemoteBranch !== false && !args.prUrl && snapshot?.headRefName) {
     const deleteResult = await args.run({
       command: "git",
       commandArgs: ["push", "origin", "--delete", snapshot.headRefName],
@@ -2128,9 +2219,13 @@ export async function mergeScmPr(args: {
   cwd?: string;
   /** Head commit the PR must still point at; guards against merging a newer push. */
   expectedHeadOid?: string | null;
+  prUrl?: string;
   deleteRemoteBranch?: boolean;
   runCommand?: ScmCommandRunner;
 }): Promise<DirectPullRequestMergeResult | { ok: false; stderr: string }> {
+  if (args.prUrl !== undefined && !isPrActionUrl(args.prUrl)) {
+    return { ok: false, stderr: "Invalid pull request URL." };
+  }
   const run = args.runCommand ?? runCommandArgs;
   const authResult = await ensureGhAuth({
     cwd: args.cwd,
@@ -2142,12 +2237,14 @@ export async function mergeScmPr(args: {
   const { method, remapped } = await resolveScmMergeMethod({
     method: args.method,
     cwd: args.cwd,
+    prUrl: args.prUrl,
     runCommand: args.runCommand,
   });
   const result = await runDirectPullRequestMerge({
     method,
     cwd: args.cwd,
     expectedHeadOid: args.expectedHeadOid,
+    prUrl: args.prUrl,
     deleteRemoteBranch: args.deleteRemoteBranch,
     run,
   });
@@ -2188,6 +2285,7 @@ export async function updateScmPrBranch(args: {
   cwd?: string;
   /** Internal stack updates address a child without checking out another worktree. */
   targetPrNumber?: number;
+  prUrl?: string;
   runCommand?: ScmCommandRunner;
 }): Promise<UpdatePullRequestBranchResult> {
   const run = args.runCommand ?? runCommandArgs;
@@ -2204,6 +2302,9 @@ export async function updateScmPrBranch(args: {
     ...partial,
   });
 
+  if (args.prUrl !== undefined && !isPrActionUrl(args.prUrl)) {
+    return failure("Invalid pull request URL.");
+  }
   const authResult = await ensureGhAuth({
     cwd: args.cwd,
     runCommand: args.runCommand,
@@ -2212,9 +2313,13 @@ export async function updateScmPrBranch(args: {
     return failure(describeGhAuthFailure(authResult));
   }
 
+  const target = args.prUrl ?? (args.targetPrNumber ? String(args.targetPrNumber) : null);
+  const targetArgs = target ? [target] : [];
   const viewResult = await run({
     command: "gh",
-    commandArgs: ["pr", "view", ...(args.targetPrNumber ? [String(args.targetPrNumber)] : []), "--json", "headRefName,baseRefName"],
+    commandArgs: ["pr", "view", ...targetArgs, "--json", args.prUrl
+      ? "headRefName,baseRefName,isCrossRepository"
+      : "headRefName,baseRefName"],
     cwd: args.cwd,
   });
   invalidateCachedGhAuthOnFailure(viewResult, args.cwd);
@@ -2226,9 +2331,11 @@ export async function updateScmPrBranch(args: {
     );
   }
   let headRefName = "";
+  let sameRepository = false;
   try {
     const raw = JSON.parse(viewResult.stdout) as Record<string, unknown>;
     headRefName = typeof raw.headRefName === "string" ? raw.headRefName : "";
+    sameRepository = raw.isCrossRepository === false;
   } catch {
     return failure("Failed to parse pull request details.");
   }
@@ -2238,7 +2345,7 @@ export async function updateScmPrBranch(args: {
 
   const updateResult = await run({
     command: "gh",
-    commandArgs: ["pr", "update-branch", ...(args.targetPrNumber ? [String(args.targetPrNumber)] : [])],
+    commandArgs: ["pr", "update-branch", ...targetArgs],
     cwd: args.cwd,
   });
   invalidateCachedGhAuthOnFailure(updateResult, args.cwd);
@@ -2258,6 +2365,26 @@ export async function updateScmPrBranch(args: {
     }
   }
 
+  let remote = "origin";
+  let trackingRef = `refs/remotes/origin/${headRefName}`;
+  if (args.prUrl) {
+    const branch = await resolveCurrentScmBranch({ cwd: args.cwd, runCommand: run });
+    const upstream = branch ? await readBranchUpstream({ branch, cwd: args.cwd, run }) : null;
+    const repository = upstream && await readRemoteRepository({ remote: upstream.remote, cwd: args.cwd, run });
+    const targetRepository = parseGitRemoteRepository(args.prUrl);
+    if (!sameRepository || !upstream?.trackingRef?.startsWith("refs/remotes/") ||
+        upstream.head !== headRefName || !targetRepository ||
+        repository !== `${targetRepository.host}/${targetRepository.owner}/${targetRepository.name}`) {
+      return {
+        ok: true, code: 0, stdout: updateResult.stdout, stderr: "",
+        remoteUpdated: !alreadyCurrent, localSynced: false,
+        warning: "The branch was updated on GitHub. Pull manually to sync this worktree.",
+      };
+    }
+    remote = upstream.remote;
+    trackingRef = upstream.trackingRef;
+  }
+
   const statusResult = await run({
     command: "git",
     commandArgs: ["status", "--porcelain"],
@@ -2271,7 +2398,7 @@ export async function updateScmPrBranch(args: {
   } else {
     const fetchResult = await run({
       command: "git",
-      commandArgs: ["fetch", "origin"],
+      commandArgs: ["fetch", "--", remote],
       cwd: args.cwd,
     });
     if (!fetchResult.ok) {
@@ -2280,7 +2407,7 @@ export async function updateScmPrBranch(args: {
     } else {
       const ffResult = await run({
         command: "git",
-        commandArgs: ["merge", "--ff-only", `origin/${headRefName}`],
+        commandArgs: ["merge", "--ff-only", "--", trackingRef],
         cwd: args.cwd,
       });
       localSynced = ffResult.ok;
@@ -2335,13 +2462,13 @@ export function buildAutoMergePullRequestArgs(
 
 export function buildMergePullRequestArgs(
   method: ConcretePrMergeMethod = "squash",
-  options?: { matchHeadCommit?: string | null },
+  options?: { matchHeadCommit?: string | null; prUrl?: string },
 ) {
   // No --delete-branch: after merging, gh would try to check out the base
   // branch in this worktree, which fails when the base is checked out in the
   // primary worktree and turns a successful merge into a non-zero exit.
   // Remote deletion is handled separately after the merge is confirmed.
-  const commandArgs = ["pr", "merge", `--${method}`];
+  const commandArgs = ["pr", "merge", ...(options?.prUrl ? [options.prUrl] : []), `--${method}`];
   if (options?.matchHeadCommit) {
     commandArgs.push("--match-head-commit", options.matchHeadCommit);
   }
@@ -2386,10 +2513,17 @@ const repoMergeSettingsCache = new Map<
 
 export async function fetchRepoMergeSettings(args: {
   cwd?: string;
+  prUrl?: string;
   runCommand?: ScmCommandRunner;
 }) {
   const run = args.runCommand ?? runCommandArgs;
-  const cacheKey = resolveCommandCwd({ cwd: args.cwd });
+  const repository = isPrActionUrl(args.prUrl) ? parseGitRemoteRepository(args.prUrl) : null;
+  if (args.prUrl !== undefined && !repository) {
+    return { ok: false as const, stderr: "Invalid pull request URL." };
+  }
+  const cacheKey = repository
+    ? `${repository.host}/${repository.owner}/${repository.name}`
+    : resolveCommandCwd({ cwd: args.cwd });
   const cached = repoMergeSettingsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { ok: true as const, ...cached.settings, stderr: "" };
@@ -2408,7 +2542,9 @@ export async function fetchRepoMergeSettings(args: {
 
   const result = await run({
     command: "gh",
-    commandArgs: ["api", "repos/{owner}/{repo}"],
+    commandArgs: repository
+      ? ["api", "--hostname", repository.host, `repos/${repository.owner}/${repository.name}`]
+      : ["api", "repos/{owner}/{repo}"],
     cwd: args.cwd,
   });
   if (!result.ok) {
@@ -2475,10 +2611,12 @@ export function pickAllowedMergeMethod(args: {
 async function resolveScmMergeMethod(args: {
   method?: PrMergeMethod;
   cwd?: string;
+  prUrl?: string;
   runCommand?: ScmCommandRunner;
 }): Promise<{ method: ConcretePrMergeMethod; remapped: boolean }> {
   const settings = await fetchRepoMergeSettings({
     cwd: args.cwd,
+    prUrl: args.prUrl,
     runCommand: args.runCommand,
   }).catch(() => undefined);
   const method = pickAllowedMergeMethod({

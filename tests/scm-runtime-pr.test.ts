@@ -10,6 +10,7 @@ import {
   mergeScmPr,
   parseExistingPullRequestUrl,
   pickAllowedMergeMethod,
+  setScmPrReady,
   summarizePrChecks,
   updateScmPrBranch,
 } from "../electron/host-service/scm-runtime";
@@ -217,7 +218,7 @@ describe("updateScmPrBranch", () => {
     const result = await updateScmPrBranch({ cwd, runCommand: run });
     expect(result).toMatchObject({ ok: true, remoteUpdated: true, localSynced: true });
     expect(calls).toContain("gh pr update-branch");
-    expect(calls).toContain("git merge --ff-only origin/fix/x");
+    expect(calls).toContain("git merge --ff-only -- refs/remotes/origin/fix/x");
     // Regression: the old flow rebased locally and never pushed, so GitHub
     // kept reporting BEHIND.
     expect(calls.some((line) => line.startsWith("git rebase"))).toBe(false);
@@ -307,6 +308,51 @@ describe("fetchGitHubPrStatus", () => {
     expect(calls.some((line) => line.startsWith("gh pr list"))).toBe(false);
   });
 
+  const trackedHead = "a".repeat(40);
+  const tracked = { ...merged, headRefOid: trackedHead, isCrossRepository: false };
+
+  test.each([
+    { name: "a merged PR after the remote-tracking ref is pruned", rows: [tracked], number: 3 },
+    { name: "an open PR before merged history", rows: [tracked, { ...tracked, number: 5, state: "OPEN", mergedAt: null }], number: 5 },
+    { name: "only a fork's PR with the same head name", rows: [{ ...tracked, isCrossRepository: true }], number: null },
+    { name: "a different branch in the same repository", rows: [{ ...tracked, headRefName: "fix/y" }], number: null },
+  ])("checks the tracked repository for $name", async ({ rows, number }) => {
+    invalidateGhAuthCache();
+    const { run, calls } = scriptedRunner((command, args) => {
+      if (command === "git" && args[0] === "rev-parse") return ok("work-copy");
+      if (command === "git" && args[0] === "for-each-ref") {
+        return ok("refs/heads/work-copy\tupstream/team\trefs/heads/fix/x\trefs/remotes/upstream/team/fix/x");
+      }
+      if (command === "git" && args[0] === "remote") return ok("git@github.com:acme/repo.git");
+      if (command === "git" && args[0] === "merge-base") return ok();
+      if (command === "gh" && args[0] === "auth") return ok();
+      if (command === "gh" && args[1] === "view") return fail("no pull requests found for branch work-copy");
+      if (command === "gh" && args[1] === "list") return ok(JSON.stringify(args.includes("--repo") ? rows : []));
+    });
+
+    const result = await fetchGitHubPrStatus({ cwd, runCommand: run, includeTrackedBranch: true });
+    expect(result.ok).toBe(true);
+    expect(result.pr?.number ?? null).toBe(number);
+    expect(calls).toContain("git remote get-url -- upstream/team");
+    expect(calls.some((line) => line.startsWith("gh pr list --repo github.com/acme/repo --head fix/x --state all"))).toBe(true);
+  });
+
+  test("ignores a merged upstream PR and a divergent open upstream PR for reused local work", async () => {
+    invalidateGhAuthCache();
+    for (const state of ["MERGED", "OPEN"]) {
+      const { run } = scriptedRunner((command, args) => {
+        if (command === "git" && args[0] === "rev-parse") return ok("work-copy");
+        if (command === "git" && args[0] === "for-each-ref") return ok("refs/heads/work-copy\torigin\trefs/heads/fix/x\trefs/remotes/origin/fix/x");
+        if (command === "git" && args[0] === "remote") return ok("https://github.com/acme/repo.git");
+        if (command === "git" && args[0] === "merge-base") return fail("", 1);
+        if (command === "gh" && args[0] === "auth") return ok();
+        if (command === "gh" && args[1] === "view") return fail("no pull requests found for branch work-copy");
+        if (command === "gh" && args[1] === "list") return ok(JSON.stringify(args.includes("--repo") ? [{ ...tracked, state }] : []));
+      });
+      expect(await fetchGitHubPrStatus({ cwd, runCommand: run, includeTrackedBranch: true })).toEqual({ ok: true, pr: null, stderr: "" });
+    }
+  });
+
   test("drops a merged PR once the reused branch has new local commits", async () => {
     invalidateGhAuthCache();
     const { run } = scriptedRunner((command, args) => {
@@ -347,6 +393,48 @@ describe("fetchGitHubPrStatus", () => {
     const result = await fetchGitHubPrStatus({ cwd: "/tmp/stave-fetch-pr-status-auth", runCommand: run });
     expect(result.ok).toBe(false);
     expect(result.stderr).toContain("not authenticated");
+  });
+});
+
+describe("top bar PR actions with a different local branch name", () => {
+  const cwd = "/tmp/stave-alias-pr-actions";
+  const prUrl = "https://github.com/acme/repo/pull/42";
+
+  test("targets ready, update and merge at the displayed PR URL", async () => {
+    invalidateGhAuthCache();
+    const { run, calls } = scriptedRunner((command, args) => {
+      if (command === "gh" && args[0] === "auth") return ok();
+      if (command === "gh" && args[0] === "api") return ok(REPO_SETTINGS);
+      if (command === "gh" && args[2] === prUrl) {
+        if (args[1] === "view") {
+          return ok(JSON.stringify({ state: "MERGED", headRefName: "fix/x", isCrossRepository: false }));
+        }
+        return ok();
+      }
+      if (command === "git" && args[0] === "rev-parse") return ok("work-copy");
+      if (command === "git" && args[0] === "for-each-ref") return ok("refs/heads/work-copy\tupstream\trefs/heads/fix/x\trefs/remotes/upstream/fix/x");
+      if (command === "git" && args[0] === "remote") return ok("git@github.com:acme/repo.git");
+      if (command === "git" && ["status", "fetch", "merge"].includes(args[0]!)) return ok();
+    });
+    expect(await setScmPrReady({ cwd, prUrl, runCommand: run })).toMatchObject({ ok: true });
+    expect(await updateScmPrBranch({ cwd, prUrl, runCommand: run })).toMatchObject({ ok: true, localSynced: true });
+    expect(await mergeScmPr({ cwd, prUrl, expectedHeadOid: "abc123", runCommand: run })).toMatchObject({ ok: true, merged: true });
+    expect(calls).toContain(`gh pr ready ${prUrl}`);
+    expect(calls).toContain(`gh pr update-branch ${prUrl}`);
+    expect(calls).toContain("git merge --ff-only -- refs/remotes/upstream/fix/x");
+    expect(calls).toContain("gh api --hostname github.com repos/acme/repo");
+    expect(calls).toContain(`gh pr merge ${prUrl} --squash --match-head-commit abc123`);
+    expect(calls).toContain(`gh pr view ${prUrl} --json state,mergedAt,headRefName`);
+    expect(calls.some((line) => line.startsWith("git push"))).toBe(false);
+  });
+
+  test("rejects an option in place of a PR URL before running commands", async () => {
+    const { run, calls } = scriptedRunner(() => undefined);
+    const args = { cwd, prUrl: "--admin", runCommand: run };
+    expect(await setScmPrReady(args)).toMatchObject({ ok: false });
+    expect(await updateScmPrBranch(args)).toMatchObject({ ok: false });
+    expect(await mergeScmPr(args)).toMatchObject({ ok: false });
+    expect(calls).toEqual([]);
   });
 });
 

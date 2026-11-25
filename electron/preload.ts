@@ -2674,7 +2674,7 @@ contextBridge.exposeInMainWorld("api", {
         existingPrUrl?: string;
         stderr?: string;
       }>,
-    getRepoMergeSettings: (args: { cwd?: string }) =>
+    getRepoMergeSettings: (args: { cwd?: string; prUrl?: string }) =>
       ipcRenderer.invoke("scm:get-repo-merge-settings", args) as Promise<{
         ok: boolean;
         squashMergeAllowed?: boolean;
@@ -2787,7 +2787,7 @@ contextBridge.exposeInMainWorld("api", {
         "scm:submit-github-pr-review",
         args,
       ) as Promise<GitHubPrReviewSubmitResult>,
-    setPrReady: (args: { cwd?: string }) =>
+    setPrReady: (args: { cwd?: string; prUrl?: string }) =>
       ipcRenderer.invoke("scm:set-pr-ready", args) as Promise<{
         ok: boolean;
         code?: number;
@@ -2797,6 +2797,7 @@ contextBridge.exposeInMainWorld("api", {
     mergePr: (args: {
       method?: "default" | "merge" | "squash" | "rebase";
       expectedHeadOid?: string | null;
+      prUrl?: string;
       cwd?: string;
     }) =>
       ipcRenderer.invoke("scm:merge-pr", args) as Promise<{
@@ -2809,7 +2810,7 @@ contextBridge.exposeInMainWorld("api", {
         remoteBranchDeleted?: boolean;
         warning?: string;
       }>,
-    updatePrBranch: (args: { cwd?: string }) =>
+    updatePrBranch: (args: { cwd?: string; prUrl?: string }) =>
       ipcRenderer.invoke("scm:update-pr-branch", args) as Promise<{
         ok: boolean;
         code?: number;

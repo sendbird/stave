@@ -431,14 +431,14 @@ describe("the host observes the user's run in the delegated task", () => {
 
 describe("the work's own repository and commits", () => {
   test("a remote names its repository over ssh or https, in any case; a local path names none", async () => {
-    const { tarsRemoteRepository } = await import("../electron/host-service/tars-execution");
+    const { parseGitRemoteRepository } = await import("../electron/host-service/git-remote-repository");
     for (const remote of ["git@github.com:Example/Repo.git", "ssh://git@github.com/example/repo.git", "ssh://git@github.com:22/example/repo",
       "https://GitHub.com/example/repo", "https://token@github.com/example/repo.git/", "https://github.com:443/example/repo", "https://github.com/example/repo/pull/7"])
-      expect(tarsRemoteRepository(remote), remote).toEqual({ host: "github.com", owner: "example", name: "repo" });
+      expect(parseGitRemoteRepository(remote), remote).toEqual({ host: "github.com", owner: "example", name: "repo" });
     for (const remote of ["git@git.company.com:example/repo.git", "ssh://git@git.company.com:2222/example/repo", "https://git.company.com/example/repo/pull/7"])
-      expect(tarsRemoteRepository(remote), remote).toEqual({ host: "git.company.com", owner: "example", name: "repo" });
+      expect(parseGitRemoteRepository(remote), remote).toEqual({ host: "git.company.com", owner: "example", name: "repo" });
     for (const remote of ["/srv/git/repo.git", "file:///srv/example/repo", "../repo", "https://github.com/example", "https://github.com/a/b/c", "", "https:///example/repo", "git@:example/repo", "ssh://git@/example/repo"])
-      expect(tarsRemoteRepository(remote), remote).toBeNull();
+      expect(parseGitRemoteRepository(remote), remote).toBeNull();
   });
   test("the work branch's commit is contained only in its own or a later commit, read with argument arrays", async () => {
     const { mkdtempSync, rmSync } = await import("node:fs");
