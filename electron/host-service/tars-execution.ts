@@ -139,7 +139,7 @@ export function tarsExecutionAgentInstructions(supervisor: string,
   const instructions = supervisor.trim().split("\n\n").flatMap((paragraph) => {
     if (paragraph.startsWith("Commit verified work on your own working branch.")) return [];
     if (paragraph.startsWith("Route by usage, capability, then continuity.")) {
-      return [paragraph.replace(/ Starting points:.*?(?= After two failed attempts)/, "")];
+      return [paragraph.replace(/ Starting points:.*?(?= After two failed attempts|$)/, "")];
     }
     if (paragraph.startsWith("Verify in proportion to risk.")) return ["Verify in proportion to risk. Run focused checks while working and the required final checks once on the final commit; do not start another review during Work. The reviewer checks the diff and recorded evidence, rerunning only missing, failed or stale checks."];
     return [paragraph.replace("; visual findings go to Claude, logic findings to Codex", "")];
