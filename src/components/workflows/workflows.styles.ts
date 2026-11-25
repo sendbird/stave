@@ -30,7 +30,9 @@ export const workflowStyles = stylex.create({
     gap: vars["--aui-space-8"],
     minHeight: 0,
     overflowY: "auto",
-    padding: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-12"],
+    // The full-bleed surface inset (`GlobalPageHeader`).
+    paddingInline: vars["--aui-space-16"],
     borderInlineEndWidth: vars["--aui-border-width-hairline"],
     borderInlineEndStyle: "solid",
     borderInlineEndColor: vars["--aui-color-border-subtle"],

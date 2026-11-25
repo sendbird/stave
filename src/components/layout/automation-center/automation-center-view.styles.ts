@@ -230,7 +230,9 @@ export const centerStyles = stylex.create({
     flexDirection: "column",
     minBlockSize: 0,
     overflowY: "auto",
-    padding: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-12"],
+    // The full-bleed surface inset (`GlobalPageHeader`).
+    paddingInline: vars["--aui-space-16"],
   },
   runsMasterColumn: {
     borderBlockEndColor: vars["--aui-color-border-subtle"],
@@ -247,7 +249,9 @@ export const centerStyles = stylex.create({
     },
     minBlockSize: 0,
     overflowY: "auto",
-    padding: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-12"],
+    // The full-bleed surface inset (`GlobalPageHeader`).
+    paddingInline: vars["--aui-space-16"],
   },
   cardList: { display: "grid", gap: vars["--aui-space-8"] },
   automationCard: {
@@ -311,7 +315,9 @@ export const centerStyles = stylex.create({
     borderBlockEndStyle: "solid",
     borderBlockEndWidth: vars["--aui-border-width-hairline"],
     display: { default: "block", "@media (min-width: 48rem)": "none" },
-    padding: vars["--aui-space-12"],
+    paddingBlock: vars["--aui-space-12"],
+    // The full-bleed surface inset (`GlobalPageHeader`).
+    paddingInline: vars["--aui-space-16"],
   },
   compactSelect: { blockSize: 32, fontSize: vars["--aui-font-size-caption"] },
 
@@ -319,7 +325,7 @@ export const centerStyles = stylex.create({
     display: "grid",
     gap: vars["--aui-space-16"],
     paddingBlock: vars["--aui-space-16"],
-    paddingInline: vars["--aui-space-20"],
+    paddingInline: vars["--aui-space-16"],
   },
   detailHeadRow: {
     alignItems: "flex-start",
