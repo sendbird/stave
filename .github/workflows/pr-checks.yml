@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -59,7 +59,7 @@ jobs:
       # The hosted image supplies Chromium libraries; product fonts are bundled.
       # Browser launch still validates native dependencies during the tests.
       - run: bunx --bun playwright install chromium
-      - run: bun run test:ui-layout --shard=${{ matrix.shard }}/12
+      - run: bun run test:ui-layout --shard=${{ matrix.shard }}/14
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
