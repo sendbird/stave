@@ -29,7 +29,7 @@ and font size.
 
 The Preview exercises these visible cases in one trace:
 
-- thinking orb and streaming reasoning viewport
+- thinking matrix and streaming reasoning viewport
 - Read, Grep, Bash, Edit, and Stave-owned MCP rows
 - human-readable Stave tool titles and Stave identity, while third-party MCP
   identity remains unchanged, including servers whose names merely begin with
@@ -75,7 +75,7 @@ become a second visible assistant message.
 
 | Event | Persisted or derived result | UX case | Preview |
 | --- | --- | --- | --- |
-| `thinking` | `thinking` part, grouped as a reasoning trace entry | Show the Thinking label and orb while streaming; cap and bottom-anchor the prose; show a duration summary after completion | Covered |
+| `thinking` | `thinking` part, grouped as a reasoning trace entry | Show the Thinking label and matrix mark while streaming; cap and bottom-anchor the prose; show a duration summary after completion | Covered |
 | `text` | `text` part, with an optional segment boundary | Keep interim commentary in the trace and render the final segment as `MessageResponse`; never merge unrelated provider segments | Covered |
 | `provider_session` | Provider session cursor state | Keep the native session available for resume and provider switching; no transcript row | Metadata only |
 | `provider_turn` | Native session and turn ids on the assistant message | Make point-in-time fork, rewind, and follow-up actions target the turn that produced the response; no transcript row | Metadata only |
@@ -142,11 +142,11 @@ construction even though they are not separate `NormalizedProviderEvent` types.
   the exact managed `stave-local` / `stave-local-mcp` namespaces and known bare
   Stave tool names qualify; other MCP servers retain their existing identity
   and naming treatment even when their names begin with `stave-`.
-- The Thinking label and orb share a baseline across `cascade`, `swap`, and
+- The Thinking label and activity mark share a baseline across `cascade`, `swap`, and
   `scramble`; label animation must not move the title upward relative to the
   icon.
 - The streaming thought viewport clips the prose, not the trace header. The
-  label, orb, and latest-step anchor remain visible while older reasoning glides
+  label, activity mark, and latest-step anchor remain visible while older reasoning glides
   under the fade.
 - Provider text boundaries are part of the replay contract. Adjacent text is
   merged only when it belongs to the same logical segment.

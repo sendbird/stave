@@ -22,7 +22,7 @@ over the chat, or in the right rail's Task panel, under its **Activity** tab.
 
 ## Before You Start
 
-The conversation trace header shows the current activity while the turn runs.
+The conversation trace header shows a 5×5 activity mark and the current step while the turn runs. The mark stays still when reduced motion is on.
 When the turn ends, it folds into one line: **Worked for** and the elapsed time,
 with the number of steps on the right. The final answer is in the message body.
 

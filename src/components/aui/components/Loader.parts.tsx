@@ -1,3 +1,5 @@
+import * as stylex from "@stylexjs/stylex";
+
 import { sx } from "../utils/stylex";
 import { ReasoningLoaderMark } from "./Loader.reasoning-parts";
 import { ExtendedLoaderMark } from "./Loader.extended-parts";
@@ -13,24 +15,18 @@ const fourPhase = [
   styles.phase4,
   styles.phase6,
 ] as const;
-const matrixPhase = [
-  styles.phase4,
-  styles.phase2,
-  styles.phase2,
-  styles.phase4,
-  styles.phase2,
-  styles.phase0,
-  styles.phase0,
-  styles.phase2,
-  styles.phase2,
-  styles.phase0,
-  styles.phase0,
-  styles.phase2,
-  styles.phase4,
-  styles.phase2,
-  styles.phase2,
-  styles.phase4,
-] as const;
+// Peak times in twentieths of the loop, read left to right on each row.
+// The brighter paths enter from different edges and wind inward. The lower
+// peaks fill the gaps with quieter pulses instead of moving any of the cells.
+const matrixPeakTimes = [
+  [13, 17, 5, 10, 13],
+  [0, 3, 6, 13, 16],
+  [11, 14, 9, 16, 19],
+  [8, 16, 12, 7, 3],
+  [5, 9, 15, 18, 12],
+].flat();
+const matrixTrailCells = new Set([3, 5, 6, 7, 8, 9, 10, 11, 12, 14, 15, 17, 18, 19, 20]);
+const matrixRestingCells = new Set([5, 12, 19]);
 
 /** Internal geometry for `Loader`; the public status contract lives in Loader.tsx. */
 export function LoaderMark({ size, variant }: LoaderMarkProps) {
@@ -75,11 +71,17 @@ function renderVariant(variant: LoaderVariant, size: LoaderSize) {
         />
       ));
     case "matrix":
-      return matrixPhase.map((phase, index) => (
-        <span
-          className={sx(styles.matrixDot, matrixDotSizeStyles[size], phase)}
-          key={index}
-        />
+      return matrixPeakTimes.map((peak, index) => (
+        <span className={sx(styles.matrixCell)} key={index}>
+          <span
+            {...stylex.props(
+              styles.matrixDot,
+              styles.matrixPhase(peak),
+              !matrixTrailCells.has(index) && styles.matrixAmbient,
+              matrixRestingCells.has(index) && styles.matrixResting,
+            )}
+          />
+        </span>
       ));
     case "pulse":
       return threePhase.map((phase, index) => (
@@ -212,12 +214,6 @@ const dotSizeStyles = {
   md: styles.dotMd,
   sm: styles.dotSm,
   xs: styles.dotXs,
-} as const;
-const matrixDotSizeStyles = {
-  lg: styles.matrixDotLg,
-  md: styles.matrixDotMd,
-  sm: styles.matrixDotSm,
-  xs: styles.matrixDotXs,
 } as const;
 const pulseBarSizeStyles = {
   lg: styles.pulseBarLg,

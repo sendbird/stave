@@ -34,7 +34,7 @@ describe("ReasoningRow", () => {
     expect(markup).not.toContain("--aui-capped-viewport-cap:220px");
     expect(markup).not.toContain("Reading the changelog");
     expect(markup).toContain('aria-expanded="false"');
-    expect(markup).toContain('data-aui-loader-anatomy="think"');
+    expect(markup).toContain('data-aui-loader-variant="matrix"');
   });
 
   test("an empty reasoning pass is one quiet line, not an empty disclosure", () => {

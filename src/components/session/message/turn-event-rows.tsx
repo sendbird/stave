@@ -224,7 +224,7 @@ export function ReasoningRow(args: {
         isStreaming && startedAt !== undefined && Number.isFinite(startedAt) ? startedAt : undefined
       }
       label={i18n.t("session:turnEventRows.label")}
-      loaderVariant="think"
+      loaderVariant="matrix"
       phase={
         isStreaming ? i18n.t("ui:thinking.thinking") : i18n.t("session:turnEventRows.extraCopy197")
       }
