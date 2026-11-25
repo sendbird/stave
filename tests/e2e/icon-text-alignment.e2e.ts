@@ -119,7 +119,7 @@ test("run check marks stay on the first line when criteria wrap and when details
   }
 });
 
-test("the attached review check centers with its label in the shelf and detail dialog", async ({ page }) => {
+test("the attached review check centers with its label in the shelf and progress panel", async ({ page }) => {
   await page.goto("/?stavePreview=composer-frame&case=reviews");
   const row = page.locator('[data-testid="composer-shelf-review"][data-status="ready"]');
   await row.getByRole("button", { name: "Attach", exact: true }).click();
@@ -138,9 +138,9 @@ test("the attached review check centers with its label in the shelf and detail d
   });
   expect(Math.abs(await labelDelta(check))).toBeLessThanOrEqual(0.5);
   await row.getByRole("button", { name: "View", exact: true }).click();
-  const dialogCheck = page.getByRole("dialog").locator('span:has(> svg.lucide-check)').filter({ hasText: "Attached to your message" }).locator("svg");
-  await expect(dialogCheck).toBeVisible();
-  expect(Math.abs(await labelDelta(dialogCheck))).toBeLessThanOrEqual(0.5);
+  const panelCheck = page.getByTestId("agent-progress-panel").locator('span:has(> svg.lucide-check)').filter({ hasText: "Attached to your message" }).locator("svg");
+  await expect(panelCheck).toBeVisible();
+  expect(Math.abs(await labelDelta(panelCheck))).toBeLessThanOrEqual(0.5);
 });
 
 test("subtask arrows align with long titles without losing ellipsis", async ({ page }) => {
