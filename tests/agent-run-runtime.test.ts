@@ -351,9 +351,20 @@ test("an honest unverified criterion is still recorded and halts with what the r
   expect(h.current(id)).toMatchObject({ stageId: "draft", status: "blocked", blockReason: "acceptance-unmet", detail: `The stage report marked this criterion unverified: ${readable}` });
 });
 
-test.each([false, true])("independent review completion captures revision and skips empty repair only for unchanged work (edited: %s)", async (edited) => {
+test.each(["valid", "changed-after-report", "changed-before-report", "missing-delegation", "different-verdict"] as const)("independent review completion binds its receipt and skip to the completed review (%s)", async (variant) => {
   let revision = "reviewed";
-  const h = createHarness({ extra: { readWorkspaceRevision: async () => ({ status: "known", revision }) } });
+  const reviewedCommit = "a".repeat(40);
+  const workspaceRevision = () => ({ status: "known" as const, revision, cleanCommit: revision === "reviewed" ? reviewedCommit : "b".repeat(40) });
+  const extra = {
+    readWorkspaceRevision: async () => workspaceRevision(),
+    readIndependentReview: () => variant === "missing-delegation" ? undefined : ({
+      delegationId: "delegation-1",
+      executionId: "execution-1",
+      revision: { status: "known" as const, revision: "reviewed", cleanCommit: reviewedCommit },
+      verdict: variant === "different-verdict" ? "changes-requested" as const : "passed" as const,
+    }),
+  };
+  const h = createHarness({ extra });
   const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: new Date(START) });
   const id = await startedAgentRun(h, startInput({ workflow }));
   await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
@@ -361,15 +372,19 @@ test.each([false, true])("independent review completion captures revision and sk
   await h.tick();
   expect(h.current(id).stageId).toBe("review");
   expect(h.runCalls[1]!.prompt).toContain('agentConfigId: "reviewer"');
-  await h.runtime.reportStage({ agentRunKey: "key-turn-2", report: { ...COMPLETE, reviewVerdict: "passed" } });
-  expect(h.current(id).report).toMatchObject({ workspaceRevision: { status: "known", revision: "reviewed" } });
-  if (edited) revision = "changed-after-report";
-  h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: { status: "known", revision } });
+  if (variant === "changed-before-report") revision = "changed-before-report";
+  const receipt = await h.runtime.reportStage({ agentRunKey: "key-turn-2", report: { ...COMPLETE, reviewVerdict: "passed" } });
+  const proven = variant === "valid" || variant === "changed-after-report";
+  expect(h.current(id).report).toMatchObject({ workspaceRevision: workspaceRevision() });
+  if (variant === "changed-after-report") revision = "changed-after-report";
+  h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: workspaceRevision() });
   h.endTurn("turn-2");
   await h.tick();
-  expect(h.aggregate(id).agentRun.state).toBe(edited ? "running" : "completed");
-  expect(h.current(id).status).toBe(edited ? "running" : "skipped");
-  expect(h.runCalls).toHaveLength(edited ? 3 : 2);
+  expect(h.aggregate(id).agentRun.state).toBe(variant === "valid" ? "completed" : "running");
+  expect(h.current(id).status).toBe(variant === "valid" ? "skipped" : "running");
+  expect(h.runCalls).toHaveLength(variant === "valid" ? 2 : 3);
+  if (proven) expect(receipt.note).toContain(`passed; pinned commit: ${reviewedCommit}`);
+  else expect(receipt.note).not.toContain("Latest independent review report");
 });
 
 test.each(["unchanged", "edited", "edited-after-report"])("work reported through the host that changed no files ends without its review (%s)", async (variant) => {

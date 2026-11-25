@@ -174,8 +174,16 @@ describe("Tars completion over the conditional stages", () => {
   // An answer: Stave read the workspace after the report and found nothing changed since the stage began.
   const answer = (patch: Patch = {}) => record("work", { startHeadSha: "a".repeat(40),
     report: complete({ workspaceRevision: revision("r1") }), facts: facts("r1", { changedPaths: [] }), ...patch });
-  const reviewed = (verdict: "passed" | "changes-requested", rev = "r2", patch: Patch = {}) => record(REVIEW_STAGE_ID, {
-    report: complete({ reviewVerdict: verdict, workspaceRevision: revision(rev) }), facts: facts(rev), ...patch });
+  const reviewed = (verdict: "passed" | "changes-requested", rev = "r2", patch: Patch = {}) => {
+    const workspaceRevision = { ...revision(rev), cleanCommit: "a".repeat(40) };
+    return record(REVIEW_STAGE_ID, {
+      report: complete({
+        reviewVerdict: verdict, workspaceRevision,
+        independentReview: { delegationId: "delegation", executionId: "execution", revision: workspaceRevision, verdict },
+      }),
+      facts: facts(rev), ...patch,
+    });
+  };
 
   test("a turn-limit pause preserves its reason even when the current stage has explanatory words", () => {
     const detail = ended([record("work", { status: "running", detail: "Finishing the checks." })]);

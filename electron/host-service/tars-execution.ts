@@ -1,3 +1,4 @@
+import { isPinnedReviewerStage, matchingIndependentReview } from "../../src/lib/agent-runs/review-finalization";
 import { createHash } from "node:crypto";
 import { parseGitRemoteRepository } from "./git-remote-repository";
 import { tarsSourceLinkGuidance } from "../../src/lib/tars/intake";
@@ -275,9 +276,10 @@ export function hasStaveVerifiedOutcome(detail: AgentRunDetail, final: StageReco
   if (ran.some((record) => startedSince(record, reverifyAfter) &&
     (record === final || revisionsMatch(record.facts?.workspaceRevision, finalRevision)) &&
     classifyStageEvidence(record.report?.outcome === "complete" ? record.report : null, record.facts ?? null).some(isVerifiedEvidence))) return true;
-  const reviewStageId = detail.agentRun.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")?.id;
-  const review = reviewStageId ? latestStageRecord(detail.stages, reviewStageId) : undefined;
+  const reviewStage = detail.agentRun.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer");
+  const review = reviewStage ? latestStageRecord(detail.stages, reviewStage.id) : undefined;
   if (review?.report?.outcome === "complete" && review.report.reviewVerdict === "passed" && startedSince(review, reverifyAfter) &&
+    (!isPinnedReviewerStage(reviewStage) || matchingIndependentReview(review.report)?.verdict === "passed") &&
     // An unknown final revision cannot show the reviewed revision is the one being completed.
     revisionsMatch(review.report.workspaceRevision, finalRevision)) return true;
   return endedOnUnchangedWork(detail, final, reverifyAfter);
@@ -505,13 +507,15 @@ export function tarsRunResult(detail: AgentRunDetail, observation: TarsExecution
   if (run.state !== "completed" && run.state !== "stopped") return null;
   const final = tarsFinalStageRecord(detail);
   const revision = final?.facts?.workspaceRevision;
-  const reviewStageId = run.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")?.id;
-  const review = reviewStageId ? latestStageRecord(detail.stages, reviewStageId) : undefined;
+  const reviewStage = run.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer");
+  const review = reviewStage ? latestStageRecord(detail.stages, reviewStage.id) : undefined;
+  const reviewReport = review?.report?.outcome === "complete" ? review.report : undefined;
+  const reviewVerdict = isPinnedReviewerStage(reviewStage) ? matchingIndependentReview(reviewReport)?.verdict : reviewReport?.reviewVerdict;
   const part = (facts: unknown) => createHash("sha256").update(JSON.stringify(facts)).digest("hex").slice(0, 12);
   const outcome = part([observation.state, observation.detailCode ?? "", run.stopReason ?? "",
     observation.resultVerifiedRunId ? "verified" : observation.resultUnverifiedRunId ? "unverified" : "", final?.stageId ?? ""]);
   const known = revision?.status === "known" ? part(revision.revision) : "?";
-  const verdict = !reviewStageId ? part("no review") : review?.report?.outcome === "complete" ? part(review.report.reviewVerdict ?? "") : "?";
+  const verdict = !reviewStage ? part("no review") : reviewVerdict ? part(reviewVerdict) : "?";
   const unmet = detail.report
     ? part(detail.report.acceptanceCriteria.filter((item) => item.required !== false && item.status !== "met").map((item) => item.text).sort()) : "?";
   return `o.${outcome}|r.${known}|v.${verdict}|u.${unmet}`;

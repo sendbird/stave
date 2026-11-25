@@ -1,4 +1,5 @@
 import { isReadOnlyDelegationPolicy, type DelegationPermissionPolicy } from "../../../src/lib/runs/delegation-policy";
+import { REVIEW_AGENT_ID } from "../../../src/lib/agents/review-before-done";
 import type { AgentSnapshot } from "../../../src/lib/agents/compile";
 import type { AgentModel, AgentPermission } from "../../../src/lib/agents/schema";
 import {
@@ -76,7 +77,7 @@ import {
   type DelegatedTaskAnswerStore,
 } from "../../../src/lib/runs/delegated-task-answers";
 import { ReviewRevisionArgsSchema } from "../../../src/lib/reviews/review-revision";
-import type { WorkspaceRevision } from "../../../src/lib/agent-runs/verification-contract";
+import { revisionsMatch, type WorkspaceRevision } from "../../../src/lib/agent-runs/verification-contract";
 import { captureReviewRevision, reviewRevisionState } from "./review-workspace-revisions";
 import type { AgentRunDetail } from "../../../src/lib/agent-runs/api";
 import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../../src/lib/agent-runs/delegated-run";
@@ -273,6 +274,7 @@ type McpDelegationAccountResolution = { ok: true; accountProfileId: string; labe
 type McpDelegationTarget = Pick<RunReceiptDetail, "targetAccountProfileId" | "targetAccountLabel" | "server">;
 
 interface DelegationDefaults {
+  parentTurnId?: string;
   inheritedEffort?: DelegatedTaskEffort;
   accounts?: ProviderAccountSelection;
   usageCheck?: { override: boolean };
@@ -490,6 +492,19 @@ function acceptedReceiptForRun(
       (receipt) =>
         receipt.type === "accepted" && receipt.detail?.attempt === attempt,
     );
+}
+
+/** Store only a read-only Reviewer's verdict on the clean commit it was pinned to. */
+function pinnedReviewerResult(detail: AgentRunDetail, claim: RunReceiptDetail | null | undefined, providerId: ProviderId) {
+  if (claim?.agentConfigId !== REVIEW_AGENT_ID || claim.workspaceMode !== "same-workspace" || !claim.expectedHead ||
+      !isReadOnlyDelegationPolicy(providerId, claim.permissionPolicy)) return;
+  const record = currentStageRecord(detail);
+  const report = record.report;
+  if (record.status !== "completed" || report?.outcome !== "complete" || !report.reviewVerdict) return;
+  const revision = report.workspaceRevision;
+  if (revision?.status !== "known" || !revision.cleanCommit?.startsWith(claim.expectedHead.toLowerCase()) ||
+      record.startHeadSha !== revision.cleanCommit || !revisionsMatch(revision, record.facts?.workspaceRevision)) return;
+  return { reviewVerdict: report.reviewVerdict, reviewCompletedRevision: revision };
 }
 
 function accountsForDelegatedTurn(accounts: ProviderAccountSelection | undefined, targetAccountProfileId?: string) {
@@ -757,6 +772,10 @@ export function createDelegatedTaskCoordinator(
       if (supervisorSequences.size > 500) supervisorSequences.delete(supervisorSequences.keys().next().value!);
     }
     if (completion.kind === "completed") {
+      const review = pinnedReviewerResult(args.detail!, claim?.detail, args.target.providerId);
+      const summary = formatAgentRunReportMarkdown(completion.report);
+      // i18n-ignore: model-facing delegation response
+      const responseText = review ? `Review verdict: ${review.reviewVerdict}\n\n${summary}` : summary;
       const linked = args.detail!.events.filter((event) => event.kind === "turn-linked" && typeof event.detail.turnId === "string").at(-1);
       const turnId = typeof linked?.detail.turnId === "string" ? linked.detail.turnId : null;
       args.ledger.setRunStepTarget({ runId: args.runId, stepId: args.stepId, target: { ...args.target, turnId },
@@ -765,7 +784,7 @@ export function createDelegatedTaskCoordinator(
         idempotencyKey: `child:${args.executionId}:completed`,
         resultArtifactRef: buildDelegatedTaskArtifactRef({ workspaceId: args.target.workspaceId, taskId: args.target.taskId, turnId }),
         detail: { code: "child-agent-run-completed", agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}),
-          responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)) }, now: now() });
+          ...review, responseText: boundResponseText(responseText) }, now: now() });
     }
     if (completion.kind === "cancelled")
       return args.ledger.cancelRunStep({ runId: args.runId, stepId: args.stepId, expectedExecutionId: args.executionId,
@@ -1567,6 +1586,7 @@ export function createDelegatedTaskCoordinator(
         ...(agentRunId ? { agentRunId, supervisorMaxTurns: args.maxTurns ?? 30 } : {}),
         ...(resourceRootRunId ? { resourceRootRunId } : {}),
         ...(args.expectedHead ? { expectedHead: args.expectedHead } : {}),
+        ...(args.expectedHead && defaults.parentTurnId ? { parentTurnId: defaults.parentTurnId } : {}),
         ...(reviewSourceRevision ? { reviewSourceRevision } : {}),
       },
       now: timestamp,
@@ -1816,6 +1836,7 @@ export function createDelegatedTaskCoordinator(
         retry: input.retry ?? false,
       },
       {
+        parentTurnId: caller?.turnId,
         inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined,
         accounts: caller?.accounts,
         mcpTarget,
@@ -2038,7 +2059,7 @@ export function createDelegatedTaskCoordinator(
         // retries inside its original worktree and never cuts a second one.
         workspace: { mode: "same-workspace" },
         retry: true,
-      }, { accounts: context.accounts, mcpTarget: originalClaim?.detail ?? undefined });
+      }, { accounts: context.accounts, mcpTarget: originalClaim?.detail ?? undefined, parentTurnId: originalClaim?.detail?.parentTurnId });
     },
 
     /**

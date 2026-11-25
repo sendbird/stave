@@ -1,12 +1,27 @@
 import { REVIEW_AGENT_ID } from "../agents/review-before-done";
+import type { AiStage, WorkflowStage } from "../workflows/schema";
 import { unmetInheritedWorkspaceChecks } from "./acceptance";
 import { collectAcceptanceCriteria } from "./briefing";
-import { currentStageRecord, type AgentRun, type AgentRunAggregate } from "./domain";
+import { currentStageRecord, latestStageRecord, type AgentRun, type AgentRunAggregate, type CompleteStageReport } from "./domain";
 import { admittedWorkspaceScripts, latestWorkspaceScriptResults } from "./workspace-check";
 import { revisionsMatch } from "./verification-contract";
 
 /** Completed reviews a "Review before done" run gets: the first one and one re-review of its fix. */
 export const MAX_REVIEW_ROUNDS = 2;
+
+export function isPinnedReviewerStage(stage?: WorkflowStage): stage is AiStage {
+  return stage?.kind === "ai" && stage.agentConfigId === REVIEW_AGENT_ID && stage.pinCommit === true;
+}
+
+export function matchingIndependentReview(report?: Pick<CompleteStageReport, "reviewVerdict" | "workspaceRevision" | "independentReview"> | null) {
+  const review = report?.independentReview;
+  const revision = review?.revision;
+  const recorded = report?.workspaceRevision;
+  if (review && review.verdict === report?.reviewVerdict && revision?.status === "known" && revision.cleanCommit &&
+      recorded?.status === "known" && recorded.cleanCommit === revision.cleanCommit && revisionsMatch(recorded, revision)) {
+    return { ...review, revision };
+  }
+}
 
 /**
  * The review stage to return to after the final repair stage changed the work
@@ -46,21 +61,22 @@ export function describeStageReportReceipt(aggregate: AgentRunAggregate): string
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex];
   const reviewStage = stage?.kind === "ai" && stage.skipIfReviewPassed
     ? agentRun.workflow.stages[agentRun.currentStageIndex - 1] : stage;
-  const reviews = reviewStage?.kind === "ai" && reviewStage.agentConfigId === REVIEW_AGENT_ID && reviewStage.pinCommit
-    ? stages.filter((record) => record.stageId === reviewStage.id && record.report?.outcome === "complete" && record.report.reviewVerdict)
-    : [];
-  const review = reviews.at(-1);
+  const reviewRecord = isPinnedReviewerStage(reviewStage) ? latestStageRecord(stages, reviewStage.id) : undefined;
+  const review = matchingIndependentReview(reviewRecord?.report?.outcome === "complete" ? reviewRecord.report : undefined);
   const lines = ["Recorded. The host checks the cited evidence and chooses the next step after this turn ends. No transition is scheduled by this receipt."];
   if (passed.length && revision?.status === "known") {
     lines.push(`Host checks passed on ${revision.cleanCommit ? "commit " + revision.cleanCommit : "workspace revision " + revision.revision}: ${JSON.stringify(passed.map((check) => check.scriptId))}.`);
   } else {
     lines.push("No matching host script pass for this stage's report revision. Cite direct checks separately.");
   }
-  if (review?.report?.outcome === "complete") {
-    lines.push(`Latest independent review report: ${review.report.reviewVerdict}; pinned commit: ${review.startHeadSha ?? "unknown"}.`);
-    if (stage?.kind === "ai" && stage.skipIfReviewPassed && reviews.length >= MAX_REVIEW_ROUNDS) {
+  if (review) {
+    lines.push(`Latest independent review report: ${review.verdict}; pinned commit: ${review.revision.cleanCommit}.`);
+    const completedReviews = stages.filter((record) => record.stageId === reviewRecord?.stageId && record.report?.outcome === "complete");
+    if (stage?.kind === "ai" && stage.skipIfReviewPassed && completedReviews.length >= MAX_REVIEW_ROUNDS) {
       lines.push("The automatic review limit has been reached. No further independent review is scheduled.");
     }
+  } else if (reviewRecord === current && current.report?.outcome === "complete" && current.report.reviewVerdict) {
+    lines.push("No completed pinned reviewer delegation matches the reported revision and verdict.");
   }
   return lines.join(" ");
 }
@@ -70,12 +86,13 @@ export function reReviewFeedback(aggregate: AgentRunAggregate): string {
   const reviewIndex = aggregate.agentRun.currentStageIndex - 1;
   const reviewId = aggregate.agentRun.workflow.stages[reviewIndex]?.id;
   const latest = aggregate.stages.filter((record) => record.stageId === reviewId).at(-1);
-  const findings = latest?.report?.outcome === "complete" ? latest.report.summary : "";
+  const report = latest?.report?.outcome === "complete" ? latest.report : undefined;
+  const commit = matchingIndependentReview(report)?.revision.cleanCommit ?? latest?.startHeadSha;
   // i18n-ignore: model-facing stage feedback
   return [
-    `Re-review of the fix only. Review the commits made after ${latest?.startHeadSha ?? "the commit you reviewed before"} up to the pinned commit:`,
+    `Re-review of the fix only. Review the commits made after ${commit ?? "the commit you reviewed before"} up to the pinned commit:`,
     "confirm each earlier finding is resolved at its cause and the fix adds no defect. Do not re-review unchanged work.",
-    findings ? `Earlier review: ${findings.slice(0, 1_500)}` : "",
+    report?.summary ? `Earlier review: ${report.summary.slice(0, 1_500)}` : "",
   ].filter(Boolean).join(" ");
 }
 
@@ -85,11 +102,11 @@ export function canFinishAfterReview(aggregate: AgentRunAggregate): boolean {
   const current = agentRun.workflow.stages[agentRun.currentStageIndex];
   const next = agentRun.workflow.stages[agentRun.currentStageIndex + 1];
   if (agentRun.currentStageIndex !== agentRun.workflow.stages.length - 2 ||
-      current?.kind !== "ai" || current.agentConfigId !== REVIEW_AGENT_ID || !current.pinCommit ||
+      !isPinnedReviewerStage(current) ||
       next?.kind !== "ai" || !next.skipIfReviewPassed || next.agentConfigId ||
       next.acceptanceCriteria?.some((criterion) => criterion.required !== false)) return false;
   const record = currentStageRecord(aggregate);
-  return record.report?.outcome === "complete" && record.report.reviewVerdict === "passed" &&
+  return record.report?.outcome === "complete" && matchingIndependentReview(record.report)?.verdict === "passed" &&
     revisionsMatch(record.report.workspaceRevision, record.facts?.workspaceRevision) &&
     unmetInheritedWorkspaceChecks(aggregate, record) === null &&
     collectAcceptanceCriteria(aggregate, true).every((criterion) => criterion.required === false || criterion.status === "met");

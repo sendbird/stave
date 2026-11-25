@@ -3,7 +3,8 @@ import { agentRunBrowserRequested } from "./agent-run-browser";
 import { i18n } from "../../../src/i18n/runtime";
 import { buildTarsRunCommand } from "../tars-ownership";
 import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks, unreportedStageCriteria } from "../../../src/lib/agent-runs/acceptance";
-import { describeStageReportReceipt, mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
+import { describeStageReportReceipt, isPinnedReviewerStage, matchingIndependentReview, mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
+import type { IndependentReview } from "../../../src/lib/agent-runs/domain";
 import type { RunQuestionAnswer } from "../run-question-answer";
 import { admitWorkspaceCheck } from "./workspace-check-admission";
 import { createStageScriptRunner, type WorkspaceCheckDependencies, type WorkspaceScriptReceipt } from "./agent-run-workspace-script";
@@ -380,6 +381,7 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
    */
   listCompletedDelegatedRuns?: (args: { workspaceId: string; taskId: string }) =>
     Promise<TaskCompletionSignal[]> | TaskCompletionSignal[];
+  readIndependentReview?: (args: { workspaceId: string; taskId: string; turnIds: ReadonlySet<string> }) => IndependentReview | undefined;
   /** Delegated work of a task that stopped for a person; a waiting parent wakes once per stall. */
   listStalledDelegatedRuns?: (args: { workspaceId: string; taskId: string }) => Promise<DelegatedStallSignal[]> | DelegatedStallSignal[];
   /** The saved Agent a task's delegated task (by id or delegation key) runs as; null for a model-only one. */
@@ -2852,12 +2854,28 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           const needsRevision = Boolean(record.facts?.workspaceScripts?.length) || input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
           const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
           const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
+          let independentReview: IndependentReview | undefined;
+          if (input.reviewVerdict && isPinnedReviewerStage(stage) && deps.readIndependentReview) {
+            const turnIds = new Set([grant.turnId]);
+            for (const event of store.listEventsByKind(aggregate.agentRun.id, ["turn-linked"])) {
+              if (event.detail.stageId === grant.stageId && event.detail.attempt === grant.attempt && typeof event.detail.turnId === "string") {
+                turnIds.add(event.detail.turnId);
+              }
+            }
+            try {
+              const review = deps.readIndependentReview({ workspaceId: aggregate.agentRun.workspaceId, taskId: grant.taskId, turnIds });
+              independentReview = matchingIndependentReview({ reviewVerdict: input.reviewVerdict, workspaceRevision, independentReview: review });
+            } catch (error) {
+              console.warn("[agent-runs] failed to read independent review", error, { agentRunId: aggregate.agentRun.id });
+            }
+          }
           const next = applyChange(
             recordStageReport({
               aggregate,
               expected: { stageId: grant.stageId, attempt: grant.attempt },
               report: { outcome: "complete", ...input, artifacts },
               workspaceRevision,
+              independentReview,
               turnId: grant.turnId,
               now: now(),
             }),

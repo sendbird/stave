@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { REVIEW_AGENT_ID } from "../agents/review-before-done";
 import type { AiStage, Workflow } from "./schema";
 
 export const ACCEPTANCE_CRITERION_STATUSES = [
@@ -86,6 +87,9 @@ function delegatedStageRule(stage: AiStage, agentName: string | undefined): stri
     stage.pinCommit
       ? "If this assignment changed repository files, commit only that work first. Do not create an empty commit for research or an answer. Pass `workspace: { mode: \"same-workspace\" }` and `expectedHead` set to the commit `git rev-parse HEAD` prints now, and include the exact work scope and any artifacts to review. Stave refuses to start the delegated task if the workspace moves off that commit; do not change files until it ends."
       : "Pass the workspace the agent should work in.",
+    ...(stage.pinCommit && stage.agentConfigId === REVIEW_AGENT_ID ? [
+      "Pass `access: \"read-only\"` and include the pinned commit in the Reviewer's prompt. Ask the Reviewer to set `reviewVerdict` in its own `stave_report_stage` call (`passed` or `changes-requested`), then copy the completed delegation's verdict into your stage report.",
+    ] : []),
     "Wait for the delegated task to end, read its result with `stave_list_delegated_tasks`, and report this stage from that result. Do not replace the assigned agent's implementation or independent review yourself. Integrating accepted changes, committing and running final checks are the lead's job. When it did the stage's work and found problems, such as a review's findings, report this stage complete with those problems if a later stage of this workflow fixes them; otherwise do not report it complete with problems you did not resolve. When it failed to do the stage's work, do not report it complete.",
   ].join(" ");
 }

@@ -7,14 +7,20 @@ import { agentRunChangesStage, describeAgentRunResult } from "../src/lib/agent-r
 import { projectTarsResult } from "../src/lib/tars/result-model";
 import { AGENT_RUN_NOW, agentRunDetail, agentRunFixture, applyChange, COMPLETE_REPORT, observe, turn } from "./fixtures/agent-run-fixtures";
 
+const reviewedRevision = { status: "known" as const, revision: "reviewed-tree", cleanCommit: "b".repeat(40) };
+const fixedRevision = { status: "known" as const, revision: "fixed-tree", cleanCommit: "c".repeat(40) };
+const reviewProof = (revision = reviewedRevision, verdict: "passed" | "changes-requested" = "passed") => ({
+  delegationId: "delegation", executionId: "execution", revision, verdict,
+});
+
 function reviewed() {
   const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: AGENT_RUN_NOW });
   const aggregate = agentRunFixture({ workflow });
   aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Answer checked", status: "met" }] } };
   aggregate.agentRun.currentStageIndex = 1;
   aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "review", attempt: 1 }), status: "running",
-    report: { ...COMPLETE_REPORT, reviewVerdict: "passed", workspaceRevision: { status: "known", revision: "reviewed-tree" }, acceptanceCriteria: [] },
-    facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: { status: "known", revision: "reviewed-tree" } } });
+    report: { ...COMPLETE_REPORT, reviewVerdict: "passed", workspaceRevision: reviewedRevision, independentReview: reviewProof(), acceptanceCriteria: [] },
+    facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: reviewedRevision } });
   return aggregate;
 }
 const decide = (aggregate: ReturnType<typeof reviewed>) => decideAgentRunAction({ aggregate, observation: observe({ lastEndedTurn: turn() }), now: AGENT_RUN_NOW });
@@ -46,6 +52,18 @@ test.each(["missing-verdict", "findings", "changed-workspace", "unknown-workspac
   if (boundary === "sign-off") next.signOff = "ask";
   if (boundary === "no-independent-review" && review.kind === "ai") delete review.agentConfigId;
   expect(decide(aggregate)).not.toHaveProperty("skipReviewFix");
+});
+
+test("a legacy pinned review report without delegation proof keeps its summary and follows the normal fix stage", () => {
+  const aggregate = reviewed();
+  const record = aggregate.stages[1]!;
+  if (record.report?.outcome !== "complete") throw new Error("Expected report");
+  delete record.report.independentReview;
+  expect(describeStageReportReceipt(aggregate)).not.toContain("Latest independent review report");
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "start" });
+  record.status = "completed";
+  const summary = describeAgentRunResult(agentRunDetail(aggregate), AGENT_RUN_NOW.getTime()).summaries.find(({ stageId }) => stageId === "review");
+  expect(summary).toMatchObject({ text: record.report.summary, reviewVerdict: undefined });
 });
 
 test("optional verification stays optional while skipping empty repair", () => {
@@ -91,7 +109,8 @@ function repaired(fixedTree: string | null = "fixed-tree") {
   const aggregate = reviewed();
   const review = aggregate.stages[1]!;
   if (review.report?.outcome !== "complete") throw new Error("Expected report");
-  aggregate.stages[1] = { ...review, status: "completed", startHeadSha: "b".repeat(40), report: { ...review.report, reviewVerdict: "changes-requested", summary: "Unmount guard missing." } };
+  aggregate.stages[1] = { ...review, status: "completed", startHeadSha: reviewedRevision.cleanCommit, report: { ...review.report, reviewVerdict: "changes-requested",
+    independentReview: reviewProof(reviewedRevision, "changes-requested"), summary: "Unmount guard missing." } };
   aggregate.agentRun.currentStageIndex = 2;
   const tree = fixedTree ? { status: "known" as const, revision: fixedTree } : undefined;
   aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "fix-review", attempt: 1 }), status: "running",
@@ -119,8 +138,8 @@ test("a repair that changed the reviewed work returns to the Reviewer once, whic
 
   // The re-review passes on the fixed revision: the run finishes and skips the second, empty repair.
   const stages = [...aggregate.stages.slice(0, 2), change.upserts[0]!, { ...change.upserts[1]!, status: "running" as const,
-    report: { ...COMPLETE_REPORT, reviewVerdict: "passed" as const, workspaceRevision: { status: "known" as const, revision: "fixed-tree" }, acceptanceCriteria: [] },
-    facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: { status: "known" as const, revision: "fixed-tree" } } }];
+    report: { ...COMPLETE_REPORT, reviewVerdict: "passed" as const, workspaceRevision: fixedRevision, independentReview: reviewProof(fixedRevision), acceptanceCriteria: [] },
+    facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: fixedRevision } }];
   const atReReview = { agentRun: change.agentRun, stages };
   const decisionAfterReReview = decide(atReReview);
   expect(decisionAfterReReview).toEqual({ action: "complete-stage", next: "finish", skipReviewFix: true });
@@ -146,7 +165,9 @@ test("a repair that changed the reviewed work returns to the Reviewer once, whic
 test("a re-review that still asks changes gets one more repair, and the run then finishes without a third review", () => {
   const aggregate = repaired();
   const firstReview = aggregate.stages[1]!;
-  aggregate.stages.splice(2, 0, { ...firstReview, attempt: 2, startHeadSha: "c".repeat(40) });
+  if (firstReview.report?.outcome !== "complete") throw new Error("Expected report");
+  aggregate.stages.splice(2, 0, { ...firstReview, attempt: 2, startHeadSha: fixedRevision.cleanCommit,
+    report: { ...firstReview.report, workspaceRevision: fixedRevision, independentReview: reviewProof(fixedRevision, "changes-requested") } });
   expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
   const receipt = describeStageReportReceipt(aggregate);
   expect(receipt).toContain("No further independent review is scheduled");
