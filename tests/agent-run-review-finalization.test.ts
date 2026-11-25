@@ -66,6 +66,26 @@ test.each([false, true])("empty repair cannot bypass an inherited host check (st
   expect(decide(aggregate)).toMatchObject(stale ? { next: "start" } : { skipReviewFix: true });
 });
 
+test("receipt attributes only this revision's successful scripts to its clean commit", () => {
+  const aggregate = repaired();
+  const record = aggregate.stages[2]!;
+  const revision = { status: "known" as const, revision: "current", cleanCommit: "d".repeat(40) };
+  const old = { status: "known" as const, revision: "old" };
+  const definitions = ["setup", "test", "lint"].map((scriptId) => ({ scriptId, definitionHash: "a".repeat(64) }));
+  aggregate.agentRun.workflow.stages[0]!.acceptanceCriteria = [{
+    text: "Run checks", verification: "stave-check", scriptDefinitions: definitions,
+  }];
+  record.report = { ...COMPLETE_REPORT, workspaceRevision: revision };
+  record.facts = { ...EMPTY_STAGE_FACTS, workspaceScripts: definitions.map((definition, index) => ({
+    ...definition, source: "stave", type: "run-script", exitCode: index === 1 ? 1 : 0,
+    durationMs: 1, outputTail: "", verification: { sourceRevision: index === 2 ? old : revision, completedRevision: revision },
+  })) };
+  const receipt = describeStageReportReceipt(aggregate);
+  expect(receipt).toContain(`commit ${revision.cleanCommit}: ["setup"]`);
+  expect(receipt).toContain(`changes-requested; pinned commit: ${"b".repeat(40)}`);
+  expect(receipt).not.toContain("No further independent review is scheduled.");
+});
+
 /** The final repair after a review that asked changes, as Stave read it after its report. */
 function repaired(fixedTree: string | null = "fixed-tree") {
   const aggregate = reviewed();

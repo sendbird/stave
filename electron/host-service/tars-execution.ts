@@ -149,9 +149,9 @@ export function tarsExecutionAgentInstructions(supervisor: string,
 
 /** How the work stage checks: narrow while working, the full checks once on the final revision. */
 // i18n-ignore: model-facing instructions
-const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks yourself in the reporting turn via `stave_run_workspace_script` when configured. Rerun helper checks; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
+const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks yourself in the reporting turn via `stave_run_workspace_script` for IDs bound to this run. Rerun helper checks; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
 // i18n-ignore: model-facing instructions
-const TARS_OWNER_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks in the reporting turn via `stave_run_workspace_script` when configured; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
+const TARS_OWNER_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks in the reporting turn via `stave_run_workspace_script` for IDs bound to this run; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
 
 // i18n-ignore: model-facing instructions
 const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: run them yourself as lead in the same turn you report, through `stave_run_workspace_script` for script IDs bound to this run. Rerun helper checks; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
