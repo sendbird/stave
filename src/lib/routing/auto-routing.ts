@@ -562,16 +562,18 @@ async function classifyWithTimeout(args: {
 // An independent instruction to return findings still asks for a review.
 const REQUESTED_FINDINGS_PATTERNS = [
   /(?:^|[.!?;,]|\b(?:and|then|also))\s*(?:please\s+)?(?:list|report|identify|flag|find|point out)\s+(?:(?:any|all|the|potential|possible)\s+)*(?:bugs?|defects?|issues?|findings?)\b/i,
-  /(?:^|[.!?;,]|하고|해주고|그리고)\s*(?:(?:발견한|찾은)\s*)?(?:버그|결함|문제점)(?:들)?(?:도|을|를)?\s*(?:알려|보고해|나열해|찾아|정리해)/,
+  /(?:^|[.!?;,]|하고|해주고|그리고)\s*(?:(?:발견한|찾은)\s*)?(?:버그|결함|문제점)(?:들)?(?:(?:이|가)?\s*있으면|도|을|를)?\s*(?:알려|보고해|나열해|찾아|정리해)(?:\s*(?:줘|주세요|주십시오))?(?=$|[\s.!?,;])/,
 ];
 
 // Remove only the review topic of an explanation. A second review command
 // in the same request must still reach the review rule.
 function reviewActionText(prompt: string): string {
-  const actionText = prompt
+  return prompt
+    // In "how to review code and find bugs", both verbs describe a method.
+    // Keep a concrete target ("find bugs in this diff") available as an action.
+    .replace(/\bhow to (?:review|audit)(?: code)? and (?:find|identify|spot) (?:bugs|issues|defects)(?=\s*(?:$|[,.!?;]))/gi, "how to review")
     .replace(/\b(?:explain(?:\s+how(?:\s+to)?)?|how\s+(?:does|do)|what\s+is)\s+(?:(?:a|an|the)\s+)?["“']?(?:(?:code|pr|pull request)\s+)?(?:reviews?|audits?)\b/gi, "explain")
     .replace(/(?:(?:코드|PR)\s*)?(?:리뷰|검토)[가이의는를을]?\s*(?:(?:절차|과정|방법|방식)(?:을|를)?\s*|어떻게\s*(?:동작|작동|진행)(?:하는지|되는지)\s*)?(?:설명|알려)/gi, "설명");
-  return actionText !== prompt && matchesAny(prompt, REQUESTED_FINDINGS_PATTERNS) ? prompt : actionText;
 }
 
 export function resolveHeuristicRoute(args: {
@@ -614,7 +616,10 @@ export function resolveHeuristicRoute(args: {
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.78;
     rationale = "debugging keywords";
-  } else if (matchesAny(actionText, REVIEW_PATTERNS)) {
+  } else if (
+    matchesAny(actionText, REVIEW_PATTERNS) ||
+    (actionText !== prompt && matchesAny(actionText, REQUESTED_FINDINGS_PATTERNS))
+  ) {
     taskType = "review";
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.76;

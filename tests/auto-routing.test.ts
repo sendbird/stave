@@ -262,18 +262,28 @@ describe("resolveAutoRoutingDecision", () => {
     expect(decision).toMatchObject({ source: "classifier_fallback", taskClass: "research" });
   });
 
-  test.each([false, true])("keeps a requested bug list on the review route (classifier enabled: %s)", async (enabled) => {
-    const decision = await resolveDecision({
-      prompt: "Explain how to review this diff and list any bugs you find.",
-      currentProviderId: "codex",
-      currentModel: "gpt-6.2-sol",
-      settings: { autoRoutingUseClassifier: enabled },
-      classifyRoute: async () => { throw new Error("classifier unavailable"); },
-    });
-    expect(decision).toMatchObject({
-      source: enabled ? "classifier_fallback" : "heuristic",
-      taskClass: "review", model: "gpt-6.2-sol",
-    });
+  test.each([
+    ["Explain how to review this diff and list any bugs you find.", "review", "gpt-6.2-sol"],
+    ["리뷰 절차를 설명하고 버그가 있으면 알려줘", "review", "gpt-6.2-sol"],
+    ["Explain how audits work and list any defects in this diff.", "review", "gpt-6.2-sol"],
+    ["Explain how to review code and find bugs, in theory only.", "research", "gpt-6-luna"],
+    ["코드 리뷰 절차를 설명하고 버그를 찾아내는 방법도 알려줘", "research", "gpt-6-luna"],
+  ])("routes review topics by the requested output: %s", async (prompt, taskClass, model) => {
+    for (const enabled of [false, true]) {
+      const decision = await resolveDecision({
+        prompt,
+        currentProviderId: "codex",
+        currentModel: "gpt-6.2-sol",
+        settings: { autoRoutingUseClassifier: enabled },
+        classifyRoute: async () => { throw new Error("classifier unavailable"); },
+      });
+      expect(decision).toMatchObject({
+        source: enabled ? "classifier_fallback" : "heuristic",
+        taskClass,
+        // Classifier failure uses the conservative Standard model.
+        model: enabled ? "gpt-6.2-sol" : model,
+      });
+    }
   });
 
   test("a classifier verdict reclassifies the task before the table runs", async () => {
