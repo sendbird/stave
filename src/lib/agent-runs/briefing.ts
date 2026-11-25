@@ -200,6 +200,8 @@ function describeAdmittedChecks(aggregate: AgentRunAggregate): string[] {
   return [
     `Workspace script IDs bound at admission: ${JSON.stringify(ids)}. Report only the checks that actually passed.`,
     ...(stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction),
+    ...(stage.skipIfReviewPassed ? inheritedWorkspaceCheckCriteria(aggregate).map((criterion) =>
+      `Inherited required check "${criterion.text}": ${workspaceCheckInstruction(criterion)}.`) : []),
   ];
 }
 
