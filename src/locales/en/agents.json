@@ -494,8 +494,8 @@
     },
     "uiPolisher": {
       "name": "UI Polisher",
-      "description": "Fixes layout, spacing and visual defects with the design system and shows before and after. Use for UI that looks wrong or drifts from its neighbours.",
-      "avoidWhen": "The change is behaviour or data with nothing to see, or the design is still undecided."
+      "description": "Fixes layout, spacing and visual defects with the design system and shows before and after. Also compares interactive UI prototypes when asked.",
+      "avoidWhen": "The change is behaviour or data with nothing to see, or the design is undecided and no comparison was requested."
     },
     "reviewer": {
       "name": "Reviewer",

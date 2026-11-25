@@ -147,6 +147,26 @@ before-and-after evidence in the same stage. Researcher and Reviewer run a
 single read-only stage. Shipper uses a publication workflow: Validate → Open
 draft PR → Watch checks → Ready for review.
 
+- **Lead and Supervisor** compare delegated results with each acceptance
+  criterion. For example, if the desktop helper stopped after the web check
+  passed, desktop stays unverified. The original owner keeps follow-up work
+  when available. When a criterion reopens twice for the same reason,
+  Supervisor first runs an input that could disprove the assumption shared by
+  the earlier fixes, within the run's retry limits.
+- **Researcher and Debugger** use Mermaid when explaining a code path or a
+  lifecycle failure. Find source and test references, or the original log and
+  regression check, in the answer or report under **Outputs**. For an attached
+  CPU profile, Debugger maps the slow interval to available symbols and source
+  locations and labels any hypotheses.
+- **Implementer and Debugger** can propose a small check for a recurring
+  repository mistake and show that it catches the old defect while accepting
+  a valid change. For performance work, look for successful work, errors and
+  timing variation under the same conditions before and after.
+- **UI Polisher** can compare two prototypes when asked. Give it one task to
+  try in both, such as finding a pending decision. Its report links the
+  interactive previews and explains its recommendation using the same data
+  and starting state.
+
 - **Add stage**: an AI stage (blank or from a template) with an instruction
   and **Done when**, optionally done by another agent and pinned to a commit;
   or a Stave action: **Open draft PR**, **Watch checks**, **Ready for review**

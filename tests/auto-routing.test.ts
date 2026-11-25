@@ -348,6 +348,11 @@ describe("resolveAutoRoutingDecision", () => {
     expect((await resolveDecision({ prompt: "리뷰는 하지 말고 구현해줘" })).taskClass).toBe("implement");
   });
 
+  test("explaining review and performing review take different routes", async () => {
+    expect((await resolveDecision({ prompt: "Explain how the review workflow works." })).taskClass).toBe("research");
+    expect((await resolveDecision({ prompt: "Review this diff and report defects." })).taskClass).toBe("review");
+  });
+
   test("a short continuation inherits sensitive context and retains the capable model", async () => {
     const result = await resolveDecision({ prompt: "계속해", history: [
       { role: "user", content: "Update payment transaction handling" },

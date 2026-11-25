@@ -464,6 +464,12 @@ planning stage defines acceptance criteria that a test, command, rendered
 page or real run can check. Reviewer traces a changed value to its caller. For design rationale, Researcher looks for the decision in the original commit or discussion.
 The stage report distinguishes the scripts that passed on the reported revision from the last independent review. After a second review requests changes, the final repair ends the automatic review cycle.
 
+Lead and Supervisor match helper results to each completion criterion. If a helper checked only the web app, desktop stays unverified. When a criterion comes back twice for the same reason, Supervisor first tests what the two fixes assumed, within the run's retry limits.
+
+For a code flow, Researcher can show the normal and failure paths with sources and tests in **Outputs**. For a lifecycle failure, Debugger can link the log and regression check from a state diagram, and can map an attached CPU profile to the relevant source. For recurring bugs, ask Implementer or Debugger for a check that fails on the old defect and passes on the valid change. A performance comparison should show successful work, errors and timing variation before and after.
+
+To compare two UI proposals, ask UI Polisher for interactive previews with the same example data and one task to try in both, such as finding a pending decision. Its recommendation should explain what you can find or do in each preview.
+
 By default a change to files gets an independent review, with a fix stage
 for findings. The Run checks the assignment's completion criteria at the end.
 Only an AI stage followed by another AI stage may leave criteria it adds for
