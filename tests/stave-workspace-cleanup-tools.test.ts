@@ -18,11 +18,14 @@ function fakeServer() {
 function setup(rows: WorkspaceCleanupRow[], result: { ok: boolean; reason: string | null } = { ok: true, reason: null }, subAgentWorktrees: SubAgentWorktreeRow[] = []) {
   const server = fakeServer();
   const acts: WorkspaceCleanupActArgs[] = [];
+  const previewRequests: unknown[] = [];
+  const list = async () => ({ rows, subAgentWorktrees, policy: { merged: { enabled: false, value: 1 }, inactive: { enabled: false, value: 30 }, archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 } }, recent: [] });
   registerWorkspaceCleanupTools(server as never, {
-    list: async () => ({ rows, subAgentWorktrees, policy: { merged: { enabled: false, value: 1 }, inactive: { enabled: false, value: 30 }, archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 } }, recent: [] }),
+    list,
+    preview: async (args) => { previewRequests.push(args); return list(); },
     act: async (args) => { acts.push(args); return { ...result, workspaceId: args.workspaceId, action: args.action, workspaceName: "Fix search" }; },
   });
-  return { tools: server.tools, acts };
+  return { tools: server.tools, acts, previewRequests };
 }
 
 describe("workspace cleanup MCP tools", () => {
@@ -69,6 +72,18 @@ describe("workspace cleanup MCP tools", () => {
     const listed = (await tools.get("stave_list_workspace_cleanup")!.handler({ repositoryPath: REPO })).structuredContent.subAgentWorktrees;
     expect(listed).toEqual([{ repositoryPath: REPO, path: `${REPO}/.claude/worktrees/agent-a1`, branch: "worktree-agent-a1", lastModified: "2026-11-01T00:00:00.000Z", blockers: [] }]);
     expect([...tools.keys()]).toEqual([...WORKSPACE_CLEANUP_TOOL_NAMES]);
+    expect(acts).toEqual([]);
+  });
+
+  test("preview forwards the scope and returns measurements and blockers without calling an action", async () => {
+    const preview = {
+      dirty: true, branchMerge: "unmerged" as const, pullRequest: "merged" as const,
+      disk: { bytes: 1024, partial: true, status: "measured" as const, measuredAt: "2026-11-25T00:00:00Z" },
+    };
+    const { tools, acts, previewRequests } = setup([row({ preview, blockers: ["changedFiles", "runningTurn"] })]);
+    const report = await tools.get("stave_list_workspace_cleanup")!.handler({ repositoryPath: REPO, includeArchived: true, preview: true });
+    expect(previewRequests).toEqual([{ repositoryPath: REPO, includeArchived: true }]);
+    expect(report.structuredContent.workspaces).toMatchObject([{ preview, blockers: ["changedFiles", "runningTurn"] }]);
     expect(acts).toEqual([]);
   });
 

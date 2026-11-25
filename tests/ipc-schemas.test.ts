@@ -59,6 +59,23 @@ describe("provider IPC schemas", () => {
           prompt: "Explain the goal",
         }).success,
       ).toBe(true);
+      expect(
+        EnhancePromptArgsSchema.safeParse({
+          activeProviderId: providerId,
+          prompt: "Explain the goal",
+          depth: "sharpen",
+          exemplars: [
+            { source: "a", enhanced: "A", outcome: "kept", at: "1", depth: "sharpen" },
+          ],
+        }).success,
+      ).toBe(true);
+      expect(
+        EnhancePromptArgsSchema.safeParse({
+          activeProviderId: providerId,
+          prompt: "Explain the goal",
+          depth: "deep",
+        }).success,
+      ).toBe(false);
     }
     for (const providerId of ["claude-code", "codex"]) {
       expect(

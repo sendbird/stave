@@ -98,6 +98,6 @@ export async function readWorkspaceRevision(cwd: string): Promise<WorkspaceRevis
     // Larger trees retain strict verification but cannot reuse commit-only checks.
     const contentRevision = tree ? createHash("sha256").update(JSON.stringify([...tree].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0))).digest("hex") : undefined;
     if (contentRevision) hash.update(contentRevision);
-    return { status: "known", revision: hash.digest("hex"), ...(contentRevision ? { contentRevision } : {}) };
+    return { status: "known", revision: hash.digest("hex"), ...(files.length === 0 ? { cleanCommit: before.values![0]!.trim() } : {}), ...(contentRevision ? { contentRevision } : {}) };
   } catch { return unknown("unavailable"); }
 }

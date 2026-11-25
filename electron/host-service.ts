@@ -9,7 +9,7 @@ import { createQueuedTurnRecoveryHandlers } from "./host-service/turn-admission-
 import { TurnAdmissionWaitResultSchema } from "./host-service/turn-admission";
 import { createTarsBatchRuntime } from "./host-service/tars-batch";
 import { createWorkspaceCleanupRuntime } from "./host-service/workspace-cleanup-runtime";
-import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceDiskUsageArgsSchema, SubAgentWorktreeRemoveArgsSchema, RunningAgentWorktreesSchema } from "../src/lib/workspace-cleanup-contract";
+import { WorkspaceCleanupListArgsSchema, WorkspaceCleanupPreviewArgsSchema, WorkspaceCleanupActArgsSchema, WorkspaceCleanupPolicySchema, WorkspaceDiskUsageArgsSchema, SubAgentWorktreeRemoveArgsSchema, RunningAgentWorktreesSchema } from "../src/lib/workspace-cleanup-contract";
 import { z as cleanupZ } from "zod";
 import { undoTarsAction } from "./host-service/tars-action-undo";
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
@@ -1807,6 +1807,10 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         setImmediate(() => process.exit(0));
       }
       return;
+    }
+    case "workspace.cleanup-preview": {
+      const { runningAgentWorktrees, ...args } = WorkspaceCleanupPreviewArgsSchema.extend({ runningAgentWorktrees: RunningAgentWorktreesSchema.optional() }).parse(request.params);
+      await respond(request.id, await workspaceCleanupRuntime.preview(args, runningAgentWorktrees)); return;
     }
     case "workspace.cleanup-list": {
       // Main adds the sub-agent worktrees Activity sees running; the renderer's own arguments stay strict.

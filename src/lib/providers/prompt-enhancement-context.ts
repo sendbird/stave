@@ -15,15 +15,41 @@ export interface PromptEnhancementHistoryMessage {
 
 export type PromptEnhancementExemplarOutcome = "kept" | "undone";
 
+/**
+ * How far a rewrite may go. `clarify` restates the draft as clear instructions
+ * and adds no steps. `sharpen` keeps the scope but deepens the method: it names
+ * the problem precisely, says what first-hand material to start from and what
+ * independent check proves the result, and separates choices an experiment can
+ * settle from choices only the user can make.
+ */
+export const PROMPT_ENHANCEMENT_DEPTHS = ["clarify", "sharpen"] as const;
+export type PromptEnhancementDepth = (typeof PROMPT_ENHANCEMENT_DEPTHS)[number];
+export const DEFAULT_PROMPT_ENHANCEMENT_DEPTH: PromptEnhancementDepth = "clarify";
+
+export function normalizePromptEnhancementDepth(
+  value: unknown,
+): PromptEnhancementDepth {
+  return PROMPT_ENHANCEMENT_DEPTHS.includes(value as PromptEnhancementDepth)
+    ? (value as PromptEnhancementDepth)
+    : DEFAULT_PROMPT_ENHANCEMENT_DEPTH;
+}
+
 /** One past rewrite and what the user did with it. */
 export interface PromptEnhancementExemplar {
   source: string;
   enhanced: string;
   outcome: PromptEnhancementExemplarOutcome;
   at: string;
+  /**
+   * Depth the rewrite was made at. Absent means `clarify`, so rewrites stored
+   * before depths existed keep teaching the depth they were made at.
+   */
+  depth?: PromptEnhancementDepth;
 }
 
 export interface PromptEnhancementContext {
+  /** Rewrite depth; absent means `clarify`. Not reference material. */
+  depth?: PromptEnhancementDepth;
   /** Recent turns of the task the draft continues. */
   history?: PromptEnhancementHistoryMessage[];
   /** Compact Information-panel digest: notes, open todos, linked issue titles. */
@@ -36,14 +62,15 @@ export interface PromptEnhancementContext {
   exemplars?: PromptEnhancementExemplar[];
 }
 
-// Caps are in characters. Worst case (every source present) stays under ~7k
-// characters, roughly 2k tokens, on top of the draft.
+// Reference material is character-capped, including 3,000 characters of
+// Clarify examples or 6,000 characters of Sharpen examples before markup.
 export const PROMPT_ENHANCEMENT_HISTORY_MESSAGES = 6;
 export const PROMPT_ENHANCEMENT_HISTORY_MESSAGE_CHARS = 300;
 export const PROMPT_ENHANCEMENT_WORKSPACE_SUMMARY_CHARS = 1_200;
 export const PROMPT_ENHANCEMENT_REPO_GUIDANCE_CHARS = 1_500;
 export const PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS = 800;
 export const PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS = 300;
+const SHARPEN_EXEMPLAR_REWRITE_CHARS = 900;
 /** Ring-buffer size of remembered rewrites. */
 export const PROMPT_ENHANCEMENT_EXEMPLAR_MEMORY = 12;
 export const PROMPT_ENHANCEMENT_KEPT_EXEMPLARS = 3;
@@ -52,6 +79,15 @@ export const PROMPT_ENHANCEMENT_UNDONE_EXEMPLARS = 2;
 function clip(text: string, max: number) {
   const trimmed = text.trim();
   return trimmed.length > max ? `${trimmed.slice(0, max - 1)}…` : trimmed;
+}
+
+function clipSharpenRewrite(text: string) {
+  const trimmed = text.trim();
+  if (trimmed.length <= SHARPEN_EXEMPLAR_REWRITE_CHARS) return trimmed;
+  // Keep the goal at the start and the verification instructions at the end.
+  const openingChars = Math.floor(SHARPEN_EXEMPLAR_REWRITE_CHARS / 2);
+  const closingChars = SHARPEN_EXEMPLAR_REWRITE_CHARS - openingChars - 1;
+  return `${trimmed.slice(0, openingChars)}…${trimmed.slice(-closingChars)}`;
 }
 
 export function buildPromptEnhancementHistory(
@@ -146,15 +182,16 @@ export function normalizePromptEnhancementExemplars(
       enhanced: entry.enhanced,
       outcome: entry.outcome,
       at: typeof entry.at === "string" ? entry.at : new Date(0).toISOString(),
+      ...(entry.depth === "sharpen" ? { depth: "sharpen" as const } : {}),
     });
   }
   return exemplars.slice(-PROMPT_ENHANCEMENT_EXEMPLAR_MEMORY);
 }
 
 /**
- * Append one rewrite outcome. A later outcome for the same source (Undo after
- * the reveal marked it kept) replaces the earlier entry instead of adding a
- * contradicting one.
+ * Append one rewrite outcome. A later outcome for the same source at the same
+ * depth (Undo after the reveal marked it kept) replaces the earlier entry
+ * instead of adding a contradicting one.
  */
 export function recordPromptEnhancementExemplar(
   exemplars: readonly PromptEnhancementExemplar[],
@@ -165,36 +202,49 @@ export function recordPromptEnhancementExemplar(
   if (!source || !enhanced || source === enhanced) {
     return [...exemplars];
   }
+  const depth = normalizePromptEnhancementDepth(entry.depth);
   const next = exemplars.filter(
-    (exemplar) => exemplar.source.trim() !== source,
+    (exemplar) =>
+      exemplar.source.trim() !== source ||
+      normalizePromptEnhancementDepth(exemplar.depth) !== depth,
   );
   next.push({
     source,
     enhanced,
     outcome: entry.outcome,
     at: entry.at ?? new Date().toISOString(),
+    ...(depth === "sharpen" ? { depth } : {}),
   });
   return next.slice(-PROMPT_ENHANCEMENT_EXEMPLAR_MEMORY);
 }
 
-/** Most recent kept and undone rewrites, clipped for the prompt. */
+/**
+ * Most recent kept and undone rewrites made at `depth`, clipped for the
+ * prompt. A short clarify rewrite the user kept would otherwise teach a
+ * sharpen request to stay short, and the reverse.
+ */
 export function selectPromptEnhancementExemplars(
   exemplars: readonly PromptEnhancementExemplar[] | undefined,
+  depth: PromptEnhancementDepth = DEFAULT_PROMPT_ENHANCEMENT_DEPTH,
 ): PromptEnhancementExemplar[] | undefined {
   if (!exemplars?.length) {
     return undefined;
   }
   const pick = (outcome: PromptEnhancementExemplarOutcome, limit: number) =>
     exemplars
-      .filter((exemplar) => exemplar.outcome === outcome)
+      .filter(
+        (exemplar) =>
+          exemplar.outcome === outcome &&
+          normalizePromptEnhancementDepth(exemplar.depth) === depth,
+      )
       .slice(-limit)
       .map((exemplar) => ({
         ...exemplar,
         source: clip(exemplar.source, PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS),
-        enhanced: clip(
-          exemplar.enhanced,
-          PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS,
-        ),
+        enhanced:
+          depth === "sharpen"
+            ? clipSharpenRewrite(exemplar.enhanced)
+            : clip(exemplar.enhanced, PROMPT_ENHANCEMENT_EXEMPLAR_TEXT_CHARS),
       }));
   const selected = [
     ...pick("kept", PROMPT_ENHANCEMENT_KEPT_EXEMPLARS),
@@ -250,7 +300,11 @@ export function renderPromptEnhancementContextBlocks(
       "",
     );
   }
-  const exemplars = selectPromptEnhancementExemplars(context.exemplars) ?? [];
+  const exemplars =
+    selectPromptEnhancementExemplars(
+      context.exemplars,
+      normalizePromptEnhancementDepth(context.depth),
+    ) ?? [];
   const kept = exemplars.filter((exemplar) => exemplar.outcome === "kept");
   const undone = exemplars.filter((exemplar) => exemplar.outcome === "undone");
   if (kept.length > 0) {

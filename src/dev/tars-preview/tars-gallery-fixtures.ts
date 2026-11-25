@@ -1,4 +1,4 @@
-import { projectTarsDecisions } from "@/lib/tars/decisions";
+import { previewTarsQuestion, projectTarsDecisions } from "@/lib/tars/decisions";
 import { TarsWorkActionSchema } from "@/lib/tars/conversation";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
@@ -711,11 +711,14 @@ export function buildTarsGalleryFixtures({ start, korean, tray, side, spreadUnti
     { responsibilityId: release.id, kind: "waitExpired", status: "nextCheck", at: new Date(Math.max(Date.now(), galleryStart) + 55 * 60_000).toISOString() }];
   const conversation: GalleryConversation = { settings, messages, receipts, records, answers, activity, events, publications };
   // The tray and dock share work-bound decisions; unrelated later messages do not retire them.
+  const asks = new Map<string, ReturnType<typeof previewTarsQuestion>>(receipts.flatMap((entry) => entry.action.kind === "ask"
+    ? [[`${entry.messageId}:${entry.actionIndex}`, previewTarsQuestion(entry.action)] as const] : []));
   const pendingDecisions: TarsPendingDecision[] = projectTarsDecisions({ ...conversation, answers, responsibilities })
     .filter((decision) => decision.state === "waiting").flatMap((decision) => decision.targets.map((target) => ({
       kind: decision.kind, ...target, messageId: decision.messageId, actionIndex: decision.actionIndex,
       operation: decision.kind === "confirm" && decision.options[0]?.kind === "control" ? decision.options[0].control.operation : null,
-      proposedAt: decision.since, ...(decision.kind === "ask" ? { question: decision.question ?? "" } : {}),
+      proposedAt: decision.since, ...(decision.kind === "ask" ? { question: decision.question ?? "",
+        questionPreview: asks.get(`${decision.messageId}:${decision.actionIndex}`) } : {}),
       optionCount: decision.options.length,
     })));
   const runs: Record<string, AgentRunDetail> = { ...tray.runs, ...side.runs, ...result.runs };

@@ -1861,6 +1861,7 @@
     },
     "acceptCompletion": "Accept as done",
     "decision": {
+      "priorEvidence": "Prior evidence",
       "waiting": "Waiting for your answer",
       "enterKey": "Enter",
       "keysHint": {
@@ -2933,7 +2934,7 @@
     },
     "intake": {
       "ask": "Ask Tars",
-      "issueRequest": "Work on this issue. Use the source as context and verify the result.",
+      "issueRequest": "Work on this issue. Use the source as context and verify the result. If this bug report links an existing fix PR, try the reporter’s original steps with the same input on the PR base and head. Report both revisions and outcomes before deciding whether more work is needed. Say if you could not reproduce a step.",
       "documentRequest": "Use the attached document as context. Help me turn it into a plan; ask before starting implementation.",
       "failed": "Could not add this source. Use an HTTPS link or a Markdown file up to 32 KB; keep room in your draft and attachments.",
       "issueBodyUnavailable": "The issue body could not be read. The draft includes its title and link."

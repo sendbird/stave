@@ -1,3 +1,4 @@
+import { stageReviewVerdict } from "../../src/lib/agent-runs/review-finalization";
 import { createHash } from "node:crypto";
 import { parseGitRemoteRepository } from "./git-remote-repository";
 import { tarsSourceLinkGuidance } from "../../src/lib/tars/intake";
@@ -139,7 +140,7 @@ export function tarsExecutionAgentInstructions(supervisor: string,
   const instructions = supervisor.trim().split("\n\n").flatMap((paragraph) => {
     if (paragraph.startsWith("Commit verified work on your own working branch.")) return [];
     if (paragraph.startsWith("Route by usage, capability, then continuity.")) {
-      return [paragraph.replace(/ Starting points:.*?(?= After two failed attempts)/, "")];
+      return [paragraph.replace(/ Starting points:.*?(?= After two failed attempts|$)/, "")];
     }
     if (paragraph.startsWith("Verify in proportion to risk.")) return ["Verify in proportion to risk. Run focused checks while working and the required final checks once on the final commit; do not start another review during Work. The reviewer checks the diff and recorded evidence, rerunning only missing, failed or stale checks."];
     return [paragraph.replace("; visual findings go to Claude, logic findings to Codex", "")];
@@ -149,14 +150,14 @@ export function tarsExecutionAgentInstructions(supervisor: string,
 
 /** How the work stage checks: narrow while working, the full checks once on the final revision. */
 // i18n-ignore: model-facing instructions
-const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks yourself in the reporting turn via `stave_run_workspace_script` when configured. Rerun helper checks; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
+const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks yourself in the reporting turn via `stave_run_workspace_script` for IDs bound to this run. Rerun helper checks; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
 // i18n-ignore: model-facing instructions
-const TARS_OWNER_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks in the reporting turn via `stave_run_workspace_script` when configured; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
+const TARS_OWNER_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks in the reporting turn via `stave_run_workspace_script` for IDs bound to this run; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
 
 // i18n-ignore: model-facing instructions
-const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: run them yourself as lead in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured. Rerun helper checks; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
+const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: run them yourself as lead in the same turn you report, through `stave_run_workspace_script` for script IDs bound to this run. Rerun helper checks; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
 // i18n-ignore: model-facing instructions
-const TARS_OWNER_FIX_CHECKS = "Fix them yourself in this task. Commit your fix first, then run the full checks once on that final commit in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
+const TARS_OWNER_FIX_CHECKS = "Fix them yourself in this task. Commit your fix first, then run the full checks once on that final commit in the same turn you report, through `stave_run_workspace_script` for script IDs bound to this run; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
 
 // i18n-ignore: model-facing report instructions
 const TARS_REPORT_STYLE = "Summary in the user's language, at most two plain sentences: what changed for the user and what is left. Put commit ranges, commands and file lists in evidence, not the summary.";
@@ -275,9 +276,9 @@ export function hasStaveVerifiedOutcome(detail: AgentRunDetail, final: StageReco
   if (ran.some((record) => startedSince(record, reverifyAfter) &&
     (record === final || revisionsMatch(record.facts?.workspaceRevision, finalRevision)) &&
     classifyStageEvidence(record.report?.outcome === "complete" ? record.report : null, record.facts ?? null).some(isVerifiedEvidence))) return true;
-  const reviewStageId = detail.agentRun.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")?.id;
-  const review = reviewStageId ? latestStageRecord(detail.stages, reviewStageId) : undefined;
-  if (review?.report?.outcome === "complete" && review.report.reviewVerdict === "passed" && startedSince(review, reverifyAfter) &&
+  const reviewStage = detail.agentRun.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer");
+  const review = reviewStage ? latestStageRecord(detail.stages, reviewStage.id) : undefined;
+  if (review?.report?.outcome === "complete" && stageReviewVerdict(reviewStage, review.report) === "passed" && startedSince(review, reverifyAfter) &&
     // An unknown final revision cannot show the reviewed revision is the one being completed.
     revisionsMatch(review.report.workspaceRevision, finalRevision)) return true;
   return endedOnUnchangedWork(detail, final, reverifyAfter);
@@ -505,13 +506,15 @@ export function tarsRunResult(detail: AgentRunDetail, observation: TarsExecution
   if (run.state !== "completed" && run.state !== "stopped") return null;
   const final = tarsFinalStageRecord(detail);
   const revision = final?.facts?.workspaceRevision;
-  const reviewStageId = run.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer")?.id;
-  const review = reviewStageId ? latestStageRecord(detail.stages, reviewStageId) : undefined;
+  const reviewStage = run.workflow.stages.find((stage) => stage.kind === "ai" && stage.agentConfigId === "reviewer");
+  const review = reviewStage ? latestStageRecord(detail.stages, reviewStage.id) : undefined;
+  const reviewReport = review?.report?.outcome === "complete" ? review.report : undefined;
+  const reviewVerdict = stageReviewVerdict(reviewStage, reviewReport);
   const part = (facts: unknown) => createHash("sha256").update(JSON.stringify(facts)).digest("hex").slice(0, 12);
   const outcome = part([observation.state, observation.detailCode ?? "", run.stopReason ?? "",
     observation.resultVerifiedRunId ? "verified" : observation.resultUnverifiedRunId ? "unverified" : "", final?.stageId ?? ""]);
   const known = revision?.status === "known" ? part(revision.revision) : "?";
-  const verdict = !reviewStageId ? part("no review") : review?.report?.outcome === "complete" ? part(review.report.reviewVerdict ?? "") : "?";
+  const verdict = !reviewStage ? part("no review") : reviewVerdict ? part(reviewVerdict) : "?";
   const unmet = detail.report
     ? part(detail.report.acceptanceCriteria.filter((item) => item.required !== false && item.status !== "met").map((item) => item.text).sort()) : "?";
   return `o.${outcome}|r.${known}|v.${verdict}|u.${unmet}`;

@@ -82,13 +82,14 @@ const tick = async () => { runtime.requestTick(); await runtime.drain(); };
 function finish(agentRunId: string) {
   const aggregate = persistence.agentRuns.getAggregate(agentRunId)!;
   const time = now();
-  const revision = { status: "known" as const, revision: "verified-revision" };
+  const revision = { status: "known" as const, revision: "verified-revision", cleanCommit: execFileSync("git", ["-C", directory, "rev-parse", "HEAD"], { encoding: "utf8" }).trim() };
   const stages = aggregate.agentRun.workflow.stages.map((stage) => ({ ...aggregate.stages[0]!, stageId: stage.id,
     status: "completed" as const, startedAt: time, endedAt: time, reportRevision: 1,
     report: { outcome: "complete" as const, summary: `Verified ${agentRunId}`, decisions: [], evidence: [],
       artifacts: [{ label: `Artifact ${agentRunId}`, url: `https://example.test/artifact/${agentRunId}` }],
       acceptanceCriteria: stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).map((item) => ({ text: item.text, status: "met" as const, required: true })) : [],
-      ...(stage.id === "review" ? { reviewVerdict: "passed" as const } : {}),
+      ...(stage.id === "review" ? { reviewVerdict: "passed" as const,
+        independentReview: { delegationId: agentRunId + "-review", executionId: agentRunId + "-review-1", revision, verdict: "passed" as const } } : {}),
       workspaceRevision: revision, reportedAt: time, turnId: null },
     facts: { workspaceRevision: revision, diff: null, commands: [], toolCalls: [], action: null, changedPaths: ["artifact.txt"] },
   }));

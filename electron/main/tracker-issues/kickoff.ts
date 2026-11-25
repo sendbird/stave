@@ -236,13 +236,14 @@ export async function kickoffTrackerIssue(
 
   const retrievedContext = buildTrackerIssueRetrievedContext({
     detail,
+    task,
     instruction: args.instruction,
   });
   let run: { workspaceId: string; taskId: string };
   try {
     run = await deps.runLocallyApprovedRun({
       workspaceId,
-      prompt: buildTrackerIssuePrompt(task),
+      prompt: buildTrackerIssuePrompt(task, args.instruction),
       title: buildTrackerIssueTitle(task),
       provider: args.runtime.provider,
       runtimeOptions: runtimeOptionsForApproval({ runtime: args.runtime }),

@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createAssignRuntime } from "../electron/host-service/supervision/assign-runtime";
+import { buildCodexDeveloperInstructions } from "../electron/providers/codex-runtime-config";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import { AgentTurnProvenanceSchema } from "../src/lib/agents/turn-provenance";
 import { replayProviderEventsToTaskState } from "../src/lib/session/provider-event-replay";
@@ -22,13 +23,39 @@ function harness() {
     requestId: `request-${sequence}`, taskId: "task", workspaceId: "workspace", repositoryPath: "/tmp/repo",
     agent, role, providerId: "codex", model: null, assignment: "Do the work.",
   });
-  const prepare = (providerId: StreamTurnArgs["providerId"] = "codex") => runtime.prepareTurn({
-    turnId: `turn-${sequence}`, taskId: "task", providerId, prompt: "Do the work.",
+  const prepare = (providerId: StreamTurnArgs["providerId"] = "codex", prompt = "Do the work.") => runtime.prepareTurn({
+    turnId: `turn-${sequence}`, taskId: "task", providerId, prompt,
     runtimeOptions: { model: "selected-model", codexReasoningEffort: "low",
       codexFileAccess: "danger-full-access", codexApprovalPolicy: "never", boundSecretIds: ["secret-id"] },
   })!;
   return { db, store, runtime, record, prepare };
 }
+
+test.each([
+  ["supervisor", "Auto still routes a request to explain review as a code review after two fixes.",
+    ["reopened twice for the same reason", "smallest real input", "explain how review works", "a request to review a diff", "retry and resource limits"]],
+  ["lead", "Web export passed. The desktop helper stopped before opening the export dialog.",
+    ["same deliverable with its current owner", "each acceptance criterion", "platform and revision checked", "Mark missing coverage unverified"]],
+  ["researcher", "How does Auto route a review request, including classifier timeouts?",
+    ["Mermaid diagram", "normal path and relevant failure branches", "Outputs", "source location and existing test"]],
+  ["debugger", "After cancellation and resume, output lands on the wrong turn. The log and CPU profile are attached.",
+    ["Mermaid state diagram", "first failure", "original log and the regression check", "hot frames", "functions and source locations", "resulting hypothesis"]],
+  ["implementer", "This repository keeps reintroducing the same export regression. The benchmark is faster but returns more errors.",
+    ["smallest type, lint or test check", "failing on the old defect", "passing on a valid change", "successful work completed, errors and timing variation", "faster failure"]],
+  ["ui-polisher", "Compare two interactive layouts for finding a pending decision without changing production.",
+    ["same example data and starting state", "same user task in each", "link both previews", "prototype-only request"]],
+] as const)("%s evidence reaches the Codex developer instructions for a representative task", (id, prompt, guidance) => {
+  const h = harness();
+  try {
+    h.record(getBuiltinAgent(id)!);
+    const { runtimeOptions } = h.prepare("codex", prompt);
+    const instructions = buildCodexDeveloperInstructions({ runtimeOptions, hasStaveLocalMcp: true });
+    for (const text of guidance) expect(instructions).toContain(text);
+    expect(buildCodexDeveloperInstructions({ runtimeOptions, secondaryReadOnly: true })).not.toContain(guidance[0]);
+  } finally {
+    h.db.close();
+  }
+});
 
 test("seals a saved Agent version across reassignment and release, excluding secrets and prose", () => {
   const h = harness();

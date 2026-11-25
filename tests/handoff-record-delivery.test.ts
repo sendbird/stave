@@ -159,6 +159,26 @@ describe("a changed handoff record reaches a provider session that is up to date
     expect(retried.prompt).toContain("- The staging database is shared");
   });
 
+  test("a fresh Codex session receives the last source state and first check after an interruption", async () => {
+    stored = emptyHandoffRecord();
+    save({
+      verified: "- On a clean 211b3b4, the export integration test passed.",
+      remaining: "- First check: inspect the export filter diff and rerun the export integration test if it changed.",
+    });
+    const { prompt } = await runTurn({
+      session: emptySession(),
+      providerId: "codex",
+      turnId: "handoff-delivery-export-resume",
+      text: "Resume the export work. The filter changed since the interruption.",
+    });
+    expect(occurrences(prompt, MARKER)).toBe(1);
+    expect(prompt).toContain("clean 211b3b4");
+    expect(prompt).toContain("First check: inspect the export filter diff");
+    expect(prompt).toContain("Compare the current commit and working-tree changes");
+    expect(prompt).toContain("rerun the checks affected by those changes");
+    expect(prompt).toContain("only when the current request calls for it");
+  });
+
   test("a record the user emptied tells the session the earlier one no longer applies", async () => {
     save({ decisions: "- Keep the public API stable" });
     const first = await runTurn({ session: emptySession(), providerId: "codex", turnId: "handoff-delivery-clear-1", text: "Start" });

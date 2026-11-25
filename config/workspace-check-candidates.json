@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "actions": {
+    "decision-journeys": {
+      "label": "Decision journeys",
+      "description": "Check Tars persistence and Fleet safety in Electron, then decision navigation and refusal in Chromium.",
+      "commands": [
+        "bun run build:desktop --logLevel warn",
+        "bun run test:e2e:electron tests/e2e-electron/tars-conversation.electron.e2e.ts tests/e2e-electron/fleet-control.electron.e2e.ts",
+        "bun run test:e2e tests/e2e/tars-decision-dock.e2e.ts tests/e2e/return-summary-placement.e2e.ts --grep \"matching Tars|one keyboard-active|refused answers\" --workers=1"
+      ],
+      "timeoutMs": 600000
+    },
+    "lens-capture-journey": {
+      "label": "Lens capture journey",
+      "description": "Check actual Lens guest screenshots, unchanged page state, and recovery after a failed capture in Electron.",
+      "commands": [
+        "bun run build:desktop --logLevel warn",
+        "bun run test:e2e:electron tests/e2e-electron/lens-capture-viewport.electron.e2e.ts --grep \"parallel screenshots|full-page failure\""
+      ],
+      "timeoutMs": 600000
+    }
+  }
+}

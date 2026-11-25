@@ -700,6 +700,18 @@
         "empty": "Rewrites you keep or undo will be remembered as examples.",
         "off": "Off. Past rewrites are neither remembered nor sent."
       },
+      "depth": {
+        "title": "Rewrite depth",
+        "description": "Applies to every Enhance request. Kept and undone rewrites are remembered separately for each depth.",
+        "clarify": {
+          "label": "Clarify",
+          "description": "Fixes grammar, structure and missing verbs. Adds no steps or checks."
+        },
+        "sharpen": {
+          "label": "Sharpen",
+          "description": "Keeps the scope and deepens the method: names the problem precisely, says what to start from and what proves the result, and leaves preference choices to you."
+        }
+      },
       "forget": "Forget remembered rewrites"
     }
   },

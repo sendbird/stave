@@ -427,6 +427,7 @@ export function recordStageReport(args: {
     | ({ outcome: "blocked" } & StageBlockInput);
   turnId: string | null;
   workspaceRevision?: CompleteStageReport["workspaceRevision"];
+  independentReview?: CompleteStageReport["independentReview"];
   now: Date;
 }): AgentRunChange {
   const record = requireCurrentStage(args.aggregate, args.expected, ["running", "blocked", "stuck"]);
@@ -444,6 +445,7 @@ export function recordStageReport(args: {
       ? ({
           ...args.report,
           ...(args.workspaceRevision ? { workspaceRevision: args.workspaceRevision } : {}),
+          ...(args.independentReview ? { independentReview: args.independentReview } : {}),
           decisions: args.report.decisions ?? [],
           evidence: args.report.evidence ?? [],
           artifacts: retainSavedReportArtifacts(args.aggregate.stages.filter((stage) => stage.stageId === record.stageId).flatMap((stage) => stage.report?.outcome === "complete" ? stage.report.artifacts : []), args.report.artifacts ?? []),

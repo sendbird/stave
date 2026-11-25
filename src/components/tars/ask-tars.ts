@@ -29,7 +29,7 @@ export async function askTarsAboutIssue(task: TrackerIssue): Promise<void> {
       registeredRepositoryPaths: state.recentRepositories.map((repository) => repository.repositoryPath),
     });
     const repository = state.recentRepositories.find((entry) => entry.repositoryPath === repositoryPath);
-    await openTarsIntake(buildTarsIssueDraft({ task, description: detail?.description,
+    await openTarsIntake(buildTarsIssueDraft({ task, detail,
       request: i18n.t("shell:tars.intake.issueRequest"), repositoryPath,
       workspaceId: repository?.workspaces.some((workspace) => workspace.id === repository.activeWorkspaceId)
         ? repository.activeWorkspaceId : null }));

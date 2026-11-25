@@ -55,8 +55,11 @@ workspaces (see [Agent performance and task outputs](results.md)).
 ### Other ways to start work with an agent
 
 - **Issues**: a ticket's context menu, or the detail pane's ⋯ menu, has
-  **Assign to agent**. The ticket's key, title and link become the kickoff
-  source. The ticket's own assignee does not change.
+  **Assign to agent**. Review or edit the kickoff instruction. Stave reads
+  the issue detail when it creates the task and attaches the description,
+  reproduction steps, and linked PRs as reference material. If detail is
+  unavailable, the task receives the issue summary and any PR links available in the list.
+  The ticket's own assignee does not change.
 - **Composer**: type `!assign` in any task's composer, including a new one. The
   rest of the draft becomes the kickoff source. The agent works in its own task.
 - **Command palette**: **Assign to an agent…** opens the composer's selector
@@ -142,10 +145,33 @@ An agent's **Workflow** is the ordered list of stages its run follows. By
 default, Implementer, Lead, Supervisor, Debugger and UI Polisher each own one
 **Work** stage, followed by independent review when they change files.
 Debugger reproduces the problem, finds its cause, fixes it and verifies the fix
-in the same stage. UI Polisher captures the defect, fixes it and reports the
-before-and-after evidence in the same stage. Researcher and Reviewer run a
+in the same stage. UI Polisher captures the defect in Lens and reports a
+before-and-after pair for the same state. The report names the route, fixture
+data, workflow step, viewport, theme, density, locale, scroll or focus state,
+and the intended visible differences. If the states cannot be matched, the
+report identifies the gap. Researcher and Reviewer run a
 single read-only stage. Shipper uses a publication workflow: Validate → Open
 draft PR → Watch checks → Ready for review.
+
+- **Lead and Supervisor** compare delegated results with each acceptance
+  criterion. For example, if the desktop helper stopped after the web check
+  passed, desktop stays unverified. The original owner keeps follow-up work
+  when available. When a criterion reopens twice for the same reason,
+  Supervisor first runs an input that could disprove the assumption shared by
+  the earlier fixes, within the run's retry limits.
+- **Researcher and Debugger** use Mermaid when explaining a code path or a
+  lifecycle failure. Find source and test references, or the original log and
+  regression check, in the answer or report under **Outputs**. For an attached
+  CPU profile, Debugger maps the slow interval to available symbols and source
+  locations and labels any hypotheses.
+- **Implementer and Debugger** can propose a small check for a recurring
+  repository mistake and show that it catches the old defect while accepting
+  a valid change. For performance work, look for successful work, errors and
+  timing variation under the same conditions before and after.
+- **UI Polisher** can compare two prototypes when asked. Give it one task to
+  try in both, such as finding a pending decision. Its report links the
+  interactive previews and explains its recommendation using the same data
+  and starting state.
 
 - **Add stage**: an AI stage (blank or from a template) with an instruction
   and **Done when**, optionally done by another agent and pinned to a commit;

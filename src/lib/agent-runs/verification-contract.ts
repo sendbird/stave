@@ -4,6 +4,8 @@ import { z } from "zod";
 export const WorkspaceRevisionSchema = z.discriminatedUnion("status", [
   z.object({
     status: z.literal("known"), revision: z.string().min(1).max(128),
+    /** Present only for a clean worktree with a stable HEAD at both reads. */
+    cleanCommit: z.string().regex(/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/).optional(),
     /** Host-only content identity; stable when unchanged files are staged or committed. */
     contentRevision: z.string().min(1).max(128).optional(),
   }).strict(),

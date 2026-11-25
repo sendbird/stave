@@ -16,6 +16,8 @@ import {
   WorkspaceCleanupListResultSchema,
   WorkspaceCleanupResultSchema,
   type SubAgentWorktreeRow,
+  WorkspaceCleanupPreviewArgsSchema,
+  type WorkspaceCleanupPreviewArgs,
   type WorkspaceCleanupActArgs,
   type WorkspaceCleanupRow,
 } from "../../src/lib/workspace-cleanup-contract";
@@ -25,6 +27,7 @@ export const WORKSPACE_CLEANUP_TOOL_NAMES = ["stave_list_workspace_cleanup", "st
 
 export interface WorkspaceCleanupToolHandlers {
   list(): Promise<unknown>;
+  preview(args: WorkspaceCleanupPreviewArgs): Promise<unknown>;
   act(args: WorkspaceCleanupActArgs): Promise<unknown>;
 }
 
@@ -33,6 +36,7 @@ export function projectWorkspaceCleanupRow(row: WorkspaceCleanupRow) {
   return {
     workspaceId: row.id, repositoryPath: row.repositoryPath, name: row.name, branch: row.branch, path: row.path,
     archived: row.archived, lastActive: row.lastActive,
+    ...(row.preview ? { preview: row.preview } : {}),
     /** Empty means the workspace can be archived now. */
     blockers: row.blockers,
     /** Signs that the work is finished, such as `branchMerged`, `prMerged` or `responsibilityEnded`. */
@@ -56,6 +60,7 @@ export function selectSubAgentWorktrees(rows: readonly SubAgentWorktreeRow[], fi
     repositoryPath: row.repositoryPath, path: row.path, branch: row.branch, lastModified: row.lastModified,
     /** Empty means the user can remove it in the cleanup dialog now. */
     blockers: row.blockers,
+    ...(row.preview ? { preview: row.preview } : {}),
   }));
 }
 
@@ -68,14 +73,17 @@ export function registerWorkspaceCleanupTools(server: McpServer, handlers: Works
     "stave_list_workspace_cleanup",
     {
       description:
-        "List the workspaces of registered projects with what blocks archiving each one and why it may be finished. Read only. A workspace with no blockers can be archived with `stave_archive_workspace`. `subAgentWorktrees` lists worktrees Claude Code sub-agents left under `.claude/worktrees` with their blockers; no tool removes them, so ask the user to remove them in Clean up workspaces, which keeps their branches.",
+        "List the workspaces of registered projects with what blocks archiving each one and why it may be finished. Read only. Set preview=true to measure disk and show merge, dirty state and in-use blockers without taking any cleanup action. A workspace with no blockers can be archived with `stave_archive_workspace`. `subAgentWorktrees` lists worktrees Claude Code sub-agents left under `.claude/worktrees` with their blockers; no tool removes them, so ask the user to remove them in Clean up workspaces, which keeps their branches.",
       inputSchema: {
         repositoryPath: z.string().min(1).optional().describe("Only this project's workspaces. Omit for every registered project."),
         includeArchived: z.boolean().optional().describe("Also list workspaces that are already archived."),
+        preview: z.boolean().optional().describe("Read-only preview with bounded disk measurements and merge and dirty checks."),
       },
     },
-    async ({ repositoryPath, includeArchived }) => {
-      const result = WorkspaceCleanupListResultSchema.parse(await handlers.list());
+    async ({ repositoryPath, includeArchived, preview }) => {
+      const result = WorkspaceCleanupListResultSchema.parse(await (preview
+        ? handlers.preview(WorkspaceCleanupPreviewArgsSchema.parse({ repositoryPath, includeArchived }))
+        : handlers.list()));
       return toStructuredResult({ workspaces: selectWorkspaceCleanupRows(result.rows, { repositoryPath, includeArchived }),
         subAgentWorktrees: selectSubAgentWorktrees(result.subAgentWorktrees ?? [], { repositoryPath }) });
     },

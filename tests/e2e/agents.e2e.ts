@@ -19,11 +19,11 @@ test.describe("agents", () => {
     await expect(page.getByRole("button", { name: /^Reviewer/ })).toBeVisible();
   });
 
-  test("Start now in Kickoff starts through the same Kickoff start as Create", async ({ page }) => {
+  test("Assign in Kickoff starts directly from the source step", async ({ page }) => {
     await page.goto("/?stavePreview=kickoff&agent=1");
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Kick off workspace")).toBeVisible();
-    await dialog.getByRole("button", { name: "Start now" }).click();
+    await dialog.getByRole("button", { name: "Assign", exact: true }).click();
     // The preview's Kickoff start creates nothing and reports so.
     await expect(page.getByText("Preview only. No workspace was created.")).toBeVisible();
   });

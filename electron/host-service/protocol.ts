@@ -555,6 +555,7 @@ export type HostAutomationAction =
 
 export interface HostServiceRequestMap {
   /** `runningAgentWorktrees` is added by main from Activity, never forwarded from the renderer. */
+  "workspace.cleanup-preview": import("../../src/lib/workspace-cleanup-contract").WorkspaceCleanupPreviewArgs & { runningAgentWorktrees?: string[] };
   "workspace.cleanup-list": { scanDisk?: boolean; runningAgentWorktrees?: string[] };
   "workspace.cleanup-act": WorkspaceCleanupActArgs;
   "workspace.subagent-worktree-remove": SubAgentWorktreeRemoveArgs & { runningAgentWorktrees?: string[] };
@@ -1119,6 +1120,7 @@ export interface HostServiceRequestMap {
 }
 
 export interface HostServiceResponseMap {
+  "workspace.cleanup-preview": Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
   "workspace.cleanup-list": Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
   "workspace.cleanup-act": Awaited<ReturnType<WorkspaceCleanupApi["act"]>>;
   "workspace.subagent-worktree-remove": SubAgentWorktreeRemoveResult;

@@ -1,12 +1,16 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import {
+  ChoiceButtons,
   LabeledField,
   SectionStack,
   SettingsCard,
   SwitchField,
 } from "@/components/layout/settings-dialog.shared";
 import { AUX_LANES, type AuxLane } from "@/lib/providers/auxiliary-inference-policy";
-import { PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS } from "@/lib/providers/prompt-enhancement-context";
+import {
+  PROMPT_ENHANCEMENT_STYLE_PROFILE_CHARS,
+  type PromptEnhancementDepth,
+} from "@/lib/providers/prompt-enhancement-context";
 import { Button, Textarea } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 import type { SectionId } from "./settings-dialog.schema";
@@ -97,6 +101,7 @@ function PromptEnhancementCard() {
   const exemplarCount = useAppStore(
     (state) => state.settings.promptEnhancementExemplars.length,
   );
+  const depth = useAppStore((state) => state.settings.promptEnhancementDepth);
   const updateSettings = useAppStore((state) => state.updateSettings);
 
   return (
@@ -104,6 +109,31 @@ function PromptEnhancementCard() {
       title={t("settingsProviders:auxiliaryInference.promptEnhancement.title")}
       description={t("settingsProviders:auxiliaryInference.promptEnhancement.description")}
     >
+      <LabeledField
+        title={t("settingsProviders:auxiliaryInference.promptEnhancement.depth.title")}
+        description={t("settingsProviders:auxiliaryInference.promptEnhancement.depth.description")}
+        layout="stacked"
+      >
+        <ChoiceButtons<PromptEnhancementDepth>
+          value={depth}
+          onChange={(value) =>
+            updateSettings({ patch: { promptEnhancementDepth: value } })
+          }
+          columns={2}
+          options={[
+            {
+              value: "clarify",
+              label: t("settingsProviders:auxiliaryInference.promptEnhancement.depth.clarify.label"),
+              description: t("settingsProviders:auxiliaryInference.promptEnhancement.depth.clarify.description"),
+            },
+            {
+              value: "sharpen",
+              label: t("settingsProviders:auxiliaryInference.promptEnhancement.depth.sharpen.label"),
+              description: t("settingsProviders:auxiliaryInference.promptEnhancement.depth.sharpen.description"),
+            },
+          ]}
+        />
+      </LabeledField>
       <LabeledField
         title={t("settingsProviders:auxiliaryInference.promptEnhancement.style.title")}
         description={t("settingsProviders:auxiliaryInference.promptEnhancement.style.description")}

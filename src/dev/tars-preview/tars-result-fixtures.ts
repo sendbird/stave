@@ -11,7 +11,7 @@ import type { Workflow, WorkflowStage } from "@/lib/workflows/schema";
 
 const revision = (value: string): WorkspaceRevision => ({ status: "known", revision: value });
 const REV_WORK = revision("1c7d40a9e2b3f556");
-const REV_FINAL = revision("6a0f93d2c4e1b877");
+const REV_FINAL = { status: "known", revision: "6a0f93d2c4e1b877", cleanCommit: "c0ffee2".padEnd(40, "0") } as const;
 /** The frozen definition of the workspace's test script: a check counts only against the definition the criterion was admitted with. */
 const TEST_SCRIPT_HASH = "e".repeat(64);
 
@@ -83,13 +83,14 @@ export function buildTarsResultFixtures(start: Date, korean = false) {
       report: { outcome: "complete", summary: parts.summary, decisions: [], evidence: [], artifacts: [], acceptanceCriteria: met(row),
         workspaceRevision: REV_FINAL, reportedAt: at(20), turnId: "turn-work" },
       facts: facts({ diff: parts.diff, changedPaths: parts.paths, currentTurnId: "turn-work", workspaceRevision: REV_FINAL, ...parts.workFacts }) }),
-    run.record("review", { startedAt: at(21), endedAt: at(40), startHeadSha: "c0ffee2", ...parts.review,
+    run.record("review", { startedAt: at(21), endedAt: at(40), startHeadSha: REV_FINAL.cleanCommit, ...parts.review,
       ...(parts.review.report?.outcome === "complete" ? { report: { ...parts.review.report, summary: parts.summary },
         facts: facts({ ...parts.review.facts, changedPaths: [] }) } : {}) }),
     run.record("fix-review", { status: "skipped", startedAt: null, endedAt: at(40) }),
   ];
   const passedReview: Partial<AgentRunStageRecord> = { status: "completed",
     report: { outcome: "complete", summary: "The change does what the criteria ask.", reviewVerdict: "passed", decisions: [],
+      independentReview: { delegationId: "export-review", executionId: "export-review-attempt-1", revision: REV_FINAL, verdict: "passed" },
       evidence: [{ label: "Reviewed the diff and the test run", kind: "observation" }], artifacts: [], workspaceRevision: REV_FINAL, reportedAt: at(40), turnId: "turn-review" },
     facts: facts({ currentTurnId: "turn-review", workspaceRevision: REV_FINAL }) };
 

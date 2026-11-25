@@ -8,6 +8,7 @@ import { focusRing } from "@/components/aui/recipes/focus-ring";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { diffPromptWords, type PromptWordDiff } from "@/components/ai-elements/prompt-input.utils";
+import type { PromptEnhancementDepth } from "@/lib/providers/prompt-enhancement-context";
 import {
   Button,
   Popover,
@@ -97,6 +98,8 @@ export interface PromptEnhancementResult {
   targetTaskId: string;
   sourceText: string;
   enhancedPrompt: string;
+  /** Depth the rewrite was made at, so Keep and Undo teach that depth. */
+  depth: PromptEnhancementDepth;
 }
 
 /**

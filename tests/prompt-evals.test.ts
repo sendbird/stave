@@ -106,4 +106,49 @@ test("the CLI refuses an unconfirmed or over-cap paid run without checking crede
   expect(capped.status).not.toBe(0);
   expect(capped.stderr).toContain("--max-calls");
   expect(capped.stdout).not.toContain("Results:");
+  const blindCapped = run(["--suite", "prompt-enhancement", "--provider", "codex", "--max-calls", "7"]);
+  expect(blindCapped.status).not.toBe(0);
+  expect(blindCapped.stderr).toContain("--max-calls");
+  expect(blindCapped.stdout).not.toContain("blind pairs");
 }, 120_000);
+
+test("blind enhancement compares both production depths and keeps labels and model data in the key", async () => {
+  const { enhancementFixtures, runEnhancementEvaluation } = await import("../evals/prompt-enhancement");
+  const observed: string[] = [];
+  const provider = fake([]);
+  provider.generate = async (prompt) => {
+    observed.push(prompt);
+    return { text: 'Enhanced prompt: Rewrite this draft', model: "fake-model" };
+  };
+  const { packet, key } = await runEnhancementEvaluation({ provider, samples: 1, coin: () => true });
+  expect(observed).toHaveLength(enhancementFixtures.length * 2);
+  expect(observed[0]).toContain("Make the task deeper");
+  expect(observed[1]).toContain("Add no files, APIs, tests");
+  expect(observed[0]).toContain(enhancementFixtures[0].draft);
+  expect(observed[1]).toContain(enhancementFixtures[0].draft);
+  expect(new Set(packet.pairs.map(pair => pair.language))).toEqual(new Set(["en", "ko"]));
+  expect(packet.pairs[0]).toMatchObject({ A: "Rewrite this draft", B: "Rewrite this draft" });
+  expect(JSON.stringify(packet)).not.toContain("fake-model");
+  expect(JSON.stringify(packet)).not.toContain('"depth"');
+  expect(key).toMatchObject({ status: "completed", cost: null, resolvedModels: ["fake-model"] });
+  expect(key.pairs[0]).toMatchObject({ A: { depth: "sharpen", raw: "Enhanced prompt: Rewrite this draft" }, B: { depth: "clarify" } });
+});
+
+test("blind enhancement excludes different models, absent model evidence and failed generations", async () => {
+  const { runEnhancementEvaluation } = await import("../evals/prompt-enhancement");
+  const provider = fake([]);
+  let call = 0;
+  provider.generate = async () => {
+    call++;
+    if (call === 1) throw new Error("rate limited");
+    return { text: "Rewrite", ...(call === 2 ? {} : { model: call === 3 ? "fallback" : "fake-model" }) };
+  };
+  const { packet, key } = await runEnhancementEvaluation({ provider, samples: 1, coin: () => false });
+  expect(packet.pairs).toEqual([]);
+  expect(key.status).toBe("incomplete");
+  expect(key.resolvedModels).toEqual(["fallback", "fake-model"]);
+  expect(key.pairs[0]).toMatchObject({ A: { error: "rate limited" }, B: { error: "Provider did not report a resolved model" } });
+  const skipped = await runEnhancementEvaluation({ provider: fake([], false), samples: 1 });
+  expect(skipped.key.status).toBe("skipped");
+  expect(skipped.packet.pairs).toEqual([]);
+});

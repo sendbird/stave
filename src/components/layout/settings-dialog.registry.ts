@@ -26,6 +26,7 @@ import { DENSITY_SETTING_FIELD_ID } from "@/components/layout/settings-sections/
 import { EXTERNAL_ACTIVITY_SETTING_FIELD_ID } from "@/components/layout/settings-sections/settings-dialog-external-activity-card";
 import { AUTO_ROUTING_SETTING_FIELD_ID, ROUTING_DECISION_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-auto-routing-section";
 import { DEFAULT_ROUTING_DECISION, RoutingDecisionConfigSchema } from "@/lib/providers/routing-decision";
+import { DEFAULT_PROMPT_ENHANCEMENT_DEPTH, PROMPT_ENHANCEMENT_DEPTHS } from "@/lib/providers/prompt-enhancement-context";
 import {
   buildStarterProfile,
   DEFAULT_AUTO_ROUTING_PROFILE_ID,
@@ -244,6 +245,28 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "include",
   } satisfies SettingDefinition<"promptEnhancementLearnFromEdits">,
+  {
+    key: "promptEnhancementDepth",
+    sectionId: "auxiliaryInference",
+    fieldId: "settings-field-prompt-enhancement",
+    titleKey: "settings:sections.fields.promptEnhancementDepth.title",
+    descriptionKey: "settings:sections.fields.promptEnhancementDepth.description",
+    keywords: [
+      "prompt enhancement",
+      "enhance",
+      "rewrite depth",
+      "sharpen",
+      "clarify",
+      "terms",
+      "verification",
+    ],
+    schema: z.enum(PROMPT_ENHANCEMENT_DEPTHS),
+    defaultValue: DEFAULT_PROMPT_ENHANCEMENT_DEPTH,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "immediate",
+    importExport: "include",
+  } satisfies SettingDefinition<"promptEnhancementDepth">,
   {
     key: "modelVisibility",
     sectionId: "models",

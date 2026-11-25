@@ -211,7 +211,7 @@ Screens: [Kick off workspace](https://github.com/sendbird/stave/blob/main/docs/s
 ## 2. Open a task and send a request
 
 1. Press Cmd/Ctrl+N, or select **New Task** in an empty workspace.
-2. In the model button under the composer (**Select model**, Alt+P), pick the provider, model and effort. With **Stave Auto**, Stave picks the model to match the request's difficulty. The model button shows the model and effort recorded for the turn, including when an Agent Run continues automatically or you steer the running turn.
+2. In the model button under the composer (**Select model**, Alt+P), pick the provider, model and effort. With **Stave Auto**, Stave picks the model to match the request's difficulty. When Auto uses local rules, asking how code review works counts as research, while asking to review a diff counts as a review. The model button shows the model and effort recorded for the turn, including when an Agent Run continues automatically or you steer the running turn.
 3. Write what to do and what done looks like. Example: "Return to the original page after login, and add a passing redirect test."
 4. Select **Send**.
 
@@ -371,8 +371,8 @@ The Information panel, task context and the latest turn summary are attached to 
 - **Side question**: the **Side question** icon (a speech bubble with a question mark) beside Attach in the composer, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Conversation width**: **Settings > Chat > Layout > Conversation width** picks **Narrow**, **Default** or **Wide** for the messages and the message box in tasks and Tars. Each choice widens in steps as the conversation area gets wider, and a narrow area uses its full width. Code blocks keep to the message column and scroll sideways inside it; only a table whose columns need more room grows past the column, centred on it.
 - **Welcome back**: after you have been away for more than 15 minutes, a card in the conversation, right after the last message you had seen, lists what waits on you, each turn that finished and the last decision, one action each. **Got it** folds it into a one-line divider at the same place; click the divider to open it again.
-- **Handoff**: the Task panel no longer has a Handoff tab. A handoff record saved earlier is kept, and a provider still receives it first when it starts on or returns to the task.
-- **Enhance prompt**: the wand icon in the composer rewrites your request. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.
+- **Handoff**: the Task panel no longer has a Handoff tab. A handoff record saved earlier is kept, and a provider still receives it first when it starts on or returns to the task. For a resume, it states the last verified source state and the first check needed. If files changed during the interruption, it reruns their affected checks before relying on the recorded results. It acts on remaining work only when your current request calls for it.
+- **Enhance prompt**: the wand icon in the composer rewrites your request. In **Settings > Models > Background AI > Prompt enhancement > Rewrite depth**, **Clarify** (the default) improves wording and structure. **Sharpen** keeps the same scope and adds how to investigate and verify the work. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**. Before sending, check that the rewrite keeps your language and scope, and preserves paths and `$skill` tokens exactly.
 - **Context meter**: in the composer, shows how full the conversation is and the tokens left. For Claude, **Composition** lists what fills it (system prompt, tools, MCP tools, memory files, skills and an estimated conversation); other providers report only the total. **Compact context** shortens a long conversation. Wide composers show used / limit tokens; narrow composers show the percentage. During compaction, the notice shows elapsed time when known; inactive restored messages stop counting.
 - **Macros**: in the composer toolbar, opens your saved macros with a search over name, `!slug` and description.
 
@@ -450,14 +450,28 @@ Main settings under **How it runs**:
 ```pipeline "A run with Review before done"
 Work | Does the work against the instructions and done-when conditions.
 Review | Another agent reviews the changes read-only.
-Fix | Fixes what the review found. A fix that changed files goes back to Review once, for the fix only.
+Fix | Fixes what the review found. A fix that changed files goes back to Review once. A confirmed first independent review limits the scope to the fixes. Otherwise the Reviewer checks the original work too.
 ! Done check | Stave runs the workspace check command itself and confirms it passes.
 @caption Work that changed no files ends without the review stages.
 ```
 
 Implementer, Lead, Supervisor, Debugger and UI Polisher each own a single Work
 stage. Debugger reproduces, diagnoses and verifies the fix in that stage. UI
-Polisher captures the defect, fixes it and records the visible result there.
+Polisher captures the defect in Lens, then captures the same page and workflow
+state after the fix. The report gives both images, the matching conditions and
+the intended visible differences.
+When Lead or Supervisor delegates work, the brief names the problem, the
+evidence to start from and how the helper can verify the result. An AI
+planning stage defines acceptance criteria that a test, command, rendered
+page or real run can check. Reviewer traces a changed value to its caller. For design rationale, Researcher looks for the decision in the original commit or discussion.
+The stage report distinguishes the scripts that passed on the reported revision from the last independent review. After a second review requests changes, the final repair ends the automatic review cycle.
+
+Lead and Supervisor match helper results to each completion criterion. If a helper checked only the web app, desktop stays unverified. When a criterion comes back twice for the same reason, Supervisor first tests what the two fixes assumed, within the run's retry limits.
+
+For a code flow, Researcher can show the normal and failure paths with sources and tests in **Outputs**. For a lifecycle failure, Debugger can link the log and regression check from a state diagram, and can map an attached CPU profile to the relevant source. For recurring bugs, ask Implementer or Debugger for a check that fails on the old defect and passes on the valid change. A performance comparison should show successful work, errors and timing variation before and after.
+
+To compare two UI proposals, ask UI Polisher for interactive previews with the same example data and one task to try in both, such as finding a pending decision. Its recommendation should explain what you can find or do in each preview.
+
 By default a change to files gets an independent review, with a fix stage
 for findings. The Run checks the assignment's completion criteria at the end.
 Only an AI stage followed by another AI stage may leave criteria it adds for
@@ -1005,7 +1019,14 @@ inside the dock while the message box stays reachable.
 
 When Tars needs you to choose, it shows a decision card above the message box:
 a question with two to four options, each with a short reason, and a
-recommended option when Tars has one. A confirmation (a control Tars proposed,
+recommended option when Tars has one. When Tars cites an earlier observation,
+**Prior evidence** shows the source and result it cited. Fleet and the task's
+return summary show the same choices, reasons, recommendation and evidence.
+Choose **Open in Tars** to answer that decision. These summaries also show the choices for an unverified completion.
+
+[Tars question](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/tars-question.png)
+
+A confirmation (a control Tars proposed,
 or a completion Stave could not verify) leads with what will happen: what it
 does, such as "Cancel this work?", the work it is about, and the effect in one
 sentence. A tool request it approves shows as a code block; the repository
@@ -1281,7 +1302,7 @@ Screens: [Fleet View](https://github.com/sendbird/stave/blob/main/docs/screensho
 When Stave reopens, requests that can no longer be answered move to history. Requests that still accept an answer stay available. Restoring existing notifications is silent.
 
 - **Notifications** in the top bar collect questions, approvals and completions. The bell and Dock badges count tasks with a live action for you. An agent run notifies once each for a sign-off request, blocked, stuck and completed. Choose **Allow once** or **Deny** (A and D keys) for approvals; the row shows the request's summary and command first, and a risk-flagged or long request offers only **Deny** and **Open task**. Click a choice on a short question with up to four fixed options. Use **Open task** for longer questions, multi-step questions, multiple selections, typed answers, and persistent approvals. A sent answer is confirmed briefly before the row moves to History. Unavailable requests move to History without an answer, and delivery errors offer **Open task**. **Answer from notifications** in Desktop Notifications controls these shortcuts. New notices also show as toasts at the top-center. Branch status notices appear at the bottom-right, above the composer and the status bar.
-- **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** starts one locally. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values, and **Updated** beside it keeps tickets updated today or in the last 7, 30 or 90 days or this month; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues.
+- **Issues** in the top bar lists the Crane and Jira issues assigned to you; **Assign to agent** opens Kickoff from the list, board or detail pane. You can edit the instruction before starting. Stave attaches the issue description, reproduction steps and linked PRs as reference material. If the list is newer, Stave refreshes the detail. If current detail is unavailable, it attaches the issue summary and any PR links available in the list. Connect them in **Settings > Integrations > Issues**. **Filter** opens one searchable list of source, status, priority, project and label values, and **Updated** beside it keeps tickets updated today or in the last 7, 30 or 90 days or this month; the applied filters show as chips you remove one at a time or with **Clear all**, beside the number of matching issues. For a bug with an existing fix PR, ask the agent to try the reporter’s original steps on the PR base and head and report both revisions and results.
 Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/notifications.png)
 
 ## Activity outside Stave
@@ -1335,6 +1356,8 @@ The AI can use Stave features such as the Information panel, workspace documents
 
 With Lens CDP tools enabled, loopback addresses and active Orbit service hosts for the current workspace skip approval by default. Change this in **Settings > Browser > Lens > Developer Mode > Advanced options** under **Skip CDP prompts for local development**. When prompted, **Allow once** grants access in that workspace for 15 minutes after the last CDP action on that host.
 ```
+
+In the Stave checkout, you can copy the decision and Lens journey commands from `config/workspace-check-candidates.json` into Workspace Tools and select them as workspace checks. They run the desktop app with local fixtures and check both successful behavior and recovery or refusal.
 
 In the desktop app, **Workspace Tools > Processes > Listening ports** shows local servers associated with the workspace, even when an agent or terminal started them directly. Check the bind address and process name, then select **Open in Lens**. **Owned by Stave** identifies a registered terminal or script. **Inferred** uses the process's working directory or a parent process.
 
@@ -1466,6 +1489,13 @@ a static export with relative paths. Markdown copied outside Stave describes
 saved artifacts as local-only and omits their app-specific URI.
 
 ## Workspace cleanup and restore
+
+For a read-only preview, ask the agent to preview worktree cleanup without
+taking action. It can use `stave_list_workspace_cleanup` with `preview: true`
+to report disk use, branch and pull request merge status, uncommitted changes
+and in-use blockers. A merged PR counts only when its head commit matches the
+current local branch tip. An unknown status stays unknown, and a partial size
+is a lower bound. The preview changes no worktrees, files or branches.
 
 Open **Clean up workspaces** from the command palette, a repository menu or
 the Fleet header. Review all repositories, suggested workspaces and branches,

@@ -333,6 +333,13 @@ describe("Tars acceptance boundary", () => {
     const reverifyAfter = "2026-11-06T00:00:00.000Z";
     expect(tarsObservation(verified({}, NOW), undefined, NOW, { completionGoal: "implementation" })).toMatchObject({ state: "completed" });
     expect(tarsObservation(verified({}, NOW), undefined, reverifyAfter).state).toBe("blocked");
+    // Pinned review stages require the delegation proof. Older unpinned workflows keep their behavior.
+    workflow.stages[0] = { ...aiStage, id: "review", agentConfigId: "reviewer", pinCommit: true };
+    expect(tarsObservation(verified({}))).toMatchObject(unverified);
+    const revision = { status: "known", revision: "revision-2", cleanCommit: "a".repeat(40) };
+    expect(tarsObservation(verified({ workspaceRevision: revision,
+      independentReview: { delegationId: "delegation", executionId: "execution", revision, verdict: "passed" },
+    }), undefined, undefined, { completionGoal: "implementation" }).state).toBe("completed");
   });
 
 });

@@ -195,7 +195,7 @@ export function InboxRow(props: {
     (value): value is string => Boolean(value?.trim()),
   );
   if (props.compact) {
-    const where = [entry.workspaceName, entry.detail].filter(
+    const where = [entry.workspaceName, props.hideDetail ? null : entry.detail].filter(
       (value): value is string => Boolean(value?.trim()),
     );
     return (

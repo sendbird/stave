@@ -1,3 +1,6 @@
+import { resolveTrackerIssueForKickoff } from "@/lib/tracker-issues/client-state";
+import { buildTrackerIssueRetrievedContext, TRACKER_ISSUE_KICKOFF_SOURCE_PREFIX } from "@/lib/tracker-issues/context";
+import type { TrackerIssue } from "@/lib/tracker-issues/types";
 import { i18n } from "@/i18n/runtime";
 import { readKickoffSource } from "@/store/kickoff-source-reader";
 import {
@@ -32,7 +35,7 @@ import {
 // edge back into the store: `app-settings` depends on this file for the kickoff
 // settings defaults.
 import type { AppSettings } from "@/store/app-settings";
-import type { PromptDraftRuntimeOverrides } from "@/types/chat";
+import type { PromptDraftRuntimeOverrides, TaskSourceContext } from "@/types/chat";
 import {
   resolveRepositoryBasePrompt,
   resolveRepositoryKickoffBranchNamingRule,
@@ -65,6 +68,7 @@ export interface ResolveKickoffProposalResult {
 
 export interface KickoffWorkspaceArgs {
   proposal: KickoffProposalDraft;
+  trackerIssue?: TrackerIssue;
   fromBranch?: string;
   fromBranchKind?: "local" | "remote";
   startFirstTask: boolean;
@@ -316,6 +320,8 @@ export function createWorkspaceKickoffResolver(args: {
 type KickoffWorkspaceState = Pick<
   AppState,
   | "createWorkspace"
+  | "attachTaskSourceContext"
+  | "repositoryPath"
   | "updatePromptDraft"
   | "sendUserMessage"
   | "createTask"
@@ -336,6 +342,7 @@ function createKickoffTaskInCurrentWorkspace(args: {
   provider?: ProviderId;
   prompt: string;
   runtimeOverrides?: PromptDraftRuntimeOverrides;
+  sourceContext?: TaskSourceContext;
 }): KickoffWorkspaceResult {
   const before = args.getState();
   if (before.activeWorkspaceId !== args.workspaceId) {
@@ -354,6 +361,7 @@ function createKickoffTaskInCurrentWorkspace(args: {
   if (args.provider) {
     after.setTaskProvider({ taskId, provider: args.provider });
   }
+  if (args.sourceContext) after.attachTaskSourceContext({ taskId, sourceContext: args.sourceContext });
   after.updatePromptDraft({
     taskId,
     patch: { text: args.prompt, runtimeOverrides: args.runtimeOverrides },
@@ -365,7 +373,17 @@ export async function runWorkspaceKickoff(args: {
   input: KickoffWorkspaceArgs;
   getState: () => KickoffWorkspaceState;
 }): Promise<KickoffWorkspaceResult> {
-  const { proposal } = args.input;
+  const { proposal, trackerIssue } = args.input;
+  let sourceContext: TaskSourceContext | undefined;
+  if (trackerIssue) {
+    const repositoryPath = args.getState().repositoryPath;
+    const context = await resolveTrackerIssueForKickoff(trackerIssue);
+    if (args.getState().repositoryPath !== repositoryPath) {
+      return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.openTheWorkspaceThisAgentWorksIn") };
+    }
+    const part = buildTrackerIssueRetrievedContext(context);
+    sourceContext = { ...part, sourceId: `${TRACKER_ISSUE_KICKOFF_SOURCE_PREFIX}${part.sourceId}` };
+  }
   const prompt = buildKickoffFirstTaskPrompt(
     proposal,
     args.input.extraInstructions,
@@ -381,6 +399,7 @@ export async function runWorkspaceKickoff(args: {
         provider: args.input.firstTaskProvider,
         prompt,
         runtimeOverrides,
+        sourceContext,
       }),
     });
   }
@@ -392,6 +411,7 @@ export async function runWorkspaceKickoff(args: {
     fromBranchKind: args.input.fromBranchKind,
     initialTaskTitle: proposal.firstTaskTitle,
     initialTaskProvider: args.input.firstTaskProvider,
+    initialTaskSourceContext: sourceContext,
     initialPromptDraft: { text: prompt, runtimeOverrides, attachedFilePaths: [], attachments: [] },
     workspaceInformation: buildWorkspaceInformationSeed(proposal),
     onWorkspacePreparing: args.input.onWorkspacePreparing,

@@ -1,3 +1,8 @@
+import { collectTarsAttention } from "../src/lib/tars/attention";
+import { collectFleetTarsAttentionItems } from "../src/lib/fleet/attention-projection";
+import { projectTarsDecisions } from "../src/lib/tars/decisions";
+import { buildReturnSummary } from "../src/lib/task-context/return-summary";
+import { describeReturnSummary } from "../src/components/session/return-summary/return-summary.utils";
 import { createHash } from "node:crypto";
 import { Database } from "bun:sqlite";
 import { afterEach, describe, expect, test } from "bun:test";
@@ -29,31 +34,78 @@ function fixture(options: { validScope?: boolean } = {}) {
     startRun: async (row) => `run-${row.id}`, observe: async () => ({ state: "running", detail: null }),
     controlRun: async (_row, operation) => { controls.push(operation); },
   });
-  const responsibility = (state: TarsState): TarsResponsibility => {
+  const responsibility = (state: TarsState, completionGoal?: TarsResponsibility["completionGoal"]): TarsResponsibility => {
     const row = store.create({ requestId: `responsibility-${requests++}`, title: "Fix search", instruction: "Fix and verify search.",
-      acceptanceCriteria: ["Search works"], workspaceId: "source", repositoryPath: "/tmp/repository", providerId: "codex" }, NOW);
+      acceptanceCriteria: ["Search works"], completionGoal, workspaceId: "source", repositoryPath: "/tmp/repository", providerId: "codex" }, NOW);
     return store.patch(row.id, row.revision, { state, taskId: `tars-${row.id}`, executionWorkspaceId: "execution", agentRunId: "owned-run" }, NOW);
   };
-  const propose = async (row: TarsResponsibility, operation: TarsControlOperation, ...alternatives: TarsControlOperation[]) => {
+  const submit = async (actions: TarsDecisionAction[]) => {
     conversations.configure({ providerId: "codex", model: "test-model", maxTurns: 6, autonomy: "careful" });
     const queued = conversations.create({ requestId: `message-${requests++}`, text: "다시 맡아줘" }, clock);
     const claimed = conversations.claim(queued.id, queued.revision, clock);
-    const actions: TarsDecisionAction[] = [operation, ...alternatives]
-      .map((each) => ({ kind: "control", responsibilityId: row.id, expectedRevision: row.revision, operation: each }));
     const message = conversations.answer(claimed.id, claimed.revision, { reply: "Confirm to continue.", actions }, clock);
     await applyTarsDecision({ messageId: message.id, expectedRevision: message.revision }, {
       conversations, responsibilities: store, readRegistry: () => [], now: () => clock,
       requestTick: () => runtime.requestTick(), control: runtime.act });
     return message;
   };
+  const propose = (row: TarsResponsibility, operation: TarsControlOperation, ...alternatives: TarsControlOperation[]) =>
+    submit([operation, ...alternatives].map((each) => ({ kind: "control", responsibilityId: row.id, expectedRevision: row.revision, operation: each })));
   const confirm = (row: TarsResponsibility, messageId: string, operation: TarsControlOperation, source: TarsActSource = "click") =>
     actTars({ requestId: tarsConfirmationRequestId(messageId, 0), responsibilityId: row.id, expectedRevision: row.revision, operation,
       source }, { conversations, runtime, now: () => clock });
-  return { database, store, conversations, runtime, responsibility, propose, confirm, controls,
+  return { database, store, conversations, runtime, responsibility, submit, propose, confirm, controls,
     setClock: (value: string) => { clock = value; }, setValidScope: (value: boolean) => { validScope = value; } };
 }
 
 describe("Tars pending decisions in the snapshot", () => {
+  test("Tars, Fleet and return summaries use the saved question until its revision moves", async () => {
+    const f = fixture();
+    const row = f.responsibility("paused");
+    const priorEvidence = "Workspace check: the release command is still waiting for staging.";
+    const options = [
+      { label: "Cancel", rationale: "Stop this release attempt.",
+        effect: { kind: "control", responsibilityId: row.id, expectedRevision: row.revision, operation: "cancel" } },
+      { label: "Wait", rationale: "Keep the current run paused.", effect: { kind: "reply" } },
+    ] satisfies Extract<TarsDecisionAction, { kind: "ask" }>["options"];
+    const question = "What should happen to the release?";
+    const message = await f.submit([{ kind: "ask", question, priorEvidence, options, recommended: 0 }]);
+    const preview = { question, priorEvidence, options: options.map(({ label, rationale }) => ({ label, rationale })), recommended: null };
+    const snapshot = await f.runtime.get();
+    const signal = collectTarsAttention(snapshot)[0]!;
+    const fleet = collectFleetTarsAttentionItems([signal])[0]!;
+    const receipt = f.conversations.getReceipt(message.id, 0)!;
+    const card = projectTarsDecisions({ messages: [message], receipts: [receipt], records: [], answers: [], activity: [], responsibilities: snapshot.responsibilities })[0]!;
+    expect(card).toMatchObject({ ...preview, id: signal.decisionId, state: "waiting" });
+    expect(fleet.tarsQuestionPreview).toEqual(preview);
+    const summary = buildReturnSummary({ messages: [], record: null, need: fleet, running: false, baseline: { partsByMessage: {}, finished: [] } });
+    expect(describeReturnSummary(summary, Date.parse(LATER)).rows[0]).toMatchObject({
+      tarsQuestionPreview: preview,
+      action: { target: { kind: "tars-decision", responsibilityId: row.id, decisionId: card.id } },
+    });
+    expect(f.controls).toEqual([]);
+    f.store.patch(row.id, row.revision, { state: "running" }, LATER);
+    expect(collectTarsAttention(await f.runtime.get())).toEqual([]);
+  });
+
+  test.each(["implementation", "pullRequest"] as const)("Fleet shows the same unverified completion choices for %s", async (completionGoal) => {
+    const f = fixture();
+    const row = f.responsibility("running", completionGoal);
+    f.store.patch(row.id, row.revision, { state: "blocked", detailCode: "unverifiedCompletion" }, NOW);
+    const snapshot = f.store.snapshot();
+    const fleet = collectFleetTarsAttentionItems(collectTarsAttention(snapshot))[0]!;
+    const options = fleet.tarsQuestionPreview?.options;
+    expect(fleet.tarsQuestionPreview?.recommended).toBeNull();
+    expect(options?.map(({ label }) => label)).toEqual(completionGoal === "implementation"
+      ? ["Accept as done", "Cancel work", "Ask Tars for new verification work"]
+      : ["Cancel work", "Ask Tars for new verification work"]);
+    expect(options?.map(({ rationale }) => rationale)).toEqual([
+      ...(completionGoal === "implementation" ? ["Completes it without a Stave-verified check."] : []),
+      "Ends its supervision. Changes already made stay.",
+      "Puts a request for a fresh check in the message box. Nothing runs until you send it.",
+    ]);
+  });
+
   test("a proposed control waits in the snapshot with its identity, revision and time", async () => {
     const f = fixture();
     const row = f.responsibility("paused");

@@ -9,11 +9,12 @@ import {
   agentRunPermissionRuntimeOptions,
 } from "../src/lib/agent-runs/briefing";
 import { extractStageFacts, parseDiffShortStat } from "../src/lib/agent-runs/facts";
-import { AGENT_RUN_LIMITS } from "../src/lib/agent-runs/domain";
+import { AGENT_RUN_LIMITS, createStageRecord } from "../src/lib/agent-runs/domain";
+import { buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
 import { AgentRunInitialContextSchema } from "../src/lib/agent-runs/initial-context";
 import { MAX_PROVIDER_TEXT_FIELD_CHARS } from "../src/lib/file-context-sanitization";
 import { requestStageChanges } from "../src/lib/agent-runs/commands";
-import { applyChange, COMPLETE_REPORT, agentRunFixture } from "./fixtures/agent-run-fixtures";
+import { AGENT_RUN_NOW, applyChange, COMPLETE_REPORT, agentRunFixture } from "./fixtures/agent-run-fixtures";
 
 /** The Request → PR fixture with Understand completed and Build current. */
 function atBuild() {
@@ -35,6 +36,41 @@ function atBuild() {
 }
 
 describe("run briefing", () => {
+  test.each(["any", "all"] as const)("the fix stage briefing and turn context name inherited %s checks", (mode) => {
+    const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: AGENT_RUN_NOW });
+    const scriptIds = ["test", "lint"];
+    workflow.stages[0]!.acceptanceCriteria = [{
+      text: "Validate the changes", verification: "stave-check", mode, scriptIds,
+      scriptDefinitions: scriptIds.map((scriptId) => ({ scriptId, definitionHash: "a".repeat(64) })),
+    }];
+    const aggregate = agentRunFixture({ workflow });
+    aggregate.agentRun.currentStageIndex = 2;
+    aggregate.stages = workflow.stages.map((stage, index) => ({
+      ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: stage.id, attempt: 1 }),
+      status: index === 2 ? "running" : "completed",
+      report: index === 2 ? null : COMPLETE_REPORT,
+    }));
+    const instruction = mode === "all" ? "`test` and `lint` on the final revision (every one must pass)" : "`test` or `lint` on the final revision";
+    const lines = buildAgentRunBriefing(aggregate).currentStage.workspaceChecks!;
+    expect(lines.find((line) => line.includes("Validate the changes"))).toContain(instruction);
+    expect(buildAgentRunTurnContextPart({ aggregate, reason: "stage-start" }).content).toContain(instruction);
+  });
+
+  test("the stage and the get tool identify bound checks without guessing a script name", () => {
+    const run = atBuild();
+    expect(describeAgentRunExecutionContext(run)).toContain("No host workspace scripts are bound");
+    const stage = run.agentRun.workflow.stages[1]!;
+    const ids = ["setup", "test"];
+    stage.acceptanceCriteria = [{
+      text: "Validate", required: true, verification: "stave-check", mode: "all",
+      scriptIds: ids, scriptDefinitions: ids.map((scriptId) => ({ scriptId, definitionHash: "a".repeat(64) })),
+    }];
+    for (const line of buildAgentRunBriefing(run).currentStage.workspaceChecks!) {
+      expect(describeAgentRunExecutionContext(run)).toContain(line);
+    }
+    expect(describeAgentRunExecutionContext(run)).toContain("every one must pass");
+  });
+
   test("a stage prompt carries earlier summaries and criteria but no ids", () => {
     const aggregate = atBuild();
     const prompt = compileAgentRunStagePrompt(aggregate);

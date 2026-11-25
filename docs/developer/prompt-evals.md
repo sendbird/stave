@@ -16,8 +16,8 @@ bun run eval:prompts -- --suite delegation --provider claude --samples 3
 sample; larger sample counts multiply cost. Samples must be between 1 and 100.
 The runner uses the installed provider's utility readiness gate and read-only,
 tool-disabled runtime. With missing credentials it records a skipped result and
-prints the reason without generating. Failed cases exit with status 1; a skip
-exits successfully and is explicitly labeled, never counted as a pass.
+prints the reason without generating. Failed cases exit with status 1. A skip in a deterministic suite is explicitly
+labeled and exits successfully. The blind suite uses the exit rules below.
 
 Before checking credentials, the runner counts the planned calls (cases ×
 samples). A run of more than 20 calls needs `--yes`; in an interactive terminal
@@ -71,7 +71,7 @@ review them before sharing. Only synthetic fixture data is sent by these cases.
   instructions; task links and detectable proposals to delegate or poll. These
   are textual scenario evaluations, not proof of runtime tool enforcement.
 
-All current graders are deterministic; no model judge is used (`judgeModel` is
+These four suites use deterministic graders. No model judge is used (`judgeModel` is
 `null`). Passing these checks does not prove complete semantic compliance. If a
 future case requires a judge, make its invocation explicit and record its exact
 model and cost separately; never hide additional model calls in a grader.
@@ -91,3 +91,50 @@ bun test tests/prompt-evals.test.ts
 
 Keep fixtures small and independent of local repositories, secrets and accounts.
 Do not add this command to the normal test scripts or CI workflows.
+
+## Blind Clarify and Sharpen comparison
+
+```sh
+bun run eval:prompts -- --suite prompt-enhancement --provider codex --model gpt-6-luna --samples 1 --max-calls 8
+```
+
+The suite sends each of four synthetic drafts through both production prompt
+builders and applies the production output parser. The cap covers both depths
+(2 English + 2 Korean drafts × 2 depths × sample count). The CLI saves the
+randomized A/B packet as `<timestamp>.blind.json` and the depth labels, raw
+responses, native model evidence and errors as `<timestamp>.key.json`. Both use
+the ignored results directory by default. Use `--output-dir` to override it.
+
+Score the blind packet against its rubric before opening the key. Cite the
+text for each judgment. Compare faithfulness and clarity on every draft and
+assess method and decision ownership only when applicable. Treat ties as ties.
+Depth-specific writing can hint at which is which. The task does not incur a
+paid judge call. A missing response or model identity makes that pair
+unscorable. If native metadata shows different models anywhere in the run,
+the comparison is invalid. A skipped or incomplete comparison exits with
+status 1 and preserves available diagnostics.
+
+### Observed runs
+
+On November 25, 2026, two runs produced eight scoreable pairs from 16 calls.
+Codex App Server reported `gpt-6-luna` for all 16. The second run used the
+explicitly resolved Codex CLI 0.172.0. The first run recorded the version on
+PATH, so its executable version is unconfirmed.
+
+The [evaluation record](../../evals/evidence/prompt-enhancement-2026-11-25.json)
+contains each run's ID, anonymous packet, original score sheet and depth key
+with raw and parsed outputs. Match the case ID and A/B label across these
+fields to reproduce the comparison. The reviewer recorded scoring before
+opening each key. The runner did not log key access, so the ordering rests on
+the reviewer's account.
+
+| Draft | Clarify | Sharpen |
+| --- | --- | --- |
+| English scroll jump | Preserved pagination and the requested fix. | Preserved scope and added reproduction, source inspection and a scroll-anchoring check. |
+| English explanation only | Preserved the language and the constraint against edits. | Switched to Korean in the first run. Both outputs retained the constraint against edits, and the second kept English and asked for first-hand evidence. |
+| Korean duplicate restore | Preserved the path and literal skill token. | Added a concrete reproduction and check. The first raw output included the skill token in backticks, which output parsing removed. The second kept the token. |
+| Korean search tradeoff | Preserved the requested comparison and reserved the loading decision. | Added latency and request-count measurements and reserved the loading decision. In both samples the opening directive could be read as asking for implementation. |
+
+This comparison covers two samples per draft and depth, one model and one
+reviewer. It measures rewrite text, without executing the rewritten tasks. The utility
+runtime did not report USD cost.

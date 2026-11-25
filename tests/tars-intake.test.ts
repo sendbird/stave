@@ -84,6 +84,26 @@ describe("Tars intake drafts", () => {
     expect(buildTarsIssueDraft({ task, request }).text.startsWith(request)).toBe(true);
     expect(i18n.t("shell:tars.intake.ask")).toBe(locale === "en" ? "Ask Tars" : "Tars에게 요청");
   });
+  test("carries supplied PRs and original steps in a reviewable Tars draft", async () => {
+    const pr = "https://github.com/team/project/pull/12";
+    const draft = buildTarsIssueDraft({
+      task: { ...task, links: [{ rel: "related", url: `${pr}#issuecomment-44` }] },
+      detail: {
+        ...task,
+        description: "Cancel an export, then resume it and click Download.",
+        links: [{ rel: "fix", url: `${pr}/files` }, { rel: "related", url: "https://github.com/team/project/issues/2" }],
+      },
+      request: i18n.t("shell:tars.intake.issueRequest"),
+    });
+    expect(draft.text).toContain("with the same input on the PR base and head");
+    stageTarsIntake(draft);
+    expect(useTarsDraftStore.getState().requestId).toBeNull();
+    const sending = await beginTarsDraftSend();
+    expect(sending?.text).toContain("Untrusted issue context");
+    const context = JSON.parse(sending!.text.slice(sending!.text.indexOf("{")));
+    expect(context.linkedPullRequests).toEqual([pr]);
+    expect(context.excerpt).toBe("Cancel an export, then resume it and click Download.");
+  });
 });
 
 describe("Slack source links", () => {

@@ -11,7 +11,7 @@ import type { TarsActivity, TarsResponsibility } from "@/lib/tars/types";
 import type { Workflow } from "@/lib/workflows/schema";
 
 const revision = (value: string): WorkspaceRevision => ({ status: "known", revision: value });
-const REV_WORK = revision("4f1c9a20b7d3e5f6");
+const REV_WORK = { status: "known", revision: "4f1c9a20b7d3e5f6", cleanCommit: "a1b2c3d".padEnd(40, "0") } as const;
 const REV_FINAL = revision("9e2b7c11a0d4f853");
 
 const BEFORE = `export function orderCards(cards: Card[]) {
@@ -80,6 +80,7 @@ export function buildTarsSideViewFixtures(start: Date) {
         toolCalls: [{ toolCallId: "tool-edit", name: "apply_patch", ok: true, turnId: "turn-work" }], currentTurnId: "turn-work", workspaceRevision: REV_WORK }) }),
     checkoutRun.record("review", { status: "completed", startedAt: at(21), endedAt: at(30), startHeadSha: "a1b2c3d",
       report: { outcome: "complete", summary: "The change does what the criteria ask. Two findings need fixes.", reviewVerdict: "changes-requested",
+        independentReview: { delegationId: "checkout-review", executionId: "checkout-review-1", revision: REV_WORK, verdict: "changes-requested" },
         decisions: [{ decision: "Rename savedId to preferredCardId", reason: "It is the user's preference, not the last saved card." },
           { decision: "Cover a wallet with no saved card", reason: "The fallback order had no test." }],
         evidence: [{ label: "Reviewed the diff and the test run", kind: "observation" }], artifacts: [], workspaceRevision: REV_WORK, reportedAt: at(30), turnId: "turn-review" },

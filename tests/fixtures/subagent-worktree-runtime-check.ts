@@ -30,6 +30,7 @@ async function main() {
       linkedWorkspacePaths: [linked] }] });
     const later = Date.now() + 2 * 60 * 60_000;
     const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => false, now: () => later,
+      pr: async () => ({ ok: false, pr: null, stderr: "No PR access" }),
       diskUsage: createWorkspaceDiskUsage({ measure: async () => ({ bytes: 4096, partial: false, method: "du" }) }),
       git: async (cwd, args) => {
         calls.push(args);
@@ -64,6 +65,17 @@ async function main() {
     assert.equal((await runtime.removeSubAgentWorktree({ repositoryPath: repo, path: leftover })).reason, "changedFiles");
     git(leftover, "add", "late.txt");
     git(leftover, "commit", "-m", "keep");
+    const beforePreview = calls.length;
+    const preview = await runtime.preview({ repositoryPath: repo }, [leftover]);
+    assert.deepEqual(preview.subAgentWorktrees.map(row => row.path), [leftover]);
+    const row = preview.subAgentWorktrees[0]!;
+    assert.deepEqual(row.blockers, ["agentRunning"]);
+    assert.equal(row.preview?.branchMerge, "unmerged");
+    assert.equal(row.preview?.dirty, false);
+    assert.equal(row.preview?.disk?.bytes, 4096);
+    assert.equal(row.preview?.pullRequest, "unknown");
+    assert.ok(calls.slice(beforePreview).every(args => !args.includes("remove") && !args.includes("prune")));
+    assert.equal(existsSync(leftover), true);
     const removed = await runtime.removeSubAgentWorktree({ repositoryPath: repo, path: leftover });
     assert.deepEqual(removed, { ok: true, path: leftover, reason: null });
     assert.equal(existsSync(leftover), false);

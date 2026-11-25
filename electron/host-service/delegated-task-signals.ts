@@ -11,6 +11,8 @@
  */
 import {
   DELEGATED_TASK_LIST_LIMIT,
+  DELEGATED_TASK_RUN_KIND,
+  DELEGATED_TASK_STEP_KIND,
   extractDelegatedTaskDelegationKey,
   delegatedTaskResultReceipt,
   delegatedTaskWaitingReason,
@@ -20,6 +22,8 @@ import {
   toDelegatedTaskSummary,
   type DelegatedTaskSummary,
 } from "../../src/lib/runs/delegated-task";
+import { REVIEW_AGENT_ID } from "../../src/lib/agents/review-before-done";
+import type { IndependentReview } from "../../src/lib/agent-runs/domain";
 import {
   WAKE_UP_LIMITS,
   type TaskCompletionSignal,
@@ -151,6 +155,34 @@ export function listUnrecordableSubagentAnswers(args: { parentTaskId: string }):
  * test rather than re-derived here.
  */
 const TASK_COMPLETION_FEED_LIMIT = WAKE_UP_LIMITS.maxCompletionFeedRows;
+
+type DelegationStore = ReturnType<typeof ensureHostServicePersistenceReady>;
+
+/** Read the verdict from the child stage, tied to the successful ledger execution. */
+export function readIndependentReview(
+  { workspaceId, taskId, turnIds }: { workspaceId: string; taskId: string; turnIds: ReadonlySet<string> },
+  store: Pick<DelegationStore, "listRunAggregatesByOrigin" | "listRunReceipts"> = ensureHostServicePersistenceReady(),
+): IndependentReview | undefined {
+  if (!turnIds.size) return;
+  for (const { run, step } of store.listRunAggregatesByOrigin({ originKind: "task", originId: taskId, limit: TASK_COMPLETION_FEED_LIMIT })) {
+    if (run.kind !== DELEGATED_TASK_RUN_KIND || step.kind !== DELEGATED_TASK_STEP_KIND ||
+        run.status !== "completed" || step.status !== "completed" || !step.executionId ||
+        run.ownership.workspaceId !== workspaceId || step.target?.workspaceId !== workspaceId ||
+        run.ownership.taskId !== step.target.taskId) continue;
+    const receipts = store.listRunReceipts({ runId: run.id });
+    const claim = receipts.find((receipt) => receipt.type === "accepted" && receipt.stepId === step.id &&
+      receipt.executionId === step.executionId && receipt.detail?.attempt === step.attempt)?.detail;
+    if (!claim?.agentRunId || claim.agentConfigId !== REVIEW_AGENT_ID || claim.workspaceMode !== "same-workspace" ||
+        !claim.parentTurnId || !turnIds.has(claim.parentTurnId) || !claim.expectedHead) continue;
+    const result = receipts.find((receipt) => receipt.type === "completed" && receipt.stepId === step.id &&
+      receipt.executionId === step.executionId && receipt.detail?.code === "child-agent-run-completed" &&
+      receipt.detail.agentRunId === claim.agentRunId)?.detail;
+    const revision = result?.reviewCompletedRevision;
+    if (!result?.reviewVerdict || revision?.status !== "known" ||
+        !revision.cleanCommit?.startsWith(claim.expectedHead.toLowerCase())) continue;
+    return { delegationId: run.id, executionId: step.executionId, revision, verdict: result.reviewVerdict };
+  }
+}
 
 /**
  * The supervisor's completion feed: delegated runs of one parent that have

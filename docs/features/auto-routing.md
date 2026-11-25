@@ -35,6 +35,7 @@ evidence in the request, and local rules never infer them. An unclear request
 routes as Standard, not as a light model and not on the frontier. Short
 wording alone does not prove that a task is easy or hard; explicit short
 continuations reuse recent user context and keep a capable model.
+When local rules handle a request, “explain how code review works” counts as research. “Review this diff and explain why” counts as a review.
 
 With safety escalation enabled, a sensitive change (auth, secrets, payments,
 production data) routes as Complex work or higher: it needs care, not

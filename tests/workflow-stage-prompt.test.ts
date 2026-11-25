@@ -103,6 +103,8 @@ describe("stage prompt", () => {
   test("adds the plan and publish rules to those stages only", () => {
     const plan = compileStagePrompt(input({ stageIndex: 0, priorStages: [], acceptanceCriteria: [] }));
     expect(plan).toContain("This is a planning stage. Do not change files");
+    expect(plan).toContain("something other than the agent's own judgment can check it");
+    expect(plan).toContain("list product or preference choices for the user");
     expect(plan).not.toContain("## Earlier stages");
     expect(plan).not.toContain("## Acceptance criteria");
     const publish = compileStagePrompt(input({ stageIndex: 7 }));

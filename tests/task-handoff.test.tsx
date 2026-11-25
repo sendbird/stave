@@ -274,11 +274,12 @@ describe("handoff record in the provider prompt", () => {
     });
 
   test("a provider starting or coming back reads the record before the conversation excerpt", () => {
-    for (const providerId of ["codex", "claude-code", "cursor"] as const) {
+    for (const providerId of ["codex", "claude-code", "cursor", "kiro", "opencode"] as const) {
       const text = prompt(providerId);
       expect(text.indexOf("[Task Handoff Record]")).toBeGreaterThan(-1);
       expect(text.indexOf("[Task Handoff Record]")).toBeLessThan(text.indexOf("[Task Shared Context]"));
       expect(text).toContain("- Keep the public API stable");
+      expect(text).toContain("Act on remaining work only when the current request calls for it.");
       expect(text).not.toContain("source: stave:handoff-record");
     }
     expect(prompt("claude-code", { nativeSessionId: "s", syncedThroughMessageId: "u1" })).toContain("[Task Handoff Record]");

@@ -1,4 +1,3 @@
-import type { GitHubPrPayload } from "../../src/lib/pr-status";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, symlinkSync, existsSync, readFileSync, writeFileSync, rmSync, renameSync } from "node:fs";
@@ -6,6 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { SqliteStore } from "../../electron/persistence/sqlite-store";
 import { createWorkspaceCleanupRuntime, responsibilityCleanupBlocker } from "../../electron/host-service/workspace-cleanup-runtime";
+import { fetchGitHubPrStatus } from "../../electron/host-service/scm-runtime";
+import { runCommandArgs } from "../../electron/main/utils/command";
 import { DEFAULT_WORKSPACE_CLEANUP_POLICY } from "../../src/lib/workspace-cleanup-contract";
 import { workspaceExecutionGate } from "../../electron/shared/workspace-execution-gate";
 
@@ -35,12 +36,54 @@ try {
   const prHeads = new Map<string, string>();
   const changed: Array<{ workspaceId: string; repositoryPath: string; stage?: string; command?: string }> = [];
   const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => terminals, now: () => now, changed: event => changed.push(event),
-    pr: async ({ target }) => {
-      const pr: GitHubPrPayload | null = prTimes.has(target ?? "") || prHeads.has(target ?? "") ? { headRefOid: prHeads.get(target ?? "") ?? null, number: 1, title: "Completed work", state: prStates.get(target ?? "") ?? "MERGED", isDraft: prStates.get(target ?? "") === "OPEN",
-        url: "https://example.test/pull/1", reviewDecision: null, mergeable: "UNKNOWN", mergeStateStatus: "UNKNOWN", checksRollup: null,
-        mergedAt: prTimes.get(target ?? "") ?? null, baseRefName: "main", headRefName: target ?? "" } : null;
-      return { ok: true, pr, stderr: "" };
-    } });
+    pr: args => fetchGitHubPrStatus({ ...args, runCommand: command => {
+      if (command.command !== "gh") return runCommandArgs(command);
+      const [group, operation, branch = ""] = command.commandArgs ?? [];
+      if (group === "auth") return Promise.resolve({ ok: true, code: 0, stdout: "", stderr: "" });
+      assert.deepEqual([group, operation], ["pr", "view"], "Cleanup only reads pull requests");
+      if (!prTimes.has(branch) && !prHeads.has(branch)) return Promise.resolve({ ok: false, code: 1, stdout: "", stderr: "no pull requests found for branch" });
+      const pr = { headRefOid: prHeads.get(branch) ?? null, number: 1, state: prStates.get(branch) ?? "MERGED",
+        mergedAt: prTimes.get(branch) ?? null, headRefName: branch };
+      return Promise.resolve({ ok: true, code: 0, stdout: JSON.stringify(pr), stderr: "" });
+    } }) });
+  // Exercise the preview against a registered worktree, real Git and SQLite.
+  const pendingFile = join(path, "preview-dirty.txt");
+  writeFileSync(pendingFile, "preserve this");
+  const beforeRefs = git(repo, "show-ref");
+  const beforeWorktrees = git(repo, "worktree", "list", "--porcelain");
+  const beforeStatus = git(path, "--no-optional-locks", "status", "--porcelain");
+  const beforeRegistry = store.loadRepositoryRegistry();
+  const beforePolicy = store.readWorkspaceCleanupState();
+  const releasePreviewTurn = workspaceExecutionGate.acquire({ workspaceId: "feature", cwd: path });
+  terminals = true;
+  prTimes.set("feature", "2026-11-14T00:00:00Z");
+  prHeads.set("feature", git(path, "rev-parse", "HEAD").trim());
+  const preview = await runtime.preview({ repositoryPath: repo + "/" });
+  const feature = preview.rows.find(row => row.id === "feature")!;
+  assert.ok(feature.preview?.disk?.bytes && feature.preview.disk.status === "measured");
+  assert.equal(feature.preview.branchMerge, "merged");
+  assert.equal(feature.preview.pullRequest, "merged");
+  assert.equal(feature.preview.dirty, true);
+  for (const blocker of ["runningTurn", "terminalOpen", "changedFiles"]) assert.ok(feature.blockers.includes(blocker), blocker);
+  assert.equal(git(repo, "show-ref"), beforeRefs);
+  assert.equal(git(repo, "worktree", "list", "--porcelain"), beforeWorktrees);
+  assert.equal(git(path, "--no-optional-locks", "status", "--porcelain"), beforeStatus);
+  assert.equal(readFileSync(pendingFile, "utf8"), "preserve this");
+  assert.deepEqual(store.loadRepositoryRegistry(), beforeRegistry);
+  assert.deepEqual(store.readWorkspaceCleanupState(), beforePolicy);
+  assert.deepEqual(store.listArchivedWorkspacesPersistence(), []);
+  assert.deepEqual(changed, []);
+  prTimes.delete("feature");
+  prHeads.delete("feature");
+  releasePreviewTurn();
+  terminals = false;
+  rmSync(pendingFile);
+  const clean = (await runtime.preview({ repositoryPath: repo })).rows.find(row => row.id === "feature")!;
+  assert.deepEqual(clean.blockers, []);
+  assert.equal(clean.preview?.dirty, false);
+  assert.equal(clean.preview?.pullRequest, "none");
+  assert.deepEqual((await runtime.preview({ repositoryPath: join(root, "other") })).rows, []);
+
   const act = (action: "archive" | "restore" | "delete", extra = {}) => runtime.act({ action, workspaceId, repositoryPath: repo, ...extra });
   git(path, "checkout", "-b", "other-head");
   assert.equal((await act("archive")).ok, false);
@@ -233,6 +276,37 @@ try {
     return workspacePath;
   };
   runtime.configure({ ...DEFAULT_WORKSPACE_CLEANUP_POLICY, merged: { enabled: true, value: 2 } });
+  const reusedBranch = "merge-reused";
+  const reusedPath = registerAutomatic(reusedBranch);
+  const commit = (message: string) => {
+    git(reusedPath, "-c", "user.name=Test", "-c", "user.email=test@example.com", "-c", "commit.gpgsign=false", "commit", "--allow-empty", "-m", message);
+    return git(reusedPath, "rev-parse", "HEAD").trim();
+  };
+  const mergedTip = commit("test: pull request head");
+  git(repo, "merge", "--ff-only", reusedBranch);
+  prTimes.set(reusedBranch, new Date(now - 3 * 86400_000).toISOString());
+  prHeads.set(reusedBranch, mergedTip);
+  const previewReused = async () => (await runtime.preview({ repositoryPath: repo })).rows.find(row => row.id === reusedBranch)!;
+  assert.equal((await previewReused()).preview?.pullRequest, "merged");
+  commit("test: advanced after the merge");
+  git(reusedPath, "push", "-u", "origin", reusedBranch);
+  const refsBeforePreview = git(repo, "show-ref");
+  const stateBeforePreview = store.readWorkspaceCleanupState();
+  const reused = await previewReused();
+  assert.equal(reused.preview?.branchMerge, "unmerged");
+  assert.equal(reused.preview?.pullRequest, "none", "An old merged PR does not describe the advanced branch");
+  assert.ok(!reused.reasons.includes("prMerged"));
+  assert.deepEqual(reused.blockers, [], "The advanced tip is pushed, so unpushed work cannot mask the regression");
+  prHeads.delete(reusedBranch);
+  const unavailable = await previewReused();
+  assert.equal(unavailable.preview?.pullRequest, "unknown");
+  assert.ok(!unavailable.reasons.includes("prMerged"));
+  assert.equal(git(repo, "show-ref"), refsBeforePreview);
+  assert.deepEqual(store.readWorkspaceCleanupState(), stateBeforePreview);
+  prHeads.set(reusedBranch, mergedTip);
+  assert.ok(!(await runtime.runNow()).results.some(result => result.workspaceId === reusedBranch));
+  assert.ok(existsSync(reusedPath));
+
   for (const [id, mergedAt, eligible] of [
     ["merge-no-date", null, false], ["merge-invalid", "invalid", false],
     ["merge-recent", new Date(now - 12 * 3600_000).toISOString(), false],
@@ -240,6 +314,7 @@ try {
   ] as const) {
     const candidatePath = registerAutomatic(id);
     prTimes.set(id, mergedAt);
+    prHeads.set(id, git(candidatePath, "rev-parse", "HEAD").trim());
     await runtime.runNow();
     assert.equal(existsSync(candidatePath), !eligible, id);
   }

@@ -50,6 +50,17 @@ describe("Tars result model", () => {
     expect(model.durationMs).toBe(40 * 60_000);
   });
 
+  test("a pinned review without matching delegation evidence cannot confirm the result", () => {
+    const { row, run } = fixture("verified");
+    const unproven = withStage(run, "review", (record) => {
+      if (record.report?.outcome === "complete") delete record.report.independentReview;
+      return record;
+    });
+    const result = project(row, unproven);
+    expect(kinds(result)).toEqual(["reported", "verifiedCheck"]);
+    expect(result.review).toBeNull();
+  });
+
   test("agent-reported work is never shown as verified", () => {
     const { row, run } = fixture("reported");
     const model = project(row, run);

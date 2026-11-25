@@ -1,4 +1,4 @@
-import { buildTrackerIssueInstruction } from "@/lib/tracker-issues/context";
+import { buildTrackerIssuePrompt } from "@/lib/tracker-issues/context";
 import type { TrackerIssue } from "@/lib/tracker-issues/types";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 
@@ -9,7 +9,8 @@ import { useAgentsUiStore } from "@/store/agents-ui-store";
  */
 export function assignTrackerIssueToAgent(task: TrackerIssue) {
   useAgentsUiStore.getState().openKickoffWithAgent({
-    text: buildTrackerIssueInstruction(task),
+    text: buildTrackerIssuePrompt(task),
+    trackerIssue: task,
     source: task.key,
   });
 }
