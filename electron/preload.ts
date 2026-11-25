@@ -1912,7 +1912,7 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("fs:read-file-data-url", args),
     listScratch: (args: { rootPath: string }) =>
       ipcRenderer.invoke("fs:list-scratch", args),
-    readScratchTail: (args: { rootPath: string; filePath: string; maxBytes?: number }) =>
+    readScratchTail: (args: { rootPath: string; filePath: string; offset?: number; wholeHtml?: boolean; maxBytes?: number }) =>
       ipcRenderer.invoke("fs:read-scratch-tail", args),
     scratchLive: createWorkspaceScratchBridge({
       invoke: (channel, args) => ipcRenderer.invoke(channel, args),

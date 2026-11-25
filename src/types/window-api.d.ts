@@ -742,7 +742,7 @@ interface WindowFsApi {
    * `.stave/scratch` folder; refused outside that folder, through a link, or
    * for a folder Stave has not registered.
    */
-  readScratchTail?: (args: { rootPath: string; filePath: string; maxBytes?: number }) => Promise<
+  readScratchTail?: (args: { rootPath: string; filePath: string; offset?: number; wholeHtml?: boolean; maxBytes?: number }) => Promise<
     | ({ ok: true } & import("@/lib/workspace-scratch").WorkspaceScratchTail)
     | { ok: false; reason: "invalid" | "missing" | "unreadable"; stderr: string }
   >;

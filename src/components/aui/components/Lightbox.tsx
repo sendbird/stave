@@ -286,7 +286,13 @@ export function Lightbox({
                 onDoubleClick={() => {
                   if (canZoom) {
                     if (view.scale > MIN_SCALE) resetView();
-                    else setScale(2);
+                    else {
+                      const image = mediaRef.current;
+                      const nativeScale = image instanceof HTMLImageElement && image.clientWidth > 0
+                        ? image.naturalWidth / image.clientWidth
+                        : 1;
+                      setScale(nativeScale > 1 ? nativeScale : 2);
+                    }
                   }
                 }}
                 onPointerCancel={endPan}
