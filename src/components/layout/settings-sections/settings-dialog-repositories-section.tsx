@@ -39,6 +39,7 @@ function RepositorySettingsPanel(args: {
   const { t } = useTranslation(I18N_NAMESPACES);
   const updateProjectSettingsOverrides = useAppStore((state) => state.updateProjectSettingsOverrides);
   const prWatchDefault = useAppStore((state) => state.settings.createPrWatchEnabled);
+  const prDraftDefault = useAppStore((state) => state.settings.createPrDraftDefault);
   const setRepositoryBasePrompt = useAppStore(
     (state) => state.setRepositoryBasePrompt,
   );
@@ -55,6 +56,7 @@ function RepositorySettingsPanel(args: {
     (state) => state.setRepositoryAppearance,
   );
   const prWatchOverride = args.repository.settingsOverrides?.createPrWatchEnabled;
+  const prDraftOverride = args.repository.settingsOverrides?.createPrDraftDefault;
   const repositoryWorkspaceInitCommand = normalizeRepositoryWorkspaceInitCommand({
     value: args.repository.newWorkspaceInitCommand,
   });
@@ -210,6 +212,22 @@ function RepositorySettingsPanel(args: {
           repositoryPath: args.repository.repositoryPath,
           clearKeys: ["createPrWatchEnabled"],
         })}>{t("settings:repositoriesSection.prWatch.useGlobal")}</Button>
+      </div> : null}
+
+      <SwitchField
+        title={t("settings:repositoriesSection.prDraft.title")}
+        description={t(prDraftOverride === undefined ? "settings:repositoriesSection.prDraft.followsGlobal" : "settings:repositoriesSection.prDraft.overridden")}
+        checked={prDraftOverride ?? prDraftDefault}
+        onCheckedChange={(checked) => updateProjectSettingsOverrides({
+          repositoryPath: args.repository.repositoryPath,
+          patch: { createPrDraftDefault: checked },
+        })}
+      />
+      {prDraftOverride !== undefined ? <div>
+        <Button size="sm" variant="quiet" onClick={() => updateProjectSettingsOverrides({
+          repositoryPath: args.repository.repositoryPath,
+          clearKeys: ["createPrDraftDefault"],
+        })}>{t("settings:repositoriesSection.prDraft.useGlobal")}</Button>
       </div> : null}
 
       <SettingsCard

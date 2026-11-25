@@ -293,7 +293,7 @@ Task panel > **Background** shows work Claude reported for the current turn or t
 
 1. Use **Source Control** in the right panels to see changed files and history.
 2. Open Review mode with the **Conversation / Review** switch above the task tab (Cmd/Ctrl+Alt+R). Leave line comments on the diff and send them with **Send review to agent**. See [Review and delegation](#review).
-3. Select **Create PR** in the top bar to open the pull request dialog, where you pick the merge method and auto-merge. If the workspace has uncommitted changes, choose which files to commit. Unchecked staged changes stay staged. GitHub CLI (`gh`) must be signed in.
+3. Select **Create PR** in the top bar to open the pull request dialog, where you pick **Draft**, the merge method and auto-merge. A draft PR is never queued for auto-merge; mark it ready from the status chip or on GitHub. **Settings → Prompts → Open as draft by default** sets whether the dialog starts with Draft on, and each repository can override it in its repository settings. The generated description follows the repository's pull request template in `.github/`, the root or `docs/` (any letter case), or the first template in a `PULL_REQUEST_TEMPLATE/` folder. If the workspace has uncommitted changes, choose which files to commit. Unchecked staged changes stay staged. GitHub CLI (`gh`) must be signed in.
 4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub.
 5. When the work is done, choose **Archive Workspace** from the workspace row's ⋮ menu. Turn on **Delete the git branch too** to delete the branch as well.
 

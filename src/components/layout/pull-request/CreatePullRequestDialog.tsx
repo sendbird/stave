@@ -58,9 +58,12 @@ interface DialogState {
 interface MergeFields {
   method: ConcretePrMergeMethod;
   autoMerge: boolean;
+  /** Open the PR as a draft; a draft is never queued for auto-merge. */
+  draft: boolean;
   repoSettings?: RepoMergeSettings;
   onMethodChange: (method: ConcretePrMergeMethod) => void;
   onAutoMergeChange: (enabled: boolean) => void;
+  onDraftChange: (draft: boolean) => void;
 }
 
 interface DraftFields {
@@ -178,6 +181,34 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                   <div className={sx(openPrStyles.minWidthZero)}>
                     <label
                       className={sx(openPrStyles.settingLabel)}
+                      htmlFor="create-pr-draft"
+                    >
+                      {i18n.t("sourceControl:createPullRequestDialog.draft")}
+                    </label>
+                    <p className={sx(openPrStyles.settingHint)}>
+                      {i18n.t("sourceControl:createPullRequestDialog.draftHint")}
+                    </p>
+                  </div>
+                  <Switch
+                    id="create-pr-draft"
+                    // The label's `htmlFor` reaches the hidden input, not the switch a screen reader focuses.
+                    aria-label={i18n.t("sourceControl:createPullRequestDialog.draft")}
+                    className={sx(openPrStyles.autoMergeSwitch)}
+                    checked={props.merge.draft}
+                    onCheckedChange={props.merge.onDraftChange}
+                    disabled={props.dialog.busy}
+                  />
+                </div>
+
+                <div
+                  {...stylex.props(openPrStyles.divider)}
+                  aria-hidden="true"
+                />
+
+                <div className={sx(openPrStyles.settingRow)}>
+                  <div className={sx(openPrStyles.minWidthZero)}>
+                    <label
+                      className={sx(openPrStyles.settingLabel)}
                       htmlFor="create-pr-merge-method"
                     >
                       {i18n.t("sourceControl:createPullRequestDialog.mergeMethod")}
@@ -253,16 +284,20 @@ export function CreatePullRequestDialog(props: CreatePullRequestDialogProps) {
                     <p className={sx(openPrStyles.settingHint)}>
                       {props.merge.repoSettings?.autoMergeAllowed === false
                         ? i18n.t("sourceControl:createPullRequestDialog.disabledByRepositorySettings")
-                        : i18n.t("sourceControl:createPullRequestDialog.mergeAutomaticallyAfterRequiredChecksPass")}
+                        : props.merge.draft
+                          ? i18n.t("sourceControl:createPullRequestDialog.autoMergeOffForDraft")
+                          : i18n.t("sourceControl:createPullRequestDialog.mergeAutomaticallyAfterRequiredChecksPass")}
                     </p>
                   </div>
                   <Switch
                     id="create-pr-auto-merge"
+                    aria-label={i18n.t("sourceControl:createPullRequestDialog.autoMerge")}
                     className={sx(openPrStyles.autoMergeSwitch)}
-                    checked={props.merge.autoMerge}
+                    checked={props.merge.autoMerge && !props.merge.draft}
                     onCheckedChange={props.merge.onAutoMergeChange}
                     disabled={
                       props.dialog.busy ||
+                      props.merge.draft ||
                       props.merge.repoSettings?.autoMergeAllowed === false
                     }
                   />

@@ -25,6 +25,7 @@ import { currentProviderAccountId, withRequestAccountScope } from "./provider-ac
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
 import { createHostGatewayCredentialBroker, setHostGatewayCredentialBroker, requestHostGatewayCredentials, type HostGatewayCredentialRequest } from "./provider-accounts/host-gateway-credentials";
 import { realpathSync } from "node:fs";
+import { readPullRequestTemplate } from "./host-service/pull-request-template";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
 import { randomUUID } from "node:crypto";
@@ -1332,10 +1333,7 @@ async function collectProviderPullRequestContext(args: {
       commandArgs: ["status", "--porcelain"],
       cwd,
     }),
-    runCommand({
-      command: "cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null || true",
-      cwd,
-    }),
+    readPullRequestTemplate(cwd),
     runCommand({ command: "cat AGENTS.md 2>/dev/null || true", cwd }),
     runCommandArgs({
       command: "git",
@@ -1373,9 +1371,7 @@ async function collectProviderPullRequestContext(args: {
   ]
     .filter(Boolean)
     .join("\n");
-  const prTemplateContent = prTemplateResult.ok
-    ? prTemplateResult.stdout.trim()
-    : undefined;
+  const prTemplateContent = prTemplateResult;
   const agentsContent = agentsResult.ok
     ? agentsResult.stdout.trim()
     : undefined;

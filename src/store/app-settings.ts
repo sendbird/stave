@@ -321,6 +321,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   lensVisualCommentScreenshotsAsImageContext: boolean;
   /** Composer reviews that run as a separate read-only task. */
   reviewTask: ReviewTaskSettings;
+  /**
+   * Open a Create PR pull request as a draft by default. A repository may
+   * override it; the dialog's Draft switch decides each PR.
+   */
+  createPrDraftDefault: boolean;
   /** Queue the created ready PR for automatic merging. */
   createPrAutoMergeEnabled: boolean;
   /** Merge strategy used when automatic merging is queued. */
@@ -792,6 +797,7 @@ export const defaultSettings: AppSettings = {
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
+  createPrDraftDefault: false,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
   createPrWatchEnabled: DEFAULT_PULL_REQUEST_WATCH_ENABLED,

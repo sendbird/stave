@@ -81,6 +81,7 @@ import {
 } from "@/components/layout/top-bar-pr-events";
 import { TopBarPrStatusTrigger } from "@/components/layout/TopBarPrStatusTrigger";
 import { useAppStore } from "@/store/app.store";
+import { effectiveSetting } from "@/store/project-settings-overrides";
 import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import {
   type WorkspacePrStatus,
@@ -192,6 +193,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [dialogMergeMethod, setDialogMergeMethod] =
     useState<ConcretePrMergeMethod>("squash");
   const [dialogAutoMerge, setDialogAutoMerge] = useState(false);
+  // A draft is never queued for auto-merge; turning Draft off restores the auto-merge choice.
+  const [dialogDraft, setDialogDraft] = useState(false);
+  // Read when the dialog opens, from the project the PR is created in.
+  const readDraftDefault = useCallback(() => {
+    const state = useAppStore.getState();
+    return effectiveSetting("createPrDraftDefault", state.repositoryPath, state);
+  }, []);
   // Merge PR confirmation
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [mergeDialogLoading, setMergeDialogLoading] = useState(false);
@@ -361,8 +369,9 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       });
       setDialogMergeMethod(nextMergeState.mergeMethod);
       setDialogAutoMerge(nextMergeState.autoMergeEnabled);
+      setDialogDraft(readDraftDefault());
     },
-    [createPrAutoMergeEnabled, createPrMergeMethod, defaultBaseBranch],
+    [createPrAutoMergeEnabled, createPrMergeMethod, defaultBaseBranch, readDraftDefault],
   );
 
   async function buildWorkspaceContextForPrDraft() {
@@ -466,6 +475,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     });
     setDialogMergeMethod(configuredMergeState.mergeMethod);
     setDialogAutoMerge(configuredMergeState.autoMergeEnabled);
+    setDialogDraft(readDraftDefault());
     setChangesExpanded(true);
     setReviewFindings([]);
     setReviewDiffTruncated(false);
@@ -1146,20 +1156,25 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     // Step 3: Create PR
     const mergeMethodLabel =
       dialogMergeMethod.charAt(0).toUpperCase() + dialogMergeMethod.slice(1);
+    const queueAutoMerge = dialogAutoMerge && !dialogDraft;
     setStep("creating-pr");
     setInlineNotice({
       tone: "info",
-      title: i18n.t("sourceControl:topBarOpenPR.creatingReadyPullRequest"),
-      description: dialogAutoMerge
-        ? i18n.t("sourceControl:topBarOpenPR.submittingThePreparedTitleAndDescriptionTo", { value1: mergeMethodLabel.toLowerCase(), value2: selectedTargetBranch })
-        : i18n.t("sourceControl:topBarOpenPR.submittingThePreparedTitleAndDescriptionTo2", { value1: selectedTargetBranch }),
+      title: dialogDraft
+        ? i18n.t("sourceControl:topBarOpenPR.creatingDraftPullRequest")
+        : i18n.t("sourceControl:topBarOpenPR.creatingReadyPullRequest"),
+      description: dialogDraft
+        ? i18n.t("sourceControl:topBarOpenPR.submittingThePreparedDraft", { value1: selectedTargetBranch })
+        : queueAutoMerge
+          ? i18n.t("sourceControl:topBarOpenPR.submittingThePreparedTitleAndDescriptionTo", { value1: mergeMethodLabel.toLowerCase(), value2: selectedTargetBranch })
+          : i18n.t("sourceControl:topBarOpenPR.submittingThePreparedTitleAndDescriptionTo2", { value1: selectedTargetBranch }),
     });
     const prResult = await createPR({
       title,
       body: prBody.trim() || undefined,
       baseBranch: selectedTargetBranch,
-      draft: false,
-      autoMerge: dialogAutoMerge,
+      draft: dialogDraft,
+      autoMerge: queueAutoMerge,
       mergeMethod: dialogMergeMethod,
       cwd: submitWorkspaceCwd,
     });
@@ -1200,13 +1215,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice(null);
     setActiveSubmitAction(null);
 
-    const autoMergeDescription = prResult.merged
-      ? i18n.t("sourceControl:topBarOpenPR.readyPRCreatedAndMergedWith", { value1: mergeMethodLabel.toLowerCase() })
-      : dialogAutoMerge
-        ? i18n.t("sourceControl:topBarOpenPR.readyPRCreatedAndAutoMergeQueued", { value1: mergeMethodLabel.toLowerCase() })
-        : i18n.t("sourceControl:topBarOpenPR.readyPRCreated");
+    const autoMergeDescription = dialogDraft
+      ? i18n.t("sourceControl:topBarOpenPR.draftPRCreated")
+      : prResult.merged
+        ? i18n.t("sourceControl:topBarOpenPR.readyPRCreatedAndMergedWith", { value1: mergeMethodLabel.toLowerCase() })
+        : queueAutoMerge
+          ? i18n.t("sourceControl:topBarOpenPR.readyPRCreatedAndAutoMergeQueued", { value1: mergeMethodLabel.toLowerCase() })
+          : i18n.t("sourceControl:topBarOpenPR.readyPRCreated");
     const autoMergeNotConfirmed =
-      dialogAutoMerge &&
+      queueAutoMerge &&
       !prResult.merged &&
       !prResult.autoMergeUnsupported &&
       prResult.autoMergeEnabled !== true;
@@ -1929,9 +1946,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         merge={{
           method: dialogMergeMethod,
           autoMerge: dialogAutoMerge,
+          draft: dialogDraft,
           repoSettings: repoMergeSettings,
           onMethodChange: setDialogMergeMethod,
           onAutoMergeChange: setDialogAutoMerge,
+          onDraftChange: setDialogDraft,
         }}
         draft={{
           title: prTitle,

@@ -546,6 +546,10 @@
     "prCompletion": {
       "title": "PR completion",
       "description": "Controls the final steps after Stave creates a ready pull request.",
+      "draft": {
+        "title": "Open as draft by default",
+        "description": "New pull requests from Create PR start as drafts, so they are not merged or queued for auto-merge until you mark them ready. Each PR can still change this in the dialog. Repositories can override this."
+      },
       "autoMerge": {
         "title": "Queue auto-merge",
         "description": "After the ready PR is created, queue the selected merge strategy using GitHub's configured checks."
@@ -732,6 +736,12 @@
       "title": "Watch pull requests in this repository",
       "followsGlobal": "Follows Settings → Prompts → Watch pull requests. Turning it on or off here applies only to this repository.",
       "overridden": "This repository overrides Settings → Prompts → Watch pull requests.",
+      "useGlobal": "Use the global setting"
+    },
+    "prDraft": {
+      "title": "Open Create PR pull requests as drafts",
+      "followsGlobal": "Follows Settings → Prompts → Open as draft by default. Turning it on or off here applies only to this repository.",
+      "overridden": "This repository overrides Settings → Prompts → Open as draft by default.",
       "useGlobal": "Use the global setting"
     }
   },
