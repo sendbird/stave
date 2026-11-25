@@ -45,7 +45,7 @@ export function relativeTo(file: string, cwd: string | undefined): string {
  * A path short enough for one line, keeping its end: the file name and as
  * many parent folders as fit, cut at a folder boundary (`…/session/Panel.tsx`).
  */
-export function clipPathTail(value: string, max = 56): string {
+export function clipPathTail(value: string, max = 36): string {
   if (value.length <= max) return value;
   const tail = value.slice(-(max - 1));
   const slash = tail.indexOf("/");

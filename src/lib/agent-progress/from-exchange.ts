@@ -1,4 +1,6 @@
+import { i18n } from "@/i18n/runtime";
 import { isDelegationExchangeLive, type DelegationExchange } from "@/lib/delegation/exchange";
+import type { ExchangeStatus } from "@/lib/delegation/format";
 import { exchangeStatusToWorkState } from "@/lib/delegation/format";
 import type {
   AgentProgress,
@@ -44,10 +46,15 @@ export function progressFromExchange(
     : undefined;
   const model = identity.model ?? args.model;
   const effort = identity.effort ?? args.effort;
+  // A work-graph title leads with the agent type (`Explore · …`); the fact row already says it.
+  const kindPrefix = args.kindLabel ? `${args.kindLabel} · ` : null;
+  const title = kindPrefix && exchange.title.startsWith(kindPrefix) && exchange.title.length > kindPrefix.length
+    ? exchange.title.slice(kindPrefix.length)
+    : exchange.title;
   return {
     id: exchange.id,
     source: args.source ?? (exchange.kind === "subagent" ? "subagent" : "delegated-task"),
-    title: exchange.title,
+    title,
     ...(args.kindLabel ? { kindLabel: args.kindLabel } : {}),
     ...(args.parent ? { parent: args.parent } : {}),
     state: exchangeStatusToWorkState(outcome.status),
@@ -68,5 +75,48 @@ export function progressFromExchange(
     ...(outcome.error ? { error: outcome.error } : {}),
     steps,
     readOnly: args.readOnly ?? false,
+  };
+}
+
+const STEP_EXCHANGE_STATUS: Record<AgentStep["status"], ExchangeStatus> = {
+  running: "running",
+  done: "returned",
+  error: "failed",
+};
+
+/**
+ * A subagent known only from the step that started it (a nested agent read
+ * from a saved transcript): its header until a richer source lists it.
+ */
+export function exchangeFromSubagentStep(step: AgentStep): DelegationExchange {
+  const child = step.child;
+  const title = child?.title ?? step.done;
+  const output = step.detail?.output?.trim();
+  const status = STEP_EXCHANGE_STATUS[step.status];
+  return {
+    id: step.childId ?? `subagent:${step.id}`,
+    kind: child?.kind === "delegated-task" ? "delegated-task" : "subagent",
+    title,
+    identity: {
+      role: i18n.t("session:agentProgress.panel.kindSubagent"),
+      ...(child?.kind === "subagent" && child.providerId ? { providerId: child.providerId } : {}),
+    },
+    ask: step.text ?? title,
+    outcome: {
+      status,
+      ...(output && status === "returned" ? { result: output } : {}),
+      ...(output && status === "failed" ? { error: output } : {}),
+    },
+    timing: {
+      startedAt: step.startedAt ?? null,
+      stages: [],
+      ...(step.durationMs !== undefined ? { observed: false as const, elapsedMs: step.durationMs } : {}),
+    },
+    actions: [],
+    setup: {},
+    ref: {
+      ...(child?.kind === "subagent" && child.toolUseId ? { toolUseId: child.toolUseId } : {}),
+      ...(child?.kind === "subagent" && child.agentId ? { agentId: child.agentId } : {}),
+    },
   };
 }

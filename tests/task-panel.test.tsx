@@ -96,7 +96,7 @@ beforeEach(() => {
 });
 
 test("the rail has one Task entry: the summary on top, then one tab per record view", () => {
-  expect(RIGHT_RAIL_PANEL_IDS).toEqual(["explorer", "changes", "information", "skills", "scripts", "task", "scratch"]);
+  expect(RIGHT_RAIL_PANEL_IDS).toEqual(["explorer", "changes", "information", "skills", "scripts", "task", "scratch", "agent"]);
   expect(RIGHT_RAIL_PANEL_TITLES.task).toBe("Task");
   const html = render();
   expect(html.match(/role="tablist"/g)).toHaveLength(1);

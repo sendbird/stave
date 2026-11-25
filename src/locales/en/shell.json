@@ -786,7 +786,8 @@
     "information": "Information",
     "skills": "Skills",
     "task": "Task",
-    "scratch": "Scratch"
+    "scratch": "Scratch",
+    "agent": "Agent"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter queues, Tab steers",

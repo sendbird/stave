@@ -782,7 +782,8 @@
     "information": "정보",
     "skills": "스킬",
     "task": "작업",
-    "scratch": "스크래치"
+    "scratch": "스크래치",
+    "agent": "에이전트"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter로 대기열에 추가, Tab으로 방향 조정",

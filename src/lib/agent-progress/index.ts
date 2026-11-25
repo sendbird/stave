@@ -65,5 +65,5 @@ export {
   stepsFromSubagentParts,
   type MessageStepOptions,
 } from "./from-messages";
-export { progressFromExchange } from "./from-exchange";
+export { exchangeFromSubagentStep, progressFromExchange } from "./from-exchange";
 export { firstLine, isSubagentToolName } from "./step-builders";
