@@ -699,6 +699,7 @@ function createToolServer(options?: {
 
   registerWorkspaceCleanupTools(server, {
     list: () => invokeHostService("workspace.cleanup-list", { runningAgentWorktrees: runningExternalAgentWorktrees() }),
+    preview: (args) => invokeHostService("workspace.cleanup-preview", { ...args, runningAgentWorktrees: runningExternalAgentWorktrees() }),
     act: (args) => invokeHostService("workspace.cleanup-act", args),
   });
 

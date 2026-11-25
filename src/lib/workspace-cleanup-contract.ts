@@ -13,6 +13,8 @@ export const DEFAULT_WORKSPACE_CLEANUP_POLICY: WorkspaceCleanupPolicy = {
   merged: { enabled: false, value: 1 }, inactive: { enabled: false, value: 30 },
   archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 },
 };
+export const WorkspaceCleanupPreviewArgsSchema = z.object({ repositoryPath: Id.optional(), includeArchived: z.boolean().optional() }).strict();
+export type WorkspaceCleanupPreviewArgs = z.infer<typeof WorkspaceCleanupPreviewArgsSchema>;
 export const WorkspaceCleanupListArgsSchema = z.object({ scanDisk: z.boolean().optional() }).strict();
 export const WorkspaceCleanupTrashArgsSchema = z.object({ workspaceId: Id, repositoryPath: Id }).strict();
 export const WorkspaceCleanupTrashResultSchema = z.object({ ok: z.boolean(), reason: z.string().nullable() }).strict();
@@ -29,11 +31,25 @@ export const WorkspaceCleanupActArgsSchema = z.object({
   workspaceId: Id, repositoryPath: Id, deleteBranch: z.boolean().optional(), forceDeleteBranch: z.boolean().optional(),
 }).strict();
 export type WorkspaceCleanupActArgs = z.infer<typeof WorkspaceCleanupActArgsSchema>;
+/** One folder's measured disk use. `partial` means the count stopped early or skipped unreadable folders, so it is a lower bound. */
+export const WorkspaceDiskMeasurementSchema = z.object({
+  bytes: z.number().nonnegative().nullable(), partial: z.boolean(),
+  status: z.enum(["measured", "timeout", "unavailable"]), measuredAt: z.string(),
+}).strict();
+export type WorkspaceDiskMeasurement = z.infer<typeof WorkspaceDiskMeasurementSchema>;
+const WorkspaceCleanupPreviewSchema = z.object({
+  disk: WorkspaceDiskMeasurementSchema.nullable(),
+  branchMerge: z.enum(["merged", "unmerged", "unknown"]),
+  pullRequest: z.enum(["merged", "open", "closed", "none", "unknown"]),
+  dirty: z.boolean().nullable(),
+}).strict();
+export type WorkspaceCleanupPreview = z.infer<typeof WorkspaceCleanupPreviewSchema>;
 export const WorkspaceCleanupRowSchema = z.object({
   id: Id, repositoryPath: Id, repositoryName: z.string(), name: z.string(), path: z.string(), branch: z.string(),
   savedChanges: z.boolean().optional(), canSaveChanges: z.boolean().optional(), keptWorktree: z.boolean().optional(), leftoverFiles: z.boolean().optional(),
   archived: z.boolean(), branchOnly: z.boolean(), readOnly: z.boolean(), archivedAt: z.string().nullable(),
   lastActive: z.string().nullable(), blockers: z.array(z.string()), reasons: z.array(z.string()),
+  preview: WorkspaceCleanupPreviewSchema.optional(),
   bytes: z.number().nonnegative().nullable(), branchDeletable: z.boolean(),
 }).strict();
 export type WorkspaceCleanupRow = z.infer<typeof WorkspaceCleanupRowSchema>;
@@ -57,6 +73,7 @@ export const SubAgentWorktreeRowSchema = z.object({
   branch: z.string().nullable(), head: z.string().nullable(),
   /** Newest change seen in the folder's top level or its Git index; null when unreadable. */
   lastModified: z.string().nullable(),
+  preview: WorkspaceCleanupPreviewSchema.optional(),
   blockers: z.array(z.string()), bytes: z.number().nonnegative().nullable(),
 }).strict();
 export type SubAgentWorktreeRow = z.infer<typeof SubAgentWorktreeRowSchema>;
@@ -73,12 +90,6 @@ export const WorkspaceCleanupListResultSchema = z.object({
   recent: z.array(WorkspaceCleanupRecentSchema),
   subAgentWorktrees: z.array(SubAgentWorktreeRowSchema).optional(),
 }).strict();
-/** One folder's measured disk use. `partial` means the count stopped early or skipped unreadable folders, so it is a lower bound. */
-export const WorkspaceDiskMeasurementSchema = z.object({
-  bytes: z.number().nonnegative().nullable(), partial: z.boolean(),
-  status: z.enum(["measured", "timeout", "unavailable"]), measuredAt: z.string(),
-}).strict();
-export type WorkspaceDiskMeasurement = z.infer<typeof WorkspaceDiskMeasurementSchema>;
 /** `refresh` measures again even when a measurement is younger than five minutes. */
 export const WorkspaceDiskUsageArgsSchema = z.object({ refresh: z.boolean().optional() }).strict();
 export const WorkspaceDiskUsageRowSchema = z.object({

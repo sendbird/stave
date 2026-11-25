@@ -154,6 +154,24 @@ saved. Each row reports **Worktree removed · branch kept** or why it was
 kept. Automatic cleanup never removes these worktrees, and agents can only list
 them (`stave_list_workspace_cleanup`); there is no removal tool.
 
+### Preview worktree cleanup
+
+Ask the agent to preview worktree cleanup without taking action, or call
+`stave_list_workspace_cleanup` with `{ "preview": true }`. Pass a registered
+`repositoryPath` to scope the inspection and `includeArchived: true` to include
+archived workspaces. The preview covers registered workspaces and discovered
+sub-agent worktrees. It reads Git, activity and disk data without archiving,
+removing or changing worktrees, branches, files or cleanup history.
+
+Each row shows blockers such as uncommitted changes, a running turn or an
+open terminal. `preview.dirty` reports changes Git sees, excluding Stave's
+managed dependency link for registered workspaces. `preview.branchMerge` uses
+the local default branch. Pull request status is reported separately for
+registered branches that can be checked. A missing or failed check may show
+`null` or `unknown`. A partial disk measurement is a lower bound. Stave skips
+measuring the project's main checkout. Results describe the time of inspection
+and can change as work continues.
+
 ### Automatic cleanup
 
 In **Settings > Workspaces**, each rule has its own toggle and number. All
