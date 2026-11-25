@@ -6,6 +6,7 @@ import { QuestionReplySchema } from "../../../src/lib/question-reply";
 import { ApprovalRuleDeciderSchema } from "../../../src/lib/approvals/approval-resolution";
 import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
 export { ClassifyRouteArgsSchema } from "./provider-route-classification-schema";
+export { EnhancePromptArgsSchema } from "./provider-prompt-enhancement-schema";
 export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
 export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/workspace-execution";
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
@@ -31,7 +32,6 @@ import {
 } from "../../../src/lib/automations";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
 import { PR_CONTEXT_LIMITS } from "../../../src/lib/pr-context";
-import { PROMPT_ENHANCEMENT_DEPTHS } from "../../../src/lib/providers/prompt-enhancement-context";
 import { GITHUB_PR_REVIEW_LIMITS } from "../../../src/lib/github-pr-review";
 import {
   ENV_VAR_NAME_MAX_LENGTH,
@@ -409,48 +409,6 @@ export const SuggestTaskNameArgsSchema = z
   .strict();
 
 export const CancelRouteClassificationArgsSchema = z.object({ requestId: z.string().uuid() }).strict();
-
-export const EnhancePromptArgsSchema = z
-  .object({
-    cwd: z.string().max(4096).optional(),
-    utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
-    activeProviderId: ProviderIdSchema.optional(),
-    utilityModel: z.string().max(200).optional(),
-    utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
-    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
-    prompt: z.string().trim().min(1).max(100_000),
-    depth: z.enum(PROMPT_ENHANCEMENT_DEPTHS).optional(),
-    // Optional reference material. Caps mirror the renderer-side clipping so a
-    // misbehaving caller cannot turn the cheap lane into a long-context call.
-    history: z
-      .array(
-        z
-          .object({
-            role: z.enum(["user", "assistant"]),
-            content: z.string().max(2_000),
-          })
-          .strict(),
-      )
-      .max(12)
-      .optional(),
-    workspaceSummary: z.string().max(4_000).optional(),
-    styleProfile: z.string().max(4_000).optional(),
-    exemplars: z
-      .array(
-        z
-          .object({
-            source: z.string().max(2_000),
-            enhanced: z.string().max(2_000),
-            outcome: z.enum(["kept", "undone"]),
-            at: z.string().max(64),
-            depth: z.enum(PROMPT_ENHANCEMENT_DEPTHS).optional(),
-          })
-          .strict(),
-      )
-      .max(12)
-      .optional(),
-  })
-  .strict();
 
 export const SuggestCommitMessageArgsSchema = z
   .object({
