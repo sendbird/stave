@@ -86,6 +86,7 @@ export function PullRequestStackRetargetDialog(props: {
       const response = await retarget({
         cwd: props.cwd,
         parentNumber: plan.parent.number,
+        parentUrl: plan.parent.url,
         children: remaining.map((child) => ({ number: child.number, fromBase: child.baseRefName, toBase: plan.toBase })),
         longLivedBranchPatterns: props.longLivedBranchPatterns,
       });

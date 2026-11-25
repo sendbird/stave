@@ -6,6 +6,7 @@ import { previewTarsActionUndo } from "./tars-action-undo-bridge";
 import { useLayoutEffect, useState } from "react";
 import { applyAppLocale } from "@/i18n";
 import { TarsTaskRequest } from "@/components/tars/TarsTaskRequest";
+import { AppShell } from "@/components/layout/AppShell";
 import { TarsView } from "@/components/tars/TarsView";
 import { tarsSnapshotForWindow, type TarsBridgeApi, type TarsSnapshot } from "@/lib/tars/types";
 import { buildTarsBrief } from "@/lib/tars/brief";
@@ -556,6 +557,7 @@ export function TarsPreview() {
   // Only Close leaves the view here; "Show in Fleet" keeps it, recording where it would land instead.
   const closed = useAppStore((state) => state.activeAppSurface.kind === "workspace");
   if (!ready) return null;
+  if (new URLSearchParams(window.location.search).has("fullShell")) return <AppShell />;
   if (closed && taskRequest) return <TarsTaskRequest taskId={taskRequest} />;
   return closed ? <button type="button" data-preview-reopen-tars="" onClick={() => useAppStore.getState().openTars()}>Open Tars</button> : <TarsView />;
 }

@@ -125,6 +125,7 @@ export const scratchPanelStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   preview: {
+    backgroundColor: vars["--aui-color-surface"],
     display: "flex",
     flex: 1,
     flexDirection: "column",

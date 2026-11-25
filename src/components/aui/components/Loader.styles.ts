@@ -13,10 +13,16 @@ const dotWave = stylex.keyframes({
   "31%": { opacity: 1, transform: "translateY(-2px)" },
 });
 const matrixPulse = stylex.keyframes({
-  "0%, 18%, 100%": { opacity: 0.32, transform: "scale(0.68)" },
-  "44%": { opacity: 1, transform: "scale(1)" },
-  "68%": { opacity: 0.52, transform: "scale(0.82)" },
+  "0%, 100%": { opacity: 1, transform: "scale(1)" },
+  "9%": { opacity: 0.58, transform: "scale(0.82)" },
+  "23%, 86%": { opacity: 0.12, transform: "scale(0.66)" },
 });
+const matrixAmbientPulse = stylex.keyframes({
+  "0%, 100%": { opacity: 0.34, transform: "scale(0.82)" },
+  "12%, 62%": { opacity: 0.06, transform: "scale(0.64)" },
+  "38%": { opacity: 0.20, transform: "scale(0.76)" },
+});
+const matrixHalfLoop = vars["--aui-motion-duration-loop-slow"];
 const pulse = stylex.keyframes({
   "0%, 100%": { opacity: 0.36, transform: "scaleY(0.4)" },
   "50%": { opacity: 1, transform: "scaleY(1)" },
@@ -114,27 +120,45 @@ export const loaderMarkStyles = stylex.create({
   },
   matrix: {
     alignContent: "center",
+    alignItems: "stretch",
     display: "grid",
-    // A 1px optical grid is the smallest interval that keeps 16 marks legible
-    // in the 16px AI status slot. It is geometry, not layout spacing.
-    gap: 1,
-    gridTemplateColumns: "repeat(4, auto)",
+    // Relative optical geometry keeps all five tracks inside any mark size.
+    gap: "3.5%",
+    gridTemplateColumns: "repeat(5, 17%)",
+    gridTemplateRows: "repeat(5, 17%)",
     justifyContent: "center",
+  },
+  matrixCell: {
+    backgroundColor: "color-mix(in srgb, currentColor 18%, transparent)",
+    borderRadius: "22%",
+    display: "grid",
   },
   matrixDot: {
     ...loopAnimation,
-    animationDuration: vars["--aui-motion-duration-loop-slow"],
+    animationDuration: `calc(${matrixHalfLoop} * 2)`,
     animationName: {
       default: matrixPulse,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     backgroundColor: "currentColor",
-    borderRadius: vars["--aui-radius-full"],
-    opacity: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": 0.64,
+    borderRadius: "inherit",
+    opacity: 0.12,
+  },
+  matrixAmbient: {
+    animationName: {
+      default: matrixAmbientPulse,
+      "@media (prefers-reduced-motion: reduce)": "none",
     },
   },
+  matrixResting: {
+    opacity: {
+      default: 0.12,
+      "@media (prefers-reduced-motion: reduce)": 0.72,
+    },
+  },
+  matrixPhase: (peak: number) => ({
+    animationDelay: `calc(${matrixHalfLoop} * ${(peak - 20) / 10})`,
+  }),
   pulse: { gap: 2 },
   pulseBar: {
     ...loopAnimation,
@@ -312,10 +336,6 @@ export const loaderMarkStyles = stylex.create({
   dotSm: { blockSize: 4, inlineSize: 4 },
   dotMd: { blockSize: 5, inlineSize: 5 },
   dotLg: { blockSize: 6, inlineSize: 6 },
-  matrixDotXs: { blockSize: 2, inlineSize: 2 },
-  matrixDotSm: { blockSize: 3, inlineSize: 3 },
-  matrixDotMd: { blockSize: 4, inlineSize: 4 },
-  matrixDotLg: { blockSize: 5, inlineSize: 5 },
   pulseBarXs: { blockSize: 12, inlineSize: 2 },
   pulseBarSm: { blockSize: 15, inlineSize: 3 },
   pulseBarMd: { blockSize: 18, inlineSize: 3 },

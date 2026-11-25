@@ -4,6 +4,7 @@ import {
   AgentHistoryRequestSchema, boundHistoryEntries, mapAgentHistory,
   type AgentHistoryRequest, type AgentHistoryResponse,
 } from "../../src/lib/providers/agent-history";
+import { mapAgentHistoryItems } from "../../src/lib/agent-progress/history-items";
 import { readCodexThread } from "./codex-app-server-runtime";
 
 /** History reads must not resume, fork, or start an agent. */
@@ -21,9 +22,11 @@ export async function readAgentHistory(input: AgentHistoryRequest): Promise<Agen
       });
       if (!result.ok) return { ok: false, detail: result.detail, entries: [] };
       const messages = result.messages ?? [];
+      const page = messages.slice(0, args.limit);
       return {
         ok: true, detail: "Saved subagent conversation",
-        entries: boundHistoryEntries(mapAgentHistory("claude-code", messages.slice(0, args.limit))),
+        entries: boundHistoryEntries(mapAgentHistory("claude-code", page)),
+        items: mapAgentHistoryItems("claude-code", page),
         ...(messages.length > args.limit ? { nextOffset: args.offset + args.limit } : {}),
       };
     }
@@ -40,6 +43,7 @@ export async function readAgentHistory(input: AgentHistoryRequest): Promise<Agen
     return {
       ok: true, detail: "Saved thread history. Model and effort describe the current or last saved configuration.",
       entries: boundHistoryEntries(entries.slice(args.offset, args.offset + args.limit)),
+      items: mapAgentHistoryItems("codex", raw, { offset: args.offset, limit: args.limit }),
       ...(entries.length > args.offset + args.limit ? { nextOffset: args.offset + args.limit } : {}),
       ...(typeof raw.model === "string" ? { model: raw.model } : {}),
       ...(typeof raw.reasoningEffort === "string" ? { effort: raw.reasoningEffort } : {}),

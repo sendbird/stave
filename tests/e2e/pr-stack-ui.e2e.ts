@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 type Win = Window & Record<string, unknown>;
 
 const pr = (number: number, head: string, base: string, state: string, author = "me", sameRepository = true) => ({
-  number, title: `Change ${number}`, headRefName: head, baseRefName: base, state, url: `https://example.test/pull/${number}`,
+  number, title: `Change ${number}`, headRefName: head, baseRefName: base, state, url: `https://example.test/team/repo/pull/${number}`,
   createdAt: "2026-11-17T00:00:00Z", mergedAt: state === "MERGED" ? "2026-11-17T00:30:00Z" : null, author, sameRepository,
 });
 const parent = pr(1, "feature/base", "main", "MERGED");
@@ -61,9 +61,9 @@ for (const [language, theme] of [["en", "light"], ["ko", "dark"]] as const) {
       const stack = page.locator("[data-pr-stack]");
       await expect(stack).toContainText(language === "en" ? "2 of 3 in stack" : "스택 3개 중 2번째");
       await stack.getByRole("button", { name: language === "en" ? "Parent #1" : "상위 PR #1" }).click();
-      expect(await page.evaluate(() => (window as unknown as Win).lastUrl)).toBe("https://example.test/pull/1");
+      expect(await page.evaluate(() => (window as unknown as Win).lastUrl)).toBe(parent.url);
       await stack.getByRole("button", { name: language === "en" ? "Child #3" : "하위 PR #3" }).click();
-      expect(await page.evaluate(() => (window as unknown as Win).lastUrl)).toBe("https://example.test/pull/3");
+      expect(await page.evaluate(() => (window as unknown as Win).lastUrl)).toBe(leaf.url);
       expect(await stack.evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
     });
   }
@@ -95,8 +95,8 @@ test("retargeting lists the exact changes, confirms, and recovers per child", as
   await expect(dialog.locator("[data-retarget-child='5']")).toContainText("now targets the new base");
   await expect(dialog.getByRole("button", { name: /Retry|Retarget/ })).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as Win).calls)).toEqual([
-    { cwd: "/tmp/pr-stack", parentNumber: 1, children: [{ number: 2, fromBase: "feature/base", toBase: "main" }, { number: 5, fromBase: "feature/base", toBase: "main" }], longLivedBranchPatterns: ["main", "master", "develop", "staging", "release/*"] },
-    { cwd: "/tmp/pr-stack", parentNumber: 1, children: [{ number: 5, fromBase: "feature/base", toBase: "main" }], longLivedBranchPatterns: ["main", "master", "develop", "staging", "release/*"] },
+    { cwd: "/tmp/pr-stack", parentNumber: 1, parentUrl: parent.url, children: [{ number: 2, fromBase: "feature/base", toBase: "main" }, { number: 5, fromBase: "feature/base", toBase: "main" }], longLivedBranchPatterns: ["main", "master", "develop", "staging", "release/*"] },
+    { cwd: "/tmp/pr-stack", parentNumber: 1, parentUrl: parent.url, children: [{ number: 5, fromBase: "feature/base", toBase: "main" }], longLivedBranchPatterns: ["main", "master", "develop", "staging", "release/*"] },
   ]);
 });
 

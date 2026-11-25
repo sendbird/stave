@@ -157,7 +157,21 @@ for (const { locale, theme, density, width } of [
     const running = page.locator("#running").locator("..");
     const header = running.locator('button[data-trace-anchor="header"]');
     await expect(header).toHaveAttribute("aria-expanded", "false");
-    await expect(header.locator('[data-loader-variant="reason"]')).toHaveCount(1);
+    const mark = header.locator('[data-loader-variant="matrix"] [data-aui-loader-mark]');
+    await expect(mark.locator(":scope > span")).toHaveCount(25);
+    const bounds = await mark.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return {
+        width: box.width,
+        height: box.height,
+        contained: Array.from(element.children).every((cell) => {
+          const tile = cell.getBoundingClientRect();
+          return tile.top >= box.top && tile.right <= box.right &&
+            tile.bottom <= box.bottom && tile.left >= box.left;
+        }),
+      };
+    });
+    expect(bounds).toEqual({ width: 16, height: 16, contained: true });
     const finished = page.locator("#finished-with-failure").locator("..").locator('button[data-trace-anchor="header"]');
     await expect(finished).toHaveAttribute("aria-expanded", "false");
     await expect(finished.locator(".lucide-brain")).toHaveCount(1);
@@ -185,3 +199,30 @@ for (const { locale, theme, density, width } of [
     await expect(short.locator("[data-tool-use-id]")).toHaveCount(0);
   });
 }
+
+
+test("the live trace matrix changes its lit cells and holds still under reduced motion", async ({ page }) => {
+  await page.goto("/?stavePreview=trace-folding");
+  const mark = page.locator("#running").locator("..").locator(
+    '[data-trace-anchor="header"] [data-aui-loader-mark]',
+  );
+  await expect(mark.locator(":scope > span")).toHaveCount(25);
+  const frames = await mark.evaluate(async (element) => {
+    const animations = element.getAnimations({ subtree: true });
+    for (const animation of animations) animation.pause();
+    await Promise.all(animations.map((animation) => animation.ready));
+    return [0, 800].map((time) => {
+      for (const animation of animations) animation.currentTime = time;
+      return Array.from(element.querySelectorAll(":scope > span > span"), (cell) =>
+        Number(getComputedStyle(cell).opacity),
+      );
+    });
+  });
+  expect(frames[0]).not.toEqual(frames[1]);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await expect.poll(() => mark.evaluate((element) =>
+    element.getAnimations({ subtree: true }).length,
+  )).toBe(0);
+  await expect(mark.locator(":scope > span")).toHaveCount(25);
+});

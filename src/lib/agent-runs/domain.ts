@@ -287,14 +287,26 @@ export const STAGE_BLOCK_KINDS = [
   "external",
 ] as const;
 
-/** The input of `stave_block_stage`. */
-export const StageBlockInputSchema = z
+const StageBlockReportFieldsSchema = z
   .object({
     missing: z.string().trim().min(1).max(limits.missing),
     kind: z.enum(STAGE_BLOCK_KINDS),
     suggestedAction: z.string().trim().min(1).max(limits.suggestedAction).optional(),
+    evidence: z.string().trim().min(1).max(limits.missing).optional().describe(
+      "For environment and external blocks, state the observed blocker, such as a failed command and its error or an unavailable dependency.",
+    ),
   })
   .strict();
+
+/** Validate new tool calls while continuing to read reports saved without evidence. */
+export const StageBlockInputSchema = StageBlockReportFieldsSchema.refine(
+  ({ kind, evidence }) => (kind !== "environment" && kind !== "external") || evidence !== undefined,
+  {
+    path: ["evidence"],
+    // i18n-ignore: model-facing MCP input validation
+    message: "Describe the observed blocker. If only implementation or verification remains, continue the stage.",
+  },
+);
 export type StageBlockInput = z.infer<typeof StageBlockInputSchema>;
 
 const reportStamp = {
@@ -312,7 +324,7 @@ export const StageReportSchema = z.discriminatedUnion("outcome", [
     workspaceRevision: WorkspaceRevisionSchema.optional(),
     ...reportStamp,
   }).strict(),
-  StageBlockInputSchema.extend({
+  StageBlockReportFieldsSchema.extend({
     outcome: z.literal("blocked"),
     ...reportStamp,
   }).strict(),

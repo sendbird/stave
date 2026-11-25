@@ -186,6 +186,11 @@ export function StageCard(props: {
               <span>
                 <strong>{i18n.t("agentRuns:stageCard.stageCard4")}</strong> {report.missing}
               </span>
+              {report.evidence ? (
+                <span className={sx(styles.blockEvidence)}>
+                  <strong>{i18n.t("agentRuns:stageCard.reportedEvidence")}</strong> {report.evidence}
+                </span>
+              ) : null}
               {report.suggestedAction ? <span className={sx(styles.muted)}>{report.suggestedAction}</span> : null}
             </div>
           ) : null}

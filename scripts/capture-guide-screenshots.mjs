@@ -645,6 +645,16 @@ const SHOTS = [
     },
   },
   {
+    name: "agent-progress-timeline",
+    async capture({ page, locale, file, t }) {
+      await openPreview(page, locale, "agent-progress&scenario=finished&theme=dark");
+      const panel = page.getByTestId("agent-progress-panel");
+      await panel.getByRole("tab", { name: await t("session:agentProgress.panel.timeline") }).click();
+      await settle(page);
+      await save(page, panel.getByRole("region", { name: await t("session:agentProgress.panel.steps"), exact: true }), file, { padding: 8 });
+    },
+  },
+  {
     name: "subagent-results",
     async capture({ page, locale, file }) {
       await openPreview(page, locale, "agent-messages");
@@ -744,7 +754,7 @@ const SHOTS = [
     viewport: { width: 448, height: 900 },
     async capture({ page, locale, file }) {
       // The run's steps sit under the Task panel's Steps tab.
-      await openPreview(page, locale, "task-panel&task=agent-run&theme=dark&panelWidth=416");
+      await openPreview(page, locale, "task-panel&task=agent-run&run=blocked-evidence&theme=dark&panelWidth=416");
       await openTaskSection(page, "steps");
       await settle(page);
       await page.getByTestId("agent-run-panel").waitFor();

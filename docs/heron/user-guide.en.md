@@ -255,7 +255,7 @@ S --> U: Reply · changed files · summary
 **Approvals**: when the AI wants a tool that needs permission, a row with **Allow once**, **Always allow** and **Deny** appears above the composer. **Always allow** shows on every approval surface whenever the grant can be kept: by the provider itself, or as an entry in your trusted approvals. A saved Bash approval covers this command and added plain arguments. The row shows a risk the request reports, such as **Network access**. Its disclosure names a subagent that asked and adds **guide instead** and **Deny & guide**. Typing while an approval waits turns the send button into **Decline and steer**. In an approval card, Cmd/Ctrl+Enter allows the request once; Esc never denies it. A request nobody answers is denied automatically after a time limit, and the card and the row's disclosure say when (**Auto-denies at 16:24 if nobody answers**). After **Always allow**, the answered card shows **Trusted: <entry> · Remove**, and **Remove** takes the entry back out.
 Screens: [Approval request](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/approval.png)
 
-**Progress line**: while a turn runs, the line above its steps shows only the step in progress (for example **Reading search.ts**). Before a step is available, it shows **Thinking**. The elapsed time remains in the message footer. Once the turn ends it becomes the turn's title. A turn that searched or fetched the web ends with **Sources** and a count under the answer; open it to list each page once.
+**Progress line**: while a turn runs, the line above its steps shows only the step in progress (for example **Reading search.ts**). Before a step is available, it shows **Thinking**. The activity icon is a 5×5 grid that stays still when reduced motion is on. The elapsed time remains in the message footer. Once the turn ends it becomes the turn's title. A turn that searched or fetched the web ends with **Sources** and a count under the answer; open it to list each page once.
 
 Thinking bodies render Markdown, including bold text, lists and code, both while running and after completion. Tool arguments, output and command lines have a copy icon; a check mark confirms success, and a failed copy reports an error. Completed command details show the reported exit code or **Exit unknown**. Select **Copy output** to copy the command’s output.
 
@@ -294,7 +294,7 @@ Task panel > **Background** shows work Claude reported for the current turn or t
 1. Use **Source Control** in the right panels to see changed files and history.
 2. Open Review mode with the **Conversation / Review** switch above the task tab (Cmd/Ctrl+Alt+R). Leave line comments on the diff and send them with **Send review to agent**. See [Review and delegation](#review).
 3. Select **Create PR** in the top bar to open the pull request dialog, where you pick **Draft**, the merge method and auto-merge. A draft PR is never queued for auto-merge; mark it ready from the status chip or on GitHub. **Settings → Prompts → PR Completion → Open as draft by default** sets whether the dialog starts with Draft on, and each repository can override it in its repository settings. The generated description follows the repository's pull request template in `.github/`, the root or `docs/` (any letter case), or the first template in a `PULL_REQUEST_TEMPLATE/` folder. If the workspace has uncommitted changes, choose which files to commit. Unchecked staged changes stay staged. GitHub CLI (`gh`) must be signed in.
-4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub.
+4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub. Stave also checks the workspace branch's tracked remote branch if it has a different name.
 5. When the work is done, choose **Archive Workspace** from the workspace row's ⋮ menu. Turn on **Delete the git branch too** to delete the branch as well.
 
 Open **Source Control → Reviews**, select a PR, and use **Conversation** to post a comment, reply to a review thread, or resolve or unresolve it. The thread retains its file location, comment dates, and outdated status. In **Checks**, expand a GitHub Actions run to see jobs and failed steps, open a failed log tail, or choose **Re-run failed jobs**. Use **Refresh** to see the latest attempt. **Draft a fix request** opens a Tars draft you can review and send. GitHub actions use the account signed in to GitHub CLI.
@@ -464,6 +464,10 @@ Only an AI stage followed by another AI stage may leave criteria it adds for
 later stages. The stage before a Stave action must meet the criteria it adds.
 Each stage still reports its result and meets its own configured requirements.
 
+The result card at the end of the task conversation shows what the run did,
+including the original work, any repair, the latest review outcome and the
+checks Stave confirmed on the final revision.
+
 You can define stages for a custom agent. A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.
 
 An Agent send uses Claude or Codex. For another provider, Stave keeps the draft and asks you to switch models or choose Chat before sending. The run receives long requests in full and saves the first 8,000 characters as its assignment in Run history.
@@ -495,6 +499,8 @@ edge halted -> stopped dashed : stop
 | Stopped           | Cancelled, or ended with a reason card                                             | **Retry** or **Take control**             |
 
 A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Steps** shows what its turns spent: a cost for Claude, tokens for Codex.
+
+An agent reports a block when a specific prerequisite prevents progress. For an environment or external service problem, Stave requires the agent to describe what failed or which dependency was unavailable. The blocked stage card shows the agent's evidence, and Tars can use it when deciding what to check next.
 
 The run line above the composer shows the buttons that fit: **Retry**, **Resume**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model). On a run Tars holds, marked **Tars**, **Stop** (here, in the composer or with Esc) pauses the work in Tars instead of cancelling the run, and **Take control** is Tars's take over, which keeps the run paused for you.
 The Task panel's top shows the run's state and the **Done when** lines still open; its **Steps** tab shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
@@ -1169,7 +1175,10 @@ The agent receives a review's answer only with the message you attach it to.
 ## Delegated tasks
 
 An agent can hand part of its work to another agent. A delegated task is a real task under the parent task.
-The Task panel's **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view activity, open the transcript, or stop it.
+The Task panel's **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view its progress, open the transcript, or stop it.
+**View progress** opens the **Agent** panel in the right rail beside the conversation: where the agent came from, its state and a fact row (kind, model, effort, elapsed time, steps), what it is doing now, then what it was asked, its steps as plain sentences such as `Reading src/main.tsx` and its answer. Consecutive tool calls fold into one block, while running and failed steps stay in view. A subagent it started opens in the same panel with a way back, and the panel follows new steps only while you are at the bottom. Agent rows in Turn Activity, **View progress** on a subagent card in the conversation and **View** on a composer review open the same panel.
+
+From Fleet, select a subagent card. Comparison candidates with a task and Tars work cards with a linked Agent run offer **View progress**. Select **Timeline** under Steps to see when measured steps overlap. Select a step on the chart to read its details. Steps without a measured interval appear below the chart. Switch back to **List** to read messages, tool details and nested agent results. [Agent progress timeline](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agent-progress-timeline.png)
 **Needs you** means it asked a question or an approval and waits for a person; **Waiting** means it sits between turns on its own.
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
@@ -1284,8 +1293,9 @@ Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/sc
 **Activity** in the sidebar shows Claude Code and Codex sessions you started outside Stave, such as `claude` in a terminal, and the sub-agents a Claude Code session runs. It is off by default: turn on **Settings > General > Activity outside Stave**, or choose **Turn on** on the page. When it is on, Stave reads those tools' transcript files on this computer, in memory only; nothing is saved or sent anywhere, and nothing is read while it is off.
 
 - Sessions written in the last 30 minutes are grouped by the Stave project whose folder contains them. Each shows its status (**Working**, **Waiting for you**, **Idle**), branch, current action, elapsed time, steps, context size and "N of M agents running", with a card per sub-agent.
+- On a session or sub-agent card, select **View progress** to read the latest 32 message and tool summaries as they arrive. Close the panel or press Escape to return to the cards.
 - The sidebar badge counts working sessions plus running sub-agents. Sessions Stave started stay in their tasks and are not listed.
-- It is read-only: there is no way to steer or stop a session from here. Cursor, Kiro and OpenCode sessions are not shown, and Codex has no sub-agents.
+- It is read-only: there is no way to steer or stop a session from here. Claude Code and Codex sub-agents appear under their parent session when it is listed.
 
 
 @page tools | Tools | Workspace tools | reference
@@ -1302,7 +1312,7 @@ Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/sc
 | Workspace Tools   | **Workspace Tools** in the right panels, Cmd/Ctrl+K then S | Saved commands, processes such as dev servers, and triggers, stored in `.stave/scripts.json` |
 | Lens              | Lens in the right panels, Cmd/Ctrl+K then L                | A built-in browser tab. **Pick element** and **Visual comments** add page context to the task draft |
 | Information panel | **Information** in the right panels, Cmd/Ctrl+K then I     | Todos, notes, links, documents, memory. **Create task** from a link row               |
-| Scratch           | **Scratch** in the right panels                            | Screenshots, logs, command output and JSON an agent saved to `.stave/scratch/`, newest first, with a live preview. Lens screenshots land in `.stave/scratch/lens/`; sub-agents' files are grouped under **Sub-agent <id>**. A dot on the button means files arrived that you have not seen. A text file over 256 KB shows only its end; **Open in editor** shows all of it. Right-click a row or use the paperclip for **Attach to message**. In a project's main checkout, files older than 30 days are removed automatically |
+| Scratch           | **Scratch** in the right panels                            | Results shows HTML, images, Markdown and files in `artifacts/`. Choose a type or select **All files** for screenshots, logs, command output and JSON an agent saved to `.stave/scratch/`, newest first, with a live preview. Lens screenshots land in `.stave/scratch/lens/`; sub-agents' files are grouped under **Sub-agent <id>**. For Claude sub-agents, Stave names the scratch folder using the agent type and a short hash. A dot on the button means files arrived that you have not seen. Expand the preview for more space or zoom into an image. Read long Markdown in sections and open larger HTML on demand (up to 10 MiB). A log over 256 KB shows only its end; **Open in editor** shows all of it. Right-click a row or use the paperclip for **Attach to message**. In a project's main checkout, files older than 30 days are removed automatically |
 | Inline HTML pages | Shown by an agent in the conversation                      | See charts, tables and mockups in the chat; **View source**, **Save as HTML file**    |
 | Data views        | Shown by an agent in the conversation                      | Tables, charts, stat tiles, timelines and heatmaps drawn in your theme; sort, **Filter rows**, page and **Export CSV** a table |
 | Standalone CLI    | **Open Standalone CLI** in the top bar                     | Opens a CLI outside any workspace; set its folder in Settings > General              |

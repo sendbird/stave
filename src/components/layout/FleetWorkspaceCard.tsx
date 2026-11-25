@@ -249,6 +249,7 @@ export function FleetWorkspaceCard(args: {
   const workspacePath = useAppStore((state) => state.workspacePathById[args.workspace.id]);
   // Re-read the stack only when the PR itself changed, not on every status poll.
   const prRevision = useAppStore((state) => pullRequestStackRevision(state.workspacePrInfoById[args.workspace.id]?.pr));
+  const prUrl = useAppStore((state) => state.workspacePrInfoById[args.workspace.id]?.pr?.url);
   const [showAllTasks, setShowAllTasks] = useState(false);
 
   const isActiveWorkspace =
@@ -679,7 +680,7 @@ export function FleetWorkspaceCard(args: {
         <FleetCardPrBadge status={prStatus} />
       </div>
 
-      <PullRequestStackSlot cwd={workspacePath ?? args.repositoryPath} branch={args.workspace.branch} enabled={Boolean(prStatus && prStatus !== "no_pr")} revision={prRevision} />
+      <PullRequestStackSlot cwd={workspacePath ?? args.repositoryPath} branch={args.workspace.branch} prUrl={prUrl} enabled={Boolean(prStatus && prStatus !== "no_pr")} revision={prRevision} />
       <FleetAgentRunStrip
         workspaceId={args.workspace.id}
         leadTaskDecision={runLeadDecision}

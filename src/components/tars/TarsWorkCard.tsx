@@ -283,6 +283,13 @@ export function TarsTrayCard({ card, actions, grip }: { card: TarsTrayCardModel;
         {controls}
         <span className={sx(styles.cardDetailSpacer)} />
         <TarsStepCount progress={progress} />
+        {actions.onViewProgress && card.run && card.run.agentRun.id === row.agentRunId ? (
+          <Button variant="ghost" size="xs" onClick={() => {
+            if (card.run) actions.onViewProgress?.(row, card.run);
+          }}>
+            {i18n.t("session:agentProgress.panel.viewProgress")}
+          </Button>
+        ) : null}
         {actions.onOpenSide ? <TarsWorkViews row={row} progress={progress} onOpenSide={actions.onOpenSide} /> : null}
       </div>
     </div>

@@ -27,8 +27,11 @@ export type TarsOutput = { agentRunId?: string } & (
  * change unknown, so an unknown diff never hides the changes.
  */
 export function tarsRecordedChangeCount(detail: AgentRunDetail): number | null {
+  // An empty skipped repair after a re-review does not replace the repair
+  // attempt that actually ran and recorded changes.
+  const attempts = detail.stages.filter((record) => record.status !== "skipped" || record.facts);
   const records = detail.agentRun.workflow.stages.flatMap((stage) => {
-    const record = latestStageRecord(detail.stages, stage.id);
+    const record = latestStageRecord(attempts, stage.id);
     return record?.facts ? [record.facts] : [];
   });
   const paths = new Set(records.flatMap((facts) => facts.changedPaths ?? []));

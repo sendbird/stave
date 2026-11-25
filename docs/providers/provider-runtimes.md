@@ -1074,6 +1074,14 @@ Claude path and approval handling:
   `supportsAutoMode` flag is absent for the session's model), the turn shows one
   notice that Auto is unavailable and Claude will ask. Stave shows nothing when
   the SDK reports nothing usable.
+- Stave passes Agent calls through unchanged in `auto` mode because the
+  server's verdict applies to the input Claude wrote. Outside `auto`, a
+  PreToolUse hook sets `run_in_background: false` on local Agent calls. The
+  system prompt asks the lead to set that flag itself, and SubagentStart gives
+  subagents the same guidance and their scratch folder when applicable
+  (`electron/providers/claude-subagent-hooks.ts`). Agent calls that still run
+  in the background use the CLI's post-result wait described under "Claude
+  turn end and background work".
 - Interactive prompts containing `@web`, Automatic browser fallback, or the
   Always browser mode activate Claude Code's native Chrome integration through the SDK `extraArgs` equivalent of `--chrome`.
   Stave explicitly passes the native no-Chrome flag on other turns, including

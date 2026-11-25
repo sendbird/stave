@@ -254,6 +254,7 @@ export const agentRunStyles = stylex.create({
     lineHeight: vars["--aui-line-height-normal"],
   },
   calloutNeutral: { backgroundColor: vars["--aui-color-canvas-subtle"] },
+  blockEvidence: { overflowWrap: "anywhere" },
   stat: {
     display: "inline-flex",
     alignItems: "center",

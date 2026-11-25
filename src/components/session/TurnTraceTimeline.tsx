@@ -7,12 +7,7 @@ import {
   type TraceSpanTone,
 } from "@/components/aui/components/TraceWaterfall";
 import { cx, sx } from "@/components/aui/utils/stylex";
-import { useAppStore } from "@/store/app.store";
-import type { ChatMessage } from "@/types/chat";
-import { useTurnClock } from "./TurnActivity";
 import {
-  buildTurnTrace,
-  advanceTurnTrace,
   spanDurationMs,
   TURN_TRACE_ROOT_ID,
   type TurnTrace,
@@ -36,6 +31,9 @@ const TONE_BY_KIND: Record<TurnTraceKind, TraceSpanTone> = {
 
 export const TurnTraceTimeline = memo(function TurnTraceTimeline(props: {
   trace: TurnTrace;
+  scope?: "agent" | "turn";
+  selectedSpan?: string | null;
+  onSelectSpan?: (id: string) => void;
   onSelectTool?: (toolUseId: string) => void;
   className?: string;
 }) {
@@ -90,26 +88,26 @@ export const TurnTraceTimeline = memo(function TurnTraceTimeline(props: {
     },
     [onSelectTool, toolUseIdBySpan],
   );
-  const hasSteps = trace.spans.length > 1;
+  const agent = props.scope === "agent";
+  const hasSteps = trace.spans.some((span) => span.kind !== "turn");
 
   return (
     <div
       className={cx(sx(styles.root), props.className)}
       data-testid="turn-trace-timeline"
     >
-      {/* The turn row always draws: its length, tokens and cost are known
-          even when none of its steps reported a time. */}
-      <TraceWaterfall
+      {spans.length > 0 ? <TraceWaterfall
         axisTicks
-        label={i18n.t("session:turnTrace.label")}
+        label={i18n.t(agent ? "session:agentProgress.panel.timeline" : "session:turnTrace.label")}
         spans={spans}
         markerMs={trace.nowMs ?? undefined}
-        onSelectSpan={onSelectTool ? handleSelect : undefined}
-      />
+        selected={props.selectedSpan}
+        onSelectSpan={props.onSelectSpan ?? (onSelectTool ? handleSelect : undefined)}
+      /> : null}
       {!hasSteps && trace.unreported.length === 0 ? (
         <p className={sx(styles.empty)}>{i18n.t("session:turnTrace.empty")}</p>
       ) : null}
-      <p className={sx(styles.note)}>{i18n.t("session:turnTrace.usageNote")}</p>
+      {!agent ? <p className={sx(styles.note)}>{i18n.t("session:turnTrace.usageNote")}</p> : null}
       {trace.unreported.length > 0 ? (
         <section
           aria-labelledby={headingId}
@@ -119,7 +117,7 @@ export const TurnTraceTimeline = memo(function TurnTraceTimeline(props: {
           <h4 id={headingId} className={sx(styles.unreportedHeading)}>
             {i18n.t("session:turnTrace.notReported", { count: trace.unreported.length })}
           </h4>
-          <p className={sx(styles.note)}>{i18n.t("session:turnTrace.notReportedDetail")}</p>
+          <p className={sx(styles.note)}>{i18n.t(agent ? "session:agentProgress.panel.timingMissing" : "session:turnTrace.notReportedDetail")}</p>
           <ul className={sx(styles.unreportedList)}>
             {trace.unreported.map((item) => (
               <li key={item.id} className={sx(styles.unreportedItem)}>
@@ -137,56 +135,6 @@ export const TurnTraceTimeline = memo(function TurnTraceTimeline(props: {
     </div>
   );
 });
-
-const NO_MESSAGES: ChatMessage[] = [];
-
-/**
- * The live or last-finished turn's timeline, read from the store. Mounted only
- * while the Timeline view is open: it follows the conversation as it streams,
- * which the list view does not pay for.
- */
-export function LiveTurnTraceTimeline(props: { taskId: string }) {
-  useTranslation();
-  const { taskId } = props;
-  const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? null);
-  const activity = useAppStore((state) => state.providerTurnActivityByTask[taskId] ?? null);
-  const retained = useAppStore((state) => state.retainedTurnActivityByTask[taskId] ?? null);
-  const messages = useAppStore((state) => state.messagesByTask[taskId] ?? NO_MESSAGES);
-  const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
-  const now = useTurnClock(liveTurnId);
-  const snapshot =
-    liveTurnId && activity?.turnId === liveTurnId ? activity : (retained?.snapshot ?? null);
-  const live = Boolean(snapshot && snapshot.turnId === liveTurnId && snapshot.completedAt == null);
-  const turnId = snapshot?.turnId;
-  const startedAt = snapshot?.startedAt;
-  const completedAt = snapshot?.completedAt ?? null;
-  const failed = !live && retained?.snapshot.turnId === turnId && retained?.outcome === "failed";
-  const baseTrace = useMemo(
-    () =>
-      turnId && startedAt !== undefined
-        ? buildTurnTrace({
-            messages: messages.filter((message) => message.turnId === turnId),
-            turnStartedAt: startedAt,
-            turnCompletedAt: completedAt,
-            live,
-            now: startedAt,
-            failed,
-          })
-        : null,
-    // Span names are translated.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [live, messages, turnId, startedAt, completedAt, failed, i18n.language],
-  );
-  const trace = useMemo(() => baseTrace ? advanceTurnTrace(baseTrace, now) : null, [baseTrace, now]);
-  const onSelectTool = useCallback(
-    (toolUseId: string) => focusTranscriptTool({ taskId, toolUseId }),
-    [focusTranscriptTool, taskId],
-  );
-  if (!trace) {
-    return <p className={sx(styles.empty)}>{i18n.t("session:turnTrace.noTurn")}</p>;
-  }
-  return <TurnTraceTimeline trace={trace} onSelectTool={onSelectTool} />;
-}
 
 /** What the bar colors mean, and the "now" line while the turn runs. */
 export function TurnTraceLegend(props: { live: boolean }) {

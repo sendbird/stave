@@ -214,6 +214,27 @@ async function remPx(page: Page, rem: number) {
   return page.evaluate((value) => value * Number.parseFloat(getComputedStyle(document.documentElement).fontSize), rem);
 }
 
+test("Fleet opens a subagent in the shared progress panel and returns focus to its card", async ({ page }) => {
+  await seed(page);
+  await page.setViewportSize({ width: 1600, height: 960 });
+  await page.goto("/");
+  await startTurn(page);
+  await openFleet(page);
+  const fleet = page.locator('[data-agent-fleet="true"]');
+  const explore = fleet.locator('[data-agent-fleet-subagent="subagent:agent:explore"]');
+  const exploreButton = explore.getByRole("button", { name: /Explore/ }).first();
+  await exploreButton.click();
+  const steps = page.getByTestId("agent-progress-panel");
+  await expect(steps).toHaveAttribute("data-agent-source", "subagent");
+  await expect(steps).toBeVisible();
+  await expect(steps).toContainText("Read src/search.ts");
+  await expect(steps).toContainText("Grep for tokenize");
+  await page.keyboard.press("Escape");
+  await expect(steps).toBeHidden();
+  await expect(exploreButton).toBeFocused();
+  await expect(fleet).toBeVisible();
+});
+
 test("Fleet's Tree layout shows tasks as agents and opens their subagent trees from the keyboard", async ({ page }, testInfo) => {
   await seed(page);
   await page.setViewportSize({ width: 1600, height: 960 });
@@ -282,7 +303,9 @@ test("Fleet's Tree layout shows tasks as agents and opens their subagent trees f
   await expect(tree).not.toContainText("Subagent fix-tests");
   const explore = tree.locator('[data-agent-fleet-subagent="subagent:agent:explore"]');
   expect(((await explore.innerText()).match(/Explore the search index/g) ?? []).length).toBe(1);
-  for (const card of await tree.locator("[data-agent-fleet-subagent] > [data-size]").all()) {
+  await expect(explore).toContainText("Grep for tokenize");
+  await expect(explore.locator("[data-size]")).toHaveAttribute("data-size", "full");
+  for (const card of await tree.locator("[data-agent-fleet-subagent]").filter({ hasNotText: "Explore the search index" }).locator(":scope > [data-size]").all()) {
     await expect(card).toHaveAttribute("data-size", "compact");
   }
 
@@ -332,18 +355,6 @@ test("Fleet's Tree layout shows tasks as agents and opens their subagent trees f
   await expect(lead).toBeFocused();
   await expect(fleet).toBeVisible();
   await expect(tree).toBeVisible();
-
-  // An in-turn subagent opens its tasks; Esc closes them back to the subagent.
-  const exploreButton = explore.getByRole("button", { name: /Explore/ }).first();
-  await exploreButton.click();
-  const steps = page.getByRole("dialog", { name: /Tasks of Explore/ });
-  await expect(steps).toBeVisible();
-  await expect(steps).toContainText("Read src/search.ts");
-  await expect(steps).toContainText("Grep for tokenize");
-  await page.keyboard.press("Escape");
-  await expect(steps).toBeHidden();
-  await expect(exploreButton).toBeFocused();
-  await expect(fleet).toBeVisible();
 
   // A status change swaps words inside the card; heights hold and the cards below stay put.
   const secondTitle = "Write the release notes";

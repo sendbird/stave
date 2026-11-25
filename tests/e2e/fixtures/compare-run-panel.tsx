@@ -1,3 +1,4 @@
+import { AppShell } from "@/components/layout/AppShell";
 import { createRoot } from "react-dom/client";
 import { applyAppLocale } from "@/i18n";
 import { CompareRunPanel } from "@/components/compare/CompareRunPanel";
@@ -149,11 +150,14 @@ useAppStore.setState({
   },
 };
 
+const fullShell = params.has("fullShell");
+if (fullShell) useAppStore.getState().openCompareRun({ compareRunId: RUN_ID });
+
 createRoot(document.getElementById("root")!).render(
   <StaveDesignProvider>
-    <main style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+    {fullShell ? <AppShell /> : <main style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
       <CompareRunPanel compareRunId={RUN_ID} />
-    </main>
+    </main>}
     <Toaster />
   </StaveDesignProvider>,
 );

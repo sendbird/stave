@@ -493,7 +493,7 @@ export function describeUnreportedCriteria(texts: string[]): string {
   return [
     "Not recorded: acceptanceCriteria must name every required criterion by its exact text, and these are missing:",
     ...texts.map((text) => `- ${JSON.stringify(text)}`),
-    "Copy each text above into `text` unchanged, give its real status (met, unmet or unverified) and put evidence and caveats in `evidence`, not in `text`. Then call stave_report_stage again, or stave_block_stage if you cannot finish.",
+    "Copy each text above into `text` unchanged, give its real status (met, unmet or unverified) and put evidence and caveats in `evidence`, not in `text`. Continue any remaining work you can do and call stave_report_stage again. Use stave_block_stage only for a specific prerequisite you cannot obtain yourself.",
   ].join("\n").slice(0, 8_000);
 }
 
@@ -2876,8 +2876,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     blockStage: ({ agentRunKey, block }) =>
       enqueueGrant(agentRunKey, () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
-        const input = StageBlockInputSchema.parse(block);
         if (workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
+        const input = StageBlockInputSchema.parse(block);
         const next = applyChange(
           recordStageReport({
             aggregate,

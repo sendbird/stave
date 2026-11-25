@@ -8,6 +8,8 @@ export const MAX_PROVIDER_USER_INPUT_QUESTION_CHARS = 5_000;
 export const MAX_PROVIDER_USER_INPUT_HEADER_CHARS = 200;
 export const MAX_PROVIDER_USER_INPUT_OPTION_LABEL_CHARS = 500;
 export const MAX_PROVIDER_USER_INPUT_OPTION_DESCRIPTION_CHARS = 5_000;
+/** Parts one canonical conversation message may carry (`StreamTurnArgsSchema`). */
+export const MAX_PROVIDER_MESSAGE_PARTS = 500;
 
 type FileContextPayload = Pick<
   FileContextPart,

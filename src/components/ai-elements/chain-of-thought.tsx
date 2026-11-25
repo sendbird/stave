@@ -322,16 +322,11 @@ export function ChainOfThoughtTrigger(
    * the only one whose glyph column, hover wash, height and disclosure
    * direction disagreed with them.
    *
-   * `reason`, not the reasoning row's own cadence. This mark stands for the
-   * written chain of thought — each step derived from the last — while the
-   * `Thinking` row beneath it runs `think`, open-ended contemplation. The
-   * header and its first step once ran the identical cadence, so a streaming
-   * turn drew the same animation twice, eight pixels apart, and the trace
-   * header read as a duplicate of its first step rather than as the container
-   * of every step under it.
+   * Use the reduced cadence in the trace header, where other work marks
+   * may run at the same time.
    */
   const glyph = isStreaming ? (
-    <Loader aria-hidden cadence="reduced" size="xs" variant="reason" />
+    <Loader aria-hidden cadence="reduced" size="xs" variant="matrix" />
   ) : (
     <Brain aria-hidden size={controlIconSizes.md} />
   );

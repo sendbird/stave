@@ -4,6 +4,7 @@ import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { RightRailPanelShell } from "@/components/layout/RightRailPanelShell";
 import { TaskPanel } from "@/components/session/TaskPanel";
+import { AgentProgressPanel } from "@/components/agent-progress/AgentProgressPanel";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { applyCustomTheme, applyThemeClass, applyUiDensity } from "@/lib/themes/apply";
@@ -57,6 +58,7 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  * - `older=question` (with `task=agent-run`) leaves an earlier turn's async
  *   question open while the live turn asks for an approval.
  * - `run=usage-wait` (with `task=agent-run`) pauses the run for a usage limit
+ * - `run=blocked-evidence` shows a stage blocked on an external dependency.
  *   that resets in two hours, with no live turn: the panel reads on hold.
  * - `restored=1` restores the direct task's messages only up to its earlier
  *   turn, while its saved history holds the newer one.
@@ -90,6 +92,7 @@ const SHARED = params.get("shared");
 /** `older=question`, `run=usage-wait`, `restored=1`: see above. */
 const OLDER_QUESTION = params.get("older") === "question";
 const USAGE_WAIT = params.get("run") === "usage-wait";
+const BLOCKED_EVIDENCE = params.get("run") === "blocked-evidence";
 const RESTORED = params.get("restored") === "1";
 const CHANGELOG_WORKSPACE_ID = "task-panel-preview-ws-changelog";
 const MIGRATE_WORKSPACE_ID = "task-panel-preview-ws-migrate";
@@ -463,7 +466,24 @@ function agentRunDetail(): AgentRunDetail {
           turnId: "turn-1",
         },
       }),
-      record(second!.id, { status: "running", startedAt: at(4) }),
+      record(second!.id, {
+        status: "running",
+        startedAt: at(4),
+        ...(BLOCKED_EVIDENCE ? {
+          status: "blocked" as const,
+          blockReason: "agent-blocked" as const,
+          detail: "Restore access to the package registry.",
+          reportRevision: 1,
+          report: {
+            outcome: "blocked" as const,
+            kind: "external" as const,
+            missing: "Restore access to the package registry.",
+            evidence: "The package registry returned HTTP 503 for @example/request-validation-and-pagination-integration-test-fixtures.",
+            reportedAt: at(6),
+            turnId: "turn-2",
+          },
+        } : {}),
+      }),
     ],
     events: [],
     report: null,
@@ -854,8 +874,8 @@ function seedStores(args: { task: string; pending: string | null; placement: str
       [PLAIN_TASK_ID]: PLAIN_MESSAGES.length,
       [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES.length,
     },
-    activeTurnIdsByTask: USAGE_WAIT ? {} : { [AGENT_RUN_TASK_ID]: "turn-task-panel-1" },
-    providerTurnActivityByTask: USAGE_WAIT
+    activeTurnIdsByTask: USAGE_WAIT || BLOCKED_EVIDENCE ? {} : { [AGENT_RUN_TASK_ID]: "turn-task-panel-1" },
+    providerTurnActivityByTask: USAGE_WAIT || BLOCKED_EVIDENCE
       ? {}
       : { [AGENT_RUN_TASK_ID]: liveTurnActivity(now, OLDER_QUESTION ? "approval" : args.pending) },
     turnVerificationByWorkspace: {
@@ -990,9 +1010,11 @@ export function TaskPanelPreview() {
   const requestedWidth = Number(params.get("panelWidth"));
   const panelWidth = Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : 320;
   const [seeded, setSeeded] = useState(false);
+  // View on a subagent opens the Agent panel in the rail; the frame follows it.
+  const railTab = useAppStore((state) => state.layout.sidebarOverlayTab);
   useLayoutEffect(() => {
     applyAppLocale(params.get("lang") ?? "en");
-    if (params.has("background")) applyUiDensity({ density: params.get("density") === "compact" ? "compact" : "regular" });
+    if (params.has("background") || params.has("density")) applyUiDensity({ density: params.get("density") === "compact" ? "compact" : "regular" });
   }, []);
   useLayoutEffect(() => {
     applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
@@ -1060,9 +1082,15 @@ export function TaskPanelPreview() {
             style={{ width: panelWidth }}
             data-testid="task-panel-frame"
           >
-            <RightRailPanelShell panelId="task" ownHeader>
-              <TaskPanel />
-            </RightRailPanelShell>
+            {railTab === "agent" ? (
+              <RightRailPanelShell panelId="agent" ownHeader>
+                <AgentProgressPanel />
+              </RightRailPanelShell>
+            ) : (
+              <RightRailPanelShell panelId="task" ownHeader>
+                <TaskPanel />
+              </RightRailPanelShell>
+            )}
           </div>
         </div>
       ) : null}

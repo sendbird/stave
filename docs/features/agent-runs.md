@@ -412,6 +412,14 @@ are not part of that rule. A report that names a criterion **Not met** or
 **Not verified** is recorded, and the stage blocks with what the report said
 ("The stage report marked this criterion unverified: …").
 
+An agent keeps working while it can make progress within its permissions.
+It reports a block when a specific prerequisite prevents progress, such as
+a decision only you can make or a required service it cannot reach. Stave
+rejects environment and external block reports without evidence of the
+observed failure or unavailable dependency.
+The stage card shows the agent's reported evidence. Tars can use it to decide
+what to verify or do next.
+
 Host checks from earlier stages remain valid only for
 the current workspace revision; edits require another admitted check. A report
 holds up to 240 criteria, covering all 12 stages' 20 criteria. Optional checks
@@ -530,6 +538,11 @@ Markdown prompt or copy it; the row says when the prompt is still being
 prepared.
 
 ### Agent run report
+
+When a run completes, the result card at the end of its task conversation
+shows the recorded summaries for the stages that ran, including the original
+work, any repair and the latest review outcome. Checks that Stave confirmed on
+the final revision appear with the completion criteria.
 
 When an agent run ends, its report is shown in the Task panel, under
 the run's steps in **Steps** and under **Agent run report and actions** in **Outputs**. The Outputs disclosure

@@ -18,9 +18,8 @@ import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import { sx } from "@/components/aui/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { formatCost, formatDuration, formatTokenCount } from "@/i18n/format";
-import { COMPARE_VARIANT_WORK_STATE, describeCompareVariantProgress } from "@/lib/compare-run-progress";
-import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
-import type { ChatMessage } from "@/types/chat";
+import { COMPARE_VARIANT_WORK_STATE } from "@/lib/compare-run-progress";
+import { useCompareVariantProgress } from "./use-compare-variant-progress";
 import { buildSourceControlSummary } from "@/components/layout/editor-panel.utils";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
@@ -34,6 +33,8 @@ import {
   Loader,
   toast,
 } from "@/components/ui";
+import { AgentCard } from "@/components/aui/components/AgentSummary";
+import { openAgentProgress } from "@/store/agent-progress-panel-store";
 import { StateMark } from "@/components/aui/components/StateMark";
 import {
   getProviderLabel,
@@ -60,7 +61,6 @@ interface VariantSourceControlState {
 }
 
 const EMPTY_STATUS_ITEMS: SourceControlStatusItem[] = [];
-const NO_MESSAGES: ChatMessage[] = [];
 const COMPARE_JUDGE_STORE_ACCESS = {
   getState: () => useAppStore.getState(),
   updateRuns: (updater) =>
@@ -90,19 +90,7 @@ function getVariantStatusLabel(status: CompareRunVariant["status"]) {
 function CompareVariantProgressMeta(props: { variant: CompareRunVariant }) {
   useTranslation();
   const { variant } = props;
-  const taskId = variant.taskId ?? null;
-  const messages = useAppStore((state) => {
-    if (!taskId || !variant.workspaceId) return undefined;
-    return state.activeWorkspaceId === variant.workspaceId
-      ? state.messagesByTask[taskId]
-      : state.workspaceRuntimeCacheById[variant.workspaceId]?.messagesByTask[taskId];
-  });
-  const activity = useAppStore((state) => (taskId ? state.providerTurnActivityByTask[taskId] ?? null : null));
-  const progress = useMemo(() => {
-    if (!taskId || (!messages && !activity)) return null;
-    const summary = buildTaskExecutionSummary({ taskId, providerId: variant.provider, messages: messages ?? NO_MESSAGES, activity });
-    return describeCompareVariantProgress({ summary, activityStartedAt: activity?.completedAt == null ? activity?.startedAt : null });
-  }, [activity, messages, taskId, variant.provider]);
+  const progress = useCompareVariantProgress(variant);
   const running = Boolean(progress?.elapsed?.running);
   const now = useNow(running, 1_000);
   if (!progress) return null;
@@ -125,13 +113,7 @@ function CompareVariantProgressMeta(props: { variant: CompareRunVariant }) {
 /** `Now: Run command · bun test` while a candidate runs. */
 function CompareVariantCurrentStep(props: { variant: CompareRunVariant }) {
   useTranslation();
-  const taskId = props.variant.taskId ?? null;
-  const activity = useAppStore((state) => (taskId ? state.providerTurnActivityByTask[taskId] ?? null : null));
-  const current = useMemo(() => {
-    if (!taskId || !activity || activity.completedAt != null) return null;
-    const summary = buildTaskExecutionSummary({ taskId, providerId: props.variant.provider, messages: NO_MESSAGES, activity });
-    return describeCompareVariantProgress({ summary, activityStartedAt: activity.startedAt }).current;
-  }, [activity, props.variant.provider, taskId]);
+  const current = useCompareVariantProgress(props.variant)?.current;
   if (!current || props.variant.status !== "running") return null;
   return (
     <p className={sx(styles.variantNow)} data-testid="compare-variant-now">
@@ -726,15 +708,11 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                   <div className={sx(styles.variantHeaderRow)}>
                     <div className={sx(styles.headerMain)}>
                       <div className={sx(styles.variantTitleRow)}>
-                        <span className={sx(styles.variantIndex)}>
-                          {String(index + 1).padStart(2, "0")}
-                        </span>
-                        <h3 className={sx(styles.variantTitle)}>{title}</h3>
-                        <StateMark
-                          state={COMPARE_VARIANT_WORK_STATE[variant.status]}
-                          showLabel
-                          label={getVariantStatusLabel(variant.status)}
-                          xstyle={styles.variantState}
+                        <span className={sx(styles.variantIndex)}>{String(index + 1).padStart(2, "0")}</span>
+                        <AgentCard
+                          title={<span className={sx(styles.variantTitle)} role="heading" aria-level={3}>{title}</span>}
+                          facts={<CompareVariantProgressMeta variant={variant} />}
+                          status={<StateMark state={COMPARE_VARIANT_WORK_STATE[variant.status]} showLabel label={getVariantStatusLabel(variant.status)} xstyle={styles.variantState} />}
                         />
                         {recommended ? (
                           <span className={sx(styles.recommendedTag)}>
@@ -770,7 +748,6 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                     {summary.conflictCount > 0 ? (
                       <span className={sx(styles.variantConflicts)}>{t("compare:messages.conflicts", { count: summary.conflictCount })}</span>
                     ) : null}
-                    <CompareVariantProgressMeta variant={variant} />
                   </div>
                   <CompareVariantCurrentStep variant={variant} />
                 </div>
@@ -853,6 +830,13 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
                 </div>
 
                 <div className={sx(styles.variantFooter)}>
+                  {variant.taskId && variant.workspaceId ? (
+                    <Button type="button" size="sm" variant="ghost" onClick={() => openAgentProgress({
+                      kind: "compare-candidate", runId: compareRun.id, variantId: variant.id, snapshot: variant, title,
+                    })}>
+                      {t("session:agentProgress.panel.viewProgress")}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"

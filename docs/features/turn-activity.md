@@ -22,7 +22,7 @@ over the chat, or in the right rail's Task panel, under its **Activity** tab.
 
 ## Before You Start
 
-The conversation trace header shows the current activity while the turn runs.
+The conversation trace header shows a 5×5 activity mark and the current step while the turn runs. The mark stays still when reduced motion is on.
 When the turn ends, it folds into one line: **Worked for** and the elapsed time,
 with the number of steps on the right. The final answer is in the message body.
 
@@ -76,7 +76,7 @@ when there is no run, usage-limit pause, review or queued message to show.
 | Provider retry or failure | `Retrying` in amber, or `Failed` in red with the reason; a failed turn stays for a few seconds, then the shelf leaves. |
 | An agent run | The agent's line replaces the turn's: see [With An Agent Run](#with-an-agent-run). |
 | Stopped at a usage limit | The usage-limit line: `Claude usage limit · resets 3:40 PM · in 1h 7m`, with **Resume at reset** and **Resume now**. See [When A Usage Limit Stops Work](#when-a-usage-limit-stops-work). |
-| A review runs in its own task | One line per review: `Reviewing · <model> · <elapsed>` with **View** and **Stop**, then `Review ready` with **Attach**, **View** and **Dismiss**. **View** shows the review's answer and activity in a dialog. It shows when the task is idle too. See [Review Tasks](review-tasks.md). |
+| A review runs in its own task | One line per review: `Reviewing · <model> · <elapsed>` with **View** and **Stop**, then `Review ready` with **Attach**, **View** and **Dismiss**. **View** opens the review in the [Agent panel](delegated-tasks.md#the-agent-panel) beside the conversation. It shows when the task is idle too. See [Review Tasks](review-tasks.md). |
 
 There is exactly one status line for a run. The Task panel lists the rows
 under **Activity** without repeating it; its own state line uses the same
@@ -362,9 +362,13 @@ changes.
   branch, then moves into it; Left folds a branch, or moves to the parent;
   Home and End jump to the first and last row; typing a letter jumps to the
   next agent whose name starts with it. Enter or Space opens the agent's
-  activity (or shows its call in the conversation); on a row without that,
-  it folds or opens the branch. A row's message, interrupt and stop buttons
-  join the Tab order only while that row has focus.
+  progress in the [Agent panel](delegated-tasks.md#the-agent-panel) (or shows
+  its call in the conversation); on a row without that, it folds or opens the
+  branch. A row's message, interrupt and stop buttons join the Tab order only
+  while that row has focus.
+- The Agents block's rows and a subagent's row in the activity list open the
+  same panel. A plain tool call's row opens its recorded detail, input and
+  result in a dialog.
 
 ### Provider-Specific Detail
 

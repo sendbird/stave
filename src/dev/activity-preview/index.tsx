@@ -24,9 +24,10 @@ const FIXTURE: ExternalSessionsSnapshot = {
       id: "claude-1", source: "claude-code", title: "Refactor the provider runtime so retries share one queue", cwd: "/work/stave/.stave/workspaces/feat",
       branch: "feat/provider-retry-queue", status: "working", startedAt: NOW - 14 * 60_000, lastAt: NOW - 5_000,
       action: { verb: "read", target: "electron/providers/claude-sdk-runtime.ts" }, steps: 42, contextTokens: 86_400, model: "claude-test",
+      recentProgress: [{ id: 1, kind: "user", text: "Trace the retry queue" }, { id: 2, kind: "tool", action: { verb: "read", target: "queue.ts" }, status: "done" }],
       agents: [
         { id: "a1", agentType: "Explore", description: "Map every IPC handler that touches provider retries", status: "running", startedAt: NOW - 6 * 60_000, lastAt: NOW - 3_000,
-          action: { verb: "search", target: "invokeHostService" }, steps: 17, contextTokens: 31_200 },
+          action: { verb: "search", target: "invokeHostService" }, recentProgress: [{ id: 1, kind: "text", text: "Found the retry handler" }], steps: 17, contextTokens: 31_200 },
         { id: "a2", agentType: "general-purpose", description: "Write focused tests", status: "running", startedAt: NOW - 3 * 60_000, lastAt: NOW - 8_000,
           action: { verb: "run", target: "bun test tests/provider-retry.test.ts" }, steps: 9 },
         { id: "a3", agentType: "code-reviewer", description: "Review the diff", status: "finished", startedAt: NOW - 12 * 60_000, lastAt: NOW - 9 * 60_000, steps: 23, contextTokens: 54_000 },

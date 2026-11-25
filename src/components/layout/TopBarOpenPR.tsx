@@ -288,8 +288,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const prInfo = workspacePrInfoById[activeWorkspaceId];
   const prStatus: WorkspacePrStatus = prInfo?.derived ?? "no_pr";
   const actions = PR_STATUS_ACTIONS[prStatus];
+  const prHead = prInfo?.pr?.headRefName || currentBranch;
+  const actionPrUrl = prHead !== currentBranch ? prInfo?.pr?.url : undefined;
   // Re-read the stack only when the PR changed (number, state, base), not on every status poll.
-  const prStack = usePullRequestStack({ cwd: workspaceCwd, enabled: Boolean(prInfo?.pr), revision: pullRequestStackRevision(prInfo?.pr) });
+  const prStack = usePullRequestStack({ cwd: workspaceCwd, prUrl: prInfo?.pr?.url, enabled: Boolean(prInfo?.pr), revision: pullRequestStackRevision(prInfo?.pr) });
   const [stackRetargetOpen, setStackRetargetOpen] = useState(false);
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const stackedParent = usePullRequestStack({ cwd: workspaceCwd, branch: targetBranch, enabled: dialogOpen && createStackedPr && Boolean(targetBranch) && targetBranch !== defaultBaseBranch });
@@ -1394,7 +1396,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setStep("action");
     let result: Awaited<ReturnType<typeof setPrReady>>;
     try {
-      result = await setPrReady({ cwd: action.cwd });
+      result = await setPrReady({ cwd: action.cwd, prUrl: actionPrUrl });
     } finally {
       // The PR may have changed either way; never leave the badge stale.
       action.refresh();
@@ -1429,7 +1431,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const getRepoMergeSettings =
       window.api?.sourceControl?.getRepoMergeSettings;
     const settingsResult = getRepoMergeSettings
-      ? await getRepoMergeSettings({ cwd: action.cwd }).catch(() => undefined)
+      ? await getRepoMergeSettings({ cwd: action.cwd, prUrl: actionPrUrl }).catch(() => undefined)
       : undefined;
     if (!action.isCurrent()) return;
     const repoSettings = settingsResult?.ok
@@ -1469,6 +1471,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       result = await mergePr({
         method: mergeDialogMethod,
         expectedHeadOid,
+        prUrl: actionPrUrl,
         cwd: action.cwd,
       });
     } catch (error) {
@@ -1513,7 +1516,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setStep("action");
     let result: Awaited<ReturnType<typeof updatePrBranch>>;
     try {
-      result = await updatePrBranch({ cwd: action.cwd });
+      result = await updatePrBranch({ cwd: action.cwd, prUrl: actionPrUrl });
     } finally {
       action.refresh();
       if (action.isCurrent()) setStep("idle");
@@ -1813,7 +1816,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   #{prInfo?.pr?.number} {prInfo?.pr?.title}
                 </span>
                 <span className={sx(openPrStyles.statusMenuSubtitle)}>
-                  {i18n.t("sourceControl:topBarOpenPR.branchDirection", { head: currentBranch, base: prInfo?.pr?.baseRefName ?? defaultBaseBranch })}
+                  {i18n.t("sourceControl:topBarOpenPR.branchDirection", { head: prHead, base: prInfo?.pr?.baseRefName ?? defaultBaseBranch })}
                 </span>
               </DropdownMenuLabel>
 

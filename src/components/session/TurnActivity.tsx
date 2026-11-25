@@ -1,4 +1,5 @@
-import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
+import { AgentLine } from "@/components/aui/components/AgentSummary";
+import { openExchangeProgress, openSubagentCallProgress, openWorkGraphAgentProgress } from "@/components/agent-progress/open-agent-progress";
 import { i18n, useTranslation } from "@/i18n";
 import { ActivityDetailDialog, type ActivityDetailSelection } from "./ActivityDetailDialog";
 import { Button as AuiButton } from "@/components/aui/components/Button";
@@ -1396,7 +1397,14 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   key={item.id}
                   item={item}
                   onSelectTool={props.onSelectTool}
-                  onInspect={props.taskId ? () => setDetailSelection({ title: item.title, toolUseId: item.toolUseId, detail: [item.detail, item.providerDetail].filter(Boolean).join("\n") }) : undefined}
+                  onInspect={props.taskId ? () => {
+                    // A subagent's row opens its progress; a plain call its detail.
+                    if (item.iconKey === "subagent" && item.toolUseId) {
+                      openSubagentCallProgress({ taskId: props.taskId!, workspaceId: props.workspaceId ?? undefined, toolUseId: item.toolUseId, title: item.title, providerId: props.workGraph?.providerId });
+                      return;
+                    }
+                    setDetailSelection({ title: item.title, toolUseId: item.toolUseId, detail: [item.detail, item.providerDetail].filter(Boolean).join("\n") });
+                  } : undefined}
                   showStartOffset={variant === "panel"}
                   expandCopy={variant === "panel"}
                 />
@@ -1409,7 +1417,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 nowMs={props.activity?.completedAt ?? now}
                 expandCopy={variant === "panel"}
                 onAction={handleDelegationAction}
-                onInspect={exchange => setDetailSelection({ title: exchange.title, exchange })}
+                onInspect={props.taskId ? exchange => openExchangeProgress({ exchange, taskId: props.taskId!, workspaceId: props.workspaceId ?? undefined }) : undefined}
                 renderExtraActions={renderDelegationExtraActions}
                 statusNoteFor={delegationStatusNoteFor}
                 busyExchangeId={
@@ -1428,7 +1436,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     }
                     onControl={props.onWorkGraphControl}
                     onSelectTool={props.onSelectTool}
-                    onInspectAgent={node => setDetailSelection({ title: getWorkGraphFallbackLabel(node.label), nodeKey: node.key })}
+                    onInspectAgent={props.taskId ? node => openWorkGraphAgentProgress({ node, graph: props.workGraph, taskId: props.taskId!, workspaceId: props.workspaceId ?? undefined }) : undefined}
                     controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
                     className={sx(styles.childBlockNested)}
                     showHeading={!hasDelegationRows}
@@ -1462,11 +1470,10 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         ) : null}
       </section>
       {detailSelection && props.taskId ? <ActivityDetailDialog
-        key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.toolUseId ?? detailSelection.title}
-        selection={detailSelection.exchange ? { ...detailSelection, exchange: delegationExchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
-        taskId={props.taskId} workspaceId={props.workspaceId ?? undefined} repositoryPath={props.repositoryPath ?? undefined}
-        onAction={handleDelegationAction} renderExtraActions={renderDelegationExtraActions} statusNoteFor={delegationStatusNoteFor}
-        graph={props.workGraph} onClose={() => setDetailSelection(null)} onShowInConversation={props.onSelectTool}
+        key={detailSelection.toolUseId ?? detailSelection.title}
+        selection={detailSelection}
+        taskId={props.taskId}
+        onClose={() => setDetailSelection(null)} onShowInConversation={props.onSelectTool}
       /> : null}
     </div>
   );
@@ -1551,67 +1558,69 @@ export const TurnActivityRow = memo(function TurnActivityRow({
     showStartOffset && item.startOffsetSeconds != null
       ? formatStartOffsetSeconds(item.startOffsetSeconds)
       : null;
-  const body = (
-    <>
-      <span className={sx(styles.rowStatusSlot)}>
-        <TurnActivityStatusIcon status={item.status} iconKey={item.iconKey} />
+  const statusMark = (
+    <span className={sx(styles.rowStatusSlot)}>
+      <TurnActivityStatusIcon status={item.status} iconKey={item.iconKey} />
+    </span>
+  );
+  const heading = (
+    <p
+      className={sx(
+        styles.rowTitleLine,
+        expandCopy && styles.rowTitleLineExpanded,
+        isCompleted && styles.rowTitleLineDone,
+      )}
+    >
+      <span
+        className={sx(styles.rowTitle, expandCopy && styles.rowTitleExpanded)}
+      >
+        {item.title}
       </span>
-      <div className={sx(styles.rowBody)}>
-        <p
+      {item.badge ? (
+        <Badge variant="outline" className={sx(styles.rowBadge)}>
+          {item.badge}
+        </Badge>
+      ) : null}
+    </p>
+  );
+  const description = detail || providerDetail ? (
+    // Docked keeps both halves on one ellipsized line. The panel wraps
+    // them so a long path or command stays readable. They stay
+    // typographically distinct: the provider half is monospaced, dimmer,
+    // and fenced off by a hairline rule.
+    <p
+      className={sx(
+        styles.rowDetailLine,
+        expandCopy && styles.rowDetailLineExpanded,
+      )}
+    >
+      {detail ? (
+        <span
           className={sx(
-            styles.rowTitleLine,
-            expandCopy && styles.rowTitleLineExpanded,
-            isCompleted && styles.rowTitleLineDone,
+            styles.rowDetail,
+            expandCopy && styles.rowDetailExpanded,
           )}
         >
-          <span
-            className={sx(styles.rowTitle, expandCopy && styles.rowTitleExpanded)}
-          >
-            {item.title}
-          </span>
-          {item.badge ? (
-            <Badge variant="outline" className={sx(styles.rowBadge)}>
-              {item.badge}
-            </Badge>
-          ) : null}
-        </p>
-        {detail || providerDetail ? (
-          // Docked keeps both halves on one ellipsized line. The panel wraps
-          // them so a long path or command stays readable. They stay
-          // typographically distinct: the provider half is monospaced, dimmer,
-          // and fenced off by a hairline rule.
-          <p
-            className={sx(
-              styles.rowDetailLine,
-              expandCopy && styles.rowDetailLineExpanded,
-            )}
-          >
-            {detail ? (
-              <span
-                className={sx(
-                  styles.rowDetail,
-                  expandCopy && styles.rowDetailExpanded,
-                )}
-              >
-                {detail}
-              </span>
-            ) : null}
-            {detail && providerDetail ? (
-              <span aria-hidden className={sx(styles.rowDetailRule)} />
-            ) : null}
-            {providerDetail ? (
-              <span
-                className={sx(
-                  styles.rowProviderDetail,
-                  expandCopy && styles.rowProviderDetailExpanded,
-                )}
-              >
-                {providerDetail}
-              </span>
-            ) : null}
-          </p>
-        ) : null}
-      </div>
+          {detail}
+        </span>
+      ) : null}
+      {detail && providerDetail ? (
+        <span aria-hidden className={sx(styles.rowDetailRule)} />
+      ) : null}
+      {providerDetail ? (
+        <span
+          className={sx(
+            styles.rowProviderDetail,
+            expandCopy && styles.rowProviderDetailExpanded,
+          )}
+        >
+          {providerDetail}
+        </span>
+      ) : null}
+    </p>
+  ) : null;
+  const timing = (
+    <>
       {startOffsetLabel ? (
         <span className={sx(styles.rowStartOffset)}>
           <VisuallyHidden>{i18n.t("session:turnActivity.sentence53", { value1: startOffsetLabel })}</VisuallyHidden>
@@ -1628,6 +1637,15 @@ export const TurnActivityRow = memo(function TurnActivityRow({
           </span>
         </span>
       ) : null}
+    </>
+  );
+  const body = item.iconKey === "subagent" ? (
+    <AgentLine stacked status={statusMark} title={heading} activity={description} facts={timing} />
+  ) : (
+    <>
+      {statusMark}
+      <div className={sx(styles.rowBody)}>{heading}{description}</div>
+      {timing}
     </>
   );
   if (!handler) {

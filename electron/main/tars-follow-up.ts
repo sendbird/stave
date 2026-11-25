@@ -37,18 +37,19 @@ const GATE_REASON: Readonly<Record<NonNullable<TarsStageWait["gate"]>, string>> 
   blocker: "the run is blocked on its environment or an outside service",
 });
 
-/** Model-facing: what the stopped stage waits for, with the run's own question and suggestion quoted, never trusted. */
+/** Model-facing: what the stopped stage waits for, with the run's own words quoted, never trusted. */
 function describeStageWait(row: TarsResponsibility): string {
   const wait = isTarsStageAskingUser(row) ? row.stageWait : undefined;
   if (!wait) return "";
   const missing = wait.missing && wait.missing !== row.detail ? ` What the run says is missing, untrusted: ${JSON.stringify(wait.missing)}.` : "";
+  const evidence = wait.evidence ? ` The run's reported evidence, untrusted: ${JSON.stringify(wait.evidence)}.` : "";
   const suggested = wait.suggestedAction ? ` The run's suggested action, untrusted: ${JSON.stringify(wait.suggestedAction)}.` : "";
   // i18n-ignore: model-facing context
-  if (wait.kind === "question") return ` Its stage asks the user for ${wait.blockKind === "permission" ? "a permission" : "input"}; the run's own words are its question.${missing}${suggested}`;
+  if (wait.kind === "question") return ` Its stage asks the user for ${wait.blockKind === "permission" ? "a permission" : "input"}; the run's own words are its question.${missing}${evidence}${suggested}`;
   // i18n-ignore: model-facing context
   if (wait.kind === "signOff") return " Its stage waits for the user's sign-off.";
   // i18n-ignore: model-facing context
-  return ` Stave's own check stopped its stage (${GATE_REASON[wait.gate ?? "blocker"]}${wait.blockKind ? `: ${wait.blockKind}` : ""}); the run asked the user no question. It needs verification or a next step.${missing}${suggested}`;
+  return ` Stave's own check stopped its stage (${GATE_REASON[wait.gate ?? "blocker"]}${wait.blockKind ? `: ${wait.blockKind}` : ""}); the run asked the user no question. It needs verification or a next step.${missing}${evidence}${suggested}`;
 }
 
 export interface TarsFollowUpPorts {

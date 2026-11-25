@@ -340,13 +340,14 @@ export type TarsWorkAttachments = z.infer<typeof TarsWorkAttachmentsSchema>;
  *   report after the reminder, or provider retries spent),
  *   `reportingUnavailable`, `actionFailed`, or `blocker` (the agent blocked on
  *   its environment or an outside service, `blockKind`).
- * `missing` and `suggestedAction` are the run's own words: untrusted.
+ * `missing`, `evidence` and `suggestedAction` are the run's own words: untrusted.
  */
 export const TarsStageWaitSchema = z.object({
   kind: z.enum(["question", "signOff", "gate"]),
   gate: z.enum(["acceptanceUnmet", "stuck", "reportingUnavailable", "actionFailed", "blocker"]).optional(),
   blockKind: z.enum(STAGE_BLOCK_KINDS).optional(),
   missing: z.string().max(AGENT_RUN_LIMITS.report.missing).optional(),
+  evidence: z.string().max(AGENT_RUN_LIMITS.report.missing).optional(),
   suggestedAction: z.string().max(AGENT_RUN_LIMITS.report.suggestedAction).optional(),
 }).strict();
 export type TarsStageWait = z.infer<typeof TarsStageWaitSchema>;

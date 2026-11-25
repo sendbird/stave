@@ -14,6 +14,14 @@ This feature fetches the GitHub PR associated with that branch, derives a single
 
 Default workspaces (typically `main`) are excluded; they never carry a PR.
 
+When a workspace branch tracks a differently named remote branch, Stave can
+find the PR in that remote's repository after checking the local branch name.
+The PR must come from that repository and its head must be related to the
+workspace's commits. This also works for a merged PR whose remote branch was
+deleted. The status menu shows the PR's head branch and sends actions to the
+displayed PR. For these PRs, the repository's GitHub settings control branch
+deletion after merge.
+
 ## Status Model
 
 ### Enum
@@ -166,7 +174,7 @@ gh pr view --json ...
 
 | Handler                     | CLI Command                                    | Purpose                                            |
 | --------------------------- | ---------------------------------------------- | -------------------------------------------------- |
-| `scm:get-pr-status`         | `gh pr list --head <branch> --state open --json ...`, falling back to `gh pr view --json ...` | Prefer the open PR for the branch; a merged/closed PR is dropped when local `HEAD` already has commits it never saw (branch name reused) |
+| `scm:get-pr-status`         | `gh pr list --head <branch> --state open --json ...`, falling back to `gh pr view --json ...` | Prefer the open PR for the local branch. If there is no current PR, check its differently named upstream in the tracked repository |
 | `scm:get-pr-status-for-url` | `gh pr view <url> --json ...`                  | Fetch metadata for a manually linked GitHub PR URL |
 | `scm:set-pr-ready`          | `gh pr ready`                                  | Convert draft → ready for review                   |
 | `scm:merge-pr`              | `gh pr merge --<method> [--match-head-commit <oid>]`, then `gh pr view` + `git push origin --delete <head>` | Merge with a repository-allowed strategy pinned to the head commit shown in the UI. The result is read back from GitHub, so a non-zero `gh` exit after the merge (local cleanup fails in linked worktrees) still reports `merged: true`; remote branch deletion is best-effort |
@@ -174,6 +182,8 @@ gh pr view --json ...
 | `scm:create-pr`              | `gh pr create` (+ optional `gh pr merge --auto [--<method>]`) | Create a ready PR and optionally queue auto-merge. A "pull request already exists" refusal returns `existingPrUrl` so the UI can refresh and open the existing PR |
 
 All handlers check `gh auth status` before executing.
+When the displayed PR has a different head branch name, the status menu sends
+its URL with readiness, update, and merge requests.
 
 ## Polling Strategy
 

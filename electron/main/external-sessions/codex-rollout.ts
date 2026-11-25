@@ -1,3 +1,4 @@
+import { RecentProgress } from "./recent-progress";
 import type { ExternalAction } from "../../../src/lib/external-sessions/external-sessions";
 import { cleanTarget, describeCodexCall } from "./external-actions";
 
@@ -57,6 +58,21 @@ export class CodexRolloutState {
   lastEntryAt?: number;
   action?: ExternalAction;
   steps = 0;
+  readonly progress = new RecentProgress();
+  private lastPrompt?: { source: "event" | "item"; text: string };
+
+  private recordPrompt(value: string, source: "event" | "item") {
+    const text = cleanTarget(value);
+    if (!text || !this.progress.enabled) return;
+    // CLI rollouts can represent a single prompt both as an item and as an event.
+    if (this.lastPrompt && this.lastPrompt.source !== source && this.lastPrompt.text === text) {
+      this.lastPrompt = undefined;
+      return;
+    }
+    this.lastPrompt = { source, text };
+    this.progress.message("user", text);
+  }
+
   contextTokens?: number;
   /** The last turn finished (a `task_complete` after the last `task_started`). */
   final = false;
@@ -97,7 +113,7 @@ export class CodexRolloutState {
         this.feedEvent(payload);
         return;
       case "response_item":
-        this.feedItem(payload);
+        this.feedItem(payload, Number.isFinite(ts) ? ts : undefined);
         return;
       default:
         return;
@@ -108,8 +124,10 @@ export class CodexRolloutState {
     switch (payload.type) {
       case "user_message":
         this.title ??= firstLine(str(payload.message));
+        this.recordPrompt(str(payload.message), "event");
         return;
       case "task_started":
+        this.lastPrompt = undefined;
         this.final = false;
         return;
       case "task_complete":
@@ -130,35 +148,44 @@ export class CodexRolloutState {
     }
   }
 
-  private feedItem(payload: Record<string, unknown>) {
+  private feedItem(payload: Record<string, unknown>, ts: number | undefined) {
     switch (payload.type) {
       case "message":
         // The Codex app logs no `user_message` event: the first typed text,
         // not the instructions it sends ahead of it.
-        if (payload.role === "user" && !this.title && Array.isArray(payload.content)) {
+        if ((payload.role === "user" || payload.role === "assistant") && Array.isArray(payload.content)) {
           for (const part of payload.content as Array<{ type?: unknown; text?: unknown }>) {
-            const text = part?.type === "input_text" ? str(part.text).trim() : "";
+            if (payload.role === "assistant" && payload.channel !== "analysis" && part?.type === "output_text") this.progress.message("text", str(part.text));
+            const text = payload.role === "user" && part?.type === "input_text" ? str(part.text).trim() : "";
             if (text && !text.startsWith("<") && !text.startsWith("# AGENTS.md")) {
-              this.title = firstLine(text);
+              this.title ??= firstLine(text);
+              this.recordPrompt(text, "item");
               break;
             }
           }
         }
         return;
+      case "function_call_output":
+      case "custom_tool_call_output":
+        this.progress.finish(payload.call_id, payload.status === "failed", ts);
+        return;
       case "function_call":
       case "custom_tool_call":
         this.steps += 1;
         this.action = describeCodexCall(str(payload.name) || "tool", payload.arguments ?? payload.input, this.cwd);
+        this.progress.tool(this.action, payload.call_id, ts);
         return;
       case "local_shell_call": {
         this.steps += 1;
         const action = payload.action as { command?: unknown } | undefined;
         this.action = describeCodexCall("local_shell", JSON.stringify({ command: action?.command ?? "" }), this.cwd);
+        this.progress.tool(this.action, payload.call_id, ts);
         return;
       }
       case "web_search_call":
         this.steps += 1;
         this.action = { verb: "webSearch" };
+        this.progress.tool(this.action, payload.id, ts);
         return;
       default:
         return;

@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { DelegatedTaskRowActions, DelegatedTaskRowsSurface } from "@/components/session/DelegatedTaskRows";
+import { DelegatedTaskRowActions } from "@/components/session/DelegatedTaskRows";
+import { FleetDelegationCards } from "@/components/layout/FleetDelegationCards";
 import {
   DELEGATED_TASK_DETACHED_REASON,
   type DelegatedTaskActionResponse,
@@ -38,7 +39,7 @@ function renderRows(
   blockedByDelegationKey?: Record<string, "user-input" | "approval">,
 ) {
   return renderToStaticMarkup(
-    createElement(DelegatedTaskRowsSurface, {
+    createElement(FleetDelegationCards, {
       rows,
       errorByDelegationKey,
       blockedByDelegationKey,
@@ -52,7 +53,7 @@ function renderRows(
   );
 }
 
-describe("DelegatedTaskRowsSurface", () => {
+describe("FleetDelegationCards", () => {
   test("renders nothing at all when the task has no children", () => {
     expect(renderRows([])).toBe("");
   });
@@ -60,7 +61,7 @@ describe("DelegatedTaskRowsSurface", () => {
   test("a listing that failed says so with Retry, instead of drawing no section", () => {
     const failed = (rows: readonly DelegatedTaskSummary[]) =>
       renderToStaticMarkup(
-        createElement(DelegatedTaskRowsSurface, {
+        createElement(FleetDelegationCards, {
           rows,
           busyDelegationKey: null,
           listError: "runs bridge unavailable",
@@ -85,6 +86,8 @@ describe("DelegatedTaskRowsSurface", () => {
   test("shows identity, phase and controls for a live delegation", () => {
     const html = renderRows([buildChild()]);
 
+    expect(html).toContain('data-agent-summary="card"');
+    expect(html).toContain("View progress");
     expect(html).toContain("Waiting");
     expect(html).toContain("review");
     expect(html).toContain("Open");
@@ -105,6 +108,7 @@ describe("DelegatedTaskRowsSurface", () => {
     // Catalog names and title-case effort, never raw ids or tokens.
     expect(html).toContain('data-agent-identity="GPT-5.3-Codex · High"');
     expect(html).not.toContain("gpt-5.3-codex");
+    expect(html).toContain('title="Requested GPT-5.3-Codex · High"');
 
     const modelOnly = renderRows([
       buildChild({ requestedModel: "claude-sonnet-5" }),

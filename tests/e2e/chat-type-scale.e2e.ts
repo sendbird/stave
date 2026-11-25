@@ -312,3 +312,23 @@ test("the scroll-to-bottom button sits centred above the task composer", async (
   expect(Math.abs(placement.center - placement.composerCenter)).toBeLessThanOrEqual(1);
   expect(placement.bottom).toBeLessThanOrEqual(placement.composerTop);
 });
+
+for (const [width, lang, theme] of [[420, "ko", "dark"], [1200, "en", "light"]] as const) {
+  test(`the reviewed run result keeps both stage outcomes in the conversation (${lang}, ${width}px)`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto(`/?stavePreview=agent-run&only=agent-run&w=${width}&lang=${lang}&theme=${theme}`);
+    const result = page.locator('[data-preview-case="Reviewed agent run result"]').getByTestId("agent-run-result");
+    const work = result.getByText("Replaced the fixed minimum width", { exact: false });
+    const review = result.getByText("The layout and keyboard navigation hold", { exact: false });
+    await expect(work).toBeVisible();
+    await expect(review).toBeVisible();
+    await expect(result.getByText(lang === "ko" ? "리뷰 통과" : "Review passed", { exact: true })).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const [bounds, workBox, reviewBox] = await Promise.all([result.boundingBox(), work.boundingBox(), review.boundingBox()]);
+    expect(bounds).not.toBeNull();
+    expect(workBox).not.toBeNull();
+    expect(reviewBox).not.toBeNull();
+    expect(workBox!.y + workBox!.height).toBeLessThan(reviewBox!.y);
+    expect(reviewBox!.x + reviewBox!.width).toBeLessThan(bounds!.x + bounds!.width);
+  });
+}

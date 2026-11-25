@@ -66,7 +66,7 @@ export function scratchListingSignature(listing: WorkspaceScratchListing): strin
     listing.fileCount,
     listing.totalBytes,
     listing.truncated ? 1 : 0,
-    ...listing.files.map((file) => `${file.path}\u0000${file.sizeBytes}\u0000${file.mtimeMs}`),
+    ...[...listing.files, ...(listing.olderArtifacts ?? [])].map((file) => `${file.path}\u0000${file.sizeBytes}\u0000${file.mtimeMs}`),
   ].join("\n");
 }
 

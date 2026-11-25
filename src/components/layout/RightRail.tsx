@@ -34,6 +34,7 @@ import {
 import { useWorkspaceScratchPolling } from "@/components/layout/useWorkspaceScratchPolling";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { useAppStore } from "@/store/app.store";
+import { useAgentProgressPanelStore } from "@/store/agent-progress-panel-store";
 
 /** The `Cmd/Ctrl+K` shortcut each rail panel answers to, where one exists. */
 const RIGHT_RAIL_PANEL_SHORTCUTS: Partial<Record<RightRailPanelId, KeybindingId>> = {
@@ -218,6 +219,27 @@ function RightRailScratchButton(props: {
 }
 
 /**
+ * The Agent toggle. The panel shows one agent's progress and opens from that
+ * agent's View, so the toggle is hidden until an agent is selected; then it
+ * brings the panel back after another panel took its place.
+ */
+function RightRailAgentButton(props: { isActive: boolean; onClick: () => void }) {
+  useTranslation();
+  const selected = useAgentProgressPanelStore((state) => state.stack.length > 0);
+  if (!selected && !props.isActive) return null;
+  return (
+    <RailToggle
+      label={RIGHT_RAIL_PANEL_TITLES.agent}
+      shortcut={null}
+      icon={RIGHT_RAIL_PANEL_ICONS.agent}
+      pressed={props.isActive}
+      disabled={false}
+      onClick={props.onClick}
+    />
+  );
+}
+
+/**
  * The workspace rail: one toolbar, so it is a single Tab stop and the arrow
  * keys move between its toggles. The panel toggles form one group and the
  * Lens and Terminal surfaces another.
@@ -285,6 +307,16 @@ export function RightRail() {
                 <RightRailScratchButton
                   key={panelId}
                   disabled={!hasRepository}
+                  isActive={isActive}
+                  onClick={() => toggleSidebarTab(panelId)}
+                />
+              );
+            }
+
+            if (panelId === "agent") {
+              return (
+                <RightRailAgentButton
+                  key={panelId}
                   isActive={isActive}
                   onClick={() => toggleSidebarTab(panelId)}
                 />

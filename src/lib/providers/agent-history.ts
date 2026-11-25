@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import { ProviderAccountProfileIdSchema } from "./provider-accounts";
+import type { AgentHistoryItem } from "@/lib/agent-progress/history-items";
 import { z } from "zod";
 
 export const AgentHistoryRequestSchema = z.object({
@@ -26,6 +27,8 @@ export interface AgentHistoryResponse {
   ok: boolean;
   detail: string;
   entries: AgentHistoryEntry[];
+  /** The same page as structural items, for the agent progress view. */
+  items?: AgentHistoryItem[];
   nextOffset?: number;
   model?: string;
   effort?: string;

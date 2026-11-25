@@ -14,6 +14,7 @@ import { z } from "zod";
 export const DEFAULT_LONG_LIVED_BRANCH_PATTERNS = ["main", "master", "develop", "staging", "release/*"] as const;
 
 const BranchSchema = z.string().trim().min(1).max(300).refine(value => !value.startsWith("-") && !/[\s~^:?*[\\]/.test(value), "Invalid branch name");
+const PullRequestUrlSchema = z.string().max(2000).url().regex(/^https:\/\/[a-z0-9.-]+\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*$/i);
 /** Branch names with `*` as the only wildcard. */
 export const LongLivedBranchPatternSchema = z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9._/*-]+$/);
 export const LongLivedBranchPatternsSchema = z.array(LongLivedBranchPatternSchema).max(32);
@@ -66,6 +67,7 @@ export type RetargetReason = (typeof RETARGET_SKIP_REASONS)[number];
 export const GetPrStackArgsSchema = z.object({
   cwd: z.string().min(1).max(4096).optional(),
   branch: BranchSchema.optional(),
+  prUrl: PullRequestUrlSchema.optional(),
   longLivedBranchPatterns: LongLivedBranchPatternsSchema.optional(),
 }).strict();
 export type GetPrStackArgs = z.infer<typeof GetPrStackArgsSchema>;
@@ -76,6 +78,7 @@ export const RetargetChildSchema = z.object({ number: z.number().int().positive(
 export const RetargetPrStackArgsSchema = z.object({
   cwd: z.string().min(1).max(4096).optional(),
   parentNumber: z.number().int().positive(),
+  parentUrl: PullRequestUrlSchema.optional(),
   /** Exactly the transitions the user confirmed. Anything that changed since is skipped. */
   children: z.array(RetargetChildSchema).min(1).max(32),
   longLivedBranchPatterns: LongLivedBranchPatternsSchema.optional(),
