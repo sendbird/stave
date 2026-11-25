@@ -16,7 +16,8 @@ run monitor card, and several cards sit side by side, wrapping into rows when th
 narrow. A live card shows its identity, current work with its observed duration, and reported
 history. Progress shows on the agent it names, including one moved to the background; a resumed agent's row shows only progress of that run; progress naming an agent that is not on a row stays off every row. Progress that names no agent shows on the only running agent; while several run, it stays off their rows. A returned result or failure shows a preview with any observed duration. Select
 **View result** to read the original answer and execution details; the open card takes the
-whole row.
+whole row. **View progress** opens the subagent in the [Agent panel](#the-agent-panel)
+beside the conversation.
 Unknown durations and costs are omitted. Reported history is narration, not a count of
 completed tool calls. The composer keeps its compact subagent summary. **Result received** confirms arrival, not incorporation into
 or verification of the parent answer. A pending asynchronous launch is not a completed result.
@@ -135,8 +136,8 @@ explicitly.
 The Subagents list shows each subagent's agent (or model), what it is doing,
 its state and how long it ran (still counting while it runs; a finished one also
 says when it ended, with the exact time on hover), folds its answer under the
-row, and offers View activity (its answer, assignment and tool calls in a dialog
-over the current task), Open transcript and Stop.
+row, and offers **View progress** (the [Agent panel](#the-agent-panel),
+for delegated tasks and in-turn subagents alike), Open transcript and Stop.
 
 Each state has one mark and one word, the same in the Subagents list, the
 Agents block in Turn Activity and the agent tree:
@@ -190,6 +191,40 @@ per-call parameters and how many helper Agents one Agent run can call ([team lim
 A child does not appear as a peer in workspace task lists, counts, or Fleet
 roll-ups — it is shown under its parent instead, so one delegated unit of work is
 never counted twice.
+
+### The Agent Panel
+
+**View progress** on a subagent opens it in the **Agent** panel of the right
+rail, beside the conversation, so following it never leaves the task. The same
+panel opens from the Subagents tab (delegated tasks and in-turn subagents), an
+agent row in Turn Activity or its agent tree, **View progress** on a subagent
+card in the conversation, and **View** on a composer review.
+
+- The header says where the agent came from (**Sub-agent of <task>**, which
+  brings that task forward and shows the call that started it), its name and
+  state, and one fact row in a fixed order: kind, model, effort, elapsed time
+  (it stops when the agent ends), steps, and context or spend. Unknown facts are
+  left out. While it runs, **Now** names the step it is on. **Stop** and
+  **Open task** appear where the agent offers them; an in-turn subagent is
+  watched, not stopped.
+- The body leads with what the agent was asked, then its steps in the order
+  they started, then its answer. A tool call reads as a sentence
+  (`Reading src/main.tsx`, then `Read src/main.tsx`) with no tool
+  names or JSON; MCP tools read as their own name without the server prefix.
+  Consecutive calls and thoughts fold into one quiet block, and a running or
+  failed step always stays in view. Each row opens to its input and output,
+  read when you open it and cut at 16,000 characters.
+- What the agent said and messages it received stand on their own lines. A
+  subagent it started opens in the same panel; **Back to <agent>** returns.
+- The panel follows new steps while you are at the bottom. Scroll up and it
+  stays put, with a **N new steps** button to jump back down.
+- An in-turn subagent's steps come from its provider's saved transcript (Claude
+  and Codex) when it can be read, refreshed every few seconds while it runs,
+  and otherwise from the calls the parent turn recorded. A delegated task or a
+  review reads its own conversation.
+
+The Agent toggle appears in the rail only while an agent is selected. Closing
+the panel (×) returns to the panel that was open before.
 
 ### Key Controls
 

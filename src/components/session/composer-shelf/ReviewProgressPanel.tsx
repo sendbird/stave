@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { Check, Paperclip, RotateCcw } from "lucide-react";
+import { Check, Paperclip, RefreshCw, RotateCcw } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
 import { sx } from "@/components/aui/utils/stylex";
@@ -44,7 +44,7 @@ export function ReviewProgressPanel(props: {
   const parentTitle = useAppStore((state) => state.tasks.find((task) => task.id === target.parentTaskId)?.title);
   const title = taskTitle?.trim() || i18n.t("composer:shelfReviews.title");
   const { transcript, findings } = useReviewTranscript(item);
-  const { state: revision } = useReviewRevision(item);
+  const { state: revision, refresh: refreshRevision } = useReviewRevision(item);
   const steps = useChildTaskSteps({
     taskId: item.child.delegatedTaskId,
     workspaceId: item.child.delegatedWorkspaceId,
@@ -169,6 +169,11 @@ export function ReviewProgressPanel(props: {
           {i18n.t("composer:shelfReviews.copy7")}
         </Button>
       ) : null}
+      {/* Compares the workspace with what the review covered, now. */}
+      <Button variant="quiet" size="xs" onClick={refreshRevision}>
+        <RefreshCw aria-hidden />
+        {i18n.t("session:agentProgress.panel.refresh")}
+      </Button>
     </>
   );
   return (

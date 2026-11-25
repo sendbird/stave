@@ -1169,7 +1169,8 @@ The agent receives a review's answer only with the message you attach it to.
 ## Delegated tasks
 
 An agent can hand part of its work to another agent. A delegated task is a real task under the parent task.
-The Task panel's **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view activity, open the transcript, or stop it.
+The Task panel's **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view its progress, open the transcript, or stop it.
+**View progress** opens the **Agent** panel in the right rail beside the conversation: where the agent came from, its state and a fact row (kind, model, effort, elapsed time, steps), what it is doing now, then what it was asked, its steps as plain sentences such as `Reading src/main.tsx` and its answer. Consecutive tool calls fold into one block, while running and failed steps stay in view. A subagent it started opens in the same panel with a way back, and the panel follows new steps only while you are at the bottom. Agent rows in Turn Activity, **View progress** on a subagent card in the conversation and **View** on a composer review open the same panel.
 **Needs you** means it asked a question or an approval and waits for a person; **Waiting** means it sits between turns on its own.
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.

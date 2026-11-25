@@ -71,7 +71,7 @@ For a review the composer starts in its own task, start with
 (`delegations:create` → `electron/main/runs/delegated-task-coordinator.ts`).
 The child runs under the read-only delegation posture. Its result returns
 through `src/components/session/composer-shelf/use-shelf-reviews.ts` (rows;
-**View** reuses `ActivityDetailDialog` with `buildReviewExchange`) as a
+**View** opens `ReviewProgressPanel.tsx` in the Agent panel with `buildReviewExchange`) as a
 `task-context` attachment, which the send path reads like any attached task;
 `buildDelegatedTaskReceiptsRetrievedContext` withholds a review child's answer
 unless the message attaches it. Start with `tests/review-task.test.ts`
