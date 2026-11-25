@@ -3,7 +3,7 @@ import { agentRunBrowserRequested } from "./agent-run-browser";
 import { i18n } from "../../../src/i18n/runtime";
 import { buildTarsRunCommand } from "../tars-ownership";
 import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks, unreportedStageCriteria } from "../../../src/lib/agent-runs/acceptance";
-import { mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
+import { describeStageReportReceipt, mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
 import type { RunQuestionAnswer } from "../run-question-answer";
 import { admitWorkspaceCheck } from "./workspace-check-admission";
 import { createStageScriptRunner, type WorkspaceCheckDependencies, type WorkspaceScriptReceipt } from "./agent-run-workspace-script";
@@ -2849,7 +2849,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const artifacts = archived?.artifacts ?? input.artifacts;
         try {
           // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
-          const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
+          const needsRevision = Boolean(record.facts?.workspaceScripts?.length) || input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
           const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
           const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
           const next = applyChange(
@@ -2862,10 +2862,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
               now: now(),
             }),
           );
-          return receipt(
-            next,
-            "Recorded. Stave acts on it when this turn ends, and checks the commands and tool calls you cited against this stage's turns.",
-          );
+          return receipt(next, describeStageReportReceipt(next));
         } catch (error) {
           // A post-commit notification/read failure must not remove pages already recorded.
           const persisted = store.getAggregate(aggregate.agentRun.id)?.stages.find((entry) => entry.stageId === record.stageId && entry.attempt === record.attempt);

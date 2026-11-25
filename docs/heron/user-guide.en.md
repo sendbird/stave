@@ -462,6 +462,8 @@ When Lead or Supervisor delegates work, the brief names the problem, the
 evidence to start from and how the helper can verify the result. An AI
 planning stage defines acceptance criteria that a test, command, rendered
 page or real run can check. Reviewer traces a changed value to its caller. For design rationale, Researcher looks for the decision in the original commit or discussion.
+The stage report distinguishes the scripts that passed on the reported revision from the last independent review. After a second review requests changes, the final repair ends the automatic review cycle.
+
 By default a change to files gets an independent review, with a fix stage
 for findings. The Run checks the assignment's completion criteria at the end.
 Only an AI stage followed by another AI stage may leave criteria it adds for

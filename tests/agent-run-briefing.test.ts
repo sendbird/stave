@@ -35,6 +35,21 @@ function atBuild() {
 }
 
 describe("run briefing", () => {
+  test("the stage and the get tool identify bound checks without guessing a script name", () => {
+    const run = atBuild();
+    expect(describeAgentRunExecutionContext(run)).toContain("No host workspace scripts are bound");
+    const stage = run.agentRun.workflow.stages[1]!;
+    const ids = ["setup", "test"];
+    stage.acceptanceCriteria = [{
+      text: "Validate", required: true, verification: "stave-check", mode: "all",
+      scriptIds: ids, scriptDefinitions: ids.map((scriptId) => ({ scriptId, definitionHash: "a".repeat(64) })),
+    }];
+    for (const line of buildAgentRunBriefing(run).currentStage.workspaceChecks!) {
+      expect(describeAgentRunExecutionContext(run)).toContain(line);
+    }
+    expect(describeAgentRunExecutionContext(run)).toContain("every one must pass");
+  });
+
   test("a stage prompt carries earlier summaries and criteria but no ids", () => {
     const aggregate = atBuild();
     const prompt = compileAgentRunStagePrompt(aggregate);

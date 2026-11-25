@@ -481,6 +481,8 @@ any one may satisfy the criterion (the default carries no `mode`). Script config
 verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on stage retry. A new run, including **Run again**, discards incoming hashes and binds the current host-resolved definitions. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
 Without configured actions, completion remains agent-reported.
 
+Stage context lists the workspace script IDs bound when the run started, or says that none are bound. The report receipt identifies passing host scripts on the reported revision and, during review and repair, the pinned independent review and its verdict. A clean tested tree can be identified by commit. The host decides the transition after the turn ends. After the second review, a final repair receives no third automatic review.
+
 The agent calls `stave_run_workspace_script({ scriptId })` before reporting.
 Stave runs the configured action, records its exit status, duration, bounded
 output, the definition hash, the executed commands and before/after revisions on that stage, and displays the host check

@@ -1,3 +1,4 @@
+import { describeStageReportReceipt } from "../src/lib/agent-runs/review-finalization";
 import { expect, test } from "bun:test";
 import { buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
 import { createStageRecord, EMPTY_STAGE_FACTS } from "../src/lib/agent-runs/domain";
@@ -127,6 +128,9 @@ test("a re-review that still asks changes gets one more repair, and the run then
   const firstReview = aggregate.stages[1]!;
   aggregate.stages.splice(2, 0, { ...firstReview, attempt: 2, startHeadSha: "c".repeat(40) });
   expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+  const receipt = describeStageReportReceipt(aggregate);
+  expect(receipt).toContain("No further independent review is scheduled");
+  expect(receipt).toContain(`changes-requested; pinned commit: ${"c".repeat(40)}`);
 });
 
 test.each(["unchanged-repair", "review-passed", "review-sign-off"])("a repair finishes the run without a re-review when %s", (boundary) => {

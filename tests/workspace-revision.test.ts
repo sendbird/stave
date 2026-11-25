@@ -56,6 +56,8 @@ test("content identity survives staging and a real commit while strict revisions
   const committed = await readWorkspaceRevision(h.cwd);
   expect(index()).toEqual(committedIndex);
   if (dirty.status !== "known" || staged.status !== "known" || committed.status !== "known") throw new Error("Expected known revisions");
+  expect(dirty.cleanCommit).toBeUndefined();
+  expect(committed.cleanCommit).toMatch(/^[0-9a-f]{40,64}$/);
   expect(dirty.contentRevision).toBeDefined();
   expect(staged.contentRevision).toBe(dirty.contentRevision);
   expect(committed.contentRevision).toBe(dirty.contentRevision);

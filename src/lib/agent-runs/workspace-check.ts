@@ -20,6 +20,12 @@ function checkScriptIds(scriptIds?: readonly string[], definitions?: readonly Fr
   return scriptIds?.length ? [...scriptIds] : (definitions ?? []).map((definition) => definition.scriptId);
 }
 
+/** Definitions admitted for normal AI stages, shared by the brief and host runner. */
+export function admittedWorkspaceScripts(workflow: Workflow): FrozenWorkspaceScript[] {
+  return workflow.stages.flatMap((stage) => stage.kind === "ai" || stage.action.type === "run-script"
+    ? (stage.acceptanceCriteria ?? []).flatMap((criterion) => criterion.scriptDefinitions ?? []) : []);
+}
+
 /** Explicit checks are bound regardless of whether this agent gets a default. */
 export function freezeWorkspaceChecks(workflow: Workflow, scripts: readonly FrozenWorkspaceScript[]): Workflow {
   const definitions = [...scripts].sort((left, right) => left.scriptId < right.scriptId ? -1 : left.scriptId > right.scriptId ? 1 : 0);

@@ -154,9 +154,9 @@ const TARS_WORK_CHECKS = "While working, run the narrowest checks that cover wha
 const TARS_OWNER_WORK_CHECKS = "While working, run the narrowest checks that cover what changed. After committing, run final checks in the reporting turn via `stave_run_workspace_script` when configured; skip only checks you ran on this revision in this reporting turn that Stave recorded.";
 
 // i18n-ignore: model-facing instructions
-const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: run them yourself as lead in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured. Rerun helper checks; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
+const TARS_FIX_CHECKS = "Commit your fix first, then run the full checks once on that final commit: run them yourself as lead in the same turn you report, through `stave_run_workspace_script` for script IDs bound to this run. Rerun helper checks; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
 // i18n-ignore: model-facing instructions
-const TARS_OWNER_FIX_CHECKS = "Fix them yourself in this task. Commit your fix first, then run the full checks once on that final commit in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
+const TARS_OWNER_FIX_CHECKS = "Fix them yourself in this task. Commit your fix first, then run the full checks once on that final commit in the same turn you report, through `stave_run_workspace_script` for script IDs bound to this run; skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. A commit after a check makes it stale.";
 
 // i18n-ignore: model-facing report instructions
 const TARS_REPORT_STYLE = "Summary in the user's language, at most two plain sentences: what changed for the user and what is left. Put commit ranges, commands and file lists in evidence, not the summary.";

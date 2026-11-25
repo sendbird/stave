@@ -2,6 +2,7 @@ import { REVIEW_AGENT_ID } from "../agents/review-before-done";
 import { unmetInheritedWorkspaceChecks } from "./acceptance";
 import { collectAcceptanceCriteria } from "./briefing";
 import { currentStageRecord, type AgentRun, type AgentRunAggregate } from "./domain";
+import { admittedWorkspaceScripts, latestWorkspaceScriptResults } from "./workspace-check";
 import { revisionsMatch } from "./verification-contract";
 
 /** Completed reviews a "Review before done" run gets: the first one and one re-review of its fix. */
@@ -30,6 +31,38 @@ export function reReviewStageIndex(aggregate: AgentRunAggregate): number | null 
     (facts?.workspaceRevision?.status === "known" && latest.report.workspaceRevision?.status === "known" &&
       !revisionsMatch(latest.report.workspaceRevision, facts.workspaceRevision));
   return changed ? index - 1 : null;
+}
+
+/** Facts available when the report is recorded, before end-of-turn policy runs. */
+export function describeStageReportReceipt(aggregate: AgentRunAggregate): string {
+  const { agentRun, stages } = aggregate;
+  const current = currentStageRecord(aggregate);
+  const revision = current.report?.outcome === "complete" ? current.report.workspaceRevision : undefined;
+  const definitions = admittedWorkspaceScripts(agentRun.workflow);
+  const passed = latestWorkspaceScriptResults(current).filter((check) =>
+    check.exitCode === 0 && revisionsMatch(check.verification.sourceRevision, revision) &&
+    revisionsMatch(check.verification.completedRevision, revision) &&
+    definitions.some((entry) => entry.scriptId === check.scriptId && entry.definitionHash === check.definitionHash));
+  const stage = agentRun.workflow.stages[agentRun.currentStageIndex];
+  const reviewStage = stage?.kind === "ai" && stage.skipIfReviewPassed
+    ? agentRun.workflow.stages[agentRun.currentStageIndex - 1] : stage;
+  const reviews = reviewStage?.kind === "ai" && reviewStage.agentConfigId === REVIEW_AGENT_ID && reviewStage.pinCommit
+    ? stages.filter((record) => record.stageId === reviewStage.id && record.report?.outcome === "complete" && record.report.reviewVerdict)
+    : [];
+  const review = reviews.at(-1);
+  const lines = ["Recorded. The host checks the cited evidence and chooses the next step after this turn ends. No transition is scheduled by this receipt."];
+  if (passed.length && revision?.status === "known") {
+    lines.push(`Host checks passed on ${revision.cleanCommit ? "commit " + revision.cleanCommit : "workspace revision " + revision.revision}: ${JSON.stringify(passed.map((check) => check.scriptId))}.`);
+  } else {
+    lines.push("No matching host script pass for this stage's report revision. Cite direct checks separately.");
+  }
+  if (review?.report?.outcome === "complete") {
+    lines.push(`Latest independent review report: ${review.report.reviewVerdict}; pinned commit: ${review.startHeadSha ?? "unknown"}.`);
+    if (stage?.kind === "ai" && stage.skipIfReviewPassed && reviews.length >= MAX_REVIEW_ROUNDS) {
+      lines.push("The automatic review limit has been reached. No further independent review is scheduled.");
+    }
+  }
+  return lines.join(" ");
 }
 
 /** What the re-review checks: the fix since the reviewed commit, against the earlier findings. */

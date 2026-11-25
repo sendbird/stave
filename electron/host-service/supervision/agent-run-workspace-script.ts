@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { i18n } from "../../../src/i18n/runtime";
 import { AGENT_RUN_LIMITS, AgentRunCommandError, currentStageRecord, EMPTY_STAGE_FACTS, workflowStageAt, type AgentRunAggregate, type AgentRunChange } from "../../../src/lib/agent-runs/domain";
-import { scriptVerificationProblem } from "../../../src/lib/agent-runs/workspace-check";
+import { admittedWorkspaceScripts, scriptVerificationProblem } from "../../../src/lib/agent-runs/workspace-check";
 import { inheritedWorkspaceCheckCriteria } from "../../../src/lib/agent-runs/briefing";
 import { WORKSPACE_SCRIPT_TIMEOUT_MS, type FrozenWorkspaceScript, type ScriptVerification } from "../../../src/lib/agent-runs/verification-contract";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
@@ -79,8 +79,7 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
         if (!script) return refuse(`Unknown workspace action script: ${input.scriptId}.`);
         const definitions = current.repair
           ? inheritedWorkspaceCheckCriteria(current.aggregate).flatMap((criterion) => criterion.scriptDefinitions ?? [])
-          : current.aggregate.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" || stage.action.type === "run-script"
-            ? (stage.acceptanceCriteria ?? []).flatMap((criterion) => criterion.scriptDefinitions ?? []) : []);
+          : admittedWorkspaceScripts(current.aggregate.agentRun.workflow);
         const frozen = definitions.find((entry) => entry.scriptId === input.scriptId);
         if (!frozen) return refuse(`Script ${input.scriptId} has no definition frozen at admission. Start a new run with a readable workspace revision.`);
         if (script.definitionHash !== frozen.definitionHash) return refuse(`Script ${input.scriptId} definition changed after this run started. Restore the admitted definition or start a new run.`);

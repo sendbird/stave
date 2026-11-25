@@ -33,7 +33,7 @@ import { AGENT_RUN_PLAN_INSTRUCTION, hasAgentOrigin } from "./agent-run";
 import { agentRunTurnAssignment } from "./initial-context";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { currentEventWait, type AgentRunEventWait } from "./event-wait";
-import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckMode, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
+import { admittedWorkspaceScripts, inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckMode, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
 import type { EventWaitWake } from "./event-wait-observe";
 import type { StageTurnReason } from "./policy";
 import { revisionsMatch } from "./verification-contract";
@@ -191,6 +191,18 @@ export function inheritedWorkspaceCheckCriteria(aggregate: AgentRunAggregate): W
   return [...inheritedWorkspaceChecks(aggregate)].filter(([text]) => required.has(text)).map(([, check]) => check.criterion);
 }
 
+function describeAdmittedChecks(aggregate: AgentRunAggregate): string[] {
+  const { workflow, currentStageIndex } = aggregate.agentRun;
+  const stage = workflow.stages[currentStageIndex];
+  if (stage?.kind !== "ai") return [];
+  const ids = [...new Set(admittedWorkspaceScripts(workflow).map((entry) => entry.scriptId))];
+  if (!ids.length) return ["No host workspace scripts are bound to this run. Run relevant project checks directly and cite their individual results."];
+  return [
+    `Workspace script IDs bound at admission: ${JSON.stringify(ids)}. Report only the checks that actually passed.`,
+    ...(stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction),
+  ];
+}
+
 /** Execution feedback shared by every role, for routing and strategy decisions. */
 export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): string {
   const { agentRun } = aggregate;
@@ -201,7 +213,7 @@ export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): 
     "Choose the next approach from the current evidence. Continue directly for small work; delegate bounded independent work only when authorized and useful. Review helper results before accepting them. After a failed approach, diagnose it before retrying or changing resources. Respect fixed models, role access and spending limits. Ask only for missing decisions or authority; never treat a clarification as an answer. Complete only when the required outcome is supported by evidence.",
     `Current stage: ${stage.title} (${stage.kind}), attempt ${record.attempt}, status ${record.status}.`,
     stage.kind === "ai" ? `Required outcome: ${stage.doneWhen}` : `Action: ${stage.action.type}`,
-    ...(stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction) : []),
+    ...describeAdmittedChecks(aggregate),
     ...(wait?.status === "waiting"
       ? [`Active event wait: ${wait.kind}${wait.target ? ` on ${wait.target}` : ""}, woke ${wait.wakes} of ${wait.maxWakes} times, expires ${wait.expiresAt}. Calling \`${AGENT_RUN_TOOL_NAMES.wait}\` again replaces it.`]
       : []),
@@ -354,7 +366,7 @@ export function buildAgentRunBriefing(aggregate: AgentRunAggregate): AgentRunBri
       title: current.title,
       instruction: current.kind === "ai" ? current.instruction : null,
       doneWhen: current.kind === "ai" ? current.doneWhen : null,
-      ...(current.kind === "ai" ? { workspaceChecks: (current.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction) } : {}),
+      ...(current.kind === "ai" ? { workspaceChecks: describeAdmittedChecks(aggregate) } : {}),
       attempt: record.attempt,
       feedback: record.feedback,
     },
