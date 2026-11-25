@@ -36,6 +36,8 @@ import {
   loadFleetInteraction,
 } from "@/lib/fleet/interaction-load";
 import { fleetInteractionOutlivesTurn } from "@/lib/fleet/interaction-respond";
+import { fleetAnswerNotice } from "@/lib/fleet/answer-outcome";
+import { toast } from "@/lib/notifications/toast";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import { isTaskManaged } from "@/lib/tasks";
@@ -403,6 +405,13 @@ export function FleetTaskControlPanel(args: {
   // its recorded state says how it ended — or the delivery guard passes, so a
   // delivery that failed silently can be retried.
   const [sentRequestId, setSentRequestId] = useState<string | null>(null);
+  // A user-input answer whose outcome is still out; its outcome, not the card, says it was delivered.
+  const awaitingOutcome = useRef<string | null>(null);
+  const panelOpen = useRef(true);
+  useEffect(() => {
+    panelOpen.current = true;
+    return () => { panelOpen.current = false; };
+  }, []);
   useEffect(() => {
     if (!sentRequestId) {
       return;
@@ -431,6 +440,7 @@ export function FleetTaskControlPanel(args: {
         : recorded?.type === "user_input"
           ? recorded.state === "input-interrupted"
           : true;
+    if (!interrupted && awaitingOutcome.current === sentRequestId) return;
     setSentRequestId(null);
     setBusyAction(null);
     setStatus(
@@ -497,18 +507,30 @@ export function FleetTaskControlPanel(args: {
           : {}),
       });
     } else {
+      awaitingOutcome.current = expected.requestId;
+      const settle = (outcome: Parameters<typeof fleetAnswerNotice>[0]) => {
+        if (awaitingOutcome.current === expected.requestId) awaitingOutcome.current = null;
+        const notice = fleetAnswerNotice(outcome, panelOpen.current);
+        const earlierText = i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered");
+        if (notice.kind === "earlier" && notice.via === "toast") toast.info(earlierText);
+        if (notice.kind === "none" || (notice.kind === "earlier" && notice.via === "toast")) return;
+        setSentRequestId(null);
+        setBusyAction(null);
+        setStatus(notice.kind === "earlier"
+          ? { tone: "neutral", text: earlierText }
+          : notice.kind === "failed"
+            ? { tone: "error", text: notice.message }
+            : notice.kind === "changed"
+              ? { tone: "neutral", text: tI18n("fleet:fleetTaskControlPanel.theRequestChangedDeliveryCannotBeConfirmed") }
+              : { tone: "success", text: tI18n("fleet:fleetTaskControlPanel.responseDeliveredTheTaskCanContinue") });
+      };
       void resolveUserInput({
         taskId: args.target.taskId,
         messageId: validation.messageId,
         requestId: expected.requestId,
         answers: input.answers,
         denied: input.denied,
-      }).then((outcome) => {
-        // An earlier answer to the same delegated question went out instead of this one.
-        if (outcome.status === "delivered" && outcome.earlierAnswer) {
-          setStatus({ tone: "neutral", text: i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered") });
-        }
-      });
+      }).then(settle, (error: unknown) => settle({ status: "failed", message: String(error) }));
     }
     setSentRequestId(expected.requestId);
   };
