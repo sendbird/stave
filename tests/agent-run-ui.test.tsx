@@ -110,6 +110,16 @@ describe("agent run status line", () => {
 });
 
 describe("agent run result card", () => {
+  test("a passing review leaves work, checks and review together at the end of the conversation", () => {
+    const html = card(runs.reviewed);
+    expect(html).toContain("Replaced the fixed minimum width with a scroll container");
+    expect(html).toContain("7 files");
+    expect(html).toContain("bun run typecheck");
+    expect(html).toContain("Review passed");
+    expect(html).toContain("The layout and keyboard navigation hold");
+    expect(html).not.toContain("Fix review findings</strong>");
+  });
+
   test("a ready run closes the conversation with its result", () => {
     const html = card(runs.ready);
     expect(html).toContain('data-testid="agent-run-result"');

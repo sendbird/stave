@@ -464,6 +464,10 @@ Only an AI stage followed by another AI stage may leave criteria it adds for
 later stages. The stage before a Stave action must meet the criteria it adds.
 Each stage still reports its result and meets its own configured requirements.
 
+The result card at the end of the task conversation shows what the run did,
+including the original work, any repair, the latest review outcome and the
+checks Stave confirmed on the final revision.
+
 You can define stages for a custom agent. A stage is either an AI stage (an instruction plus done-when) or a Stave action: Open draft PR, Watch checks, Ready for review, or Run script.
 
 An Agent send uses Claude or Codex. For another provider, Stave keeps the draft and asks you to switch models or choose Chat before sending. The run receives long requests in full and saves the first 8,000 characters as its assignment in Run history.

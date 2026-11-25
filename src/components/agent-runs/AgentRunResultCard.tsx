@@ -39,7 +39,17 @@ export function AgentRunOutcome(props: { result: AgentRunResult; actions?: Agent
           {result.pullRequest ? <span>{i18n.t("agentRuns:agentRunResultCard.agentRunOutcome")}{result.pullRequest.number}</span> : null}
         </p>
       ) : null}
-      {result.summary ? <p className={sx(styles.summary)}>{result.summary}</p> : null}
+      {result.summaries.map(({ stageId, title, text, reviewVerdict }) => (
+        <p key={stageId} className={sx(styles.summary)}>
+          {result.summaries.length > 1 ? <><strong>{title}</strong><br /></> : null}
+          {reviewVerdict ? (
+            <><span className={sx(styles.headlineMeta)}>{i18n.t(reviewVerdict === "passed"
+              ? "agentRuns:agentRunResultCard.reviewPassed"
+              : "agentRuns:agentRunResultCard.reviewChangesRequested")}</span><br /></>
+          ) : null}
+          {text}
+        </p>
+      ))}
       {result.pullRequest && actions.onOpenPullRequest ? (
         <div className={sx(styles.actions)}>
           <Button size="xs" variant="secondary" onClick={() => actions.onOpenPullRequest!(result.pullRequest!.url)}>
@@ -90,11 +100,11 @@ export function AgentRunResultCardView(props: {
       </div>
       {ready ? (
         <>
+          <AgentRunOutcome result={result} actions={actions} />
           <div className={sx(styles.group)}>
             <p className={sx(agentRunStyles.groupLabel)}>{i18n.t("agentRuns:agentRunResultCard.agentRunResultCardView")}</p>
             <AgentRunDoneWhen lines={result.doneWhen} staveChecks={result.staveChecks} />
           </div>
-          <AgentRunOutcome result={result} actions={actions} />
         </>
       ) : (
         <>

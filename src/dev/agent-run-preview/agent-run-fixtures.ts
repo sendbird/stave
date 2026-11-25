@@ -1,7 +1,7 @@
 import { LEGACY_DEBUGGER_STAGES } from "@/dev/fixtures/legacy-workflow-starters";
-import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
+import { buildAgentRunStartInput, buildAgentRunWorkflow } from "@/lib/agent-runs/agent-run";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { createAgentRun, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
+import { createAgentRun, createStageRecord, EMPTY_STAGE_FACTS, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
 import { buildAgentRunReport } from "@/lib/agent-runs/report";
 
 /**
@@ -129,6 +129,38 @@ export function buildAgentRunFixtures(start: Date) {
     },
   });
   const ready = ended(detail({ state: "completed", updatedAt: at(23) }, readyRecord), at(23));
+  const reviewedWorkflow = buildAgentRunWorkflow({
+    agent: { name: "Supervisor", permission: "auto", reviewBeforeDone: "always" },
+    now: start,
+  });
+  const reviewRecord: AgentRunStageRecord = {
+    ...createStageRecord({ agentRunId: ready.agentRun.id, stageId: "review", attempt: 1 }),
+    status: "completed",
+    startedAt: at(24),
+    endedAt: at(25),
+    reportRevision: 1,
+    report: {
+      outcome: "complete",
+      summary: "The layout and keyboard navigation hold on the reviewed commit.",
+      reviewVerdict: "passed",
+      decisions: [],
+      evidence: [],
+      artifacts: [],
+      reportedAt: at(25),
+      turnId: "review-turn",
+      workspaceRevision: revision,
+    },
+    facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: revision },
+  };
+  const reviewed = ended({
+    ...ready,
+    agentRun: { ...ready.agentRun, workflow: reviewedWorkflow, currentStageIndex: 2, updatedAt: at(25) },
+    stages: [
+      ready.stages[0]!,
+      reviewRecord,
+      { ...createStageRecord({ agentRunId: ready.agentRun.id, stageId: "fix-review", attempt: 1 }), status: "skipped", endedAt: at(25) },
+    ],
+  }, at(25));
   const failed = detail(
     {
       state: "stopped",
@@ -193,6 +225,7 @@ export function buildAgentRunFixtures(start: Date) {
     blocked,
     stuck,
     ready,
+    reviewed,
     failed: ended(failed, at(41)),
     stopped,
     workflow,

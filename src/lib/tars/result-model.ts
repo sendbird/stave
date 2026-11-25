@@ -127,7 +127,8 @@ export function projectTarsResult(args: {
   const review = projectTarsReview(run);
   const reviewed = reviewVerifies(row, run, review);
   const files = tarsRecordedChangeCount(run);
-  const lines = describeAgentRunChanges(run);
+  const diff = describeAgentRunChanges(run);
+  const lines = diff && diff.files === files ? { insertions: diff.insertions, deletions: diff.deletions } : null;
   return {
     outcome,
     durationMs: agentRunClockRunning(run) ? null : agentRunElapsedMs(run, args.now ?? Date.now()),
@@ -137,7 +138,7 @@ export function projectTarsResult(args: {
     staveChecks: [...new Set(report.evidenceGroups.flatMap((group) => group.evidence)
       .filter((item) => item.verified && item.freshness === "current")
       .map((item) => (item.evidence.scriptId ?? item.evidence.command ?? item.evidence.label).trim()).filter(Boolean))],
-    changes: files === 0 ? null : { files, lines: lines ? { insertions: lines.insertions, deletions: lines.deletions } : null },
+    changes: files === 0 ? null : { files, lines },
     review: review && (review.verdict || review.findings.length || review.blocked)
       ? { verdict: review.verdict, findings: review.findings.length, blocked: Boolean(review.blocked) } : null,
     summary: report.summary,

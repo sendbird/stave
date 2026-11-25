@@ -157,7 +157,9 @@
     "agentRunOutcome3": "PR 열기",
     "agentRunResultCardView": "완료 조건",
     "agentRunResultCardView2": "다시 시도",
-    "agentRunResultCardView3": "직접 제어"
+    "agentRunResultCardView3": "직접 제어",
+    "reviewPassed": "리뷰 통과",
+    "reviewChangesRequested": "리뷰에서 수정 요청"
   },
   "agentRunSubagents": {
     "ariaLabel": "하위 에이전트",

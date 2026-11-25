@@ -150,8 +150,16 @@ describe("agent run result", () => {
     actionRecord.facts = { ...actionRecord.facts!, workspaceRevision: revision, action: { type: "run-script", scriptId: "check", exitCode: 1, outputTail: "failed", verification: { sourceRevision: revision, completedRevision: revision } } };
     run.stages = [firstRecord, actionRecord];
     expect(label()).toBe("Not verified");
+    expect(describeAgentRunResult(run, NOW).staveChecks).not.toContain("check");
     actionRecord.facts = { ...actionRecord.facts, action: { ...actionRecord.facts.action!, exitCode: 0 } as typeof actionRecord.facts.action };
     expect(label()).toBe("Met · checked by Stave");
+    expect(describeAgentRunResult(run, NOW)).toMatchObject({
+      staveChecks: ["check"],
+      summaries: [
+        { stageId: "build", text: expect.stringContaining("scroll container") },
+        { stageId: "verify", text: expect.stringContaining("check") },
+      ],
+    });
   });
 
   test("a run that reported no criteria shows the assignment's own line", () => {
@@ -165,8 +173,21 @@ describe("agent run result", () => {
     expect(result.duration).toBe("23m");
     expect(result.changes).toEqual({ files: 7, insertions: 184, deletions: 32 });
     expect(result.pullRequest).toEqual({ url: "https://github.com/acme/app/pull/612", number: 612 });
-    expect(result.summary).toContain("scroll container");
+    expect(result.summaries[0]?.text).toContain("scroll container");
     expect(result.spent).not.toBeNull();
+  });
+
+  test("keeps earlier stage results but excludes a check from a different revision", () => {
+    const reviewed = runs.reviewed;
+    const stale = {
+      ...reviewed,
+      stages: reviewed.stages.map((record) => record.stageId === "review" && record.facts
+        ? { ...record, facts: { ...record.facts, workspaceRevision: { status: "known" as const, revision: "rev-2" } } }
+        : record),
+    };
+    const result = describeAgentRunResult(stale, NOW);
+    expect(result.summaries.map((stage) => stage.stageId)).toEqual(["work", "review"]);
+    expect(result.staveChecks).not.toContain("bun run typecheck");
   });
 
   test("a run with no diff or pull request reports neither", () => {
