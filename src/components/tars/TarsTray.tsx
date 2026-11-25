@@ -1,3 +1,4 @@
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { TarsCleanupEntry } from "./TarsBatchCard";
 import { ReportArtifactLink } from "@/components/agent-runs/ReportArtifactLink";
 import { isLocalPreviewUrl, savedHtmlReference } from "@/lib/agent-runs/artifacts";
@@ -42,6 +43,7 @@ export interface TarsTrayActions {
   /** Opens the work's task, or the task a request waits in (`request`: a helper's task, in the workspace it runs in). */
   onOpenTask: (row: TarsResponsibility, request?: { taskId: string; workspaceId: string }) => void;
   /** Shows the work's waiting decision card in the conversation, where it is answered; absent, such a card offers Open task. */
+  onViewProgress?: (row: TarsResponsibility, run: AgentRunDetail) => void;
   onAnswer?: (row: TarsResponsibility) => void;
   onShowInFleet: (target: FleetFocusTarget) => void;
   /** Opens the side view; absent where there is none (a card then has no report, request or timeline link). */

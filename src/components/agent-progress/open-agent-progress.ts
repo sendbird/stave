@@ -13,6 +13,7 @@ interface ParentTask {
   /** The task whose turn started the agent. */
   taskId: string;
   workspaceId?: string;
+  repositoryPath?: string;
 }
 
 /** A delegation exchange from any list: a delegated task or an in-turn subagent. */
@@ -24,6 +25,7 @@ export function openExchangeProgress(args: ParentTask & { exchange: DelegationEx
       parentTaskId: args.taskId,
       ...(args.workspaceId ? { parentWorkspaceId: args.workspaceId } : {}),
       delegationKey: exchange.ref.delegationKey,
+      repositoryPath: args.repositoryPath,
       ...(exchange.ref.delegatedTaskId ? { delegatedTaskId: exchange.ref.delegatedTaskId } : {}),
       ...(exchange.ref.delegatedWorkspaceId ? { delegatedWorkspaceId: exchange.ref.delegatedWorkspaceId } : {}),
       title: exchange.title,
@@ -33,6 +35,7 @@ export function openExchangeProgress(args: ParentTask & { exchange: DelegationEx
   }
   openAgentProgress({
     kind: "subagent",
+    repositoryPath: args.repositoryPath,
     parentTaskId: args.taskId,
     ...(args.workspaceId ? { parentWorkspaceId: args.workspaceId } : {}),
     ...(exchange.ref.toolUseId ? { toolUseId: exchange.ref.toolUseId } : {}),
@@ -54,6 +57,7 @@ export function openWorkGraphAgentProgress(args: ParentTask & { node: AgentNode;
       parentTaskId: args.taskId,
       ...(args.workspaceId ? { parentWorkspaceId: args.workspaceId } : {}),
       delegationKey: node.delegationKey,
+      repositoryPath: args.repositoryPath,
       ...(node.delegatedTaskId ? { delegatedTaskId: node.delegatedTaskId } : {}),
       title,
     });
@@ -61,6 +65,7 @@ export function openWorkGraphAgentProgress(args: ParentTask & { node: AgentNode;
   }
   openAgentProgress({
     kind: "subagent",
+    repositoryPath: args.repositoryPath,
     parentTaskId: args.taskId,
     ...(args.workspaceId ? { parentWorkspaceId: args.workspaceId } : {}),
     nodeKey: node.key,
@@ -75,6 +80,7 @@ export function openWorkGraphAgentProgress(args: ParentTask & { node: AgentNode;
 export function openSubagentCallProgress(args: ParentTask & { toolUseId: string; title: string; providerId?: ProviderId }) {
   openAgentProgress({
     kind: "subagent",
+    repositoryPath: args.repositoryPath,
     parentTaskId: args.taskId,
     ...(args.workspaceId ? { parentWorkspaceId: args.workspaceId } : {}),
     toolUseId: args.toolUseId,

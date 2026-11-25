@@ -1,3 +1,4 @@
+import { AgentLine } from "@/components/aui/components/AgentSummary";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { memo, useId, useState, type ReactNode } from "react";
@@ -74,6 +75,61 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
     props.onToggle?.(next);
   };
 
+  const mark = (
+    <span className={sx(styles.rowStatusSlot)}>
+      <StateMark
+        state={exchangeStatusToWorkState(exchange.outcome.status)}
+        size="md"
+        label={status.label}
+      />
+    </span>
+  );
+  const title = (
+    <span className={sx(styles.rowTitleLine)}>
+      <span
+        className={sx(
+          styles.rowTitle,
+          props.expandCopy && styles.rowTitleExpanded,
+          !props.resultFirst && exchange.outcome.status === "returned" && styles.rowTitleDone,
+        )}
+      >
+        {exchange.title}
+      </span>
+      <ExchangeIdentity compact={!props.resultFirst} exchange={exchange} />
+    </span>
+  );
+  const activity = (
+    <span
+      className={sx(
+        styles.rowAsk,
+        props.expandCopy && styles.rowAskExpanded,
+      )}
+    >
+      {props.preview ?? exchange.ask}
+    </span>
+  );
+  const facts = (
+    <span className={sx(styles.rowAside)}>
+      {elapsedMs !== null ? (
+        <span className={sx(styles.rowElapsed)}>
+          <VisuallyHidden>
+            {status.label}, {formatDuration(elapsedMs, { tenths: true })} {i18n.t("agentRuns:exchangeRow.exchangeRow")}</VisuallyHidden>
+          <span aria-hidden="true">{formatDuration(elapsedMs, { tenths: true })}</span>
+        </span>
+      ) : null}
+      {deadline ? (
+        <span
+          className={sx(
+            styles.rowDeadline,
+            deadline.passed && styles.rowDeadlinePassed,
+          )}
+        >
+          {deadline.label}
+        </span>
+      ) : null}
+    </span>
+  );
+
   return (
     <div
       className={sx(styles.row, expanded && styles.rowExpanded)}
@@ -87,7 +143,6 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
         layout="host"
         type="button"
         aria-expanded={props.onInspect ? undefined : expanded}
-        aria-haspopup={props.onInspect ? "dialog" : undefined}
         aria-controls={props.onInspect ? undefined : detailId}
         xstyle={[
           surfaceChrome.quietIconButton,
@@ -98,58 +153,16 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
         title={`${exchange.title} · ${status.label} — ${exchange.ask}`}
         onClick={() => props.onInspect ? props.onInspect(exchange) : toggle()}
       >
-        <span className={sx(styles.rowStatusSlot)}>
-          <StateMark
-            state={exchangeStatusToWorkState(exchange.outcome.status)}
-            size="md"
-            label={status.label}
-          />
-        </span>
-        <span className={sx(styles.rowBody)}>
-          <span className={sx(styles.rowTitleLine)}>
-            <span
-              className={sx(
-                styles.rowTitle,
-                props.expandCopy && styles.rowTitleExpanded,
-                !props.resultFirst && exchange.outcome.status === "returned" && styles.rowTitleDone,
-              )}
-            >
-              {exchange.title}
-            </span>
-            <ExchangeIdentity compact={!props.resultFirst} exchange={exchange} />
-          </span>
-          <span
-            className={sx(
-              styles.rowAsk,
-              props.expandCopy && styles.rowAskExpanded,
-            )}
-          >
-            {props.preview ?? exchange.ask}
-          </span>
-        </span>
-        <span className={sx(styles.rowAside)}>
-          {elapsedMs !== null ? (
-            <span className={sx(styles.rowElapsed)}>
-              <VisuallyHidden>
-                {status.label}, {formatDuration(elapsedMs, { tenths: true })} {i18n.t("agentRuns:exchangeRow.exchangeRow")}</VisuallyHidden>
-              <span aria-hidden="true">{formatDuration(elapsedMs, { tenths: true })}</span>
-            </span>
-          ) : null}
-          {deadline ? (
-            <span
-              className={sx(
-                styles.rowDeadline,
-                deadline.passed && styles.rowDeadlinePassed,
-              )}
-            >
-              {deadline.label}
-            </span>
-          ) : null}
-        </span>
-        {expanded ? (
-          <ChevronDown className={sx(styles.rowChevron)} aria-hidden="true" />
+        {props.onInspect ? (
+          <AgentLine stacked status={mark} title={title} activity={activity} facts={facts}
+            actions={<ChevronRight className={sx(styles.rowChevron)} aria-hidden="true" />} />
         ) : (
-          <ChevronRight className={sx(styles.rowChevron)} aria-hidden="true" />
+          <>
+            {mark}
+            <span className={sx(styles.rowBody)}>{title}{activity}</span>
+            {facts}
+            {expanded ? <ChevronDown className={sx(styles.rowChevron)} aria-hidden="true" /> : <ChevronRight className={sx(styles.rowChevron)} aria-hidden="true" />}
+          </>
         )}
       </AuiButton>
       {expanded ? (

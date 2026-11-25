@@ -18,6 +18,7 @@ import { panelBarStyles } from "@/components/layout/panel-bar.constants";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
+import { openAgentProgress } from "@/store/agent-progress-panel-store";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { openFleetAt } from "@/store/fleet-focus-store";
 import { publishTarsSnapshot } from "@/store/tars-snapshot-store";
@@ -350,6 +351,10 @@ function TarsViewContent() {
     void api.updateIdentity({ name: snapshot.identity.name, instructions: t("shell:tars.instructionsDefault") }).then(publishTarsSnapshot).catch(() => undefined);
   }, [api, settingsRead, snapshot, t]);
   const trayActions: TarsTrayActions = { busy, onFollowUp: (row) => controller.current?.selectWork(row.id), onAct: (row, operation) => void act(row, operation), onConfirm: confirmDecision,
+    onViewProgress: (row, run) => {
+      setTrayPopoverOpen(false);
+      openAgentProgress({ kind: "tars", runId: run.agentRun.id, snapshot: run, title: row.title });
+    },
     onOpenTask: (row, request) => { if (request) openRequestTask({ responsibilityId: row.id, ...request }); else void open(row); }, onAnswer: (row) => { setTrayPopoverOpen(false); controller.current?.showDecision(row.id); }, onShowInFleet: openFleetAt, onOpenSide: openSide, onPublish: openPublish,
     ...(api?.reprioritize ? { onMove: (row: TarsResponsibility, move: TarsQueueMove, source: TarsQueueMoveSource) => void moveInQueue(row, move, source) } : {}) };
   // "No work" only after a successful read; before it, or after a failed one, the tray says which.

@@ -15,7 +15,7 @@ function toStep(entry: ExternalProgressEntry): AgentStep {
     // A call without its result proves only what was observed.
     return { id, kind: "note", doing, done: doing, text: doing, status: "done" };
   }
-  return { id, kind: "tool", doing, done, status: entry.status };
+  return { id, kind: "tool", doing, done, status: entry.status, startedAt: entry.startedAt, durationMs: entry.durationMs };
 }
 
 export function ExternalProgressPanel({ session, agent, onClose }: {

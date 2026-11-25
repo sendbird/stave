@@ -677,7 +677,7 @@ no Undo. Clearing keeps its separate Undo.
   opens lanes **Needs you**, **In progress**, **Done** and **Outputs**. Each
   card reads in three lines (its title, one sentence, its state with one
   action); its title opens the detail with everything else (see
-  [Work cards](#work-cards-and-the-while-you-were-away-summary)).
+  [Work cards](#work-cards-and-the-while-you-were-away-summary)). When the card has an Agent run, **View progress** opens its turns and stage progress in the Agent panel.
 - **While you were away**: when you return after ten minutes or more, one
   summary card sits in the conversation where you left.
 - **Side view**: **Request**, **Report**, **Changes**, **Timeline** and **Review** of one

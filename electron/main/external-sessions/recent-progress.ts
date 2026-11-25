@@ -18,14 +18,17 @@ export class RecentProgress {
     if (text) this.append({ id: ++this.sequence, kind, text });
   }
 
-  tool(action: ExternalAction, callId?: unknown) {
-    if (this.enabled) this.append({ id: ++this.sequence, kind: "tool", action, status: "called" }, callId);
+  tool(action: ExternalAction, callId: unknown, startedAt?: number) {
+    if (this.enabled) this.append({ id: ++this.sequence, kind: "tool", action, status: "called", startedAt }, callId);
   }
 
-  finish(callId: unknown, failed: boolean) {
+  finish(callId: unknown, failed: boolean, endedAt?: number) {
     if (!this.enabled || typeof callId !== "string") return;
     const row = this.rows.findLast((item) => item.callId === callId);
-    if (row?.entry.kind === "tool") row.entry = { ...row.entry, status: failed ? "error" : "done" };
+    if (row?.entry.kind !== "tool") return;
+    const { startedAt } = row.entry;
+    const durationMs = startedAt !== undefined && endedAt !== undefined && endedAt >= startedAt ? endedAt - startedAt : undefined;
+    row.entry = { ...row.entry, status: failed ? "error" : "done", durationMs };
   }
 
   snapshot() {

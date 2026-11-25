@@ -64,9 +64,10 @@ describe("subagent list order and counts", () => {
 
 /** A row's state word and how long it ran, as the row draws them (`Running · 10m`). */
 function rowStatus(html: string, key: string) {
-  const row = html.slice(html.indexOf(`>${key}</span>`));
-  const head = row.slice(row.indexOf("data-exchange-status="), row.indexOf("</div>"));
-  return head.slice(head.indexOf(">") + 1).replace(/<time[^>]*>.*?<\/time>/g, "").replace(/<[^>]+>/g, "");
+  const row = html.match(/<li\s[^>]*data-subagent-kind=[\s\S]*?<\/li>/g)?.find((entry) => entry.includes(`>${key}</span>`)) ?? "";
+  const status = row.match(/data-exchange-status=[^>]+>([\s\S]*?)<\/div>/)?.[1]?.replace(/<[^>]+>/g, "");
+  const elapsed = row.match(/data-fact="elapsed">([^<]+)/)?.[1];
+  return [status, elapsed].filter(Boolean).join(" · ");
 }
 
 describe("SubagentsList", () => {
@@ -187,7 +188,7 @@ describe("a child rebuilt from saved messages", () => {
   test("says nothing about its time when no duration was measured", () => {
     const html = rebuilt();
     expect(html).toContain("Returned");
-    expect(html).not.toMatch(/Returned · /);
+    expect(html).not.toContain('data-fact="elapsed"');
     expect(html).not.toContain("<time");
   });
 

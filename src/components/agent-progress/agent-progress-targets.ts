@@ -12,6 +12,7 @@ import { useAppStore } from "@/store/app.store";
 export interface AgentStepContext {
   taskId?: string;
   workspaceId?: string;
+  repositoryPath?: string;
 }
 
 /**
@@ -27,6 +28,7 @@ export function childTargetFromStep(step: AgentStep, context: AgentStepContext):
     return {
       kind: "delegated-task",
       parentTaskId: context.taskId,
+      repositoryPath: context.repositoryPath,
       ...(context.workspaceId ? { parentWorkspaceId: context.workspaceId } : {}),
       delegationKey: child.delegationKey,
       delegatedTaskId: child.delegatedTaskId,
@@ -40,6 +42,7 @@ export function childTargetFromStep(step: AgentStep, context: AgentStepContext):
   return {
     kind: "subagent",
     parentTaskId: taskId,
+    repositoryPath: context.repositoryPath,
     ...(workspaceId ? { parentWorkspaceId: workspaceId } : {}),
     ...(child.toolUseId ? { toolUseId: child.toolUseId } : {}),
     ...(child.agentId ? { agentId: child.agentId } : {}),
@@ -50,7 +53,7 @@ export function childTargetFromStep(step: AgentStep, context: AgentStepContext):
 }
 
 export function agentTargetTitle(target: AgentProgressTarget): string {
-  const snapshotTitle = target.kind === "review" ? undefined : target.snapshot?.title;
+  const snapshotTitle = target.kind === "subagent" || target.kind === "delegated-task" ? target.snapshot?.title : undefined;
   return target.title?.trim() || snapshotTitle || i18n.t("session:agentProgress.panel.title");
 }
 
@@ -68,10 +71,10 @@ export function placeholderProgress(target: AgentProgressTarget): AgentProgress 
 }
 
 /** Brings the task forward and, when known, the call that started the agent. */
-export async function revealInConversation(args: { taskId: string; workspaceId?: string; toolUseId?: string }) {
+export async function revealInConversation(args: { taskId: string; workspaceId?: string; repositoryPath?: string; toolUseId?: string }) {
   const state = useAppStore.getState();
-  if (state.activeTaskId !== args.taskId) {
-    await state.focusTaskAttention({ taskId: args.taskId, ...(args.workspaceId ? { workspaceId: args.workspaceId } : {}) });
+  if (state.activeTaskId !== args.taskId || (args.repositoryPath && state.repositoryPath !== args.repositoryPath)) {
+    await state.focusTaskAttention({ taskId: args.taskId, repositoryPath: args.repositoryPath, ...(args.workspaceId ? { workspaceId: args.workspaceId } : {}) });
   }
   if (args.toolUseId) {
     useAppStore.getState().focusTranscriptTool({ taskId: args.taskId, toolUseId: args.toolUseId });

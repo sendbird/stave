@@ -24,6 +24,8 @@ A review is a [delegated task](delegated-tasks.md) with read-only access. Use
 a compare run when two models should each write a solution, and a delegated
 writer when another model should change files.
 
+Select **View progress** on a comparison candidate with a linked task to read its steps in the Agent panel.
+
 In a compare run, each candidate's column shows its state, how long it ran (or
 has run so far), what its provider reported spending (dollars where reported,
 otherwise tokens), and, while it runs, what it is doing now. **Keep this one**

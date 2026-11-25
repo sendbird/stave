@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale } from "@/i18n";
+import { AgentProgressTimeline } from "@/components/agent-progress/AgentProgressTimeline";
 import { AgentProgressView } from "@/components/agent-progress/AgentProgressView";
 import { childTargetFromStep } from "@/components/agent-progress/agent-progress-targets";
 import { mergeTaskMessages } from "@/components/agent-progress/use-task-messages";
@@ -43,6 +44,26 @@ afterEach(() => {
 });
 
 describe("agent progress view", () => {
+  test("only an observed running step in a working agent extends to now", () => {
+    const steps = [
+      step("live", "tool", "running", "Edit", { startedAt: 1_000 }),
+      step("duration-only", "tool", "done", "Read", { durationMs: 250 }),
+      step("future", "tool", "running", "Write", { startedAt: 4_000 }),
+    ];
+    const timeline = (state: AgentProgress["state"]) => renderToStaticMarkup(createElement(AgentProgressTimeline, {
+      progress: progress({ state, steps }), nowMs: 3_000,
+    }));
+    const live = timeline("working");
+    expect(live).toContain('data-trace-span-id="live"');
+    expect(live).toContain('data-trace-marker="true"');
+    expect(live).not.toContain('data-trace-span-id="duration-only"');
+    expect(live).not.toContain('data-trace-span-id="future"');
+    const idle = timeline("idle");
+    expect(idle).toContain('data-testid="turn-trace-unreported"');
+    expect(idle).not.toContain("data-trace-span-id");
+    expect(idle).not.toContain("data-trace-axis");
+  });
+
   test("a running agent shows its parent, facts, now line and folded steps with running and failed rows kept", () => {
     const html = render({ progress: progress({ now: step("d", "tool", "running", "Edit") }), onOpenParent: () => {}, onClose: () => {} });
     expect(html).toContain("Sub-agent of Fix login");
@@ -101,12 +122,12 @@ describe("agent panel targets", () => {
   test("a subagent step opens in the task that holds its call; a delegated step from the task that delegated it", () => {
     expect(childTargetFromStep(
       step("s", "subagent", "running", "Start", { child: { kind: "subagent", title: "Tests", toolUseId: "t1", agentId: "a1", providerId: "claude-code" } }),
-      { taskId: "task-1", workspaceId: "ws-1" },
-    )).toMatchObject({ kind: "subagent", parentTaskId: "task-1", parentWorkspaceId: "ws-1", toolUseId: "t1", agentId: "a1", title: "Tests", snapshot: { title: "Tests", outcome: { status: "running" } } });
+      { taskId: "task-1", workspaceId: "ws-1", repositoryPath: "/repo-other" },
+    )).toMatchObject({ kind: "subagent", repositoryPath: "/repo-other", parentTaskId: "task-1", parentWorkspaceId: "ws-1", toolUseId: "t1", agentId: "a1", title: "Tests", snapshot: { title: "Tests", outcome: { status: "running" } } });
     expect(childTargetFromStep(
       step("d", "subagent", "done", "Delegate", { child: { kind: "delegated-task", title: "Fix", delegatedTaskId: "child", delegationKey: "fix" } }),
-      { taskId: "task-1" },
-    )).toMatchObject({ kind: "delegated-task", parentTaskId: "task-1", delegationKey: "fix", delegatedTaskId: "child" });
+      { taskId: "task-1", repositoryPath: "/repo-other" },
+    )).toMatchObject({ kind: "delegated-task", repositoryPath: "/repo-other", parentTaskId: "task-1", delegationKey: "fix", delegatedTaskId: "child" });
     expect(childTargetFromStep(step("x", "tool", "done", "Read"), { taskId: "task-1" })).toBeNull();
   });
 

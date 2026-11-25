@@ -176,6 +176,7 @@ test("live Claude progress bounds retained summaries and links a failed result w
   const entries = state.progress.snapshot();
   expect(entries).toHaveLength(32);
   expect(entries.at(-2)).toMatchObject({ kind: "tool", action: { verb: "read", target: "file.ts" }, status: "error" });
+  expect(entries.at(-2)).toMatchObject({ startedAt: Date.parse(at(37)), durationMs: undefined });
   expect(JSON.stringify(entries)).not.toMatch(/raw output|exampleValue/);
 });
 
@@ -186,10 +187,10 @@ test("Codex progress includes event-only prompts and collapses the item and even
     line({ type: "event_msg", payload: { type: "user_message", message: "First prompt" } }),
     line({ type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "First prompt" }] } }),
     line({ type: "event_msg", payload: { type: "user_message", message: "Follow up" } }),
-    line({ type: "response_item", payload: { type: "function_call", name: "exec_command", call_id: "c", arguments: '{"cmd":"ls"}' } }),
-    line({ type: "response_item", payload: { type: "function_call_output", call_id: "c", output: "raw output" } }),
+    line({ type: "response_item", timestamp: at(2), payload: { type: "function_call", name: "exec_command", call_id: "c", arguments: '{"cmd":"ls"}' } }),
+    line({ type: "response_item", timestamp: at(6), payload: { type: "function_call_output", call_id: "c", output: "raw output" } }),
   ]);
   expect(state.progress.snapshot()).toMatchObject([
-    { kind: "user", text: "First prompt" }, { kind: "user", text: "Follow up" }, { kind: "tool", status: "done" },
+    { kind: "user", text: "First prompt" }, { kind: "user", text: "Follow up" }, { kind: "tool", status: "done", startedAt: Date.parse(at(2)), durationMs: 4000 },
   ]);
 });

@@ -198,7 +198,7 @@ never counted twice.
 rail, beside the conversation, so following it never leaves the task. The same
 panel opens from the Subagents tab (delegated tasks and in-turn subagents), an
 agent row in Turn Activity or its agent tree, **View progress** on a subagent
-card in the conversation, and **View** on a composer review.
+card in the conversation, and **View** on a composer review. You can also open the panel from a Fleet subagent, a comparison candidate with a task, or a Tars work card with a linked Agent run.
 
 - The header says where the agent came from (**Sub-agent of <task>**, which
   brings that task forward and shows the call that started it), its name and
@@ -214,6 +214,7 @@ card in the conversation, and **View** on a composer review.
   Consecutive calls and thoughts fold into one quiet block, and a running or
   failed step always stays in view. Each row opens to its input and output,
   read when you open it and cut at 16,000 characters.
+- Choose **Timeline** to compare measured intervals and see overlapping work. Select a step on the chart to read its details. Steps without enough timing information appear below the chart. **List** shows the messages, expandable tool rows and links to nested agents.
 - What the agent said and messages it received stand on their own lines. A
   subagent it started opens in the same panel; **Back to <agent>** returns.
 - The panel follows new steps while you are at the bottom. Scroll up and it

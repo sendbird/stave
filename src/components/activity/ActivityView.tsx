@@ -8,10 +8,11 @@ import { StatusDot } from "@/components/aui/components/StatusDot";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
+import { AgentCard } from "@/components/aui/components/AgentSummary";
 import { ExternalProgressPanel } from "./ExternalProgressPanel";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { I18N_NAMESPACES, i18n, useTranslation, type I18nKey } from "@/i18n";
-import { formatDuration, formatTokenCount } from "@/i18n/format";
+import { formatAgentFactLine } from "@/lib/agent-progress/facts";
 import {
   collectExternalSessionProjects,
   groupExternalSessions,
@@ -23,6 +24,7 @@ import type {
   ExternalActionVerb,
   ExternalAgent,
   ExternalAgentStatus,
+  ExternalSession,
   ExternalSessionsSnapshot,
   ExternalSessionSource,
   ExternalSessionStatus,
@@ -99,22 +101,18 @@ function AgentStatusDot({ status }: { status: ExternalAgentStatus }) {
 const NowContext = createContext(0);
 const CLOCK_MS = 15_000;
 
-/** Elapsed since it started: up to now while it runs, its run length once it stopped. */
-function Elapsed({ startedAt, lastAt, running }: { startedAt?: number; lastAt: number; running: boolean }) {
+function Stats({ row, children }: { row: ExternalSession | ExternalAgent; children?: ReactNode }) {
   const now = useContext(NowContext);
-  if (startedAt === undefined) return null;
-  const span = (running ? Math.max(now, lastAt) : lastAt) - startedAt;
-  return <span title={i18n.t("shell:externalActivity.elapsed")}>{formatDuration(span, { units: 1 })}</span>;
-}
-
-function Stats({ steps, contextTokens, children }: { steps: number; contextTokens?: number; children?: ReactNode}) {
-  return (
-    <p className={sx(styles.stats)}>
-      {children}
-      <span>{i18n.t("shell:externalActivity.steps", { count: steps })}</span>
-      {contextTokens ? <span>{i18n.t("shell:externalActivity.context", { tokens: formatTokenCount(contextTokens) })}</span> : null}
-    </p>
-  );
+  const facts = formatAgentFactLine({
+    facts: {
+      model: "model" in row ? row.model : undefined,
+      startedAt: row.startedAt,
+      endedAt: row.lastAt,
+      steps: row.steps,
+      contextTokens: row.contextTokens,
+    },
+  }, { nowMs: now, live: row.status === "working" || row.status === "running" });
+  return <p className={sx(styles.stats)}>{facts}{children}</p>;
 }
 
 type ProgressSelection = { source: ExternalSessionSource; sessionId: string; agentId?: string };
@@ -127,19 +125,16 @@ function ProgressButton({ selection }: { selection: ProgressSelection }) {
   </Button>;
 }
 
-function AgentCard({ agent, selection }: { agent: ExternalAgent; selection: ProgressSelection }) {
+function ExternalAgentCard({ agent, selection }: { agent: ExternalAgent; selection: ProgressSelection }) {
   return (
     <li className={sx(styles.agent)} data-external-agent={agent.id}>
-      <div className={sx(styles.row)}>
-        <Badge size="sm" variant="outlined">{agent.agentType}</Badge>
-        <AgentStatusDot status={agent.status} />
-        <ProgressButton selection={selection} />
-      </div>
-      <p className={sx(styles.agentTitle)}>{agent.description}</p>
-      {agent.action ? <p className={sx(styles.action)}>{describeExternalAction(agent.action)}</p> : null}
-      <Stats steps={agent.steps} contextTokens={agent.contextTokens}>
-        <Elapsed startedAt={agent.startedAt} lastAt={agent.lastAt} running={agent.status === "running"} />
-      </Stats>
+      <AgentCard
+        title={agent.description}
+        status={<><Badge size="sm" variant="outlined">{agent.agentType}</Badge><AgentStatusDot status={agent.status} /></>}
+        activity={agent.action && describeExternalAction(agent.action)}
+        facts={<Stats row={agent} />}
+        actions={<ProgressButton selection={selection} />}
+      />
     </li>
   );
 }
@@ -150,29 +145,36 @@ function SessionCard({ row }: { row: ExternalSessionRow}) {
   const running = session.agents.filter((agent) => agent.status === "running").length;
   return (
     <li className={sx(styles.session)} data-external-session={session.id}>
-      <div className={sx(styles.row)}>
-        <Badge size="sm">{i18n.t(SOURCE_KEYS[session.source])}</Badge>
-        {session.subagent ? <span title={i18n.t("shell:externalActivity.subagentHint")}><Badge size="sm" variant="outlined">{i18n.t("shell:externalActivity.subagent")}</Badge></span> : null}
-        <h4 className={sx(styles.sessionTitle)} title={title}>{title}</h4>
-        <SessionStatusDot status={session.status} />
-        <ProgressButton selection={{ source: session.source, sessionId: session.id }} />
-      </div>
-      {session.branch || place?.workspaceName ? (
-        <p className={sx(styles.where)}>
-          {place?.workspaceName && place.workspaceName !== session.branch ? <span>{place.workspaceName}</span> : null}
-          {session.branch ? <span className={sx(styles.branch)}>{session.branch}</span> : null}
-        </p>
-      ) : null}
-      {session.action ? <p className={sx(styles.action)}>{describeExternalAction(session.action)}</p> : null}
-      <Stats steps={session.steps} contextTokens={session.contextTokens}>
-        <Elapsed startedAt={session.startedAt} lastAt={session.lastAt} running={session.status === "working"} />
-        {session.agents.length > 0 ? (
-          <span>{i18n.t("shell:externalActivity.agentsRunning", { running, count: session.agents.length })}</span>
-        ) : null}
-      </Stats>
+      <AgentCard
+        title={<h4 className={sx(styles.sessionTitle)} title={title}>{title}</h4>}
+        status={
+          <>
+            <Badge size="sm">{i18n.t(SOURCE_KEYS[session.source])}</Badge>
+            {session.subagent ? <span title={i18n.t("shell:externalActivity.subagentHint")}><Badge size="sm" variant="outlined">{i18n.t("shell:externalActivity.subagent")}</Badge></span> : null}
+            <SessionStatusDot status={session.status} />
+          </>
+        }
+        activity={session.action && describeExternalAction(session.action)}
+        facts={
+          <>
+            <Stats row={session}>
+              {session.agents.length > 0 ? (
+                <span>{i18n.t("shell:externalActivity.agentsRunning", { running, count: session.agents.length })}</span>
+              ) : null}
+            </Stats>
+            {session.branch || place?.workspaceName ? (
+              <p className={sx(styles.where)}>
+                {place?.workspaceName && place.workspaceName !== session.branch ? <span>{place.workspaceName}</span> : null}
+                {session.branch ? <span className={sx(styles.branch)}>{session.branch}</span> : null}
+              </p>
+            ) : null}
+          </>
+        }
+        actions={<ProgressButton selection={{ source: session.source, sessionId: session.id }} />}
+      />
       {session.agents.length > 0 ? (
         <ul className={sx(styles.agents)} aria-label={i18n.t("shell:externalActivity.agentsLabel", { name: title })}>
-          {session.agents.map((agent) => <AgentCard key={agent.id} agent={agent} selection={{ source: session.source, sessionId: session.id, agentId: agent.id }} />)}
+          {session.agents.map((agent) => <ExternalAgentCard key={agent.id} agent={agent} selection={{ source: session.source, sessionId: session.id, agentId: agent.id }} />)}
         </ul>
       ) : null}
     </li>
@@ -344,7 +346,7 @@ const styles = stylex.create({
   },
   row: { display: "flex", alignItems: "center", gap: vars["--aui-space-8"], minInlineSize: 0, flexWrap: "wrap" },
   sessionTitle: {
-    flex: "1 1 12rem", minInlineSize: 0, margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+    margin: 0,
     fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-medium"], color: vars["--aui-color-text"],
   },
   where: {
@@ -352,10 +354,6 @@ const styles = stylex.create({
     color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"],
   },
   branch: { fontFamily: vars["--aui-font-mono"], overflowWrap: "anywhere" },
-  action: {
-    margin: 0, minInlineSize: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-    color: vars["--aui-color-text"], fontSize: vars["--aui-font-size-caption"],
-  },
   stats: {
     display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--aui-space-12"], rowGap: vars["--aui-space-4"], margin: 0,
     color: vars["--aui-color-text-muted"], fontSize: vars["--aui-font-size-caption"], fontVariantNumeric: "tabular-nums",
@@ -367,9 +365,5 @@ const styles = stylex.create({
   agent: {
     display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minInlineSize: 0, padding: vars["--aui-space-12"],
     borderRadius: vars["--aui-radius-panel"], backgroundColor: vars["--aui-color-surface-tint"],
-  },
-  agentTitle: {
-    margin: 0, minInlineSize: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-    fontSize: vars["--aui-font-size-caption"], fontWeight: vars["--aui-font-weight-medium"], color: vars["--aui-color-text"],
   },
 });

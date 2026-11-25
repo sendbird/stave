@@ -13,8 +13,9 @@ import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import {
   DelegatedTaskParentBacklink,
-  DelegatedTaskRows,
+  useDelegatedTaskRowController,
 } from "@/components/session/DelegatedTaskRows";
+import { FleetDelegationCards } from "./FleetDelegationCards";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import {
   APPROVAL_DELIVERY_GUARD_MS,
@@ -323,10 +324,7 @@ export function FleetTaskControlPanel(args: {
     enabled: !args.interactionOnly,
   });
   const { children: delegatedTaskRows } = delegatedTasks;
-  const delegatedTaskSource = useMemo(
-    () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions, error: delegatedTasks.error }),
-    [delegatedTaskRows, delegatedTasks.actions, delegatedTasks.error, i18n.resolvedLanguage],
-  );
+  const delegationController = useDelegatedTaskRowController({ source: delegatedTasks, repositoryPath: args.target.repositoryPath });
   const syncDelegatedTasksIntoTurnGraph = useAppStore(
     (state) => state.syncDelegatedTasksIntoTurnGraph,
   );
@@ -671,11 +669,13 @@ export function FleetTaskControlPanel(args: {
         repositoryPath={args.target.repositoryPath}
         className={sx(styles.section)}
       />
-      <DelegatedTaskRows
-        parentTaskId={args.target.taskId}
-        parentWorkspaceId={args.target.workspaceId}
+      <FleetDelegationCards
+        {...delegationController}
+        rows={delegatedTaskRows}
         repositoryPath={args.target.repositoryPath}
-        source={delegatedTaskSource}
+        parentWorkspaceId={args.target.workspaceId}
+        listError={delegatedTasks.error}
+        onRetryList={delegatedTasks.actions.refresh}
         className={sx(styles.section)}
       /></> : null}
 

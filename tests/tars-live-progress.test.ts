@@ -1,4 +1,6 @@
 import { describe, expect, test } from "bun:test";
+import { tarsRunMessages } from "@/components/tars/TarsProgressPanel";
+import type { ChatMessage } from "@/types/chat";
 import { applyAppLocale } from "@/i18n";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import type { AgentRunEvent } from "../src/lib/agent-runs/domain";
@@ -40,6 +42,19 @@ function turn(minutes: number, patch: Partial<ProviderTurnActivitySnapshot> = {}
 }
 
 describe("Tars live progress", () => {
+  test("the progress panel reads only the responses of its own run on a shared lead task", () => {
+    const { run } = fixture();
+    const detail = { ...run, events: [event(run, 1, "turn-linked", { turnId: "owned" }, 1)] };
+    const rows = [
+      { id: "prior", role: "assistant", turnId: "foreign" },
+      { id: "linked", role: "assistant", turnId: "owned" },
+      { id: "prompt", role: "user", turnId: "new", agentRunPrompt: { agentRunId: run.agentRun.id } },
+      { id: "pending-link", role: "assistant", turnId: "new" },
+      { id: "unknown", role: "assistant" },
+    ] as ChatMessage[];
+    expect(tarsRunMessages(detail, rows).map((row) => row.id)).toEqual(["linked", "pending-link"]);
+  });
+
   test("only work that holds the active slot is running; queued, paused, waiting and taken-over work is not", () => {
     const row = (state: TarsResponsibility["state"], agentRunId: string | null = "run") => ({ state, agentRunId });
     expect(isTarsWorkRunning(row("running"))).toBe(true);

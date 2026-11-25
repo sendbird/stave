@@ -11,6 +11,14 @@ import type {
 import { textStep } from "./step-builders";
 import { countWorkSteps, findCurrentStep, sortAgentSteps } from "./steps";
 
+/** Older retained exchanges may have timed stages but no turn messages or provider history. */
+export function stepsFromExchangeStages(exchange: DelegationExchange): AgentStep[] {
+  return exchange.timing.stages.map((stage, index) => ({
+    ...textStep({ id: `${exchange.id}:stage:${index}`, kind: "note", text: stage.label, startedAt: stage.at }),
+    ...(stage.detail ? { text: stage.detail } : {}),
+  }));
+}
+
 /**
  * A delegation exchange (a delegated task, a review or an in-turn subagent)
  * and the steps read for it, as the shared progress model. The exchange

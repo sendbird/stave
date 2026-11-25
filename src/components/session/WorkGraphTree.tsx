@@ -1,3 +1,4 @@
+import { AgentLine } from "@/components/aui/components/AgentSummary";
 import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
 import { i18n, useTranslation } from "@/i18n";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
@@ -643,78 +644,89 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
         ) : reserveDisclosure ? (
           <span aria-hidden="true" className={sx(styles.disclosure)} />
         ) : null}
-        <span className={sx(styles.statusIconWrap)}>
-          <StateMark
-            state={exchangeStatusToWorkState(exchangeStatus)}
-            size="md"
-            label={statusLabel}
-          />
-        </span>
-        <div className={sx(styles.body)}>
-          <p
-            className={sx(
-              styles.labelLine,
-              expandCopy && styles.labelLineExpanded,
-              isTerminalWorkGraphStatus(node.status) && styles.labelLineTerminal,
-            )}
-          >
-            <span
-              id={labelId}
-              className={sx(styles.label, expandCopy && styles.labelExpanded)}
-            >
-              {displayLabel}
+        <AgentLine
+          stacked
+          status={
+            <span className={sx(styles.statusIconWrap)}>
+              <StateMark
+                state={exchangeStatusToWorkState(exchangeStatus)}
+                size="md"
+                label={statusLabel}
+              />
             </span>
-            <AgentIdentity compact model={node.model} effort={node.effort} />
-            {node.modelEvidence ? <span className={sx(styles.badge)}>{node.modelEvidence}</span> : null}
-            {node.badge ? (
-              <span className={sx(styles.badge, styles.badgeNeutral)}>
-                {node.badge}
+          }
+          title={
+            <p
+              className={sx(
+                styles.labelLine,
+                expandCopy && styles.labelLineExpanded,
+                isTerminalWorkGraphStatus(node.status) && styles.labelLineTerminal,
+              )}
+            >
+              <span
+                id={labelId}
+                className={sx(styles.label, expandCopy && styles.labelExpanded)}
+              >
+                {displayLabel}
               </span>
-            ) : null}
-            {row.blocked ? (
-              <span className={sx(styles.badge, styles.badgeWarning)}>
-                {i18n.t("session:workGraphTree.body")}</span>
-            ) : null}
-          </p>
-          {detail ? (
-            <p
-              id={detailId}
-              className={sx(styles.detail, expandCopy && styles.detailExpanded)}
-            >
-              {detail}
+              <AgentIdentity compact model={node.model} effort={node.effort} />
+              {node.modelEvidence ? <span className={sx(styles.badge)}>{node.modelEvidence}</span> : null}
+              {node.badge ? (
+                <span className={sx(styles.badge, styles.badgeNeutral)}>
+                  {node.badge}
+                </span>
+              ) : null}
+              {row.blocked ? (
+                <span className={sx(styles.badge, styles.badgeWarning)}>
+                  {i18n.t("session:workGraphTree.body")}</span>
+              ) : null}
             </p>
-          ) : null}
-          {hiddenDescendantCount > 0 ? (
-            <p
-              id={hintId}
-              data-work-graph-fold-hint="true"
-              className={sx(styles.foldHint)}
-              onClick={(event) => {
-                event.stopPropagation();
-                onToggle(row.key);
-              }}
-            >
-              {i18n.t("session:workGraphTree.showSubagents", {
-                count: hiddenDescendantCount,
-                label: displayLabel,
-              })}
-            </p>
-          ) : null}
-          {controlError ? (
-            <p
-              role="status"
-              data-testid="work-graph-control-error"
-              className={sx(styles.controlError)}
-            >
-              {controlError}
-            </p>
-          ) : null}
-        </div>
-        <span className={sx(styles.elapsed)}>
-          <VisuallyHidden id={statusId}>
-            {statusLabel}, {elapsedLabel} {i18n.t("session:workGraphTree.body2")}</VisuallyHidden>
-          <span aria-hidden="true">{elapsedLabel}</span>
-        </span>
+          }
+          activity={
+            <>
+              {detail ? (
+                <p
+                  id={detailId}
+                  className={sx(styles.detail, expandCopy && styles.detailExpanded)}
+                >
+                  {detail}
+                </p>
+              ) : null}
+              {hiddenDescendantCount > 0 ? (
+                <p
+                  id={hintId}
+                  data-work-graph-fold-hint="true"
+                  className={sx(styles.foldHint)}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggle(row.key);
+                  }}
+                >
+                  {i18n.t("session:workGraphTree.showSubagents", {
+                    count: hiddenDescendantCount,
+                    label: displayLabel,
+                  })}
+                </p>
+              ) : null}
+              {controlError ? (
+                <p
+                  role="status"
+                  data-testid="work-graph-control-error"
+                  className={sx(styles.controlError)}
+                >
+                  {controlError}
+                </p>
+              ) : null}
+            </>
+          }
+          facts={
+            <span className={sx(styles.elapsed)}>
+              <VisuallyHidden id={statusId}>
+                {statusLabel}, {elapsedLabel} {i18n.t("session:workGraphTree.body2")}</VisuallyHidden>
+              <span aria-hidden="true">{elapsedLabel}</span>
+            </span>
+          }
+        />
       </div>
       {controls.available.length > 0 ? (
         // The controls sit inside the row, so their clicks and keys must not
