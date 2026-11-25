@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   MAX_FILE_CONTEXT_CONTENT_CHARS,
   MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
+  MAX_PROVIDER_MESSAGE_PARTS,
 } from "@/lib/file-context-sanitization";
 import {
   buildCanonicalConversationRequest,
@@ -127,6 +128,33 @@ describe("canonical request builder", () => {
         runtimeOptions: {},
       }).success,
     ).toBe(true);
+  });
+
+  test("keeps a long agent turn within the request part limit", () => {
+    const toolParts = Array.from({ length: 1_252 }, (_, index) => ({
+      type: "tool_use" as const, toolUseId: `tool-${index}`, toolName: "Bash", input: `echo ${index}`, state: "output-available" as const,
+    }));
+    const request = buildCanonicalConversationRequest({
+      providerId: "claude-code",
+      history: [
+        { id: "short", role: "assistant", model: "m", providerId: "claude-code", content: "Ok.", parts: [{ type: "text", text: "Ok." }] },
+        {
+          id: "long-agent-turn", role: "assistant", model: "m", providerId: "claude-code", content: "Report.",
+          parts: [...toolParts, { type: "text", text: "Report." }],
+        },
+      ],
+      userInput: "Continue.",
+    });
+
+    expect(request.history[0]?.parts).toEqual([{ type: "text", text: "Ok." }]);
+    const parts = request.history[1]?.parts ?? [];
+    expect(parts).toHaveLength(MAX_PROVIDER_MESSAGE_PARTS);
+    expect(parts[0]).toEqual({ type: "text", text: "[754 earlier parts of this message were omitted to fit the request limit.]" });
+    expect(parts.at(-2)).toMatchObject({ toolUseId: "tool-1251" });
+    expect(parts.at(-1)).toEqual({ type: "text", text: "Report." });
+    expect(StreamTurnArgsSchema.safeParse({
+      providerId: "claude-code", prompt: "Continue.", conversation: request, runtimeOptions: {},
+    }).success).toBe(true);
   });
 
   test("carries the provider session cursor only with a native session id", () => {
