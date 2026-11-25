@@ -496,6 +496,8 @@ edge halted -> stopped dashed : stop
 
 A run's time is its **Active for** time: pauses, waits for your answer or sign-off, and the time Stave was closed are not counted. Each stage in Task panel > **Steps** shows what its turns spent: a cost for Claude, tokens for Codex.
 
+An agent reports a block when a specific prerequisite prevents progress. For an environment or external service problem, Stave requires the agent to describe what failed or which dependency was unavailable.
+
 The run line above the composer shows the buttons that fit: **Retry**, **Resume**, **Resume now**, **Continue**, **Stop**, and **Take control** (ends the run and continues as a normal chat on the same model). On a run Tars holds, marked **Tars**, **Stop** (here, in the composer or with Esc) pauses the work in Tars instead of cancelling the run, and **Take control** is Tars's take over, which keeps the run paused for you.
 The Task panel's top shows the run's state and the **Done when** lines still open; its **Steps** tab shows **What this run does**, **Done when**, **Team limits** and stage cards (**Retry stage**, **Skip stage**).
 Each done-when condition shows **Met · checked by Stave**, **Met · agent reported**, **Not met** or **Not verified**.

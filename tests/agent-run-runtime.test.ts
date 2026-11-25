@@ -676,6 +676,38 @@ describe("run runtime: stage reports", () => {
     expect(harness.current(agentRunId).status).toBe("running");
   });
 
+  test("an unsupported environment block leaves unfinished work eligible for the supervisor reminder", async () => {
+    const harness = createHarness();
+    const agentRunId = await startedAgentRun(harness);
+    await expect(harness.runtime.blockStage({
+      agentRunKey: "key-turn-1",
+      block: {
+        kind: "environment",
+        missing: "Implementation and verification are unfinished. Check the remaining workflow paths.",
+        suggestedAction: "Continue the implementation and run the regression tests.",
+      },
+    })).rejects.toThrow("observed blocker");
+    expect(harness.current(agentRunId)).toMatchObject({ status: "running", report: null });
+
+    harness.endTurn("turn-1");
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(2);
+    expect(harness.current(agentRunId)).toMatchObject({ status: "running", nudged: true });
+
+    const evidence = "Running the required integration check failed because its service socket is missing.";
+    await harness.runtime.blockStage({
+      agentRunKey: "key-turn-2",
+      block: { kind: "environment", missing: "Restore the integration service socket.", evidence },
+    });
+    harness.endTurn("turn-2");
+    await harness.tick();
+    expect(harness.current(agentRunId)).toMatchObject({
+      status: "blocked",
+      blockReason: "agent-blocked",
+      report: { outcome: "blocked", evidence },
+    });
+  });
+
   test("a stage cannot complete while work it delegated is still running", async () => {
     const harness = createHarness();
     const agentRunId = await startedAgentRun(harness);
@@ -1487,7 +1519,7 @@ describe("run runtime: agent runs", () => {
     expect(h.store.listEventsByKind(id, ["turn-linked"])).toHaveLength(1);
     expect(h.runCalls.at(-1)?.initialContext?.questionReply).toEqual(questionReply);
     // Once a turn has landed, another Retry is a continuation, including after restart.
-    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { kind: "environment", missing: "Restore access" } });
+    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { kind: "environment", missing: "Restore access", evidence: "The required service rejected the connection." } });
     h.endTurn("turn-1"); await h.tick();
     await h.runtime.retryStage({ agentRunId: id, stageId: "work", attempt: 2 });
     await h.tick();
@@ -1499,7 +1531,7 @@ describe("run runtime: agent runs", () => {
     const h = agentRunHarness();
     const id = await startedAgentRun(h, runInput());
     if (status === "blocked") {
-      await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { kind: "environment", missing: "Restore access" } });
+      await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { kind: "environment", missing: "Restore access", evidence: "The required service rejected the connection." } });
       h.endTurn("turn-1"); await h.tick();
     } else {
       h.endTurn("turn-1"); await h.tick();
@@ -3442,7 +3474,7 @@ describe("primary write run workspace checks", () => {
     expect(notice).toContain("invalid");
     expect(h.store.listEventsByKind(id, ["agent-run-started"])[0]!.detail.workspaceCheckNotice).toBe(notice);
     expect(h.aggregate(id).agentRun.workflow.stages[0]!.acceptanceCriteria).toHaveLength(20);
-    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Retry this stage", kind: "environment" } });
+    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Retry this stage", kind: "environment", evidence: "The required test service is unavailable." } });
     h.endTurn("turn-1"); await h.tick();
     await h.runtime.retryStage({ agentRunId: id, stageId: "work", attempt: 1 });
     await h.tick();

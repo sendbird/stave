@@ -13,6 +13,7 @@ import { i18n } from "@/i18n/runtime";
 import type { AutomationPermissionMode } from "@/lib/automations";
 import {
   compileStagePrompt,
+  STAGE_BLOCK_GUIDANCE,
   type AcceptanceCriterion,
   type PriorStageSummary,
 } from "@/lib/workflows/stage-prompt";
@@ -76,7 +77,7 @@ const TURN_REASON_LINES: Record<AgentRunTurnReason, string> = {
   "repair-checks": "Checks failed on the pull request, so the Watch checks action asked for a repair.",
 };
 
-const STAGE_TURN_CLOSING = `Before this turn ends, report through \`${AGENT_RUN_TOOL_NAMES.report}\`, or \`${AGENT_RUN_TOOL_NAMES.block}\` when you cannot finish. When the next step depends on an outside event (pull request checks or a review, a time, delegated work finishing), call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn instead: the run waits without spending turns and resumes when it happens. Do not ask a question you cannot get answered.`;
+const STAGE_TURN_CLOSING = `Before this turn ends, report completed work with \`${AGENT_RUN_TOOL_NAMES.report}\`. Use \`${AGENT_RUN_TOOL_NAMES.block}\` only for a prerequisite you cannot obtain. If waiting on checks, a review, a time or a helper, call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn. Stave resumes on the event. Do not ask a question you cannot get answered.`;
 const ACTION_TURN_CLOSING =
   "Commit your fix before this turn ends. Stave pushes the branch and watches the checks again afterwards; this turn reports no stage. Do not ask a question you cannot get answered.";
 
@@ -235,7 +236,7 @@ export function buildStageNudgePrompt(aggregate: AgentRunAggregate): string {
   return [
     `You ended the last turn without reporting the stage "${stage.title}".`,
     `If the stage is done, call \`${AGENT_RUN_TOOL_NAMES.report}\` now with a summary, the evidence you gathered, and the status of each acceptance criterion.`,
-    `If you cannot finish it, call \`${AGENT_RUN_TOOL_NAMES.block}\` and name exactly what is missing.`,
+    STAGE_BLOCK_GUIDANCE,
     `If it waits on an outside event, call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn.`,
     "Do not start later stages.",
   ].join("\n\n");
@@ -250,7 +251,7 @@ export function buildEventWakePrompt(aggregate: AgentRunAggregate, wake: Pick<Ev
     wake.final
       ? "That wait has ended."
       : `The wait stays active, so the next event of the same kind wakes this run again unless you report the stage or call \`${AGENT_RUN_TOOL_NAMES.wait}\` with a new wait.`,
-    `Continue the stage from here. When it is done, call \`${AGENT_RUN_TOOL_NAMES.report}\`. If the next step waits on another event, call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn. If you cannot go on, call \`${AGENT_RUN_TOOL_NAMES.block}\`.`,
+    `Continue the stage from here. When it is done, call \`${AGENT_RUN_TOOL_NAMES.report}\`. If the next step waits on another event, call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn. ${STAGE_BLOCK_GUIDANCE}`,
   ].join("\n\n");
 }
 
@@ -264,7 +265,7 @@ export function buildWaitExpiredPrompt(aggregate: AgentRunAggregate, wait: Pick<
       : "it expired before the event came";
   return [
     `Your wait for ${wait.kind}${wait.target ? ` on ${wait.target}` : ""} in the stage "${stage.title}" ended without the event: ${why}. The user continued the run.`,
-    `Check the current state yourself. Then report the stage with \`${AGENT_RUN_TOOL_NAMES.report}\`, wait again with \`${AGENT_RUN_TOOL_NAMES.wait}\` if waiting still makes sense, or call \`${AGENT_RUN_TOOL_NAMES.block}\` and name what is missing.`,
+    `Check the current state yourself. Report completed work with \`${AGENT_RUN_TOOL_NAMES.report}\`, or wait again with \`${AGENT_RUN_TOOL_NAMES.wait}\` if waiting still makes sense. ${STAGE_BLOCK_GUIDANCE}`,
   ].join("\n\n");
 }
 
@@ -359,7 +360,7 @@ export function buildAgentRunBriefing(aggregate: AgentRunAggregate): AgentRunBri
     },
     earlierStages: collectPriorStageSummaries(aggregate),
     acceptanceCriteria: collectAcceptanceCriteria(aggregate),
-    reporting: `Call \`${AGENT_RUN_TOOL_NAMES.report}\` before this turn ends, or \`${AGENT_RUN_TOOL_NAMES.block}\` when you cannot finish the stage. Call \`${AGENT_RUN_TOOL_NAMES.wait}\` when the next step depends on an outside event.`,
+    reporting: `Call \`${AGENT_RUN_TOOL_NAMES.report}\` when the stage is complete. ${STAGE_BLOCK_GUIDANCE} Call \`${AGENT_RUN_TOOL_NAMES.wait}\` when the next step depends on an outside event.`,
   };
 }
 
