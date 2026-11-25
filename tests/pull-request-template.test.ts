@@ -45,5 +45,8 @@ test("no template, an empty one or an oversized one reads as none", async () => 
   expect(await readPullRequestTemplate(repo({ "README.md": "hello" }))).toBeUndefined();
   expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": "   \n" }))).toBeUndefined();
   expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": "x".repeat(70 * 1024) }))).toBeUndefined();
+  // The limit is in bytes: 30,000 three-byte characters are about 88 KiB.
+  expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": "가".repeat(30_000) }))).toBeUndefined();
+  expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": "가".repeat(20_000) }))).toBe("가".repeat(20_000));
   expect(await readPullRequestTemplate(path.join(tmpdir(), "no-such-repository-for-pr-template"))).toBeUndefined();
 });

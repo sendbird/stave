@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { open, readdir } from "node:fs/promises";
 import path from "node:path";
 
 /**
@@ -28,12 +28,21 @@ async function listEntries(directory: string) {
   }
 }
 
+/**
+ * Reads at most one byte past the limit, so an oversized file (or one that
+ * grows while it is read) is never loaded whole.
+ */
 async function readTemplate(file: string) {
+  let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
-    const content = await readFile(file, "utf8");
-    return content.length <= MAX_TEMPLATE_BYTES ? content.trim() || undefined : undefined;
+    handle = await open(file, "r");
+    const buffer = Buffer.alloc(MAX_TEMPLATE_BYTES + 1);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    return bytesRead <= MAX_TEMPLATE_BYTES ? buffer.toString("utf8", 0, bytesRead).trim() || undefined : undefined;
   } catch {
     return undefined;
+  } finally {
+    await handle?.close().catch(() => {});
   }
 }
 
