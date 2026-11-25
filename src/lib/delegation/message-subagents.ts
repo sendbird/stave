@@ -32,6 +32,11 @@ function readChild(value: unknown, depth = 0): DelegatedTaskSummary | null {
   return null;
 }
 
+/** The delegated task a `stave_delegate_task` answer accepted, or null. */
+export function readDelegationReceipt(output: unknown): DelegatedTaskSummary | null {
+  return readChild(output);
+}
+
 function sameExecution(recorded: DelegatedTaskSummary, live: DelegatedTaskSummary) {
   return recorded.runId === live.runId && recorded.stepId === live.stepId &&
     recorded.parentTaskId === live.parentTaskId && recorded.delegationKey === live.delegationKey &&

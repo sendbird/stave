@@ -102,11 +102,9 @@ evidence in the row. **Open in Tars** opens the same decision to answer it. An u
   turn's own subagents, each with its status, time and cost when reported. A
   subagent's task line is left out when it only repeats the name. A waiting
   delegated task offers `Answer` and a failed one `Open`; both open the child
-  task. An in-turn subagent opens a `Tasks of <name>` window listing its
-  steps. On a wide board the tree stops at a reading width and the rest stays
+  task. Select a subagent card to open its Agent panel. The list shows messages and tool calls; the timeline shows measured intervals. On a wide board the tree stops at a reading width and the rest stays
   empty. `↑`/`↓` move between main cards, `Home`/`End` jump, `Tab` goes into
-  the open tree, `Esc` there returns to its card, and `Esc` closes the steps
-  window back to the subagent that opened it.
+  the open tree, `Esc` there returns to its card, and `Esc` in the Agent panel returns to the card that opened it.
 - `Table` lists every open task of every workspace in one place, one row per
   task: the task, who owns it (`Tars`, `Agent run` or `You`), its workspace,
   its state, what it needs from you, how long it has waited, and what its

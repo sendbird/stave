@@ -54,7 +54,7 @@ export const turnTraceTimelineStyles = stylex.create({
     lineHeight: vars["--aui-line-height-normal"],
     color: vars["--aui-color-text"],
   },
-  unreportedLabel: { flexShrink: 0 },
+  unreportedLabel: { minWidth: 0, overflowWrap: "anywhere" },
   unreportedDetail: {
     minWidth: 0,
     overflow: "hidden",

@@ -15,18 +15,12 @@ import {
   useState,
 } from "react";
 import {
-  useDelegatedTasks,
   type DelegatedTaskActionResult,
   type DelegatedTaskListingSource,
 } from "@/components/session/useDelegatedTasks";
 import { Button, Textarea } from "@/components/ui";
-import { describeAgentIdentity } from "@/lib/delegation/format";
-import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx, cx } from "@/components/aui/utils/stylex";
-import {
-  delegatedTaskRowsStyles as styles,
-  delegatedTaskPhaseToneStyles,
-} from "./delegated-task-rows.styles";
+import { delegatedTaskRowsStyles as styles } from "./delegated-task-rows.styles";
 import {
   resolveDelegatedTaskControls,
   type DelegatedTaskExpectedIdentity,
@@ -34,23 +28,10 @@ import {
 } from "@/lib/runs/delegated-task";
 import {
   buildDelegatedTaskExpectedIdentity,
-  describeDelegatedTaskPhase,
   selectDelegatedTaskBlockedKinds,
   type DelegatedTaskBlockedKind,
 } from "@/lib/runs/delegated-task-view";
 import { useAppStore } from "@/store/app.store";
-
-/**
- * The delegations a parent task owns, listed on the parent's own surface. A row
- * shows who the child is, what phase it is in and why it ended — never the
- * child's transcript, which stays behind the delegated task's own surfaces.
- */
-
-const BLOCKED_HINT: Record<DelegatedTaskBlockedKind, string> = {
-  get "user-input"() { return i18n.t("session:delegatedTaskRows.userInput"); },
-  get approval() { return i18n.t("session:delegatedTaskRows.approval"); },
-  get "agent-run"() { return i18n.t("session:delegatedTaskRows.agentRun"); },
-};
 
 type DelegatedTaskComposerKind = "follow-up" | "retry";
 
@@ -76,20 +57,6 @@ export interface DelegatedTaskRowActionHandlers {
   onRetry: (child: DelegatedTaskSummary, prompt: string) => void;
   onStop: (child: DelegatedTaskSummary) => void;
   onDetach: (child: DelegatedTaskSummary) => void;
-}
-
-/**
- * `Requested: GPT-5.3-Codex · High` — what the delegation asked for, through
- * the shared identity vocabulary so the row never prints a raw model id.
- */
-export function describeDelegatedTaskRequest(child: DelegatedTaskSummary): string | null {
-  if (!child.requestedModel && !child.requestedEffort) {
-    return null;
-  }
-  return describeAgentIdentity({
-    model: child.requestedModel,
-    effort: child.requestedEffort,
-  }).text;
 }
 
 /**
@@ -234,156 +201,6 @@ export function DelegatedTaskRowActions(
         </div>
       ) : null}
     </>
-  );
-}
-
-function DelegatedTaskRow(
-  props: {
-    child: DelegatedTaskSummary;
-    busy: boolean;
-    blockedKind?: DelegatedTaskBlockedKind | null;
-    error?: string | null;
-  } & DelegatedTaskRowActionHandlers,
-) {
-  useTranslation();
-  const { child } = props;
-  const phase = describeDelegatedTaskPhase(child, props.blockedKind);
-  const requested = describeDelegatedTaskRequest(child);
-
-  return (
-    <div
-      data-delegated-task-delegation-key={child.delegationKey}
-      data-delegated-task-blocked={phase.blocked ? "true" : undefined}
-      className={sx(
-        styles.row,
-        phase.blocked ? styles.rowBorderBlocked : styles.rowBorderDefault,
-      )}
-    >
-      <div className={sx(styles.headerRow)}>
-        <span
-          className={sx(
-            styles.phaseBadge,
-            delegatedTaskPhaseToneStyles[phase.tone],
-          )}
-        >
-          {phase.label}
-        </span>
-        <span className={sx(styles.delegationName)}>{child.delegationKey}</span>
-        <span
-          className={sx(styles.metaText)}
-          data-testid="delegated-task-requested-details"
-          title={requested ? i18n.t("session:delegatedTaskRows.title", { value1: requested }) : undefined}
-        >
-          <AgentIdentity
-            compact
-            providerId={child.providerId}
-            model={child.requestedModel}
-            effort={child.requestedEffort}
-          />
-        </span>
-        {child.attempt > 0 ? (
-          <span className={sx(styles.metaTextNums)}>{i18n.t("session:delegatedTaskRows.sentence43", { value1: child.attempt + 1 })}</span>
-        ) : null}
-      </div>
-
-      {phase.blocked && props.blockedKind ? (
-        <p className={sx(styles.blockedHint)}>
-          {BLOCKED_HINT[props.blockedKind]}
-        </p>
-      ) : null}
-
-      {child.reason ? (
-        <p className={sx(styles.reasonText)}>{child.reason}</p>
-      ) : null}
-
-      {props.error ? (
-        <p className={sx(styles.errorText)} role="alert">
-          {props.error}
-        </p>
-      ) : null}
-
-      <DelegatedTaskRowActions
-        child={child}
-        busy={props.busy}
-        onOpen={props.onOpen}
-        onFollowUp={props.onFollowUp}
-        onRetry={props.onRetry}
-        onStop={props.onStop}
-        onDetach={props.onDetach}
-      />
-    </div>
-  );
-}
-
-export interface DelegatedTaskRowsSurfaceProps {
-  rows: readonly DelegatedTaskSummary[];
-  errorByDelegationKey?: Readonly<Record<string, string>>;
-  /** Delegations currently stalled on a question or a tool approval. */
-  blockedByDelegationKey?: Readonly<Record<string, DelegatedTaskBlockedKind>>;
-  busyDelegationKey?: string | null;
-  onOpen: (child: DelegatedTaskSummary) => void;
-  onFollowUp: (child: DelegatedTaskSummary, prompt: string) => void;
-  onRetry: (child: DelegatedTaskSummary, prompt: string) => void;
-  onStop: (child: DelegatedTaskSummary) => void;
-  onDetach: (child: DelegatedTaskSummary) => void;
-  /** The listing failed: say so, with Retry, instead of drawing no section. */
-  listError?: string | null;
-  onRetryList?: () => void;
-  className?: string;
-}
-
-/**
- * Fully controlled listing, so the same rows render from the turn-activity
- * shelf and from the Fleet control panel without either owning the transport.
- * A listing that failed shows the failure with Retry: above the last rows, or
- * in place of a section that would otherwise not appear.
- */
-export function DelegatedTaskRowsSurface(props: DelegatedTaskRowsSurfaceProps) {
-  useTranslation();
-  const listFailure = props.listError ? (
-    <p className={sx(styles.errorText)} role="alert">
-      {i18n.t("session:delegatedTaskRows.listFailed")}
-      {props.onRetryList ? (
-        <Button size="sm" variant="ghost" onClick={props.onRetryList}>
-          {i18n.t("common:actions.retry")}
-        </Button>
-      ) : null}
-    </p>
-  ) : null;
-  if (!props.rows.length) {
-    return listFailure ? (
-      <section className={cx(sx(styles.sectionRoot), props.className)} aria-label={i18n.t("session:delegatedTaskRows.ariaLabel")}>
-        {listFailure}
-      </section>
-    ) : null;
-  }
-  return (
-    <section
-      className={cx(sx(styles.sectionRoot), props.className)}
-      aria-label={i18n.t("session:delegatedTaskRows.ariaLabel")}
-      data-testid="delegated-task-rows"
-    >
-      <h3 className={sx(styles.sectionHeading)}>{i18n.t("session:delegatedTaskRows.delegatedTaskRowsSurface")}</h3>
-      {listFailure}
-      <div className={sx(styles.sectionList)}>
-        {props.rows.map((child) => (
-          <DelegatedTaskRow
-            key={child.delegationKey}
-            child={child}
-            busy={props.busyDelegationKey === child.delegationKey}
-            blockedKind={
-              props.blockedByDelegationKey?.[child.delegationKey] ?? null
-            }
-            error={props.errorByDelegationKey?.[child.delegationKey] ?? null}
-            onOpen={props.onOpen}
-            onFollowUp={props.onFollowUp}
-            onRetry={props.onRetry}
-            onStop={props.onStop}
-            onDetach={props.onDetach}
-          />
-        ))}
-      </div>
-    </section>
   );
 }
 
@@ -571,53 +388,6 @@ export function useDelegatedTaskRowController(args: {
     onStop: handleStop,
     onDetach: handleDetach,
   };
-}
-
-export function DelegatedTaskRows(props: {
-  parentTaskId: string | null | undefined;
-  parentWorkspaceId?: string | null;
-  repositoryPath?: string | null;
-  enabled?: boolean;
-  /**
-   * A listing already loaded by an ancestor that needs it for something else
-   * too — the turn activity shelf reads it to fold delegated children into the
-   * turn's work graph. Passing it down keeps one subscription per parent task
-   * instead of one per view, and guarantees both views show the same rows.
-   */
-  source?: DelegatedTaskListingSource;
-  className?: string;
-}) {
-  useTranslation();
-  // Disabled rather than skipped: a hook cannot be conditional, and an disabled
-  // `useDelegatedTasks` neither lists nor subscribes.
-  const ownListing = useDelegatedTasks({
-    parentTaskId: props.parentTaskId,
-    parentWorkspaceId: props.parentWorkspaceId,
-    repositoryPath: props.repositoryPath,
-    enabled: props.source ? false : props.enabled,
-  });
-  const listing = props.source ?? ownListing;
-  const controller = useDelegatedTaskRowController({
-    source: listing,
-    repositoryPath: props.repositoryPath,
-  });
-
-  return (
-    <DelegatedTaskRowsSurface
-      rows={controller.children}
-      errorByDelegationKey={controller.errorByDelegationKey}
-      blockedByDelegationKey={controller.blockedByDelegationKey}
-      busyDelegationKey={controller.busyDelegationKey}
-      className={props.className}
-      listError={listing.error}
-      onRetryList={listing.actions.refresh}
-      onOpen={controller.onOpen}
-      onFollowUp={controller.onFollowUp}
-      onRetry={controller.onRetry}
-      onStop={controller.onStop}
-      onDetach={controller.onDetach}
-    />
-  );
 }
 
 /**

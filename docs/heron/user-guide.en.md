@@ -1196,7 +1196,10 @@ The agent receives a review's answer only with the message you attach it to.
 ## Delegated tasks
 
 An agent can hand part of its work to another agent. A delegated task is a real task under the parent task.
-The Task panel's **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view activity, open the transcript, or stop it.
+The Task panel's **Subagents** tab shows whether each is running, waiting, needs you, completed or failed, and lets you view its progress, open the transcript, or stop it.
+**View progress** opens the **Agent** panel in the right rail beside the conversation: where the agent came from, its state and a fact row (kind, model, effort, elapsed time, steps), what it is doing now, then what it was asked, its steps as plain sentences such as `Reading src/main.tsx` and its answer. Consecutive tool calls fold into one block, while running and failed steps stay in view. A subagent it started opens in the same panel with a way back, and the panel follows new steps only while you are at the bottom. Agent rows in Turn Activity, **View progress** on a subagent card in the conversation and **View** on a composer review open the same panel.
+
+From Fleet, select a subagent card. Comparison candidates with a task and Tars work cards with a linked Agent run offer **View progress**. Select **Timeline** under Steps to see when measured steps overlap. Select a step on the chart to read its details. Steps without a measured interval appear below the chart. Switch back to **List** to read messages, tool details and nested agent results. [Agent progress timeline](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/agent-progress-timeline.png)
 **Needs you** means it asked a question or an approval and waits for a person; **Waiting** means it sits between turns on its own.
 The counts above the list are filters (**All**, **Needs you**, **Failed**, **Running**, **Done**), and **Retry failed (N)** retries every failed delegated task with one set of instructions.
 When two or more children write in their own worktrees, **Shared files** lists the files more than one of them changed, who changed each, and opens each worktree's diff. It compares files, not lines.
@@ -1305,8 +1308,9 @@ Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/sc
 **Activity** in the sidebar shows Claude Code and Codex sessions you started outside Stave, such as `claude` in a terminal, and the sub-agents a Claude Code session runs. It is off by default: turn on **Settings > General > Activity outside Stave**, or choose **Turn on** on the page. When it is on, Stave reads those tools' transcript files on this computer, in memory only; nothing is saved or sent anywhere, and nothing is read while it is off.
 
 - Sessions written in the last 30 minutes are grouped by the Stave project whose folder contains them. Each shows its status (**Working**, **Waiting for you**, **Idle**), branch, current action, elapsed time, steps, context size and "N of M agents running", with a card per sub-agent.
+- On a session or sub-agent card, select **View progress** to read the latest 32 message and tool summaries as they arrive. Close the panel or press Escape to return to the cards.
 - The sidebar badge counts working sessions plus running sub-agents. Sessions Stave started stay in their tasks and are not listed.
-- It is read-only: there is no way to steer or stop a session from here. Cursor, Kiro and OpenCode sessions are not shown, and Codex has no sub-agents.
+- It is read-only: there is no way to steer or stop a session from here. Claude Code and Codex sub-agents appear under their parent session when it is listed.
 
 
 @page tools | Tools | Workspace tools | reference

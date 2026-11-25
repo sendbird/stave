@@ -215,6 +215,7 @@ export const shelfStyles = stylex.create({
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "nowrap",
   },
+  runFacts: { display: "inline-flex", alignItems: "center", gap: vars["--aui-space-8"], maxWidth: "100%" },
   /** A fixed slot at the end, so a ticking clock never shifts the buttons. */
   meta: {
     flex: "0 0 auto",

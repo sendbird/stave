@@ -13,6 +13,7 @@ import {
   summarizeAgentFleet,
   type AgentFleetAgent,
 } from "@/components/aui/components/AgentFleet";
+import { stepsFromExchangeStages } from "@/lib/agent-progress/from-exchange";
 import { nextFleetTreeIndex } from "@/components/layout/FleetAgentTree";
 import { applyAppLocale } from "@/i18n";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
@@ -185,7 +186,7 @@ describe("main agents from task rows", () => {
 describe("subagents from delegation exchanges", () => {
   test("a delegated task that waits offers Answer, a failed one Open, and neither lists steps", () => {
     const waiting = buildSubagent(exchange({ outcome: { status: "needs_user", progress: ["Needs approval"] } }), NOW);
-    expect(waiting).toMatchObject({ name: "review", status: "waiting", resolveLabel: "Answer", task: "Review the search change", startedAt: NOW - 60_000 });
+    expect(waiting).toMatchObject({ name: "review", status: "waiting", resolveLabel: "Answer", task: "Needs approval", startedAt: NOW - 60_000 });
     expect(waiting.ask).toContain("Review the search change");
     expect(waiting.steps).toBeUndefined();
     const failed = buildSubagent(exchange({ outcome: { status: "failed", error: "Tests failed", spend: { totalCostUsd: 0.12 } }, timing: { startedAt: NOW - 60_000, endedAt: NOW - 20_000, stages: [] } }), NOW);
@@ -212,7 +213,7 @@ describe("subagents from delegation exchanges", () => {
     expect(describeAgentFleetTask({ name: "review", task: "Review the search change" })).toBe("Review the search change");
   });
 
-  test("an in-turn subagent lists its steps and has no shortcut", () => {
+  test("an in-turn card summarizes the latest update and timed stages use the shared step model", () => {
     const sub = buildSubagent(
       exchange({
         id: "subagent:explore", kind: "subagent", title: "Explore", ref: { nodeKey: "explore" },
@@ -221,18 +222,19 @@ describe("subagents from delegation exchanges", () => {
       NOW,
     );
     expect(sub.resolveLabel).toBeUndefined();
-    expect(sub.steps?.map((step) => step.title)).toEqual(["Reading files", "Searching"]);
+    expect(sub.task).toBe("Searching");
+    expect(sub.steps).toBeUndefined();
     expect("cost" in sub).toBe(false);
-    const staged = buildSubagent(
+    const staged = stepsFromExchangeStages(
       exchange({
         kind: "subagent", outcome: { status: "returned" },
         timing: { startedAt: NOW - 30_000, endedAt: NOW, stages: [{ at: NOW - 30_000, label: "Plan" }, { at: NOW - 10_000, label: "Edit", detail: "Edit" }] },
       }),
-      NOW,
     );
-    expect(staged.steps).toEqual([
-      { id: "delegated-task:review:stage:0", title: "Plan", tookMs: 20_000 },
-      { id: "delegated-task:review:stage:1", title: "Edit", tool: "Edit" },
+    expect(staged.every((step) => step.durationMs === undefined)).toBe(true);
+    expect(staged).toMatchObject([
+      { id: "delegated-task:review:stage:0", done: "Plan", startedAt: NOW - 30_000 },
+      { id: "delegated-task:review:stage:1", done: "Edit", text: "Edit", startedAt: NOW - 10_000 },
     ]);
   });
 });

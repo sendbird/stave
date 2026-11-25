@@ -55,6 +55,8 @@ here; they stay in their own tasks.
 - Each sub-agent card shows its agent type, status, description, current
   action, elapsed time, steps and context.
 
+Select **View progress** on a session or sub-agent to read its latest 32 message and tool summaries. New entries appear while Activity is open. Escape or Close returns to the cards.
+
 Statuses:
 
 | Status | Meaning |

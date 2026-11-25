@@ -1,3 +1,4 @@
+import { AgentCard } from "./AgentSummary";
 import { cancelFocusWhenMounted, focusWhenMounted, useWindowedList } from "@/hooks/use-windowed-list";
 import { useTranslation } from "@/i18n";
 import { formatCost, formatDuration } from "@/i18n/format";
@@ -691,25 +692,19 @@ function SubagentCard(props: {
         xstyle={[styles.subPrimary, focusRing.ringInset, transition.colors]}
         onClick={(event) => props.onSelect(agent, event.currentTarget)}
       >
-        <span className={sx(styles.row)}>
-          <span id={nameId} className={sx(styles.subName)}>
-            {agent.name}
-          </span>
-          <AgentStatus id={statusId} status={agent.status} label={statusLabel(agent)} />
-        </span>
-        {task ? (
-          <span id={taskId} className={sx(styles.task)} title={task}>
-            {task}
-          </span>
-        ) : null}
-        {hasNumbers ? (
-          <MetaLine id={metaId}>
-            {[
-              cost !== null ? <span key="cost">{props.formatCost(cost)}</span> : null,
-              hasAgentFleetTime(agent) ? <AgentTime key="time" agent={agent} now={props.now} /> : null,
-            ]}
-          </MetaLine>
-        ) : null}
+        <AgentCard
+          title={<span id={nameId} className={sx(styles.subName)}>{agent.name}</span>}
+          status={<AgentStatus id={statusId} status={agent.status} label={statusLabel(agent)} />}
+          activity={task ? <span id={taskId} className={sx(styles.task)} title={task}>{task}</span> : null}
+          facts={hasNumbers ? (
+            <MetaLine id={metaId}>
+              {[
+                cost !== null ? <span key="cost">{props.formatCost(cost)}</span> : null,
+                hasAgentFleetTime(agent) ? <AgentTime key="time" agent={agent} now={props.now} /> : null,
+              ]}
+            </MetaLine>
+          ) : null}
+        />
       </Button>
       {canResolveAgentFleetAgent(agent) && props.onResolve ? (
         <Button

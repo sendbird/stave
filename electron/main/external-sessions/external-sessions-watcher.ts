@@ -568,17 +568,20 @@ export class ExternalSessionsWatcher {
         }
         entry.tail ??= new TranscriptTail(entry.file, this.fs);
         const firstPrompt = entry.state.firstPrompt;
+        entry.state.progress.enabled = true;
         entry.state.feed(await entry.tail.read());
         // The head's first prompt is the real first one; the tail only sees later ones.
         if (firstPrompt) entry.state.firstPrompt = firstPrompt;
         if (entry.tail.mtimeMs) entry.mtimeMs = entry.tail.mtimeMs;
         for (const agent of entry.agents.values()) {
           agent.tail ??= new TranscriptTail(agent.file, this.fs, { firstBytes: EXTERNAL_SESSION_LIMITS.agentFirstBytes });
+          agent.state.progress.enabled = true;
           agent.state.feed(await agent.tail.read());
           if (agent.tail.mtimeMs) agent.mtimeMs = agent.tail.mtimeMs;
         }
       } else {
         entry.tail ??= new TranscriptTail(entry.file, this.fs);
+        entry.state.progress.enabled = true;
         entry.state.feed(await entry.tail.read());
         if (entry.tail.mtimeMs) entry.mtimeMs = entry.tail.mtimeMs;
       }
@@ -676,6 +679,7 @@ export class ExternalSessionsWatcher {
         lastAt: agent.mtimeMs,
         ...(agent.state.action ? { action: agent.state.action } : {}),
         steps: agent.state.steps,
+        recentProgress: agent.state.progress.snapshot(),
         ...(agent.state.contextTokens ? { contextTokens: agent.state.contextTokens } : {}),
       });
     }
@@ -695,6 +699,7 @@ export class ExternalSessionsWatcher {
       lastAt: entry.mtimeMs,
       ...(state.action ? { action: state.action } : {}),
       steps: state.steps,
+      recentProgress: state.progress.snapshot(),
       ...(state.contextTokens ? { contextTokens: state.contextTokens } : {}),
       ...(state.model ? { model: state.model } : {}),
       agents: shown,
@@ -718,6 +723,7 @@ function summarizeCodex(entry: CodexEntry, now: number): ExternalSession | null 
         lastAt: child.mtimeMs,
         ...(child.state.action ? { action: child.state.action } : {}),
         steps: child.state.steps,
+        recentProgress: child.state.progress.snapshot(),
         ...(child.state.contextTokens ? { contextTokens: child.state.contextTokens } : {}),
       };
     })
@@ -737,6 +743,7 @@ function summarizeCodex(entry: CodexEntry, now: number): ExternalSession | null 
     lastAt: entry.mtimeMs,
     ...(state.action ? { action: state.action } : {}),
     steps: state.steps,
+    recentProgress: state.progress.snapshot(),
     ...(state.contextTokens ? { contextTokens: state.contextTokens } : {}),
     ...(state.model ? { model: state.model } : {}),
     agents,

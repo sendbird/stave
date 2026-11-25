@@ -5,7 +5,7 @@ import { Thinking } from "@/components/aui/components/Thinking";
 import { ToolRun } from "@/components/aui/components/ToolRun";
 import { ReasoningRow } from "@/components/session/message/turn-event-rows";
 import { TraceToolRun } from "@/components/session/message/turn-event-tool-runs";
-import { LiveTurnTraceTimeline } from "@/components/session/TurnTraceTimeline";
+import { LiveTurnTraceTimeline } from "@/components/session/LiveTurnTraceTimeline";
 import { useAppStore } from "@/store/app.store";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { ChatMessage, ToolUsePart } from "@/types/chat";

@@ -1,3 +1,4 @@
+import { AgentLine } from "@/components/aui/components/AgentSummary";
 import { i18n, useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import {
@@ -111,19 +112,23 @@ export function ShelfRunLine(props: {
       role="group"
       aria-label={props.ariaLabel}
     >
-      <span className={sx(styles.mark)}>{props.mark}</span>
-      {props.text}
-      {props.progress}
-      {props.meta ? <span className={sx(styles.meta)}>{props.meta}</span> : null}
-      {props.actions ? (
-        <span className={sx(styles.actions)}>{props.actions}</span>
-      ) : null}
-      {props.panel || props.detail ? (
-        <span className={sx(styles.actions)}>
-          {props.panel ? <ShelfPanelButton {...props.panel} /> : null}
-          {props.detail ? <ShelfDetailButton {...props.detail} /> : null}
-        </span>
-      ) : null}
+      <AgentLine
+        status={<span className={sx(styles.mark)}>{props.mark}</span>}
+        title={props.text}
+        facts={props.progress || props.meta ? (
+          <span className={sx(styles.runFacts)}>
+            {props.progress}
+            {props.meta ? <span className={sx(styles.meta)}>{props.meta}</span> : null}
+          </span>
+        ) : null}
+        actions={props.actions || props.panel || props.detail ? (
+          <span className={sx(styles.actions)}>
+            {props.actions}
+            {props.panel ? <ShelfPanelButton {...props.panel} /> : null}
+            {props.detail ? <ShelfDetailButton {...props.detail} /> : null}
+          </span>
+        ) : null}
+      />
       {props.announcement ? (
         <span className={sx(styles.visuallyHidden)} aria-live="polite">
           {props.announcement}
@@ -152,7 +157,7 @@ export function ShelfRunText(props: {
 }) {
   useTranslation();
   return (
-    <p className={sx(styles.text)} title={props.title}>
+    <span data-testid="shelf-run-text" className={sx(styles.text)} title={props.title}>
       <span className={sx(styles.label, LABEL_TONES[props.tone ?? "neutral"])}>
         {props.label}
       </span>
@@ -166,7 +171,7 @@ export function ShelfRunText(props: {
           </span>
         ),
       )}
-    </p>
+    </span>
   );
 }
 

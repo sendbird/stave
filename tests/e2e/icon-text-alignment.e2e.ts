@@ -119,7 +119,7 @@ test("run check marks stay on the first line when criteria wrap and when details
   }
 });
 
-test("the attached review check centers with its label in the shelf and detail dialog", async ({ page }) => {
+test("the attached review check centers with its label in the shelf and progress panel", async ({ page }) => {
   await page.goto("/?stavePreview=composer-frame&case=reviews");
   const row = page.locator('[data-testid="composer-shelf-review"][data-status="ready"]');
   await row.getByRole("button", { name: "Attach", exact: true }).click();
@@ -138,9 +138,9 @@ test("the attached review check centers with its label in the shelf and detail d
   });
   expect(Math.abs(await labelDelta(check))).toBeLessThanOrEqual(0.5);
   await row.getByRole("button", { name: "View", exact: true }).click();
-  const dialogCheck = page.getByRole("dialog").locator('span:has(> svg.lucide-check)').filter({ hasText: "Attached to your message" }).locator("svg");
-  await expect(dialogCheck).toBeVisible();
-  expect(Math.abs(await labelDelta(dialogCheck))).toBeLessThanOrEqual(0.5);
+  const panelCheck = page.getByTestId("agent-progress-panel").locator('span:has(> svg.lucide-check)').filter({ hasText: "Attached to your message" }).locator("svg");
+  await expect(panelCheck).toBeVisible();
+  expect(Math.abs(await labelDelta(panelCheck))).toBeLessThanOrEqual(0.5);
 });
 
 test("subtask arrows align with long titles without losing ellipsis", async ({ page }) => {
@@ -180,4 +180,24 @@ test("palette icons center on titles with subtitles and context badges", async (
   await page.evaluate(() => document.fonts.ready);
   expect(Math.abs(await firstLineDelta(row, "svg", '[class*="itemTitle "]'))).toBeLessThanOrEqual(0.5);
   await expect(row.getByText("Active task", { exact: true })).toBeVisible();
+});
+
+test("external agent cards keep long titles, actions and facts inside narrow and wide columns", async ({ page }) => {
+  for (const [lang, theme, width] of [["ko", "dark", 320], ["en", "light", 760]] as const) {
+    await page.goto(`/?stavePreview=activity&lang=${lang}&theme=${theme}&width=${width}`);
+    const card = page.locator('[data-external-session="claude-1"] > [data-agent-summary="card"]');
+    await expect(card).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const geometry = await card.evaluate((node) => {
+      const bounds = node.getBoundingClientRect();
+      const title = node.querySelector("h4")!.parentElement!;
+      const action = node.querySelector("button")!.getBoundingClientRect();
+      const facts = node.querySelector("p")!.getBoundingClientRect();
+      return { width: node.clientWidth, content: node.scrollWidth, fitsButton: action.right <= bounds.right + 1,
+        fitsFacts: facts.right <= bounds.right + 1, titleHeight: title.clientHeight, line: Number.parseFloat(getComputedStyle(title).lineHeight) };
+    });
+    expect(geometry.content).toBeLessThanOrEqual(geometry.width + 1);
+    expect(geometry.fitsButton && geometry.fitsFacts).toBe(true);
+    expect(geometry.titleHeight).toBeLessThanOrEqual(2 * geometry.line + 1);
+  }
 });

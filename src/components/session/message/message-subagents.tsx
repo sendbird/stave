@@ -9,7 +9,8 @@ import { useNow } from "@/components/agent-runs/useAgentRun";
 import { isDelegationExchangeLive, type DelegationExchange } from "@/lib/delegation/exchange";
 import { SubagentExchangeCard } from "./SubagentExchangeCard";
 import { subagentCardStyles } from "./subagent-card.styles";
-import { GitBranch } from "lucide-react";
+import { GitBranch, PanelRight } from "lucide-react";
+import { openExchangeProgress } from "@/components/agent-progress/open-agent-progress";
 import { useAppStore } from "@/store/app.store";
 import { selectMessageSubagents } from "@/lib/delegation/message-subagents";
 import { describeSubagentState, subagentResultLine, type SubagentMessage } from "@/lib/delegation/subagent-summary";
@@ -35,13 +36,19 @@ export function MessageSubagents(props: { message: SubagentMessage; taskId: stri
     <h3 className={sx(styles.heading)}><GitBranch className={sx(styles.icon)} aria-hidden="true" />{i18n.t("session:assistantTrace.subagents")}<span className={sx(styles.count)}>{formatNumber(rows.length)}</span></h3>
     <div className={sx(subagentCardStyles.list)}>
       {rows.map((exchange) => <ResultRow key={exchange.id} exchange={exchange}
+        onViewProgress={props.readOnly ? undefined : () => openExchangeProgress({ exchange, taskId: props.taskId })}
         blockedKind={!props.readOnly && exchange.outcome.status === "needs_user" && exchange.ref.delegationKey
           ? blocked[exchange.ref.delegationKey] : undefined} />)}
     </div>
   </section>;
 }
 
-function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; blockedKind?: string }) {
+function ResultRow({ exchange, blockedKind, onViewProgress }: {
+  exchange: DelegationExchange;
+  blockedKind?: string;
+  /** Opens the subagent's progress beside the conversation. */
+  onViewProgress?: () => void;
+}) {
   useTranslation();
   const [error, setError] = useState<string>();
   const [opening, setOpening] = useState(false);
@@ -65,13 +72,18 @@ function ResultRow({ exchange, blockedKind }: { exchange: DelegationExchange; bl
       setError(i18n.t("session:delegatedTaskRows.extraCopy91"));
     } finally { setOpening(false); }
   };
+  const openChild = exchange.ref.delegatedTaskId ? <Button size="2xs" variant="secondary" disabled={opening} onClick={() => void open()}>
+    {blockedKind === "user-input" ? i18n.t("session:assistantTrace.needsAnswer")
+      : blockedKind === "approval" ? i18n.t("session:assistantTrace.needsApproval")
+      : i18n.t("session:assistantTrace.openChild")}
+  </Button> : null;
+  const viewProgress = onViewProgress ? <Button size="2xs" variant="quiet" onClick={onViewProgress} data-testid="subagent-view-progress">
+    <PanelRight aria-hidden className={sx(subagentCardStyles.chevron)} />
+    {i18n.t("session:agentProgress.panel.viewProgress")}
+  </Button> : null;
   return <SubagentExchangeCard exchange={exchange} nowMs={now} status={status}
     preview={preview} statusNote={error}
-    extraActions={exchange.ref.delegatedTaskId ? <Button size="2xs" variant="secondary" disabled={opening} onClick={() => void open()}>
-      {blockedKind === "user-input" ? i18n.t("session:assistantTrace.needsAnswer")
-        : blockedKind === "approval" ? i18n.t("session:assistantTrace.needsApproval")
-        : i18n.t("session:assistantTrace.openChild")}
-    </Button> : undefined}
+    extraActions={openChild || viewProgress ? <>{openChild}{viewProgress}</> : undefined}
   />;
 }
 

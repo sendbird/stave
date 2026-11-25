@@ -1,3 +1,4 @@
+import { RecentProgress } from "./recent-progress";
 import type { ExternalAction, ExternalAgentStatus } from "../../../src/lib/external-sessions/external-sessions";
 import { isAbsolute } from "node:path";
 import { cleanTarget, describeClaudeTool } from "./external-actions";
@@ -75,6 +76,7 @@ export class ClaudeTranscriptState {
   action?: ExternalAction;
   /** Tool calls seen (in the part of the file that was read). */
   steps = 0;
+  readonly progress = new RecentProgress();
   contextTokens?: number;
   model?: string;
   /** true: the last answer ended its turn. */
@@ -107,11 +109,11 @@ export class ClaudeTranscriptState {
     switch (entry.type) {
       case "user":
         this.noteTime(ts);
-        this.feedUser(entry, ts ?? 0);
+        this.feedUser(entry, ts);
         return;
       case "assistant":
         this.noteTime(ts);
-        this.feedAssistant(entry);
+        this.feedAssistant(entry, ts);
         return;
       case "ai-title": {
         const title = cleanTitle(str(entry.aiTitle));
@@ -152,17 +154,18 @@ export class ClaudeTranscriptState {
     }
   }
 
-  private feedUser(entry: Record<string, unknown>, ts: number) {
+  private feedUser(entry: Record<string, unknown>, ts: number | undefined) {
     const message = entry.message as { content?: unknown } | undefined;
     const blocks = blocksOf(message?.content);
     let sawResult = false;
     for (const block of blocks) {
       if (block.type !== "tool_result" || typeof block.tool_use_id !== "string") continue;
       sawResult = true;
+      this.progress.finish(block.tool_use_id, block.is_error === true, ts);
       const result = (entry.toolUseResult ?? {}) as { status?: unknown; isAsync?: unknown };
       const firstText = blocksOf(block.content).find((item) => item.type === "text");
       const async = result.status === "async_launched" || result.isAsync === true || /^Async agent launched/.test(str(firstText?.text));
-      this.results.set(block.tool_use_id, { error: block.is_error === true, async, ts });
+      this.results.set(block.tool_use_id, { error: block.is_error === true, async, ts: ts ?? 0 });
     }
     if (sawResult) {
       this.final = false;
@@ -173,27 +176,30 @@ export class ClaudeTranscriptState {
       .map((block) => str(block.text))
       .join("\n")
       .trim();
-    this.feedNotices(text, ts);
+    this.feedNotices(text, ts ?? 0);
     if (!text || entry.isMeta === true || MACHINE_TEXT.test(text)) return;
     if (INTERRUPTED.test(text)) {
       this.final = true;
       return;
     }
     this.final = false;
+    this.progress.message("user", cleanTitle(text) ?? "");
     this.firstPrompt ??= cleanTitle(text);
   }
 
-  private feedAssistant(entry: Record<string, unknown>) {
+  private feedAssistant(entry: Record<string, unknown>, ts: number | undefined) {
     const message = (entry.message ?? {}) as { content?: unknown; model?: unknown; usage?: unknown; stop_reason?: unknown };
     const synthetic = message.model === "<synthetic>";
     let usedTool = false;
     const cwd = typeof entry.cwd === "string" ? entry.cwd : this.cwd;
     for (const block of blocksOf(message.content)) {
+      if (!synthetic && block.type === "text") this.progress.message("text", str(block.text));
       if (block.type !== "tool_use" || typeof block.name !== "string") continue;
       usedTool = true;
       const input = block.input && typeof block.input === "object" ? (block.input as Record<string, unknown>) : {};
       this.steps += 1;
       this.action = describeClaudeTool(block.name, input, cwd);
+      this.progress.tool(this.action, block.id, ts);
       if (AGENT_TOOLS.has(block.name) && typeof block.id === "string") {
         this.launches.set(block.id, {
           ...(cleanTarget(str(input.description)) ? { description: cleanTarget(str(input.description)) } : {}),

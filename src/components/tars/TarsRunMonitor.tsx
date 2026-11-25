@@ -2,6 +2,7 @@ import { ChartNoAxesGantt, ScrollText } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { formatDuration } from "@/i18n/format";
 import { Button } from "@/components/ui";
+import { AgentLine } from "@/components/aui/components/AgentSummary";
 import { Badge, type BadgeTone } from "@/components/aui/components/Badge";
 import { Loader } from "@/components/aui/components/Loader";
 import { runStyles, type RunMonitorSegment } from "@/components/aui/components/RunMonitor";
@@ -96,15 +97,15 @@ export function TarsRunStages({ row, progress }: { row: Pick<TarsResponsibility,
     {step ? <div className={sx(runStyles.well, runStyles.now, agentMotion.layerHost)}>
       {/* A new live step is highlighted once; a settled one stays still. */}
       {live ? <AgentHighlight highlightKey={stepKey} /> : null}
-      {live ? <span aria-hidden className={sx(runStyles.nowMark)}><Loader aria-hidden size="xs" tone="inherit" variant="spinner" /></span>
-        : <span aria-hidden className={sx(runStyles.nowMarkSettled)}><StateMark motion="still" size="sm" state={WORK_STATE_OF[row.state]} /></span>}
-      <span className={sx(runStyles.nowText)}>
-        <AgentTextSwap swapKey={stepKey} truncate xstyle={live ? textShimmer.sweep : undefined}><span data-tars-monitor-step="">{step}</span></AgentTextSwap>
-      </span>
-      {timed ? <span className={sx(runStyles.clock)}><ElapsedClock live now={now}>{(clock) => {
-        const duration = formatDuration(clock - started);
-        return <span role="timer" aria-label={t("shell:tars.tray.monitor.elapsedLabel", { duration })} data-tars-monitor-elapsed="">{duration}</span>;
-      }}</ElapsedClock></span> : null}
+      <AgentLine
+        status={live ? <span aria-hidden className={sx(runStyles.nowMark)}><Loader aria-hidden size="xs" tone="inherit" variant="spinner" /></span>
+          : <span aria-hidden className={sx(runStyles.nowMarkSettled)}><StateMark motion="still" size="sm" state={WORK_STATE_OF[row.state]} /></span>}
+        title={<AgentTextSwap swapKey={stepKey} truncate xstyle={live ? textShimmer.sweep : undefined}><span data-tars-monitor-step="">{step}</span></AgentTextSwap>}
+        facts={timed ? <span className={sx(runStyles.clock)}><ElapsedClock live now={now}>{(clock) => {
+          const duration = formatDuration(clock - started);
+          return <span role="timer" aria-label={t("shell:tars.tray.monitor.elapsedLabel", { duration })} data-tars-monitor-elapsed="">{duration}</span>;
+        }}</ElapsedClock></span> : null}
+      />
     </div> : null}
     <ProgressStrip live={live} progress={{
       completed: staged.finished, total: staged.total,

@@ -11,8 +11,8 @@ test("review rows and results distinguish later edits, concurrent edits and miss
     const ready = page.locator('[data-testid="composer-shelf-review"][data-status="ready"]');
     await expect(ready).toContainText(state.label);
     await ready.getByRole("button", { name: "View", exact: true }).click();
-    await expect(page.getByRole("dialog").getByRole("note")).toContainText(state.detail);
-    await expect(page.getByRole("dialog").getByRole("button", { name: "Run again", exact: true })).toBeVisible();
+    await expect(page.getByTestId("agent-progress-panel").getByRole("note")).toContainText(state.detail);
+    await expect(page.getByTestId("agent-progress-panel").getByRole("button", { name: "Run again", exact: true })).toBeVisible();
   }
 });
 
@@ -34,8 +34,8 @@ test("refreshing an open review checks code changes made after the result was op
   await page.goto("/?stavePreview=composer-frame&case=reviews&open=1", { waitUntil: "domcontentloaded" });
   const ready = page.locator('[data-testid="composer-shelf-review"][data-status="ready"]');
   await ready.getByRole("button", { name: "View", exact: true }).click();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("note")).toHaveCount(0);
+  const panel = page.getByTestId("agent-progress-panel");
+  await expect(panel.getByRole("note")).toHaveCount(0);
   await page.evaluate(() => {
     window.api!.runs.getReviewRevision = async () => ({
       source: { status: "known", revision: "reviewed" },
@@ -43,6 +43,6 @@ test("refreshing an open review checks code changes made after the result was op
       current: { status: "known", revision: "edited" },
     });
   });
-  await dialog.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(dialog.getByRole("note")).toContainText("Code changed since this review.");
+  await panel.getByRole("button", { name: "Refresh", exact: true }).click();
+  await expect(panel.getByRole("note")).toContainText("Code changed since this review.");
 });
