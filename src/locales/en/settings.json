@@ -1183,6 +1183,10 @@
         "title": "Learn from kept and undone rewrites",
         "description": "Remembers the last few Enhance results you kept or undid and shows them to the rewrite model as examples. Stored locally with your settings."
       },
+      "promptEnhancementDepth": {
+        "title": "Rewrite depth",
+        "description": "Clarify restates the draft as clear instructions. Sharpen keeps the scope but names the problem precisely and says where to start and what proves the result."
+      },
       "modelVisibility": {
         "title": "Selector models",
         "description": "Per-provider overrides for which catalog models the model selector lists by default."

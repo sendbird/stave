@@ -43,6 +43,41 @@ describe("buildPromptEnhancementInferencePrompt", () => {
     expect(prompt).toMatch(/Return only the rewritten prompt/i);
   });
 
+  test("sharpen deepens the method without widening the scope", () => {
+    const draft = "chat list jumps when older messages load";
+    const prompt = buildPromptEnhancementInferencePrompt({
+      prompt: draft,
+      depth: "sharpen",
+    });
+
+    expect(prompt).toContain("deeper, not bigger");
+    expect(prompt).toContain("Name the problem precisely");
+    expect(prompt).toContain("first-hand material");
+    expect(prompt).toContain("besides the agent's own judgment");
+    expect(prompt).toContain("settle by experiment");
+    expect(prompt).toContain("stay with the user");
+    expect(prompt).toContain("Do not add links or citations.");
+    expect(prompt).toContain("Add no features, files, APIs, or deliverables");
+    expect(prompt).toContain("A question stays a question.");
+    expect(prompt).toContain("Do not invent those tokens");
+    // The clarify-only ban on added steps does not apply to sharpen.
+    expect(prompt).not.toContain(
+      "Add no files, APIs, tests, steps, or acceptance criteria",
+    );
+    const start = prompt.indexOf("<original_prompt>");
+    expect(prompt.slice(start)).toContain(draft);
+    expect(prompt).toMatch(/Return only the rewritten prompt/i);
+  });
+
+  test("defaults to clarify for a missing depth", () => {
+    expect(buildPromptEnhancementInferencePrompt({ prompt: "x" })).toBe(
+      buildPromptEnhancementInferencePrompt({ prompt: "x", depth: "clarify" }),
+    );
+    expect(buildPromptEnhancementInferencePrompt({ prompt: "x" })).not.toContain(
+      "deeper, not bigger",
+    );
+  });
+
   test("tells the model not to mint mention tokens from repo guidance", () => {
     const prompt = buildPromptEnhancementInferencePrompt({
       prompt: "fix the restore path",

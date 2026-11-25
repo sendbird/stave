@@ -41,6 +41,7 @@ import {
 } from "@/lib/providers/prompt-defaults";
 import {
   normalizePromptEnhancementExemplars,
+  normalizePromptEnhancementDepth,
   normalizePromptEnhancementStyleProfile,
 } from "@/lib/providers/prompt-enhancement-context";
 import {
@@ -487,6 +488,9 @@ export function createAppStorePersistenceOptions() {
         typeof raw.promptEnhancementLearnFromEdits === "boolean"
           ? raw.promptEnhancementLearnFromEdits
           : defaultSettings.promptEnhancementLearnFromEdits;
+      state.settings.promptEnhancementDepth = normalizePromptEnhancementDepth(
+        raw.promptEnhancementDepth,
+      );
       state.settings.promptEnhancementExemplars =
         normalizePromptEnhancementExemplars(raw.promptEnhancementExemplars);
       // Background AI lanes. Normalized (not merged) so every lane object

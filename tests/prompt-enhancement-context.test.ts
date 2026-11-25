@@ -4,6 +4,7 @@ import {
   PROMPT_ENHANCEMENT_HISTORY_MESSAGES,
   buildPromptEnhancementHistory,
   buildPromptEnhancementWorkspaceSummary,
+  normalizePromptEnhancementDepth,
   normalizePromptEnhancementExemplars,
   recordPromptEnhancementExemplar,
   renderPromptEnhancementContextBlocks,
@@ -141,6 +142,56 @@ describe("prompt enhancement exemplars", () => {
       "f",
       "g",
     ]);
+  });
+});
+
+describe("prompt enhancement depth", () => {
+  test("falls back to clarify for missing or unknown values", () => {
+    expect(normalizePromptEnhancementDepth("sharpen")).toBe("sharpen");
+    expect(normalizePromptEnhancementDepth("clarify")).toBe("clarify");
+    expect(normalizePromptEnhancementDepth(undefined)).toBe("clarify");
+    expect(normalizePromptEnhancementDepth("deep")).toBe("clarify");
+  });
+
+  test("remembers the same draft separately for each depth", () => {
+    let list = recordPromptEnhancementExemplar([], {
+      source: "fix tests",
+      enhanced: "Fix the failing tests.",
+      outcome: "kept",
+    });
+    list = recordPromptEnhancementExemplar(list, {
+      source: "fix tests",
+      enhanced: "Fix the failing tests. Reproduce each failure first.",
+      outcome: "undone",
+      depth: "sharpen",
+    });
+    expect(list).toHaveLength(2);
+    expect(list[0]).not.toHaveProperty("depth");
+    expect(list[1]?.depth).toBe("sharpen");
+    // A later outcome at the same depth still replaces the earlier one.
+    list = recordPromptEnhancementExemplar(list, {
+      source: "fix tests",
+      enhanced: "Fix the failing tests. Reproduce each failure first.",
+      outcome: "kept",
+      depth: "sharpen",
+    });
+    expect(list).toHaveLength(2);
+    expect(list[1]?.outcome).toBe("kept");
+  });
+
+  test("selects and renders only examples made at the requested depth", () => {
+    const list = normalizePromptEnhancementExemplars([
+      { source: "old", enhanced: "Old", outcome: "kept", at: "1" },
+      { source: "deep", enhanced: "Deep", outcome: "kept", at: "2", depth: "sharpen" },
+      { source: "junk", enhanced: "Junk", outcome: "kept", at: "3", depth: "deep" },
+    ]);
+    expect(list[2]).not.toHaveProperty("depth");
+    expect(selectPromptEnhancementExemplars(list)!.map((e) => e.source)).toEqual(["old", "junk"]);
+    expect(selectPromptEnhancementExemplars(list, "sharpen")!.map((e) => e.source)).toEqual(["deep"]);
+
+    const sharpen = renderPromptEnhancementContextBlocks({ depth: "sharpen", exemplars: list }).join("\n");
+    expect(sharpen).toContain("<draft>deep</draft>");
+    expect(sharpen).not.toContain("<draft>old</draft>");
   });
 });
 

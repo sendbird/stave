@@ -31,6 +31,7 @@ import {
 } from "../../../src/lib/automations";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
 import { PR_CONTEXT_LIMITS } from "../../../src/lib/pr-context";
+import { PROMPT_ENHANCEMENT_DEPTHS } from "../../../src/lib/providers/prompt-enhancement-context";
 import { GITHUB_PR_REVIEW_LIMITS } from "../../../src/lib/github-pr-review";
 import {
   ENV_VAR_NAME_MAX_LENGTH,
@@ -418,6 +419,7 @@ export const EnhancePromptArgsSchema = z
     utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
     runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
     prompt: z.string().trim().min(1).max(100_000),
+    depth: z.enum(PROMPT_ENHANCEMENT_DEPTHS).optional(),
     // Optional reference material. Caps mirror the renderer-side clipping so a
     // misbehaving caller cannot turn the cheap lane into a long-context call.
     history: z
@@ -441,6 +443,7 @@ export const EnhancePromptArgsSchema = z
             enhanced: z.string().max(2_000),
             outcome: z.enum(["kept", "undone"]),
             at: z.string().max(64),
+            depth: z.enum(PROMPT_ENHANCEMENT_DEPTHS).optional(),
           })
           .strict(),
       )

@@ -36,6 +36,15 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 - **Undo**: restores the original draft after a successful rewrite, provided the enhanced text has not been edited again.
 - **View changes**: beside Undo in the same toast. It opens a popover over the composer with a word diff of the draft against the rewrite: removed words struck through, added words underlined, with the counts of each. **Revert to original** does what Undo does; **Keep** closes the popover. When the draft has changed since the rewrite there is nothing to compare, and a note says so.
 
+## Rewrite Depth
+
+**Settings → Models → Background AI → Prompt enhancement → Rewrite depth** chooses how far **Enhance** goes. It applies to every Enhance request.
+
+- **Clarify** (default) restates the draft as direct instructions: grammar, structure and missing verbs. It adds no steps, tests or acceptance criteria the draft does not mention.
+- **Sharpen** keeps the scope but deepens the method. It adds the precise technical term for the problem when the draft or the task context makes it unambiguous, says what first-hand material the agent should start from (reproduce the behavior, read the source, logs or real data), which methods fit, and what would show the result is right besides the agent's own judgment (a test, a reproduction, a measurement or the rendered result). It asks the agent to settle by experiment any choice an experiment can settle and recommend an option from what it observed, and to list product, design and preference choices for you instead of deciding them. It adds no features, files or deliverables, and a question stays a question.
+
+The rewrite model has no tools, so Sharpen never adds links or citations it could not open.
+
 ## Common Workflows
 
 ### Refine A Rough Task
@@ -59,8 +68,8 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 
 ## Limitations And Advanced Options
 
-- Enhancement expands terse drafts into complete agent instructions using what the draft says plus reference material that exists for the task: the last few conversation turns, the Information panel (notes, open todos, linked issues), and the repo's `AGENTS.md` or `CLAUDE.md`. Each source is attached only when present and is clipped, so an empty workspace sends only the draft. It still does not invent requirements, files, constraints, acceptance criteria, or `$skill` / `@info` tokens the draft did not already contain.
-- **Settings → Models → Background AI → Prompt enhancement** holds your **Prompt style** (language, tone, what to always include) and the **Learn from kept and undone rewrites** switch. When learning is on, the last few rewrites you kept are shown to the model as examples to match and the ones you undid as examples to avoid. Both are stored locally with your settings; **Forget remembered rewrites** clears the memory.
+- Enhancement expands terse drafts into complete agent instructions using what the draft says plus reference material that exists for the task: the last few conversation turns, the Information panel (notes, open todos, linked issues), and the repo's `AGENTS.md` or `CLAUDE.md`. Each source is attached only when present and is clipped, so an empty workspace sends only the draft. It does not invent requirements, files, or `$skill` / `@info` tokens the draft did not already contain. Under **Clarify** it also adds no constraints or acceptance criteria; under **Sharpen** it may add how the agent should work and verify, as described in [Rewrite Depth](#rewrite-depth).
+- **Settings → Models → Background AI → Prompt enhancement** holds the **Rewrite depth**, your **Prompt style** (language, tone, what to always include) and the **Learn from kept and undone rewrites** switch. When learning is on, the last few rewrites you kept are shown to the model as examples to match and the ones you undid as examples to avoid, separately for each depth, so a short Clarify rewrite you kept does not hold Sharpen back. Both are stored locally with your settings; **Forget remembered rewrites** clears the memory.
 - The action depends on an available utility runner. Auto uses Codex Luna, then Claude Haiku 5.5, then Cursor or Kiro. A later runner is used only when that provider is signed in.
 - A rewrite can still be incomplete or inaccurate, so review it before sending.
 
