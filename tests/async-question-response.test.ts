@@ -397,7 +397,8 @@ test("answering again while an earlier answer is unconfirmed records the answer 
       taskId: "task-1", messageId: "m1", requestId: "codex-async:call_1", answers: { scope: "Broad" }, onUnanswerable: "close",
     });
     emit({ eventType: "text" });
-    expect(await second).toEqual({ status: "delivered" });
+    // The caller is told its own answer was not the one delivered.
+    expect(await second).toEqual({ status: "delivered", earlierAnswer: true });
     expect(followUps).toHaveLength(1);
     // What the child got (A) is what the card and the host record.
     expect(hostCalls).toEqual([hostRecord]);

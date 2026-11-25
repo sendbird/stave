@@ -845,7 +845,9 @@ export function createProviderInteractionActions(args: {
           ? pendingDelegatedQuestionAnswer<{ answers?: Record<string, string>; denied?: boolean }>(key)
           : undefined;
         if (earlier && (earlier.denied !== denied || JSON.stringify(earlier.answers ?? null) !== JSON.stringify(answers ?? null))) {
-          return get().resolveUserInput({ taskId, messageId, requestId, answers: earlier.answers, denied: earlier.denied, onUnanswerable });
+          const outcome = await get().resolveUserInput({ taskId, messageId, requestId, answers: earlier.answers, denied: earlier.denied, onUnanswerable });
+          // Says so to whoever answered: their answer is not the one delivered.
+          return outcome.status === "delivered" ? { status: "delivered", earlierAnswer: true } : outcome;
         }
         pendingAsyncAnswers.add(key);
         const asyncRequestId = userInputPart.requestId;

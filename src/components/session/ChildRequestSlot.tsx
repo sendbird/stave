@@ -272,6 +272,10 @@ function ChildRequestCard(props: {
       if (mounted.current) setRespondError(i18n.t("session:childRequestSlot.deliveryFailed", { detail }));
     };
     void result.delivery.then((outcome) => {
+      // The slot closes either way; say which answer the child got.
+      if (outcome.status === "delivered" && outcome.earlierAnswer) {
+        toast.info(i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered"));
+      }
       if (outcome.status !== "failed") return;
       showDeliveryError(outcome.message);
       if (outcome.unanswerable && mounted.current) setUnanswerable(true);

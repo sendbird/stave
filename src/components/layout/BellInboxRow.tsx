@@ -34,7 +34,7 @@ export function BellInboxRow(props: {
   children?: ReactNode;
 }) {
   const { entry, feedback } = props;
-  const { t } = useTranslation(["shell", "fleet"]);
+  const { t } = useTranslation(["shell", "fleet", "notifications"]);
   const interaction = !props.history && (entry.kind === "approval" || entry.kind === "user-input");
   const request = useAppStore(useShallow((state) => interaction ? readBellRequest(state, entry) : null));
   const inline = request?.status === "pending" && !feedback ? classifyBellQuickAnswer(request.part) : null;
@@ -76,6 +76,7 @@ export function BellInboxRow(props: {
   const showOpenTask = interaction && (failed || (!feedback && !stale && !canAllow && !shortQuestion));
   const note = sending ? t("fleet:inlineAnswer.sending")
     : feedback === "delivered" ? t("shell:topBarNotifications.answerSent")
+    : feedback === "deliveredEarlier" ? t("notifications:asyncQuestionAnswer.earlierAnswerDelivered")
     : feedback === "skipped" ? t("shell:topBarNotifications.requestUnavailable")
     : null;
 

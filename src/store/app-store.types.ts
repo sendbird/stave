@@ -119,7 +119,12 @@ export interface SendBlockedUsageLimit {
  * caller may offer to close the request instead.
  */
 export type InteractionAnswerOutcome =
-  | { status: "delivered" }
+  /**
+   * `earlierAnswer`: an earlier answer to the same question was the one
+   * delivered and recorded; this answer was not sent (a delegated child's
+   * question answered again while the first answer was unconfirmed).
+   */
+  | { status: "delivered"; earlierAnswer?: true }
   | { status: "skipped" }
   | { status: "failed"; message: string; unanswerable?: true };
 

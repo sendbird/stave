@@ -66,7 +66,8 @@
     "delegationRefused": "The delegation did not accept the answer: {{detail}}",
     "delegationNotStarted": "The delegation accepted the answer, but the subagent's turn ended before it could use it: {{detail}} Your answer was not recorded; answer again.",
     "delegationNotStartedUnknown": "The delegation accepted the answer, but the subagent's turn ended before it could use it. Your answer was not recorded; answer again.",
-    "delegationUnconfirmed": "The subagent has not shown that it received your answer yet. Answering again waits for the same turn and does not send the answer twice."
+    "delegationUnconfirmed": "The subagent has not shown that it received your answer yet. Answering again waits for the same turn and does not send the answer twice.",
+    "earlierAnswerDelivered": "The earlier answer to this question was delivered, so this one was not sent."
   },
   "utilityTextTurn": {
     "cancelled": "Cancelled.",
