@@ -102,3 +102,17 @@ for (const [theme, density] of [["light", "regular"], ["dark", "compact"]] as co
     await expect(sidebar.locator("[data-workspace-item]")).toHaveCount(6);
   });
 }
+
+test("archiving a parent found by search still lists the nested workspaces the search hides", async ({ page }) => {
+  const sidebar = await seed(page);
+  await sidebar.getByTestId("search-workspaces").fill("Parent work");
+  await expect(sidebar.locator('[data-workspace-item="parent"]')).toBeVisible();
+  await expect(sidebar.locator('[data-workspace-item="child-a"]')).toHaveCount(0);
+  await sidebar.locator('[data-workspace-item="parent"]').hover();
+  await sidebar.getByTestId("workspace-actions-parent").click();
+  await page.getByRole("menuitem", { name: "Archive" }).click();
+  const nested = page.getByTestId("archive-nested-workspaces");
+  await expect(nested).toBeVisible();
+  // Deepest first, as they are archived: every nested workspace, not only the rows the search shows.
+  await expect(nested.locator("li")).toHaveText(["subagent-nested", "subagent-docs", /^subagent-review-a-very-long/]);
+});

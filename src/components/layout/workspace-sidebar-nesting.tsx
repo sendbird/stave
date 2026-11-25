@@ -58,13 +58,18 @@ export function useDelegatedWorkspaceNesting(args: { repositories: readonly Repo
   const toggle = useCallback((workspaceId: string) => {
     setCollapsedById((current) => ({ ...current, [workspaceId]: !current[workspaceId] }));
   }, []);
-  /** Workspaces nested under `workspaceId` in its repository, deepest first: the order to archive them in. */
+  /**
+   * Workspaces nested under `workspaceId` in its repository, deepest first: the
+   * order to archive them in. Read from every listed workspace, not the rows a
+   * search shows, so archiving a parent never leaves a hidden child behind.
+   */
   const descendantsOf = useCallback((repository: Repository, workspaceId: string) => {
     const tree = treeByRepositoryPath.get(repository.repositoryPath);
     if (!tree) return [];
-    const names = new Map(repository.workspaces.map((workspace) => [workspace.id, workspace.name]));
+    const listed = args.repositories.find((candidate) => candidate.repositoryPath === repository.repositoryPath) ?? repository;
+    const names = new Map(listed.workspaces.map((workspace) => [workspace.id, workspace.name]));
     return listDelegatedDescendants(tree, workspaceId).reverse().flatMap((id) => names.has(id) ? [{ id, name: names.get(id)! }] : []);
-  }, [treeByRepositoryPath]);
+  }, [args.repositories, treeByRepositoryPath]);
   return { entriesByRepositoryPath, displayRepositories, toggle, descendantsOf };
 }
 
