@@ -1592,6 +1592,10 @@
     "repositoryChanged": "You switched projects before creation started. Open the original project to try again."
   },
   "workspaceScratchPanel": {
+    "expand": "Expand preview",
+    "loadHtml": "Open HTML preview ({{size}})",
+    "nextPage": "Read next section",
+    "firstPage": "Back to beginning",
     "filter": "File type",
     "results": "Results",
     "html": "HTML",

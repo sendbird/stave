@@ -45,6 +45,7 @@ export interface WorkspaceScratchChangedEvent {
 
 /** The end of a text file in the scratch folder, for a preview. */
 export interface WorkspaceScratchTail {
+  nextOffset?: number;
   content: string;
   sizeBytes: number;
   /** Only the last `WORKSPACE_SCRATCH_TAIL_BYTES` (or fewer) bytes are in `content`. */

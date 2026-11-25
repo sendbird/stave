@@ -1,3 +1,4 @@
+import { ImageLightbox } from "@/components/ui/image-lightbox";
 import { EditorHtmlPreview } from "./editor-html-preview";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
 import { scratchArtifactKind } from "@/lib/workspace-scratch";
@@ -7,6 +8,7 @@ import {
   FileImage,
   FileJson,
   FileText,
+  Maximize2,
   Paperclip,
   ScrollText,
   SquareArrowOutUpRight,
@@ -16,7 +18,7 @@ import { useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { sx } from "@/components/aui/utils/stylex";
-import { formatFileSize } from "@/lib/fs/file-preview-limits";
+import { formatFileSize, WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES } from "@/lib/fs/file-preview-limits";
 import { WORKSPACE_SCRATCH_TAIL_BYTES, type WorkspaceScratchFile } from "@/lib/workspace-scratch";
 import { stripAnsiControlSequences } from "@/lib/workspace-scripts/ansi";
 import {
@@ -39,10 +41,10 @@ export const SCRATCH_PREVIEW_ICONS: Record<ScratchPreviewKind, LucideIcon> = {
 const STICK_TO_BOTTOM_SLACK_PX = 24;
 
 type PreviewState =
-  | { status: "loading" }
+  | { status: "loading" | "deferred" }
   | { status: "image"; dataUrl: string }
   /** `tailOfBytes`: only the end of a file this large is shown. */
-  | { status: "text"; content: string; tailOfBytes: number | null }
+  | { status: "text"; content: string; tailOfBytes: number | null; nextOffset?: number }
   | { status: "too-large" }
   | { status: "unsupported" }
   | { status: "error" };
@@ -53,7 +55,7 @@ function previewText(content: string, kind: ScratchPreviewKind, truncated: boole
   return stripAnsiControlSequences(content);
 }
 
-type TextReadResult = { ok: true; content: string; tailOfBytes: number | null } | { ok: false; tooLarge: boolean };
+type TextReadResult = { ok: true; content: string; tailOfBytes: number | null; nextOffset?: number } | { ok: false; tooLarge: boolean };
 
 /**
  * Reads at most the last 256 KB of a text file (`fs:read-scratch-tail`), so a
@@ -61,12 +63,12 @@ type TextReadResult = { ok: true; content: string; tailOfBytes: number | null } 
  * hosts, fixtures) it falls back to reading the whole file within the
  * editor's preview limit.
  */
-async function readScratchText(rootPath: string, filePath: string): Promise<TextReadResult> {
+async function readScratchText(rootPath: string, filePath: string, offset?: number, whole = false): Promise<TextReadResult> {
   const fs = window.api?.fs;
   if (fs?.readScratchTail) {
-    const result = await fs.readScratchTail({ rootPath, filePath });
+    const result = await fs.readScratchTail({ rootPath, filePath, offset, wholeHtml: whole });
     if (!result.ok) return { ok: false, tooLarge: false };
-    return { ok: true, content: result.content, tailOfBytes: result.truncated ? result.sizeBytes : null };
+    return { ok: true, content: result.content, nextOffset: result.nextOffset, tailOfBytes: offset === undefined && result.truncated ? result.sizeBytes : null };
   }
   const result = await fs?.readFile?.({ rootPath, filePath });
   if (!result?.ok) return { ok: false, tooLarge: Boolean(result?.tooLarge) };
@@ -84,6 +86,10 @@ export function ScratchFilePreview(props: {
   const kind = scratchPreviewKind(file.path);
   const artifactKind = scratchArtifactKind(file.path);
   const [state, setState] = useState<PreviewState>({ status: "loading" });
+  const [offset, setOffset] = useState(0);
+  const [loadHtml, setLoadHtml] = useState(false);
+  const [imageOpen, setImageOpen] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const followEndRef = useRef(true);
   const shownPathRef = useRef<string | null>(null);
@@ -96,6 +102,11 @@ export function ScratchFilePreview(props: {
       shownPathRef.current = file.path;
       followEndRef.current = true;
       setState({ status: "loading" });
+    }
+    const largeHtml = artifactKind === "html" && file.sizeBytes > WORKSPACE_SCRATCH_TAIL_BYTES;
+    if (largeHtml && (!loadHtml || file.sizeBytes > WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES)) {
+      setState({ status: file.sizeBytes > WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES ? "too-large" : "deferred" });
+      return;
     }
     if (kind === "other") {
       setState({ status: "unsupported" });
@@ -110,12 +121,13 @@ export function ScratchFilePreview(props: {
         })
         .catch(() => !cancelled && setState({ status: "error" }));
     } else {
-      void readScratchText(rootPath, file.path)
+      void readScratchText(rootPath, file.path, artifactKind === "markdown" ? offset : undefined, largeHtml)
         .then((result) => {
           if (cancelled) return;
           if (result.ok) {
             setState({
               status: "text",
+              nextOffset: result.nextOffset,
               content: previewText(result.content, kind, result.tailOfBytes !== null),
               tailOfBytes: result.tailOfBytes,
             });
@@ -128,7 +140,7 @@ export function ScratchFilePreview(props: {
     return () => {
       cancelled = true;
     };
-  }, [rootPath, file.path, file.mtimeMs, file.sizeBytes, kind]);
+  }, [rootPath, file.path, file.mtimeMs, file.sizeBytes, kind, offset, loadHtml, artifactKind]);
 
   // A log stays pinned to its end while the reader is there; scrolling up
   // to read earlier lines stops the follow until they scroll back down.
@@ -143,12 +155,19 @@ export function ScratchFilePreview(props: {
   const openInEditor = () => props.onOpenInEditor(file.path);
 
   return (
-    <section className={sx(styles.preview)} aria-label={t("workspaceScratchPanel.previewLabel", { name })}>
+    <section ref={sectionRef} className={sx(styles.preview)} aria-label={t("workspaceScratchPanel.previewLabel", { name })}>
       <div className={sx(styles.previewHeader)}>
         <Icon aria-hidden className={sx(styles.rowIcon)} />
         <span className={sx(styles.previewTitle)} title={file.path}>
           {name}
         </span>
+        <Tooltip content={t("workspaceScratchPanel.expand")}>
+          <Button variant="quiet" size="xs" iconOnly aria-label={t("workspaceScratchPanel.expand")} onClick={() => {
+            if (kind === "image") setImageOpen(true);
+            else if (document.fullscreenElement === sectionRef.current) void document.exitFullscreen();
+            else void sectionRef.current?.requestFullscreen();
+          }}><Maximize2 /></Button>
+        </Tooltip>
         <Tooltip content={t("workspaceScratchPanel.attachToMessage")}>
           <Button
             size="xs"
@@ -191,13 +210,20 @@ export function ScratchFilePreview(props: {
         }}
       >
         {state.status === "image" ? (
-          <img className={sx(styles.previewImage)} src={state.dataUrl} alt={name} />
+          <>
+            <Button layout="host" onClick={() => setImageOpen(true)} aria-label={t("workspaceScratchPanel.expand")}>
+              <img className={sx(styles.previewImage)} src={state.dataUrl} alt={name} />
+            </Button>
+            {imageOpen && <ImageLightbox open imageSrc={state.dataUrl} alt={name} onClose={() => setImageOpen(false)} />}
+          </>
         ) : state.status === "text" && state.tailOfBytes === null && artifactKind === "html" ? (
           <EditorHtmlPreview content={state.content} frameTitle={name} networkPolicy="blocked" />
         ) : state.status === "text" && state.tailOfBytes === null && artifactKind === "markdown" ? (
           <EditorMarkdownPreview content={state.content} fontSize={14} variant="embedded" />
         ) : state.status === "text" ? (
           <pre className={sx(styles.previewText)}>{state.content}</pre>
+        ) : state.status === "deferred" ? (
+          <Button onClick={() => setLoadHtml(true)}>{t("workspaceScratchPanel.loadHtml", { size: formatFileSize(file.sizeBytes) })}</Button>
         ) : state.status === "loading" ? null : (
           <div className={sx(styles.previewNotice)}>
             <span>
@@ -213,6 +239,12 @@ export function ScratchFilePreview(props: {
           </div>
         )}
       </div>
+      {state.status === "text" && state.nextOffset !== undefined && (
+        <Button onClick={() => { setOffset(state.nextOffset!); scrollRef.current?.scrollTo(0, 0); }}>
+          {t("workspaceScratchPanel.nextPage")}
+        </Button>
+      )}
+      {offset > 0 && <Button onClick={() => setOffset(0)}>{t("workspaceScratchPanel.firstPage")}</Button>}
     </section>
   );
 }

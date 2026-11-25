@@ -57,6 +57,18 @@ async function workspace() {
 }
 
 describe("readWorkspaceScratchTail", () => {
+  test("pages forward without splitting UTF-8 and reads complete HTML on demand", async () => {
+    const rootPath = await workspace();
+    const filePath = ".stave/scratch/page.html";
+    const content = "abc한" + "a".repeat(WORKSPACE_SCRATCH_TAIL_BYTES);
+    await writeFile(path.join(rootPath, filePath), content);
+    const first = await readWorkspaceScratchTail({ rootPath, filePath, offset: 0, maxBytes: 5 });
+    expect(first.content).toBe("abc");
+    const next = await readWorkspaceScratchTail({ rootPath, filePath, offset: first.nextOffset, maxBytes: 5 });
+    expect(next.content).toBe("한aa");
+    expect((await readWorkspaceScratchTail({ rootPath, filePath, wholeHtml: true })).content).toBe(content);
+  });
+
   test("returns a small file whole", async () => {
     const root = await workspace();
     await writeFile(path.join(root, ".stave/scratch/tests.log"), "ok 1\nok 2\n");

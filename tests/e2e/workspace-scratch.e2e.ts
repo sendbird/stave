@@ -218,3 +218,12 @@ test("filters and renders HTML and Markdown results", async ({ page }) => {
   await page.getByRole("combobox").selectOption("markdown");
   await expect(page.getByRole("heading", { name: "Review notes" })).toBeVisible();
 });
+
+test("opens an image in the shared viewer and returns to the selected file", async ({ page }) => {
+  await page.goto(FIXTURE);
+  await page.getByTestId("scratch-preview-body").getByRole("button").click();
+  await expect(page.getByTestId("image-lightbox")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("image-lightbox")).toHaveCount(0);
+  await expect(page.getByTestId("scratch-preview-body").getByRole("img")).toBeVisible();
+});

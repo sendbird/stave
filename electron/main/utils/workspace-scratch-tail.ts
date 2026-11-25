@@ -10,6 +10,7 @@
  *
  * Used by: `electron/main/ipc/workspace-scratch.ts` (`fs:read-scratch-tail`).
  */
+import { WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES } from "../../../src/lib/fs/file-preview-limits";
 import { constants, promises as fs } from "node:fs";
 import path from "node:path";
 import {
@@ -94,6 +95,8 @@ export function tailTextStart(bytes: Uint8Array): number {
 export async function readWorkspaceScratchTail(args: {
   rootPath: string;
   filePath: string;
+  offset?: number;
+  wholeHtml?: boolean;
   maxBytes?: number;
 }): Promise<WorkspaceScratchTail> {
   const maxBytes = Math.max(1, Math.min(args.maxBytes ?? WORKSPACE_SCRATCH_TAIL_BYTES, WORKSPACE_SCRATCH_TAIL_BYTES));
@@ -114,8 +117,21 @@ export async function readWorkspaceScratchTail(args: {
     const stat = await handle.stat();
     if (!stat.isFile()) throw new WorkspaceScratchRefusedError("The scratch file is not a regular file.");
     const sizeBytes = stat.size;
-    const length = Math.min(sizeBytes, maxBytes);
-    const start = sizeBytes - length;
+    if (args.wholeHtml) {
+      if (!/\.html?$/i.test(args.filePath) || sizeBytes > WORKSPACE_HTML_FILE_PREVIEW_MAX_BYTES) {
+        throw new WorkspaceScratchRefusedError("HTML preview exceeds its limit or has an invalid extension.");
+      }
+      const buffer = Buffer.alloc(sizeBytes);
+      let read = 0;
+      while (read < sizeBytes) {
+        const part = await handle.read(buffer, read, sizeBytes - read, read);
+        if (!part.bytesRead) break;
+        read += part.bytesRead;
+      }
+      return { content: buffer.toString("utf8", 0, read), sizeBytes, truncated: false };
+    }
+    const start = Math.min(args.offset ?? Math.max(0, sizeBytes - maxBytes), sizeBytes);
+    const length = Math.min(sizeBytes - start, maxBytes);
     const bytes = new Uint8Array(length);
     let read = 0;
     while (read < length) {
@@ -123,9 +139,22 @@ export async function readWorkspaceScratchTail(args: {
       if (!bytesRead) break;
       read += bytesRead;
     }
-    const truncated = start > 0;
+    const paged = args.offset !== undefined;
+    const truncated = paged ? start + read < sizeBytes : start > 0;
     const view = bytes.subarray(0, read);
-    const from = truncated ? tailTextStart(view) : 0;
+    if (paged && truncated) {
+      // Read one lookahead byte to keep a multibyte character on the next page.
+      const next = new Uint8Array(1);
+      await handle.read(next, 0, 1, start + read);
+      let end = read;
+      if ((next[0]! & 0xc0) === 0x80) {
+        while (end > 0 && (view[end - 1]! & 0xc0) === 0x80) end--;
+        if (end > 0) end--;
+      }
+      if (end === 0) end = read;
+      return { content: new TextDecoder().decode(view.subarray(0, end)), sizeBytes, truncated, nextOffset: start + end };
+    }
+    const from = !paged && truncated ? tailTextStart(view) : 0;
     return {
       content: new TextDecoder("utf-8", { ignoreBOM: truncated }).decode(view.subarray(from)),
       sizeBytes,
