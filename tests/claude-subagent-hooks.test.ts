@@ -1,90 +1,128 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
+import type { PreToolUseHookInput, SubagentStartHookInput } from "@anthropic-ai/claude-agent-sdk";
 import {
-  claudeForegroundSubagentPreToolUseHook,
-  claudeScratchSubagentPreToolUseHook,
+  CLAUDE_SUBAGENT_FOREGROUND_INSTRUCTION,
   claudeSubagentScratchId,
-  resolveClaudeSubagentScratchInput,
+  createClaudeSubagentPreToolUseHook,
+  createClaudeSubagentStartHook,
+  resolveClaudeSubagentStartContext,
 } from "../electron/providers/claude-subagent-hooks";
 import { buildWorkspaceScratchSubagentInstruction } from "../src/lib/workspace-scratch";
 
 const cwd = path.resolve("/tmp/stave-subagent-workspace");
-
-function preToolUse(toolName: string, toolInput: unknown, toolUseId = "toolu_01ABC") {
+const signal = new AbortController().signal;
+function preToolUse(toolName: string, toolInput: unknown, permissionMode?: string): PreToolUseHookInput {
   return {
     hook_event_name: "PreToolUse",
     tool_name: toolName,
     tool_input: toolInput,
-    tool_use_id: toolUseId,
+    tool_use_id: "toolu_01ABC",
     session_id: "session",
     transcript_path: "/tmp/transcript.jsonl",
     cwd,
-  } as unknown as Parameters<typeof claudeScratchSubagentPreToolUseHook>[0];
+    ...(permissionMode ? { permission_mode: permissionMode } : {}),
+  };
 }
 
-const signal = new AbortController().signal;
+function subagentStart(agentId: string, agentType: string, subagentCwd = cwd): SubagentStartHookInput {
+  return {
+    hook_event_name: "SubagentStart",
+    agent_id: agentId,
+    agent_type: agentType,
+    session_id: "session",
+    transcript_path: "/tmp/transcript.jsonl",
+    cwd: subagentCwd,
+  };
+}
 
-describe("sub-agent scratch folder", () => {
-  test("the Agent brief gains one line naming the sub-agent's own folder, and runs in the foreground", async () => {
-    const output = await claudeScratchSubagentPreToolUseHook(
-      preToolUse("Agent", { description: "Run the UI tests", prompt: "Run the tests and report.", subagent_type: "general-purpose" }),
-      "toolu_01ABC",
-      { signal },
-    );
-    const updated = (output as { hookSpecificOutput: { updatedInput: Record<string, unknown> } }).hookSpecificOutput.updatedInput;
-    const id = claudeSubagentScratchId({ toolUseId: "toolu_01ABC", description: "Run the UI tests" });
-    expect(id).toMatch(/^run-the-ui-tests-[0-9a-f]{6}$/);
+describe("sub-agent foreground rewrite", () => {
+  test("outside auto mode an Agent call that omits run_in_background runs in the foreground, brief unchanged", async () => {
+    const hook = createClaudeSubagentPreToolUseHook({ permissionMode: "acceptEdits" });
+    const input = { description: "Run the UI tests", prompt: "Run the tests and report.", subagent_type: "general-purpose" };
+    const output = await hook(preToolUse("Agent", input, "acceptEdits"), "toolu_01ABC", { signal });
+    expect(output).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        updatedInput: { ...input, run_in_background: false },
+      },
+    });
+  });
+
+  test("in auto mode no Agent call is changed, so auto mode's review still covers what runs", async () => {
+    const hook = createClaudeSubagentPreToolUseHook({ permissionMode: "auto" });
+    for (const toolInput of [
+      { description: "Research", prompt: "Read and report." },
+      { description: "Research", prompt: "Read and report.", run_in_background: true },
+      { description: "Research", prompt: "Read and report.", run_in_background: false },
+    ]) {
+      expect(await hook(preToolUse("Agent", toolInput, "auto"), "toolu_01ABC", { signal })).toEqual({});
+    }
+  });
+
+  test("the mode the CLI reports wins over the mode the query started with", async () => {
+    const startedAuto = createClaudeSubagentPreToolUseHook({ permissionMode: "auto" });
+    const switchedOut = await startedAuto(preToolUse("Agent", { prompt: "x" }, "default"), "toolu_01ABC", { signal });
+    expect(switchedOut).toEqual({
+      hookSpecificOutput: { hookEventName: "PreToolUse", updatedInput: { prompt: "x", run_in_background: false } },
+    });
+
+    const startedDefault = createClaudeSubagentPreToolUseHook({ permissionMode: "default" });
+    expect(await startedDefault(preToolUse("Agent", { prompt: "x" }, "auto"), "toolu_01ABC", { signal })).toEqual({});
+    // A CLI that reports no mode falls back to the query's.
+    expect(await startedAuto(preToolUse("Agent", { prompt: "x" }), "toolu_01ABC", { signal })).toEqual({});
+  });
+
+  test("never touches the brief or other tools", async () => {
+    const hook = createClaudeSubagentPreToolUseHook();
+    const prompt = "Find the owner.";
+    const output = await hook(preToolUse("Agent", { prompt, run_in_background: false }), "toolu_01ABC", { signal });
+    expect(output).toEqual({});
+    expect(await hook(preToolUse("Bash", { command: "bun run dev", run_in_background: true }), "toolu_01ABC", { signal })).toEqual({});
+    expect(await hook(preToolUse("Task", { prompt }), "toolu_01ABC", { signal })).toEqual({});
+  });
+});
+
+describe("sub-agent start context", () => {
+  test("names the sub-agent's own scratch folder under the workspace root and asks for foreground sub-agents", async () => {
+    const hook = createClaudeSubagentStartHook({ scratchRoot: cwd });
+    // A worktree-isolated sub-agent reports its own cwd; the folder still hangs off the workspace root.
+    const output = await hook(subagentStart("agent-1", "researcher", "/tmp/elsewhere/worktree"), undefined, { signal });
+    const id = claudeSubagentScratchId({ agentId: "agent-1", agentType: "researcher" });
+    expect(id).toMatch(/^researcher-[0-9a-f]{6}$/);
     const folder = `${path.join(cwd, ".stave", "scratch", "agents", id)}${path.sep}`;
-    expect(updated.run_in_background).toBe(false);
-    expect(updated.subagent_type).toBe("general-purpose");
-    expect(updated.prompt).toBe(`Run the tests and report.\n\n${buildWorkspaceScratchSubagentInstruction(folder)}`);
-    expect(String(updated.prompt)).toContain("Stave scratch folder for this sub-agent");
-    expect(String(updated.prompt)).toContain("never write secrets");
+    expect(output).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "SubagentStart",
+        additionalContext: `${CLAUDE_SUBAGENT_FOREGROUND_INSTRUCTION}\n\n${buildWorkspaceScratchSubagentInstruction(folder)}`,
+      },
+    });
+    expect(output).not.toHaveProperty("hookSpecificOutput.updatedInput");
   });
 
-  test("the older Task tool gets the folder line without the foreground rewrite", async () => {
-    const output = await claudeScratchSubagentPreToolUseHook(
-      preToolUse("Task", { description: "Review", prompt: "Review the diff." }, "toolu_task"),
-      "toolu_task",
-      { signal },
+  test("read-only turns, a relative root or a missing agent id get only the foreground rule", async () => {
+    const readOnly = await createClaudeSubagentStartHook()(subagentStart("agent-1", "Explore"), undefined, { signal });
+    expect(readOnly).toEqual({
+      hookSpecificOutput: { hookEventName: "SubagentStart", additionalContext: CLAUDE_SUBAGENT_FOREGROUND_INSTRUCTION },
+    });
+    expect(resolveClaudeSubagentStartContext({ agentId: "a", scratchRoot: "relative" })).toBe(CLAUDE_SUBAGENT_FOREGROUND_INSTRUCTION);
+    expect(resolveClaudeSubagentStartContext({ agentId: "", scratchRoot: cwd })).toBe(CLAUDE_SUBAGENT_FOREGROUND_INSTRUCTION);
+  });
+
+  test("ignores other hook events", async () => {
+    const hook = createClaudeSubagentStartHook({ scratchRoot: cwd });
+    expect(await hook(preToolUse("Agent", { prompt: "x" }), "toolu_01ABC", { signal })).toEqual({});
+  });
+
+  test("folder ids are short, path-safe and distinct per sub-agent", () => {
+    expect(claudeSubagentScratchId({ agentId: "a" })).toMatch(/^[0-9a-f]{6}$/);
+    expect(claudeSubagentScratchId({ agentId: "a", agentType: "테스트" })).toMatch(/^[0-9a-f]{6}$/);
+    expect(claudeSubagentScratchId({ agentId: "a", agentType: "../../etc/passwd" })).toMatch(/^etc-passwd-[0-9a-f]{6}$/);
+    expect(claudeSubagentScratchId({ agentId: "a", agentType: "plugin:very-long-agent-name-that-keeps-going" })).toMatch(
+      /^plugin-very-long-agent-n-[0-9a-f]{6}$/,
     );
-    const updated = (output as { hookSpecificOutput: { updatedInput: Record<string, unknown> } }).hookSpecificOutput.updatedInput;
-    expect(updated.run_in_background).toBeUndefined();
-    expect(String(updated.prompt)).toContain(`${path.join(".stave", "scratch", "agents", "review-")}`);
-  });
-
-  test("read-only turns keep the brief as written", async () => {
-    const output = await claudeForegroundSubagentPreToolUseHook(
-      preToolUse("Agent", { description: "Explore", prompt: "Find the owner." }),
-      "toolu_01ABC",
-      { signal },
-    );
-    const updated = (output as { hookSpecificOutput: { updatedInput: Record<string, unknown> } }).hookSpecificOutput.updatedInput;
-    expect(updated.prompt).toBe("Find the owner.");
-    expect(updated.run_in_background).toBe(false);
-  });
-
-  test("no line for other tools, a missing brief, a relative cwd, or a brief that already names a folder", () => {
-    const base = { toolUseId: "toolu_1", cwd };
-    expect(resolveClaudeSubagentScratchInput({ ...base, toolName: "Bash", input: { prompt: "x" } })).toBeUndefined();
-    expect(resolveClaudeSubagentScratchInput({ ...base, toolName: "Agent", input: { description: "x" } })).toBeUndefined();
-    expect(resolveClaudeSubagentScratchInput({ ...base, toolName: "Agent", input: { prompt: "   " } })).toBeUndefined();
-    expect(resolveClaudeSubagentScratchInput({ ...base, toolName: "Agent", input: null })).toBeUndefined();
-    expect(resolveClaudeSubagentScratchInput({ toolUseId: "t", cwd: "relative", toolName: "Agent", input: { prompt: "x" } })).toBeUndefined();
-    expect(
-      resolveClaudeSubagentScratchInput({ ...base, toolName: "Agent", input: { prompt: "Save to .stave/scratch/agents/mine/." } }),
-    ).toBeUndefined();
-  });
-
-  test("folder ids are short, path-safe and distinct per call", () => {
-    expect(claudeSubagentScratchId({ toolUseId: "a" })).toMatch(/^[0-9a-f]{6}$/);
-    expect(claudeSubagentScratchId({ toolUseId: "a", description: "테스트 실행" })).toMatch(/^[0-9a-f]{6}$/);
-    expect(claudeSubagentScratchId({ toolUseId: "a", description: "../../etc/passwd" })).toMatch(/^etc-passwd-[0-9a-f]{6}$/);
-    expect(claudeSubagentScratchId({ toolUseId: "a", description: "A very long description that keeps going" })).toMatch(
-      /^a-very-long-description-[0-9a-f]{6}$/,
-    );
-    expect(claudeSubagentScratchId({ toolUseId: "a", description: "Same" })).not.toBe(
-      claudeSubagentScratchId({ toolUseId: "b", description: "Same" }),
+    expect(claudeSubagentScratchId({ agentId: "a", agentType: "researcher" })).not.toBe(
+      claudeSubagentScratchId({ agentId: "b", agentType: "researcher" }),
     );
   });
 });

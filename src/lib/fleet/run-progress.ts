@@ -46,9 +46,8 @@ export function resolveRunIndicatorKind(args: {
  * A main-loop call that blocks the turn until helpers report back. Only calls
  * a runtime reports as blocking count:
  *
- * - Claude's `Agent` / `Task` call. Stave forces these to run in the foreground
- *   (`run_in_background: false` in the Claude runtime), so the main loop waits
- *   for the subagent's result.
+ * - An open Claude `Agent` / `Task` call. Foreground calls stay open until the
+ *   subagent returns, while background launches return a tool result at once.
  * - Codex's collaboration `wait` call, which waits on spawned workers. A Codex
  *   `spawn_agent` returns at once and the main loop keeps working, so it is not
  *   a wait.
