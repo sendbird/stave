@@ -262,6 +262,20 @@ describe("resolveAutoRoutingDecision", () => {
     expect(decision).toMatchObject({ source: "classifier_fallback", taskClass: "research" });
   });
 
+  test.each([false, true])("keeps a requested bug list on the review route (classifier enabled: %s)", async (enabled) => {
+    const decision = await resolveDecision({
+      prompt: "Explain how to review this diff and list any bugs you find.",
+      currentProviderId: "codex",
+      currentModel: "gpt-6.2-sol",
+      settings: { autoRoutingUseClassifier: enabled },
+      classifyRoute: async () => { throw new Error("classifier unavailable"); },
+    });
+    expect(decision).toMatchObject({
+      source: enabled ? "classifier_fallback" : "heuristic",
+      taskClass: "review", model: "gpt-6.2-sol",
+    });
+  });
+
   test("a classifier verdict reclassifies the task before the table runs", async () => {
     const decision = await resolveDecision({
       prompt:
@@ -463,6 +477,11 @@ describe("signals", () => {
     ["코드 리뷰가 어떻게 동작하는지 설명해줘", "research"],
     ["PR 리뷰 절차를 설명해주세요", "research"],
     ["Review this diff and explain why.", "review"],
+    ["Explain how to review this diff and list any bugs you find.", "review"],
+    ["Report any defects you find. Explain how code review works.", "review"],
+    ["Explain how to review this diff and how to report defects.", "research"],
+    ["Explain code review, but do not list bugs.", "research"],
+    ["리뷰 절차를 설명하고 발견한 버그도 알려줘", "review"],
     ["Explain code review, then review this diff.", "review"],
     ["리뷰 절차를 설명하고 이 diff도 리뷰해줘", "review"],
     ["이 diff를 검토하고 이유도 설명해줘", "review"],
