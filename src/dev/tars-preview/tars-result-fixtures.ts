@@ -83,9 +83,9 @@ export function buildTarsResultFixtures(start: Date, korean = false) {
       report: { outcome: "complete", summary: parts.summary, decisions: [], evidence: [], artifacts: [], acceptanceCriteria: met(row),
         workspaceRevision: REV_FINAL, reportedAt: at(20), turnId: "turn-work" },
       facts: facts({ diff: parts.diff, changedPaths: parts.paths, currentTurnId: "turn-work", workspaceRevision: REV_FINAL, ...parts.workFacts }) }),
-    run.record("review", { startedAt: at(21), endedAt: at(40), startHeadSha: "c0ffee1", ...parts.review,
+    run.record("review", { startedAt: at(21), endedAt: at(40), startHeadSha: "c0ffee2", ...parts.review,
       ...(parts.review.report?.outcome === "complete" ? { report: { ...parts.review.report, summary: parts.summary },
-        facts: facts({ ...parts.review.facts, diff: parts.diff, changedPaths: parts.paths }) } : {}) }),
+        facts: facts({ ...parts.review.facts, changedPaths: [] }) } : {}) }),
     run.record("fix-review", { status: "skipped", startedAt: null, endedAt: at(40) }),
   ];
   const passedReview: Partial<AgentRunStageRecord> = { status: "completed",

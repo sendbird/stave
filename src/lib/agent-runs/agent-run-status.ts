@@ -469,16 +469,19 @@ export interface AgentRunChanges {
   deletions: number;
 }
 
-function latestChangeRecord(detail: AgentRunDetail) {
-  if (detail.agentRun.state === "completed") {
-    return completedStages(detail).findLast(({ record }) => (record.facts?.diff?.filesChanged ?? 0) > 0)?.record;
-  }
-  return reportOf(detail).record;
+function changeRecord(detail: AgentRunDetail) {
+  if (detail.agentRun.state !== "completed") return reportOf(detail).record;
+  // Each diff starts at its own stage attempt's HEAD. A later diff may cover
+  // only part of the run, and summing diffs would count overlapping edits twice.
+  const changed = detail.stages.filter(({ facts }) =>
+    facts && (facts.changedPathsTruncated || facts.changedPaths?.length || facts.diff?.filesChanged),
+  );
+  return changed.length === 1 ? changed[0] : undefined;
 }
 
-/** The work tree's change since the run's turns began, as Stave counted it. */
+/** The recorded shortstat, when one stage accounts for the observed changes. */
 export function describeAgentRunChanges(detail: AgentRunDetail): AgentRunChanges | null {
-  const diff = latestChangeRecord(detail)?.facts?.diff;
+  const diff = changeRecord(detail)?.facts?.diff;
   return diff && diff.filesChanged > 0
     ? { files: diff.filesChanged, insertions: diff.insertions, deletions: diff.deletions }
     : null;
@@ -490,7 +493,7 @@ export function describeAgentRunChanges(detail: AgentRunDetail): AgentRunChanges
  * diff from.
  */
 export function agentRunChangesStage(detail: AgentRunDetail): { agentRunId: string; stageId: string; attempt: number } | null {
-  const record = latestChangeRecord(detail);
+  const record = changeRecord(detail);
   return record?.facts?.diff && record.startHeadSha
     ? { agentRunId: detail.agentRun.id, stageId: record.stageId, attempt: record.attempt }
     : null;
