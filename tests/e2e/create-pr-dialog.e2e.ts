@@ -1,5 +1,51 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test("the top bar shows and addresses a PR whose head differs from the workspace branch", async ({ page }) => {
+  const prUrl = "https://github.com/example/repo/pull/42";
+  await page.addInitScript((url) => {
+    const w = window as unknown as Record<string, unknown>;
+    const readyRequests: Array<{ prUrl?: string }> = [];
+    const stackRequests: Array<{ prUrl?: string }> = [];
+    w.__prHarness = readyRequests;
+    w.__stackRequests = stackRequests;
+    w.api = {
+      provider: {}, terminal: {}, scripts: {}, shell: {},
+      sourceControl: {
+        getPrStack: async (args: { prUrl?: string }) => {
+          stackRequests.push(args);
+          return { ok: true, stack: null, code: null };
+        },
+        getPrStatus: async () => ({
+          ok: true,
+          stderr: "",
+          pr: {
+            number: 42, title: "Track the remote branch", state: "OPEN", isDraft: readyRequests.length === 0,
+            url, reviewDecision: null, mergeable: "MERGEABLE", mergeStateStatus: "CLEAN",
+            checksRollup: "SUCCESS", mergedAt: null, baseRefName: "main", headRefName: "fix/remote-name",
+          },
+        }),
+        setPrReady: async (args: { prUrl?: string }) => {
+          readyRequests.push(args);
+          return { ok: true };
+        },
+      },
+    };
+  }, prUrl);
+  await page.goto("/?stavePreview=create-pr&lang=en&theme=light");
+  const preview = page.getByTestId("create-pr-preview");
+  const status = preview.getByRole("button", { name: "Open PR status menu" });
+  await expect(status).toContainText("Draft");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __stackRequests: Array<{ prUrl?: string }> }).__stackRequests)).toContainEqual(expect.objectContaining({ prUrl }));
+  await expect(preview.getByRole("button", { name: "Create PR" })).toHaveCount(0);
+  await status.click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toContainText("fix/remote-name → main");
+  await menu.getByRole("menuitem", { name: "Mark Ready" }).click();
+  await expect(status).toContainText("Ready to merge");
+  const requests = await page.evaluate(() => (window as unknown as { __prHarness: Array<{ prUrl?: string }> }).__prHarness);
+  expect(requests).toEqual([expect.objectContaining({ prUrl })]);
+});
+
 interface PrHarnessOptions {
   holdDraft?: boolean;
   hookFailure?: "blocking" | "warning";

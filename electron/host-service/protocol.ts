@@ -1011,6 +1011,7 @@ export interface HostServiceRequestMap {
   };
   "scm.get-repo-merge-settings": {
     cwd?: string;
+    prUrl?: string;
   };
   "scm.get-pr-status-for-url": {
     url: string;
@@ -1045,14 +1046,17 @@ export interface HostServiceRequestMap {
   };
   "scm.set-pr-ready": {
     cwd?: string;
+    prUrl?: string;
   };
   "scm.merge-pr": {
     method?: "default" | "merge" | "squash" | "rebase";
     expectedHeadOid?: string | null;
+    prUrl?: string;
     cwd?: string;
   };
   "scm.update-pr-branch": {
     cwd?: string;
+    prUrl?: string;
   };
   "scm.create-pr": {
     title: string;

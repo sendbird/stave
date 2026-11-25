@@ -294,7 +294,7 @@ export function registerScmHandlers() {
 
   ipcMain.handle(
     "scm:get-repo-merge-settings",
-    (_event, args: { cwd?: string }) =>
+    (_event, args: { cwd?: string; prUrl?: string }) =>
       invokeHostService("scm.get-repo-merge-settings", args),
   );
 
@@ -369,7 +369,7 @@ export function registerScmHandlers() {
     return invokeHostService("scm.submit-github-pr-review", parsed.data);
   });
 
-  ipcMain.handle("scm:set-pr-ready", (_event, args: { cwd?: string }) =>
+  ipcMain.handle("scm:set-pr-ready", (_event, args: { cwd?: string; prUrl?: string }) =>
     invokeHostService("scm.set-pr-ready", args),
   );
 
@@ -380,12 +380,13 @@ export function registerScmHandlers() {
       args: {
         method?: "default" | "merge" | "squash" | "rebase";
         expectedHeadOid?: string | null;
+        prUrl?: string;
         cwd?: string;
       },
     ) => invokeHostService("scm.merge-pr", args),
   );
 
-  ipcMain.handle("scm:update-pr-branch", (_event, args: { cwd?: string }) =>
+  ipcMain.handle("scm:update-pr-branch", (_event, args: { cwd?: string; prUrl?: string }) =>
     invokeHostService("scm.update-pr-branch", args),
   );
 
