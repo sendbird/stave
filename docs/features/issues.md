@@ -91,7 +91,7 @@ Choose **Assign to agent** from the list, board, or detail pane. In Kickoff,
 review or edit the instruction, pick an agent, and choose where it runs. Stave
 attaches the issue description, reported reproduction steps, and linked PRs
 to the new task as external reference material. The editable kickoff prompt
-contains your instructions. When Stave cannot read the detail, the task gets
+contains your instructions. If the list has a newer update, Stave refreshes the detail. When it cannot read detail at least as recent as the list, the task gets
 the issue summary, any PR links available in the list, and a note that detail was unavailable.
 
 ### Attach A Ticket To Work In Progress

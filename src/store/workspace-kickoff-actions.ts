@@ -1,4 +1,4 @@
-import { fetchTrackerIssueDetail, getTrackerIssuesClientSnapshot, trackerIssueKey } from "@/lib/tracker-issues/client-state";
+import { resolveTrackerIssueForKickoff } from "@/lib/tracker-issues/client-state";
 import { buildTrackerIssueRetrievedContext, TRACKER_ISSUE_KICKOFF_SOURCE_PREFIX } from "@/lib/tracker-issues/context";
 import type { TrackerIssue } from "@/lib/tracker-issues/types";
 import { i18n } from "@/i18n/runtime";
@@ -377,14 +377,11 @@ export async function runWorkspaceKickoff(args: {
   let sourceContext: TaskSourceContext | undefined;
   if (trackerIssue) {
     const repositoryPath = args.getState().repositoryPath;
-    const { source, ref } = trackerIssue;
-    const key = trackerIssueKey(source, ref);
-    const detail = getTrackerIssuesClientSnapshot().detailByKey[key] ??
-      await fetchTrackerIssueDetail(source, ref);
+    const context = await resolveTrackerIssueForKickoff(trackerIssue);
     if (args.getState().repositoryPath !== repositoryPath) {
       return { ok: false, message: i18n.t("kickoff:workspaceKickoffActions.openTheWorkspaceThisAgentWorksIn") };
     }
-    const part = buildTrackerIssueRetrievedContext({ task: trackerIssue, detail });
+    const part = buildTrackerIssueRetrievedContext(context);
     sourceContext = { ...part, sourceId: `${TRACKER_ISSUE_KICKOFF_SOURCE_PREFIX}${part.sourceId}` };
   }
   const prompt = buildKickoffFirstTaskPrompt(
