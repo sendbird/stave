@@ -63,10 +63,11 @@ still running says **Keep when finished**.
 - **Request AI review** in the composer toolbar, or in its overflow tray when the
   toolbar is narrow.
 - **Settings → Prompts & Skills → Prompts → Review Tasks** for the defaults.
-- **View** on the composer line opens the review over the task you are in.
+- **View** on the composer line opens the review in the
+  [Agent panel](delegated-tasks.md#the-agent-panel) beside the task you are in.
 - The review task itself is listed in the task panel's **Subagents** tab,
-  where **View activity** opens the same dialog. **Open** in the dialog, or
-  the review's chip on a message, switches to the review task.
+  where **View progress** opens it in the same panel. **Open task** in the
+  panel, or the review's chip on a message, switches to the review task.
 - A finished review's notification names the task it reviewed and opens that
   task, where the findings are attached.
 
@@ -95,14 +96,15 @@ dismiss it, or a day passes. Sending other messages meanwhile does not share it.
 
 ### See How A Review Went
 
-**View** opens the review in a dialog over the task you are working in, so
-checking it never moves you away:
+**View** opens the review in the
+[Agent panel](delegated-tasks.md#the-agent-panel) beside the task you are
+working in, so checking it never moves you away:
 
 - **Findings**: the reviewer's verdict (approve, approve with changes, or
   request changes) and each finding with its severity (critical, major or
   minor), file and line, detail and suggested fix, most severe first. Tick
   the findings to send and select **Attach N of M**: only those reach the task,
-  and the chip reads `N findings`. Opening the dialog again shows the current
+  and the chip reads `N findings`. Opening the review again shows the current
   choice; attaching again replaces it.
 - **Check fixes**: a new review task, on the same model, that decides for each
   earlier finding whether it is resolved, still unresolved, or outdated
@@ -111,23 +113,23 @@ checking it never moves you away:
   Outdated findings are shown separately and do not count as fixed. Missing,
   invalid or conflicting checks read **unchecked**, and the line says
   **Fix checks incomplete**. You can check these findings again.
+- **Asked**: the exact prompt the reviewer got, including focus, saved
+  instructions and the skill. The fact row above it gives the model, effort
+  and how long the review took.
+- **Steps**: each tool call the reviewer made, such as the Git commands it ran
+  and the files it read, as sentences that open to their output. While the
+  review runs, the list follows it live.
 - **Answer**: the review task's full final reply, rendered as in the
   conversation.
-- **Assignment and execution details**: the exact prompt the reviewer got,
-  including focus, saved instructions and the skill, plus model, timing and
-  setup.
-- **Activity log**: each tool call the reviewer made, such as the Git
-  commands it ran and the files it read, with their output. While the review
-  runs, the log follows it live.
 - **Workspace changes**: completed reviews warn when code changed during the
   review or since it finished. Stave compares the commit, staged changes and
   bounded file contents at review start, completion, result access, app
-  focus and the result dialog's **Refresh**. A missing or unavailable comparison shows a warning instead of
+  focus and the panel's **Refresh**. A missing or unavailable comparison shows a warning instead of
   claiming the review still covers the current code. Use **Run again** or
   **Check fixes** to review the current changes.
 - **Attach to message**, **Run again** (the same prompt on the same model,
-  against the workspace as it is now), **Open** (switches to the review task
-  for its whole conversation and Task panel), and **Stop** while it runs.
+  against the workspace as it is now), **Open task** (switches to the review
+  task for its whole conversation and Task panel), and **Stop** while it runs.
 
 The task chip a review becomes, in your draft or on a sent message, opens the
 review task when you select its title.

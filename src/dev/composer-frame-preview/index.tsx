@@ -18,6 +18,7 @@ import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import { CLAUDE_EFFORT_OPTIONS, findOptionLabel } from "@/lib/providers/runtime-option-contract";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
+import { AgentProgressPanel } from "@/components/agent-progress/AgentProgressPanel";
 import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildCommandPaletteItems } from "@/lib/commands";
@@ -396,6 +397,7 @@ export function ComposerFramePreviewApp() {
   );
   const [queue, setQueue] = useState(PREVIEW_QUEUE);
   const measureWidth = Number(previewParams.get("w")) || null;
+  const showAgentPanel = useAppStore((state) => state.layout.sidebarOverlayVisible && state.layout.sidebarOverlayTab === "agent");
   const showPanel = previewParams.get("panel") === "1" || placement === "panel";
   const { ref: composerMeasureRef, fits: composerFrameFits } =
     useComposerFrameFits();
@@ -844,7 +846,9 @@ export function ComposerFramePreviewApp() {
             </Popover>
           </div>
         </div>
-        {showPanel ? (
+        {showAgentPanel ? (
+          <aside className={sx(f.panel)}><AgentProgressPanel /></aside>
+        ) : showPanel ? (
           <aside className={sx(f.panel)} data-testid="preview-task-panel" aria-label="Task panel activity">
             <TurnActivity host="panel" />
           </aside>

@@ -22,6 +22,7 @@ import { useAppStore } from "@/store/app.store";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { TaskPanel } from "@/components/session/TaskPanel";
+import { AgentProgressPanel } from "@/components/agent-progress/AgentProgressPanel";
 import { RightRailPanelShell } from "./RightRailPanelShell";
 import { layoutShellStyles } from "./layout-shell.styles";
 import * as stylex from "@stylexjs/stylex";
@@ -1029,7 +1030,7 @@ export function EditorPanel(props: EditorPanelProps) {
       <div {...stylex.props(layoutShellStyles.editorPanelBody)}>
         <RightRailPanelShell
           panelId={rightTab}
-          ownHeader={rightTab === "task"}
+          ownHeader={rightTab === "task" || rightTab === "agent"}
           actions={
             rightTab === "information" ? (
               <WorkspaceInformationSectionMenu />
@@ -1117,6 +1118,7 @@ export function EditorPanel(props: EditorPanelProps) {
             <WorkspaceScriptsPanel visible={sidebarOverlayVisible} onOpenSettings={props.onOpenSettings} />
           ) : null}
           {rightTab === "task" ? <TaskPanel /> : null}
+          {rightTab === "agent" ? <AgentProgressPanel /> : null}
           {rightTab === "scratch" ? (
             <WorkspaceScratchPanel key={activeWorkspaceId} visible={sidebarOverlayVisible} />
           ) : null}
