@@ -46,6 +46,7 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  * - `task=plain` (default): a direct task with a plan, changed files, a passing
  *   verification, an open pull request and one run waiting for review, whose
  *   saved answer, files and turn (tool calls included) Results renders.
+ * - `task=new`: a task nothing has run in yet (the panel's empty states).
  * - `task=agent-run`: a task run by an agent, with a live turn, a running
  *   subagent, a finished delegated review and a scheduled wake-up.
  * - `outcome=completed` makes the direct task's newest saved turn finish
@@ -97,6 +98,8 @@ const WORKSPACE_ID = "task-panel-preview-ws";
 const REPOSITORY_PATH = "/tmp/task-panel-preview-repo";
 const PLAIN_TASK_ID = "task-panel-preview-plain";
 const AGENT_RUN_TASK_ID = "task-panel-preview-agent-run";
+/** `task=new`: a task nothing has run in yet, for the panel's empty states. */
+const NEW_TASK_ID = "task-panel-preview-new";
 const RESULT_REVIEW_STORAGE_KEY = "stave:result-reviews:v1";
 
 /** The latest run's final answer: a list, a fenced block wider than the panel, and enough lines to collapse. */
@@ -777,7 +780,7 @@ function seedResultReviews() {
 
 function seedStores(args: { task: string; pending: string | null; placement: string | null }) {
   const now = Date.now();
-  const activeTaskId = args.task === "agent-run" ? AGENT_RUN_TASK_ID : PLAIN_TASK_ID;
+  const activeTaskId = args.task === "agent-run" ? AGENT_RUN_TASK_ID : args.task === "new" ? NEW_TASK_ID : PLAIN_TASK_ID;
   const store = useAppStore.getState();
   seedResultReviews();
   stubDelegatedTasks();
@@ -808,8 +811,17 @@ function seedStores(args: { task: string; pending: string | null; placement: str
       "src/components/settings/SidebarRow.tsx",
       "server/users.ts",
     ],
-    taskWorkspaceIdById: { [PLAIN_TASK_ID]: WORKSPACE_ID, [AGENT_RUN_TASK_ID]: WORKSPACE_ID },
+    taskWorkspaceIdById: { [PLAIN_TASK_ID]: WORKSPACE_ID, [AGENT_RUN_TASK_ID]: WORKSPACE_ID, [NEW_TASK_ID]: WORKSPACE_ID },
     tasks: [
+      {
+        id: NEW_TASK_ID,
+        title: "Untitled task",
+        provider: "claude-code",
+        updatedAt: "2026-09-29T11:00:00.000Z",
+        unread: false,
+        controlMode: "interactive",
+        controlOwner: "stave",
+      },
       {
         id: PLAIN_TASK_ID,
         title: "Tighten settings sidebar spacing",
@@ -974,7 +986,7 @@ function sideExchange(state: string | null): SideChatExchange | undefined {
 export function TaskPanelPreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
-  const task = params.get("task") === "agent-run" ? "agent-run" : "plain";
+  const task = params.get("task") === "agent-run" ? "agent-run" : params.get("task") === "new" ? "new" : "plain";
   const requestedWidth = Number(params.get("panelWidth"));
   const panelWidth = Number.isFinite(requestedWidth) && requestedWidth > 0 ? requestedWidth : 320;
   const [seeded, setSeeded] = useState(false);
@@ -1033,7 +1045,7 @@ export function TaskPanelPreview() {
   return (
     <main className={sx(styles.page)}>
       <p className={sx(styles.caption)}>
-        Task panel · {task === "agent-run" ? "agent run task" : "direct task"} · {panelWidth}px
+        Task panel · {task === "agent-run" ? "agent run task" : task === "new" ? "new task" : "direct task"} · {panelWidth}px
       </p>
       {seeded ? (
         <div className={sx(styles.row)}>

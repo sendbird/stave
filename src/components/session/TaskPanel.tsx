@@ -350,16 +350,15 @@ const styles = stylex.create({
     color: vars["--aui-color-text-muted"],
   },
   tabs: {
-    borderTopColor: vars["--aui-color-border-subtle"],
-    borderTopStyle: "solid",
-    borderTopWidth: vars["--aui-border-width-hairline"],
     flexShrink: 0,
     gap: 0,
     gridTemplateColumns: "minmax(0, 1fr)",
   },
   // The strip stays at the top of the column while the selected view scrolls
   // under it. A rail narrower than the five labels scrolls the strip sideways
-  // instead of clipping Outputs.
+  // instead of clipping Outputs. Like the Changes panel's view bar, a line
+  // strip gets air above it and none below: its baseline is the divider
+  // between the summary and the selected view.
   tabList: {
     backgroundColor: vars["--aui-color-surface"],
     borderRadius: 0,
@@ -368,7 +367,8 @@ const styles = stylex.create({
     minWidth: 0,
     overflowX: "auto",
     overflowY: "hidden",
-    paddingBlock: 0,
+    paddingBlockEnd: 0,
+    paddingBlockStart: vars["--aui-space-8"],
     paddingInline: vars["--aui-space-12"],
     position: "sticky",
     scrollbarWidth: "none",

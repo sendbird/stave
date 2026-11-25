@@ -125,8 +125,9 @@ export const resultStyles = stylex.create({
     lineHeight: vars["--aui-line-height-normal"],
     color: vars["--aui-color-danger-text"],
   },
+  // The Outputs tab already insets its content; the note adds no space of its own.
   empty: {
-    paddingBlock: vars["--aui-space-12"],
+    margin: 0,
     fontSize: vars["--aui-font-size-body"],
     lineHeight: vars["--aui-line-height-normal"],
     color: vars["--aui-color-text-muted"],

@@ -23,15 +23,15 @@ const rowIn = stylex.keyframes({
 const SHELF_MOTION_DURATION = "200ms";
 
 export const turnActivityStyles = stylex.create({
+  // The Task panel's Activity tab before any turn: a note on the same inset
+  // as the other tabs' notes (Steps, Subagents, Background, Outputs), read
+  // from the top of the tab rather than centred in a column that scrolls.
   panelIdle: {
-    alignItems: "center",
     color: vars["--aui-color-text-muted"],
-    display: "flex",
     fontSize: vars["--aui-font-size-body"],
-    height: "100%",
-    justifyContent: "center",
-    paddingInline: vars["--aui-space-24"],
-    textAlign: "center",
+    lineHeight: vars["--aui-line-height-normal"],
+    paddingBlockStart: vars["--aui-space-12"],
+    paddingInline: vars["--aui-space-12"],
   },
   // Floating shell inner pointer target.
   floatInner: {
