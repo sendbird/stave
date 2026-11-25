@@ -417,6 +417,8 @@ It reports a block when a specific prerequisite prevents progress, such as
 a decision only you can make or a required service it cannot reach. Stave
 rejects environment and external block reports without evidence of the
 observed failure or unavailable dependency.
+The stage card shows the agent's reported evidence. Tars can use it to decide
+what to verify or do next.
 
 Host checks from earlier stages remain valid only for
 the current workspace revision; edits require another admitted check. A report
