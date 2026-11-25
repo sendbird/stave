@@ -898,6 +898,16 @@ export function createProviderInteractionActions(args: {
                 unanswerable: true,
               };
             }
+            // The answer is not recorded until the child's turn started with it,
+            // so the question stays open for another answer.
+            if (followUp.status === "not-started") {
+              return reportFailure(followUp.message
+                ? i18n.t("notifications:asyncQuestionAnswer.delegationNotStarted", { detail: followUp.message })
+                : i18n.t("notifications:asyncQuestionAnswer.delegationNotStartedUnknown"));
+            }
+            if (followUp.status === "unconfirmed") {
+              return reportFailure(i18n.t("notifications:asyncQuestionAnswer.delegationUnconfirmed"));
+            }
             return reportFailure(followUp.status === "running"
               ? i18n.t("notifications:asyncQuestionAnswer.delegationRunning")
               : i18n.t("notifications:asyncQuestionAnswer.delegationRefused", { detail: followUp.message }));
