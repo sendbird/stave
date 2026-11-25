@@ -175,6 +175,7 @@ describe("ExternalSessionsWatcher", () => {
     watcher.publishNow();
     const claude = watcher.snapshot().sessions.find((session) => session.id === CLAUDE_ID)!;
     expect(claude.status).toBe("waiting");
+    expect(claude.recentProgress?.at(-1)).toMatchObject({ kind: "text", text: "All done" });
   });
 
   test("count mode keeps only the number, and turning off drops everything", async () => {

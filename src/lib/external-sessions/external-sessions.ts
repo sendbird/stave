@@ -68,6 +68,14 @@ export const ExternalActionSchema = z.object({
 });
 export type ExternalAction = z.infer<typeof ExternalActionSchema>;
 
+export const EXTERNAL_PROGRESS_LIMIT = 32;
+const ExternalProgressEntrySchema = z.discriminatedUnion("kind", [
+  z.object({ id: z.number(), kind: z.enum(["user", "text"]), text: z.string().max(400) }),
+  z.object({ id: z.number(), kind: z.literal("tool"), action: ExternalActionSchema, status: z.enum(["called", "done", "error"]) }),
+]);
+export type ExternalProgressEntry = z.infer<typeof ExternalProgressEntrySchema>;
+const RecentProgressSchema = z.array(ExternalProgressEntrySchema).max(EXTERNAL_PROGRESS_LIMIT).optional();
+
 export const ExternalAgentSchema = z.object({
   id: z.string().max(200),
   /** The agent type Claude Code records ("general-purpose", "Explore"). */
@@ -77,6 +85,7 @@ export const ExternalAgentSchema = z.object({
   startedAt: z.number(),
   lastAt: z.number(),
   action: ExternalActionSchema.optional(),
+  recentProgress: RecentProgressSchema,
   steps: z.number().int().nonnegative(),
   contextTokens: z.number().int().nonnegative().optional(),
 });
@@ -93,6 +102,7 @@ export const ExternalSessionSchema = z.object({
   startedAt: z.number().optional(),
   lastAt: z.number(),
   action: ExternalActionSchema.optional(),
+  recentProgress: RecentProgressSchema,
   steps: z.number().int().nonnegative(),
   contextTokens: z.number().int().nonnegative().optional(),
   model: z.string().max(200).optional(),

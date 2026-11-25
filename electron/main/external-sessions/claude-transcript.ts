@@ -1,3 +1,4 @@
+import { RecentProgress } from "./recent-progress";
 import type { ExternalAction, ExternalAgentStatus } from "../../../src/lib/external-sessions/external-sessions";
 import { isAbsolute } from "node:path";
 import { cleanTarget, describeClaudeTool } from "./external-actions";
@@ -75,6 +76,7 @@ export class ClaudeTranscriptState {
   action?: ExternalAction;
   /** Tool calls seen (in the part of the file that was read). */
   steps = 0;
+  readonly progress = new RecentProgress();
   contextTokens?: number;
   model?: string;
   /** true: the last answer ended its turn. */
@@ -159,6 +161,7 @@ export class ClaudeTranscriptState {
     for (const block of blocks) {
       if (block.type !== "tool_result" || typeof block.tool_use_id !== "string") continue;
       sawResult = true;
+      this.progress.finish(block.tool_use_id, block.is_error === true);
       const result = (entry.toolUseResult ?? {}) as { status?: unknown; isAsync?: unknown };
       const firstText = blocksOf(block.content).find((item) => item.type === "text");
       const async = result.status === "async_launched" || result.isAsync === true || /^Async agent launched/.test(str(firstText?.text));
@@ -180,6 +183,7 @@ export class ClaudeTranscriptState {
       return;
     }
     this.final = false;
+    this.progress.message("user", cleanTitle(text) ?? "");
     this.firstPrompt ??= cleanTitle(text);
   }
 
@@ -189,11 +193,13 @@ export class ClaudeTranscriptState {
     let usedTool = false;
     const cwd = typeof entry.cwd === "string" ? entry.cwd : this.cwd;
     for (const block of blocksOf(message.content)) {
+      if (!synthetic && block.type === "text") this.progress.message("text", str(block.text));
       if (block.type !== "tool_use" || typeof block.name !== "string") continue;
       usedTool = true;
       const input = block.input && typeof block.input === "object" ? (block.input as Record<string, unknown>) : {};
       this.steps += 1;
       this.action = describeClaudeTool(block.name, input, cwd);
+      this.progress.tool(this.action, block.id);
       if (AGENT_TOOLS.has(block.name) && typeof block.id === "string") {
         this.launches.set(block.id, {
           ...(cleanTarget(str(input.description)) ? { description: cleanTarget(str(input.description)) } : {}),

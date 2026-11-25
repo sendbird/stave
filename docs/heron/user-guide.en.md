@@ -1285,8 +1285,9 @@ Screens: [Notification bell](https://github.com/sendbird/stave/blob/main/docs/sc
 **Activity** in the sidebar shows Claude Code and Codex sessions you started outside Stave, such as `claude` in a terminal, and the sub-agents a Claude Code session runs. It is off by default: turn on **Settings > General > Activity outside Stave**, or choose **Turn on** on the page. When it is on, Stave reads those tools' transcript files on this computer, in memory only; nothing is saved or sent anywhere, and nothing is read while it is off.
 
 - Sessions written in the last 30 minutes are grouped by the Stave project whose folder contains them. Each shows its status (**Working**, **Waiting for you**, **Idle**), branch, current action, elapsed time, steps, context size and "N of M agents running", with a card per sub-agent.
+- On a session or sub-agent card, select **View progress** to read the latest 32 message and tool summaries as they arrive. Close the panel or press Escape to return to the cards.
 - The sidebar badge counts working sessions plus running sub-agents. Sessions Stave started stay in their tasks and are not listed.
-- It is read-only: there is no way to steer or stop a session from here. Cursor, Kiro and OpenCode sessions are not shown, and Codex has no sub-agents.
+- It is read-only: there is no way to steer or stop a session from here. Claude Code and Codex sub-agents appear under their parent session when it is listed.
 
 
 @page tools | Tools | Workspace tools | reference

@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Activity, X } from "lucide-react";
 import { Badge } from "@/components/aui/components/Badge";
 import { Button } from "@/components/aui/components/Button";
@@ -8,6 +8,7 @@ import { StatusDot } from "@/components/aui/components/StatusDot";
 import { Tooltip } from "@/components/aui/components/Tooltip";
 import { vars } from "@/components/aui/tokens/tokens.stylex";
 import { sx } from "@/components/aui/utils/stylex";
+import { ExternalProgressPanel } from "./ExternalProgressPanel";
 import { GlobalPageHeader } from "@/components/system/GlobalPageHeader";
 import { I18N_NAMESPACES, i18n, useTranslation, type I18nKey } from "@/i18n";
 import { formatDuration, formatTokenCount } from "@/i18n/format";
@@ -116,12 +117,23 @@ function Stats({ steps, contextTokens, children }: { steps: number; contextToken
   );
 }
 
-function AgentCard({ agent }: { agent: ExternalAgent}) {
+type ProgressSelection = { source: ExternalSessionSource; sessionId: string; agentId?: string };
+const OpenProgress = createContext<(selection: ProgressSelection, trigger: HTMLButtonElement) => void>(() => {});
+
+function ProgressButton({ selection }: { selection: ProgressSelection }) {
+  const open = useContext(OpenProgress);
+  return <Button size="xs" variant="quiet" onClick={(event) => open(selection, event.currentTarget)}>
+    {i18n.t("session:agentProgress.panel.viewProgress")}
+  </Button>;
+}
+
+function AgentCard({ agent, selection }: { agent: ExternalAgent; selection: ProgressSelection }) {
   return (
     <li className={sx(styles.agent)} data-external-agent={agent.id}>
       <div className={sx(styles.row)}>
         <Badge size="sm" variant="outlined">{agent.agentType}</Badge>
         <AgentStatusDot status={agent.status} />
+        <ProgressButton selection={selection} />
       </div>
       <p className={sx(styles.agentTitle)}>{agent.description}</p>
       {agent.action ? <p className={sx(styles.action)}>{describeExternalAction(agent.action)}</p> : null}
@@ -143,6 +155,7 @@ function SessionCard({ row }: { row: ExternalSessionRow}) {
         {session.subagent ? <span title={i18n.t("shell:externalActivity.subagentHint")}><Badge size="sm" variant="outlined">{i18n.t("shell:externalActivity.subagent")}</Badge></span> : null}
         <h4 className={sx(styles.sessionTitle)} title={title}>{title}</h4>
         <SessionStatusDot status={session.status} />
+        <ProgressButton selection={{ source: session.source, sessionId: session.id }} />
       </div>
       {session.branch || place?.workspaceName ? (
         <p className={sx(styles.where)}>
@@ -159,7 +172,7 @@ function SessionCard({ row }: { row: ExternalSessionRow}) {
       </Stats>
       {session.agents.length > 0 ? (
         <ul className={sx(styles.agents)} aria-label={i18n.t("shell:externalActivity.agentsLabel", { name: title })}>
-          {session.agents.map((agent) => <AgentCard key={agent.id} agent={agent} />)}
+          {session.agents.map((agent) => <AgentCard key={agent.id} agent={agent} selection={{ source: session.source, sessionId: session.id, agentId: agent.id }} />)}
         </ul>
       ) : null}
     </li>
@@ -202,6 +215,19 @@ export function ActivityView(props: { snapshot?: ExternalSessionsSnapshot; enabl
   const workspacePathById = useAppStore((state) => state.workspacePathById);
   const storedSnapshot = useExternalActivityStore((state) => state.snapshot);
   const snapshot = props.snapshot ?? storedSnapshot;
+  const [selection, setSelection] = useState<ProgressSelection | null>(null);
+  const detailRegion = useRef<HTMLDivElement | null>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
+  const session = enabled && snapshot.state === "live" && selection
+    ? snapshot.sessions.find((item) => item.id === selection.sessionId && item.source === selection.source)
+    : undefined;
+  const agent = session?.agents.find((item) => item.id === selection?.agentId);
+  const showingDetail = Boolean(session && (!selection?.agentId || agent));
+  useEffect(() => {
+    if (selection && !showingDetail) setSelection(null);
+    if (showingDetail) detailRegion.current?.focus();
+    else trigger.current?.focus();
+  }, [selection, showingDetail]);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!enabled) return;
@@ -219,11 +245,14 @@ export function ActivityView(props: { snapshot?: ExternalSessionsSnapshot; enabl
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!event.defaultPrevented && event.key === "Escape" && !event.altKey && !event.ctrlKey && !event.metaKey) close();
+      if (!event.defaultPrevented && event.key === "Escape" && !event.altKey && !event.ctrlKey && !event.metaKey) {
+        if (showingDetail) setSelection(null);
+        else close();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [close]);
+  }, [close, showingDetail]);
 
   const content = () => {
     if (!enabled) {
@@ -265,23 +294,33 @@ export function ActivityView(props: { snapshot?: ExternalSessionsSnapshot; enabl
 
   return (
     <div className={sx(styles.scroll)}>
-      <main className={sx(styles.page)} aria-label={t("shell:externalActivity.title")} data-external-activity="">
-        <GlobalPageHeader
-          title={t("shell:externalActivity.title")}
-          description={t("shell:externalActivity.description")}
-          actions={
-            <Tooltip content={t("shell:externalActivity.close")}>
-              <Button variant="quiet" size="sm" aria-label={t("shell:externalActivity.close")} onClick={close}><X /></Button>
-            </Tooltip>
-          }
-        />
-        <NowContext.Provider value={now}>{content()}</NowContext.Provider>
-      </main>
+      {showingDetail && session ? (
+        <div ref={detailRegion} role="region" aria-label={agent?.description || session.title || t("shell:externalActivity.untitled")} tabIndex={-1} className={sx(styles.detail)}>
+          <ExternalProgressPanel session={session} agent={agent} onClose={() => setSelection(null)} />
+        </div>
+      ) : null}
+      <div hidden={showingDetail}>
+        <main className={sx(styles.page)} aria-label={t("shell:externalActivity.title")} data-external-activity="">
+          <GlobalPageHeader
+            title={t("shell:externalActivity.title")}
+            description={t("shell:externalActivity.description")}
+            actions={
+              <Tooltip content={t("shell:externalActivity.close")}>
+                <Button variant="quiet" size="sm" aria-label={t("shell:externalActivity.close")} onClick={close}><X /></Button>
+              </Tooltip>
+            }
+          />
+          <OpenProgress.Provider value={(next, button) => { trigger.current = button; setSelection(next); }}>
+            <NowContext.Provider value={now}>{content()}</NowContext.Provider>
+          </OpenProgress.Provider>
+        </main>
+      </div>
     </div>
   );
 }
 
 const styles = stylex.create({
+  detail: { height: "100%" },
   scroll: { flex: "1 1 auto", blockSize: "100%", minBlockSize: 0, minInlineSize: 0, overflowY: "auto", backgroundColor: vars["--aui-color-canvas"] },
   page: {
     display: "flex", flexDirection: "column", gap: vars["--aui-space-24"], maxInlineSize: "76rem", marginInline: "auto",
