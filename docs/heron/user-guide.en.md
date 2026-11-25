@@ -211,7 +211,7 @@ Screens: [Kick off workspace](https://github.com/sendbird/stave/blob/main/docs/s
 ## 2. Open a task and send a request
 
 1. Press Cmd/Ctrl+N, or select **New Task** in an empty workspace.
-2. In the model button under the composer (**Select model**, Alt+P), pick the provider, model and effort. With **Stave Auto**, Stave picks the model to match the request's difficulty. The model button shows the model and effort recorded for the turn, including when an Agent Run continues automatically or you steer the running turn.
+2. In the model button under the composer (**Select model**, Alt+P), pick the provider, model and effort. With **Stave Auto**, Stave picks the model to match the request's difficulty. When Auto uses local rules, asking how code review works counts as research, while asking to review a diff counts as a review. The model button shows the model and effort recorded for the turn, including when an Agent Run continues automatically or you steer the running turn.
 3. Write what to do and what done looks like. Example: "Return to the original page after login, and add a passing redirect test."
 4. Select **Send**.
 

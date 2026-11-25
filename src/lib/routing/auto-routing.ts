@@ -559,6 +559,14 @@ async function classifyWithTimeout(args: {
   }
 }
 
+// Remove only the review topic of an explanation. A second review command
+// in the same request must still reach the review rule.
+function reviewActionText(prompt: string): string {
+  return prompt
+    .replace(/\b(?:explain(?:\s+how(?:\s+to)?)?|how\s+(?:does|do)|what\s+is)\s+(?:(?:a|an|the)\s+)?["“']?(?:(?:code|pr|pull request)\s+)?(?:reviews?|audits?)\b/gi, "explain")
+    .replace(/(?:(?:코드|PR)\s*)?(?:리뷰|검토)[가이의는를을]?\s*(?:(?:절차|과정|방법|방식)(?:을|를)?\s*|어떻게\s*(?:동작|작동|진행)(?:하는지|되는지)\s*)?(?:설명|알려)/gi, "설명");
+}
+
 export function resolveHeuristicRoute(args: {
   prompt: string;
   fileContextCount: number;
@@ -568,6 +576,7 @@ export function resolveHeuristicRoute(args: {
   const prompt = args.prompt.trim()
     .replace(/(?:리뷰|검토)(?:는|를)?\s*(?:하지\s*말고|말고|하지\s*마)/g, "")
     .replace(/\b(?:do not|don't|skip)\s+(?:review|audit)(?:ing)?\b/gi, "");
+  const actionText = reviewActionText(prompt);
   const tokenCount = countPromptTokens(prompt);
   const isTiny =
     tokenCount > 0 &&
@@ -598,7 +607,7 @@ export function resolveHeuristicRoute(args: {
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.78;
     rationale = "debugging keywords";
-  } else if (matchesAny(prompt, REVIEW_PATTERNS)) {
+  } else if (matchesAny(actionText, REVIEW_PATTERNS)) {
     taskType = "review";
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.76;
@@ -624,7 +633,7 @@ export function resolveHeuristicRoute(args: {
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.76;
     rationale = "implementation keywords";
-  } else if (matchesAny(prompt, RESEARCH_PATTERNS)) {
+  } else if (matchesAny(actionText, RESEARCH_PATTERNS)) {
     taskType = "plan";
     taskClass = "research";
     tier = isTiny ? "light" : "standard";
