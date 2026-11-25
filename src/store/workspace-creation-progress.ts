@@ -4,10 +4,21 @@ import type { RecentRepositoryState } from "@/store/repository.utils";
 export const WORKSPACE_CREATION_STEPS = ["worktree", "copy", "setup", "task"] as const;
 export type WorkspaceCreationStep = (typeof WORKSPACE_CREATION_STEPS)[number];
 type StepStatus = "waiting" | "running" | "complete" | "skipped" | "failed";
-type StepState = { status: StepStatus; detail?: string; retry?: () => Promise<void> };
+type StepState = {
+  status: StepStatus;
+  detail?: string;
+  retry?: () => Promise<void>;
+  /** When the step last started and ended (`Date.now()`), for its elapsed time. */
+  startedAt?: number;
+  endedAt?: number;
+};
 export type WorkspaceCreationProgress = {
   taskTitle: string;
   prompt?: string;
+  /** The new workspace's branch, when it is known before checkout. */
+  branch?: string;
+  /** The setup command the setup step runs, shown while it runs. */
+  setupCommand?: string;
   steps: Record<WorkspaceCreationStep, StepState>;
 };
 
@@ -15,7 +26,7 @@ export const useWorkspaceCreationStore = create<{
   byId: Record<string, WorkspaceCreationProgress | undefined>;
 }>(() => ({ byId: {} }));
 
-export function beginWorkspaceCreation(workspaceId: string, task: { taskTitle: string; prompt?: string }) {
+export function beginWorkspaceCreation(workspaceId: string, task: { taskTitle: string; prompt?: string; branch?: string; setupCommand?: string }) {
   const waiting: StepState = { status: "waiting" };
   useWorkspaceCreationStore.setState(({ byId }) => ({
     byId: { ...byId, [workspaceId]: { ...task, steps: { worktree: waiting, copy: waiting, setup: waiting, task: waiting } } },
@@ -69,14 +80,15 @@ export function runWorkspaceCreationSteps(
     try {
       for (let index = start; index < WORKSPACE_CREATION_STEPS.length; index++) {
         const step = WORKSPACE_CREATION_STEPS[index]!;
-        progress.update(step, { status: "running" });
+        const startedAt = Date.now();
+        progress.update(step, { status: "running", startedAt });
         try {
           const result = await handlers[step]();
-          progress.update(step, result ?? { status: "complete" });
+          progress.update(step, { ...(result ?? { status: "complete" }), startedAt, endedAt: Date.now() });
         } catch (error) {
           const detail = (error instanceof Error ? error.message : String(error)).slice(-16_384);
           progress.update(step, {
-            status: "failed", detail,
+            status: "failed", detail, startedAt, endedAt: Date.now(),
             // A first send with an unknown outcome must never be replayed.
             retry: step === "task" ? undefined : async () => {
               if (progress.current()?.steps[step].status !== "failed") return;

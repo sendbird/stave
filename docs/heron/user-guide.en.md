@@ -194,7 +194,7 @@ Screens: [New workspace](https://github.com/sendbird/stave/blob/main/docs/screen
 
 The PR head determines the default workspace branch name. PR checkout runs in the **Create worktree** step. The PR appears in Information and in the PR status control. Pushing from fork PR workspaces is disabled. Run setup commands manually after reviewing the code.
 
-The creation dialog shows the current preparation step while the existing workspace stays open. When setup finishes, the dialog closes and opens the new task. If checkout or setup fails, select **Open logs** in the dialog for details and **Retry** to continue after fixing the problem. If Git reports a branch collision, use the suggested name in a new creation request.
+The creation dialog lists the four preparation steps (**Create worktree**, **Copy reusable files**, **Run setup**, **Start the first task**) while the existing workspace stays open. Each step shows whether it is done, running, waiting or skipped and how long it took; while setup runs, its command appears under the step. Once the worktree exists, **Continue in background** closes the dialog and preparation goes on; if it then fails, a notification says so and the workspace's own page keeps the logs and **Retry**. When setup finishes, the dialog closes and opens the new task. If checkout or setup fails, select **Open logs** on the failed step for details and **Retry** to continue after fixing the problem. If Git reports a branch collision, use the suggested name in a new creation request.
 Screens: [Workspace creation progress](https://github.com/sendbird/stave/blob/main/docs/screenshots/guide/en/workspace-creation-progress.png)
 
 A **Post-Create Command** (for example `bun install`) runs right after creation.

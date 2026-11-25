@@ -1608,6 +1608,12 @@
     },
     "openLogs": "Open logs",
     "hideLogs": "Hide logs",
+    "position": "Step {{current}} of {{total}}: {{step}}",
+    "positionWithBranch": "{{branch}} · Step {{current}} of {{total}}: {{step}}",
+    "setupCommandLabel": "Setup command",
+    "backgroundHint": "Preparation continues after you close this window.",
+    "background": "Continue in background",
+    "backgroundFailed": "Preparing {{name}} failed",
     "commandUnavailable": "The terminal bridge is unavailable. Retry once it is connected.",
     "commandFailed": "The step failed without returning any output.",
     "repositoryChanged": "You switched projects before creation started. Open the original project to try again."

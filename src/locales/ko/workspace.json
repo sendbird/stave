@@ -1571,6 +1571,12 @@
     },
     "openLogs": "로그 열기",
     "hideLogs": "로그 닫기",
+    "position": "{{total}}단계 중 {{current}}단계: {{step}}",
+    "positionWithBranch": "{{branch}} · {{total}}단계 중 {{current}}단계: {{step}}",
+    "setupCommandLabel": "설정 명령",
+    "backgroundHint": "창을 닫아도 준비는 계속됩니다.",
+    "background": "백그라운드에서 계속",
+    "backgroundFailed": "{{name}} 준비에 실패했습니다",
     "commandUnavailable": "터미널에 연결할 수 없습니다. 연결한 다음 다시 시도하세요.",
     "commandFailed": "단계가 실패했으며 출력이 없습니다.",
     "repositoryChanged": "생성을 시작하기 전에 프로젝트가 바뀌었습니다. 원래 프로젝트에서 다시 시도하세요."

@@ -3,6 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/aui/utils/stylex";
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
 import { WorkspacePaneHost } from "@/components/panes/WorkspacePaneHost";
+import { Toaster } from "@/components/ui";
 import { i18n } from "@/i18n";
 import { applyThemeClass } from "@/lib/themes/apply";
 import { useAppStore } from "@/store/app.store";
@@ -72,6 +73,7 @@ export function WorkspaceCreationPreview() {
       </nav>
       <aside data-testid="preview-active-workspace" data-workspace-id={workspaceId} />
       <WorkspacePaneHost />
+      <Toaster />
       <CreateWorkspaceDialog
         open={open}
         activeBranch="main"

@@ -668,11 +668,11 @@ const SHOTS = [
     async capture({ page, locale, file, t }) {
       await openPreview(page, locale, "workspace-creation&stage=setup");
       await page.getByTestId("preview-start").click();
-      const dialog = page.getByRole("dialog");
+      const dialog = page.getByRole("dialog", { name: await t("workspace:createDialog.title") });
       await dialog.getByRole("textbox", { name: await t("workspace:createDialog.branchNameLabel") }).fill("feature/review");
       await dialog.getByRole("button", { name: await t("common:actions.create"), exact: true }).click();
       const panel = dialog.getByRole("region", { name: await t("workspace:creationProgress.title") });
-      await panel.getByText(await t("workspace:creationProgress.status.running"), { exact: true }).waitFor();
+      await panel.locator('[data-step="setup"][data-status="running"]').waitFor();
       await settle(page);
       await save(page, dialog.locator(".t-modal"), file, { padding: 16 });
     },

@@ -5,6 +5,7 @@ import { FolderSymlink, GitBranch, X } from "lucide-react";
 import {
   useEffect,
   useId,
+  useRef,
   useState,
   type FormEvent,
   type KeyboardEvent,
@@ -84,6 +85,8 @@ export function CreateWorkspaceDialog({
   >(null);
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const preparation = useWorkspaceCreationDialogProgress(() => onOpenChange(false));
+  // Set when the dialog closed while preparation went on, so its outcome is reported elsewhere.
+  const backgrounded = useRef(false);
   const busy = creatingWorkspace || preparation.running;
   const [creationMode, setCreationMode] =
     useState<CreateWorkspaceCreationMode>("branch");
@@ -266,6 +269,8 @@ export function CreateWorkspaceDialog({
     }
     setCreatingWorkspace(true);
     setCreateWorkspaceError(null);
+    backgrounded.current = false;
+    const preparedName = (creationMode === "pr" ? workspaceName.trim() || prReference.trim() : workspaceName.trim());
     let preparing = false;
     try {
       const result =
@@ -290,6 +295,12 @@ export function CreateWorkspaceDialog({
               useRootNodeModulesSymlink,
             });
       if (!result.ok) {
+        // The failed step keeps its logs and retry on the workspace's own page.
+        if (preparing && backgrounded.current) {
+          toast.error(t("creationProgress.backgroundFailed", { name: preparedName }), {
+            description: result.message,
+          });
+        }
         if (preparing) return;
         setCreateWorkspaceError(
           result.message ?? t("createDialog.errors.failed"),
@@ -392,7 +403,16 @@ export function CreateWorkspaceDialog({
             </Button>
           </Tooltip>
         </div>
-        {preparation.progress ? <WorkspaceCreationPanel progress={preparation.progress} inDialog /> : (
+        {preparation.progress ? (
+          <WorkspaceCreationPanel
+            progress={preparation.progress}
+            inDialog
+            onBackground={() => {
+              backgrounded.current = true;
+              closeDialog();
+            }}
+          />
+        ) : (
           <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
           <p className={sx(createWorkspaceStyles.lead)}>
             {t("createDialog.lead")}
