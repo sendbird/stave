@@ -157,7 +157,7 @@ export function ShelfRunText(props: {
 }) {
   useTranslation();
   return (
-    <span className={sx(styles.text)} title={props.title}>
+    <span data-testid="shelf-run-text" className={sx(styles.text)} title={props.title}>
       <span className={sx(styles.label, LABEL_TONES[props.tone ?? "neutral"])}>
         {props.label}
       </span>
