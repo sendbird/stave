@@ -163,3 +163,33 @@ describe("actions", () => {
     expect(describeCodexCall("update_plan", "{}")).toEqual({ verb: "plan" });
   });
 });
+
+test("live Claude progress bounds retained summaries and links a failed result without retaining its output", () => {
+  const state = new ClaudeTranscriptState();
+  state.progress.enabled = true;
+  state.feed(Array.from({ length: 36 }, (_, i) => assistant(i, [{ type: "text", text: "note " + i }])));
+  state.feed([
+    assistant(37, [{ type: "tool_use", id: "read", name: "Read", input: { file_path: CWD + "/file.ts" } }]),
+    line({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "read", is_error: true, content: "raw output" }] } }),
+    assistant(38, [{ type: "text", text: "password=exampleValue" }]),
+  ]);
+  const entries = state.progress.snapshot();
+  expect(entries).toHaveLength(32);
+  expect(entries.at(-2)).toMatchObject({ kind: "tool", action: { verb: "read", target: "file.ts" }, status: "error" });
+  expect(JSON.stringify(entries)).not.toMatch(/raw output|exampleValue/);
+});
+
+test("Codex progress includes event-only prompts and collapses the item and event for the same prompt", () => {
+  const state = new CodexRolloutState();
+  state.progress.enabled = true;
+  state.feed([
+    line({ type: "event_msg", payload: { type: "user_message", message: "First prompt" } }),
+    line({ type: "response_item", payload: { type: "message", role: "user", content: [{ type: "input_text", text: "First prompt" }] } }),
+    line({ type: "event_msg", payload: { type: "user_message", message: "Follow up" } }),
+    line({ type: "response_item", payload: { type: "function_call", name: "exec_command", call_id: "c", arguments: '{"cmd":"ls"}' } }),
+    line({ type: "response_item", payload: { type: "function_call_output", call_id: "c", output: "raw output" } }),
+  ]);
+  expect(state.progress.snapshot()).toMatchObject([
+    { kind: "user", text: "First prompt" }, { kind: "user", text: "Follow up" }, { kind: "tool", status: "done" },
+  ]);
+});

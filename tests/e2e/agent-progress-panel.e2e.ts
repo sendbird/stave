@@ -160,3 +160,23 @@ test("the panel reads an in-turn subagent from the conversation and opens the ag
   expect(await page.evaluate(() => window.agentPanelFixture.layout())).toEqual({ sidebarOverlayVisible: true, sidebarOverlayTab: "task" });
   expect(await page.evaluate(() => window.agentPanelFixture.stackSize())).toBe(0);
 });
+
+test("Activity opens the selected external transcript and returns focus to its card", async ({ page }) => {
+  await page.goto("/?stavePreview=activity");
+  const panel = page.getByTestId("agent-progress-panel");
+  const session = page.locator('[data-external-session="claude-1"]');
+  const view = session.getByRole("button", { name: "View progress" }).first();
+  await view.click();
+  await expect(panel).toHaveAttribute("data-agent-source", "external-session");
+  await expect(panel).toContainText("Trace the retry queue");
+  await expect(panel).toContainText("queue.ts");
+  await page.keyboard.press("Escape");
+  await expect(view).toBeFocused();
+  const child = session.locator('[data-external-agent="a1"]').getByRole("button", { name: "View progress" });
+  await child.click();
+  await expect(panel).toHaveAttribute("data-agent-source", "external-subagent");
+  await expect(panel).toContainText("Found the retry handler");
+  await expect(panel.getByRole("button", { name: "Stop", exact: true })).toHaveCount(0);
+  await panel.getByRole("button", { name: /close/i }).click();
+  await expect(child).toBeFocused();
+});
