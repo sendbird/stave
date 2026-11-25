@@ -1,3 +1,5 @@
+import { useWorkspaceScratchStore } from "@/store/workspace-scratch-store";
+import { reduceProviderTurnActivityEvents } from "@/lib/providers/turn-status";
 import { createRoot } from "react-dom/client";
 import { applyAppLocale } from "@/i18n";
 import { AgentProgressPanel } from "@/components/agent-progress/AgentProgressPanel";
@@ -83,6 +85,30 @@ useAppStore.setState((state) => ({
   tasks: [{ id: taskId, title: "Fix login sessions" } as (typeof state.tasks)[number], ...state.tasks],
   messagesByTask: { ...state.messagesByTask, [taskId]: [message] },
 }));
+if (params.has("resources")) {
+  const workspaceId = "resource-workspace";
+  const rows = ["spawn-1", "another-agent"].map((parentToolUseId, index) => ({
+    type: "background_task" as const, id: crypto.randomUUID(), parentToolUseId, providerId: "claude-code" as const,
+    description: index ? "Sibling command" : "Verify session expiry", status: "completed" as const, confidence: "confirmed" as const,
+    startedAt: 1, endedAt: 2, hasOutput: true, canStop: false, finalOutput: { text: "Checks passed", truncated: false },
+  }));
+  const activity = reduceProviderTurnActivityEvents({ taskId, turnId: "turn-1", providerId: "claude-code",
+    events: [...message.parts.flatMap(part => part.type === "tool_use" ? [{
+      type: "tool" as const, toolName: part.toolName, toolUseId: part.toolUseId, input: part.input,
+      ownerAgentId: part.ownerAgentId, parentToolUseId: part.parentToolUseId, agentId: part.agentId, state: part.state,
+    }] : []), ...rows], activityByTask: {}, now: Date.parse(message.startedAt!) });
+  useAppStore.setState({ activeWorkspaceId: workspaceId, workspacePathById: { [workspaceId]: "/fixture" },
+    activeTurnIdsByTask: { [taskId]: "turn-1" }, providerTurnActivityByTask: activity.activityByTask });
+  const files = ["explore-9304ba/trace.log", "sibling/private.log"].map(name => ({
+    path: ".stave/scratch/agents/" + name, sizeBytes: 14, mtimeMs: 1,
+  }));
+  const listing = { files, fileCount: 2, totalBytes: 28, truncated: false };
+  useWorkspaceScratchStore.getState().applyListing(workspaceId, listing);
+  Object.defineProperty(window, "api", { configurable: true, value: { ...window.api, fs: {
+    listScratch: async () => ({ ok: true, ...listing }),
+    readScratchTail: async () => ({ ok: true, content: "Expiry checked", sizeBytes: 14, truncated: false }),
+  } } });
+}
 useAppStore.getState().setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "task" } });
 
 declare global {
@@ -103,6 +129,8 @@ window.agentPanelFixture = {
   },
   stackSize: () => useAgentProgressPanelStore.getState().stack.length,
 };
+
+if (params.has("open")) window.agentPanelFixture.openSubagent();
 
 createRoot(document.getElementById("root")!).render(
   <StaveDesignProvider>

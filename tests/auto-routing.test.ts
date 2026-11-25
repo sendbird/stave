@@ -253,6 +253,39 @@ describe("resolveAutoRoutingDecision", () => {
     expect(decision.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
   });
 
+  test("routes review explanations as research after classifier failure", async () => {
+    const decision = await resolveDecision({
+      prompt: "리뷰가 어떻게 동작하는지 설명해줘",
+      settings: { autoRoutingUseClassifier: true },
+      classifyRoute: async () => { throw new Error("classifier unavailable"); },
+    });
+    expect(decision).toMatchObject({ source: "classifier_fallback", taskClass: "research" });
+  });
+
+  test.each([
+    ["Explain how to review this diff and list any bugs you find.", "review", "gpt-6.2-sol"],
+    ["리뷰 절차를 설명하고 버그가 있으면 알려줘", "review", "gpt-6.2-sol"],
+    ["Explain how audits work and list any defects in this diff.", "review", "gpt-6.2-sol"],
+    ["Explain how to review code and find bugs, in theory only.", "research", "gpt-6-luna"],
+    ["코드 리뷰 절차를 설명하고 버그를 찾아내는 방법도 알려줘", "research", "gpt-6-luna"],
+  ])("routes review topics by the requested output: %s", async (prompt, taskClass, model) => {
+    for (const enabled of [false, true]) {
+      const decision = await resolveDecision({
+        prompt,
+        currentProviderId: "codex",
+        currentModel: "gpt-6.2-sol",
+        settings: { autoRoutingUseClassifier: enabled },
+        classifyRoute: async () => { throw new Error("classifier unavailable"); },
+      });
+      expect(decision).toMatchObject({
+        source: enabled ? "classifier_fallback" : "heuristic",
+        taskClass,
+        // Classifier failure uses the conservative Standard model.
+        model: enabled ? "gpt-6.2-sol" : model,
+      });
+    }
+  });
+
   test("a classifier verdict reclassifies the task before the table runs", async () => {
     const decision = await resolveDecision({
       prompt:
@@ -313,6 +346,11 @@ describe("resolveAutoRoutingDecision", () => {
   test("short explanations and negated reviews retain their actual intent", async () => {
     expect((await resolveDecision({ prompt: "이 함수 설명해줘" })).taskClass).toBe("research");
     expect((await resolveDecision({ prompt: "리뷰는 하지 말고 구현해줘" })).taskClass).toBe("implement");
+  });
+
+  test("explaining review and performing review take different routes", async () => {
+    expect((await resolveDecision({ prompt: "Explain how the review workflow works." })).taskClass).toBe("research");
+    expect((await resolveDecision({ prompt: "Review this diff and report defects." })).taskClass).toBe("review");
   });
 
   test("a short continuation inherits sensitive context and retains the capable model", async () => {
@@ -440,6 +478,43 @@ describe("signals", () => {
         safetyEscalation: true,
       }).taskClass,
     ).toBe("research");
+  });
+
+  test.each([
+    ["Explain how code review works.", "research"],
+    ['What is "code review"?', "research"],
+    ["Explain how to review code.", "research"],
+    ["Do not review this diff. Explain how code review works.", "research"],
+    ["코드 리뷰 절차를 알려줘", "research"],
+    ["How do reviews work?", "research"],
+    ["How does a PR review work?", "research"],
+    ["Explain the review process for this diff.", "research"],
+    ["코드 리뷰가 어떻게 동작하는지 설명해줘", "research"],
+    ["PR 리뷰 절차를 설명해주세요", "research"],
+    ["Review this diff and explain why.", "review"],
+    ["Explain how to review this diff and list any bugs you find.", "review"],
+    ["Report any defects you find. Explain how code review works.", "review"],
+    ["Explain how to review this diff and how to report defects.", "research"],
+    ["Explain code review, but do not list bugs.", "research"],
+    ["리뷰 절차를 설명하고 발견한 버그도 알려줘", "review"],
+    ["Explain code review, then review this diff.", "review"],
+    ["리뷰 절차를 설명하고 이 diff도 리뷰해줘", "review"],
+    ["이 diff를 검토하고 이유도 설명해줘", "review"],
+  ])("routes the requested action in %s", (prompt, taskClass) => {
+    for (const fileContextCount of [0, 1]) {
+      expect(resolveHeuristicRoute({ prompt, fileContextCount, safetyEscalation: true }).taskClass)
+        .toBe(taskClass);
+    }
+  });
+
+  test("keeps complexity independent of a review explanation's topic", () => {
+    const route = (detail: string) => resolveHeuristicRoute({
+      prompt: `Explain how code review works. ${detail}`,
+      fileContextCount: 0,
+      safetyEscalation: true,
+    });
+    expect(route("")).toMatchObject({ taskClass: "research", complexity: "low" });
+    expect(route("context ".repeat(130))).toMatchObject({ taskClass: "research", complexity: "high" });
   });
 
   test("formatAutoRoutingSignalSummary renders the tooltip line", () => {

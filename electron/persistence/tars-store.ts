@@ -18,7 +18,7 @@ import {
   type UpdateTarsIdentityInput,
 } from "../../src/lib/tars/types";
 import { hasTarsDecisionTables, readLatestTarsControls, readMovedOnTarsMessages, readOpenTarsAsks, readSettledTarsTargets, readTarsAnswers, readTarsPrAskTarget } from "./tars-proposals";
-import { isTarsAnswerSettling, tarsAskDecisionId, tarsUnverifiedDecisionId } from "../../src/lib/tars/decisions";
+import { previewTarsQuestion, isTarsAnswerSettling, tarsAskDecisionId, tarsUnverifiedDecisionId } from "../../src/lib/tars/decisions";
 import { tarsConfirmationRequestId } from "../../src/lib/tars/conversation";
 import { isTarsResponsibilityTerminal } from "../../src/lib/tars/attention";
 import { TarsChangeSignal, type TarsChangeListener } from "./tars-changes";
@@ -219,7 +219,7 @@ export class TarsStore {
       if (!targets.every((target) => live(target.responsibilityId, target.expectedRevision, target.operation))) return [];
       return [{ kind: "ask", responsibilityId: targets[0]?.responsibilityId ?? prTarget!.id, messageId: receipt.messageId, actionIndex: receipt.actionIndex,
         operation: null, expectedRevision: targets[0]?.expectedRevision ?? prTarget!.revision, proposedAt: receipt.updatedAt,
-        question: receipt.action.question, optionCount: receipt.action.options.length }];
+        question: receipt.action.question, optionCount: receipt.action.options.length, questionPreview: previewTarsQuestion(receipt.action) }];
     });
     return [...confirms, ...unverified, ...asks];
   }

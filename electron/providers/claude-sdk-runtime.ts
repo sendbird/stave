@@ -41,10 +41,10 @@ import { createClaudeContextUsageTracker } from "./claude-context-usage";
 import { toClaudeContextUsageSnapshot } from "./claude-context-usage-snapshot";
 import { recordClaudeRateLimitObservation } from "./rate-limits/claude-rate-limits-observation";
 import {
-  buildClaudeUsageEvent,
   mapClaudeMessageToEvents as mapClaudeEvents,
   type ClaudeIncomingMessage,
 } from "./claude-event-mapping";
+import { consumeClaudeReadOnlyPromptStream, type ClaudeReadOnlyPromptProgress, type ClaudeReadOnlyPromptResult } from "./claude-read-only-prompt-stream";
 import { createClaudeCompactionTracker } from "./claude-compaction";
 import { claudeNativePlanEnv } from "./native-plan-options";
 import { readSettledClaudeMcpStatus, observeClaudeMcpReadiness } from "./claude-mcp-readiness-summary";
@@ -1796,69 +1796,7 @@ export function buildClaudeReadOnlyPromptOptions(args: {
   };
 }
 
-export type ClaudeReadOnlyPromptProgress = {
-  stage: "loading_runtime" | "waiting_for_result";
-  lastMessageType?: string;
-};
-
-type ClaudeReadOnlyPromptResult = {
-  ok: boolean;
-  text?: string;
-  usage?: Extract<BridgeEvent, { type: "usage" }>;
-  nativeSessionId?: string;
-  sessionReused?: boolean;
-  aborted?: boolean;
-  detail?: string;
-};
-
-/**
- * Consumes the real SDK async iterator without treating an intermediate
- * assistant message as complete advice. Keeping this loop independently
- * testable covers delayed final results while exposing content-free progress
- * metadata to timeout diagnostics.
- */
-export async function consumeClaudeReadOnlyPromptStream(args: {
-  stream: AsyncIterable<SDKMessage>;
-  label: string;
-  onProgress?: (progress: ClaudeReadOnlyPromptProgress) => void;
-}): Promise<ClaudeReadOnlyPromptResult> {
-  for await (const message of args.stream) {
-    args.onProgress?.({
-      stage: "waiting_for_result",
-      lastMessageType: message.type,
-    });
-    if (message.type !== "result") {
-      continue;
-    }
-    const result = message as SDKResultMessage;
-    const usage = buildClaudeUsageEvent(result) as Extract<
-      BridgeEvent,
-      { type: "usage" }
-    >;
-    if (result.subtype !== "success" || result.is_error) {
-      return {
-        ok: false,
-        usage,
-        nativeSessionId: result.session_id,
-        detail:
-          result.subtype === "success"
-            ? `Claude ${args.label} returned an error result.`
-            : result.errors.join("\n") ||
-              `Claude ${args.label} failed during execution.`,
-      };
-    }
-    return {
-      ok: true,
-      text: result.result,
-      usage,
-      nativeSessionId: result.session_id,
-    };
-  }
-  return {
-    ok: false,
-    detail: `Claude ${args.label} ended without a result.`,
-  };
-}
+export type { ClaudeReadOnlyPromptProgress } from "./claude-read-only-prompt-stream";
 
 export async function runClaudeReadOnlyPrompt(args: {
   cwd?: string;

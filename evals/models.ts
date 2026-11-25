@@ -27,13 +27,13 @@ const SUITE_LANE = {
  * default utility model for its lane. Settings saved in the desktop app are not
  * readable from this script; pass `--model` to evaluate a configured model.
  */
-export function resolveEvalModel(args: { suite: SuiteName; provider: EvalProviderName; model?: string | undefined }): { model: string; source: EvalModelSource } {
+export function resolveEvalModel(args: { suite: SuiteName | "prompt-enhancement"; provider: EvalProviderName; model?: string | undefined }): { model: string; source: EvalModelSource } {
   const explicit = args.model?.trim();
   if (explicit) return { model: explicit, source: "option" };
   const providerId = evalProviderId(args.provider);
   if (args.suite === "planner") return { model: getDefaultModelForProvider({ providerId }), source: "planner-default" };
   const lane = resolveAuxLaneRuntime({
-    lane: SUITE_LANE[args.suite],
+    lane: args.suite === "prompt-enhancement" ? "utility" : SUITE_LANE[args.suite],
     policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
     shared: DEFAULT_AUX_INFERENCE_DEFAULT,
     activeProviderId: providerId,

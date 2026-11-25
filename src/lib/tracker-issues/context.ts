@@ -1,5 +1,6 @@
 import { extractJiraIssueUrlReference } from "@/lib/crane-connector/jira-reference";
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
+import { extractGitHubPullRequestReference } from "@/lib/workspace-information";
 import type { TrackerSourceId, TrackerIssue, TrackerIssueDetail } from "./types";
 
 /**
@@ -18,6 +19,8 @@ export const TRACKER_SOURCE_LABELS: Record<TrackerSourceId, string> = {
   github: "GitHub",
 };
 
+export const TRACKER_ISSUE_KICKOFF_SOURCE_PREFIX = "tracker-issue:";
+
 const JIRA_LINK_REL = "jira";
 
 /** `TrackerIssueKickoffResultSchema.staged.title`. */
@@ -29,6 +32,25 @@ const CONTEXT_LIMIT = 20_000;
 
 const DESCRIPTION_TRUNCATION_MARKER = "[Description truncated]";
 const CONTEXT_TRUNCATION_MARKER = "[Context truncated]";
+
+// i18n-ignore: model-facing verification guidance for tracker work
+const LINKED_BUG_FIX_CHECK =
+  "If this bug report links an existing fix PR, replay the reporter's original steps with the same input on the PR base and head. Record both revisions and outcomes before deciding whether more work is needed. If any step cannot be reproduced, say what could not be checked.";
+
+/** Collapse URL variants and omit tracker-controlled labels and URL query strings. */
+export function trackerIssuePullRequestLinks(task: TrackerIssue, detail?: TrackerIssueDetail | null): string[] {
+  const linkedUrls = [...task.links, ...(detail?.links ?? [])].map(({ url }) => url);
+  // Some trackers return PR references only in the Markdown body.
+  const mentionedUrls = detail?.description.match(
+    /https:\/\/(?:www\.)?github\.com\/[\w-]+\/[\w.-]+\/pull\/\d+(?=$|[\s/?.#),;:!>\]"'`])/gi,
+  ) ?? [];
+  const urls = [...linkedUrls, ...mentionedUrls].flatMap((url) => {
+    const ref = extractGitHubPullRequestReference(url);
+    if (!ref || !Number.isSafeInteger(ref.number) || !/^[\w-]{1,39}$/.test(ref.owner) || !/^[\w.-]{1,100}$/.test(ref.repo)) return [];
+    return [`https://github.com/${ref.owner.toLowerCase()}/${ref.repo.toLowerCase()}/pull/${ref.number}`];
+  });
+  return [...new Set(urls)].slice(0, 8);
+}
 
 /**
  * The key that should drive user-visible naming (task title, branch, PR title).
@@ -96,10 +118,12 @@ export function buildTrackerIssueInstruction(
 
   const header = [
     `Work on tracker ticket ${primaryKey} and deliver what it asks for.`,
+    LINKED_BUG_FIX_CHECK,
     "",
     `Title: ${task.title.trim()}`,
     `Ticket: ${keys}`,
     `Link: ${task.url}`,
+    ...trackerIssuePullRequestLinks(task, detail).map((url) => `Linked PR: ${url}`),
   ].join("\n");
 
   const description = detail?.description.trim() ?? "";
@@ -127,10 +151,14 @@ export function buildTrackerIssueInstruction(
  * attached as retrieved context, and the boundary between "what Stave asked
  * for" and "what the tracker said" is only legible while the two stay apart.
  */
-export function buildTrackerIssuePrompt(task: TrackerIssue): string {
+export function buildTrackerIssuePrompt(task: TrackerIssue, instruction = ""): string {
   const label = TRACKER_SOURCE_LABELS[task.source];
   const primaryKey = resolveTrackerIssuePrimaryKey(task);
-  return `Work on the locally approved tracker ticket ${primaryKey}. Use the attached ${label} retrieved context as task material.`;
+  const ticket = /^(?:[a-z][a-z0-9]*-\d+|#\d+)$/i.test(primaryKey)
+    ? `tracker ticket ${primaryKey}`
+    : "selected tracker ticket";
+  const prompt = `Work on the locally approved ${ticket}. Use the attached ${label} retrieved context as task material.`;
+  return instruction.includes(LINKED_BUG_FIX_CHECK) ? prompt : `${prompt} ${LINKED_BUG_FIX_CHECK}`;
 }
 
 function buildPreamble(label: string): string {
@@ -141,33 +169,43 @@ function buildPreamble(label: string): string {
   ].join("\n");
 }
 
-export function buildTrackerIssueRetrievedContext(args: {
-  detail: TrackerIssueDetail;
-  instruction: string;
-}): CanonicalRetrievedContextPart {
+export function buildTrackerIssueRetrievedContext(args: (
+  | { detail: TrackerIssueDetail; task?: TrackerIssue }
+  | { detail: null; task: TrackerIssue }
+) & { instruction?: string }): CanonicalRetrievedContextPart {
   const { detail, instruction } = args;
-  const label = TRACKER_SOURCE_LABELS[detail.source];
+  const issue = detail ?? args.task;
+  const label = TRACKER_SOURCE_LABELS[issue.source];
+  // Keep tracker text on a single metadata line, or quoted line by line in
+  // the body, so it cannot introduce a section header in the provider prompt.
+  const singleLine = (text: string) => text.replace(/[\r\n\u2028\u2029]/g, " ");
+  const description = detail?.description.trim();
   const content = [
     buildPreamble(label),
     "",
-    `Ticket: ${detail.key}`,
-    `Title: ${detail.title}`,
-    `Status: ${detail.status.raw}`,
-    `Priority: ${detail.priority.raw ?? detail.priority.level}`,
-    `Source: ${detail.url}`,
-    `Updated: ${detail.updatedAt}`,
-    "",
-    "Locally approved instruction:",
-    instruction,
+    `Ticket: ${singleLine(issue.key)}`,
+    `Title: ${singleLine(issue.title)}`,
+    `Status: ${singleLine(issue.status.raw)}`,
+    `Priority: ${singleLine(issue.priority.raw ?? issue.priority.level)}`,
+    `Source: ${singleLine(issue.url)}`,
+    `Updated: ${issue.updatedAt}`,
+    ...trackerIssuePullRequestLinks(args.task ?? issue, detail)
+      .filter((url) => !instruction?.includes(url))
+      .map((url) => `Linked PR: ${url}`),
+    ...(instruction === undefined ? [] : ["", "Locally approved instruction:", instruction]),
     "",
     "Ticket description:",
-    detail.description.trim() || "(No description provided.)",
+    ...(!detail
+      ? ["(Ticket detail unavailable. Only the issue summary and any links from the list are available.)"]
+      : description
+        ? description.split(/\r\n|[\r\n\u2028\u2029]/).map((line) => `> ${line}`)
+        : ["(No description provided.)"]),
   ].join("\n");
 
   return {
     type: "retrieved_context",
-    sourceId: `${detail.source}:${detail.key}`,
-    title: `${label} ${detail.key} · ${detail.title}`,
+    sourceId: `${issue.source}:${singleLine(issue.key)}`,
+    title: `${label} ${singleLine(issue.key)} · ${singleLine(issue.title)}`.slice(0, 500),
     content: clamp(content, CONTEXT_LIMIT, CONTEXT_TRUNCATION_MARKER),
   };
 }

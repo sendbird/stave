@@ -19,6 +19,7 @@ import type {
 export type ReturnLinkTarget =
   | { kind: "panel" }
   | { kind: "request" }
+  | { kind: "tars-decision"; responsibilityId: string; decisionId: string }
   | { kind: "decision"; messageId: string; requestId: string }
   | { kind: "message"; messageId: string }
   | { kind: "side-question" }
@@ -44,6 +45,7 @@ export interface ReturnRow {
   action: { label: string; target: ReturnLinkTarget } | null;
   /** The task waits on you: this row's action is the card's primary one. */
   primary: boolean;
+  tarsQuestionPreview?: FleetAttentionItem["tarsQuestionPreview"];
 }
 
 export interface ReturnView {
@@ -221,7 +223,18 @@ export function describeReturnSummary(summary: ReturnSummary, now: number): Retu
   const status: ReturnStatus = { ...describeStop(summary.stop, now), ...describeAction(summary) };
   const needsYou = summary.stop.kind === "need";
   const rows: ReturnRow[] = [];
-  if (needsYou) rows.push(statusRow(status, true));
+  if (summary.stop.kind === "need") {
+    const row = statusRow(status, true);
+    const decision = summary.stop.tarsDecision;
+    if (decision) {
+      row.action = {
+        label: i18n.t("fleet:tarsAttention.openInTars"),
+        target: { kind: "tars-decision", responsibilityId: decision.responsibilityId, decisionId: decision.decisionId },
+      };
+      row.tarsQuestionPreview = decision.preview;
+    }
+    rows.push(row);
+  }
   rows.push(...summary.turns.map(describeTurn));
   if (!needsYou && summary.stop.kind === "running") rows.push({ ...statusRow(status, false), id: "running" });
   if (rows.length === 0) {

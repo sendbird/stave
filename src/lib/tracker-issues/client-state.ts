@@ -9,6 +9,7 @@ import {
   applyTrackerIssuesStatus,
   getTrackerIssuesClientSnapshot,
   parseTrackerIssueKey,
+  trackerIssueKey,
   resetTrackerIssuesClientStore,
   subscribeTrackerIssuesClient,
   type TrackerIssuesAttention,
@@ -18,6 +19,7 @@ import {
   type TrackerSourceId,
   type TrackerIssueAttachStaveTaskArgs,
   type TrackerIssueDetail,
+  type TrackerIssue,
   type TrackerIssueKickoffArgs,
   type TrackerIssueKickoffResult,
   type TrackerIssueStaveLink,
@@ -131,7 +133,7 @@ export function fetchTrackerIssueDetail(
   notifyPending();
   const request = getDetail({ source, taskRef })
     .then((result) => {
-      if (result?.ok && result.detail) {
+      if (result?.ok && result.detail?.source === source && result.detail.ref === taskRef) {
         applyTrackerIssueDetail(result.detail);
         return result.detail;
       }
@@ -145,6 +147,23 @@ export function fetchTrackerIssueDetail(
     });
   detailRequests.set(key, request);
   return request;
+}
+
+/** A list refresh can update the selected issue while its kickoff dialog is open. */
+export async function resolveTrackerIssueForKickoff(selected: TrackerIssue) {
+  const key = trackerIssueKey(selected.source, selected.ref);
+  const latestTask = () => {
+    const listed = getTrackerIssuesClientSnapshot().itemByKey[key]?.task;
+    return listed && Date.parse(listed.updatedAt) > Date.parse(selected.updatedAt) ? listed : selected;
+  };
+  const cached = getTrackerIssuesClientSnapshot().detailByKey[key];
+  const task = latestTask();
+  if (cached && Date.parse(cached.updatedAt) >= Date.parse(task.updatedAt)) return { task, detail: cached };
+
+  const fetched = await fetchTrackerIssueDetail(selected.source, selected.ref);
+  const latest = latestTask();
+  const detail = fetched && Date.parse(fetched.updatedAt) >= Date.parse(latest.updatedAt) ? fetched : null;
+  return { task: latest, detail };
 }
 
 /** Cached detail for `key`, fetched lazily the first time something asks. */

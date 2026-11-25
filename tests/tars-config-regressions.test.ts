@@ -33,7 +33,7 @@ test("1: helper and unstructured Claude checks remain unverified; work and fix t
     expect(classifyStageEvidence(report, facts).some(isVerifiedEvidence)).toBe(false);
   }
   for (const index of [0, 2]) {
-    expect(prompt(index)).toContain("through `stave_run_workspace_script` when workspace check scripts are configured");
+    expect(prompt(index)).toContain("through `stave_run_workspace_script` for script IDs bound to this run");
     expect(prompt(index)).toContain("same turn you report");
     expect(prompt(index)).toContain("Rerun helper checks");
     expect(prompt(index)).toContain("in this reporting turn in a way Stave recorded");

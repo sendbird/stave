@@ -28,6 +28,12 @@ import { buildAgentRouteSettings } from "../src/store/agent-route-settings-sync"
 import { defaultSettings } from "../src/store/app-settings";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
 import { DelegationPolicyStore } from "../electron/persistence/delegation-policy-store";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { readIndependentReview } from "../electron/host-service/delegated-task-signals";
+import { readWorkspaceRevision } from "../electron/host-service/supervision/workspace-revision";
 
 const idle = { ok: true as const, activeTurnId: null, latestTurnId: null, latestTurnCompletedAt: null, latestTurnError: null };
 const agent = { ...getBuiltinAgent("reviewer")!, workflow: undefined };
@@ -35,8 +41,10 @@ const request = (patch = {}) => ({ repositoryPath: "/tmp/stave", parentWorkspace
   delegationKey: "assignment", prompt: "Review and verify the change.", providerId: "codex", agentConfigId: agent.id,
   workspace: { mode: "same-workspace" }, access: "read-only", ...patch });
 
-function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; accountProfileId?: string; routing?: boolean; explicitAuto?: boolean; pinnedRoot?: boolean; tarsRoot?: boolean; decisionMetadata?: boolean; beforeTaskCreated?: () => Promise<void> } = {}) {
+function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; accountProfileId?: string; routing?: boolean; explicitAuto?: boolean; pinnedRoot?: boolean; tarsRoot?: boolean; decisionMetadata?: boolean; beforeTaskCreated?: () => Promise<void>; workspacePath?: string } = {}) {
   const savedAgent = options.agent ?? agent;
+  const workspacePath = options.workspacePath ?? "/tmp/stave";
+  const readHead = async () => options.workspacePath ? execFileSync("git", ["rev-parse", "HEAD"], { cwd: workspacePath, encoding: "utf8" }).trim() : "abc1234";
   const db = new Database(":memory:");
   const assignmentStore = new AgentAssignmentStore(db), tars = new TarsStore(db);
   const runs = new AgentRunStore(db), assignments = createAssignRuntime({ store: assignmentStore, allowNativeSubagents: taskId => !runs.resourceConfig(runs.getActiveAgentRunForTask(taskId)?.id ?? "") });
@@ -121,8 +129,9 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
       return { turnId };
     },
     countActiveDelegatedTasks: () => 0, isReportingAvailable: async () => true,
-    resolveAgentRunGrant: key => grants.get(key) ?? null, resolveWorkspacePath: async () => "/tmp/stave",
-    readHeadSha: async () => "abc1234", collectStageFacts: async () => EMPTY_STAGE_FACTS,
+    resolveAgentRunGrant: key => grants.get(key) ?? null, resolveWorkspacePath: async () => workspacePath,
+    readHeadSha: readHead, readWorkspaceRevision: options.workspacePath ? readWorkspaceRevision : undefined,
+    collectStageFacts: async () => options.workspacePath ? { ...EMPTY_STAGE_FACTS, workspaceRevision: await readWorkspaceRevision(workspacePath) } : EMPTY_STAGE_FACTS,
     readTurnEnding: () => "completed", userPermissionOptions: () => ({ codexFileAccess: "danger-full-access", claudePermissionMode: "bypassPermissions" }),
     routeAgentTurn: async () => { throw new Error("Supervised delegates must not use Auto routing"); },
     performAction: async () => { hostActions++; return { status: "failed", detail: "This action must not run under read-only authority." }; },
@@ -138,7 +147,7 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
     subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener); }; }, pollIntervalMs: 2,
   });
   const host: DelegatedTaskHostPort = {
-    resolveWorkspace: async () => ({ workspaceId: "ws", workspacePath: "/tmp/stave", repositoryPath: "/tmp/stave" }),
+    resolveWorkspace: async () => ({ workspaceId: "ws", workspacePath, repositoryPath: workspacePath }),
     createWorkspace: async () => { throw new Error("not needed"); }, getTaskStatus: async () => idle,
     runTask: async () => { singleTurns++; return { turnId: "single-turn" }; },
     stopTask: async () => { stops++; }, releaseTaskParent: async () => {},
@@ -147,7 +156,7 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
   };
   const createCoordinator = () => createDelegatedTaskCoordinator({
     ...(options.routing ? { resolveTurnRoute: constrained } : {}),
-    host, readResourceRoot: taskId => runtime.resourceRootForTask(taskId), concurrencyLimit: 3, getLedger: () => ({
+    host, readHead, readResourceRoot: taskId => runtime.resourceRootForTask(taskId), concurrencyLimit: 3, getLedger: () => ({
       getRunAggregate: a => ledger.getAggregate(a), claimRunStep: a => ledger.claimStep(a),
       markRunStepWaiting: a => ledger.markStepWaiting(a), resumeRunStep: a => ledger.resumeStep(a),
       completeRunStep: a => ledger.completeStep(a), failRunStep: a => ledger.failStep(a), cancelRunStep: a => ledger.cancelStep(a),
@@ -160,7 +169,7 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
       return result.ok ? { ok: true, args: { ...result.args, prompt: args.prompt }, snapshot: result.snapshot, agentContentHash: result.snapshot.contentHash } : result;
     }, resolvePermissionPolicy: async () => policy,
     recordAgentAssignment: async args => { assignments.recordTaskAgent({ requestId: `delegated:${args.executionId}`,
-      taskId: args.target.taskId, workspaceId: args.target.workspaceId, repositoryPath: "/tmp/stave", agent: args.snapshot.agent,
+      taskId: args.target.taskId, workspaceId: args.target.workspaceId, repositoryPath: workspacePath, agent: args.snapshot.agent,
       role: "delegate", assignment: args.prompt, providerId, model: args.model ?? null }); },
   });
   const coordinator = createCoordinator();
@@ -181,6 +190,55 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
 }
 
 describe("supervised saved-Agent delegations", () => {
+  test.each(["valid", "moved-head", "legacy-caller", "cancelled"] as const)("only a completed pinned reviewer produces ledger proof (%s)", async (variant) => {
+    const cwd = mkdtempSync(join(tmpdir(), "stave-pinned-review-"));
+    const git = (...args: string[]) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+    const commit = (text: string) => {
+      writeFileSync(join(cwd, "work.txt"), text);
+      git("add", "work.txt");
+      git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", text);
+      return git("rev-parse", "HEAD");
+    };
+    const h = harness("codex", { workspacePath: cwd });
+    try {
+      git("init", "-q");
+      const expectedHead = commit("reviewed");
+      const response = await h.coordinator.delegateFromTool({
+        prompt: "Review the pinned commit.", delegationKey: "review", provider: "codex", repositoryPath: cwd,
+        agentConfigId: "reviewer", access: "read-only", workspace: { mode: "same-workspace" }, expectedHead, wait: false,
+      }, { taskId: "parent", workspaceId: "ws", ...(variant === "legacy-caller" ? {} : { turnId: "parent-review-turn" }) });
+      expect(response.accepted).toBe(true);
+      for (let i = 0; i < 100 && !h.calls.length; i++) await Bun.sleep(1);
+      expect(h.calls).toHaveLength(1);
+      if (variant === "moved-head") commit("unreviewed");
+      if (variant === "cancelled") {
+        await h.runtime.cancel({ agentRunId: response.child!.agentRunId! });
+      } else {
+        await h.runtime.reportStage({ agentRunKey: "turn-1", report: { summary: "Review complete.", reviewVerdict: "passed" } });
+        h.end("turn-1");
+        await h.runtime.requestTick();
+      }
+      await h.coordinator.waitForInFlight();
+      const store = { listRunAggregatesByOrigin: h.ledger.listAggregatesByOrigin.bind(h.ledger), listRunReceipts: h.ledger.listReceipts.bind(h.ledger) };
+      const read = (turnId: string) => readIndependentReview({ taskId: "parent", workspaceId: "ws", turnIds: new Set([turnId]) }, store);
+      expect(read("previous-attempt-turn")).toBeUndefined();
+      const child = await h.coordinator.get(response.child!);
+      expect(child?.phase).toBe(variant === "cancelled" ? "cancelled" : "completed");
+      if (variant === "valid") {
+        expect(read("parent-review-turn")).toMatchObject({
+          delegationId: response.child!.runId, verdict: "passed", revision: await readWorkspaceRevision(cwd),
+        });
+        expect(child?.result).toContain("Review verdict: passed");
+      } else {
+        expect(read("parent-review-turn")).toBeUndefined();
+      }
+    } finally {
+      h.runtime.stop();
+      h.db.close();
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
   for (const providerId of ["codex", "claude-code"] as const) for (const tarsRoot of [false, true]) test(`${providerId}: global-on pinned parent leaves helper classification free of its pin and keeps the helper effort (Tars: ${tarsRoot})`, async () => {
     const h = harness(providerId, { routing: true, adaptive: true, pinnedRoot: true, tarsRoot });
     expect(h.runs.resourceConfig("root")?.policy).toMatchObject({ modelLocked: true });

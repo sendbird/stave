@@ -6,6 +6,7 @@ import {
   WORKSPACE_SCRATCH_AGENTS_DIRECTORY,
   WORKSPACE_SCRATCH_DIRECTORY,
   buildWorkspaceScratchSubagentInstruction,
+  formatClaudeScratchFolder,
 } from "../../src/lib/workspace-scratch";
 
 /**
@@ -115,10 +116,7 @@ export function createClaudeSubagentPreToolUseHook(options: { permissionMode?: C
  */
 export function claudeSubagentScratchId(args: { agentId: string; agentType?: unknown }): string {
   const hash = createHash("sha1").update(args.agentId).digest("hex").slice(0, 6);
-  const slug = typeof args.agentType === "string"
-    ? args.agentType.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 24).replace(/-+$/g, "")
-    : "";
-  return slug ? `${slug}-${hash}` : hash;
+  return formatClaudeScratchFolder(hash, args.agentType);
 }
 
 /**

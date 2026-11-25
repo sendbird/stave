@@ -1,3 +1,4 @@
+import { stageReviewVerdict } from "../agent-runs/review-finalization";
 import { REVIEW_AGENT_ID } from "../agents/review-before-done";
 import { tarsExecutionCriteria } from "./continuation";
 import type { AgentRunUsage } from "@/lib/agent-runs/usage";
@@ -252,7 +253,7 @@ export function projectTarsReview(detail: AgentRunDetail | undefined): TarsRevie
     : classifyStageEvidence(complete, record.facts ?? null);
   return {
     stageId, title: stage.title, attempts: detail.stages.filter((candidate) => candidate.stageId === stageId).length, status: record.status,
-    verdict: complete?.reviewVerdict ?? null, summary: complete?.summary ?? null, findings: complete?.decisions ?? [],
+    verdict: stageReviewVerdict(stage, complete) ?? null, summary: complete?.summary ?? null, findings: complete?.decisions ?? [],
     blocked: record.report?.outcome === "blocked" ? record.report.missing : null,
     evidence: frozen.map((evidence) => {
       const revision = evidenceRevision(evidence, record);

@@ -34,6 +34,12 @@ At least one tracker has to be connected and turned on. Jira is turned on with i
 
 The workspace is created, the ticket is filed in the workspace Information panel, and Stave jumps to the new task with the turn already running.
 
+When a bug ticket links an existing fix PR, ask the agent to check whether it
+already resolves the report. The issue draft includes that comparison
+guidance and GitHub PR URLs supplied in the ticket's links or description. The
+agent should replay the reporter's original steps on the PR base and head,
+then report both revisions, their results and any step it could not reproduce.
+
 ## Interface Walkthrough
 
 ### Entry Points
@@ -78,6 +84,15 @@ Keys are ignored while you are typing in a field, and while the kickoff sheet is
 4. **How it runs** — provider, model, reasoning effort and autonomy preset, exactly as in the Crane approval dialog. *Remember for `<SCOPE>`* stores the repository and model choice for that team or Jira project; access levels always re-derive from your current settings.
 5. **How it starts** — *Start now* runs the turn immediately. *Stage prompt only* prepares the workspace and drops the prompt in the composer for you to send. To have an agent do it, use **Assign to agent** instead.
 6. For a Crane ticket, *Report progress to Crane* registers a Crane job so the ticket shows as running in Stave. It is available only when the run starts now, and only while the Crane connector is on.
+
+### Assign A Ticket To An Agent
+
+Choose **Assign to agent** from the list, board, or detail pane. In Kickoff,
+review or edit the instruction, pick an agent, and choose where it runs. Stave
+attaches the issue description, reported reproduction steps, and linked PRs
+to the new task as external reference material. The editable kickoff prompt
+contains your instructions. If the list has a newer update, Stave refreshes the detail. When it cannot read detail at least as recent as the list, the task gets
+the issue summary, any PR links available in the list, and a note that detail was unavailable.
 
 ### Attach A Ticket To Work In Progress
 

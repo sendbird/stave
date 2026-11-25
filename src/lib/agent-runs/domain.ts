@@ -255,7 +255,7 @@ export const AcceptanceCriterionSchema = z
 export const StageCompleteReportInputSchema = z
   .object({
     summary: z.string().trim().min(1).max(limits.summary),
-    /** Reported only after an independent review completed; missing preserves the repair stage. */
+    /** The Reviewer's verdict, or the same verdict relayed by the lead after delegation. */
     reviewVerdict: z.enum(["passed", "changes-requested"]).optional(),
     decisions: z
       .array(
@@ -316,12 +316,22 @@ const reportStamp = {
   turnId: IdSchema.nullable(),
 };
 
+const IndependentReviewSchema = z.object({
+  delegationId: z.string().min(1).max(300),
+  executionId: z.string().min(1).max(300),
+  revision: WorkspaceRevisionSchema,
+  verdict: StageCompleteReportInputSchema.shape.reviewVerdict.unwrap(),
+}).strict();
+export type IndependentReview = z.infer<typeof IndependentReviewSchema>;
+
 export const StageReportSchema = z.discriminatedUnion("outcome", [
   StageCompleteReportInputSchema.extend({
     artifacts: z.array(ReportArtifactSchema).max(MAX_RETAINED_REPORT_ARTIFACTS).default([]),
     outcome: z.literal("complete"),
     /** Host-captured at report receipt; never accepted from the agent input. */
     workspaceRevision: WorkspaceRevisionSchema.optional(),
+    /** The completed reviewer delegation that supports this report. */
+    independentReview: IndependentReviewSchema.optional(),
     ...reportStamp,
   }).strict(),
   StageBlockReportFieldsSchema.extend({

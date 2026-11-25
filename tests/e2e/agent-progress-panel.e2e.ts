@@ -244,3 +244,21 @@ test("a turn activity agent row keeps keyboard focus as it settles and opens tha
   await expect(page.getByTestId("agent-progress-panel")).toHaveAttribute("data-agent-source", "subagent");
   await expect(page.getByTestId("agent-progress-panel")).toContainText("Trace the checkout");
 });
+
+test("agent resources preview only the assigned folder and its own command output", async ({ page }) => {
+  await page.goto("/tests/e2e/fixtures/agent-progress-panel.html?resources=1");
+  await page.evaluate(() => window.agentPanelFixture.openSubagent());
+  const panel = page.getByTestId("agent-progress-panel");
+  await panel.getByRole("tab", { name: "Outputs" }).click();
+  await expect(panel.getByTestId("scratch-preview-body")).toContainText("Expiry checked");
+  await expect(panel).not.toContainText("private.log");
+  await panel.getByRole("tab", { name: "Background" }).click();
+  await expect(panel).toContainText("Verify session expiry");
+  await expect(panel).not.toContainText("Sibling command");
+  await panel.locator("summary").click();
+  await expect(panel).toContainText("Checks passed");
+  await panel.getByRole("tab", { name: "Progress", exact: true }).click();
+  await panel.getByRole("button", { name: "Open Check the cookie flags" }).click();
+  await expect(panel.getByRole("tab", { name: "Outputs" })).toHaveCount(0);
+  await expect(panel.getByRole("tab", { name: "Background" })).toHaveCount(0);
+});

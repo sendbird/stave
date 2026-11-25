@@ -79,7 +79,7 @@ export function buildAgentRunFixtures(start: Date) {
   );
   const stuck = detail({}, { status: "stuck", detail: "The tests have been pending for 20 minutes." });
 
-  const revision = { status: "known" as const, revision: "rev-1" };
+  const revision = { status: "known" as const, revision: "rev-1", cleanCommit: "a".repeat(40) };
   const readyRecord: Partial<AgentRunStageRecord> = {
     status: "completed",
     endedAt: at(23),
@@ -136,6 +136,7 @@ export function buildAgentRunFixtures(start: Date) {
   const reviewRecord: AgentRunStageRecord = {
     ...createStageRecord({ agentRunId: ready.agentRun.id, stageId: "review", attempt: 1 }),
     status: "completed",
+    startHeadSha: revision.cleanCommit,
     startedAt: at(24),
     endedAt: at(25),
     reportRevision: 1,
@@ -143,6 +144,7 @@ export function buildAgentRunFixtures(start: Date) {
       outcome: "complete",
       summary: "The layout and keyboard navigation hold on the reviewed commit.",
       reviewVerdict: "passed",
+      independentReview: { delegationId: "layout-review", executionId: "layout-review-attempt-1", revision, verdict: "passed" },
       decisions: [],
       evidence: [],
       artifacts: [],

@@ -86,8 +86,7 @@ stages yourself, give the agent three stages (Agents → the agent →
 3. **Fix review findings**: fix each defect at its cause, run the workspace
    check, commit. Done when every defect is fixed and the check passes.
    When the fix changed the reviewed commit, the run returns once to
-   **Review** (attempt 2), which checks only the fix commits against the
-   earlier findings. A passed re-review finishes the run and skips the second,
+   **Review** (attempt 2), which checks the fix commits against the earlier findings when the host can verify the first independent review. Otherwise the Reviewer checks the original work and all repairs. A passed re-review finishes the run and skips the second,
    empty repair; findings get one more repair, then the run finishes without a
    third review. The fix stage does not start its own review.
 
@@ -112,8 +111,19 @@ with its report. A delegated task that stops for your answer or a blocked
 stage keeps the run waiting: open it from **Subagents** and answer or retry
 it there.
 
+Reviewer traces a changed value to its caller and checks the guards on that path.
+For design rationale, Researcher looks for the original decision in a commit or discussion.
+
 For goals with separate parts, assign **Lead**, which splits the work across
-agents and checks each result before it reports. **Supervisor** works like
+agents and checks each result before it reports. Lead and Supervisor write
+each helper's brief deeper, not bigger: the problem in the field's precise
+terms, the first-hand material to start from (the failing run, logs, source or
+real data), the methods to use, and the check other than the helper's own
+judgment that shows the result is right. A helper settles by experiment any
+choice an experiment can settle and recommends an option from what it observed;
+product and preference choices come back to the lead. A planning stage writes
+its acceptance criteria the same way: each one checkable by a test, a
+command's output, a rendered page or a real run. **Supervisor** works like
 Lead but owns one goal until it is really done: it plans, does small or tightly
 coupled work itself and delegates only independent or large parts, picking
 each part's provider and model from what the work needs and how much account
@@ -469,6 +479,8 @@ that script is required; with several, all IDs are listed in sorted order and
 any one may satisfy the criterion (the default carries no `mode`). Script configuration currently has no
 verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on stage retry. A new run, including **Run again**, discards incoming hashes and binds the current host-resolved definitions. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
 Without configured actions, completion remains agent-reported.
+
+Stage context lists the workspace script IDs bound when the run started, or says that none are bound. The report receipt identifies passing host scripts on the reported revision and, during review and repair, the pinned independent review and its verdict. A clean tested tree can be identified by commit. The host decides the transition after the turn ends. After the second review, a final repair receives no third automatic review.
 
 The agent calls `stave_run_workspace_script({ scriptId })` before reporting.
 Stave runs the configured action, records its exit status, duration, bounded

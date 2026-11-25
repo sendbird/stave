@@ -1,0 +1,282 @@
+[
+  {
+    "run": "2026-11-25T04-09-40.883Z",
+    "packet": {
+      "rubric": [
+        "Faithfulness: preserves intent, scope, constraints, language and literal tokens. A question remains a question.",
+        "Clarity: makes the outcome and any requested steps easy to understand.",
+        "Method: where appropriate, points to first-hand evidence, a fitting technique and an independently observable check.",
+        "Decision ownership: separates choices that evidence can settle from choices reserved for the user.",
+        "For each candidate score each dimension 0 (violated), 1 (partial), 2 (meets), or N/A. Cite the output. Record scores before opening the key."
+      ],
+      "pairs": [
+        {
+          "id": "en-scroll-1",
+          "language": "en",
+          "draft": "Fix the list jumping when older messages load. Keep the existing pagination behavior.",
+          "context": {},
+          "A": "Fix the scroll jump in the list when older messages load (scroll anchoring: keep the visible messages in place as older content is prepended). Preserve the existing pagination behavior.\n\nReproduce the jump first, then inspect the list’s scroll and pagination code. Use a focused test or recorded reproduction to show that the visible messages stay in place and pagination still behaves as before. If a quick experiment can compare fixes, try them and recommend one based on what you observe.",
+          "B": "Fix the list jumping that occurs when older messages load while preserving the existing pagination behavior."
+        },
+        {
+          "id": "en-question-1",
+          "language": "en",
+          "draft": "Why is the retry button disabled after a timeout? Explain only. Don't edit files.",
+          "context": {},
+          "A": "Explain why the retry button is disabled after a timeout. Do not edit files.",
+          "B": "타임아웃이 발생한 뒤 재시도 버튼이 비활성화되는 이유를 설명하세요. 파일은 수정하지 마세요.\n\n먼저 실제 화면과 관련 상태 전환 및 버튼 활성화 조건을 확인해 원인을 추측 없이 설명하세요. 관련 코드와 재현 가능한 동작을 근거로 답하고, 확인하지 못한 부분은 구분해 적으세요."
+        },
+        {
+          "id": "ko-restore-1",
+          "language": "ko",
+          "draft": "복원 시 세션이 두 번 붙는 문제 고쳐줘. src/restore.ts와 $skill/terminal-guard 표기는 유지해.",
+          "context": {
+            "workspaceSummary": "재현: 같은 탭을 다시 열 때 세션에 두 번 연결됨."
+          },
+          "A": "복원 시 세션이 두 번 연결되는 문제를 고치세요. `src/restore.ts`를 확인하고 ` 표기는 유지하세요.\n같은 탭을 다시 열어 중복 연결을 먼저 재현한 뒤, 복원 로직과 세션 연결 흐름을 읽고 원인을 확인하세요.\n수정이 맞는지 재현 결과나 테스트로 확인하고, 실험으로 비교할 수 있는 해결 방법은 직접 시도해 관찰한 결과를 바탕으로 추천하세요.",
+          "B": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts와 $skill/terminal-guard 표기는 유지하세요."
+        },
+        {
+          "id": "ko-tradeoff-1",
+          "language": "ko",
+          "draft": "검색 결과가 늦게 떠. 디바운스와 요청 취소 중 뭘 할지 비교하고 추천해줘. 로딩 표시 방식은 내가 결정할게.",
+          "context": {},
+          "A": "검색 결과가 늦게 표시되는 문제를 개선하세요. 디바운스(debouncing)와 요청 취소(request cancellation)를 비교하고, 관찰한 결과를 근거로 추천하세요.\n\n먼저 실제 검색 동작과 요청 흐름을 재현하고 관련 코드를 읽으세요. 적절한 프로파일링과 네트워크 측정으로 두 방법을 실험해 비교하세요. 같은 조건에서 검색 응답 시간과 불필요한 요청 수를 확인해 결과를 보여 주세요. 로딩 표시 방식은 결정하지 말고 제게 질문하세요.",
+          "B": "검색 결과가 늦게 표시되는 문제를 개선할 방법으로 디바운스와 요청 취소를 비교하고 추천하세요. 로딩 표시 방식은 제가 결정하겠습니다."
+        }
+      ]
+    },
+    "scores": "# Blind review\n\nScored from the draft, context and A/B packet before opening the key. Scores\nare faithfulness, clarity, method and decision ownership, in that order.\n\n| Case | A | B | Output evidence |\n| --- | --- | --- | --- |\n| en-scroll-1 | 2, 2, 2, 2 | 2, 2, 0, 0 | A keeps pagination, names scroll anchoring, starts from reproduction and asks for a focused check and an experiment if useful. B keeps pagination in a direct rewrite. |\n| en-question-1 | 2, 2, N/A, N/A | 0, 2, N/A, N/A | Both keep explanation and no edits. A stays in English. B switches to Korean and adds an investigation procedure. The task asks for an explanation only. |\n| ko-restore-1 | 0, 1, 2, 2 | 2, 2, 0, 0 | A shows a stray backtick where the skill token should be, then adds reproduction, source inspection, an observable check and experiment-based recommendation. B preserves the exact path and token. |\n| ko-tradeoff-1 | 1, 2, 2, 2 | 2, 2, 0, 1 | A opens by ordering an improvement, which could imply implementing a change. It asks for same-condition latency/request measurements and reserves the loading decision. B sticks to comparing options and preserves the user's decision, but leaves the basis for the recommendation open. |\n",
+    "key": {
+      "status": "completed",
+      "skipReason": null,
+      "requestedModel": "gpt-6-luna",
+      "resolvedModels": [
+        "gpt-6-luna"
+      ],
+      "version": "codex-cli 0.140.0",
+      "cost": null,
+      "pairs": [
+        {
+          "id": "en-scroll-1",
+          "A": {
+            "depth": "sharpen",
+            "text": "Fix the scroll jump in the list when older messages load (scroll anchoring: keep the visible messages in place as older content is prepended). Preserve the existing pagination behavior.\n\nReproduce the jump first, then inspect the list’s scroll and pagination code. Use a focused test or recorded reproduction to show that the visible messages stay in place and pagination still behaves as before. If a quick experiment can compare fixes, try them and recommend one based on what you observe.",
+            "raw": "Fix the scroll jump in the list when older messages load (scroll anchoring: keep the visible messages in place as older content is prepended). Preserve the existing pagination behavior.\n\nReproduce the jump first, then inspect the list’s scroll and pagination code. Use a focused test or recorded reproduction to show that the visible messages stay in place and pagination still behaves as before. If a quick experiment can compare fixes, try them and recommend one based on what you observe.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "clarify",
+            "text": "Fix the list jumping that occurs when older messages load while preserving the existing pagination behavior.",
+            "raw": "Fix the list jumping that occurs when older messages load while preserving the existing pagination behavior.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        },
+        {
+          "id": "en-question-1",
+          "A": {
+            "depth": "clarify",
+            "text": "Explain why the retry button is disabled after a timeout. Do not edit files.",
+            "raw": "Explain why the retry button is disabled after a timeout. Do not edit files.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "sharpen",
+            "text": "타임아웃이 발생한 뒤 재시도 버튼이 비활성화되는 이유를 설명하세요. 파일은 수정하지 마세요.\n\n먼저 실제 화면과 관련 상태 전환 및 버튼 활성화 조건을 확인해 원인을 추측 없이 설명하세요. 관련 코드와 재현 가능한 동작을 근거로 답하고, 확인하지 못한 부분은 구분해 적으세요.",
+            "raw": "타임아웃이 발생한 뒤 재시도 버튼이 비활성화되는 이유를 설명하세요. 파일은 수정하지 마세요.\n\n먼저 실제 화면과 관련 상태 전환 및 버튼 활성화 조건을 확인해 원인을 추측 없이 설명하세요. 관련 코드와 재현 가능한 동작을 근거로 답하고, 확인하지 못한 부분은 구분해 적으세요.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        },
+        {
+          "id": "ko-restore-1",
+          "A": {
+            "depth": "sharpen",
+            "text": "복원 시 세션이 두 번 연결되는 문제를 고치세요. `src/restore.ts`를 확인하고 ` 표기는 유지하세요.\n같은 탭을 다시 열어 중복 연결을 먼저 재현한 뒤, 복원 로직과 세션 연결 흐름을 읽고 원인을 확인하세요.\n수정이 맞는지 재현 결과나 테스트로 확인하고, 실험으로 비교할 수 있는 해결 방법은 직접 시도해 관찰한 결과를 바탕으로 추천하세요.",
+            "raw": "복원 시 세션이 두 번 연결되는 문제를 고치세요. `src/restore.ts`를 확인하고 `$skill/terminal-guard` 표기는 유지하세요.\n같은 탭을 다시 열어 중복 연결을 먼저 재현한 뒤, 복원 로직과 세션 연결 흐름을 읽고 원인을 확인하세요.\n수정이 맞는지 재현 결과나 테스트로 확인하고, 실험으로 비교할 수 있는 해결 방법은 직접 시도해 관찰한 결과를 바탕으로 추천하세요.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "clarify",
+            "text": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts와 $skill/terminal-guard 표기는 유지하세요.",
+            "raw": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts와 $skill/terminal-guard 표기는 유지하세요.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        },
+        {
+          "id": "ko-tradeoff-1",
+          "A": {
+            "depth": "sharpen",
+            "text": "검색 결과가 늦게 표시되는 문제를 개선하세요. 디바운스(debouncing)와 요청 취소(request cancellation)를 비교하고, 관찰한 결과를 근거로 추천하세요.\n\n먼저 실제 검색 동작과 요청 흐름을 재현하고 관련 코드를 읽으세요. 적절한 프로파일링과 네트워크 측정으로 두 방법을 실험해 비교하세요. 같은 조건에서 검색 응답 시간과 불필요한 요청 수를 확인해 결과를 보여 주세요. 로딩 표시 방식은 결정하지 말고 제게 질문하세요.",
+            "raw": "검색 결과가 늦게 표시되는 문제를 개선하세요. 디바운스(debouncing)와 요청 취소(request cancellation)를 비교하고, 관찰한 결과를 근거로 추천하세요.\n\n먼저 실제 검색 동작과 요청 흐름을 재현하고 관련 코드를 읽으세요. 적절한 프로파일링과 네트워크 측정으로 두 방법을 실험해 비교하세요. 같은 조건에서 검색 응답 시간과 불필요한 요청 수를 확인해 결과를 보여 주세요. 로딩 표시 방식은 결정하지 말고 제게 질문하세요.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "clarify",
+            "text": "검색 결과가 늦게 표시되는 문제를 개선할 방법으로 디바운스와 요청 취소를 비교하고 추천하세요. 로딩 표시 방식은 제가 결정하겠습니다.",
+            "raw": "검색 결과가 늦게 표시되는 문제를 개선할 방법으로 디바운스와 요청 취소를 비교하고 추천하세요. 로딩 표시 방식은 제가 결정하겠습니다.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        }
+      ],
+      "provider": "codex",
+      "modelSource": "option",
+      "plannedCalls": 8
+    }
+  },
+  {
+    "run": "2026-11-25T04-15-34.512Z",
+    "packet": {
+      "rubric": [
+        "Faithfulness: preserves intent, scope, constraints, language and literal tokens. A question remains a question.",
+        "Clarity: makes the outcome and any requested steps easy to understand.",
+        "Method: where appropriate, points to first-hand evidence, a fitting technique and an independently observable check.",
+        "Decision ownership: separates choices that evidence can settle from choices reserved for the user.",
+        "For each candidate score each dimension 0 (violated), 1 (partial), 2 (meets), or N/A. Cite the output. Record scores before opening the key."
+      ],
+      "pairs": [
+        {
+          "id": "en-scroll-1",
+          "language": "en",
+          "draft": "Fix the list jumping when older messages load. Keep the existing pagination behavior.",
+          "context": {},
+          "A": "Fix the list jumping that occurs when older messages load. Preserve the existing pagination behavior.",
+          "B": "Fix the scroll jump when older messages load (scroll anchoring: keep the messages already visible in the same place as history is prepended). Preserve the existing pagination behavior.\n\nReproduce the jump first, then inspect the list’s scroll and pagination code. Measure the scroll position before and after loading older messages. Show the fix with a regression test or a recorded reproduction where the visible messages stay in place. If a quick experiment can compare fixes, try them and recommend one based on the results."
+        },
+        {
+          "id": "en-question-1",
+          "language": "en",
+          "draft": "Why is the retry button disabled after a timeout? Explain only. Don't edit files.",
+          "context": {},
+          "A": "Why is the retry button disabled after a timeout? Explain the cause using the relevant source code and a reproduction or logs as first-hand evidence. Don’t edit files.",
+          "B": "Explain why the retry button is disabled after a timeout. Do not edit files."
+        },
+        {
+          "id": "ko-restore-1",
+          "language": "ko",
+          "draft": "복원 시 세션이 두 번 붙는 문제 고쳐줘. src/restore.ts와 $skill/terminal-guard 표기는 유지해.",
+          "context": {
+            "workspaceSummary": "재현: 같은 탭을 다시 열 때 세션에 두 번 연결됨."
+          },
+          "A": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts와 $skill/terminal-guard 표기는 유지하세요.",
+          "B": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts를 확인하고, $skill/terminal-guard 표기는 유지하세요.\n\n같은 탭을 다시 열어 중복 연결을 먼저 재현한 뒤, src/restore.ts의 복원 및 세션 연결 코드를 살펴보세요. 세션 생명주기와 이벤트 흐름을 추적해 원인을 찾고, 가능한 수정안은 재현 결과로 비교하세요.\n\n수정 전에는 실패하고 수정 후에는 통과하는 테스트나, 복원 후 세션이 한 번만 연결되는 재현 결과로 해결을 확인하세요. 제품 동작에 관한 선택이 남으면 직접 결정하지 말고 질문으로 정리하세요."
+        },
+        {
+          "id": "ko-tradeoff-1",
+          "language": "ko",
+          "draft": "검색 결과가 늦게 떠. 디바운스와 요청 취소 중 뭘 할지 비교하고 추천해줘. 로딩 표시 방식은 내가 결정할게.",
+          "context": {},
+          "A": "검색 결과가 늦게 표시되는 문제를 개선하세요. 검색 지연을 줄이는 방법으로 디바운스와 요청 취소를 비교하고, 관찰한 결과를 근거로 하나를 추천하세요. 로딩 표시 방식은 결정하지 말고 선택이 필요한 점으로 남기세요.\n\n먼저 실제 검색 동작과 관련 코드를 살펴 지연이 어디서 생기는지 확인하세요. 두 방법을 같은 조건에서 시험하고 요청 수와 검색 결과 표시 시간을 비교하세요. 테스트나 재현 결과로 개선 여부를 보여 주세요.",
+          "B": "검색 결과가 늦게 표시되는 문제를 살펴보세요. 디바운스와 요청 취소 방식을 비교하고 추천하세요. 로딩 표시 방식은 제가 결정하겠습니다."
+        }
+      ]
+    },
+    "scores": "# Blind review, second run\n\nRecorded before opening this run's depth key. Scores are faithfulness, clarity,\nmethod and decision ownership, in that order.\n\n| Case | A | B | Output evidence |\n| --- | --- | --- | --- |\n| en-scroll-1 | 2, 2, 0, 0 | 2, 2, 2, 2 | Both preserve pagination. B defines scroll anchoring and calls for a before/after measurement, regression check and experiment. |\n| en-question-1 | 2, 2, N/A, N/A | 2, 2, N/A, N/A | Both preserve the language and explain-only scope. A asks for code and reproduction or logs as evidence, without requiring edits. |\n| ko-restore-1 | 2, 2, 0, 0 | 2, 2, 2, 2 | Both preserve the path and exact skill token. B asks the agent to reproduce, trace the lifecycle, compare fixes and demonstrate a single attachment. |\n| ko-tradeoff-1 | 1, 2, 2, 2 | 2, 2, 0, 1 | A adds a same-condition experiment and measures display time and requests. Both reserve the loading decision. A again opens with an instruction to improve, which could imply implementation rather than just a comparison. |\n",
+    "key": {
+      "status": "completed",
+      "skipReason": null,
+      "requestedModel": "gpt-6-luna",
+      "resolvedModels": [
+        "gpt-6-luna"
+      ],
+      "version": "codex-cli 0.172.0",
+      "cost": null,
+      "pairs": [
+        {
+          "id": "en-scroll-1",
+          "A": {
+            "depth": "clarify",
+            "text": "Fix the list jumping that occurs when older messages load. Preserve the existing pagination behavior.",
+            "raw": "Fix the list jumping that occurs when older messages load. Preserve the existing pagination behavior.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "sharpen",
+            "text": "Fix the scroll jump when older messages load (scroll anchoring: keep the messages already visible in the same place as history is prepended). Preserve the existing pagination behavior.\n\nReproduce the jump first, then inspect the list’s scroll and pagination code. Measure the scroll position before and after loading older messages. Show the fix with a regression test or a recorded reproduction where the visible messages stay in place. If a quick experiment can compare fixes, try them and recommend one based on the results.",
+            "raw": "Fix the scroll jump when older messages load (scroll anchoring: keep the messages already visible in the same place as history is prepended). Preserve the existing pagination behavior.\n\nReproduce the jump first, then inspect the list’s scroll and pagination code. Measure the scroll position before and after loading older messages. Show the fix with a regression test or a recorded reproduction where the visible messages stay in place. If a quick experiment can compare fixes, try them and recommend one based on the results.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        },
+        {
+          "id": "en-question-1",
+          "A": {
+            "depth": "sharpen",
+            "text": "Why is the retry button disabled after a timeout? Explain the cause using the relevant source code and a reproduction or logs as first-hand evidence. Don’t edit files.",
+            "raw": "Why is the retry button disabled after a timeout? Explain the cause using the relevant source code and a reproduction or logs as first-hand evidence. Don’t edit files.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "clarify",
+            "text": "Explain why the retry button is disabled after a timeout. Do not edit files.",
+            "raw": "Explain why the retry button is disabled after a timeout. Do not edit files.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        },
+        {
+          "id": "ko-restore-1",
+          "A": {
+            "depth": "clarify",
+            "text": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts와 $skill/terminal-guard 표기는 유지하세요.",
+            "raw": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts와 $skill/terminal-guard 표기는 유지하세요.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "sharpen",
+            "text": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts를 확인하고, $skill/terminal-guard 표기는 유지하세요.\n\n같은 탭을 다시 열어 중복 연결을 먼저 재현한 뒤, src/restore.ts의 복원 및 세션 연결 코드를 살펴보세요. 세션 생명주기와 이벤트 흐름을 추적해 원인을 찾고, 가능한 수정안은 재현 결과로 비교하세요.\n\n수정 전에는 실패하고 수정 후에는 통과하는 테스트나, 복원 후 세션이 한 번만 연결되는 재현 결과로 해결을 확인하세요. 제품 동작에 관한 선택이 남으면 직접 결정하지 말고 질문으로 정리하세요.",
+            "raw": "복원 시 세션이 두 번 연결되는 문제를 고치세요. src/restore.ts를 확인하고, $skill/terminal-guard 표기는 유지하세요.\n\n같은 탭을 다시 열어 중복 연결을 먼저 재현한 뒤, src/restore.ts의 복원 및 세션 연결 코드를 살펴보세요. 세션 생명주기와 이벤트 흐름을 추적해 원인을 찾고, 가능한 수정안은 재현 결과로 비교하세요.\n\n수정 전에는 실패하고 수정 후에는 통과하는 테스트나, 복원 후 세션이 한 번만 연결되는 재현 결과로 해결을 확인하세요. 제품 동작에 관한 선택이 남으면 직접 결정하지 말고 질문으로 정리하세요.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        },
+        {
+          "id": "ko-tradeoff-1",
+          "A": {
+            "depth": "sharpen",
+            "text": "검색 결과가 늦게 표시되는 문제를 개선하세요. 검색 지연을 줄이는 방법으로 디바운스와 요청 취소를 비교하고, 관찰한 결과를 근거로 하나를 추천하세요. 로딩 표시 방식은 결정하지 말고 선택이 필요한 점으로 남기세요.\n\n먼저 실제 검색 동작과 관련 코드를 살펴 지연이 어디서 생기는지 확인하세요. 두 방법을 같은 조건에서 시험하고 요청 수와 검색 결과 표시 시간을 비교하세요. 테스트나 재현 결과로 개선 여부를 보여 주세요.",
+            "raw": "검색 결과가 늦게 표시되는 문제를 개선하세요. 검색 지연을 줄이는 방법으로 디바운스와 요청 취소를 비교하고, 관찰한 결과를 근거로 하나를 추천하세요. 로딩 표시 방식은 결정하지 말고 선택이 필요한 점으로 남기세요.\n\n먼저 실제 검색 동작과 관련 코드를 살펴 지연이 어디서 생기는지 확인하세요. 두 방법을 같은 조건에서 시험하고 요청 수와 검색 결과 표시 시간을 비교하세요. 테스트나 재현 결과로 개선 여부를 보여 주세요.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          },
+          "B": {
+            "depth": "clarify",
+            "text": "검색 결과가 늦게 표시되는 문제를 살펴보세요. 디바운스와 요청 취소 방식을 비교하고 추천하세요. 로딩 표시 방식은 제가 결정하겠습니다.",
+            "raw": "검색 결과가 늦게 표시되는 문제를 살펴보세요. 디바운스와 요청 취소 방식을 비교하고 추천하세요. 로딩 표시 방식은 제가 결정하겠습니다.",
+            "model": "gpt-6-luna",
+            "cost": null,
+            "error": null
+          }
+        }
+      ],
+      "provider": "codex",
+      "modelSource": "option",
+      "plannedCalls": 8
+    }
+  }
+]

@@ -378,6 +378,7 @@ export interface AppState
     useRootNodeModulesSymlink?: boolean;
     initialTaskTitle?: string;
     initialTaskProvider?: ProviderId;
+    initialTaskSourceContext?: TaskSourceContext;
     initialPromptDraft?: PromptDraft;
     onWorkspacePreparing?: (workspaceId: string) => void;
     onWorkspaceReady?: (workspaceId: string) => void;

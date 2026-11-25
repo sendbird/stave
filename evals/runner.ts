@@ -6,7 +6,7 @@ export interface EvalProvider {
   model: string;
   version: string;
   ready(): Promise<{ ready: boolean; detail?: string }>;
-  generate(prompt: string): Promise<{ text: string; model?: string; cost?: number; version?: string }>;
+  generate(prompt: string): Promise<{ text: string; model?: string | undefined; cost?: number; version?: string }>;
 }
 
 /** These are bounded, deterministic checks, not a claim of semantic correctness. */

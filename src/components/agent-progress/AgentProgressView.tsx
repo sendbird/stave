@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ArrowDown, ChevronLeft, CornerUpLeft, ExternalLink, MessageSquare, Square, X } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { Button } from "@/components/aui/components/Button";
@@ -155,6 +155,8 @@ export function AgentProgressView(props: AgentProgressViewProps) {
   const nowMs = useNow(live, 1_000);
   const stateLabel = WORK_STATE[progress.state].label;
   const nowStep = live ? progress.now : undefined;
+  const [selected, setSelected] = useState("progress");
+  const selectedView = props.extraViews?.find(view => view.value === selected);
   const body = <ProgressBody {...props} live={live} nowMs={nowMs} />;
   return (
     <div className={sx(s.root)} data-testid="agent-progress-panel" data-agent-state={progress.state} data-agent-source={progress.source}>
@@ -227,13 +229,15 @@ export function AgentProgressView(props: AgentProgressViewProps) {
         {props.actionError ? <p role="alert" className={sx(s.actionError)}>{props.actionError}</p> : null}
       </header>
       {props.extraViews && props.extraViews.length > 0 ? (
-        <Tabs
-          aria-label={i18n.t("session:agentProgress.panel.tabsLabel")}
-          options={[
-            { value: "progress", label: i18n.t("session:agentProgress.panel.tabProgress"), content: body },
-            ...props.extraViews.map((view) => ({ value: view.value, label: view.label, content: view.content })),
-          ]}
-        />
+        <Tabs.Root value={selectedView?.value ?? "progress"} onValueChange={value => setSelected(String(value))} xstyle={s.tabRoot}>
+          <Tabs.List aria-label={i18n.t("session:agentProgress.panel.tabsLabel")}>
+            <Tabs.Tab value="progress">{i18n.t("session:agentProgress.panel.tabProgress")}</Tabs.Tab>
+            {props.extraViews.map(view => <Tabs.Tab key={view.value} value={view.value}>{view.label}</Tabs.Tab>)}
+            <Tabs.Indicator />
+          </Tabs.List>
+          <Tabs.Panel value="progress" xstyle={s.progressPane}>{body}</Tabs.Panel>
+          {props.extraViews.map(view => <Tabs.Panel key={view.value} value={view.value} xstyle={s.viewport}>{view.content}</Tabs.Panel>)}
+        </Tabs.Root>
       ) : body}
     </div>
   );

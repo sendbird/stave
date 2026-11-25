@@ -386,6 +386,25 @@ describe("fetchGitHubPrStatus", () => {
     expect(result.pr?.state).toBe("MERGED");
   });
 
+  test.each([
+    { name: "matching tip", head: trackedHead, tip: ok(trackedHead), available: true, state: "MERGED" },
+    { name: "advanced tip", head: trackedHead, tip: ok(unrelatedHead), available: true, state: undefined },
+    { name: "missing PR head", head: null, tip: ok(trackedHead), available: false, state: undefined },
+    { name: "unavailable local tip", head: trackedHead, tip: fail("", 1), available: false, state: undefined },
+  ])("checks a named branch for cleanup merge evidence ($name)", async ({ head, tip, available, state }) => {
+    invalidateGhAuthCache();
+    const { run, calls } = scriptedRunner((command, args) => {
+      if (command === "gh" && args[0] === "auth") return ok();
+      if (command === "gh" && args[1] === "view" && args[2] === "fix/x") return ok(JSON.stringify({ ...merged, headRefOid: head }));
+      if (command === "git" && args[3] === "refs/heads/fix/x^{commit}") return tip;
+    });
+
+    const result = await fetchGitHubPrStatus({ cwd, target: "fix/x", requireMatchingBranchTip: true, runCommand: run });
+    expect(result.ok).toBe(available);
+    expect(result.pr?.state).toBe(state);
+    if (head) expect(calls).toContain("git rev-parse --verify --quiet refs/heads/fix/x^{commit}");
+  });
+
   test("reports gh failures instead of pretending there is no PR", async () => {
     invalidateGhAuthCache();
     const { run } = scriptedRunner((command, args) => {

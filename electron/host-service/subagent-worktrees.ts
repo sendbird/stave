@@ -13,7 +13,7 @@
 import { realpathSync } from "node:fs";
 import { lstat, readdir, realpath } from "node:fs/promises";
 import { basename, isAbsolute, join, resolve } from "node:path";
-import type { SubAgentWorktreeRemoveArgs, SubAgentWorktreeRemoveResult, SubAgentWorktreeRow } from "../../src/lib/workspace-cleanup-contract";
+import type { WorkspaceCleanupPreview, SubAgentWorktreeRemoveArgs, SubAgentWorktreeRemoveResult, SubAgentWorktreeRow } from "../../src/lib/workspace-cleanup-contract";
 
 /** A worktree changed more recently than this may still be in use. */
 export const SUBAGENT_WORKTREE_QUIET_MS = 30 * 60_000;
@@ -134,10 +134,11 @@ export function createSubAgentWorktrees(ports: { store: () => SubAgentWorktreeSt
   }
 
   /** Sub-agent worktrees of every registered project, without Stave's own workspaces. */
-  async function discover(): Promise<SubAgentWorktreeFolder[]> {
+  async function discover(repositoryPath?: string): Promise<SubAgentWorktreeFolder[]> {
     const stave = staveWorkspacePaths();
     const folders: SubAgentWorktreeFolder[] = [];
     for (const repository of ports.store().loadRepositoryRegistry()) {
+      if (repositoryPath && canonical(repositoryPath) !== canonical(repository.repositoryPath)) continue;
       for (const { staveWorkspace, ...folder } of await discoverRepository(repository, stave) ?? []) if (!staveWorkspace) folders.push(folder);
     }
     return folders;
@@ -173,8 +174,8 @@ export function createSubAgentWorktrees(ports: { store: () => SubAgentWorktreeSt
   const runningSet = (paths: readonly string[]) => new Set(paths.map(canonical));
 
   /** Rows for the cleanup dialog, four worktrees checked at a time. */
-  async function list(runningAgentWorktrees: readonly string[], bytes: (folder: SubAgentWorktreeFolder) => Promise<number | null> | number | null): Promise<SubAgentWorktreeRow[]> {
-    const folders = await discover();
+  async function list(runningAgentWorktrees: readonly string[], measure: (folder: SubAgentWorktreeFolder, blockers: string[]) => Promise<number | WorkspaceCleanupPreview | null> | number | null, repositoryPath?: string): Promise<SubAgentWorktreeRow[]> {
+    const folders = await discover(repositoryPath);
     const running = runningSet(runningAgentWorktrees);
     const rows = new Array<SubAgentWorktreeRow>(folders.length);
     let cursor = 0;
@@ -183,9 +184,11 @@ export function createSubAgentWorktrees(ports: { store: () => SubAgentWorktreeSt
         const index = cursor++;
         const folder = folders[index]!;
         const checked = await inspect(folder, running).catch(() => ({ blockers: ["checksUnavailable"], lastModified: null }));
+        const measurement = await Promise.resolve(measure(folder, checked.blockers)).catch(() => null);
+        const preview = measurement && typeof measurement === "object" ? measurement : null;
         rows[index] = { repositoryPath: folder.repositoryPath, repositoryName: folder.repositoryName, path: folder.path, name: folder.name,
           branch: folder.detached ? null : folder.branch, head: folder.head, lastModified: checked.lastModified, blockers: checked.blockers,
-          bytes: await Promise.resolve(bytes(folder)).catch(() => null) };
+          bytes: typeof measurement === "number" ? measurement : preview?.disk?.bytes ?? null, ...(preview ? { preview } : {}) };
       }
     }));
     return rows;

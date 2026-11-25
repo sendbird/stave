@@ -23,11 +23,13 @@ import { cx, sx } from "@/components/aui/utils/stylex";
 import type { TarsAnswerSource, TarsDecisionAnswer, TarsDismissInput } from "@/lib/tars/conversation";
 import { tarsControlReasonKey } from "@/lib/tars/control-reasons";
 import { describeTarsControlInput, isIrreversibleOption, tarsDecisionKeyChoice, tarsQuestionKeyAction, type TarsDecisionOption, type TarsDecisionView } from "@/lib/tars/decisions";
+import { describeTarsDecisionOption, tarsOptionRationale } from "@/lib/tars/decision-option-copy";
 import type { TarsControlOperation, TarsResponsibility } from "@/lib/tars/types";
 import { QuestionOptionRow, questionOptionRowStyles } from "@/components/ai-elements/question-option-row";
 import { TARS_RECORD_STATE, TarsActionRecordLine, TarsMessageDeliveryLine, useTarsDirectActor } from "./TarsActionRecordLine";
 import { TarsRecordDetail, TarsRecordList, TarsRecordRow, TarsWorkChip } from "./TarsRecord";
 import { tarsDecisionStyles as styles } from "./tars-decision.styles";
+import { TarsPriorEvidence } from "./TarsQuestionPreview";
 import { TarsNeverRuleNotice } from "./TarsNeverRuleNotice";
 
 type TitleOf = (responsibilityId: string) => string | undefined;
@@ -61,14 +63,6 @@ export function describeTarsDecisionSubject(decision: TarsDecisionView, titleOf?
   return option?.kind === "control" ? i18n.t(`shell:tars.conversation.control.${option.control.operation}`, { title }) : "";
 }
 
-/** A button's words: the model's label for an ask, Confirm for a proposal, Stave's own words otherwise. */
-export function describeTarsDecisionOption(decision: TarsDecisionView, option: TarsDecisionOption): string {
-  if (option.kind === "verify") return i18n.t("shell:tars.decision.option.verify");
-  if (option.kind === "reply" || option.kind === "prReview" || option.label) return option.label ?? "";
-  if (option.kind === "proposal") return i18n.t("shell:tars.conversation.confirm");
-  return decision.kind === "confirm" ? i18n.t("shell:tars.conversation.confirm") : i18n.t(`shell:tars.decision.option.${option.control.operation}`);
-}
-
 /**
  * A confirmation button's words: the verb of what it does ("Resume", "Cancel
  * work", "Approve", "Start work"); an ask's own option keeps its label.
@@ -78,14 +72,6 @@ function confirmLabel(decision: TarsDecisionView, option: TarsDecisionOption): s
   // A held work proposal is named by what confirming it does, like every other confirmation.
   if (option.kind === "proposal" && !option.label) return i18n.t(`shell:tars.autonomy.proposal.action.${option.action.kind}`);
   return describeTarsDecisionOption(decision, option);
-}
-
-function optionRationale(option: TarsDecisionOption): string | null {
-  if (option.kind === "verify") return i18n.t("shell:tars.decision.option.verifyRationale");
-  if (option.kind === "reply" || option.kind === "prReview" || option.rationale) return option.rationale;
-  if (option.kind === "proposal") return null;
-  return option.control.operation === "acceptCompletion" ? i18n.t("shell:tars.decision.option.acceptRationale")
-    : option.control.operation === "cancel" ? i18n.t("shell:tars.decision.option.cancelRationale") : null;
 }
 
 /** The chosen option in the record line: a proposal names its control, other options their label. */
@@ -299,7 +285,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
   const options = question ? <div role="radiogroup" aria-labelledby={questionId}
     className={sx(questionOptionRowStyles.list, styles.options)} data-tars-decision-options="">
     {decision.options.map((option, index) => <QuestionOptionRow key={index} kind="radio" name={optionsName} divided={index > 0} disabled={!answerable}
-      row={{ value: String(index), label: describeTarsDecisionOption(decision, option), description: optionRationale(option), recommended: decision.recommended === index,
+      row={{ value: String(index), label: describeTarsDecisionOption(decision, option), description: tarsOptionRationale(option), recommended: decision.recommended === index,
         selected: selected === index, shortcut: index < 4 ? index + 1 : null, preview: null }}
       tag={isIrreversibleOption(option) ? <Badge size="sm" tone="danger" variant="outlined" data-tars-decision-risk-tag="">{t("shell:tars.decision.card.risk")}</Badge> : null}
       onChange={() => setPicked(index)} />)}
@@ -348,6 +334,7 @@ export function TarsDecisionCard({ decision, titleOf, busy = false, onAnswer, er
         </div>
         {checking ? <div className={sx(styles.tags)}>{checking}</div> : null}
       </div>
+      {decision.priorEvidence ? <TarsPriorEvidence evidence={decision.priorEvidence} /> : null}
       {options}
       {failureLine}
       {footer}

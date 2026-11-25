@@ -17,7 +17,7 @@ import { getScriptStatuses } from "../main/workspace-scripts";
 import { isTarsTrayPinned } from "../../src/lib/tars/clearing";
 import { isNotificationPendingAttention } from "../../src/lib/notifications/notification.types";
 import { worktreeStatusHasMeaningfulChanges } from "../../src/lib/workspace-archive-status";
-import { DEFAULT_WORKSPACE_CLEANUP_POLICY, WorkspaceCleanupStateSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupActArgsSchema, SubAgentWorktreeRemoveArgsSchema, subAgentWorktreeDiskId, type SubAgentWorktreeRemoveArgs, type WorkspaceCleanupActArgs, type WorkspaceCleanupPolicy, type WorkspaceCleanupResult, type WorkspaceCleanupRow } from "../../src/lib/workspace-cleanup-contract";
+import { DEFAULT_WORKSPACE_CLEANUP_POLICY, WorkspaceCleanupStateSchema, WorkspaceCleanupPolicySchema, WorkspaceCleanupActArgsSchema, SubAgentWorktreeRemoveArgsSchema, subAgentWorktreeDiskId, type SubAgentWorktreeRemoveArgs, type WorkspaceCleanupActArgs, type WorkspaceCleanupPolicy, type WorkspaceCleanupPreview, type WorkspaceCleanupResult, type WorkspaceCleanupRow } from "../../src/lib/workspace-cleanup-contract";
 
 const DAY = 86400_000;
 const canonical = (path: string) => { try { return realpathSync(path); } catch { return resolve(path); } };
@@ -159,10 +159,18 @@ export function createWorkspaceCleanupRuntime(ports: {
   }
   /** A linked worktree's own record under `<common>/worktrees/<id>`; the main checkout has no `gitdir`. */
   const worktreeRecordIntact = (adminDir: string) => existsSync(join(adminDir, "HEAD")) && existsSync(join(adminDir, "gitdir"));
-  async function inspect(row: WorkspaceCleanupRow, scanDisk = false, checkPr = false, action?: WorkspaceCleanupActArgs["action"]): Promise<WorkspaceCleanupRow> {
-    if (row.leftoverFiles) return { ...row, blockers: ["worktreeLeftoverFiles"] };
+  async function branchMergePreview(repositoryPath: string, head: string, base: string): Promise<WorkspaceCleanupPreview["branchMerge"]> {
+    const count = await git(repositoryPath, ["rev-list", "--count", head, "--not", `refs/heads/${base}`]);
+    const value = count.stdout.trim();
+    return !count.ok || !/^\d+$/.test(value) ? "unknown" : value === "0" ? "merged" : "unmerged";
+  }
+  const initialPreview = (): WorkspaceCleanupPreview => ({ disk: null, branchMerge: "unknown", pullRequest: "unknown", dirty: null });
+
+  async function inspect(row: WorkspaceCleanupRow, scanDisk = false, checkPr = false, action?: WorkspaceCleanupActArgs["action"], preview?: WorkspaceCleanupPreview): Promise<WorkspaceCleanupRow> {
+    if (row.leftoverFiles && !preview) return { ...row, blockers: ["worktreeLeftoverFiles"] };
     const blockers = hostBlockers(row, action);
     const reasons: string[] = [...row.reasons];
+    if (row.leftoverFiles) blockers.push("worktreeLeftoverFiles");
     let branchDeletable = false;
     const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath);
     const linked = Boolean(repository?.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)) ||
@@ -171,52 +179,72 @@ export function createWorkspaceCleanupRuntime(ports: {
     const exists = !linked && row.branch && (await git(row.repositoryPath, ["show-ref", "--verify", "--quiet", branchRef])).ok;
     if (exists) {
       const base = repository?.defaultBranch || "main";
-      const merged = await git(row.repositoryPath, ["merge-base", "--is-ancestor", branchRef, `refs/heads/${base}`]);
+      if (preview) preview.branchMerge = await branchMergePreview(row.repositoryPath, branchRef, base);
+      const merged = preview ? preview.branchMerge === "merged" : (await git(row.repositoryPath, ["merge-base", "--is-ancestor", branchRef, `refs/heads/${base}`])).ok;
       const unpushed = await git(row.repositoryPath, ["rev-list", "--count", branchRef, "--not", "--remotes"]);
       const onRemote = unpushed.ok && unpushed.stdout.trim() === "0";
       // A PR head keeps the commits, but `git branch -d` still refuses a squash-merged branch.
       const pushed = onRemote || (unpushed.ok && !row.branchOnly && await savedByPullRequest(row.repositoryPath, row.branch, branchRef));
-      branchDeletable = merged.ok || onRemote;
-      if (merged.ok) reasons.push("branchMerged");
+      branchDeletable = merged || onRemote;
+      if (merged) reasons.push("branchMerged");
       if (!pushed) blockers.push("unpushedCommits");
     }
     if (!row.branchOnly && existsSync(row.path)) {
+      const top = preview ? await git(row.path, ["rev-parse", "--show-toplevel"]) : null;
+      const checkoutMatches = !top || (top.ok && canonical(top.stdout.trim()) === canonical(row.path));
+      if (!checkoutMatches) blockers.push("ownershipChanged");
       const head = await git(row.path, ["symbolic-ref", "--quiet", "--short", "HEAD"]);
       if (!head.ok || head.stdout.trim() !== row.branch) blockers.push("ownershipChanged");
       if (!linked) {
         const [common, repositoryCommon] = await Promise.all([git(row.path, ["rev-parse", "--path-format=absolute", "--git-common-dir"]), git(row.repositoryPath, ["rev-parse", "--path-format=absolute", "--git-common-dir"])]);
         if (!common.ok || !repositoryCommon.ok || canonical(common.stdout.trim()) !== canonical(repositoryCommon.stdout.trim())) blockers.push("ownershipChanged");
       }
-      const status = await git(row.path, ["status", "--porcelain", "--untracked-files=all"]);
-      if (!status.ok) blockers.push("checksUnavailable");
-      else if (!row.keptWorktree && worktreeStatusHasMeaningfulChanges(status.stdout)) blockers.push("changedFiles");
+      const status = checkoutMatches
+        ? await git(row.path, [...(preview ? ["--no-optional-locks"] : []), "status", "--porcelain", "--untracked-files=all"])
+        : null;
+      if (status && !status.ok) blockers.push("checksUnavailable");
+      else if (status) {
+        const dirty = worktreeStatusHasMeaningfulChanges(status.stdout);
+        if (preview) preview.dirty = dirty;
+        if (dirty && !row.keptWorktree) blockers.push("changedFiles");
+      }
     }
     const inactiveDays = row.lastActive ? Math.floor((now() - Date.parse(row.lastActive)) / DAY) : 0;
     if (inactiveDays > 0) reasons.push(`inactive:${inactiveDays}`);
     const responsibilities = ports.store().tars.snapshot().responsibilities.filter(work => work.executionWorkspaceId === row.id);
     if (responsibilities.length && !responsibilityCleanupBlocker(responsibilities, row.id)) reasons.push("responsibilityEnded");
     // Publishing work is protected until the host reads the current PR state.
-    if (checkPr || responsibilities.some(work => work.publication?.state === "opened")) {
-      const status = await pr({ cwd: linked ? row.path : row.repositoryPath, target: row.branch });
-      mergedAtByWorkspace.delete(row.id);
+    if ((preview && row.branch && !blockers.includes("defaultWorkspace")) || checkPr || responsibilities.some(work => work.publication?.state === "opened")) {
+      const status = await pr({ cwd: linked ? row.path : row.repositoryPath, target: row.branch, requireMatchingBranchTip: true });
+      if (preview) {
+        if (status.ok) {
+          const state = status.pr?.state;
+          preview.pullRequest = state === "MERGED" ? "merged" : state === "OPEN" ? "open" : state === "CLOSED" ? "closed" : state ? "unknown" : "none";
+        }
+      } else mergedAtByWorkspace.delete(row.id);
       if (status.ok && status.pr?.state === "MERGED") {
         reasons.push("prMerged");
         const mergedAt = Date.parse(status.pr.mergedAt ?? "");
-        if (Number.isFinite(mergedAt) && mergedAt <= now()) mergedAtByWorkspace.set(row.id, mergedAt);
+        if (!preview && Number.isFinite(mergedAt) && mergedAt <= now()) mergedAtByWorkspace.set(row.id, mergedAt);
       }
       if (responsibilities.some(work => work.publication?.state === "opened") && (!status.ok || !status.pr || !["MERGED", "CLOSED"].includes(status.pr.state))) blockers.push("publicationPending");
     }
     let bytes: number | null = null;
     // An explicit scan measures again; folders are measured one at a time with a time limit each.
-    if (scanDisk && row.path && existsSync(row.path)) bytes = (await disk.read(row.id, row.path, 0)).bytes;
-    return { ...row, canSaveChanges: !linked && !row.archived && !row.branchOnly && blockers.includes("changedFiles") && blockers.every(blocker => blocker === "changedFiles" || blocker === "unpushedCommits"), blockers: [...new Set(blockers)], reasons, bytes, branchDeletable };
+    if (scanDisk && row.path && existsSync(row.path) && (!preview || !blockers.includes("defaultWorkspace"))) {
+      const measurement = await disk.read(row.id, row.path, 0);
+      bytes = measurement.bytes;
+      if (preview) preview.disk = measurement;
+    }
+    return { ...row, canSaveChanges: !linked && !row.archived && !row.branchOnly && blockers.includes("changedFiles") && blockers.every(blocker => blocker === "changedFiles" || blocker === "unpushedCommits"), blockers: [...new Set(blockers)], reasons, bytes, branchDeletable, ...(preview ? { preview } : {}) };
   }
-  async function list(scanDisk = false, checkPr = false, target?: { id: string; repositoryPath: string }) {
+  async function list(scanDisk = false, checkPr = false, target?: { id: string; repositoryPath: string }, preview?: { repositoryPath?: string | undefined; includeArchived?: boolean | undefined }) {
     const store = ports.store();
     const rows: WorkspaceCleanupRow[] = [];
     const state = saved();
     for (const repository of store.loadRepositoryRegistry()) {
       if (target && repository.repositoryPath !== target.repositoryPath) continue;
+      if (preview?.repositoryPath && canonical(repository.repositoryPath) !== canonical(preview.repositoryPath)) continue;
       const owned = new Set(Object.values(repository.workspaceBranchById));
       const base = { repositoryPath: repository.repositoryPath, repositoryName: repository.repositoryName, blockers: [], reasons: [], bytes: null, branchDeletable: false };
       for (const workspace of repository.workspaces) rows.push({ ...base, id: workspace.id, name: workspace.name, path: repository.workspacePathById[workspace.id] ?? "", branch: repository.workspaceBranchById[workspace.id] ?? "", archived: false, readOnly: false, branchOnly: false, archivedAt: null, lastActive: repository.workspaceLastActiveAtById?.[workspace.id] ?? workspace.updatedAt });
@@ -224,6 +252,7 @@ export function createWorkspaceCleanupRuntime(ports: {
         owned.add(archive.branch);
         rows.push({ ...base, id: archive.workspaceId, name: archive.name, path: archive.path, branch: archive.branch, archived: true, leftoverFiles: hasWorkspaceArchiveLeftover(archive, state.recent), savedChanges: Boolean(archive.savedChangesRef), keptWorktree: Boolean(archive.creationOptions?.keepWorktree && existsSync(archive.path)), readOnly: archive.readOnly, branchOnly: false, archivedAt: archive.archivedAt, lastActive: archive.archivedAt });
       }
+      if (preview) continue;
       const [branches, mergedBranches] = await Promise.all([
         git(repository.repositoryPath, ["for-each-ref", "--format=%(refname:short)%09%(upstream:track)", "refs/heads"]),
         git(repository.repositoryPath, ["for-each-ref", `--merged=refs/heads/${repository.defaultBranch}`, "--format=%(refname:short)", "refs/heads"]),
@@ -236,7 +265,7 @@ export function createWorkspaceCleanupRuntime(ports: {
         rows.push({ ...base, id: `branch:${branch}`, name: branch, path: "", branch, reasons: tracking === "[gone]" ? ["remoteBranchGone"] : [], archived: false, readOnly: false, branchOnly: true, archivedAt: null, lastActive: null });
       }
     }
-    const candidates = target ? rows.filter(row => row.id === target.id) : rows;
+    const candidates = target ? rows.filter(row => row.id === target.id) : preview && !preview.includeArchived ? rows.filter(row => !row.archived) : rows;
     const inspected = new Array<WorkspaceCleanupRow>(candidates.length);
     let cursor = 0;
     await Promise.all(Array.from({ length: Math.min(4, candidates.length) }, async () => {
@@ -245,8 +274,9 @@ export function createWorkspaceCleanupRuntime(ports: {
         const row = candidates[index]!;
         const activity = [row.lastActive, ...store.listWorkspaceTasks({ workspaceId: row.id }).map(task => task.updatedAt)]
           .filter((value): value is string => Boolean(value) && Number.isFinite(Date.parse(value!))).sort((a, b) => Date.parse(b) - Date.parse(a));
-        try { inspected[index] = await inspect({ ...row, lastActive: row.archived ? row.lastActive : activity[0] ?? null }, scanDisk, checkPr); }
-        catch { inspected[index] = { ...row, blockers: ["checksUnavailable"] }; }
+        const details = preview ? initialPreview() : undefined;
+        try { inspected[index] = await inspect({ ...row, lastActive: row.archived ? row.lastActive : activity[0] ?? null }, scanDisk, checkPr, undefined, details); }
+        catch { inspected[index] = { ...row, blockers: ["checksUnavailable"], ...(details ? { preview: details } : {}) }; }
       }
     }));
     return { rows: inspected, policy: state.policy, recent: state.recent };
@@ -562,6 +592,22 @@ export function createWorkspaceCleanupRuntime(ports: {
   /** Worktrees Claude Code sub-agents left (`subagent-worktrees.ts`); `runningAgentWorktrees` comes from Activity in main. */
   const listSubAgentWorktrees = (runningAgentWorktrees: readonly string[] = [], scanDisk = false) => subAgents.list(runningAgentWorktrees, async folder =>
     (scanDisk ? await disk.read(subAgentWorktreeDiskId(folder.path), folder.path, 0) : disk.peek(subAgentWorktreeDiskId(folder.path), folder.path))?.bytes ?? null);
+  async function preview(options: { repositoryPath?: string | undefined; includeArchived?: boolean | undefined }, runningAgentWorktrees: readonly string[] = []) {
+    const defaults = new Map(ports.store().loadRepositoryRegistry().map(repo => [repo.repositoryPath, repo.defaultBranch || "main"]));
+    const [listed, subAgentWorktrees] = await Promise.all([
+      list(true, false, undefined, options),
+      subAgents.list(runningAgentWorktrees, async (folder, blockers) => {
+        const base = defaults.get(folder.repositoryPath);
+        return {
+          disk: await disk.read(subAgentWorktreeDiskId(folder.path), folder.path, 0),
+          branchMerge: base && folder.head ? await branchMergePreview(folder.repositoryPath, folder.head, base) : "unknown",
+          pullRequest: "unknown",
+          dirty: blockers.includes("changedFiles") ? true : blockers.includes("checksUnavailable") ? null : false,
+        };
+      }, options.repositoryPath),
+    ]);
+    return { ...listed, subAgentWorktrees };
+  }
   /** Only the cleanup dialog's confirmation calls this; it shares the action queue so removals never overlap. */
   function removeSubAgentWorktree(args: SubAgentWorktreeRemoveArgs, runningAgentWorktrees: readonly string[] = []) {
     const pending = actionChain.then(() => subAgents.remove(SubAgentWorktreeRemoveArgsSchema.parse(args), runningAgentWorktrees))
@@ -578,7 +624,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     return readWorkspaceDiskUsage([...workspaceDiskFolders(ports.store()), ...leftByAgents.map(folder => ({ workspaceId: subAgentWorktreeDiskId(folder.path),
       name: folder.name, repositoryPath: folder.repositoryPath, repositoryName: folder.repositoryName, archived: false, subAgentWorktree: true as const, path: folder.path }))], disk, refresh);
   };
-  return { list, act, configure, runNow, runScheduled, start, diskUsage, listSubAgentWorktrees, removeSubAgentWorktree,
+  return { list, preview, act, configure, runNow, runScheduled, start, diskUsage, listSubAgentWorktrees, removeSubAgentWorktree,
     /** Marks delegated children in Clean up workspaces with their parent and what keeps them. */
     annotateDelegatedChildren: delegated.annotate,
     /** Sweeps delegated children shortly; triggers coalesce. */

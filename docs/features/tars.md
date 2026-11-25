@@ -155,8 +155,7 @@ HTML nor a second execution engine.
    independent read-only **Review** on the provider that did not write them,
    also when you pinned an execution model;
    the **Fix review findings** stage runs only when that review asks for
-   changes. A fix that changed files returns once to the Reviewer for the fix
-   commits only, so the run ends on a revision an independent review passed. The Reviewer confirms the reported evidence and runs only checks
+   changes. A fix that changed files returns once to the Reviewer to check the fixes. If the first independent review lacks matching delegation evidence, the Reviewer checks the original work as well. The result card uses the same review evidence as the host. The Reviewer confirms the reported evidence and runs only checks
    covering the changed files when its read-only policy permits those commands.
    Claude reviewers may run the approved test, lint and typecheck scripts from
    `package.json`; other commands require existing permission. When no check
@@ -515,6 +514,11 @@ The help button in the Tars header shows what Tars can do and its limits in
 short form at any time.
 
 ### 2. Answer decisions
+
+When Tars cites an earlier observation for a question, **Prior evidence**
+shows the source and result it cited. Fleet and the task's return summary
+show the same options, reasons, recommendation and evidence while the
+decision waits. Open the decision in Tars to answer it.
 
 Waiting decisions and publish confirmations appear one at a time above the
 message box, with their position and total count. **Previous waiting item** and

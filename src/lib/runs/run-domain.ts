@@ -204,8 +204,11 @@ export const RunReceiptDetailSchema = z
     supervisorSequence: z.number().int().min(1).optional(),
     /** The commit a delegation was pinned to, re-checked by a retry. */
     expectedHead: z.string().max(64).optional(),
+    /** Host-authenticated turn that requested a pinned reviewer delegation. */
+    parentTurnId: RunIdSchema.optional(),
     reviewSourceRevision: WorkspaceRevisionSchema.optional(),
     reviewCompletedRevision: WorkspaceRevisionSchema.optional(),
+    reviewVerdict: z.enum(["passed", "changes-requested"]).optional(),
     /** A subagent turn's final answer, bounded, so the caller gets it without reading the child. */
     responseText: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
   })
@@ -331,8 +334,10 @@ export function sanitizeRunReceiptDetail(
       ? candidate.expectedHead
       : undefined;
   const responseText = boundResponseText(candidate.responseText);
+  const parentTurnId = RunIdSchema.safeParse(candidate.parentTurnId);
   const reviewSourceRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewSourceRevision);
   const reviewCompletedRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewCompletedRevision);
+  const reviewVerdict = RunReceiptDetailSchema.shape.reviewVerdict.safeParse(candidate.reviewVerdict);
   const routingDecision = RoutingDecisionObservationSchema.safeParse(candidate.routingDecision);
   const detail = {
     ...(code ? { code } : {}),
@@ -354,9 +359,11 @@ export function sanitizeRunReceiptDetail(
     ...(supervisorMaxTurns.success && supervisorMaxTurns.data !== undefined ? { supervisorMaxTurns: supervisorMaxTurns.data } : {}),
     ...(supervisorSequence.success && supervisorSequence.data !== undefined ? { supervisorSequence: supervisorSequence.data } : {}),
     ...(expectedHead ? { expectedHead } : {}),
+    ...(parentTurnId.success ? { parentTurnId: parentTurnId.data } : {}),
     ...(responseText ? { responseText } : {}),
     ...(reviewSourceRevision.success ? { reviewSourceRevision: reviewSourceRevision.data } : {}),
     ...(reviewCompletedRevision.success ? { reviewCompletedRevision: reviewCompletedRevision.data } : {}),
+    ...(reviewVerdict.success && reviewVerdict.data ? { reviewVerdict: reviewVerdict.data } : {}),
     ...(routingDecision.success ? { routingDecision: routingDecision.data } : {}),
   };
   return Object.keys(detail).length > 0

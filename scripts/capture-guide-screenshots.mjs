@@ -344,6 +344,21 @@ async function openApp(page, locale, scenario = {}) {
     scripts: { config: scriptsConfig(copy), statuses: scriptStatuses() },
     localMcp: localMcpStatus(),
     stamp: STAMP,
+    question: !scenario.tarsQuestion ? null : locale === "ko" ? {
+      text: "스테이징 확인을 기다릴까요?",
+      priorEvidence: "배포 로그에 스테이징 배포가 진행 중이라고 나옵니다.",
+      options: [
+        { label: "스테이징 기다리기", rationale: "배포가 끝나면 리디렉션을 확인합니다." },
+        { label: "문서 먼저 확인하기", rationale: "문서 확인은 배포와 관계없습니다." },
+      ],
+    } : {
+      text: "Should we wait for staging?",
+      priorEvidence: "The deployment log shows staging is still deploying.",
+      options: [
+        { label: "Wait for staging", rationale: "Check redirects once the deploy finishes." },
+        { label: "Check documentation first", rationale: "The docs check can run during deployment." },
+      ],
+    },
   };
   await page.addInitScript((data) => {
     const tasks = [
@@ -387,6 +402,23 @@ async function openApp(page, locale, scenario = {}) {
     }
     const ok = async () => ({ ok: true });
     window.api = {
+      ...(data.question ? { tars: { get: async () => ({
+        runtime: "desktop",
+        identity: { id: "personal", name: "Tars", instructions: "", updatedAt: data.stamp },
+        responsibilities: [{
+          id: "guide-tars-work", requestId: "guide-tars-request", title: data.otherTaskTitle, instruction: data.question.text,
+          acceptanceCriteria: [data.question.text], repositoryPath: data.repositoryPath,
+          workspaceId: data.ids.login, executionWorkspaceId: null, providerId: "codex",
+          model: null, agentId: null, priority: 50, maxTurns: 5, revision: 1, state: "paused", detail: null,
+          taskId: data.otherTaskId, agentRunId: null, reverifyAfter: null, createdAt: data.stamp, updatedAt: data.stamp,
+        }],
+        pendingDecisions: [{
+          kind: "ask", responsibilityId: "guide-tars-work", messageId: "guide-tars-question", actionIndex: 0,
+          operation: null, expectedRevision: 1, proposedAt: data.stamp, question: data.question.text,
+          questionPreview: { question: data.question.text, options: data.question.options, recommended: 0, priorEvidence: data.question.priorEvidence },
+        }],
+        followUps: [], activity: [], records: [],
+      }) } } : {}),
       provider: {
         streamTurn: async () => [],
         respondApproval: ok,
@@ -645,6 +677,19 @@ const SHOTS = [
     },
   },
   {
+    name: "agent-progress-outputs",
+    async capture({ page, locale, file, t }) {
+      await page.goto(`${baseUrl}/tests/e2e/fixtures/agent-progress-panel.html?resources=1&lang=${locale}`);
+      await page.getByTestId("agent-progress-panel-empty").waitFor();
+      await page.evaluate(() => window.agentPanelFixture.openSubagent());
+      const panel = page.getByTestId("agent-progress-panel");
+      await panel.getByRole("tab", { name: await t("session:agentProgress.panel.tabOutputs") }).click();
+      await panel.getByTestId("scratch-preview-body").getByText("Expiry checked").waitFor();
+      await settle(page);
+      await save(page, panel, file, { padding: 8 });
+    },
+  },
+  {
     name: "agent-progress-timeline",
     async capture({ page, locale, file, t }) {
       await openPreview(page, locale, "agent-progress&scenario=finished&theme=dark");
@@ -739,6 +784,20 @@ const SHOTS = [
     },
   },
   {
+    name: "tars-question",
+    viewport: { width: 1440, height: 1100 },
+    async capture({ page, locale, file }) {
+      await openPreview(page, locale, "tars&decision=ask&theme=dark");
+      const prompt = page.locator("[data-tars-composer] [role='textbox']");
+      await prompt.fill(locale === "ko" ? "릴리스 확인을 검토해 줘" : "Review the release check");
+      await prompt.press("Enter");
+      await page.locator("[data-tars-prior-evidence]").waitFor();
+      await settle(page);
+      const card = page.locator("[data-tars-dock-item]:not([hidden]) [data-tars-decision]");
+      await save(page, card, file, { padding: 8 });
+    },
+  },
+  {
     name: "tars-task-request",
     async capture({ page, locale, file }) {
       await openPreview(page, locale, "tars&tray=true&queue=true&taskRequest=task-billing");
@@ -772,15 +831,19 @@ const SHOTS = [
   },
   {
     name: "fleet",
-    async capture({ page, locale, file }) {
-      await openApp(page, locale, { approval: true, notifications: true });
+    async capture({ page, locale, file, t }) {
+      await openApp(page, locale, { approval: true, notifications: true, tarsQuestion: true });
       await quietChrome(page);
       const openFleetLabel = await page.evaluate(async () => {
         const { i18n } = await import("/src/i18n/index.ts");
         return i18n.t("shell:topBarFleetAttention.openFleet");
       });
       await page.getByTestId("top-bar").getByRole("button", { name: openFleetLabel, exact: true }).click();
-      await page.locator("[data-fleet-view-root='true']").waitFor();
+      await page.locator("[data-fleet-view-root='true'] [data-tars-question-preview]").waitFor();
+      const notificationRegion = page.getByRole("region", { name: await t("ui:toastHost.notifications"), exact: true });
+      for (const region of await notificationRegion.all()) {
+        await region.evaluate((element) => { element.style.visibility = "hidden"; });
+      }
       await settle(page);
       await save(page, null, file);
     },

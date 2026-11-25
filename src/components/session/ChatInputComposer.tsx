@@ -160,6 +160,7 @@ import {
   buildPromptEnhancementWorkspaceSummary,
   recordPromptEnhancementExemplar,
   selectPromptEnhancementExemplars,
+  type PromptEnhancementDepth,
   type PromptEnhancementExemplar,
 } from "@/lib/providers/prompt-enhancement-context";
 
@@ -652,9 +653,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       );
       const styleProfile =
         storeState.settings.promptEnhancementStyleProfile.trim() || undefined;
+      const depth = storeState.settings.promptEnhancementDepth;
       const exemplars = storeState.settings.promptEnhancementLearnFromEdits
         ? selectPromptEnhancementExemplars(
             storeState.settings.promptEnhancementExemplars,
+            depth,
           )
         : undefined;
       const result = await enhancePrompt({
@@ -665,6 +668,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           settings: storeState.settings,
         }),
         prompt: sourceText,
+        depth,
         ...(history ? { history } : {}),
         ...(workspaceSummary ? { workspaceSummary } : {}),
         ...(styleProfile ? { styleProfile } : {}),
@@ -708,6 +712,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         targetTaskId,
         sourceText,
         enhancedPrompt,
+        depth,
       };
       promptEnhancementRevealingRef.current = true;
       setPromptEnhancementSourceText(sourceText);
@@ -749,6 +754,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       source: enhancementResult.sourceText,
       enhanced: enhancementResult.enhancedPrompt,
       outcome: "kept",
+      depth: enhancementResult.depth,
     });
     toast.success(i18n.t("session:chatInputComposer.handlePromptEnhancementRevealComplete"), {
       secondaryAction: {
@@ -775,7 +781,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     if (!isPromptEnhancementCurrent(result)) return;
     adoptPromptDraftText({ taskId: result.targetTaskId, text: result.sourceText });
     commitPromptDraftText({ taskId: result.targetTaskId, text: result.sourceText });
-    recordPromptEnhancementOutcome({ source: result.sourceText, enhanced: result.enhancedPrompt, outcome: "undone" });
+    recordPromptEnhancementOutcome({ source: result.sourceText, enhanced: result.enhancedPrompt, outcome: "undone", depth: result.depth });
     setFocusNonce((current) => current + 1);
   }
 
@@ -787,6 +793,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     source: string;
     enhanced: string;
     outcome: PromptEnhancementExemplar["outcome"];
+    depth: PromptEnhancementDepth;
   }) {
     const store = useAppStore.getState();
     if (!store.settings.promptEnhancementLearnFromEdits) {

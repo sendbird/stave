@@ -178,10 +178,12 @@ test("a hand-back during a review that may end the run restarts it; a fresh pass
   expect(attempts.map((stage) => [stage.attempt, stage.status])).toEqual([[1, "cancelled"], [2, "pending"]]);
   const index = f.run.stages.length - 1;
   const fresh = f.run.stages[index]!;
+  const revision = { status: "known" as const, revision: "r1", cleanCommit: "a".repeat(40) };
   f.run.stages[index] = { ...fresh, status: "completed", startedAt: f.iso(), endedAt: f.iso(),
     report: { outcome: "complete", summary: "Reviewed.", decisions: [], evidence: [], artifacts: [], reportedAt: f.iso(), turnId: null,
-      reviewVerdict: "passed", workspaceRevision: { status: "known", revision: "r1" } } as never,
-    facts: { currentTurnId: null, workspaceRevision: { status: "known", revision: "r1" }, diff: null, commands: [], toolCalls: [], action: null } as never };
+      reviewVerdict: "passed", workspaceRevision: revision,
+      independentReview: { delegationId: "delegation", executionId: "execution", revision, verdict: "passed" } },
+    facts: { workspaceRevision: revision, diff: null, commands: [], toolCalls: [], action: null } };
   f.run.stages.push({ ...createStageRecord({ agentRunId: "owned-run", stageId: "fix-review", attempt: 1 }), status: "skipped", endedAt: f.iso() });
   f.run.agentRun = { ...f.run.agentRun, state: "completed" };
   f.setReport({ outcome: "completed", acceptanceCriteria: [{ text: "Search works", required: true, status: "met" }] } as AgentRunDetail["report"]);

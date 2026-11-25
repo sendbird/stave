@@ -145,6 +145,14 @@ After visual comments are sent, the feedback tray keeps the task's latest sent f
 3. Click `Confirm fixed` or `Needs re-check`. Either saves a Lens review record for the task.
 4. The record stays after you navigate, reload or restart Stave. A confirmation holds only for the page document it was captured from, at the same address, query and hash route; once the page changes, the record shows `Needs re-check` with the time it was confirmed. Click `Compare again` to check the current page.
 
+### Compare the same state before and after a fix
+
+Capture the page before editing and replay the same workflow step after the
+fix. Record the page, data, viewport, theme, density, language, and scroll or
+focus state with the pair. List the visible differences you expect the fix to
+produce. If a capture fails or the state has changed, record the difference
+before drawing conclusions from the pair.
+
 ### Save Screenshots And Downloads
 
 - Use the Screenshot menu to save viewport or full-page PNG captures.

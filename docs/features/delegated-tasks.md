@@ -215,6 +215,7 @@ card in the conversation, and **View** on a composer review. You can also open t
   failed step always stays in view. Each row opens to its input and output,
   read when you open it and cut at 16,000 characters.
 - Choose **Timeline** to compare measured intervals and see overlapping work. Select a step on the chart to read its details. Steps without enough timing information appear below the chart. **List** shows the messages, expandable tool rows and links to nested agents.
+- **Outputs** previews files from the assigned Scratch directory or Scratch files cited in the result. **Background** shows recorded commands and available log tails. Both tabs appear only for matching resources. In-turn subagents need a launch receipt tied to their spawning call for a background command to appear.
 - What the agent said and messages it received stand on their own lines. A
   subagent it started opens in the same panel; **Back to <agent>** returns.
 - The panel follows new steps while you are at the bottom. Scroll up and it

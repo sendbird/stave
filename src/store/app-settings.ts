@@ -71,7 +71,11 @@ import {
 import type { Macro } from "@/lib/macros/types";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { UnreadableAgent } from "@/lib/agents/library";
-import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
+import {
+  DEFAULT_PROMPT_ENHANCEMENT_DEPTH,
+  type PromptEnhancementDepth,
+  type PromptEnhancementExemplar,
+} from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -237,6 +241,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   promptEnhancementStyleProfile: string;
   /** Whether kept and undone rewrites are remembered as future examples. */
   promptEnhancementLearnFromEdits: boolean;
+  /** How far Enhance may go: clarify the draft, or sharpen its method. */
+  promptEnhancementDepth: PromptEnhancementDepth;
   /** Bounded memory of past rewrites and what the user did with them. */
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
@@ -762,6 +768,7 @@ export const defaultSettings: AppSettings = {
   modelVisibility: {},
   promptEnhancementStyleProfile: "",
   promptEnhancementLearnFromEdits: true,
+  promptEnhancementDepth: DEFAULT_PROMPT_ENHANCEMENT_DEPTH,
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
   routingDecision: DEFAULT_ROUTING_DECISION,

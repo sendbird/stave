@@ -42,7 +42,7 @@ import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
 import { recordKickoffTaskAgent } from "@/store/kickoff-agent-assignment";
 import { KickoffWhoPicker } from "./KickoffWhoPicker";
 import { useSettingsProviderIdsWithSaved } from "./settings-provider-visibility";
-import { useAgentsUiStore } from "@/store/agents-ui-store";
+import { useAgentsUiStore, type KickoffAgentRequest } from "@/store/agents-ui-store";
 import { getConfiguredModelForProvider } from "@/store/prompt-draft-runtime";
 import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 import {
@@ -289,6 +289,7 @@ export function KickoffDialog(props: {
   const customAgents = useAppStore((state) => state.settings.customAgents);
   const myStandards = useAppStore((state) => state.settings.myStandards);
   const autoRoutingProfile = useAppStore((state) => state.settings.autoRoutingProfile);
+  const [trackerIssue, setTrackerIssue] = useState<KickoffAgentRequest["trackerIssue"]>();
   const kickoffRequest = useAgentsUiStore((state) => state.kickoffRequest);
   const clearKickoffRequest = useAgentsUiStore((state) => state.clearKickoffRequest);
   const selectableAgents = useMemo(
@@ -438,9 +439,14 @@ export function KickoffDialog(props: {
     if (!props.open || !kickoffRequest) {
       return;
     }
-    if (typeof kickoffRequest.text === "string") {
-      setSource(kickoffRequest.text);
-    }
+    setTrackerIssue(kickoffRequest.trackerIssue);
+    // Any earlier proposal belongs to the prior source.
+    cancelKickoffResolution();
+    setPhase("source");
+    setDraft(null);
+    setError(null);
+    setSource(kickoffRequest.text ?? "");
+    setExtraInstructions("");
     if (kickoffRequest.agentConfigId) {
       const preset = selectableAgents.find((agent) => agent.id === kickoffRequest.agentConfigId);
       if (preset) {
@@ -449,7 +455,7 @@ export function KickoffDialog(props: {
       }
     }
     clearKickoffRequest();
-  }, [clearKickoffRequest, kickoffRequest, props.open, selectableAgents]);
+  }, [cancelKickoffResolution, clearKickoffRequest, kickoffRequest, props.open, selectableAgents]);
 
   useEffect(() => {
     if (props.open) {
@@ -458,6 +464,7 @@ export function KickoffDialog(props: {
     cancelKickoffResolution();
     setPhase("source");
     setSource("");
+    setTrackerIssue(undefined);
     setDraft(null);
     setResolving(false);
     setCreating(false);
@@ -718,6 +725,7 @@ export function KickoffDialog(props: {
     try {
       const result = await kickoffWorkspace({
         proposal: args.proposal,
+        trackerIssue,
         fromBranch,
         fromBranchKind,
         startFirstTask: args.startFirstTask,

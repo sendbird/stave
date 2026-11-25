@@ -104,7 +104,7 @@ export function shareFleetAttentionSnapshot<T extends SharedAttentionSlices>(
   }
   const shareItem = (item: FleetAttentionItem) => {
     const before = previousItems.get(item.id);
-    return before && sameData(before, item) ? before : item;
+    return before && sameData(before, item, 4) ? before : item;
   };
   const shareItems = (before: readonly FleetAttentionItem[] | undefined, after: readonly FleetAttentionItem[]) =>
     shareList(before, after, shareItem);

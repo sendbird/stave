@@ -225,6 +225,27 @@ describe("kickoffTrackerIssue Jira run", () => {
     expect(kickoffs[0]?.state).toBe("running");
     expect(kickoffs[0]?.staveTaskId).toBe("task-run");
   });
+
+  test("staging or starting a reported bug carries the same reproduction contract for an existing PR", async () => {
+    const { deps, calls, detail } = makeDeps({ source: "jira" });
+    const prUrl = "https://github.com/example/project/pull/47";
+    detail.description = `On desktop, cancel an export, resume it, then click Download. The file is missing. Proposed fix: [PR 47](${prUrl}).`;
+
+    const { staged } = await kickoffTrackerIssue(deps, makeArgs({ source: "jira", startMode: "stage" }));
+    expect(staged?.prompt).toContain(`Linked PR: ${prUrl}`);
+    expect(staged?.prompt).toContain("cancel an export, resume it, then click Download");
+    expect(staged?.prompt).toContain("same input on the PR base and head");
+    expect(calls.runLocallyApprovedRun).toHaveLength(0);
+
+    await kickoffTrackerIssue(deps, makeArgs({ source: "jira", instruction: "Check whether the existing PR fixes this." }));
+    expect(calls.runLocallyApprovedRun).toHaveLength(1);
+    const { prompt, retrievedContextParts } = calls.runLocallyApprovedRun[0] as Parameters<TrackerIssueKickoffDependencies["runLocallyApprovedRun"]>[0];
+    expect(prompt).toContain("reporter's original steps");
+    expect(prompt).toContain("Record both revisions and outcomes");
+    expect(retrievedContextParts[0]?.content).toContain(`Linked PR: ${prUrl}`);
+    expect(retrievedContextParts[0]?.content).toContain(detail.description);
+    expect(retrievedContextParts[0]?.content).toContain("untrusted retrieved context");
+  });
 });
 
 describe("kickoffTrackerIssue stage", () => {

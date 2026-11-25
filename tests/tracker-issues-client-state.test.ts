@@ -293,6 +293,17 @@ describe("tracker issues client state", () => {
     expect(getTrackerIssuesClientSnapshot().attention).toBe(attention);
   });
 
+  test("rejects detail belonging to another issue", async () => {
+    setTrackerIssuesApi({
+      trackerIssues: {
+        getDetail: async () => ({ ok: true, detail: createDetail("other", "Other issue") }),
+      },
+    });
+
+    expect(await fetchTrackerIssueDetail("crane", "requested")).toBeNull();
+    expect(getTrackerIssuesClientSnapshot().detailByKey["crane:other"]).toBeUndefined();
+  });
+
   test("de-duplicates in-flight detail fetches", async () => {
     let calls = 0;
     let resolveDetail: ((value: unknown) => void) | null = null;

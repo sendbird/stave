@@ -37,10 +37,12 @@ describe("runCodexReadOnlyPromptWithClient", () => {
         return { config: { mcp_servers: { github: {}, linear: {} } } } as T;
       }
       if (method === "thread/start") {
-        return { thread: { id: "advisor-thread" } } as T;
+        return { thread: { id: "advisor-thread" }, model: "initial-model" } as T;
       }
       if (method === "turn/start") {
         queueMicrotask(() => {
+          deliver({ method: "model/rerouted", params: { threadId: "advisor-thread", turnId: "advisor-turn", toModel: "actual-model" } });
+          deliver({ method: "model/rerouted", params: { threadId: "advisor-thread", turnId: "unrelated", toModel: "unrelated-model" } });
           // Two model requests in one turn: `last` is the second only.
           for (const tokenUsage of [
             {
@@ -106,6 +108,7 @@ describe("runCodexReadOnlyPromptWithClient", () => {
 
     expect(result).toEqual({
       ok: true,
+      model: "actual-model",
       text: "Check cancellation before primary dispatch.",
       usage: {
         type: "usage",

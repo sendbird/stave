@@ -1,3 +1,4 @@
+import { stageReviewVerdict } from "./review-finalization";
 import { describeAgentRunUsageLimit } from "./usage-limit";
 import { activeEventWait, describeEventWaitDetail, describeEventWaitLabel, eventWaitTargetLabel, type AgentRunEventWait } from "./event-wait";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
@@ -545,8 +546,9 @@ function describeStageSummaries(detail: AgentRunDetail): AgentRunResult["summari
     const report = record.report?.outcome === "complete" ? record.report : null;
     const action = record.facts?.action;
     const text = report?.summary.trim() || (action ? describeActionEvidence(action, record.facts).label : "");
-    if (!text && !report?.reviewVerdict) return [];
-    return [{ stageId: stage.id, title: getStageDisplayTitle(stage), text, reviewVerdict: report?.reviewVerdict }];
+    const reviewVerdict = stageReviewVerdict(stage, report);
+    if (!text && !reviewVerdict) return [];
+    return [{ stageId: stage.id, title: getStageDisplayTitle(stage), text, reviewVerdict }];
   });
 }
 
