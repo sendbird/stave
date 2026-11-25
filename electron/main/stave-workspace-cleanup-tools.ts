@@ -43,6 +43,8 @@ export function projectWorkspaceCleanupRow(row: WorkspaceCleanupRow) {
     reasons: row.reasons,
     /** With `deleteBranch`, archive also deletes the local branch only when this is true. */
     branchDeletable: row.branchDeletable,
+    /** A delegated subagent's workspace: its parent and what keeps it from automatic cleanup. */
+    ...(row.subagent ? { subagent: row.subagent } : {}),
   };
 }
 
@@ -73,7 +75,7 @@ export function registerWorkspaceCleanupTools(server: McpServer, handlers: Works
     "stave_list_workspace_cleanup",
     {
       description:
-        "List the workspaces of registered projects with what blocks archiving each one and why it may be finished. Read only. Set preview=true to measure disk and show merge, dirty state and in-use blockers without taking any cleanup action. A workspace with no blockers can be archived with `stave_archive_workspace`. `subAgentWorktrees` lists worktrees Claude Code sub-agents left under `.claude/worktrees` with their blockers; no tool removes them, so ask the user to remove them in Clean up workspaces, which keeps their branches.",
+        "List the workspaces of registered projects with what blocks archiving each one and why it may be finished. Read only. Set preview=true to measure disk and show merge, dirty state and in-use blockers without taking any cleanup action. A workspace with no blockers can be archived with `stave_archive_workspace`. A workspace a delegated subagent created carries `subagent` with its parent workspace and the reasons Stave keeps it (`kept`), such as an answer the parent has not received yet. `subAgentWorktrees` lists worktrees Claude Code sub-agents left under `.claude/worktrees` with their blockers; no tool removes them, so ask the user to remove them in Clean up workspaces, which keeps their branches.",
       inputSchema: {
         repositoryPath: z.string().min(1).optional().describe("Only this project's workspaces. Omit for every registered project."),
         includeArchived: z.boolean().optional().describe("Also list workspaces that are already archived."),

@@ -29,6 +29,16 @@ function setup(rows: WorkspaceCleanupRow[], result: { ok: boolean; reason: strin
 }
 
 describe("workspace cleanup MCP tools", () => {
+  test("a delegated subagent's workspace says its parent and what keeps it, in the list and the preview", async () => {
+    const subagent = { parentWorkspaceId: "w-parent", parentName: "Parent work", kept: ["subagentResultPending"] };
+    const { tools } = setup([row({ id: "w-child", subagent }), row({})]);
+    for (const preview of [false, true]) {
+      const listed = (await tools.get("stave_list_workspace_cleanup")!.handler({ preview })).structuredContent.workspaces as Array<Record<string, unknown>>;
+      expect(listed.find((entry) => entry.workspaceId === "w-child")?.subagent).toEqual(subagent);
+      expect(listed.find((entry) => entry.workspaceId === "w1")).not.toHaveProperty("subagent");
+    }
+  });
+
   test("lists workspaces with their blockers and finished signs, leaving out branches, archived workspaces and other projects", async () => {
     const { tools } = setup([row({}), row({ id: "w2", blockers: ["changedFiles"], reasons: [] }), row({ id: "w3", archived: true }),
       row({ id: "branch:old", branchOnly: true }), row({ id: "w4", repositoryPath: "/tmp/other" })]);
