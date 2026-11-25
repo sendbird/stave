@@ -27,7 +27,8 @@ import {
  *   without output; `message` is the turn's or the delegation's reason.
  * - `unconfirmed`: the child's turn has shown neither within the wait. The
  *   answer is not sent again while this window keeps the attempt: answering
- *   again waits on the same turn.
+ *   again waits on the same turn, and the answer recorded is the one that
+ *   was sent (`pendingDelegatedQuestionAnswer`).
  */
 export type DelegatedQuestionFollowUp =
   | { status: "sent" }
@@ -37,8 +38,8 @@ export type DelegatedQuestionFollowUp =
   | { status: "not-started"; message: string | null }
   | { status: "unconfirmed" };
 
-const TURN_EVIDENCE_WAIT_MS = 5 * 60_000;
-const TURN_EVIDENCE_POLL_MS = 250;
+/** How long an answer waits for the child's turn to show it, and how often it looks; tests shorten it. */
+export const delegatedQuestionTiming = { waitMs: 5 * 60_000, pollMs: 250 };
 /** Events a provider emits only after it accepted the prompt (`observeTurnEvent`'s output rule). */
 const OUTPUT_EVENT_TYPES = new Set(["text", "tool", "tool_result", "diff"]);
 
@@ -47,7 +48,16 @@ const OUTPUT_EVENT_TYPES = new Set(["text", "tool", "tool_result", "diff"]);
  * answer to the same question waits on the turn the first one started rather
  * than starting another turn with the same answer.
  */
-const sentFollowUps = new Map<string, { previousTurnId: string | null }>();
+const sentFollowUps = new Map<string, { previousTurnId: string | null; answer: unknown }>();
+
+/**
+ * The answer an unconfirmed follow-up for `attemptKey` carried, as the caller
+ * passed it. A later answer to the same question waits on that turn, so the
+ * caller records this answer, not the later one: it is what the child got.
+ */
+export function pendingDelegatedQuestionAnswer<T>(attemptKey: string): T | undefined {
+  return sentFollowUps.get(attemptKey)?.answer as T | undefined;
+}
 
 /** Test helper: forget the follow-ups this window sent. */
 export function resetDelegatedQuestionFollowUps() {
@@ -69,6 +79,8 @@ export async function sendDelegatedQuestionFollowUp(args: {
   prompt: string;
   /** Names the question being answered; one follow-up per key at a time. */
   attemptKey: string;
+  /** What the caller records once the answer is delivered; kept with an unconfirmed attempt. */
+  answer?: unknown;
   accounts?: ProviderAccountSelection;
   /** For tests: how long to wait for the child's turn, and how often to look. */
   turnEvidenceWaitMs?: number;
@@ -122,15 +134,15 @@ export async function sendDelegatedQuestionFollowUp(args: {
       if (refusal) return { status: "refused", message: refusal };
       // A supervised child's Run took the reply before the delegation answered.
       if (child.lifecycle === "supervised") return { status: "sent" };
-      pending = { previousTurnId: child.delegatedTurnId };
+      pending = { previousTurnId: child.delegatedTurnId, answer: args.answer };
       sentFollowUps.set(args.attemptKey, pending);
     }
     const outcome = await awaitTurnEvidence({
       readChild,
       evidence,
       previousTurnId: pending.previousTurnId,
-      waitMs: args.turnEvidenceWaitMs ?? TURN_EVIDENCE_WAIT_MS,
-      pollMs: args.turnEvidencePollMs ?? TURN_EVIDENCE_POLL_MS,
+      waitMs: args.turnEvidenceWaitMs ?? delegatedQuestionTiming.waitMs,
+      pollMs: args.turnEvidencePollMs ?? delegatedQuestionTiming.pollMs,
     });
     // An unconfirmed attempt stays, so answering again does not send it twice.
     if (outcome.status !== "unconfirmed") sentFollowUps.delete(args.attemptKey);

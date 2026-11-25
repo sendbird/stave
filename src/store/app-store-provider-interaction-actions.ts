@@ -13,7 +13,7 @@ import {
 } from "@/lib/providers/turn-status";
 import { i18n } from "@/i18n/runtime";
 import { formatAsyncQuestionAnswer } from "@/lib/async-question-answer";
-import { sendDelegatedQuestionFollowUp } from "@/lib/runs/delegated-question-follow-up";
+import { pendingDelegatedQuestionAnswer, sendDelegatedQuestionFollowUp } from "@/lib/runs/delegated-question-follow-up";
 import { isTaskManaged } from "@/lib/tasks";
 import {
   approvalInteractionId,
@@ -838,6 +838,15 @@ export function createProviderInteractionActions(args: {
         }
         const key = `${taskId}:${userInputPart.requestId}`;
         if (pendingAsyncAnswers.has(key)) return alreadyAnswering;
+        // An earlier answer to this question went to the child and is not
+        // confirmed yet. Answering again waits on that turn, so it is the
+        // earlier answer that gets recorded: it is what the child received.
+        const earlier = parentTaskId
+          ? pendingDelegatedQuestionAnswer<{ answers?: Record<string, string>; denied?: boolean }>(key)
+          : undefined;
+        if (earlier && (earlier.denied !== denied || JSON.stringify(earlier.answers ?? null) !== JSON.stringify(answers ?? null))) {
+          return get().resolveUserInput({ taskId, messageId, requestId, answers: earlier.answers, denied: earlier.denied, onUnanswerable });
+        }
         pendingAsyncAnswers.add(key);
         const asyncRequestId = userInputPart.requestId;
         const content = formatAsyncQuestionAnswer({
@@ -885,6 +894,7 @@ export function createProviderInteractionActions(args: {
               taskId,
               prompt: content,
               attemptKey: key,
+              answer: { answers, denied },
               accounts: get().settings,
             });
             // The question did not pause the child, so a decline that no

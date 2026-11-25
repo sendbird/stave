@@ -376,3 +376,34 @@ test("an unconfirmed answer is not sent again: answering again waits on the same
   expect(followUps).toHaveLength(1);
   resetDelegatedQuestionFollowUps();
 });
+
+test("answering again while an earlier answer is unconfirmed records the answer the child received", async () => {
+  const { followUps, hostCalls, emit } = delegatedChild({
+    delegation: { phase: "waiting", mcpAnswerAt: "2026-01-01T00:00:00.000Z" },
+    turnUpdates: [{ eventType: "started" }],
+  });
+  const { delegatedQuestionTiming, resetDelegatedQuestionFollowUps } = await import("../src/lib/runs/delegated-question-follow-up");
+  resetDelegatedQuestionFollowUps();
+  const timing = { ...delegatedQuestionTiming };
+  Object.assign(delegatedQuestionTiming, { waitMs: 0, pollMs: 0 });
+  try {
+    // A goes out, and its turn shows nothing within the wait.
+    const first = await useAppStore.getState().resolveUserInput({ ...answer, onUnanswerable: "close" });
+    expect(first).toMatchObject({ status: "failed" });
+    expect(card()).toMatchObject({ state: "input-requested" });
+    // B waits on A's turn instead of sending, and the turn answers.
+    Object.assign(delegatedQuestionTiming, { waitMs: 1_000, pollMs: 5 });
+    const second = useAppStore.getState().resolveUserInput({
+      taskId: "task-1", messageId: "m1", requestId: "codex-async:call_1", answers: { scope: "Broad" }, onUnanswerable: "close",
+    });
+    emit({ eventType: "text" });
+    expect(await second).toEqual({ status: "delivered" });
+    expect(followUps).toHaveLength(1);
+    // What the child got (A) is what the card and the host record.
+    expect(hostCalls).toEqual([hostRecord]);
+    expect(card()).toMatchObject({ state: "input-responded", answers: answer.answers });
+  } finally {
+    Object.assign(delegatedQuestionTiming, timing);
+    resetDelegatedQuestionFollowUps();
+  }
+});
