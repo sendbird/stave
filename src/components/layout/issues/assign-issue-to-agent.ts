@@ -1,5 +1,5 @@
-import { buildTrackerIssueInstruction } from "@/lib/tracker-issues/context";
-import type { TrackerIssue, TrackerIssueDetail } from "@/lib/tracker-issues/types";
+import { buildTrackerIssuePrompt } from "@/lib/tracker-issues/context";
+import type { TrackerIssue } from "@/lib/tracker-issues/types";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 
 /**
@@ -7,9 +7,10 @@ import { useAgentsUiStore } from "@/store/agents-ui-store";
  * does the work. The issue's own assignee is untouched: the agent is shown on
  * the task it starts, not on the ticket.
  */
-export function assignTrackerIssueToAgent(task: TrackerIssue, detail?: TrackerIssueDetail | null) {
+export function assignTrackerIssueToAgent(task: TrackerIssue) {
   useAgentsUiStore.getState().openKickoffWithAgent({
-    text: buildTrackerIssueInstruction(task, detail),
+    text: buildTrackerIssuePrompt(task),
+    trackerIssue: task,
     source: task.key,
   });
 }

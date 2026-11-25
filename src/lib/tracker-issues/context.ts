@@ -19,6 +19,8 @@ export const TRACKER_SOURCE_LABELS: Record<TrackerSourceId, string> = {
   github: "GitHub",
 };
 
+export const TRACKER_ISSUE_KICKOFF_SOURCE_PREFIX = "tracker-issue:";
+
 const JIRA_LINK_REL = "jira";
 
 /** `TrackerIssueKickoffResultSchema.staged.title`. */
@@ -152,7 +154,10 @@ export function buildTrackerIssueInstruction(
 export function buildTrackerIssuePrompt(task: TrackerIssue, instruction = ""): string {
   const label = TRACKER_SOURCE_LABELS[task.source];
   const primaryKey = resolveTrackerIssuePrimaryKey(task);
-  const prompt = `Work on the locally approved tracker ticket ${primaryKey}. Use the attached ${label} retrieved context as task material.`;
+  const ticket = /^(?:[a-z][a-z0-9]*-\d+|#\d+)$/i.test(primaryKey)
+    ? `tracker ticket ${primaryKey}`
+    : "selected tracker ticket";
+  const prompt = `Work on the locally approved ${ticket}. Use the attached ${label} retrieved context as task material.`;
   return instruction.includes(LINKED_BUG_FIX_CHECK) ? prompt : `${prompt} ${LINKED_BUG_FIX_CHECK}`;
 }
 
@@ -164,37 +169,43 @@ function buildPreamble(label: string): string {
   ].join("\n");
 }
 
-export function buildTrackerIssueRetrievedContext(args: {
-  detail: TrackerIssueDetail;
-  instruction: string;
-  task?: TrackerIssue;
-}): CanonicalRetrievedContextPart {
+export function buildTrackerIssueRetrievedContext(args: (
+  | { detail: TrackerIssueDetail; task?: TrackerIssue }
+  | { detail: null; task: TrackerIssue }
+) & { instruction?: string }): CanonicalRetrievedContextPart {
   const { detail, instruction } = args;
-  const label = TRACKER_SOURCE_LABELS[detail.source];
+  const issue = detail ?? args.task;
+  const label = TRACKER_SOURCE_LABELS[issue.source];
+  // Keep tracker text on a single metadata line, or quoted line by line in
+  // the body, so it cannot introduce a section header in the provider prompt.
+  const singleLine = (text: string) => text.replace(/[\r\n\u2028\u2029]/g, " ");
+  const description = detail?.description.trim();
   const content = [
     buildPreamble(label),
     "",
-    `Ticket: ${detail.key}`,
-    `Title: ${detail.title}`,
-    `Status: ${detail.status.raw}`,
-    `Priority: ${detail.priority.raw ?? detail.priority.level}`,
-    `Source: ${detail.url}`,
-    `Updated: ${detail.updatedAt}`,
-    ...trackerIssuePullRequestLinks(args.task ?? detail, detail)
-      .filter((url) => !instruction.includes(url))
+    `Ticket: ${singleLine(issue.key)}`,
+    `Title: ${singleLine(issue.title)}`,
+    `Status: ${singleLine(issue.status.raw)}`,
+    `Priority: ${singleLine(issue.priority.raw ?? issue.priority.level)}`,
+    `Source: ${singleLine(issue.url)}`,
+    `Updated: ${issue.updatedAt}`,
+    ...trackerIssuePullRequestLinks(args.task ?? issue, detail)
+      .filter((url) => !instruction?.includes(url))
       .map((url) => `Linked PR: ${url}`),
-    "",
-    "Locally approved instruction:",
-    instruction,
+    ...(instruction === undefined ? [] : ["", "Locally approved instruction:", instruction]),
     "",
     "Ticket description:",
-    detail.description.trim() || "(No description provided.)",
+    ...(!detail
+      ? ["(Ticket detail unavailable. Only the issue summary and any links from the list are available.)"]
+      : description
+        ? description.split(/\r\n|[\r\n\u2028\u2029]/).map((line) => `> ${line}`)
+        : ["(No description provided.)"]),
   ].join("\n");
 
   return {
     type: "retrieved_context",
-    sourceId: `${detail.source}:${detail.key}`,
-    title: `${label} ${detail.key} · ${detail.title}`,
+    sourceId: `${issue.source}:${singleLine(issue.key)}`,
+    title: `${label} ${singleLine(issue.key)} · ${singleLine(issue.title)}`.slice(0, 500),
     content: clamp(content, CONTEXT_LIMIT, CONTEXT_TRUNCATION_MARKER),
   };
 }

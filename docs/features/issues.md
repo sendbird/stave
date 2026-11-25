@@ -85,6 +85,15 @@ Keys are ignored while you are typing in a field, and while the kickoff sheet is
 5. **How it starts** — *Start now* runs the turn immediately. *Stage prompt only* prepares the workspace and drops the prompt in the composer for you to send. To have an agent do it, use **Assign to agent** instead.
 6. For a Crane ticket, *Report progress to Crane* registers a Crane job so the ticket shows as running in Stave. It is available only when the run starts now, and only while the Crane connector is on.
 
+### Assign A Ticket To An Agent
+
+Choose **Assign to agent** from the list, board, or detail pane. In Kickoff,
+review or edit the instruction, pick an agent, and choose where it runs. Stave
+attaches the issue description, reported reproduction steps, and linked PRs
+to the new task as external reference material. The editable kickoff prompt
+contains your instructions. When Stave cannot read the detail, the task gets
+the issue summary, any PR links available in the list, and a note that detail was unavailable.
+
 ### Attach A Ticket To Work In Progress
 
 Right-click a row and choose **Attach to `<workspace>`**. The ticket is registered in that workspace's Information panel — a Crane ticket that mirrors a Jira issue is filed in both sections. Attaching the same ticket twice changes nothing.

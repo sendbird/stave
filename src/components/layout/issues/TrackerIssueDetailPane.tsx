@@ -143,7 +143,7 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
               ⋯
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onSelect={() => assignTrackerIssueToAgent(task, detail)}>
+              <DropdownMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
                 {tI18n("issues:trackerIssueDetailPane.assignToAgent")}</DropdownMenuItem>
               {link ? (
                 <DropdownMenuItem onSelect={() => props.onKickoff(key)}>

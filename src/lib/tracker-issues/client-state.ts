@@ -131,7 +131,7 @@ export function fetchTrackerIssueDetail(
   notifyPending();
   const request = getDetail({ source, taskRef })
     .then((result) => {
-      if (result?.ok && result.detail) {
+      if (result?.ok && result.detail?.source === source && result.detail.ref === taskRef) {
         applyTrackerIssueDetail(result.detail);
         return result.detail;
       }

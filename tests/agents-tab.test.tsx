@@ -130,7 +130,7 @@ describe("agent detail hierarchy", () => {
 });
 
 describe("start work entry points", () => {
-  test("an issue opens Kickoff with the ticket as the work source", async () => {
+  test("an issue opens Kickoff with a separate issue reference and editable instruction", async () => {
     const { assignTrackerIssueToAgent } = await import("../src/components/layout/issues/assign-issue-to-agent");
     const { useAgentsUiStore } = await import("@/store/agents-ui-store");
     assignTrackerIssueToAgent({
@@ -143,7 +143,9 @@ describe("start work entry points", () => {
     } as never);
     const request = useAgentsUiStore.getState().kickoffRequest;
     expect(request?.source).toBe("WEB-418");
-    expect(request?.text).toContain("Title: Export invoices as CSV");
+    expect(request?.trackerIssue).toMatchObject({ ref: "r1", title: "Export invoices as CSV" });
+    expect(request?.text).toContain("tracker ticket WEB-418");
+    expect(request?.text).not.toContain("Export invoices as CSV");
     useAgentsUiStore.getState().clearKickoffRequest();
   });
 

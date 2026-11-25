@@ -55,8 +55,11 @@ workspaces (see [Agent performance and task outputs](results.md)).
 ### Other ways to start work with an agent
 
 - **Issues**: a ticket's context menu, or the detail pane's ⋯ menu, has
-  **Assign to agent**. The ticket's key, title and link become the kickoff
-  source. The ticket's own assignee does not change.
+  **Assign to agent**. Review or edit the kickoff instruction. Stave reads
+  the issue detail when it creates the task and attaches the description,
+  reproduction steps, and linked PRs as reference material. If detail is
+  unavailable, the task receives the issue summary and any PR links available in the list.
+  The ticket's own assignee does not change.
 - **Composer**: type `!assign` in any task's composer, including a new one. The
   rest of the draft becomes the kickoff source. The agent works in its own task.
 - **Command palette**: **Assign to an agent…** opens the composer's selector

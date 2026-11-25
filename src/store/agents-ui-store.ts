@@ -1,3 +1,4 @@
+import type { TrackerIssue } from "@/lib/tracker-issues/types";
 import { create } from "zustand";
 
 /**
@@ -8,8 +9,10 @@ import { create } from "zustand";
  * even when the dialog is already open.
  */
 export interface KickoffAgentRequest {
-  /** Prefilled work source, e.g. an issue's key, title and link. */
+  /** Prefilled, editable work source. */
   text?: string;
+  /** Selected issue, used to retrieve source material separately from the prompt. */
+  trackerIssue?: TrackerIssue;
   /** Preselected agent; usable-as-main agents are offered otherwise. */
   agentConfigId?: string;
   /** Where the request came from, shown under the title. */
