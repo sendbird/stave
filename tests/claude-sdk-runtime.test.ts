@@ -1,4 +1,6 @@
 import { describe, expect, setSystemTime, test } from "bun:test";
+import path from "node:path";
+import type { PreToolUseHookInput, SubagentStartHookInput } from "@anthropic-ai/claude-agent-sdk";
 import {
   buildClaudeApprovalPermissionResult,
   buildClaudeApprovalTimeoutBridgeEvent,
@@ -7,7 +9,6 @@ import {
   consumeClaudeReadOnlyPromptStream,
   CLAUDE_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS,
   claudeAskUserQuestionPreToolUseHook,
-  claudeForegroundSubagentPreToolUseHook,
   claudeWebFetchAuthWallPostToolUseHook,
   claudeWebFetchAuthWallBrowserAttachedPostToolUseHook,
   ClaudeToolDecisionTimeoutError,
@@ -42,7 +43,7 @@ import {
 } from "../electron/providers/claude-browser-instructions";
 import { RESERVED_ENV_VAR_NAMES } from "../src/lib/secrets/secrets";
 import { WORKSPACE_SCRATCH_INSTRUCTION } from "../src/lib/workspace-scratch";
-import { claudeScratchSubagentPreToolUseHook } from "../electron/providers/claude-subagent-hooks";
+import { createClaudeSubagentPreToolUseHook } from "../electron/providers/claude-subagent-hooks";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { BridgeEvent } from "../electron/providers/types";
 import { replayProviderEventsToTaskState } from "../src/lib/session/provider-event-replay";
@@ -1514,7 +1515,7 @@ describe("resolveClaudeForegroundSubagentInput", () => {
   });
 });
 
-describe("claudeForegroundSubagentPreToolUseHook", () => {
+describe("createClaudeSubagentPreToolUseHook", () => {
   const signal = new AbortController().signal;
   const baseHookInput = {
     session_id: "session",
@@ -1523,14 +1524,14 @@ describe("claudeForegroundSubagentPreToolUseHook", () => {
   };
 
   test("returns updatedInput without a permissionDecision for Agent calls", async () => {
-    const output = await claudeForegroundSubagentPreToolUseHook(
+    const output = await createClaudeSubagentPreToolUseHook()(
       {
         ...baseHookInput,
         hook_event_name: "PreToolUse",
         tool_name: "Agent",
         tool_input: { prompt: "do work", run_in_background: true },
         tool_use_id: "toolu_1",
-      } as Parameters<typeof claudeForegroundSubagentPreToolUseHook>[0],
+      } as Parameters<ReturnType<typeof createClaudeSubagentPreToolUseHook>>[0],
       "toolu_1",
       { signal },
     );
@@ -1547,14 +1548,14 @@ describe("claudeForegroundSubagentPreToolUseHook", () => {
   });
 
   test("is a no-op for non-Agent tools", async () => {
-    const output = await claudeForegroundSubagentPreToolUseHook(
+    const output = await createClaudeSubagentPreToolUseHook()(
       {
         ...baseHookInput,
         hook_event_name: "PreToolUse",
         tool_name: "Bash",
         tool_input: { command: "bun run dev", run_in_background: true },
         tool_use_id: "toolu_2",
-      } as Parameters<typeof claudeForegroundSubagentPreToolUseHook>[0],
+      } as Parameters<ReturnType<typeof createClaudeSubagentPreToolUseHook>>[0],
       "toolu_2",
       { signal },
     );
@@ -1996,32 +1997,71 @@ describe("buildClaudeQueryOptions", () => {
     expect(options.env?.SAFE_SERVICE_TOKEN).toBe("placeholder-value");
   });
 
-  test("always registers the subagent PreToolUse hook; read-only turns get no scratch folder line", () => {
+  test("always registers the subagent hooks; auto mode never rewrites an Agent call; read-only turns get no scratch folder line", async () => {
+    const signal = new AbortController().signal;
+    const agentCall: PreToolUseHookInput = {
+      hook_event_name: "PreToolUse",
+      tool_name: "Agent",
+      tool_input: { description: "Research", prompt: "Read and report." },
+      tool_use_id: "toolu_1",
+      session_id: "session",
+      transcript_path: "/tmp/transcript",
+      cwd: workspaceRoot,
+    };
+    const subagentStart: SubagentStartHookInput = {
+      hook_event_name: "SubagentStart",
+      agent_id: "agent-1",
+      agent_type: "researcher",
+      session_id: "session",
+      transcript_path: "/tmp/transcript",
+      cwd: workspaceRoot,
+    };
+
     const options = buildClaudeQueryOptions({
       cwd: workspaceRoot,
       claudeExecutablePath: "",
     });
+    const preToolUse = options.hooks?.PreToolUse ?? [];
+    expect(preToolUse.map((entry) => entry.matcher)).toEqual(["^AskUserQuestion$", "^Agent$"]);
+    expect(preToolUse[0]?.hooks).toEqual([claudeAskUserQuestionPreToolUseHook]);
+    const agentHook = preToolUse[1]!.hooks[0]!;
+    expect(await agentHook({ ...agentCall, permission_mode: "acceptEdits" }, "toolu_1", { signal })).toEqual({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        updatedInput: { description: "Research", prompt: "Read and report.", run_in_background: false },
+      },
+    });
 
-    expect(options.hooks?.PreToolUse).toEqual([
-      {
-        matcher: "^AskUserQuestion$",
-        hooks: [claudeAskUserQuestionPreToolUseHook],
+    const auto = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      permissionMode: "auto",
+    });
+    const autoAgentHook = auto.hooks!.PreToolUse![1]!.hooks[0]!;
+    expect(await autoAgentHook(agentCall, "toolu_1", { signal })).toEqual({});
+
+    const startHook = auto.hooks!.SubagentStart![0]!.hooks[0]!;
+    const started = await startHook(subagentStart, undefined, { signal });
+    expect(started).toMatchObject({
+      hookSpecificOutput: {
+        hookEventName: "SubagentStart",
+        additionalContext: expect.stringContaining(path.join(workspaceRoot, ".stave", "scratch", "agents", "researcher-")),
       },
-      {
-        matcher: "^(Agent|Task)$",
-        hooks: [claudeScratchSubagentPreToolUseHook],
-      },
-    ]);
+    });
 
     const readOnly = buildClaudeQueryOptions({
       cwd: workspaceRoot,
       claudeExecutablePath: "",
       secondaryReadOnly: true,
     });
-    expect(readOnly.hooks?.PreToolUse?.[1]).toEqual({
-      matcher: "^(Agent|Task)$",
-      hooks: [claudeForegroundSubagentPreToolUseHook],
+    const readOnlyStarted = await readOnly.hooks!.SubagentStart![0]!.hooks[0]!(subagentStart, undefined, { signal });
+    expect(readOnlyStarted).toMatchObject({
+      hookSpecificOutput: {
+        hookEventName: "SubagentStart",
+        additionalContext: expect.stringContaining("run_in_background: false"),
+      },
     });
+    expect(JSON.stringify(readOnlyStarted)).not.toContain(".stave");
   });
 
   test("omits fallbackModel when it matches the primary model", () => {

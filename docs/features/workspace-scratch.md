@@ -63,8 +63,8 @@ Use **Expand preview** for more room. Images open in the zoomable viewer. Markdo
 
 ### Follow Sub-Agents
 
-1. Ask a Claude task to split the work across sub-agents. Stave adds one line to each sub-agent's brief that names its own folder, `.stave/scratch/agents/<id>/`, where `<id>` is a short form of the sub-agent's description plus a short hash.
-2. Codex has no way for Stave to change a sub-agent's brief, so the lead agent is asked to pass the same line on when it starts one with a short name it picks.
+1. Ask a Claude task to split the work across sub-agents. Stave gives each sub-agent its own folder, `.stave/scratch/agents/<id>/`, when it starts. The ID uses the agent type, such as `researcher`, and a short hash.
+2. For Codex tasks, the lead agent picks a short name and passes the folder path to the sub-agent when it starts one.
 3. Open **Scratch**. Each sub-agent's files are grouped under **Sub-agent <id>**.
 
 ### Send A File Back To The Agent
