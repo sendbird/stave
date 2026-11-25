@@ -84,7 +84,7 @@ for (const lang of ["en", "ko"] as const) {
       await expect(list.locator("li")).toHaveCount(6);
       const accountLabel = list.getByText(lang === "ko" ? "System default 계정에서 실행" : "on System default", { exact: true });
       await expect(accountLabel).toBeVisible();
-      const accountRow = accountLabel.locator("..");
+      const accountRow = list.getByRole("listitem").filter({ has: page.getByText(lang === "ko" ? "System default 계정에서 실행" : "on System default", { exact: true }) });
       await expect(accountRow).toHaveAttribute("data-subagent-kind", "delegated-task");
       expect(await accountRow.evaluate((node) => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
       const frame = page.getByTestId("task-panel-frame");
@@ -100,7 +100,7 @@ for (const lang of ["en", "ko"] as const) {
       for (const row of await list.locator("li").all()) {
         const glyph = (await row.locator("[data-exchange-status] [data-state] svg").first().boundingBox())!;
         const word = (await row.locator("[data-exchange-status] [data-state] > span").first().boundingBox())!;
-        const name = (await row.locator("div > span").first().boundingBox())!;
+        const name = (await row.locator("[data-subagent-title]").boundingBox())!;
         expect(Math.abs(glyph.y + glyph.height / 2 - (word.y + word.height / 2))).toBeLessThanOrEqual(1.5);
         expect(Math.abs(word.y + word.height / 2 - (name.y + name.height / 2))).toBeLessThanOrEqual(2);
       }

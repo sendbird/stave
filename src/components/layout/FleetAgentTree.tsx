@@ -1,3 +1,4 @@
+import { openExchangeProgress } from "@/components/agent-progress/open-agent-progress";
 import { TaskUnreadDot } from "@/components/session/TaskReadIndicator";
 import { revealFleetVirtualRow, useFleetRevealListener } from "./fleet-virtual-focus";
 import { fleetSelectionRowMarker } from "./fleet-selection.stylex";
@@ -24,7 +25,7 @@ import {
 import { FleetProviderIcon } from "@/components/layout/FleetWorkspaceCard";
 import { getToolIcon } from "@/components/session/message/tool-icon";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
-import { selectDelegationExchanges } from "@/lib/delegation/exchange";
+import { selectDelegationExchanges, type DelegationExchange } from "@/lib/delegation/exchange";
 import {
   buildMainAgent,
   buildSubagent,
@@ -162,12 +163,12 @@ function FleetAgentTreeBoard(props: {
   }
 
   const openChild = (agent: AgentFleetAgent) => {
-    const ref = children.refs.get(agent.id);
-    if (!openRow || !ref) return;
+    const ref = children.exchanges.get(agent.id)?.ref;
+    if (!openRow || !ref?.delegatedWorkspaceId || !ref.delegatedTaskId) return;
     props.onOpenTask({
       repositoryPath: openRow.repositoryPath,
-      workspaceId: ref.workspaceId,
-      taskId: ref.taskId,
+      workspaceId: ref.delegatedWorkspaceId,
+      taskId: ref.delegatedTaskId,
     });
   };
 
@@ -207,8 +208,10 @@ function FleetAgentTreeBoard(props: {
         </div>}
         open={openRow?.key ?? null}
         onOpenChange={(id) => setChosen(id)}
-        // A delegated task opens as its own task; an in-turn subagent shows its steps.
-        onSelect={openChild}
+        onSelect={(agent) => {
+          const exchange = children.exchanges.get(agent.id);
+          if (exchange && openRow) openExchangeProgress({ taskId: openRow.task.id, workspaceId: openRow.workspaceId, repositoryPath: openRow.repositoryPath, exchange });
+        }}
         onResolve={openChild}
         renderToolIcon={(tool) => getToolIcon(tool.id)}
         renderTreeActions={(agent) => {
@@ -264,8 +267,7 @@ interface OpenAgentChildren {
   agents: AgentFleetAgent[];
   loading: boolean;
   error: string | null;
-  /** Delegated tasks the user can open, by subagent id. */
-  refs: ReadonlyMap<string, { workspaceId: string; taskId: string }>;
+  exchanges: ReadonlyMap<string, DelegationExchange>;
 }
 
 /**
@@ -300,18 +302,11 @@ function useOpenAgentChildren(row: FleetTaskRow | null, nowMs: number): OpenAgen
       workGraph: graph,
       includeSubagents: true,
     });
-    const refs = new Map<string, { workspaceId: string; taskId: string }>();
-    for (const exchange of exchanges) {
-      const { delegatedWorkspaceId, delegatedTaskId } = exchange.ref;
-      if (exchange.kind === "delegated-task" && delegatedWorkspaceId && delegatedTaskId) {
-        refs.set(exchange.id, { workspaceId: delegatedWorkspaceId, taskId: delegatedTaskId });
-      }
-    }
     return {
       agents: exchanges.map((exchange) => buildSubagent(exchange, nowMs)),
       loading: listing.loading,
       error: listing.error,
-      refs,
+      exchanges: new Map(exchanges.map((exchange) => [exchange.id, exchange])),
     };
     // The subagents carry translated words; a language switch rebuilds them.
   }, [graph, listing.children, listing.error, listing.loading, notifications, nowMs, i18n.resolvedLanguage]);

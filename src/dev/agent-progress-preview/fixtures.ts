@@ -96,8 +96,8 @@ const DELEGATED_MESSAGES: ChatMessage[] = [
   { id: "m0", role: "user", model: "user", providerId: "user", content: "Make expired sessions log the user out and add a test for it.", parts: [{ type: "text", text: "Make expired sessions log the user out and add a test for it." }] },
   { id: "m1", role: "assistant", model: "gpt-6.1-sol", providerId: "codex", content: "", parts: [
     { type: "thinking", text: "Add the expiry check in middleware, then a test.", isStreaming: false },
-    { type: "tool_use", toolUseId: "c1", toolName: "bash", input: JSON.stringify({ command: "rg -n readSession src" }), state: "output-available", output: "src/auth/middleware.ts:14", elapsedSeconds: 0.4 },
-    { type: "tool_use", toolUseId: "c2", toolName: "fileChange", input: JSON.stringify({ paths: [`${CWD}/src/auth/middleware.ts`, `${CWD}/tests/auth.test.ts`] }), state: "output-available", output: "2 files changed" },
+    { type: "tool_use", toolUseId: "c1", toolName: "bash", input: JSON.stringify({ command: "rg -n readSession src" }), state: "output-available", output: "src/auth/middleware.ts:14", startedAt: new Date(NOW - 180_000).toISOString(), elapsedSeconds: 0.4 },
+    { type: "tool_use", toolUseId: "c2", toolName: "fileChange", input: JSON.stringify({ paths: [`${CWD}/src/auth/middleware.ts`, `${CWD}/tests/auth.test.ts`] }), state: "output-available", output: "2 files changed", startedAt: new Date(NOW - 179_800).toISOString(), completedAt: new Date(NOW - 179_200).toISOString() },
     { type: "text", text: "Added the check; running the auth tests." },
     { type: "tool_use", toolUseId: "c3", toolName: "bash", input: JSON.stringify({ command: "bun test tests/auth.test.ts" }), state: "output-available", output: "12 pass\n0 fail", elapsedSeconds: 6.2 },
     { type: "text", text: "Expired sessions now clear the cookie and redirect to `/login`. Added `tests/auth.test.ts` covering it; 12 tests pass." },

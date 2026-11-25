@@ -180,3 +180,67 @@ test("Activity opens the selected external transcript and returns focus to its c
   await panel.getByRole("button", { name: /close/i }).click();
   await expect(child).toBeFocused();
 });
+
+test("the timeline aligns overlapping measured steps and keeps untimed ones off the axis", async ({ page }) => {
+  await openPreview(page, { scenario: "finished" });
+  const panel = page.getByTestId("agent-progress-panel");
+  await panel.getByRole("tab", { name: "Timeline", exact: true }).click();
+  const timeline = panel.getByTestId("turn-trace-timeline");
+  const bars = timeline.locator("[data-trace-bar]");
+  await expect(bars).toHaveCount(2);
+  const [first, second] = await bars.evaluateAll((nodes) => nodes.map((node) => {
+    const { x, right } = node.getBoundingClientRect();
+    return { x, right };
+  }));
+  expect(second!.x).toBeGreaterThan(first!.x);
+  expect(second!.x).toBeLessThan(first!.right);
+  // The test command has a measured duration but no reported start.
+  await expect(panel.getByTestId("turn-trace-unreported")).toContainText("bun test tests/auth.test.ts");
+  await expect(timeline.locator("[data-trace-span-name]")).not.toContainText(["bun test tests/auth.test.ts"]);
+  const span = timeline.locator("[data-trace-span-name]").first();
+  await span.click();
+  await expect(span).toHaveAttribute("aria-pressed", "true");
+  await expect(panel.getByTestId("agent-step-list")).toContainText("readSession");
+  await span.click();
+  await expect(panel.getByTestId("agent-step-list")).toHaveCount(0);
+  const overflow = await timeline.evaluate((node) => node.scrollWidth - node.clientWidth);
+  expect(overflow).toBe(0);
+  await panel.getByRole("tab", { name: "List", exact: true }).click();
+  await expect(panel.getByTestId("agent-step-list")).toBeVisible();
+});
+
+test("a turn activity agent row keeps keyboard focus as it settles and opens that agent", async ({ page }) => {
+  await page.goto("/?stavePreview=composer-frame&case=running&placement=panel&open=1");
+  const activity = page.getByTestId("preview-task-panel");
+  await expect(activity).toBeVisible();
+  async function updateAgent(status: "running" | "completed") {
+    await page.evaluate(async (status) => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      const taskId = "preview-task";
+      const all = useAppStore.getState().providerTurnActivityByTask;
+      const turn = all[taskId];
+      const id = "trace-agent";
+      const now = Date.now();
+      const item = {
+        id, kind: "subagent", status, title: "Trace the checkout", toolUseId: "trace-agent-call",
+        detail: status === "running" ? "Reading checkout steps" : "Checkout verified",
+        progressMessages: [], startedAt: turn.startedAt, updatedAt: now,
+      };
+      useAppStore.setState({ providerTurnActivityByTask: { ...all, [taskId]: {
+        ...turn, lastEventAt: now, workItemsById: { [id]: item }, orderedWorkItemIds: [id],
+      } } });
+    }, status);
+  }
+
+  await updateAgent("running");
+  const row = activity.locator('[data-turn-activity-item-id="work:trace-agent"]');
+  await expect(row.locator('[data-agent-summary="line"]')).toBeVisible();
+  await row.focus();
+  await expect(row).toBeFocused();
+  await updateAgent("completed");
+  await expect(row).toContainText("Checkout verified");
+  await expect(row).toBeFocused();
+  await row.press("Enter");
+  await expect(page.getByTestId("agent-progress-panel")).toHaveAttribute("data-agent-source", "subagent");
+  await expect(page.getByTestId("agent-progress-panel")).toContainText("Trace the checkout");
+});

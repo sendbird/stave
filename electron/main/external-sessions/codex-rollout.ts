@@ -113,7 +113,7 @@ export class CodexRolloutState {
         this.feedEvent(payload);
         return;
       case "response_item":
-        this.feedItem(payload);
+        this.feedItem(payload, Number.isFinite(ts) ? ts : undefined);
         return;
       default:
         return;
@@ -148,7 +148,7 @@ export class CodexRolloutState {
     }
   }
 
-  private feedItem(payload: Record<string, unknown>) {
+  private feedItem(payload: Record<string, unknown>, ts: number | undefined) {
     switch (payload.type) {
       case "message":
         // The Codex app logs no `user_message` event: the first typed text,
@@ -167,25 +167,25 @@ export class CodexRolloutState {
         return;
       case "function_call_output":
       case "custom_tool_call_output":
-        this.progress.finish(payload.call_id, payload.status === "failed");
+        this.progress.finish(payload.call_id, payload.status === "failed", ts);
         return;
       case "function_call":
       case "custom_tool_call":
         this.steps += 1;
         this.action = describeCodexCall(str(payload.name) || "tool", payload.arguments ?? payload.input, this.cwd);
-        this.progress.tool(this.action, payload.call_id);
+        this.progress.tool(this.action, payload.call_id, ts);
         return;
       case "local_shell_call": {
         this.steps += 1;
         const action = payload.action as { command?: unknown } | undefined;
         this.action = describeCodexCall("local_shell", JSON.stringify({ command: action?.command ?? "" }), this.cwd);
-        this.progress.tool(this.action, payload.call_id);
+        this.progress.tool(this.action, payload.call_id, ts);
         return;
       }
       case "web_search_call":
         this.steps += 1;
         this.action = { verb: "webSearch" };
-        this.progress.tool(this.action, payload.id);
+        this.progress.tool(this.action, payload.id, ts);
         return;
       default:
         return;

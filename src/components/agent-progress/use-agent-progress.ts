@@ -27,6 +27,7 @@ import { useAppStore } from "@/store/app.store";
 import type { ToolUsePart } from "@/types/chat";
 import { revealInConversation, type AgentStepContext } from "./agent-progress-targets";
 import { useAgentHistory } from "./use-agent-history";
+import { stepsFromExchangeStages } from "@/lib/agent-progress/from-exchange";
 import { useTaskMessages } from "./use-task-messages";
 
 /** Everything the panel needs for one agent, read from the live stores. */
@@ -55,8 +56,8 @@ export function describeDelegatedWork(child: Pick<DelegatedTaskSummary, "delegat
 const useTaskTitle = (taskId: string | undefined) =>
   useAppStore((state) => (taskId ? state.tasks.find((task) => task.id === taskId)?.title : undefined));
 
-const useWorkspacePath = (workspaceId: string | undefined) =>
-  useAppStore((state) => (workspaceId ? state.workspacePathById[workspaceId] : undefined) ?? state.repositoryPath ?? undefined);
+const useWorkspacePath = (workspaceId: string | undefined, repositoryPath?: string) =>
+  useAppStore((state) => (workspaceId ? state.workspacePathById[workspaceId] : undefined) ?? repositoryPath ?? state.repositoryPath ?? undefined);
 
 /**
  * A task's own conversation as steps: a delegated task's or a review's. The
@@ -68,10 +69,11 @@ export function useChildTaskSteps(args: {
   workspaceId: string | undefined;
   live: boolean;
   providerId?: ProviderId;
+  repositoryPath?: string;
   settleKey?: string;
 }) {
   const messages = useTaskMessages({ taskId: args.taskId, workspaceId: args.workspaceId, refreshKey: args.settleKey });
-  const cwd = useWorkspacePath(messages.workspaceId);
+  const cwd = useWorkspacePath(messages.workspaceId, args.repositoryPath);
   const read = useMemo<AgentStepsResult>(
     () => stepsFromMessages(messages.messages, {
       live: args.live,
@@ -98,7 +100,7 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
     state.providerTurnActivityByTask[taskId]?.workGraph ?? state.retainedTurnActivityByTask[taskId]?.snapshot.workGraph ?? null,
   );
   const sessions = useAppStore((state) => state.providerSessionByTask[taskId]);
-  const cwd = useWorkspacePath(messages.workspaceId);
+  const cwd = useWorkspacePath(messages.workspaceId, target.repositoryPath);
   const parentTitle = useTaskTitle(taskId);
 
   const owner = useMemo(() => messages.messages.find((message) => message.parts.some((part) =>
@@ -130,8 +132,8 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
 
   const parsed = useMemo(() => (spawn ? parseSubagentToolInput({ input: spawn.input }) : null), [spawn]);
   const context = useMemo<AgentStepContext>(
-    () => ({ taskId, ...(messages.workspaceId ? { workspaceId: messages.workspaceId } : {}) }),
-    [taskId, messages.workspaceId],
+    () => ({ taskId, repositoryPath: target.repositoryPath, ...(messages.workspaceId ? { workspaceId: messages.workspaceId } : {}) }),
+    [taskId, messages.workspaceId, target.repositoryPath],
   );
   const read = useMemo<AgentStepsResult>(() => {
     if (history.items.length > 0) {
@@ -139,6 +141,7 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
     }
     const options = { live, ...(cwd ? { cwd } : {}), ...context, ...(providerId ? { providerId } : {}) };
     const steps = stepsFromSubagentParts({ messages: messages.messages, toolUseId: target.toolUseId ?? spawn?.toolUseId, agentId, ...options });
+    if (!steps.length && exchange?.timing.stages.length) return { steps: stepsFromExchangeStages(exchange) };
     const reported = steps.length === 0
       ? stepsFromProgressMessages(spawn?.progressMessages ?? exchange?.outcome.progress ?? [], target.toolUseId ?? agentId ?? "subagent")
       : [];
@@ -174,8 +177,8 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
 
   const toolUseId = target.toolUseId ?? spawn?.toolUseId;
   const onOpenParent = useCallback(() => {
-    void revealInConversation({ taskId, ...(messages.workspaceId ? { workspaceId: messages.workspaceId } : {}), ...(toolUseId ? { toolUseId } : {}) });
-  }, [taskId, messages.workspaceId, toolUseId]);
+    void revealInConversation({ taskId, repositoryPath: target.repositoryPath, ...(messages.workspaceId ? { workspaceId: messages.workspaceId } : {}), ...(toolUseId ? { toolUseId } : {}) });
+  }, [taskId, messages.workspaceId, toolUseId, target.repositoryPath]);
 
   const notice = history.error && history.items.length === 0
     ? i18n.t("session:agentProgress.panel.historyUnavailable", { detail: history.error })
@@ -199,7 +202,7 @@ export function useSubagentProgress(target: Extract<AgentProgressTarget, { kind:
  * with the Stop and Open task controls its row offers.
  */
 export function useDelegatedProgress(target: Extract<AgentProgressTarget, { kind: "delegated-task" }>): AgentProgressController {
-  const repositoryPath = useAppStore((state) => state.repositoryPath);
+  const repositoryPath = useAppStore((state) => target.repositoryPath ?? state.repositoryPath);
   const listing = useDelegatedTasks({
     parentTaskId: target.parentTaskId,
     parentWorkspaceId: target.parentWorkspaceId ?? null,
@@ -219,6 +222,7 @@ export function useDelegatedProgress(target: Extract<AgentProgressTarget, { kind
   const live = exchange ? isDelegationExchangeLive(exchange) : false;
   const steps = useChildTaskSteps({
     taskId: delegatedTaskId,
+    repositoryPath: target.repositoryPath,
     workspaceId: delegatedWorkspaceId,
     live,
     ...(child?.providerId ? { providerId: child.providerId } : {}),
@@ -242,12 +246,12 @@ export function useDelegatedProgress(target: Extract<AgentProgressTarget, { kind
   }, [exchange, child, childTitle, target.title, target.parentTaskId, steps.steps, steps.ask, steps.result, parentTitle, i18n.language]);
 
   const context = useMemo<AgentStepContext>(
-    () => ({ ...(delegatedTaskId ? { taskId: delegatedTaskId } : {}), ...(steps.workspaceId ? { workspaceId: steps.workspaceId } : {}) }),
-    [delegatedTaskId, steps.workspaceId],
+    () => ({ repositoryPath: repositoryPath ?? undefined, ...(delegatedTaskId ? { taskId: delegatedTaskId } : {}), ...(steps.workspaceId ? { workspaceId: steps.workspaceId } : {}) }),
+    [delegatedTaskId, steps.workspaceId, repositoryPath],
   );
   const onOpenParent = useCallback(() => {
-    void revealInConversation({ taskId: target.parentTaskId, ...(target.parentWorkspaceId ? { workspaceId: target.parentWorkspaceId } : {}) });
-  }, [target.parentTaskId, target.parentWorkspaceId]);
+    void revealInConversation({ taskId: target.parentTaskId, repositoryPath: target.repositoryPath, ...(target.parentWorkspaceId ? { workspaceId: target.parentWorkspaceId } : {}) });
+  }, [target.parentTaskId, target.parentWorkspaceId, target.repositoryPath]);
   const controls = child ? resolveDelegatedTaskControls(child) : null;
   const notice = !child && !listing.loading ? i18n.t("session:agentProgress.panel.notListed") : null;
   return {

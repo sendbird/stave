@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TerminalSquare } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
+import { AgentLine } from "@/components/aui/components/AgentSummary";
 import { StepRail } from "@/components/aui/components/StepRail";
 import { InlineDisclosureIcon } from "@/components/aui/components/inline-disclosure-icon";
 import { CollapsiblePanel, CollapsibleRoot, CollapsibleTrigger } from "@/components/aui/headless/collapsible";
@@ -46,8 +47,8 @@ export function TarsTimelineNow({ row, detail }: { row: TimelineRow; detail: Age
   return <section className={sx(liveStyles.now)} aria-label={t("shell:tars.side.timeline.now")} data-tars-timeline-now={live.freshness}>
     <h3 className={sx(styles.sectionTitle)}>{t("shell:tars.side.timeline.now")}</h3>
     <div className={sx(liveStyles.nowHead)}>
-      <TarsStateTag state={row.state} />
-      {stage ? <p className={sx(liveStyles.nowStage)} data-tars-timeline-now-stage={`${live.stage!.position}/${live.stage!.total}`}>{stage}</p> : null}
+      <AgentLine status={<TarsStateTag state={row.state} />}
+        title={stage ? <span className={sx(liveStyles.nowStage)} data-tars-timeline-now-stage={`${live.stage!.position}/${live.stage!.total}`}>{stage}</span> : row.title} />
     </div>
     <TarsLiveLine row={row} live={live} now={now} />
     {live.recent.length ? <TarsRecentProgress entries={live.recent} now={now} title />

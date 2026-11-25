@@ -1,7 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type {
   AgentFleetAgent,
-  AgentFleetStep,
 } from "@/components/aui/components/AgentFleet.model";
 import { WORK_STATE } from "@/components/aui/components/state-vocabulary";
 import {
@@ -240,31 +239,7 @@ export function buildMainAgent(row: FleetTaskRow, facts: FleetAgentFacts): Agent
   };
 }
 
-function exchangeSteps(exchange: DelegationExchange): AgentFleetStep[] {
-  const stages = exchange.timing.stages;
-  if (stages.length > 0) {
-    return stages.map((stage, index) => {
-      const next = stages[index + 1];
-      return {
-        id: `${exchange.id}:stage:${index}`,
-        title: stage.label,
-        ...(stage.detail ? { tool: stage.detail } : {}),
-        ...(next ? { tookMs: Math.max(0, next.at - stage.at) } : {}),
-      };
-    });
-  }
-  return (exchange.outcome.progress ?? []).map((title, index) => ({
-    id: `${exchange.id}:progress:${index}`,
-    title,
-  }));
-}
-
-/**
- * One delegation as a subagent. A delegated task opens as its own task, so
- * only an in-turn subagent lists its steps; the resolve shortcut ("Answer"
- * while it waits, "Open" after it failed) exists only where there is a task
- * to open.
- */
+/** Fleet cards carry a summary; the selected exchange supplies the full shared progress view. */
 export function buildSubagent(exchange: DelegationExchange, nowMs: number): AgentFleetAgent {
   const status = mapExchangeStatus(exchange);
   const live = isDelegationExchangeLive(exchange);
@@ -281,7 +256,6 @@ export function buildSubagent(exchange: DelegationExchange, nowMs: number): Agen
     exchange.ask === standIn
       ? undefined
       : (exchange.ask.split("\n").find((line) => line.trim())?.trim() ?? exchange.ask);
-  const steps = delegated ? [] : exchangeSteps(exchange);
   const resolveLabel = !delegated
     ? undefined
     : status.status === "waiting"
@@ -293,7 +267,7 @@ export function buildSubagent(exchange: DelegationExchange, nowMs: number): Agen
     id: exchange.id,
     name: exchange.title,
     model: describeAgentIdentity(exchange.identity).text,
-    ...(firstLine ? { task: firstLine } : {}),
+    ...(exchange.outcome.progress?.at(-1) || firstLine ? { task: exchange.outcome.progress?.at(-1) || firstLine } : {}),
     ...status,
     ...(typeof cost === "number" && Number.isFinite(cost) ? { cost } : {}),
     ...(live && exchange.timing.observed !== false && exchange.timing.startedAt !== null
@@ -301,7 +275,7 @@ export function buildSubagent(exchange: DelegationExchange, nowMs: number): Agen
       : elapsedMs !== null
         ? { elapsedMs }
         : {}),
-    ...(steps.length > 0 ? { steps } : {}),
+
     ...(status.status === "waiting" ? { ask: exchange.ask } : {}),
     ...(exchange.outcome.error ? { error: exchange.outcome.error } : {}),
     ...(resolveLabel ? { resolveLabel } : {}),

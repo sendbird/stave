@@ -1,3 +1,4 @@
+import { AgentCard } from "@/components/aui/components/AgentSummary";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { RotateCcw } from "lucide-react";
@@ -13,7 +14,8 @@ import { useNow } from "@/components/agent-runs/useAgentRun";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { ActionButton } from "@/components/system/ActionButton";
 import { RelativeTime } from "@/components/system/RelativeTime";
-import { formatDuration, formatNumber } from "@/i18n/format";
+import { formatAgentFacts } from "@/lib/agent-progress/facts";
+import { formatNumber } from "@/i18n/format";
 import type { I18nKey } from "@/i18n/runtime";
 import {
   isDelegationExchangeLive,
@@ -323,6 +325,13 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
   );
   const now = props.nowMs ?? clock;
   const elapsedMs = resolveExchangeElapsedMs(exchange, now);
+  const facts = formatAgentFacts({ facts: {
+    model: exchange.identity.model,
+    effort: exchange.identity.effort,
+    elapsedMs: elapsedMs ?? undefined,
+    spend: exchange.outcome.spend,
+    steps: 0,
+  } }, { nowMs: now, live });
   const needsUser = subagentNeedsUser(exchange);
   const workState = subagentWorkState(exchange);
   const status = describeExchangeStatus(exchange.outcome.status);
@@ -336,26 +345,30 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
       data-subagent-state={workState}
       data-needs-user={needsUser ? "true" : undefined}
     >
-      <div className={sx(styles.head)}>
-        <span className={sx(styles.who)}>{item.who}</span>
-        <span className={sx(styles.status)} data-exchange-status={exchange.outcome.status}>
-          <StateMark state={workState} size="xs" showLabel label={status.label} motion={live ? "moving" : "still"} />
-          {elapsedMs === null ? null : (
-            <span className={sx(styles.elapsed)}>{` · ${formatDuration(elapsedMs)}`}</span>
-          )}
-        </span>
-        {endedAt !== undefined ? (
-          <span className={sx(styles.when)}>
-            <RelativeTime date={endedAt} now={new Date(now)} past />
+      <AgentCard
+        title={<span className={sx(styles.who)} data-subagent-title>{item.who}</span>}
+        status={
+          <span className={sx(styles.status)} data-exchange-status={exchange.outcome.status}>
+            <StateMark state={workState} size="xs" showLabel label={status.label} motion={live ? "moving" : "still"} />
           </span>
-        ) : null}
-      </div>
-      {item.what !== item.who ? <p className={sx(styles.what)}>{item.what}</p> : null}
-      {item.accountLabel ? (
-        <p className={sx(styles.what)}>{i18n.t("session:subagentsSection.onAccount", { account: item.accountLabel })}</p>
-      ) : null}
-      {exchange.outcome.progress?.at(-1) ? <p className={sx(styles.what)}>{exchange.outcome.progress.at(-1)}</p> : null}
-      {subagentResultLine(exchange) ? <p className={sx(styles.what)} title={error ?? result}>{subagentResultLine(exchange)}</p> : null}
+        }
+        activity={
+          <>
+            {item.what !== item.who ? <p className={sx(styles.what)}>{item.what}</p> : null}
+            {exchange.outcome.progress?.at(-1) ? <p className={sx(styles.what)}>{exchange.outcome.progress.at(-1)}</p> : null}
+            {subagentResultLine(exchange) ? <p className={sx(styles.what)} title={error ?? result}>{subagentResultLine(exchange)}</p> : null}
+          </>
+        }
+        facts={
+          <>
+            {facts.map((fact) => <span key={fact.key} data-fact={fact.key}>{fact.text}</span>)}
+            {endedAt !== undefined ? (
+              <span className={sx(styles.when)}><RelativeTime date={endedAt} now={new Date(now)} past /></span>
+            ) : null}
+            {item.accountLabel ? <span>{i18n.t("session:subagentsSection.onAccount", { account: item.accountLabel })}</span> : null}
+          </>
+        }
+      />
       {(error ?? result) && !live ? (
         <details
           className={sx(styles.answer)}
@@ -453,12 +466,6 @@ const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: vars["--aui-color-border-subtle"],
   },
-  head: {
-    display: "flex",
-    alignItems: "center",
-    gap: vars["--aui-space-8"],
-    minWidth: 0,
-  },
   who: {
     flex: 1,
     minWidth: 0,
@@ -476,11 +483,6 @@ const styles = stylex.create({
     fontSize: vars["--aui-font-size-caption"],
     minWidth: 0,
     whiteSpace: "nowrap",
-  },
-  elapsed: {
-    color: vars["--aui-color-text-muted"],
-    fontVariantNumeric: "tabular-nums",
-    whiteSpace: "pre",
   },
   when: {
     flexShrink: 0,

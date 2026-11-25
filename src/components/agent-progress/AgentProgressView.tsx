@@ -16,6 +16,7 @@ import {
   type AgentProgress,
   type AgentStep,
 } from "@/lib/agent-progress";
+import { AgentProgressTimeline } from "./AgentProgressTimeline";
 import { AgentStepList } from "./AgentStepList";
 import { agentProgressStyles as s } from "./agent-progress.styles";
 import { useFollowBottom } from "./use-follow-bottom";
@@ -73,7 +74,7 @@ function FactRow(props: { progress: AgentProgress; nowMs: number; live: boolean;
   );
 }
 
-function ProgressBody(props: AgentProgressViewProps & { live: boolean }) {
+function ProgressBody(props: AgentProgressViewProps & { live: boolean; nowMs: number }) {
   useTranslation();
   const { progress } = props;
   const follow = useFollowBottom({ steps: progress.steps, live: props.live, resetKey: progress.id });
@@ -103,7 +104,14 @@ function ProgressBody(props: AgentProgressViewProps & { live: boolean }) {
             ) : null}
             {props.notice ? <p role="status" className={sx(s.muted)}>{props.notice}</p> : null}
             {progress.steps.length > 0 ? (
-              <AgentStepList steps={progress.steps} onOpenChild={props.onOpenChild} />
+              <Tabs
+                key={progress.id}
+                aria-label={i18n.t("session:agentProgress.panel.steps")}
+                options={[
+                  { value: "list", label: i18n.t("session:agentProgress.panel.list"), content: <AgentStepList steps={progress.steps} onOpenChild={props.onOpenChild} /> },
+                  { value: "timeline", label: i18n.t("session:agentProgress.panel.timeline"), content: <AgentProgressTimeline progress={progress} nowMs={props.nowMs} onOpenChild={props.onOpenChild} /> },
+                ]}
+              />
             ) : (
               <p role="status" className={sx(s.muted)}>
                 {props.loading ? i18n.t("session:agentProgress.panel.loading") : i18n.t("session:agentProgress.panel.noSteps")}
@@ -147,7 +155,7 @@ export function AgentProgressView(props: AgentProgressViewProps) {
   const nowMs = useNow(live, 1_000);
   const stateLabel = WORK_STATE[progress.state].label;
   const nowStep = live ? progress.now : undefined;
-  const body = <ProgressBody {...props} live={live} />;
+  const body = <ProgressBody {...props} live={live} nowMs={nowMs} />;
   return (
     <div className={sx(s.root)} data-testid="agent-progress-panel" data-agent-state={progress.state} data-agent-source={progress.source}>
       <RightRailPanelHeader

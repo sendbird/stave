@@ -1,3 +1,4 @@
+import { AgentLine } from "@/components/aui/components/AgentSummary";
 import { openExchangeProgress, openSubagentCallProgress, openWorkGraphAgentProgress } from "@/components/agent-progress/open-agent-progress";
 import { i18n, useTranslation } from "@/i18n";
 import { ActivityDetailDialog, type ActivityDetailSelection } from "./ActivityDetailDialog";
@@ -1557,67 +1558,69 @@ export const TurnActivityRow = memo(function TurnActivityRow({
     showStartOffset && item.startOffsetSeconds != null
       ? formatStartOffsetSeconds(item.startOffsetSeconds)
       : null;
-  const body = (
-    <>
-      <span className={sx(styles.rowStatusSlot)}>
-        <TurnActivityStatusIcon status={item.status} iconKey={item.iconKey} />
+  const statusMark = (
+    <span className={sx(styles.rowStatusSlot)}>
+      <TurnActivityStatusIcon status={item.status} iconKey={item.iconKey} />
+    </span>
+  );
+  const heading = (
+    <p
+      className={sx(
+        styles.rowTitleLine,
+        expandCopy && styles.rowTitleLineExpanded,
+        isCompleted && styles.rowTitleLineDone,
+      )}
+    >
+      <span
+        className={sx(styles.rowTitle, expandCopy && styles.rowTitleExpanded)}
+      >
+        {item.title}
       </span>
-      <div className={sx(styles.rowBody)}>
-        <p
+      {item.badge ? (
+        <Badge variant="outline" className={sx(styles.rowBadge)}>
+          {item.badge}
+        </Badge>
+      ) : null}
+    </p>
+  );
+  const description = detail || providerDetail ? (
+    // Docked keeps both halves on one ellipsized line. The panel wraps
+    // them so a long path or command stays readable. They stay
+    // typographically distinct: the provider half is monospaced, dimmer,
+    // and fenced off by a hairline rule.
+    <p
+      className={sx(
+        styles.rowDetailLine,
+        expandCopy && styles.rowDetailLineExpanded,
+      )}
+    >
+      {detail ? (
+        <span
           className={sx(
-            styles.rowTitleLine,
-            expandCopy && styles.rowTitleLineExpanded,
-            isCompleted && styles.rowTitleLineDone,
+            styles.rowDetail,
+            expandCopy && styles.rowDetailExpanded,
           )}
         >
-          <span
-            className={sx(styles.rowTitle, expandCopy && styles.rowTitleExpanded)}
-          >
-            {item.title}
-          </span>
-          {item.badge ? (
-            <Badge variant="outline" className={sx(styles.rowBadge)}>
-              {item.badge}
-            </Badge>
-          ) : null}
-        </p>
-        {detail || providerDetail ? (
-          // Docked keeps both halves on one ellipsized line. The panel wraps
-          // them so a long path or command stays readable. They stay
-          // typographically distinct: the provider half is monospaced, dimmer,
-          // and fenced off by a hairline rule.
-          <p
-            className={sx(
-              styles.rowDetailLine,
-              expandCopy && styles.rowDetailLineExpanded,
-            )}
-          >
-            {detail ? (
-              <span
-                className={sx(
-                  styles.rowDetail,
-                  expandCopy && styles.rowDetailExpanded,
-                )}
-              >
-                {detail}
-              </span>
-            ) : null}
-            {detail && providerDetail ? (
-              <span aria-hidden className={sx(styles.rowDetailRule)} />
-            ) : null}
-            {providerDetail ? (
-              <span
-                className={sx(
-                  styles.rowProviderDetail,
-                  expandCopy && styles.rowProviderDetailExpanded,
-                )}
-              >
-                {providerDetail}
-              </span>
-            ) : null}
-          </p>
-        ) : null}
-      </div>
+          {detail}
+        </span>
+      ) : null}
+      {detail && providerDetail ? (
+        <span aria-hidden className={sx(styles.rowDetailRule)} />
+      ) : null}
+      {providerDetail ? (
+        <span
+          className={sx(
+            styles.rowProviderDetail,
+            expandCopy && styles.rowProviderDetailExpanded,
+          )}
+        >
+          {providerDetail}
+        </span>
+      ) : null}
+    </p>
+  ) : null;
+  const timing = (
+    <>
       {startOffsetLabel ? (
         <span className={sx(styles.rowStartOffset)}>
           <VisuallyHidden>{i18n.t("session:turnActivity.sentence53", { value1: startOffsetLabel })}</VisuallyHidden>
@@ -1634,6 +1637,15 @@ export const TurnActivityRow = memo(function TurnActivityRow({
           </span>
         </span>
       ) : null}
+    </>
+  );
+  const body = item.iconKey === "subagent" ? (
+    <AgentLine stacked status={statusMark} title={heading} activity={description} facts={timing} />
+  ) : (
+    <>
+      {statusMark}
+      <div className={sx(styles.rowBody)}>{heading}{description}</div>
+      {timing}
     </>
   );
   if (!handler) {

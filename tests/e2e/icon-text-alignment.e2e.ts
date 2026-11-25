@@ -181,3 +181,23 @@ test("palette icons center on titles with subtitles and context badges", async (
   expect(Math.abs(await firstLineDelta(row, "svg", '[class*="itemTitle "]'))).toBeLessThanOrEqual(0.5);
   await expect(row.getByText("Active task", { exact: true })).toBeVisible();
 });
+
+test("external agent cards keep long titles, actions and facts inside narrow and wide columns", async ({ page }) => {
+  for (const [lang, theme, width] of [["ko", "dark", 320], ["en", "light", 760]] as const) {
+    await page.goto(`/?stavePreview=activity&lang=${lang}&theme=${theme}&width=${width}`);
+    const card = page.locator('[data-external-session="claude-1"] > [data-agent-summary="card"]');
+    await expect(card).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    const geometry = await card.evaluate((node) => {
+      const bounds = node.getBoundingClientRect();
+      const title = node.querySelector("h4")!.parentElement!;
+      const action = node.querySelector("button")!.getBoundingClientRect();
+      const facts = node.querySelector("p")!.getBoundingClientRect();
+      return { width: node.clientWidth, content: node.scrollWidth, fitsButton: action.right <= bounds.right + 1,
+        fitsFacts: facts.right <= bounds.right + 1, titleHeight: title.clientHeight, line: Number.parseFloat(getComputedStyle(title).lineHeight) };
+    });
+    expect(geometry.content).toBeLessThanOrEqual(geometry.width + 1);
+    expect(geometry.fitsButton && geometry.fitsFacts).toBe(true);
+    expect(geometry.titleHeight).toBeLessThanOrEqual(2 * geometry.line + 1);
+  }
+});

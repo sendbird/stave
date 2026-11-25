@@ -71,7 +71,10 @@ export type ExternalAction = z.infer<typeof ExternalActionSchema>;
 export const EXTERNAL_PROGRESS_LIMIT = 32;
 const ExternalProgressEntrySchema = z.discriminatedUnion("kind", [
   z.object({ id: z.number(), kind: z.enum(["user", "text"]), text: z.string().max(400) }),
-  z.object({ id: z.number(), kind: z.literal("tool"), action: ExternalActionSchema, status: z.enum(["called", "done", "error"]) }),
+  z.object({
+    id: z.number(), kind: z.literal("tool"), action: ExternalActionSchema, status: z.enum(["called", "done", "error"]),
+    startedAt: z.number().optional(), durationMs: z.number().nonnegative().optional(),
+  }),
 ]);
 export type ExternalProgressEntry = z.infer<typeof ExternalProgressEntrySchema>;
 const RecentProgressSchema = z.array(ExternalProgressEntrySchema).max(EXTERNAL_PROGRESS_LIMIT).optional();

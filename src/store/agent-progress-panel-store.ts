@@ -1,3 +1,5 @@
+import type { CompareRunVariant } from "@/lib/compare-runs";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { create } from "zustand";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -11,8 +13,11 @@ import { useAppStore } from "./app.store";
  * only fills in while the source is not listed (yet, or any more).
  */
 export type AgentProgressTarget =
+  | { kind: "compare-candidate"; runId: string; variantId: string; snapshot: CompareRunVariant; title: string }
+  | { kind: "tars"; runId: string; snapshot: AgentRunDetail; title: string }
   | {
       kind: "delegated-task";
+      repositoryPath?: string;
       /** The task that delegated it. */
       parentTaskId: string;
       parentWorkspaceId?: string;
@@ -33,6 +38,7 @@ export type AgentProgressTarget =
     }
   | {
       kind: "subagent";
+      repositoryPath?: string;
       /** The task whose conversation holds the spawning call. */
       parentTaskId: string;
       parentWorkspaceId?: string;
@@ -47,6 +53,10 @@ export type AgentProgressTarget =
 /** One key per agent, so reopening the same agent keeps its place. */
 export function agentProgressTargetKey(target: AgentProgressTarget): string {
   switch (target.kind) {
+    case "compare-candidate":
+      return JSON.stringify([target.kind, target.runId, target.variantId]);
+    case "tars":
+      return JSON.stringify([target.kind, target.runId]);
     case "delegated-task":
       return `delegated-task:${target.parentTaskId}:${target.delegationKey}:${target.delegatedTaskId ?? ""}`;
     case "review":

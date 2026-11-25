@@ -55,11 +55,9 @@ function toolStatus(part: ToolUsePart, live: boolean): AgentStepStatus {
 function toolTiming(part: ToolUsePart) {
   const startedAt = parseMs(part.startedAt);
   const completedAt = parseMs(part.completedAt);
-  const durationMs = part.elapsedSeconds != null
-    ? part.elapsedSeconds * 1000
-    : startedAt !== undefined && completedAt !== undefined && completedAt >= startedAt
-      ? completedAt - startedAt
-      : undefined;
+  const durationMs = startedAt !== undefined && completedAt !== undefined && completedAt >= startedAt
+    ? completedAt - startedAt
+    : part.elapsedSeconds != null && part.elapsedSeconds >= 0 ? part.elapsedSeconds * 1000 : undefined;
   return {
     ...(startedAt !== undefined ? { startedAt } : {}),
     ...(durationMs !== undefined ? { durationMs } : {}),
@@ -125,7 +123,13 @@ function stepsFromAssistantMessage(
     switch (entry.kind) {
       case "reasoning": {
         const text = joinReasoningText(entry.parts);
-        if (text.trim()) steps.push(thinkingStep({ id: key(entry.id), text, running: live && entry.isStreaming }));
+        // A single recorded pass has its own bounds. Merged reasoning parts
+        // do not prove the agent was reasoning continuously between them.
+        const pass = entry.parts.length === 1 ? entry.parts[0] : undefined;
+        const startedAt = parseMs(pass?.startedAt);
+        const end = parseMs(pass?.completedAt);
+        const durationMs = startedAt !== undefined && end !== undefined && end > startedAt ? end - startedAt : undefined;
+        if (text.trim()) steps.push(thinkingStep({ id: key(entry.id), text, startedAt, durationMs, running: live && entry.isStreaming }));
         break;
       }
       case "assistant_text": {

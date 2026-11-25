@@ -1,3 +1,4 @@
+import { AgentLine } from "@/components/aui/components/AgentSummary";
 import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import {
@@ -100,74 +101,82 @@ function ReviewLine(props: {
       data-testid="composer-shelf-review"
       data-status={item.status}
     >
-      <span className={sx(styles.mark)}>
-        <span className={sx(styles.markSlot)}>
-          <ReviewMark item={item} />
-        </span>
-      </span>
-      <p className={sx(styles.text)} title={`${line.label} · ${line.detail}`}>
-        <span className={sx(styles.label, TONE_INK[line.tone])}>{line.label}</span>
-        <span>{` · ${line.detail}`}</span>
-        {revisionNote ? <span className={sx(styles.labelWaiting)} title={revisionNote}> · {reviewRevisionLabel(revision)}</span> : null}
-      </p>
-      <span className={sx(styles.actions)}>
-        {item.status === "ready" ? (
-          props.attached ? (
-            <span className={sx(styles.meta, styles.metaWithIcon)} title={i18n.t("composer:shelfReviews.title4")}>
-              <Check aria-hidden className={sx(styles.markIcon)} />
-              <span>{i18n.t("composer:shelfReviews.reviewLine")}</span>
+      <AgentLine
+        status={
+          <span className={sx(styles.mark)}>
+            <span className={sx(styles.markSlot)}>
+              <ReviewMark item={item} />
             </span>
-          ) : (
+          </span>
+        }
+        title={
+          <span className={sx(styles.text)} title={`${line.label} · ${line.detail}`}>
+            <span className={sx(styles.label, TONE_INK[line.tone])}>{line.label}</span>
+            <span>{` · ${line.detail}`}</span>
+            {revisionNote ? <span className={sx(styles.labelWaiting)} title={revisionNote}> · {reviewRevisionLabel(revision)}</span> : null}
+          </span>
+        }
+        actions={
+          <span className={sx(styles.actions)}>
+            {item.status === "ready" ? (
+              props.attached ? (
+                <span className={sx(styles.meta, styles.metaWithIcon)} title={i18n.t("composer:shelfReviews.title4")}>
+                  <Check aria-hidden className={sx(styles.markIcon)} />
+                  <span>{i18n.t("composer:shelfReviews.reviewLine")}</span>
+                </span>
+              ) : (
+                <Button
+                  variant="quiet"
+                  size="xs"
+                  title={i18n.t("composer:shelfReviews.title5")}
+                  onClick={() => actions.attach(item)}
+                  xstyle={styles.itemAccent}
+                >
+                  <Paperclip aria-hidden />
+                  <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine2")}</span>
+                </Button>
+              )
+            ) : null}
             <Button
               variant="quiet"
               size="xs"
-              title={i18n.t("composer:shelfReviews.title5")}
-              onClick={() => actions.attach(item)}
-              xstyle={styles.itemAccent}
-            >
-              <Paperclip aria-hidden />
-              <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine2")}</span>
-            </Button>
-          )
-        ) : null}
-        <Button
-          variant="quiet"
-          size="xs"
-          title={i18n.t("composer:shelfReviews.title6")}
-          onClick={() => props.onView(item)}
-          xstyle={styles.quiet}
-        >
-          <PanelRight aria-hidden />
-          <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine3")}</span>
-        </Button>
-        {item.status === "running" ? (
-          <Tooltip content={i18n.t("composer:shelfReviews.title7")}>
-            <Button
-              variant="quiet"
-              size="xs"
-              iconOnly
-              aria-label={i18n.t("composer:shelfReviews.ariaLabel2")}
-              onClick={() => actions.stop(item)}
+              title={i18n.t("composer:shelfReviews.title6")}
+              onClick={() => props.onView(item)}
               xstyle={styles.quiet}
             >
-              <Square aria-hidden />
+              <PanelRight aria-hidden />
+              <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine3")}</span>
             </Button>
-          </Tooltip>
-        ) : (
-          <Tooltip content={i18n.t("composer:shelfReviews.title8")}>
-            <Button
-              variant="quiet"
-              size="xs"
-              iconOnly
-              aria-label={i18n.t("composer:shelfReviews.ariaLabel3")}
-              onClick={() => actions.dismiss(item)}
-              xstyle={styles.quiet}
-            >
-              <X aria-hidden />
-            </Button>
-          </Tooltip>
-        )}
-      </span>
+            {item.status === "running" ? (
+              <Tooltip content={i18n.t("composer:shelfReviews.title7")}>
+                <Button
+                  variant="quiet"
+                  size="xs"
+                  iconOnly
+                  aria-label={i18n.t("composer:shelfReviews.ariaLabel2")}
+                  onClick={() => actions.stop(item)}
+                  xstyle={styles.quiet}
+                >
+                  <Square aria-hidden />
+                </Button>
+              </Tooltip>
+            ) : (
+              <Tooltip content={i18n.t("composer:shelfReviews.title8")}>
+                <Button
+                  variant="quiet"
+                  size="xs"
+                  iconOnly
+                  aria-label={i18n.t("composer:shelfReviews.ariaLabel3")}
+                  onClick={() => actions.dismiss(item)}
+                  xstyle={styles.quiet}
+                >
+                  <X aria-hidden />
+                </Button>
+              </Tooltip>
+            )}
+          </span>
+        }
+      />
     </div>
   );
 }

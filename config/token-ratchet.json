@@ -730,7 +730,7 @@
       "icon-metric": 6
     },
     "src/components/session/delegated-task-rows.styles.ts": {
-      "tracking": 2
+      "tracking": 1
     },
     "src/components/session/provider-model-picker.styles.ts": {
       "control-metric": 1

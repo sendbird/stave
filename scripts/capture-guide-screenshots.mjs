@@ -645,6 +645,16 @@ const SHOTS = [
     },
   },
   {
+    name: "agent-progress-timeline",
+    async capture({ page, locale, file, t }) {
+      await openPreview(page, locale, "agent-progress&scenario=finished&theme=dark");
+      const panel = page.getByTestId("agent-progress-panel");
+      await panel.getByRole("tab", { name: await t("session:agentProgress.panel.timeline") }).click();
+      await settle(page);
+      await save(page, panel.getByRole("region", { name: await t("session:agentProgress.panel.steps"), exact: true }), file, { padding: 8 });
+    },
+  },
+  {
     name: "subagent-results",
     async capture({ page, locale, file }) {
       await openPreview(page, locale, "agent-messages");

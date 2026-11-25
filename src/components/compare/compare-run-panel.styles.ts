@@ -676,6 +676,7 @@ export const compareRunPanelStyles = stylex.create({
     marginTop: vars["--aui-space-8"],
   },
   variantFooter: {
+    flexWrap: "wrap",
     alignItems: "center",
     backgroundColor: vars["--aui-color-canvas"],
     borderTopColor: vars["--aui-color-border"],
