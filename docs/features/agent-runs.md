@@ -112,6 +112,9 @@ with its report. A delegated task that stops for your answer or a blocked
 stage keeps the run waiting: open it from **Subagents** and answer or retry
 it there.
 
+Reviewer traces a changed value to its caller and checks the guards on that path.
+For design rationale, Researcher looks for the original decision in a commit or discussion.
+
 For goals with separate parts, assign **Lead**, which splits the work across
 agents and checks each result before it reports. Lead and Supervisor write
 each helper's brief deeper, not bigger: the problem in the field's precise

@@ -18,7 +18,7 @@
 1. With a saved record, switch the composer to another provider. The composer
    shelf's switch line says the record goes first; choose **What it receives**
    for the details.
-2. Send. The provider reads the record, then the conversation excerpt.
+2. Send. The provider reads the record, then the conversation excerpt. It checks which source state earlier results cover and starts with the first outstanding action.
 
 ## Files And Data
 

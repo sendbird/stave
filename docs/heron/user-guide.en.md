@@ -371,7 +371,7 @@ The Information panel, task context and the latest turn summary are attached to 
 - **Side question**: the **Side question** icon (a speech bubble with a question mark) beside Attach in the composer, `/aside`, or Cmd/Ctrl+K then Q. The answer is read-only and never added to the task. Claude and Codex only.
 - **Conversation width**: **Settings > Chat > Layout > Conversation width** picks **Narrow**, **Default** or **Wide** for the messages and the message box in tasks and Tars. Each choice widens in steps as the conversation area gets wider, and a narrow area uses its full width. Code blocks keep to the message column and scroll sideways inside it; only a table whose columns need more room grows past the column, centred on it.
 - **Welcome back**: after you have been away for more than 15 minutes, a card in the conversation, right after the last message you had seen, lists what waits on you, each turn that finished and the last decision, one action each. **Got it** folds it into a one-line divider at the same place; click the divider to open it again.
-- **Handoff**: the Task panel no longer has a Handoff tab. A handoff record saved earlier is kept, and a provider still receives it first when it starts on or returns to the task.
+- **Handoff**: the Task panel no longer has a Handoff tab. A handoff record saved earlier is kept, and a provider still receives it first when it starts on or returns to the task. The provider checks which source state earlier results cover and starts with the first outstanding action.
 - **Enhance prompt**: the wand icon in the composer rewrites your request. In **Settings > Models > Background AI > Prompt enhancement > Rewrite depth**, **Clarify** (the default) improves wording and structure. **Sharpen** keeps the same scope and adds how to investigate and verify the work. The **Prompt enhanced** toast offers **Undo** and **View changes**, which shows removed words struck through and added words underlined, with **Keep** and **Revert to original**.
 - **Context meter**: in the composer, shows how full the conversation is and the tokens left. For Claude, **Composition** lists what fills it (system prompt, tools, MCP tools, memory files, skills and an estimated conversation); other providers report only the total. **Compact context** shortens a long conversation. Wide composers show used / limit tokens; narrow composers show the percentage. During compaction, the notice shows elapsed time when known; inactive restored messages stop counting.
 - **Macros**: in the composer toolbar, opens your saved macros with a search over name, `!slug` and description.
@@ -461,7 +461,7 @@ Polisher captures the defect, fixes it and records the visible result there.
 When Lead or Supervisor delegates work, the brief names the problem, the
 evidence to start from and how the helper can verify the result. An AI
 planning stage defines acceptance criteria that a test, command, rendered
-page or real run can check.
+page or real run can check. Reviewer traces a changed value to its caller. For design rationale, Researcher looks for the decision in the original commit or discussion.
 By default a change to files gets an independent review, with a fix stage
 for findings. The Run checks the assignment's completion criteria at the end.
 Only an AI stage followed by another AI stage may leave criteria it adds for
