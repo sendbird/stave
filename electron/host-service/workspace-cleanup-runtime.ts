@@ -54,6 +54,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     blockers: async (target) => (await list(false, false, target)).rows.find(row => row.id === target.id)?.blockers ?? null,
     archive: (target, verify) => act({ action: "archive", ...target }, true, verify),
     recentlyFailed: (repositoryPath, workspaceId) => saved().automaticFailureAt?.[failureKey(repositoryPath, workspaceId)] !== undefined,
+    restoredByUser: (repositoryPath, workspaceId) => saved().userRestoredAt?.[failureKey(repositoryPath, workspaceId)] !== undefined,
   });
   const mergedAtByWorkspace = new Map<string, number>();
   const prSavedTips = new Set<string>();
@@ -91,6 +92,13 @@ export function createWorkspaceCleanupRuntime(ports: {
   function remember(result: WorkspaceCleanupResult, repositoryPath: string, automatic: boolean) {
     const state = saved();
     if (automatic && !result.ok) state.automaticFailureAt![failureKey(repositoryPath, result.workspaceId)] = now();
+    // A restore the user asked for outlasts the delegated-child sweep until the workspace is archived again.
+    if (result.ok && (result.action === "restore" || result.action === "archive")) {
+      const restored = { ...state.userRestoredAt };
+      if (result.action === "restore" && !automatic) restored[failureKey(repositoryPath, result.workspaceId)] = now();
+      else delete restored[failureKey(repositoryPath, result.workspaceId)];
+      state.userRestoredAt = restored;
+    }
     state.recent = [{ ...result, repositoryPath, at: new Date(now()).toISOString(), automatic }, ...state.recent].slice(0, 200);
     if (stateReadable) ports.store().writeWorkspaceCleanupState(state);
   }
@@ -247,9 +255,10 @@ export function createWorkspaceCleanupRuntime(ports: {
    * `verify`, for an automatic archive only, replaces the `unpushedCommits`
    * blocker with the caller's own rule and runs again once the workspace's
    * execution is stopped (`delegated-workspace-cleanup.ts`); a non-null result
-   * refuses the archive with that reason.
+   * refuses the archive with that reason. `guard` runs at the same point
+   * without replacing any blocker; a non-null result refuses the action.
    */
-  async function perform(input: WorkspaceCleanupActArgs, automatic = false, verify?: () => Promise<string | null>): Promise<WorkspaceCleanupResult> {
+  async function perform(input: WorkspaceCleanupActArgs, automatic = false, verify?: () => Promise<string | null>, guard?: () => Promise<string | null>): Promise<WorkspaceCleanupResult> {
     const args = WorkspaceCleanupActArgsSchema.parse(input);
     const verified = automatic && args.action === "archive" && verify !== undefined;
     let result: WorkspaceCleanupResult = { ok: false, workspaceId: args.workspaceId, action: args.action, reason: null };
@@ -377,13 +386,15 @@ export function createWorkspaceCleanupRuntime(ports: {
           if (!preserveLocalWork && willSave(row) && !willSave(fresh)) throw new Error("savedChangesUnavailable");
           const freshBlockers = remainingBlockers(fresh, fresh.blockers);
           if (freshBlockers.length) throw new Error(freshBlockers.join(","));
-          const refused = verified ? await verify!() : null;
+          const refused = verified ? await verify!() : guard ? await guard() : null;
           if (refused) throw new Error(refused);
           const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath)!;
           const linked = repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)) || ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree;
           const linkedSymlinkNames = linked ? await listWorkspaceShelfLinks(row.repositoryPath, row.path) : [];
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
-          const checkArchiveFiles = preserveLocalWork && !keepWorktree && !linked && existsSync(row.path);
+          // An automatic archive has no one to confirm a loss, so it also refuses
+          // changes Git hides from status and an unfinished merge or rebase.
+          const checkArchiveFiles = (preserveLocalWork || (automatic && args.action === "archive")) && !keepWorktree && !linked && existsSync(row.path);
           if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path);
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
@@ -493,8 +504,8 @@ export function createWorkspaceCleanupRuntime(ports: {
     }
     return result;
   }
-  function act(args: WorkspaceCleanupActArgs, automatic = false, verify?: () => Promise<string | null>) {
-    const pending = actionChain.then(() => perform(args, automatic, verify));
+  function act(args: WorkspaceCleanupActArgs, automatic = false, verify?: () => Promise<string | null>, guard?: () => Promise<string | null>) {
+    const pending = actionChain.then(() => perform(args, automatic, verify, guard));
     actionChain = pending.then(() => {}, () => {});
     return pending;
   }
@@ -523,7 +534,10 @@ export function createWorkspaceCleanupRuntime(ports: {
           || (policy.maximum.enabled && (activeByRepo.get(row.repositoryPath) ?? 0) > policy.maximum.value && age >= 1));
         const remove = row.archived && !row.keptWorktree && policy.archived.enabled && age >= policy.archived.value && existsSync(row.path);
         if (!archive && !remove) continue;
-        const result = await act({ action: archive ? "archive" : "removeWorktree", workspaceId: row.id, repositoryPath: row.repositoryPath }, true);
+        // A delegated child the delegation still holds is left to its own rules, checked again with execution stopped.
+        const held = archive ? () => Promise.resolve(delegated.held(row.id, row.repositoryPath)) : undefined;
+        if (held && await held()) continue;
+        const result = await act({ action: archive ? "archive" : "removeWorktree", workspaceId: row.id, repositoryPath: row.repositoryPath }, true, undefined, held);
         results.push(result);
         if (result.ok && archive) activeByRepo.set(row.repositoryPath, (activeByRepo.get(row.repositoryPath) ?? 1) - 1);
       }

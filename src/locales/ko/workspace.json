@@ -1512,6 +1512,7 @@
       "subagentHasNested": "다른 하위 에이전트 워크스페이스가 이 아래에 있습니다",
       "subagentChangedFiles": "커밋하지 않았거나 추적하지 않는 파일이 있습니다",
       "subagentUniqueCommits": "상위 워크스페이스나 기본 브랜치에 없는 커밋이 있습니다",
+      "subagentRestored": "직접 복원했습니다. 다 쓰면 직접 보관해 주세요",
       "subagentChecksUnavailable": "워크트리를 확인하지 못했습니다"
     },
     "subagentRow": "{{parent}}의 하위 에이전트 워크스페이스",

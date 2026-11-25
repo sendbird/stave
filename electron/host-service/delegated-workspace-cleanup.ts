@@ -14,6 +14,8 @@
  *   ignore;
  * - its HEAD and branch have no commit that is unreachable from the parent
  *   workspace's HEAD and from the default branch;
+ * - the user did not restore it from Clean up workspaces after an archive;
+ *   a restored child stays until the user archives it again;
  * - the archive's own blockers allow it (current workspace, running turn,
  *   open terminal, pending attention, ownership and the rest).
  * The rules are checked again inside the archive, while the workspace's
@@ -21,6 +23,10 @@
  * the archive can be restored from Clean up workspaces. A workspace failing
  * any rule is never removed automatically: Clean up workspaces lists it with
  * the reasons (`annotate`).
+ *
+ * The optional inactivity, maximum and merged-PR policies never archive a
+ * child the delegation still holds (`held`): one still working, retryable,
+ * with an answer the parent has not received, or with children of its own.
  *
  * Used by: `workspace-cleanup-runtime.ts`, wired in `electron/host-service.ts`.
  */
@@ -39,12 +45,15 @@ export type DelegatedChildKeepReason =
   | "subagentHasNested"
   | "subagentChangedFiles"
   | "subagentUniqueCommits"
+  | "subagentRestored"
   | "subagentChecksUnavailable";
 
 export interface DelegatedChildCleanupInput {
   phase: DelegatedWorkspaceLink["phase"];
   answerOwed: boolean;
   hasNestedChildren: boolean;
+  /** Restored by the user from Clean up workspaces since its last archive. */
+  restoredByUser: boolean;
   childPath: string;
   childBranch: string;
   /** The parent workspace's checkout; null when it cannot be found. */
@@ -104,6 +113,7 @@ export async function evaluateDelegatedChildCleanup(git: DelegatedChildGit, inpu
   const kept: DelegatedChildKeepReason[] = [];
   if (input.answerOwed) kept.push("subagentResultPending");
   if (input.hasNestedChildren) kept.push("subagentHasNested");
+  if (input.restoredByUser) kept.push("subagentRestored");
   if (!input.childPath || !existsSync(input.childPath)) {
     kept.push("subagentChecksUnavailable");
     return { eligible: false, kept };
@@ -148,6 +158,8 @@ export function createDelegatedWorkspaceCleanup(ports: {
   archive: (target: { workspaceId: string; repositoryPath: string }, verify: () => Promise<string | null>) => Promise<WorkspaceCleanupResult>;
   /** An automatic action on this workspace failed recently; do not retry it yet. */
   recentlyFailed: (repositoryPath: string, workspaceId: string) => boolean;
+  /** The user restored this workspace from Clean up workspaces since it was last archived. */
+  restoredByUser?: (repositoryPath: string, workspaceId: string) => boolean;
   delayMs?: number;
 }) {
   function candidates(): DelegatedChildCandidate[] {
@@ -170,6 +182,7 @@ export function createDelegatedWorkspaceCleanup(ports: {
             phase: link.phase,
             answerOwed: store.delegatedAnswers.hasOwedAnswer(link.runId),
             hasNestedChildren: nestedParents.has(link.childWorkspaceId),
+            restoredByUser: ports.restoredByUser?.(repository.repositoryPath, link.childWorkspaceId) ?? false,
             childPath: repository.workspacePathById[link.childWorkspaceId] ?? "",
             childBranch: repository.workspaceBranchById[link.childWorkspaceId] ?? "",
             parentPath: repository.workspacePathById[link.parentWorkspaceId] ?? null,
@@ -202,6 +215,23 @@ export function createDelegatedWorkspaceCleanup(ports: {
     if (!candidate) return "ownershipChanged";
     const decision = await evaluateDelegatedChildCleanup(ports.git, candidate.input);
     return decision.eligible ? null : decision.kept.join(",");
+  }
+
+  /**
+   * What keeps a delegated child from the optional cleanup policies, read
+   * fresh; null for a workspace no delegation holds. Git state is left to the
+   * archive's own blockers there.
+   */
+  function held(workspaceId: string, repositoryPath: string): string | null {
+    const candidate = candidates().find((item) => item.link.childWorkspaceId === workspaceId && item.repositoryPath === repositoryPath);
+    if (!candidate) return null;
+    const { input } = candidate;
+    const reasons: DelegatedChildKeepReason[] = [];
+    if (ACTIVE.has(input.phase)) reasons.push("subagentActive");
+    if (RETRYABLE.has(input.phase)) reasons.push("subagentRetryable");
+    if (input.answerOwed) reasons.push("subagentResultPending");
+    if (input.hasNestedChildren) reasons.push("subagentHasNested");
+    return reasons.length ? reasons.join(",") : null;
   }
 
   let sweeping: Promise<WorkspaceCleanupResult[]> | null = null;
@@ -244,5 +274,5 @@ export function createDelegatedWorkspaceCleanup(ports: {
     timer.unref?.();
   }
 
-  return { annotate, sweep, schedule, recheck };
+  return { annotate, sweep, schedule, recheck, held };
 }

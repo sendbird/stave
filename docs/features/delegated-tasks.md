@@ -507,13 +507,18 @@ action, only when all of these hold:
    and a pending, running or waiting one is still working.
 2. Every answer the child produced has been carried by a parent turn.
 3. No other delegated workspace is nested under it.
-4. Its worktree has no uncommitted or untracked files that Git does not ignore.
+4. Its worktree has no uncommitted or untracked files that Git does not
+   ignore, no tracked file Git hides from status (`assume-unchanged` or
+   `skip-worktree`) with an edit, and no unfinished merge, rebase, cherry-pick,
+   revert or bisect.
 5. Its HEAD and branch have no commit unreachable from both the parent
    workspace's HEAD and the default branch. This replaces the ordinary
    automatic archive's unpushed-commit check, since those commits are kept by
    the parent's branch or the default branch.
 6. The archive's other blockers allow it (current workspace, running turn,
    open terminal, pending attention, ownership and the rest).
+7. The user did not restore it from **Clean up workspaces** since it was last
+   archived. A restored child stays until the user archives it again.
 
 The rules are checked again inside the archive while the workspace's execution
 is stopped. A sweep runs after a parent turn carries answers, after a
@@ -522,6 +527,11 @@ workspace that fails a rule is never removed automatically: **Clean up
 workspaces** shows it as "Subagent workspace of <parent>" with what kept it.
 Branches are never deleted; restore an automatic archive from **Recent
 cleanup**.
+
+The optional inactivity, maximum and merged-PR cleanup policies also leave a
+child the delegation still holds: one still working, one that can be retried,
+one with an answer no parent turn carried yet, and one with workspaces nested
+under it. That check runs again inside the archive.
 
 ## Troubleshooting
 

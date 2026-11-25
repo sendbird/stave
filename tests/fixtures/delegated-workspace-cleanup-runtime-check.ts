@@ -70,7 +70,8 @@ async function main() {
     store = new SqliteStore({ dbPath, runMaintenance: false });
     assert.deepEqual(store.delegatedAnswers.listWorkspaceLinks().map(link => [link.childWorkspaceId, link.parentWorkspaceId]), [["ws-child", "ws-parent"]]);
 
-    const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => false,
+    let clock = Date.parse("2027-01-01T00:00:00.000Z");
+    const runtime = createWorkspaceCleanupRuntime({ store: () => store, hasTerminals: () => false, now: () => clock,
       git: async (cwd, args) => {
         calls.push(args);
         try { return { ok: true, code: 0, stdout: execFileSync("git", args, { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }), stderr: "" }; }
@@ -81,6 +82,20 @@ async function main() {
     // Still running: kept.
     assert.deepEqual(await runtime.sweepDelegatedChildren(), []);
     assert.deepEqual(await kept(), ["subagentActive"]);
+    // The optional inactivity policy leaves a child its delegation still holds,
+    // even one with nothing unpushed that the policy would otherwise archive.
+    const remote = join(root, "remote.git");
+    git(root, "init", "--bare", "-b", "main", remote);
+    git(repo, "remote", "add", "origin", remote);
+    git(child, "push", "-u", "origin", "subagent-key");
+    runtime.configure({ merged: { enabled: false, value: 1 }, inactive: { enabled: true, value: 1 }, archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 } });
+    const policyRun = (await runtime.runNow()).results;
+    assert.deepEqual(policyRun.filter(result => result.workspaceId === "ws-child"), []);
+    assert.equal(existsSync(child), true, "The inactivity policy does not archive a running child");
+    // The released workspace is an ordinary one now, so the same policy archives it; bring it back.
+    assert.deepEqual(policyRun.filter(result => result.workspaceId === "ws-released").map(result => result.ok), [true]);
+    assert.equal((await runtime.act({ action: "restore", workspaceId: "ws-released", repositoryPath: repo })).ok, true);
+    runtime.configure({ merged: { enabled: false, value: 1 }, inactive: { enabled: false, value: 30 }, archived: { enabled: false, value: 30 }, maximum: { enabled: false, value: 10 } });
 
     // Finished with an answer the parent has not received, and a commit of its own.
     writeFileSync(join(child, "result.txt"), "result");
@@ -107,6 +122,18 @@ async function main() {
     assert.deepEqual(await kept(), ["subagentChangedFiles"]);
     rmSync(join(child, "notes.md"));
 
+    // A tracked file Git hides from status is still found before the worktree goes.
+    git(child, "update-index", "--assume-unchanged", "result.txt");
+    writeFileSync(join(child, "result.txt"), "edited while hidden");
+    assert.equal(git(child, "status", "--porcelain").trim(), "", "Git status does not show the hidden edit");
+    const hidden = await runtime.sweepDelegatedChildren();
+    assert.deepEqual(hidden.map(result => [result.workspaceId, result.ok, result.reason]), [["ws-child", false, "hiddenChanges"]]);
+    assert.equal(existsSync(child), true, "The hidden edit is kept");
+    git(child, "update-index", "--no-assume-unchanged", "result.txt");
+    writeFileSync(join(child, "result.txt"), "result");
+    // A failed automatic archive is not retried for a day.
+    clock += 2 * 86_400_000;
+
     // Every rule holds: archived through the ordinary archive, the branch kept.
     const results = await runtime.sweepDelegatedChildren();
     assert.deepEqual(results.map(result => [result.workspaceId, result.action, result.ok, result.reason]), [["ws-child", "archive", true, null]]);
@@ -117,6 +144,17 @@ async function main() {
     assert.deepEqual(store.delegatedAnswers.listWorkspaceLinks(), [], "An archived child no longer nests");
     // The released workspace was never a candidate.
     assert.equal(existsSync(released), true);
+    // Restored by the user: it nests again, and the sweep leaves it until the user archives it.
+    const restored = await runtime.act({ action: "restore", workspaceId: "ws-child", repositoryPath: repo });
+    assert.equal(restored.ok, true, String(restored.reason));
+    assert.equal(existsSync(child), true);
+    assert.deepEqual(await runtime.sweepDelegatedChildren(), []);
+    assert.deepEqual(await kept(), ["subagentRestored"]);
+    assert.equal(existsSync(child), true, "A restored child is not archived again automatically");
+    const archivedAgain = await runtime.act({ action: "archive", workspaceId: "ws-child", repositoryPath: repo, preserveLocalWork: true });
+    assert.equal(archivedAgain.ok, true, String(archivedAgain.reason));
+    const holds = Object.keys((store.readWorkspaceCleanupState() as { userRestoredAt?: Record<string, number> } | null)?.userRestoredAt ?? {});
+    assert.deepEqual(holds, [JSON.stringify([repo, "ws-released"])], "Archiving again ends the child's restore hold");
     assert.deepEqual(calls.flat().filter(arg => arg === "--force" || arg === "-f" || arg === "-D"), []);
     store.close();
   } finally {

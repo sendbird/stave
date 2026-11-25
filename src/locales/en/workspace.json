@@ -1549,6 +1549,7 @@
       "subagentHasNested": "Another subagent workspace is nested under it",
       "subagentChangedFiles": "Uncommitted or untracked files",
       "subagentUniqueCommits": "Commits that are not in the parent workspace or the default branch",
+      "subagentRestored": "Restored by you; archive it yourself when done",
       "subagentChecksUnavailable": "Could not check the worktree"
     },
     "subagentRow": "Subagent workspace of {{parent}}",

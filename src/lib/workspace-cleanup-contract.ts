@@ -51,6 +51,8 @@ export type WorkspaceCleanupResult = z.infer<typeof WorkspaceCleanupResultSchema
 export const WorkspaceCleanupRecentSchema = WorkspaceCleanupResultSchema.extend({ at: z.string(), repositoryPath: Id, automatic: z.boolean() }).strict();
 export const WorkspaceCleanupStateSchema = z.object({
   automaticFailureAt: z.record(z.string(), z.number()).optional(),
+  /** Workspaces the user restored since their last archive; the delegated-child sweep leaves them alone. */
+  userRestoredAt: z.record(z.string(), z.number()).optional(),
   policy: WorkspaceCleanupPolicySchema.strip().extend({ merged: CleanupRuleSchema.strip(), inactive: CleanupRuleSchema.strip(), archived: CleanupRuleSchema.strip(), maximum: CleanupRuleSchema.strip() }), recent: z.array(WorkspaceCleanupRecentSchema.strip()).max(200), lastRun: z.number(),
 }).strip();
 /**
