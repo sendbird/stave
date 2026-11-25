@@ -167,10 +167,11 @@ Each row shows blockers such as uncommitted changes, a running turn or an
 open terminal. `preview.dirty` reports changes Git sees, excluding Stave's
 managed dependency link for registered workspaces. `preview.branchMerge` uses
 the local default branch. Pull request status is reported separately for
-registered branches that can be checked. A missing or failed check may show
-`null` or `unknown`. A partial disk measurement is a lower bound. Stave skips
-measuring the project's main checkout. Results describe the time of inspection
-and can change as work continues.
+registered branches that can be checked. A merged PR counts as merge evidence
+only when its head commit matches the current local branch tip. A missing or
+failed check may show `null` or `unknown`. A partial disk measurement is a
+lower bound. Stave skips measuring the project's main checkout. Results
+describe the time of inspection and can change as work continues.
 
 ### Automatic cleanup
 

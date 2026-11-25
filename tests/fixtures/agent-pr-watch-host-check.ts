@@ -26,7 +26,8 @@ async function main() {
     git(repository, "init", "-b", "main"); git(repository, "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "--allow-empty", "-m", "test: initial");
     const checkout = join(root, "child"); git(repository, "worktree", "add", "-b", "child", checkout);
     const state = { repo: { owner: "example", name: "repo", defaultBranch: "main" }, viewer: "me" };
-    const gh = createFakeGh(root, { ...state, prs: [fakePr({ number: 17, headRefName: "child", baseRefName: "main", createdAt: "2026-11-17T00:00:30Z" }, state)] });
+    const headRefOid = git(checkout, "rev-parse", "HEAD").toString().trim();
+    const gh = createFakeGh(root, { ...state, prs: [fakePr({ number: 17, headRefName: "child", headRefOid, baseRefName: "main", createdAt: "2026-11-17T00:00:30Z" }, state)] });
     store = new SqliteStore({ dbPath: join(root, "state.sqlite"), runMaintenance: false });
     store.saveRepositoryRegistry({ repositories: [{ repositoryPath: repository, repositoryName: "Fixture", lastOpenedAt: "2026-01-01", defaultBranch: "main", workspaces: [{ id: "base", name: "Base", updatedAt: "2026-01-01" }, { id: "child", name: "Child", updatedAt: "2026-01-01" }], activeWorkspaceId: "base", workspacePathById: { base: repository, child: checkout }, workspaceBranchById: { base: "main", child: "child" }, workspaceDefaultById: { base: true, child: false } }] });
     store.upsertWorkspace({ id: "child", name: "Child", snapshot: { activeTaskId: "task", tasks: [{ id: "task", title: "Task", provider: "codex", updatedAt: "2026-01-01", unread: false }], messagesByTask: {} } });

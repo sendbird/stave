@@ -200,7 +200,7 @@ export function createWorkspaceCleanupRuntime(ports: {
     if (responsibilities.length && !responsibilityCleanupBlocker(responsibilities, row.id)) reasons.push("responsibilityEnded");
     // Publishing work is protected until the host reads the current PR state.
     if ((preview && row.branch && !blockers.includes("defaultWorkspace")) || checkPr || responsibilities.some(work => work.publication?.state === "opened")) {
-      const status = await pr({ cwd: linked ? row.path : row.repositoryPath, target: row.branch });
+      const status = await pr({ cwd: linked ? row.path : row.repositoryPath, target: row.branch, requireMatchingBranchTip: true });
       if (preview) {
         if (status.ok) {
           const state = status.pr?.state;

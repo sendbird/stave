@@ -408,8 +408,13 @@ export async function fetchGitHubPrStatus(args: {
   repository?: string;
   /** Workspace UI can discover PRs published under a differently named upstream. */
   includeTrackedBranch?: boolean;
+  /** For cleanup, `target` names a local branch and a merged PR must match its tip. */
+  requireMatchingBranchTip?: boolean;
   runCommand?: ScmCommandRunner;
 }) {
+  if (args.requireMatchingBranchTip && !args.target) {
+    return { ok: false, pr: null, stderr: "A cleanup pull request lookup needs a local branch name." };
+  }
   if (args.repository && !args.target) {
     // The branch lookup below only knows the checkout's repository.
     return { ok: false, pr: null, stderr: "A pull request in another repository needs its number." };
@@ -518,6 +523,21 @@ export async function fetchGitHubPrStatus(args: {
     pr = parseGitHubPrPayload(JSON.parse(result.stdout));
   } catch {
     return { ok: false, pr: null, stderr: "Failed to parse PR status JSON." };
+  }
+
+  if (args.requireMatchingBranchTip && args.target && pr.state === "MERGED") {
+    if (pr.headRefName !== args.target) return { ok: true, pr: null, stderr: "" };
+    const head = pr.headRefOid;
+    if (!head || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(head)) {
+      return { ok: false, pr: null, stderr: "The merged pull request head is unavailable." };
+    }
+    const tip = await run({
+      command: "git",
+      commandArgs: ["rev-parse", "--verify", "--quiet", `refs/heads/${args.target}^{commit}`],
+      cwd: args.cwd,
+    });
+    if (!tip.ok) return { ok: false, pr: null, stderr: "The local branch tip is unavailable." };
+    if (tip.stdout.trim().toLowerCase() !== head.toLowerCase()) return { ok: true, pr: null, stderr: "" };
   }
 
   if (!args.target && pr.state !== "OPEN" && pr.headRefOid) {

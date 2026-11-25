@@ -1487,8 +1487,9 @@ saved artifacts as local-only and omits their app-specific URI.
 For a read-only preview, ask the agent to preview worktree cleanup without
 taking action. It can use `stave_list_workspace_cleanup` with `preview: true`
 to report disk use, branch and pull request merge status, uncommitted changes
-and in-use blockers. An unknown status stays unknown, and a partial size is a
-lower bound. The preview changes no worktrees, files or branches.
+and in-use blockers. A merged PR counts only when its head commit matches the
+current local branch tip. An unknown status stays unknown, and a partial size
+is a lower bound. The preview changes no worktrees, files or branches.
 
 Open **Clean up workspaces** from the command palette, a repository menu or
 the Fleet header. Review all repositories, suggested workspaces and branches,
