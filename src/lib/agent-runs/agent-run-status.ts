@@ -27,6 +27,7 @@ import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWor
 import { type AgentRunBadgeTone, type StageState } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
 import { activeMsAt } from "./active-time";
+import { revisionsMatch } from "./verification-contract";
 
 export { extractRunAssignment };
 
@@ -437,11 +438,29 @@ export function describeDoneWhen(detail: AgentRunDetail): AgentRunDoneWhenLine[]
  * command or label.
  */
 export function describeStaveChecks(detail: AgentRunDetail): string[] {
-  const names = reportOf(detail)
-    .evidence.filter(isVerifiedEvidence)
-    .map((evidence) => (evidence.scriptId ?? evidence.command ?? evidence.label).trim())
-    .filter((name) => name.length > 0);
-  return [...new Set(names)];
+  const reported = reportOf(detail);
+  const completed = detail.agentRun.state === "completed" && (!reported.report || reported.record?.status === "completed")
+    ? completedStages(detail) : [];
+  const final = completed.at(-1)?.record.facts?.workspaceRevision;
+  const evidence = completed.length ? completed.flatMap(({ record }, index) => {
+    // Earlier checks count only if they still apply to the final workspace.
+    if (index !== completed.length - 1 && !revisionsMatch(record.facts?.workspaceRevision, final)) return [];
+    const report = record.report?.outcome === "complete" ? record.report : null;
+    const action = record.facts?.action;
+    return [
+      ...classifyStageEvidence(report, record.facts),
+      ...(action?.type === "run-script"
+        ? [{ ...describeActionEvidence(action, record.facts), scriptId: action.scriptId }] : []),
+    ];
+  }) : reported.evidence;
+  const passed = new Set<string>();
+  for (const item of evidence) {
+    const name = (item.scriptId ?? item.command ?? item.label).trim();
+    if (!name) continue;
+    if (isVerifiedEvidence(item)) passed.add(name);
+    else if (item.outcome === "failed" || item.scriptId) passed.delete(name);
+  }
+  return [...passed];
 }
 
 export interface AgentRunChanges {
@@ -450,9 +469,16 @@ export interface AgentRunChanges {
   deletions: number;
 }
 
+function latestChangeRecord(detail: AgentRunDetail) {
+  if (detail.agentRun.state === "completed") {
+    return completedStages(detail).findLast(({ record }) => (record.facts?.diff?.filesChanged ?? 0) > 0)?.record;
+  }
+  return reportOf(detail).record;
+}
+
 /** The work tree's change since the run's turns began, as Stave counted it. */
 export function describeAgentRunChanges(detail: AgentRunDetail): AgentRunChanges | null {
-  const diff = reportOf(detail).record?.facts?.diff;
+  const diff = latestChangeRecord(detail)?.facts?.diff;
   return diff && diff.filesChanged > 0
     ? { files: diff.filesChanged, insertions: diff.insertions, deletions: diff.deletions }
     : null;
@@ -464,7 +490,7 @@ export function describeAgentRunChanges(detail: AgentRunDetail): AgentRunChanges
  * diff from.
  */
 export function agentRunChangesStage(detail: AgentRunDetail): { agentRunId: string; stageId: string; attempt: number } | null {
-  const { record } = reportOf(detail);
+  const record = latestChangeRecord(detail);
   return record?.facts?.diff && record.startHeadSha
     ? { agentRunId: detail.agentRun.id, stageId: record.stageId, attempt: record.attempt }
     : null;
@@ -498,8 +524,27 @@ export interface AgentRunResult {
   staveChecks: string[];
   changes: AgentRunChanges | null;
   pullRequest: AgentRunPullRequestLink | null;
-  summary: string | null;
+  summaries: Array<{ stageId: string; title: string; text: string; reviewVerdict?: "passed" | "changes-requested" }>;
   spent: string | null;
+}
+
+/** A skipped repair after a re-review must not hide the repair that ran. */
+function completedStages(detail: AgentRunDetail) {
+  const completed = detail.stages.filter((record) => record.status === "completed");
+  return detail.agentRun.workflow.stages.flatMap((stage) => {
+    const record = latestStageRecord(completed, stage.id);
+    return record ? [{ stage, record }] : [];
+  }).sort((a, b) => (a.record.endedAt ?? "").localeCompare(b.record.endedAt ?? ""));
+}
+
+function describeStageSummaries(detail: AgentRunDetail): AgentRunResult["summaries"] {
+  return completedStages(detail).flatMap(({ stage, record }) => {
+    const report = record.report?.outcome === "complete" ? record.report : null;
+    const action = record.facts?.action;
+    const text = report?.summary.trim() || (action ? describeActionEvidence(action, record.facts).label : "");
+    if (!text && !report?.reviewVerdict) return [];
+    return [{ stageId: stage.id, title: getStageDisplayTitle(stage), text, reviewVerdict: report?.reviewVerdict }];
+  });
 }
 
 /** Everything the Result card and the panel's Result section show. */
@@ -511,7 +556,7 @@ export function describeAgentRunResult(detail: AgentRunDetail, now: number, deci
     staveChecks: describeStaveChecks(detail),
     changes: describeAgentRunChanges(detail),
     pullRequest: findAgentRunPullRequest(detail),
-    summary: reportOf(detail).report?.summary ?? null,
+    summaries: describeStageSummaries(detail),
     spent: describeUsageShort(detail.usage),
   };
 }

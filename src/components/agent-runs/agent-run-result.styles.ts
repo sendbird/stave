@@ -45,6 +45,7 @@ export const agentRunResultStyles = stylex.create({
   },
   summary: {
     margin: 0,
+    whiteSpace: "pre-line",
     fontSize: vars["--aui-font-size-body"],
     lineHeight: vars["--aui-line-height-relaxed"],
     color: vars["--aui-color-text"],

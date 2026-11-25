@@ -255,6 +255,9 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <p className={sx(styles.caption)}>Conversation · Result card, ready</p>
         <AgentRunResultCardView detail={runs.ready} now={now} actions={runActions} />
       </section>
+      <section className={sx(styles.case)} data-preview-case="Reviewed agent run result">
+        <AgentRunResultCardView detail={runs.reviewed} now={now} actions={runActions} />
+      </section>
       <section className={sx(styles.case)} data-preview-case="Agent run result checks">
         <p className={sx(styles.caption)}>Conversation · Result card, a three-action workspace check met by setup alone</p>
         <AgentRunResultCardView detail={withPartlyPassedChecks(runs.ready)} now={now} actions={runActions} />

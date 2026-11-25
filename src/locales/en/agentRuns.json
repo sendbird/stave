@@ -157,7 +157,9 @@
     "agentRunOutcome3": "Open PR",
     "agentRunResultCardView": "Done when",
     "agentRunResultCardView2": "Retry",
-    "agentRunResultCardView3": "Take control"
+    "agentRunResultCardView3": "Take control",
+    "reviewPassed": "Review passed",
+    "reviewChangesRequested": "Review requested changes"
   },
   "agentRunSubagents": {
     "ariaLabel": "Subagents",

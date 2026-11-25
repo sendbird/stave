@@ -531,6 +531,11 @@ prepared.
 
 ### Agent run report
 
+When a run completes, the result card at the end of its task conversation
+shows the recorded summaries for the stages that ran, including the original
+work, any repair and the latest review outcome. Checks that Stave confirmed on
+the final revision appear with the completion criteria.
+
 When an agent run ends, its report is shown in the Task panel, under
 the run's steps in **Steps** and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
 starts collapsed so saved task answers stay easy to scan. The report contains

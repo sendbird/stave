@@ -284,7 +284,7 @@ export function buildTaskPanelStatus(args: {
   const decision = pending.question ? "question" : pending.approval ? "approval" : null;
   const run = args.agentRun ? describeAgentRunResult(args.agentRun, args.now, decision) : null;
   const pr = args.prInfo?.pr ?? null;
-  // The run's count is its report stage's diff: Review opens that stage, so
+  // The run's count is its latest recorded diff: Review opens that stage, so
   // the number and the files shown agree. Without one, the turn's own edits.
   const reviewStage = run?.changes && args.agentRun ? agentRunChangesStage(args.agentRun) : null;
   const facts: TaskStateFacts = {
