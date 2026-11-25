@@ -1,5 +1,6 @@
 import { afterEach, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { readPullRequestTemplate } from "../electron/host-service/pull-request-template";
@@ -49,4 +50,18 @@ test("no template, an empty one or an oversized one reads as none", async () => 
   expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": "가".repeat(30_000) }))).toBeUndefined();
   expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": "가".repeat(20_000) }))).toBe("가".repeat(20_000));
   expect(await readPullRequestTemplate(path.join(tmpdir(), "no-such-repository-for-pr-template"))).toBeUndefined();
+});
+
+test("a file read in pieces is read whole, and an oversized one is still refused", async () => {
+  // Each read returns at most 1,001 bytes, as a read on any file may.
+  const piecewise = async (file: string, flags: "r") => {
+    const handle = await open(file, flags);
+    return {
+      read: (buffer: Buffer, offset: number, length: number, position: number) => handle.read(buffer, offset, Math.min(length, 1_001), position),
+      close: () => handle.close(),
+    } as unknown as Awaited<ReturnType<typeof open>>;
+  };
+  const korean = "가".repeat(20_000); // 60,000 bytes
+  expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": korean }), piecewise)).toBe(korean);
+  expect(await readPullRequestTemplate(repo({ ".github/pull_request_template.md": "x".repeat(90_000) }), piecewise)).toBeUndefined();
 });

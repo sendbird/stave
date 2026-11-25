@@ -32,13 +32,22 @@ async function listEntries(directory: string) {
  * Reads at most one byte past the limit, so an oversized file (or one that
  * grows while it is read) is never loaded whole.
  */
-async function readTemplate(file: string) {
-  let handle: Awaited<ReturnType<typeof open>> | undefined;
+type OpenFile = (file: string, flags: "r") => Promise<Pick<Awaited<ReturnType<typeof open>>, "read" | "close">>;
+
+async function readTemplate(file: string, openFile: OpenFile) {
+  let handle: Awaited<ReturnType<OpenFile>> | undefined;
   try {
-    handle = await open(file, "r");
+    handle = await openFile(file, "r");
     const buffer = Buffer.alloc(MAX_TEMPLATE_BYTES + 1);
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    return bytesRead <= MAX_TEMPLATE_BYTES ? buffer.toString("utf8", 0, bytesRead).trim() || undefined : undefined;
+    // A read may return fewer bytes than asked; keep reading until the file
+    // ends or one byte past the limit is in, then decode only whole content.
+    let filled = 0;
+    while (filled < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, filled, buffer.length - filled, filled);
+      if (bytesRead === 0) break;
+      filled += bytesRead;
+    }
+    return filled <= MAX_TEMPLATE_BYTES ? buffer.toString("utf8", 0, filled).trim() || undefined : undefined;
   } catch {
     return undefined;
   } finally {
@@ -46,7 +55,8 @@ async function readTemplate(file: string) {
   }
 }
 
-export async function readPullRequestTemplate(cwd: string): Promise<string | undefined> {
+/** `openFile` is for tests that need a file to read in pieces. */
+export async function readPullRequestTemplate(cwd: string, openFile: OpenFile = open): Promise<string | undefined> {
   const listed = await Promise.all(
     TEMPLATE_DIRECTORIES.map(async (directory) => ({
       directory: path.join(cwd, directory),
@@ -55,7 +65,7 @@ export async function readPullRequestTemplate(cwd: string): Promise<string | und
   );
   for (const { directory, entries } of listed) {
     const file = entries.find((entry) => entry.isFile() && entry.name.toLowerCase() === TEMPLATE_FILE);
-    const content = file ? await readTemplate(path.join(directory, file.name)) : undefined;
+    const content = file ? await readTemplate(path.join(directory, file.name), openFile) : undefined;
     if (content) return content;
   }
   for (const { directory, entries } of listed) {
@@ -66,7 +76,7 @@ export async function readPullRequestTemplate(cwd: string): Promise<string | und
       .map((entry) => entry.name)
       .sort((a, b) => a.localeCompare(b));
     for (const name of templates) {
-      const content = await readTemplate(path.join(directory, folder.name, name));
+      const content = await readTemplate(path.join(directory, folder.name, name), openFile);
       if (content) return content;
     }
   }
