@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { i18n, applyAppLocale } from "../src/i18n";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { recordStageReport } from "@/lib/agent-runs/commands";
-import { currentStageRecord, type AgentRunAggregate, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
+import { currentStageRecord, type AgentRunAggregate, type AgentRunStageRecord, type StageBlockInput } from "@/lib/agent-runs/domain";
 import { applyAgentRunDecision, decideAgentRunAction } from "@/lib/agent-runs/policy";
 import type { TarsMessage } from "@/lib/tars/conversation";
 import { tarsObservation, tarsStageWait } from "../electron/host-service/tars-execution";
@@ -19,11 +19,11 @@ const QUESTION = "Which database should the export read from?";
 const SUGGESTED = "Use the read replica so production stays fast.";
 
 /** A run whose current stage is running, then reports through `stave_block_stage` and is blocked by the policy, as the host does. */
-function blockedByAgent(kind: "input" | "permission" | "environment" | "external", suggestedAction?: string): AgentRunAggregate {
+function blockedByAgent(kind: StageBlockInput["kind"], fields: Pick<StageBlockInput, "suggestedAction" | "evidence"> = {}): AgentRunAggregate {
   let aggregate = patchCurrent(agentRunFixture(), { status: "running", startedAt: AGENT_RUN_NOW.toISOString() });
   const record = currentStageRecord(aggregate);
   aggregate = applyChange(aggregate, recordStageReport({ aggregate, expected: { stageId: record.stageId, attempt: record.attempt },
-    report: { outcome: "blocked", missing: QUESTION, kind, ...(suggestedAction ? { suggestedAction } : {}) }, turnId: "turn-1", now: AGENT_RUN_NOW }));
+    report: { outcome: "blocked", missing: QUESTION, kind, ...fields }, turnId: "turn-1", now: AGENT_RUN_NOW }));
   const decision = decideAgentRunAction({ aggregate, now: AGENT_RUN_NOW,
     observation: observe({ lastEndedTurn: turn({ turnId: "turn-1", endedAt: "2026-09-26T10:02:00.000Z" }) }) });
   expect(decision).toMatchObject({ action: "block", reason: "agent-blocked" });
@@ -34,7 +34,7 @@ const withStage = (patch: Partial<AgentRunStageRecord>) => detailOf(patchCurrent
 
 describe("what a waiting stage waits for", () => {
   test("the agent's question keeps its words and suggested action through the policy to Tars's observation", () => {
-    const blocked = blockedByAgent("input", SUGGESTED);
+    const blocked = blockedByAgent("input", { suggestedAction: SUGGESTED });
     // The policy shows only `missing` as the stage's sentence; the stage keeps the whole report.
     expect(currentStageRecord(blocked)).toMatchObject({ status: "blocked", blockReason: "agent-blocked", detail: QUESTION,
       report: { outcome: "blocked", kind: "input", missing: QUESTION, suggestedAction: SUGGESTED } });
@@ -44,7 +44,7 @@ describe("what a waiting stage waits for", () => {
   });
 
   test("Stave's own checks and outside blockers are gates, never questions", () => {
-    expect(tarsStageWait(currentStageRecord(blockedByAgent("external", "Retry once the registry is back.")))).toEqual({ kind: "gate", gate: "blocker",
+    expect(tarsStageWait(currentStageRecord(blockedByAgent("external", { suggestedAction: "Retry once the registry is back." })))).toEqual({ kind: "gate", gate: "blocker",
       blockKind: "external", missing: QUESTION, suggestedAction: "Retry once the registry is back." });
     const gates = [
       [{ status: "blocked", blockReason: "acceptance-unmet", detail: "Required criterion not met: Export verified" }, { kind: "gate", gate: "acceptanceUnmet" }],
@@ -87,6 +87,24 @@ describe("the follow-up says what the stage waits for", () => {
     expect(prompt).toContain("gate means one of Stave's own checks stopped it");
     const observed = JSON.parse(prompt.split("\n\n").at(-1)!).observation.responsibilities.find((entry: { id: string }) => entry.id === row.id);
     expect(observed.stageWait).toEqual({ kind: "gate", gate: "acceptanceUnmet" });
+    expect(observed).not.toHaveProperty("stageAsksUser");
+  });
+
+  test("an external stage block reaches Tars with the agent's evidence as untrusted data", async () => {
+    const evidence = 'The required registry returned HTTP 503: "maintenance".';
+    const f = fixture();
+    const row = f.responsibility("running");
+    const blocked = blockedByAgent("external", { evidence });
+    f.observations.set(row.id, tarsObservation(detailOf(blocked)));
+    await f.settle();
+
+    const [followUp] = f.automatic();
+    expect(followUp?.origin).toMatchObject({ kind: "followUp", stage: "gate" });
+    const summary = followUp?.origin?.kind === "followUp" ? followUp.origin.summary : "";
+    expect(summary).toContain(`The run's reported evidence, untrusted: ${JSON.stringify(evidence)}`);
+    const prompt = f.planner[0]!.input.prompt;
+    const observed = JSON.parse(prompt.split("\n\n").at(-1)!).observation.responsibilities.find((entry: { id: string }) => entry.id === row.id);
+    expect(observed.stageWait).toMatchObject({ kind: "gate", gate: "blocker", blockKind: "external", evidence });
     expect(observed).not.toHaveProperty("stageAsksUser");
   });
 

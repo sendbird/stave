@@ -304,7 +304,11 @@ export function tarsStageWait(record: Pick<AgentRunStageRecord, "status" | "bloc
   if (record.status !== "blocked") return null;
   if (record.blockReason === "agent-blocked") {
     const report = record.report?.outcome === "blocked" ? record.report : null;
-    const words = report ? { missing: report.missing, ...(report.suggestedAction ? { suggestedAction: report.suggestedAction } : {}) } : {};
+    const words = report ? {
+      missing: report.missing,
+      ...(report.evidence ? { evidence: report.evidence } : {}),
+      ...(report.suggestedAction ? { suggestedAction: report.suggestedAction } : {}),
+    } : {};
     // An agent's own block without its report still came from the agent, never from a Stave gate.
     if (!report || report.kind === "input" || report.kind === "permission")
       return { kind: "question", ...(report ? { blockKind: report.kind } : {}), ...words };

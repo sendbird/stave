@@ -47,9 +47,13 @@ export interface StagePromptInput {
 }
 
 // i18n-ignore: model-facing stage reporting contract
+export const STAGE_BLOCK_GUIDANCE = "Continue any implementation or verification you can do. Call `stave_block_stage` only for a prerequisite you cannot obtain. For environment or external blocks, give `evidence` of what failed or was unavailable.";
+
+// i18n-ignore: model-facing stage reporting contract
 const REPORTING_CONTRACT = [
-  "Before you end this turn, call `stave_report_stage` with a short summary, the decisions you made and why, the evidence you gathered, and the status of the criteria you evaluated. If you cannot finish this stage, call `stave_block_stage` instead and name exactly what is missing.",
-  "Never report unverified work as complete. Mark a criterion you could not check as unverified, and cite the commands and tool calls you ran. When this stage requires final checks, run them yourself as lead in the same turn you report, through `stave_run_workspace_script` when workspace check scripts are configured. Rerun helper checks: their results are not this lead turn's verification. Skip only checks you already ran on this revision in this reporting turn in a way Stave recorded. Provider results may lack an exit code or a workspace revision; use a successful Stave script check of unchanged work for current verification.",
+  "On completion, call `stave_report_stage` with a summary, decisions and reasons, evidence, and criterion statuses.",
+  STAGE_BLOCK_GUIDANCE,
+  "Never report unverified work as complete. Mark unchecked criteria unverified and cite your commands and tool calls. In this reporting turn, run required final checks yourself on the current revision, including helper checks. Use `stave_run_workspace_script` for configured checks. Reuse only results Stave recorded from this turn on this revision. If provider results lack exit codes or revision evidence, use a successful Stave script check of unchanged work.",
   "Copy each reported criterion's exact text. Put evidence and caveats in `evidence`.",
   "Required criteria must be met: stage criteria before advancing, assignment criteria at the end. Label additional, optional checks with required: false and their actual status; do not downgrade user requirements or stage requirements to optional.",
   "Do only this stage. Stave starts the next stage after your report, so do not begin later stages in this turn.",

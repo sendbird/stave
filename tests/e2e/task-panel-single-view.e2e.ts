@@ -52,6 +52,25 @@ async function open(page: Page, query: string) {
   return frame;
 }
 
+for (const [lang, theme, density, width, label] of [
+  ["en", "light", "regular", 460, "Agent-reported evidence:"],
+  ["ko", "dark", "compact", 320, "에이전트가 보고한 근거:"],
+] as const) {
+  test(`the blocked stage shows its evidence without overflowing (${lang}, ${theme}, ${density})`, async ({ page }) => {
+    await page.setViewportSize({ width: width + 40, height: 960 });
+    await page.goto(`/?stavePreview=task-panel&task=agent-run&run=blocked-evidence&lang=${lang}&theme=${theme}&density=${density}&panelWidth=${width}`);
+    const frame = page.getByTestId("task-panel-frame");
+    await frame.getByTestId("task-section-steps").click();
+    const evidence = frame.getByText(label, { exact: true }).locator("..");
+    await expect(evidence).toBeVisible();
+    await expect(evidence).toContainText("The package registry returned HTTP 503");
+    await page.evaluate(() => document.fonts.ready.then(() => undefined));
+    expect(await evidence.evaluate((line) => line.scrollWidth)).toBeLessThanOrEqual(
+      await evidence.evaluate((line) => line.clientWidth) + 1,
+    );
+  });
+}
+
 for (const lang of ["en", "ko"] as const) {
   const copy = COPY[lang];
   for (const theme of ["light", "dark"] as const) {

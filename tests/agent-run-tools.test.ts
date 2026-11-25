@@ -127,6 +127,20 @@ test("the reporting tools take no ids; the connection's key names the stage", as
   expect(briefing.structuredContent).toEqual({ agentRun: BRIEFING });
 });
 
+test("the block tool asks for evidence before forwarding an external block", async () => {
+  const { client, calls } = await connect({ agentRunKey: "current" });
+  const block = { kind: "external", missing: "Restore access to the package registry." };
+  const rejected = await client.callTool({ name: "stave_block_stage", arguments: block });
+  expect(rejected.isError).toBe(true);
+  expect(JSON.stringify(rejected.content)).toContain("observed blocker");
+  expect(calls).toHaveLength(0);
+
+  const evidence = "The registry returned HTTP 503 when fetching the required package.";
+  const accepted = await client.callTool({ name: "stave_block_stage", arguments: { ...block, evidence } });
+  expect(accepted.isError).toBeFalsy();
+  expect(calls).toEqual([{ tool: "block", args: { agentRunKey: "current", block: { ...block, evidence } } }]);
+});
+
 test("the wait tool exists only under a run grant, takes no ids and returns the wait", async () => {
   const plain = await connect({});
   expect(await toolNames(plain.client)).not.toContain("stave_wait_for_event");
