@@ -69,6 +69,9 @@ export function PullRequestEditDialog(props: {
   const savingRef = useRef(false);
   const loadIdRef = useRef(0);
   const searchIdRef = useRef(0);
+  // Adding or removing a reviewer removes the button that was clicked; keep
+  // the focus in the search box so typing goes on there, not to the dialog.
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     const id = ++loadIdRef.current;
@@ -123,6 +126,7 @@ export function PullRequestEditDialog(props: {
   const addReviewer = (handle: string) => {
     setReviewers((current) => current.some((other) => sameHandle(other, handle)) ? current : [...current, handle]);
     setSearch("");
+    searchInputRef.current?.focus();
   };
 
   const typedHandle = normalizeGitHubReviewerHandle(search);
@@ -289,7 +293,10 @@ export function PullRequestEditDialog(props: {
                           variant="ghost"
                           disabled={saving}
                           aria-label={t("prManage.editDialog.removeReviewer", { handle })}
-                          onClick={() => setReviewers((current) => current.filter((other) => other !== handle))}
+                          onClick={() => {
+                            setReviewers((current) => current.filter((other) => other !== handle));
+                            searchInputRef.current?.focus();
+                          }}
                         >
                           <X aria-hidden className={sx(styles.chipIcon)} />
                         </Button>
@@ -306,6 +313,7 @@ export function PullRequestEditDialog(props: {
                 ) : null}
 
                 <Input
+                  ref={searchInputRef}
                   type="search"
                   xstyle={openPrStyles.textInput}
                   aria-label={t("prManage.editDialog.searchLabel")}

@@ -256,6 +256,24 @@ test("editing sends only the changed fields and the reviewer changes", async ({ 
   await expect(await openMenu(page)).toContainText("#42 Track the upstream branch");
 });
 
+test("adding or removing a reviewer keeps the focus in the search box", async ({ page }) => {
+  await installHarness(page);
+  await openPreview(page);
+  await (await openMenu(page)).getByRole("menuitem", { name: "Edit details…" }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit pull request #42" });
+  const search = dialog.getByRole("searchbox", { name: "Find a reviewer" });
+  await expect(dialog).toContainText("@hubot");
+
+  // The clicked button leaves the list; typing must still reach the search box.
+  await dialog.getByRole("button", { name: /@monalisa/ }).click();
+  await expect(search).toBeFocused();
+  await dialog.getByRole("button", { name: "Remove hubot" }).click();
+  await expect(search).toBeFocused();
+  await page.keyboard.type("@acme/core");
+  await page.keyboard.press("Enter");
+  await expect(dialog.getByRole("button", { name: "Remove acme/core" })).toBeVisible();
+});
+
 test("a failed save keeps the input and shows the reason", async ({ page }) => {
   await installHarness(page);
   await openPreview(page);
