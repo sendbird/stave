@@ -1,4 +1,22 @@
 {
+  "prFix": {
+    "action": "Fix with agent",
+    "noTask": "Select a task first",
+    "attached": "Attached {{checks}} failed checks and {{threads}} review threads",
+    "unavailable": "Logs unavailable for {{names}}",
+    "afterTurn": "Send the draft after the current turn finishes.",
+    "otherSchedule": "This task has another schedule",
+    "disabled": "Enable PR watches in Settings",
+    "unsupported": "This task cannot run a PR watch",
+    "readOnly": "This task is read-only",
+    "managed": "This task is managed automatically",
+    "watch": "Watch PR for {{task}}",
+    "paused": "Paused",
+    "checksFailed": "Failed checks",
+    "mergeConflict": "Merge conflicts",
+    "reviewComments": "Review comments",
+    "comments": "Also react to review comments"
+  },
   "prActivity": {
     "invalidResponse": "Could not read the GitHub response.",
     "oversizedResponse": "The GitHub response exceeded the size limit.",

@@ -21,6 +21,8 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
+import { PullRequestWatchMenuItem } from "./pull-request/PullRequestWatchMenuItem";
+import { PullRequestFixMenuItem } from "./pull-request/PullRequestFixMenuItem";
 import { PrContextDialog } from "@/components/layout/PrContextDialog";
 import { CreatePullRequestDialog } from "@/components/layout/pull-request/CreatePullRequestDialog";
 import { PullRequestStackNotice } from "./pull-request/PullRequestStackNotice";
@@ -1863,6 +1865,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   {i18n.t("sourceControl:tarsCI.menu")}
                 </DropdownMenuItem>
               ) : null}
+              {prInfo?.pr?.state === "OPEN" && <PullRequestWatchMenuItem prUrl={prInfo.pr.url} />}
+              {prInfo?.pr && <PullRequestFixMenuItem pr={prInfo.pr} cwd={workspaceCwd} />}
               {/* Attach review threads / failed-check evidence to the task. */}
               {prInfo?.pr?.url && activeTask ? (
                 <>

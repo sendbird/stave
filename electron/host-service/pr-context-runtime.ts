@@ -108,6 +108,8 @@ const REVIEW_THREADS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$threa
     pullRequest(number:$pr){
       title
       headRefOid
+      isCrossRepository
+      headRepository { viewerPermission }
       url
       comments(last:30) @include(if:$discussion){
         totalCount
@@ -314,6 +316,7 @@ export async function readPrReviewThreads(
     .slice(-30).map(mapComment).filter((comment): comment is PrReviewComment => comment !== null);
   return {
     ok: true as const,
+    canPush: pullRequest.isCrossRepository === false && ["ADMIN", "MAINTAIN", "WRITE"].includes(String((pullRequest.headRepository as { viewerPermission?: string } | null)?.viewerPermission)),
     title: asPlainString(pullRequest.title, PR_CONTEXT_LIMITS.maxNameChars),
     url: asPlainString(pullRequest.url, PR_CONTEXT_LIMITS.maxUrlChars),
     headSha: asPlainString(pullRequest.headRefOid, 64),
@@ -406,6 +409,7 @@ export async function fetchPrContextIndex(args: {
         `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.number}`,
     },
     title: discussion.title,
+    canPush: discussion.canPush,
     headSha,
     fetchedAt: new Date(args.now?.() ?? Date.now()).toISOString(),
     threads: discussion.threads,

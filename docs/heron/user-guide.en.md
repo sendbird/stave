@@ -322,6 +322,8 @@ edge memory -> turn
 ```
 
 
+Choose **Fix with agent** in the PR menu to attach evidence and append a fix request to the current task. Review and send the draft after any running turn. **Watch PR** shows the task, events and remaining wake budget. Toggle it to start or stop watching, and opt into review comments from owners, members and collaborators.
+
 ### Watch agent-opened PRs and manage a stack
 
 **Settings → Prompts → PR Completion → Watch pull requests** is on by default,

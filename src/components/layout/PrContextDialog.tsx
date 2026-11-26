@@ -27,12 +27,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  buildPrContextAttachment,
   PR_CONTEXT_LIMITS,
-  type PrCheckLogExcerpt,
   type PrContextIndex,
 } from "@/lib/pr-context";
-import { useAppStore } from "@/store/app.store";
+import { attachPrEvidence, readPrAttachment } from "./pull-request/pr-context-attachment";
 import { prContextStyles } from "./pr-context-dialog.styles";
 
 interface PrContextDialogProps {
@@ -46,10 +44,6 @@ interface PrContextDialogProps {
 
 export function PrContextDialog(props: PrContextDialogProps) {
   useTranslation();
-  const attachTaskSourceContext = useAppStore(
-    (state) => state.attachTaskSourceContext,
-  );
-
   const [loading, setLoading] = useState(false);
   const [attaching, setAttaching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -137,37 +131,8 @@ export function PrContextDialog(props: PrContextDialogProps) {
     setAttaching(true);
     setError(null);
     try {
-      let excerpts: PrCheckLogExcerpt[] = [];
-      if (selectedCheckIds.length > 0 && prUrl && index.headSha) {
-        const result = await window.api?.sourceControl?.fetchPrCheckLogs?.({
-          prUrl,
-          headSha: index.headSha,
-          checkIds: selectedCheckIds,
-          cwd: cwd || undefined,
-        });
-        if (!result?.ok) {
-          setError(result?.stderr || i18n.t("sourceControl:prContextDialog.couldNotReadTheCheckLogs"));
-          return;
-        }
-        excerpts = result.excerpts;
-      }
-      const attachment = buildPrContextAttachment({
-        index,
-        selection: {
-          threadIds: selectedThreadIds,
-          checkIds: selectedCheckIds,
-        },
-        logExcerpts: excerpts,
-      });
-      attachTaskSourceContext({
-        taskId,
-        sourceContext: {
-          type: "retrieved_context",
-          sourceId: attachment.sourceId,
-          title: attachment.title,
-          content: attachment.content,
-        },
-      });
+      const { attachment } = await readPrAttachment(index, { checkIds: selectedCheckIds, threadIds: selectedThreadIds }, cwd);
+      attachPrEvidence(taskId, attachment);
       onOpenChange(false);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));

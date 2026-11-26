@@ -218,6 +218,7 @@ export type PrCheckFailure = z.infer<typeof PrCheckFailureSchema>;
 
 export const PrContextIndexSchema = z
   .object({
+    canPush: z.boolean().optional(),
     ref: PrContextRefSchema,
     title: boundedText(PR_CONTEXT_LIMITS.maxNameChars),
     headSha: boundedText(64),

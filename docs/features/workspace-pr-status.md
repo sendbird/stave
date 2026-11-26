@@ -326,6 +326,14 @@ instead, so its schedule is never deleted from the task. Once registered, the
 existing supervisor stops on merge or close. The cleanup center independently
 lists merged work under **PR merged**; watching does not archive or delete it.
 
+## Fixing with an agent
+
+On an open PR with failed checks, conflicts, or unresolved current review threads, choose **Fix with agent**. Select a task first. The action requires a writable checkout. It attaches up to three failed checks and the current unresolved threads from the context index, then appends a fix request to your composer. Review the draft and send it when ready. If a turn is running, send after it finishes. The notification identifies unavailable logs.
+
+## Watching from the PR menu
+
+Use **Watch PR** to start or stop a watch for the selected task. The menu shows the task, watched events, and wakes used against the cap. New watches react to failed checks and conflicts. Enable **Also react to review comments** to include current unresolved comments from repository owners, members and collaborators. An existing schedule on the task takes precedence.
+
 ## Stacked PRs
 
 A PR targeting another PR's branch belongs to that stack, but only when that

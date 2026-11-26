@@ -1,3 +1,5 @@
+import { PullRequestFixMenuItem } from "./pull-request/PullRequestFixMenuItem";
+import { useAppStore } from "@/store/app.store";
 import { openTarsPrCiFixDraft } from "@/components/tars/ask-tars";
 import { Badge, Button, Loader } from "@/components/ui";
 import { sx } from "@/components/aui/utils/stylex";
@@ -91,6 +93,7 @@ function WorkflowJobs({ runId, prUrl, cwd }: PrActivityTarget & { runId: number 
   const { t } = useTranslation("sourceControl");
   const request = useCallback(() => requestPrActivity({ action: "jobs", prUrl, cwd, runId }, "jobs"), [prUrl, cwd, runId]);
   const { value, loading, error } = usePrActivityRead<"jobs">(request);
+  const ownPr = useAppStore(state => state.workspacePrInfoById[state.activeWorkspaceId]?.pr);
   const [rerun, setRerun] = useState<"idle" | "busy" | "sent">("idle");
   const [rerunError, setRerunError] = useState("");
   const writing = useRef(false);
@@ -135,9 +138,9 @@ function WorkflowJobs({ runId, prUrl, cwd }: PrActivityTarget & { runId: number 
           <Button type="button" size="sm" variant="outline" disabled={rerun !== "idle"} onClick={() => void rerunFailed()}>
             {rerun === "busy" ? t("prActivity.requestingRerun") : t("prActivity.rerunFailed")}
           </Button>
-          <Button type="button" size="sm" variant="ghost" onClick={() => void openTarsPrCiFixDraft(prUrl)}>
+          {ownPr?.url === prUrl ? <PullRequestFixMenuItem button pr={ownPr} cwd={cwd} /> : <Button type="button" size="sm" variant="ghost" onClick={() => void openTarsPrCiFixDraft(prUrl)}>
             {t("tarsCI.fixAction")}
-          </Button>
+          </Button>}
         </div>
       ) : null}
       {rerunError ? <p role="alert" className={sx(styles.activityError)}>{rerunError}</p> : null}

@@ -1,4 +1,22 @@
 {
+  "prFix": {
+    "action": "에이전트로 수정",
+    "noTask": "먼저 작업을 선택하세요",
+    "attached": "실패한 검사 {{checks}}개와 리뷰 스레드 {{threads}}개를 첨부했습니다",
+    "unavailable": "로그를 가져오지 못한 검사: {{names}}",
+    "afterTurn": "현재 턴이 끝나면 초안을 보내세요.",
+    "otherSchedule": "이 작업에는 다른 일정이 있습니다",
+    "disabled": "설정에서 PR 감시를 켜세요",
+    "unsupported": "이 작업에서는 PR 감시를 실행할 수 없습니다",
+    "readOnly": "읽기 전용 작업입니다",
+    "managed": "자동 관리 중인 작업입니다",
+    "watch": "{{task}} 작업에서 PR 감시",
+    "paused": "일시 중지됨",
+    "checksFailed": "검사 실패",
+    "mergeConflict": "병합 충돌",
+    "reviewComments": "리뷰 댓글",
+    "comments": "리뷰 댓글에도 반응"
+  },
   "prActivity": {
     "invalidResponse": "GitHub 응답을 읽지 못했습니다.",
     "oversizedResponse": "GitHub 응답이 크기 제한을 초과했습니다.",
