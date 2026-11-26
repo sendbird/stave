@@ -93,7 +93,7 @@ async function installHarness(page: Page, options: HarnessOptions = {}) {
               const query = String(args.query ?? "").toLowerCase();
               const people = [
                 { login: "monalisa", name: "Mona Lisa", suggested: true },
-                { login: "defunkt", name: "Chris Wanstrath", suggested: false },
+                { login: "alex-rivera", name: "Alex Rivera", suggested: false },
                 { login: "hubot", name: "Hubot", suggested: false },
               ];
               return {
@@ -235,8 +235,8 @@ test("editing sends only the changed fields and the reviewer changes", async ({ 
   // A suggestion, a search result and a typed login; then drop the existing request.
   await dialog.getByRole("button", { name: /@monalisa/ }).click();
   const search = dialog.getByRole("searchbox", { name: "Find a reviewer" });
-  await search.fill("wanst");
-  await dialog.getByRole("button", { name: /@defunkt/ }).click();
+  await search.fill("rive");
+  await dialog.getByRole("button", { name: /@alex-rivera/ }).click();
   await search.fill("@acme/core");
   await search.press("Enter");
   await expect(dialog.getByRole("textbox", { name: "Title" })).toBeVisible();
@@ -249,7 +249,7 @@ test("editing sends only the changed fields and the reviewer changes", async ({ 
     { action: "edit", prUrl, cwd: "/tmp/stave-project/.stave/workspaces/feature-pr", title: "Track the upstream branch" },
     {
       action: "reviewers", prUrl, cwd: "/tmp/stave-project/.stave/workspaces/feature-pr",
-      add: ["monalisa", "defunkt", "acme/core"], remove: ["hubot"],
+      add: ["monalisa", "alex-rivera", "acme/core"], remove: ["hubot"],
     },
   ]);
   // The status was read again after the save, so the menu shows the new title.
