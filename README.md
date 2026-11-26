@@ -93,6 +93,8 @@ Recommended next steps:
 - sortable tables, math, JSON trees, terminal colors and agent-drawn tables, charts and stat tiles right in the conversation
 - a live Scratch panel for the screenshots, logs and JSON an agent saves while it works
 - an opt-in Activity page for Claude Code and Codex sessions running outside Stave, and per-project tokens, cost and disk in Usage
+- an Agent panel with each agent's steps, timeline, outputs and background commands
+- manage an open pull request from Stave (edit, reviewers, draft, auto-merge, close, reopen) and hand its failing checks to an agent
 
 ## Documentation
 

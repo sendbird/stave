@@ -1,3 +1,35 @@
+## [0.36.3](https://github.com/sendbird/stave/compare/v0.36.2...v0.36.3) (2026-11-26)
+
+### Changes
+
+- An Agent panel on the right rail shows one agent's progress as a step list or a timeline with recorded times. Activity, conversations, reviews, Fleet, Tars and Compare open it the same way; it previews the agent's Scratch outputs and its background commands and logs, and Activity cards open it read-only for Claude Code and Codex sessions started outside Stave.
+- After a pull request is open, its menu in the top bar and in Reviews edits the title, body and reviewers, converts it to draft, turns auto-merge on or off, closes and reopens it. "Fix with agent" attaches the failing checks and unresolved review threads to the task and drafts a fix request that you send. The menu also shows and switches the PR watch, which reacts to review comments only from repository owners, members and collaborators. Create PR gains a Draft switch with a per-repository default and finds templates in `.github/`, the root or `docs/`.
+- Delegated child workspaces nest under their parent and are archived automatically only once the delegation is final and its answers were delivered. The create dialog shows the four preparation steps with times, logs and retry and can continue in the background. The cleanup center previews eligibility and disk use, and opens on a workspace whose PR just merged.
+- Agent runs show which workspace checks apply and which revision was independently reviewed, require evidence for blocker reports, and keep the full run outcome in chat. A first review that cannot be confirmed includes the original work in the next one. Composer rewrites gain a depth setting, and issue kickoffs attach current tracker details.
+- A delegated child's question can be answered or declined from its card again. Claude Agent inputs survive Auto mode, long turns stay within the provider's request part limit, and pull requests on differently named tracked branches are found.
+- Scratch lists HTML, images, Markdown and saved artifacts first, with type filters and full previews. Workspace and reasoning loaders use a compact matrix, and full-bleed pages share one 16px inline inset.
+
+### Features
+
+* **activity:** open external session progress from activity cards ([#1103](https://github.com/sendbird/stave/issues/1103)) ([b5cd699](https://github.com/sendbird/stave/commit/b5cd69905ae983938214c0d592985c0379424aa1))
+* **agents:** improve prompt workflows and verify review outcomes ([#1105](https://github.com/sendbird/stave/issues/1105)) ([f042de4](https://github.com/sendbird/stave/commit/f042de41b7c875f36940633345020a7d9ebae770))
+* **agents:** show outputs and background commands in progress ([#1106](https://github.com/sendbird/stave/issues/1106)) ([75c028b](https://github.com/sendbird/stave/commit/75c028b50c0624c40ce57b9b64518776d1edaa42))
+* **agents:** unify progress summaries and add a timeline ([#1104](https://github.com/sendbird/stave/issues/1104)) ([1183c21](https://github.com/sendbird/stave/commit/1183c214ab374dfa97fa164cfc75629a1dbc3c6d))
+* prioritize scratch results with bounded listings ([#1095](https://github.com/sendbird/stave/issues/1095)) ([05df1ff](https://github.com/sendbird/stave/commit/05df1ffbac84076e8b6e603c53b1161c00fd3f14))
+* **pr:** manage pull requests and fix their failures with an agent ([#1108](https://github.com/sendbird/stave/issues/1108)) ([49fa544](https://github.com/sendbird/stave/commit/49fa54423b7b6e1b1b107269986b4bf2ac13a311))
+* **session:** show agent progress in a side panel ([#1098](https://github.com/sendbird/stave/issues/1098)) ([44a6ad7](https://github.com/sendbird/stave/commit/44a6ad7498e8fdc1e1643e1c418978c2d9bacfcf))
+* **ui:** refresh the workspace and reasoning loaders ([#1094](https://github.com/sendbird/stave/issues/1094)) ([f82ecdb](https://github.com/sendbird/stave/commit/f82ecdbfdd05096597315caf2b8d53e400133c26))
+* **workspace:** nest delegated workspaces, show preparation steps and open draft prs ([#1107](https://github.com/sendbird/stave/issues/1107)) ([c8ff730](https://github.com/sendbird/stave/commit/c8ff730bf5fa784ed0589f29d902367d7af53688))
+
+### Bug Fixes
+
+* **agents:** show the full run outcome in chat ([#1101](https://github.com/sendbird/stave/issues/1101)) ([a134720](https://github.com/sendbird/stave/commit/a1347207de42ba1662eda1aa5e491fbced7ac339))
+* preserve claude subagent inputs in auto mode ([#1097](https://github.com/sendbird/stave/issues/1097)) ([5839e67](https://github.com/sendbird/stave/commit/5839e675777f8d672e2fcee26d0f726f80da2f00))
+* **providers:** keep long agent turns within the request part limit ([#1096](https://github.com/sendbird/stave/issues/1096)) ([4cab638](https://github.com/sendbird/stave/commit/4cab638b840d440dee71bf46ccdac3622447593e))
+* require and surface agent stage blocker evidence ([#1100](https://github.com/sendbird/stave/issues/1100)) ([d0bd0da](https://github.com/sendbird/stave/commit/d0bd0dae623004d0c350cf9b37cf645ce818da22))
+* restore stage verification instructions ([#1102](https://github.com/sendbird/stave/issues/1102)) ([b3d2fb4](https://github.com/sendbird/stave/commit/b3d2fb499e12b2469d4d78dc37ce23d220d753b3))
+* **scm:** show pull requests on tracked branches ([#1099](https://github.com/sendbird/stave/issues/1099)) ([0f9a1aa](https://github.com/sendbird/stave/commit/0f9a1aa524aaeee13b83de988e418b74941d9859))
+
 ## [0.36.2](https://github.com/sendbird/stave/compare/v0.36.1...v0.36.2) (2026-11-24)
 
 ### Changes
