@@ -560,5 +560,101 @@
     "openSchedules": "Open in Schedules",
     "ambiguous": "Stave did not watch PR #{{number}} automatically because more than one task in this workspace ran a command that opens a pull request. Add the watch from Schedules on the task that owns it.",
     "stop": "Stop watching"
+  },
+  "prManage": {
+    "menu": {
+      "moreActions": "More actions",
+      "edit": "Edit details…",
+      "convertToDraft": "Convert to draft",
+      "autoMergeOn": "Turn on auto-merge",
+      "autoMergeOff": "Turn off auto-merge",
+      "autoMergeChecking": "Checking auto-merge…",
+      "close": "Close pull request…",
+      "reopen": "Reopen pull request",
+      "archiveWorkspace": "Archive workspace…",
+      "loading": "Loading pull request…",
+      "detailsUnavailable": "Could not read this pull request from GitHub: {{reason}}",
+      "noActions": "No actions for this pull request"
+    },
+    "busy": {
+      "convertToDraft": "Converting to draft…",
+      "autoMergeOn": "Turning on auto-merge…",
+      "autoMergeOff": "Turning off auto-merge…",
+      "close": "Closing pull request…",
+      "reopen": "Reopening pull request…"
+    },
+    "toast": {
+      "convertedToDraft": "Converted to draft",
+      "autoMergeOn": "Auto-merge is on ({{method}})",
+      "autoMergeOnDefault": "Auto-merge is on",
+      "autoMergeOff": "Auto-merge is off",
+      "closed": "Pull request closed. The branch is kept.",
+      "reopened": "Pull request reopened",
+      "saved": "Pull request updated",
+      "convertToDraftFailed": "Could not convert to draft",
+      "autoMergeOnFailed": "Could not turn on auto-merge",
+      "autoMergeOffFailed": "Could not turn off auto-merge",
+      "closeFailed": "Could not close the pull request",
+      "reopenFailed": "Could not reopen the pull request",
+      "merged": "Pull request #{{number}} merged",
+      "mergedDescription": "Archive this workspace when you no longer need it. Its branch and conversations are kept.",
+      "mergedAction": "Archive workspace…"
+    },
+    "errors": {
+      "bridgeUnavailable": "Pull request actions are not available here.",
+      "missingGh": "GitHub CLI is not installed. Install gh first.",
+      "unauthenticated": "GitHub CLI is not signed in. Run gh auth login first.",
+      "timeout": "GitHub did not answer in time. Try again.",
+      "invalidResponse": "GitHub returned an answer Stave could not read.",
+      "invalidTarget": "Stave cannot manage this pull request from here.",
+      "failed": "GitHub rejected the request.",
+      "autoMergeNotAllowed": "This repository does not allow auto-merge. Turn it on in the repository settings on GitHub.",
+      "detailsRequired": "Stave could not read the pull request, so it cannot change auto-merge."
+    },
+    "closeDialog": {
+      "title": "Close pull request #{{number}}?",
+      "titleUnknown": "Close this pull request?",
+      "description": "GitHub closes the pull request without merging it. The branch is kept, and Stave stops watching this pull request. You can reopen it later.",
+      "confirm": "Close pull request",
+      "closing": "Closing…"
+    },
+    "editDialog": {
+      "title": "Edit pull request #{{number}}",
+      "titleUnknown": "Edit pull request",
+      "description": "Stave saves to GitHub and sends only what you changed.",
+      "loading": "Loading pull request…",
+      "retry": "Try again",
+      "titleLabel": "Title",
+      "bodyLabel": "Description",
+      "reviewersLabel": "Reviewers",
+      "noReviewers": "No review requested yet.",
+      "removeReviewer": "Remove {{handle}}",
+      "searchLabel": "Find a reviewer",
+      "searchPlaceholder": "Search by name or login, or type @login",
+      "suggestionsLabel": "People you can request",
+      "suggested": "Suggested",
+      "requestTyped": "Request @{{handle}}",
+      "searching": "Searching…",
+      "noMatches": "No one matches. Type the full login and press Enter to request it.",
+      "suggestionsUnavailable": "Stave could not load suggestions. Type a login and press Enter.",
+      "latestReviews": "Latest reviews: {{reviews}}",
+      "reviewEntry": "{{login}} ({{state}})",
+      "reviewState": {
+        "approved": "approved",
+        "changesRequested": "requested changes",
+        "commented": "commented",
+        "dismissed": "dismissed",
+        "pending": "pending"
+      },
+      "save": "Save",
+      "saving": "Saving…",
+      "overwrite": "Save and overwrite",
+      "titleRequired": "Enter a title.",
+      "notOpen": "This pull request is no longer open, so it cannot be edited.",
+      "remoteChanged": "Someone edited this pull request on GitHub after you opened it. Your text is kept. Save again to replace the version on GitHub.",
+      "remoteTitle": "Title on GitHub now: {{title}}",
+      "remoteBody": "The description on GitHub changed.",
+      "reviewersNotSaved": "The title and description were saved, but the reviewers were not: {{reason}}"
+    }
   }
 }
