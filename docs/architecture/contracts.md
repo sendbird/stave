@@ -600,6 +600,7 @@ When changing PR status fetching, derivation, or UI rendering:
 - `electron/main/ipc/scm.ts` — `scm:get-pr-status`, `scm:set-pr-ready`, `scm:merge-pr`, `scm:update-pr-branch`, `scm:create-pr`
 - `electron/preload.ts` — `getPrStatus`, `setPrReady`, `mergePr`, `updatePrBranch`, `createPR`
 - `src/types/window-api.d.ts` — type definitions for the PR status and creation methods
+- `src/lib/github-pr-manage.ts`, `electron/host-service/github-pr-manage-runtime.ts` — `scm:pr-manage` (`prManage`): edit, reviewers, draft, auto-merge, close and reopen for a pull request named by URL
 - `src/store/app.store.ts` — `workspacePrInfoById`, `fetchWorkspacePrStatus`, `fetchAllWorkspacePrStatuses`
 - `src/components/layout/PrStatusIcon.tsx` — icon lookup and color mapping
 - `src/components/layout/TopBarOpenPR.tsx` — PR hub, async lifecycle, status actions, creation sequencing and cancellation
