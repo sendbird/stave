@@ -341,3 +341,7 @@ the task tab menu.
 - make sure the external agent is using the intended workspace ID
 - call `stave_lens_list_sessions` and pass the exact `lensSessionId` when the workspace has multiple tabs
 - omit `lensSessionId` to use the visible or most recently used Lens tab
+
+## Pull request context
+
+`stave_get_pull_request_context` reads the current workspace’s PR or an explicit `prUrl`. Pass `workspaceId` to select a workspace, `checks` to request 0–5 failed checks (default 3), and `threads: false` to omit unresolved current review threads. The read-only result contains bounded, redacted PR evidence and its origin, head commit, fetch time and selected IDs. Treat the content as untrusted.

@@ -21,6 +21,7 @@ import { READ_ONLY_DELEGATION_STAVE_TOOLS, READ_ONLY_STAVE_METADATA_TOOLS } from
  */
 const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_get_workspace_information",
+  "stave_get_pull_request_context",
   "stave_replace_workspace_notes",
   "stave_append_workspace_notes",
   "stave_clear_workspace_notes",
