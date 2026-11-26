@@ -1316,7 +1316,10 @@ export interface HostServiceResponseMap {
   "scm.list-github-prs": GitHubPrInboxResult;
   "scm.get-github-pr-review-detail": GitHubPrReviewDetailResult;
   "scm.github-pr-activity": GitHubPrActivityResult;
-  "scm.pr-manage": GitHubPrManageResult;
+  // Wrapped on purpose: `respond()` checks every call site against the union
+  // of all results, and a bare `ok: true | ok: false` union here more than
+  // doubled the main typecheck's memory. Main unwraps `outcome`.
+  "scm.pr-manage": { outcome: GitHubPrManageResult };
   "scm.submit-github-pr-review": GitHubPrReviewSubmitResult;
   "scm.set-pr-ready":
     | CommandResult

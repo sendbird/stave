@@ -2399,7 +2399,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await runGitHubPrActivity(request.params));
       return;
     case "scm.pr-manage":
-      await respond(request.id, await runGitHubPrManage(request.params));
+      await respond(request.id, { outcome: await runGitHubPrManage(request.params) });
       return;
     case "scm.submit-github-pr-review":
       await respond(

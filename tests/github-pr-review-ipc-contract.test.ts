@@ -143,9 +143,9 @@ test("PR management uses one strict channel through the window and host bridges"
   expect(preloadSource).toContain('ipcRenderer.invoke("scm:pr-manage", args)');
   expect(scmIpcSource).toContain('ipcMain.handle("scm:pr-manage"');
   expect(scmIpcSource).toContain("GitHubPrManageArgsSchema.safeParse(args)");
-  expect(scmIpcSource).toContain('invokeHostService("scm.pr-manage", parsed.data)');
+  expect(scmIpcSource).toContain('invokeHostService("scm.pr-manage", parsed.data).then(({ outcome }) => outcome)');
   expect(hostProtocolSource).toContain('"scm.pr-manage": GitHubPrManageArgs');
-  expect(hostProtocolSource).toContain('"scm.pr-manage": GitHubPrManageResult');
+  expect(hostProtocolSource).toContain('"scm.pr-manage": { outcome: GitHubPrManageResult }');
   expect(hostDispatchSource).toContain('case "scm.pr-manage":');
   expect(hostDispatchSource).toContain("await runGitHubPrManage(request.params)");
   expect(read("electron/host-service/github-pr-manage-runtime.ts")).toContain("export async function runGitHubPrManage(");

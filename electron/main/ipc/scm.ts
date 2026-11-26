@@ -358,7 +358,7 @@ export function registerScmHandlers() {
   ipcMain.handle("scm:pr-manage", (_event, args: unknown) => {
     const parsed = GitHubPrManageArgsSchema.safeParse(args);
     return parsed.success
-      ? invokeHostService("scm.pr-manage", parsed.data)
+      ? invokeHostService("scm.pr-manage", parsed.data).then(({ outcome }) => outcome)
       : { ok: false, reason: "invalid-target" };
   });
 
