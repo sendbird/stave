@@ -6,6 +6,7 @@ import type {
   LensViewportArgs,
 } from "@/lib/lens/lens-viewport";
 import type { GitHubPrActivityRequest } from "@/lib/github-pr-activity";
+import type { GitHubPrManageRequest } from "@/lib/github-pr-manage";
 import type { GetPrStackArgs, GetPrStackResult, RetargetPrStackArgs, RetargetPrStackResult } from "../lib/pull-request-stack";
 import type { ProviderLiveTurnsResult } from "../lib/providers/live-turns";
 import type { NativeNotificationResolved } from "../lib/notifications/native-notification-contract";
@@ -1695,6 +1696,8 @@ interface WindowSourceControlApi {
     cwd?: string;
   }) => Promise<GitHubPrReviewDetailResult>;
   gitHubPrActivity?: GitHubPrActivityRequest;
+  /** Edit, request reviewers, convert to draft, auto-merge, close or reopen one pull request. */
+  prManage?: GitHubPrManageRequest;
   submitGitHubPrReview?: (args: {
     prUrl: string;
     expectedHeadOid: string;

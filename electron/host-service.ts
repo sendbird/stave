@@ -97,6 +97,7 @@ import {
   fetchPrContextIndex,
 } from "./host-service/pr-context-runtime";
 import { runGitHubPrActivity } from "./host-service/github-pr-activity-runtime";
+import { runGitHubPrManage } from "./host-service/github-pr-manage-runtime";
 import {
   fetchGitHubPullRequestReviewDetail,
   listGitHubPullRequests,
@@ -2396,6 +2397,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.github-pr-activity":
       await respond(request.id, await runGitHubPrActivity(request.params));
+      return;
+    case "scm.pr-manage":
+      await respond(request.id, await runGitHubPrManage(request.params));
       return;
     case "scm.submit-github-pr-review":
       await respond(

@@ -137,3 +137,16 @@ test("PR activity uses the same strict contract through the window and host brid
   expect(hostDispatchSource).toContain('case "scm.github-pr-activity":');
   expect(hostDispatchSource).toContain("await runGitHubPrActivity(request.params)");
 });
+
+test("PR management uses one strict channel through the window and host bridges", () => {
+  expect(windowApiSource).toContain("prManage?: GitHubPrManageRequest");
+  expect(preloadSource).toContain('ipcRenderer.invoke("scm:pr-manage", args)');
+  expect(scmIpcSource).toContain('ipcMain.handle("scm:pr-manage"');
+  expect(scmIpcSource).toContain("GitHubPrManageArgsSchema.safeParse(args)");
+  expect(scmIpcSource).toContain('invokeHostService("scm.pr-manage", parsed.data)');
+  expect(hostProtocolSource).toContain('"scm.pr-manage": GitHubPrManageArgs');
+  expect(hostProtocolSource).toContain('"scm.pr-manage": GitHubPrManageResult');
+  expect(hostDispatchSource).toContain('case "scm.pr-manage":');
+  expect(hostDispatchSource).toContain("await runGitHubPrManage(request.params)");
+  expect(read("electron/host-service/github-pr-manage-runtime.ts")).toContain("export async function runGitHubPrManage(");
+});

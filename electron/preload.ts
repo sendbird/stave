@@ -3,6 +3,7 @@ import type { BackgroundTaskRequest, BackgroundTaskResponse } from "../src/lib/p
 import { ListTaskReadStatesArgsSchema, SetTaskReadStatesArgsSchema, SetTaskReadStatesResponseSchema, TaskReadStatesResponseSchema, type ListTaskReadStatesArgs, type SetTaskReadStatesArgs } from "../src/lib/task-read-state";
 import { GetPrStackArgsSchema, GetPrStackResultSchema, RetargetPrStackArgsSchema, RetargetPrStackResultSchema, type GetPrStackArgs, type RetargetPrStackArgs } from "../src/lib/pull-request-stack";
 import type { GitHubPrActivityRequest } from "../src/lib/github-pr-activity";
+import type { GitHubPrManageRequest } from "../src/lib/github-pr-manage";
 import type { ProviderLiveTurnsResult } from "../src/lib/providers/live-turns";
 import { NativeNotificationResolvedSchema, type NativeNotificationResolved } from "../src/lib/notifications/native-notification-contract";
 import { TruncateTaskMessagesAfterArgsSchema, TruncateTaskMessagesResultSchema } from "../src/lib/task-context/conversation-truncation";
@@ -2779,6 +2780,8 @@ contextBridge.exposeInMainWorld("api", {
       ) as Promise<GitHubPrReviewDetailResult>,
     gitHubPrActivity: ((args) =>
       ipcRenderer.invoke("scm:github-pr-activity", args)) satisfies GitHubPrActivityRequest,
+    prManage: ((args) =>
+      ipcRenderer.invoke("scm:pr-manage", args)) satisfies GitHubPrManageRequest,
     submitGitHubPrReview: (args: {
       prUrl: string;
       expectedHeadOid: string;
