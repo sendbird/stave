@@ -10,7 +10,8 @@ import type { AppSettings } from "@/store/app-settings";
  *   access and approvals, and the Cursor, Kiro and OpenCode approval presets.
  *
  * - whether Stave watches pull requests on its own (Settings > Prompts),
- *   after Create PR and after an agent opens one during a task turn.
+ *   after Create PR and after an agent opens one during a task turn;
+ * - whether Create PR opens a draft by default (Settings > Prompts).
  *
  * Everything else is global. Every read of an overridable value for a new
  * task or turn goes through `resolveEffectiveSettings` / `effectiveSetting`,
@@ -18,6 +19,7 @@ import type { AppSettings } from "@/store/app-settings";
  */
 export const PROJECT_OVERRIDABLE_SETTING_KEYS = [
   "createPrWatchEnabled",
+  "createPrDraftDefault",
   "modelClaude",
   "claudeEffort",
   "modelCodex",
@@ -90,6 +92,7 @@ const OVERRIDE_VALIDATORS: {
   ) => AppSettings[K] | undefined;
 } = {
   createPrWatchEnabled: flag,
+  createPrDraftDefault: flag,
   modelClaude: modelId,
   claudeEffort: oneOf<AppSettings["claudeEffort"]>(EFFORTS),
   modelCodex: modelId,

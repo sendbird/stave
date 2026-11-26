@@ -77,6 +77,38 @@ test("switching preview cases in one browser does not carry the other case's req
   await expect(slot).toHaveCount(0);
 });
 
+// A Codex child's asynchronous question whose delegation was cancelled after
+// its turn ended (`childRequest=async-ended`). Only the delegation can send to
+// the managed child, and it takes no follow-up, so an answer cannot be
+// delivered. Before the fix both buttons failed with "this task is managed"
+// and the card had no way out.
+test("an answer nothing can deliver says so and offers a close that persists", async ({ page }) => {
+  await page.goto("/?stavePreview=composer-frame&childRequest=async-ended");
+  const slot = page.getByRole("region", { name: "Requests from delegated tasks" });
+  await slot.getByText("Scroll container", { exact: true }).click();
+  await slot.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(slot.getByRole("alert")).toContainText("This question can no longer be answered");
+  await expect(slot.getByRole("alert")).not.toContainText("managed");
+  // The question is still shown as asked, and now it can be closed.
+  await expect(slot.getByRole("button", { name: "Continue", exact: true })).toBeVisible();
+  await slot.getByRole("button", { name: "Close" }).click();
+  await expect(slot).toHaveCount(0);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("textbox", { name: "Prompt" })).toBeVisible();
+  await expect(slot).toHaveCount(0);
+});
+
+test("declining a question nothing can deliver closes it for good (ko)", async ({ page }) => {
+  await page.goto("/?stavePreview=composer-frame&childRequest=async-ended&lang=ko");
+  const slot = page.getByRole("region", { name: "위임 작업의 요청" });
+  await expect(slot.getByText("Scroll container", { exact: true })).toBeVisible();
+  await slot.getByRole("button", { name: "응답 거절" }).click();
+  await expect(slot).toHaveCount(0);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("textbox", { name: "프롬프트" })).toBeVisible();
+  await expect(slot).toHaveCount(0);
+});
+
 for (const action of ["Continue", "Decline to answer"]) {
   test(`${action} waits for delivery, explains a failed attempt, and closes on retry`, async ({ page }) => {
     await page.goto("/?stavePreview=composer-frame&childRequest=live&holdAnswer=1");

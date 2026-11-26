@@ -96,6 +96,7 @@ export function PromptsSection() {
   const [
     promptResponseStyle,
     promptPrDescription,
+    createPrDraftDefault,
     createPrAutoMergeEnabled,
     createPrMergeMethod,
     createPrWatchEnabled,
@@ -108,6 +109,7 @@ export function PromptsSection() {
         [
           state.settings.promptResponseStyle,
           state.settings.promptPrDescription,
+          state.settings.createPrDraftDefault,
           state.settings.createPrAutoMergeEnabled,
           state.settings.createPrMergeMethod,
           state.settings.createPrWatchEnabled,
@@ -157,6 +159,14 @@ export function PromptsSection() {
         title={t("settings:promptsSection.prCompletion.title")}
         description={t("settings:promptsSection.prCompletion.description")}
       >
+        <SwitchField
+          title={t("settings:promptsSection.prCompletion.draft.title")}
+          description={t("settings:promptsSection.prCompletion.draft.description")}
+          checked={createPrDraftDefault}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { createPrDraftDefault: checked } })
+          }
+        />
         <SwitchField
           title={t("settings:promptsSection.prCompletion.autoMerge.title")}
           description={t("settings:promptsSection.prCompletion.autoMerge.description")}

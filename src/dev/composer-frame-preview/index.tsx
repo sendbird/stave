@@ -35,7 +35,7 @@ import {
   createDocumentContextAttachment,
 } from "@/lib/documents/attached-document-context";
 import type { WorkspaceDocumentCatalogEntry } from "@/lib/documents/workspace-document-schemas";
-import type { Attachment, Task } from "@/types/chat";
+import type { Attachment, Task, UserInputPart } from "@/types/chat";
 
 /** Documents from other workspaces the `@` palette offers in the preview. */
 const PREVIEW_DOCUMENT_CATALOG: readonly WorkspaceDocumentCatalogEntry[] = [
@@ -146,6 +146,9 @@ import {
  * was already answered (with the close control), and a still-pending one
  * queued behind it (add `&queued=0` to drop the queued one).
  * `&childRequest=live` exercises a question with a failed first delivery and a retry.
+ * `&childRequest=async-ended` is a Codex child's asynchronous question whose
+ * delegation was cancelled after its turn ended: nothing can carry an answer,
+ * so Continue says so and offers Close, and Decline closes it.
  * `&draft=empty` starts with an empty draft, so the placeholder shows. With
  * `&case=needs-input` the composer stays usable and sending redirects the agent;
  * `&redirect=queue` shows the variant for a turn that cannot be steered.
@@ -258,7 +261,9 @@ const CHILD_REQUESTS: Record<string, ChildPendingRequest> = {
 const CHILD_REQUEST_CASE = previewParams.get("childRequest");
 const CHILD_REQUEST = CHILD_REQUESTS[CHILD_REQUEST_CASE ?? ""] ?? null;
 const CHILD_REQUEST_SETTLED = CHILD_REQUEST_CASE === "answered";
-const CHILD_REQUEST_LIVE = CHILD_REQUEST_CASE === "live";
+const CHILD_REQUEST_ASYNC_ENDED = CHILD_REQUEST_CASE === "async-ended";
+// Both seed one question; `async-ended` makes it asynchronous with no turn.
+const CHILD_REQUEST_LIVE = CHILD_REQUEST_CASE === "live" || CHILD_REQUEST_ASYNC_ENDED;
 const CHILD_REQUEST_QUEUED = previewParams.get("queued") === "0" ? 0 : 1;
 const PREVIEW_REPOSITORY_PATH = "/tmp/preview-repo";
 
@@ -274,13 +279,17 @@ const PREVIEW_REPOSITORY_PATH = "/tmp/preview-repo";
 function seedChildRequest() {
   // Each case keeps its own saved rows; the other case's are removed so a
   // switch between them in one browser does not show both.
-  const scenario = CHILD_REQUEST_LIVE ? "question" : CHILD_REQUEST_QUEUED ? "queued" : "single";
+  const scenario = CHILD_REQUEST_ASYNC_ENDED ? "async-ended" : CHILD_REQUEST_LIVE ? "question" : CHILD_REQUEST_QUEUED ? "queued" : "single";
   const childWorkspaceId = `preview-child-workspace-${scenario}`;
-  const otherWorkspaceIds = ["queued", "single", "question"].filter((key) => key !== scenario).map((key) => `preview-child-workspace-${key}`);
+  const otherWorkspaceIds = ["queued", "single", "question", "async-ended"].filter((key) => key !== scenario)
+    .map((key) => `preview-child-workspace-${key}`);
   const childTaskId = "preview-child-task";
   const turnId = "preview-child-turn";
   const at = (second: number) => `2026-10-02T09:00:0${second}.000Z`;
-  const question = PREVIEW_CHILD_QUESTION_WITH_PREVIEW;
+  const question: ChildPendingRequest = CHILD_REQUEST_ASYNC_ENDED
+    ? { ...PREVIEW_CHILD_QUESTION_WITH_PREVIEW, model: "gpt-5.5-codex", part: {
+      ...(PREVIEW_CHILD_QUESTION_WITH_PREVIEW.part as UserInputPart), requestId: "codex-async:preview-call", delivery: "async" } }
+    : PREVIEW_CHILD_QUESTION_WITH_PREVIEW;
   const messages = CHILD_REQUEST_LIVE
     ? [{ id: question.messageId, role: "assistant" as const, providerId: "codex" as const, model: question.model ?? "", content: "", parts: [question.part] }]
     : [
@@ -314,7 +323,8 @@ function seedChildRequest() {
       activeTaskId: childTaskId,
       messagesByTask: { [childTaskId]: messages },
       messageCountByTask: { [childTaskId]: messages.length },
-      activeTurnIdsByTask: { [childTaskId]: turnId },
+      // An asynchronous question outlives its turn; this one's turn ended.
+      activeTurnIdsByTask: CHILD_REQUEST_ASYNC_ENDED ? {} : { [childTaskId]: turnId },
     } },
   }));
   const notifications = CHILD_REQUEST_LIVE ? [{
@@ -328,7 +338,21 @@ function seedChildRequest() {
       ? [notification("preview-child-pending-notification", PREVIEW_CHILD_APPROVAL.part.requestId, PREVIEW_CHILD_APPROVAL.messageId, at(2))]
       : []),
   ];
-  if (CHILD_REQUEST_LIVE && window.api) {
+  if (CHILD_REQUEST_ASYNC_ENDED && window.api) {
+    // The delegation that ran the child was cancelled: it takes no follow-up.
+    const cancelled = { runId: "preview-run", stepId: "preview-step", parentTaskId: PREVIEW_TASK_ID, delegationKey: "preview-slice",
+      delegatedTaskId: childTaskId, delegatedWorkspaceId: childWorkspaceId, delegatedTurnId: turnId, providerId: "codex" as const,
+      lifecycle: "one-turn" as const, phase: "cancelled" as const, reason: "Provider turn was interrupted before it completed.",
+      attempt: 1, createdAt: at(0), updatedAt: at(1), completedAt: at(1) };
+    window.api.runs = {
+      ...window.api.runs,
+      listDelegatedTasks: async () => [cancelled],
+    };
+    // Records a decline; an answer never gets here, since nothing could send it.
+    window.api.localMcp = {
+      respondUserInput: async (answer) => ({ ok: answer.denied === true && answer.answerDelivered === true }),
+    };
+  } else if (CHILD_REQUEST_LIVE && window.api) {
     let attempts = 0;
     window.api.localMcp = {
       respondUserInput: async (answer) => {

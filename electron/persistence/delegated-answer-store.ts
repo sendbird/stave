@@ -5,6 +5,7 @@ import {
   type RunStepTarget,
 } from "../../src/lib/runs/run-domain";
 import { REVIEW_DELEGATION_KEY_PREFIX, buildDelegatedTaskRunId } from "../../src/lib/runs/delegated-task";
+import { listDelegatedWorkspaceLinks } from "./delegated-workspace-links";
 
 /**
  * Which subagent answers a parent's turns have carried, kept beside the run
@@ -131,6 +132,24 @@ export class DelegatedAnswerStore {
         resultArtifactRef: typeof row.result_artifact_ref === "string" ? row.result_artifact_ref : null,
       })),
     };
+  }
+
+  /**
+   * Workspaces created for delegated children and the workspace each nests
+   * under (`delegated-workspace-links.ts`). Read here, beside the ledger.
+   */
+  listWorkspaceLinks(options?: { includeArchivedParents?: boolean }) {
+    return listDelegatedWorkspaceLinks(this.db, options);
+  }
+
+  /** Whether a delegation still owes its parent an answer: one with text that no parent turn carried. */
+  hasOwedAnswer(runId: string) {
+    return Boolean(this.db.prepare(`
+      SELECT 1 FROM run_receipts AS receipt JOIN run_steps AS step ON step.id = receipt.step_id
+      WHERE receipt.run_id = ? AND receipt.receipt_type IN ('completed', 'waiting', 'failed')
+        AND COALESCE(json_extract(receipt.detail_json, '$.responseText'), '') != '' AND ${UNSETTLED}
+      LIMIT 1
+    `).get(runId));
   }
 
   /** Settle these answers as carried by `parentTurnId`; refs that name no answer are ignored, a repeat is a no-op. */

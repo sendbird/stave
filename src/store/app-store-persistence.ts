@@ -673,6 +673,10 @@ export function createAppStorePersistenceOptions() {
             : defaultSettings.workspaceTurnSummaryPrompt,
         );
       state.settings.reviewTask = normalizeReviewTaskSettings(raw.reviewTask);
+      state.settings.createPrDraftDefault =
+        typeof raw.createPrDraftDefault === "boolean"
+          ? raw.createPrDraftDefault
+          : defaultSettings.createPrDraftDefault;
       state.settings.createPrAutoMergeEnabled =
         typeof raw.createPrAutoMergeEnabled === "boolean"
           ? raw.createPrAutoMergeEnabled

@@ -439,6 +439,14 @@
     "slackThread": "Slack 스레드"
   },
   "repositoryWorkspaceSidebar": {
+    "nesting": {
+      "showChildren_other": "{{name}} 아래 하위 에이전트 워크스페이스 {{count}}개 펼치기",
+      "hideChildren_other": "{{name}} 아래 하위 에이전트 워크스페이스 {{count}}개 접기",
+      "childOf": "{{parent}}의 하위 에이전트 워크스페이스",
+      "archiveChildren_other": "하위 에이전트 워크스페이스 {{count}}개도 함께 보관",
+      "archiveChildrenDescription": "각 워크스페이스를 같은 안전 검사로 먼저 보관합니다. 하나라도 보관하지 못하면 이 워크스페이스도 보관하지 않습니다.",
+      "childArchiveFailed": "{{name}}을(를) 보관하지 못했습니다: {{reason}}. 이 워크스페이스는 보관하지 않았습니다."
+    },
     "openRepository": "저장소 열기",
     "collapseRepositoryList": "저장소 목록 접기",
     "workspaceRowDisplay": "워크스페이스 행 표시 방식",
@@ -1497,8 +1505,18 @@
       "sensitiveFilesCleanupFailed": "Stave 앱 데이터에서 저장된 민감 파일을 삭제하지 못했습니다",
       "gitOperationInProgress": "이 워크트리에서 Git 작업이 진행 중입니다",
       "hiddenChanges": "Git 상태 검사에 표시되지 않는 추적 파일이 있습니다",
-      "keptWorktree": "남겨 둔 파일을 제거하려면 먼저 워크스페이스를 복원하세요"
+      "keptWorktree": "남겨 둔 파일을 제거하려면 먼저 워크스페이스를 복원하세요",
+      "subagentActive": "하위 에이전트가 아직 작업 중입니다",
+      "subagentRetryable": "하위 에이전트가 성공하지 못하고 끝났으며, 이 워크스페이스에서 다시 시도할 수 있습니다",
+      "subagentResultPending": "상위 작업이 아직 결과를 받지 않았습니다",
+      "subagentHasNested": "다른 하위 에이전트 워크스페이스가 이 아래에 있습니다",
+      "subagentChangedFiles": "커밋하지 않았거나 추적하지 않는 파일이 있습니다",
+      "subagentUniqueCommits": "상위 워크스페이스나 기본 브랜치에 없는 커밋이 있습니다",
+      "subagentRestored": "직접 복원했습니다. 다 쓰면 직접 보관해 주세요",
+      "subagentChecksUnavailable": "워크트리를 확인하지 못했습니다"
     },
+    "subagentRow": "{{parent}}의 하위 에이전트 워크스페이스",
+    "subagentKept": "자동으로 정리하지 않음: {{reasons}}",
     "historyTitle": "읽기 전용 워크스페이스 기록",
     "historyDescription": "브랜치를 찾을 수 없습니다. 기록은 유지됩니다. 계속 작업하려면 새 워크스페이스를 만드세요.",
     "createFromHistory": "이 기록에서 워크스페이스 만들기",
@@ -1553,6 +1571,14 @@
     },
     "openLogs": "로그 열기",
     "hideLogs": "로그 닫기",
+    "position": "{{total}}단계 중 {{current}}단계: {{step}}",
+    "positionWithBranch": "{{branch}} · {{total}}단계 중 {{current}}단계: {{step}}",
+    "positionFailed": "{{total}}단계 중 {{current}}단계 실패: {{step}}",
+    "positionWithBranchFailed": "{{branch}} · {{total}}단계 중 {{current}}단계 실패: {{step}}",
+    "setupCommandLabel": "설정 명령",
+    "backgroundHint": "창을 닫아도 준비는 계속됩니다.",
+    "background": "백그라운드에서 계속",
+    "backgroundFailed": "{{name}} 준비에 실패했습니다",
     "commandUnavailable": "터미널에 연결할 수 없습니다. 연결한 다음 다시 시도하세요.",
     "commandFailed": "단계가 실패했으며 출력이 없습니다.",
     "repositoryChanged": "생성을 시작하기 전에 프로젝트가 바뀌었습니다. 원래 프로젝트에서 다시 시도하세요."

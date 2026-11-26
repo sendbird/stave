@@ -18,7 +18,7 @@ export const tarsStyles = stylex.create({
   field: { display: "flex", flexDirection: "column", gap: vars["--aui-space-4"], minWidth: 0, fontSize: vars["--aui-font-size-body"] },
   actions: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--aui-space-8"] },
   error: { color: vars["--aui-color-danger-text"], overflowWrap: "anywhere" },
-  errorBar: { color: vars["--aui-color-danger-text"], overflowWrap: "anywhere", paddingInline: vars["--aui-space-20"], flexShrink: 0 },
+  errorBar: { color: vars["--aui-color-danger-text"], overflowWrap: "anywhere", paddingInline: vars["--aui-space-16"], flexShrink: 0 },
   full: { width: "100%" },
   receipts: { margin: 0, paddingInlineStart: vars["--aui-space-20"], display: "flex", flexDirection: "column", gap: vars["--aui-space-8"], overflowWrap: "anywhere" },
 });

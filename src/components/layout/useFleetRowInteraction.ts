@@ -19,6 +19,8 @@ import {
   respondToFleetInteraction,
   type FleetInteractionResponse,
 } from "@/lib/fleet/interaction-respond";
+import { i18n } from "@/i18n";
+import { toast } from "@/lib/notifications/toast";
 import { isTaskManaged } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -242,6 +244,12 @@ export function useFleetRowInteraction(
       if (result.ok) {
         setError(null);
         setSentRequestId(identity.requestId);
+        // The row closes once answered; say when an earlier answer went out instead of this one.
+        void result.delivery.then((outcome) => {
+          if (outcome.status === "delivered" && outcome.earlierAnswer) {
+            toast.info(i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered"));
+          }
+        }, () => {});
       } else {
         setError(result.reason);
       }

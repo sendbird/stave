@@ -55,6 +55,7 @@ const DELEGATED_TASK_CHANNELS = [
   "delegations:follow-up",
   "delegations:get-link",
   "delegations:list",
+  "delegations:list-workspace-links",
   "delegations:retry",
   "delegations:review-revision",
   "delegations:stop",
@@ -80,6 +81,7 @@ describe("delegated task IPC chain", () => {
     for (const method of [
       "delegateTask",
       "listDelegatedTasks",
+      "listDelegatedWorkspaceLinks",
       "collectDelegatedTaskAnswers",
       "getReviewRevision",
       "followUpDelegatedTask",

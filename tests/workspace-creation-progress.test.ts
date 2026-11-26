@@ -68,6 +68,10 @@ test("keeps a first-turn failure available without offering a duplicate send", a
     setup: async () => ({ status: "skipped" }),
     task: async () => ({ status: "failed", detail: "Start unconfirmed" }),
   });
-  expect(read()?.steps.task).toEqual({ status: "failed", detail: "Start unconfirmed" });
+  const task = read()?.steps.task;
+  expect(task).toMatchObject({ status: "failed", detail: "Start unconfirmed" });
+  expect(task?.retry).toBeUndefined();
+  // Each step records when it ran, for its elapsed time.
+  expect(task?.endedAt).toBeGreaterThanOrEqual(task?.startedAt ?? Number.POSITIVE_INFINITY);
   expect(isWorkspacePreparing(read())).toBe(false);
 });

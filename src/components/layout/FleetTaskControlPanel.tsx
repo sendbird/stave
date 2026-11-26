@@ -36,6 +36,8 @@ import {
   loadFleetInteraction,
 } from "@/lib/fleet/interaction-load";
 import { fleetInteractionOutlivesTurn } from "@/lib/fleet/interaction-respond";
+import { fleetAnswerNotice } from "@/lib/fleet/answer-outcome";
+import { toast } from "@/lib/notifications/toast";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import { isTaskManaged } from "@/lib/tasks";
@@ -403,6 +405,17 @@ export function FleetTaskControlPanel(args: {
   // its recorded state says how it ended — or the delivery guard passes, so a
   // delivery that failed silently can be retried.
   const [sentRequestId, setSentRequestId] = useState<string | null>(null);
+  // A user-input answer whose outcome is still out; its outcome, not the card, says it was delivered.
+  const awaitingOutcome = useRef<string | null>(null);
+  const panelOpen = useRef(true);
+  // The request this panel last sent, as `taskId:requestId`. A card reuses one
+  // panel for its tasks, so a late outcome may belong to a request it no
+  // longer shows; that outcome must not touch the current controls.
+  const lastSentRequest = useRef<string | null>(null);
+  useEffect(() => {
+    panelOpen.current = true;
+    return () => { panelOpen.current = false; };
+  }, []);
   useEffect(() => {
     if (!sentRequestId) {
       return;
@@ -431,6 +444,7 @@ export function FleetTaskControlPanel(args: {
         : recorded?.type === "user_input"
           ? recorded.state === "input-interrupted"
           : true;
+    if (!interrupted && awaitingOutcome.current === sentRequestId) return;
     setSentRequestId(null);
     setBusyAction(null);
     setStatus(
@@ -486,6 +500,8 @@ export function FleetTaskControlPanel(args: {
     }
     setBusyAction(input.kind);
     setStatus({ tone: "neutral", text: tI18n("fleet:fleetTaskControlPanel.sendingResponse") });
+    const sentKey = `${args.target.taskId}:${expected.requestId}`;
+    lastSentRequest.current = sentKey;
     if (input.kind === "approval") {
       resolveApproval({
         taskId: args.target.taskId,
@@ -497,13 +513,31 @@ export function FleetTaskControlPanel(args: {
           : {}),
       });
     } else {
-      resolveUserInput({
+      awaitingOutcome.current = expected.requestId;
+      const settle = (outcome: Parameters<typeof fleetAnswerNotice>[0]) => {
+        if (awaitingOutcome.current === expected.requestId) awaitingOutcome.current = null;
+        // Shown here only while the panel is open and its last request is still this one.
+        const notice = fleetAnswerNotice(outcome, panelOpen.current && lastSentRequest.current === sentKey);
+        const earlierText = i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered");
+        if (notice.kind === "earlier" && notice.via === "toast") toast.info(earlierText);
+        if (notice.kind === "none" || (notice.kind === "earlier" && notice.via === "toast")) return;
+        setSentRequestId(null);
+        setBusyAction(null);
+        setStatus(notice.kind === "earlier"
+          ? { tone: "neutral", text: earlierText }
+          : notice.kind === "failed"
+            ? { tone: "error", text: notice.message }
+            : notice.kind === "changed"
+              ? { tone: "neutral", text: tI18n("fleet:fleetTaskControlPanel.theRequestChangedDeliveryCannotBeConfirmed") }
+              : { tone: "success", text: tI18n("fleet:fleetTaskControlPanel.responseDeliveredTheTaskCanContinue") });
+      };
+      void resolveUserInput({
         taskId: args.target.taskId,
         messageId: validation.messageId,
         requestId: expected.requestId,
         answers: input.answers,
         denied: input.denied,
-      });
+      }).then(settle, (error: unknown) => settle({ status: "failed", message: String(error) }));
     }
     setSentRequestId(expected.requestId);
   };

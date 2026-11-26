@@ -192,6 +192,14 @@ Compact moves the control-height ramp down a tier and the spacing ramp down a
 step from `space12`; text sizes do not change, and fixed geometry such as the
 46px panel bars does not move.
 
+A global surface's title row is `GlobalPageHeader`, and whoever owns the
+page edge owns its inline inset. On a surface whose body runs edge to edge
+(Fleet, Schedules, Agents, Issues, Tars) the header is the full-bleed top band
+and keeps the default `placement="surface"`: it draws the inset and a divider
+across the surface. Inside a centred page column that already pads its content
+(Activity, AI usage) it takes `placement="column"` and adds no inset, so the
+title, the body and the actions share the column's edges. Never stack the two.
+
 The CSS layer order is explicit: theme and resets, canonical component layers,
 then host integration styles and the remaining legacy utilities. Host width, padding, and positioning
 must remain effective when a primitive is replaced. Popover, Dialog, and Drawer

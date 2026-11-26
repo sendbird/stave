@@ -385,3 +385,14 @@ describe("repository pull request watch override", () => {
     })).toBe(true);
   });
 });
+
+describe("repository draft pull request default", () => {
+  test("opens ready by default and accepts a boolean repository override only", () => {
+    expect(defaultSettings.createPrDraftDefault).toBe(false);
+    expect(normalizeProjectSettingsOverrides({ createPrDraftDefault: true })).toEqual({ createPrDraftDefault: true });
+    expect(normalizeProjectSettingsOverrides({ createPrDraftDefault: "true" })).toBeUndefined();
+    const recentRepositories = [repository(PROJECT_PATH, { settingsOverrides: { createPrDraftDefault: true } })];
+    expect(effectiveSetting("createPrDraftDefault", PROJECT_PATH, { settings: defaultSettings, recentRepositories })).toBe(true);
+    expect(effectiveSetting("createPrDraftDefault", OTHER_PATH, { settings: defaultSettings, recentRepositories })).toBe(false);
+  });
+});

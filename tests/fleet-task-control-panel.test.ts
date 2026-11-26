@@ -52,6 +52,17 @@ describe("Fleet inline control surface contract", () => {
     expect(panelSource).toContain("fleetInteractionOutlivesTurn(pendingInteraction.part)");
   });
 
+  test("a late answer outcome only settles the request the panel still shows", () => {
+    // A card reuses one panel for its tasks: every send, approval or answer,
+    // records itself before it goes out, and an outcome for an earlier one
+    // leaves the current controls alone (fleetAnswerNotice gets false).
+    const recorded = panelSource.indexOf("lastSentRequest.current = sentKey;");
+    expect(recorded).toBeGreaterThan(-1);
+    expect(recorded).toBeLessThan(panelSource.indexOf("resolveApproval({", recorded));
+    expect(recorded).toBeLessThan(panelSource.indexOf("void resolveUserInput({", recorded));
+    expect(panelSource).toContain("fleetAnswerNotice(outcome, panelOpen.current && lastSentRequest.current === sentKey)");
+  });
+
   test("mounts the control panel from both the needs rail and the board card", () => {
     expect(inboxSource).toContain("<FleetTaskControlPanel");
     expect(workspaceCardSource).toContain("<FleetTaskControlPanel");

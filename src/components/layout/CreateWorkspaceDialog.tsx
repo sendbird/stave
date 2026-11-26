@@ -5,6 +5,7 @@ import { FolderSymlink, GitBranch, X } from "lucide-react";
 import {
   useEffect,
   useId,
+  useRef,
   useState,
   type FormEvent,
   type KeyboardEvent,
@@ -84,6 +85,10 @@ export function CreateWorkspaceDialog({
   >(null);
   const [creatingWorkspace, setCreatingWorkspace] = useState(false);
   const preparation = useWorkspaceCreationDialogProgress(() => onOpenChange(false));
+  // Workspaces whose preparation went on after the dialog closed, so their outcome is reported
+  // elsewhere. One per request: a later creation must not hide an earlier one's failure.
+  const backgroundedWorkspaceIds = useRef(new Set<string>());
+  const preparingWorkspaceId = useRef<string | null>(null);
   const busy = creatingWorkspace || preparation.running;
   const [creationMode, setCreationMode] =
     useState<CreateWorkspaceCreationMode>("branch");
@@ -266,7 +271,9 @@ export function CreateWorkspaceDialog({
     }
     setCreatingWorkspace(true);
     setCreateWorkspaceError(null);
+    const preparedName = (creationMode === "pr" ? workspaceName.trim() || prReference.trim() : workspaceName.trim());
     let preparing = false;
+    let preparedWorkspaceId: string | null = null;
     try {
       const result =
         creationMode === "link"
@@ -284,12 +291,20 @@ export function CreateWorkspaceDialog({
               initCommand,
               onWorkspacePreparing: (workspaceId) => {
                 preparing = true;
+                preparedWorkspaceId = workspaceId;
+                preparingWorkspaceId.current = workspaceId;
                 preparation.begin(workspaceId);
               },
               onWorkspaceReady: preparation.ready,
               useRootNodeModulesSymlink,
             });
       if (!result.ok) {
+        // The failed step keeps its logs and retry on the workspace's own page.
+        if (preparing && preparedWorkspaceId && backgroundedWorkspaceIds.current.has(preparedWorkspaceId)) {
+          toast.error(t("creationProgress.backgroundFailed", { name: preparedName }), {
+            description: result.message,
+          });
+        }
         if (preparing) return;
         setCreateWorkspaceError(
           result.message ?? t("createDialog.errors.failed"),
@@ -317,6 +332,7 @@ export function CreateWorkspaceDialog({
       );
     } finally {
       setCreatingWorkspace(false);
+      if (preparedWorkspaceId) backgroundedWorkspaceIds.current.delete(preparedWorkspaceId);
     }
   }
 
@@ -392,7 +408,16 @@ export function CreateWorkspaceDialog({
             </Button>
           </Tooltip>
         </div>
-        {preparation.progress ? <WorkspaceCreationPanel progress={preparation.progress} inDialog /> : (
+        {preparation.progress ? (
+          <WorkspaceCreationPanel
+            progress={preparation.progress}
+            inDialog
+            onBackground={() => {
+              if (preparingWorkspaceId.current) backgroundedWorkspaceIds.current.add(preparingWorkspaceId.current);
+              closeDialog();
+            }}
+          />
+        ) : (
           <form onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
           <p className={sx(createWorkspaceStyles.lead)}>
             {t("createDialog.lead")}

@@ -35,7 +35,7 @@
     "src/components/layout/settings-sections/settings-dialog-theme-section.tsx": 629,
     "src/components/layout/WorkspaceInformationPanel.tsx": 2192,
     "src/components/layout/TopBarOpenPR.tsx": 2223,
-    "src/components/layout/pull-request/CreatePullRequestDialog.tsx": 536,
+    "src/components/layout/pull-request/CreatePullRequestDialog.tsx": 401,
     "src/components/layout/pull-request/create-pr-dialog-panels.tsx": 300,
     "src/components/layout/RepositoryWorkspaceSidebar.tsx": 2053,
     "src/components/layout/workspace-information/workspace-information-custom-fields.tsx": 241,

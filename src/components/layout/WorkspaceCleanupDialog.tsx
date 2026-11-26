@@ -208,6 +208,12 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
       <span className={sx(styles.truncate)}>{row.name}{row.archived ? ` · ${t("cleanupCenter.archived")}` : ""}{row.savedChanges ? ` · ${t("cleanupCenter.savedChanges")}` : ""}</span>
       <span className={sx(styles.muted, styles.truncate)}>{row.branch} · {row.path}</span>
       <span className={sx(styles.muted)}>{reasonLine}</span>
+      {/* A delegated child's workspace: whose it is, and why automatic cleanup left it. */}
+      {row.subagent ? <span className={sx(styles.muted)} data-testid={`cleanup-subagent-${row.id}`}>
+        {row.subagent.kept.length
+          ? `${t("cleanupCenter.subagentRow", { parent: row.subagent.parentName })} · ${t("cleanupCenter.subagentKept", { reasons: row.subagent.kept.map(reasonText).join(" · ") })}`
+          : t("cleanupCenter.subagentRow", { parent: row.subagent.parentName })}
+      </span> : null}
     </>;
     return <div className={sx(styles.row, selected.has(key) && styles.selected)} data-testid={`cleanup-row-${row.id}`}>
       <Checkbox controlOnly xstyle={styles.checkbox} aria-label={t("cleanupDialog.row.select", { name: row.name })} aria-describedby={blocked ? reasonId : undefined} checked={selected.has(key)} disabled={busy || blocked} onCheckedChange={() => choose(row)} />

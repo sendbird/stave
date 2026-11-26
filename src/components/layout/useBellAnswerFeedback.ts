@@ -4,7 +4,8 @@ import { useAppStore } from "@/store/app.store";
 import { answerFromBell, readBellRequest, settleBellRequest, type BellAnswer } from "@/store/bell-quick-answer";
 
 export const BELL_ANSWER_FEEDBACK_MS = 2_000;
-export type BellAnswerStatus = "sending" | "settling" | "delivered" | "skipped" | "failed";
+/** `deliveredEarlier`: an earlier answer to the question was delivered instead of this one. */
+export type BellAnswerStatus = "sending" | "settling" | "delivered" | "deliveredEarlier" | "skipped" | "failed";
 
 type AnswerFeedback = {
   entry: FleetInboxEntry;
@@ -44,7 +45,8 @@ export function useBellAnswerFeedback() {
         else show("failed");
         return;
       }
-      const { status } = await answerFromBell(useAppStore.getState, entry, answer);
+      const outcome = await answerFromBell(useAppStore.getState, entry, answer);
+      const status = outcome.status === "delivered" && outcome.earlierAnswer ? "deliveredEarlier" : outcome.status;
       show(status);
       if (status !== "failed") {
         timers.current.set(entry.id, window.setTimeout(remove, BELL_ANSWER_FEEDBACK_MS));

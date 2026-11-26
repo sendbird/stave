@@ -22,7 +22,8 @@ export const attentionStyles = stylex.create({
     gap: vars["--aui-space-8"],
     justifyContent: "space-between",
     paddingBlock: vars["--aui-space-8"],
-    paddingInline: vars["--aui-space-12"],
+    // The full-bleed surface inset (`GlobalPageHeader`).
+    paddingInline: vars["--aui-space-16"],
   },
   /** Section eyebrow: Caption, uppercase, medium. */
   groupHeading: {

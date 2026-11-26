@@ -25,6 +25,7 @@ import { currentProviderAccountId, withRequestAccountScope } from "./provider-ac
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
 import { createHostGatewayCredentialBroker, setHostGatewayCredentialBroker, requestHostGatewayCredentials, type HostGatewayCredentialRequest } from "./provider-accounts/host-gateway-credentials";
 import { realpathSync } from "node:fs";
+import { readPullRequestTemplate } from "./host-service/pull-request-template";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
 import { randomUUID } from "node:crypto";
@@ -693,6 +694,8 @@ setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
 // One whose record keeps failing stops being resent, and the task says so once.
 setProviderTurnCommittedListener((turn) => {
   const unrecordable = recordCommittedTurnAnswers(turn);
+  // A delivered answer can make its subagent's workspace eligible for automatic cleanup.
+  if (turn.subagentAnswers.length > unrecordable.length) workspaceCleanupRuntime.scheduleDelegatedSweep();
   if (unrecordable.length === 0 || !turn.workspaceId) return;
   void localMcpRuntime.notifySupervisorProblem({
     workspaceId: turn.workspaceId,
@@ -1330,10 +1333,7 @@ async function collectProviderPullRequestContext(args: {
       commandArgs: ["status", "--porcelain"],
       cwd,
     }),
-    runCommand({
-      command: "cat .github/PULL_REQUEST_TEMPLATE.md 2>/dev/null || true",
-      cwd,
-    }),
+    readPullRequestTemplate(cwd),
     runCommand({ command: "cat AGENTS.md 2>/dev/null || true", cwd }),
     runCommandArgs({
       command: "git",
@@ -1371,9 +1371,7 @@ async function collectProviderPullRequestContext(args: {
   ]
     .filter(Boolean)
     .join("\n");
-  const prTemplateContent = prTemplateResult.ok
-    ? prTemplateResult.stdout.trim()
-    : undefined;
+  const prTemplateContent = prTemplateResult;
   const agentsContent = agentsResult.ok
     ? agentsResult.stdout.trim()
     : undefined;
@@ -1810,13 +1808,21 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     }
     case "workspace.cleanup-preview": {
       const { runningAgentWorktrees, ...args } = WorkspaceCleanupPreviewArgsSchema.extend({ runningAgentWorktrees: RunningAgentWorktreesSchema.optional() }).parse(request.params);
-      await respond(request.id, await workspaceCleanupRuntime.preview(args, runningAgentWorktrees)); return;
+      // Delegated children carry their parent and what keeps them, as in the cleanup list.
+      const previewed = await workspaceCleanupRuntime.preview(args, runningAgentWorktrees);
+      await respond(request.id, { ...previewed, rows: await workspaceCleanupRuntime.annotateDelegatedChildren(previewed.rows) }); return;
     }
     case "workspace.cleanup-list": {
       // Main adds the sub-agent worktrees Activity sees running; the renderer's own arguments stay strict.
       const { runningAgentWorktrees, ...args } = WorkspaceCleanupListArgsSchema.extend({ runningAgentWorktrees: RunningAgentWorktreesSchema.optional() }).parse(request.params);
       const [listed, subAgentWorktrees] = await Promise.all([workspaceCleanupRuntime.list(args.scanDisk), workspaceCleanupRuntime.listSubAgentWorktrees(runningAgentWorktrees, args.scanDisk)]);
-      await respond(request.id, { ...listed, subAgentWorktrees }); return;
+      await respond(request.id, { ...listed, rows: await workspaceCleanupRuntime.annotateDelegatedChildren(listed.rows), subAgentWorktrees }); return;
+    }
+    // Main asks after a delegation changes phase; the sweep runs shortly and coalesces repeats.
+    case "workspace.delegated-cleanup-sweep": {
+      cleanupZ.object({}).strict().parse(request.params ?? {});
+      workspaceCleanupRuntime.scheduleDelegatedSweep();
+      await respond(request.id, { scheduled: true }); return;
     }
     case "workspace.subagent-worktree-remove": {
       const { runningAgentWorktrees, ...args } = SubAgentWorktreeRemoveArgsSchema.extend({ runningAgentWorktrees: RunningAgentWorktreesSchema.optional() }).parse(request.params);

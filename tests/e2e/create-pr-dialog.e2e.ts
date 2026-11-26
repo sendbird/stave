@@ -51,10 +51,12 @@ interface PrHarnessOptions {
   hookFailure?: "blocking" | "warning";
   failCommitOnce?: boolean;
   failPushOnce?: boolean;
+  autoMergeAllowed?: boolean;
 }
 
 interface PrHarnessState {
   calls: string[];
+  createArgs: Array<{ draft?: boolean; autoMerge?: boolean }>;
   releaseDraft: () => void;
   hookFailure: PrHarnessOptions["hookFailure"];
 }
@@ -79,6 +81,7 @@ async function installPrHarness(page: Page, options: PrHarnessOptions = {}) {
 
     const harness: PrHarnessState = {
       calls: [],
+      createArgs: [],
       hookFailure: initial.hookFailure,
       releaseDraft: () => {
         draftReleased = true;
@@ -134,7 +137,7 @@ async function installPrHarness(page: Page, options: PrHarnessOptions = {}) {
           squashMergeAllowed: true,
           mergeCommitAllowed: true,
           rebaseMergeAllowed: true,
-          autoMergeAllowed: false,
+          autoMergeAllowed: initial.autoMergeAllowed === true,
           stderr: "",
         }),
         stageFiles: async ({
@@ -160,8 +163,9 @@ async function installPrHarness(page: Page, options: PrHarnessOptions = {}) {
           harness.calls.push(`fix:${requestCwd}:${paths.join(",")}`);
           return { ok: true, fixAttempted: true, stderr: "" };
         },
-        createPR: async ({ cwd: requestCwd }: { cwd?: string }) => {
+        createPR: async ({ cwd: requestCwd, draft, autoMerge }: { cwd?: string; draft?: boolean; autoMerge?: boolean }) => {
           harness.calls.push(`create:${requestCwd}`);
+          harness.createArgs.push({ draft, autoMerge });
           return {
             ok: true,
             prUrl: "https://github.example.invalid/example/stave/pull/1",
@@ -429,3 +433,55 @@ test("hook and push retries keep the selected rename separate from an unchecked 
   ]);
   expect(browserErrors).toEqual([]);
 });
+
+for (const lang of ["en", "ko"] as const) {
+  test(`a draft PR is never queued for auto-merge, and the repository default opens the dialog as a draft (${lang})`, async ({ page }) => {
+    const ko = lang === "ko";
+    const browserErrors = trackBrowserErrors(page);
+    await installPrHarness(page, { autoMergeAllowed: true });
+    await page.setViewportSize({ width: 1280, height: 1000 });
+    await page.goto(`/?stavePreview=create-pr&lang=${lang}`, { waitUntil: "domcontentloaded" });
+    await page.evaluate(async (language) => {
+      const { i18n } = await import("/src/i18n/index.ts");
+      await i18n.changeLanguage(language);
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      useAppStore.getState().updateSettings({ patch: { createPrAutoMergeEnabled: true } });
+    }, lang);
+    const open = () => page.getByRole("button", { name: ko ? "PR 생성" : "Create PR" }).first().click();
+    await open();
+    const dialog = page.getByRole("dialog", { name: ko ? "풀 리퀘스트 생성" : "Create Pull Request" });
+    const draft = dialog.getByRole("switch", { name: ko ? "초안" : "Draft", exact: true });
+    const autoMerge = dialog.getByRole("switch", { name: ko ? "자동 병합" : "Auto-merge", exact: true });
+    await expect(dialog.getByRole("textbox").first()).toBeVisible();
+    // The global default is ready: Draft off, auto-merge as configured.
+    await expect(draft).not.toBeChecked();
+    await expect(autoMerge).toBeChecked();
+    await draft.click();
+    await expect(draft).toBeChecked();
+    await expect(autoMerge).not.toBeChecked();
+    await expect(autoMerge).toBeDisabled();
+    await expect(dialog.getByText(ko ? "초안은 자동으로 병합되지 않습니다." : "A draft is not merged automatically.", { exact: false })).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
+    await dialog.screenshot({ path: `test-results/create-pr-draft-${lang}.png` });
+    await dialog.getByRole("button", { name: ko ? "PR 생성" : "Create PR", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    const args = await page.evaluate(() => (window as unknown as { __prHarness: PrHarnessState }).__prHarness.createArgs);
+    expect(args).toEqual([{ draft: true, autoMerge: false }]);
+
+    // A repository that opens drafts by default starts the next dialog as a draft.
+    await page.evaluate(async () => {
+      const { useAppStore } = await import("/src/store/app.store.ts");
+      const state = useAppStore.getState();
+      useAppStore.setState({ recentRepositories: [{
+        repositoryPath: state.repositoryPath, repositoryName: "stave-project", lastOpenedAt: "2026-09-24T00:00:00.000Z",
+        defaultBranch: "main", workspaces: state.workspaces, activeWorkspaceId: state.activeWorkspaceId,
+        workspaceBranchById: state.workspaceBranchById, workspacePathById: state.workspacePathById,
+        workspaceDefaultById: state.workspaceDefaultById, settingsOverrides: { createPrDraftDefault: true },
+      }] });
+    });
+    await open();
+    await expect(draft).toBeChecked();
+    await expect(autoMerge).toBeDisabled();
+    expect(browserErrors).toEqual([]);
+  });
+}

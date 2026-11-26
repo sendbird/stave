@@ -415,6 +415,14 @@ working there. It appears in these places:
   is no longer pending. A request still waiting, one that could not be loaded,
   or an asynchronous question that outlived its turn and can still be answered
   has no close button.
+  A child takes messages only from its delegation, so an answer to its
+  asynchronous question is sent as a follow-up of that delegation. When the
+  delegation has ended or no longer accepts follow-ups, **Decline to answer**
+  closes the question, and **Continue** reads "This question can no longer be
+  answered" and offers the close button. While the child is still working, the
+  card asks you to answer again after it stops.
+  An approval that the child no longer has waiting (its turn ended, or it was
+  answered elsewhere) closes when you answer it instead of failing again.
 - **Notifications.** The item reads as the root task, with the delegated task
   named in its detail. Opening it focuses the root task rather than the
   child's workspace.
@@ -496,8 +504,73 @@ may have running at once (default 3, maximum 16).
   not: a subagent is always started by an agent rather than by a button.
 - Detaching is one-way. A released delegation cannot be re-claimed; the child
   continues as an ordinary task.
-- Creating a `new-worktree` child leaves the worktree in place when the child
-  ends. Remove it through the normal workspace controls.
+- A `new-worktree` child's workspace is cleaned up automatically only when it
+  is safe (see [Child workspaces](#child-workspaces)); otherwise it stays and
+  is listed in **Clean up workspaces** with the reason. There is no setting for
+  this: the rules below only ever archive, and archiving keeps the branch.
+
+## Child workspaces
+
+A `new-worktree` child gets a workspace of its own. In the sidebar's
+Repositories view it is nested under the workspace that delegated it,
+indented by one AUI space step per level (a grandchild under its own parent;
+deeper rows keep their place but stop indenting after two levels). The parent
+row shows how many workspaces are nested under it and toggles them; collapse
+is kept for the session, like a repository's. The collapsed rail and the
+Cmd/Ctrl+Shift+1–9 shortcuts follow the same order and skip hidden rows. Only
+top-level rows reorder; a nested row follows its parent. A nested row's status
+mark shows the delegation's phase (queued, working, waiting, done, failed,
+stopped) when no attention item or running turn says more. The Work queue view
+stays ranked by status and does not nest.
+
+The relationship is read from rows that already exist, so it survives a
+restart without new storage: the delegation's run (`runs.kind =
+'delegated-task'`) owns the child workspace and task and names the parent task
+as its origin, and the parent task's row names the parent workspace
+(`electron/persistence/delegated-workspace-links.ts`). A detached delegation, a
+same-workspace delegation, and an archived or deleted parent or child produce
+no link, so those workspaces are ordinary top-level rows.
+
+Archiving a workspace with nested workspaces lists them in the confirmation
+with **Also archive N subagent workspaces** (on by default). They are archived
+first, deepest first, through the same archive action and checks; the first
+one refused stops before the parent and is named in the dialog.
+
+Stave archives a child workspace automatically, through the ordinary archive
+action, only when all of these hold:
+
+1. The delegation is final: `completed`, or `cancelled` by the parent. A
+   `failed` or `interrupted` delegation can be retried in the same workspace,
+   and a pending, running or waiting one is still working.
+2. Every answer the child produced has been carried by a parent turn.
+3. No other delegated workspace is nested under it.
+4. Its worktree has no uncommitted or untracked files that Git does not
+   ignore, no tracked file Git hides from status (`assume-unchanged` or
+   `skip-worktree`) with an edit, and no unfinished merge, rebase, cherry-pick,
+   revert or bisect.
+5. Its HEAD and branch have no commit unreachable from both the parent
+   workspace's HEAD and the default branch. This replaces the ordinary
+   automatic archive's unpushed-commit check, since those commits are kept by
+   the parent's branch or the default branch.
+6. The archive's other blockers allow it (current workspace, running turn,
+   open terminal, pending attention, ownership and the rest).
+7. The user did not restore it from **Clean up workspaces** since it was last
+   archived. A restored child stays until the user archives it again.
+
+The rules are checked again inside the archive while the workspace's execution
+is stopped. A sweep runs after a parent turn carries answers, after a
+delegation changes phase, 30 seconds after start and every ten minutes. A
+workspace that fails a rule is never removed automatically: **Clean up
+workspaces** shows it as "Subagent workspace of <parent>" with what kept it.
+Branches are never deleted; restore an automatic archive from **Recent
+cleanup**.
+
+The optional inactivity, maximum and merged-PR cleanup policies also leave a
+child the delegation still holds: one still working, one that can be retried,
+one with an answer no parent turn carried yet, one with workspaces nested
+under it, and one the user restored. A child stays held after its parent
+workspace is archived, so archiving the parent first in the same cleanup does
+not release it. That check runs again inside the archive.
 
 ## Troubleshooting
 

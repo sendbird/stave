@@ -5,6 +5,7 @@ import { existsSync, realpathSync } from "node:fs";
 import { workspaceRunningCleanupBlockers } from "./workspace-cleanup-running";
 import { createWorkspaceDiskUsage, readWorkspaceDiskUsage, workspaceDiskFolders, type WorkspaceDiskUsage } from "./workspace-disk-usage";
 import { createSubAgentWorktrees } from "./subagent-worktrees";
+import { createDelegatedWorkspaceCleanup } from "./delegated-workspace-cleanup";
 import { lstat, symlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { SqliteStore } from "../persistence/sqlite-store";
@@ -48,6 +49,13 @@ export function createWorkspaceCleanupRuntime(ports: {
   const now = ports.now ?? Date.now;
   const disk = ports.diskUsage ?? createWorkspaceDiskUsage();
   const subAgents = createSubAgentWorktrees({ store: ports.store, git, now });
+  const delegated = createDelegatedWorkspaceCleanup({
+    store: ports.store, git,
+    blockers: async (target) => (await list(false, false, target)).rows.find(row => row.id === target.id)?.blockers ?? null,
+    archive: (target, verify) => act({ action: "archive", ...target }, true, verify),
+    recentlyFailed: (repositoryPath, workspaceId) => saved().automaticFailureAt?.[failureKey(repositoryPath, workspaceId)] !== undefined,
+    restoredByUser: (repositoryPath, workspaceId) => saved().userRestoredAt?.[failureKey(repositoryPath, workspaceId)] !== undefined,
+  });
   const mergedAtByWorkspace = new Map<string, number>();
   const prSavedTips = new Set<string>();
   let running = false;
@@ -84,6 +92,13 @@ export function createWorkspaceCleanupRuntime(ports: {
   function remember(result: WorkspaceCleanupResult, repositoryPath: string, automatic: boolean) {
     const state = saved();
     if (automatic && !result.ok) state.automaticFailureAt![failureKey(repositoryPath, result.workspaceId)] = now();
+    // A restore the user asked for outlasts the delegated-child sweep until the workspace is archived again.
+    if (result.ok && (result.action === "restore" || result.action === "archive")) {
+      const restored = { ...state.userRestoredAt };
+      if (result.action === "restore" && !automatic) restored[failureKey(repositoryPath, result.workspaceId)] = now();
+      else delete restored[failureKey(repositoryPath, result.workspaceId)];
+      state.userRestoredAt = restored;
+    }
     state.recent = [{ ...result, repositoryPath, at: new Date(now()).toISOString(), automatic }, ...state.recent].slice(0, 200);
     if (stateReadable) ports.store().writeWorkspaceCleanupState(state);
   }
@@ -266,8 +281,16 @@ export function createWorkspaceCleanupRuntime(ports: {
     }));
     return { rows: inspected, policy: state.policy, recent: state.recent };
   }
-  async function perform(input: WorkspaceCleanupActArgs, automatic = false): Promise<WorkspaceCleanupResult> {
+  /**
+   * `verify`, for an automatic archive only, replaces the `unpushedCommits`
+   * blocker with the caller's own rule and runs again once the workspace's
+   * execution is stopped (`delegated-workspace-cleanup.ts`); a non-null result
+   * refuses the archive with that reason. `guard` runs at the same point
+   * without replacing any blocker; a non-null result refuses the action.
+   */
+  async function perform(input: WorkspaceCleanupActArgs, automatic = false, verify?: () => Promise<string | null>, guard?: () => Promise<string | null>): Promise<WorkspaceCleanupResult> {
     const args = WorkspaceCleanupActArgsSchema.parse(input);
+    const verified = automatic && args.action === "archive" && verify !== undefined;
     let result: WorkspaceCleanupResult = { ok: false, workspaceId: args.workspaceId, action: args.action, reason: null };
     let registryChanged = false;
     let leftoverFiles = false;
@@ -379,7 +402,7 @@ export function createWorkspaceCleanupRuntime(ports: {
         const willSave = (current: WorkspaceCleanupRow) => args.action === "archive" && args.saveChanges === true && current.canSaveChanges === true;
         if (args.saveChanges && !willSave(row) && !preserveLocalWork) throw new Error("savedChangesUnavailable");
         const remainingBlockers = (current: WorkspaceCleanupRow, blockers: string[]) => blockers.filter(blocker =>
-          !(blocker === "unpushedCommits" && (preserveLocalWork || (args.forceDeleteBranch && args.action === "delete"))) &&
+          !(blocker === "unpushedCommits" && (preserveLocalWork || verified || (args.forceDeleteBranch && args.action === "delete"))) &&
           !(blocker === "changedFiles" && (keepWorktree || willSave(current))));
         const blockers = remainingBlockers(row, [...new Set([...row.blockers, ...hostBlockers(row, args.action)])]);
         if (blockers.length) throw new Error(blockers.join(","));
@@ -393,11 +416,15 @@ export function createWorkspaceCleanupRuntime(ports: {
           if (!preserveLocalWork && willSave(row) && !willSave(fresh)) throw new Error("savedChangesUnavailable");
           const freshBlockers = remainingBlockers(fresh, fresh.blockers);
           if (freshBlockers.length) throw new Error(freshBlockers.join(","));
+          const refused = verified ? await verify!() : guard ? await guard() : null;
+          if (refused) throw new Error(refused);
           const repository = ports.store().loadRepositoryRegistry().find(repo => repo.repositoryPath === row.repositoryPath)!;
           const linked = repository.linkedWorkspacePaths?.some(path => canonical(path) === canonical(row.path)) || ports.store().listArchivedWorkspacesPersistence().find(record => record.workspaceId === row.id)?.creationOptions?.linkedWorktree;
           const linkedSymlinkNames = linked ? await listWorkspaceShelfLinks(row.repositoryPath, row.path) : [];
           const createArchive = (args.action === "archive" || args.action === "delete") && !row.archived;
-          const checkArchiveFiles = preserveLocalWork && !keepWorktree && !linked && existsSync(row.path);
+          // An automatic archive has no one to confirm a loss, so it also refuses
+          // changes Git hides from status and an unfinished merge or rebase.
+          const checkArchiveFiles = (preserveLocalWork || (automatic && args.action === "archive")) && !keepWorktree && !linked && existsSync(row.path);
           if (checkArchiveFiles) await assertWorkspaceArchiveFilesSafe(row.path);
           // Persist recoverable ownership before removing its checkout. A failed
           // write must never leave active history pointing at a missing path.
@@ -507,8 +534,8 @@ export function createWorkspaceCleanupRuntime(ports: {
     }
     return result;
   }
-  function act(args: WorkspaceCleanupActArgs, automatic = false) {
-    const pending = actionChain.then(() => perform(args, automatic));
+  function act(args: WorkspaceCleanupActArgs, automatic = false, verify?: () => Promise<string | null>, guard?: () => Promise<string | null>) {
+    const pending = actionChain.then(() => perform(args, automatic, verify, guard));
     actionChain = pending.then(() => {}, () => {});
     return pending;
   }
@@ -537,7 +564,10 @@ export function createWorkspaceCleanupRuntime(ports: {
           || (policy.maximum.enabled && (activeByRepo.get(row.repositoryPath) ?? 0) > policy.maximum.value && age >= 1));
         const remove = row.archived && !row.keptWorktree && policy.archived.enabled && age >= policy.archived.value && existsSync(row.path);
         if (!archive && !remove) continue;
-        const result = await act({ action: archive ? "archive" : "removeWorktree", workspaceId: row.id, repositoryPath: row.repositoryPath }, true);
+        // A delegated child the delegation still holds is left to its own rules, checked again with execution stopped.
+        const held = archive ? () => Promise.resolve(delegated.held(row.id, row.repositoryPath)) : undefined;
+        if (held && await held()) continue;
+        const result = await act({ action: archive ? "archive" : "removeWorktree", workspaceId: row.id, repositoryPath: row.repositoryPath }, true, undefined, held);
         results.push(result);
         if (result.ok && archive) activeByRepo.set(row.repositoryPath, (activeByRepo.get(row.repositoryPath) ?? 1) - 1);
       }
@@ -551,7 +581,13 @@ export function createWorkspaceCleanupRuntime(ports: {
   function start() {
     const timer = setInterval(() => { void runScheduled().catch(() => {}); }, 3600_000);
     timer.unref();
-    return () => clearInterval(timer);
+    // Delegated children are cleaned on their own rules, not the optional policy: a sweep
+    // shortly after start, every ten minutes, and whenever `delegated.schedule` is asked.
+    const first = setTimeout(() => delegated.schedule(), 30_000);
+    first.unref();
+    const children = setInterval(() => delegated.schedule(), 600_000);
+    children.unref();
+    return () => { clearInterval(timer); clearTimeout(first); clearInterval(children); };
   }
   /** Worktrees Claude Code sub-agents left (`subagent-worktrees.ts`); `runningAgentWorktrees` comes from Activity in main. */
   const listSubAgentWorktrees = (runningAgentWorktrees: readonly string[] = [], scanDisk = false) => subAgents.list(runningAgentWorktrees, async folder =>
@@ -588,5 +624,10 @@ export function createWorkspaceCleanupRuntime(ports: {
     return readWorkspaceDiskUsage([...workspaceDiskFolders(ports.store()), ...leftByAgents.map(folder => ({ workspaceId: subAgentWorktreeDiskId(folder.path),
       name: folder.name, repositoryPath: folder.repositoryPath, repositoryName: folder.repositoryName, archived: false, subAgentWorktree: true as const, path: folder.path }))], disk, refresh);
   };
-  return { list, preview, act, configure, runNow, runScheduled, start, diskUsage, listSubAgentWorktrees, removeSubAgentWorktree };
+  return { list, preview, act, configure, runNow, runScheduled, start, diskUsage, listSubAgentWorktrees, removeSubAgentWorktree,
+    /** Marks delegated children in Clean up workspaces with their parent and what keeps them. */
+    annotateDelegatedChildren: delegated.annotate,
+    /** Sweeps delegated children shortly; triggers coalesce. */
+    scheduleDelegatedSweep: delegated.schedule,
+    sweepDelegatedChildren: delegated.sweep };
 }

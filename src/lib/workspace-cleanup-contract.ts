@@ -51,6 +51,12 @@ export const WorkspaceCleanupRowSchema = z.object({
   lastActive: z.string().nullable(), blockers: z.array(z.string()), reasons: z.array(z.string()),
   preview: WorkspaceCleanupPreviewSchema.optional(),
   bytes: z.number().nonnegative().nullable(), branchDeletable: z.boolean(),
+  /**
+   * Set when Stave created this workspace for a delegated child. `kept` lists
+   * why automatic cleanup left it (`delegated-workspace-cleanup.ts`); empty
+   * when only the row's blockers stand in the way.
+   */
+  subagent: z.object({ parentWorkspaceId: Id, parentName: z.string(), kept: z.array(z.string()) }).strict().optional(),
 }).strict();
 export type WorkspaceCleanupRow = z.infer<typeof WorkspaceCleanupRowSchema>;
 export const WorkspaceCleanupResultSchema = z.object({
@@ -61,6 +67,8 @@ export type WorkspaceCleanupResult = z.infer<typeof WorkspaceCleanupResultSchema
 export const WorkspaceCleanupRecentSchema = WorkspaceCleanupResultSchema.extend({ at: z.string(), repositoryPath: Id, automatic: z.boolean() }).strict();
 export const WorkspaceCleanupStateSchema = z.object({
   automaticFailureAt: z.record(z.string(), z.number()).optional(),
+  /** Workspaces the user restored since their last archive; the delegated-child sweep leaves them alone. */
+  userRestoredAt: z.record(z.string(), z.number()).optional(),
   policy: WorkspaceCleanupPolicySchema.strip().extend({ merged: CleanupRuleSchema.strip(), inactive: CleanupRuleSchema.strip(), archived: CleanupRuleSchema.strip(), maximum: CleanupRuleSchema.strip() }), recent: z.array(WorkspaceCleanupRecentSchema.strip()).max(200), lastRun: z.number(),
 }).strip();
 /**

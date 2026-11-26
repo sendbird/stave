@@ -214,6 +214,10 @@ export function getDelegatedTaskCoordinator() {
           }
           contents.send("delegations:changed", { parentTaskId });
         }
+        // A delegation that ended may leave a workspace the host can now clean up.
+        void invokeHostService("workspace.delegated-cleanup-sweep", {}).catch((error) => {
+          console.warn(`[delegated-task] could not schedule the child workspace sweep: ${String(error)}`);
+        });
       },
     });
   }

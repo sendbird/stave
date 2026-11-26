@@ -205,6 +205,8 @@ function ChildRequestCard(props: {
   const [expected] = useState(props.request.identity);
   const [busy, setBusy] = useState(false);
   const [respondError, setRespondError] = useState<string | null>(null);
+  // The last answer failed because nothing can deliver one any more.
+  const [unanswerable, setUnanswerable] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [freshlyRead, setFreshlyRead] = useState(false);
   const { childTask, messages, messageCount, activeTurnId } = useChildRequestState(expected);
@@ -264,12 +266,19 @@ function ChildRequestCard(props: {
       return;
     }
     setRespondError(null);
+    setUnanswerable(false);
     setBusy(true);
     const showDeliveryError = (detail: string) => {
       if (mounted.current) setRespondError(i18n.t("session:childRequestSlot.deliveryFailed", { detail }));
     };
     void result.delivery.then((outcome) => {
-      if (outcome.status === "failed") showDeliveryError(outcome.message);
+      // The slot closes either way; say which answer the child got.
+      if (outcome.status === "delivered" && outcome.earlierAnswer) {
+        toast.info(i18n.t("notifications:asyncQuestionAnswer.earlierAnswerDelivered"));
+      }
+      if (outcome.status !== "failed") return;
+      showDeliveryError(outcome.message);
+      if (outcome.unanswerable && mounted.current) setUnanswerable(true);
     }, (error: unknown) => {
       showDeliveryError(error instanceof Error ? error.message : String(error));
     }).finally(() => {
@@ -297,6 +306,7 @@ function ChildRequestCard(props: {
             : (loadError ?? (freshlyRead && !cold && !busy ? i18n.t("session:childRequestSlot.extraCopy88") : null))
       }
       settled={settled}
+      unanswerable={Boolean(pending) && unanswerable}
       onRespond={respond}
       onDismiss={() => void dismissChildRequest(props.request.notificationId)}
     />
@@ -315,6 +325,11 @@ export function ChildRequestView(props: {
   error: string | null;
   /** The loaded state proves the request is over (`isChildRequestSettled`). */
   settled: boolean;
+  /**
+   * Still waiting, but the last answer failed because nothing can deliver one
+   * any more (`InteractionAnswerOutcome.unanswerable`): retrying cannot help.
+   */
+  unanswerable?: boolean;
   onRespond: (response: FleetInteractionResponse) => void;
   /** Hides a request that has nothing left to answer. */
   onDismiss?: () => void;
@@ -335,11 +350,13 @@ export function ChildRequestView(props: {
         : props.settled
           ? i18n.t("session:childRequestSlot.statusText2")
           : i18n.t("session:childRequestSlot.statusText3");
-  // Only a request the loaded state proves over can be closed. A pending one is
-  // answered or denied, one being delivered settles on its own, and one that
-  // could not be read may still be waiting, so closing it would hide a live
-  // request from this composer and from Fleet.
-  const dismissible = Boolean(props.onDismiss) && props.settled && !pending && !busy && !error;
+  // Only a request the loaded state proves over, or one an answer proved can
+  // no longer be delivered, can be closed. Any other pending one is answered or
+  // denied, one being delivered settles on its own, and one that could not be
+  // read may still be waiting, so closing it would hide a live request from
+  // this composer and from Fleet.
+  const dismissible = Boolean(props.onDismiss) && !busy &&
+    (props.unanswerable === true || (props.settled && !pending && !error));
 
   return (
     <section

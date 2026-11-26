@@ -237,6 +237,8 @@ export function createWorkspaceCreateActions(args: {
       const progress = beginWorkspaceCreation(workspaceId, {
         taskTitle: seededTask.title,
         prompt: initialPromptDraft?.text,
+        branch: branchName || undefined,
+        setupCommand: workspaceInitCommand ? summarizeWorkspaceInitCommand({ command: workspaceInitCommand }) : undefined,
       });
       const publishWorkspace = (activate: boolean) => set((state) => {
         if (state.repositoryPath !== current.repositoryPath) {

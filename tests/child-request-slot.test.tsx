@@ -203,6 +203,102 @@ describe("child requests in the parent composer", () => {
     expect(render({ error: "This request could not be loaded." })).not.toContain(close);
     // A view without a close handler, like the frame preview, shows none.
     expect(render({ onDismiss: undefined })).not.toContain(close);
+    // Still waiting, but an answer proved nothing can deliver one any more:
+    // the reason shows and the card can be closed.
+    const undeliverable = render({ pending, settled: false, error: "Could not send the response.", unanswerable: true });
+    expect(undeliverable).toContain(close);
+    expect(undeliverable).toContain("Could not send the response.");
+    expect(render({ pending, settled: false, unanswerable: true, busy: true })).not.toContain(close);
+  });
+
+  // The reported case: a Codex child asked an asynchronous question, then its
+  // delegation was cancelled. The child is managed by that delegation, so only
+  // a follow-up of the delegation could carry an answer, and there is none.
+  describe("an asynchronous question from a child whose delegation ended", () => {
+    const asyncRequestId = "codex-async:call_1";
+    const asyncQuestion: ChatMessage = { id: "async-message", role: "assistant", model: "gpt-5.3-codex", providerId: "codex",
+      content: "", parts: [{ type: "user_input", delivery: "async", requestId: asyncRequestId, toolName: "request_user_input_async",
+        state: "input-requested", questions: [{ question: "Which scope?", header: "Scope", options: [{ label: "Focused", description: "" }] }] }] };
+    const identity = { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
+      kind: "user-input" as const, requestId: asyncRequestId, messageId: "async-message" };
+    const asyncNotification = notification({ id: "notification-async", kind: "task.user_input_requested",
+      payload: { ...root, requestId: asyncRequestId, messageId: "async-message" } });
+    const followUps: unknown[] = [];
+
+    beforeEach(async () => {
+      followUps.length = 0;
+      const { useAppStore } = await import("@/store/app.store");
+      // The child's turn ended: no active turn.
+      useAppStore.setState((state) => ({ notifications: [asyncNotification], workspaceRuntimeCacheById: { "child-workspace": {
+        ...state.workspaceRuntimeCacheById["child-workspace"]!, messagesByTask: { child: [asyncQuestion] }, activeTurnIdsByTask: {} } } }));
+      (window.api as unknown as Record<string, unknown>).runs = {
+        listDelegatedTasks: async () => [{ runId: "run-1", stepId: "step-1", parentTaskId: "parent", delegationKey: "slice-1",
+          delegatedTaskId: "child", delegatedWorkspaceId: "child-workspace", delegatedTurnId: "child-turn", providerId: "codex",
+          lifecycle: "one-turn", phase: "cancelled", reason: "Provider turn was interrupted before it completed.", attempt: 1,
+          createdAt: NOW, updatedAt: NOW, completedAt: NOW }],
+        followUpDelegatedTask: async (args: unknown) => {
+          followUps.push(args);
+          return { accepted: true, duplicate: false, reason: null, message: null, child: null };
+        },
+      };
+    });
+
+    const question = async () => {
+      const { useAppStore } = await import("@/store/app.store");
+      return useAppStore.getState().workspaceRuntimeCacheById["child-workspace"]?.messagesByTask.child?.[0]?.parts[0];
+    };
+    const notificationResolvedAt = async () => {
+      const { useAppStore } = await import("@/store/app.store");
+      return useAppStore.getState().notifications.find(({ id }) => id === asyncNotification.id)?.resolvedAt;
+    };
+
+    test("the card still offers the answer controls", async () => {
+      const { findChildPendingRequest } = await import("@/components/session/ChildRequestSlot");
+      expect(findChildPendingRequest({ expected: identity, messages: [asyncQuestion], activeTurnId: null })?.messageId)
+        .toBe("async-message");
+    });
+
+    test("Continue says the question can no longer be answered, so the card can be closed", async () => {
+      const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
+      const dispatch = respondToFleetInteraction(identity, { kind: "user-input", answers: { "Which scope?": "Focused" } });
+      if (!dispatch.ok) throw new Error(dispatch.reason);
+      const outcome = await dispatch.delivery;
+      expect(outcome).toMatchObject({ status: "failed", unanswerable: true });
+      expect(outcome.status === "failed" && outcome.message).toContain("can no longer be answered");
+      // Nothing was sent, and the answer is not recorded as given.
+      expect(followUps).toEqual([]);
+      expect(responses).toEqual([]);
+      expect(await question()).toMatchObject({ state: "input-requested" });
+      expect(await notificationResolvedAt()).toBeNull();
+    });
+
+    test("Decline to answer closes the question and its notification", async () => {
+      const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
+      const dispatch = respondToFleetInteraction(identity, { kind: "user-input", denied: true });
+      if (!dispatch.ok) throw new Error(dispatch.reason);
+      await expect(dispatch.delivery).resolves.toEqual({ status: "delivered" });
+      expect(followUps).toEqual([]);
+      expect(responses).toMatchObject([{ kind: "user-input", workspaceId: "child-workspace", taskId: "child",
+        requestId: asyncRequestId, expectedMessageId: "async-message", denied: true, answerDelivered: true }]);
+      expect(await question()).toMatchObject({ state: "input-denied" });
+      expect(await notificationResolvedAt()).toEqual(expect.any(String));
+    });
+  });
+
+  test("an approval the host no longer has waiting settles instead of failing again", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
+    window.api.localMcp!.respondApproval = async () => ({
+      ok: false, reason: "request-interrupted", message: "No active turn found for task child.",
+    });
+    const dispatch = respondToFleetInteraction({ repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child",
+      turnId: "child-turn", kind: "approval", requestId: "approval-1", messageId: "approval-message" }, { kind: "approval", approved: true });
+    if (!dispatch.ok) throw new Error(dispatch.reason);
+    await expect(dispatch.delivery).resolves.toEqual({ status: "skipped" });
+    const state = useAppStore.getState();
+    expect(state.notifications.find(({ id }) => id === approvalNotification.id)?.resolvedAt).toEqual(expect.any(String));
+    expect(state.workspaceRuntimeCacheById["child-workspace"]?.messagesByTask.child?.[0]?.parts[0])
+      .toMatchObject({ state: "approval-interrupted" });
   });
 
   test("closing a settled request persists and does not bring it back", async () => {

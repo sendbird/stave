@@ -98,6 +98,19 @@ Focused checks are `tests/subagent-worktrees.test.ts` (real temporary Git
 repositories), `tests/subagent-worktree-runtime.test.ts` (real SQLite registry),
 `tests/external-sessions-watcher.test.ts` and
 `tests/e2e/workspace-cleanup-center.e2e.ts`.
+
+Workspaces created for delegated children are linked to their parent from the
+run ledger by `electron/persistence/delegated-workspace-links.ts` (read through
+`DelegatedAnswerStore.listWorkspaceLinks`, served to the renderer as
+`delegations:list-workspace-links`). `src/lib/workspace-delegation-tree.ts`
+builds and flattens the tree; the sidebar reads it through
+`src/components/layout/useDelegatedWorkspaceLinks.ts` and
+`src/components/layout/workspace-sidebar-nesting.tsx`. Their automatic cleanup
+rules live in `electron/host-service/delegated-workspace-cleanup.ts`, driven by
+the cleanup runtime. Focused checks are `tests/workspace-delegation-tree.test.ts`,
+`tests/delegated-workspace-links.test.ts`, `tests/delegated-workspace-cleanup.test.ts`
+(real temporary Git), `tests/delegated-workspace-cleanup-runtime.test.ts` (real
+SQLite store, restart and archive) and `tests/e2e/sidebar-delegated-nesting.e2e.ts`.
 The bar's shrink order (tokens, then usage detail, then the Resource Manager
 label, then clipping the strip's end) is `status-bar-shrink.ts`, with its
 container-query rules in `status-bar-shrink.styles.ts`;
