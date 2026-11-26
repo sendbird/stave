@@ -46,11 +46,15 @@ export interface PullRequestWatchReaderDependencies {
   runCommand?: ScmCommandRunner;
 }
 
+function trusted(association: unknown) {
+  return association === "OWNER" || association === "MEMBER" || association === "COLLABORATOR";
+}
+
 const DECISION_REVIEWS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$last:Int!){
   repository(owner:$owner,name:$repo){
     pullRequest(number:$pr){
       reviews(last:$last,states:[APPROVED,CHANGES_REQUESTED]){
-        nodes{ id state body submittedAt commit{ oid } author{ login } }
+        nodes{ id authorAssociation state body submittedAt commit{ oid } author{ login } }
       }
     }
   }
@@ -58,6 +62,7 @@ const DECISION_REVIEWS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$las
 
 /** The newest approvals and change requests, oldest first, by GitHub review id. */
 export async function readDecisionReviews(args: {
+  trustedOnly?: boolean;
   includeComments?: boolean;
   cwd: string;
   url: string;
@@ -89,6 +94,7 @@ export async function readDecisionReviews(args: {
       ok: true,
       reviews: nodes.flatMap((node): PullRequestWatchReview[] => {
         const value = (node ?? {}) as Record<string, unknown>;
+        if (args.trustedOnly && !trusted(value.authorAssociation)) return [];
         const id = typeof value.id === "string" ? value.id.trim() : "";
         const state = value.state;
         if (!id || (state !== "APPROVED" && state !== "CHANGES_REQUESTED" && !(args.includeComments && state === "COMMENTED"))) return [];
@@ -256,7 +262,7 @@ export function createPullRequestWatchReader(
         .filter((thread) => !thread.isResolved && !thread.isOutdated)
         .flatMap((thread) =>
           thread.comments
-            .filter((comment) => comment.id.trim())
+            .filter((comment) => comment.id.trim() && trusted(comment.authorAssociation))
             .map((comment) => ({
               id: clip(comment.id.trim(), PULL_REQUEST_WATCH_LIMITS.maxNameChars),
               author: clip(comment.author, 100),
@@ -273,7 +279,7 @@ export function createPullRequestWatchReader(
     let reviews: PullRequestWatchReview[] | null = null;
     if (open && args.reviews && pullRequestUrl) {
       if (signal?.aborted) return aborted();
-      const read = await readDecisionReviews({ cwd, url: pullRequestUrl, run });
+      const read = await readDecisionReviews({ cwd, url: pullRequestUrl, run, trustedOnly: true });
       if (!read.ok) return failure(read.detail, "Stave could not read the pull request's reviews.");
       reviews = read.reviews;
     }

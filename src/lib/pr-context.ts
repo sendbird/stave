@@ -174,6 +174,7 @@ export const PrReviewCommentSchema = z
     reviewId: boundedText(PR_CONTEXT_LIMITS.maxNameChars).optional(),
     commitSha: boundedText(64).optional(),
     id: boundedText(PR_CONTEXT_LIMITS.maxNameChars),
+    authorAssociation: boundedText(32).optional(),
     author: boundedText(PR_CONTEXT_LIMITS.maxLoginChars),
     body: boundedText(PR_CONTEXT_LIMITS.maxCommentChars + 128),
     createdAt: boundedText(PR_CONTEXT_LIMITS.maxTimestampChars),
