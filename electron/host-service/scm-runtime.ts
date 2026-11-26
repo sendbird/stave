@@ -71,7 +71,7 @@ const GITHUB_PR_JSON_FIELDS = [
   "headRefOid",
 ].join(",");
 
-function invalidateCachedGhAuthOnFailure(
+export function invalidateCachedGhAuthOnFailure(
   result: { ok: boolean; stdout?: string; stderr?: string },
   cwd?: string,
 ) {
@@ -2090,7 +2090,7 @@ export async function updateScmPrBody(args: {
 }
 
 // An explicit top-bar target must be a PR URL, never a gh option or a branch name.
-function isPrActionUrl(url: unknown): url is string {
+export function isPrActionUrl(url: unknown): url is string {
   return typeof url === "string" &&
     /^https:\/\/[a-z0-9.-]+\/[\w.-]+\/[\w.-]+\/pull\/[1-9]\d*$/i.test(url) &&
     parseGitRemoteRepository(url) !== null;

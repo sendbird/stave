@@ -21,12 +21,17 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
+import { PullRequestWatchMenuItem } from "./pull-request/PullRequestWatchMenuItem";
+import { PullRequestFixMenuItem } from "./pull-request/PullRequestFixMenuItem";
 import { PrContextDialog } from "@/components/layout/PrContextDialog";
 import { CreatePullRequestDialog } from "@/components/layout/pull-request/CreatePullRequestDialog";
 import { PullRequestStackNotice } from "./pull-request/PullRequestStackNotice";
 import { PullRequestStackRetargetDialog } from "./pull-request/PullRequestStackRetargetDialog";
 import { pullRequestStackRevision, usePullRequestStack } from "./pull-request/use-pull-request-stack";
 import { watchCreatedPullRequest } from "@/components/layout/pull-request/auto-pull-request-watch";
+import { PullRequestManageDialogs, PullRequestManageMenuItems } from "./pull-request/PullRequestManageMenuItems";
+import { usePullRequestManage } from "./pull-request/use-pull-request-manage";
+import { usePullRequestMergedArchiveToast } from "./pull-request/use-pull-request-merged-archive-toast";
 import {
   FIELD_LABEL_CLASS,
   InlineNoticeBanner,
@@ -293,6 +298,8 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   // Re-read the stack only when the PR changed (number, state, base), not on every status poll.
   const prStack = usePullRequestStack({ cwd: workspaceCwd, prUrl: prInfo?.pr?.url, enabled: Boolean(prInfo?.pr), revision: pullRequestStackRevision(prInfo?.pr) });
   const [stackRetargetOpen, setStackRetargetOpen] = useState(false);
+  const prManage = usePullRequestManage({ prUrl: prInfo?.pr?.url, cwd: workspaceCwd, workspaceId: activeWorkspaceId, status: prStatus });
+  usePullRequestMergedArchiveToast({ workspaceId: isDefaultWorkspace ? "" : activeWorkspaceId, status: prStatus, prNumber: prInfo?.pr?.number });
   const [statusMenuOpen, setStatusMenuOpen] = useState(false);
   const stackedParent = usePullRequestStack({ cwd: workspaceCwd, branch: targetBranch, enabled: dialogOpen && createStackedPr && Boolean(targetBranch) && targetBranch !== defaultBaseBranch });
   const stackedParentPr = stackedParent.stack?.members.find((pr) => pr.number === stackedParent.stack?.current && pr.state === "OPEN");
@@ -1858,11 +1865,15 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 </DropdownMenuItem>
               ))}
 
+              {/* Edit, draft, auto-merge, close/reopen, archive after merge. */}
+              <PullRequestManageMenuItems manage={prManage} separated />
               {prInfo?.pr?.url ? (
                 <DropdownMenuItem onSelect={() => void askTarsAboutPrCi(prInfo.pr!.url)}>
                   {i18n.t("sourceControl:tarsCI.menu")}
                 </DropdownMenuItem>
               ) : null}
+              {prInfo?.pr?.state === "OPEN" && <PullRequestWatchMenuItem prUrl={prInfo.pr.url} />}
+              {prInfo?.pr && <PullRequestFixMenuItem pr={prInfo.pr} cwd={workspaceCwd} />}
               {/* Attach review threads / failed-check evidence to the task. */}
               {prInfo?.pr?.url && activeTask ? (
                 <>
@@ -1881,6 +1892,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               ) : null}
             </DropdownMenuContent>
           </DropdownMenu>
+          <PullRequestManageDialogs manage={prManage} />
 
           {canContinueWorkspace ? (
             <Tooltip content={continueTooltip} side="bottom">

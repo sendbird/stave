@@ -297,6 +297,8 @@ Task panel > **Background** shows work Claude reported for the current turn or t
 4. Once the PR exists, a status chip in the top bar lets you mark it ready, update the branch, merge, or open it on GitHub. Stave also checks the workspace branch's tracked remote branch if it has a different name.
 5. When the work is done, choose **Archive Workspace** from the workspace row's ⋮ menu. Turn on **Delete the git branch too** to delete the branch as well.
 
+The same status chip manages the pull request after it is open. **Edit details…** changes the title, the description and the requested reviewers: pick a suggested person, search by name or login, or type `@login` and press Enter. Saving sends only what you changed, and if someone edited the title or description on GitHub while the dialog was open, Stave keeps your text and warns before overwriting. **Convert to draft**, **Turn on auto-merge** or **Turn off auto-merge**, and **Close pull request…** act on an open pull request; closing asks first and keeps the branch. **Reopen pull request** is offered for a closed one. After a merge, **Archive workspace…** opens **Clean up workspaces** on this workspace, and Stave offers it once in a notice when it sees the merge. A pull request opened from **Source Control → Reviews** has the same actions under **More actions**.
+
 Open **Source Control → Reviews**, select a PR, and use **Conversation** to post a comment, reply to a review thread, or resolve or unresolve it. The thread retains its file location, comment dates, and outdated status. In **Checks**, expand a GitHub Actions run to see jobs and failed steps, open a failed log tail, or choose **Re-run failed jobs**. Use **Refresh** to see the latest attempt. **Draft a fix request** opens a Tars draft you can review and send. GitHub actions use the account signed in to GitHub CLI.
 
 With a task selected, **Attach evidence for the agent…** adds selected PR evidence to that task. Send the agent a message to investigate or fix the issue.
@@ -321,6 +323,8 @@ edge memory -> turn
 @caption A simplified view of how the app assembles a request. Whether repository instructions reach Cursor, Kiro and OpenCode turns was not confirmed.
 ```
 
+
+Choose **Fix with agent** in the PR menu to attach evidence and append a fix request to the current task. Review and send the draft after any running turn. **Watch PR** shows the task, events and remaining wake budget. Toggle it to start or stop watching, and opt into review comments from owners, members and collaborators.
 
 ### Watch agent-opened PRs and manage a stack
 

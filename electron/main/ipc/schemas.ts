@@ -1,5 +1,6 @@
 export { BackgroundTaskRequestSchema } from "../../../src/lib/providers/background-tasks";
 export { GitHubPrActivityArgsSchema } from "../../../src/lib/github-pr-activity";
+export { GitHubPrManageArgsSchema } from "../../../src/lib/github-pr-manage";
 export { GetPrStackArgsSchema, RetargetPrStackArgsSchema } from "../../../src/lib/pull-request-stack";
 export { TarsBatchInputSchema, TarsBatchRecordSchema } from "../../../src/lib/tars/batch";
 import { QuestionReplySchema } from "../../../src/lib/question-reply";

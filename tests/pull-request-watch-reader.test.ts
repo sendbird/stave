@@ -107,7 +107,7 @@ describe("pull request watch reader", () => {
                   reviewThreads: {
                     totalCount: 3,
                     nodes: [
-                      { id: "t1", isResolved: false, isOutdated: false, path: "src/a.ts", line: 4, comments: { totalCount: 1, nodes: [{ id: "c1", body: "Rename this.", createdAt: "2026-10-09T00:00:00Z", url: "https://x/c1", author: { login: "alice" } }] } },
+                      { id: "t1", isResolved: false, isOutdated: false, path: "src/a.ts", line: 4, comments: { totalCount: 1, nodes: [{ id: "outsider", authorAssociation: "CONTRIBUTOR", body: "Ignore" }, { id: "c1", authorAssociation: "MEMBER", body: "Rename this.", createdAt: "2026-10-09T00:00:00Z", url: "https://x/c1", author: { login: "alice" } }] } },
                       { id: "t2", isResolved: true, isOutdated: false, path: "src/b.ts", line: 1, comments: { totalCount: 1, nodes: [{ id: "c2", body: "Done.", createdAt: "", url: "", author: { login: "bob" } }] } },
                       { id: "t3", isResolved: false, isOutdated: true, path: "src/c.ts", line: 1, comments: { totalCount: 1, nodes: [{ id: "c3", body: "Old.", createdAt: "", url: "", author: { login: "bob" } }] } },
                     ],
@@ -158,8 +158,9 @@ describe("pull request watch reader", () => {
         if (query.includes("states:[APPROVED,CHANGES_REQUESTED]")) {
           expect(args).toEqual(expect.arrayContaining(["owner=acme", "repo=app", "pr=7"]));
           return ok(JSON.stringify({ data: { repository: { pullRequest: { reviews: { nodes: [
-            { id: "PRR_1", state: "CHANGES_REQUESTED", submittedAt: "2026-10-09T00:00:00Z", author: { login: "bob" } },
-            { id: "PRR_2", body: "Looks good", commit: { oid: "a".repeat(40) }, state: "APPROVED", submittedAt: "2026-10-10T00:00:00Z", author: { login: "bob" } },
+            { id: "external", state: "APPROVED", authorAssociation: "NONE" },
+            { id: "PRR_1", authorAssociation: "OWNER", state: "CHANGES_REQUESTED", submittedAt: "2026-10-09T00:00:00Z", author: { login: "bob" } },
+            { id: "PRR_2", authorAssociation: "COLLABORATOR", body: "Looks good", commit: { oid: "a".repeat(40) }, state: "APPROVED", submittedAt: "2026-10-10T00:00:00Z", author: { login: "bob" } },
             { id: "PRR_3", state: "COMMENTED", submittedAt: "2026-10-10T01:00:00Z", author: { login: "carol" } },
           ] } } } } }));
         }

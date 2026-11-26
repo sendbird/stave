@@ -108,6 +108,8 @@ const REVIEW_THREADS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$threa
     pullRequest(number:$pr){
       title
       headRefOid
+      isCrossRepository
+      headRepository { viewerPermission }
       url
       comments(last:30) @include(if:$discussion){
         totalCount
@@ -127,7 +129,7 @@ const REVIEW_THREADS_QUERY = `query($owner:String!,$repo:String!,$pr:Int!,$threa
           line
           comments(last:$comments){
             totalCount
-            nodes{ id body createdAt url author{ login } pullRequestReview{ id commit{ oid } } }
+            nodes{ id body createdAt url authorAssociation author{ login } pullRequestReview{ id commit{ oid } } }
           }
         }
       }
@@ -147,6 +149,7 @@ function mapComment(raw: unknown): PrReviewComment | null {
       commitSha: asPlainString((node.pullRequestReview as { commit?: { oid?: unknown } }).commit?.oid, 64),
     } : {}),
     id: asPlainString(node.id, PR_CONTEXT_LIMITS.maxNameChars),
+    ...(typeof node.authorAssociation === "string" ? { authorAssociation: asPlainString(node.authorAssociation, 32) } : {}),
     author: asPlainString(author?.login, PR_CONTEXT_LIMITS.maxLoginChars),
     body: asString(node.body, PR_CONTEXT_LIMITS.maxCommentChars),
     createdAt: asPlainString(
@@ -313,6 +316,7 @@ export async function readPrReviewThreads(
     .slice(-30).map(mapComment).filter((comment): comment is PrReviewComment => comment !== null);
   return {
     ok: true as const,
+    canPush: pullRequest.isCrossRepository === false && ["ADMIN", "MAINTAIN", "WRITE"].includes(String((pullRequest.headRepository as { viewerPermission?: string } | null)?.viewerPermission)),
     title: asPlainString(pullRequest.title, PR_CONTEXT_LIMITS.maxNameChars),
     url: asPlainString(pullRequest.url, PR_CONTEXT_LIMITS.maxUrlChars),
     headSha: asPlainString(pullRequest.headRefOid, 64),
@@ -405,6 +409,7 @@ export async function fetchPrContextIndex(args: {
         `https://github.com/${ref.owner}/${ref.repo}/pull/${ref.number}`,
     },
     title: discussion.title,
+    canPush: discussion.canPush,
     headSha,
     fetchedAt: new Date(args.now?.() ?? Date.now()).toISOString(),
     threads: discussion.threads,

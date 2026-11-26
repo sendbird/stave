@@ -190,6 +190,8 @@ none of the consume-exactly-once machinery does.
 
 ## Pull request watch
 
+Only comments on current unresolved threads and reviews from repository owners, members, or collaborators count toward review wake-ups.
+
 A pull request watch wakes its task when the pull request of the task's
 workspace branch needs fixing. In Schedules it reads **Watch a pull request**:
 the row says which pull request it follows, what it wakes on, what the last

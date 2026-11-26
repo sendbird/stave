@@ -31,6 +31,7 @@ import {
   RepositoryMemoryKindSchema,
 } from "../../src/lib/repository-memory";
 import { registerAgentRunTools } from "./stave-agent-run-tools";
+import { registerPrTools } from "./stave-pr-tools";
 import { registerWorkspaceCleanupTools } from "./stave-workspace-cleanup-tools";
 import { runningExternalAgentWorktrees } from "./ipc/external-sessions";
 import { invokeHostService } from "./host-service-client";
@@ -696,6 +697,14 @@ function createToolServer(options?: {
       });
     },
   );
+
+  registerPrTools(server, invokeHostService, async (id) => {
+    const caller = await resolveStaveMcpCaller(turnGrants);
+    const workspaceId = id ?? (caller.kind === "turn" ? caller.grant.workspaceId : undefined);
+    if (!workspaceId) return undefined;
+    const repositories = await listKnownRepositories();
+    return repositories.flatMap(repository => repository.workspaces).find(workspace => workspace.id === workspaceId)?.path;
+  });
 
   registerWorkspaceCleanupTools(server, {
     list: () => invokeHostService("workspace.cleanup-list", { runningAgentWorktrees: runningExternalAgentWorktrees() }),

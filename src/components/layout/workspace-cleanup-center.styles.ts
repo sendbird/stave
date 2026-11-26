@@ -16,6 +16,8 @@ export const cleanupStyles = stylex.create({
   row: { display: "flex", alignItems: "center", gap: vars["--aui-space-12"], padding: vars["--aui-space-8"], borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--aui-color-border"], minWidth: 0 },
   checkbox: { width: vars["--aui-control-height-xs"], height: vars["--aui-control-height-xs"], flexShrink: 0 },
   selected: { backgroundColor: vars["--aui-color-selection-fill"] },
+  // The row the center was opened for. Drawn inside the row so the scrolling list cannot clip it.
+  focused: { boxShadow: `inset 0 0 0 ${vars["--aui-focus-ring-width"]} ${vars["--aui-color-border-focus"]}` },
   identity: { flex: 1, display: "grid", textAlign: "start", gap: vars["--aui-space-4"], minWidth: 0 },
   // What the host-layout quiet identity button computes to, for a blocked row that is not a control.
   identityStatic: { fontSize: vars["--aui-font-size-body"], fontWeight: vars["--aui-font-weight-regular"], lineHeight: "normal", color: vars["--aui-color-text-muted"] },

@@ -23,6 +23,7 @@ const prContextRuntimeSource = read(
   "electron/host-service/pr-context-runtime.ts",
 );
 const prContextDialogSource = read("src/components/layout/PrContextDialog.tsx");
+const sharedAttachment = read("src/components/layout/pull-request/pr-context-attachment.ts");
 const topBarPrSource = read("src/components/layout/TopBarOpenPR.tsx");
 const sendUserMessageSource = read("src/store/app-store-send-user-message.ts");
 
@@ -194,12 +195,14 @@ describe("PR context ships with its consumer", () => {
     );
     expect(loadIndexBlock).toContain("fetchPrContextIndex");
     expect(loadIndexBlock).not.toContain("fetchPrCheckLogs");
-    expect(prContextDialogSource).toContain("fetchPrCheckLogs");
+    expect(prContextDialogSource).toContain("await readPrAttachment(index");
+    expect(sharedAttachment).toContain("fetchPrCheckLogs");
   });
 
   test("the attachment lands on the canonical retrieved-context path", () => {
-    expect(prContextDialogSource).toContain("attachTaskSourceContext");
-    expect(prContextDialogSource).toContain('type: "retrieved_context"');
+    expect(prContextDialogSource).toContain("attachPrEvidence(taskId, attachment)");
+    expect(sharedAttachment).toContain("attachTaskSourceContext");
+    expect(sharedAttachment).toContain('type: "retrieved_context"');
   });
 
   test("turn assembly withholds stale PR context", () => {

@@ -21,6 +21,7 @@ const STAVE_LOCAL_MCP_TOOL_PREFIX = "mcp__stave-local-mcp__";
 /** Stave Local MCP tools that only read Stave state. */
 export const READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_get_workspace_information",
+  "stave_get_pull_request_context",
   "stave_get_task",
   "stave_list_delegated_tasks",
   "stave_list_repositories",

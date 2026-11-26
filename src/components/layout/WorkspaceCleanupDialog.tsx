@@ -14,7 +14,7 @@ import type { SubAgentWorktreeRow, WorkspaceCleanupActArgs, WorkspaceCleanupApi,
 import { useTranslation } from "@/i18n";
 import { formatDate } from "@/i18n/format";
 import { cleanupStyles as styles } from "./workspace-cleanup-center.styles";
-import { notifyWorkspaceCleanupChanged, OPEN_WORKSPACE_CLEANUP_EVENT } from "./workspace-cleanup-events";
+import { notifyWorkspaceCleanupChanged, OPEN_WORKSPACE_CLEANUP_EVENT, type WorkspaceCleanupTarget } from "./workspace-cleanup-events";
 import { removeSubAgentWorktrees, SubAgentRemovalResults, SubAgentWorktreeSection, subAgentRowKey, subAgentRowMatches, subAgentRowReady, type SubAgentRemoval } from "./WorkspaceCleanupSubAgents";
 
 type Snapshot = Awaited<ReturnType<WorkspaceCleanupApi["list"]>>;
@@ -39,8 +39,9 @@ const NO_SUBAGENT_ROWS: SubAgentWorktreeRow[] = [];
 
 export function WorkspaceCleanupHost() {
   const [open, setOpen] = useState(false);
+  const [focusWorkspaceId, setFocusWorkspaceId] = useState<string | null>(null);
   useEffect(() => {
-    const show = () => setOpen(true);
+    const show = (event: Event) => { setFocusWorkspaceId((event as CustomEvent<WorkspaceCleanupTarget | null>).detail?.workspaceId ?? null); setOpen(true); };
     window.addEventListener(OPEN_WORKSPACE_CLEANUP_EVENT, show);
     return () => window.removeEventListener(OPEN_WORKSPACE_CLEANUP_EVENT, show);
   }, []);
@@ -63,10 +64,11 @@ export function WorkspaceCleanupHost() {
     const unsubscribe = window.api?.workspaceCleanup?.onChanged?.(() => { void reconcile(); });
     return () => { live = false; unsubscribe?.(); };
   }, []);
-  return open ? <WorkspaceCleanupDialog open={open} onOpenChange={setOpen} /> : null;
+  return open ? <WorkspaceCleanupDialog open={open} onOpenChange={setOpen} focusWorkspaceId={focusWorkspaceId} /> : null;
 }
 
-export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+/** `focusWorkspaceId` scrolls to that workspace's row, highlights it and selects it when it can be acted on. */
+export function WorkspaceCleanupDialog({ open, onOpenChange, focusWorkspaceId = null }: { open: boolean; onOpenChange: (open: boolean) => void; focusWorkspaceId?: string | null }) {
   const { t } = useTranslation(["workspace", "common"]);
   const [history, setHistory] = useState<{ workspaceId: string; repositoryPath: string } | null>(null);
   const [data, setData] = useState<Snapshot | null>(null);
@@ -116,6 +118,19 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     return Array.from(map.entries()).map(([path, value]) => ({ path, ...value }));
   }, [data, query]);
   const rows = groups.flatMap((group) => group.rows);
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusApplied = useRef<string | null>(null);
+  // A long list is virtualized and starts at this row; a short one is scrolled to it below.
+  const focusIndex = focusWorkspaceId ? rows.findIndex((row) => row.id === focusWorkspaceId) : -1;
+  // Once per target, after its row is listed: later refreshes must not move the list or the selection again.
+  useEffect(() => {
+    if (!focusWorkspaceId || focusApplied.current === focusWorkspaceId) return;
+    const row = groups.flatMap((group) => group.rows).find((item) => item.id === focusWorkspaceId);
+    if (!row) return;
+    focusApplied.current = focusWorkspaceId;
+    if (selectable(row)) { setSelected(new Set([rowKey(row)])); anchor.current = rowKey(row); }
+    listRef.current?.querySelector("[data-cleanup-focus]")?.scrollIntoView({ block: "center" });
+  }, [focusWorkspaceId, groups]);
   const subAgentRows = useMemo(() => (data?.subAgentWorktrees ?? NO_SUBAGENT_ROWS).filter((row) => subAgentRowMatches(row, query)), [data, query]);
   const selectedRows = (data?.rows ?? []).filter((row) => selected.has(rowKey(row)));
   const selectedSubAgentRows = (data?.subAgentWorktrees ?? NO_SUBAGENT_ROWS).filter((row) => selectedSubAgents.has(subAgentRowKey(row)) && subAgentRowReady(row));
@@ -215,7 +230,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
           : t("cleanupCenter.subagentRow", { parent: row.subagent.parentName })}
       </span> : null}
     </>;
-    return <div className={sx(styles.row, selected.has(key) && styles.selected)} data-testid={`cleanup-row-${row.id}`}>
+    return <div className={sx(styles.row, selected.has(key) && styles.selected, row.id === focusWorkspaceId && styles.focused)} data-testid={`cleanup-row-${row.id}`} data-cleanup-focus={row.id === focusWorkspaceId ? "" : undefined}>
       <Checkbox controlOnly xstyle={styles.checkbox} aria-label={t("cleanupDialog.row.select", { name: row.name })} aria-describedby={blocked ? reasonId : undefined} checked={selected.has(key)} disabled={busy || blocked} onCheckedChange={() => choose(row)} />
       {blocked
         ? <div className={sx(styles.identity, styles.identityStatic)}>{identity}<span id={reasonId} className={sx(styles.srOnly)}>{t("cleanupDialog.row.blocked", { reasons: reasonLine })}</span></div>
@@ -233,8 +248,8 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         <div className={sx(styles.actions)}><Button size="sm" variant="secondary" disabled={busy} onClick={() => void refresh(true)}>{t("cleanupDialog.scanDiskUsage")}</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => void refresh()}>{t("cleanupDialog.refreshChecks")}</Button></div>
       </div>
       <div className={sx(styles.toolbar)}><Button size="sm" variant="ghost" disabled={busy} onClick={() => { setSelected(new Set(rows.filter(ready).map(rowKey))); setSelectedSubAgents(new Set(subAgentRows.filter(subAgentRowReady).map(subAgentRowKey))); }}>{t("cleanupCenter.selectReady")}</Button><span className={sx(styles.muted)}>{t("cleanupDialog.selectionSummary", { selected: selectedRows.length + selectedSubAgentRows.length, shown })}</span></div>
-      <div aria-label={t("cleanupDialog.resultsAriaLabel")} aria-busy={busy} className={sx(styles.list)}>
-        {rows.length > 80 ? <GroupedVirtuoso groupCounts={groups.map((group) => group.rows.length)} groupContent={(index) => <div className={sx(styles.heading)}>{groups[index]?.name}</div>} itemContent={(index) => rows[index] ? renderRow(rows[index]) : null} /> : groups.map((group) => <section key={group.path}><div className={sx(styles.heading)}>{group.name}</div>{group.rows.map((row) => <div key={rowKey(row)}>{renderRow(row)}</div>)}</section>)}
+      <div ref={listRef} aria-label={t("cleanupDialog.resultsAriaLabel")} aria-busy={busy} className={sx(styles.list)}>
+        {rows.length > 80 ? <GroupedVirtuoso initialTopMostItemIndex={focusIndex > 0 ? { index: focusIndex, align: "center" } : 0} groupCounts={groups.map((group) => group.rows.length)} groupContent={(index) => <div className={sx(styles.heading)}>{groups[index]?.name}</div>} itemContent={(index) => rows[index] ? renderRow(rows[index]) : null} /> : groups.map((group) => <section key={group.path}><div className={sx(styles.heading)}>{group.name}</div>{group.rows.map((row) => <div key={rowKey(row)}>{renderRow(row)}</div>)}</section>)}
         <SubAgentWorktreeSection rows={subAgentRows} selected={selectedSubAgents} busy={busy} onToggle={toggleSubAgent} />
         {!busy && !shown && <p>{t("cleanupDialog.empty")}</p>}
       </div>

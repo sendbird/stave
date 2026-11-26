@@ -395,3 +395,57 @@ test("a sub-agent worktree that changed after listing is reported and kept", asy
   await expect(page.locator("[data-cleanup-subagent-results]")).toContainText("agent-a1b2c3 · Changed files");
   await expect(ready).toBeVisible();
 });
+
+// "Archive workspace…" after a merge opens the center on that workspace.
+async function openCleanupFor(page: import("@playwright/test").Page, workspaceId: string | null, query = "") {
+  await page.goto(`/?stavePreview=command-palette&cleanupPreview=1${query}`);
+  await page.waitForFunction(() => Boolean(window.api?.workspaceCleanup));
+  await page.evaluate(async (target) => {
+    const { openWorkspaceCleanup } = await import("/src/components/layout/workspace-cleanup-events.ts");
+    // Menus and buttons pass their click event; only a real target focuses a row.
+    openWorkspaceCleanup(target ? { workspaceId: target } : new MouseEvent("click"));
+  }, workspaceId);
+  await expect(page.getByRole("heading", { name: "Clean up workspaces" })).toBeVisible();
+}
+
+test("opening for a workspace highlights and selects its row", async ({ page }) => {
+  await openCleanupFor(page, "cleanup-one");
+  const row = page.getByTestId("cleanup-row-cleanup-one");
+  await expect(row).toHaveAttribute("data-cleanup-focus", "");
+  await expect(row.getByRole("checkbox")).toBeChecked();
+  await expect(page.locator("[data-cleanup-focus]")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "Archive (1)", exact: true })).toBeEnabled();
+  // The highlight is drawn inside the row, so the scrolling list cannot clip it.
+  expect(await row.evaluate((element) => getComputedStyle(element).boxShadow)).toContain("inset");
+  // Refreshing the list keeps the person's later choices instead of selecting the target again.
+  await row.getByRole("checkbox").click();
+  await page.getByRole("button", { name: "Refresh checks" }).click();
+  await expect(page.getByTestId("cleanup-row-cleanup-one")).toBeVisible();
+  await expect(row.getByRole("checkbox")).not.toBeChecked();
+});
+
+test("opening for a blocked workspace highlights it without selecting it", async ({ page }) => {
+  await openCleanupFor(page, "cleanup-dirty");
+  const row = page.getByTestId("cleanup-row-cleanup-dirty");
+  await expect(row).toHaveAttribute("data-cleanup-focus", "");
+  await expect(row.getByRole("checkbox")).not.toBeChecked();
+  await expect(page.locator("[data-cleanup-footer]").getByRole("button")).toHaveCount(0);
+});
+
+test("opening without a workspace focuses no row", async ({ page }) => {
+  await openCleanupFor(page, null);
+  await expect(page.getByTestId("cleanup-row-cleanup-one")).toBeVisible();
+  await expect(page.locator("[data-cleanup-focus]")).toHaveCount(0);
+  await expect(page.locator("[data-cleanup-footer]").getByRole("button")).toHaveCount(0);
+});
+
+test("opening for a workspace scrolls a long list to its row", async ({ page }) => {
+  await openCleanupFor(page, "cleanup-extra-120", "&many=1");
+  const row = page.getByTestId("cleanup-row-cleanup-extra-120");
+  await expect(row).toBeVisible();
+  await expect(row).toBeInViewport();
+  await expect(row).toHaveAttribute("data-cleanup-focus", "");
+  await expect(row.getByRole("checkbox")).toBeChecked();
+  // The list stayed virtualized: the first rows are no longer rendered.
+  await expect(page.getByTestId("cleanup-row-cleanup-one")).toHaveCount(0);
+});

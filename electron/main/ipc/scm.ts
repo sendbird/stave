@@ -13,6 +13,7 @@ import {
   FetchPrCheckLogsArgsSchema,
   FetchPrContextIndexArgsSchema,
   GitHubPrActivityArgsSchema,
+  GitHubPrManageArgsSchema,
   GetGitHubPrReviewDetailArgsSchema,
   GetPrStatusByUrlArgsSchema,
   ListGitHubPrsArgsSchema,
@@ -352,6 +353,13 @@ export function registerScmHandlers() {
     return parsed.success
       ? invokeHostService("scm.github-pr-activity", parsed.data)
       : { ok: false, reason: "failed" };
+  });
+
+  ipcMain.handle("scm:pr-manage", (_event, args: unknown) => {
+    const parsed = GitHubPrManageArgsSchema.safeParse(args);
+    return parsed.success
+      ? invokeHostService("scm.pr-manage", parsed.data).then(({ outcome }) => outcome)
+      : { ok: false, reason: "invalid-target" };
   });
 
   ipcMain.handle("scm:submit-github-pr-review", (_event, args: unknown) => {

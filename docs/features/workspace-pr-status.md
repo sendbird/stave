@@ -180,6 +180,7 @@ gh pr view --json ...
 | `scm:merge-pr`              | `gh pr merge --<method> [--match-head-commit <oid>]`, then `gh pr view` + `git push origin --delete <head>` | Merge with a repository-allowed strategy pinned to the head commit shown in the UI. The result is read back from GitHub, so a non-zero `gh` exit after the merge (local cleanup fails in linked worktrees) still reports `merged: true`; remote branch deletion is best-effort |
 | `scm:update-pr-branch`      | `gh pr update-branch`, then `git fetch origin && git merge --ff-only origin/<head>` when the worktree is clean | Update the PR branch on GitHub (this is what clears `BEHIND`), then fast-forward the local worktree; a dirty worktree is left untouched with a warning |
 | `scm:create-pr`              | `gh pr create` (+ optional `gh pr merge --auto [--<method>]`) | Create a ready PR and optionally queue auto-merge. A "pull request already exists" refusal returns `existingPrUrl` so the UI can refresh and open the existing PR |
+| `scm:pr-manage`             | One of the `gh` commands in [Managing a pull request](#managing-a-pull-request), chosen by the request's `action` | Read, edit, request reviewers, convert to draft, switch auto-merge, close or reopen the pull request named by URL |
 
 All handlers check `gh auth status` before executing.
 When the displayed PR has a different head branch name, the status menu sends
@@ -221,19 +222,24 @@ narrow top bar the count folds away and only the tooltip carries it.
 
 ### Dropdown Actions by Status
 
-| Status              | Primary Action | Secondary Actions                      |
-| ------------------- | -------------- | -------------------------------------- |
-| `draft`             | Mark Ready     | Open on GitHub, Refresh                |
-| `review_required`   | —              | Open on GitHub, Refresh                |
-| `changes_requested` | —              | Update Branch, Open on GitHub, Refresh |
-| `checks_pending`    | —              | Open on GitHub, Refresh                |
-| `checks_failed`     | —              | Open on GitHub, Refresh                |
-| `merge_conflict`    | —              | Open on GitHub, Refresh                |
-| `behind_base`       | Update Branch  | Open on GitHub, Refresh                |
-| `blocked`           | —              | Open on GitHub, Refresh                |
-| `ready_to_merge`    | Merge PR       | Open on GitHub, Refresh                |
-| `merged`            | —              | View on GitHub                         |
-| `closed_unmerged`   | —              | View on GitHub                         |
+| Status              | Primary Action | Secondary Actions                      | Manage Actions                                                             |
+| ------------------- | -------------- | -------------------------------------- | -------------------------------------------------------------------------- |
+| `draft`             | Mark Ready     | Open on GitHub, Refresh                | Edit details…, Turn on/off auto-merge, Close pull request…                 |
+| `review_required`   | —              | Open on GitHub, Refresh                | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `changes_requested` | —              | Update Branch, Open on GitHub, Refresh | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `checks_pending`    | —              | Open on GitHub, Refresh                | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `checks_failed`     | —              | Open on GitHub, Refresh                | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `merge_conflict`    | —              | Open on GitHub, Refresh                | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `behind_base`       | Update Branch  | Open on GitHub, Refresh                | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `blocked`           | —              | Open on GitHub, Refresh                | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `ready_to_merge`    | Merge PR       | Open on GitHub, Refresh                | Edit details…, Convert to draft, Turn on/off auto-merge, Close pull request… |
+| `merged`            | —              | View on GitHub                         | Archive workspace…                                                         |
+| `closed_unmerged`   | —              | View on GitHub                         | Reopen pull request                                                        |
+
+The manage actions follow the secondary actions in the menu. The auto-merge
+item reads **Turn off auto-merge** when GitHub has auto-merge queued for the
+pull request and **Turn on auto-merge** otherwise. See
+[Managing a pull request](#managing-a-pull-request).
 
 ### Continue Flow For Completed Workspaces
 
@@ -326,6 +332,14 @@ instead, so its schedule is never deleted from the task. Once registered, the
 existing supervisor stops on merge or close. The cleanup center independently
 lists merged work under **PR merged**; watching does not archive or delete it.
 
+## Fixing with an agent
+
+On an open PR with failed checks, conflicts, or unresolved current review threads, choose **Fix with agent**. Select a task first. The action requires a writable checkout. It attaches up to three failed checks and the current unresolved threads from the context index, then appends a fix request to your composer. Review the draft and send it when ready. If a turn is running, send after it finishes. The notification identifies unavailable logs.
+
+## Watching from the PR menu
+
+Use **Watch PR** to start or stop a watch for the selected task. The menu shows the task, watched events, and wakes used against the cap. New watches react to failed checks and conflicts. Enable **Also react to review comments** to include current unresolved comments from repository owners, members and collaborators. An existing schedule on the task takes precedence.
+
 ## Stacked PRs
 
 A PR targeting another PR's branch belongs to that stack, but only when that
@@ -360,6 +374,102 @@ with a reason. The dialog stays open with these results, outside the PR menu,
 and offers **Retry … remaining** for children that can still be retried.
 Updates merge the base without rewriting history and never force-push.
 
+## Managing a pull request
+
+After a pull request exists you can change it without leaving Stave. The
+actions are in the PR status menu in the top bar, and in the **More actions**
+menu in the header of a pull request opened from **Reviews**.
+
+| Action | When it is offered | What happens |
+| --- | --- | --- |
+| **Edit details…** | The pull request is open | Opens a dialog with the title, the description and the requested reviewers |
+| **Convert to draft** | Open and not already a draft | Switches the pull request back to draft |
+| **Turn on auto-merge** / **Turn off auto-merge** | Open | Queues or cancels GitHub auto-merge |
+| **Close pull request…** | Open | Asks for confirmation, then closes the pull request without merging |
+| **Reopen pull request** | Closed without merging | Reopens it |
+| **Archive workspace…** | Merged, in the top bar menu | Opens **Clean up workspaces** on this workspace |
+
+Each time the menu opens, Stave reads the pull request from GitHub. The
+auto-merge label comes from that read, not from a cached status. While it is
+loading the item reads **Checking auto-merge…**. If the read fails, the menu
+shows the reason and leaves the auto-merge item out; the other actions stay.
+
+Stave does not check in advance whether your account may change the pull
+request. When GitHub refuses an action, Stave shows GitHub's message.
+
+### Editing the title, description and reviewers
+
+- The dialog opens with the current title, description and review requests.
+- To request a review, pick someone from the list under the search box. The
+  list starts with the people GitHub suggests for this pull request. Typing
+  searches the people who can be assigned in the repository by name or login.
+- You can also type a login such as `@octocat`, or a team as `@org/team`, and
+  press Enter. This works even when the suggestions cannot be loaded.
+- **Save** sends only what you changed: the title, the description, and the
+  review requests you added or removed.
+- If the save fails, the dialog stays open with your text and shows the reason.
+- Stave reads the pull request again right before saving. If someone changed
+  the title or description on GitHub after you opened the dialog, nothing is
+  sent yet: your text stays, the dialog says what changed, and the button
+  becomes **Save and overwrite**. A field you did not touch takes the new
+  value from GitHub and is not sent.
+
+### Auto-merge
+
+Turning auto-merge on uses the merge method from your Create PR settings when
+the repository allows it, otherwise the first method the repository allows. It
+is pinned to the head commit the menu read, so a commit pushed after that is
+not queued unseen. If the repository does not allow auto-merge, Stave says so
+and changes nothing.
+
+### Closing and reopening
+
+The confirmation states what closing does: GitHub closes the pull request
+without merging, the branch is kept, and Stave stops watching the pull request.
+Stave never deletes the branch when it closes a pull request. **Reopen pull
+request** brings it back while the branch still exists.
+
+### After a merge
+
+- **Archive workspace…** opens **Clean up workspaces** scrolled to this
+  workspace, with its row highlighted. The row is also selected when it can be
+  acted on, so **Archive** is one click away. A row that cannot be acted on
+  yet, for example with changed files, is highlighted with its reason and is
+  not selected. Nothing is archived until you confirm it there.
+- When the active workspace's pull request changes from open to merged while
+  Stave is running, a notice offers **Archive workspace…** once. It appears at
+  most once per workspace in an app session, and never for a pull request that
+  was already merged when Stave first read it. The notice also appears when the
+  automatic cleanup rule for merged workspaces is on, because that rule waits
+  at least a day before archiving.
+
+### Commands
+
+Every action names the pull request by its URL and runs after
+`gh auth status` succeeds. A failure returns a reason (GitHub CLI missing, not
+signed in, timed out, or the first line `gh` printed), and the PR status is
+read again after every write, successful or not.
+
+| Action | Command |
+| --- | --- |
+| Read | `gh pr view <url> --json number,title,body,state,isDraft,author,autoMergeRequest,reviewRequests,latestReviews,headRefOid,baseRefName` |
+| Edit | `gh pr edit <url> --title <title> --body <body>`, with only the changed fields |
+| Reviewers | `gh pr edit <url> --add-reviewer <logins> --remove-reviewer <logins>` |
+| Reviewer suggestions | `gh api graphql` reading `suggestedReviewers` of the pull request and `assignableUsers` of its repository |
+| Convert to draft | `gh pr ready <url> --undo` |
+| Auto-merge on | `gh pr merge <url> --auto --<method> --match-head-commit <oid>` |
+| Auto-merge off | `gh pr merge <url> --disable-auto` |
+| Close / reopen | `gh pr close <url>` / `gh pr reopen <url>` |
+
+None of these commands deletes a branch.
+
+| Layer | File |
+| --- | --- |
+| Request contract | `src/lib/github-pr-manage.ts` |
+| Host runtime | `electron/host-service/github-pr-manage-runtime.ts` |
+| Menu, dialogs and state | `src/components/layout/pull-request/PullRequestManageMenuItems.tsx`, `src/components/layout/pull-request/PullRequestEditDialog.tsx`, `src/components/layout/pull-request/use-pull-request-manage.ts` |
+| Which items show, save plan, one-time notice | `src/components/layout/pull-request/pull-request-manage-items.ts` |
+
 ## Store Shape
 
 ```ts
@@ -389,10 +499,7 @@ interface WorkspacePrInfo {
 
 - **PR creation → auto-refresh**: After `scm:create-pr` succeeds, immediately fetch status _(done in Phase 1)_
 - **Merge queue**: Add `queued_for_merge` status for repos using GitHub merge queues
-- **Edit PR**: `gh pr edit` for title/body changes from within Stave
-- **Close/Reopen PR**: `gh pr close` / `gh pr reopen`
 - **Webhook-based updates**: Replace polling with GitHub webhook push for real-time status
-- **Archive workspace on merge**: Prompt user to archive workspace after PR is merged
 - **Cross-repository PR view**: Aggregate PR status across all recent repositories in sidebar
 
 ## Open a workspace from a PR

@@ -38,6 +38,7 @@ import { transition } from "@/components/aui/recipes/transition";
 import { sx } from "@/components/aui/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { PrContextDialog } from "./PrContextDialog";
+import { PullRequestManageMenuButton } from "./pull-request/PullRequestManageMenuItems";
 import { SourceControlPrChecks } from "./SourceControlPrChecks";
 import { SourceControlPrDiscussion } from "./SourceControlPrDiscussion";
 import { SourceControlReviewDialog } from "./SourceControlReviewDialog";
@@ -584,6 +585,13 @@ export function SourceControlReviewsPanel(props: {
                 <ExternalLink className={sx(reviewsStyles.iconSm)} />
               </Button>
             </Tooltip>
+          ) : null}
+          {detail ? (
+            <PullRequestManageMenuButton
+              prUrl={detail.url}
+              cwd={props.cwd}
+              onChanged={() => { void loadDetail(detail.url, { openFirstFile: false }); void loadInbox(); }}
+            />
           ) : null}
         </div>
 
